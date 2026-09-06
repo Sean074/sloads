@@ -510,6 +510,106 @@ and one appendix, built from the `wing_loads` step
   is lettered and **SHALL NOT** be referable: prose points at a built appendix
   only.
 
+## 3.5 Section 4: Fuselage Loads
+
+Design note 44 §13 (OR-94 … OR-102), §14/design note 50 (the carry-through) and
+§15 (OR-108 … OR-113). **Five** subsections and one appendix, built from the
+`fuselage_loads` step (`NETLOADS`, Reference 1 Chapter 15 p103, primary module
+`body_loads`).
+
+- **Five rather than section 3's four.** §15 gave the section a summary an
+  analyst turns to first, and folding the manual's own summary into a subsection
+  about closure machinery would make it a footnote to the machinery. The
+  per-station numbers go to **Appendix C**, not into the body.
+- **Section 4 projects the published `ModuleResult`; the builder is read for the
+  station table only.** The cases, the critical values and the register come from
+  `body_loads`' own `ConditionResult`s, identical in mechanism to section 3's, so
+  the section and the GUI provably show one case set. The station table and
+  Appendix C read `build_body_loads`, because that is where stations live and no
+  result type carries them.
+- **4.1 states the beam, and states where the beam's mass came from.** The
+  station table is the mass SSOT's **derived** table unless the project marks its
+  entered stations an explicit override, and 4.1 **SHALL** say which of the two
+  it is, tabulate station and weight, and print the beam's total against the
+  airplane's own weight so a reader can see the beam is whole. It **SHALL** ask
+  rather than assert: in this document the answer is always "derived", because
+  the override switch is `Origin.SLOADS` and the oracle projection strips it, but
+  a section that asserted a derivation the analysis had not made would be
+  OR-57's defect in a second place.
+- **4.1 and 4.4 state the carry-through, and state whether its spar stations
+  were entered.** The wing-attach fitting loads are sizing loads, and on every
+  example this report ships they are computed against stations nobody entered.
+  `CarryThrough.assumed` is the provenance flag, and 4.4 **SHALL** state it
+  **beside the fitting-load table itself**, in the same visual field as the
+  numbers, and **SHALL** state it as a fact about this airplane rather than about
+  the tool. The spar pair is an oracle input (note 50 OR-121…OR-127), so the
+  entered branch is reachable through the GUI and through the projection.
+- **4.2 is the run register**: one row per fuselage condition with its case ID,
+  condition, 14 CFR paragraph, V-n point, CG case, weight and safety factor. Two
+  paths reach a fuselage case list — the persisted `envelope.critical` filtered
+  to the fuselage, or a fresh selection — and 4.2 **SHALL** name which. It
+  **SHALL** ask the module that makes the choice rather than deciding for itself.
+- **4.2 states the sign convention of its load factors, and states that it is
+  not section 3's.** Section 3 prints the *inertia* load factor and section 4 the
+  airplane's own flight load factor, so a reader carrying one section's rule into
+  the other reads every condition backwards. Each section **SHALL** state its own
+  in its own words, and 4.2 **SHALL** state — from the analysed set, not by
+  assertion — whether it holds a negative-load-factor condition. The condition
+  names carry the sense in words (`AFT UP BENDING`), which is exactly why a name
+  is not allowed to stand for the number.
+- **The quantities section 4 delivers are `Fz`, `Sz` and `Myy`, and the absences
+  are written into the derivation rather than printed as zero columns.** Chapter
+  15's beam is a symmetric-flight vertical solve; the lateral body case is a
+  different analysis with a different producer. A column of zeros reads as a
+  measured zero, so 4.2's notation **SHALL** name the three symbols it uses and
+  the prose **SHALL** state what is absent and why.
+- **4.3 is the manual's own critical-fuselage summary** (Appendix A p198), all
+  seven blocks. Blocks 1, 2, 3 and 7 are published by `body_loads` — until note
+  44 OR-108 `run()` computed and discarded them. Blocks 4 and 5 are the pull-up
+  maneuvers, whose quantities belong to the tail analysis: they **SHALL** be read
+  from SELECT's own h-tail conditions and never reassembled, and **SHALL** carry
+  a stated reference to the Tail Loads section, which is the manual's own device
+  ("SEE HORIZONTAL TAIL LOADS FOR FURTHER DATA"). Block 6 is the landing
+  advisory and refers to Landing Gear Loads.
+- **Weight and CG are case identity and are stated by lookup.** `CaseRef.cg`
+  names the case and the entered CG case resolves it to a weight and a station;
+  4.3 **SHALL NOT** recompute either. `CG4 → 73.09 in` and `CG3 → 72.64 in`
+  reproduce p198's printed `XCG` to the digit for that reason.
+- **The unbalanced pitching moment is published from SELECT with its equation
+  cited.** It is the one field of p198 with no owner this project could state,
+  and it is not reconstructible from the printed page by inspection. Recovered
+  from `SELECT.BAS` 5210/5262/5410/5560 and cited in `00_theory_sources.md`; the
+  sign asymmetry between the unchecked and checked forms is the original's and is
+  ported as found.
+- **`FS 50 PERCENT HORIZ TAIL` SHALL print the entered station, never the
+  manual's zero.** The manual prints `0` while its own tail-loads echo states
+  270.357, and the moment printed below it closes only with the real station.
+  Registered in `02_approved_corrections.md`.
+- **An advisory is carried only where it names something true.** Block 7's
+  pitching-acceleration warning states a limitation this analysis still has — the
+  linear half of p103's "linear and pitching load factors" is modelled and the
+  pitching half is not — and **SHALL** name the open item behind it (**M4-21**).
+- **A closure-artifact result SHALL be stated and SHALL NOT be printed as a
+  distribution.** With no carry-through resolvable, the beam is closed by a
+  self-equilibrated whole-body correction that has no physical source: it
+  relieves the wing region and loads the tail cone. 4.5 renders it through the
+  OR-32 gap-state machinery rather than a fourth way of saying the same thing.
+- **Every load in section 4 and Appendix C is LIMIT, with the safety factor
+  stated per case and applied nowhere**, and none is marked `-ULT`. p198's own
+  figures are limit loads, so an ultimate section 4 would have invited a reader
+  to compare 1.5× against 1× — the defect note 49 E-c found in section 3.
+- **No load in this document carries a 14 CFR Part 23 Subpart D special factor.**
+  The casting, bearing, fitting and control-surface-hinge factors of 23.619,
+  23.621, 23.623 and 23.625 qualify a material allowable or a fitting's strength
+  at the stress analysis, not the external load a loads analysis delivers. 4.4
+  states the consequence where the fitting loads are printed and cites the
+  decision (note 44 §16).
+- **Appendix C is a view of the export owner, not a second assembler.** Its rows
+  are the ones `sbeam_bridge.body_span_load_csv` writes, in the same order with
+  the same grid identifiers, converted at this document's own boundary rather
+  than the solver deck's. It **SHALL** start a fresh page and be landscape, on
+  Appendix B's rule.
+
 ## 4. Identity, signatures and DRAFT
 
 The title block carries report number, revision, issue date, issuing
@@ -640,6 +740,18 @@ without a guard is prose, not a gate).
 | B.1 states all six components and prints its structural zeros (OR-65, OR-66) | 2026-09-03 | `test_sbeam_bridge.py::test_the_applied_set_states_all_six_components`, `::test_the_applied_set_reproduces_the_whole_vmt_at_every_station`; note 46 G-OR-35/36 |
 | Appendix page breaks and landscape (OR-63) | 2026-09-03 | `test_oracle_report.py::test_the_appendix_is_landscape_and_starts_a_fresh_page` |
 | Carry-through entered as a station (note 50 OR-121…OR-127) | 2026-09-05 | `test_oracle_inputs.py::test_an_entered_spar_station_reaches_the_fuselage_fitting_loads`, `::test_the_spar_station_survives_the_oracle_projection`, `test_derived_geometry.py::test_carry_through_from_entered_spar_stations`, `::test_the_estimator_has_one_owner`, `test_migrations.py::test_the_v60_hop_converts_an_entered_carry_through` |
+| 4. Fuselage Loads (subsections, appendix lettering) | 2026-09-06 | `test_oracle_report_fuselage.py::test_the_fuselage_section_renders_its_five_subsections_numbered_by_the_owner`, `::test_fuselage_loads_is_appendix_c_behind_the_echo_and_the_wing` |
+| 4.1 The beam and its provenance (OR-96) | 2026-09-06 | `test_oracle_report_fuselage.py::test_the_beam_states_its_provenance_and_prints_its_total`, `::test_a_project_with_no_beam_states_the_absence_and_still_builds` |
+| 4.1/4.4 Assumed against entered spar stations (OR-97) | 2026-09-06 | `test_oracle_report_fuselage.py::test_the_fitting_loads_state_whether_their_spar_stations_were_assumed` |
+| 4.2 Case-list provenance, load-factor sign, envelope coverage (OR-99) | 2026-09-06 | `test_oracle_report_fuselage.py::test_the_register_states_which_path_its_case_list_came_from`, `::test_the_register_states_what_the_sign_of_its_load_factors_means`, `::test_the_register_names_its_negative_load_factor_condition` |
+| 4.2 Notation and the stated absences (OR-100) | 2026-09-06 | `test_oracle_report_fuselage.py::test_the_notation_states_the_three_symbols_and_tabulates_no_zeros` |
+| 4.3 The p198 blocks are published, not discarded (OR-108) | 2026-09-06 | `test_oracle_report_fuselage.py::test_body_loads_publishes_one_condition_per_printed_block`, `::test_the_fuselage_page_never_says_it_produced_no_conditions` |
+| 4.3 Blocks 4 and 5 read from SELECT (OR-109, OR-110) | 2026-09-06 | `test_oracle_report_fuselage.py::test_the_pull_up_blocks_read_their_values_from_the_tail_analysis`, `::test_the_pull_up_blocks_state_weight_and_cg_by_lookup` |
+| 4.3 The unbalanced moment and the 50 % tail station (OR-111, OR-112) | 2026-09-06 | `test_oracle_report_fuselage.py::test_the_unbalanced_moment_reproduces_the_printed_page`, `::test_the_fifty_percent_tail_station_is_the_entered_one_and_never_zero` |
+| 4.3 Advisories name what stands behind them (OR-113) | 2026-09-06 | `test_oracle_report_fuselage.py::test_every_repeated_quantity_and_advisory_names_what_stands_behind_it` |
+| 4.5 A closure artifact is stated, never plotted (OR-98) | 2026-09-06 | `test_oracle_report_fuselage.py::test_a_closure_artifact_states_its_state_and_publishes_no_distribution` |
+| Section 4 delivers LIMIT with the factor stated (OR-94a) | 2026-09-06 | `test_oracle_report_fuselage.py::test_no_load_the_fuselage_section_prints_is_marked_ultimate`, `::test_every_fuselage_load_table_states_the_factor_it_does_not_apply`, `::test_the_critical_summary_prints_the_analysis_own_unscaled_values` |
+| Appendix C and the exported CSV are one load set (OR-101) | 2026-09-06 | `test_oracle_report_fuselage.py::test_the_appendix_table_and_the_exported_csv_are_one_load_set` |
 | Section 2 marks nothing ultimate; load factors identified as LIMIT | 2026-08-30 | `test_oracle_report.py::test_section_two_marks_nothing_ultimate_and_states_no_safety_factor`, `::test_no_table_claims_a_load_factor_is_not_a_load`, `::test_reported_load_factors_are_identified_as_limit` |
 
 ## 8. Conformance

@@ -1000,7 +1000,7 @@ Imperial digest is touched. Full reasoning and the decisions it carries
 
 ## 13. Iteration 4 — Section 4, Fuselage Loads (OR-94 … OR-102)
 
-**Status: AGREED 2026-09-05 (owner, in session).** OR-8 agrees a section before
+**Status: AGREED 2026-09-05 (owner, in session) — SHIPPED 2026-09-06 (#151 iteration 4).** OR-8 agrees a section before
 it is built, and iteration 3 is the argument for holding to that: three of its
 rulings (OR-57, OR-58, OR-62) were retrofits after the owner read a shipped
 section. Ruled in one pass after §14, §15 and §16 were settled, so the section
@@ -1113,7 +1113,7 @@ what the code turned out to already provide — recorded below as taken.*
 
 ## 15. The critical fuselage summary (OR-108 … OR-113)
 
-**Status: AGREED 2026-09-05 (owner, in session).** Raised by the owner reading
+**Status: AGREED 2026-09-05 (owner, in session) — SHIPPED 2026-09-06 (#151 iteration 4).** Raised by the owner reading
 printed **p198, `CRITICAL FUSELAGE LOADS`**, against the Fuselage Loads page.
 Milestone **0.8.2**; closure tier **L**. Carries an **OR-15 admission** over two
 frozen files.

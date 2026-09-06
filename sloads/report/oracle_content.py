@@ -43,7 +43,7 @@ from .content import Section
 #: steps of section 2, Loads Configuration.
 IMPLEMENTED: FrozenSet[str] = frozenset({
     "configuration_layout", "weight_mass", "structural_speeds",
-    "flight_envelope", "wing_loads",
+    "flight_envelope", "wing_loads", "fuselage_loads",
 })
 
 #: The document's fixed front matter, in order, ahead of the analysis body.
@@ -107,6 +107,9 @@ INPUT_ECHO = "Input echo"
 
 #: The appendix carrying the wing loads station by station (OR-56).
 WING_LOAD_STATIONS = "Wing loads by station"
+
+#: The appendix carrying the fuselage loads station by station (OR-101).
+BODY_LOAD_STATIONS = "Fuselage loads by station"
 
 #: The lead paragraphs a group prints under its own heading, before its
 #: subsections. Keyed by :attr:`SectionGroup.key`.
@@ -301,6 +304,7 @@ class Appendix:
 APPENDICES: Tuple[Appendix, ...] = (
     Appendix(INPUT_ECHO),
     Appendix(WING_LOAD_STATIONS, step_key="wing_loads", built=True),
+    Appendix(BODY_LOAD_STATIONS, step_key="fuselage_loads", built=True),
 )
 
 
@@ -778,6 +782,7 @@ def build_oracle_document(
 
 __all__ = [
     "APPENDICES",
+    "BODY_LOAD_STATIONS",
     "DOCUMENT_TITLES",
     "FRONT_SECTIONS",
     "GROUP_PROSE",
