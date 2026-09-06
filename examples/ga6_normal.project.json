@@ -871,7 +871,7 @@
     "rudder_large_deflection_factor": 1.0,
     "izz_slugft2": 0.0,
     "vtail_span_in": 57.0,
-    "vtail_root_waterline_z": 78.5
+    "vtail_root_waterline_z": 0.0
    },
    "airplane_length_in": 318.264
   },

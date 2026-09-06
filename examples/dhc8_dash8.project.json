@@ -580,24 +580,24 @@
         "leading_edge": [
           [
             750.5,
-            0.0
+            203.5
           ],
           [
             825.5,
-            130.0
+            333.5
           ]
         ],
         "trailing_edge": [
           [
             865.0,
-            0.0
+            203.5
           ],
           [
             877.1,
-            130.0
+            333.5
           ]
         ],
-        "symmetric": true,
+        "symmetric": false,
         "elements": 10,
         "tip_cap_width_in": 0.0,
         "ref_axis_pct": 0.4,

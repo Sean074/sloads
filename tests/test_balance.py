@@ -1977,11 +1977,21 @@ _LATERAL_CASE_NUMBERS = {
     # barely at all: the fin loads and Ny shift by at most 0.012 % (SUDDEN
     # RUDDER 585.7113 -> 585.6409), which is the wing MAC's 0.042 % reaching the
     # sideslip through the balance. r_dot carries both through the Ixz coupling.
+    # 2026-09-06 (#160): the fin's own entered polyline now places its root, and
+    # ga6's was the fixture placed worst. It carried vtail_root_waterline_z = 78.5
+    # -- its WING root waterline, entered 2026-08-17 as note 19 §10.2 step (i)'s
+    # zero-movement pin and never removed -- while its fin polyline states 111.5.
+    # `explicit` led the resolution order, so the pin shadowed both the polyline
+    # and the body outline the same pass entered to supersede it, and the fin was
+    # modelled 33 in low for 20 days. The roll arm (z - z_cg) grows by that 33 in,
+    # so p_dot moves 5-12x and r_dot ~2 % through the Ixz coupling. The fin LOAD
+    # and Ny are bit-identical, which is the check that a lever arm moved and not
+    # the aerodynamics.
     'ga6_normal.project.json': {
-        'SIDE GUST': (603.9910, +0.177644, +185.862912, -14.925045),
-        'SUDDEN RUDDER': (585.6409, +0.172247, +179.065785, -6.887951),
-        'YAW 15 NEUTRAL': (-525.6850, -0.154613, -152.266518, +7.196692),
-        'YAW TO SIDESLIP': (-97.7496, -0.028750, -18.880689, +2.467749),
+        'SIDE GUST': (603.9910, +0.177644, +183.331377, -96.691715),
+        'SUDDEN RUDDER': (585.6409, +0.172247, +175.352003, -85.951927),
+        'YAW 15 NEUTRAL': (-525.6850, -0.154613, -148.932941, +78.166372),
+        'YAW TO SIDESLIP': (-97.7496, -0.028750, -18.260820, +15.664357),
     },
     # The three fixtures with a published fuselage outline (T-8a). Backlog Pri 1
     # gave the "fuselage-top" branch of fin_root_waterline its body datum --
@@ -2001,27 +2011,33 @@ _LATERAL_CASE_NUMBERS = {
     # arm about the CG shrinks) and r_dot moved < 1 % (the swept fin's load
     # centroid moves aft a little). Both are the taper doing what taper does,
     # and the load/Ny identity is the check that only lever arms moved.
+    # The three below moved once more on 2026-09-06 (#160), by ~0.1 % of p_dot and
+    # less of r_dot: their fins were entered root-relative -- drawn on the airplane
+    # centreline while the load path placed them on the body -- and rebasing each
+    # polyline onto its own resolved root rounded that root to the 0.1 in an
+    # entered waterline is measured to (<= 0.05 in of lever arm). The RJ's fin was
+    # rebased onto its T-tail root exactly and does not move at all.
     'cessna_210.project.json': {
-        'SIDE GUST': (555.7869, +0.146260, +183.2345, -54.8133),
-        'SUDDEN RUDDER': (553.1178, +0.145557, +161.4395, -52.9215),
-        'YAW 15 NEUTRAL': (-529.0494, -0.139224, -146.5050, +51.1365),
-        'YAW TO SIDESLIP': (-134.6463, -0.035433, -29.0171, +13.5560),
+        'SIDE GUST': (555.7869, +0.146260, +183.236152, -54.744418),
+        'SUDDEN RUDDER': (553.1178, +0.145557, +161.441445, -52.852851),
+        'YAW 15 NEUTRAL': (-529.0494, -0.139224, -146.506911, +51.070915),
+        'YAW TO SIDESLIP': (-134.6463, -0.035433, -29.017540, +13.539339),
     },
     # The twins' r_dot / p_dot fell on 2026-08-17 (design note 29): their
     # wing-tank fuel now spreads along the span, so Izz and Ixx grew (+33 % /
     # +31 % Izz) and the same fin load turns the airplane more slowly. Fin load
     # and Ny are untouched -- the check that this moved inertia, not aero.
     'atr42_100.project.json': {
-        'SIDE GUST': (4139.6916, +0.112440, +43.0761, -13.9735),
-        'SUDDEN RUDDER': (4288.1132, +0.116471, +43.6751, -14.5046),
-        'YAW 15 NEUTRAL': (-4878.1324, -0.132497, -47.3004, +16.5760),
-        'YAW TO SIDESLIP': (-2053.4588, -0.055775, -17.8155, +7.0442),
+        'SIDE GUST': (4139.6916, +0.112440, +43.075983, -13.978065),
+        'SUDDEN RUDDER': (4288.1132, +0.116471, +43.674975, -14.509333),
+        'YAW 15 NEUTRAL': (-4878.1324, -0.132497, -47.300315, +16.581358),
+        'YAW TO SIDESLIP': (-2053.4588, -0.055775, -17.815435, +7.046432),
     },
     'dhc8_dash8.project.json': {
-        'SIDE GUST': (4527.1258, +0.131221, +32.8181, -12.5184),
-        'SUDDEN RUDDER': (3491.5168, +0.101203, +26.2773, -9.9271),
-        'YAW 15 NEUTRAL': (-3937.1072, -0.114119, -28.1137, +11.2348),
-        'YAW TO SIDESLIP': (-1626.7225, -0.047151, -10.2705, +4.6782),
+        'SIDE GUST': (4527.1258, +0.131221, +32.818008, -12.523604),
+        'SUDDEN RUDDER': (3491.5168, +0.101203, +26.277244, -9.931064),
+        'YAW 15 NEUTRAL': (-3937.1072, -0.114119, -28.113649, +11.239312),
+        'YAW TO SIDESLIP': (-1626.7225, -0.047151, -10.270500, +4.680041),
     },
     # Re-seeded CG cases (2026-08-30) move the RJ's yaw and roll by ~0.04 %;
     # the fin loads and Ny are unchanged, so this is the CG station moving and

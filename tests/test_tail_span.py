@@ -435,7 +435,13 @@ _FIN_ROLL_ARM = {
     # root; the real tapered fin carries it at 26.39, so the arm shrinks by
     # 2.11 in and stays positive -- which is the sign this test exists for, and
     # the same direction the RJ moved for the same reason in 2017.
-    "ga6_normal.project.json": (104.89151571660418, 93.0, +11.891515716604182),
+    # 104.8915 -> 137.8915 on 2026-09-06 (#160): the fin root itself moved 78.5 ->
+    # 111.5, from ga6's WING root waterline to the one its own entered polyline
+    # states. The 78.5 was note 19 §10.2 step (i)'s zero-movement pin, which led
+    # the resolution order and so shadowed both the polyline and the body outline
+    # entered in the same pass to supersede it. The whole 33 in lands on the arm:
+    # 11.89 -> 44.89 in, the same sign this test exists for, three times as long.
+    "ga6_normal.project.json": (137.89151571660415, 93.0, +44.89151571660415),
     # zcg 70.0 -> 63.62 with D-26: the RJ's waterline is now its
     # loading's own, not an unsourced round number. Centroid 156.0 -> 151.97
     # with the Pri 1 fixture-data pass (2026-08-17): the RJ fin is now an

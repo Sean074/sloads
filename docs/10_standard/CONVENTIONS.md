@@ -537,7 +537,7 @@ export boundary, reduction-to-FAR23 identity on GA inputs. "No oracle" never mea
 | **Empennage planform vs. the scalar area/span** (1 % agreement; scalars stay oracle-authoritative) | `sloads/tail_geometry.py` (`resolve_tail_planform`/`validate_tail_planform`) | `tests/test_tail_geometry.py` |
 | **How a control-surface load enters its parent surface** (smeared vs. discrete; the load is SELECT's where published and TAILDIST-derived-and-marked where not; the hinge moment's arm is a third of the aft-of-hinge chord and the actuator reacts `−HM`) | `modules/tail_span.py` (`control_load_mode`/`control_load_parts`/`control_point_loads`/`control_centre_of_pressure`) — `modules/select.py` owns the load itself (`elevator_load_parts`/`rudder_load_parts`) and `modules/taildist.py` the hinge line (`surface_geom`) | `tests/test_tail_span.py::test_the_two_modes_apply_exactly_the_same_total_force` + `::test_the_hinge_moment_is_a_third_of_the_aft_of_hinge_chord` + `::test_the_hinge_and_actuator_torsion_is_the_load_at_its_own_cp` + `::test_the_cross_mode_torsion_difference_is_the_chordwise_relocation` |
 | **The T-tail transfer** (gated on `tail_type`; the set is the concurrent balancing h-tail load + its inertia, applied at the fin's **last** `GRID`; `Fz`/`Myy` only, in airplane axes) | `modules/tail_span.py` (`ttail_transfer`) + `export/coordinates.py` (`ttail_transfer_to_airplane`) | `tests/test_tail_span.py::test_only_a_t_tail_carries_a_tip_transfer` + `::test_the_transferred_moment_is_the_two_lever_arms` + `tests/test_export_equilibrium.py::test_vtail_span_deck_resultants` |
-| **Vertical-tail root waterline** (where the fin sits; explicit → T-tail relation → fuselage top → a loud zero) | `sloads/tail_geometry.py` (`fin_root_waterline`) — read by both the load path and the three-view | `tests/test_tail_geometry.py::test_the_three_view_and_the_load_path_place_one_fin_once` + `::test_the_fin_root_waterline_is_pinned_per_fixture` |
+| **Vertical-tail root waterline** (where the fin sits; entered polyline → explicit scalar → T-tail relation → fuselage top → a loud zero) | `sloads/tail_geometry.py` (`fin_root_waterline`) — read by both the load path and the three-view | `tests/test_tail_geometry.py::test_the_three_view_and_the_load_path_place_one_fin_once` + `::test_the_fin_root_waterline_is_pinned_per_fixture` + `::test_no_fixture_places_its_fin_twice` |
 | **Where the h-tail beam is reacted** (T-tail fin-tip joint → fuselage outline interpolated at the h-tail LRA station → the innermost strip pair; the **maximum** section is never used, and the outline branch is marked assumed) | `modules/tail_span.py` (`htail_attachment`, returning `HTailAttachment`) + `derived_geometry.py` (`fuselage_width_at` — the single owner of "how wide is the body *here*", as `fuselage_summary` is of "how wide at most") | `tests/test_tail_span.py::test_the_ttail_htail_is_reacted_at_the_fin_tip_not_at_the_fuselage` + `::test_the_attachment_interpolates_the_body_at_the_htail_and_never_its_maximum` + `::test_the_attachment_falls_back_to_the_strip_pair_without_a_body_outline` |
 | **Body drag waterline** (where the assembled model applies the airplane's non-wing drag; explicit → the wing reference plane with a loud note. Deliberately **two** branches: the suite has no body-centreline datum, and `root_waterline_z` is the *wing* root — deriving from it puts `ga6_normal` over the 1 % pitch gate) | `sloads/derived_geometry.py` (`body_drag_waterline`) — the only free parameter of `balance.body_axial_set`, whose magnitude is fixed by definition and whose fuselage station carries no pitching moment | `tests/test_balance.py::test_the_body_drag_waterline_is_stated_and_is_the_only_free_parameter` + `::test_the_applied_axial_force_is_the_airplanes_drag_not_the_wings` + `::test_the_longitudinal_closure_is_the_trims_own_drag` |
 | **Entered engine thrust** (one user-entered value per engine, applied as an axial `FORCE` at that engine's hub — `prop_cg`, falling back to `engine_cg`, and a **refusal** when neither exists; `fx = −T`, §1's `x` being +aft; **flight cases only**, ground cases state the entered value and do not take it. Nothing balances it: `n_x = (D − ΣT)/W` and `q̇` carry it, so the 1 % pre-closure gate does not apply to a powered case's `My`. The thrust line is axial — the incidence/toe angles and every wake term stay parked with design note 21. An **asymmetric** entry yaws the airplane and is stated, not handled: no twin is minted from it, and a twin got from another source mirrors the installation — note 21 §4.4's parked decision) | `modules/balance.py` (`hub_thrust_set`, `HUB_THRUST_SOURCE`, `is_powered`, `hub_thrust`) — read by `export/lra_model.py`, which routes it to the engine member's hub node | `tests/test_hub_thrust.py` (G-1…G-11; G-3 the closed-form residual, G-4 `ΣT = D ⇒ n_x = 0`, G-6 the hub node with a zero transfer couple) |
@@ -647,10 +647,47 @@ unhanded `VT-0n` SELECT already minted.
   2026-08-09).** The roll moment a fin side load makes about the CG is
   `−Fy·(z − z_cg)`, so the fin's root waterline is a first-order load quantity,
   not presentation. It is resolved once by `tail_geometry.fin_root_waterline` —
-  explicit input, else the T-tail relation, else the fuselage top, else a zero
-  that says so — and both the load path and the three-view read that one owner.
+  the fin's own entered polyline, else the explicit input, else the T-tail
+  relation, else the fuselage top, else a zero that says so — and both the load
+  path and the three-view read that one owner.
   A fin placed on the waterline datum is not merely imprecise: on `ga6_normal` it
   sat 64.5 in *below* the CG and reversed the sign of the moment.
+  **The entered polyline leads (2026-09-06, #160).** A `vtail` entry in
+  `geometry.surfaces` states the fin's placement directly, in the waterline datum
+  the rest of the geometry is entered in; every branch below it *reconstructs*
+  that placement from something else. The two are therefore not the
+  blank-derives / typed-overrides pair of note 36 OV-1 but **two spellings of one
+  measurement**, so where both are stated and disagree the polyline is used and
+  `FinRoot.note` names the value it did not use — a resolution stated in band,
+  not a refusal, because `vtail_root_waterline_z` is a shipped input field and
+  has to stay typable. `tests/test_tail_geometry.py::test_no_fixture_places_its_fin_twice`
+  is the drift guard: no shipped project may carry a disagreeing pair. It exists
+  because `ga6_normal` carried one for 20 days — an `explicit` 78.5 (its *wing*
+  root waterline, entered 2026-08-17 as note 19 §10.2 step (i)'s zero-movement
+  pin and never removed) against a polyline stating 111.5. Being first in the
+  order, the pin shadowed both the polyline and the body outline the same pass
+  entered to supersede it, while reporting itself `assumed=False`.
+* **The surface is called the vertical tail (owner, 2026-09-06).** One name, in
+  prose and in identifiers: **"vertical tail"**, abbreviated **"v-tail"** where
+  space requires it, and `vtail` as the code token. It matches the regulation
+  (23.441/23.443), the schema (`vtail_loads`, `vtail_area_sqft`), the component
+  key (`VTAIL`) and what the reports already print. **"Fin" is retired** — today
+  the split runs along an odd seam, with the *data* spelled `vtail_*` while the
+  owners that place and load it are spelled `fin_*` (`fin_root`,
+  `fin_root_waterline`, `FinRoot`, `fin_sideslip_derivatives`), which is one
+  thing under two names in the same call chain. The identifier sweep waits for
+  the 0.8.2 cut because it reaches `sloads/modules/tail_span.py`, frozen under
+  note 44 OR-13; new code takes the agreed name from the first line.
+* **A fin is a single surface, and `SurfaceInput.symmetric` says so.** The flag
+  is not decoration on a vertical tail: `wing_geometry.surface_properties` reads
+  it for the area/span/AR bookkeeping (`total_area = 2·area`, `span = 2·ytip`),
+  and `airloads.resolve_aero_surfaces` reads it as *the* predicate for "is this a
+  lifting surface AIRLOADS analyses". A fin entered `symmetric: true` is
+  therefore reported at twice its own area and span **and** issued a Schrenk
+  symmetric spanwise lift distribution it does not have. Five shipped fixtures
+  did exactly that until 2026-09-06 (#160); the guard is that WINGGEOM's reported
+  fin area and span agree with the entered `vtail_area_sqft`/`vtail_span_in`,
+  which catches the class by its effect rather than by the flag.
   **The fuselage-top branch has a body datum (2026-08-16, closing the T-8a
   finding).** With a fuselage outline present the branch is
   `z_centre(x_fin) + height(x_fin)/2` — the section-centre line

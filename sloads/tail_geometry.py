@@ -318,7 +318,8 @@ class FinRoot:
 def fin_root_waterline(layout: Optional["LayoutInput"], vtail_span_in: float = 0.0,
                        explicit: float = 0.0,
                        centreline: Optional[FuselageCentreline] = None,
-                       outline=None, x_fin: float = 0.0) -> FinRoot:
+                       outline=None, x_fin: float = 0.0,
+                       entered_geometry: float = 0.0) -> FinRoot:
     """Waterline of the vertical-tail root (in) -- **the single owner** (L-1).
 
     Design note: ``docs/40_history/18_b8a_lateral_closure_plan.md`` §5.1, decision
@@ -334,11 +335,46 @@ def fin_root_waterline(layout: Optional["LayoutInput"], vtail_span_in: float = 0
 
     Resolution order::
 
+        entered vtail polyline   -> its own root waterline             (assumed False)
         explicit input           -> use it                            (assumed False)
         T-tail with h_tail_z set -> root_waterline_z + h_tail_z - span (assumed True)
         fuselage outline present -> z_centre(x_fin) + height(x_fin)/2
         otherwise                -> root_waterline_z + fuselage_height/2
         no layout / no data      -> 0.0, with a loud note
+
+    **The polyline leads (2026-09-06).** ``entered_geometry`` is the lowest point
+    of either edge of the ``vtail`` entry in ``geometry.surfaces`` -- the airplane's
+    own statement of where its vertical tail is, in the waterline datum the rest of
+    the geometry is entered in. Every other branch *reconstructs* that placement
+    from something else (a scalar typed on another page, the T-tail relation, the
+    body's top at the fin station), so where the surface itself states it, asking
+    anything else is asking a second opinion of a fact already on file. It ranks
+    above ``explicit`` because the two are not blank-derives-typed-overrides
+    (note 36 OV-1) alternatives: they are two spellings of one measurement, and
+    a disagreement between them is refused below rather than resolved by
+    precedence.
+
+    ``0.0`` reads as *not stated*, the same convention ``explicit`` carries
+    (``DATA_DICTIONARY``: ``0 -> derived, marked assumed``), so a fin entered
+    root-relative still falls through to the branches that place it.
+
+    **Two spellings, one fin.** When the polyline and ``explicit`` are both stated
+    and disagree by more than ``PLANFORM_TOLERANCE`` of the fin span, the polyline
+    is used and the returned ``note`` says so *and* names the value it did not
+    use. :func:`validate_tail_planform` raises on the same duplication class one
+    level down, and the difference is deliberate: area against span is an
+    unresolvable conflict -- two representations of one surface with no rule to
+    pick between them -- while this one has a stated precedence, so the honest
+    outcome is a resolution stated in band rather than a refusal. Raising here
+    would also make ``vtail_root_waterline_z`` un-typable on any project with an
+    entered fin, which is a shipped input field.
+
+    The defect it was written against is on the record: ``ga6_normal`` carried an
+    ``explicit`` 78.5 -- its *wing* root waterline, pinned as attribution
+    scaffolding by note 19 §10.2 step (i) on 2026-08-17 and never removed --
+    against a polyline stating 111.5, and being first in the order it shadowed
+    both the polyline and the body outline that the same pass entered to
+    supersede it. Nothing said so for 20 days.
 
     The T-tail branch is the **inverse of the three-view's own default**, which
     places a T-tail's horizontal surface at ``fuselage_height/2 + v_span`` above
@@ -361,6 +397,19 @@ def fin_root_waterline(layout: Optional["LayoutInput"], vtail_span_in: float = 0
     high-wing airplane it stacks half a body above the real top. Its note says
     so.
     """
+    if entered_geometry:
+        note = ""
+        limit = PLANFORM_TOLERANCE * vtail_span_in if vtail_span_in > 0 else 0.0
+        if explicit and limit and abs(entered_geometry - explicit) > limit:
+            note = (
+                f"vtail root waterline {entered_geometry:.1f} in from the "
+                f"geometry.surfaces 'vtail' polyline; the entered "
+                f"vtail_root_waterline_z of {explicit:.1f} in disagrees by "
+                f"{abs(entered_geometry - explicit):.1f} in and is NOT USED. "
+                "The fin's height above the CG is the roll arm of every side "
+                "load it carries, so the surface is placed twice, differently: "
+                "correct the polyline or clear the scalar.")
+        return FinRoot(entered_geometry, False, "geometry", note)
     if explicit:
         return FinRoot(explicit, False, "entered")
     if layout is None:
@@ -406,6 +455,22 @@ _FIN_ROOT_UNKNOWN = (
     "Its roll arm about the CG is therefore wrong, and may be wrong in sign.")
 
 
+def entered_fin_root(project: Project) -> float:
+    """The fin root waterline the ``vtail`` polyline states, or ``0.0``.
+
+    The root is the lowest point of **either** edge, the same rule
+    :func:`resolve_tail_planform` measures the fin's span with (owner,
+    2026-08-30): a fin whose trailing edge reaches below its leading edge -- a
+    dorsal fillet -- has its root at the fillet. ``ga6_normal`` is exactly that
+    shape, LE root 117.0 against TE root 111.5, so its stated root is 111.5.
+    """
+    geometry = project.geometry
+    surf = geometry.by_name(VTAIL) if geometry is not None else None
+    if surf is None or not surf.leading_edge or not surf.trailing_edge:
+        return 0.0
+    return min(surf.leading_edge[0][1], surf.trailing_edge[0][1])
+
+
 def fin_root(project: Project) -> FinRoot:
     """The fin root for this project, from the single owner above.
 
@@ -421,7 +486,8 @@ def fin_root(project: Project) -> FinRoot:
         vt.vtail_root_waterline_z if vt is not None else 0.0,
         centreline=fuselage_centreline(project),
         outline=geometry.fuselage if geometry is not None else None,
-        x_fin=vt.xv25 if vt is not None else 0.0)
+        x_fin=vt.xv25 if vt is not None else 0.0,
+        entered_geometry=entered_fin_root(project))
 
 
 def resolve_tail_planform(project: Project,
