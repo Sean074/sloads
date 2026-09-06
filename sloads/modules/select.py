@@ -638,6 +638,30 @@ def select_htail_maneuver(project: Project,
     def bal(p: VnPoint):
         return htail_balance(p, _cg_case(cg_map, p), wr.xw, wr.zw, ti)
 
+    def pitch_moment(p: VnPoint, unbalanced_lt50: float) -> float:
+        """The unbalanced pitching moment about the CG (SELECT.BAS 5210/5262).
+
+        The manual prints this in its own **CRITICAL FUSELAGE LOADS** summary
+        (Ref 1 p198, blocks 4 and 5), which is why it is published here and not
+        recomputed there: the fuselage page states the number the tail analysis
+        made, so the two pages cannot drift (note 44 OR-109/OR-111).
+
+        The increment is measured from the *balanced* 50 %-chord load and the arm
+        runs from the CG to the 50 % tail MAC::
+
+            5210  PITCHMOMH5CASE = -(LT50UPTEUNCK - LT50) * (XT50 - XXCG(H5CASE))
+            5262  PITCHMOMH6CASE = -(LT50DNTEUNCK - LT50) * (XT50 - XXCG(H6CASE))
+            5410  PITCHMOMH7CASE = L5T * (XT50 - XXCG(I))
+            5560  PITCHMOMH8CASE = L6T * (XT50 - XXCG(I))
+
+        ``unbalanced_lt50`` is the case's own increment: for the unchecked cases
+        the elevator-deflection camber load, differenced against the balanced
+        ``LT50`` by the caller; for the checked cases the pitch-acceleration
+        force ``L5T``/``L6T``, which the original does **not** negate. That sign
+        asymmetry is the original's and is ported as found, not tidied.
+        """
+        return unbalanced_lt50 * (ti.xt50 - _cg_case(cg_map, p).xcg)
+
     def in_cg(p: VnPoint) -> bool:
         # Flaps-down rows are out of this search by condition; a row whose CG
         # case is missing is not filtered out here -- it refuses (CR-B-4).
@@ -666,6 +690,8 @@ def select_htail_maneuver(project: Project,
                     key="elevator_deflection_increment_cp_50_pct"),
                 LoadValue("Elevator load", elevator_load(lt50, b.lt25, ti), "lb", key="elevator_load"),
                 LoadValue("Elevator deflection", sign * edefl, "deg", key="elevator_deflection"),
+                LoadValue("Unbalanced moment about CG", pitch_moment(p, -(lt50 - b.lt50)),
+                          "lb-in", key="unbalanced_moment_about_cg"),
             ], lt25=b.lt25, lt50=lt50,
                 # Trim AT plus the signed full throw (AS-2): the state the
                 # 23.423(a) method actually used.
@@ -690,7 +716,9 @@ def select_htail_maneuver(project: Project,
         out.append(_htail_condition("CHECKED MAN DN", "23.423(b)", p, b.lt - increment(p), [
             LoadValue("Balanced tail load", b.lt, "lb", key="balanced_tail_load"),
             LoadValue("Maneuver load increment", -increment(p), "lb", key="maneuver_load_increment"),
-            LoadValue("Pitch inertia Iyy", iyy(p), "slug-ft^2", key="pitch_inertia_iyy")],
+            LoadValue("Pitch inertia Iyy", iyy(p), "slug-ft^2", key="pitch_inertia_iyy"),
+            LoadValue("Unbalanced moment about CG", pitch_moment(p, -increment(p)),
+                      "lb-in", key="unbalanced_moment_about_cg")],
             lt25=b.lt25 - increment(p), lt50=b.lt50,
             # Trim AT only; delta_deg stays None -- the 23.423(b) increment is
             # the pitching-acceleration inertia term, no delta in the method
@@ -702,7 +730,9 @@ def select_htail_maneuver(project: Project,
         out.append(_htail_condition("CHECKED MAN UP", "23.423(b)", p, b.lt + increment(p), [
             LoadValue("Balanced tail load", b.lt, "lb", key="balanced_tail_load"),
             LoadValue("Maneuver load increment", increment(p), "lb", key="maneuver_load_increment"),
-            LoadValue("Pitch inertia Iyy", iyy(p), "slug-ft^2", key="pitch_inertia_iyy")],
+            LoadValue("Pitch inertia Iyy", iyy(p), "slug-ft^2", key="pitch_inertia_iyy"),
+            LoadValue("Unbalanced moment about CG", pitch_moment(p, increment(p)),
+                      "lb-in", key="unbalanced_moment_about_cg")],
             lt25=b.lt25 + increment(p), lt50=b.lt50, alpha_tail_deg=b.at))
     return out
 

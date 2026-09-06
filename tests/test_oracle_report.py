@@ -1867,8 +1867,13 @@ def test_wing_loads_is_appendix_b_while_the_input_echo_holds_appendix_a():
     assert oc.appendix_letter(oc.INPUT_ECHO) == "A"
     assert oc.appendix_letter(oc.WING_LOAD_STATIONS) == "B"
     titles = [s.title for s in _doc().sections]
-    assert titles[-2:] == ["Appendix A: Input echo",
-                           "Appendix B: Wing loads by station"]
+    # Sliced from the first appendix rather than from the end of the document:
+    # a later iteration adds a slot behind these two, and the fact under test is
+    # that the reserved echo holds A and the wing follows it -- not how many
+    # appendices there happen to be.
+    first = titles.index("Appendix A: Input echo")
+    assert titles[first:first + 2] == ["Appendix A: Input echo",
+                                       "Appendix B: Wing loads by station"]
 
 
 def test_the_reserved_appendix_states_its_state_and_is_not_pointed_at():
@@ -2197,7 +2202,11 @@ def test_the_appendix_is_landscape_and_starts_a_fresh_page():
 
     tex = ol.render_oracle_document(doc)
     assert r"\usepackage{pdflscape}" in tex
-    assert tex.count(r"\begin{landscape}") == tex.count(r"\end{landscape}") == 1
+    # One balanced block per landscape section, whatever the document carries.
+    landscape = [s for s in _flat(doc.sections) if s.landscape]
+    assert landscape
+    assert (tex.count(r"\begin{landscape}") == tex.count(r"\end{landscape}")
+            == len(landscape))
 
 
 def test_the_appendix_subsections_are_lettered_from_their_parent():

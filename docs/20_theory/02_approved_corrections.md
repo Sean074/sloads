@@ -304,6 +304,45 @@ the three "fuselage-top" fixtures (≤ 0.0015 %).
 session on 2026-08-30, and the manifest hash in `tests/test_frozen_set.py` is
 updated in the same commit.
 
+### `FS 50 PERCENT HORIZ TAIL` prints the real station, not zero *(approved 2026-09-05, in session)*
+
+The manual's **CRITICAL FUSELAGE LOADS** page (Appendix A p198) prints, in both
+its pull-up maneuver blocks,
+
+    FS 50 PERCENT HORIZ TAIL = 0
+
+while its own tail-loads input echo, three pages earlier, states `FUS STA OF 50
+PERCENT MAC OF HORIZ TAIL = 270.357` — the value `TailLoadsInput.xt50` carries
+and every other consumer of `XT50` uses. sloads prints **270.357** in this
+block, and this entry is the difference an analyst comparing against the page
+will find.
+
+**Why it is the original's print and not its arithmetic.** The unbalanced moment
+printed immediately below it settles the question independently. `SELECT.BAS`
+5210 computes
+
+    PITCHMOMH5CASE = -(LT50UPTEUNCK - LT50) * (XT50 - XXCG(H5CASE))
+
+and, with the page's own printed inputs — `LT50UPTEUNCK = -1346.496`, balanced
+`LT50 = -113.6319`, `XCG = 73.09` — that expression returns **+243,203.9**
+against a printed `243203.5` only when `XT50 = 270.357`. With `XT50 = 0` it
+returns `-93,097`, which is not the printed number and is not close to it. The
+checked block agrees: `-218.3436 × (270.357 - 72.64) = -43,169.9` against a
+printed `-43170.23`. The original therefore computed with the real station and
+printed a zero, which is a defect in its print statement rather than a modelling
+choice — nothing downstream of the page depends on the printed cell.
+
+**What moves.** Nothing computed. The value was never read from this cell by any
+sloads code; the deviation is in what the oracle report's section 4.3 *prints*,
+where the manual's zero would otherwise have to be reproduced verbatim beside a
+moment that could not have come from it. Gated by
+`tests/test_oracle_report_fuselage.py::test_the_fifty_percent_tail_station_is_the_entered_one_and_never_zero`,
+which asserts both halves: the entered station is printed, and it is not zero.
+
+**Authority:** owner's ruling in session, 2026-09-05, design note 44 §15 OR-112.
+
+---
+
 ---
 
 ## Withdrawn from scope

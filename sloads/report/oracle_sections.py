@@ -35,6 +35,7 @@ no section 2 table can inherit a claim that does not apply to it.
 
 from __future__ import annotations
 
+import math
 from dataclasses import replace
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
@@ -42,10 +43,18 @@ from ..constants import ULTIMATE_FACTOR
 from ..derived_geometry import MacReference, mac_reference, station_to_pct_mac
 from ..models import Project
 from ..models.enums import AnalysisKind
-from ..models.results import ConditionResult, LoadValue, ModuleResult, WingLoadResult
+from ..models.inputs import FuselageStation
+from ..models.results import (
+    BodyLoadResult,
+    ConditionResult,
+    LoadValue,
+    ModuleResult,
+    WingLoadResult,
+)
 from ..units import UnitSystem, convert_results
 from .content import Figure, PlotData, Section, Series, Table, Units, speed_altitude_plot_data, weight_cg_plot_data
 from .oracle_content import (
+    BODY_LOAD_STATIONS,
     WING_LOAD_STATIONS,
     SectionPlan,
     appendix_ref,
@@ -2357,6 +2366,948 @@ def _station_appendix(project: Project, *, system: UnitSystem,
 
 
 # --------------------------------------------------------------------------- #
+# Section 4 -- Fuselage Loads (note 44 section 13, OR-94 ... OR-102, and
+# section 15, OR-108 ... OR-113)
+# --------------------------------------------------------------------------- #
+_BODY_STEP = "fuselage_loads"
+
+#: The folded module that owns the pull-up maneuver quantities of blocks 4 and 5.
+#:
+#: ``run_sections`` keys a folded module by its own name, so SELECT's result is
+#: reachable from here without re-running it -- which is the whole of OR-109:
+#: the fuselage page states the number the tail analysis made.
+_SELECT_MODULE = "select"
+
+#: 4.x positions, for the cross-references the subsections make to each other.
+_BODY_BEAM = 0
+_BODY_CASES = 1
+_BODY_CRITICAL = 2
+_BODY_CLOSURE = 3
+_BODY_DISTRIBUTIONS = 4
+
+#: The two h-tail conditions the manual prints in its *fuselage* summary.
+#:
+#: ``(block heading, SELECT's own condition label)``. p198's blocks 4 and 5 are
+#: the down-tail-load pull-ups -- H5CASE and H7CASE in the source -- and not
+#: their up-load siblings, which the manual prints on the tail page alone.
+_PULL_UP_BLOCKS: Tuple[Tuple[str, str], ...] = (
+    ("Unchecked pull-up maneuver (down tail load)", "UNCHECKED MAN DN"),
+    ("Checked pull-up maneuver (down tail load)", "CHECKED MAN DN"),
+)
+
+#: ``(condition label -> the increment key that condition publishes)``.
+#:
+#: The unchecked cases carry an elevator-deflection increment and the checked
+#: ones a pitch-acceleration increment; they are different quantities with
+#: different keys, and the block prints whichever its own case has.
+_PULL_UP_INCREMENT = {
+    "UNCHECKED MAN DN": "elevator_deflection_increment_cp_50_pct",
+    "CHECKED MAN DN": "maneuver_load_increment",
+}
+
+
+def _body_net(project: Project) -> List[BodyLoadResult]:
+    """The net fuselage load distributions, or ``[]``.
+
+    Asked of ``body_loads``' own builder -- the same one the Export bundle and
+    the Fuselage Loads page call -- so the section, the appendix and the
+    exported CSV describe one set of numbers. Returns ``[]`` rather than
+    raising, on ``_wing_net``'s reasoning: G-OR-7 keeps a half-filled project
+    building a complete document.
+
+    This is the **only** thing section 4 reads from the builder rather than from
+    the published result (OR-95, as rewritten under OR-108): the stations live
+    here and no result type carries them. The case set, the root quantities and
+    the register come from the ``ModuleResult``, exactly as section 3's do.
+    """
+    from ..modules.body_loads import build_body_loads
+
+    try:
+        return list(build_body_loads(project))
+    except Exception:
+        return []
+
+
+def _beam_stations(project: Project) -> List[FuselageStation]:
+    """The station table the Ch 15 beam was integrated over, or ``[]``."""
+    from ..mass_distribution import fuselage_beam_stations
+
+    try:
+        return list(fuselage_beam_stations(project))
+    except Exception:
+        return []
+
+
+def _beam_is_derived(project: Project) -> bool:
+    """Whether the beam is the mass SSOT's derived table or the entered one.
+
+    **Asked, never asserted** (OR-96). In this document it is always the derived
+    table -- ``stations_are_override`` is ``Origin.SLOADS``, so OR-43's
+    projection strips it before the section sees it -- but a section that stated
+    a derivation the analysis had not made would be OR-57's defect in a second
+    place, and the honest form costs one attribute read.
+    """
+    fm = project.fuselage_mass
+    return not bool(getattr(fm, "stations_are_override", False))
+
+
+def _beam_table(project: Project, system: UnitSystem) -> Optional[Table]:
+    """4.1's station table, with the beam's own total as its last row.
+
+    The total is a row rather than a sentence because the reader's question --
+    is this beam the whole airplane? -- is answered by comparing two numbers,
+    and a number in prose is a number nobody adds up.
+    """
+    beam = _beam_stations(project)
+    if not beam:
+        return None
+    u = Units(system)
+    rows = [[str(index), u.plain(station.x, "length"),
+             u.plain(station.weight_lb, "mass")]
+            for index, station in enumerate(beam, start=1)]
+    total = math.fsum(station.weight_lb for station in beam)
+    rows.append(["Total", "--", u.plain(total, "mass")])
+    return Table(
+        title="Fuselage beam stations",
+        columns=["Station", f"X ({u.label('length')})",
+                 f"Weight ({u.label('mass')})"],
+        rows=rows, small=True,
+        note=("The lumped mass the Ch 15 beam integrates, station by station. "
+              "The weights are mass and are not loads: they carry no safety "
+              "factor, and the inertia forces they produce are the load, "
+              "computed at each case's own load factor."))
+
+
+def _beam_provenance(project: Project) -> str:
+    """Where the beam's mass came from, and whether the beam is whole (OR-96)."""
+    from ..mass_distribution import partition_closes
+
+    beam = _beam_stations(project)
+    entered = list(getattr(project.fuselage_mass, "stations", ()) or ())
+    if not _beam_is_derived(project):
+        sentence = (
+            f"The beam is the fuselage station table entered in this project, "
+            f"{len(entered)} stations, marked an explicit override and used "
+            "exactly as entered.")
+    else:
+        sentence = (
+            f"The beam is derived from the weight item data base, not entered: "
+            f"{len(beam)} stations, lumped from the items this airplane is "
+            f"weighed from. The project also carries {len(entered)} entered "
+            "fuselage stations, which are an override and are not taken here.")
+    try:
+        check = partition_closes(project)
+    except Exception:
+        return sentence
+    return sentence + " " + (
+        "The beam and the wing together account for the whole airplane: "
+        f"{check.detail}."
+        if check.ok else
+        "The beam and the wing do not account for the whole airplane: "
+        f"{check.detail}. The distributions below integrate the beam as it "
+        "stands.")
+
+
+def _carry_through_sentence(project: Project) -> str:
+    """The carry-through the unbalanced moment is reacted over (OR-97, note 50).
+
+    Stated in 4.1 because it is geometry, and stated again beside the fitting
+    loads in 4.4 because that is where a reader meets the numbers it sized. The
+    provenance travels with it in both places: an assumed spar station is never
+    reported as input.
+    """
+    from ..derived_geometry import carry_through
+
+    try:
+        carry = carry_through(project)
+    except Exception:
+        carry = None
+    if carry is None:
+        return (
+            "The wing carry-through could not be derived for this project, so "
+            "the unbalanced moment has no wing attachment to be reacted at. "
+            "The consequence is stated with the distributions.")
+    if carry.assumed:
+        return (
+            "The wing carry-through runs from fuselage station "
+            f"{format_value(carry.x_f)} to {format_value(carry.x_r)} in, and "
+            "neither station was entered for this airplane: both are the "
+            "estimator's, placed at "
+            f"{format_value(carry.front_pct * 100.0)} and "
+            f"{format_value(carry.rear_pct * 100.0)} per cent of the root "
+            "chord. Every wing-attach fitting load in this document is "
+            "therefore sized on assumed geometry. The spar stations are an "
+            "input of this analysis, so entering the measured ones replaces "
+            "the estimate.")
+    return (
+        "The wing carry-through runs from fuselage station "
+        f"{format_value(carry.x_f)} to {format_value(carry.x_r)} in, entered "
+        "for this airplane. The wing-attach fitting loads below are sized on "
+        "that geometry as entered.")
+
+
+def _body_beam(project: Project, *, system: UnitSystem,
+               plan: Sequence[SectionPlan]) -> Section:
+    """4.1 -- the fuselage beam the loads were run on."""
+    table = _beam_table(project, system)
+    body = [
+        "This subsection states the beam the fuselage loads were run on: the "
+        "mass it carries at each station, where that mass came from, and the "
+        "wing carry-through the unbalanced moment is reacted over. The "
+        "fuselage geometry itself is stated in "
+        + section_ref(plan, "configuration_layout") + " and is not repeated "
+        "here.",
+        _beam_provenance(project),
+        _carry_through_sentence(project),
+        "The fuselage beam excludes the wing mass outside the fuselage, which "
+        "the wing analysis carries: the two together are the whole airplane, "
+        "and the carry-through enters this beam as a reaction rather than as "
+        "mass, so applying both would count it twice.",
+    ]
+    if table is None:
+        return Section("", body=body,
+                       absent_reason=("This project carries no fuselage beam "
+                                      "stations, so there is no beam to "
+                                      "state."))
+    return Section("", body=body, tables=[table])
+
+
+#: How the report names the p198 quantities that SELECT publishes twice.
+#:
+#: ``select_fuselage`` labels the same quantity -- the fuselage load reacted at
+#: the wing, ``LZW - NZ*WW`` -- ``fuselage_down_load_on_wing`` on the two down
+#: blocks and ``fuselage_load_on_wing`` on the up one, and the balancing tail
+#: load ``tail_load`` on three blocks and ``balancing_tail_load`` on the fourth.
+#: They are one quantity under two keys, which is the M4-9 key contract read the
+#: wrong way round; the table folds them so the reader gets one column rather
+#: than two half-empty ones.
+#:
+#: **Filed, not fixed** (OR-14): renaming a published key changes every CSV
+#: column built from it, which is not the additive change OR-13 admits. See the
+#: backlog entry raised with this section.
+_BODY_QUANTITIES: Tuple[Tuple[str, Tuple[str, ...], str], ...] = (
+    ("Total fuselage load on wing",
+     ("fuselage_down_load_on_wing", "fuselage_load_on_wing"), "force"),
+    ("Nz", ("load_factor_nz",), ""),
+    ("Tail load", ("tail_load", "balancing_tail_load"), "force"),
+)
+
+
+def _first_value(condition: ConditionResult,
+                 keys: Sequence[str]) -> Optional[LoadValue]:
+    """The first of ``keys`` this condition publishes, or ``None``."""
+    by_key = _by_key(condition)
+    for key in keys:
+        if key in by_key:
+            return by_key[key]
+    return None
+
+
+def _case_list_source(project: Project) -> str:
+    """Which of the two paths the fuselage case list came from (OR-99).
+
+    Asked of the module that makes the choice, so the sentence and the analysis
+    cannot disagree about it.
+    """
+    from ..modules.body_loads import case_list_source
+
+    return case_list_source(project)
+
+
+def _body_conditions(results: Mapping[str, Optional[ModuleResult]],
+                     system: UnitSystem) -> List[ConditionResult]:
+    """The published fuselage conditions, in the document's units."""
+    return _conditions(results.get(_BODY_STEP), system)
+
+
+def _vn_points(project: Project) -> Dict[str, int]:
+    """``{condition label: V-n point}`` for the fuselage cases.
+
+    Identity, not load: the V-n row a condition was selected at is part of what
+    names the case, and no result type carries it. Read from the same helper the
+    module published its conditions from, so there is one case list and not two.
+    """
+    from ..modules.body_loads import critical_fuselage_conditions
+
+    try:
+        conditions = critical_fuselage_conditions(project)
+    except Exception:
+        return {}
+    return {c.label: c.case for c in conditions if c.case is not None}
+
+
+def _body_case_table(project: Project,
+                     results: Mapping[str, Optional[ModuleResult]],
+                     system: UnitSystem) -> Optional[Table]:
+    """4.2's run register: one row per fuselage condition carried."""
+    conditions = _body_conditions(results, system)
+    if not conditions:
+        return None
+    u = Units(system)
+    vn = _vn_points(project)
+    rows = []
+    for condition in conditions:
+        ref = condition.case_ref
+        label = getattr(ref, "condition", "") or condition.title
+        cg = getattr(ref, "cg", "") or ""
+        weight = _cg_weight(project, cg)
+        rows.append([
+            getattr(ref, "case_id", "") or "--",
+            label,
+            condition.far_reference or "--",
+            str(vn.get(label, "--")),
+            cg or "--",
+            u.plain(weight, "mass") if weight is not None else "--",
+            format_value(_required_sf(condition)),
+        ])
+    return Table(
+        title="Fuselage load cases run",
+        columns=["Case", "Condition", "14 CFR", "V-n point", "CG case",
+                 f"Weight ({u.label('mass')})", "SF"],
+        rows=rows,
+        note=("The conditions carried into the fuselage analysis, each with the "
+              "V-n point it was selected at and the paragraph of 14 CFR Part 23 "
+              "it is required by. The weight is the CG case as entered. Every "
+              "case states the safety factor 14 CFR 23.303 prescribes for it; "
+              "no load in this section has been multiplied by it."))
+
+
+#: The three symbols section 4 uses, and nothing else (OR-100).
+_BODY_NOMENCLATURE: Tuple[Tuple[str, str, str, str], ...] = (
+    ("X", "Fuselage station, positive aft along the fuselage reference line",
+     "length", "coordinate"),
+    ("Fz", "Normal force applied at the station", "force", "increment"),
+    ("Sz", "Normal shear carried across the station", "force", "cumulative"),
+    ("Myy", "Bending moment carried across the station, about the lateral axis",
+     "moment", "cumulative"),
+)
+
+#: What section 4 does not deliver, said once and never tabulated as zeros.
+#:
+#: Ch 15 p103 is a symmetric-flight vertical beam solve. The lateral body case
+#: is a different analysis with a different producer, so a lateral shear or a
+#: lateral bending column here would be a measured zero rather than an absent
+#: quantity -- OR-61's finding, applied one section over.
+_BODY_ABSENCES = (
+    "This analysis delivers three quantities along the body and no others: the "
+    "applied normal force Fz, and the normal shear Sz and bending moment Myy "
+    "the structure carries. There is no lateral shear and no lateral bending "
+    "here, and they are not tabulated as zeros: Chapter 15's beam is a "
+    "symmetric-flight vertical solve, so a lateral quantity is a load this "
+    "section does not produce rather than a load it measured to be zero. The "
+    "torsion the body carries is likewise not part of this solve.")
+
+#: What the sign of the register's load factors means -- and it is not
+#: section 3's.
+#:
+#: Section 3 prints the **inertia** load factor, whose sign is the negative of
+#: the airplane's; section 4's Nz is the airplane's own flight load factor,
+#: straight off the V-n row. Two sections, two conventions, one document: a
+#: reader who carries section 3's rule into this table reads every condition
+#: backwards. So it is stated here in its own words rather than cross-referenced
+#: (OR-58, applied to a section whose convention differs).
+_BODY_LOAD_FACTOR_SIGN = (
+    "Nz in this section is the airplane's flight load factor, taken from the "
+    "V-n point that selected the condition: a +3.8 g manoeuvre is printed as "
+    "+3.8 and a negative-g condition is printed negative. This is not the "
+    "convention of the wing section, which prints the inertia load factor and "
+    "therefore the opposite sign; the two sections state their own.")
+
+
+def _body_negative_sentence(conditions: Sequence[ConditionResult]) -> str:
+    """Whether the analysed fuselage set holds a negative-g condition (OR-58).
+
+    From the analysed set, never by assertion. The condition *names* carry the
+    sense in words -- ``AFT UP BENDING`` -- and a name is not a number, which is
+    exactly the trap this sentence exists to close.
+    """
+    negative = []
+    for condition in conditions:
+        value = _first_value(condition, ("load_factor_nz",))
+        if value is not None and value.value < 0.0:
+            label = getattr(condition.case_ref, "condition", "") or condition.title
+            negative.append(label)
+    if negative:
+        one = len(negative) == 1
+        return (f"The set includes {len(negative)} negative-load-factor "
+                f"condition{'' if one else 's'} ({', '.join(negative)}), which "
+                f"{'reverses' if one else 'reverse'} the bending the positive "
+                "cases produce.")
+    return (
+        "Every condition run here is a positive-load-factor case. The set holds "
+        "no negative-load-factor condition, so the distributions in this "
+        "section do not envelop the fuselage: the negative-g conditions, which "
+        "reverse the bending, are not among them.")
+
+
+def _body_nomenclature_table(system: UnitSystem) -> Table:
+    """Section 4's notation, restricted to the three symbols it uses."""
+    u = Units(system)
+    rows = [[symbol, quantity, u.label(dim) if dim else "--", sense]
+            for symbol, quantity, dim, sense in _BODY_NOMENCLATURE]
+    return Table(
+        title="Notation", columns=["Symbol", "Quantity", "Units", "Sense"],
+        rows=rows,
+        note=("An increment is the load applied at that station alone. A "
+              "cumulative value is the load the structure carries there: "
+              "everything forward of it, accumulated nose to tail. X is "
+              "geometry -- it is neither scaled nor marked. Fz, Sz and Myy are "
+              "LIMIT, each case stating the factor it does not apply."))
+
+
+def _body_derivation_note() -> str:
+    """How the fuselage beam is built, in the manual's own two passes."""
+    return (
+        "The beam is solved in the two passes of Reference 1 page 103. The "
+        "first applies the inertia of each station weight at that case's load "
+        "factor, and the balancing tail air load at the tail station, and "
+        "integrates nose to tail; the moment left at the aft end of that set is "
+        "the unbalanced moment. The second reacts the unbalanced moment, and "
+        "the residual vertical force with it, at the wing carry-through, and "
+        "re-integrates the whole set. Writing i for a station and i+1 for the "
+        "station aft of it:\n"
+        "  Fz(i) = -Nz W(i)\n"
+        "  Sz(i) = Sz(i-1) + Fz(i)\n"
+        "  Myy(i) = Myy(i-1) + Sz(i-1) [X(i) - X(i-1)]\n\n"
+        "The reactions are applied as the statically equivalent linear "
+        "distribution over the carry-through rather than as the manual's two "
+        "point loads: same resultant, same first moment, and no shear spike "
+        "across a short carry-through. The front and rear fitting loads are "
+        "reported separately and are not applied again on top of it.")
+
+
+def _body_cases(project: Project, results: Mapping[str, Optional[ModuleResult]],
+                *, system: UnitSystem,
+                plan: Sequence[SectionPlan]) -> Section:  # noqa: ARG001
+    """4.2 -- what was run, at what condition, under which rule."""
+    conditions = _body_conditions(results, system)
+    table = _body_case_table(project, results, system)
+    source = _case_list_source(project)
+    provenance = (
+        "The cases below are the fuselage conditions carried on this project's "
+        "persisted critical-load set, as the selection wrote them: they were "
+        "not re-selected for this report."
+        if source == "envelope" else
+        "The cases below are the critical-load selection's own result, "
+        "computed from the V-n matrix for this analysis: this project carries "
+        "no persisted fuselage conditions.")
+    body = [
+        "The fuselage is analysed at the conditions that govern it, not at "
+        "every point of the flight envelope. Those conditions are listed below, "
+        "and they are the same set the critical summary, the closure and the "
+        "distributions state -- one case list, projected four ways.",
+        provenance,
+        _body_negative_sentence(conditions),
+        _BODY_LOAD_FACTOR_SIGN,
+        _BODY_ABSENCES,
+        _body_derivation_note(),
+    ]
+    if table is None:
+        return Section("", body=body,
+                       absent_reason=("No fuselage load cases were produced "
+                                      "for this project, so there is nothing "
+                                      "to register."))
+    return Section("", body=body,
+                   tables=[table, _body_nomenclature_table(system)])
+
+
+def _critical_summary_table(project: Project,
+                            results: Mapping[str, Optional[ModuleResult]],
+                            system: UnitSystem) -> Optional[Table]:
+    """4.3's blocks 1, 2, 3 and 7 -- the balanced-airplane fuselage conditions.
+
+    One table rather than four blocks of prose: the manual prints them as four
+    stanzas of the same three quantities, and four stanzas is a format a reader
+    cannot compare across.
+    """
+    conditions = _body_conditions(results, system)
+    if not conditions:
+        return None
+    u = Units(system)
+    vn = _vn_points(project)
+    columns = ["Case", "Condition", "14 CFR", "V-n point", "SF"]
+    for label, _keys, dim in _BODY_QUANTITIES:
+        columns.append(f"{label} ({u.ult_label(dim)})" if dim else label)
+    rows = []
+    for condition in conditions:
+        ref = condition.case_ref
+        name = getattr(ref, "condition", "") or condition.title
+        sf = _required_sf(condition)
+        row = [getattr(ref, "case_id", "") or "--", name,
+               condition.far_reference or "--", str(vn.get(name, "--")),
+               format_value(sf)]
+        for _label, keys, dim in _BODY_QUANTITIES:
+            value = _first_value(condition, keys)
+            if value is None:
+                row.append("--")
+            elif dim:
+                row.append(_load_cell(value, sf)[0])
+            else:
+                row.append(format_value(value.value))
+        rows.append(row)
+    return Table(
+        title="Critical fuselage loads (LIMIT)", columns=columns, rows=rows,
+        note=("The manual's own critical-fuselage summary (Reference 1 page "
+              "198): the maximum total fuselage load acting down on the wing, "
+              "the maximum aft-fuselage down and up bending, and the greatest "
+              "vertical inertia factor for concentrated-weight installations. "
+              "Every load is LIMIT and states the safety factor prescribed for "
+              "its case; nothing here has been multiplied by it. The fuselage "
+              "load on the wing is the fuselage weight reacted at the wing at "
+              "that case's load factor, less the wing's own weight."))
+
+
+def _pull_up_table(project: Project,
+                   results: Mapping[str, Optional[ModuleResult]],
+                   system: UnitSystem, tail_ref: str) -> Optional[Table]:
+    """4.3's blocks 4 and 5 -- the pull-up maneuvers, read from SELECT (OR-109).
+
+    The quantities are the tail analysis's, printed here because the fuselage
+    question is asked here, and **read from SELECT's own h-tail conditions**
+    rather than reassembled, so the fuselage page and the tail page cannot
+    disagree about a number they both print.
+
+    Weight and CG are case identity and are stated by lookup from the case's own
+    CG name (OR-110), not recomputed. The 50 per cent tail MAC station is the
+    entered one (OR-112): the manual prints zero in these two blocks while its
+    own tail-loads echo states the real station, and its own arithmetic closes
+    only with the real one.
+    """
+    conditions = _conditions(results.get(_SELECT_MODULE), system)
+    if not conditions:
+        return None
+    u = Units(system)
+    xt50 = getattr(project.tail_loads, "xt50", None)
+    rows = []
+    for block, label in _PULL_UP_BLOCKS:
+        condition = next(
+            (c for c in conditions
+             if getattr(c.case_ref, "condition", "") == label), None)
+        if condition is None:
+            continue
+        ref = condition.case_ref
+        cg = getattr(ref, "cg", "") or ""
+        case = _cg_case_named(project, cg)
+        sf = _required_sf(condition)
+        by_key = _by_key(condition)
+
+        def cell(key: str, _by_key=by_key, _sf=sf) -> str:
+            value = _by_key.get(key)
+            return _load_cell(value, _sf)[0] if value is not None else "--"
+
+        rows.append([
+            block,
+            getattr(ref, "case_id", "") or "--",
+            condition.far_reference or "--",
+            cg or "--",
+            u.plain(getattr(case, "weight_lb", None), "mass") if case else "--",
+            u.plain(getattr(case, "xcg", None), "length") if case else "--",
+            u.plain(xt50, "length") if xt50 else "--",
+            cell("balanced_tail_load"),
+            cell(_PULL_UP_INCREMENT[label]),
+            cell("total_tail_load"),
+            cell("unbalanced_moment_about_cg"),
+            format_value(sf),
+        ])
+    if not rows:
+        return None
+    return Table(
+        title="Pull-up maneuver fuselage loads (LIMIT)",
+        columns=["Condition", "Case", "14 CFR", "CG case",
+                 f"Weight ({u.label('mass')})", f"XCG ({u.label('length')})",
+                 f"FS 50% h-tail ({u.label('length')})",
+                 f"Balanced tail load ({u.ult_label('force')})",
+                 f"Unbalanced increment ({u.ult_label('force')})",
+                 f"Total tail load ({u.ult_label('force')})",
+                 f"Unbalanced moment about CG ({u.ult_label('moment')})", "SF"],
+        rows=rows, small=True,
+        note=("The two pull-up maneuvers the manual prints in its fuselage "
+              "summary. The tail loads and the unbalanced pitching moment are "
+              "the horizontal-tail analysis's own values, reproduced here and "
+              "derived in " + tail_ref + "; the weight and CG are the case's, "
+              "stated by its CG name so the rest of the case is found where it "
+              "is defined. The unbalanced moment is the pitching moment the "
+              "increment leaves about the CG, and it is the fuselage's to "
+              "carry. All loads are LIMIT with the factor stated and not "
+              "applied."))
+
+
+def _cg_case_named(project: Project, name: str):
+    """The entered CG case ``name``, or ``None`` (OR-110: identity by lookup)."""
+    for case in list(getattr(project.weight, "cg_cases", ()) or ()):
+        if case.name == name:
+            return case
+    return None
+
+
+def _body_advisories(plan: Sequence[SectionPlan]) -> List[str]:
+    """The manual's own advisories, carried because each names something true.
+
+    Block 1's is about where the down shear lands, block 6 is the landing
+    advisory and block 7 the pitching-acceleration one. The last is carried
+    because it states a limitation this analysis still has (OR-113): the linear
+    half of page 103's "linear and pitching load factors" is modelled and the
+    pitching half is not, so the manual's warning is a true statement about
+    these numbers rather than decoration. Reproducing an advisory that named
+    nothing would be decoration, which is the only reason to carry prose from a
+    printed page at all.
+    """
+    landing = section_ref(plan, "landing_loads")
+    return [
+        "The maximum down load on the wing may be critical for down shear just "
+        "aft of the rear wing attachment, just forward of the front wing "
+        "attachment, or both, and is probably the most critical aft-fuselage "
+        "down bending and shear condition for an aft-mounted engine "
+        "configuration.",
+
+        "Landing conditions are not among the cases above. The forward "
+        "fuselage is critical for up bending in the three-wheel level landing "
+        "and may be critical for down bending in the two-wheel level landing; "
+        "those conditions are analysed in " + landing + ", and the fuselage "
+        "loads of this section are flight loads only.",
+
+        "Pitching acceleration adds algebraically to the vertical inertia at "
+        "every fuselage station, and this analysis does not model it. Chapter "
+        "15 resolves the fuselage inertia into a linear and a pitching load "
+        "factor; the loads delivered here carry the linear half only, with the "
+        "pitching acceleration taken as zero on the balanced trim cases these "
+        "conditions come from. Closing that gap is open item M4-21. The "
+        "greatest-vertical-inertia condition above is the one this limitation "
+        "bears on most directly.",
+    ]
+
+
+def _body_critical(project: Project,
+                   results: Mapping[str, Optional[ModuleResult]], *,
+                   system: UnitSystem, plan: Sequence[SectionPlan]) -> Section:
+    """4.3 -- the critical fuselage loads, as the manual summarises them."""
+    tail_ref = section_ref(plan, "tail_loads")
+    summary = _critical_summary_table(project, results, system)
+    pull_up = _pull_up_table(project, results, system, tail_ref)
+    body = [
+        "This subsection is the critical-fuselage summary of Reference 1 page "
+        "198: the conditions that size the fuselage, each stated with the "
+        "quantities the manual prints for it. It is the first thing a reader "
+        "of this section wants and is therefore given before the machinery "
+        "that produces the distributions.",
+        "Two of the seven conditions are pull-up maneuvers whose quantities "
+        "are derived in the tail analysis. They are printed here, where the "
+        "fuselage question is asked, with a reference to " + tail_ref + ", "
+        "where they are derived; they are read from that analysis and not "
+        "recomputed, so the two sections state the same numbers.",
+    ]
+    body += _body_advisories(plan)
+    tables = [t for t in (summary, pull_up) if t is not None]
+    if not tables:
+        return Section("", body=body,
+                       absent_reason=("The fuselage analysis produced no "
+                                      "conditions for this project."))
+    return Section("", body=body, tables=tables)
+
+
+def _fitting_table(project: Project, system: UnitSystem) -> Optional[Table]:
+    """4.4's wing-attach fitting loads, with their spar provenance beside them.
+
+    The provenance is in the table and not in a footnote, because these are the
+    sizing loads for the wing-attach fittings and on an airplane whose spar
+    stations were never entered they are sized on an estimate (OR-97).
+    """
+    net = _body_net(project)
+    if not net:
+        return None
+    u = Units(system)
+    rows = []
+    for result in net:
+        if result.r_front is None or result.r_rear is None:
+            continue
+        sf = float(getattr(result, "safety_factor", ULTIMATE_FACTOR))
+        ref = getattr(result, "case_ref", None)
+        rows.append([
+            getattr(ref, "case_id", "") or "--",
+            getattr(result, "case", "") or "--",
+            u.plain(result.x_front, "length"),
+            u.load(result.r_front, "force", sf),
+            u.plain(result.x_rear, "length"),
+            u.load(result.r_rear, "force", sf),
+            u.load(result.m_unbalanced, "moment", sf),
+            "assumed" if result.spars_assumed else "entered",
+            format_value(sf),
+        ])
+    if not rows:
+        return None
+    return Table(
+        title="Wing-attach fitting loads (LIMIT)",
+        columns=["Case", "Condition", f"X front ({u.label('length')})",
+                 f"R front ({u.ult_label('force')})",
+                 f"X rear ({u.label('length')})",
+                 f"R rear ({u.ult_label('force')})",
+                 f"M unbalanced ({u.ult_label('moment')})", "Spars", "SF"],
+        rows=rows, small=True,
+        note=("The front and rear spar reactions that close the beam -- the "
+              "sizing loads for the wing-attach fittings. The Spars column "
+              "states where their stations came from: 'entered' is the "
+              "geometry this airplane was measured at, 'assumed' is the "
+              "estimator's, and a fitting load marked assumed is sized on a "
+              "spar location nobody entered. The unbalanced moment is the "
+              "moment the first pass leaves at the aft end, which these "
+              "reactions carry. Every load is LIMIT with the factor stated and "
+              "applied nowhere; the stations are geometry and are neither "
+              "scaled nor marked."))
+
+
+def _closure_sentence(project: Project, system: UnitSystem) -> str:
+    """What the beam closed to, read off the aft end of each case.
+
+    Chapter 15 ships no printed station oracle, so equilibrium closure is what
+    this analysis is held to; a section that claims a beam closes and does not
+    say to what is asking to be taken on trust.
+    """
+    net = _body_net(project)
+    if not net:
+        return ""
+    u = Units(system)
+    end_sz = end_myy = peak_sz = peak_myy = 0.0
+    for result in net:
+        stations = list(getattr(result, "stations", ()))
+        if not stations:
+            continue
+        end_sz = max(end_sz, abs(stations[-1].sz))
+        end_myy = max(end_myy, abs(stations[-1].myy))
+        peak_sz = max(peak_sz, *(abs(s.sz) for s in stations))
+        peak_myy = max(peak_myy, *(abs(s.myy) for s in stations))
+    return (
+        "The beam closes. Across every case in this section the shear left at "
+        f"the aft-most station is at most {u.plain(end_sz, 'force')} "
+        f"{u.label('force')} and the bending moment at most "
+        f"{u.plain(end_myy, 'moment')} {u.label('moment')}, against peaks "
+        f"along the body of {u.plain(peak_sz, 'force')} {u.label('force')} and "
+        f"{u.plain(peak_myy, 'moment')} {u.label('moment')}: the residue of "
+        "the integration, not a load. Chapter 15 publishes no "
+        "station-by-station figures, so this closure is the acceptance "
+        "criterion the distributions are held to, in place of a printed "
+        "oracle.")
+
+
+def _body_closure(project: Project, *, system: UnitSystem,
+                  plan: Sequence[SectionPlan]) -> Section:  # noqa: ARG001
+    """4.4 -- the closure of the beam and the wing-attach fitting loads."""
+    table = _fitting_table(project, system)
+    body = [
+        "The fuselage beam is not in equilibrium under its inertia and its tail "
+        "load alone: the two leave a vertical force and a moment over, and the "
+        "wing carries both. This subsection states what the wing attachment "
+        "carries and what is left at the aft end once it does.",
+        _carry_through_sentence(project),
+        _closure_sentence(project, system),
+        "Every load in this subsection is LIMIT. The safety factor 14 CFR "
+        "23.303 prescribes for each case is stated in its own row and is "
+        "applied to nothing: this analysis delivers the loads, and the sizing "
+        "analysis applies the factor. No special factor of 14 CFR Part 23 "
+        "Subpart D -- the casting, bearing, fitting and control-surface-hinge "
+        "factors of 23.619, 23.621, 23.623 and 23.625 -- is applied to any "
+        "load in this document either. Those factors qualify a material "
+        "allowable or a fitting's strength at the stress analysis, not the "
+        "external load a loads analysis delivers, and the fitting loads above "
+        "are the external loads. A fitting factor applied here would be "
+        "applied twice.",
+    ]
+    body = [paragraph for paragraph in body if paragraph]
+    if table is None:
+        return Section("", body=body,
+                       absent_reason=("This project produced no wing-attach "
+                                      "fitting loads: see the distributions "
+                                      "for why."))
+    return Section("", body=body, tables=[table])
+
+
+#: ``(figure key, station attribute, dimension, title)`` for 4.5.
+#:
+#: The two cumulative quantities, in the order the beam produces them. The
+#: applied Fz is not plotted: it is an increment at a station, not a curve, and
+#: it is tabulated in the appendix beside the shear it produces.
+_BODY_DISTRIBUTION_FIGURES: Tuple[Tuple[str, str, str, str], ...] = (
+    ("body_shear_sz", "sz", "force", "Vertical shear Sz"),
+    ("body_bending_myy", "myy", "moment", "Bending moment Myy"),
+)
+
+
+def _body_distribution_figure(net: Sequence[BodyLoadResult], key: str, attr: str,
+                              dim: str, title: str, system: UnitSystem,
+                              critical: str) -> Figure:
+    """One quantity along the body, every fuselage case on one axes."""
+    if not net:
+        return Figure(key=key, title=f"{title} (LIMIT)",
+                      absent_reason=("the fuselage load distributions were not "
+                                     "produced for this project."))
+    u = Units(system)
+    series = []
+    for result, style in zip(net, _CASE_STYLES * 4):
+        stations = list(getattr(result, "stations", ()))
+        if not stations:
+            continue
+        sf = float(getattr(result, "safety_factor", ULTIMATE_FACTOR))
+        ref = getattr(result, "case_ref", None)
+        name = getattr(ref, "case_id", "") or getattr(result, "case", "")
+        series.append(Series(
+            f"{name} {getattr(result, 'case', '')}".strip(),
+            [u.plain_value(s.x, "length") for s in stations],
+            [u.load_value(getattr(s, attr), dim, sf) for s in stations], style))
+    if not series:
+        return Figure(key=key, title=f"{title} (LIMIT)",
+                      absent_reason=("the fuselage load distributions carry no "
+                                     "stations to plot."))
+    return Figure(
+        key=key, title=f"{title} (LIMIT)",
+        data=PlotData(f"Fuselage station X ({u.label('length')})",
+                      f"{title} ({u.ult_label(dim)})", series),
+        caption=(f"{title} along the fuselage, every fuselage case on one axes. "
+                 "The quantity is cumulative: it is accumulated nose to tail, "
+                 "so a value is what the body carries across that station and "
+                 "not the load applied at it. Both curves return to zero at the "
+                 "aft end, which is the closure the beam is held to. All values "
+                 "are LIMIT, each case stating the safety factor it does not "
+                 f"apply, as set out in {critical}."))
+
+
+def _body_distributions(project: Project, *, system: UnitSystem,
+                        plan: Sequence[SectionPlan]) -> Section:
+    """4.5 -- the net distributions of every fuselage case."""
+    net = _body_net(project)
+    critical = subsection_ref(plan, _BODY_STEP, _BODY_CRITICAL)
+    body = [
+        "The distributions below are the net fuselage loads: the inertia of "
+        "the station masses, the balancing tail air load and the wing "
+        "carry-through reaction, summed nose to tail, which is what the body "
+        "structure carries. The station values behind these curves are "
+        "tabulated in "
+        + (appendix_ref(BODY_LOAD_STATIONS) or "the appendix") + ".",
+    ]
+    # A closure-artifact result has no wing attachment to react at: the beam was
+    # closed by a correction spread over the whole body, which relieves the wing
+    # region and loads the tail cone with a moment nothing applies there. Its
+    # station table is a closure artifact and not a load distribution, and
+    # printing it would publish a load with no physical source (OR-98). Stated
+    # through the same gap-state machinery an unbuilt section uses.
+    if net and any(getattr(r, "closure_artifact", False) for r in net):
+        return Section("", body=body, absent_reason=(
+            "The wing carry-through could not be derived for this project, so "
+            "the unbalanced moment was closed by a self-equilibrated "
+            "correction spread over the whole body rather than reacted where "
+            "the wing attaches. The beam closes, but the correction has no "
+            "physical source: it relieves the wing region and loads the tail "
+            "cone with a moment nothing applies there. The resulting station "
+            "table is a closure artifact and is not published as a load "
+            "distribution. Entering the wing front and rear spar stations "
+            "gives the Chapter 15 carry-through reaction and this subsection "
+            "its distributions."), absent_lead="Not published")
+    figures = [_body_distribution_figure(net, key, attr, dim, title, system,
+                                         critical)
+               for key, attr, dim, title in _BODY_DISTRIBUTION_FIGURES]
+    return Section("", body=body, figures=figures)
+
+
+def _fuselage_loads(project: Project,
+                    results: Mapping[str, Optional[ModuleResult]], *,
+                    system: UnitSystem, plan: Sequence[SectionPlan]) -> Section:
+    """Section 4 -- Fuselage Loads, in its five subsections (OR-94).
+
+    Five rather than section 3's four: the manual's own critical-fuselage
+    summary is what an analyst turns to first, and folding it into a subsection
+    about closure machinery would make it a footnote to the machinery.
+    """
+    return Section("", body=[
+        "This section states the fuselage loads: the beam they were run on, "
+        "the cases run, the critical fuselage loads the manual summarises, the "
+        "closure of the beam and the loads it puts into the wing attachment, "
+        "and the distributions along the body. Every load case delivered here "
+        "is LIMIT with its safety factor stated and not applied, and every "
+        "quantity that is not a delivered load says which it is.",
+    ], subsections=[
+        replace(_body_beam(project, system=system, plan=plan),
+                title="The fuselage beam"),
+        replace(_body_cases(project, results, system=system, plan=plan),
+                title="Load cases and notation"),
+        replace(_body_critical(project, results, system=system, plan=plan),
+                title="Critical fuselage loads"),
+        replace(_body_closure(project, system=system, plan=plan),
+                title="Beam closure and wing-attach fitting loads"),
+        replace(_body_distributions(project, system=system, plan=plan),
+                title="Load distributions"),
+    ])
+
+
+# --------------------------------------------------------------------------- #
+# Appendix C -- fuselage loads by station (OR-101)
+# --------------------------------------------------------------------------- #
+def _body_station_appendix(project: Project, *, system: UnitSystem,
+                           plan: Sequence[SectionPlan]) -> Section:
+    """Appendix C's content: every fuselage case at every station.
+
+    A **view of the export owner**, not a second assembler: the rows are the
+    ones ``sbeam_bridge.body_span_load_csv`` writes, taken in the same order
+    with the same grid identifiers, and converted at this document's own
+    boundary rather than the solver deck's. So the table a reader checks here
+    and the CSV they download from the Fuselage Loads page are one load set.
+    """
+    from ..export.sbeam_bridge import body_station_gids
+
+    net = _body_net(project)
+    body = [
+        "This appendix carries the fuselage load distributions of "
+        + section_ref(plan, _BODY_STEP) + " in full: every case at every "
+        "station of the beam stated in "
+        + subsection_ref(plan, _BODY_STEP, _BODY_BEAM) + ". It is the same "
+        "result the figures are drawn from, printed rather than plotted, and "
+        "the same rows the fuselage span-load export writes.",
+        "Fz is the load applied at the station -- what a structural model is "
+        "given. Sz and Myy are what the model should return there: the applied "
+        "loads accumulated nose to tail. The grid identifier is the one the "
+        "exported deck uses, so a row here can be found in the model it built.",
+    ]
+    if not net:
+        return Section("", body=body,
+                       absent_reason=("The fuselage load distributions were "
+                                      "not produced for this project, so "
+                                      "there is nothing to tabulate."),
+                       page_break=True)
+    u = Units(system)
+    rows = []
+    for result in net:
+        ref = getattr(result, "case_ref", None)
+        name = getattr(ref, "case_id", "") or getattr(result, "case", "")
+        sf = float(getattr(result, "safety_factor", ULTIMATE_FACTOR))
+        for gid, station in zip(body_station_gids(result), result.stations):
+            rows.append([
+                name, str(gid), u.plain(station.x, "length"),
+                u.load(station.fz, "force", sf),
+                u.load(station.sz, "force", sf),
+                u.load(station.myy, "moment", sf),
+                format_value(sf),
+            ])
+    if not rows:
+        return Section("", body=body,
+                       absent_reason=("The fuselage load distributions carry "
+                                      "no stations to tabulate."),
+                       page_break=True)
+    table = Table(
+        title="Fuselage loads by station (LIMIT)",
+        columns=["Case", "GID", f"X ({u.label('length')})",
+                 f"Fz ({u.ult_label('force')})",
+                 f"Sz ({u.ult_label('force')})",
+                 f"Myy ({u.ult_label('moment')})", "SF"],
+        rows=rows, small=True,
+        note=("Every fuselage case at every station of the beam. Fz is the "
+              "applied increment and Sz and Myy are cumulative, as defined in "
+              "the notation of "
+              + subsection_ref(plan, _BODY_STEP, _BODY_CASES) + ". The "
+              "cumulative columns close to zero at the aft end. Every load is "
+              "LIMIT and states the factor it does not apply; the station is "
+              "geometry and is neither scaled nor marked."))
+    return Section("", body=body, page_break=True, landscape=True,
+                   tables=[table])
+
+
+# --------------------------------------------------------------------------- #
 # Dispatch
 # --------------------------------------------------------------------------- #
 #: Step key -> the builder that produces its section body.
@@ -2375,6 +3326,7 @@ BUILDERS = {
     "structural_speeds": _speeds,
     "flight_envelope": _envelope,
     "wing_loads": _wing_loads,
+    "fuselage_loads": _fuselage_loads,
 }
 
 #: Appendix title -> the builder that produces its body.
@@ -2384,6 +3336,7 @@ BUILDERS = {
 #: what makes "reserved" renderable rather than a special case in the loop.
 APPENDIX_BUILDERS = {
     WING_LOAD_STATIONS: _station_appendix,
+    BODY_LOAD_STATIONS: _body_station_appendix,
 }
 
 

@@ -135,6 +135,13 @@ APPROVED_CORRECTIONS = (
      "are matched less closely than by the manual's own 20-strip sum, "
      "because the entered planform is the input and the printed derived "
      "values carry WINGGEOM's own discretisation error."),
+    ("`FS 50 PERCENT HORIZ TAIL` prints the real station, not zero",
+     "SELECT",
+     "The fuselage-loads summary states the entered fuselage station of "
+     "the 50 per cent horizontal-tail MAC; the source prints zero there "
+     "while computing with the real station, which the unbalanced "
+     "pitching moment printed beside it closes only against. Nothing "
+     "computed is affected: the printed cell is read by no calculation."),
 )
 
 #: Limitations that hold for every run, regardless of project content, as

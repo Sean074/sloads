@@ -45,7 +45,11 @@ MANIFEST: dict[str, str] = {
     "sloads/modules/airloads.py": "f1b648c5795be73e4fad00c9d78b64bde479637cd4b1050947b1aea7f233643d",
     "sloads/modules/balance.py": "94a2a8c7f40e97647f31834507bbb6b41edc212a22ec332ab169e4fa5c3c1bc2",
     "sloads/modules/balloads.py": "62137ed968f4d7d814b552c76fc0fa17edd56fb8777281357b5aa4f95f11c5ce",
-    "sloads/modules/body_loads.py": "d6ab6b3849892901a429580b00591791c0ad86f8c351289b9cca11679c976b77",
+    # OR-15 admission, granted by the owner 2026-09-05 (note 44 §15, OR-108):
+    # ``run()`` publishes the four p198 conditions ``select_fuselage`` already
+    # computed and this module discarded. Additive -- no value changes and
+    # nothing is recomputed.
+    "sloads/modules/body_loads.py": "9681f7baa70a5f4388236849c8967ce8d272234257347f3ed0012480f5811c39",
     "sloads/modules/configuration.py": "1c0cd2b1b21b04544eb919d69cfc48c6a151016be151ea4f77a261bf79549667",
     "sloads/modules/engine.py": "572e52b63e2587a9ad7a59987dad3f3970c3e5401c2a7f00fd92b67f9a1488c6",
     "sloads/modules/flap.py": "3bd3bfa06ddc4922227ee922dce85e46691daa528cca28ca582d18c19034ec52",
@@ -54,7 +58,11 @@ MANIFEST: dict[str, str] = {
     "sloads/modules/mach_limit.py": "118af4d9c35b2978d5ee204912329e6c5cf2d7b7381535300ea4ed48ef1b5859",
     "sloads/modules/net_loads.py": "d7566c492beb61207fe90d3c47bade599cd25e2d609403a69dd2129a185855ab",
     "sloads/modules/one_engine_out.py": "d53cb6f04a47fffc2acb5a1be8c7bb93587f63a912d7db57c9bc402372f35045",
-    "sloads/modules/select.py": "3f05f945107e2230593e29167d051b6e5511dbdd8eef868aca7808525b141adc",
+    # OR-15 admission, granted by the owner 2026-09-05 (note 44 §15, OR-111):
+    # the four maneuver conditions publish the unbalanced pitching moment about
+    # the CG, whose equation is recovered from SELECT.BAS 5210/5262/5410/5560.
+    # Additive -- a new ``LoadValue`` on each; no existing value moves.
+    "sloads/modules/select.py": "4bfe60c0be26055e52640e3e8cae1a43353df01b0babda89aca59fa34dc76be3",
     "sloads/modules/structural_speeds.py": "8fdbc1cc6eb17dbbdda4f5f1b224c7d5d4b86dfe14c923457292db7e123814c1",
     "sloads/modules/tab.py": "f81ff82261cccabedef57491635b3f56767faa61bae31c2d0d0017fc3bcb07e7",
     "sloads/modules/tail_span.py": "22a7832553de87ef9826c6e869e8ec8f1fe4e39c04706224f6af63e0847212b5",

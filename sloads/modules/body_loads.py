@@ -70,6 +70,7 @@ from ..mass_distribution import fuselage_beam_stations
 from ..models import (
     BodyLoadResult,
     BodyStationLoad,
+    ConditionResult,
     CriticalCondition,
     MissingInputError,
     ModuleResult,
@@ -236,6 +237,35 @@ def _critical_fuselage(project: Project) -> List[CriticalCondition]:
     return conditions
 
 
+def critical_fuselage_conditions(project: Project) -> List[CriticalCondition]:
+    """The fuselage conditions this module runs, as the selection names them.
+
+    The public form of :func:`_critical_fuselage`, for a consumer that needs the
+    *identity* of a case rather than its loads -- the V-n point it was selected
+    at, which no result type carries. Published rather than let each consumer
+    call ``select_fuselage`` for itself: the report's run register and the
+    conditions of :func:`critical_conditions` are then two views of one list,
+    which is the drift OR-108 was chosen to prevent.
+    """
+    return _critical_fuselage(project)
+
+
+def case_list_source(project: Project) -> str:
+    """``"envelope"`` or ``"selection"`` -- where the case list came from.
+
+    :func:`_critical_fuselage` takes the persisted ``envelope.critical`` when it
+    carries fuselage conditions and re-selects otherwise, and note 44 OR-99
+    requires the report to *say which*. Asked of the module that makes the
+    choice, so the statement and the analysis cannot disagree about it.
+    """
+    envelope = project.envelope
+    if (envelope is not None and envelope.critical is not None
+            and any(c.component == "fuselage"
+                    for c in envelope.critical.conditions)):
+        return "envelope"
+    return "selection"
+
+
 def build_body_loads(project: Project) -> List[BodyLoadResult]:
     """Net fuselage load distribution for each critical fuselage condition."""
     sync_geometry_derived(project)
@@ -318,11 +348,46 @@ def fitting_load_rows(results: List[BodyLoadResult]) -> List[Dict[str, str]]:
     return rows
 
 
+def critical_conditions(project: Project) -> List[ConditionResult]:
+    """The SELECT-critical fuselage conditions as published results (note 44 OR-108).
+
+    Blocks 1, 2, 3 and 7 of the manual's own **CRITICAL FUSELAGE LOADS** summary
+    (Ref 1 p198). ``select_fuselage`` has always computed them; until OR-108 the
+    module discarded them, so the oracle GUI's Fuselage Loads page said "Body
+    Loads produced no conditions" beside a full station table where the manual
+    prints its summary.
+
+    Published here, from the one ``ModuleResult`` every surface already reads,
+    rather than by each surface calling ``select_fuselage`` for itself: one
+    quantity, one owner, so the GUI, the CLI, ``load_cases_csv`` and the oracle
+    report's section 4 cannot show different case sets.
+
+    Blocks 4 and 5 are the pull-up maneuvers, whose quantities belong to the tail
+    analysis; they are read from SELECT's own h-tail conditions where they are
+    printed (OR-109), never reassembled. Block 6 is the manual's landing advisory.
+
+    All values are **LIMIT** (note 49 OR-116): each condition states the factor
+    23.303 prescribes for it and nothing here applies it.
+    """
+    return [ConditionResult(
+        title=f"Critical fuselage load {cond.label} (case {cond.case})",
+        far_reference=cond.far_reference,
+        values=list(cond.loads),
+        safety_factor=cond.safety_factor,
+        case_ref=cond.case_ref,
+    ) for cond in _critical_fuselage(project)]
+
+
 def run(project: Project) -> ModuleResult:
-    """Run the fuselage net-load distribution (returns an empty report; the
-    station table is consumed via ``build_body_loads`` / the CSV)."""
+    """Run the fuselage net-load distribution.
+
+    The conditions are the p198 critical-fuselage summary
+    (:func:`critical_conditions`); the station table behind them is consumed via
+    ``build_body_loads`` / the CSV, because no result type carries stations.
+    """
     build_body_loads(project)
-    return ModuleResult(module=MODULE_NAME, conditions=[])
+    return ModuleResult(module=MODULE_NAME,
+                        conditions=critical_conditions(project))
 
 
 register(MODULE_NAME, run)
