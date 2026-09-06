@@ -568,6 +568,17 @@ again; L-8d's mutation case stays parked); F25-2.
   the additive change OR-13 admits, and `sloads/modules/select.py` is frozen
   until the 0.8.2 cut. Tier M when it lands — the rename needs the two labels to
   survive as display text while the keys converge.
+- **One surface, two names: retire `fin_*` for `vtail_*`.** The vertical tail's
+  *data* is spelled `vtail_*` (`vtail_loads`, `vtail_area_sqft`, `VTAIL`,
+  `vtail_root_waterline_z`) while the owners that place and load it are spelled
+  `fin_*` (`fin_root`, `fin_root_waterline`, `FinRoot`, `fin_root_z`, `fin_tip`,
+  `fin_load`, `fin_chain`, `fin_sideslip_derivatives`) — one thing under two
+  names inside one call chain. **Owner ruled 2026-09-06** (`CONVENTIONS.md`
+  §7.2): the surface is the **vertical tail**, "v-tail" where space requires,
+  `vtail` as the code token. Reader-facing text is already consistent, so the
+  exposure is internal. Mechanical rename plus a guard that no new `fin_`
+  identifier appears; tier S. **Blocked on the 0.8.2 cut** — it reaches
+  `sloads/modules/tail_span.py`, frozen under OR-13. Raised while closing #160.
 - **#171** — *Two examples are stored at 1-space JSON indent* while
   `io.save_project` writes `indent=2`, so any programmatic re-stamp reformats
   them wholesale and hides the real edit. Tier S; carried from #169, recorded in

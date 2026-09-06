@@ -32,6 +32,7 @@ from sloads.tail_geometry import (
     PLANFORM_TOLERANCE,
     VTAIL,
     _polyline_mac_and_x25,
+    fin_root,
     half_area_centroid,
     resolve_tail_planform,
     validate_tail_planform,
@@ -372,12 +373,35 @@ def test_every_fixture_still_loads_and_round_trips(example):
 #: 191.16490643871083, ``dhc8_dash8`` 203.4541778899263 -> 203.45108523980366 --
 #: 0.0004 %, 0.0012 % and 0.0015 %, all toward the exact planform. The entered
 #: and t-tail branches read no planform and do not move.
+#: Every shipped fin now states its own root, because every shipped fin has an
+#: entered polyline and the polyline leads the order (2026-09-06, #160). The
+#: values are the polylines' own lowest edge point, so the branch that produced
+#: them before is recorded here only as the thing they replaced:
+#: ``cessna_210`` 100.23507134905307 -> 100.2, ``atr42_100`` 191.16490643871083
+#: -> 191.2 and ``dhc8_dash8`` 203.45108523980366 -> 203.5 were "fuselage-top"
+#: derivations sampled at the fin's quarter-MAC station, and the four fixtures'
+#: polylines were rebased onto them in the same change (they had been entered
+#: root-relative, so the figure drew each fin on the airplane centreline while
+#: the load path placed it on the body -- the two halves of #160). The rounding
+#: to 0.1 in is what an entered waterline is measured to; it moves each fin root
+#: by <= 0.05 in. ``concept_regional_jet`` 87.0 was the T-tail relation and is
+#: unchanged to the digit -- its polyline was rebased onto it exactly.
+#:
+#: ``ga6_normal`` is the one that moves: 78.5 -> 111.5, and it is not a
+#: re-derivation but the removal of a wrong number. 78.5 was ga6's *wing* root
+#: waterline, entered on 2026-08-17 as note 19 §10.2 step (i) -- "a zero-movement
+#: change that pins today's assumed value as a stated one" so that step (ii)'s
+#: body outline would have an attributable digest wave. Step (ii) shipped in the
+#: same pass and could never take effect: ``explicit`` led the order, so the pin
+#: shadowed both the outline it was scaffolding for (98.44) and the fin's own
+#: entered edges (111.5), while reporting itself ``assumed=False``. The pin is
+#: cleared and the fin's own geometry answers.
 _FIN_ROOT = {
-    "ga6_normal.project.json": (78.5, "entered"),
-    "concept_regional_jet.project.json": (87.0, "t-tail"),
-    "cessna_210.project.json": (100.23507134905307, "fuselage-top"),
-    "atr42_100.project.json": (191.16490643871083, "fuselage-top"),
-    "dhc8_dash8.project.json": (203.45108523980366, "fuselage-top"),
+    "ga6_normal.project.json": (111.5, "geometry"),
+    "concept_regional_jet.project.json": (87.0, "geometry"),
+    "cessna_210.project.json": (100.2, "geometry"),
+    "atr42_100.project.json": (191.2, "geometry"),
+    "dhc8_dash8.project.json": (203.5, "geometry"),
 }
 
 
@@ -388,12 +412,84 @@ def test_the_fin_root_waterline_is_pinned_per_fixture(example):
     assert planform is not None
     assert planform.root_z == pytest.approx(want_z, rel=1e-9)
     assert planform.root_z_basis == want_basis
-    assert planform.root_z_assumed == (want_basis != "entered"), example
+    assert planform.root_z_assumed is False, example
+
+
+@pytest.mark.parametrize("example", sorted(_FIN_ROOT))
+def test_no_fixture_places_its_fin_twice(example):
+    """**The #160 drift guard.** One fin, one placement, on every shipped project.
+
+    A ``vtail_root_waterline_z`` beside an entered polyline is a second spelling
+    of one measurement. The resolver states the disagreement rather than raising
+    (a shipped input field has to stay typable), so nothing but this gate stops a
+    fixture from carrying the pair that put ga6's fin 33 in below its own tail for
+    20 days.
+    """
+    project = _project(example)
+    root = fin_root(project)
+    assert root.basis == "geometry" and not root.assumed, example
+    assert not root.note, f"{example}: {root.note}"
+
+
+@pytest.mark.parametrize("example", sorted(_FIN_ROOT))
+def test_no_fixture_doubles_its_fin(example):
+    """**The other #160 drift guard**, and it checks the effect, not the flag.
+
+    ``SurfaceInput.symmetric`` is load-bearing on a vertical tail twice over:
+    ``wing_geometry.surface_properties`` reads it for the area/span/AR
+    bookkeeping, and ``airloads.resolve_aero_surfaces`` reads it as the predicate
+    for "is this a lifting surface AIRLOADS analyses". Five shipped fins said
+    ``true`` until 2026-09-06 and were each reported at twice their own area and
+    span (``baron_58`` 48.58 ft^2 against an entered 24.30) *and* issued a Schrenk
+    symmetric spanwise lift distribution a fin does not have.
+
+    Asserting the reported geometry against the entered scalars rather than
+    asserting ``symmetric is False`` is the point: it is the same gate the day
+    someone reaches the same wrong number by a different route.
+    """
+    from sloads.modules.airloads import resolve_aero_surfaces
+    from sloads.modules.wing_geometry import surface_properties
+
+    project = _project(example)
+    surf = project.geometry.by_name(VTAIL)
+    reported = {v.key: v.value for v in surface_properties(surf).values}
+    scalars = project.vtail_loads
+    assert reported["total_area"] / 144.0 == pytest.approx(
+        scalars.vtail_area_sqft, rel=PLANFORM_TOLERANCE), example
+    assert reported["span"] == pytest.approx(
+        scalars.vtail_span_in, rel=PLANFORM_TOLERANCE), example
+    assert not any(a.name == VTAIL for a in resolve_aero_surfaces(project)), (
+        f"{example}: the fin is being analysed as a lifting surface")
+
+
+def test_the_fin_polyline_leads_the_explicit_scalar_and_says_what_it_ignored():
+    """The polyline is the airplane's own statement of where its fin is.
+
+    Ranked above ``explicit`` because the two are not the blank-derives /
+    typed-overrides pair of note 36 OV-1: they are two spellings of one
+    measurement. A disagreeing scalar is not silently dropped -- being dropped
+    silently is exactly what happened to ga6's real geometry.
+    """
+    project = _project("ga6_normal.project.json")
+    project.vtail_loads.vtail_root_waterline_z = 101.5
+    root = fin_root(project)
+    assert root.z == pytest.approx(111.5)          # the polyline's own root
+    assert not root.assumed and root.basis == "geometry"
+    assert "101.5" in root.note and "NOT USED" in root.note
+    # Within tolerance it is the same measurement twice, and says nothing.
+    project.vtail_loads.vtail_root_waterline_z = 111.4
+    assert not fin_root(project).note
 
 
 def test_an_entered_fin_root_wins_and_is_not_assumed():
-    """The explicit input is the top of the resolution order (L-1)."""
+    """The explicit input still leads every *derivation* (L-1).
+
+    It is second in the order now, not first, so this exercises it where it is
+    the only stated placement: a project whose fin has no entered polyline.
+    """
     project = _project("ga6_normal.project.json")
+    project.geometry.surfaces = [s for s in project.geometry.surfaces
+                                 if s.name != VTAIL]
     project.vtail_loads.vtail_root_waterline_z = 101.5
     planform = resolve_tail_planform(project, VTAIL)
     assert planform.root_z == pytest.approx(101.5)
@@ -420,8 +516,15 @@ def test_the_outline_branch_states_its_datum_and_a_pointed_cone_falls_through():
     from the fuselage outline, and its note carries both the formula and the
     defaulted-centreline provenance. Where the outline pinches to nothing at the
     fin station (a pointed tail cone states no top to sit on) the branch declines
-    and the layout fallback answers -- naming the wing-root substitution it makes."""
+    and the layout fallback answers -- naming the wing-root substitution it makes.
+
+    The fin's entered polyline is removed first: since 2026-09-06 it leads the
+    order, so a fixture that has one never reaches a derivation branch at all --
+    which is the point of that ordering and the reason these branches are now
+    exercised on a fin that states nothing."""
     project = _project("atr42_100.project.json")
+    project.geometry.surfaces = [s for s in project.geometry.surfaces
+                                 if s.name != VTAIL]
     planform = resolve_tail_planform(project, VTAIL)
     note = next(n for n in planform.notes if "local fuselage top" in n)
     assert "z_centre" in note and "fuselage centre line ASSUMED" in note
@@ -442,7 +545,9 @@ def test_a_fin_with_no_placement_at_all_says_so_loudly():
     """The floor of the resolution order. Silent zero is the defect B8a-1 fixed,
     so the zero that remains possible has to announce itself."""
     project = _project("ga6_normal.project.json")
-    project.vtail_loads.vtail_root_waterline_z = 0.0   # un-enter the Pri 1 pin
+    project.geometry.surfaces = [s for s in project.geometry.surfaces
+                                 if s.name != VTAIL]   # the fin's own statement
+    project.vtail_loads.vtail_root_waterline_z = 0.0   # ...the scalar spelling
     project.geometry.fuselage = None                    # ...and its Pri 1 outline
     project.geometry.parametric.root_waterline_z = 0.0
     project.geometry.parametric.fuselage_height = 0.0

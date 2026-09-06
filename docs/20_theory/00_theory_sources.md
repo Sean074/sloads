@@ -474,6 +474,17 @@ the symmetric one, read in the other three DOF:
                 −L_v·(z_fin − z_cg), which is why the fin root waterline is a
                 load quantity (B8a-1, `CONVENTIONS.md` §7.2)
 
+**The measured size of that lever arm (2026-09-06, #160).** `z_fin` is resolved
+from the fin's own entered polyline since the resolution order was corrected, and
+on `ga6_normal` that moved the fin root 78.5 → 111.5 in — the 78.5 was the
+airplane's *wing* root waterline, entered as scaffolding and left shadowing both
+the polyline and the body outline. The whole 33 in lands on `z_fin − z_cg`, which
+goes 11.89 → 44.89 in, and the four lateral cases' roll accelerations move 5–12×
+(`SUDDEN RUDDER` −6.888 → −85.952 deg/s²); `ψ̈` moves ~2 % through the `Ixz`
+coupling. **`L_v` and `n_y` are bit-identical on every fixture**, which is the
+check that this moved a lever arm and not the aerodynamics — and it is the
+measurement that says how much of the lateral answer the fin's waterline owns.
+
 **Why the 1 % residual gate does not apply here.** `residual_fy` and
 `residual_mz` before closure *are* the fin load, by construction — nothing in an
 airplane balances a rudder kick. The gate that does apply is that the case's

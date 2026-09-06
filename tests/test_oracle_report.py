@@ -1589,21 +1589,34 @@ def test_a_surface_without_polylines_states_why_instead_of_drawing():
 def test_the_vertical_tail_is_drawn_in_its_own_frame_and_never_mirrored():
     """The fin's second coordinate is a waterline, not a butt line.
 
-    ``examples/baron_58.project.json`` enters its fin with ``symmetric: true``,
-    so a figure that mirrored on that flag would draw a second fin hanging below
-    the airplane. The frame decides, and this is the project that proves the flag
-    does not.
-    """
-    project = reduce_to_oracle_inputs(io.load_project(_TWIN))
-    assert project.geometry.by_name("vtail").symmetric, \
-        "the twin's fin no longer carries the flag this test exists for"
+    A figure that mirrored on ``SurfaceInput.symmetric`` would draw a second fin
+    hanging below the airplane, so the frame decides and the flag does not. Every
+    shipped fin now enters ``symmetric: false`` -- until 2026-09-06 five of them
+    said ``true`` and WINGGEOM reported each one at twice its own area and span
+    (#160) -- so the flag is set here rather than borrowed from a fixture defect:
+    a guard whose premise is a bug elsewhere dies when the bug is fixed.
 
-    figure = _planforms(_doc(_TWIN))["planform_vtail"]
+    The waterlines are checked against the fin's own root, not against zero. The
+    other half of #160 was five fins entered root-relative, which drew each one on
+    the airplane centreline -- 110 in below the airplane on this project -- and
+    ``y >= 0`` is true of a fin lying on the datum.
+    """
+    project = io.load_project(_TWIN)
+    fin = project.geometry.by_name("vtail")
+    assert not fin.symmetric, "a shipped fin is a single surface (#160)"
+    root = min(fin.leading_edge[0][1], fin.trailing_edge[0][1])
+    assert root > 0, "the fin is entered on the fuselage, not on the datum (#160)"
+    project.geometry.surfaces = [
+        dataclasses.replace(s, symmetric=True) if s.name == "vtail" else s
+        for s in project.geometry.surfaces]
+
+    document = oc.build_oracle_document(project, _spec())
+    figure = _planforms(document)["planform_vtail"]
     assert "Waterline" in figure.data.y_label
     assert "Fuselage station" in figure.data.x_label
-    # One outline, not two, and every plotted waterline is above the datum.
+    # One outline, not two, and every plotted waterline is on the fin.
     assert len(figure.data.series) == 1
-    assert all(y >= 0 for series in figure.data.series for y in series.y)
+    assert all(y >= root for series in figure.data.series for y in series.y)
 
 
 def test_a_planform_plots_only_entered_vertices():
