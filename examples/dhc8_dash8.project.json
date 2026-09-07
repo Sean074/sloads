@@ -1,5 +1,5 @@
 {
-  "schema_version": 61,
+  "schema_version": 62,
   "name": "de Havilland Canada DHC-8-100 Dash 8 \u2014 2x PW121 (concept, category C)",
   "engines": [
     {
@@ -936,7 +936,7 @@
         "weight_lb": 700
       }
     ],
-    "ref_waterline": 100.0,
+    "ref_waterline": 189.9,
     "stations_are_override": false
   },
   "select_input": {

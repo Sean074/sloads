@@ -772,6 +772,104 @@ def body_drag_waterline(project: Project) -> BodyDragWaterline:
         "drag is applied at waterline 0. Enter body_drag_waterline_z."))
 
 
+class FuselageLra(NamedTuple):
+    """Where the fuselage beam's load reference axis runs (owner, 2026-09-07).
+
+    **The single owner of "what waterline does the body beam sit on".**
+    ``FuselageMassInput.ref_waterline`` has always been documented as this --
+    *"the fuselage longitudinal mass distribution carried along the body axis at
+    waterline ``ref_waterline``"* -- and until this existed nothing read it: the
+    component deck put the body beam at ``z = 0`` (the component in isolation)
+    and the airplane LRA model ran it on the fuselage section-centre line. On
+    ``ga6_normal`` that is 78.5 in against an entered 55.0, so the value the
+    project states lost silently by 23.5 in.
+
+    Resolution order::
+
+        entered ref_waterline -> a constant waterline        (assumed False)
+        fuselage centre line  -> z_centre(x), station by station (assumed True)
+        neither               -> 0.0, with a loud note
+
+    The entered value leads because it is a **structural** statement -- where the
+    beam is -- while the centre line is a **body geometry** one, where the
+    sections' centres are. They coincide on a body whose structure runs down its
+    middle and need not in general, so the derived line is the fallback for a
+    project that has not said, exactly as note 36's OV-1 contract has it. The
+    entered form is a constant: a beam stated by one waterline is a straight one,
+    and a project wanting an axis that follows the body says so by leaving the
+    scalar blank.
+
+    ``note`` states the centre-line value the entered waterline supersedes where
+    the two differ, so a reader of the deck is told the beam is not on the body's
+    centre rather than left to notice.
+    """
+
+    entered_z: float
+    centreline: Optional[FuselageCentreline]
+    assumed: bool
+    basis: str
+    note: str = ""
+
+    def z_at(self, x: float) -> float:
+        """The LRA waterline at station ``x``."""
+        if not self.assumed:
+            return self.entered_z
+        return self.centreline.z_at(x) if self.centreline is not None else 0.0
+
+
+#: What a body beam with no stated waterline at all owes its consumer.
+_FUSELAGE_LRA_UNKNOWN = (
+    "fuselage LRA waterline is 0 -- no fuselage_mass.ref_waterline and no "
+    "fuselage outline to take a centre line from, so the body beam is placed on "
+    "the airplane centreline. Enter fuselage_mass.ref_waterline.")
+
+#: How far the entered waterline may sit from the derived centre line before the
+#: difference is worth a sentence (in). Below this the two are the same beam.
+FUSELAGE_LRA_NOTE_TOL = 1.0
+
+
+def fuselage_lra(project: Project) -> FuselageLra:
+    """The body beam's LRA waterline, from the single owner above."""
+    fm = project.fuselage_mass
+    centreline = fuselage_centreline(project)
+    entered = fm.ref_waterline if fm is not None else 0.0
+    if entered:
+        note = ""
+        if centreline is not None:
+            xs = [x for x, _ in centreline.points]
+            mid = centreline.z_at((min(xs) + max(xs)) / 2.0) if xs else 0.0
+            height = fuselage_height_at(
+                project.geometry.fuselage if project.geometry is not None else None,
+                (min(xs) + max(xs)) / 2.0) if xs else 0.0
+            # A waterline outside the body it describes is not that body's beam.
+            # Guarded rather than trusted because the shipped values were once
+            # exactly this wrong: four of six fixtures placed the axis below the
+            # fuselage floor -- ATR-42 by 35 in, Dash-8 by 47 -- and three
+            # unrelated airplanes all entered the same round 100.0, which is what
+            # a placeholder looks like. Dropping a body beam out of its own body
+            # made the ATR-42 LRA deck singular, so this is a solve-breaking
+            # class, not a cosmetic one.
+            if height and abs(entered - mid) > height / 2.0:
+                note = (
+                    f"fuselage LRA waterline {entered:.1f} in is OUTSIDE the "
+                    f"fuselage it belongs to (the body spans {mid - height / 2.0:.1f} "
+                    f"to {mid + height / 2.0:.1f} in at mid-body). The value is "
+                    "used as entered, but a body beam outside its own body is "
+                    "almost certainly a placeholder: check "
+                    "fuselage_mass.ref_waterline.")
+            elif abs(mid - entered) > FUSELAGE_LRA_NOTE_TOL:
+                note = (
+                    f"fuselage LRA waterline {entered:.1f} in as entered "
+                    f"(fuselage_mass.ref_waterline). The body's own section-centre "
+                    f"line is at {mid:.1f} in mid-body, so the beam is modelled "
+                    f"{abs(entered - mid):.1f} in "
+                    f"{'below' if entered < mid else 'above'} the body centre.")
+        return FuselageLra(entered, centreline, False, "entered", note)
+    if centreline is not None:
+        return FuselageLra(0.0, centreline, True, "centre-line", centreline.note)
+    return FuselageLra(0.0, None, True, "none", _FUSELAGE_LRA_UNKNOWN)
+
+
 def sync_geometry_derived(project: Project) -> None:
     """Fill the derived geometry copies on the consuming slices from ``project.geometry``.
 

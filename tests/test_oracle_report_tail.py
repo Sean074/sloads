@@ -98,7 +98,7 @@ def _prose(section):
 # --------------------------------------------------------------------------- #
 # G-OR-80 -- shape, numbering and appendix lettering
 # --------------------------------------------------------------------------- #
-def test_the_tail_is_two_sections_and_five_renders_four_subsections():
+def test_the_tail_is_two_sections_and_five_renders_five_subsections():
     """OR-128: split by surface, because an analyst reads by surface.
 
     Numbered by :func:`oracle_content.subsection_number`, the one numbering
@@ -110,8 +110,9 @@ def test_the_tail_is_two_sections_and_five_renders_four_subsections():
     assert section.title == "5. Horizontal Tail and Elevator Loads"
     assert [s.title for s in section.subsections] == [
         oc.heading(oc.subsection_number("5", i), title) for i, title in enumerate(
-            ["Design conditions", "Critical horizontal tail loads",
-             "Chordwise load distribution", "Spanwise loads"])]
+            ["Horizontal tail input data", "Design conditions",
+             "Critical horizontal tail loads", "Chordwise load distribution",
+             "Spanwise loads"])]
     # The vertical tail is section 6 and is declared even before it is built,
     # which is what keeps the partition total (OR-129) and the numbering below
     # it honest from the first commit.
@@ -167,9 +168,11 @@ def test_every_tail_condition_lands_in_exactly_one_section():
     # ...and the horizontal section prints exactly its own share, no more.
     section = _section(_doc(), "5.")
     summary = next(t for t in _tables(section) if t.title.startswith("Critical"))
-    printed = set(_cells(summary, "Condition"))
-    assert printed == {c.label for c in published if c.component == "htail"}
-    assert not printed & {c.label for c in published if c.component == "vtail"}
+    printed = set(_cells(summary, "Case"))
+    assert printed == {c.case_ref.case_id for c in published
+                       if c.component == "htail"}
+    assert not printed & {c.case_ref.case_id for c in published
+                          if c.component == "vtail"}
 
 
 def test_each_tail_section_names_the_step_and_component_it_is_built_from():
@@ -206,11 +209,15 @@ def test_every_tail_load_table_states_the_factor_it_does_not_apply():
     no_loads = {"Notation for the spanwise loads",
                 "Chord stations of the pressure profile",
                 "Aerodynamic constants of the surface",
-                "Aerodynamic state of each condition",
-                "Design conditions analysed"}
+                "Aerodynamic state of each condition"}
+    # The register states a factor without stating a load, which is the one
+    # table that carries an ``SF`` column and no load column (OR-132's ruling
+    # that the factor is stated wherever the case is named).
+    geometry = {"Loads reference axis by station"}
     for section in (_section(doc, "5."), _appendix(doc, oc.HTAIL_LOAD_STATIONS)):
         for table in _tables(section):
-            if table.title in no_loads:
+            if table.title in no_loads or any(
+                    table.title.startswith(t) for t in geometry):
                 assert "SF" not in table.columns, table.title
                 continue
             assert "SF" in table.columns, table.title
@@ -232,10 +239,11 @@ def test_the_printed_totals_are_the_modules_own_unscaled_values():
                   if c.component == "htail"]
     summary = next(t for t in _tables(_section(_doc(), "5."))
                    if t.title.startswith("Critical"))
-    printed = dict(zip(_cells(summary, "Condition"), _cells(summary, "Total load")))
+    printed = dict(zip(_cells(summary, "Case"), _cells(summary, "Total load")))
     for condition in conditions:
         total = next(v for v in condition.loads if v.key == "total_tail_load")
-        assert printed[condition.label] == format_value(total.value), condition.label
+        assert printed[condition.case_ref.case_id] == format_value(total.value), \
+            condition.case_ref.case_id
 
 
 def test_every_appendix_a_condition_is_present_and_named_as_the_oracle_names_it():
@@ -258,9 +266,9 @@ def test_every_appendix_a_condition_is_present_and_named_as_the_oracle_names_it(
     present, under the name the oracle uses. Pinning the document to the printed
     numbers would mean pinning it to a fixture defect.
     """
-    summary = next(t for t in _tables(_section(_doc(), "5."))
-                   if t.title.startswith("Critical"))
-    assert set(_cells(summary, "Condition")) == {
+    register = next(t for t in _tables(_section(_doc(), "5."))
+                    if t.title == "Design conditions analysed")
+    assert set(_cells(register, "Condition")) == {
         "BAL UP RETRACTED", "BAL DN RETRACTED",
         "UNCHECKED MAN DN", "UNCHECKED MAN UP",
         "CHECKED MAN DN", "CHECKED MAN UP",
@@ -268,9 +276,11 @@ def test_every_appendix_a_condition_is_present_and_named_as_the_oracle_names_it(
     # ...and each states the requirement it answers, from the analysis's own
     # ``far_reference`` rather than from a literal typed here.
     project = io.load_project(_GA)
-    want = {c.label: c.far_reference for c in default_critical(project).conditions
-            if c.component == "htail"}
-    printed = dict(zip(_cells(summary, "Condition"), _cells(summary, "14 CFR")))
+    register = next(t for t in _tables(_section(_doc(), "5."))
+                    if t.title == "Design conditions analysed")
+    want = {c.case_ref.case_id: (c.label, c.far_reference)
+            for c in default_critical(project).conditions if c.component == "htail"}
+    printed = {r[0]: (r[1], r[2]) for r in register.rows}
     assert printed == want
 
 
@@ -288,7 +298,7 @@ def test_the_printed_pressures_are_taildists_own():
     prints what TAILDIST produced and rounds nothing into a different number.
     """
     project = io.load_project(_GA)
-    results = {r.case: r for r in build_tail_chordwise(project)
+    results = {r.case_ref.case_id: r for r in build_tail_chordwise(project)
                if r.component == "htail"}
     table = next(t for t in _tables(_section(_doc(), "5."))
                  if t.title.startswith("Net chordwise pressure"))
@@ -356,7 +366,7 @@ def test_the_unsymmetrical_row_states_its_split_beside_its_elevator_load():
     """
     summary = next(t for t in _tables(_section(_doc(), "5."))
                    if t.title.startswith("Critical"))
-    row = next(r for r in summary.rows if r[1] == "UNSYMMETRICAL")
+    row = next(r for r in summary.rows if r[0] == "HT-09")
     sides = row[summary.columns.index("Sides RH / LH")]
     elevator = row[next(i for i, c in enumerate(summary.columns)
                         if c.startswith("Elevator load"))]
@@ -365,7 +375,7 @@ def test_the_unsymmetrical_row_states_its_split_beside_its_elevator_load():
     # Every other condition is symmetric and states no split, rather than
     # repeating its own total in two columns.
     others = [r[summary.columns.index("Sides RH / LH")]
-              for r in summary.rows if r[1] != "UNSYMMETRICAL"]
+              for r in summary.rows if r[0] != "HT-09"]
     assert all(cell == "--" for cell in others)
 
 
@@ -383,7 +393,7 @@ def test_every_condition_states_its_aero_state_or_the_reason_there_is_none():
     assert all(cell not in ("", "--") for cell in _cells(table, "Surface angle"))
     # The checked pair defines no elevator deflection -- the increment is a
     # pitching-acceleration inertia term -- and the note says exactly that.
-    checked = [r for r in table.rows if r[1].startswith("CHECKED")]
+    checked = [r for r in table.rows if r[0] in ("HT-05", "HT-06")]
     assert checked and all(
         r[table.columns.index(next(c for c in table.columns
                                    if c.startswith("Elevator deflection")))] == "--"
@@ -395,9 +405,9 @@ def test_the_checked_pair_states_the_pitch_inertia_it_was_computed_with():
     """G-OR-88 -- OR-135's third quantity: provenance beside the number."""
     table = next(t for t in _tables(_section(_doc(), "5."))
                  if t.title == "Aerodynamic state of each condition")
-    inertia = dict(zip(_cells(table, "Condition"), _cells(table, "Inertia")))
-    assert math.isclose(float(inertia["CHECKED MAN DN"]), 2242.8, rel_tol=2e-3)
-    assert inertia["BAL UP RETRACTED"] == "--"
+    inertia = dict(zip(_cells(table, "Case"), _cells(table, "Inertia")))
+    assert math.isclose(float(inertia["HT-05"]), 2242.8, rel_tol=2e-3)
+    assert inertia["HT-01"] == "--"
 
 
 # --------------------------------------------------------------------------- #
@@ -415,13 +425,16 @@ def test_appendix_d_and_the_tail_span_csv_are_one_load_set():
     table = _appendix(_doc(), oc.HTAIL_LOAD_STATIONS).tables[0]
     assert len(table.rows) == len(rows)
     gid = table.columns.index("GID")
+    ids = {r.case: r.case_ref.case_id for r in results}
     for row, want in zip(table.rows, rows):
-        assert row[0] == want["Case"] and row[gid] == want["GID"]
-        for column, key in (("Span", "Span (in)"), ("Sn", "Sn (lb)"),
-                            ("Mxx", "Mxx (lb-in)")):
-            i = next(i for i, c in enumerate(table.columns) if c.startswith(column))
-            assert math.isclose(float(row[i].replace(",", "")), float(want[key]),
-                                rel_tol=1e-3, abs_tol=1.0), (column, row[i], want[key])
+        assert row[0] == ids[want["Case"]] and row[gid] == want["GID"]
+        # The applied normal force is the identity that matters: the deck and
+        # the appendix are the same load set, printed for two readers.
+        i = next(i for i, c in enumerate(table.columns) if c.startswith("Fz"))
+        assert math.isclose(float(row[i].replace(",", "")), float(want["Fn (lb)"]),
+                            rel_tol=1e-3, abs_tol=1.0), (row[i], want["Fn (lb)"])
+    # ...and the carried set is deliberately absent (owner, 2026-09-07).
+    assert not any(c.startswith(("Sn", "Mxx", "Myy")) for c in table.columns)
 
 
 def test_the_spanwise_notation_defines_every_symbol_a_column_uses():
@@ -433,10 +446,11 @@ def test_the_spanwise_notation_defines_every_symbol_a_column_uses():
     defined = {r[0] for r in notation.rows}
     assert defined == {"Fn", "Sn", "Mxx", "Myy"}
     assert {r[3] for r in notation.rows} == {"applied", "cumulative"}
-    columns = _appendix(doc, oc.HTAIL_LOAD_STATIONS).tables[0].columns
-    for column in columns:
-        symbol = column.split(" ")[0]
-        if symbol in ("Case", "GID", "Span", "X", "Axis", "SF", "Fax", "Sax"):
+    root = next(t for t in _tables(_section(doc, "5."))
+                if t.title.endswith("at the root (LIMIT)"))
+    for column in root.columns:
+        symbol = column.replace("Root ", "").split(" ")[0]
+        if symbol in ("Case", "Applied", "SF"):
             continue
         assert symbol in defined, column
 
@@ -445,7 +459,7 @@ def test_the_spanwise_subsection_states_it_has_no_printed_oracle():
     """The absence is content (OR-5): the reference gives the tail's totals and
     its chordwise profile and stops, so this deliverable is held to stated
     closures instead, and says so where it is delivered."""
-    span = _section(_doc(), "5.").subsections[3]
+    span = _section(_doc(), "5.").subsections[4]
     assert "no counterpart in the original analysis" in " ".join(span.body)
     assert "closure" in " ".join(span.body)
 
@@ -470,7 +484,7 @@ def test_the_23_427_deviation_is_stated_where_the_case_is_introduced():
     """OR-137 -- OR-112's treatment one section over: an analyst comparing
     against the printed example finds the difference explained rather than
     discovering it."""
-    prose = _prose(_section(_doc(), "5.").subsections[0])
+    prose = _prose(_section(_doc(), "5.").subsections[1])
     assert "23.427(a)" in prose
     assert "registered deviation" in prose and "methods statement" in prose
 
@@ -490,6 +504,100 @@ def test_a_project_with_no_tail_states_its_absence_and_still_builds():
     assert appendix.absent_reason and not appendix.tables
     from sloads.report.oracle_latex import render_oracle_document
     assert render_oracle_document(doc)
+
+
+
+# --------------------------------------------------------------------------- #
+# 5.1 -- the surface the loads were run on (owner, 2026-09-07)
+# --------------------------------------------------------------------------- #
+def test_the_input_data_subsection_draws_the_surface_with_its_axis():
+    """Section 3.1's shape, one surface over.
+
+    Section 2.1 draws the same planform without the axis: that figure answers
+    "what shape is it", this one answers "where are the loads". The axis is
+    drawn through the very stations the distributed loads are stated at, so the
+    figure cannot show an axis the analysis did not use.
+    """
+    from sloads.modules.tail_span import build_tail_span
+
+    inputs = _section(_doc(), "5.").subsections[0]
+    assert inputs.title.endswith("Horizontal tail input data")
+    figure = next(f for f in inputs.figures if f.key == "planform_htail_lra")
+    assert figure.data is not None and not figure.absent_reason
+    names = [series.name for series in figure.data.series]
+    assert any("Horizontal tail" in n for n in names)
+    assert any("Elevator" in n for n in names), "the control surface is drawn on it"
+    assert any("Loads reference axis" in n for n in names)
+    stations = build_tail_span(io.load_project(_GA))["htail"][0].stations
+    assert len(figure.data.points) == len(stations)
+
+
+def test_the_input_data_subsection_states_the_axis_station_by_station():
+    """The axis is a table as well as a line: a figure cannot be read off."""
+    from sloads.modules.tail_span import build_tail_span
+
+    inputs = _section(_doc(), "5.").subsections[0]
+    table = next(t for t in inputs.tables
+                 if t.title.startswith("Loads reference axis by station"))
+    stations = build_tail_span(io.load_project(_GA))["htail"][0].stations
+    assert len(table.rows) == len(stations)
+    assert "SF" not in table.columns, "geometry carries no factor"
+    # The constants moved here from the chordwise subsection: they are derived
+    # from the surface's geometry, not from the pressures they scale.
+    assert any(t.title == "Aerodynamic constants of the surface"
+               for t in inputs.tables)
+    chordwise = _section(_doc(), "5.").subsections[3]
+    assert not any(t.title == "Aerodynamic constants of the surface"
+                   for t in chordwise.tables)
+
+
+def test_the_spanwise_subsection_says_why_there_is_no_hinge_moment():
+    """Absence-is-content, and the specific absence a reader will look for.
+
+    The hinge line is known -- it is the chordwise station the pressure
+    distribution is built on -- so a missing hinge moment is a modelling choice,
+    not a missing calculation, and the subsection names the two inputs that
+    would change it rather than leaving the reader to find them.
+    """
+    span = _section(_doc(), "5.").subsections[4]
+    prose = " ".join(span.body)
+    assert "no hinge moment is stated" in prose
+    assert "hinge line itself is known" in prose
+    assert "actuator" in prose and "span" in prose
+    root = next(t for t in span.tables if t.title.endswith("at the root (LIMIT)"))
+    assert not any("Hinge" in c for c in root.columns), (
+        "a column of dashes is not a statement")
+
+
+def test_appendix_d_places_every_load_on_the_airplane():
+    """The deck is loadable: every row carries the point its force acts at.
+
+    In airplane axes, from the same mapper the exported deck uses, so a row here
+    and a card in the deck place the same load at the same point.
+    """
+    from sloads.export.coordinates import tail_station_to_airplane
+    from sloads.modules.tail_span import build_tail_span
+
+    table = _appendix(_doc(), oc.HTAIL_LOAD_STATIONS).tables[0]
+    assert [c.split(" ")[0] for c in table.columns[:6]] == [
+        "Case", "GID", "X", "Y", "Z", "Fz"]
+    # Built from the **projected** inputs, which is what the document is a
+    # function of (OR-43): the loads reference axis is an sloads-only field, so
+    # the projection returns it to the quarter chord and the axis moves with it.
+    # Comparing against the raw file would be comparing two different airplanes.
+    from sloads.field_registry import reduce_to_oracle_inputs
+
+    results = build_tail_span(reduce_to_oracle_inputs(io.load_project(_GA)))["htail"]
+    want = [tail_station_to_airplane(st.x, st.y, "htail", st.z)
+            for r in results for st in r.stations]
+    for row, (x, y, z) in zip(table.rows, want):
+        assert row[2] == format_value(x) and row[3] == format_value(y)
+        assert row[4] == format_value(z)
+    # Both surfaces span in ``y`` and load in ``z`` here, so the appendix spans
+    # the airplane rather than one side of it -- the check that this is the
+    # full-span set and not a half read twice.
+    ys = {float(r[3]) for r in table.rows}
+    assert min(ys) < 0 < max(ys)
 
 
 if __name__ == "__main__":                                    # pragma: no cover

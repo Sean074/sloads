@@ -321,20 +321,34 @@ def derived_fuselage_stations(project: Project) -> List[FuselageStation]:
     from 5 hand-entered lumps to 14 derived stations. ``body_loads``' closure is
     node-count independent (tested at 2/3/5/9/33 stations), so the finer table
     changes the distribution's fidelity, not its equilibrium.
+
+    Each station also carries the **weight-weighted centroid** of the items
+    lumped into it, as ``y``/``z`` (v62). The station is where the beam takes the
+    mass; the centroid is where that mass actually sits, and the two are not the
+    same statement -- on ``ga6_normal`` the body masses span waterline 52 to 105.
+    Ch 15's vertical solve reads neither, so nothing here moves a load; what they
+    give is the mass's position in the exported model, the side view of the body,
+    and the arm any later longitudinal load would need. A zero-weight lump
+    contributes nothing to the centroid and cannot divide by zero: the station
+    keeps ``0.0``, which reads as *not stated* exactly as an unentered one does.
     """
     dist = distribution(project)
-    lumps: List[Tuple[float, float]] = sorted(
-        ((it.x, it.weight_lb) for c in BEAM_COMPONENTS
+    lumps: List[Tuple[float, float, float, float]] = sorted(
+        ((it.x, it.weight_lb, it.y, it.z) for c in BEAM_COMPONENTS
          for it in dist.by_component.get(c, [])),
         key=lambda p: p[0],
     )
     merged: List[List[float]] = []
-    for x, w in lumps:
+    for x, w, y, z in lumps:
         if merged and abs(x - merged[-1][0]) <= STATION_MERGE_TOL:
             merged[-1][1] += w
+            merged[-1][2] += w * y
+            merged[-1][3] += w * z
         else:
-            merged.append([x, w])
-    return [FuselageStation(x=x, weight_lb=w) for x, w in merged]
+            merged.append([x, w, w * y, w * z])
+    return [FuselageStation(x=x, weight_lb=w,
+                            y=(my / w if w else 0.0), z=(mz / w if w else 0.0))
+            for x, w, my, mz in merged]
 
 
 def fuselage_beam_stations(project: Project) -> List[FuselageStation]:

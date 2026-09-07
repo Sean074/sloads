@@ -579,6 +579,21 @@ again; L-8d's mutation case stays parked); F25-2.
   exposure is internal. Mechanical rename plus a guard that no new `fin_`
   identifier appears; tier S. **Blocked on the 0.8.2 cut** — it reaches
   `sloads/modules/tail_span.py`, frozen under OR-13. Raised while closing #160.
+- **The h-tail beam is modelled at the wing root waterline, and the report now
+  prints it.** `tail_span._h_tail_waterline` returns `layout.root_waterline_z`
+  for a conventional tail — 78.5 in on `ga6_normal`, whose h-tail mass item is
+  entered at **111.0**, so the tailplane's beam sits 32.5 in low. Its docstring
+  argues the error is harmless because `z` carries no moment for a surface that
+  loads in `fz` only, and that is true of the loads; it stopped being the whole
+  story on 2026-09-07, when Appendix D began printing the station's airplane
+  coordinates and the exported deck's `GRID`s were already carrying them. Same
+  class as the fin root (#160) and the fuselage LRA: a derived stand-in where
+  the project states the real value, with nothing saying so. The h-tail has no
+  `ref_waterline` of its own; the candidates are the entered `htail` mass item's
+  `z`, the fin-root-plus-span relation already used for a T-tail, and an entered
+  scalar. **Found 2026-09-07 building note 44 §17's Appendix D; filed not fixed**
+  — it moves `GRID` positions on every conventional-tail fixture and wants its
+  own step. Tier M.
 - **#171** — *Two examples are stored at 1-space JSON indent* while
   `io.save_project` writes `indent=2`, so any programmatic re-stamp reformats
   them wholesale and hides the real edit. Tier S; carried from #169, recorded in

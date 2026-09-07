@@ -1,5 +1,5 @@
 {
-  "schema_version": 61,
+  "schema_version": 62,
   "name": "Cessna 210 Centurion \u2014 Continental IO-520-A",
   "engines": [
     {
@@ -945,7 +945,7 @@
         "weight_lb": 70
       }
     ],
-    "ref_waterline": 60.0,
+    "ref_waterline": 88.7,
     "stations_are_override": false
   },
   "select_input": {

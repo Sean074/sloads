@@ -1,5 +1,5 @@
 {
- "schema_version": 61,
+ "schema_version": 62,
  "name": "GA 6-place single (Appendix A) \u2014 Continental IO-520-BB",
  "engines": [
   {
@@ -1121,7 +1121,7 @@
     "weight_lb": 405
    }
   ],
-  "ref_waterline": 55.0,
+  "ref_waterline": 87.7,
   "stations_are_override": false
  },
  "select_input": {

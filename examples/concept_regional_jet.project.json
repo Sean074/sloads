@@ -1,5 +1,5 @@
 {
- "schema_version": 61,
+ "schema_version": 62,
  "name": "RJ-50 concept \u2014 50-seat regional jet (concept mode, Part 25)",
  "engines": [
   {
@@ -867,7 +867,7 @@
     "weight_lb": 1300.0
    }
   ],
-  "ref_waterline": 66.0,
+  "ref_waterline": 53.3,
   "stations_are_override": false
  },
  "select_input": {

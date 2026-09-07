@@ -604,6 +604,28 @@ Design note 44 §13 (OR-94 … OR-102), §14/design note 50 (the carry-through) 
   at the stress analysis, not the external load a loads analysis delivers. 4.4
   states the consequence where the fitting loads are printed and cites the
   decision (note 44 §16).
+- **4.1 draws the body in side view (owner, 2026-09-07).** A station table
+  answers *how much, where along the body*; it cannot answer *does this look
+  like the airplane*. The figure is in the X-Z plane, which is the plane
+  Chapter 15 solves in, and carries the three things a reader checks the beam
+  against: each station's mass at the waterline it acts at, the beam those
+  masses are carried on, and the stations the load enters and leaves at — the
+  wing carry-through's two spars and the horizontal tail's balancing load.
+- **The beam table states where the mass is, and the beam says where it runs
+  (owner, 2026-09-07; schema v62).** `FuselageStation` gains `y`/`z`, the
+  weight-weighted centroid of the items lumped at that station, and 4.1 **SHALL**
+  state them alongside the beam's own waterline and **SHALL** say that
+  Chapter 15's vertical solve reads neither — only `x` enters its shear and its
+  bending. On `ga6_normal` the body mass spans waterline 52 to 105 about a beam
+  at 87.7, and a reader who took the spread for something the loads used would
+  be reading a fact about the airplane as a fact about the analysis.
+- **The case reference is the identity in every table (owner, 2026-09-07).** The
+  pull-up and wing-attach tables drop their condition-name columns: `F-01` is
+  the machine identity (M4-9) and the name is stated once, in the register.
+- **Appendix C places its stations (owner, 2026-09-07).** `X`, `Y` and `Z` on
+  every row: the body beam runs down the centre plane on the fuselage loads
+  reference axis, so `Y` is zero by construction and `Z` is that axis's
+  waterline — the position of the structure, not of the mass it carries.
 - **Appendix C is a view of the export owner, not a second assembler.** Its rows
   are the ones `sbeam_bridge.body_span_load_csv` writes, in the same order with
   the same grid identifiers, converted at this document's own boundary rather
@@ -680,6 +702,39 @@ module `taildist`), which is **split by surface**: the horizontal tail is sectio
   docstring **SHALL** say so.
 - **The surface is the vertical tail; "fin" is retired (OR-138).** "v-tail"
   where space requires, `vtail` as the code token.
+- **The section opens with the surface it was run on (owner, 2026-09-07).** A
+  fifth subsection ahead of the rest, on section 3.1's shape: the planform with
+  its control surface, the loads reference axis drawn through the very stations
+  the distributed loads are stated at, and the axis station by station. The
+  aerodynamic constants move here from the chordwise subsection, because they
+  are derived from the surface's geometry rather than from the pressures they
+  scale. §2.1 keeps its own planform figure: that one answers *what shape is
+  it*, this one answers *where are the loads*.
+- **Every tail table keys on the case reference (owner, 2026-09-07).** `HT-01`,
+  not the condition name — the case reference is the machine identity every
+  other deliverable uses (M4-9), and the condition name and its regulation are
+  stated once, in the register, rather than repeated in four tables. The
+  register gains the safety factor, so the factor is stated wherever the case is
+  named. The aerodynamic-state table prints **ahead of** the loads table: a
+  reader checks what the airplane was doing before reading what that did to the
+  surface.
+- **5.5 states why there is no hinge moment (owner, 2026-09-07).** The hinge
+  line is known — it is the chordwise station the pressure distribution is built
+  on — so a missing hinge moment is a modelling choice and not a missing
+  calculation, and the subsection **SHALL** say so and name the two inputs that
+  would change it (the hinges' and the actuator's span stations, which select
+  the discrete load path). A column of dashes is not a statement, so the control
+  columns go rather than print empty.
+- **Appendix D is an applied-load deck and nothing else (owner, 2026-09-07).**
+  `Case | GID | X | Y | Z | Fz | SF`, the point in **airplane axes** from the
+  same mapper the exported deck uses. Appendix B splits applied from carried
+  because the wing section is where a reader checks a beam model's own answer;
+  the empennage appendix is a deck to load a model *with*, so what the structure
+  carries is stated at the root in the section instead. There is **no `Fx`
+  column**: this analysis models no chordwise force on either tail surface and
+  no empennage dihedral, so the other components are absent by construction
+  rather than zero by measurement, and OR-61's ruling — a column of zeros reads
+  as a measured zero — keeps them out. The appendix states both absences.
 - **The Appendix A tail oracles are not reproducible from the shipped
   fixture, and the document is not pinned to them.** They are selected from a
   three-altitude envelope while every case `ga6_normal` delivers is at sea
@@ -832,13 +887,17 @@ without a guard is prose, not a gate).
 | Section 4 delivers LIMIT with the factor stated (OR-94a) | 2026-09-06 | `test_oracle_report_fuselage.py::test_no_load_the_fuselage_section_prints_is_marked_ultimate`, `::test_every_fuselage_load_table_states_the_factor_it_does_not_apply`, `::test_the_critical_summary_prints_the_analysis_own_unscaled_values` |
 | Appendix C and the exported CSV are one load set (OR-101) | 2026-09-06 | `test_oracle_report_fuselage.py::test_the_appendix_table_and_the_exported_csv_are_one_load_set` |
 | Section 2 marks nothing ultimate; load factors identified as LIMIT | 2026-08-30 | `test_oracle_report.py::test_section_two_marks_nothing_ultimate_and_states_no_safety_factor`, `::test_no_table_claims_a_load_factor_is_not_a_load`, `::test_reported_load_factors_are_identified_as_limit` |
-| 5. Horizontal Tail (split, numbering, appendices) | 2026-09-06 | `test_oracle_report_tail.py::test_the_tail_is_two_sections_and_five_renders_four_subsections`, `::test_the_tail_appendices_are_d_and_e_behind_the_first_three`, `::test_the_sections_below_the_tail_take_the_numbers_position_gives_them` |
+| 5. Horizontal Tail (split, numbering, appendices) | 2026-09-06 | `test_oracle_report_tail.py::test_the_tail_is_two_sections_and_five_renders_five_subsections`, `::test_the_tail_appendices_are_d_and_e_behind_the_first_three`, `::test_the_sections_below_the_tail_take_the_numbers_position_gives_them` |
 | 5. The OR-129 partition | 2026-09-06 | `test_oracle_report_tail.py::test_every_tail_condition_lands_in_exactly_one_section`, `::test_each_tail_section_names_the_step_and_component_it_is_built_from`, `test_oracle_report.py::test_every_result_producing_oracle_step_is_covered_exactly_once` |
 | 5.1 Design conditions | 2026-09-06 | `test_oracle_report_tail.py::test_the_23_427_deviation_is_stated_where_the_case_is_introduced`, `::test_section_five_points_at_the_non_conventional_tail_limitation`, `::test_every_appendix_a_condition_is_present_and_named_as_the_oracle_names_it` |
 | 5.2 Critical loads and control-surface loads | 2026-09-06 | `test_oracle_report_tail.py::test_every_condition_states_its_elevator_load`, `::test_the_unsymmetrical_row_states_its_split_beside_its_elevator_load`, `::test_the_checked_pair_states_the_pitch_inertia_it_was_computed_with`, `::test_every_condition_states_its_aero_state_or_the_reason_there_is_none`, `::test_the_printed_totals_are_the_modules_own_unscaled_values` |
 | 5.3 Chordwise distribution | 2026-09-06 | `test_oracle_report_tail.py::test_the_printed_pressures_are_taildists_own`, `::test_the_chord_stations_print_once_and_the_constants_are_reference_data`, `::test_the_chordwise_figure_plots_every_condition_once` |
 | 5.4 Spanwise loads and Appendix D | 2026-09-06 | `test_oracle_report_tail.py::test_appendix_d_and_the_tail_span_csv_are_one_load_set`, `::test_the_spanwise_notation_defines_every_symbol_a_column_uses`, `::test_the_spanwise_subsection_states_it_has_no_printed_oracle` |
 | 5. The basis and absence | 2026-09-06 | `test_oracle_report_tail.py::test_no_load_the_tail_section_prints_is_marked_ultimate`, `::test_every_tail_load_table_states_the_factor_it_does_not_apply`, `::test_a_project_with_no_tail_states_its_absence_and_still_builds` |
+| 5.1 Input data, axis and constants | 2026-09-07 | `test_oracle_report_tail.py::test_the_input_data_subsection_draws_the_surface_with_its_axis`, `::test_the_input_data_subsection_states_the_axis_station_by_station` |
+| 5.5 The hinge-moment absence | 2026-09-07 | `test_oracle_report_tail.py::test_the_spanwise_subsection_says_why_there_is_no_hinge_moment` |
+| Appendix D as an applied deck | 2026-09-07 | `test_oracle_report_tail.py::test_appendix_d_places_every_load_on_the_airplane`, `::test_appendix_d_and_the_tail_span_csv_are_one_load_set` |
+| 4.1 Side view, and mass against beam | 2026-09-07 | `test_oracle_report_fuselage.py::test_the_side_view_draws_the_mass_the_beam_and_the_load_paths`, `::test_the_beam_table_states_where_the_mass_is_and_where_the_beam_runs` |
 
 ## 8. Conformance
 

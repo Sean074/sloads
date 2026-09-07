@@ -188,6 +188,21 @@ def _hop_60(d: Dict[str, Any]) -> Dict[str, Any]:
     return d
 
 
+def _hop_61(d: Dict[str, Any]) -> Dict[str, Any]:
+    """v61 -> v62 (owner, 2026-09-07): **identity**.
+
+    v62 adds ``FuselageStation.y``/``.z`` -- the butt line and waterline the
+    lumped mass acts at, distinct from ``FuselageMassInput.ref_waterline``, which
+    is where the *beam* runs. ``0.0`` on both is exactly the v61 meaning ("not
+    entered") and is the default, so a v61 file loads bit-identical and the
+    resolver supplies the item database's own weight-weighted centroid as it does
+    for a station that never stated one. Ch 15's solve is a symmetric-flight
+    vertical beam and reads neither coordinate, so no delivered fuselage load can
+    move across this hop.
+    """
+    return d
+
+
 #: ``{from_version: hop}`` -- applied in ascending order, each turning a file of
 #: version *n* into version *n+1* shape. A version that changes shape adds its
 #: hop here; :data:`SUPPORTED_FLOOR` names the oldest version the chain starts
@@ -199,6 +214,7 @@ MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     58: _hop_58,
     59: _hop_59,
     60: _hop_60,
+    61: _hop_61,
 }
 
 #: The oldest project version this build reads. It sat at ``SCHEMA_VERSION``

@@ -359,7 +359,7 @@ def fields_hash() -> str:
 #: that means exactly what v59 meant, so the 59->60 hop is an identity, and a
 #: shape change all the same because ``LoadValue`` is persisted inside
 #: ``critical.conditions[].loads``.
-EXPECTED_FIELDS_HASH = "a9394e105af4d081"
+EXPECTED_FIELDS_HASH = "990aad17864c2702"
 
 
 def test_persisted_dataclass_shapes_are_unchanged():

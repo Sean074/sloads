@@ -300,7 +300,14 @@ from .results import EnvelopeResult, LoadsResult, MassResult
 # file that *entered* a fraction has its station computed from its own polylines,
 # so an entered carry-through survives as the same physical station instead of
 # reverting to a default.
-SCHEMA_VERSION = 61
+# v62 (note 44 §17 follow-up, owner 2026-09-07): ``FuselageStation`` gains
+# ``y``/``z``, the butt line and waterline the lumped mass acts at. Additive and
+# an identity hop -- a v61 file loads with both at ``0.0``, which is the
+# not-entered value the resolver fills from the item database's own
+# weight-weighted centroid. They are *where the mass is*, distinct from
+# ``FuselageMassInput.ref_waterline``, *where the beam runs*; Ch 15's vertical
+# solve reads neither, so no delivered fuselage load moves.
+SCHEMA_VERSION = 62
 
 
 @dataclass

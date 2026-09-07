@@ -1099,9 +1099,30 @@ class FuselageStation:
     that station (structure + fixed equipment + the payload apportioned to the
     body). The body inertia distribution for the fuselage net loads is built from
     these stations.
+
+    ``y``/``z`` are the butt line and waterline the lumped mass acts at (in, v62).
+    They are **where the mass is**, which is a different quantity from
+    ``FuselageMassInput.ref_waterline``, **where the beam runs** -- a station's
+    mass can sit well above or below the structural axis carrying it, and on
+    ``ga6_normal`` the body mass spans waterline 52 to 105 about a beam entered at
+    55. Ch 15's solve is a symmetric-flight vertical beam, so neither coordinate
+    enters its shear or bending -- only ``x`` does -- but they place the mass in
+    the exported model, they are what a side view of the body is drawn from, and
+    they are what a later analysis carrying a longitudinal load would take its
+    moment arm from.
+
+    ``0.0`` on both means *not entered*, and the resolver
+    (:func:`sloads.mass_distribution.derived_fuselage_stations`) supplies the
+    weight-weighted centroid of the item-database masses lumped into that
+    station -- note 36's OV-1 contract, blank derives and typed overrides. A
+    station table marked ``stations_are_override`` is taken exactly as typed,
+    zeros included, because an override that was silently filled in from
+    elsewhere would not be one.
     """
     x: float
     weight_lb: float = 0.0
+    y: float = 0.0
+    z: float = 0.0
 
 
 @dataclass
