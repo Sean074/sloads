@@ -67,6 +67,15 @@ def _sbeam_artifacts(project, comps, cases):
         art["fuselage_loads.bdf"] = _try(sb.body_force_moment_cards, comps.body)
         art["fuselage_span_loads.csv"] = _try(sb.body_span_load_csv, comps.body)
         art["fuselage_fitting_loads.csv"] = _try(sb.body_fitting_load_csv, comps.body)
+        art["fuselage_applied_loads.csv"] = _try(
+            sb.applied_load_csv, comps.body, component="fuselage", project=project)
+    if comps.tail:
+        from sloads.modules.tail_span import build_tail_span
+
+        spans = _try(build_tail_span, project) or {}
+        for _surface in ("htail", "vtail"):
+            art[sb.APPLIED_CSV_NAMES[_surface]] = _try(
+                sb.applied_load_csv, spans.get(_surface) or [], component=_surface)
     if comps.tail:
         art["tail_loads.bdf"] = _try(sb.tail_force_moment_cards, comps.tail)
         art["tail_chordwise.csv"] = _try(sb.tail_chordwise_csv, comps.tail)

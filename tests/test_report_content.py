@@ -492,6 +492,9 @@ MANIFEST_BASIS_CONTAINS = {
     "sbeam/<project>_wing_loads.bdf": ("torsion about the", "LIMIT"),
     "sbeam/<project>_fuselage_span_loads.csv": ("torsion Mxx about the body X axis",
                                                 "LIMIT"),
+    "sbeam/<project>_fuselage_applied_loads.csv": ("applied increments", "LIMIT"),
+    "sbeam/<project>_htail_applied_loads.csv": ("free torsion is My", "LIMIT"),
+    "sbeam/<project>_vtail_applied_loads.csv": ("free torsion is Mz", "LIMIT"),
     "sbeam/<project>_tail_chordwise.csv": ("Fn is normal to the surface", "LIMIT"),
     "sbeam/<project>_tail_loads.bdf": ("normal to each surface", "LIMIT"),
 }
@@ -564,6 +567,11 @@ SUMMARISED_IN = {
     "sbeam/<project>_fuselage_span_loads.csv": ("results", "Fuselage"),
     "sbeam/<project>_fuselage_loads.bdf": ("results", "Fuselage"),
     "sbeam/<project>_fuselage_fitting_loads.csv": ("results", "Fuselage"),
+    "sbeam/<project>_fuselage_applied_loads.csv": ("results", "Fuselage"),
+    "sbeam/<project>_htail_applied_loads.csv":
+        ("results", "Horizontal tail / Vertical tail"),
+    "sbeam/<project>_vtail_applied_loads.csv":
+        ("results", "Horizontal tail / Vertical tail"),
     "sbeam/<project>_tail_chordwise.csv": ("results", "Horizontal tail / Vertical tail"),
     "sbeam/<project>_tail_loads.bdf": ("results", "Horizontal tail / Vertical tail"),
     "sbeam/<project>_control_surface_loads.csv": ("results", "Control surfaces"),

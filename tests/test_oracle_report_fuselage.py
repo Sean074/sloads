@@ -165,7 +165,9 @@ def test_every_fuselage_load_table_states_the_factor_it_does_not_apply():
     table whose basis a reader has to infer."""
     doc = _doc()
     for prefix in ("Critical fuselage loads", "Pull-up maneuver",
-                   "Wing-attach fitting loads", "Fuselage loads by station"):
+                   "Wing-attach fitting loads",
+                   "Applied fuselage loads by station",
+                   "Cumulative fuselage loads by station"):
         table = _table(doc, prefix)
         assert "SF" in table.columns, table.title
         column = table.columns.index("SF")
@@ -344,13 +346,28 @@ def test_the_register_names_its_negative_load_factor_condition():
 
 
 def test_the_notation_states_the_three_symbols_and_tabulates_no_zeros():
-    """OR-100 -- the absences are written out, not printed as zero columns."""
+    """OR-100 -- the absences are written out, not printed as zero columns.
+
+    Scoped to section 4 (2026-09-07). OR-140 supersedes this for the **applied
+    appendix**, and only there: an appendix that is a deck publishes the whole
+    six-component vector and names the producer each zero lacks, because a
+    consumer writing FORCE/MOMENT cards cannot otherwise tell a zero from an
+    omission. The reasoning behind OR-100 is untouched everywhere else -- a
+    column of zeros in a *results* table still reads as a measured zero -- so
+    the gate keeps its reach over section 4's own tables and the cumulative
+    appendix, which is where it was aimed.
+    """
     doc = _doc()
     table = _table(doc, "Notation")
     assert [row[0] for row in table.rows] == ["X", "Fz", "Sz", "Myy"]
+    applied = _table(doc, "Applied fuselage loads by station")
     for other in _body_tables(doc):
+        if other is applied:
+            continue
         for column in other.columns:
             assert not column.startswith(("Sy ", "Mxx ", "Mzz ", "Fy ")), column
+    # ...and where the applied appendix does print them, it says why.
+    assert "Fx and Fy are zero for every row" in (applied.note or "")
     assert "no lateral shear and no lateral bending" in _prose(_section_four(doc))
 
 
@@ -368,19 +385,25 @@ def test_the_appendix_table_and_the_exported_csv_are_one_load_set():
     project = reduce_to_oracle_inputs(io.load_project(_GA))
     net = body_loads.build_body_loads(project)
     exported = list(csv.DictReader(_io.StringIO(body_span_load_csv(net))))
-    table = _table(_doc(project=project), "Fuselage loads by station")
-    assert len(table.rows) == len(exported)
-    columns = {name: index for index, name in enumerate(table.columns)}
-    for row, out in zip(table.rows, exported):
-        assert row[columns["GID"]] == out["GID"]
-        assert row[columns["SF"]] == out["SF"]
-        # The two renderers round differently -- the document to significant
-        # figures, the deck to a fixed decimal -- so the values are compared as
-        # numbers, which is what "one load set" means.
-        for column in ("X (in)", "Fz (lb)", "Sz (lb)", "Myy (lb-in)"):
-            table_value = float(row[columns[column]].replace(",", ""))
-            assert math.isclose(table_value, float(out[column]),
-                                rel_tol=1e-3, abs_tol=1.0), (column, row)
+    doc = _doc(project=project)
+    # Split into C.1 applied and C.2 carried (OR-144); between them they carry
+    # every column the export writes, and each is checked against it.
+    applied = _table(doc, "Applied fuselage loads by station")
+    carried = _table(doc, "Cumulative fuselage loads by station")
+    for table, names in ((applied, ("X (in)", "Fz (lb)")),
+                         (carried, ("X (in)", "Sz (lb)", "Myy (lb-in)"))):
+        assert len(table.rows) == len(exported)
+        columns = {name: index for index, name in enumerate(table.columns)}
+        for row, out in zip(table.rows, exported):
+            assert row[columns["GID"]] == out["GID"]
+            assert row[columns["SF"]] == out["SF"]
+            # The two renderers round differently -- the document to significant
+            # figures, the deck to a fixed decimal -- so the values are compared
+            # as numbers, which is what "one load set" means.
+            for column in names:
+                table_value = float(row[columns[column]].replace(",", ""))
+                assert math.isclose(table_value, float(out[column]),
+                                    rel_tol=1e-3, abs_tol=1.0), (column, row)
 
 
 # --------------------------------------------------------------------------- #
@@ -612,9 +635,10 @@ def test_appendix_c_places_every_station_on_the_airplane():
     """X, Y and Z on every row: the rows are placeable without a second file."""
     from sloads.derived_geometry import fuselage_lra
 
-    table = _appendix(_doc(), oc.BODY_LOAD_STATIONS).tables[0]
-    assert [c.split(" ")[0] for c in table.columns[:5]] == [
-        "Case", "GID", "X", "Y", "Z"]
-    assert {r[3] for r in table.rows} == {format_value(0.0)}, "the beam is on the centre plane"
+    table = _table(_doc(), "Applied fuselage loads by station")
+    assert [c.split(" ")[0] for c in table.columns[:6]] == [
+        "Case", "Station", "GID", "X", "Y", "Z"]
+    y, z = table.columns.index("Y (in)"), table.columns.index("Z (in)")
+    assert {r[y] for r in table.rows} == {format_value(0.0)}, "the beam is on the centre plane"
     lra = fuselage_lra(reduce_to_oracle_inputs(io.load_project(_GA)))
-    assert {r[4] for r in table.rows} == {format_value(lra.z_at(0.0))}
+    assert {r[z] for r in table.rows} == {format_value(lra.z_at(0.0))}
