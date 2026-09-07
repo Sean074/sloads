@@ -401,3 +401,125 @@ def test_the_marker_legend_is_named_by_the_figure_not_by_the_emitter():
     assert r"\addlegendentry{Gust design points}" in plot_tex(data)
     # The default is preserved, so the summary report's figure is unchanged.
     assert PlotData("x", "y").points_label == "Design CG cases"
+
+
+# --------------------------------------------------------------------------- #
+# Column widths: the floor, and the page that is turned to honour it
+# --------------------------------------------------------------------------- #
+def _every_oracle_table():
+    """Every table both shipped reports print, with its section's orientation."""
+    from sloads.models.report import ReportSpec
+    from sloads.report.oracle_content import build_oracle_document
+
+    def walk(section, turned=False):
+        # ``landscape`` is a property of the appendix while its tables live in
+        # its subsections, so the flag is inherited here exactly as
+        # ``section_tex`` inherits it.
+        turned = turned or section.landscape
+        out = [(turned, t) for t in section.tables]
+        for sub in section.subsections:
+            out += walk(sub, turned)
+        return out
+
+    for name in ("ga6_normal", "baron_58"):
+        path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            "examples", f"{name}.project.json")
+        doc = build_oracle_document(io.load_project(path), ReportSpec())
+        for section in doc.sections:
+            for turned, table in walk(section):
+                if table.rows:
+                    yield name, turned, table
+
+
+def test_no_column_is_narrower_than_its_longest_unbreakable_token():
+    """A ``p`` column wraps between words and never inside one, so a column
+    below this floor does not wrap -- it prints on top of its neighbour.
+
+    This is the gate for a defect that shipped: the width solver used to scale
+    every column proportionally when the slack ran out, floor included. On
+    ``ga6_normal`` the ``14 CFR`` column of the pull-up manoeuvre table needed
+    63pt for ``23.423(a)(1)`` and was given 26, so the regulation printed over
+    the CG case as ``23.423(a)(1)G4`` and a reader could not tell which CG case
+    the condition was run at. Asserted over every table of both shipped
+    reports, at the size and on the page each is actually set on.
+    """
+    import math
+
+    from sloads.report import latex as L
+
+    for name, in_landscape, table in _every_oracle_table():
+        turned = in_landscape or L.table_orientation(table)
+        size, _spec = L._table_size_and_spec(table, in_landscape=turned)
+        page = L.LANDSCAPE_WIDTH_PT if turned else L.TEXT_WIDTH_PT
+        available = page - 2 * L.TABCOLSEP_PT * len(table.columns)
+        required, _d, _n = L._column_asks_pt(table, L._CHAR_PT[size])
+        widths = L._column_widths_pt(table, L._CHAR_PT[size], available)
+        for column, floor, width in zip(table.columns, required, widths):
+            assert width >= floor - 0.01, (
+                f"{name}: {table.title!r} column {column!r} is {width:.1f}pt "
+                f"against a floor of {floor:.1f}pt -- its longest token will "
+                f"print on top of the next column")
+        # ...and the sum still fits the page it is set on, so honouring the
+        # floor has not simply moved the overflow to the right-hand margin.
+        assert math.fsum(widths) <= available + 0.01, (name, table.title)
+
+
+def test_a_table_is_turned_only_when_it_cannot_be_set_upright():
+    """The remedy of last resort, and never before the last resort.
+
+    Turning a table costs the reader a rotated page away from the prose that
+    introduces it, so it happens only when no upright size holds every token.
+    Both directions: a table that fits is never turned, and one that does not
+    always is.
+    """
+    from sloads.report import latex as L
+
+    turned = set()
+    for name, in_landscape, table in _every_oracle_table():
+        if in_landscape:
+            # Already on a turned page: it must not open a second one.
+            assert not L.table_orientation(table, in_landscape=True), table.title
+            continue
+        fits = any(L._fits(table, size,
+                           L.TEXT_WIDTH_PT - 2 * L.TABCOLSEP_PT * len(table.columns))
+                   for size in ((r"\footnotesize",) if table.small
+                                else (r"\small", r"\footnotesize")))
+        assert L.table_orientation(table) is not fits, table.title
+        if not fits:
+            turned.add((name, table.title))
+    # The one table on either airplane that genuinely cannot be set upright:
+    # eleven columns of case identity, weight, CG, two stations, three loads, a
+    # moment and the factor. Pinned so that a table quietly becoming unfittable
+    # is a visible change rather than a silent rotation.
+    assert {t for _n, t in turned} == {"Pull-up maneuver fuselage loads (LIMIT)"}
+
+
+def test_a_turned_table_opens_exactly_one_landscape_environment():
+    """Nesting landscape environments turns the page back to portrait."""
+    from sloads.report import latex as L
+
+    for _name, in_landscape, table in _every_oracle_table():
+        tex = L.table_tex(table, in_landscape=in_landscape)
+        opens = tex.count(r"\begin{landscape}")
+        assert opens == tex.count(r"\end{landscape}")
+        assert opens <= 1, table.title
+        if in_landscape:
+            assert opens == 0, table.title
+
+
+def test_the_running_head_declares_the_height_it_needs():
+    """``fancyhdr`` warned once per page -- 77 times on the report's own example
+    -- that a ``\\small`` head does not fit the 12pt default. Both reports set
+    their own head, so both are asserted; the warning is noise a real one hides
+    in."""
+    from sloads.models.report import ReportSpec
+    from sloads.report.oracle_content import build_oracle_document
+    from sloads.report.oracle_latex import render_oracle_document
+
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "examples", "ga6_normal.project.json")
+    oracle = render_oracle_document(build_oracle_document(io.load_project(path),
+                                                          ReportSpec()))
+    assert r"\setlength{\headheight}{14pt}" in oracle
+    summary = render_report(io.load_project(path))
+    assert r"\setlength{\headheight}{14pt}" in summary

@@ -92,11 +92,53 @@ fixed: `weight.items[].consumable` is reset the same way, moving
 weight slice, on a fixture the report is not built for; the drift guard names it rather
 than exempting it silently.
 
+**The owner's review of the built section, and the typeset page (2026-09-07).** Two
+findings came from reading the document rather than the code, and both are in this step.
+
+*The vertical tail's loads reference axis was drawn along its root.* `WingStationLoad`
+says its coordinates are airplane axes; for the wing and the horizontal tail they are,
+which is why section 5 read them directly and was correct, and why the error was
+invisible until a second surface used the same builder. On the fin `y` is the span
+coordinate in the surface's own plane and `z` is the root waterline it is measured from,
+so 6.1's figure drew a flat row of markers along the constant 111.5 root instead of
+climbing to 167.1, and its station table called the height above the root a butt line.
+The mapping already had an owner — `export.coordinates.tail_station_to_airplane`, which
+is why the deck and Appendices D and E were right — and 6.1 now goes through it. This is
+the same shape as OR-134a one layer down: a value whose meaning is decided elsewhere,
+with the type it is stored in asserting the opposite. The docstring that asserted it has
+been corrected.
+
+*A table printed one column on top of another.* The width solver documents a floor — a
+column is never narrower than its longest unbreakable token — and its last fallback
+scaled every column straight past it. Table 25's `14 CFR` column needed 63pt for
+`23.423(a)(1)` and was given 26, so the regulation overprinted the CG case as
+`23.423(a)(1)G4`: not a tight table but a corrupt one, in which case identity could not
+be read. The floor is absolute now, and a table that cannot be set upright is **turned**
+(owner, 2026-09-07) rather than shrunk a third time — another size step buys about 12 %
+and fails on the next wide table, while turning the page buys 53 % and never puts 8pt
+type in a signed document. Fixing it exposed two more: every landscape appendix was
+being sized against the portrait width, and `fancyhdr` had been warning once per page,
+77 times, that the running head did not fit. Building `ga6_normal` went from 33 overfull
+boxes and 77 `fancyhdr` warnings, worst 23.3pt, to **4 overfull boxes, worst 0.79pt**.
+
+**Filed, not fixed.** The fin's root is raked — `ga6_normal`'s vertical tail meets the
+body with its leading edge at waterline 117.0 and its trailing edge at 111.5 — and the
+planform resolver rebases both onto a single root at 111.5. The bottom two load stations
+then sit at X 284.9 and 268.9 against 262.9 immediately above them, so the axis kinks aft
+at the root. Visible in Figure 24 now that the axis is drawn in the right plane at all.
+
 **Test.** `tests/test_oracle_report_vtail.py` — G-OR-80 (five subsections, mirrored),
 G-OR-83 (SELECT's own unscaled totals; every Appendix A condition present under the
 oracle's name), G-OR-86 (a rudder load on all four conditions, both fixtures), G-OR-87
 (the withholding over every `TailType`, the shipped T-tails, the `CRUCIFORM` diff, and
 the companion gate that the calc still produces the loads on all three T-tail
 fixtures), G-OR-88 (the yaw inertia's provenance), OR-131 (neither section borrows the
-other's requirements), OR-133a both ways, and the reduction drift guard. Suite **3621
-passed**, ruff and mypy clean.
+other's requirements), OR-133a both ways, and the reduction drift guard, plus three
+gates on the loads reference axis: the fin's stations climb a waterline and stay on the
+centreline, the horizontal tail's still span a butt line and share one waterline, and
+each figure draws its axis in the plane its surface is in. `tests/test_report_latex.py`
+— no column narrower than its own floor and the widths still fitting the page, on every
+table of both shipped reports; a table turned only when no upright size holds it, both
+directions, with the one that is pinned; exactly one landscape environment per turned
+table; and both renderers declaring their head height. Suite **3628 passed**, ruff and
+mypy clean.

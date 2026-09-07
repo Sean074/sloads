@@ -84,6 +84,13 @@ def _headers(doc: ReportDocument) -> str:
         r"\fancyfoot[R]{\small Page \thepage\ of \pageref{LastPage}}",
         r"\renewcommand{\headrulewidth}{0.4pt}",
         r"\renewcommand{\footrulewidth}{0.4pt}",
+        # The running head is set in ``\small``, which is taller than the 12pt
+        # ``\headheight`` ``geometry`` leaves by default, and ``fancyhdr`` warned
+        # about it once per page -- 77 warnings on the report's own example, all
+        # of them the same warning, which is the noise a real one hides in.
+        # ``includeheadfoot`` is already set, so the text block moves with it and
+        # the margin stays 22mm.
+        r"\setlength{\headheight}{14pt}",
     ])
 
 
@@ -169,11 +176,64 @@ def paragraphs_tex(text: str) -> str:
 # preamble sets.
 #: A4 (210mm) less the 22mm margins in :data:`PREAMBLE`, in TeX points.
 TEXT_WIDTH_PT = (210.0 - 2 * 22.0) * 72.27 / IN_TO_MM
+#: The same page turned, **measured** rather than derived from the paper size.
+#:
+#: A table inside a ``landscape`` environment has this much room, not
+#: :data:`TEXT_WIDTH_PT`. Sizing every table to the portrait width regardless
+#: squeezed the appendices -- which are all landscape -- into two-thirds of the
+#: page they were actually printed on, and pushed the Baron's applied-wing-load
+#: table below its own floor for want of space that was there all along.
+#:
+#: A4's long edge less the margins is 719.9pt, and that is **wrong** by 67pt:
+#: ``includeheadfoot`` takes the running head and footer out of the text block,
+#: and ``lscape`` swaps in the reduced ``\textheight``. The figure below is
+#: ``\the\linewidth`` inside ``\begin{landscape}`` on this module's own
+#: preamble. It is taken at the *draft* footskip, the larger of the two, so it
+#: understates the room a signed report has -- which is the safe direction: a
+#: column then gets slightly more width than asked for, never less.
+LANDSCAPE_WIDTH_PT = 652.85
 #: LaTeX's default half-gutter, applied twice per column.
 TABCOLSEP_PT = 6.0
-#: Average glyph width, by table font size, measured generously enough to cover
-#: bold headers and digit-heavy cells (Latin Modern at 11pt base).
+#: Average glyph width, by table font size (Latin Modern at 11pt base).
 _CHAR_PT = {r"\small": 5.0, r"\footnotesize": 4.5}
+#: Glyph width by character class, relative to :data:`_CHAR_PT`'s 0.5 em average.
+#:
+#: Latin Modern's characters are not one width, and the differences are large
+#: enough to matter to a floor: an upper-case letter is about 0.68 em against a
+#: lower-case 0.48 and a digit's exact 0.5, and a parenthesis or a full stop is
+#: narrower still. A ``required`` width computed from the average alone
+#: underestimates precisely the tokens tables are full of -- ``UNSYMMETRICAL``,
+#: ``GID``, ``(KEAS)`` -- and overestimates prose, which is the wrong way round
+#: for a floor whose whole job is to stop an unbreakable token overprinting.
+_WIDTH_CLASS = {"upper": 1.36, "lower": 0.96, "digit": 1.00, "narrow": 0.65}
+#: The characters taken as narrow: punctuation a table's tokens are built from.
+_NARROW_CHARS = "().,-:;'\"/[]|"
+
+
+def _token_width(token: str) -> float:
+    """``token``'s width in average-glyph units, by character class."""
+    total = 0.0
+    for ch in token:
+        if ch.isupper():
+            total += _WIDTH_CLASS["upper"]
+        elif ch.isdigit():
+            total += _WIDTH_CLASS["digit"]
+        elif ch in _NARROW_CHARS:
+            total += _WIDTH_CLASS["narrow"]
+        else:
+            total += _WIDTH_CLASS["lower"]
+    return total
+
+
+#: Bold runs wider than roman at the same size, and every header is ``\textbf``.
+#:
+#: Measured, not guessed: Latin Modern Roman bold is about 7 % wider than the
+#: upright face over the mixed alphabetic strings these headers are. Without it
+#: a header was measured against the body's average glyph and one-word headings
+#: -- ``Case``, ``Condition``, ``(KEAS)`` -- overflowed their columns by a
+#: point or three, which is most of the overfull warnings this file used to
+#: produce.
+_BOLD_FACTOR = 1.12
 #: Cell length beyond which a column stops asking for more width and wraps
 #: instead -- one long note must not squeeze every other column to nothing.
 _MAX_CHARS = 26
@@ -181,26 +241,58 @@ _MAX_CHARS = 26
 _PAD_PT = 3.0
 
 
-def _column_widths_pt(table: Table, char_pt: float, available: float) -> List[float]:
-    """Column widths in points: what each column wants, capped to what fits.
+def _column_asks_pt(table: Table, char_pt: float
+                    ) -> Tuple[List[float], List[float], List[float]]:
+    """``(required, desired, natural)`` in points, per column.
 
-    Each column asks for ``desired`` (its typical cell, capped) but never less
-    than ``required`` (its longest unbreakable token). When the asks exceed the
-    page, the excess is taken from the columns that have slack between the two --
-    so a wide prose column shrinks and wraps while a numeric column keeps the
-    width its numbers need. Only if that is not enough is everything scaled down.
+    ``required`` is the width the column's longest **unbreakable token** needs:
+    a ``p`` column wraps between words and never inside one, so a column
+    narrower than this does not wrap, it overprints its neighbour. It is a
+    floor, and :func:`_column_widths_pt` treats it as one.
+
+    The header is measured as bold, because it is set bold. Measuring it with
+    the body's glyph width made every one-word heading a little too narrow.
     """
     required: List[float] = []
     desired: List[float] = []
     natural: List[float] = []
     for i, header in enumerate(table.columns):
-        cells = [str(row[i]) for row in table.rows if i < len(row)] + [header]
-        longest_word = max((len(w) for cell in cells for w in cell.split()), default=1)
-        longest_cell = max((len(cell) for cell in cells), default=1)
+        body = [str(row[i]) for row in table.rows if i < len(row)]
+        head_word = max((_token_width(w) for w in header.split()),
+                        default=1.0) * _BOLD_FACTOR
+        head_cell = _token_width(header) * _BOLD_FACTOR
+        longest_word = max([head_word]
+                           + [_token_width(w) for cell in body
+                              for w in cell.split()])
+        longest_cell = max([head_cell] + [_token_width(c) for c in body] or [1.0])
         required.append(longest_word * char_pt + _PAD_PT)
         desired.append(max(min(longest_cell, _MAX_CHARS) * char_pt + _PAD_PT,
                            required[-1]))
         natural.append(max(longest_cell * char_pt + _PAD_PT, desired[-1]))
+    return required, desired, natural
+
+
+def _column_widths_pt(table: Table, char_pt: float, available: float) -> List[float]:
+    """Column widths in points: what each column wants, capped to what fits.
+
+    Each column asks for ``desired`` (its typical cell, capped) but **never less
+    than** ``required`` (its longest unbreakable token). When the asks exceed
+    the page, the excess is taken from the columns that have slack between the
+    two -- so a wide prose column shrinks and wraps while a numeric column keeps
+    the width its numbers need.
+
+    **The floor is absolute.** This used to scale every column proportionally
+    when the slack ran out, floor included, and the result was not a tight table
+    but a corrupt one: on ``ga6_normal`` the ``14 CFR`` column of the pull-up
+    manoeuvre table needed 63pt for ``23.423(a)(1)`` and was given 26, so the
+    regulation printed on top of the CG case as ``23.423(a)(1)G4`` and a reader
+    could not tell which CG case the condition was run at. A table that will not
+    fit is turned onto its side by :func:`_table_size_and_spec`; it is never
+    made to overlap itself. Returning widths that sum past ``available`` is the
+    honest outcome of last resort -- visible, and impossible to mistake for a
+    number.
+    """
+    required, desired, natural = _column_asks_pt(table, char_pt)
     excess = math.fsum(desired) - available
     if excess <= 0:
         # Room to spare: hand it to the columns the cap held back, so a two-column
@@ -216,8 +308,7 @@ def _column_widths_pt(table: Table, char_pt: float, available: float) -> List[fl
     total_slack = math.fsum(slack)
     if total_slack >= excess:
         return [d - excess * s / total_slack for d, s in zip(desired, slack)]
-    scale = available / math.fsum(desired)
-    return [d * scale for d in desired]
+    return required
 
 
 #: Row count up to which a table is set as one unbreakable float.
@@ -230,16 +321,48 @@ def _column_widths_pt(table: Table, char_pt: float, available: float) -> List[fl
 UNBREAKABLE_ROWS = 30
 
 
-def _table_size_and_spec(table: Table) -> Tuple[str, str]:
+def _fits(table: Table, size: str, available: float) -> bool:
+    """Whether ``table`` can hold **every** unbreakable token at ``size``."""
+    required, _desired, _natural = _column_asks_pt(table, _CHAR_PT[size])
+    return math.fsum(required) <= available + 0.01
+
+
+def table_orientation(table: Table, *, in_landscape: bool = False) -> bool:
+    r"""Whether this table has to be turned onto its side to hold its content.
+
+    ``False`` when it fits the upright text block at one of its sizes, or when
+    the section is landscape already. A table is turned only when it cannot be
+    set upright without a column falling below the width its longest token needs
+    -- the failure that used to print one column on top of another.
+
+    Turning is the remedy rather than a third, smaller type size (owner,
+    2026-09-07): another step down buys about 12 % and fails again on the next
+    wide table, while the page has 53 % more room the moment it is turned, and
+    8pt type in a signed engineering document is a worse trade than a rotated
+    page. The mechanism is the one the appendices already use.
+    """
+    if in_landscape:
+        return False
+    available = TEXT_WIDTH_PT - 2 * TABCOLSEP_PT * len(table.columns)
+    sizes = (r"\footnotesize",) if table.small else (r"\small", r"\footnotesize")
+    return not any(_fits(table, size, available) for size in sizes)
+
+
+def _table_size_and_spec(table: Table, *,
+                         in_landscape: bool = False) -> Tuple[str, str]:
     r"""``(font-size command, column spec)`` for ``table``.
 
     A table that cannot hold its own tokens at ``\small`` drops to
     ``\footnotesize`` rather than overflowing -- the case index and the coverage
     matrix are wide by nature, and shrinking the type is the trade §4.4 already
-    accepts for them.
+    accepts for them. One that cannot hold them at ``\footnotesize`` either is
+    set on a turned page, and is measured against the width it will actually
+    have there.
     """
     ncols = len(table.columns)
-    available = TEXT_WIDTH_PT - 2 * TABCOLSEP_PT * ncols
+    turned = in_landscape or table_orientation(table)
+    page = LANDSCAPE_WIDTH_PT if turned else TEXT_WIDTH_PT
+    available = page - 2 * TABCOLSEP_PT * ncols
     sizes = (r"\footnotesize",) if table.small else (r"\small", r"\footnotesize")
     # The last size is used whether or not it fits -- there is nothing smaller to
     # fall back to. Seeding from it (rather than from ``None``) keeps both names
@@ -269,8 +392,13 @@ def _cell(table: Table, column: str, value: str) -> str:
     return text
 
 
-def table_tex(table: Table) -> str:
-    """One table as a ``longtable`` (booktabs rules, repeated header on a break)."""
+def table_tex(table: Table, *, in_landscape: bool = False) -> str:
+    """One table as a ``longtable`` (booktabs rules, repeated header on a break).
+
+    ``in_landscape`` says the section is turned already, so this table both
+    measures against the wider page and must not open a ``landscape``
+    environment of its own -- nesting them would turn the page back.
+    """
     if not table.rows:
         return ""
     ncols = len(table.columns)
@@ -300,7 +428,8 @@ def table_tex(table: Table) -> str:
         # package only; a standalone ``.tex`` sets no ``data_ref`` and is
         # guarded to keep it that way.
         return r"\input{" + table.data_ref + "}"
-    size, spec = _table_size_and_spec(table)
+    turned = table_orientation(table, in_landscape=in_landscape)
+    size, spec = _table_size_and_spec(table, in_landscape=in_landscape or turned)
     width = r"\setlength{\sltablewidth}{\dimexpr\linewidth-%d\tabcolsep\relax}" % (2 * ncols)
     if len(table.rows) <= UNBREAKABLE_ROWS:
         # A table short enough to fit a page is set as one unbreakable float, so
@@ -338,7 +467,13 @@ def table_tex(table: Table) -> str:
         ]
     if table.note:
         out.append(r"{\footnotesize\textit{" + escape(table.note) + "}}")
-    return "\n".join(out)
+    body_tex = "\n".join(out)
+    if turned:
+        # ``pdflscape`` clears the page, so the table lands on a turned page of
+        # its own with its caption and its note. That is the cost of the ruling
+        # and it is paid here rather than by a column overprinting another.
+        body_tex = "\n".join([r"\begin{landscape}", body_tex, r"\end{landscape}"])
+    return body_tex
 
 
 def figure_tex(figure: Figure) -> str:
@@ -364,13 +499,21 @@ def figure_tex(figure: Figure) -> str:
     return "\n".join(parts)
 
 
-def section_tex(section: Section, level: int) -> str:
+def section_tex(section: Section, level: int, *,
+                in_landscape: bool = False) -> str:
     r"""One section (and its subsections), unnumbered but present in the ToC.
 
     ``\section*`` rather than ``\section`` because the content model already
     carries the document's own numbering ("1. Input summary", "Appendix A ..."),
     and letting LaTeX number them too would print "1 1. Input summary".
+
+    ``in_landscape`` is inherited by the subsections, because ``landscape`` is a
+    property of the *appendix* while its tables live in its subsections: read
+    off the subsection alone, a table inside a turned appendix would believe it
+    was upright, measure against the narrow page and open a second ``landscape``
+    environment -- which turns the page back to portrait.
     """
+    turned = in_landscape or section.landscape
     command = {0: "section", 1: "subsection", 2: "subsubsection"}.get(level, "paragraph")
     title = escape(section.title)
     out = []
@@ -387,9 +530,9 @@ def section_tex(section: Section, level: int) -> str:
     for figure in section.figures:
         out.append(figure_tex(figure))
     for table in section.tables:
-        out.append(table_tex(table))
+        out.append(table_tex(table, in_landscape=turned))
     for sub in section.subsections:
-        out.append(section_tex(sub, level + 1))
+        out.append(section_tex(sub, level + 1, in_landscape=turned))
     body = "\n\n".join(p for p in out if p)
     if section.landscape:
         body = "\n\n".join([r"\begin{landscape}", body, r"\end{landscape}"])

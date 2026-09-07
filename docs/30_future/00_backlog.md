@@ -553,6 +553,38 @@ again; L-8d's mutation case stays parked); F25-2.
   row. Shares an owner with `safety_factors.prescribes_factor`, whose load half
   is the same predicate. The producer `sloads/modules/engine.py` is **frozen**
   (OR-13) until the 0.8.2 cut.
+- **A raked fin root resolves onto one waterline, and the axis kinks.**
+  `ga6_normal`'s vertical tail meets the body with its **leading** edge at
+  waterline 117.0 and its **trailing** edge at 111.5 — a raked root — and
+  `resolve_tail_planform` rebases both onto a single root at 111.5. The bottom
+  two load stations then sit at X **284.9** and **268.9** against **262.9**
+  immediately above them, so the loads reference axis swings aft at the root
+  instead of running straight. **Found 2026-09-07**, visible in the oracle
+  report's Figure 24 only once the axis was drawn in the right plane at all
+  (Step 159). Tier M when it lands: decide whether the chord below the lower
+  edge's start is extrapolated, clamped, or refused — the analysis currently
+  does one of these silently, and a fin whose root is square is unaffected,
+  which is why no oracle moved.
+
+- **The plane a surface is defined in is positional, not declared.**
+  `SurfaceInput.leading_edge`/`trailing_edge` are typed `XYPoint` and documented
+  as "(fuselage station X, **butt line Y**)" for every surface. That is false
+  for the vertical tail, whose second coordinate is a **waterline** — the code
+  decides which by component name in five places (`export/coordinates.py` ×4,
+  `report/oracle_sections._tail_lra_planform_figure`). **Owner's question,
+  2026-09-07**, raised from the Figure 24 defect. Recommendation on file: make
+  the convention explicit **in code** — one `surface_plane(component)` owner
+  replacing the five branches, with the `XYPoint` name and the `SurfaceInput`
+  docstring corrected — and do **not** add a user-selected plane field yet. Two
+  reasons: today the component determines the plane unambiguously for every
+  surface the analysis supports, so the field's only correct value is derivable,
+  and this milestone has twice been burned by exactly that (`tail_type`,
+  `ref_axis_pct` — OR-134a); and a two-valued XY/XZ selector is already
+  insufficient for the case that motivates it, since a true V-tail sits at a
+  **dihedral** and needs an angle about X, not a plane flag. The field belongs
+  with V-tail/cruciform support (note 51's successor, today withheld by OR-133),
+  not before it.
+
 - **The oracle reduction resets `weight.items[].consumable`, moving a load.**
   `reduce_to_oracle_inputs` returns every field outside the oracle input set to
   its dataclass default (OR-43), and this one is outside it: on

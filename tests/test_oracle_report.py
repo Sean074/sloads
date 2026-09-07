@@ -2272,11 +2272,17 @@ def test_the_appendix_is_landscape_and_starts_a_fresh_page():
 
     tex = ol.render_oracle_document(doc)
     assert r"\usepackage{pdflscape}" in tex
-    # One balanced block per landscape section, whatever the document carries.
+    # Balanced, and one block per landscape section **plus** each body table that
+    # had to be turned to hold its own columns (2026-09-07, owner: a table that
+    # cannot be set upright is turned rather than made to overprint itself).
+    # Asserted as a floor and a balance rather than an equality, so a turned
+    # table is not a failure here -- `test_report_latex.py` owns which tables
+    # are turned and why.
     landscape = [s for s in _flat(doc.sections) if s.landscape]
     assert landscape
-    assert (tex.count(r"\begin{landscape}") == tex.count(r"\end{landscape}")
-            == len(landscape))
+    opens = tex.count(r"\begin{landscape}")
+    assert opens == tex.count(r"\end{landscape}")
+    assert opens >= len(landscape)
 
 
 def test_the_appendix_subsections_are_lettered_from_their_parent():

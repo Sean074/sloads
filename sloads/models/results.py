@@ -382,9 +382,20 @@ class EnvelopeResult:
 # --------------------------------------------------------------------------- #
 @dataclass
 class WingStationLoad:
-    """Distributed load at one wing station along the 25% chord (airplane axes).
+    """Distributed load at one station along the 25% chord.
 
-    Coordinates ``x``/``y``/``z`` (in) of the quarter chord; per-strip forces
+    **The coordinates are the surface's own frame, not airplane axes.** For the
+    wing and the horizontal tail the two coincide -- ``y`` is a butt line and
+    ``z`` the mounting waterline -- which is why this said "airplane axes" until
+    2026-09-07 and was believed. It is false for the **fin**, whose ``y`` is the
+    span coordinate in its own plane and whose ``z`` is the root waterline that
+    span is measured from: read at face value, the vertical tail's loads
+    reference axis drew as a flat line along its root. Every consumer that needs
+    an airplane point resolves one through
+    :func:`sloads.export.coordinates.tail_station_to_airplane`, which is the
+    single owner of the mapping; nothing reads these three off as a point.
+
+    Coordinates ``x``/``y``/``z`` (in) of the quarter chord in that frame; per-strip forces
     ``fx`` (drag) and ``fz`` (lift); cumulative shears ``sx``/``sz``; bending
     ``mxx`` (about X, from lift) and ``mzz`` (about Z, from drag); ``myy`` total
     torsion about Y (lift offset + drag offset + section pitching moment). Pounds

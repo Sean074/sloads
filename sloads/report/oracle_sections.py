@@ -1443,7 +1443,12 @@ def _lra_planform_figure(project: Project, net: Sequence[object],
         key=key, title=title,
         data=PlotData(f"{x_label} ({length_units})",
                       f"{y_label} ({length_units})", series,
-                      [("", x, y) for x, y in points]),
+                      [("", x, y) for x, y in points],
+                      # Named, or the marker inherits the V-n figure's default
+                      # and this figure's stations are legended "Design CG
+                      # cases" -- a legend naming a different figure entirely,
+                      # which is the defect ``points_label`` was added for.
+                      points_label="Load stations"),
         caption=("The wing as entered, with the loads reference axis of this "
                  f"analysis ({axis}) drawn through the load stations every "
                  "distributed load in this section is stated at. The marked "
@@ -3535,9 +3540,13 @@ def _tail_lra_planform_figure(project: Project, component: str,
             f"the {names['surface']} planform cannot be drawn as entered -- "
             f"{problem}"))
     stations = list(getattr(results[0], "stations", ()))
-    points = [_oriented(frame, st.x * scale,
-                        (st.y if frame == "butt" else st.z) * scale)
-              for st in stations]
+    # The in-plane pair of the resolved airplane point: a butt-line frame plots
+    # (X, Y) and a waterline frame (X, Z). Taking the *station's* own second
+    # coordinate instead is what drew the fin's axis flat along its root.
+    airplane = [_station_point(st, component) for st in stations]
+    points = [_oriented(frame, x * scale,
+                        (y if frame == "butt" else z) * scale)
+              for x, y, z in airplane]
     axis = getattr(results[0], "torsion_axis", "") or "loads reference axis"
     series.append(Series(f"Loads reference axis ({axis})",
                          [x for x, _y in points], [y for _x, y in points],
@@ -3547,7 +3556,8 @@ def _tail_lra_planform_figure(project: Project, component: str,
         key=key, title=title,
         data=PlotData(f"{x_label} ({length_units})",
                       f"{y_label} ({length_units})", series,
-                      [("", x, y) for x, y in points]),
+                      [("", x, y) for x, y in points],
+                      points_label="Load stations"),
         caption=(f"The {names['surface']} and its {names['control']} as "
                  f"entered, with the loads reference axis of this analysis "
                  f"({axis}) drawn through the load stations every distributed "
@@ -3557,6 +3567,28 @@ def _tail_lra_planform_figure(project: Project, component: str,
 
 #: The movable surface each tail component carries, for the planform figure.
 _CONTROL_OF = {"htail": "elevator", "vtail": "rudder"}
+
+
+def _station_point(station, component: str) -> Tuple[float, float, float]:
+    """One tail station as an airplane ``(x, y, z)`` point.
+
+    Through :func:`sloads.export.coordinates.tail_station_to_airplane`, the
+    owner the exported deck and Appendices D and E already use -- never off
+    ``station.y``/``station.z``, which are **not** airplane axes on a fin.
+
+    ``WingStationLoad`` calls its coordinates airplane axes and for the
+    horizontal tail they are, which is why reading them directly worked in
+    section 5 and was wrong in section 6: on the vertical tail ``y`` is the
+    span coordinate in the surface's own plane and ``z`` is the root offset the
+    span is measured from. Read at face value, the fin's loads reference axis
+    drew as a flat line along its root waterline (owner, 2026-09-07) and its
+    station table labelled the height above the root a butt line. One owner
+    rather than a second convention here is what makes the figure, the table
+    and the deck agree by construction.
+    """
+    from ..export.coordinates import tail_station_to_airplane
+
+    return tail_station_to_airplane(station.x, station.y, component, station.z)
 
 
 def _tail_lra_station_table(results: Sequence[TailSpanResult], component: str,
@@ -3580,20 +3612,23 @@ def _tail_lra_station_table(results: Sequence[TailSpanResult], component: str,
     names = _TAIL_SURFACES[component]
     u = Units(system)
     length = u.label("length")
-    rows = [[str(index), u.plain(st.y, "length"), u.plain(st.x, "length"),
-             u.plain(st.z, "length")]
-            for index, st in enumerate(stations, start=1)]
+    rows = []
+    for index, station in enumerate(stations, start=1):
+        x, y, z = _station_point(station, component)
+        rows.append([str(index), u.plain(x, "length"), u.plain(y, "length"),
+                     u.plain(z, "length")])
     axis = getattr(results[0], "torsion_axis", "") or "loads reference axis"
     return Table(
         title=f"Loads reference axis by station ({axis})",
-        columns=["Station", f"Butt line Y ({length})",
-                 f"Station X on the axis ({length})", f"Waterline Z ({length})"],
+        columns=["Station", f"Station X ({length})", f"Butt line Y ({length})",
+                 f"Waterline Z ({length})"],
         rows=rows, small=True,
         note=("The load stations the distributed air load and the surface's own "
               "inertia are evaluated at, tip to tip. These are geometry: "
               "nothing here is a load, nothing is scaled and nothing carries a "
-              f"safety factor. The {names['span_axis']} is the coordinate the "
-              "span is measured along."
+              f"safety factor. The point is in airplane axes, so the "
+              f"{names['span_axis']} is the coordinate that runs with the span "
+              f"and the other two are fixed by where the surface is mounted."
               + (" The loads applied at these stations are withheld for this "
                  "airplane's tail arrangement, and the reason is stated in "
                  "full with this section's spanwise loads. The stations "

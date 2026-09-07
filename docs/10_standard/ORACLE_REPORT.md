@@ -829,11 +829,41 @@ What follows is what is true of the vertical tail and of nothing else.
   The class now has a drift guard rather than a rule: for every shipped example
   and both surfaces, the beam the document states its loads about **SHALL** be
   the beam the analysis ran (`CONVENTIONS.md` §7).
+- **6.1's loads reference axis is resolved through the export owner, not read off
+  the station (owner, 2026-09-07).** `WingStationLoad` documents its coordinates as
+  airplane axes and for the wing and the horizontal tail they are; on the fin `y` is
+  the span coordinate in the surface's own plane and `z` the root waterline it is
+  measured from. Read at face value the axis drew flat along the root. The figure and
+  the station table **SHALL** take their points from
+  `export.coordinates.tail_station_to_airplane`, the owner the deck and Appendices D
+  and E already use, so a station has one point in the figure, the table and the
+  emitted card. The station table's columns are `Station X | Butt line Y | Waterline Z`
+  for both surfaces, in airplane axes.
 - **Appendix E is the vertical tail's applied-load deck**, `Case | GID | X | Y |
   Z | Fy | SF` — `Fy`, because the fin spans in Z and loads in Y. Two appendices
   rather than one (OR-136): an appendix serving both surfaces would have no
   section to inherit its state from, and could express the withholding only by
   going half empty.
+
+### 3.7.1 Typesetting rules that carry content
+
+Formatting is not usually a §3 concern. These are, because each was found producing a
+page that stated something false.
+
+- **A table column is never narrower than its longest unbreakable token.** A `p` column
+  wraps between words and never inside one, so a narrower column does not wrap — it
+  prints over its neighbour. Table 25 rendered `23.423(a)(1)G4`, in which the CG case
+  of a design condition could not be read. The floor is absolute.
+- **A table that cannot be set upright is turned, not shrunk further** (owner,
+  2026-09-07). One more size step buys about 12 % and fails on the next wide table;
+  turning the page buys 53 %, and 8pt type in a signed engineering document is the
+  worse trade. Turning is the mechanism the appendices already use.
+- **Column widths are measured against the page the table is set on.** Landscape
+  `\linewidth` is 652.85pt, measured — not the 719.9pt the paper size implies, because
+  `includeheadfoot` takes the running head and footer out of the block. A section's
+  orientation is inherited by its subsections, which is where the appendix tables are.
+- **A figure's marker legend is named by the figure.** Three loads-reference-axis
+  figures legended their load stations "Design CG cases", the V-n figure's default.
 
 ## 4. Identity, signatures and DRAFT
 

@@ -106,6 +106,12 @@ def headers_tex(doc: OracleDocument) -> str:
             ("Rev " + doc.spec.revision) if doc.spec.revision else "") + "}",
         r"\fancyfoot[C]{" + footer + "}",
         r"\renewcommand{\headrulewidth}{0.4pt}",
+        # The head is set in ``\small``, which is taller than the 12pt
+        # ``\headheight`` ``geometry`` leaves by default -- ``fancyhdr`` said so
+        # once per page, 89 times on this report's own example, which is the
+        # noise a real warning hides in. ``includeheadfoot`` is set, so the text
+        # block moves with it and the 22mm margin is unchanged.
+        r"\setlength{\headheight}{14pt}",
     ])
 
 
