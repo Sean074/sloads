@@ -1200,3 +1200,95 @@ is what `CLAUDE.md` practice 3 requires of any cross-cutting convention.
   `02_approved_corrections.md` §Withdrawn from scope rather than against its own
   source tuple — the circularity #174 exists to fix, so the new clause is not
   added behind the same blind guard.
+
+---
+
+## 17. Iteration 5 — Sections 5 and 6, Tail Loads (OR-128 … OR-138)
+
+**Status: AGREED 2026-09-06 (owner, in session).** Four of the rulings below were
+settled with the owner in session on 2026-09-06 before this note was drafted
+(**OR-128** the two-section split, **OR-132** the control-surface loads,
+**OR-133**/**OR-134** the non-conventional tail, **OR-138** the naming); the rest are
+put here for the same pass. OR-8 agrees a section before it is built.
+
+*Measurements taken 2026-09-06 against `examples/ga6_normal.project.json` and
+`examples/baron_58.project.json` — the two airplanes G-OR-1 builds — and quoted where
+they carry a decision. Both fixtures run **nine** horizontal-tail conditions and
+**four** vertical-tail conditions, with identical labels and FAR references on each.*
+
+*One premise of the first draft was wrong and is corrected in place rather than
+quietly: the tail is **one** oracle step, not two (OR-129, OR-130a). `tail_span_loads`
+is a modern deliverable with no `.BAS`, outside `oracle_steps()` and outside the oracle
+GUI's page set. The agreed section shape is unaffected; the spanwise loads enter as
+appendix content on the Appendix B precedent instead of as a second derived step.*
+
+| # | Decision | Amends |
+|---|---|---|
+| **OR-128** | **The tail is two sections, not one: Section 5 Horizontal Tail and Elevator Loads, Section 6 Vertical Tail and Rudder Loads.** *(Owner, 2026-09-06.)* The alternative — one grouped section with the two workflow steps as its subsections — forces **method-major** numbering (5.1 Chordwise, 5.2 Spanwise), because `oracle_content.section_plan` prints exactly one numbered subsection per member step. An analyst reads by surface: the h-tail's totals, its chordwise profile and its span loads are one story, and the fin's are another. Splitting by surface makes each section a whole story and needs no third heading level. Everything below renumbers — aileron 7, flap 8, tab 9, engine mount 10, one engine inoperative 11, landing gear 12 — which is free, because `section_number` derives from position and no cross-reference is ever written as a literal (OR-2). | OR-8 (iteration), OR-38 |
+| **OR-129** | **G-OR-2 is amended: a result-producing step may fan out into sections by a declared partition.** OR-128 puts one step across two sections, so the existing one-step-one-section mapping cannot express it. The rule becomes: every result-producing step is covered by exactly one declared partition of sections, and every analysis section names the step and the component it is built from — guarded **totally in both directions**, so a published condition that lands in no section, or in two, fails the suite. That is a stronger gate than the positional one it replaces, which could only count. The partition key is `component`, already a field on `TailChordResult` and `TailSpanResult`; no new concept. **Corrected 2026-09-06, before implementation:** the drafted text said the partition ran over *two* steps, `tail_loads` and `tail_span_loads`. It does not. `tail_span_loads` carries `bas=None` and produces no slice a `.BAS` step requires, so `workflow.oracle_steps()` excludes it — it is not an oracle GUI page and it is not an analysis section. **The partition is over `tail_loads` alone.** The correction makes the amendment smaller, not larger, and the section shape OR-128/OR-130 agreed is unchanged; what it changes is where the spanwise loads come from, which is OR-130a. | **G-OR-2 (amended)**, OR-2 |
+| **OR-130a** | **The spanwise tail loads are appendix content read from a non-step producer, exactly as the wing's are.** *(Added 2026-09-06 with OR-129's correction.)* Since `tail_span_loads` is not an oracle step, 5.4/6.4 cannot be a section derived from it. They do not need to be: the wing already has this shape. §3.2 owns the notation and the recurrences while the station-by-station numbers live in **Appendix B**, which OR-59 ruled is a *deliverable format* — "the sectional loads to apply to a structures model" — and OR-64 made a **view of the export owner** rather than a report table. 5.4 and 6.4 are the same: a short subsection owning the notation, the beam it is run on and the closure that stands in for the absent oracle, with the per-station table in Appendix D/E as a view of `sbeam_bridge`'s own rows. The builder reads `tail_span.build_tail_span` directly, which is OR-95's ruling one section over (§4 projects the published result and reads the builder for stations alone). **This is also why the oracle scope is not breached:** Section 5 is derived from `tail_loads`, and the modern spanwise deliverable enters as back matter on the Appendix B precedent, not as a derived section claiming a program that does not exist. | **OR-59/OR-64 (precedent)**, OR-95, OR-130 |
+| **OR-130** | **Four subsections each, mirrored.** 5.1 / 6.1 the critical conditions and how they were selected; 5.2 / 6.2 the critical-case summary table; 5.3 / 6.3 the chordwise distribution and its figures; 5.4 / 6.4 the spanwise loads. Per-station numbers go to the appendices (OR-136), not the body. The mirror is deliberate: the two surfaces are analysed by the same machinery in the same order, and a reader who has read Section 5 knows where to look in Section 6. | OR-94 (shape precedent) |
+| **OR-131** | **Each section states the selection method in its own terms, and neither cross-references the other for it.** The candidate pool for both is the entire balanced V-n matrix, filtered by condition label, with `extreme()` returning one governing case per category (`theory_sources.md` §`select`, C210-26); 23.333(b)'s "each combination" is discharged by FLTLOADS balancing the full matrix. But the **categories differ** — nine for the h-tail (balancing up/down 23.421, unchecked maneuver up/down 23.423(a)(1)/(2), checked up/down 23.423(b), gust up/down 23.425(a)(1), unsymmetrical 23.427(a)) against four for the fin (23.441(a)(1)/(2)/(3), 23.443(b)) — and a reader carrying one section's category list into the other reads a different airplane. This is OR-58's argument applied to a method rather than a sign convention. | OR-58 (extends) |
+| **OR-132** | **Every tail condition states the load carried by its control surface (third OR-15 admission, over `sloads/modules/select.py`).** *(Owner, 2026-09-06.)* Measured: `elevator_load` is published on **2 of 9** h-tail conditions — the two unchecked maneuvers — and `load_on_rudder` on **2 of 4** fin conditions. 5.2's and 6.2's whole purpose is one table a reader reads across, and as it stands the control-surface column would be blank on **seven** h-tail rows and two fin rows for no reason the analysis can state: `select.elevator_load(lt50, lt25, ti)` and `select.rudder_load_parts(lrud, lyaw, vt)` are pure functions of the split every one of those conditions already carries. Publishing them is additive — one `LoadValue` per condition, no existing value moves — and the frozen manifest is updated in the same commit per G-OR-9. **`UNSYMMETRICAL` (23.427(a)) states one too, with the RH/LH split beside it** (owner, 2026-09-06). Its total is a scaled version of the governing case and the elevator share scales with it, so the value is real; the risk is that an elevator load quoted for an unsymmetrical case reads as one surface's load, when the case's whole content is that the two sides differ. Adjacency answers it — the split is what stops the number being read as a single surface's, so the two are printed together and never in separate tables. **No `select.py` change is needed for the split half:** the condition already publishes `rh_side_load`, `lh_side_load` and `other_side_percent` (measured `−700.29` / `−504.21` / `72 %` on `ga6_normal`), so OR-135's obligation there is a rendering one, satisfied by projection. Only the elevator load is published. | **OR-15** (admission), M4-9 |
+| **OR-133** | **Non-conventional tail arrangements are not supported, the report says so, and it withholds the vertical tail's spanwise loads rather than printing them.** *(Owner, 2026-09-06.)* sloads analyses the empennage as a conventional tail: a horizontal and a vertical surface each carried by the fuselage and each loaded independently. In any other arrangement the vertical tail is additionally the *supporting structure* of the horizontal tail in the sense of 14 CFR **23.427(a)**, and two load paths that creates are not modelled — the h-tail's unsymmetrical case is never reacted through the fin, so the fin's critical-case set **omits a condition** rather than understating one; and the four fin conditions transfer a **symmetric** h-tail set in precisely the cases where sideslip and rudder deflection load the horizontal surface asymmetrically. Both are quantified in **design note 51** (AGREED 2026-09-06), whose D-51.3 measures the induced rolling moment at **27–73 %** of the governing fin case's own root bending on `concept_regional_jet`. **Scope of the withholding is the report only** (owner, 2026-09-06): 6.4 and Appendix E render the OR-32 stated state and no table, while the calc, the decks, the CLI and the GUI are untouched — `build_tail_span`'s v-tail results are what the balanced deck's lateral cases close `ΣFy = 0 → n_y = L_v/W` against, and withholding them there would stop the lateral cases assembling on all three T-tail fixtures, i.e. would break the mission deliverable to document a limitation in it. **What is *not* affected, stated positively:** the vertical tail's chordwise pressure distribution (6.3) is unaffected — it distributes the surface's own total across its chord and is indifferent to what the fin carries above it — and the horizontal tail's own loads and distributions (Section 5 entire) are unaffected. | OR-32 (mechanism), **note 51** |
+| **OR-134** | **`TailType` stops being a layout-sketch distinction.** Its docstring says today: *"a layout sketch distinction only, not a structural classification."* OR-133 makes the field decide whether a deliverable is printed, so that sentence becomes false the moment OR-133 ships, and a field whose meaning has quietly changed is the defect class this milestone has now hit twice (the fin waterline, §160). The docstring and the `CONVENTIONS.md` §7 SSOT table **SHALL** be corrected in the same change, naming the report as a consumer. **Any value other than `CONVENTIONAL` triggers OR-133** (owner, 2026-09-06) — `T_TAIL`, `V_TAIL` and `CRUCIFORM` alike: a cruciform fin carries the same horizontal-tail reaction, and a V-tail has no separable vertical surface for the analysis to be about. Only `T_TAIL` is exercised by a fixture (`atr42_100`, `dhc8_dash8`, `concept_regional_jet`), so the other two are guarded on constructed projects. | `CONVENTIONS.md` §7 |
+| **OR-135** | **A quantity whose provenance changes the number is stated beside it.** Three in this iteration, all following OR-97's ruling that provenance belongs in the same visual field as the value: 6.2's `SIDE GUST` row states whether its yaw inertia `IZZ` was **entered or rod-estimated** (C210-25 measured the rod estimate **+49 %** over WTONECG's database value on the C210, with nothing on the page saying an estimate was in play — `select.default_side_gust_izz` is the owner); 5.2's `UNSYMMETRICAL` row states its **RH/LH split**, because the case's own total is not a load anything is sized to; and 5.2's checked-maneuver pair states the **pitch inertia `Iyy`** it was computed with. | OR-97 (extends) |
+| **OR-136** | **Two appendices, D and E, lettered by position.** Appendix D is the horizontal tail station by station, Appendix E the vertical tail, each **inheriting its section's state** by the OR-50 mechanism that already letters A–C. Two rather than one because OR-128 made two sections and an appendix that served both would have no section to inherit from — and because Appendix E is exactly what OR-133 withholds on a non-conventional tail, which a shared appendix could only express by going half empty. Both are views of `sbeam_bridge`'s own rows, not second assemblers (OR-64/OR-101 one section further on). | OR-50, OR-64, OR-101 |
+| **OR-137** | **5.1 states the 23.427(a) oracle deviation where the case is introduced.** M1-4 (approved 2026-07-20): `SELECT.BAS` 6070–6175 includes the unchecked maneuvers in the unsymmetrical candidate array and the printed Appendix A sample output does not, so sloads selects the DN unchecked maneuver and prints **−1204.7** (RH −700.4, LH −504.3, 72 %) where the page prints −1111.8. The listing and the CFR are authoritative; the register carries it and the methods statement declares it. 5.1 states it in words at the point the case is introduced, so an analyst comparing against the page finds it explained rather than discovering it — OR-112's treatment one section over. | `02_approved_corrections.md` |
+| **OR-138** | **The surface is the vertical tail; "fin" is retired.** *(Owner, 2026-09-06.)* "v-tail" where space requires, `vtail` as the code token — matching 23.441/23.443, the schema, the component key and what the reports already print. Stated in `CONVENTIONS.md` §7.2. Sections 5 and 6 take the agreed name from the first line; the identifier sweep (`fin_root`, `FinRoot`, `fin_tip`, `fin_load`, …) is filed for the 0.8.2 cut, since it reaches frozen `modules/tail_span.py`. | `CONVENTIONS.md` §7.2 |
+
+### Gates added by this iteration
+
+- **G-OR-80** — Sections 5 and 6 each render four subsections numbered by the
+  numbering owner; the tail appendices are **D** and **E** behind A, B and C; and
+  every section below the tail carries the number its position gives it.
+- **G-OR-81** — *(OR-129, the partition gate)* every condition published by
+  `taildist` and `tail_span` appears in **exactly one** section, and every tail
+  section names the step and component it was built from. Asserted in both
+  directions on both fixtures, so a dropped condition and a duplicated one each
+  fail.
+- **G-OR-82** — every load Sections 5 and 6 and Appendices D and E print is
+  **LIMIT**, states its case's safety factor in an `SF` column, and carries no
+  `-ULT` marker. Asserted in both directions (note 49 G-OR-51, as G-OR-54 does
+  for §4).
+- **G-OR-83** — the printed totals are the module's own unscaled values, matched
+  through the content model rather than against a literal, against the Appendix A
+  oracles: h-tail balancing **+519.85 / −613.92**, unchecked **−1397.8 / +1227.2**,
+  checked **−671.5 / +787.8**, gust **+908.6 / −1292.8**, unsymmetrical **−1204.7**
+  (OR-137); fin **+591** (rudder 167), **−92**, **−526**, **+604** (`IZZ` 4169.164).
+  Tolerances are `test_select.py`'s own — the report cites them, it does not
+  re-derive them.
+- **G-OR-84** — 5.3 and 6.3 reproduce the chordwise oracle: p237 cond 1
+  `LT25 +907.62 / LT50 −387.77 → 0.682 / 0.095 / 0 / 0.015 / −0.030` and p245
+  cond 1 `LT50 679 → 0 / 0.370 / 0 / 0.462 / 0.462`, ±0.1 %; the component
+  constants (`AHT`; `AVT` + `EFFECTV`) print **once per section** and are rendered
+  as reference data, never as a load case.
+- **G-OR-85** — every distributed case states its aero state or its fixed AS-4
+  reason, never a blank (note 35 G-AS-3, carried into the document).
+- **G-OR-86** — *(OR-132)* every h-tail condition states an elevator load and
+  every vertical-tail condition a rudder load, so neither summary table has a
+  blank in that column on either fixture.
+- **G-OR-87** — *(OR-133/OR-134)* on a non-conventional tail, 6.4 and Appendix E
+  render the stated state and no table, the limitation is stated in full in
+  Section 6 and pointed at from Section 5, and **Section 5, 6.3 and Appendix D are
+  unchanged** — asserted by building the same project as `CONVENTIONAL` and as
+  `T_TAIL` and diffing. Run for `V_TAIL` and `CRUCIFORM` on constructed projects.
+  Its companion: `build_tail_span` still returns the v-tail results, and the
+  balanced deck still assembles its lateral cases, on all three T-tail fixtures —
+  the gate that the withholding stayed inside the report.
+- **G-OR-88** — 6.2 states whether `IZZ` was entered or estimated, and 5.2 states
+  the RH/LH split and the checked pair's `Iyy` (OR-135). The unsymmetrical row's
+  elevator load and its RH/LH split are asserted **adjacent** — same table, same
+  row — because adjacency is the whole of OR-132's answer there, and a gate that
+  only checked both were present somewhere would pass the arrangement the ruling
+  rejects.
+
+### Findings to file (OR-14 — file, do not fix here)
+
+- **The T-tail transfer pairs the *balancing* tail load.** Note 51 §1 records that
+  `ttail_transfer` pairs each fin case with the balancing h-tail load at that
+  case's own V-n point — on `concept_regional_jet` a **+6 lb** load against a
+  **7–8 klb** fin load. OR-133 states the consequence for the vertical tail;
+  whether the same pairing assumption reaches Section 5's h-tail span subsection
+  is **to be checked before 5.4 is written**, and filed rather than fixed if it
+  does. Note 51's D-51.1 is the fix and it is a separate step.

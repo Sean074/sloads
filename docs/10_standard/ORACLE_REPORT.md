@@ -610,6 +610,85 @@ Design note 44 §13 (OR-94 … OR-102), §14/design note 50 (the carry-through) 
   than the solver deck's. It **SHALL** start a fresh page and be landscape, on
   Appendix B's rule.
 
+
+## 3.6 Section 5: Horizontal Tail and Elevator Loads
+
+Design note 44 §17 (OR-128 … OR-138). **Four** subsections and one appendix,
+built from the `tail_loads` step (`TAILDIST`, Reference 1 Chapter 10, primary
+module `taildist`), which is **split by surface**: the horizontal tail is section
+5 and the vertical tail is section 6.
+
+- **The tail is two sections, not one (OR-128).** An analyst reads by surface —
+  the horizontal tail's totals, its chordwise profile and its span loads are one
+  story, and the vertical tail's are another. The alternative, one grouped
+  section with the two printed as subsections, forces method-major numbering
+  (chordwise, then spanwise) and splits each surface across two headings.
+  Everything below the tail renumbers, which is free: `section_number` derives
+  from position and no cross-reference is ever written as a literal.
+- **G-OR-2 is amended: one step, one declared *partition* (OR-129).** The
+  original rule was one step one section, asserted as list equality against
+  `oracle_steps()`. `tail_loads` publishes conditions for both surfaces, so the
+  rule becomes coverage: every result-producing step is covered by exactly one
+  partition of sections, with `component` the partition key. The replacement
+  gate is stronger than the counting one — **every published condition SHALL
+  land in exactly one section**, so a condition that lands in none, or in two,
+  fails. Sections are selected and deselected by *section* key, so an analyst
+  may drop one surface and keep the other.
+- **The spanwise loads are appendix content read from a non-step producer
+  (OR-130a).** `tail_span_loads` carries no `.BAS`, produces no slice a `.BAS`
+  step requires, and is therefore outside `oracle_steps()` and outside the
+  oracle GUI's page set — so 5.4 cannot be a section derived from it, and does
+  not need to be. The wing already has this shape: §3.2 owns the notation while
+  the station-by-station numbers live in Appendix B, which OR-59 ruled is a
+  deliverable format and OR-64 made a view of the export owner. 5.4 **SHALL**
+  own the notation, the beam and the closure that stands in for the absent
+  oracle, and **SHALL** put the per-station table in Appendix D.
+- **Each section states its selection method in its own terms (OR-131).** The
+  candidate pool is the same for both surfaces — the entire balanced envelope,
+  filtered by flight condition, one governing case per requirement — but the
+  categories differ, nine for the horizontal tail against four for the vertical,
+  and a reader carrying one section's list into the other reads a different
+  airplane. Neither section **SHALL** cross-reference the other for it.
+- **Every condition states the load its control surface carries (OR-132).**
+  Published on **every** condition, not on the two that happened to carry one:
+  the elevator load is a pure function of the 25 %/50 % split every condition
+  already holds, and a critical-case table with a blank control-surface column
+  on seven of nine rows states nothing the analysis could not supply. Second
+  **OR-15 admission** over `sloads/modules/select.py`; the horizontal half is
+  published in `_htail_condition`, the one constructor every condition passes
+  through, rather than at nine call sites.
+- **A quantity whose provenance changes the number is stated beside it
+  (OR-135).** The unsymmetrical row **SHALL** state its RH/LH split **in the
+  same row** as its elevator load — adjacency is the whole of the ruling, since
+  alone an elevator load on an unsymmetrical case reads as one surface's load
+  when the case's whole content is that the two sides differ — and the checked
+  pair **SHALL** state the pitch inertia it was computed with.
+- **The registered 23.427(a) deviation is stated where the case is introduced
+  (OR-137).** The reference's printed sample output omits the unchecked
+  manoeuvres from its own 23.427(a) candidate set; the program listing it prints
+  includes them, and the regulation spans 23.421 through 23.425. The listing and
+  the regulation govern, and 5.1 states it in words so an analyst comparing
+  against the page finds it explained rather than discovering it.
+- **Non-conventional tail arrangements are stated, and the vertical tail's
+  spanwise loads are withheld for them (OR-133/OR-134).** The statement is made
+  in full in section 6, where the loads are withheld, and section 5 **SHALL**
+  carry a pointer to it and **SHALL** say that its own loads are unaffected.
+  The withholding is the **report's only**: the calc, the decks, the CLI and the
+  GUI are untouched, because the spanwise vertical-tail results are what the
+  balanced deck's lateral cases close ΣFy = 0 against. Any `TailType` other than
+  `CONVENTIONAL` triggers it, which makes that field load-bearing and its
+  docstring **SHALL** say so.
+- **The surface is the vertical tail; "fin" is retired (OR-138).** "v-tail"
+  where space requires, `vtail` as the code token.
+- **The Appendix A tail oracles are not reproducible from the shipped
+  fixture, and the document is not pinned to them.** They are selected from a
+  three-altitude envelope while every case `ga6_normal` delivers is at sea
+  level, so the search governs on different points — backlog **#164**, an open
+  item this section did not create. The oracle comparison stays in
+  `test_select.py` and `test_taildist.py`, where the right fixture is; the
+  document's gates assert that it prints the module's own values and that every
+  condition the oracle names is present under the name the oracle uses.
+
 ## 4. Identity, signatures and DRAFT
 
 The title block carries report number, revision, issue date, issuing
@@ -718,7 +797,7 @@ without a guard is prose, not a gate).
 | 1. Introduction | 2026-08-30 | `test_oracle_report.py::test_section_numbers_come_from_the_owner_not_from_literals` |
 | 1. Introduction prose and limitations | 2026-08-30 | `test_oracle_report.py::test_the_default_introduction_claims_nothing_about_omitted_sections`, `::test_the_report_page_renders_every_block` |
 | Deselection is silent | 2026-08-30 | `test_oracle_report.py::test_a_deselected_section_is_omitted_entirely_and_numbering_closes_up` |
-| Analysis-body placeholders | 2026-08-30 | `test_oracle_report.py::test_every_result_producing_oracle_step_has_exactly_one_section`, `::test_the_gap_states_have_distinct_wording`, `::test_each_gap_state_renders_under_its_own_lead` |
+| Analysis-body placeholders | 2026-08-30 | `test_oracle_report.py::test_every_result_producing_oracle_step_is_covered_exactly_once`, `::test_the_gap_states_have_distinct_wording`, `::test_each_gap_state_renders_under_its_own_lead` |
 | 2. Loads Configuration (grouping, titles) | 2026-08-30 | `test_oracle_report.py::test_every_analysis_step_has_a_document_title_of_its_own`, `::test_every_group_member_is_a_step_and_the_members_are_contiguous` |
 | 2.1 Geometry and control surfaces | 2026-08-30 | `test_oracle_report.py::test_a_wing_area_is_stated_once_in_the_whole_section`, `::test_a_far_reference_that_is_not_a_regulation_is_not_printed_as_one`, `::test_every_control_surface_the_project_defines_gets_a_table`, `::test_the_echoed_surface_inputs_are_the_fields_the_project_still_has`, `::test_the_as_entered_statement_is_made_once` |
 | 2.2 Weight and Mass Properties | 2026-08-30 | `test_oracle_report.py::test_section_two_invents_no_number`, `::test_the_cg_case_table_states_every_case_and_its_role_and_analysis`, `::test_the_analysis_column_is_ordered_not_set_ordered` |
@@ -753,6 +832,13 @@ without a guard is prose, not a gate).
 | Section 4 delivers LIMIT with the factor stated (OR-94a) | 2026-09-06 | `test_oracle_report_fuselage.py::test_no_load_the_fuselage_section_prints_is_marked_ultimate`, `::test_every_fuselage_load_table_states_the_factor_it_does_not_apply`, `::test_the_critical_summary_prints_the_analysis_own_unscaled_values` |
 | Appendix C and the exported CSV are one load set (OR-101) | 2026-09-06 | `test_oracle_report_fuselage.py::test_the_appendix_table_and_the_exported_csv_are_one_load_set` |
 | Section 2 marks nothing ultimate; load factors identified as LIMIT | 2026-08-30 | `test_oracle_report.py::test_section_two_marks_nothing_ultimate_and_states_no_safety_factor`, `::test_no_table_claims_a_load_factor_is_not_a_load`, `::test_reported_load_factors_are_identified_as_limit` |
+| 5. Horizontal Tail (split, numbering, appendices) | 2026-09-06 | `test_oracle_report_tail.py::test_the_tail_is_two_sections_and_five_renders_four_subsections`, `::test_the_tail_appendices_are_d_and_e_behind_the_first_three`, `::test_the_sections_below_the_tail_take_the_numbers_position_gives_them` |
+| 5. The OR-129 partition | 2026-09-06 | `test_oracle_report_tail.py::test_every_tail_condition_lands_in_exactly_one_section`, `::test_each_tail_section_names_the_step_and_component_it_is_built_from`, `test_oracle_report.py::test_every_result_producing_oracle_step_is_covered_exactly_once` |
+| 5.1 Design conditions | 2026-09-06 | `test_oracle_report_tail.py::test_the_23_427_deviation_is_stated_where_the_case_is_introduced`, `::test_section_five_points_at_the_non_conventional_tail_limitation`, `::test_every_appendix_a_condition_is_present_and_named_as_the_oracle_names_it` |
+| 5.2 Critical loads and control-surface loads | 2026-09-06 | `test_oracle_report_tail.py::test_every_condition_states_its_elevator_load`, `::test_the_unsymmetrical_row_states_its_split_beside_its_elevator_load`, `::test_the_checked_pair_states_the_pitch_inertia_it_was_computed_with`, `::test_every_condition_states_its_aero_state_or_the_reason_there_is_none`, `::test_the_printed_totals_are_the_modules_own_unscaled_values` |
+| 5.3 Chordwise distribution | 2026-09-06 | `test_oracle_report_tail.py::test_the_printed_pressures_are_taildists_own`, `::test_the_chord_stations_print_once_and_the_constants_are_reference_data`, `::test_the_chordwise_figure_plots_every_condition_once` |
+| 5.4 Spanwise loads and Appendix D | 2026-09-06 | `test_oracle_report_tail.py::test_appendix_d_and_the_tail_span_csv_are_one_load_set`, `::test_the_spanwise_notation_defines_every_symbol_a_column_uses`, `::test_the_spanwise_subsection_states_it_has_no_printed_oracle` |
+| 5. The basis and absence | 2026-09-06 | `test_oracle_report_tail.py::test_no_load_the_tail_section_prints_is_marked_ultimate`, `::test_every_tail_load_table_states_the_factor_it_does_not_apply`, `::test_a_project_with_no_tail_states_its_absence_and_still_builds` |
 
 ## 8. Conformance
 

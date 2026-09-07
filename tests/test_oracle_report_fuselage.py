@@ -134,10 +134,14 @@ def test_fuselage_loads_is_appendix_c_behind_the_echo_and_the_wing():
     assert oc.appendix_letter(oc.INPUT_ECHO) == "A"
     assert oc.appendix_letter(oc.WING_LOAD_STATIONS) == "B"
     assert oc.appendix_letter(oc.BODY_LOAD_STATIONS) == "C"
+    # Sliced from the first appendix, not from the end of the document: a
+    # fourth appendix must not be able to break a gate about the first three,
+    # and the tail sections added exactly that (note 44 §17, OR-136).
     titles = [s.title for s in _doc().sections]
-    assert titles[-3:] == ["Appendix A: Input echo",
-                           "Appendix B: Wing loads by station",
-                           "Appendix C: Fuselage loads by station"]
+    first = titles.index("Appendix A: Input echo")
+    assert titles[first:first + 3] == ["Appendix A: Input echo",
+                                       "Appendix B: Wing loads by station",
+                                       "Appendix C: Fuselage loads by station"]
 
 
 # --------------------------------------------------------------------------- #

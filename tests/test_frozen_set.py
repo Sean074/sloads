@@ -62,7 +62,19 @@ MANIFEST: dict[str, str] = {
     # the four maneuver conditions publish the unbalanced pitching moment about
     # the CG, whose equation is recovered from SELECT.BAS 5210/5262/5410/5560.
     # Additive -- a new ``LoadValue`` on each; no existing value moves.
-    "sloads/modules/select.py": "4bfe60c0be26055e52640e3e8cae1a43353df01b0babda89aca59fa34dc76be3",
+    #
+    # Second OR-15 admission, granted by the owner 2026-09-06 (note 44 §17,
+    # OR-132): every tail condition states the load its control surface carries.
+    # ``elevator_load`` was published on 2 of 9 h-tail conditions and
+    # ``load_on_rudder`` on 2 of 4 vertical-tail ones, so the report's
+    # critical-case tables would have carried a blank column on nine rows for no
+    # reason the analysis could give -- both are pure functions of the 25 %/50 %
+    # split every one of those conditions already holds. The h-tail half is
+    # published in ``_htail_condition``, the one constructor they all pass
+    # through, rather than at nine call sites. Additive: every new value is
+    # appended, and the one insertion that would have moved an existing column
+    # (``SIDE GUST``'s ``Yaw inertia IZZ``) was rewritten to append instead.
+    "sloads/modules/select.py": "09ee0ef77bff7aef736d914ad580ec29e943cab9a25be1ea831a1dc8f8299f6c",
     "sloads/modules/structural_speeds.py": "8fdbc1cc6eb17dbbdda4f5f1b224c7d5d4b86dfe14c923457292db7e123814c1",
     "sloads/modules/tab.py": "f81ff82261cccabedef57491635b3f56767faa61bae31c2d0d0017fc3bcb07e7",
     "sloads/modules/tail_span.py": "22a7832553de87ef9826c6e869e8ec8f1fe4e39c04706224f6af63e0847212b5",
