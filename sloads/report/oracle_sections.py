@@ -3560,8 +3560,18 @@ _CONTROL_OF = {"htail": "elevator", "vtail": "rudder"}
 
 
 def _tail_lra_station_table(results: Sequence[TailSpanResult], component: str,
-                            system: UnitSystem) -> Optional[Table]:
-    """The tail's loads reference axis, station by station."""
+                            system: UnitSystem, *,
+                            withheld: bool = False) -> Optional[Table]:
+    """The tail's loads reference axis, station by station.
+
+    Printed even where OR-133 withholds the loads applied at these stations
+    (owner, 2026-09-07). These are entered geometry resolved through a planform
+    -- the same numbers Section 2's three-view is drawn from -- and withholding
+    verifiable geometry to document a *load* limitation would cost the reader
+    something real while documenting nothing. ``withheld`` puts the reason in
+    the table's own note, so a station list above a withheld subsection cannot
+    read as loads that merely failed to compute.
+    """
     if not results:
         return None
     stations = list(getattr(results[0], "stations", ()))
@@ -3583,7 +3593,13 @@ def _tail_lra_station_table(results: Sequence[TailSpanResult], component: str,
               "inertia are evaluated at, tip to tip. These are geometry: "
               "nothing here is a load, nothing is scaled and nothing carries a "
               f"safety factor. The {names['span_axis']} is the coordinate the "
-              "span is measured along."))
+              "span is measured along."
+              + (" The loads applied at these stations are withheld for this "
+                 "airplane's tail arrangement, and the reason is stated in "
+                 "full with this section's spanwise loads. The stations "
+                 "themselves are unaffected by that restriction: they are "
+                 "where the loads act, not what the loads are."
+                 if withheld else "")))
 
 
 def _tail_inputs(project: Project, component: str, *, system: UnitSystem,
@@ -3592,8 +3608,10 @@ def _tail_inputs(project: Project, component: str, *, system: UnitSystem,
     names = _TAIL_SURFACES[component]
     results = _tail_spanwise(project, component)
     figure = _tail_lra_planform_figure(project, component, results, system)
+    withheld = _vtail_withheld(project, component)
     tables = [t for t in (_tail_constants_table(project, component),
-                          _tail_lra_station_table(results, component, system))
+                          _tail_lra_station_table(results, component, system,
+                                                  withheld=withheld))
               if t is not None]
     body = [
         f"This subsection states the {names['surface']} data the load cases of "
@@ -3668,12 +3686,17 @@ def _tail_conditions_section(project: Project, component: str, *,
             "and the regulation govern here, the difference is a registered "
             "deviation from the printed example, and the methods statement "
             "accompanying this analysis declares it.")
-    absences = [
-        "This analysis selects its conditions with the flaps retracted. The "
-        "flaps-extended gust conditions of 23.425(a)(2) are computed where a "
-        "flapped envelope is present and are absent here rather than assumed "
-        "to be non-critical.",
-    ]
+    # OR-131, both halves: the flaps-extended gust of 23.425(a)(2) is a
+    # *horizontal* tail requirement, and stating it under the vertical tail --
+    # which 23.441 and 23.443 give no flapped counterpart -- would have section
+    # 6 borrowing section 5's method to describe an absence that is not its own.
+    absences = []
+    if component == "htail":
+        absences.append(
+            "This analysis selects its conditions with the flaps retracted. The "
+            "flaps-extended gust conditions of 23.425(a)(2) are computed where a "
+            "flapped envelope is present and are absent here rather than assumed "
+            "to be non-critical.")
     if component == "htail":
         # The pointer, not the statement: OR-133 puts the statement in full with
         # the loads it withholds, and a reader who starts at the horizontal tail
@@ -3684,11 +3707,19 @@ def _tail_conditions_section(project: Project, component: str, *,
         return Section("", absent_reason=(
             f"no {names['surface']} design conditions were produced for this "
             "project, so there is nothing to state a method for."))
-    return Section("", body=body, tables=[_tail_category_table(conditions)])
+    return Section("", body=body, tables=[
+        _tail_category_table(conditions,
+                             short=_vtail_withheld(project, component))])
 
 
-def _tail_category_table(conditions: Sequence[CriticalCondition]) -> Table:
-    """The register: one row per condition, with the requirement it answers."""
+def _tail_category_table(conditions: Sequence[CriticalCondition], *,
+                         short: bool = False) -> Table:
+    """The register: one row per condition, with the requirement it answers.
+
+    ``short`` is OR-133a: on a non-conventional tail this set omits a condition,
+    and a four-row table that looks complete reads as a measured completeness
+    (OR-61's argument, one deliverable over). The note names the missing case.
+    """
     return Table(
         title="Design conditions analysed",
         columns=["Case", "Condition", "14 CFR", "SF"],
@@ -3698,7 +3729,8 @@ def _tail_category_table(conditions: Sequence[CriticalCondition]) -> Table:
         note=("One governing case per requirement, identified by the case "
               "reference every table in this section keys on. The safety factor "
               "is the one 14 CFR 23.303 prescribes for that requirement; it is "
-              "stated here and with every load, and applied nowhere."))
+              "stated here and with every load, and applied nowhere."
+              + (_MISSING_CONDITION_NOTE if short else "")))
 
 
 # --- 5.2 / 6.2 -- the critical-case summary --------------------------------- #
@@ -3759,7 +3791,9 @@ def _tail_summary_table(project: Project, component: str,
               f"the {names['control']} itself carries -- the camber share aft of "
               f"the hinge line plus its share of the angle-of-attack load -- and "
               f"is what the {names['control']} and its system are sized to, not "
-              f"the surface total beside it."))
+              f"the surface total beside it."
+              + (_MISSING_CONDITION_NOTE
+                 if _vtail_withheld(project, component) else "")))
 
 
 def _tail_state_table(project: Project, component: str,
@@ -3776,6 +3810,7 @@ def _tail_state_table(project: Project, component: str,
         return None
     names = _TAIL_SURFACES[component]
     angle = "deg"
+    basis = _inertia_basis(project, component)
     q_scale, q_units = _scalar_channel("lb/ft^2", system)
     i_scale, i_units = _scalar_channel("slug-ft^2", system)
     rows = []
@@ -3797,7 +3832,8 @@ def _tail_state_table(project: Project, component: str,
                  f"Sideslip ({angle})",
                  f"Dynamic pressure ({q_units})", f"Inertia ({i_units})"],
         rows=rows,
-        note=("The state each load was computed at, published by the condition "
+        note=(basis +
+              "The state each load was computed at, published by the condition "
               "itself rather than reconstructed here. An empty cell is a "
               "quantity the method does not define for that condition -- a "
               "symmetric pitch-plane condition has no sideslip, the checked "
@@ -3805,6 +3841,36 @@ def _tail_state_table(project: Project, component: str,
               "no deflection of its own, and the lateral gust requirement is "
               "linear in airspeed and so has no dynamic-pressure term. None of "
               "these is a load: none is scaled and none carries a factor."))
+
+
+def _inertia_basis(project: Project, component: str) -> str:
+    """Whether the inertia in the state table was entered or estimated (OR-135).
+
+    Provenance in the same visual field as the value (OR-97): the rod estimate
+    measured **49 per cent** over WTONECG's database value on the Cessna 210
+    with nothing on the page saying an estimate was in play (C210-25), and a
+    number that large cannot be read correctly without its basis.
+
+    Read off the entered field rather than recomputed: ``izz_slugft2`` blank is
+    what selects ``select.default_side_gust_izz``, so the field *is* the
+    provenance and asking it is not a second derivation of one.
+    """
+    if component != "vtail":
+        # The horizontal tail's checked pair states its own pitch inertia, which
+        # SELECT takes from the weight data base in every case; there is no
+        # second route for it to have come by, so there is nothing to state.
+        return ""
+    vtail = getattr(project, "vtail_loads", None)
+    entered = float(getattr(vtail, "izz_slugft2", 0.0) or 0.0) > 0.0
+    if entered:
+        return ("The yaw inertia is the value entered for this airplane. ")
+    return (
+        "The yaw inertia was not entered for this airplane and is estimated "
+        "from the airplane's weight and length on a uniform-rod idealisation. "
+        "That estimate has been measured 49 per cent above a database value on "
+        "a comparable airplane, and the lateral gust load of 14 CFR 23.443(b) "
+        "varies with it, so the condition below is stated on an estimate and "
+        "not on a measurement. Entering the yaw inertia replaces it. ")
 
 
 def _fmt_angle(value) -> str:
@@ -4012,6 +4078,97 @@ _NON_CONVENTIONAL_POINTER = (
     "the limitation is stated in full with the vertical tail's loads, and it "
     "does not affect anything in this section.")
 
+#: What the reader is told a non-conventional layout is, in the report's words.
+#:
+#: Read off :class:`sloads.models.TailType` rather than spelled out per value:
+#: a fifth arrangement added to the enum must not silently acquire the wording
+#: of a fourth.
+_LAYOUT_NAMES = {
+    "t_tail": "a T-tail, with the horizontal tail mounted on top of the fin",
+    "v_tail": "a V-tail, whose two surfaces are neither horizontal nor vertical",
+    "cruciform": "a cruciform tail, with the horizontal tail mounted part-way "
+                 "up the fin",
+}
+
+
+def _layout_phrase(project: Project) -> str:
+    """"a T-tail, with ..." -- the arrangement this project declares."""
+    from ..tail_geometry import tail_layout
+
+    layout = tail_layout(project)
+    value = getattr(layout, "value", "") if layout is not None else ""
+    return _LAYOUT_NAMES.get(value, f"a {value.replace('_', ' ')} tail" if value
+                             else "an arrangement other than a conventional tail")
+
+
+def _vtail_withheld(project: Project, component: str) -> bool:
+    """Whether OR-133 withholds this component's spanwise loads.
+
+    The vertical tail only, and only on a non-conventional layout. The
+    horizontal tail's loads are unaffected in every arrangement -- OR-133 says
+    so in its own words, and G-OR-87 asserts it by diffing the two builds.
+    """
+    from ..tail_geometry import is_conventional_tail
+
+    return component == "vtail" and not is_conventional_tail(project)
+
+
+def _non_conventional_statement(project: Project) -> str:
+    """The lead sentence 6.5 renders in place of the loads it withholds."""
+    return (
+        f"This analysis models the empennage as a conventional tail: a "
+        f"horizontal and a vertical surface each carried by the fuselage and "
+        f"each loaded independently. This airplane is entered as "
+        f"{_layout_phrase(project)}, and in that arrangement the vertical tail "
+        f"is additionally the supporting structure of the horizontal tail in "
+        f"the sense of 14 CFR 23.427(a). That load path is not modelled, so the "
+        f"vertical tail's spanwise loads are withheld rather than printed.")
+
+
+#: The paragraphs 6.5 carries under the statement above: what is missing, what
+#: is not affected, and what the withholding does *not* reach (OR-133).
+_NON_CONVENTIONAL_BODY = (
+    "Two load paths are unmodelled, and they fail differently. The horizontal "
+    "tail's unsymmetrical condition of 23.427(a) is never reacted through the "
+    "vertical tail, so the vertical tail's design conditions omit a case "
+    "rather than understate one -- there is no row in this section that is too "
+    "small; there is a row that is not there. Separately, the four conditions "
+    "that are analysed transfer a symmetric horizontal-tail set onto the fin, "
+    "in precisely the cases where sideslip and rudder deflection load the "
+    "horizontal surface asymmetrically.",
+    "The second of these is quantified: the induced rolling moment reaches 27 "
+    "to 73 per cent of the governing vertical-tail case's own root bending on "
+    "the configurations it has been measured on. A distribution carrying an "
+    "error of that size is not a conservative distribution, and it is not "
+    "published under a factor of safety as though it were.",
+    "What is unaffected, stated positively rather than left to inference. The "
+    "vertical tail's total loads and the conditions they were selected at, "
+    "earlier in this section, are the surface's own and are unchanged -- what "
+    "is missing there is the additional condition named above. The chordwise "
+    "pressure distribution is unchanged: it distributes this surface's own "
+    "total across its own chord and is indifferent to what the fin carries "
+    "above it. The horizontal tail's loads and distributions are unchanged "
+    "entirely. And the loads reference axis stated earlier in this section is "
+    "geometry, which this restriction does not touch: it is where the loads "
+    "would be applied, and it is stated so that what is withheld is legible "
+    "as a withholding rather than as a gap in the data.",
+)
+
+#: The note OR-133a attaches to the condition register and the summary table on
+#: a non-conventional layout: the set is short a case, and the case is named.
+#:
+#: Named rather than merely counted, because OR-133's own distinction is that
+#: this is an omitted condition and not an understated one -- and because a
+#: statement that names the missing case is one a reader can check and one a
+#: later step can delete, where a hedge is neither.
+_MISSING_CONDITION_NOTE = (
+    " This airplane is not entered as a conventional tail, and on any other "
+    "arrangement this set is short one condition: the horizontal tail's "
+    "unsymmetrical load of 14 CFR 23.427(a), reacted through the vertical "
+    "tail as the horizontal tail's supporting structure. It is not analysed "
+    "and it is not tabulated below. The restriction is stated in full with "
+    "this section's spanwise loads.")
+
 #: The spanwise notation, printed in 5.4 and 6.4 (OR-130a, section 3.2's rule).
 _TAIL_SPAN_SYMBOLS = (
     ("Fn", "Load applied at a station, normal to the surface", "force", "applied"),
@@ -4114,6 +4271,15 @@ def _tail_span_section(project: Project, component: str, *,
     names = _TAIL_SURFACES[component]
     appendix = (HTAIL_LOAD_STATIONS if component == "htail"
                 else VTAIL_LOAD_STATIONS)
+    # OR-133, ahead of the results test: the withholding is a statement about
+    # the airplane's arrangement and must not depend on whether the builder
+    # happened to produce anything. It does -- `build_tail_span` is untouched,
+    # which is what keeps the balanced deck's lateral cases assembling -- and a
+    # reader must not be told "not produced" about loads that were.
+    if _vtail_withheld(project, component):
+        return Section("", body=list(_NON_CONVENTIONAL_BODY),
+                       absent_reason=_non_conventional_statement(project),
+                       absent_lead="Not supported")
     results = _tail_spanwise(project, component)
     if not results:
         return Section("", absent_reason=(
@@ -4147,11 +4313,14 @@ def _tail_span_section(project: Project, component: str, *,
 # --- the sections ----------------------------------------------------------- #
 def _tail_section(project: Project, component: str, *, system: UnitSystem,
                   plan: Sequence[SectionPlan]) -> Section:
-    """Sections 5 and 6 -- one surface's loads, in four subsections (OR-130).
+    """Sections 5 and 6 -- one surface's loads, in five subsections (OR-130).
 
     One builder for both surfaces rather than two that must be kept in step:
     the partition of OR-129 is a parameter here, not a pair of copies, which is
-    what makes the two sections provably the same analysis read twice.
+    what makes the two sections provably the same analysis read twice. OR-130
+    agreed four subsections; the input-data subsection was added to both by the
+    owner's review of 2026-09-07 and the mirror is what carried it into Section
+    6 for free -- which is the argument for one builder, demonstrated.
     """
     names = _TAIL_SURFACES[component]
     return Section("", body=[
@@ -4181,6 +4350,13 @@ def _htail_loads(project: Project,
                  system: UnitSystem, plan: Sequence[SectionPlan]) -> Section:
     """Section 5 -- Horizontal Tail and Elevator Loads."""
     return _tail_section(project, "htail", system=system, plan=plan)
+
+
+def _vtail_loads(project: Project,
+                 results: Mapping[str, Optional[ModuleResult]], *,  # noqa: ARG001
+                 system: UnitSystem, plan: Sequence[SectionPlan]) -> Section:
+    """Section 6 -- Vertical Tail and Rudder Loads."""
+    return _tail_section(project, "vtail", system=system, plan=plan)
 
 
 # --------------------------------------------------------------------------- #
@@ -4218,6 +4394,17 @@ def _tail_station_appendix(project: Project, component: str, *,
     from ..export.sbeam_bridge import tail_span_gid
 
     names = _TAIL_SURFACES[component]
+    if _vtail_withheld(project, component):
+        # An appendix is a second projection of its section, so it inherits the
+        # section's state rather than deciding one (OR-136). Two appendices
+        # rather than one exist for exactly this: a shared tail appendix could
+        # only express this by going half empty.
+        return Section("", body=[
+            "The station-by-station loads this appendix would carry are the "
+            "ones withheld with this surface's spanwise loads. The reason is "
+            "stated in full there and is not repeated here."],
+            absent_reason=_non_conventional_statement(project),
+            absent_lead="Not supported", page_break=True)
     results = _tail_spanwise(project, component)
     if not results:
         return Section("", absent_reason=(
@@ -4272,6 +4459,12 @@ def _htail_station_appendix(project: Project, *, system: UnitSystem,
     return _tail_station_appendix(project, "htail", system=system, plan=plan)
 
 
+def _vtail_station_appendix(project: Project, *, system: UnitSystem,
+                            plan: Sequence[SectionPlan]) -> Section:
+    """Appendix E's content."""
+    return _tail_station_appendix(project, "vtail", system=system, plan=plan)
+
+
 # --------------------------------------------------------------------------- #
 # Dispatch
 # --------------------------------------------------------------------------- #
@@ -4292,8 +4485,9 @@ BUILDERS = {
     "flight_envelope": _envelope,
     "wing_loads": _wing_loads,
     "fuselage_loads": _fuselage_loads,
-    # A *split* section key, not a step key (OR-129).
+    # *Split* section keys, not step keys (OR-129).
     "htail_loads": _htail_loads,
+    "vtail_loads": _vtail_loads,
 }
 
 #: Appendix title -> the builder that produces its body.
@@ -4305,6 +4499,7 @@ APPENDIX_BUILDERS = {
     WING_LOAD_STATIONS: _station_appendix,
     BODY_LOAD_STATIONS: _body_station_appendix,
     HTAIL_LOAD_STATIONS: _htail_station_appendix,
+    VTAIL_LOAD_STATIONS: _vtail_station_appendix,
 }
 
 

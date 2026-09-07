@@ -635,8 +635,9 @@ Design note 44 §13 (OR-94 … OR-102), §14/design note 50 (the carry-through) 
 
 ## 3.6 Section 5: Horizontal Tail and Elevator Loads
 
-Design note 44 §17 (OR-128 … OR-138). **Four** subsections and one appendix,
-built from the `tail_loads` step (`TAILDIST`, Reference 1 Chapter 10, primary
+Design note 44 §17 (OR-128 … OR-138). **Five** subsections and one appendix
+(OR-130 agreed four; the input-data subsection was added by the owner's review
+of 2026-09-07), built from the `tail_loads` step (`TAILDIST`, Reference 1 Chapter 10, primary
 module `taildist`), which is **split by surface**: the horizontal tail is section
 5 and the vertical tail is section 6.
 
@@ -743,6 +744,96 @@ module `taildist`), which is **split by surface**: the horizontal tail is sectio
   `test_select.py` and `test_taildist.py`, where the right fixture is; the
   document's gates assert that it prints the module's own values and that every
   condition the oracle names is present under the name the oracle uses.
+
+## 3.7 Section 6: Vertical Tail and Rudder Loads
+
+Design note 44 §17, the vertical half of the same partition. **Five** subsections
+and Appendix E, mirroring §3.6 exactly (OR-130): input data, design conditions,
+critical loads, chordwise distribution, spanwise loads. One builder produces
+both sections with the component as a parameter, which is what makes them
+provably the same analysis read twice — and what carried the 2026-09-07 review's
+five rulings into section 6 without a second implementation of any of them.
+
+Everything in §3.6 applies here with the surface changed, and is not restated.
+What follows is what is true of the vertical tail and of nothing else.
+
+- **Four conditions, not nine, and stated in their own terms (OR-131).** The
+  sudden full rudder deflection of 23.441(a)(1), the yaw to a 19.5° sideslip
+  with the rudder held of 23.441(a)(2), the 15° yaw with the rudder neutral of
+  23.441(a)(3), and the lateral gust at V_C of 23.443(b). Section 6 **SHALL NOT**
+  state the flaps-extended gust absence of 23.425(a)(2): that is a *horizontal*
+  tail requirement with no counterpart in 23.441 or 23.443, and printing it here
+  would have section 6 borrowing section 5's method to describe an absence that
+  is not its own. (Found by the OR-131 gate on the first build of the mirror —
+  the shared boilerplate had carried it across.)
+- **The yaw inertia states whether it was entered or estimated (OR-135).**
+  `vtail_loads.izz_slugft2` blank selects `select.default_side_gust_izz`, a
+  uniform-rod estimate measured **49 %** over WTONECG's database value on the
+  Cessna 210 with nothing on the page saying an estimate was in play (C210-25).
+  The lateral gust load of 23.443(b) varies with it, so 6.2 **SHALL** state the
+  basis in the same table as the value. The field *is* the provenance — blank is
+  what selects the estimate — so this is a read, not a second derivation.
+- **Non-conventional arrangements: the withholding, in full (OR-133/OR-134).**
+  Stated here because this is where the loads are withheld; section 5 carries a
+  pointer and says its own loads are unaffected. On any `TailType` other than
+  `CONVENTIONAL`:
+  - 6.5 and Appendix E **SHALL** render the OR-32 stated state under the lead
+    **"Not supported"** and no table. Not *"not produced"*: `build_tail_span`
+    returns the results and the withholding is a statement about the airplane's
+    arrangement, so the state is decided ahead of the results test and cannot
+    become a claim that the analysis failed.
+  - 6.5 **SHALL** state both unmodelled paths and how they differ — the
+    horizontal tail's 23.427(a) unsymmetrical case never reacted through the
+    fin (an **omitted** condition, not an understated one) and the symmetric
+    h-tail set transferred in precisely the cases that load it asymmetrically —
+    and **SHALL** state positively what is unaffected.
+  - **6.1's loads-reference-axis stations SHALL still print** *(owner,
+    2026-09-07, question (a))*. They are entered geometry resolved through a
+    planform, the same numbers §2.1's three-view is drawn from, and withholding
+    verifiable geometry to document a *load* limitation costs the reader
+    something and documents nothing. The table's own note **SHALL** carry the
+    reason, so a station list above a withheld subsection cannot read as loads
+    that merely failed to compute.
+  - **6.2's register and 6.3's summary SHALL say the set is short a condition,
+    and SHALL name it** *(OR-133a, owner, 2026-09-07)*. OR-133's scope was 6.5
+    and Appendix E; a four-row table that looks complete reads as a measured
+    completeness, which is OR-61's argument one deliverable over — and the
+    summary is the table an analyst stops at. Named rather than hedged: a named
+    case is one a reader can check and one note 51's D-51.1 can delete.
+  - The withholding **SHALL NOT** reach section 5, 6.3's totals, 6.4, or
+    Appendix D. Gated by diffing a `CONVENTIONAL` build against a `CRUCIFORM`
+    one — **not** against `T_TAIL`, which really does move the horizontal tail
+    onto the fin, so a T-tail diff would fail on genuine geometry and prove
+    nothing about the switch.
+- **`TailType` stops being a layout sketch, in the field registry as well as in
+  its docstring (OR-134a, 2026-09-07).** OR-134 required the docstring and the
+  `CONVENTIONS.md` §7 row. That was not sufficient. The document is a function of
+  `reduce_to_oracle_inputs` (OR-43), and `tail_type` sat outside the oracle input
+  set — so it was reset to `CONVENTIONAL` before the report ever read it, and
+  **every airplane printed the vertical-tail loads OR-133 withholds**, three
+  shipped T-tails among them. A field a delivered number depends on is
+  `supplied` under `SUPPLIED_RULE`, therefore rendered by the registry-driven
+  oracle form. No frozen file was touched: the form builds from the registry.
+
+  The same defect was found one field over and is fixed in the same change:
+  `geometry.surfaces[].ref_axis_pct` — the loads reference axis — was also reset.
+  All seven examples enter 40 % of chord; the document stated **25 %**, moving
+  `ga6_normal`'s horizontal-tail root torsion **60.8 → 34.5 lb-in** and every
+  Appendix D/E applied-load X **3–6 in** off the deck card the appendix says it
+  is the same load as. This contradicted **OR-51**, which had already ruled that
+  `ga6_normal`'s torsion is delivered about the LRA 40 % chord and that *"the
+  report must not print one and call it the other"* — the gate written with
+  section 3 had asserted `25% chord` and explained the defect as a decision. The
+  gate is corrected and reads the axis from the project.
+
+  The class now has a drift guard rather than a rule: for every shipped example
+  and both surfaces, the beam the document states its loads about **SHALL** be
+  the beam the analysis ran (`CONVENTIONS.md` §7).
+- **Appendix E is the vertical tail's applied-load deck**, `Case | GID | X | Y |
+  Z | Fy | SF` — `Fy`, because the fin spans in Z and loads in Y. Two appendices
+  rather than one (OR-136): an appendix serving both surfaces would have no
+  section to inherit its state from, and could express the withholding only by
+  going half empty.
 
 ## 4. Identity, signatures and DRAFT
 

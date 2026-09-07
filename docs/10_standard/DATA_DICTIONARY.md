@@ -101,6 +101,6 @@ Geometry/aero inputs for SELECT's rational vertical-tail loads (Ch 9).
 - **`MassItemKind`** — `EMPTY` = `'empty'`, `MINIMUM` = `'minimum'`, `DISCRETIONARY` = `'discretionary'`. Where a mass item sits in the loading hierarchy of WTONECG/WTENV.
 - **`RotorDirection`** — `CLOCKWISE` = `'CW'`, `COUNTERCLOCKWISE` = `'CC'`.
 - **`RotorType`** — `COMPRESSOR` = `'C'`, `TURBINE` = `'T'`.
-- **`TailType`** — `CONVENTIONAL` = `'conventional'`, `T_TAIL` = `'t_tail'`, `V_TAIL` = `'v_tail'`, `CRUCIFORM` = `'cruciform'`. Empennage arrangement, for the Configuration & Layout three-view.
+- **`TailType`** — `CONVENTIONAL` = `'conventional'`, `T_TAIL` = `'t_tail'`, `V_TAIL` = `'v_tail'`, `CRUCIFORM` = `'cruciform'`. Empennage arrangement -- a **structural** classification (note 44 OR-134).
 - **`VdBasis`** — `SPEED_RATIO` = `'speed_ratio'`, `MACH_MARGIN` = `'mach_margin'`. Which regulatory route sets the design dive speed VD (F25-2).
 

@@ -113,22 +113,20 @@ def test_the_tail_is_two_sections_and_five_renders_five_subsections():
             ["Horizontal tail input data", "Design conditions",
              "Critical horizontal tail loads", "Chordwise load distribution",
              "Spanwise loads"])]
-    # The vertical tail is section 6 and is declared even before it is built,
-    # which is what keeps the partition total (OR-129) and the numbering below
-    # it honest from the first commit.
+    # The vertical tail is section 6; its own shape is asserted in
+    # ``test_oracle_report_vtail.py``, which owns the surface this file does not.
     assert _section(doc, "6.").title == "6. Vertical Tail and Rudder Loads"
 
 
 def test_the_tail_appendices_are_d_and_e_behind_the_first_three():
-    """The letter follows position (OR-50), and D is built while E is not."""
+    """The letter follows position (OR-50), and both are built."""
     assert oc.appendix_letter(oc.HTAIL_LOAD_STATIONS) == "D"
     assert oc.appendix_letter(oc.VTAIL_LOAD_STATIONS) == "E"
     doc = _doc()
-    appendix = _appendix(doc, oc.HTAIL_LOAD_STATIONS)
-    assert appendix.landscape and appendix.page_break
-    assert appendix.tables and appendix.tables[0].rows
-    reserved = _appendix(doc, oc.VTAIL_LOAD_STATIONS)
-    assert reserved.absent_reason and not reserved.tables
+    for title in (oc.HTAIL_LOAD_STATIONS, oc.VTAIL_LOAD_STATIONS):
+        appendix = _appendix(doc, title)
+        assert appendix.landscape and appendix.page_break, title
+        assert appendix.tables and appendix.tables[0].rows, title
 
 
 def test_the_sections_below_the_tail_take_the_numbers_position_gives_them():
@@ -151,9 +149,8 @@ def test_every_tail_condition_lands_in_exactly_one_section():
 
     Every condition the tail step publishes must be printed by exactly one of
     the declared sections -- so a condition that lands in none, or in two, fails
-    here. The horizontal half is asserted against the document; the vertical
-    half against the declaration, because section 6 is not built yet and its
-    conditions must still be accounted for.
+    here. Both halves are asserted against the document now that both sections
+    are built, and each is asserted to print *only* its own share.
     """
     project = io.load_project(_GA)
     published = [c for c in default_critical(project).conditions
@@ -165,14 +162,18 @@ def test_every_tail_condition_lands_in_exactly_one_section():
     assert {c.component for c in published} <= set(components), (
         "a published tail condition belongs to no declared section")
 
-    # ...and the horizontal section prints exactly its own share, no more.
-    section = _section(_doc(), "5.")
-    summary = next(t for t in _tables(section) if t.title.startswith("Critical"))
-    printed = set(_cells(summary, "Case"))
-    assert printed == {c.case_ref.case_id for c in published
-                       if c.component == "htail"}
-    assert not printed & {c.case_ref.case_id for c in published
-                          if c.component == "vtail"}
+    # ...and each section prints exactly its own share, no more.
+    doc = _doc()
+    seen = set()
+    for number, component in (("5.", "htail"), ("6.", "vtail")):
+        summary = next(t for t in _tables(_section(doc, number))
+                       if t.title.startswith("Critical"))
+        printed = set(_cells(summary, "Case"))
+        assert printed == {c.case_ref.case_id for c in published
+                           if c.component == component}, number
+        assert not printed & seen, f"{number} reprints another section's case"
+        seen |= printed
+    assert seen == {c.case_ref.case_id for c in published}
 
 
 def test_each_tail_section_names_the_step_and_component_it_is_built_from():

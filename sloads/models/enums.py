@@ -115,11 +115,27 @@ class VdBasis(str, Enum):
 
 
 class TailType(str, Enum):
-    """Empennage arrangement, for the Configuration & Layout three-view.
+    """Empennage arrangement -- a **structural** classification (note 44 OR-134).
 
-    Drives how ``sloads.modules.configuration.tail_planform`` places the
-    horizontal/vertical tail surfaces relative to each other; a layout sketch
-    distinction only, not a structural classification."""
+    It was a layout-sketch distinction until the oracle report began to read it.
+    It is not one now, and the change is recorded here rather than left to be
+    discovered: this field decides which load path the analysis models, and
+    therefore whether a deliverable is printed at all.
+
+    Consumers, each of which reads it through an owner in
+    :mod:`sloads.tail_geometry` and never off the field directly:
+
+    * ``configuration.tail_planform`` places the two surfaces relative to each
+      other for the Configuration & Layout three-view;
+    * ``tail_span`` transfers the horizontal tail's load onto the fin tip on a
+      ``T_TAIL`` (plan 09 T7, ``is_t_tail``);
+    * the oracle report **withholds the vertical tail's spanwise loads** on any
+      value other than ``CONVENTIONAL`` (OR-133, ``is_conventional_tail``),
+      because in every other arrangement the vertical tail is additionally the
+      supporting structure of the horizontal tail in the sense of 14 CFR
+      23.427(a) and that load path is not modelled.
+
+    SSOT row: ``CONVENTIONS.md`` section 7."""
     CONVENTIONAL = "conventional"
     T_TAIL = "t_tail"
     V_TAIL = "v_tail"

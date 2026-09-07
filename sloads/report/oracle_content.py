@@ -44,10 +44,11 @@ from .content import Section
 IMPLEMENTED: FrozenSet[str] = frozenset({
     "configuration_layout", "weight_mass", "structural_speeds",
     "flight_envelope", "wing_loads", "fuselage_loads",
-    # Section 5. A *split* section key, not a step key (OR-129): ``tail_loads``
-    # fans out into the horizontal and vertical tail, and the vertical half
-    # ("vtail_loads") joins this set when Section 6 is built.
-    "htail_loads",
+    # Sections 5 and 6. *Split* section keys, not step keys (OR-129):
+    # ``tail_loads`` fans out into the horizontal and the vertical tail, and
+    # each half is implemented on its own, which is what let Section 5 ship a
+    # day ahead of Section 6.
+    "htail_loads", "vtail_loads",
 })
 
 #: The document's fixed front matter, in order, ahead of the analysis body.
@@ -389,7 +390,7 @@ APPENDICES: Tuple[Appendix, ...] = (
     Appendix(WING_LOAD_STATIONS, step_key="wing_loads", built=True),
     Appendix(BODY_LOAD_STATIONS, step_key="fuselage_loads", built=True),
     Appendix(HTAIL_LOAD_STATIONS, step_key="htail_loads", built=True),
-    Appendix(VTAIL_LOAD_STATIONS, step_key="vtail_loads"),
+    Appendix(VTAIL_LOAD_STATIONS, step_key="vtail_loads", built=True),
 )
 
 
