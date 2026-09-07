@@ -194,85 +194,122 @@ TEXT_WIDTH_PT = (210.0 - 2 * 22.0) * 72.27 / IN_TO_MM
 LANDSCAPE_WIDTH_PT = 652.85
 #: LaTeX's default half-gutter, applied twice per column.
 TABCOLSEP_PT = 6.0
-#: Average glyph width, by table font size (Latin Modern at 11pt base).
-_CHAR_PT = {r"\small": 5.0, r"\footnotesize": 4.5}
-#: Glyph width by character class, relative to :data:`_CHAR_PT`'s 0.5 em average.
+#: Latin Modern glyph widths at ``\footnotesize``, in TeX points.
 #:
-#: Latin Modern's characters are not one width, and the differences are large
-#: enough to matter to a floor: an upper-case letter is about 0.68 em against a
-#: lower-case 0.48 and a digit's exact 0.5, and a parenthesis or a full stop is
-#: narrower still. A ``required`` width computed from the average alone
-#: underestimates precisely the tokens tables are full of -- ``UNSYMMETRICAL``,
-#: ``GID``, ``(KEAS)`` -- and overestimates prose, which is the wrong way round
-#: for a floor whose whole job is to stop an unbreakable token overprinting.
-_WIDTH_CLASS = {"upper": 1.36, "lower": 0.96, "digit": 1.00, "narrow": 0.65}
-#: The characters taken as narrow: punctuation a table's tokens are built from.
-_NARROW_CHARS = "().,-:;'\"/[]|"
-
-
-def _token_width(token: str) -> float:
-    """``token``'s width in average-glyph units, by character class."""
-    total = 0.0
-    for ch in token:
-        if ch.isupper():
-            total += _WIDTH_CLASS["upper"]
-        elif ch.isdigit():
-            total += _WIDTH_CLASS["digit"]
-        elif ch in _NARROW_CHARS:
-            total += _WIDTH_CLASS["narrow"]
-        else:
-            total += _WIDTH_CLASS["lower"]
-    return total
-
-
-#: Bold runs wider than roman at the same size, and every header is ``\textbf``.
+#: **Measured, not modelled.** Every printable ASCII character was set in a box
+#: and its ``\wd`` read back, on this module's own preamble (11pt article,
+#: ``lmodern``, T1). The tables below are that reading, and summing them
+#: reproduces a real word's width to a hundredth of a point.
 #:
-#: Measured, not guessed: Latin Modern Roman bold is about 7 % wider than the
-#: upright face over the mixed alphabetic strings these headers are. Without it
-#: a header was measured against the body's average glyph and one-word headings
-#: -- ``Case``, ``Condition``, ``(KEAS)`` -- overflowed their columns by a
-#: point or three, which is most of the overfull warnings this file used to
-#: produce.
-_BOLD_FACTOR = 1.12
-#: Cell length beyond which a column stops asking for more width and wraps
-#: instead -- one long note must not squeeze every other column to nothing.
-_MAX_CHARS = 26
+#: What they replace is the reason they exist. The widths used to be a
+#: four-class model -- upper, lower, digit, narrow -- scaled off a 0.5 em
+#: average, and a model is only ever as good as its worst word. Its worst word
+#: was ``assumed``: 34.02pt of Latin Modern against a predicted 30.24, so the
+#: Spars column of the wing-attach fitting table was floored 0.79pt below the
+#: only token it had to hold, and every row of it overprinted by that much.
+#: The floor is a content guarantee (see :func:`_column_widths_pt`), and a
+#: guarantee computed from an approximation is not one.
+#:
+#: Anything outside the table -- an accented letter, an en dash -- is taken as
+#: a digit's width, which is Latin Modern's 0.5 em and close to its average.
+_GLYPH_PT = {
+    '!': 2.57, '"': 3.487, '#': 7.708, '$': 4.625, '%': 7.708, '&': 7.194, "'": 2.57,
+    '(': 3.597, ')': 3.597, '*': 4.625, '+': 7.194, ',': 2.57, '-': 3.083, '.': 2.57,
+    '/': 4.625, '0': 4.625, '1': 4.625, '2': 4.625, '3': 4.625, '4': 4.625, '5': 4.625,
+    '6': 4.625, '7': 4.625, '8': 4.625, '9': 4.625, ':': 2.57, ';': 2.57, '<': 7.194,
+    '=': 7.194, '>': 7.194, '?': 4.368, '@': 7.194, 'A': 6.936, 'B': 6.551, 'C': 6.68,
+    'D': 7.065, 'E': 6.295, 'F': 6.037, 'G': 7.258, 'H': 6.936, 'I': 3.339, 'J': 4.753,
+    'K': 7.193, 'L': 5.78, 'M': 8.478, 'N': 6.936, 'O': 7.194, 'P': 6.295, 'Q': 7.194,
+    'R': 6.808, 'S': 5.139, 'T': 6.68, 'U': 6.936, 'V': 6.936, 'W': 9.505, 'X': 6.936,
+    'Y': 6.936, 'Z': 5.653, '[': 2.57, '\\': 4.625, ']': 2.57, '^': 5.0, '_': 6.936,
+    '`': 2.57, 'a': 4.625, 'b': 5.139, 'c': 4.111, 'd': 5.139, 'e': 4.114, 'f': 2.826,
+    'g': 4.625, 'h': 5.139, 'i': 2.57, 'j': 2.826, 'k': 4.882, 'l': 2.57, 'm': 7.708,
+    'n': 5.139, 'o': 4.625, 'p': 5.139, 'q': 4.882, 'r': 3.618, 's': 3.649, 't': 3.597,
+    'u': 5.139, 'v': 4.882, 'w': 6.68, 'x': 4.882, 'y': 4.882, 'z': 4.111, '{': 4.625,
+    '|': 2.57, '}': 4.625, '~': 5.0,
+}
+
+_GLYPH_BOLD_PT = {
+    '!': 3.242, '"': 4.488, '#': 8.875, '$': 5.325, '%': 8.875, '&': 8.283, "'": 2.958,
+    '(': 4.142, ')': 4.142, '*': 5.325, '+': 8.283, ',': 2.958, '-': 3.55, '.': 2.958,
+    '/': 5.325, '0': 5.325, '1': 5.325, '2': 5.325, '3': 5.325, '4': 5.325, '5': 5.325,
+    '6': 5.325, '7': 5.325, '8': 5.325, '9': 5.325, ':': 2.958, ';': 2.958, '<': 8.05,
+    '=': 8.283, '>': 8.05, '?': 5.029, '@': 8.283, 'A': 8.036, 'B': 7.568, 'C': 7.691,
+    'D': 8.159, 'E': 6.989, 'F': 6.693, 'G': 8.369, 'H': 8.319, 'I': 4.017, 'J': 5.497,
+    'K': 8.332, 'L': 6.397, 'M': 10.094, 'N': 8.319, 'O': 8.0, 'P': 7.272, 'Q': 8.0,
+    'R': 8.197, 'S': 5.917, 'T': 7.408, 'U': 8.178, 'V': 8.036, 'W': 11.005,
+    'X': 8.036, 'Y': 8.08, 'Z': 6.508, '[': 2.968, '\\': 5.175, ']': 2.958, '^': 5.299,
+    '_': 8.287, '`': 2.958, 'a': 5.371, 'b': 5.917, 'c': 4.733, 'd': 5.917, 'e': 4.887,
+    'f': 4.309, 'g': 5.425, 'h': 5.92, 'i': 2.958, 'j': 3.254, 'k': 5.695, 'l': 2.958,
+    'm': 8.881, 'n': 5.92, 'o': 5.325, 'p': 5.917, 'q': 5.794, 'r': 4.393, 's': 4.201,
+    't': 4.142, 'u': 5.92, 'v': 5.621, 'w': 7.702, 'x': 5.65, 'y': 5.621, 'z': 4.733,
+    '{': 5.175, '|': 2.875, '}': 5.175, '~': 5.245,
+}
+
+#: Width of a character not in the tables above: a digit's, Latin Modern's 0.5 em.
+_DEFAULT_GLYPH_PT = 4.625
+#: Table font sizes, as a scale on the ``\footnotesize`` widths above.
+#:
+#: One font at two sizes, so the scale is exact: the alphabet measures
+#: 118.01pt at ``\footnotesize`` and 127.58pt at ``\small``. The old model put
+#: the ratio at 5.0/4.5, which is 2.8 % wide of it.
+_SIZE_SCALE = {r"\footnotesize": 1.0, r"\small": 1.0811}
+
+
+def _token_width(token: str, *, bold: bool = False) -> float:
+    r"""``token``'s width at ``\footnotesize``, in points.
+
+    Kerning is not modelled: the sum of the glyphs is at worst a few tenths of
+    a point wide of the truth, which for a floor is the safe direction.
+    """
+    glyphs = _GLYPH_BOLD_PT if bold else _GLYPH_PT
+    return math.fsum(glyphs.get(ch, _DEFAULT_GLYPH_PT) for ch in token)
+
+
+#: Cell width beyond which a column stops asking for more and wraps instead --
+#: one long note must not squeeze every other column to nothing. About 26
+#: characters at ``\footnotesize``.
+_MAX_CELL_PT = 117.0
 #: Slack added to every column so a token never sits flush against the rule.
 _PAD_PT = 3.0
 
 
-def _column_asks_pt(table: Table, char_pt: float
+def _column_asks_pt(table: Table, size: str
                     ) -> Tuple[List[float], List[float], List[float]]:
-    """``(required, desired, natural)`` in points, per column.
+    """``(required, desired, natural)`` in points, per column, at ``size``.
 
     ``required`` is the width the column's longest **unbreakable token** needs:
     a ``p`` column wraps between words and never inside one, so a column
     narrower than this does not wrap, it overprints its neighbour. It is a
     floor, and :func:`_column_widths_pt` treats it as one.
 
-    The header is measured as bold, because it is set bold. Measuring it with
-    the body's glyph width made every one-word heading a little too narrow.
+    The header is measured **in the bold face**, because it is set bold -- from
+    :data:`_GLYPH_BOLD_PT`, not by scaling the roman widths. Latin Modern's
+    bold is not one factor wider: a bold comma is 15 % over its roman, a bold
+    ``W`` 4 %, and a header is exactly the short mixed string where the spread
+    between them decides whether it fits.
     """
+    scale = _SIZE_SCALE[size]
     required: List[float] = []
     desired: List[float] = []
     natural: List[float] = []
     for i, header in enumerate(table.columns):
         body = [str(row[i]) for row in table.rows if i < len(row)]
-        head_word = max((_token_width(w) for w in header.split()),
-                        default=1.0) * _BOLD_FACTOR
-        head_cell = _token_width(header) * _BOLD_FACTOR
+        head_word = max((_token_width(w, bold=True) for w in header.split()),
+                        default=1.0)
+        head_cell = _token_width(header, bold=True)
         longest_word = max([head_word]
                            + [_token_width(w) for cell in body
                               for w in cell.split()])
         longest_cell = max([head_cell] + [_token_width(c) for c in body] or [1.0])
-        required.append(longest_word * char_pt + _PAD_PT)
-        desired.append(max(min(longest_cell, _MAX_CHARS) * char_pt + _PAD_PT,
+        required.append(longest_word * scale + _PAD_PT)
+        desired.append(max(min(longest_cell, _MAX_CELL_PT) * scale + _PAD_PT,
                            required[-1]))
-        natural.append(max(longest_cell * char_pt + _PAD_PT, desired[-1]))
+        natural.append(max(longest_cell * scale + _PAD_PT, desired[-1]))
     return required, desired, natural
 
 
-def _column_widths_pt(table: Table, char_pt: float, available: float) -> List[float]:
+def _column_widths_pt(table: Table, size: str, available: float) -> List[float]:
     """Column widths in points: what each column wants, capped to what fits.
 
     Each column asks for ``desired`` (its typical cell, capped) but **never less
@@ -292,7 +329,7 @@ def _column_widths_pt(table: Table, char_pt: float, available: float) -> List[fl
     honest outcome of last resort -- visible, and impossible to mistake for a
     number.
     """
-    required, desired, natural = _column_asks_pt(table, char_pt)
+    required, desired, natural = _column_asks_pt(table, size)
     excess = math.fsum(desired) - available
     if excess <= 0:
         # Room to spare: hand it to the columns the cap held back, so a two-column
@@ -323,7 +360,7 @@ UNBREAKABLE_ROWS = 30
 
 def _fits(table: Table, size: str, available: float) -> bool:
     """Whether ``table`` can hold **every** unbreakable token at ``size``."""
-    required, _desired, _natural = _column_asks_pt(table, _CHAR_PT[size])
+    required, _desired, _natural = _column_asks_pt(table, size)
     return math.fsum(required) <= available + 0.01
 
 
@@ -369,10 +406,10 @@ def _table_size_and_spec(table: Table, *,
     # bound on every path, so neither the reader nor a type checker has to prove
     # the loop runs at least once.
     size = sizes[-1]
-    widths = _column_widths_pt(table, _CHAR_PT[size], available)
+    widths = _column_widths_pt(table, size, available)
     for candidate in sizes:
         size = candidate
-        widths = _column_widths_pt(table, _CHAR_PT[candidate], available)
+        widths = _column_widths_pt(table, candidate, available)
         if math.fsum(widths) <= available + 0.01:
             break
     # Columns share out ``\sltablewidth`` -- the text block with the inter-column

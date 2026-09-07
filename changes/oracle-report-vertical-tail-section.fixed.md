@@ -65,5 +65,24 @@
 - **`fancyhdr` warned once per page that the running head did not fit (tier S,
   2026-09-07).** 77 identical warnings on the report's own example, in both report
   renderers, because a `\small` head is taller than the 12pt default `\headheight`.
-  Declared. Building `ga6_normal` now emits 4 overfull-box warnings, worst 0.79pt,
-  against 33 overfull plus 77 `fancyhdr` before.
+  Declared.
+
+- **The column widths were modelled; they are measured now (tier M, 2026-09-07).** The
+  solver sized every column from a four-class glyph model — upper, lower, digit, narrow
+  — scaled off a 0.5 em average, and a model is only as good as its worst word. Its
+  worst word was `assumed`: 34.02pt of Latin Modern against a predicted 30.24, so the
+  Spars column of Table 12 was floored 3.8pt under the one token it had to hold and
+  every row of it overprinted. The floor test passed throughout, because it checked the
+  solver against the same wrong ruler the solver used. Every printable ASCII character,
+  roman and bold, was set by `tectonic` on this module's own preamble and its `\wd`
+  read back; the two table sizes are one font, so their ratio is exact as well (1.0811,
+  against the 5.0/4.5 assumed). Summing the measured glyphs reproduces a real word to a
+  hundredth of a point, and a new gate holds the tables to eight of TeX's own readings.
+  `ga6_normal`, `baron_58` and `concept_regional_jet` now build with **no warnings at
+  all**, against 33 overfull boxes plus 77 `fancyhdr` on `ga6_normal` alone before.
+
+- **The single-owner constant guard read a glyph width as the dynamic-pressure divisor
+  (tier S, 2026-09-07).** `\b295\b` treats a decimal point as a word boundary, so it
+  matched the `295` inside `6.295` and reported the renderer for open-coding
+  `DYNAMIC_PRESSURE_DIVISOR`. Every literal in the guard now has to *start* a number
+  rather than be a run of digits taken out of the middle of one.
