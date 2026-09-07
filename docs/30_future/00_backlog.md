@@ -553,6 +553,38 @@ again; L-8d's mutation case stays parked); F25-2.
   row. Shares an owner with `safety_factors.prescribes_factor`, whose load half
   is the same predicate. The producer `sloads/modules/engine.py` is **frozen**
   (OR-13) until the 0.8.2 cut.
+- **Three examples enter a control-surface area they do not draw.** The area a
+  control surface's loads are run on and the area its entered planform outline
+  encloses are two entered numbers, and the aileron's disagree: the outline is
+  4 % under the analysis area on `baron_58`, 5 % over on `cessna_210` and **44 %
+  under** on `concept_regional_jet` (15.0 sq ft entered against an 8.458 sq ft
+  outline). One of each pair is wrong and it is fixture data, not report
+  content — note 44 §19 OR-152 makes the document state the disagreement rather
+  than resolve it silently, so nothing is hidden while this is open. **Filed
+  2026-09-07.** Tier S per example. The same review found `baron_58`,
+  `cessna_210` and `concept_regional_jet` carrying a `flap_loads` slice with no
+  `flap` outline, and only `ga6_normal` entering an `elevator`, so their flap
+  and tab locator figures state an absence where `ga6_normal` draws one.
+
+- **sloads publishes no control-surface hinge moment.** Note 44 §19 OR-154
+  states the *sense* of the hinge moment as the sign convention and derives no
+  magnitude, because no module produces one. Whether the hinge moment is a
+  deliverable this suite should produce — it is what a control-surface
+  attachment is sized to, and `AileronLoadsInput.hinges_span_in` and
+  `actuator_span_in` are already entered-never-invented and unconsumed — is a
+  scope question, not a defect. **Filed 2026-09-07.** Tier L if taken, and it
+  reaches `modules/aileron.py`, frozen for 0.8.2 under OR-13.
+
+- **The oracle prints an aileron deflection schedule the module does not
+  publish.** Appendix A p200 prints the deflections at VA, VC and VD (15.00 /
+  10.68 / 4.26 deg and their up throws) that the pick is made from;
+  `aileron.aileron_loads` computes them internally and returns only the
+  governing loads and speeds, so section 7 states the schedule as a rule in
+  words and prints no numbers for it — the report may not re-derive what a
+  module did not return (OR-6). Publishing them is additive, one `LoadValue`
+  each. **Filed 2026-09-07.** Tier M, and it touches frozen `modules/aileron.py`
+  (OR-13).
+
 - **The fuselage applied set is `Fz` alone — is that the model, or the airplane?**
   The body beam publishes a vertical applied load per station and nothing else,
   so Appendix C.1 prints `Fx`, `Fy`, `Mx`, `My` and `Mz` as stated zeros. That

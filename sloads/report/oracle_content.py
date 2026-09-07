@@ -49,6 +49,11 @@ IMPLEMENTED: FrozenSet[str] = frozenset({
     # each half is implemented on its own, which is what let Section 5 ship a
     # day ahead of Section 6.
     "htail_loads", "vtail_loads",
+    # Sections 7, 8 and 9 -- the control-surface pressures. They add no
+    # appendix: a control surface delivers a pressure over a surface Section 2
+    # already carries, not a distributed set a structures model integrates
+    # station by station (note 44 §19, OR-147).
+    "aileron_loads", "flap_loads", "tab_loads",
 })
 
 #: The document's fixed front matter, in order, ahead of the analysis body.
@@ -486,8 +491,26 @@ def _inputs_present(project: Project, step: wf.WorkflowStep) -> bool:
     Deliberately a *slice presence* test and not a trial run: OR-6 forbids this
     module from computing anything, and a preflight that ran every module to
     decide what to print would be doing the analysis twice.
+
+    **An empty collection is absent, not present.** Some required slices are
+    lists that default to ``[]`` rather than to ``None`` -- ``engines`` is the
+    one that surfaced this -- so a bare ``is not None`` reported a project with
+    no engine at all as carrying its engine inputs. Nothing printed wrongly
+    while those sections were unbuilt, because NOT_IMPLEMENTED outranks ABSENT
+    (OR-32); it would have the day one of them shipped, telling a reader their
+    section was analysed when the analysis had nothing to run on. Found by
+    ``test_among_printed_sections_not_implemented_outranks_absence`` when
+    sections 7-9 shipped and the step it happened to pick changed under it.
     """
-    return all(getattr(project, attr, None) is not None for attr in step.requires)
+    return all(_slice_present(project, attr) for attr in step.requires)
+
+
+def _slice_present(project: Project, attr: str) -> bool:
+    """Whether one required slice is populated -- the one owner of that test."""
+    value = getattr(project, attr, None)
+    if value is None:
+        return False
+    return not (isinstance(value, (list, tuple, dict, set)) and not value)
 
 
 def _plan_row(project: Project, spec: ReportSpec, step: wf.WorkflowStep,
@@ -533,7 +556,7 @@ def _split_row(project: Project, spec: ReportSpec, step: wf.WorkflowStep,
     """
     selected = split.key not in spec.excluded_steps
     present = (_inputs_present(project, step)
-               and all(getattr(project, attr, None) is not None
+               and all(_slice_present(project, attr)
                        for attr in split.requires))
     produced = present if results is None else (
         present and results.get(split.step_key) is not None)

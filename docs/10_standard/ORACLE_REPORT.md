@@ -911,6 +911,52 @@ Appendix B.2 and the new C.2 stay, and say what they are for: the **carried**
 set is what a model built from the applied set should return, which is why its
 frame is the beam's own and not the airplane's.
 
+## 3.9 Sections 7, 8 and 9: the control-surface pressures
+
+*Agreed 2026-09-07 (note 44 §19, OR-147 … OR-157). The aileron, the flap and the
+tab.*
+
+**These three sections deliver a pressure and nothing else.** They add no
+appendix, no station table and no CSV. The A–E pattern exists because a wing, a
+body and a tail deliver a **distributed** load a structures model integrates
+station by station; a control surface delivers a pressure over a surface Section
+2 already draws, and the reader applies it. §5.3 and §6.3 — the elevator's and
+the rudder's chordwise distributions — are the precedent these are written to.
+
+- **The geometry is Section 2's and is referenced, never restated.** §2.1 prints
+  each surface's input table and draws the aileron and the flap on the wing and
+  the elevator on the horizontal tail. A section that reprinted a deflection
+  limit or an area would be the same number in two places.
+- **A tab is drawn on its control surface, not on the fixed one** — the
+  elevator, the rudder or the aileron — because that is what it is cut into.
+- **One sign convention, in the same words in all three.** Pressure is positive
+  acting normal to the surface's own plane, in the sense a trailing-edge-down
+  deflection produces; a positive pressure gives a nose-down moment about the
+  hinge line and a negative pressure, which a trailing-edge-up throw produces,
+  gives a trailing-edge-down moment about it. The airplane axis that normal is
+  belongs to the host: `z` for a wing- or horizontal-tail-borne surface, `y` for
+  a rudder.
+- **The spanwise distribution is stated, because the oracle leaves it
+  ambiguous.** The pressure is uniform along the span and the chordwise profile
+  is in fractions of the *local* surface chord. That is not an assumption added
+  here: every one of the three equations divides a load by an **area**, so the
+  pressure is uniform over that area by construction, and the printed profile
+  integrates back to the printed load over the entered area — which is a gate,
+  not a claim.
+- **The pressure has one owner, and a drawn outline is never a divisor.** The
+  entered analysis area and the entered planform outline are two different
+  numbers and they disagree on three of the four examples, by 44 % on one. The
+  printed pressure is the module's; where the two areas differ by more than 2 %
+  the section **states the disagreement** rather than resolving it silently in
+  either direction.
+- **A tab's locator rectangle is labelled as drawn.** No tab planform is entered
+  anywhere in the schema, so the rectangle is the entered area at the entered
+  station — chord `MACTAB`, span `STAB/MACTAB` — and the caption says so, because
+  a shape a reader could mistake for entered geometry is what this document must
+  not draw silently.
+- **No hinge moment is stated.** No module produces one; the *sense* is the sign
+  convention and the magnitude is not derived. The same absence §5.5 states.
+
 ## 4. Identity, signatures and DRAFT
 
 The title block carries report number, revision, issue date, issuing
@@ -1064,10 +1110,37 @@ without a guard is prose, not a gate).
 | 5.1 Input data, axis and constants | 2026-09-07 | `test_oracle_report_tail.py::test_the_input_data_subsection_draws_the_surface_with_its_axis`, `::test_the_input_data_subsection_states_the_axis_station_by_station` |
 | 5.5 The hinge-moment absence | 2026-09-07 | `test_oracle_report_tail.py::test_the_spanwise_subsection_says_why_there_is_no_hinge_moment` |
 | Appendix D as an applied deck | 2026-09-07 | `test_oracle_report_tail.py::test_appendix_d_places_every_load_on_the_airplane`, `::test_appendix_d_and_the_tail_span_csv_are_one_load_set` |
+| 7-9. Control surfaces deliver a pressure and no appendix (OR-147) | 2026-09-07 | `test_oracle_report_control.py::test_the_control_sections_add_no_appendix_and_no_manifest_row`, `::test_the_three_sections_are_built_rather_than_placeholders` |
+| 7-9. The geometry is Section 2's (OR-148) | 2026-09-07 | `test_oracle_report_control.py::test_no_control_section_reprints_a_geometry_input`, `::test_every_control_section_points_at_the_geometry_section` |
+| 7-9. One sign convention (OR-150) | 2026-09-07 | `test_oracle_report_control.py::test_every_control_section_states_the_sign_convention_in_the_same_words`, `::test_the_aileron_prints_both_throws_with_opposite_signs` |
+| 7-9. The spanwise rule and its closure (OR-151) | 2026-09-07 | `test_oracle_report_control.py::test_every_control_section_states_the_spanwise_rule`, `::test_the_printed_profile_integrates_back_to_the_printed_load` |
+| 7-9. The printed values are the modules' own (OR-152, G-OR-96) | 2026-09-07 | `test_oracle_report_control.py::test_the_printed_loads_and_pressures_are_the_modules_own`, `::test_no_pressure_is_computed_from_a_drawn_outline` |
+| 7-9. The area disagreement is stated (OR-152) | 2026-09-07 | `test_oracle_report_control.py::test_a_disagreeing_pair_of_entered_areas_is_stated`, `::test_an_agreeing_pair_is_not_stated` |
+| 7-9. Figures: application and locator (OR-153, OR-155) | 2026-09-07 | `test_oracle_report_control.py::test_the_chordwise_figure_is_built_wherever_the_module_runs`, `::test_the_locator_states_its_absence_rather_than_drawing_nothing`, `::test_the_tab_rectangle_is_labelled_as_drawn` |
+| 8. The flap prints the set its pick came from (OR-156) | 2026-09-07 | `test_oracle_report_control.py::test_the_flap_prints_four_candidates_and_names_the_critical_one`, `::test_a_flap_with_no_engine_record_states_the_slipstream_absence` |
+| 9. One row per tab, naming its station (OR-157) | 2026-09-07 | `test_oracle_report_control.py::test_the_tab_table_has_a_row_per_tab_and_names_its_station` |
+| 7-9. The hinge-moment absence (OR-154) | 2026-09-07 | `test_oracle_report_control.py::test_every_control_section_says_why_there_is_no_hinge_moment` |
 | 4.1 Side view, and mass against beam | 2026-09-07 | `test_oracle_report_fuselage.py::test_the_side_view_draws_the_mass_the_beam_and_the_load_paths`, `::test_the_beam_table_states_where_the_mass_is_and_where_the_beam_runs` |
 
 ## 8. Conformance
 
+- [x] Sections 7, 8 and 9 deliver a pressure and add no appendix, no manifest
+      row and no CSV; the appendix set stays A–E (OR-147) —
+      `test_oracle_report_control.py`
+- [x] The pressure is uniform along the span and the profile is in fractions of
+      the local surface chord; the printed profile integrates back to the
+      printed load over the entered area (OR-151) —
+      `test_oracle_report_control.py`
+- [x] No pressure is computed from a drawn outline, and a pair of entered areas
+      that disagree by more than 2 % is stated in both directions (OR-152) —
+      `test_oracle_report_control.py`
+- [x] One sign convention in one wording across all three sections, naming the
+      airplane axis its host's normal is (OR-150) —
+      `test_oracle_report_control.py`
+- [x] The tab locator's rectangle is captioned as drawn, not entered (OR-155);
+      the flap prints the four candidates its pick came from and states the
+      slipstream absence where there is no engine record (OR-156) —
+      `test_oracle_report_control.py`
 - [x] Appendix B is two subsections — the applied loads and the loads carried —
       sharing no load column, with B.1 carrying the point each load acts at —
       `test_oracle_report.py`

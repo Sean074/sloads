@@ -282,6 +282,26 @@ def test_among_printed_sections_not_implemented_outranks_absence():
     assert entry.inputs_present is False
 
 
+def test_an_empty_required_collection_is_absent_not_present():
+    """A slice that defaults to ``[]`` is not the same as a slice that is filled.
+
+    ``engines`` is a list with an empty default, so a bare ``is not None`` test
+    reported a project with no engine at all as carrying its engine inputs.
+    Nothing printed wrongly while the sections that require it were unbuilt --
+    NOT_IMPLEMENTED outranks ABSENT (OR-32) -- but the day one of them ships it
+    would have told a reader their section was analysed when the analysis had
+    nothing to run on. Found when sections 7-9 shipped and the step
+    :func:`test_among_printed_sections_not_implemented_outranks_absence` picks
+    changed under it (note 44 §19, `CLAUDE.md` rule 4).
+    """
+    step = next(s for s in oc.analysis_steps() if "engines" in s.requires)
+    empty = oc.section_plan(Project(name="no engines"), _spec(),
+                            implemented=frozenset({step.key}))
+    entry = next(e for e in empty if e.step_key == step.key)
+    assert entry.inputs_present is False
+    assert entry.state is oc.SectionState.ABSENT
+
+
 def test_a_deselected_section_is_omitted_entirely_and_numbering_closes_up():
     """A deselected section is not printed, and leaves no gap behind it.
 

@@ -1374,3 +1374,101 @@ set, and **G-OR-90** holds all of them to the deck.
   producer at all (axial from thrust, drag or a fore-aft inertia term) is not
   settled here; OR-140 prints the column as a stated zero either way, and if a
   producer exists the column is where it will appear.
+
+## 19. Iteration 6 — Sections 7, 8 and 9, control-surface pressures (OR-147 … OR-157)
+
+**Status: AGREED 2026-09-07 (owner, in session).** Drafted from the owner's ruling
+in session: *"These surfaces will be just pressure loads. So no appendix B, C, D
+type distributed loads. The aileron and flap geometry is defined with the main
+surface in Section 2, use this definition. The tab is defined with the elevator.
+The purpose is to show how to apply the pressure load to the control surface …
+There should be no appendix needed for these three surfaces. This is similar to
+the elevator and rudder pressures. Note we have some spanwise distribution of
+pressure that should also be defined (this is ambiguous in the Oracle)."*
+
+*Measurements taken 2026-09-07 against `examples/ga6_normal.project.json`,
+`examples/baron_58.project.json`, `examples/concept_regional_jet.project.json`
+(the three G-OR-1 builds) and `examples/cessna_210.project.json`, and quoted
+where they carry a decision.*
+
+**The section shape is already agreed and is not re-opened here.** OR-128 lettered
+these three as peer sections — *aileron 7, flap 8, tab 9* — when it split the
+tail into two. Nothing below changes that.
+
+| # | Decision | Amends |
+|---|---|---|
+| **OR-147** | **These three sections deliver a pressure and nothing else.** No appendix, no station table, no CSV, no deck rows are added by this iteration *(owner, 2026-09-07)*. The A–E pattern exists because a wing, a body and a tail deliver a **distributed** load that a structures model integrates station by station; an aileron delivers a pressure field over a surface whose planform §2 already carries, and the reader applies it themselves. The deliverable is therefore the pressure, its shape over the surface, and the sign convention that says which way it acts. §5.3 and §6.3 — the elevator's and the rudder's chordwise distributions — are the precedent, and these sections are written to read like them. | OR-59 (does **not** extend), OR-139 |
+| **OR-148** | **The geometry is Section 2's and is referenced, never restated.** §2.1 already prints an *Aileron*, a *Flap* and a *Trim tab* input table, and its wing planform figure already draws the aileron and the flap to scale on the wing while its horizontal-tail planform draws the elevator. A section that reprinted a deflection limit or an area would be the same number in two places, which §3.3 forbids. Each section opens by pointing at 2.1 through the reference owner and prints only what its own analysis produced. | §3.3 ("a number is printed once") |
+| **OR-149** | **The tab is drawn on the elevator, not on the horizontal tail** *(owner, 2026-09-07)*. `TabSpec.station_in` is the butt line (wing / h-tail host) or waterline (fin host) of the tab MAC, and the surface it is cut into is the control surface, not the fixed one. The locator is therefore drawn on §2.1's **elevator** outline for an h-tail tab, the **rudder** for a fin tab and the **aileron** for a wing tab — the same three outlines 2.1 already draws as regions. | OR-148 |
+| **OR-150** | **One sign convention, stated once and shared by all three** *(owner's words, 2026-09-07)*. **Pressure is positive acting normal to the control-surface plane, in the sense a trailing-edge-down deflection produces.** A positive pressure gives a **nose-down** moment about the hinge line — leading edge down, trailing edge up — and a negative pressure, which is what a trailing-edge-up throw produces, gives a **trailing-edge-down** moment about the hinge line. The two statements are one rule read from both throws, and both are printed: the aileron is the only one of the three with a signed pair, and the down throw's `+0.484` and the up throw's `−0.323` psi on `ga6_normal` are the rule's own instances. The convention is stated in the same words §5.3 and §6.3 state the elevator's and the rudder's, and the airplane-axis reading of "normal" is named per host (wing- and h-tail-borne surfaces: airplane **+z**; a fin-borne surface: airplane **+y**), because the surface's own normal is what the pressure is about and the airplane axis is what a reader applies it in. | `CONVENTIONS.md` §7, OR-146 (frame precedent) |
+| **OR-151** | **The spanwise distribution is uniform pressure; the chordwise profile is in fractions of the *local* surface chord.** This is the ambiguity the owner names, and it is not a new assumption — it is what each of the three oracle equations already does, recovered and stated. Every one divides a load by an **area** to get a pressure: the aileron's `W = LAIL/(SAFWD + ½·SAAFT)`, the flap's `LF = 0.75·p_LE·SF`, the tab's `W = LTAB/1.5/STAB`. A pressure that came from an area and is quoted as one number is uniform over that area by construction. Checked against Appendix A, exactly: flap `629/(10.7·144) = 0.4082`, `÷0.75 = 0.5443` against the printed **0.545 psi**; tab `84.618/226 = 0.3744`, `×4/3 = 0.4992` against the printed **0.4992 / 0.2496**; aileron `271.44/3.894/144 = 0.4841` against **0.484**. **Two consequences are stated in the section, not left to be inferred:** the load **per unit span** is proportional to the local surface chord, so a tapered aileron carries more load per inch at its inboard end at the same psi; and the chordwise breakpoint the aileron profile carries is an **area** fraction, `SAFWD/SA` (`0.2004` on `ga6_normal`), which equals a chord fraction only where the hinge-chord ratio is constant along the span. Where it is not, the ratio is the span-mean and the section says so. | `theory_sources.md` (aileron / flap / tab) |
+| **OR-152** | **The pressure has one owner — the module — and a drawn outline is a locator, never a divisor.** The entered analysis area and the entered planform outline are two different numbers, and on three of four examples they disagree: aileron analysis-area against drawn outline — the drawn one stated as a percentage of the analysis one, which is the way the document prints it — **6.488 / 6.474 (−0.2 %)** on `ga6_normal`, **7.6 / 7.306 (−4 %)** on `baron_58`, **6.2 / 6.493 (+5 %)** on `cessna_210` and **15.0 / 8.458 (−44 %)** on `concept_regional_jet`; flap **10.7 / 10.72 (+0.2 %)** on `ga6_normal`, and no other example enters a flap outline at all. A figure that shaded the outline and computed its own psi would print a pressure **77 % high** on the regional jet for a load nothing had changed — the milestone's recurring defect exactly, an entered value shadowed by a derived stand-in with nothing saying so. So the printed pressure is the module's, the figure is annotated with the **entered area it was computed from**, and where both areas exist and disagree by more than **2 %** the section **states the discrepancy** rather than drawing a shape whose area contradicts the number beside it. *(Owner, 2026-09-07: 2 % stands — it fires on the Baron and the C210 as well as the jet, which is the point of it.)* The regional jet's 77 % is filed as a data finding below; it is not this iteration's to fix. | **OR-6**, rule 3 (one owner + drift guard) |
+| **OR-153** | **Two figures per section, and the second is allowed to be absent.** *(a)* The **chordwise application diagram** — a section cut through the surface, leading edge left, hinge line and chord fractions marked, the pressure block drawn to scale with its values, the resultant arrow at the pressure centroid, and the sign convention on the drawing. It is built from the module's own `ControlSurfaceStation` profile and needs no geometry, so it is available on every project that runs the module. *(b)* The **planform locator** — §2's entered outline of the surface with the pressure region on it — which is available only where that outline is entered: the aileron on all four examples, the flap on **`ga6_normal` alone**, the elevator (and so the tab) on **`ga6_normal` alone**. Where it is not entered the figure renders the OR-32 stated absence, and the section is otherwise complete. Neither figure is decoration: (a) is *how to apply the load*, which is the owner's stated purpose, and (b) is *where*. | OR-32, §4.3 |
+| **OR-154** | **No hinge moment is printed.** No module returns one, and deriving one here would be the report producing a load quantity — OR-6 — in the section whose whole subject is where the load acts. The **sense** of the hinge moment is the sign convention (OR-150) and is stated in words; the magnitude is not stated at all. One sentence goes with it, because a reader who applies the pressure will meet it immediately: the balance area forward of the hinge line carries the same-signed pressure and contributes the **opposite** moment about the hinge, which is what that area is for. That sloads publishes no hinge moment is filed below as a finding, not fixed here. | **OR-6** |
+| **OR-155** | **The tab's locator rectangle is drawn from its entered area and MAC, and is labelled as drawn** *(owner, 2026-09-07: rectangle, not marker)*. A tab has no entered outline anywhere in the schema; it is placed by `station_in`, sized by `mac_in` and `area_sqft`. The locator is therefore the rectangle of chord `MACTAB` and span `STAB/MACTAB` centred on the entered station — **30.2 in** on `ga6_normal`, 28.8 on `baron_58`, 64.3 on `concept_regional_jet` — drawn on the elevator per OR-149. This is a **drawing** convention, and the caption says so in as many words: *the tab planform is not entered; this rectangle is the entered area at the entered station.* The alternative, a marker at the station with no extent, tells a reader where but not how much of the elevator the pressure covers, which is the question the figure exists to answer. If the owner prefers the marker, the section loses nothing else. | OR-6 (the reason it is labelled) |
+| **OR-156** | **The flap prints the four conditions it was chosen from, then the pick.** `23.345(a)`'s critical load is the largest of 1G stall, 2G stall, 2G at VF and the flaps-extended gust at VF, and a pick means nothing without the set — `ga6_normal` prints **212 / 424 / 629 / 624 lb**, and that the last two are within 1 % is the section's own content. The slipstream (`23.457(b)`) and the gust-combined load (`23.345(b)(1)`) follow in their own table. *(Corrected in implementation, 2026-09-07: the draft said "their own subsection". A subsection would make Section 8 the only one of the three with a second heading level, against the owner's "simple sections"; a titled table carries the same separation at one level. Nothing else in the ruling changes.)* **The known limitation is stated where it bites:** with no engine record carrying take-off power and propeller diameter, the slipstream case does not exist and the flap is sized on the gust-combined load alone — measured ~19 % low on the C210 (#69, #85). The section states that condition rather than printing a silently smaller number. | OR-135 (provenance beside the value) |
+| **OR-157** | **One row per tab, one figure per tab.** `TabLoadsInput.tabs` is a list and each entry names its host, so the summary is a table with a row per tab — host, area, MAC, station, chord ratio E, load, LE and TE pressure — and the chordwise diagram is drawn per tab, because it is the figure that carries the pressures. Every shipped example enters exactly one tab, all on the horizontal tail, so the multi-tab path is exercised on a constructed project. The station column states **which** station it is: a butt line for a wing or h-tail tab, a waterline for a fin tab, never the bare number. | OR-146 (name the axis) |
+
+### Gates added by this iteration
+
+- **G-OR-95** — Sections 7, 8 and 9 add **no** appendix, no manifest row and no
+  CSV: the appendix set stays A–E and the manifest is byte-identical to the same
+  build without them. The gate that OR-147 stayed a report change.
+- **G-OR-96** — every pressure and load these three sections print is the
+  module's own unscaled value, matched through the content model, against the
+  Appendix A oracles: aileron **+271.44 / −180.96 lb at 170.0 kt**, **+0.484 /
+  −0.323 psi** (p200); flap **629 lb**, **0.545 psi**, the four candidates
+  **212 / 424 / 629 / 624**, slipstream factor **1.407**, gust-combined
+  **819 lb** (p201); tab **E 0.17735**, **84.618 lb**, **0.4992 / 0.2496 psi**
+  (p202) — ±0.1 %, page-cited in the test.
+- **G-OR-97** — *(OR-151)* the printed pressure profile **integrates back to the
+  printed load** over the entered area, on every case of every shipped example:
+  the chordwise mean of the profile times the entered area equals the module's
+  load to within 0.1 %. This is the gate that the stated spanwise rule is the one
+  the numbers were built with, and it fails if a future edit changes either the
+  profile or the area without the other.
+- **G-OR-98** — *(OR-152)* no figure, table or caption in these three sections
+  computes a pressure from a drawn outline; the pressure appears in the document
+  only by projection from `ControlSurfaceLoadResult`. Asserted by building
+  `concept_regional_jet`, whose outline and entered area differ by 77 %, and
+  reading the printed psi against the module's.
+- **G-OR-99** — *(OR-152)* where both areas exist and differ by more than 2 %,
+  the section prints the discrepancy statement; where they agree it does not.
+  Asserted in both directions, so a statement that never fires and one that
+  always fires both fail.
+- **G-OR-100** — *(OR-150)* the sign convention is stated in every one of the
+  three sections, in the same words, and names the airplane axis its host's
+  normal is; the aileron section prints **both** throws with opposite signs and
+  states the hinge-moment sense of each.
+- **G-OR-101** — *(OR-153)* the chordwise diagram is built on every project that
+  runs the module, and the planform locator renders either the outline or the
+  OR-32 stated absence — never an empty axis. Asserted on all four examples,
+  which between them cover outline-entered and outline-absent for each of the
+  three surfaces.
+- **G-OR-102** — *(OR-148)* no deflection limit, area, chord ratio or station
+  these sections reference is **printed** by them: every such value appears once,
+  in §2.1, and the sections reach it through the reference owner.
+- **G-OR-103** — *(OR-156)* the flap section prints four candidate loads and
+  names which is critical; with no engine record it states the slipstream
+  condition's absence and does not print a slipstream subsection.
+
+### Findings to file (OR-14 — file, do not fix here)
+
+- **`concept_regional_jet` enters an aileron whose drawn outline is 44 % smaller
+  than the area its loads were run on.** The analysis area is 15.0 sq ft and the
+  entered outline encloses 8.458 — the same fact as "the analysis area is 77 %
+  larger than the outline", and the document states it the first way because
+  the analysis area is what the pressure was divided by. One of the two is
+  wrong and it is a fixture-data question, not a report one; OR-152 makes the
+  document state the disagreement rather than hide it either way. The same check
+  finds `baron_58` at +4.0 % and `cessna_210` at −4.5 %, which are plausible as
+  outline-vs-analysis differences and are recorded for the same review.
+- **Three examples enter a flap they do not draw.** `baron_58`,
+  `cessna_210` and `concept_regional_jet` carry a `flap_loads` slice and no
+  `flap` surface, so their flap sections will carry a stated absence where
+  `ga6_normal` carries a figure. Entering the outlines is fixture work.
+- **sloads publishes no control-surface hinge moment.** OR-154 states the sense
+  and prints no number. Whether the hinge moment is a deliverable this suite
+  should produce — it is what a control-surface attachment is sized to — is a
+  scope question for a later milestone, with `AileronLoadsInput.hinges_span_in`
+  and `actuator_span_in` already entered-never-invented and unconsumed.

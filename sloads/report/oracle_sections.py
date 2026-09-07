@@ -39,14 +39,16 @@ import math
 from dataclasses import replace
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
-from ..constants import ULTIMATE_FACTOR
+from ..constants import IN2_PER_FT2, ULTIMATE_FACTOR
 from ..derived_geometry import MacReference, mac_reference, station_to_pct_mac
-from ..models import Project
+from ..models import MissingInputError, Project
 from ..models.enums import AnalysisKind
 from ..models.inputs import FuselageStation
 from ..models.results import (
     BodyLoadResult,
     ConditionResult,
+    ControlSurfaceLoadResult,
+    ControlSurfaceStation,
     CriticalCondition,
     LoadValue,
     ModuleResult,
@@ -4602,6 +4604,765 @@ def _vtail_station_appendix(project: Project, *, system: UnitSystem,
     return _tail_station_appendix(project, "vtail", system=system, plan=plan)
 
 
+# =========================================================================== #
+# Sections 7, 8 and 9 -- the control-surface pressures (note 44 §19)
+# =========================================================================== #
+#: The host each control surface is cut into, the frame it is drawn in, and the
+#: airplane axis its outward normal is (OR-149, OR-150).
+#:
+#: The normal is the axis a reader applies the pressure in, and it is a property
+#: of the *host*, not of the control surface: an aileron and a flap hang off a
+#: wing and push in airplane z, a rudder hangs off a fin and pushes in airplane
+#: y. Declared as data for the reason ``_PLANFORM_FIGURES`` is: a surface added
+#: to the schema without a normal fails the suite rather than inheriting one.
+_CONTROL_HOSTS: Dict[str, Tuple[str, str, str]] = {
+    #  control surface -> (host surface, planform frame, airplane normal axis)
+    "aileron": ("wing", "butt", "z"),
+    "flap": ("wing", "butt", "z"),
+    "elevator": ("htail", "butt", "z"),
+    "rudder": ("vtail", "water", "y"),
+}
+
+#: Which control surface a tab is cut into, per host surface (OR-149).
+#:
+#: A tab is not cut into the fixed surface. ``TabSpec.surface`` names the wing,
+#: the horizontal tail or the fin, and the tab sits in that surface's *control*
+#: surface -- so the locator is drawn on the aileron, the elevator or the
+#: rudder, which are the outlines §2.1 already carries as regions.
+_TAB_HOSTS = {"wing": "aileron", "htail": "elevator", "vtail": "rudder"}
+
+#: The station name a tab's ``station_in`` is, per host (OR-157).
+_TAB_STATION_NAMES = {"wing": "Butt line", "htail": "Butt line",
+                      "vtail": "Waterline"}
+
+#: How far the entered analysis area and the entered outline may differ before
+#: the section says so (OR-152). Measured on the shipped examples: +0.2 % on
+#: ``ga6_normal``, +4.0 % on ``baron_58``, -4.5 % on ``cessna_210`` and **+77 %**
+#: on ``concept_regional_jet``. The owner set the threshold where the middle two
+#: speak as well as the outlier, because a 4 % disagreement between the area a
+#: pressure was computed from and the area it is drawn over is worth a sentence.
+_AREA_TOLERANCE = 0.02
+
+
+def _control_sign_convention(surface: str, host: str, *,
+                             label: str = "") -> str:
+    """The one sign-convention paragraph all three sections carry (OR-150).
+
+    Stated in the same words in each, and in the same words §5.3 and §6.3 state
+    the elevator's and the rudder's -- three sections that each phrased one
+    convention their own way would read as three conventions.
+    """
+    axis = _CONTROL_HOSTS.get(surface, (host, "butt", "z"))[2]
+    # ``label`` names the surface the pressure is *on* where that is not the
+    # surface the axis is read from -- a tab, whose own plane is the one it is
+    # applied normal to and whose host chain ends at the airplane axis two
+    # surfaces up. Without it §9 stated the convention about the elevator, and
+    # a reader would have had to decide for themselves which hinge line "the
+    # hinge line" was.
+    printed = (label or _REGION_NAMES.get(surface, surface)).lower()
+    carrier = _REGION_NAMES.get(surface, surface).lower()
+    host_printed = _REGION_NAMES.get(host, host).lower()
+    if label:
+        host_printed = f"{carrier}, which the {host_printed} carries"
+    return (
+        f"Pressure is positive acting normal to the {printed}'s own plane, in "
+        f"the sense a trailing-edge-down deflection produces. A positive "
+        f"pressure gives a nose-down moment about the hinge line -- the "
+        f"{printed}'s own, leading edge down, trailing edge up -- and a "
+        f"negative pressure, which is what a trailing-edge-up throw produces, "
+        f"gives a trailing-edge-down moment about it. The {printed} is carried "
+        f"by the {host_printed}, so that normal is the airplane {axis} axis.")
+
+
+#: How the pressure varies along the span, and why that is not an assumption
+#: added by this document (OR-151).
+_SPANWISE_RULE = (
+    "The pressure is uniform along the span of the surface, and the chordwise "
+    "profile is stated in fractions of the local surface chord. That is what "
+    "the analysis does rather than a rule added here: the load is divided by an "
+    "area to obtain the pressure, so the pressure is uniform over that area by "
+    "construction. It follows that the load per unit span is proportional to "
+    "the local chord -- a tapered surface carries more load per inch of span at "
+    "its wide end at the same pressure -- and that the total is recovered by "
+    "integrating the pressure over the surface's area, not by multiplying it by "
+    "a mean chord.")
+
+#: The hinge-moment absence, stated where a reader meets it (OR-154).
+_HINGE_MOMENT_ABSENCE = (
+    "No hinge moment is stated. The analysis produces the surface's load and "
+    "its pressure distribution and does not produce a hinge moment, and this "
+    "document reports what the analysis produced rather than deriving a "
+    "quantity beside it. The sense of the moment is the sign convention above; "
+    "the magnitude is the reader's to take from the pressure and their own "
+    "hinge geometry. One thing goes with it, because it is met immediately: the "
+    "area forward of the hinge line carries the same-signed pressure and "
+    "contributes the opposite moment about the hinge, which is what that area "
+    "is for.")
+
+
+def _control_records(project: Project, kind: str) -> List[ControlSurfaceLoadResult]:
+    """One module's control-surface records, or ``[]`` where it cannot run.
+
+    Read from the module's own builder -- the same records the export channel
+    consumes -- rather than reconstructed from the rendered condition, which is
+    OR-95's ruling: a section projects the published result and reads the
+    builder only for what the result does not carry. Here that is the chordwise
+    profile, which is on the record and not on the ``ConditionResult``.
+    """
+    from ..modules.aileron import build_aileron
+    from ..modules.flap import build_flap
+    from ..modules.tab import build_tabs
+
+    builders = {"aileron": build_aileron, "flap": build_flap, "tab": build_tabs}
+    try:
+        return list(builders[kind](project))
+    except (MissingInputError, ValueError, TypeError, ZeroDivisionError,
+            AttributeError, IndexError):
+        # G-OR-7: a half-filled project still builds a complete document. The
+        # section states the absence; it does not raise through the builder.
+        return []
+
+
+def _profile_centroid(stations: Sequence[ControlSurfaceStation]) -> Optional[float]:
+    """Chordwise centroid of a pressure profile, as a fraction of chord.
+
+    Where the resultant of the printed profile acts -- the one thing a reader
+    applying it as a single force needs and the profile does not say. It is a
+    property of the drawn shape, not a load: the same number for both throws of
+    an aileron, whose profiles differ only in sign.
+    """
+    points = sorted(stations, key=lambda s: s.x)
+    if len(points) < 2:
+        return None
+    areas, moments = [], []
+    for first, second in zip(points, points[1:]):
+        dx = second.x - first.x
+        if dx <= 0:
+            continue
+        delta = second.psi - first.psi
+        areas.append(dx * (first.psi + delta / 2.0))
+        moments.append(dx * (first.x * first.psi
+                             + (first.x * delta + dx * first.psi) / 2.0
+                             + dx * delta / 3.0))
+    total = math.fsum(areas)
+    if not areas or abs(total) < 1e-12:
+        return None
+    return math.fsum(moments) / total
+
+
+def _control_chord_figure(records: Sequence[ControlSurfaceLoadResult], *,
+                          key: str, title: str, surface: str, host: str,
+                          system: UnitSystem,
+                          hinge: Optional[float] = None,
+                          label: str = "") -> Figure:
+    """The chordwise application diagram: how the pressure is applied (OR-153).
+
+    Built from the module's own station profile and nothing else, so it is
+    available on every project that runs the module -- unlike the locator
+    beside it, which needs an outline the project may not enter.
+    """
+    # ``label`` for the same reason the sign convention takes one: a tab's
+    # profile is over the tab's chord, not over the chord of the control
+    # surface it is cut into, and the caption must not say otherwise.
+    printed = (label or _REGION_NAMES.get(surface, surface)).lower()
+    if not records:
+        return Figure(key=key, title=title, absent_reason=(
+            f"the {printed} loads were not produced for this project."))
+    p_scale, p_units = _scalar_channel("lb/in^2", system)
+    series = []
+    for record, style in zip(records, _CASE_STYLES * 4):
+        stations = sorted(record.stations, key=lambda s: s.x)
+        if not stations:
+            continue
+        series.append(Series(str(record.case),
+                             [s.x for s in stations],
+                             [s.psi * p_scale for s in stations], style))
+    if not series:
+        return Figure(key=key, title=title, absent_reason=(
+            f"the {printed} loads carry no chord stations to plot."))
+    vlines = []
+    if hinge is not None:
+        vlines.append(("Hinge line", hinge))
+    centroid = _profile_centroid(records[0].stations)
+    if centroid is not None:
+        vlines.append(("Resultant acts here", centroid))
+    axis = _CONTROL_HOSTS.get(surface, (host, "butt", "z"))[2]
+    caption = [
+        f"How to apply the {printed} pressure. The horizontal axis is the "
+        f"fraction of the {printed}'s local chord, 0 at its leading edge and 1 "
+        f"at its trailing edge, so the profile is applied at every station of "
+        f"the span at the same pressures. A positive pressure acts normal to "
+        f"the surface in the airplane {axis} direction.",
+        "The resultant of the profile acts at the marked chord fraction; the "
+        "profile itself is the load, and the resultant is where a reader "
+        "replacing it by a single force would put that force.",
+        "All values are LIMIT and state the factor their condition does not "
+        "apply.",
+    ]
+    return Figure(
+        key=key, title=title,
+        data=PlotData("Fraction of the surface chord (0 = LE, 1 = TE)",
+                      f"Pressure ({p_units})", series, vlines=vlines),
+        caption=" ".join(caption))
+
+
+def _outline_series(project: Project, name: str, style: str, mirror: bool,
+                    frame: str, scale: float) -> List[Series]:
+    """One surface's outline, or ``[]`` where it is not entered or half entered."""
+    try:
+        return _region_series(project, name, style,
+                              _REGION_NAMES.get(name, name), mirror, frame,
+                              scale)
+    except ValueError:
+        return []
+
+
+def _control_locator_figure(project: Project, *, key: str, title: str,
+                            surface: str, host: str, system: UnitSystem,
+                            extra: Sequence[Series] = (),
+                            extra_note: str = "", label: str = "") -> Figure:
+    """Where the pressure acts: §2's entered outline, with the surface on it.
+
+    The outline is Section 2's, read through the same owner 2.1 draws it with
+    (OR-148), so the two figures cannot disagree about the shape. Where the
+    outline is not entered the figure states the absence rather than drawing
+    a shape nobody entered -- measured, that is the flap on three of the four
+    examples and the elevator on three.
+    """
+    from .planform_tex import OUTLINE_STYLE, REGION_STYLES
+
+    printed = _REGION_NAMES.get(surface, surface).lower()
+    host_printed = _REGION_NAMES.get(host, host).lower()
+    frame = _CONTROL_HOSTS.get(surface, (host, "butt", "z"))[1]
+    host_surface = project.geometry.by_name(host) if project.geometry else None
+    if host_surface is None:
+        return Figure(key=key, title=title, absent_reason=(
+            f"the project enters no {host_printed} planform, so there is "
+            f"nothing to locate the {printed} on."))
+    scale, length_units = _length_channel(system)
+    mirror = bool(host_surface.symmetric) and frame == "butt"
+    series = _outline_series(project, host, OUTLINE_STYLE, mirror, frame, scale)
+    if not series:
+        return Figure(key=key, title=title, absent_reason=(
+            f"the {host_printed} planform cannot be drawn as entered, so there "
+            f"is nothing to locate the {printed} on."))
+    region = _outline_series(project, surface, REGION_STYLES[0], mirror, frame,
+                             scale)
+    if not region and not extra:
+        return Figure(key=key, title=title, absent_reason=(
+            f"the project enters no {printed} leading- and trailing-edge "
+            f"polylines, so its outline cannot be drawn. The loads and the "
+            f"pressures above are unaffected: they are computed from the "
+            f"entered areas, not from a drawn shape."))
+    series += list(region) + list(extra)
+    x_label, y_label = _PLANFORM_AXES[frame]
+    if label:
+        opening = (f"Where the {label} pressure acts: the {label} drawn on the "
+                   f"{printed}, which is itself shaded on the {host_printed}, "
+                   f"all to scale on equal axes.")
+        applied = (f"The pressure of the profile beside this figure is applied "
+                   f"over the {label}, uniformly along its span.")
+    else:
+        opening = (f"Where the pressure acts: the {printed} shaded on the "
+                   f"{host_printed} as both are entered, drawn to scale on "
+                   f"equal axes.")
+        applied = ("The pressure of the profile beside this figure is applied "
+                   "over the shaded region, uniformly along its span.")
+    caption = [
+        opening + " The outlines are Section 2's own and are drawn from the "
+        "same entered polylines.",
+        applied,
+    ]
+    if extra_note:
+        caption.append(extra_note)
+    caption.append("Nothing here is a load: no value is scaled and none carries "
+                   "a safety factor.")
+    return Figure(
+        key=key, title=title,
+        data=PlotData(f"{x_label} ({length_units})",
+                      f"{y_label} ({length_units})", series),
+        caption=" ".join(caption))
+
+
+def _area_discrepancy(project: Project, surface: str, entered_sqft: float,
+                      system: UnitSystem) -> str:
+    """OR-152: the sentence a disagreeing pair of entered areas earns.
+
+    Two *entered* numbers are compared -- the area the analysis was run on and
+    the area the drawn outline encloses -- and neither is derived into a load.
+    That distinction is the whole of why this is allowed where §2.1 refuses to
+    label a region with a summed area: a legend entry reads as a tabulated
+    quantity, and this reads as what it is, a disagreement between two inputs.
+    """
+    from ..derived_geometry import planform_area_sqft
+
+    if entered_sqft <= 0:
+        return ""
+    try:
+        drawn = planform_area_sqft(project, surface)
+    except (ValueError, TypeError, ZeroDivisionError):
+        drawn = None
+    if drawn is None or drawn <= 0:
+        return ""
+    if abs(drawn - entered_sqft) <= _AREA_TOLERANCE * entered_sqft:
+        return ""
+    scale, units = _scalar_channel("ft^2", system)
+    printed = _REGION_NAMES.get(surface, surface).lower()
+    difference = (drawn - entered_sqft) / entered_sqft * 100.0
+    sense = "larger" if difference > 0 else "smaller"
+    return (
+        f"The two entered areas of this {printed} disagree: the analysis was "
+        f"run on {format_value(entered_sqft * scale)} {units} and the entered "
+        f"outline encloses {format_value(drawn * scale)} {units}, "
+        f"{abs(difference):.0f} % {sense} than the area the pressure was "
+        f"computed from. The "
+        f"pressures above are the analysis's own and were computed from the "
+        f"first of those; the figure below draws the second. Which is the "
+        f"airplane is a question for the configuration, not for this document, "
+        f"and it is stated here rather than resolved silently in either "
+        f"direction.")
+
+
+def _control_case_table(records: Sequence[ControlSurfaceLoadResult],
+                        system: UnitSystem, *, title: str,
+                        note: str) -> Optional[Table]:
+    """Case, speed, load and the whole profile -- one row per case.
+
+    Every station of the profile gets a column, headed by the chord fraction it
+    sits at, rather than the leading-edge pressure alone: the figure beside it
+    draws the shape and this states its numbers, and a reader applying the load
+    needs both ends of a taper. It is also what stops a printed profile being
+    half a profile -- the aileron's zero at the trailing edge is a value of the
+    distribution, not an omission from it.
+    """
+    if not records:
+        return None
+    u = Units(system)
+    p_scale, p_units = _scalar_channel("lb/in^2", system)
+    stations = sorted({round(s.x, 6) for r in records for s in r.stations})
+    rows = []
+    for record in records:
+        sf = float(record.safety_factor or ULTIMATE_FACTOR)
+        by_x = {round(s.x, 6): s.psi for s in record.stations}
+        rows.append([
+            str(record.case),
+            _tail_case_id(record) if record.case_ref else "--",
+            format_value(record.v_kt),
+            u.load(record.load_lb, "force", sf),
+        ] + [_scalar_cell(by_x.get(x), p_scale) for x in stations] + [
+            format_value(sf)])
+    return Table(
+        title=title,
+        columns=["Condition", "Case ID", "Speed (KEAS)",
+                 f"Load ({u.ult_label('force')})"]
+                + [f"psi at {x:.2f}c ({p_units})" for x in stations]
+                + ["SF"],
+        rows=rows, note=note)
+
+
+
+
+
+# --- Section 7 -- the aileron ------------------------------------------------ #
+def _aileron_loads(project: Project,
+                   results: Mapping[str, Optional[ModuleResult]], *,  # noqa: ARG001
+                   system: UnitSystem,
+                   plan: Sequence[SectionPlan]) -> Section:
+    """Section 7 -- the aileron's critical loads and the pressure to apply."""
+    records = _control_records(project, "aileron")
+    inputs = project.aileron_loads
+    if not records or inputs is None:
+        return Section("", absent_reason=(
+            "the aileron loads were not produced for this project: the aileron "
+            "geometry or the design speeds they are computed at are not "
+            "entered."))
+    geometry_ref = section_ref(plan, "configuration_layout")
+    hinge = next((s.x for s in sorted(records[0].stations, key=lambda s: s.x)
+                  if s.x not in (0.0, 1.0)), None)
+    entered_area = float(inputs.area_fwd_hinge_sqft or 0.0) + float(
+        inputs.area_aft_hinge_sqft or 0.0)
+    table = _control_case_table(
+        records, system, title="Critical aileron loads (LIMIT)",
+        note=("The largest down load and the largest up load, each at the speed "
+              "it occurs at. Both are LIMIT and state the factor 14 CFR 23.303 "
+              "prescribes for the condition, which is applied to neither. The "
+              "pressure columns are the profile itself, at fractions of the "
+              "aileron's local chord: constant from its leading edge to the "
+              "hinge line, then tapering to zero at its trailing edge."))
+    body = [
+        f"The ailerons are sized for the deflected rolling conditions of 14 CFR "
+        f"23.455(a)(2); the symmetrical undeflected case is never critical. The "
+        f"load is the CAM 3.222(c) simplified coefficient over the aileron "
+        f"area, evaluated at the three rolling-condition speeds -- full "
+        f"deflection at VA, (VA/VC) of it at VC per 23.455(a)(2)(ii), and half "
+        f"of (VA/VD) of it at VD -- for the up and "
+        f"the down throw, with the largest of each governing. The aileron's "
+        f"geometry, its deflection limits and its areas forward and aft of the "
+        f"hinge line are stated in {geometry_ref} and are not repeated "
+        f"here.",
+        _control_sign_convention("aileron", "wing"),
+        "Both throws are printed and they carry opposite signs: the down "
+        "throw's positive pressure gives a nose-down moment about the hinge "
+        "line, and the up throw's negative pressure gives a trailing-edge-down "
+        "moment about it. They are one rule read from the two throws.",
+        _SPANWISE_RULE,
+        "The chord fraction the profile breaks at is the aileron's area "
+        "forward of the hinge line as a fraction of its total area. That is a "
+        "chord fraction only where the ratio of hinge-forward chord to total "
+        "chord is constant along the span; where it is not, it is the span "
+        "mean of it.",
+    ]
+    discrepancy = _area_discrepancy(project, "aileron", entered_area, system)
+    if discrepancy:
+        body.append(discrepancy)
+    body.append(_HINGE_MOMENT_ABSENCE)
+    figures = [
+        _control_chord_figure(records, key="chordwise_aileron",
+                              title="Aileron chordwise pressure (LIMIT)",
+                              surface="aileron", host="wing", system=system,
+                              hinge=hinge),
+        _control_locator_figure(project, key="locator_aileron",
+                                title="The aileron on the wing",
+                                surface="aileron", host="wing", system=system),
+    ]
+    return Section("", body=body,
+                   tables=[t for t in (table,) if t is not None],
+                   figures=figures)
+
+
+# --- Section 8 -- the flap --------------------------------------------------- #
+#: The four flaps-extended conditions the critical flap load is chosen from,
+#: as ``(load key, lift-coefficient key, printed name)`` (OR-156).
+#:
+#: Every one is a value ``flap.run`` already publishes, so the table is a
+#: projection of the published result and derives nothing: a pick printed
+#: without the set it was picked from is a number a reader cannot check.
+_FLAP_CANDIDATES = (
+    ("flap_load_1g_stall", "flap_cl_1g_stall", "1G stall"),
+    ("flap_load_2g_stall", "flap_cl_2g_stall", "2G stall"),
+    ("flap_load_2g_at_vf", "flap_cl_2g_at_vf", "2G at VF"),
+    ("flap_load_gust_at_vf", "flap_cl_gust_at_vf", "Gust at VF"),
+)
+
+
+def _flap_candidate_table(condition: Optional[ConditionResult],
+                          system: UnitSystem) -> Optional[Table]:
+    """The four conditions and the pick, as ``flap.run`` published them."""
+    values = _by_key(condition)
+    if not values:
+        return None
+    u = Units(system)
+    sf = float(getattr(condition, "safety_factor", ULTIMATE_FACTOR)
+               or ULTIMATE_FACTOR)
+    loads = [values.get(load_key) for load_key, _cl, _name in _FLAP_CANDIDATES]
+    governing = max(
+        (v.value for v in loads if v is not None), default=None)
+    rows = []
+    for (_load_key, cl_key, name), load in zip(_FLAP_CANDIDATES, loads):
+        if load is None:
+            continue
+        cl = values.get(cl_key)
+        critical = (governing is not None
+                    and math.isclose(load.value, governing, rel_tol=1e-9))
+        rows.append([name,
+                     format_value(cl.value) if cl is not None else "--",
+                     u.load(load.value, "force", sf),
+                     format_value(sf),
+                     "critical" if critical else ""])
+    if not rows:
+        return None
+    return Table(
+        title="Flaps-extended conditions (LIMIT)",
+        columns=["Condition", "Flap CL", f"Load ({u.ult_label('force')})",
+                 "SF", ""],
+        rows=rows,
+        note=("The four conditions of 14 CFR 23.345(a) the critical flap load "
+              "is the largest of, printed with the pick so that the pick can be "
+              "read against what it was chosen from. Every load is LIMIT and "
+              "states the factor its condition does not apply."))
+
+
+def _flap_slipstream_table(result: Optional[ModuleResult],
+                           system: UnitSystem) -> Optional[Table]:
+    """The 23.457(b) slipstream condition, where the airplane has one.
+
+    Built through :class:`~sloads.report.content.Units` rather than through
+    :func:`_value_table`, which is section 2's shape and marks a load it meets
+    ``-ULT`` by design -- it is the input echo's table and no load is meant to
+    reach it. This one carries a load, so it states the factor in an ``SF``
+    column and marks nothing (note 49 OR-116).
+    """
+    condition = _find(getattr(result, "conditions", ()) or (), "Flap loads in")
+    if condition is None:
+        return None
+    u = Units(system)
+    sf = float(getattr(condition, "safety_factor", ULTIMATE_FACTOR)
+               or ULTIMATE_FACTOR)
+    rows = []
+    for value in convert_results([condition], system)[0].values:
+        is_load = value.units.startswith("lb") or value.units.startswith("N")
+        rows.append([value.label,
+                     u.load(value.value, "force", sf) if is_load
+                     else format_value(value.value),
+                     (u.ult_label("force") if is_load else value.units),
+                     format_value(sf) if is_load else ""])
+    return Table(
+        title="Flap loads in the propeller slipstream (LIMIT)",
+        columns=["Quantity", "Value", "Units", "SF"], rows=rows,
+        note=("The 14 CFR 23.457(b) slipstream condition. The load inside the "
+              "slipstream is the flap load raised by the stated factor, over "
+              "the span between the two butt lines given. Loads are LIMIT and "
+              "state the factor the condition does not apply; the factor and "
+              "the velocity are not loads and carry none."))
+
+
+def _flap_loads(project: Project,
+                results: Mapping[str, Optional[ModuleResult]], *,
+                system: UnitSystem,
+                plan: Sequence[SectionPlan]) -> Section:
+    """Section 8 -- the critical flap load and the pressure to apply."""
+    from ..modules.flap import slipstream_is_available
+
+    records = _control_records(project, "flap")
+    inputs = project.flap_loads
+    result = results.get("flap_loads")
+    if not records or inputs is None:
+        return Section("", absent_reason=(
+            "the flap loads were not produced for this project: the flap "
+            "geometry, the design speeds or the flaps-extended lift "
+            "coefficients they are computed from are not entered."))
+    geometry_ref = section_ref(plan, "configuration_layout")
+    conditions = list(getattr(result, "conditions", ()) or ())
+    critical = conditions[0] if conditions else None
+    entered_area = float(inputs.flap_area_one_side_sqft or 0.0)
+    tables = [t for t in (_flap_candidate_table(critical, system),
+                          _control_case_table(
+                              records, system,
+                              title="Critical flap loads (LIMIT)",
+                              note=("The load applied to the flap on one side "
+                                    "of the airplane, and the profile it is "
+                                    "applied as, at fractions of the flap's "
+                                    "local chord: the trailing-edge pressure "
+                                    "is half the leading-edge pressure. Every "
+                                    "load is LIMIT and states the factor its "
+                                    "condition does not apply.")),
+                          _flap_slipstream_table(result, system))
+              if t is not None]
+    body = [
+        f"The flap is sized for the flaps-extended conditions of 14 CFR "
+        f"23.345: the critical load is the largest of a 1G stall, a 2G stall, "
+        f"2G at the design flap speed VF and the flaps-extended gust at VF, "
+        f"with the flap's section lift built from the wing angle of attack and "
+        f"the flap deflection. The flap's area, deflection and chord ratio are "
+        f"stated in {geometry_ref} and are not repeated here.",
+        _control_sign_convention("flap", "wing"),
+        _SPANWISE_RULE,
+        "The chordwise profile tapers from the leading edge of the flap to half "
+        "that pressure at its trailing edge, so the mean pressure is three "
+        "quarters of the leading-edge value and the load is that mean over the "
+        "flap's area.",
+    ]
+    if slipstream_is_available(project):
+        body.append(
+            "The propeller slipstream case of 23.457(b) applies: the load "
+            "inside the slipstream is raised by the factor stated above, over "
+            "the span the slipstream covers, and the gust-combined load of "
+            "23.345(b)(1) is stated beside it.")
+    else:
+        body.append(
+            "The propeller slipstream case of 14 CFR 23.457(b) is not analysed "
+            "for this airplane: it exists only where an engine record supplies "
+            "take-off power and a propeller diameter, and none does. The flap "
+            "is therefore sized on the conditions above alone. Where a "
+            "slipstream case does exist it raises the flap load materially -- "
+            "on the suite's own light-twin example by about a fifth -- so this "
+            "is an absence to close before the flap is sized, not a case that "
+            "was found not to govern.")
+    discrepancy = _area_discrepancy(project, "flap", entered_area, system)
+    if discrepancy:
+        body.append(discrepancy)
+    body.append(_HINGE_MOMENT_ABSENCE)
+    figures = [
+        _control_chord_figure(records, key="chordwise_flap",
+                              title="Flap chordwise pressure (LIMIT)",
+                              surface="flap", host="wing", system=system),
+        _control_locator_figure(project, key="locator_flap",
+                                title="The flap on the wing",
+                                surface="flap", host="wing", system=system),
+    ]
+    return Section("", body=body, tables=tables, figures=figures)
+
+
+# --- Section 9 -- the tabs --------------------------------------------------- #
+def _tab_rectangle(project: Project, spec, host: str,
+                   scale: float) -> Tuple[List[Series], str]:
+    """The tab drawn as the rectangle of its entered area at its station (OR-155).
+
+    A tab has no entered outline anywhere in the schema: it is placed by
+    ``station_in`` and sized by ``mac_in`` and ``area_sqft``. The rectangle is
+    the entered area at the entered station, of chord ``MACTAB`` and span
+    ``STAB/MACTAB``, with its trailing edge on the host's -- and the caption
+    says so in as many words, because a shape a reader could mistake for
+    entered geometry is exactly what this document must not draw silently.
+    """
+    surface = project.geometry.by_name(host) if project.geometry else None
+    mac = float(getattr(spec, "mac_in", 0.0) or 0.0)
+    area_sqin = float(getattr(spec, "area_sqft", 0.0) or 0.0) * IN2_PER_FT2
+    if surface is None or mac <= 0 or area_sqin <= 0:
+        return [], ""
+    edge = sorted(((float(v[0]), float(v[1])) for v in surface.trailing_edge),
+                  key=lambda point: point[1])
+    if len(edge) < 2:
+        return [], ""
+
+    def station_at(y: float) -> float:
+        """The host's trailing-edge station at butt line ``y``, clamped."""
+        if y <= edge[0][1]:
+            return edge[0][0]
+        if y >= edge[-1][1]:
+            return edge[-1][0]
+        for first, second in zip(edge, edge[1:]):
+            if first[1] <= y <= second[1]:
+                span = second[1] - first[1]
+                if span <= 0:
+                    return first[0]
+                return first[0] + (second[0] - first[0]) * (y - first[1]) / span
+        return edge[-1][0]
+
+    span_in = area_sqin / mac
+    centre = float(getattr(spec, "station_in", 0.0) or 0.0)
+    y0, y1 = centre - span_in / 2.0, centre + span_in / 2.0
+    corners = [(station_at(y0), y0), (station_at(y0) - mac, y0),
+               (station_at(y1) - mac, y1), (station_at(y1), y1)]
+    from .planform_tex import REGION_STYLES
+
+    frame = _CONTROL_HOSTS.get(host, ("htail", "butt", "z"))[1]
+    oriented = [_oriented(frame, x * scale, y * scale) for x, y in corners]
+    note = (
+        "The tab planform is not entered anywhere in the project: it is placed "
+        "by the station of its MAC and sized by its MAC and its area. The "
+        "rectangle drawn here is that entered area at that entered station -- "
+        "its chord is the entered MAC and its span is the area divided by it, "
+        "with its trailing edge on the host surface's. It is a drawing, not "
+        "geometry the analysis used.")
+    return [Series("Tab (drawn from its entered area)",
+                   [x for x, _y in oriented], [y for _x, y in oriented],
+                   REGION_STYLES[1], closed=True)], note
+
+
+def _tab_table(result: Optional[ModuleResult], project: Project,
+               system: UnitSystem) -> Optional[Table]:
+    """One row per tab: where it is, what it is, and the pressures to apply."""
+    conditions = list(getattr(result, "conditions", ()) or ())
+    specs = list(getattr(project.tab_loads, "tabs", ()) or ())
+    if not conditions:
+        return None
+    u = Units(system)
+    scale, length = _length_channel(system)
+    area_scale, area_units = _scalar_channel("ft^2", system)
+    p_scale, p_units = _scalar_channel("lb/in^2", system)
+    rows = []
+    for condition, spec in zip(conditions, specs + [None] * len(conditions)):
+        values = _by_key(condition)
+        host = (getattr(spec, "surface", "") or "").strip().lower()
+        station = _TAB_STATION_NAMES.get(host, "Station")
+        rows.append([
+            _REGION_NAMES.get(_TAB_HOSTS.get(host, host), host or "--"),
+            f"{station} {format_value((getattr(spec, 'station_in', 0.0) or 0.0) * scale)} {length}"
+            if spec is not None else "--",
+            _scalar_cell(getattr(spec, "area_sqft", None), area_scale)
+            if spec is not None else "--",
+            _scalar_cell(getattr(spec, "mac_in", None), scale)
+            if spec is not None else "--",
+            format_value(values["tab_chord_ratio_e"].value)
+            if "tab_chord_ratio_e" in values else "--",
+            u.load(values["tab_load"].value, "force",
+                   float(getattr(condition, "safety_factor", ULTIMATE_FACTOR)
+                         or ULTIMATE_FACTOR))
+            if "tab_load" in values else "--",
+            _scalar_cell(values["tab_le_pressure"].value, p_scale)
+            if "tab_le_pressure" in values else "--",
+            _scalar_cell(values["tab_te_pressure"].value, p_scale)
+            if "tab_te_pressure" in values else "--",
+            format_value(float(getattr(condition, "safety_factor",
+                                       ULTIMATE_FACTOR) or ULTIMATE_FACTOR)),
+        ])
+    return Table(
+        title="Tab loads at full deflection at VC (LIMIT)",
+        columns=["Tab in", "Station of the MAC", f"Area ({area_units})",
+                 f"MAC ({length})", "Chord ratio E",
+                 f"Load ({u.ult_label('force')})",
+                 f"LE pressure ({p_units})", f"TE pressure ({p_units})", "SF"],
+        rows=rows,
+        note=("One row per tab. The station column names which station it is: a "
+              "butt line for a tab in a wing or horizontal-tail control "
+              "surface, a waterline for one in a rudder, never a bare number. "
+              "Every load is LIMIT and states the factor its condition does "
+              "not apply."))
+
+
+def _tab_loads(project: Project,
+               results: Mapping[str, Optional[ModuleResult]], *,
+               system: UnitSystem,
+               plan: Sequence[SectionPlan]) -> Section:
+    """Section 9 -- the control-surface tabs."""
+    records = _control_records(project, "tab")
+    specs = list(getattr(project.tab_loads, "tabs", ()) or ())
+    if not records or not specs:
+        return Section("", absent_reason=(
+            "no control-surface tab is entered for this project, so there is "
+            "no tab load to state."))
+    geometry_ref = section_ref(plan, "configuration_layout")
+    result = results.get("tab_loads")
+    scale, _length = _length_channel(system)
+    # The convention is one statement, and every tab in a project is cut into a
+    # control surface whose normal is read the same way; the first tab names
+    # which host that is, and G-OR-100 holds the sentence to it.
+    _first_tab_host = _TAB_HOSTS.get(
+        (specs[0].surface or "").strip().lower(), "elevator")
+    body = [
+        f"Tabs are designed for full deflection at the design cruising speed "
+        f"VC, per 14 CFR 23.409. The tab's lift is built from its chord as a "
+        f"fraction of the host airfoil's, and the lift the tab carries from the "
+        f"host surface's own lift is neglected. Each tab's geometry -- its MAC, "
+        f"its area, the station of its MAC and the host airfoil chord there -- "
+        f"is stated in {geometry_ref} and is not repeated here.",
+        "A tab is cut into a control surface, not into the fixed surface it "
+        "hangs from, so the figures below draw it on the elevator, the rudder "
+        "or the aileron rather than on the horizontal tail, the fin or the "
+        "wing.",
+        _control_sign_convention(_first_tab_host,
+                                 _CONTROL_HOSTS[_first_tab_host][0],
+                                 label="tab"),
+        _SPANWISE_RULE,
+        "The chordwise profile is trapezoidal per CAM 3.224-1(b): the pressure "
+        "at the leading edge is twice the pressure at the trailing edge, so the "
+        "mean is one and a half times the trailing-edge value and the load is "
+        "that mean over the tab's area.",
+        _HINGE_MOMENT_ABSENCE,
+    ]
+    figures = []
+    for index, (record, spec) in enumerate(zip(records, specs)):
+        host = _TAB_HOSTS.get((spec.surface or "").strip().lower(), "elevator")
+        printed = _REGION_NAMES.get(host, host).lower()
+        figures.append(_control_chord_figure(
+            [record], key=f"chordwise_tab_{index}",
+            title=f"Tab chordwise pressure, {printed} (LIMIT)",
+            surface=host, host=_CONTROL_HOSTS.get(host, ("htail", "butt", "z"))[0],
+            system=system, label="tab"))
+        extra, note = _tab_rectangle(project, spec, host, scale)
+        figures.append(_control_locator_figure(
+            project, key=f"locator_tab_{index}",
+            title=f"The tab on the {printed}",
+            surface=host,
+            host=_CONTROL_HOSTS.get(host, ("htail", "butt", "z"))[0],
+            system=system, extra=extra, extra_note=note, label="tab"))
+    return Section("", body=body,
+                   tables=[t for t in (_tab_table(result, project, system),)
+                           if t is not None],
+                   figures=figures)
+
+
 # --------------------------------------------------------------------------- #
 # Dispatch
 # --------------------------------------------------------------------------- #
@@ -4625,6 +5386,11 @@ BUILDERS = {
     # *Split* section keys, not step keys (OR-129).
     "htail_loads": _htail_loads,
     "vtail_loads": _vtail_loads,
+    # Sections 7-9: a pressure over a surface Section 2 already draws, and no
+    # appendix of their own (note 44 §19, OR-147).
+    "aileron_loads": _aileron_loads,
+    "flap_loads": _flap_loads,
+    "tab_loads": _tab_loads,
 }
 
 #: Appendix title -> the builder that produces its body.
