@@ -1314,3 +1314,63 @@ appendix content on the Appendix B precedent instead of as a second derived step
   whether the same pairing assumption reaches Section 5's h-tail span subsection
   is **to be checked before 5.4 is written**, and filed rather than fixed if it
   does. Note 51's D-51.1 is the fix and it is a separate step.
+
+## 18. The applied appendices are one deck in one frame (OR-139 … OR-146)
+
+*Owner ruling 2026-09-07, in session, from the review of Appendices B, C, D and
+E. The ruling that starts them: **every appendix that gives an applied load gives
+the same thing in the same frame — the case, the point it acts at, all six
+components, and the factor.** Everything below follows from taking that
+literally, and §12's opening ruling (the appendix exists to give the sectional
+loads to a structures model) is what makes it binding rather than tidy.*
+
+Reviewing the proposal found that two of the four appendices are **wrong today**,
+not merely inconsistent, so this section carries a defect (OR-143) as well as a
+format. Under `CLAUDE.md` rule 6 the defect outranks the consistency work; the
+owner's ruling is that they close as one step, because the single-owner change
+(OR-141/OR-142) is the fix that stops the defect recurring.
+
+| # | Decision | Amends |
+|---|---|---|
+| **OR-139** | **One column set for every applied appendix.** `Case`, `GID`, `X`, `Y`, `Z`, `Fx`, `Fy`, `Fz`, `Mx`, `My`, `Mz`, `SF` — the point in airplane axes, the load right-handed about CID 0 at that point, and the factor the case prescribes and nothing applies. B.1 (wing), C.1 (fuselage), D (h-tail) and E (v-tail) all print it. B.1 already prints eleven of the twelve and omits **`SF`**, alone among the four, in the one appendix a reader is likeliest to lift rows from; D and E omit `GID`'s companion columns entirely. A reader who has learnt one appendix has learnt all four. | OR-59, OR-61 |
+| **OR-140** | **The structural zeros are printed, and the note names the producer each is missing.** OR-61 omitted `Fy` from B.1 because "a column of zeros in a deck reads as a measured zero". That reasoning is sound and its remedy was the wrong one for an appendix that is a deck: a consumer writing FORCE/MOMENT cards needs the whole vector, and the export channel already ruled the other way for the same data — `_APPLIED_CSV_CONVENTIONS` states the structural zeros "so a consumer writing cards cannot read a printed zero as an omission" (OR-65). Today B.1 prints six components and explains the zeros while D and E omit them and explain the omission: **two policies for one question, one chapter apart**. The report does not take a position its own deck contradicts. | **OR-61 (supersedes)**, OR-65 |
+| **OR-141** | **The applied set has one row shape for the whole airframe.** `AppliedLoad` gains `component`, and `applied_load_rows` gains a producer per component — wing strips and concentrated masses (as now), fuselage stations, h-tail strips, v-tail strips, each surface's discrete control-surface nodes and the T-tail transfer node. Every appendix and every applied CSV is a view of that one list. OR-64 ruled this for the wing on the argument that a deliverable format only the report can produce is one the analyst has to retype; the same argument covers the other three, and the divergence OR-143 records is what happens when it is not extended. | OR-64 (extends) |
+| **OR-142** | **The beam-frame → body-axis moment map is one function and it is component-aware.** `applied_body_moments` returns `(mx, myy_free, mz)` for every row. That is right for the wing and the h-tail, whose span is `y`, and **wrong for the fin**, whose span is `z`: its torsion is `Mz`, and negated. `export.coordinates.tail_torsion_to_airplane` already owns that map with the sign derived rather than asserted, and the exported deck already calls it — the report is the consumer that does not. One owner, every consumer. | OR-60 |
+| **OR-143** | **Appendices D and E do not carry every applied load the deck emits, and say they do.** Both state "a row here and the card that carries it are the same load". Per station the deck writes a `MOMENT` card from the strip torsion and folds the span-axis axial into the `FORCE` card; the appendix prints one force column. First case, summed over stations: h-tail applied torsion **6,689 lb-in** on `ga6_normal` and **232,139** on `concept_regional_jet`; fin torsion **2,351** and **80,117**, with **23.1 lb** and **638.5 lb** of axial. Appendix E's note further states the other two force components are "not zero by measurement but absent by construction" — for the fin `Fz` is neither. Three shipped examples also carry a T-tail tip-transfer node the appendix omits. A reader building a model from D or E today gets an under-loaded surface and is told the set is complete. | OR-137 |
+| **OR-144** | **Appendix C splits into C.1 applied and C.2 carried**, on OR-59's reasoning unchanged: `Fz` applied and `Sz`/`Myy` cumulative share one table today, and they are different quantities. | OR-59 (extends) |
+| **OR-145** | **B.2 stays, and states that it is not a member of this family.** It is the beam's own cumulative quantities — what a model built from B.1 should *return*, not what it is given — and that is why the frame is different. C.2 inherits the same statement. | OR-59 |
+| **OR-146** | **A beam-frame torsion symbol follows its surface's span axis.** §5.5 prints `Myy`; §6.5 prints `Mzz`. The wing and the h-tail span `y`, so their torsion is `Myy` and the letter is right by coincidence of the convention; the fin spans `z`. §6.5 currently prints **`Myy` = 4,561 lb-in** at `ga6_normal`'s fin root for a quantity whose body-axis `My` is **identically zero** — a lateral force can produce no moment about `Y` at all. §3.2's notation table maps the beam symbols onto body axes two chapters earlier ("`Mxx` and `Mx` share a sense while `Mzz` is the negation of a body-axis `Mz`"), so a reader carries that map into §6, where it is wrong by 90°. The deck has named this `mzz` since it was written. | OR-130a |
+
+### OR-141a — A CSV per surface, not per report (owner, 2026-09-07)
+
+*Amendment made on agreeing §18.* OR-141 makes every appendix a view of one
+list; the owner's amendment states the other view explicitly: **each surface
+gets its own applied-load CSV**, carrying the same twelve columns as its
+appendix, offered on that surface's page and in the export bundle beside
+`wing_applied_loads.csv`. `fuselage_applied_loads.csv`,
+`htail_applied_loads.csv`, `vtail_applied_loads.csv`.
+
+One file per surface rather than one airframe file with a component column: a
+consumer loads the surface they are sizing, and a single file would have to be
+filtered before it could be used — the retyping OR-64 exists to prevent, one
+step further on. The appendix and the CSV are the same rows through the same
+owner, so a reader who prefers the file to the page is reading the same load
+set, and **G-OR-90** holds all of them to the deck.
+
+### Gates added by this ruling
+
+| Gate | Statement |
+|---|---|
+| **G-OR-89** | Every applied appendix — B.1, C.1, D, E — prints OR-139's twelve columns in that order, on every shipped example, and no two of them differ in a heading. |
+| **G-OR-90** | Every applied appendix row and the card the deck writes for that `GID` place the same load at the same point: same six components, same sign, same coordinates, on `ga6_normal`, `baron_58` and `concept_regional_jet`. This is the gate OR-143 would have failed. |
+| **G-OR-91** | The fin's applied `Mz` is the negation of its strip torsion and its `My` is zero, at every station of every case; the h-tail's `My` is its strip torsion and its `Mz` is zero. Asserted through `applied_body_moments`, so a component added later cannot inherit the wing's map by default. |
+| **G-OR-92** | Every column an applied appendix prints as zero is named in that appendix's note with the producer it lacks; a component that is non-zero anywhere on any shipped example is not describable as absent by construction. |
+| **G-OR-93** | Appendix C renders as two lettered subsections with no load column shared between them, and the applied and cumulative rows of both B and C close onto one another (G-OR-29 extended to the body beam). |
+| **G-OR-94** | No `Myy` heading appears anywhere in section 6 or Appendix E, and no `Mzz` heading in section 5 or Appendix D; every symbol either section uses is defined in its own notation table with the axis named. |
+
+### Findings to file (OR-14 — file, do not fix here)
+
+- **The fuselage applied set is `Fz` alone.** Whether the body beam has an `Fx`
+  producer at all (axial from thrust, drag or a fore-aft inertia term) is not
+  settled here; OR-140 prints the column as a stated zero either way, and if a
+  producer exists the column is where it will appear.

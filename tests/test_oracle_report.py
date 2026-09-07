@@ -2313,7 +2313,9 @@ def test_section_three_defines_every_symbol_its_tables_use():
     for table in (applied, carried):
         for column in table.columns:
             symbol = column.split(" (")[0]
-            if symbol in ("Case", "Station"):
+            # Identifiers and the in-band factor, not load symbols: they name a
+            # row, they do not name a quantity the notation has to define.
+            if symbol in ("Case", "Station", "GID", "SF"):
                 continue
             assert symbol in defined, f"{symbol!r} is used but not defined"
 

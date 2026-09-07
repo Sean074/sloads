@@ -553,6 +553,16 @@ again; L-8d's mutation case stays parked); F25-2.
   row. Shares an owner with `safety_factors.prescribes_factor`, whose load half
   is the same predicate. The producer `sloads/modules/engine.py` is **frozen**
   (OR-13) until the 0.8.2 cut.
+- **The fuselage applied set is `Fz` alone — is that the model, or the airplane?**
+  The body beam publishes a vertical applied load per station and nothing else,
+  so Appendix C.1 prints `Fx`, `Fy`, `Mx`, `My` and `Mz` as stated zeros. That
+  is an accurate statement of what the analysis produces; whether the airplane
+  has a fore-aft producer the analysis omits — axial from thrust or drag, or a
+  fore-aft inertia term at `Nx` — is not settled. **Filed 2026-09-07** with note
+  44 §18 (OR-140 prints the column either way, so a producer that appears later
+  has a column waiting for it). Tier M when it lands, and it is a question about
+  `body_loads.py`, which is frozen for 0.8.2 under OR-13.
+
 - **A raked fin root resolves onto one waterline, and the axis kinks.**
   `ga6_normal`'s vertical tail meets the body with its **leading** edge at
   waterline 117.0 and its **trailing** edge at 111.5 — a raked root — and

@@ -865,6 +865,52 @@ page that stated something false.
 - **A figure's marker legend is named by the figure.** Three loads-reference-axis
   figures legended their load stations "Design CG cases", the V-n figure's default.
 
+## 3.8 The applied appendices: one deck in one frame
+
+*Agreed 2026-09-07 (note 44 §18, OR-139 … OR-146). Amends §3.4's Appendix B
+rules and extends them to the other three components.*
+
+Every appendix that gives an **applied** load gives the same thing in the same
+frame: the case, the point it acts at, all six body-axis components, and the
+factor. B.1 (wing), C.1 (fuselage), D (horizontal tail) and E (vertical tail),
+one column set in one order:
+
+`Case | Station | GID | X | Y | Z | Fx | Fy | Fz | Mx | My | Mz | SF`
+
+- **`Station` and `GID` are both printed, and are not one identity.** A
+  concentrated wing mass has a name and no grid — the exported stick model nodes
+  the load stations only — so a table keyed on `GID` alone prints a nameless
+  blank row for every mass, and one keyed on `Station` alone cannot be matched
+  to the deck, which is the claim these appendices make.
+- **The structural zeros are printed, and the note names the producer each
+  lacks.** This supersedes the earlier rule that omitted them. The reasoning
+  behind that rule stands everywhere else — a column of zeros in a *results*
+  table reads as a measured zero — but an appendix that is a deck is read by
+  someone writing FORCE/MOMENT cards, who cannot tell an omitted column from a
+  zero one. The export channel had already ruled this way for the same data.
+- **An absence must be true.** Appendix E stated that the two components beside
+  its normal load were "absent by construction". One of them was the fin's
+  span-axis axial — 23.1 lb on `ga6_normal`, 638.5 lb on the regional jet — on a
+  card the deck had been writing all along.
+- **Each component's set is also a file**: `wing_applied_loads.csv`,
+  `fuselage_applied_loads.csv`, `htail_applied_loads.csv`,
+  `vtail_applied_loads.csv`. One per surface, not one airframe file with a
+  component column: a consumer loads the surface they are sizing.
+- **The appendix, the file and the deck are one list.** `applied_loads` is the
+  single entry point, with one producer per component; **G-OR-90** holds every
+  row to the card the deck writes at that grid, case by case, on three shipped
+  examples.
+- **A torsion symbol follows its surface's span axis.** §5.5 prints `Myy`, §6.5
+  prints `Mzz`, and each notation table names the airplane axis rather than
+  leaving the letter to carry it. §3.2 maps the beam symbols onto body axes two
+  chapters before section 6, so the fin inheriting the wing's letter put 4,561
+  lb-in of `ga6_normal` root torsion under the name of a component whose true
+  value is zero.
+
+Appendix B.2 and the new C.2 stay, and say what they are for: the **carried**
+set is what a model built from the applied set should return, which is why its
+frame is the beam's own and not the airplane's.
+
 ## 4. Identity, signatures and DRAFT
 
 The title block carries report number, revision, issue date, issuing

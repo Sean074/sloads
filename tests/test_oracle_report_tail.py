@@ -580,8 +580,10 @@ def test_appendix_d_places_every_load_on_the_airplane():
     from sloads.modules.tail_span import build_tail_span
 
     table = _appendix(_doc(), oc.HTAIL_LOAD_STATIONS).tables[0]
-    assert [c.split(" ")[0] for c in table.columns[:6]] == [
-        "Case", "GID", "X", "Y", "Z", "Fz"]
+    assert [c.split(" ")[0] for c in table.columns] == [
+        "Case", "Station", "GID", "X", "Y", "Z",
+        "Fx", "Fy", "Fz", "Mx", "My", "Mz", "SF"]
+    col = {c.split(" ")[0]: i for i, c in enumerate(table.columns)}
     # Built from the **projected** inputs, which is what the document is a
     # function of (OR-43): the loads reference axis is an sloads-only field, so
     # the projection returns it to the quarter chord and the axis moves with it.
@@ -592,12 +594,13 @@ def test_appendix_d_places_every_load_on_the_airplane():
     want = [tail_station_to_airplane(st.x, st.y, "htail", st.z)
             for r in results for st in r.stations]
     for row, (x, y, z) in zip(table.rows, want):
-        assert row[2] == format_value(x) and row[3] == format_value(y)
-        assert row[4] == format_value(z)
+        assert row[col["X"]] == format_value(x)
+        assert row[col["Y"]] == format_value(y)
+        assert row[col["Z"]] == format_value(z)
     # Both surfaces span in ``y`` and load in ``z`` here, so the appendix spans
     # the airplane rather than one side of it -- the check that this is the
     # full-span set and not a half read twice.
-    ys = {float(r[3]) for r in table.rows}
+    ys = {float(r[col["Y"]]) for r in table.rows}
     assert min(ys) < 0 < max(ys)
 
 

@@ -2242,6 +2242,54 @@ _APPLIED_LOADS: Tuple[Tuple[str, str], ...] = (
 )
 
 
+def applied_load_table(rows: Sequence[object], *, title: str,
+                       note: str, system: UnitSystem,
+                       small: bool = True) -> Optional[Table]:
+    """The one applied-load appendix table, for every component (OR-139).
+
+    B.1, C.1, D and E are this function with different rows. One column set,
+    one order, one set of headings: a reader who has learnt one applied
+    appendix has learnt all four, and a heading cannot drift between them
+    because there is only one place it is written.
+
+    ``Station`` and ``GID`` are both printed and are not the same identity. A
+    concentrated wing mass has a name and no grid (the exported stick model
+    nodes the load stations only), so a table keyed on ``GID`` alone would
+    print a nameless blank row for every mass -- and a table keyed on
+    ``Station`` alone could not be matched to the deck, which is the whole
+    claim these appendices make. The columns are the applied CSV's, so the page
+    and the file are the same row.
+
+    The moments come through
+    :func:`~sloads.export.sbeam_bridge.applied_body_moments` rather than off the
+    record, because a beam stores its torsion about its own span axis and only
+    that owner knows which airplane axis that is for the component in hand.
+    """
+    from ..export.sbeam_bridge import applied_body_moments
+
+    if not rows:
+        return None
+    u = Units(system)
+    length = u.label("length")
+    columns = ["Case", "Station", "GID", f"X ({length})", f"Y ({length})",
+               f"Z ({length})"]
+    columns += [f"{label} ({u.ult_label(dim)})" for dim, label in _APPLIED_LOADS]
+    columns.append("SF")
+    out: List[List[str]] = []
+    for load in rows:
+        values = ((load.fx, load.fy, load.fz)          # type: ignore[attr-defined]
+                  + applied_body_moments(load))        # type: ignore[arg-type]
+        sf = load.safety_factor                        # type: ignore[attr-defined]
+        out.append(
+            [load.case_id or load.case, load.label,    # type: ignore[attr-defined]
+             "" if load.gid is None else str(load.gid)]  # type: ignore[attr-defined]
+            + [u.plain(getattr(load, a), "length") for a in ("x", "y", "z")]
+            + [u.load(value, dim, sf)
+               for value, (dim, _label) in zip(values, _APPLIED_LOADS)]
+            + [format_value(sf)])
+    return Table(title=title, columns=columns, rows=out, small=small, note=note)
+
+
 def _case_name(result: object) -> str:
     """The case identity a table row is keyed by."""
     ref = getattr(result, "case_ref", None)
@@ -2250,42 +2298,22 @@ def _case_name(result: object) -> str:
 
 def _applied_table(net: Sequence[WingLoadResult], system: UnitSystem,
                    assessed: str) -> Optional[Table]:
-    """B.1 -- the applied load set: every strip, and every point mass.
+    """B.1 -- the applied wing set: every strip, and every point mass.
 
     Deck-grade, which is why the point travels with the load: ``Fz`` applied at
     a station other than the one stated here produces a different ``Myy``, so a
     table that left the coordinates to a cross-reference would be half a load
-    definition.
+    definition. The rows come from the export channel and the shape from
+    :func:`applied_load_table`, so this function is now a title and a note.
     """
+    from ..export.sbeam_bridge import applied_loads
+
     if not net:
         return None
-    u = Units(system)
-    length = u.label("length")
-    columns = ["Case", "Station", f"X ({length})", f"Y ({length})",
-               f"Z ({length})"]
-    columns += [f"{label} ({u.ult_label(dim)})"
-                for dim, label in _APPLIED_LOADS]
-    # The applied set has one owner, in the export channel, so the table a
-    # stress analyst reads here and the CSV they load from the Wing Loads page
-    # are two views of one list and cannot disagree about what is applied --
-    # including about the sign of a body-axis moment, which is why the moments
-    # come through ``applied_body_moments`` rather than off the record.
-    from ..export.sbeam_bridge import applied_body_moments, applied_load_rows
-
-    rows: List[List[str]] = []
-    for load in applied_load_rows(list(net)):
-        values = (load.fx, load.fy, load.fz) + applied_body_moments(load)
-        rows.append([load.case_id or load.case, load.label]
-                    + [u.plain(getattr(load, a), "length")
-                       for a in ("x", "y", "z")]
-                    + [u.load(value, dim, load.safety_factor)
-                       for value, (dim, _label) in zip(values, _APPLIED_LOADS)])
-    if not rows:
-        return None
     axis = _torsion_axis(net) or "loads reference axis"
-    return Table(
-        title="Applied wing loads by station (LIMIT)", columns=columns,
-        rows=rows, small=True,
+    return applied_load_table(
+        applied_loads("wing", list(net)),
+        title="Applied wing loads by station (LIMIT)", system=system,
         note=("The load applied at each station's own point: a strip row per "
               "load station, root to tip, and a row per concentrated wing mass "
               "at its own coordinates. Together they are the whole applied "
@@ -2299,10 +2327,13 @@ def _applied_table(net: Sequence[WingLoadResult], system: UnitSystem,
               f"coordinates state. My is the free torsion about the {axis}; a "
               "point mass carries none, because every moment it produces is "
               "its force acting through an arm the coordinates already state. "
+              "A concentrated mass has a name and no GID: the exported stick "
+              "model nodes the load stations only, so there is no grid at its "
+              "coordinates to reference. "
               "Moments are right-handed about the airplane axes. Every load is "
-              "LIMIT, with its case's safety factor stated but not applied, as set out in "
-              f"{assessed}; the coordinates are geometry and are neither "
-              "scaled nor marked."))
+              "LIMIT, with its case's safety factor stated in its own row and "
+              f"applied to nothing, as set out in {assessed}; the coordinates "
+              "are geometry and are neither scaled nor marked."))
 
 
 def _cumulative_table(net: Sequence[object], system: UnitSystem,
@@ -3342,15 +3373,20 @@ def _fuselage_loads(project: Project,
 # --------------------------------------------------------------------------- #
 def _body_station_appendix(project: Project, *, system: UnitSystem,
                            plan: Sequence[SectionPlan]) -> Section:
-    """Appendix C's content: every fuselage case at every station.
+    """Appendix C: the fuselage set, applied in C.1 and carried in C.2.
 
-    A **view of the export owner**, not a second assembler: the rows are the
-    ones ``sbeam_bridge.body_span_load_csv`` writes, taken in the same order
-    with the same grid identifiers, and converted at this document's own
-    boundary rather than the solver deck's. So the table a reader checks here
-    and the CSV they download from the Fuselage Loads page are one load set.
+    Split on OR-59's reasoning unchanged (OR-144): the applied load and the
+    load carried are different quantities, and a reader who takes one for the
+    other builds the wrong model. They shared one table until 2026-09-07, with
+    the distinction carried by a sentence in the note -- the arrangement §12
+    rejected for the wing, for a reason that was never the wing's alone.
+
+    A **view of the export owner**, not a second assembler: C.1's rows are
+    ``sbeam_bridge.applied_loads("fuselage", ...)``, the same list
+    ``fuselage_applied_loads.csv`` is written from, converted at this
+    document's own boundary rather than the solver deck's.
     """
-    from ..export.sbeam_bridge import body_station_gids
+    from ..export.sbeam_bridge import applied_loads, body_station_gids
 
     net = _body_net(project)
     body = [
@@ -3360,19 +3396,38 @@ def _body_station_appendix(project: Project, *, system: UnitSystem,
         + subsection_ref(plan, _BODY_STEP, _BODY_BEAM) + ". It is the same "
         "result the figures are drawn from, printed rather than plotted, and "
         "the same rows the fuselage span-load export writes.",
-        "Fz is the load applied at the station -- what a structural model is "
-        "given. Sz and Myy are what the model should return there: the applied "
-        "loads accumulated nose to tail. The grid identifier is the one the "
-        "exported deck uses, so a row here can be found in the model it built.",
+        "It is given in two parts, because they are two different quantities "
+        "and a reader who takes one for the other builds the wrong model. The "
+        "first is the load applied at each station -- what a structural model "
+        "is given. The second is the load carried across it -- what that model "
+        "should return. The grid identifier is the one the exported deck uses, "
+        "so a row here can be found in the model it built.",
     ]
+    absent_c = Section("", body=body, absent_reason=(
+        "The fuselage load distributions were not produced for this project, "
+        "so there is nothing to tabulate."), page_break=True)
     if not net:
-        return Section("", body=body,
-                       absent_reason=("The fuselage load distributions were "
-                                      "not produced for this project, so "
-                                      "there is nothing to tabulate."),
-                       page_break=True)
+        return absent_c
     u = Units(system)
     lra = _fuselage_lra(project)
+    applied = applied_load_table(
+        applied_loads("fuselage", net, project), system=system,
+        title="Applied fuselage loads by station (LIMIT)",
+        note=("The load applied at each station of the body beam. X, Y and Z "
+              "place the station on the airplane: the beam runs down the "
+              "centre plane on the fuselage loads reference axis, so Y is zero "
+              "by construction and Z is that axis's waterline -- the position "
+              "of the structure, not of the mass it carries, which the beam "
+              "table states separately. All six components are printed so that "
+              "a zero cannot be read as an omission. Fz is the whole applied "
+              "set: Fx and Fy are zero for every row because the body beam has "
+              "no fore-aft or lateral producer, and Mx, My and Mz because a "
+              "station applies a force and no free moment -- every moment the "
+              "beam carries is those forces acting through the arms these "
+              "coordinates state. Moments are right-handed about the airplane "
+              "axes. Every load is LIMIT and states in its own row the factor "
+              "it does not apply; the station is geometry and is neither "
+              "scaled nor marked."))
     rows = []
     for result in net:
         ref = getattr(result, "case_ref", None)
@@ -3381,40 +3436,38 @@ def _body_station_appendix(project: Project, *, system: UnitSystem,
         for gid, station in zip(body_station_gids(result), result.stations):
             rows.append([
                 name, str(gid), u.plain(station.x, "length"),
-                u.plain(0.0, "length"),
-                u.plain(lra.z_at(station.x) if lra is not None else 0.0, "length"),
-                u.load(station.fz, "force", sf),
                 u.load(station.sz, "force", sf),
                 u.load(station.myy, "moment", sf),
                 format_value(sf),
             ])
-    if not rows:
-        return Section("", body=body,
-                       absent_reason=("The fuselage load distributions carry "
-                                      "no stations to tabulate."),
-                       page_break=True)
-    table = Table(
-        title="Fuselage loads by station (LIMIT)",
+    if applied is None or not rows:
+        return absent_c
+    carried = Table(
+        title="Cumulative fuselage loads by station (LIMIT)",
         columns=["Case", "GID", f"X ({u.label('length')})",
-                 f"Y ({u.label('length')})", f"Z ({u.label('length')})",
-                 f"Fz ({u.ult_label('force')})",
                  f"Sz ({u.ult_label('force')})",
                  f"Myy ({u.ult_label('moment')})", "SF"],
         rows=rows, small=True,
-        note=("Every fuselage case at every station of the beam. X, Y and Z "
-              "place the station on the airplane: the body beam runs down the "
-              "centre plane on the fuselage loads reference axis, so Y is zero "
-              "by construction and Z is that axis's waterline -- the position "
-              "of the structure, not of the mass it carries, which the beam "
-              "table states separately. Fz is the "
-              "applied increment and Sz and Myy are cumulative, as defined in "
-              "the notation of "
-              + subsection_ref(plan, _BODY_STEP, _BODY_CASES) + ". The "
-              "cumulative columns close to zero at the aft end. Every load is "
-              "LIMIT and states the factor it does not apply; the station is "
-              "geometry and is neither scaled nor marked."))
+        note=("What the fuselage carries at each station: the applied loads of "
+              "C.1 accumulated nose to tail, as defined in the notation of "
+              + subsection_ref(plan, _BODY_STEP, _BODY_CASES) + ". The station "
+              "coordinates are printed once, with the applied set. These are "
+              "the beam's own quantities and not the body-axis vector of the "
+              "table above; Myy is about the fuselage loads reference axis, "
+              "which runs fore and aft, so the letter and the airplane axis "
+              "agree here. The cumulative columns close to zero at the aft "
+              "end. Every load is LIMIT and states the factor it does not "
+              "apply."))
+    if lra is None:
+        body.append(
+            "The fuselage loads reference axis is not resolvable for this "
+            "project, so the waterline column states zero rather than a "
+            "guessed height. The station X and every load are unaffected.")
     return Section("", body=body, page_break=True, landscape=True,
-                   tables=[table])
+                   subsections=[
+                       Section("Applied loads", tables=[applied]),
+                       Section("Cumulative loads", tables=[carried]),
+                   ])
 
 
 # --------------------------------------------------------------------------- #
@@ -4204,29 +4257,57 @@ _MISSING_CONDITION_NOTE = (
     "and it is not tabulated below. The restriction is stated in full with "
     "this section's spanwise loads.")
 
-#: The spanwise notation, printed in 5.4 and 6.4 (OR-130a, section 3.2's rule).
-_TAIL_SPAN_SYMBOLS = (
-    ("Fn", "Load applied at a station, normal to the surface", "force", "applied"),
-    ("Sn", "Shear carried across a station, normal to the surface", "force", "cumulative"),
-    ("Mxx", "Bending moment carried across a station", "moment", "cumulative"),
-    ("Myy", "Torsion carried across a station, about the load reference axis",
-     "moment", "cumulative"),
-)
+#: A beam-frame torsion symbol follows its surface's **span** axis (OR-146).
+#:
+#: The wing and the horizontal tail span ``y``, so their torsion is ``Myy`` and
+#: the letter happens to agree with the airplane axis. A fin spans ``z``. Until
+#: 2026-09-07 section 6.5 printed ``Myy`` for the fin too -- 4,561 lb-in at
+#: ``ga6_normal``'s fin root, under the name of a component whose body-axis
+#: value is **identically zero**: a lateral load can make no moment about the
+#: ``y`` axis at all. Section 3.2 maps the beam symbols onto body axes two
+#: chapters earlier, so a reader carries that map into section 6, where it was
+#: wrong by ninety degrees. The exported deck has called it ``mzz`` since it was
+#: written (``coordinates.tail_torsion_to_airplane``).
+_TAIL_TORSION_SYMBOL = {"htail": "Myy", "vtail": "Mzz"}
+#: The airplane axis each surface's torsion is about, named beside the symbol so
+#: the letter is never the only thing carrying the claim.
+_TAIL_TORSION_AXIS_NAME = {"htail": "y", "vtail": "z"}
 
 
-def _tail_span_notation_table(system: UnitSystem) -> Table:
-    """5.4 / 6.4's symbol table: symbol, quantity, units, and its sense."""
+def _tail_span_symbols(component: str) -> Tuple[Tuple[str, str, str, str], ...]:
+    """The spanwise notation of 5.5 / 6.5, in this surface's own frame."""
+    torsion = _TAIL_TORSION_SYMBOL[component]
+    axis = _TAIL_TORSION_AXIS_NAME[component]
+    return (
+        ("Fn", "Load applied at a station, normal to the surface",
+         "force", "applied"),
+        ("Sn", "Shear carried across a station, normal to the surface",
+         "force", "cumulative"),
+        ("Mxx", "Bending moment carried across a station, about the airplane "
+         "x axis", "moment", "cumulative"),
+        (torsion, "Torsion carried across a station, about the load reference "
+         f"axis -- which runs along this surface's span, the airplane {axis} "
+         "axis", "moment", "cumulative"),
+    )
+
+
+def _tail_span_notation_table(system: UnitSystem, component: str) -> Table:
+    """5.5 / 6.5's symbol table: symbol, quantity, units, and its sense."""
     u = Units(system)
+    torsion = _TAIL_TORSION_SYMBOL[component]
     return Table(
         title="Notation for the spanwise loads",
         columns=["Symbol", "Quantity", "Units", "Sense"],
         rows=[[symbol, text, u.ult_label(dim), sense]
-              for symbol, text, dim, sense in _TAIL_SPAN_SYMBOLS],
+              for symbol, text, dim, sense in _tail_span_symbols(component)],
         note=("An applied quantity is the load put on the surface at that "
               "station; a cumulative quantity is what the structure carries "
               "across it, accumulated from the tip. A column heading in this "
               "subsection or its appendix names a symbol from this table and "
-              "nothing else."))
+              "nothing else. These are the beam's own quantities, not the "
+              "body-axis vector the appendix tabulates: the torsion symbol "
+              f"names the axis it is about, which is why it is {torsion} here "
+              "and not the other surface's letter."))
 
 
 def _tail_span_root_table(results: Sequence[TailSpanResult], component: str,
@@ -4239,8 +4320,9 @@ def _tail_span_root_table(results: Sequence[TailSpanResult], component: str,
     names = _TAIL_SURFACES[component]
     u = Units(system)
     force, moment = u.ult_label("force"), u.ult_label("moment")
+    torsion = _TAIL_TORSION_SYMBOL[component]
     columns = ["Case", f"Root Sn ({force})", f"Root Mxx ({moment})",
-               f"Root Myy ({moment})", f"Applied air load ({force})", "SF"]
+               f"Root {torsion} ({moment})", f"Applied air load ({force})", "SF"]
     rows = []
     for result in results:
         sf = float(getattr(result, "safety_factor", ULTIMATE_FACTOR) or ULTIMATE_FACTOR)
@@ -4262,7 +4344,10 @@ def _tail_span_root_table(results: Sequence[TailSpanResult], component: str,
         note=("The shear, bending and torsion the structure carries at its root "
               "attachment, which is where each of them is greatest, with the "
               "applied air load they accumulate from. Torsion is about the "
-              "loads reference axis, not the quarter chord."))
+              "loads reference axis, not the quarter chord, and that axis runs "
+              f"along this surface's span -- the airplane "
+              f"{_TAIL_TORSION_AXIS_NAME[component]} axis, which is why it is "
+              f"{torsion}."))
 
 
 def _control_load_mode_sentence(project: Project, component: str) -> str:
@@ -4339,7 +4424,7 @@ def _tail_span_section(project: Project, component: str, *,
         f"carried quantity is greatest.",
         _control_load_mode_sentence(project, component),
     ]
-    tables = [_tail_span_notation_table(system)]
+    tables = [_tail_span_notation_table(system, component)]
     if table is not None:
         tables.append(table)
     return Section("", body=body, tables=tables)
@@ -4425,8 +4510,6 @@ def _tail_station_appendix(project: Project, component: str, *,
     the exported deck uses (``export.coordinates.tail_station_to_airplane``), so
     a row here and a card in the deck place the same load at the same point.
     """
-    from ..export.coordinates import tail_station_to_airplane
-    from ..export.sbeam_bridge import tail_span_gid
 
     names = _TAIL_SURFACES[component]
     if _vtail_withheld(project, component):
@@ -4445,47 +4528,66 @@ def _tail_station_appendix(project: Project, component: str, *,
         return Section("", absent_reason=(
             f"the {names['surface']} spanwise loads were not produced for this "
             "project, so there are no stations to list."), page_break=True)
-    u = Units(system)
-    scale, length = _length_channel(system)
-    force = u.ult_label("force")
+    from ..export.sbeam_bridge import applied_loads
+
+    torsion = "My" if component == "htail" else "Mz"
     normal = "Fz" if component == "htail" else "Fy"
-    columns = ["Case", "GID", f"X ({length})", f"Y ({length})", f"Z ({length})",
-               f"{normal} ({force})", "SF"]
-    rows = []
-    for result in results:
-        sf = float(getattr(result, "safety_factor", ULTIMATE_FACTOR) or ULTIMATE_FACTOR)
-        case = _tail_case_id(result)
-        for i, station in enumerate(getattr(result, "stations", ())):
-            x, y, z = tail_station_to_airplane(station.x, station.y, component,
-                                               station.z)
-            rows.append([case, str(tail_span_gid(component, i)),
-                         format_value(x * scale), format_value(y * scale),
-                         format_value(z * scale),
-                         u.load(station.fz, "force", sf), format_value(sf)])
+    # Every zero column is named with the producer it lacks, and every non-zero
+    # one with the producer it has. The fin's list is not the h-tail's: a fin
+    # spans vertically, so vertical acceleration on its own mass is an axial
+    # column load and ``Fz`` is **not** zero -- which is what this appendix
+    # asserted, of a component the deck has been emitting all along (OR-143).
+    if component == "htail":
+        absent = (f"Fz is the normal load and {torsion} the strip torsion about "
+                  "the surface's span axis, which for a horizontal tail is "
+                  "airplane y. Fx and Fy are zero for every row: this analysis "
+                  "models no chordwise load on either tail surface, and no "
+                  "spanwise acceleration reaches a horizontal tail. Mx and Mz "
+                  "are zero because a strip applies forces and a torsion and "
+                  "nothing else -- the bending the structure carries is those "
+                  "forces acting through the arms these coordinates state.")
+    else:
+        absent = (f"{normal} is the normal load and {torsion} the strip torsion "
+                  "about the surface's span axis, which for a fin is airplane "
+                  "z. My is zero for every row, and cannot be otherwise: a "
+                  "lateral load makes no moment about the y axis. Fz is not "
+                  "zero -- a fin's span is vertical, so vertical acceleration "
+                  "on its own mass is an axial column load, carried on the same "
+                  "card as the side load. Fx and Mx are zero: this analysis "
+                  "models no chordwise load on either tail surface, and the "
+                  "bending the structure carries is the normal load acting "
+                  "through the arms these coordinates state.")
+    table = applied_load_table(
+        applied_loads(component, results), system=system,
+        title=f"Applied {names['surface']} loads by station (LIMIT)",
+        note=("Every load is LIMIT and states the factor 14 CFR 23.303 "
+              "prescribes for its condition, which is applied to none of them. "
+              "The station point is the loads reference axis of the surface, "
+              "mapped to airplane axes, and the moments are right-handed about "
+              f"those axes about that point. {absent}"))
+    if table is None:
+        return Section("", absent_reason=(
+            f"the {names['surface']} spanwise loads produced no applied "
+            "stations for this project, so there is nothing to tabulate."),
+            page_break=True)
     return Section("", body=[
         f"Every {names['surface']} design condition's applied load, at every "
         f"station of its beam. This is the load set a structural model is "
-        f"given: one force per station, at the point stated beside it, in "
-        f"airplane axes. The grid identifiers are the ones the exported deck "
-        f"uses, so a row here and the card that carries it are the same load.",
-        f"The load acts normal to the {names['surface']}, which for this "
-        f"surface is the airplane's {'vertical' if component == 'htail' else 'lateral'} "
-        f"axis: this analysis models no dihedral on the empennage and no "
-        f"chordwise force on either tail surface, so the other two components "
-        f"are not zero by measurement but absent by construction, and are not "
-        f"printed as columns of zeros.",
+        f"given: one row per load, at the point stated beside it, in airplane "
+        f"axes. The grid identifiers are the ones the exported deck uses, so a "
+        f"row here and the card that carries it are the same load -- every "
+        f"card, not the normal force alone: the strip torsion is a MOMENT card "
+        f"at the same grid, and its column is beside the forces here.",
+        "The rows are the surface's strips, in span order, followed by any "
+        "discrete control-surface node and, on a T-tail, the transfer node "
+        "where the horizontal tail sits on the fin. All six components are "
+        "printed for every row, so that a zero cannot be read as an omission. "
+        + absent.split(". ", 1)[0] + ".",
         "What the structure carries across each station -- shear, bending and "
         "torsion -- is not repeated here. It is stated at the root, where each "
         "is greatest, in " + subsection_ref(plan, _tail_section_key(component),
                                              _TAIL_SPAN_SUBSECTION) + ".",
-    ], tables=[Table(
-        title=f"{names['surface'].capitalize()} applied loads by station (LIMIT)",
-        columns=columns, rows=rows, small=True,
-        note=("Every load is LIMIT and states the factor 14 CFR 23.303 "
-              "prescribes for its condition, which is applied to none of them. "
-              "The station point is the loads reference axis of the surface, "
-              "mapped to airplane axes."))],
-        page_break=True, landscape=True)
+    ], tables=[table], page_break=True, landscape=True)
 
 
 def _htail_station_appendix(project: Project, *, system: UnitSystem,

@@ -2371,6 +2371,14 @@ def _manifest_rows(comps: ComponentLoads, module_results, u: Units,
              "Wing-attach front/rear spar fitting loads.", deck,
              "already carried by the span loads — do not superpose",
              section_ref("results", "Fuselage")],
+            ["sbeam/<project>_fuselage_applied_loads.csv",
+             "The applied fuselage load set: one row per station of the body "
+             "beam, at the point on the loads reference axis where the "
+             "structure is, as all six body-axis components. Nothing in it is "
+             "a running total; Fz is the whole of it and the other five are "
+             "printed as stated zeros.", deck,
+             "applied increments, not cumulative; LIMIT",
+             section_ref("results", "Fuselage")],
         ]
     if comps.tail:
         rows += [
@@ -2382,6 +2390,18 @@ def _manifest_rows(comps: ComponentLoads, module_results, u: Units,
              deck, "loads normal to each surface — h-tail Fz, fin Fy; LIMIT",
              _TAILS_REF],
         ]
+    for _surface, _name in ((("htail", "horizontal tail"), ("vtail", "vertical tail"))
+                            if comps.tail else ()):
+        _torsion = "My about the airplane y axis" if _surface == "htail" else (
+            "Mz about the airplane z axis — a fin's span is vertical")
+        rows.append(
+            [f"sbeam/<project>_{_surface}_applied_loads.csv",
+             f"The applied {_name} load set: one row per strip, plus any "
+             "discrete control-surface node and, on a T-tail, the transfer "
+             "node — as all six body-axis components, at the point each acts "
+             "at. Every row is a card the spanwise deck writes at the same "
+             "GID. Nothing in it is a running total.", deck,
+             f"free torsion is {_torsion}; LIMIT", _TAILS_REF])
     if comps.control:
         rows += [
             ["sbeam/<project>_control_surface_loads.csv",

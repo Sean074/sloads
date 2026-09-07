@@ -434,17 +434,21 @@ def test_appendix_e_places_every_load_where_the_deck_places_it():
 
     project = _project()
     table = _appendix(_doc(project), oc.VTAIL_LOAD_STATIONS).tables[0]
+    col = {c.split(" ")[0]: i for i, c in enumerate(table.columns)}
     want = [tail_station_to_airplane(st.x, st.y, "vtail", st.z)
             for r in build_tail_span(project).get("vtail", []) for st in r.stations]
-    assert len(table.rows) == len(want)
+    # The strips come first and are the whole set on a conventional tail; a
+    # T-tail adds its transfer node after them, which is a load and not a
+    # station, so the strips are compared and the count is bounded, not equal.
+    assert len(table.rows) >= len(want)
     for row, (x, y, z) in zip(table.rows, want):
-        assert row[2] == format_value(x)
-        assert row[3] == format_value(y)
-        assert row[4] == format_value(z)
+        assert row[col["X"]] == format_value(x)
+        assert row[col["Y"]] == format_value(y)
+        assert row[col["Z"]] == format_value(z)
     # The fin spans in Z and loads in Y -- the column that makes this the
     # vertical tail's appendix and not a copy of the horizontal tail's.
     assert any(c.startswith("Fy") for c in table.columns)
-    zs = [float(r[4]) for r in table.rows]
+    zs = [float(r[col["Z"]]) for r in table.rows]
     assert max(zs) > min(zs), "the fin's stations do not span a waterline range"
 
 

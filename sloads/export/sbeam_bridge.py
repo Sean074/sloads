@@ -640,6 +640,56 @@ _APPLIED_CSV_CONVENTIONS = (
     "# structure carries is those forces acting through the arms stated here.\n"
 )
 
+#: Per component, what the file is and which of its columns are structural
+#: zeros -- the same statement each appendix makes in prose (note 44 OR-140).
+#:
+#: A zero column is published, never dropped, and the reason it is zero is
+#: published beside it. Dropping it leaves the reader to decide whether a
+#: missing column is a zero or an omission; printing it without the reason
+#: leaves them reading a *measured* zero. Both halves, per component, because
+#: the reason differs: the wing has no lateral condition, the fin has no
+#: chordwise one, and the body beam has no producer at all.
+_APPLIED_CSV_NOTES = {
+    "wing": _APPLIED_CSV_CONVENTIONS,
+    "fuselage": (
+        "# The applied fuselage load set: one row per station of the body beam,\n"
+        "# at the point on the fuselage loads reference axis where the structure\n"
+        "# is. Nothing here is a running total.\n"
+        "# Moments are right-handed about the airplane axes, about the station's\n"
+        "# own point on the axis named in MyyAxis.\n"
+        "# Fz is the whole applied set. Fx and Fy are zero throughout because\n"
+        "# the body beam has no fore-aft or lateral producer, and Mx, My and Mz\n"
+        "# because a station applies a force and no free moment: every moment\n"
+        "# the beam carries is those forces acting through the arms stated here.\n"),
+    "htail": (
+        "# The applied horizontal tail load set: one row per strip, plus any\n"
+        "# discrete control-surface node. Nothing here is a running total, and\n"
+        "# every row is a card the spanwise deck writes at the same GID.\n"
+        "# Moments are right-handed about the airplane axes, about the station's\n"
+        "# own point on the axis named in MyyAxis.\n"
+        "# Fz is the normal load and My the strip torsion about the surface's\n"
+        "# span axis, which for this surface is airplane y. Fx and Fy are zero\n"
+        "# throughout: this analysis models no chordwise load on either tail\n"
+        "# surface, and no spanwise acceleration reaches a horizontal tail.\n"
+        "# Mx and Mz are zero: a strip applies forces and a torsion, and the\n"
+        "# bending the structure carries is those forces through these arms.\n"),
+    "vtail": (
+        "# The applied vertical tail load set: one row per strip, plus any\n"
+        "# discrete control-surface node and the T-tail transfer. Nothing here\n"
+        "# is a running total, and every row is a card the spanwise deck writes\n"
+        "# at the same GID.\n"
+        "# Moments are right-handed about the airplane axes, about the station's\n"
+        "# own point on the axis named in MyyAxis.\n"
+        "# Fy is the normal load and Mz the strip torsion about the surface's\n"
+        "# span axis, which for a fin is airplane z -- NOT My, which is zero\n"
+        "# throughout: a lateral load can make no moment about the y axis.\n"
+        "# Fz is NOT zero: the fin's span is vertical, so vertical acceleration\n"
+        "# on its own mass is an axial column load carried in the same card.\n"
+        "# Fx and Mx are zero: this analysis models no chordwise load on either\n"
+        "# tail surface, and the bending the structure carries is the normal\n"
+        "# load acting through the arms stated here.\n"),
+}
+
 
 def span_load_csv(arg: ResultsArg, header_comment: str = "", *,
                   system: UnitSystem = UnitSystem.IMPERIAL) -> str:
@@ -699,11 +749,39 @@ _NO_SPANWISE_STRIP_LOAD = 0.0
 #: ``Mxx``/``Mzz`` is the applied forces acting through the spanwise arms these
 #: coordinates already state.
 _NO_FREE_BENDING = 0.0
+#: The body beam's structurally absent components, named rather than written
+#: ``0.0`` four times: the fuselage stations carry vertical load only. Each is a
+#: statement about the load set, and OR-140 prints the column either way -- so
+#: the day a producer appears, the name is where it will be found.
+_NO_BODY_AXIAL_LOAD = 0.0
+_NO_BODY_LATERAL_LOAD = 0.0
+_NO_BODY_FREE_TORSION = 0.0
+#: What the body beam's ``Myy`` is stated about. ``BodyLoadResult`` carries no
+#: ``torsion_axis`` of its own -- the beam has exactly one, it is the fuselage
+#: loads reference axis, and it is named here so the row's in-band statement
+#: reads the same as every other component's.
+_BODY_TORSION_AXIS = "fuselage loads reference axis"
+
+
+#: The components an applied set can be produced for (note 44 OR-141).
+#:
+#: One row shape for the whole airframe. Until 2026-09-07 this record was the
+#: wing's alone and the other three appendices each assembled their own, which
+#: is how Appendices D and E came to omit applied load the deck emits (OR-143):
+#: four assemblers of one load set, three of them with no gate tying them to a
+#: card. The component is carried on the row because the beam-frame -> body-axis
+#: moment map depends on it -- a surface's torsion is about its **span** axis,
+#: and the fin's span is not the wing's.
+APPLIED_COMPONENTS = ("wing", "fuselage", "htail", "vtail")
 
 
 @dataclass(frozen=True)
 class AppliedLoad:
-    """One applied load of the wing set: a strip, or a concentrated wing mass.
+    """One applied load of an airframe component's set.
+
+    A wing strip or concentrated wing mass, a fuselage beam station, or a tail
+    strip / control-surface node / T-tail transfer node -- one shape for all of
+    them, keyed by ``component`` (:data:`APPLIED_COMPONENTS`).
 
     The **applied** set, not the carried one: ``fz``/``fx`` are the load the
     strip or the mass exerts and ``myy_free`` the section moment that is not
@@ -761,6 +839,22 @@ class AppliedLoad:
     mzz_free: float
     safety_factor: float
     torsion_axis: str
+    #: Which component's set this row belongs to. Defaulted to ``"wing"`` so the
+    #: field is additive to every existing construction site, and read by
+    #: :func:`applied_body_moments` -- the whole reason it is on the row.
+    component: str = "wing"
+    #: Whether this row's moments are **already** right-handed about CID 0.
+    #:
+    #: False for every row a beam produces, which is the rule: moments are
+    #: stored in the calc's own convention and mapped once, by component. The
+    #: exception is the T-tail transfer node -- the one load on a fin deck that
+    #: is not in the fin's frame at all, but the horizontal tail above it
+    #: handing down a vertical force and a pitching moment about *its* span
+    #: axis. Mapping that through the fin's rule would put the h-tail's pitching
+    #: moment on the fin's torsion axis. The deck already treats it as its own
+    #: case (``coordinates.ttail_transfer_to_airplane``); this is the same
+    #: exception, declared on the row rather than left to a reader to infer.
+    body_moments: bool = False
 
 
 def applied_load_rows(arg: ResultsArg) -> List[AppliedLoad]:
@@ -805,6 +899,128 @@ def _applied_point_load(result: WingLoadResult, mass: ConcentratedLoad,
         safety_factor=sf, torsion_axis=result.torsion_axis)
 
 
+def fuselage_applied_load_rows(arg, project: Optional[Project] = None
+                               ) -> List[AppliedLoad]:
+    """The applied fuselage load set, one record per station of the body beam.
+
+    ``Fz`` is the whole of it: the body beam carries the station inertia, the
+    balancing tail load and the wing carry-through reaction, all vertical. There
+    is no producer for a fore-aft or lateral applied load on the beam and no
+    free moment at a station, so five of the six components are structurally
+    zero and are published as such (note 44 OR-140).
+
+    The point is where the *structure* is, not where the mass is: the beam runs
+    down the centre plane on the fuselage loads reference axis, so ``y`` is zero
+    by construction and ``z`` is that axis's waterline at the station. ``project``
+    supplies the axis; without it the waterline is unknown and is published as
+    zero rather than guessed.
+    """
+    from ..derived_geometry import fuselage_lra
+
+    lra = None
+    if project is not None:
+        try:
+            lra = fuselage_lra(project)
+        except Exception:           # an airplane with no body geometry entered
+            lra = None
+    out: List[AppliedLoad] = []
+    for result in _body_results(arg):
+        sf = _sf(result)
+        case_id = result.case_ref.case_id if result.case_ref else ""
+        for gid, s in zip(body_station_gids(result), result.stations):
+            out.append(AppliedLoad(
+                case=result.case, case_id=case_id, label=str(gid), gid=gid,
+                x=s.x, y=0.0, z=(lra.z_at(s.x) if lra is not None else 0.0),
+                fx=_NO_BODY_AXIAL_LOAD, fy=_NO_BODY_LATERAL_LOAD, fz=s.fz,
+                mxx_free=_NO_FREE_BENDING, myy_free=_NO_BODY_FREE_TORSION,
+                mzz_free=_NO_FREE_BENDING,
+                safety_factor=sf, torsion_axis=_BODY_TORSION_AXIS,
+                component="fuselage"))
+    return out
+
+
+def tail_applied_load_rows(arg, component: str) -> List[AppliedLoad]:
+    """The applied load set of one tail surface, in the deck's own terms.
+
+    **Every load the spanwise deck emits for this surface, and nothing else**
+    (note 44 OR-143). Until 2026-09-07 the report assembled this itself from the
+    strip normal force alone, so the strip torsion and the fin's span-axis
+    axial -- both on cards the deck writes -- were absent from an appendix that
+    stated it was the same load. Three rows per case were missing entirely: the
+    discrete control-surface nodes and the T-tail transfer.
+
+    Each row's point comes from the same mapper the deck's ``GRID`` cards use,
+    and each row's forces are already in airplane axes, because the maps that
+    put them there are the surface's own and belong beside the geometry rather
+    than at four call sites. The moments stay in the beam's convention and are
+    mapped by :func:`applied_body_moments`, except the T-tail transfer, which
+    says so on the row.
+    """
+    if component not in ("htail", "vtail"):
+        raise ValueError(
+            f"tail_applied_load_rows: component {component!r} is not "
+            "'htail' or 'vtail'")
+    out: List[AppliedLoad] = []
+    for r in _tail_span_results(arg, component):
+        sf = _sf(r)
+        case_id = r.case_ref.case_id if r.case_ref else ""
+        stations = list(r.stations)
+        for i, st in enumerate(stations):
+            x, y, z = tail_station_to_airplane(st.x, st.y, component, st.z)
+            # Normal and span-axis loads are two components of one applied
+            # force -- the deck puts them on one card, and so does this row.
+            nx, ny, nz = tail_force_to_airplane(st.fz, component)
+            ax, ay, az = tail_axial_to_airplane(st.f_span, component)
+            out.append(AppliedLoad(
+                case=r.case, case_id=case_id, label=str(i + 1),
+                gid=tail_span_gid(component, i), x=x, y=y, z=z,
+                fx=nx + ax, fy=ny + ay, fz=nz + az,
+                mxx_free=_NO_FREE_BENDING, myy_free=st.myy_free,
+                mzz_free=_NO_FREE_BENDING,
+                safety_factor=sf, torsion_axis=r.torsion_axis,
+                component=component))
+        for i, cp in enumerate(r.control_loads):
+            x, y, z = tail_station_to_airplane(cp.x, cp.y, component, cp.z)
+            fx, fy, fz = tail_force_to_airplane(cp.f_normal, component)
+            out.append(AppliedLoad(
+                case=r.case, case_id=case_id,
+                label=f"control {i + 1}", gid=tail_control_gid(component, i),
+                x=x, y=y, z=z, fx=fx, fy=fy, fz=fz,
+                mxx_free=_NO_FREE_BENDING, myy_free=cp.m_torsion,
+                mzz_free=_NO_FREE_BENDING,
+                safety_factor=sf, torsion_axis=r.torsion_axis,
+                component=component))
+        transfer = r.tip_transfer
+        if transfer is not None and stations:
+            tip = stations[-1]
+            x, y, z = tail_station_to_airplane(tip.x, tip.y, component, tip.z)
+            fvec, mvec = ttail_transfer_to_airplane(transfer.fz, transfer.myy)
+            out.append(AppliedLoad(
+                case=r.case, case_id=case_id, label="T-tail transfer",
+                gid=tail_span_gid(component, len(stations) - 1),
+                x=x, y=y, z=z, fx=fvec[0], fy=fvec[1], fz=fvec[2],
+                mxx_free=mvec[0], myy_free=mvec[1], mzz_free=mvec[2],
+                safety_factor=sf, torsion_axis=r.torsion_axis,
+                component=component, body_moments=True))
+    return out
+
+
+def applied_loads(component: str, arg,
+                  project: Optional[Project] = None) -> List[AppliedLoad]:
+    """The applied load set of ``component`` -- the one entry point (OR-141).
+
+    Every applied appendix and every applied CSV is a view of this call, so a
+    table a stress analyst reads, a file they load and the deck they solve
+    cannot disagree about what the applied set is. ``project`` is used by the
+    fuselage alone, for the beam's waterline.
+    """
+    if component == "wing":
+        return applied_load_rows(arg)
+    if component == "fuselage":
+        return fuselage_applied_load_rows(arg, project)
+    return tail_applied_load_rows(arg, component)
+
+
 def applied_body_moments(load: AppliedLoad) -> Vec3:
     """``load``'s free moments as a right-handed CID-0 vector (raw lb-in).
 
@@ -816,9 +1032,27 @@ def applied_body_moments(load: AppliedLoad) -> Vec3:
     through it rather than restating the sign: both views of B.1 -- the report
     table and the CSV -- call this and neither carries sign logic of its own.
 
+    **The map depends on the component**, which is why the row carries one. A
+    surface's torsion is about its *span* axis: the wing's and the h-tail's span
+    is ``y``, so their free torsion is the body ``My`` unchanged, and the body
+    beam's bending is about ``y`` for the same reason. The **fin's span is
+    ``z``** -- its torsion is ``Mz``, and negated. Returning ``(mx, myy_free,
+    mz)`` for every component was right for three of the four and put 4,561
+    lb-in of ``ga6_normal`` fin torsion on an axis a lateral force cannot make a
+    moment about at all (note 44 OR-142).
+
+    The fin's sign is not restated here: :func:`~sloads.export.coordinates.
+    tail_torsion_to_airplane` derives it and the exported deck already calls it,
+    so this routes through that owner rather than growing a second copy of the
+    one asymmetry a fin deck can get silently backwards.
+
     Called with the raw-Imperial unit set, so the return is unscaled lb-in; each
     consumer applies its own safety factor and unit conversion afterwards.
     """
+    if load.body_moments:
+        return (load.mxx_free, load.myy_free, load.mzz_free)
+    if load.component in ("htail", "vtail"):
+        return tail_torsion_to_airplane(load.myy_free, load.component)
     mx, _zero, mz = bending_moment_vector(load.mxx_free, load.mzz_free)
     return (mx, load.myy_free, mz)
 
@@ -838,14 +1072,37 @@ def _applied_csv_fields(u: DeliverableUnits) -> List[str]:
     ]
 
 
-def applied_load_csv(arg: ResultsArg, header_comment: str = "", *,
-                     system: UnitSystem = UnitSystem.IMPERIAL) -> str:
-    """The applied wing load set as a CSV -- the oracle report's Appendix B.1.
+#: The applied-load CSV each component is delivered as (note 44 OR-141a).
+#:
+#: One file per surface rather than one airframe file with a component column: a
+#: consumer loads the surface they are sizing, and a single file would have to be
+#: filtered before it could be used -- the retyping OR-64 exists to prevent, one
+#: step further on.
+APPLIED_CSV_NAMES = {
+    "wing": "wing_applied_loads.csv",
+    "fuselage": "fuselage_applied_loads.csv",
+    "htail": "htail_applied_loads.csv",
+    "vtail": "vtail_applied_loads.csv",
+}
 
-    One row per strip and one per concentrated wing mass, root to tip, LIMIT
-    (the case's ``SF`` is stated in the last column and applied nowhere). This is the file a
-    structures model is built from: every row is a load to apply at the point
-    the row states, and nothing in it is a running total.
+
+def applied_load_csv(arg: ResultsArg, header_comment: str = "", *,
+                     system: UnitSystem = UnitSystem.IMPERIAL,
+                     component: str = "wing",
+                     project: Optional[Project] = None) -> str:
+    """One component's applied load set as a CSV -- its appendix, as a file.
+
+    For the wing: one row per strip and one per concentrated wing mass, root to
+    tip. For the fuselage: one per beam station. For either tail: one per strip,
+    plus the discrete control-surface nodes and the T-tail transfer. LIMIT
+    throughout (the case's ``SF`` is stated in the last column and applied
+    nowhere). This is the file a structures model is built from: every row is a
+    load to apply at the point the row states, and nothing in it is a running
+    total.
+
+    The rows are :func:`applied_loads`, which is also what the appendix prints,
+    so the table and the file cannot disagree; **G-OR-90** holds both to the
+    cards the deck writes.
 
     Written in the solver unit channel, like the deck and the span-load CSV
     beside it -- a set of applied loads is a deck companion, not a
@@ -857,7 +1114,7 @@ def applied_load_csv(arg: ResultsArg, header_comment: str = "", *,
     buf = _io.StringIO()
     writer = csv.DictWriter(buf, fieldnames=fields)
     writer.writeheader()
-    for load in applied_load_rows(arg):
+    for load in applied_loads(component, arg, project):
         sf = load.safety_factor
         gx, gy, gz = to_grid(load.x, load.y, load.z, u)
         fx, fy, fz = to_force(load.fx, load.fy, load.fz, u)
@@ -877,14 +1134,17 @@ def applied_load_csv(arg: ResultsArg, header_comment: str = "", *,
             "MyyAxis": load.torsion_axis,
             "SF": _sf_str(sf),
         })
-    return header_comment + _APPLIED_CSV_CONVENTIONS + buf.getvalue()
+    return header_comment + _APPLIED_CSV_NOTES[component] + buf.getvalue()
 
 
 def write_applied_load_csv(arg: ResultsArg, path: str, *,
                            header_comment: str = "",
-                           system: UnitSystem = UnitSystem.IMPERIAL) -> None:
+                           system: UnitSystem = UnitSystem.IMPERIAL,
+                           component: str = "wing",
+                           project: Optional[Project] = None) -> None:
     with open(path, "w", encoding="utf-8", newline="") as fh:
-        fh.write(applied_load_csv(arg, header_comment, system=system))
+        fh.write(applied_load_csv(arg, header_comment, system=system,
+                                  component=component, project=project))
 
 
 def write_span_load_csv(arg: ResultsArg, path: str, *,
