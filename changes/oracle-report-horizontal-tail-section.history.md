@@ -1,7 +1,7 @@
-## Step 157 — The oracle report states the horizontal tail's loads (tier L, 2026-09-06)
+## Step 157 — The oracle report states the horizontal tail's loads (tier L, 2026-09-07)
 
 **Objective.** Give the oracle technical report its third load-bearing section: the
-horizontal tail, as four subsections and a lettered appendix, built from the
+horizontal tail, as five subsections and a lettered appendix, built from the
 `tail_loads` step (`TAILDIST`, Reference 1 Ch 10) without the report computing
 anything of its own — and settle how a step that publishes two surfaces becomes two
 sections.
@@ -9,7 +9,10 @@ sections.
 **Agreed first.** Design note 44 §17 (**OR-128 … OR-138**), settled with the owner in
 session on 2026-09-06 before any code, and corrected in place before implementation
 when one of its premises turned out to be wrong (OR-129/OR-130a, below). Gates
-**G-OR-80 … G-OR-88**.
+**G-OR-80 … G-OR-88**. The section was then reviewed by the owner against the built
+document on 2026-09-07 and amended: a fifth subsection, the case reference as the key
+of every table, the aerodynamic state ahead of the loads it produced, the
+hinge-moment absence stated, and Appendix D reduced to an applied-load deck.
 
 **Deliverables.**
 - `report/oracle_content.py` — `SectionSplit`, `SECTION_SPLITS` and the split run in
@@ -80,7 +83,7 @@ when one of its premises turned out to be wrong (OR-129/OR-130a, below). Gates
   tail must not meet the restriction for the first time two sections later.
 
 **Test.** Twenty-two gates in a new `tests/test_oracle_report_tail.py`. Among them:
-the section renders four subsections numbered by the numbering owner and the tail
+the section renders five subsections numbered by the numbering owner and the tail
 appendices are D and E behind A, B and C; the analysis body is consecutively numbered
 with no gap after the split; every published tail condition lands in exactly one
 section and every section names the step and component it was built from, asserted in
@@ -102,3 +105,32 @@ gate accepts a split step taking its headings from its splits (and asserts it ca
 no step-level title nothing would print), and the fuselage appendix-lettering gate now
 slices from the first appendix instead of the end of the document — the same
 position-dependence a third appendix broke one iteration ago, in a second place.
+
+**Amended in review (owner, 2026-09-07).**
+- **The section opens with the surface it was run on.** A fifth subsection ahead of the
+  rest, on section 3.1's shape: the planform with its elevator, the loads reference axis
+  drawn through the very stations the distributed loads are stated at, and the axis
+  station by station. The aerodynamic constants move here from the chordwise subsection
+  — they are derived from the surface's geometry, not from the pressures they scale.
+- **Every table keys on the case reference.** `HT-01`, not the condition name: the case
+  reference is the machine identity every other deliverable uses (M4-9), so the name and
+  its regulation are stated once, in the register, instead of repeated in four tables.
+  The register gains the safety factor, so the factor is stated wherever the case is
+  named. The aerodynamic-state table prints ahead of the loads table — a reader checks
+  what the airplane was doing before reading what that did to the surface.
+- **5.5 says why there is no hinge moment.** The question was the owner's, and the
+  answer is not "missing input": the hinge line is known — it is the chordwise station
+  the pressure distribution is built on — and the elevator load is modelled smeared into
+  the surface. A hinge moment needs the hinges' and the actuator's *span* stations,
+  which no fixture enters. The subsection names both and says entering them selects the
+  discrete load path. The two control columns go rather than print dashes, because a
+  column of dashes is not a statement.
+- **Appendix D is an applied-load deck and nothing else.** `Case | GID | X | Y | Z |
+  Fz | SF`, the point in airplane axes from the same mapper the exported deck uses.
+  Appendix B keeps both halves because the wing section is where a reader checks a beam
+  model's own answer; the empennage appendix is a deck to load a model *with*, so what
+  the structure carries is stated at the root in the section. **There is no `Fx`
+  column**: this analysis models no chordwise force on either tail surface and no
+  empennage dihedral, so the other components are absent by construction rather than
+  zero by measurement — OR-61's ruling, that a column of zeros reads as a measured zero.
+  The appendix states both absences rather than leaving the frame to be inferred.

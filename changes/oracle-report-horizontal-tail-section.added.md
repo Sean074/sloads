@@ -1,13 +1,16 @@
 - **The oracle report states the horizontal tail's loads (#151 iteration 5,
-  design note 44 §17, tier L, 2026-09-06).** Section 5, in four subsections and
+  design note 44 §17, tier L, 2026-09-07).** Section 5, in five subsections and
   Appendix D, built from the `tail_loads` step (`TAILDIST`, Reference 1 Ch 10):
-  5.1 the design conditions and the search that produced them, 5.2 the critical
-  loads with the aerodynamic state each was computed at, 5.3 the chordwise
-  pressure distribution and its figure, 5.4 the spanwise loads on the beam.
-  Appendix D carries every condition at every station, as a view of
-  `sbeam_bridge.tail_span_csv`'s own rows rather than a second assembler. Every
-  load is LIMIT, states the factor 14 CFR 23.303 prescribes for its condition,
-  and is multiplied by nothing.
+  5.1 the surface, its elevator and the loads reference axis the distributed
+  loads are stated about, 5.2 the design conditions and the search that produced
+  them, 5.3 the critical loads with the aerodynamic state each was computed at,
+  5.4 the chordwise pressure distribution and its figure, 5.5 the spanwise loads
+  on the beam. Appendix D carries every condition's **applied** load at every
+  station, in airplane axes, as a view of `sbeam_bridge.tail_span_csv`'s own
+  rows rather than a second assembler; what the structure carries is stated at
+  the root, where it is greatest. Every table keys on the case reference
+  (`HT-01`), every load is LIMIT, states the factor 14 CFR 23.303 prescribes for
+  its condition, and is multiplied by nothing.
 
 - **The tail is two sections, and G-OR-2 becomes a partition (design note 44 §17
   OR-128/OR-129, tier L, 2026-09-06).** An analyst reads by surface, so the

@@ -205,7 +205,12 @@ def test_the_beam_states_its_provenance_and_prints_its_total():
     stations = body_loads.build_body_loads(
         reduce_to_oracle_inputs(io.load_project(_GA)))
     assert stations                      # the section has a beam to state
-    assert table.rows[-1][2] == format_value(3070.0)
+    # Looked up by column rather than by position: the table gained Y and Z on
+    # 2026-09-07 and a positional index would have made that a failure, which is
+    # the third time this file has been taught the lesson.
+    weight = table.columns.index(next(c for c in table.columns
+                                      if c.startswith("Weight")))
+    assert table.rows[-1][weight] == format_value(3070.0)
 
 
 def test_a_project_with_no_beam_states_the_absence_and_still_builds():
@@ -544,3 +549,72 @@ if __name__ == "__main__":
             traceback.print_exc()
     print(f"\n{len(tests) - failed}/{len(tests)} passed")
     sys.exit(1 if failed else 0)
+
+
+# --------------------------------------------------------------------------- #
+# 4.1's side view and station coordinates (owner, 2026-09-07)
+# --------------------------------------------------------------------------- #
+def test_the_side_view_draws_the_mass_the_beam_and_the_load_paths():
+    """A station table cannot answer "does this look like the airplane".
+
+    Drawn in the X-Z plane, which is the plane Chapter 15 solves in, with the
+    three things a reader checks a beam against: where the mass sits, where the
+    load leaves for the wing, and where the tail puts it back.
+    """
+    from sloads.mass_distribution import fuselage_beam_stations
+
+    beam = _section_four(_doc()).subsections[0]
+    figure = next(f for f in beam.figures if f.key == "body_side_view")
+    assert figure.data is not None and not figure.absent_reason
+    assert "Waterline" in figure.data.y_label
+    assert "Fuselage station" in figure.data.x_label
+    stations = fuselage_beam_stations(reduce_to_oracle_inputs(io.load_project(_GA)))
+    assert len(figure.data.points) == len([s for s in stations if s.weight_lb])
+    assert [label for label, _x in figure.data.vlines] == [
+        "front spar", "rear spar", "h-tail load"]
+    # Every marker is labelled with its own mass: the figure shows how much, not
+    # merely where.
+    assert all(label for label, _x, _y in figure.data.points)
+
+
+def test_the_beam_table_states_where_the_mass_is_and_where_the_beam_runs():
+    """v62: the station carries its own Y and Z, and they are not the beam's.
+
+    ``ga6_normal``'s body mass spans waterline 52 to 105 about a beam at 87.7,
+    so a reader who took the spread for something the loads used would be
+    reading a fact about the airplane as a fact about the analysis. The note
+    says which it is; Chapter 15's vertical solve reads only ``x``.
+    """
+    from sloads.derived_geometry import fuselage_lra
+
+    table = _table(_doc(), "Fuselage beam stations")
+    assert [c.split(" ")[0] for c in table.columns] == [
+        "Station", "X", "Y", "Z", "Weight"]
+    zs = [float(r[3]) for r in table.rows if r[0] != "Total"]
+    assert min(zs) < max(zs), "the body mass is not all at one waterline"
+    lra = fuselage_lra(reduce_to_oracle_inputs(io.load_project(_GA)))
+    assert format_value(lra.z_at(0.0)) in (table.note or "")
+    assert "only X does" in (table.note or "")
+
+
+def test_the_fuselage_tables_key_on_the_case_reference():
+    """M4-9: the case reference is the identity, the name is stated once."""
+    doc = _doc()
+    for title in ("Pull-up maneuver fuselage loads (LIMIT)",
+                  "Wing-attach fitting loads (LIMIT)"):
+        table = _table(doc, title)
+        assert "Condition" not in table.columns, title
+        assert table.columns[0] == "Case", title
+        assert all(row[0].startswith(("F-", "HT-", "--")) for row in table.rows), title
+
+
+def test_appendix_c_places_every_station_on_the_airplane():
+    """X, Y and Z on every row: the rows are placeable without a second file."""
+    from sloads.derived_geometry import fuselage_lra
+
+    table = _appendix(_doc(), oc.BODY_LOAD_STATIONS).tables[0]
+    assert [c.split(" ")[0] for c in table.columns[:5]] == [
+        "Case", "GID", "X", "Y", "Z"]
+    assert {r[3] for r in table.rows} == {format_value(0.0)}, "the beam is on the centre plane"
+    lra = fuselage_lra(reduce_to_oracle_inputs(io.load_project(_GA)))
+    assert {r[4] for r in table.rows} == {format_value(lra.z_at(0.0))}

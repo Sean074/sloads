@@ -7,8 +7,10 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 
 | Field | Type | Units / notes | Default | Origin | Provenance |
 | --- | --- | --- | --- | --- | --- |
-| `fuselage_mass.ref_waterline` | `float` |  | `0.0` | original | Ch 15 reference waterline -- reserved: stored and round-tripped, but consumed by no current calculation (the Ch 15 beam ignores it; pending M4-19/M4-21), so any value, 0 included, is currently equivalent (#94, C210-34 owner ruling) |
+| `fuselage_mass.ref_waterline` | `float` |  | `0.0` | original | Ch 15 reference waterline -- **the fuselage LRA waterline the exported beam model runs on** (owner, 2026-09-07; `derived_geometry.fuselage_lra`, section-centre line as the fallback). It was reserved and read by nothing until then, so this row said any value, 0 included, was equivalent (#94, C210-34); it no longer is, and every shipped fixture's value was corrected in the same change -- four of six had placed the axis outside their own fuselage. The Ch 15 vertical solve still ignores it: this places the beam, it does not load it |
 | `fuselage_mass.stations[].x` | `float` |  | `**required**` | original | Ch 15 station |
 | `fuselage_mass.stations[].weight_lb` | `float` | lb | `0.0` | original | Ch 15 station weight |
+| `fuselage_mass.stations[].y` | `float` |  | `0.0` | sloads | butt line the station's lumped mass acts at (v62) -- blank derives from the item database's own weight-weighted centroid; where the mass is, not where the beam is |
+| `fuselage_mass.stations[].z` | `float` |  | `0.0` | sloads | waterline the station's lumped mass acts at (v62) -- blank derives from the item database's own weight-weighted centroid; distinct from ref_waterline, which places the beam that carries it |
 | `fuselage_mass.stations_are_override` | `bool` |  | `False` | sloads | override switch for the weight-DB derivation |
 

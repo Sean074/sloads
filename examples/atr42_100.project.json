@@ -1,5 +1,5 @@
 {
-  "schema_version": 61,
+  "schema_version": 62,
   "name": "ATR 42-300 (\"ATR 42-100\" prototype designation never entered production; -300 is the closest PW120-powered production analog) \u2014 2x PW120 (concept, category C)",
   "engines": [
     {
@@ -915,7 +915,7 @@
         "weight_lb": 320
       }
     ],
-    "ref_waterline": 100.0,
+    "ref_waterline": 177.5,
     "stations_are_override": false
   },
   "select_input": {

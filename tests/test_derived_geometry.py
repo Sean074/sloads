@@ -24,6 +24,7 @@ from sloads.derived_geometry import (
     SOB_HALF_WIDTH,
     carry_through,
     default_spar_station,
+    fuselage_lra,
     fuselage_summary,
     mac_reference,
     pct_mac_to_station,
@@ -846,3 +847,78 @@ def test_no_second_spelling_of_the_mac_station_relation():
         "a second spelling of X = XLEMAC + pct/100*MAC (or its inverse) -- read "
         "`sloads.derived_geometry.mac_reference` and the two %MAC functions "
         f"instead, so a typed override cannot be honoured in one place only: {offenders}")
+
+
+# --------------------------------------------------------------------------- #
+# The fuselage LRA waterline (owner, 2026-09-07; CONVENTIONS.md §7.2)
+# --------------------------------------------------------------------------- #
+def _example(name):
+    return io.load_project(os.path.join(_EXAMPLES, name))
+
+
+def test_the_fuselage_lra_leads_the_centre_line():
+    """The entered waterline is a structural statement; the centre line is not.
+
+    ``FuselageMassInput.ref_waterline`` has always been documented as the
+    waterline the body's mass distribution is carried along, and until
+    2026-09-07 nothing read it: the component deck put the beam at ``z = 0`` and
+    the airplane model ran it on the section-centre line. Entered leads, because
+    where the structure is and where the body's sections centre are coincide
+    only on a body whose structure runs down its middle.
+    """
+    project = _example("ga6_normal.project.json")
+    project.fuselage_mass.ref_waterline = 70.0
+    lra = fuselage_lra(project)
+    assert lra.z_at(0.0) == pytest.approx(70.0)
+    assert lra.z_at(300.0) == pytest.approx(70.0), "an entered beam is straight"
+    assert not lra.assumed and lra.basis == "entered"
+
+    # Blank derives: the centre line answers, station by station, and says so.
+    project.fuselage_mass.ref_waterline = 0.0
+    derived = fuselage_lra(project)
+    assert derived.assumed and derived.basis == "centre-line"
+    assert derived.z_at(150.0) == pytest.approx(
+        derived.centreline.z_at(150.0), rel=1e-12)
+
+    # ...and with neither, a zero that announces itself rather than a silent one.
+    project.geometry.fuselage = None
+    floor = fuselage_lra(project)
+    assert floor.z_at(150.0) == 0.0 and floor.basis == "none"
+    assert "roll" not in floor.note and "Enter fuselage_mass.ref_waterline" in floor.note
+
+
+def test_a_waterline_outside_its_own_body_says_so():
+    """The guard the shipped data earned.
+
+    Four of six fixtures placed the axis below their own fuselage floor -- the
+    Dash-8's by 47 in -- and three unrelated airplanes all entered the same round
+    100.0, which is what a placeholder looks like. Dropping a body beam out of
+    its body made the ATR-42's LRA deck singular, so this is a solve-breaking
+    class rather than a cosmetic one. The value is still used: it is the
+    project's statement, and being overridden silently is the defect this whole
+    owner exists to end.
+    """
+    project = _example("atr42_100.project.json")
+    project.fuselage_mass.ref_waterline = 100.0
+    lra = fuselage_lra(project)
+    assert lra.z_at(0.0) == pytest.approx(100.0), "the entered value still leads"
+    assert "OUTSIDE the fuselage" in lra.note
+    assert "placeholder" in lra.note
+
+    # Inside the body, and away from its centre, is a legitimate axis -- stated,
+    # not warned about.
+    centre = fuselage_lra(_example("atr42_100.project.json")).z_at(0.0)
+    project.fuselage_mass.ref_waterline = centre - 20.0
+    inside = fuselage_lra(project)
+    assert "OUTSIDE" not in inside.note and "below the body centre" in inside.note
+
+
+@pytest.mark.parametrize("example", [
+    "ga6_normal.project.json", "baron_58.project.json",
+    "cessna_210.project.json", "atr42_100.project.json",
+    "dhc8_dash8.project.json", "concept_regional_jet.project.json"])
+def test_no_fixture_places_its_body_beam_outside_its_body(example):
+    """The drift guard for the fixture data itself, checked by its effect."""
+    lra = fuselage_lra(_example(example))
+    assert lra.basis == "entered" and not lra.assumed, example
+    assert not lra.note, f"{example}: {lra.note}"

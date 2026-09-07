@@ -539,6 +539,7 @@ export boundary, reduction-to-FAR23 identity on GA inputs. "No oracle" never mea
 | **The T-tail transfer** (gated on `tail_type`; the set is the concurrent balancing h-tail load + its inertia, applied at the fin's **last** `GRID`; `Fz`/`Myy` only, in airplane axes) | `modules/tail_span.py` (`ttail_transfer`) + `export/coordinates.py` (`ttail_transfer_to_airplane`) | `tests/test_tail_span.py::test_only_a_t_tail_carries_a_tip_transfer` + `::test_the_transferred_moment_is_the_two_lever_arms` + `tests/test_export_equilibrium.py::test_vtail_span_deck_resultants` |
 | **Vertical-tail root waterline** (where the fin sits; entered polyline → explicit scalar → T-tail relation → fuselage top → a loud zero) | `sloads/tail_geometry.py` (`fin_root_waterline`) — read by both the load path and the three-view | `tests/test_tail_geometry.py::test_the_three_view_and_the_load_path_place_one_fin_once` + `::test_the_fin_root_waterline_is_pinned_per_fixture` + `::test_no_fixture_places_its_fin_twice` |
 | **Where the h-tail beam is reacted** (T-tail fin-tip joint → fuselage outline interpolated at the h-tail LRA station → the innermost strip pair; the **maximum** section is never used, and the outline branch is marked assumed) | `modules/tail_span.py` (`htail_attachment`, returning `HTailAttachment`) + `derived_geometry.py` (`fuselage_width_at` — the single owner of "how wide is the body *here*", as `fuselage_summary` is of "how wide at most") | `tests/test_tail_span.py::test_the_ttail_htail_is_reacted_at_the_fin_tip_not_at_the_fuselage` + `::test_the_attachment_interpolates_the_body_at_the_htail_and_never_its_maximum` + `::test_the_attachment_falls_back_to_the_strip_pair_without_a_body_outline` |
+| **Fuselage LRA waterline** (where the body beam runs; entered `fuselage_mass.ref_waterline` → the fuselage section-centre line → a loud zero. A waterline outside the body it describes is stated as such — four of six shipped fixtures placed it below their own fuselage floor and one made the ATR-42 LRA deck singular) | `sloads/derived_geometry.py` (`fuselage_lra`) — read by `export/lra_model` for the body chain and by the report for Appendix C's station positions | `tests/test_derived_geometry.py::test_the_fuselage_lra_leads_the_centre_line` + `::test_a_waterline_outside_its_own_body_says_so` + `::test_no_fixture_places_its_body_beam_outside_its_body` |
 | **Body drag waterline** (where the assembled model applies the airplane's non-wing drag; explicit → the wing reference plane with a loud note. Deliberately **two** branches: the suite has no body-centreline datum, and `root_waterline_z` is the *wing* root — deriving from it puts `ga6_normal` over the 1 % pitch gate) | `sloads/derived_geometry.py` (`body_drag_waterline`) — the only free parameter of `balance.body_axial_set`, whose magnitude is fixed by definition and whose fuselage station carries no pitching moment | `tests/test_balance.py::test_the_body_drag_waterline_is_stated_and_is_the_only_free_parameter` + `::test_the_applied_axial_force_is_the_airplanes_drag_not_the_wings` + `::test_the_longitudinal_closure_is_the_trims_own_drag` |
 | **Entered engine thrust** (one user-entered value per engine, applied as an axial `FORCE` at that engine's hub — `prop_cg`, falling back to `engine_cg`, and a **refusal** when neither exists; `fx = −T`, §1's `x` being +aft; **flight cases only**, ground cases state the entered value and do not take it. Nothing balances it: `n_x = (D − ΣT)/W` and `q̇` carry it, so the 1 % pre-closure gate does not apply to a powered case's `My`. The thrust line is axial — the incidence/toe angles and every wake term stay parked with design note 21. An **asymmetric** entry yaws the airplane and is stated, not handled: no twin is minted from it, and a twin got from another source mirrors the installation — note 21 §4.4's parked decision) | `modules/balance.py` (`hub_thrust_set`, `HUB_THRUST_SOURCE`, `is_powered`, `hub_thrust`) — read by `export/lra_model.py`, which routes it to the engine member's hub node | `tests/test_hub_thrust.py` (G-1…G-11; G-3 the closed-form residual, G-4 `ΣT = D ⇒ n_x = 0`, G-6 the hub node with a zero transfer couple) |
 | **Rigid-body relief field and the inertia tensor** (`f = −m(a + ω̇ × r)`; products of inertia stored as sums `Σw·a·b`, negated only in `matrix()`; weight-space `1/in`) | `sloads/rigid_body.py` (`InertiaTensor`/`inertia_tensor`/`relief_force`/`relief_moment`) | `tests/test_rigid_body.py::test_the_field_produces_exactly_minus_the_inertia_times_omega_dot` |
@@ -643,6 +644,27 @@ unhanded `VT-0n` SELECT already minted.
   factor **alone**, never "opposing the air load". The conditions that size a GA
   horizontal tail are down-load ones, so an opposing rule would relieve exactly
   those.
+* **The body beam has a waterline, and it is not the mass's (owner,
+  2026-09-07).** `FuselageMassInput.ref_waterline` is where the fuselage's loads
+  reference axis runs; `FuselageStation.y`/`.z` (v62) are where each lumped mass
+  acts. They are different statements about the same station and the difference
+  is real — on `ga6_normal` the body mass spans waterline 52 to 105 about a beam
+  at 87.7. Chapter 15 solves the body as a symmetric-flight vertical beam, so
+  neither coordinate enters its shear or its bending; only the station does.
+  What they do is place the mass and the beam in the exported model, in
+  Appendix C's rows and in section 4.1's side view, and give any later
+  longitudinal load the arm it needs. The resolution order is the entered
+  waterline, then the section-centre line, then a loud zero — entered leading
+  because it is a **structural** statement while the centre line is a **body
+  geometry** one, and the two coincide only on a body whose structure runs down
+  its middle. Until 2026-09-07 nothing read the entered value at all: the
+  component deck put the beam at `z = 0` and the airplane model ran it on the
+  centre line, so `ga6_normal`'s body beam sat 23.5 in from where its own project
+  file said it was. **A waterline outside the body it belongs to is stated as
+  such**, because four of the six shipped fixtures had one — the Dash-8's 47 in
+  below its own floor, three unrelated airplanes all entering the same round
+  100.0 — and dropping a body beam out of its body made the ATR-42's LRA deck
+  singular.
 * **The fin has a vertical position, and it is never implicitly zero (B8a-1,
   2026-08-09).** The roll moment a fin side load makes about the CG is
   `−Fy·(z − z_cg)`, so the fin's root waterline is a first-order load quantity,

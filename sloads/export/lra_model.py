@@ -84,7 +84,12 @@ import textwrap
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from ..derived_geometry import carry_through, fuselage_centreline, sob_station
+from ..derived_geometry import (
+    carry_through,
+    fuselage_centreline,
+    fuselage_lra,
+    sob_station,
+)
 from ..models import BalancedCaseResult, BalancedLoad, Project
 from ..models.enums import GearCarrier
 from ..modules.balance import build_balanced_cases
@@ -289,8 +294,15 @@ def build_lra_model(project: Project) -> LraModel:
     centreline = fuselage_centreline(project)
     if centreline is None:
         raise LraRefusal(
-            "no fuselage outline -- the fuselage LRA is the section-centre "
-            "line (note 24 R-4) and there are no sections to build it from")
+            "no fuselage outline -- the fuselage beam's stations come from its "
+            "sections and there are none to build them from")
+    # **Where the body beam sits is its own owner** (2026-09-07): the entered
+    # ``fuselage_mass.ref_waterline`` if the project states one, else the
+    # section-centre line. Until this call the model ran the chain on the centre
+    # line unconditionally and the entered waterline -- documented as this very
+    # quantity -- was read by nothing, putting ``ga6_normal``'s body beam 23.5 in
+    # from where its own project file says it is.
+    lra = fuselage_lra(project)
     ct = carry_through(project)
     if ct is None:
         raise LraRefusal(
@@ -302,8 +314,8 @@ def build_lra_model(project: Project) -> LraModel:
     notes = model.assumed_notes
     if sob.assumed:
         notes.append(sob.note)
-    if centreline.assumed:
-        notes.append(centreline.note)
+    if lra.note:
+        notes.append(lra.note)
     if ct.assumed:
         notes.append(
             f"wing spar stations ASSUMED -- derived at "
@@ -551,7 +563,7 @@ def build_lra_model(project: Project) -> LraModel:
             elif abs(x - ct.x_r) <= _COINCIDENT_TOL:
                 family, side = "lra-post", "A"
             chain.append(LraNode(_FUSELAGE_BAND.allocate(n_fus),
-                                 (x, 0.0, centreline.z_at(x)), family, side))
+                                 (x, 0.0, lra.z_at(x)), family, side))
             n_fus += 1
     model.nodes += fus_fwd + fus_aft
     model.add_chain(fus_fwd, "fuselage")
