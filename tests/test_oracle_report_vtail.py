@@ -525,6 +525,89 @@ def test_the_two_airplanes_the_report_is_built_for_keep_their_loads_too():
                         (os.path.basename(path), component, a.case)
 
 
+# --------------------------------------------------------------------------- #
+# 6.1's loads reference axis is in the plane the surface is actually in
+# --------------------------------------------------------------------------- #
+def test_the_loads_reference_axis_runs_up_the_fin_not_along_its_root():
+    """The defect the owner found in the built section (2026-09-07).
+
+    ``WingStationLoad`` called its coordinates airplane axes and for the
+    horizontal tail they are, so section 5 read them directly and was right. On
+    the **fin** they are not: ``y`` is the span coordinate in the surface's own
+    plane and ``z`` is the root waterline it is measured from. Read at face
+    value, 6.1 drew the loads reference axis as a flat row of markers along the
+    root -- ``z`` was the constant 111.5 on every station -- and labelled the
+    height above the root a butt line.
+
+    Both are now resolved through
+    :func:`sloads.export.coordinates.tail_station_to_airplane`, the owner the
+    deck and Appendix E already use, so the figure, the table and the exported
+    card place the same station at the same point by construction.
+    """
+    from sloads.export.coordinates import tail_station_to_airplane
+
+    project = _project()
+    section = _section(_doc(project), "6.")
+    axis = _table(section, "Loads reference axis by station")
+    assert axis.columns[1].startswith("Station X")
+    assert axis.columns[2].startswith("Butt line Y")
+    assert axis.columns[3].startswith("Waterline Z")
+
+    stations = build_tail_span(project)["vtail"][0].stations
+    want = [tail_station_to_airplane(st.x, st.y, "vtail", st.z) for st in stations]
+    assert len(axis.rows) == len(want)
+    for row, (x, y, z) in zip(axis.rows, want):
+        assert row[1] == format_value(x) and row[2] == format_value(y)
+        assert row[3] == format_value(z)
+
+    # The property that the flat-line defect violated: the fin's span runs up
+    # the waterline and stays on the centreline, and the h-tail's does neither.
+    zs = [float(r[3]) for r in axis.rows]
+    ys = [float(r[2]) for r in axis.rows]
+    assert max(zs) - min(zs) > 1.0, "the fin's stations do not climb"
+    assert all(abs(v) < 1e-6 for v in ys), "the fin is off the centreline"
+
+
+def test_the_horizontal_tails_axis_still_spans_a_butt_line():
+    """The other surface, so the fix cannot have swapped both frames."""
+    axis = _table(_section(_doc(), "5."), "Loads reference axis by station")
+    ys = [float(r[2]) for r in axis.rows]
+    zs = [float(r[3]) for r in axis.rows]
+    assert min(ys) < 0 < max(ys), "the h-tail does not span the airplane"
+    assert max(zs) - min(zs) < 1e-6, "the h-tail's stations should share a waterline"
+
+
+def test_the_tail_axis_figure_is_drawn_in_the_surfaces_own_plane():
+    """The figure reads the same resolved point the table does.
+
+    The fin is drawn in X--Z and the horizontal tail in X--Y, and in both the
+    marked stations are the axis -- not a row of them along one edge.
+    """
+    doc = _doc()
+    # ``_oriented`` puts the span on the plot's horizontal axis for a butt-line
+    # frame and on its vertical axis for a waterline one, so the axis the span
+    # is asserted to run along differs by surface -- which is the whole reason
+    # the two frames exist and must not be read off one index for both.
+    for number, component, spread, index in (("5.", "htail", "Butt line", 0),
+                                             ("6.", "vtail", "Waterline", 1)):
+        section = _section(doc, number)
+        figure = next(f for sub in section.subsections for f in sub.figures
+                      if f.key == f"planform_{component}_lra")
+        assert not figure.absent_reason, component
+        labels = (figure.data.x_label, figure.data.y_label)
+        assert spread in labels[index], (component, labels)
+        along = [p[1 + index] for p in figure.data.points]
+        assert max(along) - min(along) > 1.0, (
+            f"{component}: the axis is drawn flat -- every station shares one "
+            f"{spread.lower()}, which is the root-line defect")
+        # ...and it does not wander on the other axis of the plane it is in.
+        across = [p[2 - index] for p in figure.data.points]
+        assert max(across) - min(across) > 0.0, component
+        # The station markers are legended as themselves, not as the V-n
+        # figure's design points, which is what the unset default gave them.
+        assert figure.data.points_label == "Load stations"
+
+
 if __name__ == "__main__":                                    # pragma: no cover
     import sys as _sys
     failed = 0
