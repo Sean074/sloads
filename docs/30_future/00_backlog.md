@@ -566,14 +566,23 @@ again; L-8d's mutation case stays parked); F25-2.
   `flap` outline, and only `ga6_normal` entering an `elevator`, so their flap
   and tab locator figures state an absence where `ga6_normal` draws one.
 
-- **sloads publishes no control-surface hinge moment.** Note 44 §19 OR-154
-  states the *sense* of the hinge moment as the sign convention and derives no
-  magnitude, because no module produces one. Whether the hinge moment is a
-  deliverable this suite should produce — it is what a control-surface
-  attachment is sized to, and `AileronLoadsInput.hinges_span_in` and
-  `actuator_span_in` are already entered-never-invented and unconsumed — is a
-  scope question, not a defect. **Filed 2026-09-07.** Tier L if taken, and it
-  reaches `modules/aileron.py`, frozen for 0.8.2 under OR-13.
+- **No control-surface hinge moment is computed anywhere — in sloads or in the
+  suite it replicates.** Checked against the source 2026-09-07: `AILERON.BAS`,
+  `FLAPLOAD.BAS` and `TABLOADS.BAS` each end after printing their loads and
+  chordwise pressures; chapter 16 (p105–106) claims only the constant pressure
+  forward of the hinge line; and the words *hinge moment* occur once in the
+  whole manual, in the quoted CAM 3.224-1(a) tab-deflection limit, which
+  chapter 18 (p113) then declines to apply — *"the computer program for surface
+  loads for the aileron, elevator and rudder are not limited to pilot effort."*
+  So this is **not a replication gap**: note 44 §19 OR-154 states the *sense* of
+  the moment as the sign convention and derives no magnitude. Whether sloads
+  should produce one as a modern addition — it is what a control-surface
+  attachment and its actuator are sized to, and `AileronLoadsInput.hinges_span_in`
+  and `actuator_span_in` are already entered-never-invented and unconsumed — is a
+  **scope question for a later milestone**, and one that needs a method the
+  oracle cannot supply (a chordwise centre of pressure per throw, and a hinge
+  line the schema does not carry as geometry). **Filed 2026-09-07.** Tier L if
+  taken, and it would reach `modules/aileron.py`, frozen for 0.8.2 under OR-13.
 
 - **The oracle prints an aileron deflection schedule the module does not
   publish.** Appendix A p200 prints the deflections at VA, VC and VD (15.00 /
