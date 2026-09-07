@@ -11,7 +11,7 @@
    "engine_cg": [
     22.0,
     0.0,
-    -10.0
+    92.0
    ],
    "prop_weight_lb": 74,
    "prop_diameter_in": 84,
@@ -22,7 +22,7 @@
    "prop_cg": [
     -10.0,
     0.0,
-    93.022
+    100.0
    ],
    "takeoff_hp": 285,
    "max_cont_hp": 265,

@@ -54,6 +54,9 @@ IMPLEMENTED: FrozenSet[str] = frozenset({
     # already carries, not a distributed set a structures model integrates
     # station by station (note 44 §19, OR-147).
     "aileron_loads", "flap_loads", "tab_loads",
+    # Section 10 -- the engine mount. Six components at one point, so no
+    # appendix of its own either (note 44 §20, OR-158).
+    "engine_mount",
 })
 
 #: The document's fixed front matter, in order, ahead of the analysis body.

@@ -39,7 +39,7 @@ def test_example_project_loads():
     assert project.engine is not None
     assert project.engine.engine_type == EngineType.RECIPROCATING
     # Tuple coercion at the boundary (JSON arrays -> Vec3 tuples).
-    assert project.engine.engine_cg == (22.0, 0.0, -10.0)
+    assert project.engine.engine_cg == (22.0, 0.0, 92.0)
     # Phase 1: the example also carries the mass-properties (weight) slice.
     assert project.weight is not None
     assert project.weight.estimation.seats == 6

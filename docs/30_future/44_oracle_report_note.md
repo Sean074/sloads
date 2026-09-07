@@ -1472,3 +1472,106 @@ tail into two. Nothing below changes that.
   should produce — it is what a control-surface attachment is sized to — is a
   scope question for a later milestone, with `AileronLoadsInput.hinges_span_in`
   and `actuator_span_in` already entered-never-invented and unconsumed.
+
+---
+
+## 20. Iteration 7 — Section 10, Engine Mount Loads (OR-158 … OR-170)
+
+**Status: AGREED 2026-09-07 (owner, in session).** Drafted from the owner's ruling
+in session: *"10.1 Input Data, which will summarize the input and load cases
+assessed including the definition of the location of the applied loads. 10.2
+Critical Cases which will contain the loads similar to the oracle, but all 6 load
+components in the global coordinate system"*, and from the seven answers that
+followed — *"1. Use the same as the oracle. 2. Applied by engine to airframe,
+ensure this note is explicit. 3. Resolve the thrust axis into the global. Add
+another table that gives the engine torque as torque about the engine thrust line
+per case and thrust. 4. ok. 5. Each combination as a separate case. 6. One line
+per engine. 7. All three, add the wing and fuselage and tail outline if
+available."*
+
+*Measurements taken 2026-09-07 against `examples/ga6_normal.project.json`,
+`examples/baron_58.project.json`, `examples/concept_regional_jet.project.json`
+and `examples/cessna_210.project.json`, and quoted where they carry a decision.*
+
+**What the module already produces, and what it does not.** `ENGLOADS.BAS` /
+`sloads/modules/engine.py` returns six FAR 23 conditions — 23.361(a)(1),
+23.361(a)(2), 23.363, and for a turbopropeller 23.361(a)(3), 23.361(b)(1) and
+23.371(b) — plus three FAR 25 cases behind `Project.include_far25`. Every one
+classifies **`flight`** in `sloads/safety_factors.py`, so Section 10 is uniformly
+LIMIT at SF 1.5 with the factor stated and applied nowhere, and no `-ULT` marker
+can appear in it. `render.load_cases_to_rows` already fans the conditions into one
+row per case at the combined CG — that is the Engine Mount page's CSV, and it is
+in the **oracle's** convention, which is the thing OR-160 has to be explicit about.
+
+| # | Decision | Amends |
+|---|---|---|
+| **OR-158** | **Section 10 is two subsections: 10.1 Input Data and 10.2 Critical Cases** *(owner, 2026-09-07)*. 10.1 states what the analysis was run from — the engine and propeller data, the three stations, the thrust axis, the case list and the sign convention — and 10.2 states what came out. No third subsection: the conditions are enumerated by regulation, not selected from a sweep, so there is no "cases assessed" step of the kind §3.3 needs. | OR-48 (the §3 shape, not extended) |
+| **OR-159** | **The application point is the oracle's: the combined engine + propeller CG** *(owner: "use the same as the oracle")*. `XPP, YPP, ZPP` — the weight-average of the engine and propeller CGs, truncated to three decimals exactly as the BASIC did — is the point every component in 10.2 acts at, and it is the point Appendix A prints as `APPLIED AT X,Y,Z`. **Three stations are in play and 10.1 prints all three**, because the deck already carries the other two: `lra-engine-mount` sits at the **engine** CG and `lra-engine-hub` at the **propeller** CG (`export/lra_model.py`), and a reader transferring this set to a mount plane needs to know which of the three the moments are quoted about. The loads are quoted about the combined CG and nothing else; the other two are printed as geometry. | OR-6, `CONVENTIONS.md` §1 |
+| **OR-160** | **The published set is the load applied by the engine to the airframe, and the section says so in as many words** *(owner, 2026-09-07: "ensure this note is explicit")*. The oracle's `ENG MOUNT TORQUE` column is printed **negative** because it is the reaction the mount applies to the engine; so is `load_cases_to_rows`' `Engine mount torque` column on the Engine Mount page's CSV, and both stay as they are. Section 10.2 publishes the **opposite** sense — what the engine does to the structure — because that is what every other applied set in this document publishes (Appendices B–E, OR-141) and a reader who mixes the two sizes a mount backwards. The relationship is stated, not implied: 10.2 names the CSV column it is opposite to. **G-OR-105** holds the two to opposite signs — always, and to equal magnitudes where the thrust line *is* the airplane's own axis, which is the case the equality can be asserted on — so they cannot drift into agreement and a third convention cannot appear between them. | OR-141, OR-143 (the same class of defect) |
+| **OR-161** | **The thrust axis is derived from the entered stations, resolved into the global frame, and has one owner** *(owner: "resolve the thrust axis into the global")*. The axis is the unit vector from the engine CG to the propeller hub, `prop_cg − engine_cg` — forward by construction, since a hub is ahead of the engine that drives it. Where the two coincide, or either is unentered, the axis falls back to airplane **−x** (forward) and is **marked ASSUMED** in 10.1 — the same explicit-with-flagged-inference shape `mounted_on` (BM-4) and `fuselage_centreline` already use, and both branches are exercised by shipped data: `ga6_normal` (−32, 0, +8), `baron_58` (−20, 0, 0) and `cessna_210` (−32, 0, −4) derive it; `concept_regional_jet`, whose two engines enter `prop_cg == engine_cg`, assumes it. The owner is **`sloads/export/coordinates.py`** — `CONVENTIONS.md` §1 already names that module the single edit point for every axis resolution in the suite, and `tail_torsion_to_airplane` is the precedent for the report reading it rather than restating its signs (OR-146). Nothing is resolved inside the report. | `CONVENTIONS.md` §1, rule 3 |
+| **OR-162** | **The torque's sense is derived, not asserted — and the draft got it wrong.** The module states "clockwise from the pilot's view is positive". The pilot looks **along** the thrust axis, so a right-hand-positive rotation about it is what the pilot sees as clockwise: the module's scalar is already the right-hand sense about the axis. *(Corrected in implementation, 2026-09-07.)* The draft added **a negation** here, to turn "the reaction" into "the applied load" — and that made Section 10.2's `Mx` **equal** the load-case file's `ENG MOUNT TORQUE`, the two conventions agreeing, which is the one outcome that means one of them has been lost. Third law, twice, settles it and no negation survives: a propeller turning clockwise from the seat is driven by `+Q` from the engine, returns `−Q` to the engine, is held by `+Q` from the mount, so **the engine delivers `−Q` to the airframe** — which is exactly what `mx_mount_torque` carries and what the oracle prints as a negative number. The scalar is *rotated*, not flipped: with `â ≈ (−1, 0, 0)`, `−Q` about it is `mx = +Q`, and a positive moment about the aft-positive `x` axis carries starboard up — the **left roll** a clockwise propeller produces. Two independent readings agreeing is what makes the sign derived. 10.1 prints the **direction cosines** of each engine's axis so this is checkable on the page rather than taken on trust. | `CONVENTIONS.md` §1 |
+| **OR-163** | **10.2 carries two tables, and the second is the thrust-line pair** *(owner, 2026-09-07)*. **Table 1** is the six global components — `Fx Fy Fz Mx My Mz` at the OR-159 point — one row per case per engine, with the SF stated. **Table 2** is the same cases with the **torque about the engine thrust line** and the **thrust along it**: the two scalars Table 1 was resolved from. *(Corrected in implementation, 2026-09-07: neither table prints a **FAR** column. Eleven columns would not set upright at any size and the renderer turned the page; the regulation for each case is in 10.1's case list against the same case ID, so dropping it costs the reader a glance and saves them a rotated page. The condition's name stays, in a short form owned in one place — **G-OR-112** holds every reference the module can produce to an entry in it, so a condition added later cannot print a blank.)* It derives nothing Table 1 does not, and it exists for two reasons — an installation whose thrust line is not along `x` has its engineering numbers in the engine's own axis, where a mount is actually designed; and printing the pre-resolution pair beside the post-resolution set makes **G-OR-104** a check a reader can repeat rather than one only the suite can. | OR-135 (provenance beside the value) |
+| **OR-164** | **Thrust is a component of the gyroscopic case and of no other** *(owner: "ok")*. 23.361 and 23.363 prescribe no thrust, and 23.371(b) prescribes max-continuous thrust explicitly. `Fx` therefore prints `0` in the 23.361/23.363 rows and is **not** filled from `EngineInput.thrust_lb`, which is a *flight* input `balance.hub_thrust_set` applies at the hub in the assembled balanced cases (#10) and is not a component of any engine-mount condition. 10.1 states that in one sentence, because a reader who has met `thrust_lb` on the Engine page will otherwise read the zero as an omission. | OR-140 (a zero column is printed and named) |
+| **OR-165** | **Every gyroscopic sign combination is its own case** *(owner, 2026-09-07)*. 23.371(b)'s four combinations of `±Myy` and `±Mzz` fan out into four rows, each with the 2.5 g vertical and the max-continuous thrust that act in every one of them, carrying the **a/b/c/d** case IDs already minted by `render._gyro_subcase_id`. That existing owner is asked, not re-implemented: a second suffix scheme would be a second identity for the same case, and the case ID is what ties a row here to a row in the CSV. | `case_ids.py`, backlog Step D1 |
+| **OR-166** | **One row per engine** *(owner, 2026-09-07)*. Every entry in `project.engines` prints its own rows at its own butt line, tagged with the designation the module already prefixes onto a multi-engine title. No critical engine is selected and no mirror is asserted: two mounts are two structures, `baron_58`'s pair sit at BL ∓66 with opposite `y`, and the saving from printing one would be four rows. | OR-6 |
+| **OR-167** | **The side load prints one sense and states the other.** 23.363 prescribes a side load acting in **either** direction and the oracle prints a magnitude (`770.07 lb` at `ny = 1.33` on the Appendix A engine). The row prints it as `+Fy` and the section states that the mount is checked for both senses. It is **not** fanned into two cases the way the gyro combinations are, and the difference is the point: the gyro sub-cases exist because the module publishes four signed pairs, and a second side-load case would be the report minting a case the analysis did not run. Filed below as a finding, not resolved here. | **OR-6**, OR-165 (why the two differ) |
+| **OR-168** | **Three figures — side, front and planform — and each draws whatever airframe outline the project entered** *(owner: "all three, add the wing and fuselage and tail outline if available")*. Side view in `X–Z`, front view in `Y–Z`, planform in `X–Y`; each carries the fuselage outline, the wing, the horizontal tail and the vertical tail wherever the project enters them, drawn through §2.1's own polyline owner so the shapes cannot disagree with Section 2's. On each, every engine's **mount node, hub node and application point** are marked, the thrust axis is drawn as the line between the first two, and the positive senses of the components lying in that view's plane are drawn on it — which is what makes the sign convention a picture rather than a paragraph. An outline that is not entered is simply not drawn and the caption names which were; a project with **no** entered outline still gets all three figures, because the engine stations are the subject and the airframe is context. The figure is absent only where there is no engine. | OR-153 (two figures; this section earns three), OR-32 |
+| **OR-169** | **The fuselage outline gets one owner, here, because this is the first consumer that draws it.** `GeometryInput.fuselage` has carried a section table (`x`, `width`, `height`, `z_centre`) since the schema had a body, and **nothing draws it**: §2.1 draws surfaces, §4.1 draws the *beam*. `derived_geometry.fuselage_outline(project, frame)` becomes the one producer of the body's polyline in each of the three views — side from the centreline ± half-height, plan from ± half-width, front from the maximum section — reading `fuselage_centreline` for the side view's datum so the existing assumed-centreline note is the one that travels, rather than a second guess made in the report. Rule 3, at the first time of asking. | rule 3, `CONVENTIONS.md` §7 |
+| **OR-170** | **`ga6_normal`'s engine and propeller CG waterlines are wrong, and this iteration fixes them.** *(Defect found 2026-09-07 while measuring for OR-159; page-cited.)* The fixture enters `engine_cg = (22, 0, −10)` and `prop_cg = (−10, 0, 93.022)`, which puts the worked example's engine at **waterline −10** and gives a combined CG of **(17.910, 0, 3.166)**. Appendix A p227 prints `APPLIED AT X,Y,Z  17.91, 0, 93.022`. Reading the page's input block back, the two entered triples are `ENGINE CG 22, 0, 92` and `PROPELLER CG −10, 0, 100`, and they reproduce the printed combined CG exactly: `(505·92 + 74·100)/579 = 93.0224…`, truncated to **93.022**. What is in the fixture is a transcription slip in both slots — the propeller's `x` (−10) pasted into the engine's `z`, and the printed **combined** `z` (93.022) pasted into the propeller's. The fixture comment, *"XPROP chosen so combined XPP = 17.91"*, records that only `x` was ever checked, and no test asserts `zpp`. It is corrected in `examples/ga6_normal.project.json` and `tests/fixtures.py`, **G-OR-106** asserts `zpp` against the printed figure so it cannot slip back, and the deck digests move with it because the LRA engine mount and hub nodes are placed from these stations. Under rule 6 a defect with first-order effect on shipped content outranks the iteration it was found in. `cessna_210` carries the same shape of error — `(20, 0, −8)` / `(−12, 0, 88)`, combined `z = 4.843` — with **no printed page to derive the right values from**; it is filed below with its number and is not guessed at here. | rule 4, rule 6, **OR-6** |
+
+### Gates added by this iteration
+
+- **G-OR-104** — *(OR-161/OR-162/OR-163)* the six global components printed in
+  Table 1 are the resolution of the two scalars printed in Table 2, for every
+  case of every engine of every shipped example:
+  `(Mx, My, Mz) == T·â + (0, Myy, Mzz)` and
+  `(Fx, Fy, Fz) == thrust·â + (0, Fy, −Fz_down)` to 1e-9. Asserted **through
+  `coordinates.engine_applied_load`**, not against a column, so a component added
+  later cannot inherit a literal at a call site — the OR-146 shape.
+- **G-OR-105** — *(OR-160)* for the same case, §10.2's `Mx` and the Engine Mount
+  page's CSV `Engine mount torque` are **exactly opposite** and neither is zero,
+  on a conventional installation. The gate that the two conventions stay two, and
+  stay related.
+- **G-OR-106** — *(OR-159/OR-170)* the Appendix A reciprocating figures, ±0.1 %
+  and page-cited: `n = 2.85`, vertical **1650.15 lb**, applied at
+  **(17.91, 0, 93.022)**, mean take-off torque **554.3884 ft-lb** and the
+  AC 23-19A corrected **737.34**; `n = 3.8`, **2200.2 lb**, max-continuous torque
+  **556.7227**, mount torque **−740.4412**; side-load factor **1.33**, side load
+  **770.07 lb** (p227–229).
+- **G-OR-107** — *(OR-165)* a turbopropeller project prints the four gyroscopic
+  combinations as four rows with the `a/b/c/d` IDs `render._gyro_subcase_id`
+  mints, and no fifth row; the vertical and the thrust repeat unchanged across
+  all four.
+- **G-OR-108** — *(OR-166)* on `baron_58` every case appears once per engine, each
+  at its own butt line, with both signs of `y` present and the designations
+  distinguishing the rows.
+- **G-OR-109** — *(OR-161)* an assumed thrust axis is marked and a derived one is
+  not, asserted in **both** directions on shipped data:
+  `concept_regional_jet` (hub at the engine CG) prints the ASSUMED statement,
+  `ga6_normal` does not.
+- **G-OR-110** — *(the load-output contract)* no load Section 10 prints is marked
+  ultimate: every load column carries a LIMIT label, every row states its factor
+  in an `SF` column, and the section's rendered text contains no `-ULT`.
+- **G-OR-111** — *(OR-168/OR-169)* the three figures draw every outline the
+  project enters and the caption names them; on a project that enters none they
+  still draw the engines, and on a project with no engine all three render the
+  OR-32 stated absence.
+- **G-OR-112** — *(added in implementation)* every FAR reference the module can
+  produce, FAR 25 cases included, has an entry in the short-name map a load
+  table prints from. A load table's Condition column is a *second* name for a
+  condition, so the map from the first must be total, or a condition added later
+  prints its full sentence into a ten-column table — or, under a future edit,
+  prints nothing.
+
+### Findings filed, not fixed here
+
+- **`cessna_210`'s engine and propeller CG waterlines** are `−8` and `88`, giving
+  a combined CG at waterline **4.843** — the same class of slip as OR-170 with no
+  printed page to correct it from. Needs the airplane's own data.
+- **No side-load case is run for the negative sense** (OR-167). The mount is
+  checked for both by the reader; the analysis publishes one signed value.
+- **No engine-mount case reaches the sbeam deck.** The LRA model has carried
+  `lra-engine-mount` and `lra-engine-hub` nodes since note 24 R-9, and nothing
+  writes a `FORCE`/`MOMENT` at them for a 23.361 condition. Section 10 delivers
+  the six components a deck would need, which is what makes this the point at
+  which the gap is worth stating.

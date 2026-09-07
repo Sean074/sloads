@@ -15,20 +15,28 @@ from sloads import EngineInput, EngineType, Rotor, RotorType
 
 
 def io520bb() -> EngineInput:
-    """The reciprocating worked example (Continental IO-520-BB)."""
+    """The reciprocating worked example (Continental IO-520-BB).
+
+    Every value is the input block Appendix A prints on p227, including both CG
+    waterlines: ``ENGINE CG 22, 0, 92`` and ``PROPELLER CG -10, 0, 100``, which
+    reproduce the printed combined CG ``17.91, 0, 93.022`` exactly. They were
+    entered wrong until 2026-09-07 -- the propeller's ``x`` in the engine's ``z``
+    slot and the printed *combined* ``z`` in the propeller's -- because only the
+    ``x`` was ever checked against the page (note 44 §20, OR-170).
+    """
     return EngineInput(
         engine_designation="CONTINENTAL IO-520-BB",
         prop_designation="HARTZELL",
         engine_type=EngineType.RECIPROCATING,
         limit_load_factor=3.8,
         engine_weight_lb=505,
-        engine_cg=(22.0, 0.0, -10.0),
+        engine_cg=(22.0, 0.0, 92.0),
         prop_weight_lb=74,
         prop_diameter_in=84,
         prop_blades=3,
         takeoff_rpm=2700,
         max_cont_rpm=2500,
-        prop_cg=(-10.0, 0.0, 93.022),  # XPROP chosen so combined XPP = 17.91
+        prop_cg=(-10.0, 0.0, 100.0),
         takeoff_hp=285,
         max_cont_hp=265,
         cylinders=6,

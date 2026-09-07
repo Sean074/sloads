@@ -36,14 +36,20 @@ no section 2 table can inherit a claim that does not apply to it.
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import replace
-from typing import Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Dict, List, Mapping, NamedTuple, Optional, Sequence, Tuple
 
 from ..constants import IN2_PER_FT2, ULTIMATE_FACTOR
-from ..derived_geometry import MacReference, mac_reference, station_to_pct_mac
+from ..derived_geometry import (
+    MacReference,
+    mac_reference,
+    station_to_pct_mac,
+    wing_reference,
+)
 from ..models import MissingInputError, Project
 from ..models.enums import AnalysisKind
-from ..models.inputs import FuselageStation
+from ..models.inputs import EngineInput, FuselageStation
 from ..models.results import (
     BodyLoadResult,
     ConditionResult,
@@ -56,6 +62,7 @@ from ..models.results import (
     TailSpanResult,
     WingLoadResult,
 )
+from ..picks import extreme
 from ..units import UnitSystem, convert_results
 from .content import Figure, PlotData, Section, Series, Table, Units, speed_altitude_plot_data, weight_cg_plot_data
 from .oracle_content import (
@@ -362,6 +369,10 @@ _PLANFORM_FIGURES: Tuple[Tuple[str, str, str, Tuple[str, ...], str], ...] = (
 _PLANFORM_AXES = {
     "butt": ("Butt line Y", "Fuselage station X"),
     "water": ("Fuselage station X", "Waterline Z"),
+    # Section 10's front view (note 44 §20, OR-168). Added here rather than
+    # beside the figure that wanted it, because the axis labels of a view are
+    # exactly the kind of thing two figures would otherwise word two ways.
+    "front": ("Butt line Y", "Waterline Z"),
 }
 
 
@@ -5368,6 +5379,858 @@ def _tab_loads(project: Project,
 
 
 # --------------------------------------------------------------------------- #
+# Section 10 -- engine mount loads (note 44 §20)
+# --------------------------------------------------------------------------- #
+#: ``(frame, figure key, title, what the view is)`` for the three views OR-168
+#: asks for. The frame keys are :data:`_PLANFORM_AXES`' own, so a figure asks for
+#: the view it plots and the axis labels come from the one owner of them.
+_ENGINE_VIEWS: Tuple[Tuple[str, str, str, str], ...] = (
+    ("water", "engine_side_view", "The engine installation in side view",
+     "Looking at the left-hand side of the airplane"),
+    ("front", "engine_front_view", "The engine installation in front view",
+     "Looking aft, from ahead of the airplane"),
+    ("butt", "engine_plan_view", "The engine installation in plan view",
+     "Looking down on the airplane"),
+)
+
+#: The two panels of :func:`sloads.modules.configuration.tail_planform` this
+#: section draws. The elevator and rudder bands it also returns belong to
+#: sections 7-9, and drawing them here would put a control surface on a figure
+#: whose subject is an engine.
+_ENGINE_TAIL_PANELS = (("h_tail", "Horizontal tail"), ("v_tail", "Vertical tail"))
+
+#: ``_ENGINE_VIEWS`` frame -> the view key ``tail_planform`` returns it under.
+_TAIL_VIEW_OF_FRAME = {"butt": "top", "water": "side", "front": "front"}
+
+#: ``(attribute, unit string, printed name)`` of every engine input 10.1 prints.
+#:
+#: A row every engine leaves blank is dropped, which is how a reciprocating
+#: installation prints no turbopropeller rows and a turbopropeller one prints no
+#: cylinder count. That is *not* OR-140's zero-column rule read backwards: OR-140
+#: is about a delivered load component, where a zero is a result; this is an
+#: input nobody entered because the condition it feeds does not exist.
+_ENGINE_INPUT_FIELDS: Tuple[Tuple[str, str, str], ...] = (
+    ("engine_designation", "", "Engine designation"),
+    ("prop_designation", "", "Propeller designation"),
+    ("engine_type", "", "Engine type"),
+    ("mounted_on", "", "Reacted into"),
+    ("limit_load_factor", "", "Limit manoeuvre load factor n"),
+    ("engine_weight_lb", "lb", "Engine weight"),
+    ("prop_weight_lb", "lb", "Propeller weight"),
+    ("hub_weight_lb", "lb", "Hub weight"),
+    ("prop_diameter_in", "in", "Propeller diameter"),
+    ("prop_blades", "", "Number of propeller blades"),
+    ("takeoff_rpm", "", "Propeller take-off RPM"),
+    ("max_cont_rpm", "", "Propeller max continuous RPM"),
+    ("takeoff_hp", "", "Take-off horsepower"),
+    ("max_cont_hp", "", "Max continuous horsepower"),
+    ("cylinders", "", "Number of cylinders"),
+    ("max_engine_torque", "ft-lb", "Max engine torque"),
+    ("cruise_torque", "ft-lb", "Cruise torque"),
+    ("stop_time_s", "", "Time to sudden stoppage (s)"),
+)
+
+#: The printed name of each engine type, so a schema code never reaches a table.
+_ENGINE_TYPE_NAMES = {"R": "Reciprocating", "T": "Turbopropeller"}
+
+
+class _EngineCase(NamedTuple):
+    """One printed engine-mount case: its identity and its two published forms.
+
+    ``force``/``moment`` are the OR-160 set -- what the engine applies to the
+    airframe, in airplane axes, at ``point``. ``torque``/``thrust`` are the two
+    scalars about the engine's own thrust line that ``force``/``moment`` were
+    resolved from, and they are carried rather than re-derived so **G-OR-104**
+    can compare the two forms without either side re-computing the other.
+    """
+    engine: int
+    case_id: str
+    far: str
+    condition: str
+    sf: float
+    point: Tuple[float, float, float]
+    force: Tuple[float, float, float]
+    moment: Tuple[float, float, float]
+    torque: float
+    thrust: float
+
+
+class _EngineRecord(NamedTuple):
+    """One engine, its thrust axis and the conditions the module ran for it.
+
+    ``number`` rather than ``index`` because a ``NamedTuple`` is a tuple and
+    ``index`` is one of the two methods a tuple already has.
+    """
+    number: int
+    engine: EngineInput
+    axis: Tuple[float, float, float]
+    axis_assumed: bool
+    cases: List[_EngineCase]
+
+
+def _engine_number(value) -> float:
+    """A ``LoadValue`` cell as a float, with the model's "not applicable" empties.
+
+    ``_gyro_subcases`` yields ``""`` for a component a sub-case does not carry,
+    and a condition simply omits a key it has no value for. Both mean zero *for
+    the purpose of assembling a six-component set*, which is exactly OR-140's
+    reading: a component that does not apply is a zero in an applied set, and it
+    is printed rather than left blank so nobody reads the gap as an omission.
+    """
+    if value is None or value == "":
+        return 0.0
+    return float(value)
+
+
+def _engine_value(values: Mapping[str, LoadValue], key: str) -> float:
+    """One published component of a condition, or zero where it has none."""
+    found = values.get(key)
+    return _engine_number(found.value) if found is not None else 0.0
+
+
+def _engine_cases(number: int, eng: EngineInput, axis: Tuple[float, float, float],
+                  conditions: Sequence[ConditionResult]) -> List[_EngineCase]:
+    """Every printed case for one engine, resolved onto the airplane axes.
+
+    Nothing is resolved here: :func:`sloads.export.coordinates.engine_applied_load`
+    is asked, on OR-161's reasoning that an axis resolution has one owner and the
+    report is not it. The gyroscopic sign combinations are fanned out through
+    ``render._gyro_subcases`` and identified with ``render._gyro_subcase_id``,
+    the owners that already mint those a/b/c/d ids for the CSV (OR-165).
+    """
+    from ..export.coordinates import engine_applied_load
+    from ..load_keys import FY_SIDE, FZ_VERTICAL, MX_MOUNT_TORQUE
+    from ..modules.engine import combined_cg
+    from .render import _gyro_subcases, _has_gyro_subcases
+
+    point = combined_cg(eng)
+    out: List[_EngineCase] = []
+    for condition in conditions:
+        sf = float(condition.safety_factor or ULTIMATE_FACTOR)
+        base = condition.case_ref.case_id if condition.case_ref else ""
+        if _has_gyro_subcases(condition):
+            for desc, myy, mzz, thrust, vertical, case_id in _gyro_subcases(condition):
+                force, moment = engine_applied_load(
+                    axis, thrust=_engine_number(thrust),
+                    vertical_down=_engine_number(vertical),
+                    myy=_engine_number(myy), mzz=_engine_number(mzz))
+                out.append(_EngineCase(
+                    number, case_id or base, condition.far_reference,
+                    _engine_condition_name(desc), sf, point, force, moment,
+                    0.0, _engine_number(thrust)))
+            continue
+        values = _by_key(condition)
+        torque = _engine_value(values, MX_MOUNT_TORQUE)
+        force, moment = engine_applied_load(
+            axis, torque=torque,
+            vertical_down=_engine_value(values, FZ_VERTICAL),
+            side=_engine_value(values, FY_SIDE))
+        out.append(_EngineCase(
+            number, base, condition.far_reference,
+            _engine_condition_name(condition.title), sf, point, force, moment,
+            torque, 0.0))
+    return out
+
+
+def _engine_condition_name(title: str) -> str:
+    """A condition's name with the module's multi-engine ``[designation]`` tag off.
+
+    The tag exists so a concatenated ``ModuleResult`` keeps its per-engine groups
+    distinct; here the engine is a column of its own, and repeating a
+    designation on every row of a two-engine airplane would push the name that
+    actually varies off the page.
+    """
+    if title.startswith("[") and "] " in title:
+        return title.split("] ", 1)[1]
+    return title
+
+
+#: FAR reference -> the short name 10.2's tables print for that condition.
+#:
+#: A second name for a condition, and deliberately so, on the same reasoning that
+#: gives this document its own section headings rather than the workflow's step
+#: titles: the module's title is a full sentence written for a results page, and
+#: ten of them down a ten-column table push the numbers off the page. 10.1's case
+#: list prints the module's own title against the same case ID, so both names are
+#: in the document and the mapping between them is visible rather than implied.
+#: **G-OR-112** holds every reference the module can produce to an entry here, so
+#: a condition added later cannot print a blank.
+_ENGINE_SHORT_NAMES = {
+    "23.361(a)(1)": "Take-off torque, 75 % n",
+    "23.361(a)(2)": "Max continuous torque, 100 % n",
+    "23.361(a)(3)": "Propeller control malfunction",
+    "23.361(b)(1)": "Sudden stoppage",
+    "23.363(a)&(b)": "Side load",
+    "23.371(b)": "Gyroscopic",
+    "25.361(a)(3)(i)": "Sudden deceleration with 1 g",
+    "25.361(a)(3)(ii)": "Max accelerating torque",
+    "25.371": "Gyroscopic",
+}
+
+#: The sign-combination tag inside a gyro sub-case description ("(+Myy, -Mzz)").
+#:
+#: Matched on the exact shape ``_gyro_subcases`` builds rather than on "a
+#: parenthesis containing an M": a condition title is prose, and
+#: 23.361(a)(1)'s own reads "(factor x mean)". A loose pattern would print that
+#: as a sub-case tag.
+_GYRO_COMBINATION = re.compile(r"\(([+-]M(?:yy|zz),\s*[+-]M(?:yy|zz))\)")
+
+
+def _engine_short_name(far: str, description: str) -> str:
+    """The short condition name a load table prints, with its sub-case tag."""
+    name = _ENGINE_SHORT_NAMES.get(far, _engine_condition_name(description))
+    found = _GYRO_COMBINATION.search(description)
+    return f"{name} ({found.group(1)})" if found else name
+
+
+def _engine_records(project: Project,
+                    results: Mapping[str, Optional[ModuleResult]],
+                    ) -> List[_EngineRecord]:
+    """Each engine with its axis and its own slice of the module's conditions.
+
+    The module concatenates every engine's conditions into one ``ModuleResult``
+    and ties them to an engine only by a title prefix, which two engines of the
+    same designation share (``baron_58``). So the grouping is rebuilt by asking
+    the module how many conditions *this* engine produces and taking that many in
+    order -- the order ``engine.run`` itself allocates case ids in. It is checked,
+    not assumed: a slice that does not consume every condition exactly returns
+    nothing, and the section states its absence rather than printing rows against
+    the wrong engine.
+    """
+    from ..export.coordinates import engine_thrust_axis
+    from ..modules.engine import resolved_engines, run_all
+
+    result = results.get("engine_mount")
+    if result is None or not project.engines:
+        return []
+    conditions = list(result.conditions)
+    try:
+        engines = resolved_engines(project)
+    except MissingInputError:
+        return []
+    records: List[_EngineRecord] = []
+    taken = 0
+    for number, eng in enumerate(engines, start=1):
+        try:
+            count = len(run_all(eng, include_far25=project.include_far25))
+        except MissingInputError:
+            return []
+        mine = conditions[taken:taken + count]
+        if len(mine) != count:
+            return []
+        taken += count
+        axis, assumed = engine_thrust_axis(eng.engine_cg, eng.prop_cg)
+        records.append(_EngineRecord(
+            number, eng, axis, assumed, _engine_cases(number, eng, axis, mine)))
+    return records if taken == len(conditions) else []
+
+
+# --- 10.1 -- the inputs, the stations and the cases -------------------------- #
+def _engine_input_cell(value, units: str, system: UnitSystem) -> str:
+    """One entered engine quantity in the document's units, or an empty cell."""
+    if value is None or value == "":
+        return ""
+    if isinstance(value, str):
+        return _ENGINE_TYPE_NAMES.get(value, value)
+    if not units:
+        return format_value(value)
+    scale, _label = _scalar_channel(units, system)
+    return format_value(float(value) * scale)
+
+
+def _engine_entered(value) -> bool:
+    """Whether an optional engine input was entered at all.
+
+    A blank *and* a zero both mean "not entered" for these fields -- the schema
+    defaults every optional number to ``0.0`` and the module reads a zero
+    propeller diameter as no propeller -- so a turbofan entered with no
+    propeller prints no propeller rows instead of eight zeros. This is the
+    opposite of OR-140's rule for a *delivered* component, where a zero is the
+    result and is printed: an input nobody typed is not a measurement.
+    """
+    if value is None or value == "":
+        return False
+    if isinstance(value, str):
+        return True
+    try:
+        return float(value) != 0.0
+    except (TypeError, ValueError):
+        return True
+
+
+def _engine_input_table(records: Sequence[_EngineRecord],
+                        system: UnitSystem) -> Optional[Table]:
+    """The entered engine and propeller data, one column per engine."""
+    if not records:
+        return None
+    rows = []
+    for attr, units, label in _ENGINE_INPUT_FIELDS:
+        cells, entered = [], False
+        for record in records:
+            raw = getattr(record.engine, attr, None)
+            raw = getattr(raw, "value", raw)
+            entered = entered or _engine_entered(raw)
+            cells.append(_engine_input_cell(raw, units, system))
+        if not entered:
+            continue
+        printed = label
+        if units:
+            _scale, label_units = _scalar_channel(units, system)
+            printed = f"{label} ({label_units})"
+        rows.append([printed] + cells)
+    if not rows:
+        return None
+    return Table(
+        title="Engine and propeller data as entered",
+        columns=["Quantity"] + [f"Engine {r.number}" for r in records],
+        rows=rows,
+        note=("Every value is the project's own input, reproduced unconverted "
+              "except into this document's units. A row no engine fills is not "
+              "printed: a reciprocating installation states no cruise torque and "
+              "a turbopropeller states no cylinder count, because the conditions "
+              "those feed do not exist for it."))
+
+
+def _engine_point_cell(point: Sequence[float], scale: float) -> str:
+    """An ``(x, y, z)`` station as the one cell the oracle prints it as."""
+    return ", ".join(format_value(v * scale) for v in point)
+
+
+def _engine_station_table(records: Sequence[_EngineRecord],
+                          system: UnitSystem) -> Optional[Table]:
+    """Where each engine sits, and the axis its torque and thrust act about."""
+    if not records:
+        return None
+    scale, length = _length_channel(system)
+    rows = []
+    for record in records:
+        eng = record.engine
+        rows.append([
+            str(record.number),
+            eng.engine_designation or "--",
+            _engine_point_cell(eng.engine_cg, scale),
+            _engine_point_cell(eng.prop_cg, scale),
+            _engine_point_cell(record.cases[0].point if record.cases
+                               else (0.0, 0.0, 0.0), scale),
+            ", ".join(f"{c:.4f}" for c in record.axis)
+            + (" (ASSUMED)" if record.axis_assumed else ""),
+        ])
+    return Table(
+        title="Where the loads act",
+        columns=["Engine", "Designation",
+                 f"Mount node X, Y, Z ({length})",
+                 f"Hub node X, Y, Z ({length})",
+                 f"Application point X, Y, Z ({length})",
+                 "Thrust axis l, m, n"],
+        rows=rows,
+        note=("Three stations, and the loads are quoted about exactly one of "
+              "them. The application point is the combined engine and "
+              "propeller CG -- the point the oracle prints as APPLIED AT X,Y,Z "
+              "-- and every component in the next section acts there. The mount "
+              "and hub nodes are the beam model's own and are printed because "
+              "a reader transferring "
+              "this set to a mount plane needs the offsets; no load is quoted "
+              "about them. The thrust axis is the direction from the mount node "
+              "to the hub node, forward; where the two coincide it cannot be "
+              "derived, and the airplane's forward axis is used and marked "
+              "ASSUMED. It is the best statement of the thrust line the entered "
+              "data supports and not a measured one: the true line is the shaft "
+              "axis, and an engine CG that sits off that axis inclines the "
+              "derived direction by the offset over the mount-to-hub distance. "
+              "Where that matters, entering the engine CG and the hub on the "
+              "shaft axis states it."))
+
+
+def _engine_case_list_table(records: Sequence[_EngineRecord]) -> Optional[Table]:
+    """Every case the module ran, by regulation, with the factor it prescribes."""
+    rows = [[str(case.engine), case.case_id or "--", case.far, case.condition,
+             format_value(case.sf)]
+            for record in records for case in record.cases]
+    if not rows:
+        return None
+    return Table(
+        title="Load cases assessed",
+        columns=["Engine", "Case ID", "FAR", "Condition", "SF"],
+        rows=rows,
+        note=("The conditions are enumerated by the regulation, not selected "
+              "from a sweep: every one listed is assessed and every one is "
+              "reported in the next section. Each of the four 23.371(b) "
+              "gyroscopic sign combinations is its own case, carrying the base "
+              "case ID with an a/b/c/d suffix. Every case is LIMIT and states "
+              "the factor 14 CFR 23.303 prescribes for it, which is applied to "
+              "none of them."))
+
+
+_ENGINE_SIGN_CONVENTION = (
+    "The loads in this section are what the engine applies to the airframe. "
+    "That is the sense every other applied load set in this document is "
+    "published in, and it is what a mount is sized for. It is stated plainly "
+    "because the oracle's own output, and the load-case file the Engine Mount "
+    "page writes, print the same load under the heading ENG MOUNT TORQUE as a "
+    "single negative number about the thrust line, and a reader who takes one "
+    "for the other will size a mount backwards."
+)
+
+_ENGINE_AXES = (
+    "Components are airplane axes throughout: X positive aft, Y positive to "
+    "starboard, Z positive up, and moments right-handed about them. About the "
+    "engine's own thrust line the positive sense is clockwise seen from the "
+    "pilot's seat, which is the right-hand sense about that line because the "
+    "pilot looks along it. The thrust line points forward, so the two sign "
+    "conventions run opposite ways along the fore-and-aft axis: a conventional "
+    "propeller turning clockwise from the seat delivers a counter-clockwise, "
+    "negative torque to the airframe about its thrust line, and that same load "
+    "about the aft-positive X axis is a positive Mx, which rolls the airplane "
+    "to the left. Both numbers are printed, in the two tables of the next "
+    "subsection, and they are one load."
+)
+
+_ENGINE_THRUST_ABSENCE = (
+    "Thrust appears in the gyroscopic case and in no other. 14 CFR 23.361 and "
+    "23.363 prescribe a torque, a vertical load factor and a side load, and no "
+    "thrust at all; 23.371(b) prescribes the max continuous thrust explicitly, "
+    "acting with the gyroscopic moments. The zeros in the other rows are "
+    "therefore results and not omissions. They are not filled from the engine's "
+    "entered design thrust, which is a flight input applied at the hub in the "
+    "assembled balanced cases and is not a component of any engine-mount "
+    "condition."
+)
+
+_ENGINE_SIDE_LOAD_SENSE = (
+    "The 23.363 side load acts in either direction and the analysis publishes "
+    "one signed value, so it is printed as acting to starboard and the mount is "
+    "to be checked for both senses. It is not printed twice: the gyroscopic "
+    "combinations are four cases because the analysis ran four, and a second "
+    "side-load row would be this document inventing a case that was not run."
+)
+
+
+def _engine_inputs(records: Sequence[_EngineRecord], *,
+                   system: UnitSystem, plan: Sequence[SectionPlan]) -> Section:
+    """10.1 -- what the analysis was run from, and where its loads act."""
+    geometry_ref = section_ref(plan, "configuration_layout")
+    assumed = [r for r in records if r.axis_assumed]
+    body = [
+        f"The engine mount loads are the conditions of 14 CFR 23.361, 23.363 "
+        f"and, for a turbopropeller installation, 23.371(b). They are computed "
+        f"per engine from the engine and propeller weights, their stations and "
+        f"the engine's rated powers or torques; the airplane geometry they sit "
+        f"in is stated in {geometry_ref} and is not repeated here.",
+        _ENGINE_SIGN_CONVENTION,
+        _ENGINE_AXES,
+        _ENGINE_THRUST_ABSENCE,
+        _ENGINE_SIDE_LOAD_SENSE,
+    ]
+    if assumed:
+        which = ", ".join(str(r.number) for r in assumed)
+        body.append(
+            f"The thrust axis of engine {which} is ASSUMED: the project "
+            f"enters the propeller hub at the engine CG, so there is no "
+            f"direction to derive it from and the airplane's forward axis is "
+            f"used. Enter the propeller CG to state it. Nothing else in this "
+            f"section changes -- the torque and thrust magnitudes are the "
+            f"analysis's own -- but the axis they are resolved onto is this "
+            f"document's assumption and is marked as one wherever it appears.")
+    tables = [t for t in (_engine_input_table(records, system),
+                          _engine_station_table(records, system),
+                          _engine_case_list_table(records)) if t is not None]
+    return Section("", body=body, tables=tables)
+
+
+# --- 10.2 -- the loads ------------------------------------------------------- #
+def _engine_moment_channel(records: Sequence[_EngineRecord],
+                           system: UnitSystem) -> Tuple[float, str]:
+    """``(scale, label)`` for the moment columns, marked ULT only if every case is.
+
+    Every engine-mount condition classifies ``flight`` in the governing
+    safety-factor table, so in practice the label is plain and each row states
+    its 1.5 in the SF column. The check is written anyway, because a column
+    header that cannot become ``-ULT`` is a header that will be wrong the day a
+    condition prescribing an already-ultimate load joins the set.
+    """
+    scale, label = _scalar_channel("ft-lb", system)
+    factors = {case.sf for record in records for case in record.cases}
+    return scale, (ultimate_units(label) if factors == {1.0} else label)
+
+
+def _engine_components_table(records: Sequence[_EngineRecord],
+                             system: UnitSystem) -> Optional[Table]:
+    """OR-163's first table: the six components, in airplane axes, per case."""
+    if not records:
+        return None
+    u = Units(system)
+    scale, moment_label = _engine_moment_channel(records, system)
+    rows = []
+    for record in records:
+        for case in record.cases:
+            rows.append(
+                [str(case.engine), case.case_id or "--",
+                 _engine_short_name(case.far, case.condition)]
+                + [u.load(component, "force", case.sf) for component in case.force]
+                + [format_value(component * scale) for component in case.moment]
+                + [format_value(case.sf)])
+    force_label = u.ult_label("force", 1.0 if {c.sf for r in records
+                                              for c in r.cases} == {1.0} else 0.0)
+    return Table(
+        title="Engine mount loads in airplane axes (LIMIT)",
+        columns=["Engine", "Case ID", "Condition",
+                 f"Fx ({force_label})", f"Fy ({force_label})",
+                 f"Fz ({force_label})",
+                 f"Mx ({moment_label})", f"My ({moment_label})",
+                 f"Mz ({moment_label})", "SF"],
+        rows=rows,
+        note=("All six components of the load the engine applies to the "
+              "airframe, at the application point stated in the previous "
+              "subsection and about no other point. Every one is LIMIT and "
+              "states the factor 14 CFR 23.303 prescribes, which is applied to "
+              "none of them. A zero is a component the condition does not "
+              "prescribe, and it is printed as one. The regulation each case is "
+              "drawn from, and the condition's full name, are in the case list "
+              "of the previous subsection against the same case ID."))
+
+
+def _engine_thrust_line_table(records: Sequence[_EngineRecord],
+                              system: UnitSystem) -> Optional[Table]:
+    """OR-163's second table: the two scalars the six components resolve from."""
+    if not records:
+        return None
+    u = Units(system)
+    scale, moment_label = _engine_moment_channel(records, system)
+    rows = [[str(case.engine), case.case_id or "--",
+             _engine_short_name(case.far, case.condition),
+             format_value(case.torque * scale),
+             u.load(case.thrust, "force", case.sf),
+             format_value(case.sf)]
+            for record in records for case in record.cases]
+    return Table(
+        title="Engine torque and thrust about the thrust line (LIMIT)",
+        columns=["Engine", "Case ID", "Condition",
+                 f"Torque about thrust line ({moment_label})",
+                 f"Thrust along thrust line ({u.ult_label('force')})", "SF"],
+        rows=rows,
+        note=("The same cases in the engine's own axis: the torque about the "
+              "thrust line and the thrust along it, thrust positive forward and "
+              "torque positive clockwise from the pilot's seat. These are the "
+              "two scalars the table above was resolved from, printed so the "
+              "resolution can be repeated with the direction cosines of the "
+              "previous subsection rather than taken on trust; they are also "
+              "the numbers the oracle prints, unchanged. A conventional "
+              "propeller's torque on the airframe is counter-clockwise from the "
+              "seat, so this column is negative where the Mx beside it is "
+              "positive: the same load, once about a forward-pointing axis and "
+              "once about the aft-positive X axis."))
+
+
+def _engine_cases_section(records: Sequence[_EngineRecord], *,
+                          system: UnitSystem) -> Section:
+    """10.2 -- the critical cases, in both forms."""
+    body = [
+        "Every case of every engine is printed: the conditions are prescribed "
+        "by regulation rather than selected, so there is no case that was "
+        "assessed and not reported. Each engine carries its own rows at its own "
+        "butt line -- two mounts are two structures, and neither is the mirror "
+        "of the other for the purpose of sizing one.",
+        "The first table is the load the engine applies to the airframe, "
+        "resolved onto the airplane axes; the second is the same load as the "
+        "torque and thrust about the engine's own thrust line, which is what "
+        "the first was resolved from.",
+    ]
+    tables = [t for t in (_engine_components_table(records, system),
+                          _engine_thrust_line_table(records, system))
+              if t is not None]
+    return Section("", body=body, tables=tables)
+
+
+# --- 10's figures -- three views, with whatever airframe is entered ---------- #
+#: The barb length and half-angle of a drawn arrow head, as a fraction of the
+#: shaft and in radians. An arrow is a polyline here because a figure carries no
+#: arrow primitive, and it must stay legible in greyscale like every other line
+#: (§4.3).
+_ARROW_BARB = 0.22
+_ARROW_ANGLE = 0.42
+
+
+def _arrow(x0: float, y0: float, dx: float, dy: float,
+           ) -> Tuple[List[float], List[float]]:
+    """One arrow from ``(x0, y0)`` along ``(dx, dy)``, as a single polyline."""
+    tip_x, tip_y = x0 + dx, y0 + dy
+    length = math.hypot(dx, dy)
+    if length <= 0:
+        return [x0], [y0]
+    ux, uy = dx / length, dy / length
+    barb = _ARROW_BARB * length
+    cos_a, sin_a = math.cos(_ARROW_ANGLE), math.sin(_ARROW_ANGLE)
+    left = (-ux * cos_a + uy * sin_a, -uy * cos_a - ux * sin_a)
+    right = (-ux * cos_a - uy * sin_a, -uy * cos_a + ux * sin_a)
+    return (
+        [x0, tip_x, tip_x + barb * left[0], tip_x, tip_x + barb * right[0]],
+        [y0, tip_y, tip_y + barb * left[1], tip_y, tip_y + barb * right[1]],
+    )
+
+
+def _edge_points(edge) -> List[Tuple[float, float]]:
+    """One entered edge polyline as ``(station, butt line)`` pairs.
+
+    The schema stores a point as a pair, and a future named type would store it
+    as attributes; both are read, so this section does not have to be revisited
+    to keep drawing a wing.
+    """
+    points = []
+    for point in edge or ():
+        x = getattr(point, "x", None)
+        y = getattr(point, "y", None)
+        if x is None or y is None:
+            try:
+                x, y = point[0], point[1]
+            except (TypeError, IndexError, KeyError):
+                continue
+        points.append((float(x), float(y)))
+    return points
+
+
+def _wing_view_series(project: Project, frame: str, scale: float) -> List[Series]:
+    """The wing in one view: its entered planform, or the line the view sees.
+
+    A planform is a shape in one view and a line in the other two, and the two
+    lines are not the planform rotated -- they are the wing reference plane,
+    which is geometry the entered polylines do not carry. Both come from
+    :func:`sloads.derived_geometry.wing_reference`, the owner of the reference
+    plane's waterline and dihedral, so this figure and Section 2 place the same
+    wing.
+    """
+    from .planform_tex import OUTLINE_STYLE
+
+    if frame == "butt":
+        return _outline_series(project, "wing", OUTLINE_STYLE, True, "butt", scale)
+    surface = project.geometry.by_name("wing") if project.geometry else None
+    reference = wing_reference(project)
+    if surface is None or reference is None:
+        return []
+    leading, trailing = _edge_points(surface.leading_edge), _edge_points(surface.trailing_edge)
+    if not leading or not trailing:
+        return []
+    wrp = reference.wrp_waterline
+    if frame == "water":
+        # The innermost point of each edge, through the tie owner: an edge
+        # polyline that repeats its root butt line is the state the curve editor
+        # persists mid-row, and the two would otherwise be picked differently.
+        root_le = extreme(leading, key=lambda p: abs(p[1]), largest=False)[0]
+        root_te = extreme(trailing, key=lambda p: abs(p[1]), largest=False)[0]
+        points = [_oriented(frame, root_le * scale, wrp * scale),
+                  _oriented(frame, root_te * scale, wrp * scale)]
+        return [Series("Wing root chord", [p[0] for p in points],
+                       [p[1] for p in points], OUTLINE_STYLE)]
+    tip = max(abs(p[1]) for p in leading + trailing)
+    rise = tip * math.tan(math.radians(reference.dihedral_deg))
+    points = [_oriented(frame, -tip * scale, (wrp + rise) * scale),
+              _oriented(frame, 0.0, wrp * scale),
+              _oriented(frame, tip * scale, (wrp + rise) * scale)]
+    return [Series("Wing reference plane", [p[0] for p in points],
+                   [p[1] for p in points], OUTLINE_STYLE)]
+
+
+def _tail_view_series(project: Project, frame: str, scale: float) -> List[Series]:
+    """Both empennage surfaces in one view, through the three-view's own owner.
+
+    :func:`sloads.modules.configuration.tail_planform` already returns each panel
+    in all three views and already reads ``tail_geometry.fin_root_waterline`` for
+    where the fin's root sits, so asking it is what stops this figure putting the
+    fin at a second waterline (``CONVENTIONS.md`` §7 rule 2).
+    """
+    from ..modules.configuration import tail_planform
+    from .planform_tex import OUTLINE_STYLE
+
+    geometry = project.geometry
+    layout = geometry.parametric if geometry is not None else None
+    if layout is None or geometry is None:
+        return []
+    try:
+        panels = tail_planform(layout, geometry.empennage, project)
+    except (ValueError, TypeError, ZeroDivisionError, AttributeError):
+        return []
+    view = _TAIL_VIEW_OF_FRAME[frame]
+    series = []
+    for key, label in _ENGINE_TAIL_PANELS:
+        polyline = (panels.get(key) or {}).get(view) or []
+        if len(polyline) < 2:
+            continue
+        points = [_oriented(frame, a * scale, b * scale) for a, b in polyline]
+        series.append(Series(label, [p[0] for p in points], [p[1] for p in points],
+                             OUTLINE_STYLE, closed=len(points) > 2))
+    return series
+
+
+def _airframe_series(project: Project, frame: str,
+                     scale: float) -> Tuple[List[Series], List[str]]:
+    """Every airframe outline this view can draw, and the names of the ones drawn."""
+    from ..derived_geometry import fuselage_outline
+    from .planform_tex import OUTLINE_STYLE
+
+    series: List[Series] = []
+    drawn: List[str] = []
+    body = fuselage_outline(project, frame)
+    if body:
+        points = [_oriented(frame, a * scale, b * scale) for a, b in body]
+        series.append(Series("Fuselage", [p[0] for p in points],
+                             [p[1] for p in points], OUTLINE_STYLE, closed=True))
+        drawn.append("the fuselage")
+    wing = _wing_view_series(project, frame, scale)
+    if wing:
+        series += wing
+        drawn.append("the wing")
+    tails = _tail_view_series(project, frame, scale)
+    if tails:
+        series += tails
+        drawn.append("the empennage")
+    return series, drawn
+
+
+def _extent(series: Sequence[Series]) -> float:
+    """The larger side of the drawn bounding box, for sizing what is drawn on it."""
+    xs = [v for s in series for v in s.x]
+    ys = [v for s in series for v in s.y]
+    if not xs or not ys:
+        return 0.0
+    return max(max(xs) - min(xs), max(ys) - min(ys))
+
+
+def _axis_key_series(series: Sequence[Series],
+                     points: Sequence[Tuple[str, float, float]]) -> List[Series]:
+    """Two arrows in a free corner, showing the view's positive axes.
+
+    OR-168 asks each view to draw the positive senses that lie in its plane, and
+    a figure carries no arrow primitive, so they are polylines like everything
+    else. Named from :data:`_PLANFORM_AXES` rather than spelled out here: the
+    axis a view plots and the axis its key labels cannot then be two answers.
+    """
+    xs = [v for s in series for v in s.x] + [x for _l, x, _y in points]
+    ys = [v for s in series for v in s.y] + [y for _l, _x, y in points]
+    if not xs or not ys:
+        return []
+    width, height = max(xs) - min(xs), max(ys) - min(ys)
+    reach = 0.10 * min(width or height, height or width)
+    if reach <= 0:
+        return []
+    x0, y0 = min(xs) + 0.02 * width, min(ys) + 0.02 * height
+    out: List[Series] = []
+    for index, (dx, dy) in enumerate(((reach, 0.0), (0.0, reach))):
+        arrow_x, arrow_y = _arrow(x0, y0, dx, dy)
+        out.append(Series("Positive axes" if index == 0 else "",
+                          arrow_x, arrow_y, "solid"))
+    return out
+
+
+def _engine_view_figure(project: Project, records: Sequence[_EngineRecord], *,
+                        frame: str, key: str, title: str, view: str,
+                        system: UnitSystem) -> Figure:
+    """One of the three views: the airframe as entered, and the engines on it."""
+    if not records:
+        return Figure(key=key, title=title, absent_reason=(
+            "the project enters no engine, so there is no installation to draw."))
+    scale, length_units = _length_channel(system)
+    series, drawn = _airframe_series(project, frame, scale)
+    # A thrust line long enough to read against whatever was drawn, and a fixed
+    # two feet where nothing was: the figure is still the engines, and an
+    # unlabelled line of arbitrary length is worse than a stated default.
+    reach = _extent(series) * 0.12 or 24.0 * scale
+    points: List[Tuple[str, float, float]] = []
+    assumed_any = False
+    for record in records:
+        mount = _oriented(frame, *_projected(frame, record.engine.engine_cg, scale))
+        hub = _oriented(frame, *_projected(frame, record.engine.prop_cg, scale))
+        applied = _oriented(frame, *_projected(
+            frame, record.cases[0].point if record.cases else record.engine.engine_cg,
+            scale))
+        if record.axis_assumed:
+            assumed_any = True
+            axis = _oriented(frame, *_projected(frame, record.axis, 1.0))
+            hub = (mount[0] + axis[0] * reach, mount[1] + axis[1] * reach)
+        label = f"Engine {record.number} thrust line"
+        if record.axis_assumed:
+            label += " (ASSUMED)"
+        arrow_x, arrow_y = _arrow(mount[0], mount[1], hub[0] - mount[0],
+                                  hub[1] - mount[1])
+        series.append(Series(label, arrow_x, arrow_y, "dashed"))
+        points.append((f"{record.number}", applied[0], applied[1]))
+    series += _axis_key_series(series, points)
+    x_label, y_label = _PLANFORM_AXES[frame]
+    outlines = (", ".join(drawn[:-1]) + " and " + drawn[-1]) if len(drawn) > 1 else (
+        drawn[0] if drawn else "")
+    caption = [
+        f"{view}, to scale on equal axes."
+        + (f" The airplane is drawn from {outlines} as the project enters them, "
+           f"through the owners Section 2 and the configuration three-view draw "
+           f"them with, so no shape here is this figure's own."
+           if drawn else
+           " The project enters no airframe outline this view can draw, so the "
+           "engines are drawn alone; the loads and the stations above are "
+           "unaffected, since neither is read from a drawn shape."),
+        "Each arrow runs from the engine's mount node to its propeller hub and "
+        "is the thrust line the torque and the thrust act about, pointing "
+        "forward. Each numbered marker is that engine's application point -- the "
+        "combined engine and propeller CG -- which is where every component in "
+        "the table above acts.",
+        f"The two arrows in the corner are the positive senses of this view's "
+        f"axes, {x_label} and {y_label}, both in {length_units}. A moment is "
+        "positive right-handed about its axis, so a positive torque about a "
+        "thrust line is clockwise to somebody looking along it -- which is what "
+        "the pilot does, and why the engine's own torque is signed that way.",
+    ]
+    if assumed_any:
+        caption.append(
+            "A thrust line marked ASSUMED is not entered geometry: its "
+            "direction is the airplane's forward axis and its length is drawn, "
+            "not stated. Enter the propeller CG to replace it.")
+    caption.append("Nothing here is a load: no value is scaled and none carries "
+                   "a safety factor.")
+    return Figure(
+        key=key, title=title,
+        data=PlotData(f"{x_label} ({length_units})",
+                      f"{y_label} ({length_units})", series,
+                      points=points, points_label="Application points"),
+        caption=" ".join(caption))
+
+
+def _projected(frame: str, point: Sequence[float],
+               scale: float) -> Tuple[float, float]:
+    """An airplane ``(x, y, z)`` point as the entered pair this frame plots."""
+    x, y, z = (float(v) * scale for v in point)
+    if frame == "water":
+        return x, z
+    if frame == "front":
+        return y, z
+    return x, y
+
+
+# --- the section ------------------------------------------------------------- #
+def _engine_mount(project: Project, results: Mapping[str, Optional[ModuleResult]],
+                  *, system: UnitSystem, plan: Sequence[SectionPlan]) -> Section:
+    """Section 10 -- Engine Mount Loads, in its two subsections (note 44 §20)."""
+    records = _engine_records(project, results)
+    if not records:
+        return Section("", absent_reason=(
+            "the engine mount loads were not produced for this project: no "
+            "engine is entered, or the powers and torques the conditions are "
+            "computed from are missing."))
+    figures = [
+        _engine_view_figure(project, records, frame=frame, key=key, title=title,
+                            view=view, system=system)
+        for frame, key, title, view in _ENGINE_VIEWS
+    ]
+    inputs = _engine_inputs(records, system=system, plan=plan)
+    return Section("", body=[
+        "This section states the engine mount loads: what they were computed "
+        "from, where they act, and all six components of each at its point of "
+        "application. Every case is LIMIT with its safety factor stated and "
+        "applied nowhere.",
+    ], subsections=[
+        replace(inputs, title="Input data", figures=figures),
+        replace(_engine_cases_section(records, system=system),
+                title="Critical cases"),
+    ])
+
+
+# --------------------------------------------------------------------------- #
 # Dispatch
 # --------------------------------------------------------------------------- #
 #: Step key -> the builder that produces its section body.
@@ -5395,6 +6258,9 @@ BUILDERS = {
     "aileron_loads": _aileron_loads,
     "flap_loads": _flap_loads,
     "tab_loads": _tab_loads,
+    # Section 10: six components at one point, and no appendix either -- an
+    # engine mount takes a point load, not a distribution (note 44 §20).
+    "engine_mount": _engine_mount,
 }
 
 #: Appendix title -> the builder that produces its body.
@@ -5429,6 +6295,17 @@ def build_section(project: Project, entry: SectionPlan,
                        absent_reason=entry.reason,
                        absent_lead=entry.lead or "Not analysed")
     section = builder(project, results, system=system, plan=plan)
+    if section.absent_reason and not section.body and not section.tables:
+        # A builder can only discover an absence the plan could not: the plan
+        # tests that a step's *slices* are populated, and a module can still
+        # decline to produce a result from populated ones. It renders as the
+        # ABSENT state, through that state's own lead, so a builder cannot word
+        # absence a second way (found while building Section 10; the same hole
+        # was under every builder that returns one).
+        from .oracle_content import STATE_TEXT, SectionState
+
+        return Section(title, absent_reason=section.absent_reason,
+                       absent_lead=STATE_TEXT[SectionState.ABSENT][0])
     return Section(title, body=section.body, tables=section.tables,
                    figures=section.figures,
                    subsections=_numbered(entry.number, section.subsections))
