@@ -957,6 +957,55 @@ the rudder's chordwise distributions — are the precedent these are written to.
 - **No hinge moment is stated.** No module produces one; the *sense* is the sign
   convention and the magnitude is not derived. The same absence §5.5 states.
 
+## 3.10 Section 10: Engine Mount Loads
+
+*Agreed 2026-09-07 (note 44 §20, OR-158 … OR-170). Two subsections, 10.1 Input
+Data and 10.2 Critical Cases.*
+
+**All six components, at one point, in the airplane's own axes.** The oracle
+prints a vertical load factor, a vertical or side load, an application point and
+a single torque; this section prints `Fx Fy Fz Mx My Mz` for every case of every
+engine, and the two scalars they were resolved from beside them.
+
+- **The application point is the oracle's** — the combined engine and propeller
+  CG, the point Appendix A prints as `APPLIED AT X,Y,Z`. Three stations are
+  printed and the loads are quoted about exactly one of them: the mount node
+  (the engine CG) and the hub node (the propeller CG) are the beam model's own
+  and are geometry, printed because a reader transferring the set to a mount
+  plane needs the offsets.
+- **The published set is what the engine applies to the airframe**, and the
+  section says so. The oracle's `ENG MOUNT TORQUE`, and the Engine Mount page's
+  load-case CSV, print the same load as a single negative number about a
+  forward-pointing thrust line; both stay as they are, and the guard holds the
+  two to opposite signs so a third convention cannot appear between them.
+- **The thrust axis is derived, resolved and owned once.** It is the direction
+  from the mount node to the hub node, forward; where the two coincide it falls
+  back to the airplane's forward axis and is marked ASSUMED, and the printed
+  direction cosines make the resolution checkable on the page. The owner is
+  `export/coordinates.py`, which `CONVENTIONS.md` §1 already names the single
+  edit point for every axis resolution in the suite.
+- **The torque's sense is derived, not asserted.** "Clockwise from the pilot's
+  view is positive" is the right-hand sense about the thrust line, because the
+  pilot looks along it. A conventional propeller delivers a counter-clockwise
+  torque to the airframe about that line, which about the aft-positive `x` axis
+  is a positive `Mx` — the left roll a clockwise propeller produces. The two
+  readings agree, which is what makes the sign derived.
+- **Thrust is a component of the gyroscopic case and of no other.** The zeros in
+  the 23.361 and 23.363 rows are results, not omissions, and are not filled from
+  the engine's entered design thrust — a flight input applied at the hub in the
+  assembled balanced cases.
+- **Every gyroscopic sign combination is its own case**, with the a/b/c/d ids
+  the load-case file already mints. **Every engine gets its own rows** at its
+  own butt line; no critical engine is selected and no mirror is asserted.
+- **Three views — side, front and plan — each drawing whatever airframe the
+  project enters**: the fuselage from its section table, the wing and the
+  empennage through the owners Section 2 and the three-view already use. Each
+  marks every engine's mount and hub node, its application point and its thrust
+  line. A project that enters no outline still gets the figures; the engines are
+  the subject and the airframe is context.
+- **The section adds no appendix.** A mount takes a point load, not a
+  distribution, so there is nothing for a station table to carry.
+
 ## 4. Identity, signatures and DRAFT
 
 The title block carries report number, revision, issue date, issuing
@@ -1120,6 +1169,12 @@ without a guard is prose, not a gate).
 | 8. The flap prints the set its pick came from (OR-156) | 2026-09-07 | `test_oracle_report_control.py::test_the_flap_prints_four_candidates_and_names_the_critical_one`, `::test_a_flap_with_no_engine_record_states_the_slipstream_absence` |
 | 9. One row per tab, naming its station (OR-157) | 2026-09-07 | `test_oracle_report_control.py::test_the_tab_table_has_a_row_per_tab_and_names_its_station` |
 | 7-9. The hinge-moment absence (OR-154) | 2026-09-07 | `test_oracle_report_control.py::test_every_control_section_says_why_there_is_no_hinge_moment` |
+| 10.1 Inputs, stations and the thrust axis (OR-159, OR-161) | 2026-09-07 | `test_oracle_report_engine.py::test_the_application_point_is_the_combined_cg_and_no_other_station`, `::test_a_derived_axis_is_the_direction_from_the_mount_node_to_the_hub`, `::test_an_assumed_thrust_axis_is_marked_and_a_derived_one_is_not`, `::test_an_unentered_engine_input_is_not_printed_as_a_zero` |
+| 10.2 Six components resolved from two scalars (OR-162, OR-163) | 2026-09-07 | `test_oracle_report_engine.py::test_the_printed_components_are_the_resolution_of_the_printed_scalars`, `::test_the_document_and_the_csv_carry_opposite_torque_signs` |
+| 10.2 The applied sense, stated (OR-160) | 2026-09-07 | `test_oracle_report_engine.py::test_the_section_states_that_it_publishes_the_applied_load` |
+| 10.2 One case per sign combination, one row per engine (OR-165, OR-166) | 2026-09-07 | `test_oracle_report_engine.py::test_each_gyroscopic_sign_combination_is_its_own_case`, `::test_a_far_25_gyroscopic_condition_fans_out_as_well`, `::test_every_engine_gets_its_own_rows_at_its_own_butt_line` |
+| 10. The Appendix A engine, and the basis (OR-159, OR-170) | 2026-09-07 | `test_oracle_report_engine.py::test_the_appendix_a_engine_reaches_the_document`, `::test_no_load_the_engine_section_prints_is_marked_ultimate`, `::test_section_10_adds_no_appendix` |
+| 10.1 Three views, and the body outline's owner (OR-168, OR-169) | 2026-09-07 | `test_oracle_report_engine.py::test_the_three_views_are_built_and_name_what_they_drew`, `::test_a_project_with_no_outline_still_draws_its_engines`, `::test_a_project_with_no_engine_states_the_section_absent`, `::test_the_body_outline_has_one_owner_and_three_views` |
 | 4.1 Side view, and mass against beam | 2026-09-07 | `test_oracle_report_fuselage.py::test_the_side_view_draws_the_mass_the_beam_and_the_load_paths`, `::test_the_beam_table_states_where_the_mass_is_and_where_the_beam_runs` |
 
 ## 8. Conformance
@@ -1141,6 +1196,22 @@ without a guard is prose, not a gate).
       the flap prints the four candidates its pick came from and states the
       slipstream absence where there is no engine record (OR-156) —
       `test_oracle_report_control.py`
+- [x] Section 10 prints all six airplane-axis components at the combined engine
+      and propeller CG, and they are the resolution of the torque and thrust
+      printed about the engine's thrust line (OR-159, OR-163) —
+      `test_oracle_report_engine.py`
+- [x] The published set is the load the engine applies to the airframe, stated
+      as such, and carries the opposite sign to the load-case file's reaction
+      column (OR-160) — `test_oracle_report_engine.py`
+- [x] The thrust axis is derived from the entered stations through
+      `export/coordinates.py`, and an axis that cannot be derived is marked
+      ASSUMED (OR-161) — `test_oracle_report_engine.py`
+- [x] Every 23.371(b) sign combination is its own case with its own id, and
+      every engine gets its own rows at its own butt line (OR-165, OR-166) —
+      `test_oracle_report_engine.py`
+- [x] Three views, each drawing whatever airframe outline the project enters and
+      naming it; a project with none still draws its engines (OR-168, OR-169) —
+      `test_oracle_report_engine.py`
 - [x] Appendix B is two subsections — the applied loads and the loads carried —
       sharing no load column, with B.1 carrying the point each load acts at —
       `test_oracle_report.py`

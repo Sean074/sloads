@@ -30,8 +30,13 @@ def test_derived_quantities():
     assert math.isclose(calc.takeoff_torque(inp), 554.3884, rel_tol=TOL)
     assert math.isclose(calc.max_cont_torque(inp), 556.7227, rel_tol=TOL)
     assert calc.torque_factor(inp) == 1.33
+    # The printed combined CG, all three components (p227 "APPLIED AT X,Y,Z").
+    # ``zpp`` went unasserted until 2026-09-07 and both entered waterlines were
+    # wrong under it (note 44 §20, OR-170), so it is asserted here as well.
     xpp, ypp, zpp = calc.combined_cg(inp)
     assert math.isclose(xpp, 17.91, abs_tol=0.01)
+    assert math.isclose(ypp, 0.0, abs_tol=1e-9)
+    assert math.isclose(zpp, 93.022, abs_tol=0.01)
 
 
 def test_361_a1():

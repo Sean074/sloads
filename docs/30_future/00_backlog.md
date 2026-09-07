@@ -566,6 +566,40 @@ again; L-8d's mutation case stays parked); F25-2.
   `flap` outline, and only `ga6_normal` entering an `elevator`, so their flap
   and tab locator figures state an absence where `ga6_normal` draws one.
 
+- **`cessna_210`'s engine and propeller CG waterlines put the engine below the
+  airplane.** The fixture enters `engine_cg = (20, 0, −8)` and
+  `prop_cg = (−12, 0, 88)`, giving a combined CG at waterline **4.843** and a
+  thrust line inclined 7° nose-down. It is the same class of slip note 44 §20
+  OR-170 corrected on `ga6_normal` — where Appendix A p227 supplied the right
+  numbers (92 and 100) and the fixture carried the propeller's `x` in the
+  engine's `z` slot — but the C210 has **no printed page to correct it from**, so
+  it is filed with its number rather than guessed at. It moves the deck's
+  `lra-engine-mount` and `lra-engine-hub` nodes, and section 10's three views
+  draw the engine where the data says it is. **Filed 2026-09-07.** Tier S, and
+  it needs the airplane's own data.
+
+- **The engine's thrust-line direction is not an input.** Section 10 derives it
+  from the engine CG to the propeller hub (note 44 §20 OR-161), which is the best
+  the schema supports and is not the same thing as the shaft axis: an engine CG
+  sitting off that axis inclines the derived line by the offset over the
+  mount-to-hub distance, and on `ga6_normal` that is 14°. The document states
+  the caveat where it prints the direction cosines, so nothing is hidden. Adding
+  a stated thrust-line vector to `EngineInput`, blank-derives-typed-overrides
+  under note 36's OV-1 contract, would make it an input like `mounted_on`.
+  **Filed 2026-09-07.** Tier M, and it reaches `models/inputs.py` and
+  `field_registry.py` but not a frozen module.
+
+- **No engine-mount case reaches the sbeam deck.** `export/lra_model.py` has
+  carried `lra-engine-mount` and `lra-engine-hub` nodes since note 24 R-9, and
+  nothing writes a `FORCE`/`MOMENT` at either for a 23.361, 23.363 or 23.371(b)
+  condition — the mount conditions are reported and not exported. Section 10 now
+  publishes all six components at a stated point with a stated factor
+  (note 44 §20), which is exactly the set a deck would need, so this is the point
+  at which the gap is worth stating: `coordinates.engine_applied_load` is already
+  the owner a writer would call. **Filed 2026-09-07.** Tier L, and it would need
+  a design note of its own — an engine-mount case is not a balanced airplane
+  case, and how it joins the case index is the question.
+
 - **No control-surface hinge moment is computed anywhere — in sloads or in the
   suite it replicates.** Checked against the source 2026-09-07: `AILERON.BAS`,
   `FLAPLOAD.BAS` and `TABLOADS.BAS` each end after printing their loads and

@@ -27,6 +27,7 @@ from typing import NamedTuple, Optional, Tuple
 from . import workflow as wf
 from .constants import DEFAULT_FRONT_SPAR_PCT, DEFAULT_REAR_SPAR_PCT, IN2_PER_FT2
 from .models import MissingInputError, Project, SurfaceInput, WeightEnvelopeInput
+from .picks import extreme
 
 
 class CarryThrough(NamedTuple):
@@ -535,6 +536,72 @@ def fuselage_summary(outline) -> Optional[tuple]:
     width = max(s.width for s in outline.sections)
     height = max(s.height for s in outline.sections)
     return length, width, height
+
+
+#: The three views :func:`fuselage_outline` draws the body in, named by the
+#: report's own frame keys so a figure asks for the view it plots.
+FUSELAGE_VIEWS: Tuple[str, ...] = ("butt", "water", "front")
+
+#: How many segments the front view's section ellipse is drawn with.
+_ELLIPSE_STEPS = 48
+
+
+def fuselage_outline(project: Project, frame: str,
+                     ) -> Optional[Tuple[Tuple[float, float], ...]]:
+    """The body's closed outline in one view, or ``None`` where it cannot be drawn.
+
+    The one producer of a drawn fuselage (note 44 §20, OR-169). ``GeometryInput.fuselage`` has carried a
+    section table since the schema had a body, and nothing ever drew it -- §2.1
+    draws surfaces and §4.1 draws the *beam* -- so this is written at the first
+    time of asking rather than inside the figure that asked, on rule 3.
+
+    Points come back as the **entered pair** for the frame, which is what
+    ``oracle_sections._oriented`` expects: ``("water", (x, z))`` for the side
+    view, ``("butt", (x, y))`` for the plan and ``("front", (y, z))`` for the
+    front. The side view's datum is :func:`fuselage_centreline`, so a body whose
+    centre line was defaulted carries that function's existing assumption and
+    note rather than a second guess made at the figure.
+
+    The front view is the **largest** section, drawn as the ellipse
+    :class:`~sloads.models.FuselageSection` already commits to -- the same
+    ``pi/4 * width * height`` area ``lateral_body_aero.datcom_body_from_outline``
+    reads it as. Nothing here is a load and nothing is scaled.
+    """
+    if frame not in FUSELAGE_VIEWS:
+        raise ValueError(f"unknown fuselage view {frame!r}")
+    geom = project.geometry
+    outline = geom.fuselage if geom is not None else None
+    sections = sorted(getattr(outline, "sections", ()) or (), key=lambda s: s.x)
+    if len(sections) < 2 or sections[-1].x - sections[0].x <= 0.0:
+        return None
+    centreline = fuselage_centreline(project)
+    centres = dict(centreline.points) if centreline is not None else {}
+
+    def centre_z(section) -> float:
+        if section.x in centres:
+            return float(centres[section.x])
+        return 0.0 if section.z_centre is None else float(section.z_centre)
+
+    if frame == "water":
+        upper = [(s.x, centre_z(s) + 0.5 * s.height) for s in sections]
+        lower = [(s.x, centre_z(s) - 0.5 * s.height) for s in reversed(sections)]
+        return tuple(upper + lower)
+    if frame == "butt":
+        starboard = [(s.x, 0.5 * s.width) for s in sections]
+        port = [(s.x, -0.5 * s.width) for s in reversed(sections)]
+        return tuple(starboard + port)
+    # The largest section, through the tie owner: a body with two equal maximum
+    # sections is the ordinary case for a constant-section cabin, and which of
+    # them is drawn must not depend on the platform's arithmetic.
+    widest = extreme(sections, key=lambda s: s.width * s.height)
+    half_w, half_h = 0.5 * widest.width, 0.5 * widest.height
+    if half_w <= 0.0 or half_h <= 0.0:
+        return None
+    z0 = centre_z(widest)
+    return tuple(
+        (half_w * math.cos(2.0 * math.pi * i / _ELLIPSE_STEPS),
+         z0 + half_h * math.sin(2.0 * math.pi * i / _ELLIPSE_STEPS))
+        for i in range(_ELLIPSE_STEPS + 1))
 
 
 def _section_dim_at(outline, x: float, attr: str) -> Optional[float]:

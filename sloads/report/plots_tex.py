@@ -336,7 +336,19 @@ def plot_tex(data: PlotData, *, width: str = "0.86\\textwidth",
         r"]",
     ]
     for s, pts in drawable:
-        lines.append(f"\\addplot[black, {s.style}, thick, mark=none] coordinates "
+        # An unnamed series takes no legend entry: it is the *same* thing as the
+        # named one beside it -- a planform's mirrored half, the second arrow of
+        # an axis key -- and a legend row with nothing in it reads as a series
+        # whose label went missing. ``forget plot`` is what pgfplots needs for
+        # the numbering to stay in step; ``_region_series`` has documented this
+        # behaviour since it was written and the emitter did not have it (found
+        # 2026-09-07, while building Section 10's views).
+        options = f"black, {s.style}, thick, mark=none"
+        if not s.name:
+            lines.append(f"\\addplot[{options}, forget plot] coordinates "
+                         f"{{{_coordinates(pts)}}};")
+            continue
+        lines.append(f"\\addplot[{options}] coordinates "
                      f"{{{_coordinates(pts)}}};")
         lines.append(f"\\addlegendentry{{{escape(s.name)}}}")
 

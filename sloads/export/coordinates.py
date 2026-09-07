@@ -34,6 +34,7 @@ path and cannot drift.
 
 from __future__ import annotations
 
+import math
 from typing import Tuple
 
 from ..gear_loads import transfer_couple as _transfer_couple
@@ -292,3 +293,87 @@ def tail_torsion_to_airplane(torsion: float, component: str) -> Vec3:
     if component == "vtail":
         return (0.0, 0.0, -torsion)
     return (0.0, torsion, 0.0)
+
+
+# --------------------------------------------------------------------------- #
+# Engine mount: the thrust line, and the load an engine applies to the airframe
+# --------------------------------------------------------------------------- #
+#: The thrust axis assumed where an installation does not locate its own hub:
+#: airplane **forward**, which is ``-x`` because ``x`` is positive aft.
+ASSUMED_THRUST_AXIS: Vec3 = (-1.0, 0.0, 0.0)
+
+
+def engine_thrust_axis(engine_cg: Vec3, prop_cg: Vec3) -> Tuple[Vec3, bool]:
+    """``(unit vector along the thrust line, whether it was assumed)``.
+
+    The axis is the direction from the engine CG to the propeller hub -- forward
+    by construction, since a hub is ahead of the engine that drives it -- and it
+    is derived from the two stations the project already enters rather than
+    entered a third time. Where the two coincide, or neither is entered, there is
+    no direction to derive and the airplane's forward axis is assumed; the
+    ``True`` flag is what every deliverable then marks, the same
+    explicit-with-flagged-inference shape as ``EngineInput.mounted_on`` (BM-4)
+    and ``derived_geometry.fuselage_centreline``.
+
+    This is here rather than at a call site because it is an *axis resolution*,
+    and ``CONVENTIONS.md`` §1 makes this module the single edit point for those
+    (note 44 §20, OR-161).
+    """
+    dx, dy, dz = (float(p) - float(e) for p, e in zip(prop_cg, engine_cg))
+    magnitude = math.sqrt(dx * dx + dy * dy + dz * dz)
+    if magnitude <= 0.0:
+        return ASSUMED_THRUST_AXIS, True
+    return (dx / magnitude, dy / magnitude, dz / magnitude), False
+
+
+def engine_applied_load(axis: Vec3, *, torque: float = 0.0,
+                        thrust: float = 0.0, vertical_down: float = 0.0,
+                        side: float = 0.0, myy: float = 0.0, mzz: float = 0.0,
+                        ) -> Tuple[Vec3, Vec3]:
+    """The six airplane-axis components an engine applies to its mount.
+
+    ``(fx, fy, fz), (mx, my, mz)`` at the engine's combined CG, from the
+    quantities ``sloads.modules.engine`` publishes per condition. Unit-agnostic:
+    forces come out in whatever ``thrust``/``vertical_down``/``side`` are in and
+    moments in whatever ``torque_reaction``/``myy``/``mzz`` are in (the module's
+    lb and ft-lb), because nothing here scales -- this is a rotation, and the
+    unit channel is :func:`to_force`/:func:`to_moment`'s to apply.
+
+    Three sign facts, each **derived** rather than asserted (note 44 §20, OR-160
+    and OR-162):
+
+    * **The torque acts about the thrust line**, not about ``x``, and "clockwise
+      from the pilot's view is positive" *is* the right-hand sense about that
+      line. The pilot looks along ``axis``; an observer looking along a vector
+      sees a right-hand-positive rotation as clockwise. So no flip is applied to
+      the scalar -- it is rotated, and nothing else.
+    * **``torque`` is already what the engine applies to the airframe**, despite
+      being printed under the word *reaction*. Third law, twice: a propeller
+      turning clockwise from the pilot's seat is driven by ``+Q`` from the
+      engine, so it returns ``-Q`` to the engine; the mount holds the engine
+      against that with ``+Q``; and the engine therefore delivers ``-Q`` to the
+      airframe. ``-Q`` is exactly what ``mx_mount_torque`` carries and what the
+      oracle prints as a negative ``ENG MOUNT TORQUE``. Nothing here negates it.
+    * **The airplane rolls left, and the resolution says so.** With ``axis`` the
+      forward direction ``(-1, 0, 0)``, ``-Q`` about it becomes ``mx = +Q``, and
+      a positive moment about the aft-positive ``x`` axis carries starboard up --
+      the left roll a clockwise propeller's torque produces. That the two
+      independent readings agree is what makes the sign derived rather than
+      chosen, and it is why the printed scalar and the printed ``mx`` carry
+      opposite signs on a conventional installation.
+    * **Thrust runs along the same axis**, so it is resolved with it; a nose-up
+      thrust line lands part of its load on ``fz``, which is exactly the effect
+      that resolving it makes visible.
+
+    ``vertical_down`` is the module's positive-downward vertical load, so it
+    lands on ``fz`` negated (``z`` is positive up). ``myy``/``mzz`` are the
+    23.371(b) gyroscopic moments, which the module already publishes about the
+    airplane's ``y`` and ``z`` axes and which are therefore added unrotated.
+    """
+    applied_torque = float(torque)
+    ax, ay, az = axis
+    force = (thrust * ax, thrust * ay + float(side), thrust * az - float(vertical_down))
+    moment = (applied_torque * ax,
+              applied_torque * ay + float(myy),
+              applied_torque * az + float(mzz))
+    return force, moment

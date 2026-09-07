@@ -571,3 +571,21 @@ def test_the_running_head_declares_the_height_it_needs():
     assert r"\setlength{\headheight}{14pt}" in oracle
     summary = render_report(io.load_project(path))
     assert r"\setlength{\headheight}{14pt}" in summary
+
+
+def test_an_unnamed_series_takes_no_legend_entry():
+    """A series with no name is the same thing as the one beside it -- a
+    planform's mirrored half, the second arrow of an axis key -- so it is drawn
+    ``forget plot`` and claims no legend row. A blank row reads as a series whose
+    label went missing, which is what every planform figure printed until
+    2026-09-07: ``_region_series`` documented this behaviour and the emitter did
+    not have it.
+    """
+    from sloads.report.content import PlotData, Series
+    from sloads.report.plots_tex import plot_tex
+
+    tex = plot_tex(PlotData("x", "y", [Series("Named", [0.0, 1.0], [0.0, 1.0]),
+                                       Series("", [0.0, 1.0], [1.0, 0.0])]))
+    assert tex.count(r"\addlegendentry") == 1
+    assert tex.count("forget plot") == 1
+    assert r"\addlegendentry{}" not in tex

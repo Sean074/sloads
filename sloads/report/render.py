@@ -587,7 +587,19 @@ def summary_rows(module: str, results: List[ConditionResult], *,
 # the lookup returned ``None``, ``_val`` turned that into ``""`` and the renderer
 # wrote an empty cell with no error anywhere. Keys are the calc's machine
 # identity for a quantity and live in :mod:`sloads.load_keys`.
+#: The FAR 23 gyroscopic condition, named for the one place a *reference* still
+#: has to be matched: :func:`has_load_case_data` is asked before any value is
+#: read. Everywhere a condition's own values are in hand, the question "does this
+#: fan out into sign combinations?" is asked of the **keys** instead --
+#: :func:`_has_gyro_subcases` -- because 25.371 packs the same four sub-cases
+#: under a different reference, and matching the string dropped every one of
+#: them: its row printed with no moments at all (found 2026-09-07, note 44 §20).
 _GYRO_FAR = "23.371(b)"
+
+
+def _has_gyro_subcases(r: ConditionResult) -> bool:
+    """Whether this condition packs sign-combination sub-cases in its keys."""
+    return any(parse_gyro_key(v.key) is not None for v in r.values)
 
 
 def has_load_case_data(results: List[ConditionResult]) -> bool:
@@ -598,7 +610,7 @@ def has_load_case_data(results: List[ConditionResult]) -> bool:
     this returns False for them and callers fall back to the generic table.
     """
     for r in results:
-        if r.far_reference == _GYRO_FAR:
+        if r.far_reference == _GYRO_FAR or _has_gyro_subcases(r):
             return True
         for v in r.values:
             if v.key in LOAD_CASE_KEYS:
@@ -767,7 +779,7 @@ def load_cases_to_rows(results: List[ConditionResult], *,
     for r in results:
         loc = _result_location(r) or g_loc
         sf = r.safety_factor
-        if r.far_reference == _GYRO_FAR:
+        if _has_gyro_subcases(r):
             for desc, my, mz, fx, fz, gyro_id in _gyro_subcases(r):
                 idx += 1
                 rows.append(row(idx, r.far_reference, desc, loc, sf, fz=fz, fx=fx, my=my, mz=mz,
