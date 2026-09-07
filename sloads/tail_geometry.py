@@ -611,6 +611,40 @@ def is_t_tail(project: Project) -> bool:
     return layout is not None and layout.tail_type == TailType.T_TAIL
 
 
+def tail_layout(project: Project) -> Optional[TailType]:
+    """The empennage arrangement this project declares, or ``None``.
+
+    ``None`` is *undeclared*, not conventional. The difference is the whole of
+    :func:`is_conventional_tail`'s docstring, and keeping the two apart here is
+    what lets a consumer decide which way to read a silence instead of
+    inheriting a decision this function made for it.
+    """
+    geometry = project.geometry
+    layout = geometry.parametric if geometry is not None else None
+    return layout.tail_type if layout is not None else None
+
+
+def is_conventional_tail(project: Project) -> bool:
+    """True when the empennage is the arrangement this analysis models (OR-134).
+
+    A conventional tail is a horizontal and a vertical surface each carried by
+    the fuselage and each loaded independently. **Every other value is not** --
+    ``T_TAIL``, ``V_TAIL`` and ``CRUCIFORM`` alike (note 44 OR-134): a cruciform
+    fin carries the same horizontal-tail reaction a T-tail's does, and a V-tail
+    has no separable vertical surface for the analysis to be about. The report
+    withholds the vertical tail's spanwise loads on any of them (OR-133).
+
+    An **undeclared** layout reads as conventional, because that is the
+    arrangement every other default in this package already assumes -- the
+    planform resolver, the beam model and the balanced deck all place two
+    fuselage-carried surfaces -- and a project that declares nothing gets the
+    analysis it is actually being given. It is not a silent assumption: the
+    layout is a Section 2 input and the document echoes it.
+    """
+    layout = tail_layout(project)
+    return layout is None or layout == TailType.CONVENTIONAL
+
+
 __all__ = [
     "HTAIL",
     "PLANFORM_TOLERANCE",
@@ -621,7 +655,9 @@ __all__ = [
     "fin_root",
     "fin_root_waterline",
     "half_area_centroid",
+    "is_conventional_tail",
     "is_t_tail",
     "resolve_tail_planform",
+    "tail_layout",
     "validate_tail_planform",
 ]

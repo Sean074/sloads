@@ -553,6 +553,22 @@ again; L-8d's mutation case stays parked); F25-2.
   row. Shares an owner with `safety_factors.prescribes_factor`, whose load half
   is the same predicate. The producer `sloads/modules/engine.py` is **frozen**
   (OR-13) until the 0.8.2 cut.
+- **The oracle reduction resets `weight.items[].consumable`, moving a load.**
+  `reduce_to_oracle_inputs` returns every field outside the oracle input set to
+  its dataclass default (OR-43), and this one is outside it: on
+  `concept_regional_jet` the reduction flips an item's `consumable` flag, which
+  moves the mass and CG and with them the balancing case — horizontal-tail root
+  `Fz` **−175.6 → −214.5 lb**. `geometry.parametric.fuselage_width` (105.0 → 0)
+  and `.fuselage_height` (120.0 → 0) are reset on the same project.
+  **Found 2026-09-07 sweeping note 44 OR-134a**, which fixed the same class in
+  the geometry slice (`tail_type`, `ref_axis_pct` — both now `supplied`). Filed
+  rather than swept because this is the weight slice and the affected fixture is
+  not one the oracle report is built for; the drift guard
+  (`tests/test_oracle_report_vtail.py::test_the_two_airplanes_the_report_is_built_for_keep_their_loads_too`) names it in its docstring rather than
+  exempting it silently. Tier M: decide whether `consumable` is load-bearing
+  under `SUPPLIED_RULE` (a G5 demonstration exists — this measurement) or
+  whether a concept fixture is simply outside the reduction's claim.
+
 - **One fuselage quantity is published under two `LoadValue` keys.**
   `select_fuselage` labels the fuselage load reacted at the wing
   (`LZW − NZ·WW`) `fuselage_down_load_on_wing` on the two down blocks and

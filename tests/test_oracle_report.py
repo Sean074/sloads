@@ -1990,13 +1990,28 @@ def test_the_wing_root_loads_are_the_limit_result_with_the_factor_stated():
 def test_every_wing_torsion_names_the_axis_it_is_stated_about():
     """G-OR-23 -- a torsion whose axis is unstated is not a load (OR-51).
 
-    The oracle projection resets the loads reference axis to the quarter chord,
-    which is the whole content of "for oracle loads the 25 per cent chord *is*
-    the LRA": the report cannot print a 40 %-chord torsion because the document
-    is a function of that projection (OR-43).
+    **Corrected 2026-09-07.** This gate asserted ``25% chord`` and explained it
+    as a ruling: *"the oracle projection resets the loads reference axis to the
+    quarter chord... the report cannot print a 40 % chord torsion."* That was
+    not a ruling, it was a defect being described. OR-51 says the opposite in
+    its own words -- *"``ga6_normal`` enters ``ref_axis: 0.4``, so its wing
+    torsion is delivered about the LRA 40 % chord with the 25 %-chord oracle
+    value beside it -- the report must not print one and call it the other"* --
+    and the reason the document printed 25 % was that
+    ``geometry.surfaces[].ref_axis_pct`` sat outside the oracle input set and
+    was reset to its default before the report read it (found building section
+    6, note 44 section 17; the field is ``supplied`` now).
+
+    So the axis is read from the **project**, not typed here: a literal would
+    only re-pin whichever value the reduction happens to leave behind.
     """
+    project = reduce_to_oracle_inputs(io.load_project(_GA))
+    wing = project.geometry.by_name("wing")
+    axis = f"{wing.ref_axis * 100:.0f}% chord"
+    assert axis == "40% chord", (
+        "the fixture no longer enters a loads reference axis away from the "
+        "quarter chord, so this gate can no longer tell the two apart")
     doc = _doc()
-    axis = "25% chord"
     torsions = [c for t in _wing_tables(doc) for c in t.columns
                 if c.startswith("Root torsion") or c.startswith("Myy")]
     assert torsions

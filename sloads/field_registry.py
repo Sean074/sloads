@@ -890,7 +890,16 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "Load-bearing (G5): entering it moves the fuselage fitting loads",
        derived_from=EXTERNAL + "60 % of the centreline root chord "
        "(constants.DEFAULT_REAR_SPAR_PCT, note 50 OR-122)", governs=True, supplied=True),
-    _E("geometry.surfaces[].ref_axis_pct", _GEO, _SLDS, "loads reference axis, R-7c"),
+    # G5-demonstrated 2026-09-07, found building note 44 section 17: unsupplied
+    # this reset to DEFAULT_REF_AXIS_PCT before the oracle report read it, so
+    # the document stated its torsion about 25% chord while the decks, the CSVs
+    # and every other consumer used the entered 40% -- root Myy 60.8 -> 34.5
+    # lb-in on ga6_normal's h-tail, 4141.7 -> 3645.3 on concept_regional_jet,
+    # and every applied-load X in Appendices D and E 3-6 in adrift of the deck
+    # card it claims to be the same load as. All seven examples enter it.
+    _E("geometry.surfaces[].ref_axis_pct", _GEO, _SLDS,
+       "loads reference axis, R-7c; the axis every distributed tail and wing "
+       "torsion is stated about (G5, 2026-09-07)", supplied=True),
     _E("geometry.surfaces[].sob_y_in", _GEO, _SLDS, "side-of-body station, BM-1"),
     _E("geometry.surfaces[].tip_cap_width_in", _GEO, _SLDS,
        "rounded tip-cap width, note 36 OV-4 (C210-31): the planform rounding the polylines "
@@ -907,7 +916,21 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("geometry.parametric.root_waterline_z", _GEO, _ORIG, "WINGGEOM root-chord waterline"),
     _E("geometry.parametric.datum_x", _GEO, _ORIG, "WINGGEOM nose datum reference"),
     _E("geometry.parametric.h_tail_z", _GEO, _ORIG, "SELECT h-tail vertical offset (Ch 9)"),
-    _E("geometry.parametric.tail_type", _GEO, _SLDS, "layout sketch only, Step G1"),
+    # Was "layout sketch only" until note 44 OR-134. It is not: the oracle
+    # report withholds the vertical tail's spanwise loads on any value other
+    # than CONVENTIONAL (OR-133), so the document is a function of this field --
+    # and the document is a function of the *reduced* project (OR-43). Left
+    # unsupplied it was reset to CONVENTIONAL before the report ever saw it, and
+    # every airplane read as a conventional tail. Load-bearing under
+    # SUPPLIED_RULE, therefore rendered.
+    _E("geometry.parametric.tail_type", _GEO, _SLDS,
+       "empennage arrangement, Step G1; decides the h-tail/fin load path "
+       "(tail_span T7 tip transfer) and whether the report publishes the "
+       "vertical tail's spanwise loads (note 44 OR-133/OR-134). G5-demonstrated "
+       "2026-09-07: unsupplied it reset to CONVENTIONAL before the report read "
+       "it, and atr42_100's Appendix E printed 40 rows of loads OR-133 "
+       "withholds -- the reduction moved a deliverable, not a sketch",
+       supplied=True),
     _E("geometry.parametric.body_drag_waterline_z", _GEO, _SLDS, "body-drag line, Step G4 balance work"),
     # Candidate 19th duplicate, NOT declared: this and SELECT's LF
     # (geometry.empennage.airplane_length_in, one field since v55 / #52)

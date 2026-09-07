@@ -873,7 +873,27 @@ filed as #163). | OR-5, OR-14 |
 | **G-OR-27** | 3.2 states which path produced its case list, counts the V-n matrix the selection searched by every dimension it enumerates, and marks each named condition run or not run. |
 | **G-OR-28** | 3.2 states what the sign of a load factor means, and says from the analysed set whether it holds a negative-load-factor condition. |
 
+### Amendments made building Section 6 (2026-09-07)
+
+Both were settled with the owner in session before the code was written, on the
+same OR-8 footing as the rulings above.
+
+| # | Decision | Amends |
+|---|---|---|
+| **OR-133a** | **The condition register and the critical-load summary state that the set is short a condition, and name it.** *(Owner, 2026-09-07.)* OR-133's stated scope of the withholding was 6.4 and Appendix E. But OR-133 names **two** unmodelled paths and only one of them is about the loads: the other is about the *condition list*, and on a non-conventional tail 6.2 and 6.3 still render in full — four categories, a four-row summary, and nothing on either page saying a fifth condition is missing. That is OR-61's argument in a new place (a complete-looking table reads as a measured completeness), and it lands on the table an analyst actually stops at, as 5.2's own ordering note concedes. Both tables carry a one-line note **on non-conventional projects only**, pointing at 6.5 and **naming** the case — the horizontal tail's 23.427(a) unsymmetrical load reacted through the vertical tail. Named rather than counted: OR-133's own distinction is that this is an omitted condition and not an understated one, a note saying merely "a condition is missing" makes the reader do work the analysis has already done, and a named case is falsifiable — when note 51's D-51.1 ships there is a specific sentence to delete rather than a hedge to re-litigate. | **OR-133 (extends)**, OR-61 |
+| **OR-134a** | **A field the document's content depends on is in the oracle input set, or the document is a function of something it cannot see.** *(Found in implementation, 2026-09-07.)* OR-134 required the `TailType` docstring and the `CONVENTIONS.md` §7 row. Necessary, not sufficient: the document is a function of `reduce_to_oracle_inputs` (**OR-43**), and `geometry.parametric.tail_type` was `SLOADS`-origin and not `supplied`, so the reduction reset it to `CONVENTIONAL` **before the report read it**. OR-133 therefore fired on nothing — every airplane read as a conventional tail, the three shipped T-tails included, and Appendix E printed 40 rows of the loads the ruling withholds on `atr42_100`. The field is `supplied` under `SUPPLIED_RULE`, and because the oracle form builds from the registry (`oracle_app/form.py` reads `oracle_input_paths()`), it renders without touching a frozen file. **Generalised in the same change (rule 4):** the sweep found `geometry.surfaces[].ref_axis_pct` reset the same way — all seven examples enter 40 % of chord, the document stated 25 %, `ga6_normal`'s h-tail root torsion moved **60.8 → 34.5 lb-in**, `concept_regional_jet`'s **4141.7 → 3645.3**, and every Appendix D/E applied-load X sat **3–6 in** off the deck card the appendix claims to be the same load as. That contradicted **OR-51** in as many words (*"the report must not print one and call it the other"*), and the gate written with Section 3 had pinned the defect and explained it in its docstring as a ruling. Both fields are `supplied`; the Section 3 gate reads the axis from the project; and the class gets a **drift guard**, not a prose rule: for every shipped example and both surfaces, the beam the document states its loads about is the beam the analysis ran. | **OR-43**, **OR-51 (restores)**, OR-134, `SUPPLIED_RULE` |
+
 ### Findings to file (OR-14 — file, do not fix here)
+
+- **`weight.items[].consumable` is reset by the oracle reduction too.** The
+  OR-134a sweep found it: on `concept_regional_jet` the reduction flips one
+  item's `consumable` flag, moving the mass and CG and with them the balancing
+  case — horizontal-tail root `Fz` **−175.6 → −214.5 lb**. Same class as
+  `tail_type` and `ref_axis_pct`, different slice (weight, not geometry), and on
+  a fixture the oracle report is not built for. `geometry.parametric
+  .fuselage_width`/`.fuselage_height` are reset on the same project. Filed with
+  the numbers rather than swept into a document-section change; the drift guard
+  names it explicitly rather than exempting it silently.
 
 - **`examples/ga6_normal.project.json` balances at sea level only.**
   `flight_loads.altitudes_ft` is `[0.0]`, so the V-n matrix is 80 points over
@@ -1239,8 +1259,10 @@ appendix content on the Appendix B precedent instead of as a second derived step
 
 ### Gates added by this iteration
 
-- **G-OR-80** — Sections 5 and 6 each render four subsections numbered by the
-  numbering owner; the tail appendices are **D** and **E** behind A, B and C; and
+- **G-OR-80** — Sections 5 and 6 each render **five** subsections numbered by the
+  numbering owner (*amended 2026-09-07*: OR-130 agreed four, and the owner's
+  review added the input-data subsection to both; the mirror carried it into
+  Section 6 at no cost, which is the argument for one builder demonstrated); the tail appendices are **D** and **E** behind A, B and C; and
   every section below the tail carries the number its position gives it.
 - **G-OR-81** — *(OR-129, the partition gate)* every condition published by
   `taildist` and `tail_span` appears in **exactly one** section, and every tail
