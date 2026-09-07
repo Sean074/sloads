@@ -140,5 +140,7 @@ each figure draws its axis in the plane its surface is in. `tests/test_report_la
 — no column narrower than its own floor and the widths still fitting the page, on every
 table of both shipped reports; a table turned only when no upright size holds it, both
 directions, with the one that is pinned; exactly one landscape environment per turned
-table; and both renderers declaring their head height. Suite **3628 passed**, ruff and
-mypy clean.
+table; both renderers declaring their head height; and the glyph tables held to eight
+words TeX itself measured. The widths behind that floor are now measurements rather
+than a four-class model, which is what closed the last four warnings: all three shipped
+examples build clean. Suite **3629 passed**, ruff and mypy clean.

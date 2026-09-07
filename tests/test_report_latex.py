@@ -452,8 +452,8 @@ def test_no_column_is_narrower_than_its_longest_unbreakable_token():
         size, _spec = L._table_size_and_spec(table, in_landscape=turned)
         page = L.LANDSCAPE_WIDTH_PT if turned else L.TEXT_WIDTH_PT
         available = page - 2 * L.TABCOLSEP_PT * len(table.columns)
-        required, _d, _n = L._column_asks_pt(table, L._CHAR_PT[size])
-        widths = L._column_widths_pt(table, L._CHAR_PT[size], available)
+        required, _d, _n = L._column_asks_pt(table, size)
+        widths = L._column_widths_pt(table, size, available)
         for column, floor, width in zip(table.columns, required, widths):
             assert width >= floor - 0.01, (
                 f"{name}: {table.title!r} column {column!r} is {width:.1f}pt "
@@ -462,6 +462,54 @@ def test_no_column_is_narrower_than_its_longest_unbreakable_token():
         # ...and the sum still fits the page it is set on, so honouring the
         # floor has not simply moved the overflow to the right-hand margin.
         assert math.fsum(widths) <= available + 0.01, (name, table.title)
+
+
+def test_the_glyph_widths_are_the_widths_tex_actually_sets():
+    """The width tables are measurements, and this is the measurement.
+
+    Every column width in this report is a sum of :data:`~sloads.report.latex._GLYPH_PT`,
+    and the floor that stops a token overprinting its neighbour is only as
+    honest as those numbers. The words below were set by ``tectonic`` on this
+    module's own preamble and their ``\\wd`` read back; the widths on the right
+    are what TeX measured, in points.
+
+    This is the gate for a defect that shipped. The widths used to be a
+    four-class model scaled off a 0.5 em average, and it put ``assumed`` at
+    30.24pt against the 34.02 below -- so the Spars column of the wing-attach
+    fitting table was floored 3.8pt under the one token it had to hold, and
+    every row of it ran over. The floor test passed throughout: it checked the
+    solver against the same wrong ruler the solver used.
+
+    Kerning is not modelled, so the sum may run a fraction **over** a real
+    word (``entered`` by 0.26pt) -- the safe direction for a floor. It may not
+    run under.
+    """
+    from sloads.report import latex as L
+
+    measured = [
+        # word, tectonic's \wd at \footnotesize, set bold
+        ("assumed", 34.02278, False),
+        ("entered", 29.57951, False),
+        ("UNSYMMETRICAL", 85.42184, False),
+        ("23.423(a)(1)", 49.33250, False),
+        ("-2.356e+06", 44.71180, False),
+        ("Condition", 46.15263, True),
+        ("Case", 21.95612, True),
+        ("(KEAS)", 37.55678, True),
+    ]
+    for word, width_pt, bold in measured:
+        got = L._token_width(word, bold=bold)
+        assert got >= width_pt - 0.02, (
+            f"{word!r} is measured at {got:.2f}pt against TeX's {width_pt:.2f}pt "
+            f"-- a column floored on it will let it overprint the next column")
+        assert got <= width_pt + 0.40, (
+            f"{word!r} is measured at {got:.2f}pt against TeX's {width_pt:.2f}pt "
+            f"-- columns will be wider than their contents need")
+
+    # ...and the two table sizes are one font, so their ratio is exact: the
+    # alphabet measures 118.01314pt at \footnotesize and 127.58365pt at \small.
+    assert L._SIZE_SCALE[r"\footnotesize"] == 1.0
+    assert abs(L._SIZE_SCALE[r"\small"] - 127.58365 / 118.01314) < 0.001
 
 
 def test_a_table_is_turned_only_when_it_cannot_be_set_upright():

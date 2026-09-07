@@ -81,6 +81,16 @@ def _code_lines(text):
             yield code
 
 
+#: No literal above may be matched **inside** a longer number.
+#:
+#: ``\b`` treats a decimal point as a word boundary, so ``\b295\b`` matched the
+#: ``295`` of ``6.295`` -- a Latin Modern glyph width in ``report/latex.py`` --
+#: and reported the renderer for open-coding the dynamic-pressure divisor. The
+#: lookbehind says what was always meant: the match starts a number, it is not
+#: a run of digits taken out of the middle of one.
+_NOT_MID_NUMBER = r"(?<![\d.])(?:%s)"
+
+
 def _offenders(literals, allowed_owner):
     hits = []
     for rel, text in _package_sources(*_SCANNED_PACKAGES):
@@ -88,7 +98,7 @@ def _offenders(literals, allowed_owner):
             continue
         for code in _code_lines(text):
             for pat, owner in literals:
-                if re.search(pat, code):
+                if re.search(_NOT_MID_NUMBER % pat, code):
                     hits.append(f"{rel}: {code.strip()!r} -> use constants/units {owner}")
     return hits
 
