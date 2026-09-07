@@ -47,14 +47,19 @@ from ..models.inputs import FuselageStation
 from ..models.results import (
     BodyLoadResult,
     ConditionResult,
+    CriticalCondition,
     LoadValue,
     ModuleResult,
+    TailChordResult,
+    TailSpanResult,
     WingLoadResult,
 )
 from ..units import UnitSystem, convert_results
 from .content import Figure, PlotData, Section, Series, Table, Units, speed_altitude_plot_data, weight_cg_plot_data
 from .oracle_content import (
     BODY_LOAD_STATIONS,
+    HTAIL_LOAD_STATIONS,
+    VTAIL_LOAD_STATIONS,
     WING_LOAD_STATIONS,
     SectionPlan,
     appendix_ref,
@@ -3308,6 +3313,700 @@ def _body_station_appendix(project: Project, *, system: UnitSystem,
 
 
 # --------------------------------------------------------------------------- #
+# Sections 5 and 6 -- tail loads, by surface (OR-128 ... OR-137)
+# --------------------------------------------------------------------------- #
+#: The surface each tail section is about, and how the document names it.
+#:
+#: Read by every builder below, so the horizontal and the vertical section are
+#: one set of code parameterised by component rather than two that have to be
+#: kept in step -- the partition of OR-129 expressed once. ``surface`` is the
+#: reader's noun, ``control`` the movable surface's, and ``span_axis`` names what
+#: the spanwise coordinate *is*, which differs between the two: a horizontal
+#: tail's is a butt line and a fin's is a waterline.
+_TAIL_SURFACES = {
+    "htail": {
+        "surface": "horizontal tail", "control": "elevator",
+        "span_axis": "butt line", "control_load_key": "elevator_load",
+        "control_load_label": "Elevator load",
+    },
+    "vtail": {
+        "surface": "vertical tail", "control": "rudder",
+        "span_axis": "waterline", "control_load_key": "load_on_rudder",
+        "control_load_label": "Rudder load",
+    },
+}
+
+
+def _tail_critical(project: Project, component: str) -> List[CriticalCondition]:
+    """The critical conditions for one surface, from SELECT's single owner.
+
+    :func:`sloads.modules.select.default_critical` is the owner every other
+    consumer reads -- TAILDIST distributes exactly this list -- so the report
+    states the same case set the analysis ran and cannot select a tenth of its
+    own. The same route section 4 takes to the fuselage blocks (OR-109).
+    """
+    from ..modules.select import default_critical
+
+    try:
+        return [c for c in default_critical(project).conditions
+                if c.component == component]
+    except (ValueError, TypeError, ZeroDivisionError):
+        return []
+
+
+def _tail_chordwise(project: Project, component: str) -> List[TailChordResult]:
+    """The chordwise distributions for one surface (TAILDIST's own builder)."""
+    from ..modules.taildist import build_tail_chordwise
+
+    try:
+        return [r for r in build_tail_chordwise(project) if r.component == component]
+    except (ValueError, TypeError, ZeroDivisionError, KeyError):
+        return []
+
+
+def _tail_spanwise(project: Project, component: str) -> List[TailSpanResult]:
+    """The spanwise results for one surface (plan 09's ``tail_span``).
+
+    Read from the builder rather than from a ``ModuleResult``, which is OR-95's
+    ruling one section over: the station tables live nowhere else. That the
+    producer is **not an oracle step** is the whole of OR-130a -- the spanwise
+    loads are a modern deliverable and enter as appendix content on the
+    Appendix B precedent, not as a derived section claiming a program that
+    never existed.
+    """
+    from ..modules.tail_span import build_tail_span
+
+    try:
+        return list(build_tail_span(project).get(component, []))
+    except (ValueError, TypeError, ZeroDivisionError, KeyError):
+        return []
+
+
+def _value_of(condition, key: str):
+    """One published ``LoadValue`` of ``condition`` by key, or ``None``."""
+    return next((v for v in getattr(condition, "loads", ()) if v.key == key), None)
+
+
+def _tail_case_id(condition) -> str:
+    """The case identity a tail row prints: the stamped id, else the V-n case."""
+    ref = getattr(condition, "case_ref", None)
+    return getattr(ref, "case_id", "") or str(getattr(condition, "case", "") or "--")
+
+
+# --- 5.1 / 6.1 -- the conditions and how they were chosen ------------------- #
+#: What each section says its method searched, in the section's own terms
+#: (OR-131): the categories differ, so neither section may borrow the other's.
+_TAIL_METHOD = {
+    "htail": (
+        "The horizontal tail's design conditions are the largest up and down "
+        "balancing loads of 14 CFR 23.421, the unchecked and checked manoeuvre "
+        "loads of 23.423(a) and 23.423(b), the positive and negative gust loads "
+        "of 23.425(a)(1), and the unsymmetrical load of 23.427(a) taken over "
+        "them."),
+    "vtail": (
+        "The vertical tail's design conditions are the sudden full rudder "
+        "deflection of 14 CFR 23.441(a)(1), the yaw to a 19.5 degree sideslip "
+        "with the rudder held of 23.441(a)(2), the 15 degree yaw with the "
+        "rudder neutral of 23.441(a)(3), and the lateral gust at the design "
+        "cruising speed of 23.443(b)."),
+}
+
+
+def _tail_conditions_section(project: Project, component: str, *,
+                             system: UnitSystem,  # noqa: ARG001
+                             plan: Sequence[SectionPlan]) -> Section:  # noqa: ARG001
+    """5.1 / 6.1 -- the design conditions and the search that produced them."""
+    names = _TAIL_SURFACES[component]
+    conditions = _tail_critical(project, component)
+    body = [
+        _TAIL_METHOD[component],
+        "The candidate set for every one of them is the entire balanced "
+        "flight envelope -- one balanced point per condition, loading and "
+        "altitude -- filtered only by the flight condition each requirement "
+        "names, from which the governing point is the extreme of that "
+        "requirement's own measure. The requirement of 23.333(b) that each "
+        "combination of airspeed and load factor be investigated is discharged "
+        "by balancing the whole matrix; the selection below is the reduction of "
+        "that matrix to design conditions, not a sample of it.",
+        "Every condition carries its load resolved into two parts: an "
+        "angle-of-attack load acting at the quarter chord of the mean "
+        "aerodynamic chord, and a camber load acting at the half chord. Their "
+        "sum is the total load on the surface. The split is not presentational "
+        "-- it is what the chordwise distribution is built from, and it is the "
+        "reason the same total can produce different pressures on the surface "
+        "in two different conditions.",
+    ]
+    if component == "htail":
+        body.append(
+            "The unsymmetrical condition of 23.427(a) is a redistribution of "
+            "the largest of the conditions above, not an eleventh search: the "
+            "governing magnitude is applied to one side and a stated percentage "
+            "of it to the other. This analysis includes the unchecked manoeuvre "
+            "conditions among the candidates it is taken over. The worked "
+            "example in the reference does not, and reports a smaller load in "
+            "consequence; the program listing the reference itself prints "
+            "does, and 23.427(a) applies to the loads prescribed in 23.421 "
+            "through 23.425, which spans the 23.423 unchecked case. The listing "
+            "and the regulation govern here, the difference is a registered "
+            "deviation from the printed example, and the methods statement "
+            "accompanying this analysis declares it.")
+    absences = [
+        "This analysis selects its conditions with the flaps retracted. The "
+        "flaps-extended gust conditions of 23.425(a)(2) are computed where a "
+        "flapped envelope is present and are absent here rather than assumed "
+        "to be non-critical.",
+    ]
+    if component == "htail":
+        # The pointer, not the statement: OR-133 puts the statement in full with
+        # the loads it withholds, and a reader who starts at the horizontal tail
+        # must not meet the restriction for the first time two sections later.
+        absences.append(_NON_CONVENTIONAL_POINTER)
+    body.extend(absences)
+    if not conditions:
+        return Section("", absent_reason=(
+            f"no {names['surface']} design conditions were produced for this "
+            "project, so there is nothing to state a method for."))
+    return Section("", body=body, tables=[_tail_category_table(conditions)])
+
+
+def _tail_category_table(conditions: Sequence[CriticalCondition]) -> Table:
+    """The register: one row per condition, with the requirement it answers."""
+    return Table(
+        title="Design conditions analysed",
+        columns=["Condition", "14 CFR", "Flight-envelope case"],
+        rows=[[getattr(c, "label", ""), getattr(c, "far_reference", "") or "--",
+               _tail_case_id(c)] for c in conditions],
+        note=("One governing case per requirement, each identified by the "
+              "balanced flight-envelope point it was selected from, so any "
+              "condition here can be traced back to the airspeed, altitude, "
+              "loading and load factor that produced it."))
+
+
+# --- 5.2 / 6.2 -- the critical-case summary --------------------------------- #
+def _tail_summary_table(project: Project, component: str,
+                        system: UnitSystem) -> Optional[Table]:
+    """5.2 / 6.2 -- one row per design condition, read across.
+
+    The split and the control-surface load are taken from the condition's own
+    published values, so this table states what the analysis produced and
+    computes nothing. ``LT25``/``LT50`` come from the condition's fields rather
+    than from a load key, because the label those keys carry differs by
+    condition family -- balancing calls the camber term an elevator load and the
+    manoeuvre families call it a deflection increment -- while the field is one
+    quantity with one meaning across all of them (M4-9: the key is the machine
+    identity, the label is display text).
+    """
+    conditions = _tail_critical(project, component)
+    if not conditions:
+        return None
+    names = _TAIL_SURFACES[component]
+    u = Units(system)
+    force = u.ult_label("force")
+    columns = ["Case", "Condition", "14 CFR", f"Total load ({force})",
+               f"AoA load, quarter chord ({force})",
+               f"Camber load, half chord ({force})",
+               f"{names['control_load_label']} ({force})",
+               "Sides RH / LH", "SF"]
+    rows = []
+    for condition in conditions:
+        sf = _required_sf(condition)
+        total = _value_of(condition, "total_tail_load") \
+            or _value_of(condition, "total_tail_load_cp_25_pct")
+        control = _value_of(condition, names["control_load_key"])
+        rh, lh = _value_of(condition, "rh_side_load"), _value_of(condition, "lh_side_load")
+        sides = "--"
+        if rh is not None and lh is not None:
+            # OR-135: the split is printed in the row that carries the load, and
+            # never in a table of its own. Alone, a control-surface load on an
+            # unsymmetrical case reads as one surface's load, when the case's
+            # whole content is that the two sides differ.
+            sides = f"{u.load(rh.value, 'force', sf)} / {u.load(lh.value, 'force', sf)}"
+        rows.append([
+            _tail_case_id(condition), getattr(condition, "label", ""),
+            getattr(condition, "far_reference", "") or "--",
+            u.load(total.value, "force", sf) if total is not None else "--",
+            u.load(getattr(condition, "lt25", None), "force", sf)
+            if getattr(condition, "lt25", None) is not None else "--",
+            u.load(getattr(condition, "lt50", None), "force", sf)
+            if getattr(condition, "lt50", None) is not None else "--",
+            u.load(control.value, "force", sf) if control is not None else "--",
+            sides, format_value(sf)])
+    return Table(
+        title=f"Critical {names['surface']} loads (LIMIT)",
+        columns=columns, rows=rows,
+        note=(f"Every load is LIMIT and states the safety factor 14 CFR 23.303 "
+              f"prescribes for its condition; nothing in this table has been "
+              f"multiplied by it. The angle-of-attack and camber loads sum to "
+              f"the total. The {names['control']} load is the part of the total "
+              f"the {names['control']} itself carries -- the camber share aft of "
+              f"the hinge line plus its share of the angle-of-attack load -- and "
+              f"is what the {names['control']} and its system are sized to, not "
+              f"the surface total beside it."))
+
+
+def _tail_state_table(project: Project, component: str,
+                      system: UnitSystem) -> Optional[Table]:
+    """The aerodynamic state each condition was computed at (note 35 AS-2).
+
+    Beside the loads rather than inside them: an angle and a dynamic pressure
+    are not loads, carry no safety factor and must not be scaled or marked, so
+    putting them in the load table above would mean a table whose columns obey
+    two different rules (CONVENTIONS section 3).
+    """
+    conditions = _tail_critical(project, component)
+    if not conditions:
+        return None
+    names = _TAIL_SURFACES[component]
+    angle = "deg"
+    q_scale, q_units = _scalar_channel("lb/ft^2", system)
+    i_scale, i_units = _scalar_channel("slug-ft^2", system)
+    rows = []
+    for condition in conditions:
+        extra = _value_of(condition, "pitch_inertia_iyy") \
+            or _value_of(condition, "yaw_inertia_izz")
+        rows.append([
+            _tail_case_id(condition), getattr(condition, "label", ""),
+            _fmt_angle(getattr(condition, "alpha_tail_deg", None)),
+            _fmt_angle(getattr(condition, "delta_deg", None)),
+            _fmt_angle(getattr(condition, "beta_deg", None)),
+            _scalar_cell(getattr(condition, "q_psf", None), q_scale),
+            _scalar_cell(extra.value if extra is not None else None, i_scale),
+        ])
+    return Table(
+        title="Aerodynamic state of each condition",
+        columns=["Case", "Condition", f"Surface angle of attack ({angle})",
+                 f"{names['control'].capitalize()} deflection ({angle})",
+                 f"Sideslip ({angle})",
+                 f"Dynamic pressure ({q_units})", f"Inertia ({i_units})"],
+        rows=rows,
+        note=("The state each load was computed at, published by the condition "
+              "itself rather than reconstructed here. An empty cell is a "
+              "quantity the method does not define for that condition -- a "
+              "symmetric pitch-plane condition has no sideslip, the checked "
+              "manoeuvre increment is a pitching-acceleration inertia term with "
+              "no deflection of its own, and the lateral gust requirement is "
+              "linear in airspeed and so has no dynamic-pressure term. None of "
+              "these is a load: none is scaled and none carries a factor."))
+
+
+def _fmt_angle(value) -> str:
+    """An angle cell: the value, or empty where the method defines none."""
+    return "--" if value is None else format_value(value)
+
+
+def _tail_summary(project: Project, component: str, *,
+                  system: UnitSystem,
+                  plan: Sequence[SectionPlan]) -> Section:  # noqa: ARG001
+    """5.2 / 6.2 -- the critical loads, with the state that produced them."""
+    names = _TAIL_SURFACES[component]
+    table = _tail_summary_table(project, component, system)
+    if table is None:
+        return Section("", absent_reason=(
+            f"no {names['surface']} design conditions were produced, so there "
+            "are no critical loads to summarise."))
+    tables = [table]
+    state = _tail_state_table(project, component, system)
+    if state is not None:
+        tables.append(state)
+    return Section("", body=[
+        f"The design loads for the {names['surface']}, one row per condition. "
+        f"These are the loads the {names['surface']} and its supporting "
+        f"structure are sized to; the distributions in the subsections that "
+        f"follow spread exactly these totals over the surface and introduce no "
+        f"load of their own.",
+    ], tables=tables)
+
+
+def _scalar_channel(units: str, system: UnitSystem) -> Tuple[float, str]:
+    """``(scale, units)`` taking one entered Imperial scalar into ``system``.
+
+    :func:`_length_channel` generalised to any unit string, and for its reason:
+    :func:`sloads.units.convert_results` is the single conversion owner, and a
+    constant multiplied in here would be the drift the units history is the
+    cautionary precedent for. Used for the quantities that are neither loads nor
+    lengths -- a dynamic pressure in pounds per square foot, a mass moment of
+    inertia in slug-feet squared -- which have no column in the deliverable unit
+    set because nothing is ever sized to them.
+    """
+    probe = ConditionResult(title="", far_reference="",
+                            values=[LoadValue("probe", 1.0, units, key="probe")])
+    converted = convert_results([probe], system)[0].values[0]
+    return float(converted.value), converted.units
+
+
+def _scalar_cell(value, scale: float) -> str:
+    """One converted scalar cell, or ``--`` where the method defines none."""
+    return "--" if value is None else format_value(value * scale)
+
+
+# --- 5.3 / 6.3 -- the chordwise distribution -------------------------------- #
+def _tail_chord_stations_table(results: Sequence[TailChordResult],
+                               system: UnitSystem) -> Optional[Table]:
+    """The five chord stations the pressure profile is defined at.
+
+    Printed once rather than repeated per condition: the stations are a property
+    of the surface's geometry -- the average chord and the hinge line -- and are
+    identical in every condition. Repeating them per case would invite a reader
+    to look for a difference that cannot exist.
+    """
+    if not results:
+        return None
+    scale, length = _length_channel(system)
+    stations = list(getattr(results[0], "stations", ()))
+    if not stations:
+        return None
+    meanings = ["Leading edge", "Quarter chord", "Trailing edge",
+                "Hinge line", "Chord less the hinge-line station"]
+    rows = [[f"X{i}", meaning, format_value(station.x * scale)]
+            for i, (station, meaning) in enumerate(zip(stations, meanings), start=1)]
+    return Table(
+        title="Chord stations of the pressure profile",
+        columns=["Station", "Location", f"Distance aft of the leading edge ({length})"],
+        rows=rows,
+        note=("The profile is defined on the surface's average chord, which is "
+              "its area divided by its span. The stations are geometry and are "
+              "the same in every condition; only the pressures at them change."))
+
+
+def _tail_pressure_table(results: Sequence[TailChordResult],
+                         system: UnitSystem) -> Optional[Table]:
+    """One row per condition, the net pressure at each of the five stations."""
+    if not results:
+        return None
+    u = Units(system)
+    force = u.ult_label("force")
+    pressure = _scalar_channel("lb/in^2", system)
+    columns = ["Case", f"AoA load ({force})", f"Camber load ({force})"] + [
+        f"psi(X{i}) ({pressure[1]})" for i in range(1, 6)] + ["SF"]
+    rows = []
+    for result in results:
+        sf = float(getattr(result, "safety_factor", ULTIMATE_FACTOR) or ULTIMATE_FACTOR)
+        row = [getattr(result, "case", ""),
+               u.load(getattr(result, "lt25", None), "force", sf),
+               u.load(getattr(result, "lt50", None), "force", sf)]
+        row += [_scalar_cell(s.psi, pressure[0])
+                for s in getattr(result, "stations", ())]
+        row.append(format_value(sf))
+        rows.append(row)
+    return Table(
+        title="Net chordwise pressure (LIMIT)", columns=columns, rows=rows,
+        note=("The net pressure at each chord station: the sum of an additive "
+              "distribution carrying the angle-of-attack load -- four times the "
+              "average pressure at the leading edge, the average at the quarter "
+              "chord, zero at the trailing edge -- and a camber distribution "
+              "carrying the camber load, constant from the hinge line aft. "
+              "Every pressure is LIMIT and states the factor its condition does "
+              "not apply."))
+
+
+def _tail_chord_figure(results: Sequence[TailChordResult], component: str,
+                       system: UnitSystem) -> Figure:
+    """The pressure profile, every condition on one axes."""
+    names = _TAIL_SURFACES[component]
+    key = f"chordwise_{component}"
+    title = f"{names['surface'].capitalize()} chordwise pressure"
+    if not results:
+        return Figure(key=key, title=f"{title} (LIMIT)", absent_reason=(
+            f"the {names['surface']} chordwise distributions were not produced "
+            "for this project."))
+    scale, length = _length_channel(system)
+    p_scale, p_units = _scalar_channel("lb/in^2", system)
+    series = []
+    for result, style in zip(results, _CASE_STYLES * 4):
+        stations = sorted(getattr(result, "stations", ()), key=lambda s: s.x)
+        if not stations:
+            continue
+        series.append(Series(str(getattr(result, "case", "")),
+                             [s.x * scale for s in stations],
+                             [s.psi * p_scale for s in stations], style))
+    if not series:
+        return Figure(key=key, title=f"{title} (LIMIT)", absent_reason=(
+            f"the {names['surface']} distributions carry no chord stations to plot."))
+    return Figure(
+        key=key, title=f"{title} (LIMIT)",
+        data=PlotData(f"Distance aft of the leading edge ({length})",
+                      f"Net pressure ({p_units})", series),
+        caption=(f"Net pressure along the {names['surface']}'s average chord, "
+                 "every design condition on one axes. The profiles cross zero "
+                 "where the angle-of-attack and camber contributions cancel, "
+                 "which is why a condition with a large total load can carry "
+                 "little pressure over part of the chord. All values are LIMIT."))
+
+
+def _tail_constants_table(project: Project, component: str) -> Optional[Table]:
+    """AHT, or AVT and the rudder effectiveness -- once per section (AS-5)."""
+    from ..modules.taildist import component_constants
+
+    try:
+        constants = component_constants(project, component)
+    except (ValueError, TypeError, ZeroDivisionError):
+        constants = None
+    if constants is None or not constants.values:
+        return None
+    return Table(
+        title="Aerodynamic constants of the surface",
+        columns=["Quantity", "Value", "Units"],
+        rows=[[v.label, format_value(v.value), v.units] for v in constants.values],
+        note=("Reference constants, not loads: they carry no safety factor and "
+              "nothing here is sized to them. Printed once because they are the "
+              "same constants inside every condition above -- read from the "
+              "owner the loads themselves were computed with, so the printed "
+              "intermediate is arithmetically the one used."))
+
+
+def _tail_chordwise_section(project: Project, component: str, *,
+                            system: UnitSystem,
+                            plan: Sequence[SectionPlan]) -> Section:  # noqa: ARG001
+    """5.3 / 6.3 -- the chordwise pressure distribution."""
+    names = _TAIL_SURFACES[component]
+    results = _tail_chordwise(project, component)
+    if not results:
+        return Section("", absent_reason=(
+            f"the {names['surface']} chordwise distributions were not produced "
+            "for this project: no design condition carries the load split they "
+            "are built from, or the surface's chordwise geometry is not entered."))
+    tables = [t for t in (_tail_constants_table(project, component),
+                          _tail_chord_stations_table(results, system),
+                          _tail_pressure_table(results, system)) if t is not None]
+    return Section("", body=[
+        f"Each design condition's total load is spread along the "
+        f"{names['surface']}'s chord as a net pressure. The distribution is the "
+        f"sum of two shapes: an additive shape carrying the angle-of-attack "
+        f"load, largest at the leading edge and zero at the trailing edge, and "
+        f"a camber shape carrying the {names['control']} load, constant from "
+        f"the hinge line aft. These replace the generalised profiles of the "
+        f"regulation's own appendix with distributions computed for this "
+        f"surface and this condition.",
+        "The distribution conserves the total: integrating the pressure over "
+        "the surface returns the condition's total load, so nothing in this "
+        "subsection adds load to or removes load from the summary above.",
+    ], tables=tables, figures=[_tail_chord_figure(results, component, system)])
+
+
+# --- 5.4 / 6.4 -- the spanwise loads ---------------------------------------- #
+#: The one sentence Section 5 carries about the limitation Section 6 owns
+#: (OR-133): stated where the loads are withheld, pointed at from here.
+_NON_CONVENTIONAL_POINTER = (
+    "This analysis treats the empennage as a conventional tail, with the "
+    "horizontal and the vertical surface each carried by the fuselage and each "
+    "loaded independently. For any other arrangement the vertical tail also "
+    "carries the horizontal tail, and the loads that creates are not modelled; "
+    "the limitation is stated in full with the vertical tail's loads, and it "
+    "does not affect anything in this section.")
+
+#: The spanwise notation, printed in 5.4 and 6.4 (OR-130a, section 3.2's rule).
+_TAIL_SPAN_SYMBOLS = (
+    ("Fn", "Load applied at a station, normal to the surface", "force", "applied"),
+    ("Sn", "Shear carried across a station, normal to the surface", "force", "cumulative"),
+    ("Mxx", "Bending moment carried across a station", "moment", "cumulative"),
+    ("Myy", "Torsion carried across a station, about the load reference axis",
+     "moment", "cumulative"),
+)
+
+
+def _tail_span_notation_table(system: UnitSystem) -> Table:
+    """5.4 / 6.4's symbol table: symbol, quantity, units, and its sense."""
+    u = Units(system)
+    return Table(
+        title="Notation for the spanwise loads",
+        columns=["Symbol", "Quantity", "Units", "Sense"],
+        rows=[[symbol, text, u.ult_label(dim), sense]
+              for symbol, text, dim, sense in _TAIL_SPAN_SYMBOLS],
+        note=("An applied quantity is the load put on the surface at that "
+              "station; a cumulative quantity is what the structure carries "
+              "across it, accumulated from the tip. A column heading in this "
+              "subsection or its appendix names a symbol from this table and "
+              "nothing else."))
+
+
+def _tail_span_root_table(results: Sequence[TailSpanResult], component: str,
+                          system: UnitSystem) -> Optional[Table]:
+    """The root values and the control-surface loads, one row per condition."""
+    from ..modules.tail_span import air_total, root_index
+
+    if not results:
+        return None
+    names = _TAIL_SURFACES[component]
+    u = Units(system)
+    force, moment = u.ult_label("force"), u.ult_label("moment")
+    columns = ["Case", f"Root Sn ({force})", f"Root Mxx ({moment})",
+               f"Root Myy ({moment})", f"Applied air load ({force})",
+               f"{names['control_load_label']} ({force})",
+               f"Hinge moment ({moment})", "SF"]
+    rows = []
+    for result in results:
+        sf = float(getattr(result, "safety_factor", ULTIMATE_FACTOR) or ULTIMATE_FACTOR)
+        stations = list(getattr(result, "stations", ()))
+        if not stations:
+            continue
+        root = stations[root_index(result)]
+        discrete = getattr(result, "control_load_mode", "") == "discrete"
+        rows.append([
+            getattr(result, "case", ""),
+            u.load(root.sz, "force", sf), u.load(root.mxx, "moment", sf),
+            u.load(root.myy, "moment", sf),
+            u.load(air_total(result), "force", sf),
+            u.load(getattr(result, "control_surface_load_lb", None), "force", sf)
+            if discrete else "--",
+            u.load(getattr(result, "hinge_moment_lbin", None), "moment", sf)
+            if discrete else "--",
+            format_value(sf)])
+    if not rows:
+        return None
+    return Table(
+        title=f"{names['surface'].capitalize()} spanwise loads at the root (LIMIT)",
+        columns=columns, rows=rows,
+        note=("The shear, bending and torsion the structure carries at its root "
+              "attachment, which is where each of them is greatest, with the "
+              f"applied air load they accumulate from. The {names['control']} "
+              "load and hinge moment are stated where the control surface is "
+              "modelled as a discrete load path; a dash means it is carried "
+              "with the surface rather than reacted separately. Torsion is "
+              "about the load reference axis, not the quarter chord."))
+
+
+def _tail_span_section(project: Project, component: str, *,
+                       system: UnitSystem,
+                       plan: Sequence[SectionPlan]) -> Section:  # noqa: ARG001
+    """5.4 / 6.4 -- the spanwise loads, with the station table in the appendix."""
+    names = _TAIL_SURFACES[component]
+    appendix = (HTAIL_LOAD_STATIONS if component == "htail"
+                else VTAIL_LOAD_STATIONS)
+    results = _tail_spanwise(project, component)
+    if not results:
+        return Section("", absent_reason=(
+            f"the {names['surface']} spanwise loads were not produced for this "
+            "project: the surface has no entered planform, or no design "
+            "condition carries the load split they are distributed from."))
+    table = _tail_span_root_table(results, component, system)
+    body = [
+        f"Each design condition's total load is distributed along the "
+        f"{names['surface']}'s span in proportion to the local chord, and the "
+        f"surface's own weight is applied against it at the condition's load "
+        f"factor. The result is the load set a beam model of the "
+        f"{names['surface']} is built from: what is applied at each station, "
+        f"and what the structure carries across it.",
+        f"This distribution has no counterpart in the original analysis, which "
+        f"gives the {names['surface']}'s totals and its chordwise profile and "
+        f"stops. It is therefore held to stated closures rather than to a "
+        f"published example: the distributed air load sums to the condition's "
+        f"own total, and the applied set reproduces the carried set at every "
+        f"station. The per-station numbers are in "
+        f"{appendix_ref(appendix)}; the values below are the root, where each "
+        f"carried quantity is greatest.",
+    ]
+    tables = [_tail_span_notation_table(system)]
+    if table is not None:
+        tables.append(table)
+    return Section("", body=body, tables=tables)
+
+
+# --- the sections ----------------------------------------------------------- #
+def _tail_section(project: Project, component: str, *, system: UnitSystem,
+                  plan: Sequence[SectionPlan]) -> Section:
+    """Sections 5 and 6 -- one surface's loads, in four subsections (OR-130).
+
+    One builder for both surfaces rather than two that must be kept in step:
+    the partition of OR-129 is a parameter here, not a pair of copies, which is
+    what makes the two sections provably the same analysis read twice.
+    """
+    names = _TAIL_SURFACES[component]
+    return Section("", body=[
+        f"This section states the {names['surface']}'s loads: the design "
+        f"conditions and how they were selected, the critical loads themselves, "
+        f"their distribution along the chord, and their distribution along the "
+        f"span. Every load delivered here is LIMIT, states the safety factor 14 "
+        f"CFR 23.303 prescribes for its condition, and has been multiplied by "
+        f"nothing.",
+    ], subsections=[
+        replace(_tail_conditions_section(project, component, system=system, plan=plan),
+                title="Design conditions"),
+        replace(_tail_summary(project, component, system=system, plan=plan),
+                title=f"Critical {names['surface']} loads"),
+        replace(_tail_chordwise_section(project, component, system=system, plan=plan),
+                title="Chordwise load distribution"),
+        replace(_tail_span_section(project, component, system=system, plan=plan),
+                title="Spanwise loads"),
+    ])
+
+
+def _htail_loads(project: Project,
+                 results: Mapping[str, Optional[ModuleResult]], *,  # noqa: ARG001
+                 system: UnitSystem, plan: Sequence[SectionPlan]) -> Section:
+    """Section 5 -- Horizontal Tail and Elevator Loads."""
+    return _tail_section(project, "htail", system=system, plan=plan)
+
+
+# --------------------------------------------------------------------------- #
+# Appendix D -- horizontal tail loads by station (OR-130a / OR-136)
+# --------------------------------------------------------------------------- #
+def _tail_station_appendix(project: Project, component: str, *,
+                           system: UnitSystem,
+                           plan: Sequence[SectionPlan]) -> Section:  # noqa: ARG001
+    """Every tail case at every station -- a view of the export owner.
+
+    The rows are the ones ``sbeam_bridge.tail_span_csv`` writes, in the same
+    order with the same grid identifiers, converted at this document's own
+    boundary rather than the solver deck's. Appendix B's ruling (OR-64) applied
+    to the empennage: an appendix that exists to give the sectional loads to a
+    structures model is a deliverable format, and a deliverable format only the
+    report can produce is one the analyst has to retype.
+    """
+    from ..export.sbeam_bridge import tail_span_gid
+
+    names = _TAIL_SURFACES[component]
+    results = _tail_spanwise(project, component)
+    if not results:
+        return Section("", absent_reason=(
+            f"the {names['surface']} spanwise loads were not produced for this "
+            "project, so there are no stations to list."))
+    u = Units(system)
+    scale, length = _length_channel(system)
+    force, moment = u.ult_label("force"), u.ult_label("moment")
+    axial = any(getattr(s, "f_span", 0.0) for r in results
+                for s in getattr(r, "stations", ()))
+    columns = ["Case", "GID", f"Span ({length})", f"X on axis ({length})",
+               f"Fn ({force})", f"Sn ({force})", f"Mxx ({moment})",
+               f"Myy ({moment})"]
+    if axial:
+        columns += [f"Fax ({force})", f"Sax ({force})"]
+    columns += ["Axis", "SF"]
+    rows = []
+    for result in results:
+        sf = float(getattr(result, "safety_factor", ULTIMATE_FACTOR) or ULTIMATE_FACTOR)
+        for i, station in enumerate(getattr(result, "stations", ())):
+            row = [getattr(result, "case", ""), str(tail_span_gid(component, i)),
+                   format_value(station.y * scale), format_value(station.x * scale),
+                   u.load(station.fz, "force", sf), u.load(station.sz, "force", sf),
+                   u.load(station.mxx, "moment", sf), u.load(station.myy, "moment", sf)]
+            if axial:
+                row += [u.load(station.f_span, "force", sf),
+                        u.load(station.s_span, "force", sf)]
+            row += [getattr(result, "torsion_axis", "") or "--", format_value(sf)]
+            rows.append(row)
+    return Section("", body=[
+        f"Every {names['surface']} design condition at every station of its "
+        f"beam. The grid identifiers are the ones the exported deck uses, so a "
+        f"row here and the corresponding card in the deck are the same load. "
+        f"Spanwise position is measured as a {names['span_axis']} from the "
+        f"surface's root. All loads are LIMIT and state the factor their "
+        f"condition does not apply.",
+    ], tables=[Table(
+        title=f"{names['surface'].capitalize()} loads by station (LIMIT)",
+        columns=columns, rows=rows,
+        note=("Applied and carried quantities in one table: Fn is put on the "
+              "structure at that station, Sn, Mxx and Myy are what it carries "
+              "across it. The axis column names the reference the torsion is "
+              "stated about."))], page_break=True, landscape=True)
+
+
+def _htail_station_appendix(project: Project, *, system: UnitSystem,
+                            plan: Sequence[SectionPlan]) -> Section:
+    """Appendix D's content."""
+    return _tail_station_appendix(project, "htail", system=system, plan=plan)
+
+
+# --------------------------------------------------------------------------- #
 # Dispatch
 # --------------------------------------------------------------------------- #
 #: Step key -> the builder that produces its section body.
@@ -3327,6 +4026,8 @@ BUILDERS = {
     "flight_envelope": _envelope,
     "wing_loads": _wing_loads,
     "fuselage_loads": _fuselage_loads,
+    # A *split* section key, not a step key (OR-129).
+    "htail_loads": _htail_loads,
 }
 
 #: Appendix title -> the builder that produces its body.
@@ -3337,6 +4038,7 @@ BUILDERS = {
 APPENDIX_BUILDERS = {
     WING_LOAD_STATIONS: _station_appendix,
     BODY_LOAD_STATIONS: _body_station_appendix,
+    HTAIL_LOAD_STATIONS: _htail_station_appendix,
 }
 
 

@@ -554,7 +554,7 @@ def select_htail_balancing(project: Project,
         ], lt25=b.lt25, lt50=b.lt50,
             # The same locals as the loose LoadValues above (AS-6): screen and
             # structure cannot disagree.
-            alpha_tail_deg=b.at, delta_deg=b.delta)
+            alpha_tail_deg=b.at, delta_deg=b.delta, ti=ti)
 
     out: List[CriticalCondition] = []
     if retracted:
@@ -570,7 +570,8 @@ def _htail_condition(label: str, far: str, p: VnPoint, total_lt: float,
                      extra: List[LoadValue], lt25: Optional[float] = None,
                      lt50: Optional[float] = None,
                      alpha_tail_deg: Optional[float] = None,
-                     delta_deg: Optional[float] = None) -> CriticalCondition:
+                     delta_deg: Optional[float] = None,
+                     ti: Optional[TailLoadsInput] = None) -> CriticalCondition:
     """Build an htail :class:`CriticalCondition` whose first load is the total.
 
     ``lt25``/``lt50`` are the angle-of-attack (25% MAC) and camber (50% MAC) split
@@ -579,10 +580,27 @@ def _htail_condition(label: str, far: str, p: VnPoint, total_lt: float,
     ``alpha_tail_deg``/``delta_deg`` are the case's published aero state (note
     35, AS-2: the state the method actually used -- see
     :class:`CriticalCondition`); ``q_psf`` is stamped here from the governing
-    point itself, so no emitter can publish a q that is not its own point's."""
+    point itself, so no emitter can publish a q that is not its own point's.
+
+    **The elevator load is published here, once, for every condition** (note 44
+    §17 OR-132, admitted under OR-15 on 2026-09-06). It is
+    :func:`elevator_load` of the split this constructor already holds -- the
+    camber share aft of the hinge plus the angle-of-attack share -- so every
+    caller that states a split states the load its control surface carries, and
+    none of them states it a second way. Before this it was emitted at two of
+    nine call sites, so the report's critical-case table would have had a blank
+    control-surface column on seven rows for no reason the analysis could give.
+    Appended last rather than woven in, so the pre-existing loads keep their
+    order and the two conditions that already carried one keep its position.
+    """
+    loads = [LoadValue("Total tail load", total_lt, "lb", key="total_tail_load"), *extra]
+    if ti is not None and lt25 is not None and lt50 is not None \
+            and not any(v.key == "elevator_load" for v in loads):
+        loads.append(LoadValue("Elevator load", elevator_load(lt50, lt25, ti), "lb",
+                               key="elevator_load"))
     return CriticalCondition(
         component="htail", label=label, far_reference=far, case=p.case,
-        loads=[LoadValue("Total tail load", total_lt, "lb", key="total_tail_load"), *extra],
+        loads=loads,
         lt25=lt25, lt50=lt50, alpha_tail_deg=alpha_tail_deg, delta_deg=delta_deg,
         q_psf=dynamic_pressure_psf(p.v_eas_kt))
 
@@ -695,7 +713,7 @@ def select_htail_maneuver(project: Project,
             ], lt25=b.lt25, lt50=lt50,
                 # Trim AT plus the signed full throw (AS-2): the state the
                 # 23.423(a) method actually used.
-                alpha_tail_deg=b.at, delta_deg=sign * edefl))
+                alpha_tail_deg=b.at, delta_deg=sign * edefl, ti=ti))
 
     # Checked: pitch-acceleration increment T = Iyy*theta_ddot/(arm) at VC/VD.
     def iyy(p: VnPoint) -> float:
@@ -719,7 +737,7 @@ def select_htail_maneuver(project: Project,
             LoadValue("Pitch inertia Iyy", iyy(p), "slug-ft^2", key="pitch_inertia_iyy"),
             LoadValue("Unbalanced moment about CG", pitch_moment(p, -increment(p)),
                       "lb-in", key="unbalanced_moment_about_cg")],
-            lt25=b.lt25 - increment(p), lt50=b.lt50,
+            lt25=b.lt25 - increment(p), lt50=b.lt50, ti=ti,
             # Trim AT only; delta_deg stays None -- the 23.423(b) increment is
             # the pitching-acceleration inertia term, no delta in the method
             # (AS-2/AS-4; the display states the reason).
@@ -733,7 +751,7 @@ def select_htail_maneuver(project: Project,
             LoadValue("Pitch inertia Iyy", iyy(p), "slug-ft^2", key="pitch_inertia_iyy"),
             LoadValue("Unbalanced moment about CG", pitch_moment(p, increment(p)),
                       "lb-in", key="unbalanced_moment_about_cg")],
-            lt25=b.lt25 + increment(p), lt50=b.lt50, alpha_tail_deg=b.at))
+            lt25=b.lt25 + increment(p), lt50=b.lt50, alpha_tail_deg=b.at, ti=ti))
     return out
 
 
@@ -783,7 +801,7 @@ def select_htail_gust(project: Project,
         LoadValue("Balanced tail load", b.lt, "lb", key="balanced_tail_load"),
         LoadValue("Gust increment (cp 25%)", gust_increment(up), "lb", key="gust_increment_cp_25_pct")],
         lt25=b.lt25 + gust_increment(up), lt50=b.lt50,
-        alpha_tail_deg=b.at, delta_deg=b.delta))
+        alpha_tail_deg=b.at, delta_deg=b.delta, ti=ti))
     dn = extreme(bal_cd, lambda p: bal_lt(p) - gust_increment(p), largest=False)
     b = bal_full(dn)
     out.append(_htail_condition("GUST DN RETRACTED", "23.425(a)(1)", dn,
@@ -791,7 +809,7 @@ def select_htail_gust(project: Project,
         LoadValue("Balanced tail load", b.lt, "lb", key="balanced_tail_load"),
         LoadValue("Gust increment (cp 25%)", -gust_increment(dn), "lb", key="gust_increment_cp_25_pct")],
         lt25=b.lt25 - gust_increment(dn), lt50=b.lt50,
-        alpha_tail_deg=b.at, delta_deg=b.delta))
+        alpha_tail_deg=b.at, delta_deg=b.delta, ti=ti))
 
     # Flaps extended (FAR 23.425(a)(2)): the BAL VF points with a 25 fps gust at
     # sea-level density (FLTLOADS.BAS 5700-5910).
@@ -811,7 +829,7 @@ def select_htail_gust(project: Project,
             LoadValue("Balanced tail load", b.lt, "lb", key="balanced_tail_load"),
             LoadValue("Gust increment (cp 25%)", flap_gust_increment(up), "lb", key="gust_increment_cp_25_pct")],
             lt25=b.lt25 + flap_gust_increment(up), lt50=b.lt50,
-        alpha_tail_deg=b.at, delta_deg=b.delta))
+        alpha_tail_deg=b.at, delta_deg=b.delta, ti=ti))
         dn = extreme(bal_vf, lambda p: bal_lt(p) - flap_gust_increment(p), largest=False)
         b = bal_full(dn)
         out.append(_htail_condition("GUST DN EXTENDED", "23.425(a)(2)", dn,
@@ -819,7 +837,7 @@ def select_htail_gust(project: Project,
             LoadValue("Balanced tail load", b.lt, "lb", key="balanced_tail_load"),
             LoadValue("Gust increment (cp 25%)", -flap_gust_increment(dn), "lb", key="gust_increment_cp_25_pct")],
             lt25=b.lt25 - flap_gust_increment(dn), lt50=b.lt50,
-        alpha_tail_deg=b.at, delta_deg=b.delta))
+        alpha_tail_deg=b.at, delta_deg=b.delta, ti=ti))
     return out
 
 
@@ -837,7 +855,9 @@ _UNSYMMETRICAL_DEVIATION_NOTE = (
 )
 
 
-def select_htail_unsymmetrical(htail: List[CriticalCondition], np_: float) -> List[CriticalCondition]:
+def select_htail_unsymmetrical(htail: List[CriticalCondition], np_: float,
+                               ti: Optional[TailLoadsInput] = None,
+                               ) -> List[CriticalCondition]:
     """The unsymmetrical horizontal-tail load (FAR 23.427(a)): the largest-magnitude
     symmetric tail load, 100% on one side and 100 - 10*(n-1) percent on the other.
 
@@ -873,12 +893,25 @@ def select_htail_unsymmetrical(htail: List[CriticalCondition], np_: float) -> Li
     lh = (pc / 100.0) * rh
     # The chordwise distribution (cond 13) uses the worst symmetric condition's
     # LT25/LT50 split (the unsymmetrical case is the same chordwise shape).
+    # The elevator load, scaled the way the total is (note 44 §17 OR-132, owner
+    # 2026-09-06). ``lt25``/``lt50`` here are the *governing* condition's, carried
+    # unscaled because the chordwise shape is the same one; the case's own total
+    # is ``0.5*(1 + pc/100)`` of the governing total, and the elevator's share of
+    # a distribution scales with the distribution. Published **beside the RH/LH
+    # split and never apart from it**: alone, an elevator load on an
+    # unsymmetrical case reads as one surface's load, when the case's whole
+    # content is that the two sides differ.
+    loads = [LoadValue("Total tail load", rh + lh, "lb", key="total_tail_load"),
+             LoadValue("RH side load", rh, "lb", key="rh_side_load"),
+             LoadValue("LH side load", lh, "lb", key="lh_side_load"),
+             LoadValue("Other-side percent", pc, "%", key="other_side_percent")]
+    if ti is not None and worst.lt25 is not None and worst.lt50 is not None and total:
+        loads.append(LoadValue(
+            "Elevator load", elevator_load(worst.lt50, worst.lt25, ti) * (rh + lh) / total,
+            "lb", key="elevator_load"))
     return [CriticalCondition(
         component="htail", label="UNSYMMETRICAL", far_reference="23.427(a)", case=worst.case,
-        loads=[LoadValue("Total tail load", rh + lh, "lb", key="total_tail_load"),
-               LoadValue("RH side load", rh, "lb", key="rh_side_load"),
-               LoadValue("LH side load", lh, "lb", key="lh_side_load"),
-               LoadValue("Other-side percent", pc, "%", key="other_side_percent")],
+        loads=loads,
         lt25=worst.lt25, lt50=worst.lt50, note=_UNSYMMETRICAL_DEVIATION_NOTE,
         # The aero state is the governing source condition's, copied -- the
         # unsymmetrical case is the same state distributed asymmetrically (AS-2).
@@ -895,7 +928,8 @@ def select_htail(project: Project, envelope: Optional[EnvelopeResult] = None) ->
     out = select_htail_balancing(project, envelope)
     out.extend(select_htail_maneuver(project, envelope))
     out.extend(select_htail_gust(project, envelope))
-    out.extend(select_htail_unsymmetrical(out, design_inputs(project).n_pos))
+    out.extend(select_htail_unsymmetrical(out, design_inputs(project).n_pos,
+                                          effective_tail_inputs(project)))
     return out
 
 
@@ -1082,10 +1116,19 @@ def select_vtail(project: Project, envelope: Optional[EnvelopeResult] = None) ->
 
     # 3. Yaw 15 deg, rudder neutral (FAR 23.441(a)(3)) -- largest down.
     p3 = extreme(bal_a, lambda p: _vt_aoa_load(-15.0, p, vt), largest=False)
+    # The rudder is neutral here, so the load it carries is the aft-of-hinge
+    # share of the fin's angle-of-attack load alone -- ``rudder_load_parts``'s
+    # own second term, asked of the one owner rather than spelled again
+    # (note 44 §17 OR-132). Published on every fin condition for the reason the
+    # elevator load is published on every h-tail one: a critical-case table with
+    # a blank control-surface column states nothing the analysis cannot supply.
     out.append(CriticalCondition(
         component="vtail", label="YAW 15 NEUTRAL", far_reference="23.441(a)(3)", case=p3.case,
         loads=[LoadValue("Total tail load (cp 25%)", _vt_aoa_load(-15.0, p3, vt), "lb",
-            key="total_tail_load_cp_25_pct")],
+            key="total_tail_load_cp_25_pct"),
+               LoadValue("Load on rudder",
+                         math.fsum(rudder_load_parts(0.0, _vt_aoa_load(-15.0, p3, vt), vt)),
+                         "lb", key="load_on_rudder")],
         lt25=_vt_aoa_load(-15.0, p3, vt), lt50=0.0,
         beta_deg=15.0, cy_beta_fin=cy_fin, cn_beta_fin=cn_fin,
         alpha_tail_deg=-15.0, delta_deg=0.0,
@@ -1098,7 +1141,15 @@ def select_vtail(project: Project, envelope: Optional[EnvelopeResult] = None) ->
         component="vtail", label="SIDE GUST", far_reference="23.443(b)", case=p4.case,
         loads=[LoadValue("Total tail load (cp 25%)", gust_load, "lb",
             key="total_tail_load_cp_25_pct"),
-               LoadValue("Yaw inertia IZZ", izz, "slug-ft^2", key="yaw_inertia_izz")],
+               LoadValue("Yaw inertia IZZ", izz, "slug-ft^2", key="yaw_inertia_izz"),
+               # Rudder neutral in a gust, so the same angle-of-attack share the
+               # yaw-15 case carries (OR-132). Appended after the pre-existing
+               # values rather than beside the load it belongs with, so the
+               # publication stays strictly additive and no shipped CSV column
+               # changes position -- OR-13 admits additive, and a reorder is not.
+               LoadValue("Load on rudder",
+                         math.fsum(rudder_load_parts(0.0, gust_load, vt)),
+                         "lb", key="load_on_rudder")],
         lt25=gust_load, lt50=0.0,
         beta_deg=gust_beta, cy_beta_fin=cy_fin, cn_beta_fin=cn_fin,
         # The effective gust AoA on the fin, -beta in the SC-1 hand -- the very

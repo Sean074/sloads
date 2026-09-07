@@ -75,21 +75,54 @@ def _flat(sections):
     return out
 
 
+def _section_keys(steps):
+    """Every *section* key the plan will carry, splits expanded (OR-129)."""
+    out = []
+    for step in steps:
+        splits = oc.splits_for(step.key)
+        out.extend([s.key for s in splits] if splits else [step.key])
+    return out
+
+
 # --------------------------------------------------------------------------- #
 # G-OR-2 -- the section set is derived, both directions
 # --------------------------------------------------------------------------- #
-def test_every_result_producing_oracle_step_has_exactly_one_section():
-    """G-OR-2, and it holds from the first commit rather than the last.
+def test_every_result_producing_oracle_step_is_covered_exactly_once():
+    """G-OR-2 as amended by OR-129: one step, one declared *partition*.
 
-    That is what OR-32's third state buys: a section with no builder still
-    *exists*, saying it is not implemented, so the derivation can be asserted now
-    instead of after the final iteration.
+    The original rule was one step, one section, asserted as list equality
+    against ``oracle_steps()``. ``tail_loads`` broke it: TAILDIST publishes
+    conditions for the horizontal and the vertical surface, and OR-128 prints
+    them as two sections because an analyst reads by surface. So the rule
+    becomes coverage rather than identity -- every result-producing step is
+    covered by exactly one partition of sections, in workflow order -- and it is
+    still asserted in both directions, which is the half that matters.
+
+    It holds from the first commit rather than the last, which is what OR-32's
+    third state buys: a section with no builder still *exists*, saying it is not
+    implemented.
     """
     plan = oc.section_plan(io.load_project(_GA), _spec())
     keys = [entry.step_key for entry in plan if entry.step_key]
-    expected = [step.key for step in wf.oracle_steps() if step.module]
+    assert len(keys) == len(set(keys)), "a section key is used twice"
+
+    # Forward: every step maps to at least one section, splits expanded in place.
+    expected = []
+    for step in wf.oracle_steps():
+        if not step.module:
+            continue
+        splits = oc.splits_for(step.key)
+        expected.extend([s.key for s in splits] if splits else [step.key])
     assert keys == expected, "the analysis body is not oracle_steps() in order"
-    assert len(keys) == len(set(keys)), "a step has more than one section"
+
+    # Backward: every section names a step that exists, and a split step is
+    # never *also* printed as a section of its own.
+    step_keys = {s.key for s in wf.oracle_steps() if s.module}
+    for key in keys:
+        split = oc.split_for(key)
+        assert (split.step_key if split else key) in step_keys, key
+        if split is None:
+            assert not oc.splits_for(key), f"{key} is split and printed whole"
 
 
 def test_an_input_only_step_gets_no_analysis_section():
@@ -218,7 +251,10 @@ def test_deselection_is_decided_before_every_other_state():
     and it mattered then because an excluded section still appeared.
     """
     steps = oc.analysis_steps()
-    spec = _spec(excluded_steps=tuple(s.key for s in steps))
+    # Sections are deselected by *section* key, which for a split step is the
+    # split's and not the step's (OR-129) -- so an analyst can drop the vertical
+    # tail and keep the horizontal one.
+    spec = _spec(excluded_steps=tuple(_section_keys(steps)))
     # Every state's cause is present at once: nothing implemented, no inputs,
     # and everything deselected.
     plan = oc.section_plan(Project(name="barely started"), spec)
@@ -234,7 +270,8 @@ def test_among_printed_sections_not_implemented_outranks_absence():
     missing. Once every section is implemented this ordering stops mattering,
     which is the point at which ABSENT is the only one left."""
     step = next(s for s in oc.analysis_steps()
-                if s.requires and s.key not in oc.IMPLEMENTED)
+                if s.requires and not oc.splits_for(s.key)
+                and s.key not in oc.IMPLEMENTED)
     empty = Project(name="empty")
     unbuilt = oc.section_plan(empty, _spec())
     assert next(e for e in unbuilt if e.step_key == step.key).state \
@@ -328,7 +365,7 @@ def test_a_half_filled_project_yields_a_complete_document():
     assert [s.title for s in doc.sections[-len(oc.APPENDICES):]] == [
         oc.appendix_heading(a.title) for a in oc.APPENDICES]
     body = [e for e in doc.plan if e.step_key]
-    assert len(body) == len([s for s in wf.oracle_steps() if s.module])
+    assert len(body) == len(_section_keys(oc.analysis_steps()))
     assert all(e.reason for e in body), "a gap with no reason is a silent gap"
     assert ol.render_oracle_document(doc)
 
@@ -914,11 +951,16 @@ def test_every_analysis_step_has_a_document_title_of_its_own():
     document coupled to a name that exists for a different audience, and renaming
     the nav item would then retitle a report that has already been signed.
     """
+    titled = set(oc.DOCUMENT_TITLES) | {s.step_key for s in oc.SECTION_SPLITS}
     keys = {step.key for step in oc.analysis_steps()}
-    assert set(oc.DOCUMENT_TITLES) == keys, (
-        "DOCUMENT_TITLES and the analysis steps disagree: "
-        f"{set(oc.DOCUMENT_TITLES) ^ keys}")
+    assert titled == keys, (
+        "the document titles and the analysis steps disagree: "
+        f"{titled ^ keys}")
+    # A split step takes its headings from its splits and must not also carry a
+    # step-level title, which nothing would print (OR-129).
+    assert not (set(oc.DOCUMENT_TITLES) & {s.step_key for s in oc.SECTION_SPLITS})
     assert all(title.strip() for title in oc.DOCUMENT_TITLES.values())
+    assert all(split.title.strip() for split in oc.SECTION_SPLITS)
 
 
 def test_every_group_member_is_a_step_and_the_members_are_contiguous():

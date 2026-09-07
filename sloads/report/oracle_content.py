@@ -44,6 +44,10 @@ from .content import Section
 IMPLEMENTED: FrozenSet[str] = frozenset({
     "configuration_layout", "weight_mass", "structural_speeds",
     "flight_envelope", "wing_loads", "fuselage_loads",
+    # Section 5. A *split* section key, not a step key (OR-129): ``tail_loads``
+    # fans out into the horizontal and vertical tail, and the vertical half
+    # ("vtail_loads") joins this set when Section 6 is built.
+    "htail_loads",
 })
 
 #: The document's fixed front matter, in order, ahead of the analysis body.
@@ -66,7 +70,10 @@ DOCUMENT_TITLES = {
     "flight_envelope": "Flight Envelope",
     "wing_loads": "Wing Loads",
     "fuselage_loads": "Fuselage Loads",
-    "tail_loads": "Tail Loads",
+    # ``tail_loads`` is absent deliberately: it is a *split* step (OR-129) and
+    # its two sections take their headings from :data:`SECTION_SPLITS`, which is
+    # where a reader of this table should be sent rather than to a third title
+    # that nothing prints. The guard covers both tables together.
     "aileron_loads": "Aileron Loads",
     "flap_loads": "Flap Loads",
     "tab_loads": "Tab Loads",
@@ -110,6 +117,82 @@ WING_LOAD_STATIONS = "Wing loads by station"
 
 #: The appendix carrying the fuselage loads station by station (OR-101).
 BODY_LOAD_STATIONS = "Fuselage loads by station"
+
+#: The appendix carrying the horizontal tail's spanwise loads (OR-130a/OR-136).
+HTAIL_LOAD_STATIONS = "Horizontal tail loads by station"
+
+#: The appendix carrying the vertical tail's spanwise loads (OR-130a/OR-136).
+VTAIL_LOAD_STATIONS = "Vertical tail loads by station"
+
+
+@dataclass(frozen=True)
+class SectionSplit:
+    """One section of a step that fans out into several, by component (OR-129).
+
+    G-OR-2's original rule was *one result-producing step, one analysis section*.
+    The tail breaks it: ``tail_loads`` (TAILDIST) publishes conditions for the
+    horizontal **and** the vertical surface, and OR-128 prints them as two
+    sections, because an analyst reads by surface -- the horizontal tail's
+    totals, its chordwise profile and its span loads are one story and the
+    vertical tail's are another.
+
+    The rule becomes *one step, one declared partition of sections*, with
+    ``component`` the partition key -- already a field on ``TailChordResult`` and
+    ``TailSpanResult``, so no new concept enters the analysis to serve the
+    report. The gate that replaces the positional one is stronger than counting:
+    every published condition must land in **exactly one** section, so a
+    condition that lands in none, or in two, fails the suite (G-OR-81).
+
+    ``requires`` names the ``Project`` slices this component needs, so a project
+    with a horizontal tail and no vertical one gets one built section and one
+    ``ABSENT`` section rather than a section of empty tables.
+    """
+
+    key: str
+    title: str
+    step_key: str
+    component: str
+    requires: Tuple[str, ...] = ()
+
+
+#: The declared partitions, in printed order (OR-128).
+#:
+#: Data rather than a branch in :func:`section_plan`, for the reason
+#: :data:`SECTION_GROUPS` is: the guard tests read the same table the builder
+#: does. A step named here is consumed by its splits and never printed as a
+#: section of its own.
+SECTION_SPLITS: Tuple[SectionSplit, ...] = (
+    SectionSplit(key="htail_loads", title="Horizontal Tail and Elevator Loads",
+                 step_key="tail_loads", component="htail",
+                 requires=("tail_loads",)),
+    SectionSplit(key="vtail_loads", title="Vertical Tail and Rudder Loads",
+                 step_key="tail_loads", component="vtail",
+                 requires=("vtail_loads",)),
+)
+
+
+def splits_for(step_key: str) -> Tuple[SectionSplit, ...]:
+    """The splits ``step_key`` fans out into, or ``()`` for an ordinary step."""
+    return tuple(s for s in SECTION_SPLITS if s.step_key == step_key)
+
+
+def split_for(section_key: str) -> Optional[SectionSplit]:
+    """The :class:`SectionSplit` a section key names, or ``None``."""
+    return next((s for s in SECTION_SPLITS if s.key == section_key), None)
+
+
+def step_is_implemented(step_key: str, implemented: FrozenSet[str]) -> bool:
+    """Whether anything built from ``step_key`` is implemented.
+
+    A split step is implemented when **any** of its sections is, because the
+    module has to run for that section to have results -- which is what lets
+    Section 5 ship before Section 6 without the horizontal tail waiting on the
+    vertical one.
+    """
+    splits = splits_for(step_key)
+    if splits:
+        return any(split.key in implemented for split in splits)
+    return step_key in implemented
 
 #: The lead paragraphs a group prints under its own heading, before its
 #: subsections. Keyed by :attr:`SectionGroup.key`.
@@ -305,6 +388,8 @@ APPENDICES: Tuple[Appendix, ...] = (
     Appendix(INPUT_ECHO),
     Appendix(WING_LOAD_STATIONS, step_key="wing_loads", built=True),
     Appendix(BODY_LOAD_STATIONS, step_key="fuselage_loads", built=True),
+    Appendix(HTAIL_LOAD_STATIONS, step_key="htail_loads", built=True),
+    Appendix(VTAIL_LOAD_STATIONS, step_key="vtail_loads"),
 )
 
 
@@ -432,6 +517,40 @@ def _plan_row(project: Project, spec: ReportSpec, step: wf.WorkflowStep,
         selected=selected, inputs_present=present)
 
 
+def _split_row(project: Project, spec: ReportSpec, step: wf.WorkflowStep,
+               split: SectionSplit, implemented: FrozenSet[str],
+               results: Optional[Mapping[str, Optional[ModuleResult]]] = None,
+               ) -> SectionPlan:
+    """One split section's row (OR-129), on the same states as an ordinary step.
+
+    ``present`` is the step's own slice test **and** the component's: a project
+    that enters a horizontal tail and no vertical one has the inputs for one
+    section and not the other, and saying so is the difference between an
+    ``ABSENT`` section and a section of empty tables (OR-5, absence-is-content).
+    Selection is keyed by the *section*, not the step, so an analyst can
+    deselect the vertical tail and keep the horizontal one.
+    """
+    selected = split.key not in spec.excluded_steps
+    present = (_inputs_present(project, step)
+               and all(getattr(project, attr, None) is not None
+                       for attr in split.requires))
+    produced = present if results is None else (
+        present and results.get(split.step_key) is not None)
+    if not selected:
+        state = SectionState.EXCLUDED
+    elif split.key not in implemented:
+        state = SectionState.NOT_IMPLEMENTED
+    elif not produced:
+        state = SectionState.ABSENT
+    else:
+        state = SectionState.INCLUDED
+    return SectionPlan(
+        step_key=split.key, number="", title=split.title, state=state,
+        reason=STATE_REASON.get(state, ""),
+        lead=STATE_TEXT.get(state, ("", ""))[0],
+        selected=selected, inputs_present=present)
+
+
 def run_sections(project: Project, spec: ReportSpec, *,
                  implemented: FrozenSet[str] = IMPLEMENTED,
                  ) -> Dict[str, Optional[ModuleResult]]:
@@ -460,7 +579,16 @@ def run_sections(project: Project, spec: ReportSpec, *,
 
     results: Dict[str, Optional[ModuleResult]] = {}
     for step in analysis_steps():
-        if step.key not in implemented or step.key in spec.excluded_steps:
+        # A split step runs when *any* of its sections is implemented and
+        # selected (OR-129), which is what lets Section 5 ship while Section 6 is
+        # still a placeholder without the horizontal tail waiting on it.
+        splits = splits_for(step.key)
+        if splits:
+            live = [s for s in splits
+                    if s.key in implemented and s.key not in spec.excluded_steps]
+            if not live:
+                continue
+        elif step.key not in implemented or step.key in spec.excluded_steps:
             continue
         if not step.module or not _inputs_present(project, step):
             results[step.key] = None
@@ -502,6 +630,21 @@ def section_plan(project: Project, spec: ReportSpec, *,
     index = 0
     while index < len(steps):
         step = steps[index]
+        splits = splits_for(step.key)
+        if splits:
+            # A split step prints one numbered section per declared component
+            # and never a section of its own (OR-129). Ordinary numbering: each
+            # section that renders takes the next number, so a deselected or
+            # not-yet-built half leaves no gap and moves nothing below it.
+            for split in splits:
+                row = _split_row(project, spec, step, split, implemented, results)
+                number = ""
+                if row.state is not SectionState.EXCLUDED:
+                    number = section_number(printed)
+                    printed += 1
+                plan.append(replace(row, number=number))
+            index += 1
+            continue
         group = group_for(step.key)
         if group is None:
             row = _plan_row(project, spec, step, implemented, results)
@@ -786,17 +929,21 @@ __all__ = [
     "DOCUMENT_TITLES",
     "FRONT_SECTIONS",
     "GROUP_PROSE",
+    "HTAIL_LOAD_STATIONS",
     "IMPLEMENTED",
     "INPUT_ECHO",
     "NOT_CARRIED",
     "SECTION_GROUPS",
+    "SECTION_SPLITS",
     "STATE_REASON",
     "STATE_TEXT",
+    "VTAIL_LOAD_STATIONS",
     "WING_LOAD_STATIONS",
     "Appendix",
     "OracleDocument",
     "SectionGroup",
     "SectionPlan",
+    "SectionSplit",
     "SectionState",
     "analysis_steps",
     "appendix_heading",
@@ -815,6 +962,8 @@ __all__ = [
     "section_plan",
     "section_ref",
     "see_appendix",
+    "split_for",
+    "splits_for",
     "subsection_number",
     "subsection_ref",
 ]
