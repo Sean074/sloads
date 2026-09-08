@@ -1043,49 +1043,87 @@ if __name__ == "__main__":
     sys.exit(1 if failed else 0)
 
 
-def test_no_export_csv_carries_an_already_ultimate_case():
-    """The guard `_load_label` rests on (note 49 OR-116/OR-118/OR-118a).
+def test_a_mixed_basis_csv_keeps_a_plain_header_and_an_all_ultimate_one_is_marked():
+    """OR-118a's per-table rule, now that a mixed table exists (note 44 §21).
 
-    Export load columns carry plain units because LIMIT is the only basis and
-    the two already-ultimate families -- ``engine_ultimate`` (23.367(a)(2)) and
-    ``emergency`` (23.561(b)) -- do not reach these per-component CSVs. That is
-    a fact about the current result set, not a law, so it is asserted rather
-    than assumed: the day a component result arrives at ``SF = 1.0``, this
-    fails and OR-118a's per-table marking has to be threaded through the
-    ``_*_fields(u)`` helpers before the column can be trusted.
+    This test used to assert the *fact* that no already-ultimate case reached a
+    per-component CSV, and said in as many words that it was a fact about the
+    result set rather than a law -- so that the day one arrived, the guard would
+    fail rather than a plain column heading quietly under-stating the basis.
+    OR-172 admitted 23.367 to the fin's critical set and that day came: the
+    23.367(a)(2) case is ``engine_ultimate`` at SF 1.0 and now sits in the
+    v-tail chordwise and spanwise files beside five LIMIT ones.
+
+    What replaces it is the rule itself, in both directions. A **mixed** file
+    keeps plain load columns and carries the distinction in its per-row ``SF``
+    cell, because a heading that claimed ``-ULT`` would over-state every limit
+    row and one that claimed LIMIT would invite a reader to factor a load that
+    is already factored. An **all-ultimate** file is marked. The basis is
+    :func:`sloads.safety_factors.shared_basis_factor`, which is the single owner
+    both the document and the export read.
     """
+    import dataclasses
     import glob
     import os
 
+    from sloads.export.sbeam_bridge import tail_chordwise_csv
     from sloads.io import load_project
-    from sloads.modules.body_loads import build_body_loads
-    from sloads.modules.net_loads import build_net_loads
     from sloads.modules.taildist import build_tail_chordwise
+    from sloads.safety_factors import shared_basis_factor
 
-    def _results(builder, project):
-        """Every per-case result a builder yields, however it packages them."""
-        out = builder(project)
-        if isinstance(out, list):
-            return [("", r) for r in out]
-        # ``build_net_loads`` returns a LoadsResult bundle of named lists.
-        return [(f.name, r) for f in dataclasses.fields(out)
-                for r in (getattr(out, f.name) or [])]
+    def _header_marked(text):
+        return "-ULT" in text.splitlines()[0]
 
-    import dataclasses
-
-    offenders = []
+    saw_mixed = False
     for path in sorted(glob.glob(os.path.join(_EXAMPLES, "*.project.json"))):
         project = load_project(path)
-        for builder in (build_net_loads, build_body_loads, build_tail_chordwise):
-            try:
-                found = _results(builder, project)
-            except Exception:
-                continue
-            for slot, r in found:
-                if getattr(r, "safety_factor", None) == 1.0:
-                    offenders.append(
-                        f"{os.path.basename(path)}: {builder.__name__}"
-                        f"{'.' + slot if slot else ''} {getattr(r, 'case', '?')}")
-    assert not offenders, (
-        "an export result is already ultimate, so its CSV column must carry "
-        "the -ULT marker (OR-118a): " + "; ".join(offenders))
+        try:
+            results = build_tail_chordwise(project)
+        except Exception:
+            continue
+        if not results:
+            continue
+        factors = {r.safety_factor for r in results}
+        text = tail_chordwise_csv(results)
+        if len(factors) > 1:
+            saw_mixed = True
+            assert not _header_marked(text), (
+                f"{os.path.basename(path)}: a table mixing "
+                f"{sorted(factors)} must keep a plain header (OR-118a)")
+            assert shared_basis_factor(results) is None
+            # ...and the distinction has to be somewhere, so it is in the rows.
+            assert any(row.strip().endswith(",1.0")
+                       for row in text.splitlines()), (
+                f"{os.path.basename(path)}: the already-ultimate row states no "
+                f"SF of 1.0, so the mixed file states its basis nowhere")
+        elif factors == {1.0}:
+            assert _header_marked(text), (
+                f"{os.path.basename(path)}: every row is already ultimate, so "
+                f"the load columns must carry -ULT (OR-118)")
+
+    assert saw_mixed, (
+        "no shipped example produces a mixed-basis tail file any more. Either "
+        "23.367 has left the fin's critical set (note 44 OR-172) or the "
+        "fixtures have changed; this rule then has no live demonstration and "
+        "the reason it exists has to be re-established, not deleted.")
+
+
+def test_the_shared_basis_owner_is_asked_by_both_deliverables():
+    """One owner for OR-118a, read by the document and by the export (rule 3).
+
+    The rule was written twice -- once in ``report.render._table_sf``, once as
+    an assumption in ``export.sbeam_bridge._load_label`` -- which is how a mixed
+    table became expressible in one deliverable and unthinkable in the other.
+    """
+    from sloads.report.render import _table_sf
+    from sloads.safety_factors import shared_basis_factor
+
+    class _R:
+        def __init__(self, sf):
+            self.safety_factor = sf
+
+    for case in ([], [_R(1.5)], [_R(1.0)], [_R(1.0), _R(1.5)], [_R(1.0), _R(1.0)]):
+        assert _table_sf(case) == shared_basis_factor(case)
+    assert shared_basis_factor([_R(1.0), _R(1.0)]) == 1.0
+    assert shared_basis_factor([_R(1.0), _R(1.5)]) is None
+    assert shared_basis_factor([]) is None

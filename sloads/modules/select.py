@@ -53,6 +53,7 @@ CG3, 12000 ft), ACRL AC ROLL (+1.328, 116, CG2, 12000 ft), TORS ST ROL C
 from __future__ import annotations
 
 import math
+from dataclasses import replace
 from typing import Dict, List, NamedTuple, Optional, Tuple
 
 from ..case_ids import WING_BAND_EXTRA, WING_SLOTS, CaseIdAllocator, wing_case_id
@@ -181,8 +182,53 @@ def default_critical(project: Project,
     Raises :class:`MissingInputError` when no V-n matrix can be obtained at all.
     """
     if project.envelope is not None and project.envelope.critical is not None:
-        return project.envelope.critical
-    return build_critical(project, envelope)
+        return _with_engine_failure(project, project.envelope.critical)
+    return _with_engine_failure(project, build_critical(project, envelope))
+
+
+#: Label prefix every 23.367 fin condition carries, and the identity this module
+#: de-duplicates on. A literal shared with nothing: the conditions are minted by
+#: ``one_engine_out.fin_conditions`` and only recognised here.
+_ENGINE_FAILURE_PREFIX = "ONE ENGINE OUT"
+
+
+def _with_engine_failure(project: Project, critical: CriticalLoadSet) -> CriticalLoadSet:
+    """``critical`` plus the 23.367 fin conditions (note 44 OR-172).
+
+    **Why this is here.** The one-engine-out case is the *governing* fin load on
+    every twin in the fixture set -- measured 2026-09-07, LIMIT against LIMIT:
+    1.6x ``baron_58``'s largest SELECT case, 2.6x ``atr42_100``'s, 3.3x
+    ``dhc8_dash8``'s -- and it reached no envelope, no distribution, no appendix
+    and no deck. Every consumer of the critical set already comes through this
+    function (M2R-8, review F-C6), so admitting the conditions here is what lets
+    Section 6, the chordwise and spanwise distributions, Appendix E and the
+    exported v-tail deck pick them up with no change to any of them.
+
+    **Idempotent**, because ``default_critical`` serves a persisted set as
+    readily as a computed one and a project saved after a run carries these rows
+    already. Adding them twice would double the fin's cases and leave the second
+    copy's IDs colliding with the first's.
+
+    **Silent on refusal, by design.** An airplane with one engine, a centreline
+    engine, a turbofan installation or no ``one_engine_out`` slice has no 23.367
+    condition to add, and the *statement* of that belongs to
+    ``applicability.engine_failure_not_applicable`` -- which the report reads
+    directly (OR-178) and the module raises on. A selection helper that crashed
+    the whole fin set over an absent optional condition would take Section 6 down
+    with it.
+    """
+    from .one_engine_out import fin_conditions
+
+    if any(c.label.startswith(_ENGINE_FAILURE_PREFIX)
+           for c in critical.conditions):
+        return critical
+    try:
+        extra = fin_conditions(project)
+    except (MissingInputError, ValueError, ZeroDivisionError, KeyError, IndexError):
+        return critical
+    if not extra:
+        return critical
+    return replace(critical, conditions=list(critical.conditions) + list(extra))
 
 
 def vn_points(project: Project) -> List[VnPoint]:
@@ -467,7 +513,6 @@ def effective_tail_inputs(project: Project) -> Optional[TailLoadsInput]:
     if (arw == ti.aspect_ratio_wing and aw == ti.wing_lift_slope_per_rad
             and se == ti.elevator_area_sqft):
         return ti
-    from dataclasses import replace
     return replace(ti, aspect_ratio_wing=arw, wing_lift_slope_per_rad=aw,
                    elevator_area_sqft=se)
 
@@ -491,7 +536,6 @@ def effective_vtail_inputs(project: Project) -> Optional[VTailLoadsInput]:
     span = vt.wing_span_in or (wing_span_in(project) or 0.0)
     if sr == vt.rudder_area_sqft and span == vt.wing_span_in:
         return vt
-    from dataclasses import replace
     return replace(vt, rudder_area_sqft=sr, wing_span_in=span)
 
 

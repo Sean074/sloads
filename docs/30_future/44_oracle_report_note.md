@@ -1575,3 +1575,137 @@ in the **oracle's** convention, which is the thing OR-160 has to be explicit abo
   writes a `FORCE`/`MOMENT` at them for a 23.361 condition. Section 10 delivers
   the six components a deck would need, which is what makes this the point at
   which the gap is worth stating.
+
+## 21. Iteration 8 — Section 11, One Engine Inoperative (OR-171 … OR-182)
+
+**Status: AGREED 2026-09-07 (owner, in session).** Drafted from the owner's
+answers to six questions — *"Q1 add the yaw transient section. Q2 all 6. Q3 this
+is a good question, should these loads go in the v-tail section and be added to
+the envelope for the v-tail? and the distributed load in the v-tail appendix? Q5
+unrecoverable statement, these would then need to be checked with stability and
+control team to assess if it correct. Q6 does the baron not provide sufficient
+coverage? currently the t-tail configuration of the ATR is not fully implemented,
+but when it is it should be added to the document full shipped set"* — and from
+the five that followed: *"A. Let's keep it Section 11, can we add the distributed
+tail loads to the same appendix? B. Mark the plot to indicate this case is SF 1.0.
+(In a later milestone this is the reason I want to do all down select at ultimate
+and convert all delivered loads to ultimate.) C. Uncontrollable cases DO NOT enter
+the envelope. D. For single engine airplanes make a note 'These cases are not
+applicable.' You can provide additional details of the regulations. E. So long as
+it results in the peak total load this is acceptable."*
+
+*Measurements taken 2026-09-07 against `examples/baron_58.project.json`,
+`examples/atr42_100.project.json`, `examples/dhc8_dash8.project.json` and
+`examples/ga6_normal.project.json`, and quoted where they carry a decision.*
+
+**What the module already produces.** `ONENGOUT.BAS` / `modules/one_engine_out.py`
+is the suite's only **time-marching** analysis: an Euler integration of the yaw
+transient that follows an engine failure, from the failure through the 23.367(b)
+two-second delay, the rudder ramp and the recovery. It returns one
+`ConditionResult` per speed case — 23.367(a)(2) at VC classified **ULTIMATE**
+(SF 1.0), 23.367(a)(1) at VD LIMIT, and the VS floor where VS is substituted for
+VMC — each carrying engine thrust, windmill drag, maximum yawing velocity, the
+**maximum tail load**, its 25 %/50 % MAC split at the peak, and the time to
+recovery. The case IDs are `VT-30…`, ONENGOUT's own disjoint band (M4-2
+decision 5).
+
+**The finding that reorganised this iteration.** Section 11 was scoped as a report
+section. Measuring its loads against Section 6's showed it could not be one.
+
+| Airplane | Largest SELECT fin case (LIMIT) | 23.367 at VD (LIMIT) | Ratio |
+|---|---|---|---|
+| `baron_58` | 1357.2 lb (YAW 15 NEUTRAL) | **2155.8 lb** | 1.6× |
+| `atr42_100` | 4878.1 lb (YAW 15 NEUTRAL) | **12 829.3 lb** | 2.6× |
+| `dhc8_dash8` | 4527.1 lb (SIDE GUST) | **14 780.8 lb** | 3.3× |
+
+On every twin in the fixture set the one-engine-out case is the **governing** fin
+load, by up to 3.3×, and the fin is sized without it: 23.367 is not in Section 6's
+critical set, not in the chordwise or spanwise distribution, not in Appendix E and
+not in the exported deck. Under rule 6 a defect with first-order effect on shipped
+content outranks the iteration that found it.
+
+| # | Decision | Amends |
+|---|---|---|
+| **OR-171** | **Section 11 is three subsections: 11.1 Input Data, 11.2 Critical Cases and 11.3 Yaw Transient** *(owner: "add the yaw transient section")*. The third exists because this analysis is a *march*, not a condition: 11.1 and 11.2 alone would state a peak load with no account of the event that produced it, and the reader's first question about a transient is when the peak occurs relative to the pilot's input. 11.3 is where the histories, the recovery times and the 23.367(b) delay are stated. It is the first section in this document whose content is a time axis. | OR-158 (§10's two; this section earns three) |
+| **OR-172** | **The 23.367 cases join the fin's critical set, and the whole v-tail chain picks them up** *(owner, 2026-09-07, answering their own question)*. The measured ratios above are the argument: a document that prints a governing load in Section 11 while Section 6 five pages earlier calls a smaller one critical has published a contradiction, and a deck built from the smaller one sizes a fin that the certification case breaks. ONENGOUT already publishes the `lt25`/`lt50` split at the same `xv25`/`xv50` stations SELECT uses, which is exactly what `taildist` and `tail_span` distribute from — so Section 6.2, 6.3, 6.4, 6.5, **Appendix E and the exported v-tail deck** take the cases with no change to any of them. Verified by prototype before the decision was taken: `baron_58`'s applied deck goes from 40 rows to 70 and the SF-1.0 case carries its own factor through. The owner's *"can we add the distributed tail loads to the same appendix"* is answered by doing nothing to stop it — one appendix per surface stays one appendix per surface (OR-141a). | OR-129, OR-136, OR-141a, **rule 6** |
+| **OR-173** | **One case per engine, and no mirror asserted** *(decided in draft, owner reviewed)*. `failed_engine_index` selects one engine, which gives the fin **one** sense of load; SELECT's set carries both naturally (`−476.8` and `+1015.6` on `baron_58`). Each entered engine's failure is therefore run as its own case. The alternative — run one and mirror it — is correct only on a symmetric installation, which `baron_58` happens to be and a future asymmetric one will not; and a mirrored case is the report minting a case the analysis did not run, which is what OR-6 forbids. Section 10's OR-166 is the precedent, one section back: one row per engine, two mounts are two structures. `failed_engine_index` stays, as the selector for the single-case views that already read it. | **OR-6**, OR-166 |
+| **OR-174** | **An uncontrollable case is printed in full and excluded from the envelope** *(owner: "uncontrollable cases DO NOT enter the envelope")*. Where the march reaches the 60 s bound without recovery — `atr42_100` and `dhc8_dash8` both do at VS — the section prints the case, its load at the simulation limit, and the statement that the airplane is uncontrollable at that speed, **with the referral the owner asked for: the case is for the stability-and-control discipline to assess, not for this analysis to rule on**. It does not reach the fin's critical set, the distribution, the appendix or the deck. A number at the simulation bound is not a design load, and an envelope that quietly absorbs one has accepted a load nobody has accepted. Printing it and excluding it are both required: suppressing it would hide that the case ran. | OR-6, **note 49 OR-116** |
+| **OR-175** | **The chordwise split is taken at the instant of peak total load** *(owner: "so long as it results in the peak total load this is acceptable")*. `lt25` and `lt50` are read from the single history row where `lt25 + lt50` is greatest — on `baron_58` at VD that is `t = 2.15 s`, `θ = 3.609°`, rudder `12.50°`, `LT = 2155.82 lb`. Not each quantity's own maximum, which would combine two instants the airplane never occupies and produce a chordwise distribution of a load that never existed. The condition also publishes the peak instant's `θ` as its sideslip and the rudder angle as its deflection, so a fin case from this section carries the same aero state every other fin case does. | note 35 AS-1/AS-2, `CONVENTIONS.md` §1.1 |
+| **OR-176** | **The ultimate-classified case is marked wherever it is plotted or tabulated** *(owner: "mark the plot to indicate this case is SF 1.0")*. 23.367(a)(2) is classified ULTIMATE by the regulation, so it carries SF 1.0 while every case beside it carries 1.5, and a fin envelope is therefore a maximum over cases whose prescribed factors differ. Every table row and **every plotted series** naming that case states its factor in band. This is the note 49 shape — the factor stated per subcase and applied nowhere — held at the point where it is easiest to lose, which is a chart. | note 49 **OR-116**, OR-136 |
+| **OR-177** | **Six figures: every case, both quantities** *(owner: "all 6")*. Per case, one figure of `θ` and `θ̇` against time and one of `LT25`, `LT50` and their total — the two the GUI already draws, which is what makes the document and the screen the same analysis rather than two renderings of it. Three speed cases per engine. The 23.367(b) two-second delay, the instant corrective action begins and the peak are marked on each, because a transient plotted without its events is a curve rather than a result. | OR-32, OR-153 |
+| **OR-178** | **"Not applicable" becomes a section state of its own, because implementing this section would otherwise print a falsehood** *(owner: "for single engine airplanes make a note 'These cases are not applicable'")*. `ga6_normal` renders Section 11 today as `NOT_IMPLEMENTED` — *"Nothing about this project or this issue is missing"* — which is true. The moment the builder exists it falls to `ABSENT`: *"Not analysed. The inputs this section needs are not present in the project."* That is **false**. A single-engine airplane is not missing inputs; it has no one-engine-inoperative condition, and telling a reader to go and enter something is the exact defect `STATE_TEXT`'s own docstring was written about. So: a fourth `SectionState`, `NOT_APPLICABLE`, ranked above `ABSENT`, whose reason is read from **`applicability.step_not_applicable`** — the predicate the module refuses on, the coverage table cites and the GUI withholds on, already written and already the single owner (#84, C210-43). No second copy of the rule, and the sentence names the regulation: 23.367(a) is the unsymmetrical-load condition of a **multi-engine** airplane, and losing the only engine leaves no asymmetric thrust and no yaw moment to react. **What the page prints, verbatim** *(owner, 2026-09-07: "for single engine airplanes make a note 'These cases are not applicable.' You can provide additional details of the regulations")*: the lead is **Not applicable**, and the sentence is the predicate's own — *"These cases are not applicable. FAR 23.367 does not apply — single/centreline engine: a single-engine airplane has no one-engine-inoperative condition. Losing the only engine leaves no asymmetric thrust and no yaw moment to react."* The regulation is named because the owner asked for it and because a reader checking a certification basis needs to see that the condition was considered and ruled out, not merely that nothing was printed. Rule 3 at the first time of asking; rule 4 sweeps it across every entry in `_STEP_NOT_APPLICABLE`, which is where the class lives. | **rule 3**, rule 4, OR-2 |
+| **OR-179** | **The fin's inertia relief is absent on these cases, and the section says so.** `tail_span._case_weight` returns zero for a condition naming no V-n point — deliberately, *"switches the lateral inertia off rather than dividing by a guess"* — and a 23.367 condition names none, so `n_y = 0` on every one of them and the fin's own mass contributes no relief. Measured on the prototype. That relief is **unconservative** and worth 0.7–1.8 % by its owner's own docstring, so its absence is safe and nothing is changed to obtain it. It is stated in 11.2 and in Section 6.5's existing inertia sentence, because a reader comparing an OEI row against a SELECT row beside it will otherwise read the difference as an omission. | OR-140 (a zero is printed and named), L-7/L-8 |
+| **OR-180** | **The 23.367 cases reach the load-case index with every load column blank, and this iteration fixes the instance.** *(Defect found 2026-09-07 while scoping OR-172.)* The module publishes its headline load under the key `max_tail_load`; `render.load_cases_to_rows` maps `fy_side`. So the case index — the file a reader takes to a stress group — carries three 23.367 rows with an ID, a regulation, a speed and a factor, and **no load at all**. Same class as OR-170 one iteration back: a published deliverable that is silently empty. The fin load is a side load and is keyed as one. The fin load is a side load and is keyed as one. **The rule-4 sweep was attempted and abandoned on measurement** — see G-OR-118: *every published condition reaches the index carrying a load* is false of the suite by design, so what would have been a class gate is a filed finding instead. Keying the instance correctly is a strict improvement either way, and the 23.367 rows now carry the load they always had. | rule 4, rule 6, **OR-6** |
+| **OR-181** | **The OR-15 admission of 2026-09-07 (the frozen set), scoped to two files.** Granted by the owner in session after the prototype established what was needed. **`modules/one_engine_out.py`**: publish the fin `CriticalCondition`s from the peak instant (a new function — `simulate` and `_moment` untouched), key the headline load `fy_side` (OR-180), carry `recovered` out so OR-174 can exclude, and loop the entered engines (OR-173). **`modules/select.py`**: one insertion point in `default_critical` appending those conditions to the fin's set, with a function-local import — ONENGOUT already reads `select.effective_vtail_inputs`, and a module-level import would close a cycle. Explicitly **not** admitted and not touched: `tail_span.py`, `taildist.py`, and any refactor, rename or reformatting in either admitted file. Both re-pinned in the frozen manifest with the scope recorded beside the hash. Two consequences stated to the owner before the grant and accepted: the persisted `CriticalLoadSet` gains rows on every twin so **the deck digests move**, and Section 6 names a different governing fin case on all three twins. | OR-13, OR-15 |
+| **OR-182** | **`baron_58` carries the section; the ATR joins the shipped set when its T-tail lands** *(owner, 2026-09-07)*. Of the three shipped reports only `baron_58` produces a Section 11 — `ga6_normal` is single-engine (OR-178) and `concept_regional_jet` is a turbofan, which the module **refuses** on `PROPELLER_ONLY_NOTE` grounds: thrust is shaft power over true airspeed and the windmill term collapses with the propeller diameter, so a fan installation's asymmetry would be understated rather than approximated. `baron_58` exercises every case, every figure and the whole OR-172 chain. What it does **not** reach is the uncontrollable branch — it recovers at all three speeds, and only `atr42_100` and `dhc8_dash8` hit the 60 s bound — so OR-174's statement is gated by tests and printed in no shipped document until then. `atr42_100` is a **T-tail** and design note 51 is AGREED but unimplemented; it is added to the shipped set when that lands, and this decision is the record of why the gap exists in the meantime. | OR-37, note 51 |
+
+### Gates added by this iteration
+
+- **G-OR-113** — *(OR-172)* on every shipped twin, the fin's critical set
+  contains a 23.367 condition, and the largest fin load in Section 6 equals the
+  largest in Section 11 where 23.367 governs. The gate that the two sections
+  cannot name different critical cases.
+- **G-OR-114** — *(OR-172)* every 23.367 condition admitted to the critical set
+  reaches the chordwise distribution, the spanwise distribution, Appendix E and
+  the exported v-tail deck, asserted by case ID through all four. A case in the
+  envelope that stops short of the deck is the defect this gate exists for.
+- **G-OR-115** — *(OR-173)* a twin runs one case per entered engine, both senses
+  of fin load are present across the set, and no case is a mirror of another:
+  each names its own engine and its own butt line.
+- **G-OR-116** — *(OR-174)* a non-recovering case is printed in Section 11 with
+  the uncontrollability statement **and** the stability-and-control referral, and
+  its case ID appears in **no** critical set, no distribution, no appendix and no
+  deck. Asserted on `atr42_100`, whose VS case does not recover, in both
+  directions — the recovered cases from the same run *are* present.
+- **G-OR-117** — *(OR-175)* the `lt25`/`lt50` a fin condition carries are the pair
+  from the single history row of greatest total, asserted against a re-run of
+  `simulate` rather than against a stored number, so the peak cannot drift from
+  the march that produced it.
+- **G-OR-118** — *(OR-180)* the 23.367 rows reach the published case file
+  carrying a side load, and the key they publish it under is the one
+  `load_cases_to_rows` maps. **Narrowed from the sweep this decision first
+  claimed, on measurement**: the general form — *every published condition
+  reaches the index carrying a load* — is **false of the suite by design**, and
+  asserting it would have been a gate that had to be weakened until it meant
+  nothing. Measured 2026-09-07: **100 of 118** `vtail`-tagged conditions across
+  every shipped example carry a blank `Side load`, SELECT's own four among them.
+  The case index is a register of case *identities* — id, regulation, speed,
+  factor — and its six load columns are the engine-mount/balance shape, filled by
+  the producers that speak it. That is a real question about what the file is
+  for, and it is filed below rather than answered by a gate written to pass.
+- **G-OR-119** — *(OR-176)* every table row and every plotted series naming
+  23.367(a)(2) states SF 1.0 in band, and no load in Section 11 is marked
+  ultimate: the section's rendered text contains no `-ULT`.
+- **G-OR-120** — *(OR-178)* `ga6_normal`'s Section 11 renders the
+  `NOT_APPLICABLE` lead and the regulation-citing reason, and **not** the
+  `ABSENT` one; the reason string is `applicability.step_not_applicable`'s own,
+  compared by identity so a second copy of the sentence cannot appear. Every key
+  in `_STEP_NOT_APPLICABLE` is covered.
+- **G-OR-121** — *(OR-177)* six figures on `baron_58`, each marking the 23.367(b)
+  two-second delay, the onset of corrective action and the peak; a project whose
+  march produces no history renders the OR-32 stated absence.
+- **G-OR-122** — *(OR-179)* the fin inertia is zero on every 23.367 condition and
+  non-zero on every SELECT condition beside it, and Section 11 states the reason.
+  The gate that a silent zero stays a stated one.
+
+### Filed, not fixed here
+
+- **Down-select at ULTIMATE and deliver ultimate loads** *(owner, 2026-09-07:
+  "in a later milestone this is the reason I want to do all down select at
+  ultimate and convert all delivered loads to ultimate")*. OR-176 is the
+  motivation in miniature: an envelope taken over cases whose prescribed factors
+  differ is a maximum of quantities that are not comparable, and selecting the
+  critical case at LIMIT can name the wrong one. This reverses note 49's OR-116
+  for the delivered set and needs a design note of its own. Filed against 0.9.x.
+- **The case index's load columns are sparsely populated, and it is not clear
+  what the file is for.** Measured while attempting OR-180's rule-4 sweep: **100
+  of 118** `vtail`-tagged conditions across the shipped examples carry a blank
+  `Side load`, including all four of SELECT's own on every airplane. The six load
+  columns are an engine-mount/balance shape and most producers do not speak it,
+  so the file is a register of case identities for them and a load table for a
+  few. Either it is an index — in which case the load columns invite a reader to
+  conclude a case carries nothing — or it is a load table, in which case most of
+  it is missing. Needs a decision before it is gated.
+- **`atr42_100` and `dhc8_dash8` do not recover at VS.** Both reach the 60 s
+  bound. Whether that is the model, the fixture's VS, or a real VMC finding is a
+  stability-and-control question (OR-174) and is not settled here.

@@ -191,9 +191,18 @@ def test_every_vertical_tail_condition_states_a_rudder_load():
     these conditions already carries.
     """
     for path in (_GA, _TWIN):
+        project = _project(path)
         summary = _table(_section(_doc(path=path), "6."), "Critical")
         rudder = _cells(summary, "Rudder load")
-        assert len(rudder) == 4, path
+        # The count is the fin's own condition count, not a literal: note 44
+        # OR-172 admitted the 23.367 engine-failure cases to this set, so the
+        # twin carries ten rows where it carried four. What the gate is about is
+        # that none of them is blank -- and on a twin the governing case *is* a
+        # 23.367 one, so a dash there would be a dash on the row that sizes the
+        # rudder.
+        expected = len([c for c in default_critical(project).conditions
+                        if c.component == "vtail"])
+        assert len(rudder) == expected, path
         assert all(cell and cell != "--" for cell in rudder), (path, rudder)
 
 

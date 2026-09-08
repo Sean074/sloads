@@ -149,7 +149,21 @@ def test_the_published_state_reconstructs_the_split_on_every_fixture():
                     continue
                 lyaw = c.alpha_tail_deg * avt / DEG_PER_RAD * c.q_psf * sv
                 assert math.isclose(c.lt25, lyaw, rel_tol=REL, abs_tol=1e-12), ident
-                lrud = (c.delta_deg * vt.rudder_large_deflection_factor
+                # The rudder's large-deflection factor is the one the *method*
+                # used, and the two fin methods do not use the same one. SELECT
+                # takes the entered constant; ONENGOUT (23.367, admitted to this
+                # set by note 44 OR-172) evaluates it at the deflection the
+                # recovery actually reached, which is the whole point of a
+                # rudder ramp -- an EF frozen at the entered value would state a
+                # camber load the march never applied. Reconstructing each with
+                # its own factor is what makes this a check of the *published
+                # state* rather than of a shared formula (note 35 AS-2).
+                if c.label.startswith("ONE ENGINE OUT"):
+                    ef = large_deflection_factor(
+                        abs(c.delta_deg), vt.rudder_area_sqft / sv)
+                else:
+                    ef = vt.rudder_large_deflection_factor
+                lrud = (c.delta_deg * ef
                         * rudder_effectiveness(vt.rudder_area_sqft / sv)
                         * avt / DEG_PER_RAD * c.q_psf * sv)
                 assert math.isclose(c.lt50, lrud, rel_tol=REL, abs_tol=1e-12), ident

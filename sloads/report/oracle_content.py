@@ -57,6 +57,10 @@ IMPLEMENTED: FrozenSet[str] = frozenset({
     # Section 10 -- the engine mount. Six components at one point, so no
     # appendix of its own either (note 44 §20, OR-158).
     "engine_mount",
+    # Section 11 -- the engine-failure transient. No appendix of its own because
+    # its recovered cases are *fin* conditions and travel in the vertical tail's
+    # (note 44 §21, OR-172); the section states the march that produced them.
+    "one_engine_out",
 })
 
 #: The document's fixed front matter, in order, ahead of the analysis body.
@@ -232,7 +236,7 @@ GROUP_PROSE = {
 class SectionState(Enum):
     """Why a section is, or is not, showing its analysis.
 
-    Four states, and keeping them apart is the point (OR-32). Each answers a
+    Five states, and keeping them apart is the point (OR-32). Each answers a
     different question about *whose* decision produced the gap, and collapsing
     any two would make the document assert something untrue about the reader's
     own data or about a colleague's editorial choice.
@@ -243,6 +247,13 @@ class SectionState(Enum):
     NOT_IMPLEMENTED = "not yet implemented"
     #: A person deselected it for this issue (OR-19).
     EXCLUDED = "excluded"
+    #: The **airplane** has no such condition -- nothing is missing and nothing is
+    #: owed (OR-178). Added when Section 11 was built: a single-engine airplane
+    #: rendered ``ABSENT`` for One Engine Inoperative, telling its reader to go and
+    #: enter inputs for a condition 23.367 does not give them. The reason is read
+    #: from ``applicability.step_not_applicable``, the predicate the module refuses
+    #: on and the coverage table cites, so the rule has one owner and no copy.
+    NOT_APPLICABLE = "not applicable"
     #: The inputs it needs are missing from the project (OR-5).
     ABSENT = "absent"
 
@@ -269,6 +280,9 @@ STATE_TEXT = {
     SectionState.EXCLUDED: (
         "Not included in this issue",
         "Excluded by user selection at report generation."),
+    SectionState.NOT_APPLICABLE: (
+        "Not applicable",
+        "These cases are not applicable to this airplane."),
     SectionState.ABSENT: (
         "Not analysed",
         "The inputs this section needs are not present in the project."),
@@ -516,6 +530,32 @@ def _slice_present(project: Project, attr: str) -> bool:
     return not (isinstance(value, (list, tuple, dict, set)) and not value)
 
 
+def _not_applicable_reason(project: Project, step_key: str) -> Optional[str]:
+    """Why this airplane has no such condition, or ``None`` if it has one.
+
+    A thin read of ``applicability.step_not_applicable`` (OR-178): the predicate
+    the module refuses on, the coverage table cites and the GUI withholds on. The
+    document adds the state and the lead; it does not add a second copy of the
+    rule, and the sentence it prints is the predicate's own words -- which name
+    the regulation, because a reader checking a certification basis needs to see
+    that the condition was considered and ruled out rather than merely absent.
+    """
+    from ..applicability import step_not_applicable
+
+    try:
+        return step_not_applicable(step_key, project)
+    except Exception:            # a predicate must never be what crashes first
+        return None
+
+
+def _state_reason(state: SectionState, na: Optional[str]) -> str:
+    """The sentence a state renders, with the applicability reason appended."""
+    base = STATE_REASON.get(state, "")
+    if state is SectionState.NOT_APPLICABLE and na:
+        return f"{base} {na}"
+    return base
+
+
 def _plan_row(project: Project, spec: ReportSpec, step: wf.WorkflowStep,
               implemented: FrozenSet[str],
               results: Optional[Mapping[str, Optional[ModuleResult]]] = None,
@@ -529,17 +569,25 @@ def _plan_row(project: Project, spec: ReportSpec, step: wf.WorkflowStep,
     selected = step.key not in spec.excluded_steps
     present = _inputs_present(project, step)
     produced = present if results is None else results.get(step.key) is not None
+    # NOT_APPLICABLE outranks ABSENT and is outranked by NOT_IMPLEMENTED, which
+    # is the existing ordering extended by one (OR-178): a section the tool
+    # cannot produce must not claim the airplane has no such condition, and a
+    # section the airplane has no condition for must not claim the reader's
+    # inputs are missing.
+    na = _not_applicable_reason(project, step.key)
     if not selected:
         state = SectionState.EXCLUDED
     elif step.key not in implemented:
         state = SectionState.NOT_IMPLEMENTED
+    elif na:
+        state = SectionState.NOT_APPLICABLE
     elif not produced:
         state = SectionState.ABSENT
     else:
         state = SectionState.INCLUDED
     return SectionPlan(
         step_key=step.key, number="", title=document_title(step), state=state,
-        reason=STATE_REASON.get(state, ""),
+        reason=_state_reason(state, na),
         lead=STATE_TEXT.get(state, ("", ""))[0],
         selected=selected, inputs_present=present)
 
@@ -563,17 +611,24 @@ def _split_row(project: Project, spec: ReportSpec, step: wf.WorkflowStep,
                        for attr in split.requires))
     produced = present if results is None else (
         present and results.get(split.step_key) is not None)
+    # The same five-state ordering an ordinary step takes (OR-178). A split
+    # section's condition is its *step's*, so the predicate is asked with the
+    # step key: no split step declares one today, and the sweep is here so that
+    # the first one to do so cannot silently take the ABSENT branch instead.
+    na = _not_applicable_reason(project, step.key)
     if not selected:
         state = SectionState.EXCLUDED
     elif split.key not in implemented:
         state = SectionState.NOT_IMPLEMENTED
+    elif na:
+        state = SectionState.NOT_APPLICABLE
     elif not produced:
         state = SectionState.ABSENT
     else:
         state = SectionState.INCLUDED
     return SectionPlan(
         step_key=split.key, number="", title=split.title, state=state,
-        reason=STATE_REASON.get(state, ""),
+        reason=_state_reason(state, na),
         lead=STATE_TEXT.get(state, ("", ""))[0],
         selected=selected, inputs_present=present)
 

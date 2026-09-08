@@ -268,6 +268,31 @@ def classify(item: Any) -> Tuple[Optional[str], str]:
 # --------------------------------------------------------------------------- #
 # Does this condition prescribe a factor at all? (note 48 OR-83)
 # --------------------------------------------------------------------------- #
+def shared_basis_factor(results: Sequence[Any]) -> Optional[float]:
+    """The basis a **shared column header** may state: ``1.0``, or ``None``.
+
+    ``1.0`` only when every result in the table is already ultimate -- the two
+    families the regulation prescribes that way, ``engine_ultimate``
+    (23.367(a)(2)) and ``emergency`` (23.561(b)). A **mixed** table has no shared
+    basis: its header stays plain and the per-row ``SF`` column carries the
+    distinction, because a header that claimed ``-ULT`` over rows that are LIMIT
+    would over-state five of six rows, and one that claimed LIMIT over an
+    ultimate row would invite a reader to factor a load that is already factored
+    (note 49 OR-118a).
+
+    **The single owner of that rule.** It was written twice -- once in
+    ``report.render._table_sf`` for the document's tables, once as an assumption
+    in ``export.sbeam_bridge._load_label`` that no already-ultimate case would
+    ever reach a per-component CSV. Note 44 OR-172 made the assumption false:
+    admitting 23.367 to the fin's critical set puts an ``engine_ultimate`` case
+    into the v-tail chordwise and spanwise sets alongside five LIMIT ones. The
+    guard that assumption was carrying fired on the first run, which is what it
+    was for; this function is where the rule lives now (CLAUDE.md rule 3).
+    """
+    factors = [getattr(r, "safety_factor", None) for r in results]
+    return 1.0 if factors and all(f == 1.0 for f in factors) else None
+
+
 def prescribes_factor(item: Any) -> bool:
     """True unless ``item`` is a condition to which no safety factor applies.
 

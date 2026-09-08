@@ -147,10 +147,21 @@ def test_run_structure():
     p = _twin()
     mr = oeo.run(p)
     assert mr.module == "one_engine_out"
-    assert [c.title for c in mr.conditions] == [
-        "One engine out — VC (ultimate)", "One engine out — VD (limit)", "One engine out — VS"]
+    # One case per speed **per engine** (note 44 OR-173): failing one engine
+    # loads the fin in one sense only, and a fin is sized for both.
+    titles = [c.title for c in mr.conditions]
+    assert len(titles) == 3 * len({c.case_ref.condition.split("engine ")[-1]
+                                   for c in mr.conditions}) or len(titles) == 6
+    assert titles[0].startswith("One engine out — VC (ultimate)")
+    assert {t.split(" (engine")[0] for t in titles} == {
+        "One engine out — VC (ultimate)", "One engine out — VD (limit)",
+        "One engine out — VS"}
     keys = {v.key for v in mr.conditions[0].values}
-    assert {"max_tail_load", "max_yawing_velocity", "engine_thrust", "windmill_drag"} <= keys
+    # ``fy_side``, not ``max_tail_load``: the case index maps loads by key, and
+    # under the old key every 23.367 row reached the published case file with no
+    # load in it at all (note 44 OR-180).
+    assert {"fy_side", "max_yawing_velocity", "engine_thrust", "windmill_drag"} <= keys
+    assert "max_tail_load" not in keys
 
 
 def test_safety_factors_by_failure_mode():
@@ -159,12 +170,13 @@ def test_safety_factors_by_failure_mode():
     case are limit (SF 1.5). See Ref 1 Ch 11 p87 / 14 CFR 23.367(a)(1)-(2)."""
     p = _twin()
     mr = oeo.run(p)
-    sf = {c.title: c.safety_factor for c in mr.conditions}
+    sf = {c.title.split(" (engine")[0]: c.safety_factor for c in mr.conditions}
     assert sf["One engine out — VC (ultimate)"] == 1.0   # 23.367(a)(2) turbine failure -> ultimate
     assert sf["One engine out — VD (limit)"] == 1.5      # 23.367(a)(1) fuel-flow -> limit
     assert sf["One engine out — VS"] == 1.5              # VMC substitute -> limit
     # The regulatory basis is carried on each condition's note.
-    vc = next(c for c in mr.conditions if c.title.endswith("VC (ultimate)"))
+    vc = next(c for c in mr.conditions
+              if c.title.split(" (engine")[0].endswith("VC (ultimate)"))
     assert "23.367(a)(2)" in vc.note and "ULTIMATE" in vc.note
 
 
@@ -200,12 +212,16 @@ def test_rendered_loads_are_limit_and_each_case_states_its_sf():
     """
     from sloads import report
     p = _twin()
-    rows = {r["Condition"]: r for r in report.load_cases_to_rows(oeo.run(p).conditions)}
+    rows = {r["Condition"].split(" (engine")[0]: r
+            for r in report.load_cases_to_rows(oeo.run(p).conditions)}
     vc = rows["one engine out — VC (ultimate)"]
     vd = rows["one engine out — VD (limit)"]
     assert vc["SF"] == "1" and vd["SF"] == "1.5"
     load_cols = [k for k in vc if "load" in k.lower() or "moment" in k.lower() or "Thrust" in k]
     assert load_cols and not any("-ULT" in k for k in load_cols)
+    # OR-180: and the row actually carries a load. Under the old key every one
+    # of these rows had an ID, a regulation, a speed, a factor and nothing else.
+    assert vc["Side load (lb)"] and vd["Side load (lb)"]
 
 
 def test_time_history_matches_case():
@@ -291,14 +307,23 @@ def test_the_shipped_turboprops_execute_onengout():
 
         result = oeo.run(p)
         titles = [c.title for c in result.conditions]
-        assert len(titles) == 3, (name, titles)
+        # Three speed cases for each of the two engines (OR-173).
+        assert len(titles) == 6, (name, titles)
         for cond in result.conditions:
             values = {v.label: v.value for v in cond.values}
-            assert values["Max tail load"] > 0.0, (name, cond.title)
+            # Signed by the failed engine's side now, so the *magnitude* is what
+            # is positive: the sense is the fin's and is asserted below.
+            assert abs(values["Max tail load"]) > 0.0, (name, cond.title)
             assert values["Engine thrust"] > 0.0 and values["Windmill drag"] > 0.0, (
                 name, cond.title)
             recovered = "NOT recovered" not in cond.note
-            assert recovered == (not cond.title.endswith("VS")), (name, cond.title)
+            base = cond.title.split(" (engine")[0]
+            assert recovered == (not base.endswith("VS")), (name, cond.title)
+        # Both senses present: the two engines sit either side of the centreline
+        # and their failures load the fin opposite ways (OR-173).
+        loads = [v.value for c in result.conditions for v in c.values
+                 if v.key == "fy_side"]
+        assert any(x > 0 for x in loads) and any(x < 0 for x in loads), (name, loads)
 
 
 # --------------------------------------------------------------------------- #

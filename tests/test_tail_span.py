@@ -376,13 +376,27 @@ def test_the_fin_lateral_inertia_is_exactly_the_weight_ratio_of_the_air_load(exa
     The relief is also the number a reviewer should see: 0.68 % on ga6's fin,
     and it is *unconservative*, which is exactly why it is pinned.
     """
+    checked = 0
     for r in _results(example):
         if r.component != VTAIL or not r.inertia_modelled:
             continue
-        assert r.case_weight_lb > 0.0
+        if not r.case_weight_lb:
+            # A condition that names no V-n point carries no case weight, so the
+            # lateral factor cannot be formed and the relief is switched off
+            # rather than guessed at. That is the 23.367 engine-failure cases,
+            # admitted to this set by note 44 OR-172 -- and since the relief is
+            # *unconservative*, switching it off is safe. What must not happen is
+            # that it goes missing silently, so the result states it.
+            assert any("no V-n point" in n for n in r.notes), f"{example} {r.case}"
+            assert sum(st.fz for st in r.stations) == pytest.approx(
+                air_total(r), rel=1e-12), f"{example} {r.case}"
+            continue
         got = sum(st.fz for st in r.stations)
         want = air_total(r) * (1.0 - _TAIL_WEIGHT / r.case_weight_lb)
         assert got == pytest.approx(want, rel=1e-12), f"{example} {r.case}"
+        checked += 1
+    assert checked or not any(r.component == VTAIL and r.inertia_modelled
+                              for r in _results(example)), example
 
 
 @pytest.mark.parametrize("example", EXAMPLES)
@@ -1041,7 +1055,20 @@ def test_only_a_t_tail_carries_a_tip_transfer(example):
     if not is_t_tail(project):
         assert all(r.tip_transfer is None for r in fins), example
     else:
-        assert fins and all(r.tip_transfer is not None for r in fins), example
+        # On a T-tail every fin case either carries the transfer or states why
+        # it does not. The 23.367 engine-failure cases (note 44 OR-172) name no
+        # V-n point, and decision T-5 pairs the transfer with the fin case's own
+        # point -- so the concurrent horizontal-tail load cannot be resolved for
+        # them and the result says exactly that. It is a stated omission, not a
+        # silent one, and it is filed: on a T-tail twin the governing fin case is
+        # a 23.367 one, so the case that sizes the fin is the case whose tip load
+        # is missing. Resolving it is design note 51's, with the rest of the
+        # T-tail.
+        assert fins, example
+        for r in fins:
+            if r.tip_transfer is None:
+                assert any("NO tip transfer" in n for n in r.notes), \
+                    f"{example} {r.case}"
 
 
 def test_the_transferred_set_is_the_balancing_load_plus_the_htail_inertia():

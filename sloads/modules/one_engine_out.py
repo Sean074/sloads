@@ -60,6 +60,7 @@ from ..constants import (
 from ..models import (
     CaseRef,
     ConditionResult,
+    CriticalCondition,
     EngineInput,
     LoadValue,
     MassCase,
@@ -385,8 +386,16 @@ def _load_cases(project: Project, oeo: OneEngineOutInput) -> List[_LoadCase]:
     return cases
 
 
-def _case_inputs(project: Project, v_kt: float) -> CaseInputs:
-    """Assemble the scalar simulation inputs for one speed from the project slices."""
+def _case_inputs(project: Project, v_kt: float,
+                 engine_index: Optional[int] = None) -> CaseInputs:
+    """Assemble the scalar simulation inputs for one speed from the project slices.
+
+    ``engine_index`` selects which engine fails; ``None`` takes the input slice's
+    ``failed_engine_index``, which is what every single-case caller wants. It is
+    passed explicitly by :func:`run`, which fails **each** entered engine in turn
+    (note 44 OR-173): one engine gives the fin one sense of load, and a fin is
+    sized for both.
+    """
     oeo = project.one_engine_out
     # Through SELECT's effective v-tail inputs (#95, C210-5): a blank rudder
     # area SR derives from its hinge halves there, and the 23.367 simulation
@@ -409,13 +418,14 @@ def _case_inputs(project: Project, v_kt: float) -> CaseInputs:
     na = engine_failure_not_applicable(project)
     if na:
         raise MissingInputError(f"one_engine_out: {na}")
-    if not (0 <= oeo.failed_engine_index < len(project.engines)):
-        raise ValueError(f"failed_engine_index {oeo.failed_engine_index} out of range")
+    index = oeo.failed_engine_index if engine_index is None else int(engine_index)
+    if not (0 <= index < len(project.engines)):
+        raise ValueError(f"failed_engine_index {index} out of range")
     from .engine import effective_engine
-    eng = effective_engine(project, project.engines[oeo.failed_engine_index])
+    eng = effective_engine(project, project.engines[index])
     if not eng.prop_diameter_in or eng.prop_diameter_in <= 0:
         raise MissingInputError(
-            f"one_engine_out: engine {oeo.failed_engine_index} "
+            f"one_engine_out: engine {index} "
             f"({eng.engine_designation or 'unnamed'}) has no propeller diameter -- "
             + PROPELLER_ONLY_NOTE)
 
@@ -448,27 +458,93 @@ def _case_inputs(project: Project, v_kt: float) -> CaseInputs:
     )
 
 
-def time_history(project: Project, speed_label: str) -> List[HistoryRow]:
-    """The full Euler time history for one named speed case (for the UI re-run).
-
-    ``speed_label`` matches a :class:`ConditionResult` title produced by :func:`run`
-    (e.g. ``"VC (ultimate)"``)."""
-    oeo = project.one_engine_out
-    if oeo is None:
-        raise MissingInputError("one_engine_out needs the 'one_engine_out' input slice")
-    for lc in _load_cases(project, oeo):
-        if lc.label == speed_label:
-            rows, _ = simulate(_case_inputs(project, lc.v_hi_kt))
-            return rows
-    raise ValueError(f"unknown one-engine-out speed case {speed_label!r}")
+#: The sense a fin load is published in, and the reason it is not the march's.
+#: ``simulate`` reports ``LT`` as a magnitude about the failed engine's own side,
+#: because the BASIC integrated one engine's failure and never had a second to
+#: compare it with. A fin is one surface: failing the port engine and failing the
+#: starboard engine load it in *opposite* senses, and an envelope that saw only
+#: one of them would size a fin for half the cases it must carry. So the sign is
+#: taken from the engine's butt line -- ``+y`` engine, ``-y`` fin load, and the
+#: reverse -- which is what makes note 44 OR-173 a physical statement rather than
+#: a doubling of rows.
+def _fin_sense(engine_cg_y: float) -> float:
+    return -1.0 if engine_cg_y > 0.0 else 1.0
 
 
-def run(project: Project) -> ModuleResult:
-    """Run ONENGOUT: the one-engine-out maximum vertical-tail load at each speed.
+class FinCase(NamedTuple):
+    """One engine's failure at one speed: the march, its peak and its identity.
 
-    One :class:`ConditionResult` per speed (VC ultimate / VD limit / VS): engine
-    thrust, windmill drag, maximum yawing velocity, **maximum tail load**, the 25%/50%
-    MAC loads at the peak, and the time to recovery (FAR 23.367)."""
+    The single enumeration :func:`run` and :func:`fin_conditions` both walk, so
+    the section's printed cases and the envelope's admitted ones cannot come from
+    two different sets (note 44 OR-172/OR-174).
+    """
+    engine_index: int
+    engine_label: str
+    load_case: _LoadCase
+    inputs: CaseInputs
+    summary: CaseSummary
+    peak: HistoryRow
+    sense: float
+    case_id: str
+
+    @property
+    def recovered(self) -> bool:
+        return self.summary.recovered
+
+    @property
+    def title(self) -> str:
+        return f"One engine out — {self.load_case.label}{self.engine_label}"
+
+
+def _failed_engine_indices(project: Project) -> List[int]:
+    """Every entered engine whose failure produces a yawing moment, in order.
+
+    An engine on the centreline has ``bleng == 0`` and its failure forces nothing
+    -- the defect ``applicability`` was written for (#84, C210-43) -- so it is
+    skipped rather than marched to a false uncontrollability verdict. With no
+    such engine at all the applicability predicate refuses the whole module,
+    which is the statement a reader needs; this function only picks among engines
+    on an airplane that *has* the condition.
+    """
+    from .engine import effective_engine
+
+    out: List[int] = []
+    for index, entered in enumerate(project.engines or []):
+        try:
+            eng = effective_engine(project, entered)
+        except ValueError:
+            eng = entered
+        if eng.engine_cg[1] != 0.0:
+            out.append(index)
+    return out
+
+
+def _engine_label(project: Project, index: int, count: int) -> str:
+    """The suffix that distinguishes one engine's cases from another's.
+
+    Empty when only one engine is failed, so a twin's titles do not acquire a
+    tag a single-case airplane would not have and every existing caller matching
+    on the speed label alone keeps working.
+
+    **The index and nothing else.** The first build put the engine *designation*
+    in here too, which read well in a table and broke the decks: a case label is
+    carried into the free-field card comments, and ``ONE ENGINE OUT — VC
+    (ultimate) (engine 0, PRATT & WHITNEY CANADA PW120 (LH))`` does not fit the
+    card width -- ``test_export_equilibrium`` caught it on all four turboprop
+    decks. The designation is a property of the engine, not of the case, and it
+    is printed once against the index in Section 11.1's input table, which is
+    where a reader looks it up.
+    """
+    del project
+    return f" (engine {index})" if count >= 2 else ""
+
+
+def _fin_cases(project: Project) -> List[FinCase]:
+    """Every engine's failure at every speed, marched, with its case ID minted.
+
+    The order is engine-major so that one engine's speed sweep reads as a block
+    in the case index, and the IDs come from ONENGOUT's own disjoint band.
+    """
     oeo = project.one_engine_out
     if oeo is None:
         raise MissingInputError("one_engine_out needs the 'one_engine_out' input slice")
@@ -476,7 +552,7 @@ def run(project: Project) -> ModuleResult:
         raise ValueError(
             "one_engine_out needs positive thrust_decay_time_s, windmill_drag_time_s "
             "and rudder_travel_time_s")
-
+    indices = _failed_engine_indices(project) or [oeo.failed_engine_index]
     # Own allocator, scoped to this run: ONENGOUT's dynamic 23.367 case is not one
     # of SELECT's vtail-critical conditions, so it is a different case object with
     # its own ID -- seeded into its own disjoint band (VTAIL_BAND_ONENGOUT) rather
@@ -485,36 +561,207 @@ def run(project: Project) -> ModuleResult:
     # (M4-2 decision 5); tests/test_case_ids.py is the guard.
     allocator = CaseIdAllocator()
     allocator.seed("vtail", VTAIL_BAND_ONENGOUT)
-    conditions: List[ConditionResult] = []
+    from .engine import effective_engine
+
+    cases: List[FinCase] = []
+    for index in indices:
+        label = _engine_label(project, index, len(indices))
+        entered = project.engines[index] if 0 <= index < len(project.engines or []) else None
+        try:
+            sense = _fin_sense(effective_engine(project, entered).engine_cg[1]) if entered else 1.0
+        except ValueError:
+            sense = 1.0
+        for lc in _load_cases(project, oeo):
+            c = _case_inputs(project, lc.v_hi_kt, index)
+            rows, summary = simulate(c)
+            # OR-175: the chordwise split is the pair standing together at the
+            # instant of greatest *total* load, not each quantity's own maximum
+            # -- which would combine two instants the airplane never occupies.
+            # ``picks.extreme`` for the tie rule, as every published pick uses.
+            peak = extreme(rows, lambda r: r.lt) if rows else HistoryRow(
+                0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+            cases.append(FinCase(
+                engine_index=index, engine_label=label, load_case=lc, inputs=c,
+                summary=summary, peak=peak, sense=sense,
+                case_id=allocator.next_id("vtail")))
+    return cases
+
+
+def fin_conditions(project: Project) -> List[CriticalCondition]:
+    """The 23.367 cases as fin design conditions, for the v-tail critical set.
+
+    **Why this exists** (note 44 OR-172). Measured 2026-09-07, LIMIT against
+    LIMIT: the one-engine-out case is the *governing* fin load on every twin in
+    the fixture set -- 1.6x ``baron_58``'s largest SELECT case, 2.6x
+    ``atr42_100``'s, 3.3x ``dhc8_dash8``'s -- and until this function existed the
+    fin was sized without it in Section 6, the chordwise and spanwise
+    distributions, Appendix E and the exported deck. The march already publishes
+    the ``LT25``/``LT50`` split at the same ``xv25``/``xv50`` stations SELECT
+    uses, which is what ``taildist`` and ``tail_span`` distribute from, so
+    nothing downstream needs to know these cases are different in kind.
+
+    **A case that did not recover is not returned** (OR-174). The march bounds
+    itself at 60 s; a load at that bound is where the integration stopped, not a
+    design load, and an envelope that absorbed one would have accepted a number
+    nobody has. Those cases are printed in full by :func:`run`, with the
+    uncontrollability statement and the referral to stability and control, and
+    they reach no envelope, no distribution, no appendix and no deck.
+
+    ``case`` is ``None``: a 23.367 condition names no V-n point, because it is a
+    transient rather than a point on the manoeuvre envelope. The consequence is
+    stated rather than worked around -- ``tail_span._case_weight`` returns zero
+    for such a condition, so the fin's own lateral inertia relief is switched off
+    on exactly these cases. That relief is *unconservative* and worth 0.7-1.8 %
+    by its owner's own docstring, so its absence is safe, and it is reported in
+    Section 11 rather than silently obtained by inventing a weight (OR-179).
+    """
+    from .select import effective_vtail_inputs, rudder_load_parts
+
+    vt = effective_vtail_inputs(project)
+    out: List[CriticalCondition] = []
+    for fc in _fin_cases(project):
+        if not fc.recovered:
+            continue
+        s, c = fc.summary, fc.inputs
+        sense = fc.sense
+        q = dynamic_pressure_psf(c.v_kt)
+        sv_sqft = c.svt_in2 / IN2_PER_FT2
+        slope = lift_curve_slope(c.arvt) / DEG_PER_RAD
+        # The **effective fin angle of attack** the method actually used: the yaw
+        # angle plus the damping angle the yaw rate makes at the 25 % station.
+        # Taken back out of ``LT25`` rather than recomputed from the history row,
+        # and exactly: the march stores each row *after* its Euler update, so the
+        # stored theta and theta-dot are not the pair the load was formed from.
+        # Dividing the load by its own coefficient cannot disagree with it.
+        denom = slope * q * sv_sqft
+        alpha = (s.lt25_at_peak_lb / denom) if denom else 0.0
+        # OR-132/G-OR-86: what the rudder itself carries, through SELECT's own
+        # producer and not a second copy of the arithmetic. The split is the same
+        # shape -- a camber term from the rudder load and an angle-of-attack term
+        # from the fin load -- so a 23.367 row states this column like every
+        # other fin condition instead of printing a dash on the governing case.
+        on_rudder = None
+        if vt is not None:
+            cam, att = rudder_load_parts(sense * s.lt50_at_peak_lb,
+                                         sense * s.lt25_at_peak_lb, vt)
+            on_rudder = cam + att
+        # ``total_tail_load``, which is what every other fin condition calls this
+        # and what Section 6's table reads -- **not** ``fy_side``. The two are the
+        # same number under two consumers' names: ``fy_side`` is the case index's
+        # key and belongs on the :class:`ConditionResult` :func:`run` publishes,
+        # which is where OR-180 put it. A condition that answered to both would be
+        # one load with two names in one object.
+        loads = [
+            LoadValue("Total tail load", sense * s.max_tail_load_lb, "lb",
+                      key="total_tail_load"),
+            LoadValue("V (EAS)", c.v_kt, "kt(EAS)", key="v_eas"),
+        ]
+        if on_rudder is not None:
+            loads.append(LoadValue("Load on rudder", on_rudder, "lb",
+                                   key="load_on_rudder"))
+        out.append(CriticalCondition(
+            component="vtail",
+            label=f"ONE ENGINE OUT — {fc.load_case.label}{fc.engine_label}",
+            far_reference=fc.load_case.far_reference,
+            case=None,
+            loads=loads,
+            lt25=sense * s.lt25_at_peak_lb,
+            lt50=sense * s.lt50_at_peak_lb,
+            case_ref=CaseRef(
+                case_id=fc.case_id, component="vtail",
+                condition=f"one engine out — {fc.load_case.label}{fc.engine_label}",
+                speed_kt=c.v_kt, far_reference=fc.load_case.far_reference),
+            safety_factor=fc.load_case.safety_factor,
+            beta_deg=sense * fc.peak.theta,
+            alpha_tail_deg=sense * alpha,
+            delta_deg=sense * fc.peak.rudder_deg,
+            q_psf=q,
+            note=(f"{fc.load_case.basis} Distributed from the instant of peak total "
+                  f"load, t = {fc.peak.time:g} s. The fin's own lateral inertia "
+                  f"relief is not applied: this condition names no V-n point, so "
+                  f"its case weight is zero and the relief -- which is "
+                  f"unconservative -- is switched off rather than guessed at."),
+        ))
+    return out
+
+
+def time_history(project: Project, speed_label: str,
+                 engine_index: Optional[int] = None) -> List[HistoryRow]:
+    """The full Euler time history for one named speed case (for the UI re-run).
+
+    ``speed_label`` matches a :class:`_LoadCase` label (e.g. ``"VC (ultimate)"``)
+    or a whole :class:`ConditionResult` title produced by :func:`run`, which on a
+    multi-engine airplane carries the engine tag as well (OR-173). Both are
+    accepted so the GUI's existing selectbox keeps working unchanged.
+    """
+    oeo = project.one_engine_out
+    if oeo is None:
+        raise MissingInputError("one_engine_out needs the 'one_engine_out' input slice")
+    wanted = speed_label.strip()
     for lc in _load_cases(project, oeo):
-        c = _case_inputs(project, lc.v_hi_kt)
-        _rows, s = simulate(c)
-        case_ref = CaseRef(
-            case_id=allocator.next_id("vtail"), component="vtail",
-            condition=f"one engine out — {lc.label}", speed_kt=c.v_kt,
-            far_reference=lc.far_reference)
+        if lc.label == wanted and engine_index is None:
+            return simulate(_case_inputs(project, lc.v_hi_kt))[0]
+    for fc in _fin_cases(project):
+        if engine_index is not None and fc.engine_index != engine_index:
+            continue
+        if wanted in (fc.load_case.label, fc.title,
+                      f"{fc.load_case.label}{fc.engine_label}"):
+            return simulate(fc.inputs)[0]
+    raise ValueError(f"unknown one-engine-out speed case {speed_label!r}")
+
+
+def run(project: Project) -> ModuleResult:
+    """Run ONENGOUT: the one-engine-out maximum vertical-tail load at each speed.
+
+    One :class:`ConditionResult` per speed **per engine** (note 44 OR-173): engine
+    thrust, windmill drag, maximum yawing velocity, **maximum tail load**, the
+    25%/50% MAC loads at the peak, and the time to recovery (FAR 23.367). Failing
+    one engine gives the fin one sense of load and a fin is sized for both, so
+    every entered engine whose failure produces a yawing moment is marched.
+
+    Every case the module produces is published here, **including one that did
+    not recover** -- the load at the simulation bound, with the uncontrollability
+    statement and the referral to stability and control beside it. What such a
+    case does not do is reach an envelope: :func:`fin_conditions` is the filter,
+    and OR-174 is why the two lists differ.
+    """
+    conditions: List[ConditionResult] = []
+    for fc in _fin_cases(project):
+        c, s = fc.inputs, fc.summary
         conditions.append(ConditionResult(
-            title=f"One engine out — {lc.label}",
-            far_reference=lc.far_reference,
-            safety_factor=lc.safety_factor,
-            case_ref=case_ref,
+            title=fc.title,
+            far_reference=fc.load_case.far_reference,
+            safety_factor=fc.load_case.safety_factor,
+            case_ref=CaseRef(
+                case_id=fc.case_id, component="vtail",
+                condition=f"one engine out — {fc.load_case.label}{fc.engine_label}",
+                speed_kt=c.v_kt, far_reference=fc.load_case.far_reference),
             values=[
                 LoadValue("V (EAS)", c.v_kt, "kt(EAS)", key="v_eas"),
                 LoadValue("Engine thrust", s.thrust_lb, "lb", key="engine_thrust"),
                 LoadValue("Windmill drag", s.windmill_drag_lb, "lb", key="windmill_drag"),
                 LoadValue("Max yawing velocity", s.max_yaw_rate_deg_s, "deg/s", key="max_yawing_velocity"),
-                LoadValue("Max tail load", s.max_tail_load_lb, "lb", key="max_tail_load"),
-                LoadValue("Load at 25% MAC (at peak)", s.lt25_at_peak_lb, "lb", key="load_at_25_pct_mac_at_peak"),
-                LoadValue("Load at 50% MAC (at peak)", s.lt50_at_peak_lb, "lb", key="load_at_50_pct_mac_at_peak"),
+                # Keyed ``fy_side`` because it *is* the fin's side load, and the
+                # case index maps loads by key: under ``max_tail_load`` every
+                # 23.367 row reached the published case file with an ID, a
+                # regulation, a speed, a factor and no load at all (OR-180).
+                LoadValue("Max tail load", fc.sense * s.max_tail_load_lb, "lb", key="fy_side"),
+                LoadValue("Load at 25% MAC (at peak)", fc.sense * s.lt25_at_peak_lb, "lb",
+                          key="load_at_25_pct_mac_at_peak"),
+                LoadValue("Load at 50% MAC (at peak)", fc.sense * s.lt50_at_peak_lb, "lb",
+                          key="load_at_50_pct_mac_at_peak"),
                 LoadValue("Time to recovery", s.time_to_recovery_s, "s", key="time_to_recovery"),
             ],
-            note=(f"{lc.basis} "
-                  f"Failed engine #{oeo.failed_engine_index} at butt line {c.bleng:g} in; "
-                  f"IZZ {c.izz:g} slug-ft^2."
+            note=(f"{fc.load_case.basis} "
+                  f"Failed engine #{fc.engine_index} at butt line {c.bleng:g} in; "
+                  f"IZZ {c.izz:g} slug-ft^2. Peak total load at t = {fc.peak.time:g} s."
                   + ("" if s.recovered else
                      f" NOT recovered within {_MAX_SIM_TIME_S:g} s — the airplane is "
                      "uncontrollable at this speed (likely below VMC); the tail load and "
-                     "yaw rate are the values at the simulation limit.")),
+                     "yaw rate are the values at the simulation limit. This case is "
+                     "referred to stability and control for assessment and is EXCLUDED "
+                     "from the vertical-tail design envelope, its load distributions and "
+                     "the exported deck (design note 44 OR-174).")),
         ))
     return ModuleResult(module=MODULE_NAME, conditions=conditions)
 

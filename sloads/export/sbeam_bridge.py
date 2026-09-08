@@ -144,6 +144,7 @@ from ..modules import tail_span
 from ..modules.body_loads import CLOSURE_ARTIFACT_CAVEAT as _BODY_ARTIFACT_CAVEAT
 from ..modules.net_loads import loads_ref_axis_results
 from ..picks import extreme
+from ..safety_factors import shared_basis_factor
 from ..units import Channel, DeliverableUnits, UnitSystem, canonical, deliverable_units
 from .bands import band
 from .coordinates import (
@@ -194,22 +195,35 @@ def _stamped(header_comment: str, deck: str) -> str:
     return header_comment.rstrip("\n") + "\n" + deck
 
 
-def _load_label(label: str) -> str:
-    """The unit label for a load column in an export CSV: plain.
+def _load_label(label: str, table_sf: Optional[float] = None) -> str:
+    """The unit label for a load column in an export CSV.
 
     LIMIT is the project's only basis (note 49 OR-116) and every export file
-    states it in the comment stamp, so a load column carries its plain unit and
-    the row's ``SF`` cell states the factor that was not applied.
+    states it in the comment stamp, so a load column normally carries its plain
+    unit and the row's ``SF`` cell states the factor that was not applied.
 
-    **The already-ultimate exception is guarded, not assumed.** OR-118 keeps the
-    ``-ULT`` marker on ``engine_ultimate`` (23.367(a)(2)) and ``emergency``
-    (23.561(b)); neither family reaches these per-component CSVs today, and
-    ``test_sbeam_bridge.py`` asserts that it does not. If one ever does, that
-    guard fails rather than this label quietly under-stating the basis --
-    OR-118a's per-table rule then has to be threaded through the
-    ``_*_fields(u)`` helpers, which is why it is a gate and not a comment.
+    ``table_sf`` is the table's **shared** basis from
+    :func:`sloads.safety_factors.shared_basis_factor` -- ``1.0`` only when every
+    row of the file is already ultimate, which earns the ``-ULT`` marker on the
+    header, and ``None`` for a mixed file, whose header stays plain (OR-118a).
+
+    **This used to be a guarded assumption and is now a computation.** The
+    already-ultimate families -- ``engine_ultimate`` (23.367(a)(2)) and
+    ``emergency`` (23.561(b)) -- reached no per-component CSV when this was
+    written, and ``test_sbeam_bridge.py`` asserted it rather than trusting it.
+    Note 44 OR-172 admitted 23.367 to the fin's critical set, an
+    ``engine_ultimate`` case went into the v-tail chordwise and spanwise files
+    beside five LIMIT ones, and the guard fired on the first run -- which is
+    exactly what it was for. The mixed file keeps a plain header and states the
+    rule in its stamp; only an all-ultimate file is marked.
     """
-    return label
+    return _ult_label(label) if table_sf == 1.0 else label
+
+
+def _ult_label(label: str) -> str:
+    """``label`` with the already-ultimate marker (note 49 OR-118)."""
+    return f"{label}-ULT"
+
 
 # --------------------------------------------------------------------------- #
 # Case-index export (Step D1): ID -> full definition, across every result slice
@@ -581,14 +595,22 @@ def subcase_map_block(results: Sequence) -> List[str]:
              "$ SUBCASE/SID = SLOADS case id -- condition -- FAR reference"]
     for sid, case_id, condition, far in rows:
         far_txt = f" -- FAR {far}" if far else ""
-        lines.append(f"$ SUBCASE {sid} = {case_id or '(no case id)'} -- {condition}{far_txt}")
+        # Through the emitter, not hand-fitted. This block used to build its own
+        # line and so carried its own width assumption -- fine while every
+        # condition name was as short as ``PHAA``, and an overrun the moment one
+        # was not: ``one engine out - VC (ultimate) (engine 0)`` (note 44 OR-172)
+        # took the turboprop tail decks past 72 columns in both unit systems.
+        # The width is the emitter's property, which is the rule the wing decks
+        # were already moved to; this is the last block that had not been.
+        lines += _comment(
+            f"SUBCASE {sid} = {case_id or '(no case id)'} -- {condition}{far_txt}")
     return lines
 
 
 # --------------------------------------------------------------------------- #
 # Span-load CSV
 # --------------------------------------------------------------------------- #
-def _csv_fields(u: DeliverableUnits) -> List[str]:
+def _csv_fields(u: DeliverableUnits, table_sf: Optional[float] = None) -> List[str]:
     """Span-load CSV header row for unit set ``u``.
 
     Every dimensional column carries its unit and, if it is a load, its ``-ULT``
@@ -598,7 +620,9 @@ def _csv_fields(u: DeliverableUnits) -> List[str]:
     the alternative (units in SI only) would leave the Imperial deck the one
     file in the suite you can misread.
     """
-    ln, fo, mo = u.length.label, _load_label(u.force.label), _load_label(u.moment.label)
+    ln = u.length.label
+    fo, mo = (_load_label(u.force.label, table_sf),
+              _load_label(u.moment.label, table_sf))
     return [
         "Case", "GID", f"X ({ln})", f"Y ({ln})", f"Z ({ln})",
         # applied nodal load (== the FORCE/MOMENT cards)
@@ -707,7 +731,7 @@ def span_load_csv(arg: ResultsArg, header_comment: str = "", *,
     """
     results = _as_results(arg)
     u = _units(system)
-    fields = _csv_fields(u)
+    fields = _csv_fields(u, shared_basis_factor(results))
     (x_h, y_h, z_h, fx_h, fz_h, my_h, mx_h, mz_h,
      sx_h, sz_h, mxx_h, myy_h, mzz_h) = fields[2:15]
     buf = _io.StringIO()
@@ -1057,9 +1081,12 @@ def applied_body_moments(load: AppliedLoad) -> Vec3:
     return (mx, load.myy_free, mz)
 
 
-def _applied_csv_fields(u: DeliverableUnits) -> List[str]:
+def _applied_csv_fields(u: DeliverableUnits,
+                        table_sf: Optional[float] = None) -> List[str]:
     """Applied-load CSV header row for unit set ``u`` (D-21: units in-band)."""
-    ln, fo, mo = u.length.label, _load_label(u.force.label), _load_label(u.moment.label)
+    ln = u.length.label
+    fo, mo = (_load_label(u.force.label, table_sf),
+              _load_label(u.moment.label, table_sf))
     return [
         "Case", "Station", "GID", f"X ({ln})", f"Y ({ln})", f"Z ({ln})",
         # The whole applied vector, in body axes and in vector order, so a
@@ -1109,12 +1136,13 @@ def applied_load_csv(arg: ResultsArg, header_comment: str = "", *,
     human-readable deliverable.
     """
     u = _units(system)
-    fields = _applied_csv_fields(u)
+    rows = list(applied_loads(component, arg, project))
+    fields = _applied_csv_fields(u, shared_basis_factor(rows))
     x_h, y_h, z_h, fx_h, fy_h, fz_h, mx_h, my_h, mz_h = fields[3:12]
     buf = _io.StringIO()
     writer = csv.DictWriter(buf, fieldnames=fields)
     writer.writeheader()
-    for load in applied_loads(component, arg, project):
+    for load in rows:
         sf = load.safety_factor
         gx, gy, gz = to_grid(load.x, load.y, load.z, u)
         fx, fy, fz = to_force(load.fx, load.fy, load.fz, u)
@@ -1764,9 +1792,11 @@ def body_span_load_csv(arg, header_comment: str = "", *,
     case's factor, which was not applied to them."""
     results = _body_results(arg)
     u = _units(system)
+    tsf = shared_basis_factor(results)
     x_h = f"X ({u.length.label})"
-    fz_h, sz_h = f"Fz ({_load_label(u.force.label)})", f"Sz ({_load_label(u.force.label)})"
-    myy_h = f"Myy ({_load_label(u.moment.label)})"
+    _fo = _load_label(u.force.label, tsf)
+    fz_h, sz_h = f"Fz ({_fo})", f"Sz ({_fo})"
+    myy_h = f"Myy ({_load_label(u.moment.label, tsf)})"
     buf = _io.StringIO()
     writer = csv.DictWriter(
         buf, fieldnames=["Case", "GID", x_h, fz_h, sz_h, myy_h, "SF"])
@@ -1828,7 +1858,7 @@ def body_force_moment_cards(arg, sid_base: int = 1, *,
         terminal_myy = _closed(terminal_myy,
                                max((abs(s.myy) for s in r.stations), default=0.0))
         lines = [
-            f"$ SLOADS net fuselage load -- case {r.case}, SID {sid}",
+            *_comment(f"SLOADS net fuselage load -- case {r.case}, SID {sid}"),
             f"$ Case ID: {r.case_ref.case_id}" if r.case_ref else "$ Case ID: (none)",
             *_comment(basis_sentence(sf)),
             f"$ Applied Fz set sums to {total_fz:.2f} {u.force.label} "
@@ -1854,14 +1884,17 @@ def body_force_moment_cards(arg, sid_base: int = 1, *,
     return _stamped(header_comment, "\n".join(b for b in blocks if b) + "\n")
 
 
-def _body_fitting_fields(u: DeliverableUnits) -> List[str]:
+def _body_fitting_fields(u: DeliverableUnits,
+                         table_sf: Optional[float] = None) -> List[str]:
     """Fitting-load CSV header for unit set ``u``.
 
     This file already carried its units; what changes at M4-20 is that they come
     from the unit set rather than being written out Imperial, and that the force
     marker is the renderer's ``lbs-ULT`` rather than this file's own ``lb-ULT``
     -- one vocabulary across every deliverable."""
-    ln, fo, mo = u.length.label, _load_label(u.force.label), _load_label(u.moment.label)
+    ln = u.length.label
+    fo, mo = (_load_label(u.force.label, table_sf),
+              _load_label(u.moment.label, table_sf))
     return [
         "Case", "Case ID", f"X front ({ln})", f"R front ({fo})",
         f"X rear ({ln})", f"R rear ({fo})", f"M unbalanced ({mo})", "Spars", "SF",
@@ -1883,7 +1916,7 @@ def body_fitting_load_csv(arg, header_comment: str = "", *,
     the file is empty (header only) when every case fell back."""
     results = _body_results(arg)
     u = _units(system)
-    fields = _body_fitting_fields(u)
+    fields = _body_fitting_fields(u, shared_basis_factor(results))
     xf_h, rf_h, xr_h, rr_h, m_h = fields[2:7]
     buf = _io.StringIO()
     writer = csv.DictWriter(buf, fieldnames=fields)
@@ -2063,9 +2096,10 @@ def tail_chordwise_csv(arg, header_comment: str = "", *,
     ``SF`` states the case's factor, which was not applied to them."""
     results = _tail_results(arg)
     u = _units(system)
+    tsf = shared_basis_factor(results)
     x_h = f"X ({u.length.label})"
-    psi_h = f"PSI ({_load_label(u.pressure.label)})"
-    fo = _load_label(u.force.label)
+    psi_h = f"PSI ({_load_label(u.pressure.label, tsf)})"
+    fo = _load_label(u.force.label, tsf)
     fn_h, lt25_h, lt50_h = f"Fn ({fo})", f"LT25 ({fo})", f"LT50 ({fo})"
     buf = _io.StringIO()
     writer = csv.DictWriter(
@@ -2130,7 +2164,7 @@ def tail_force_moment_cards(arg, sid_base: int = 1, *,
         _, _, total = to_force(0.0, 0.0, math.fsum(forces), u)
         _, _, lt_total = to_force(0.0, 0.0, (r.lt25 + r.lt50), u)
         lines = [
-            f"$ SLOADS chordwise {r.component} load -- case {r.case}, SID {sid}",
+            *_comment(f"SLOADS chordwise {r.component} load -- case {r.case}, SID {sid}"),
             f"$ Case ID: {r.case_ref.case_id}" if r.case_ref else "$ Case ID: (none)",
             *_comment(basis_sentence(sf)),
             f"$ Load is normal to the surface = {axis} in airplane axes.",
@@ -2301,7 +2335,7 @@ def _tail_span_case_block(r, component: str, sid: int,
     sf = _sf(r)
     _, _, air = to_force(0.0, 0.0, r.air_total, u)
     lines = [
-        f"$ SLOADS spanwise {component} load -- case {r.case}, SID {sid}",
+        *_comment(f"SLOADS spanwise {component} load -- case {r.case}, SID {sid}"),
         f"$ Case ID: {r.case_ref.case_id}" if r.case_ref else "$ Case ID: (none)",
         *_comment(basis_sentence(sf)),
         f"$ Torsion about the {r.torsion_axis}.",
@@ -2339,8 +2373,13 @@ def _tail_span_case_block(r, component: str, sid: int,
     basis: List[str] = []
     if r.inertia_modelled:
         _, _, iner = to_force(0.0, 0.0, tail_span.inertia_total(r), u)
+        # ``iner + 0.0`` collapses a negative zero. The fin's lateral factor is
+        # exactly zero on a condition that names no V-n point -- the 23.367
+        # engine-failure cases (note 44 OR-172/OR-179) -- so the inertia total is
+        # ``-0.0 * weight``, and a printed "-0.0 lb" reads as a small negative
+        # load rather than as none. Guarded by the negative-zero sweep.
         basis.append(f"Surface mass {r.surface_weight_lb:.1f} lb: inertia "
-                     f"{iner:.1f} {u.force.label} is IN the loads above.")
+                     f"{iner + 0.0:.1f} {u.force.label} is IN the loads above.")
         axial = tail_span.axial_total(r)
         if abs(axial) > _TOL:
             _, _, ax_u = to_force(0.0, 0.0, axial, u)
@@ -2440,7 +2479,8 @@ def tail_span_csv(arg, component: str = "htail", header_comment: str = "", *,
     """Spanwise tail-load CSV: one row per station per case, LIMIT."""
     results = _tail_span_results(arg, component)
     u = _units(system)
-    fo, mo = _load_label(u.force.label), _load_label(u.moment.label)
+    tsf = shared_basis_factor(results)
+    fo, mo = (_load_label(u.force.label, tsf), _load_label(u.moment.label, tsf))
     span_h = f"Span ({u.length.label})"
     x_h = f"X on LRA ({u.length.label})"
     f_h, s_h = f"Fn ({fo})", f"Sn ({fo})"
@@ -2533,8 +2573,9 @@ def control_surface_csv(arg, header_comment: str = "", *,
     systems."""
     results = _control_results(arg)
     u = _units(system)
-    psi_h = f"PSI ({_load_label(u.pressure.label)})"
-    fo = _load_label(u.force.label)
+    tsf = shared_basis_factor(results)
+    psi_h = f"PSI ({_load_label(u.pressure.label, tsf)})"
+    fo = _load_label(u.force.label, tsf)
     fz_h, load_h = f"Fz ({fo})", f"Load ({fo})"
     buf = _io.StringIO()
     writer = csv.DictWriter(
