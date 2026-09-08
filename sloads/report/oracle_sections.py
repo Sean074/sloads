@@ -6425,6 +6425,17 @@ def _oei_refusal(project: Project) -> str:
     return ""
 
 
+def _oei_engine_number(index: int) -> str:
+    """The engine number this document prints for position ``index`` (#231).
+
+    One engine, one number: section 10's input table heads its columns
+    "Engine 1 / Engine 2" from the same entered order, and the module's own
+    case labels mint " (engine 1)" from it, so every use is 1-based and the
+    0-based position never reaches the page.
+    """
+    return str(index + 1)
+
+
 def _oei_input_table(project: Project, cases: Sequence["FinCase"],
                      system: UnitSystem) -> Optional[Table]:
     """What the simulation was run from, one row per failed engine."""
@@ -6440,8 +6451,13 @@ def _oei_input_table(project: Project, cases: Sequence["FinCase"],
             name = engines[index].engine_designation or ""
         c = fc.inputs
         rows.append([
-            f"{index}{(' — ' + name) if name else ''}",
-            u.plain(c.bleng, "length"),
+            f"{_oei_engine_number(index)}{(' — ' + name) if name else ''}",
+            # The march runs on the magnitude and publishes the side through
+            # ``sense`` (-1 for a starboard engine), so the entered, signed
+            # butt line is recovered from the module's own side owner rather
+            # than printed unsigned -- two rows that differ only in the sign
+            # of this cell are inputs producing opposite-sign fin loads (#231).
+            u.plain(-fc.sense * c.bleng, "length"),
             format_value(c.maxhp),
             u.plain(c.dia_ft * 12.0, "length"),
             format_value(c.izz),
@@ -6458,7 +6474,10 @@ def _oei_input_table(project: Project, cases: Sequence["FinCase"],
         rows=rows,
         note=("Every entered engine whose failure produces a yawing moment is "
               "marched in turn (design note 44 OR-173); an engine on the "
-              "centreline has no arm and is not. The moment of inertia and the "
+              "centreline has no arm and is not. The butt line is signed, "
+              "positive to starboard, because which side the failed engine "
+              "sits on sets the sign of its fin loads. "
+              "The moment of inertia and the "
               "CG station are the heaviest mass case's unless the analysis "
               "overrides them. Max SHP is the take-off or max-continuous shaft "
               "power, per the input slice's selector."))
@@ -6499,7 +6518,7 @@ def _oei_case_list_table(cases: Sequence["FinCase"]) -> Optional[Table]:
     for fc in cases:
         rows.append([
             fc.case_id,
-            f"{fc.engine_index}",
+            _oei_engine_number(fc.engine_index),
             fc.load_case.label,
             fc.load_case.far_reference,
             format_value(fc.inputs.v_kt),
@@ -6532,7 +6551,7 @@ def _oei_load_table(cases: Sequence["FinCase"], system: UnitSystem) -> Optional[
         s = fc.summary
         rows.append([
             fc.case_id,
-            f"{fc.engine_index}",
+            _oei_engine_number(fc.engine_index),
             fc.load_case.label,
             u.plain(fc.sense * s.lt25_at_peak_lb, "force"),
             u.plain(fc.sense * s.lt50_at_peak_lb, "force"),
@@ -6636,7 +6655,7 @@ def _oei_figures(cases: Sequence["FinCase"], system: UnitSystem
         if not rows:
             continue
         t = [r.time for r in rows]
-        tag = f"{fc.load_case.label}, engine {fc.engine_index}"
+        tag = f"{fc.load_case.label}, engine {_oei_engine_number(fc.engine_index)}"
         key = f"oei-{fc.case_id.lower()}"
         marks = [("23.367(b) delay", _OEI_DELAY_S),
                  ("Peak load", fc.peak.time)]
@@ -6708,7 +6727,8 @@ def _one_engine_out(project: Project,
     ]
     if excluded:
         names = ", ".join(f"{fc.case_id} ({fc.load_case.label}, engine "
-                          f"{fc.engine_index})" for fc in excluded)
+                          f"{_oei_engine_number(fc.engine_index)})"
+                          for fc in excluded)
         envelope.append(
             f"{len(excluded)} case(s) are EXCLUDED from that envelope: "
             f"{names}. The march bounds itself at 60 s and these did not "

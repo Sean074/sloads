@@ -91,7 +91,15 @@ MANIFEST: dict[str, str] = {
     # envelope (OR-174). (4) every entered engine is failed in turn, because one
     # engine gives the fin one sense of load and a fin is sized for both
     # (OR-173).
-    "sloads/modules/one_engine_out.py": "d1319c927c8ae7c5444a1ec7773266dcc1e814f8aaa41d495ddddadf10b8ac1d",
+    # OR-15 admission, granted by the owner 2026-09-08 (#231): ``_engine_label``
+    # mints its case-name suffix 1-based (" (engine 1)"), because section 10
+    # numbers the same engines "Engine 1 / Engine 2" and one physical engine
+    # must not answer to two numbers in one document. Widened the same day to
+    # the published condition note, which said "Failed engine #0 at butt line
+    # 66 in" -- 0-based and unsigned, the same defect class. Those two sites
+    # only; the 0-based ``engine_index`` and every computed quantity are
+    # untouched.
+    "sloads/modules/one_engine_out.py": "007b3f83d3764dd6db9129253cd3b63633ded098f5c92a318f85f287a30bb952",
     # OR-15 admission, granted by the owner 2026-09-05 (note 44 §15, OR-111):
     # the four maneuver conditions publish the unbalanced pitching moment about
     # the CG, whose equation is recovered from SELECT.BAS 5210/5262/5410/5560.
