@@ -288,6 +288,35 @@ def test_a_far_25_gyroscopic_condition_fans_out_as_well():
     assert len({r[column] for r in gyro}) == 2  # +Myy and -Myy
 
 
+def test_gyroscopic_prose_appears_iff_a_gyroscopic_case_is_printed():
+    """G-OR-107 extension (#228). The boilerplate follows the case set.
+
+    The 2026-09-08 review found §10 promising "every sign combination ... all
+    four of which are printed below" and describing the a/b/c/d suffixes on
+    both reciprocating installations, whose tables (correctly) carry no
+    23.371(b) case at all: the prose was fixed strings, unconditioned on
+    engine type. It is now conditioned on a gyroscopic case being in the
+    printed set, and the no-gyro build states its own not-applicable in the
+    §11 discipline — the reason stated, nothing promised.
+    """
+    printed = {}
+    for name in _ALL:
+        section = _section(_doc(name))
+        cases = _table(section, "Load cases assessed")
+        far_col = _column(cases, "FAR")
+        has_gyro = any(row[far_col] in osec._GYRO_FARS for row in cases.rows)
+        printed[name] = has_gyro
+        text = " ".join(_text(section))
+        assert ("a/b/c/d" in text) == has_gyro, name
+        assert ("every sign combination" in text) == has_gyro, name
+        if has_gyro:
+            assert "all four of which are printed below" in text, name
+        else:
+            assert "does not apply" in text, name
+    # The example set covers both directions, or the gate is vacuous.
+    assert True in printed.values() and False in printed.values(), printed
+
+
 # --------------------------------------------------------------------------- #
 # G-OR-108 -- one row per engine
 # --------------------------------------------------------------------------- #

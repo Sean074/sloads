@@ -5769,6 +5769,22 @@ def _engine_station_table(records: Sequence[_EngineRecord],
               "are quoted about."))
 
 
+#: The FAR references under which the gyroscopic sign combinations are minted.
+_GYRO_FARS = ("23.371(b)", "25.371")
+
+
+def _gyro_cases_present(records: Sequence[_EngineRecord]) -> bool:
+    """Whether any printed case is a gyroscopic sign combination.
+
+    Read off the case set the section actually prints, not off the engine
+    type: the prose below describes the tables beside it, and conditioning it
+    on anything but their contents is how the boilerplate came to promise
+    a/b/c/d cases a reciprocating installation never runs (#228).
+    """
+    return any(case.far in _GYRO_FARS
+               for record in records for case in record.cases)
+
+
 def _engine_case_list_table(records: Sequence[_EngineRecord]) -> Optional[Table]:
     """Every case the module ran, by regulation, with the factor it prescribes."""
     rows = [[str(case.engine), case.case_id or "--", case.far, case.condition,
@@ -5776,17 +5792,19 @@ def _engine_case_list_table(records: Sequence[_EngineRecord]) -> Optional[Table]
             for record in records for case in record.cases]
     if not rows:
         return None
+    gyro_sentence = (
+        "Each of the four 23.371(b) gyroscopic sign combinations is its own "
+        "case, carrying the base case ID with an a/b/c/d suffix. "
+        if _gyro_cases_present(records) else "")
     return Table(
         title="Load cases assessed",
         columns=["Engine", "Case ID", "FAR", "Condition", "SF"],
         rows=rows,
         note=("The conditions are enumerated by the regulation, not selected "
               "from a sweep: every one listed is assessed and every one is "
-              "reported in the next section. Each of the four 23.371(b) "
-              "gyroscopic sign combinations is its own case, carrying the base "
-              "case ID with an a/b/c/d suffix. Every case is LIMIT and states "
-              "the factor 14 CFR 23.303 prescribes for it, which is applied to "
-              "none of them."))
+              f"reported in the next section. {gyro_sentence}Every case is "
+              "LIMIT and states the factor 14 CFR 23.303 prescribes for it, "
+              "which is applied to none of them."))
 
 
 _ENGINE_SIGN_CONVENTION = (
@@ -5824,6 +5842,15 @@ _ENGINE_THRUST_ABSENCE = (
     "condition."
 )
 
+_ENGINE_THRUST_ABSENCE_NO_GYRO = (
+    "Thrust appears in no condition of this section. 14 CFR 23.361 and 23.363 "
+    "prescribe a torque, a vertical load factor and a side load, and no thrust "
+    "at all, so the thrust zeros are results and not omissions. They are not "
+    "filled from the engine's entered design thrust, which is a flight input "
+    "applied at the hub in the assembled balanced cases and is not a component "
+    "of any engine-mount condition."
+)
+
 def _engine_rotation_sentence(records: Sequence["_EngineRecord"]) -> str:
     """Which way each propeller turns, and what that does to the sign (D-53.7).
 
@@ -5859,11 +5886,26 @@ _ENGINE_GYRO_EXEMPTION = (
     "a sign there would rename four cases and change none of them."
 )
 
+_ENGINE_GYRO_ABSENCE = (
+    "No gyroscopic case appears in this section, and none is missing: "
+    "14 CFR 23.371(b) prescribes gyroscopic loads for turbopropeller "
+    "installations, and every engine on this airplane is a reciprocating "
+    "installation, so the condition does not apply and the case set is "
+    "complete without it."
+)
+
 _ENGINE_SIDE_LOAD_SENSE = (
     "The 23.363 side load acts in either direction and the analysis publishes "
     "one signed value, so it is printed as acting to starboard and the mount is "
     "to be checked for both senses. It is not printed twice: the gyroscopic "
     "combinations are four cases because the analysis ran four, and a second "
+    "side-load row would be this document inventing a case that was not run."
+)
+
+_ENGINE_SIDE_LOAD_SENSE_NO_GYRO = (
+    "The 23.363 side load acts in either direction and the analysis publishes "
+    "one signed value, so it is printed as acting to starboard and the mount is "
+    "to be checked for both senses. It is not printed twice: a second "
     "side-load row would be this document inventing a case that was not run."
 )
 
@@ -5882,9 +5924,16 @@ def _engine_inputs(records: Sequence[_EngineRecord], *,
         _ENGINE_SIGN_CONVENTION,
         _ENGINE_AXES,
         _engine_rotation_sentence(records),
-        _ENGINE_GYRO_EXEMPTION,
-        _ENGINE_THRUST_ABSENCE,
-        _ENGINE_SIDE_LOAD_SENSE,
+        # The gyroscopic prose is conditioned on a gyroscopic case being in
+        # the printed set (#228): a reciprocating installation runs none, and
+        # the document states its own not-applicable rather than promising
+        # a/b/c/d cases the tables do not carry.
+        _ENGINE_GYRO_EXEMPTION if _gyro_cases_present(records)
+        else _ENGINE_GYRO_ABSENCE,
+        _ENGINE_THRUST_ABSENCE if _gyro_cases_present(records)
+        else _ENGINE_THRUST_ABSENCE_NO_GYRO,
+        _ENGINE_SIDE_LOAD_SENSE if _gyro_cases_present(records)
+        else _ENGINE_SIDE_LOAD_SENSE_NO_GYRO,
     ]
     if assumed:
         which = ", ".join(str(r.number) for r in assumed)
