@@ -1274,7 +1274,7 @@ def _mach_limit_table(result: Optional[ModuleResult],
 def _envelope(project: Project,
               results: Mapping[str, Optional[ModuleResult]], *,
               system: UnitSystem,
-              plan: Sequence[SectionPlan]) -> Section:
+              plan: Sequence[SectionPlan]) -> Section:  # noqa: ARG001
     conditions = _conditions(results.get("flight_envelope"), system)
     blocks = _blocks(conditions)
 
@@ -1291,7 +1291,10 @@ def _envelope(project: Project,
     table = _corner_table(blocks)
     mach = _mach_limit_table(results.get("mach_limit"), system)
 
-    cases_ref = section_ref(plan, "flight_envelope_cases")
+    # The candidate set lives in Appendix A (note 44 §23), and each component
+    # section's own case register states the set it carries; the plan has never
+    # had a "flight_envelope_cases" row to point at (#230).
+    cases_ref = appendix_ref(VN_CONDITIONS)
     body = [
         "The operating envelope in speed and altitude, and then the flight "
         "envelope itself, one diagram per loading and altitude analysed. "
@@ -1303,7 +1306,8 @@ def _envelope(project: Project,
 
         "The design cases selected on these envelopes -- the speed, load factor, "
         "attitude and balance of each condition carried into the component load "
-        f"analyses -- are tabulated in {cases_ref}.",
+        f"analyses -- are tabulated in full in {cases_ref}, and each component "
+        "section's own case register states the set it carries.",
     ]
     far = _far_note(conditions[0] if conditions else None)
     if far:
@@ -3160,7 +3164,9 @@ def _body_critical(project: Project,
                    results: Mapping[str, Optional[ModuleResult]], *,
                    system: UnitSystem, plan: Sequence[SectionPlan]) -> Section:
     """4.3 -- the critical fuselage loads, as the manual summarises them."""
-    tail_ref = section_ref(plan, "tail_loads")
+    # The pull-ups are the horizontal tail's, and "tail_loads" retired as a
+    # section key when OR-129 split the tail into its two surfaces (#230).
+    tail_ref = section_ref(plan, _tail_section_key("htail"))
     summary = _critical_summary_table(project, results, system)
     pull_up = _pull_up_table(project, results, system, tail_ref)
     body = [
