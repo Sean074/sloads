@@ -50,7 +50,7 @@ from sloads import (
 from sloads import io as sloads_io
 from sloads.applicability import effective_occupants
 from sloads.constants import DEFAULT_FRONT_SPAR_PCT, DEFAULT_REAR_SPAR_PCT
-from sloads.derived_geometry import default_spar_station, fuselage_summary
+from sloads.derived_geometry import default_spar_station, engine_thrust_segments, fuselage_summary
 from sloads.modules.configuration import (
     cg_estimate,
     component_stations,
@@ -508,6 +508,20 @@ def _three_view() -> go.Figure:
                         text=labels, hoverinfo="text", showlegend=False, row=1, col=2)
         fig.add_scatter(x=ey, y=ez, mode="markers", marker=eng_marker,
                         text=labels, hoverinfo="text", showlegend=False, row=1, col=3)
+
+    # --- Thrust lines: the axis each engine's torque and thrust act about. ---
+    #
+    # Drawn here because it is geometry the user states and can therefore get
+    # wrong, and a three-view is where a wrong line is obvious (design note 53,
+    # D-53.9). What to draw is ``_thrust_line_segments``'; this only draws it.
+    for label, assumed, start, end in engine_thrust_segments(project):
+        style = {"color": "#9467bd", "width": 2,
+                 "dash": "dot" if assumed else "solid"}
+        for col, (a, b) in enumerate(((0, 1), (0, 2), (1, 2)), start=1):
+            fig.add_scatter(x=[start[a], end[a]], y=[start[b], end[b]],
+                            mode="lines", line=style, name=label,
+                            text=label, hoverinfo="text",
+                            showlegend=col == 1, row=1, col=col)
 
     fig.update_layout(height=360, margin={"l": 10, "r": 10, "t": 30, "b": 10},
                       legend={"orientation": "h", "y": 1.2, "x": 0})

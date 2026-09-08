@@ -35,10 +35,13 @@ path and cannot drift.
 from __future__ import annotations
 
 import math
-from typing import Tuple
+from typing import TYPE_CHECKING, Tuple
 
 from ..gear_loads import transfer_couple as _transfer_couple
 from ..units import Channel, DeliverableUnits, UnitSystem, deliverable_units
+
+if TYPE_CHECKING:  # pragma: no cover - typing only, and a cycle at runtime
+    from ..models.inputs import EngineInput
 
 Vec3 = Tuple[float, float, float]
 
@@ -298,31 +301,70 @@ def tail_torsion_to_airplane(torsion: float, component: str) -> Vec3:
 # --------------------------------------------------------------------------- #
 # Engine mount: the thrust line, and the load an engine applies to the airframe
 # --------------------------------------------------------------------------- #
-#: The thrust axis assumed where an installation does not locate its own hub:
-#: airplane **forward**, which is ``-x`` because ``x`` is positive aft.
+#: The thrust axis used where an installation does not state its own thrust
+#: line: airplane **forward**, which is ``-x`` because ``x`` is positive aft.
 ASSUMED_THRUST_AXIS: Vec3 = (-1.0, 0.0, 0.0)
 
 
-def engine_thrust_axis(engine_cg: Vec3, prop_cg: Vec3) -> Tuple[Vec3, bool]:
+class ThrustLineError(ValueError):
+    """A thrust line entered as one point of two (design note 53, D-53.1)."""
+
+
+def engine_thrust_axis(engine: "EngineInput") -> Tuple[Vec3, bool]:
     """``(unit vector along the thrust line, whether it was assumed)``.
 
-    The axis is the direction from the engine CG to the propeller hub -- forward
-    by construction, since a hub is ahead of the engine that drives it -- and it
-    is derived from the two stations the project already enters rather than
-    entered a third time. Where the two coincide, or neither is entered, there is
-    no direction to derive and the airplane's forward axis is assumed; the
-    ``True`` flag is what every deliverable then marks, the same
+    **The thrust line is an input** (design note 53, D-53.1): two entered
+    points, ``thrust_line_aft`` and ``thrust_line_fwd``, whose difference is the
+    axis. ``thrust_line_fwd`` is the forward one **by name** -- nothing infers
+    it from the smaller fuselage station -- which is what lets a pusher
+    installation be stated without a special case: the torque's sense is about
+    which way the shaft turns as the pilot sees it, not about which end of the
+    engine the propeller is on.
+
+    Both points left at the origin means **not entered** -- the sentinel
+    ``LandingGearInput.attach`` already uses for an optional station, and a
+    point at the nose datum on the centreline at waterline zero is not a thrust
+    line anybody means. The axis is then the airplane's forward direction and
+    the ``True`` flag says so, for every deliverable to mark -- the same
     explicit-with-flagged-inference shape as ``EngineInput.mounted_on`` (BM-4)
-    and ``derived_geometry.fuselage_centreline``.
+    and ``derived_geometry.fuselage_centreline``. **Two grades of provenance,
+    not three.** Until D-53.3 this function derived a middle grade, the
+    direction from the engine CG to the hub (note 44 OR-161, now superseded).
+    That is a line between two *mass* stations, not the shaft, and it inherits
+    every error in either: measured 14.0 deg off ``x`` on ``ga6_normal`` --
+    which put an ``mz`` of -178.8 ft-lb into a section 10 for an airplane that
+    has no such moment -- and 71.6 deg, very nearly straight up, on
+    ``cessna_210``, whose engine CG waterline is a filed defect. A derivation
+    that turns a station error into an orientation is worse than an assumption
+    that says it is one.
+
+    One point of the two raises :class:`ThrustLineError`, by name: a
+    half-entered line is neither ignored nor completed from a derived second
+    point (the C210-21 load-bearing-blank pattern). Two coincident points are
+    the same refusal -- they state no direction.
 
     This is here rather than at a call site because it is an *axis resolution*,
-    and ``CONVENTIONS.md`` §1 makes this module the single edit point for those
-    (note 44 §20, OR-161).
+    and ``CONVENTIONS.md`` §1 makes this module the single edit point for those.
     """
-    dx, dy, dz = (float(p) - float(e) for p, e in zip(prop_cg, engine_cg))
+    aft, fwd = engine.thrust_line_aft, engine.thrust_line_fwd
+    stated_aft, stated_fwd = any(aft), any(fwd)
+    if not stated_aft and not stated_fwd:
+        return ASSUMED_THRUST_AXIS, True
+    if not (stated_aft and stated_fwd):
+        missing = "thrust_line_aft" if not stated_aft else "thrust_line_fwd"
+        raise ThrustLineError(
+            f"engine {engine.engine_designation or '(unnamed)'} states half a "
+            f"thrust line: {missing} is left at the origin, which is this "
+            f"schema's 'not entered'. Enter both points or neither -- a single "
+            f"point states no direction, and the missing one is not derived.")
+    dx, dy, dz = (float(f) - float(a) for f, a in zip(fwd, aft))
     magnitude = math.sqrt(dx * dx + dy * dy + dz * dz)
     if magnitude <= 0.0:
-        return ASSUMED_THRUST_AXIS, True
+        raise ThrustLineError(
+            f"engine {engine.engine_designation or '(unnamed)'} states a "
+            f"thrust line whose two points coincide, so it states no "
+            f"direction. Move one of them, or clear both to use the "
+            f"airplane's forward axis.")
     return (dx / magnitude, dy / magnitude, dz / magnitude), False
 
 

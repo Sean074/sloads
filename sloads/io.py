@@ -357,12 +357,21 @@ def engine_from_dict(d: Dict[str, Any]) -> EngineInput:
 
     engine_cg = vec("engine_cg")
     prop_cg = vec("prop_cg")
+    # ``(0, 0, 0)`` is "no thrust line stated" (design note 53, D-53.1), the
+    # same sentinel ``LandingGearInput.attach`` uses, so these take ``vec``'s
+    # ordinary zero default rather than a nullable of their own.
+    thrust_line_aft = vec("thrust_line_aft")
+    thrust_line_fwd = vec("thrust_line_fwd")
     engine_type = EngineType(d.pop("engine_type", "R"))
+    prop_direction = RotorDirection(d.pop("prop_direction", "CW"))
 
     return EngineInput(
         engine_type=engine_type,
         engine_cg=engine_cg,
         prop_cg=prop_cg,
+        thrust_line_aft=thrust_line_aft,
+        thrust_line_fwd=thrust_line_fwd,
+        prop_direction=prop_direction,
         rotors=rotors,
         **_filtered(EngineInput, d),
     )
@@ -374,6 +383,9 @@ def engine_to_dict(inp: EngineInput) -> Dict[str, Any]:
     d["engine_type"] = inp.engine_type.value
     d["engine_cg"] = list(inp.engine_cg)
     d["prop_cg"] = list(inp.prop_cg)
+    d["prop_direction"] = inp.prop_direction.value
+    d["thrust_line_aft"] = list(inp.thrust_line_aft)
+    d["thrust_line_fwd"] = list(inp.thrust_line_fwd)
     d["rotors"] = [
         {
             **asdict(r),

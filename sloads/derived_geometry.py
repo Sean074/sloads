@@ -22,7 +22,7 @@ read-only. So there is no independently-editable copy and a save->reload is a no
 from __future__ import annotations
 
 import math
-from typing import NamedTuple, Optional, Tuple
+from typing import List, NamedTuple, Optional, Tuple
 
 from . import workflow as wf
 from .constants import DEFAULT_FRONT_SPAR_PCT, DEFAULT_REAR_SPAR_PCT, IN2_PER_FT2
@@ -544,6 +544,70 @@ FUSELAGE_VIEWS: Tuple[str, ...] = ("butt", "water", "front")
 
 #: How many segments the front view's section ellipse is drawn with.
 _ELLIPSE_STEPS = 48
+
+
+class ThrustSegment(NamedTuple):
+    """One engine's thrust line as something to draw.
+
+    ``assumed`` is False only where the engine states the line itself; the label
+    carries the ASSUMED marker so a figure cannot draw a stated line and an
+    assumed one identically.
+    """
+    label: str
+    assumed: bool
+    start: Tuple[float, float, float]
+    end: Tuple[float, float, float]
+
+
+#: How long an assumed thrust line is drawn, as a fraction of the body length.
+_THRUST_LINE_FRACTION = 0.12
+
+#: ...and how long where there is no body to scale against, in inches. A stated
+#: two feet, because an unlabelled line of arbitrary length is worse than a
+#: stated default.
+_THRUST_LINE_DEFAULT_IN = 24.0
+
+
+def engine_thrust_segments(project: Project) -> List[ThrustSegment]:
+    """Every engine's thrust line, ready to draw (design note 53, D-53.9).
+
+    **One owner for two consumers**: the oracle report's three views of the
+    installation and the Configuration & Layout sketch. Written here at the
+    second time of asking -- it was briefly a copy in each, which is the drift
+    rule 3 exists for, and the two would have disagreed about how long an
+    assumed line is drawn the first time either changed.
+
+    An engine that states its line is drawn between the two entered points,
+    unaltered. One that states none is drawn from its hub along the airplane's
+    forward axis, flagged, and the length is a property of the *airplane* rather
+    than of the plot, so the same engine draws the same line in both documents.
+    An engine that states **half** a line is drawn not at all: the refusal
+    belongs to :func:`sloads.export.coordinates.engine_thrust_axis`, and
+    supplying the missing point here would be a figure answering a question the
+    owner declined.
+    """
+    from .export.coordinates import ThrustLineError, engine_thrust_axis
+
+    summary = fuselage_summary(project.geometry.fuselage
+                               if project.geometry is not None else None)
+    reach = (_THRUST_LINE_FRACTION * summary[0]
+             if summary and summary[0] > 0 else _THRUST_LINE_DEFAULT_IN)
+    out: List[ThrustSegment] = []
+    for index, engine in enumerate(project.engines or [], start=1):
+        try:
+            axis, assumed = engine_thrust_axis(engine)
+        except ThrustLineError:
+            continue
+        if assumed:
+            start = tuple(engine.prop_cg if any(engine.prop_cg) else engine.engine_cg)
+            end = tuple(start[a] + axis[a] * reach for a in range(3))
+        else:
+            start = tuple(engine.thrust_line_aft)
+            end = tuple(engine.thrust_line_fwd)
+        name = engine.engine_designation or f"Engine {index}"
+        label = f"{name} thrust line" + (" (ASSUMED)" if assumed else "")
+        out.append(ThrustSegment(label, assumed, start, end))  # type: ignore[arg-type]
+    return out
 
 
 def fuselage_outline(project: Project, frame: str,

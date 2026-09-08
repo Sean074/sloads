@@ -1,5 +1,5 @@
 {
-  "schema_version": 62,
+  "schema_version": 63,
   "name": "ATR 42-300 (\"ATR 42-100\" prototype designation never entered production; -300 is the closest PW120-powered production analog) \u2014 2x PW120 (concept, category C)",
   "engines": [
     {
@@ -47,6 +47,17 @@
       "design_pitch_rate_rad_s": null,
       "engine_mass_item": "",
       "prop_mass_item": "",
+      "thrust_line_aft": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "thrust_line_fwd": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "prop_direction": "CW",
       "mounted_on": "wing"
     },
     {
@@ -94,6 +105,17 @@
       "design_pitch_rate_rad_s": null,
       "engine_mass_item": "",
       "prop_mass_item": "",
+      "thrust_line_aft": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "thrust_line_fwd": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "prop_direction": "CW",
       "mounted_on": "wing"
     }
   ],
@@ -884,35 +906,51 @@
     "stations": [
       {
         "x": 130.0,
-        "weight_lb": 660
+        "weight_lb": 660,
+        "y": 0.0,
+        "z": 0.0
       },
       {
         "x": 234.5,
-        "weight_lb": 1170
+        "weight_lb": 1170,
+        "y": 0.0,
+        "z": 0.0
       },
       {
         "x": 343.0,
-        "weight_lb": 2500
+        "weight_lb": 2500,
+        "y": 0.0,
+        "z": 0.0
       },
       {
         "x": 373.8,
-        "weight_lb": 2380
+        "weight_lb": 2380,
+        "y": 0.0,
+        "z": 0.0
       },
       {
         "x": 437.4,
-        "weight_lb": 6150
+        "weight_lb": 6150,
+        "y": 0.0,
+        "z": 0.0
       },
       {
         "x": 450.0,
-        "weight_lb": 10560
+        "weight_lb": 10560,
+        "y": 0.0,
+        "z": 0.0
       },
       {
         "x": 680.3,
-        "weight_lb": 1470
+        "weight_lb": 1470,
+        "y": 0.0,
+        "z": 0.0
       },
       {
         "x": 830.0,
-        "weight_lb": 320
+        "weight_lb": 320,
+        "y": 0.0,
+        "z": 0.0
       }
     ],
     "ref_waterline": 177.5,

@@ -36,11 +36,12 @@ from sloads.migrations import (
     source_schema_version,
 )
 from sloads.models import SCHEMA_VERSION
+from sloads.models.enums import RotorDirection
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _FIXTURES = os.path.join(_HERE, "fixtures_schema")
 _EXAMPLES = os.path.join(os.path.dirname(_HERE), "examples")
-_CURRENT = "v62_current.json"
+_CURRENT = "v63_current.json"
 
 
 def _load(name=_CURRENT):
@@ -145,7 +146,7 @@ def test_a_v55_file_loads_through_the_identity_hop_unchanged():
     assert v55["schema_version"] == 55
     hopped = MIGRATIONS[55](copy.deepcopy(v55))
     assert hopped == v55, "the 55->56 identity hop moved something"
-    assert applied_hops(55) == [55, 56, 57, 58, 59, 60, 61]
+    assert applied_hops(55) == [55, 56, 57, 58, 59, 60, 61, 62]
     assert io.project_to_dict(io.project_from_dict(v55)) == \
            io.project_to_dict(io.project_from_dict(_load()))
 
@@ -162,7 +163,7 @@ def test_the_v56_hop_inverts_the_landing_override():
     assert out["schema_version"] == SCHEMA_VERSION
     assert "gear_load_factor" not in out["landing"]
     assert out["landing"]["airplane_load_factor"] == 3.167
-    assert applied_hops(56) == [56, 57, 58, 59, 60, 61]
+    assert applied_hops(56) == [56, 57, 58, 59, 60, 61, 62]
     # The 0.0 sentinel meant "unset": it loads to an unfilled Optional.
     sentinel = copy.deepcopy(v56)
     sentinel["landing"]["gear_load_factor"] = 0.0
@@ -192,7 +193,7 @@ def test_a_v57_file_loads_through_the_identity_hop_unchanged():
     assert v57["schema_version"] == 57
     hopped = MIGRATIONS[57](copy.deepcopy(v57))
     assert hopped == v57, "the 57->58 identity hop moved something"
-    assert applied_hops(57) == [57, 58, 59, 60, 61]
+    assert applied_hops(57) == [57, 58, 59, 60, 61, 62]
     assert io.project_to_dict(io.project_from_dict(v57)) == \
            io.project_to_dict(io.project_from_dict(_load()))
 
@@ -210,7 +211,7 @@ def test_a_v58_file_loads_through_the_identity_hop_unchanged():
     assert v58["schema_version"] == 58
     hopped = MIGRATIONS[58](copy.deepcopy(v58))
     assert hopped == v58, "the 58->59 identity hop moved something"
-    assert applied_hops(58) == [58, 59, 60, 61]
+    assert applied_hops(58) == [58, 59, 60, 61, 62]
     assert io.project_to_dict(io.project_from_dict(v58)) == \
            io.project_to_dict(io.project_from_dict(_load()))
 
@@ -228,7 +229,7 @@ def test_a_v59_file_loads_through_the_identity_hop_unchanged():
     assert v59["schema_version"] == 59
     hopped = MIGRATIONS[59](copy.deepcopy(v59))
     assert hopped == v59, "the 59->60 identity hop moved something"
-    assert applied_hops(59) == [59, 60, 61]
+    assert applied_hops(59) == [59, 60, 61, 62]
     assert io.project_to_dict(io.project_from_dict(v59)) == \
            io.project_to_dict(io.project_from_dict(_load()))
 
@@ -278,13 +279,43 @@ def test_the_v60_hop_converts_an_entered_carry_through(tmp_path):
     assert ct.x_r == pytest.approx(x_le + 0.62 * c_root)
 
 
+def test_a_v62_file_loads_through_the_identity_hop_unchanged():
+    """Design note 53 (D-53.1/D-53.4): the 62->63 hop is an identity.
+
+    v63 gives ``EngineInput`` a thrust line as two entered points and the
+    propeller's rotation direction. ``None`` on both points is exactly the v62
+    state -- the schema carried no thrust line at all -- and ``CLOCKWISE`` is
+    what every published engine torque already assumed before the field
+    existed, so a v62 file loads bit-identical and no delivered load moves.
+    """
+    v62 = _load("v62_current.json")
+    assert v62["schema_version"] == 62
+    hopped = MIGRATIONS[62](copy.deepcopy(v62))
+    assert hopped == v62, "the 62->63 identity hop moved something"
+    assert applied_hops(62) == [62]
+    assert io.project_to_dict(io.project_from_dict(v62)) == \
+           io.project_to_dict(io.project_from_dict(_load()))
+
+
+def test_a_v62_engine_reads_back_with_no_thrust_line_and_a_clockwise_propeller():
+    """The identity above, said in the fields it is about: a file written before
+    the thrust line existed comes back with both points at the origin -- this
+    schema's "not entered" for an optional station, the sentinel
+    ``LandingGearInput.attach`` already uses -- and clockwise rotation."""
+    project = io.project_from_dict(_load("v62_current.json"))
+    for engine in project.engines:
+        assert engine.thrust_line_aft == (0.0, 0.0, 0.0)
+        assert engine.thrust_line_fwd == (0.0, 0.0, 0.0)
+        assert engine.prop_direction is RotorDirection.CLOCKWISE
+
+
 def test_the_v60_fixture_hops_its_nulls_through():
     """The branch every shipped file actually takes: not entered stays not
     entered, and the result is the current fixture."""
     v60 = _load("v60_current.json")
     assert all(s.get("front_spar_pct") is None and s.get("rear_spar_pct") is None
                for s in v60["geometry"]["surfaces"]), "the fixture stopped being blank"
-    assert applied_hops(60) == [60, 61]
+    assert applied_hops(60) == [60, 61, 62]
     assert io.project_to_dict(io.project_from_dict(v60)) == \
            io.project_to_dict(io.project_from_dict(_load()))
 
@@ -320,7 +351,8 @@ def test_migrate_is_idempotent():
 
 def test_applied_hops_matches_the_chain():
     assert applied_hops(SCHEMA_VERSION) == []            # nothing at/above current
-    assert applied_hops(SUPPORTED_FLOOR) == sorted(MIGRATIONS) == [55, 56, 57, 58, 59, 60, 61]
+    assert applied_hops(SUPPORTED_FLOOR) == sorted(MIGRATIONS) == \
+        [55, 56, 57, 58, 59, 60, 61, 62]
 
 
 # --------------------------------------------------------------------------- #

@@ -89,6 +89,12 @@ MEMBER_LABELS: Dict[str, Tuple[str, ...]] = {
     # Engine mass positions.
     "engine_cg": ("X", "Y", "Z"),
     "prop_cg": ("X", "Y", "Z"),
+    # The engine's thrust line, as two stations (design note 53, D-53.1). Added
+    # under the owner's OR-15 admission of 2026-09-07, scoped to these two rows:
+    # a composite field in the oracle input set must be named or it renders as
+    # "1, 2", and this table is the only place that naming lives.
+    "thrust_line_aft": ("X", "Y", "Z"),
+    "thrust_line_fwd": ("X", "Y", "Z"),
     # WINGGEOM planform polylines: (fuselage station, butt station) per corner.
     "leading_edge": ("X", "Y"),
     "trailing_edge": ("X", "Y"),

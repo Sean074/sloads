@@ -5597,7 +5597,7 @@ def _engine_records(project: Project,
     nothing, and the section states its absence rather than printing rows against
     the wrong engine.
     """
-    from ..export.coordinates import engine_thrust_axis
+    from ..export.coordinates import ThrustLineError, engine_thrust_axis
     from ..modules.engine import resolved_engines, run_all
 
     result = results.get("engine_mount")
@@ -5619,7 +5619,14 @@ def _engine_records(project: Project,
         if len(mine) != count:
             return []
         taken += count
-        axis, assumed = engine_thrust_axis(eng.engine_cg, eng.prop_cg)
+        try:
+            axis, assumed = engine_thrust_axis(eng)
+        except ThrustLineError:
+            # A half-entered thrust line is refused by its owner, by name. The
+            # document states the section absent rather than resolving the
+            # torque about a line nobody finished entering (G-OR-7: a
+            # half-filled project still builds a complete document).
+            return []
         records.append(_EngineRecord(
             number, eng, axis, assumed, _engine_cases(number, eng, axis, mine)))
     return records if taken == len(conditions) else []
@@ -5728,17 +5735,16 @@ def _engine_station_table(records: Sequence[_EngineRecord],
               "propeller CG -- the point the oracle prints as APPLIED AT X,Y,Z "
               "-- and every component in the next section acts there. The mount "
               "and hub nodes are the beam model's own and are printed because "
-              "a reader transferring "
-              "this set to a mount plane needs the offsets; no load is quoted "
-              "about them. The thrust axis is the direction from the mount node "
-              "to the hub node, forward; where the two coincide it cannot be "
-              "derived, and the airplane's forward axis is used and marked "
-              "ASSUMED. It is the best statement of the thrust line the entered "
-              "data supports and not a measured one: the true line is the shaft "
-              "axis, and an engine CG that sits off that axis inclines the "
-              "derived direction by the offset over the mount-to-hub distance. "
-              "Where that matters, entering the engine CG and the hub on the "
-              "shaft axis states it."))
+              "a reader transferring this set to a mount plane needs the "
+              "offsets; no load is quoted about them. The thrust axis is the "
+              "engine's own entered thrust line -- two points, of which the "
+              "forward one is stated and never inferred, so a pusher "
+              "installation needs no special case. An engine that states no "
+              "thrust line is resolved about the airplane's forward axis and "
+              "marked ASSUMED. It is never derived from the mount and hub "
+              "nodes: that is a line between two mass stations, and it would "
+              "carry any error in either straight into the axis these loads "
+              "are quoted about."))
 
 
 def _engine_case_list_table(records: Sequence[_EngineRecord]) -> Optional[Table]:
@@ -5796,6 +5802,41 @@ _ENGINE_THRUST_ABSENCE = (
     "condition."
 )
 
+def _engine_rotation_sentence(records: Sequence["_EngineRecord"]) -> str:
+    """Which way each propeller turns, and what that does to the sign (D-53.7).
+
+    Stated per engine rather than once for the airplane, because a
+    counter-rotating twin is the configuration the input exists for and a single
+    sentence could not describe it.
+    """
+    from ..models.enums import RotorDirection
+
+    named = {RotorDirection.CLOCKWISE: "clockwise", RotorDirection.COUNTERCLOCKWISE:
+             "counter-clockwise"}
+    parts = [f"engine {r.number} turns "
+             f"{named.get(r.engine.prop_direction, 'clockwise')}"
+             for r in records]
+    listed = (", ".join(parts[:-1]) + " and " + parts[-1]) if len(parts) > 1 else parts[0]
+    senses = {r.engine.prop_direction for r in records}
+    tail = (" The two turn opposite ways, so their torques carry opposite signs "
+            "and neither is the mirror of the other."
+            if len(senses) > 1 else "")
+    return (
+        f"Rotation is stated per engine and seen from the pilot's seat: "
+        f"{listed}. It sets the sign of every torque the engine delivers to the "
+        f"airframe -- a propeller turning clockwise from that seat delivers a "
+        f"counter-clockwise torque to the structure -- and it sets nothing "
+        f"else.{tail}")
+
+
+_ENGINE_GYRO_EXEMPTION = (
+    "The gyroscopic condition is the one exception, and deliberately so. "
+    "14 CFR 23.371(b) is assessed for every sign combination of its two "
+    "moments, all four of which are printed below, so the set the mount is "
+    "checked against is the same whichever way the propeller turns. Reversing "
+    "a sign there would rename four cases and change none of them."
+)
+
 _ENGINE_SIDE_LOAD_SENSE = (
     "The 23.363 side load acts in either direction and the analysis publishes "
     "one signed value, so it is printed as acting to starboard and the mount is "
@@ -5818,19 +5859,22 @@ def _engine_inputs(records: Sequence[_EngineRecord], *,
         f"in is stated in {geometry_ref} and is not repeated here.",
         _ENGINE_SIGN_CONVENTION,
         _ENGINE_AXES,
+        _engine_rotation_sentence(records),
+        _ENGINE_GYRO_EXEMPTION,
         _ENGINE_THRUST_ABSENCE,
         _ENGINE_SIDE_LOAD_SENSE,
     ]
     if assumed:
         which = ", ".join(str(r.number) for r in assumed)
+        plural = "s" if len(assumed) > 1 else ""
         body.append(
-            f"The thrust axis of engine {which} is ASSUMED: the project "
-            f"enters the propeller hub at the engine CG, so there is no "
-            f"direction to derive it from and the airplane's forward axis is "
-            f"used. Enter the propeller CG to state it. Nothing else in this "
-            f"section changes -- the torque and thrust magnitudes are the "
-            f"analysis's own -- but the axis they are resolved onto is this "
-            f"document's assumption and is marked as one wherever it appears.")
+            f"The thrust axis of engine{plural} {which} is ASSUMED: the "
+            f"project states no thrust line, so the airplane's forward axis is "
+            f"used. Enter the thrust line's two points to state it. Nothing "
+            f"else in this section changes -- the torque and thrust magnitudes "
+            f"are the analysis's own -- but the axis they are resolved onto is "
+            f"this document's assumption and is marked as one wherever it "
+            f"appears.")
     tables = [t for t in (_engine_input_table(records, system),
                           _engine_station_table(records, system),
                           _engine_case_list_table(records)) if t is not None]
@@ -6127,30 +6171,27 @@ def _engine_view_figure(project: Project, records: Sequence[_EngineRecord], *,
     if not records:
         return Figure(key=key, title=title, absent_reason=(
             "the project enters no engine, so there is no installation to draw."))
+    from ..derived_geometry import engine_thrust_segments
+
     scale, length_units = _length_channel(system)
     series, drawn = _airframe_series(project, frame, scale)
-    # A thrust line long enough to read against whatever was drawn, and a fixed
-    # two feet where nothing was: the figure is still the engines, and an
-    # unlabelled line of arbitrary length is worse than a stated default.
-    reach = _extent(series) * 0.12 or 24.0 * scale
     points: List[Tuple[str, float, float]] = []
-    assumed_any = False
+    # What to draw is ``engine_thrust_segments``' -- the same owner the
+    # Configuration & Layout sketch asks, so the two cannot disagree about where
+    # an engine's thrust line runs or how long an assumed one is (D-53.9). This
+    # only projects it onto the view.
+    segments = engine_thrust_segments(project)
+    assumed_any = any(segment.assumed for segment in segments)
+    for segment in segments:
+        start = _oriented(frame, *_projected(frame, segment.start, scale))
+        end = _oriented(frame, *_projected(frame, segment.end, scale))
+        arrow_x, arrow_y = _arrow(start[0], start[1], end[0] - start[0],
+                                  end[1] - start[1])
+        series.append(Series(segment.label, arrow_x, arrow_y, "dashed"))
     for record in records:
-        mount = _oriented(frame, *_projected(frame, record.engine.engine_cg, scale))
-        hub = _oriented(frame, *_projected(frame, record.engine.prop_cg, scale))
         applied = _oriented(frame, *_projected(
             frame, record.cases[0].point if record.cases else record.engine.engine_cg,
             scale))
-        if record.axis_assumed:
-            assumed_any = True
-            axis = _oriented(frame, *_projected(frame, record.axis, 1.0))
-            hub = (mount[0] + axis[0] * reach, mount[1] + axis[1] * reach)
-        label = f"Engine {record.number} thrust line"
-        if record.axis_assumed:
-            label += " (ASSUMED)"
-        arrow_x, arrow_y = _arrow(mount[0], mount[1], hub[0] - mount[0],
-                                  hub[1] - mount[1])
-        series.append(Series(label, arrow_x, arrow_y, "dashed"))
         points.append((f"{record.number}", applied[0], applied[1]))
     series += _axis_key_series(series, points)
     x_label, y_label = _PLANFORM_AXES[frame]

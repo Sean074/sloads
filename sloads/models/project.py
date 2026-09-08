@@ -307,7 +307,14 @@ from .results import EnvelopeResult, LoadsResult, MassResult
 # weight-weighted centroid. They are *where the mass is*, distinct from
 # ``FuselageMassInput.ref_waterline``, *where the beam runs*; Ch 15's vertical
 # solve reads neither, so no delivered fuselage load moves.
-SCHEMA_VERSION = 62
+# v63 (design note 53, D-53.1/D-53.4, owner 2026-09-07): ``EngineInput`` gains
+# ``thrust_line_aft``/``thrust_line_fwd`` -- the engine's thrust line as two
+# entered points, ``None`` on both meaning not entered -- and ``prop_direction``,
+# which way the propeller turns viewed from the pilot's seat. Additive and an
+# identity hop: ``None``/``None`` is exactly the v62 state (the schema carried no
+# thrust line at all) and ``CLOCKWISE`` is what every published torque already
+# assumed, so a v62 file loads bit-identical and no delivered load moves.
+SCHEMA_VERSION = 63
 
 
 @dataclass

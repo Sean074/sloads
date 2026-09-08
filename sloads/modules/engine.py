@@ -4,9 +4,14 @@ Every function takes an :class:`EngineInput` and returns one or more
 :class:`ConditionResult` objects. No printing, no I/O -- this is the testable
 core that reproduces the FAR 23 LOADS manual's worked examples.
 
-Sign convention (from the original program): engine-mount reaction torque is
-reported negative, and "clockwise from the pilot's view is positive" for rotor
-RPM and stoppage torque.
+Sign convention: the engine-mount torque is reported in the sense
+"clockwise from the pilot's view is positive", which is also the sense used for
+rotor RPM and stoppage torque. It is **negative for a propeller turning
+clockwise from that seat**, because that is the torque the engine delivers to
+the airframe -- see :func:`torque_sense`, which is the one place
+``EngineInput.prop_direction`` reaches a published load (design note 53, under
+the owner's OR-15 admission of 2026-09-07, scoped to this sign and nothing
+else).
 """
 
 from __future__ import annotations
@@ -44,6 +49,7 @@ from ..models import (
     Vec3,
     same_name,
 )
+from ..models.enums import RotorDirection
 from ..registry import register
 
 # --------------------------------------------------------------------------- #
@@ -134,6 +140,52 @@ def resolved_engines(project: Project) -> List[EngineInput]:
     """
     return [effective_engine(project, eng, eng.engine_designation or f"engine {i}")
             for i, eng in enumerate(project.engines, start=1)]
+
+
+def torque_sense(inp: EngineInput) -> float:
+    """``+1`` or ``-1``: the sign the engine's torque on the airframe carries.
+
+    **The one place the propeller's rotation reaches a published load** (design
+    note 53, D-53.4/D-53.5), and the whole of this module's part in that note.
+
+    Derived, not asserted. A propeller turning **clockwise from the pilot's
+    seat** is driven by ``+Q`` from the engine, so by the third law it returns
+    ``-Q`` to the engine; the mount holds the engine against that with ``+Q``;
+    and the engine therefore delivers ``-Q`` to the airframe. That ``-Q`` is
+    what every ``mx_mount_torque`` below carries and what the manual prints as a
+    negative ``ENG MOUNT TORQUE``. Reverse the rotation and every step of the
+    chain reverses with it.
+
+    Clockwise is the default (``EngineInput.prop_direction``), so this returns
+    ``-1`` for every project written before the field existed and no shipped
+    load moves by a pound-foot.
+
+    The 23.371(b) / 25.371 gyroscopic condition does **not** call this, and that
+    is deliberate (D-53.6): it publishes all four sign combinations of
+    ``±Myy``/``±Mzz``, so the set the mount is checked against is identical
+    whichever way the propeller turns, and flipping a sign there would rename
+    four cases and change nothing.
+    """
+    return -1.0 if inp.prop_direction is RotorDirection.CLOCKWISE else 1.0
+
+
+def _floored_torque(inp: EngineInput, magnitude: float) -> float:
+    """A stoppage torque published as the oracle's floored whole number.
+
+    ``ENGLOADS.BAS`` line 944 prints ``INT(-TORQSUDSTOP)``, and BASIC's ``INT``
+    **floors** -- it does not truncate toward zero. So the sign cannot be applied
+    inside the flooring: ``floor(-6824.6)`` is ``-6825`` while
+    ``floor(+6824.6)`` is ``+6824``, and a counter-clockwise engine would
+    otherwise publish a torque 1 ft-lb smaller in magnitude than the same engine
+    turning the other way -- a difference in the rounding, presented as a
+    difference in the load (found by G-53.1, 2026-09-07).
+
+    The oracle's own value is the clockwise one. A counter-clockwise engine
+    publishes its exact negative, so the two are mirrors and the printed
+    Appendix B figure is untouched.
+    """
+    clockwise = basic_int(-magnitude)
+    return clockwise if torque_sense(inp) < 0 else -clockwise
 
 
 def combined_weight(inp: EngineInput) -> float:
@@ -264,7 +316,8 @@ def condition_361_a1(inp: EngineInput) -> ConditionResult:
             LoadValue("Applied at Z", cg[2], "in", key="loc_z"),
             LoadValue("Torque factor", factor, key="torque_factor"),
             LoadValue("Mean takeoff torque", base_torque, "ft-lb", key="mean_takeoff_torque"),
-            LoadValue("Engine mount torque", -torque, "ft-lb", key="mx_mount_torque"),
+            LoadValue("Engine mount torque", torque_sense(inp) * torque, "ft-lb",
+                      key="mx_mount_torque"),
         ],
         note=(
             "Mean-torque factor applied to the takeoff case per AC 23-19A "
@@ -295,7 +348,8 @@ def condition_361_a2(inp: EngineInput) -> ConditionResult:
             LoadValue("Applied at Z", cg[2], "in", key="loc_z"),
             LoadValue("Torque factor", factor, key="torque_factor"),
             LoadValue("Max continuous torque", base_torque, "ft-lb", key="max_continuous_torque"),
-            LoadValue("Engine mount torque", -torque, "ft-lb", key="mx_mount_torque"),
+            LoadValue("Engine mount torque", torque_sense(inp) * torque, "ft-lb",
+                      key="mx_mount_torque"),
         ],
     )
 
@@ -356,7 +410,8 @@ def condition_361_a3(inp: EngineInput) -> ConditionResult:
             LoadValue("Torque factor", factor, key="torque_factor"),
             LoadValue("Malfunction factor", TURBOPROP_MALFUNCTION_FACTOR, key="malfunction_factor"),
             LoadValue("Mean takeoff torque", base_torque, "ft-lb", key="mean_takeoff_torque"),
-            LoadValue("Engine mount torque", -torque, "ft-lb", key="mx_mount_torque"),
+            LoadValue("Engine mount torque", torque_sense(inp) * torque, "ft-lb",
+                      key="mx_mount_torque"),
         ],
         note=(
             "Mean-torque factor (1.25) applied to the malfunction case per "
@@ -385,7 +440,9 @@ def condition_361_b1(inp: EngineInput) -> ConditionResult:
     values = [LoadValue("Ixx propeller", iprop, "slug-ft^2", key="ixx_propeller")]
     values.extend(rotor_values)
     values.append(LoadValue("Time to stop", dt, "s", key="time_to_stop"))
-    values.append(LoadValue("Engine mount torque", basic_int(-torq_total), "ft-lb", key="mx_mount_torque"))
+    values.append(LoadValue("Engine mount torque",
+                            _floored_torque(inp, torq_total), "ft-lb",
+                            key="mx_mount_torque"))
     return ConditionResult(
         title="Torque for sudden stoppage due to malfunction or structural failure",
         far_reference="23.361(b)(1)",
@@ -518,7 +575,8 @@ def condition_25_361_a3i(inp: EngineInput) -> ConditionResult:
         LoadValue("Applied at X", cg[0], "in", key="loc_x"),
         LoadValue("Applied at Y", cg[1], "in", key="loc_y"),
         LoadValue("Applied at Z", cg[2], "in", key="loc_z"),
-        LoadValue("Engine mount torque", basic_int(-torq_total), "ft-lb", key="mx_mount_torque"),
+        LoadValue("Engine mount torque", _floored_torque(inp, torq_total),
+                  "ft-lb", key="mx_mount_torque"),
     ])
     return ConditionResult(
         title="Sudden engine deceleration (stoppage) torque with 1g level flight loads",
@@ -552,7 +610,8 @@ def condition_25_361_a3ii(inp: EngineInput) -> ConditionResult:
             LoadValue("Applied at Y", cg[1], "in", key="loc_y"),
             LoadValue("Applied at Z", cg[2], "in", key="loc_z"),
             LoadValue("Max accelerating torque", accel_torque, "ft-lb", key="max_accelerating_torque"),
-            LoadValue("Engine mount torque", -accel_torque, "ft-lb", key="mx_mount_torque"),
+            LoadValue("Engine mount torque", torque_sense(inp) * accel_torque, "ft-lb",
+                      key="mx_mount_torque"),
         ],
         note=note,
     )

@@ -123,6 +123,50 @@ class EngineInput:
     # by name (the C210-21 pattern). Identity stays an input, never inferred.
     engine_mass_item: str = ""
     prop_mass_item: str = ""
+    # The engine's thrust line, entered as two points (design note 53, D-53.1).
+    # Both or neither: one point alone is a half-entered line and is refused by
+    # name (the C210-21 load-bearing-blank pattern), never silently half-used
+    # and never completed from a derived second point. ``thrust_line_fwd`` is
+    # the **forward** point, stated and never inferred from the smaller
+    # fuselage station (D-53.2) -- which is what makes a pusher installation
+    # expressible without a special case, since the torque's sense is about
+    # which way the shaft turns as the pilot sees it and not about which end
+    # the propeller is on.
+    #
+    # ``(0, 0, 0)`` on both means **not entered**, and the axis is then the
+    # airplane's forward direction, marked ASSUMED wherever it is printed
+    # (D-53.3). The zero sentinel rather than ``Optional`` follows
+    # ``LandingGearInput.attach``, the schema's existing convention for an
+    # optional station triple, and it is not merely for consistency: the oracle
+    # GUI renders every field generically, and a ``None`` triple came back as
+    # ``(0, 0, 0)`` from an untouched render -- the load-bearing-blank class
+    # (#121/#145) reaching a field on its first day. Registered in
+    # ``field_registry.SENTINEL_DEFAULTS`` beside ``attach`` for the same reason.
+    # A point at the origin in all three coordinates is not a thrust line
+    # anybody means: it is on the centreline, at the nose datum, at waterline 0.
+    #
+    # It is deliberately **not** derived from the engine CG and the hub: that is
+    # a line between two *mass* stations and inherits every error in either --
+    # measured 14.0 deg off x on ``ga6_normal`` and 71.6 deg, very nearly
+    # straight up, on ``cessna_210``, whose engine CG waterline is a filed
+    # defect. Owner: ``export/coordinates.engine_thrust_axis``.
+    thrust_line_aft: Vec3 = (0.0, 0.0, 0.0)
+    thrust_line_fwd: Vec3 = (0.0, 0.0, 0.0)
+    # Which way the propeller turns, **viewed from the rear of the engine
+    # looking forward** -- the pilot's view, and the same viewpoint
+    # :class:`~sloads.models.enums.RotorDirection` already documents for a
+    # turbine rotor (design note 53, D-53.4). One enum, one meaning.
+    #
+    # Per engine rather than per airplane, because a counter-rotating twin is
+    # ordinary in this class and an airplane-level field would make the one
+    # configuration that needs it the one that cannot be stated. Clockwise is
+    # the default and is what every published torque assumed before this field
+    # existed, so no shipped project moves by a pound-foot; a counter-clockwise
+    # engine reverses the sign of every torque it delivers to the airframe
+    # (D-53.5), and of nothing else -- the gyroscopic condition already
+    # publishes all four sign combinations, so its envelope is the same either
+    # way (D-53.6).
+    prop_direction: RotorDirection = RotorDirection.CLOCKWISE
     # What the engine mount reacts into (v52, decision BM-4 / note 24 R-9):
     # "fuselage" or "wing". The LRA beam model ties the engine's mount + hub
     # nodes rigidly to this parent's beam. None -> inferred from the engine CG

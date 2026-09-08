@@ -578,16 +578,19 @@ again; L-8d's mutation case stays parked); F25-2.
   draw the engine where the data says it is. **Filed 2026-09-07.** Tier S, and
   it needs the airplane's own data.
 
-- **The engine's thrust-line direction is not an input.** Section 10 derives it
-  from the engine CG to the propeller hub (note 44 §20 OR-161), which is the best
-  the schema supports and is not the same thing as the shaft axis: an engine CG
-  sitting off that axis inclines the derived line by the offset over the
-  mount-to-hub distance, and on `ga6_normal` that is 14°. The document states
-  the caveat where it prints the direction cosines, so nothing is hidden. Adding
-  a stated thrust-line vector to `EngineInput`, blank-derives-typed-overrides
-  under note 36's OV-1 contract, would make it an input like `mounted_on`.
-  **Filed 2026-09-07.** Tier M, and it reaches `models/inputs.py` and
-  `field_registry.py` but not a frozen module.
+- **An entered thrust line does not steer the thrust in the balanced cases.**
+  `balance.hub_thrust_set` applies `EngineInput.thrust_lb` as a pure `-x` force,
+  and its own docstring says why: *"The P-6 incidence/toe angles (`i_T`, `tau`)
+  have no fields and no estimator, and inventing them would put a lateral and a
+  vertical component into every case on an assumed geometry."* Design note 53
+  created exactly those fields — `thrust_line_aft`/`thrust_line_fwd` — so the
+  estimator is no longer needed and the objection is answered. Honouring the
+  line would move every balanced case, every deck and the digests on any project
+  that enters one, in `modules/balance.py`, which note 53's OR-15 admission
+  does **not** cover; **G-53.9** gates that the scope held. **Filed 2026-09-07
+  (owner: raise for 0.8.3 or later).** Tier L, against note 21, and it needs its
+  own design note: an inclined thrust line changes the trim solution, not just
+  the card it writes.
 
 - **No engine-mount case reaches the sbeam deck.** `export/lra_model.py` has
   carried `lra-engine-mount` and `lra-engine-hub` nodes since note 24 R-9, and
