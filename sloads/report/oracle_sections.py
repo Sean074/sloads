@@ -6765,10 +6765,15 @@ def _ground_cases(project: Project) -> List[_GroundCase]:
     from ..modules.landing import attitude_of, build_landing
 
     _lf, reactions = build_landing(project)
+    # ``attitude_of`` returns the **ground-angle index** (0=level, 1=ground
+    # roll, 2=tail down); ``_GROUND_ATTITUDES`` is deliberately not in that
+    # order and carries the gra-index in its own third element, so the title
+    # is matched on it -- never taken by tuple position.
+    title_of = {gra: title for title, _state, gra in _GROUND_ATTITUDES}
     out: List[_GroundCase] = []
     for c in reactions:
         state, index = attitude_of(c.case)
-        out.append(_GroundCase(reaction=c, attitude=_GROUND_ATTITUDES[index][0],
+        out.append(_GroundCase(reaction=c, attitude=title_of[index],
                                strut_state=state,
                                point_name=application_point_of(c.case)))
     return out
@@ -7008,7 +7013,7 @@ def _landing_free_body_table(project: Project,
     for (leg_name, state, angle, stroke), numbers in seen.items():
         rows.append([leg_name, state, format_value(angle),
                      u.plain(stroke, "length"),
-                     f"{min(numbers)}-{max(numbers)}"])
+                     _case_range_words(sorted(numbers))])
     return Table(
         title="Gear attitude and strut state, by case",
         columns=["Leg", "Strut state", "Ground angle (deg)",
