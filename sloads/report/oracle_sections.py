@@ -35,11 +35,15 @@ no section 2 table can inherit a claim that does not apply to it.
 
 from __future__ import annotations
 
+import csv
+import io as _io
 import math
 import re
 from dataclasses import replace
 from typing import TYPE_CHECKING, Dict, List, Mapping, NamedTuple, Optional, Sequence, Tuple
 
+from ..aero_curves import inertia_drag_factor
+from ..cg_cases import flight_case_ids, flight_cases
 from ..constants import IN2_PER_FT2, ULTIMATE_FACTOR
 from ..derived_geometry import (
     MacReference,
@@ -62,6 +66,7 @@ from ..models.results import (
     TailSpanResult,
     WingLoadResult,
 )
+from ..modules.select import flaps_by_config_name
 from ..picks import extreme
 from ..units import UnitSystem, convert_results
 from .content import Figure, PlotData, Section, Series, Table, Units, speed_altitude_plot_data, weight_cg_plot_data
@@ -69,6 +74,7 @@ from .oracle_content import (
     BODY_LOAD_STATIONS,
     GEAR_LOAD_CASES,
     HTAIL_LOAD_STATIONS,
+    VN_CONDITIONS,
     VTAIL_LOAD_STATIONS,
     WING_LOAD_STATIONS,
     SectionPlan,
@@ -79,7 +85,8 @@ from .oracle_content import (
 from .render import format_value, ultimate_units
 
 if TYPE_CHECKING:
-    from ..models.results import GearReactionCase  # pragma: no cover - typing only, and a cycle if imported
+    # pragma: no cover - typing only, and a cycle if imported at runtime
+    from ..models.results import EnvelopeResult, GearReactionCase
     from ..modules.one_engine_out import FinCase
 
 
@@ -692,7 +699,11 @@ _CG_CASE_NOTE = (
     "forward light -- rather than leaving it to be recovered from the case "
     "name. A further ground case carrying no role is assembled and distributed "
     "but is not one of the three fed to the landing analysis. "
-    "Weight and centre of gravity are the case as entered."
+    "Weight and centre of gravity are the case as entered. "
+    "CG is the positional id the balanced flight conditions are indexed by, "
+    "over the flight cases in entry order; a ground-only case has none, and "
+    "the Case name is the identity used everywhere else in this report, in "
+    "the exported decks and in the project file."
 )
 
 
@@ -737,12 +748,18 @@ def _cg_case_table(project: Project, system: UnitSystem) -> Optional[Table]:
     ref = mac_reference(project)
     if ref is not None and not ref.mac:
         ref = None
+    # The CG ordinal Appendix A's conditions are indexed by (note 44 OR-199),
+    # read from its owner so the two tables cannot disagree. Only FLIGHT cases
+    # have one: a ground loading is never balanced over the V-n envelope, so it
+    # has no id there to be found under.
+    ids = flight_case_ids(project)
     rows = []
     for case in cases:
         analyses = [kind.value for kind in _ANALYSIS_ORDER
                     if kind in (case.analyses or ())]
         role = getattr(case, "role", None)
         rows.append([
+            ids.get(case.name, "--"),
             case.name or "unnamed",
             role.value.replace("_", " ") if role is not None else "--",
             u.plain(case.weight_lb, "mass"),
@@ -761,7 +778,7 @@ def _cg_case_table(project: Project, system: UnitSystem) -> Optional[Table]:
              "reference to measure a percentage against.")
     return Table(
         title="Weight and centre-of-gravity cases",
-        columns=["Case", "Role", f"Weight ({u.label('mass')})",
+        columns=["CG", "Case", "Role", f"Weight ({u.label('mass')})",
                  f"Xcg ({length})", "Xcg (% MAC)", f"Zcg ({length})",
                  "Analysis"],
         rows=rows, note=note)
@@ -7303,6 +7320,280 @@ def _gear_appendix(project: Project, *, system: UnitSystem,
 
 
 # --------------------------------------------------------------------------- #
+# Appendix A -- the balanced V-n conditions (note 44 §23, OR-194 ... OR-201)
+# --------------------------------------------------------------------------- #
+#: What the appendix says about thrust, once, in its own body (OR-198).
+#:
+#: The question the table provokes and the manual never answers. FLTLOADS
+#: balances Z-force and pitch and writes no X-equation; the drag is carried out
+#: of the balance as ``NX = -DX/W`` and into WINGINER, so the airplane *is*
+#: longitudinally in equilibrium -- by d'Alembert, not by thrust. Stated rather
+#: than left to be inferred, because a reader who finds DX with nothing opposing
+#: it will otherwise conclude the balance is incomplete.
+_VN_THRUST_NOTE = (
+    "Thrust is not modelled, and every condition here is thrust-off. The "
+    "balance solves the normal force and the pitching moment about the centre "
+    "of gravity; it writes no longitudinal force equation. The drag is not "
+    "discarded by that: DX leaves the balance as the inertia drag factor "
+    "NX = -DX/W in the column beside it, and is applied to the mass "
+    "distribution as a longitudinal load factor, so the airplane is in "
+    "longitudinal equilibrium as a decelerating body. Modelling power would "
+    "reduce NX and add a thrust-line pitching moment about the centre of "
+    "gravity; neither is included."
+)
+
+#: The component columns Appendix A carries, and the prefix each matches.
+#:
+#: Four, not five. Engine-mount and landing-gear cases are minted from engine
+#: geometry and ground attitudes and **never reference a V-n point** (OR-197), so
+#: an ``EM``/``LG`` column would be structurally empty on every project that could
+#: exist. The absence is stated in the body instead of printed as a blank column.
+_VN_COMPONENTS: Tuple[Tuple[str, str], ...] = (
+    ("W", "wing"),
+    ("F", "fuselage"),
+    ("HT", "htail"),
+    ("VT", "vtail"),
+)
+
+
+def _vn_envelope(project: Project) -> Optional["EnvelopeResult"]:
+    """The V-n matrix with its case ids stamped, or ``None`` if none can be built.
+
+    Resolved and then handed to :func:`default_critical`, which is what stamps
+    the ids onto the points. Threaded rather than resolved twice: the selection
+    must run against **this** instance, or the ids would land on a matrix that is
+    then thrown away, which is what made the ids invisible before OR-200.
+    """
+    from ..modules.select import default_critical, default_envelope
+
+    try:
+        env = default_envelope(project)
+        default_critical(project, env)
+    except (MissingInputError, ValueError):
+        return None
+    return env if env.vn else None
+
+
+def _vn_mass_case_table(project: Project, u: Units) -> Optional[Table]:
+    """The mass cases the matrix is balanced over -- the manual's p179 block.
+
+    The one thing Appendix A repeats from another section (OR-195), because the
+    condition table's CG column is unreadable without it. It is the **key**, not
+    the copy: id, name and the three p179 quantities, where section 2.2 carries
+    the fuller table with roles, %MAC and analyses.
+    """
+    ids = flight_case_ids(project)
+    cases = flight_cases(project)
+    if not cases:
+        return None
+    length, mass = u.label("length"), u.label("mass")
+    return Table(
+        title="Mass cases balanced over the envelope",
+        columns=["CG", "Case", f"Weight ({mass})", f"XCG ({length})",
+                 f"ZCG ({length})"],
+        rows=[[ids[c.name], c.name, u.plain(c.weight_lb, "mass"),
+               u.plain(c.xcg, "length"), u.plain(c.zcg, "length")]
+              for c in cases],
+        note="The CG column is a positional id over the flight cases in entry "
+             "order, so that the conditions below can name a loading in one "
+             "column; the Case column is the name the rest of this report, the "
+             "exported decks and the project file use. Section 2.2 carries the "
+             "same cases with their roles, their centres of gravity as a "
+             "percentage of MAC, and the analyses each is run for.",
+    )
+
+
+#: The two column groups Appendix A's conditions are printed in (note 44 OR-196).
+#:
+#: One row per V-n point in both, in the manual's own order, keyed by CG and case
+#: -- the split is by **column group**, never by row: no ``FOR CG1 FS=`` block
+#: heading returns, and neither table drops or reorders a point. Nineteen columns
+#: do not fit A4 landscape at any size the renderer sets (measured 2026-09-07:
+#: 662.7pt of content against 424.9pt of page, the column separators alone taking
+#: 228pt of 652.85), and the alternatives all cost more than a second heading --
+#: merging the four component columns into one loses which structure selected the
+#: point, and rounding the loads to the manual's fixed precision replaces the
+#: house formatter for one table. Split, both fit with room to spare.
+_VN_STATE_COLUMNS = ("CG", "Config", "Altitude (ft)", "Case", "Condition",
+                     "V (kt(EAS))", "NZ", "Alpha (deg)", "G corr", "CL")
+
+
+def _vn_rows(project: Project, env: "EnvelopeResult", u: Units
+             ) -> List[Tuple[List[str], List[str]]]:
+    """``(state cells, load cells)`` per V-n point, in the envelope's own order.
+
+    Built once and dealt into the two tables, so the split is a presentation of
+    one row set rather than two traversals that could fall out of step.
+    """
+    ids = flight_case_ids(project)
+    weights = {c.name: c.weight_lb for c in flight_cases(project)}
+    out: List[Tuple[List[str], List[str]]] = []
+    for p in env.vn:
+        # The same derivation ``select`` and ``wing_inertia`` use, read from the
+        # owner rather than restated -- a second spelling of ``-dx/W`` here would
+        # be a second answer to the question of where the drag went. Every row
+        # names a CG case the project carries: ``default_envelope`` refuses a
+        # matrix that does not, so the weight lookup cannot come up empty.
+        nx = inertia_drag_factor(p.dx, weights.get(p.cg, 0.0))
+        cg, case = ids.get(p.cg, p.cg), str(p.case)
+        state = [cg, p.config, format_value(p.altitude_ft), case, p.condition,
+                 format_value(p.v_eas_kt), format_value(p.nz),
+                 format_value(p.alpha_deg), format_value(p.g_corr),
+                 format_value(p.cl)]
+        loads = [cg, case, p.condition,
+                 u.load(p.m_wf, "moment", 0.0), u.load(p.lzw, "force", 0.0),
+                 u.load(p.lt, "force", 0.0), u.load(p.dx, "force", 0.0),
+                 format_value(nx)]
+        loads += [", ".join(r.case_id for r in p.case_refs
+                            if r.component == component)
+                  for _prefix, component in _VN_COMPONENTS]
+        out.append((state, loads))
+    return out
+
+
+def _vn_state_table(project: Project, rows: Sequence[Tuple[List[str], List[str]]]
+                    ) -> Optional[Table]:
+    """Where and how each point was flown: the first column group of p180-185."""
+    if not rows:
+        return None
+    flaps = flaps_by_config_name(project)
+    flapped = sorted(name for name, down in flaps.items() if down)
+    flap_state = ("flaps are down in " + ", ".join(flapped) if flapped else
+                  "no flaps-down coefficient set is entered for this project, "
+                  "so every point here is flaps-up")
+    return Table(
+        title="Balanced flight conditions: the flight state",
+        columns=list(_VN_STATE_COLUMNS),
+        rows=[state for state, _loads in rows],
+        small=True,
+        note=("One row per balanced point, in the order the envelope produces "
+              "them. Config is the aerodynamic coefficient set the point was "
+              f"balanced with; {flap_state}. CG is the positional id of the "
+              "mass case above. The balancing loads for these same points, and "
+              "the case ids they were selected as, are in the table below, "
+              "keyed by the same CG and case number. Load factors, angles and "
+              "coefficients are dimensionless or in degrees and are not "
+              "converted; airspeed is KEAS and altitude feet in both unit "
+              "systems."),
+    )
+
+
+def _vn_load_table(rows: Sequence[Tuple[List[str], List[str]]],
+                   u: Units) -> Optional[Table]:
+    """What balanced each point, and what it was selected as (OR-196/OR-197)."""
+    if not rows:
+        return None
+    force, moment = u.label("force"), u.label("moment")
+    return Table(
+        title="Balanced flight conditions: balancing loads and selection (LIMIT)",
+        columns=["CG", "Case", "Condition", f"M(W+F) ({moment})",
+                 f"LZW ({force})", f"LT ({force})", f"DX ({force})", "NX"]
+              + [prefix for prefix, _ in _VN_COMPONENTS],
+        rows=[loads for _state, loads in rows],
+        small=True,
+        note=("M(W+F) is the pitching moment of the airplane less its "
+              "horizontal tail about the centre of gravity, LZW the lift less "
+              "tail normal to the reference, LT the balancing tail load and DX "
+              "the drag. All four are LIMIT and the 14 CFR 23.303 factor of 1.5 "
+              "is applied to none of them. NX is the inertia drag factor "
+              "-DX/W the drag leaves the balance as, which is what carries it "
+              "into the mass distribution. The last four columns name the case "
+              "ids this point was selected as: blank is the common case, and a "
+              "point selected for more than one condition lists all of them."),
+    )
+
+
+def vn_conditions_csv(project: Project, header_comment: str = "", *,
+                      system: UnitSystem = UnitSystem.IMPERIAL) -> str:
+    """Appendix A as a file -- the balanced V-n conditions (note 44 OR-201).
+
+    Built from :func:`_vn_rows`, the **same rows** the appendix prints, so the
+    file and the page cannot disagree; G-OR-136 asserts the identity in both
+    directions. It carries them in **one** flat row of nineteen columns -- the
+    single table OR-196 asked for -- because a file has no page to overrun: the
+    page splits those columns into two tables only to be typesettable, and the
+    split is presentation, not data.
+
+    Not an applied-load file, and deliberately not on the ``AppliedLoad`` spine
+    OR-186 gave the six structural elements. A V-n point is a balanced flight
+    *state* -- a speed, a load factor, an attitude and the four loads that
+    balance it -- not a load at a point, and forcing it into a six-component row
+    is the defect the load-case index measures from the other side. It is
+    written in the **human** channel for the same reason: it is a companion to
+    the report, not to a deck.
+
+    Empty text when the project has no envelope, which is how every other
+    optional bundle member states the same thing.
+    """
+    # **Through the same reducer the document uses** (OR-21, G-OR-13).
+    # ``build_oracle_document`` builds from the oracle *projection*, not from the
+    # file, so a file built from the file would disagree with the page it claims
+    # to be: on ``concept_regional_jet`` the reduced project balances MAN D at
+    # 387.5 kt against the entered 350, and every load in the row moves with it.
+    # Found by G-OR-136 before this shipped, which is the gate working.
+    from ..field_registry import reduce_to_oracle_inputs
+
+    project = reduce_to_oracle_inputs(project)
+    env = _vn_envelope(project)
+    if env is None:
+        return ""
+    u = Units(system)
+    rows = _vn_rows(project, env, u)
+    state, loads = _vn_state_table(project, rows), _vn_load_table(rows, u)
+    if state is None or loads is None:
+        return ""
+    # The loads half repeats CG, Case and Condition so that each printed table
+    # reads alone; joined back into one row here, they would be three duplicate
+    # columns, so the first three are dropped rather than renamed.
+    buf = _io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(list(state.columns) + list(loads.columns[3:]))
+    for s_row, l_row in zip(state.rows, loads.rows):
+        writer.writerow(s_row + l_row[3:])
+    return header_comment + buf.getvalue()
+
+
+def _vn_appendix(project: Project, *, system: UnitSystem,
+                 plan: Sequence[SectionPlan]) -> Section:
+    """Appendix A -- the balanced V-n conditions every section selects from."""
+    del plan
+    env = _vn_envelope(project)
+    if env is None:
+        return Section("", absent_reason=(
+            "the flight envelope was not produced for this project, so there "
+            "are no balanced conditions to list."), page_break=True)
+    u = Units(system)
+    rows = _vn_rows(project, env, u)
+    tables = [t for t in (_vn_mass_case_table(project, u),
+                          _vn_state_table(project, rows),
+                          _vn_load_table(rows, u)) if t is not None]
+    if not tables:
+        return Section("", absent_reason=(
+            "the flight envelope produced no balanced conditions for this "
+            "project."), page_break=True)
+    selected = sum(1 for p in env.vn if p.case_refs)
+    return Section("", body=[
+        f"Every balanced flight condition the envelope produces: "
+        f"{len(env.vn)} points, over the mass cases, configurations and "
+        f"altitudes below. This is the set the wing, fuselage and empennage "
+        f"conditions are selected from: {selected} of these rows are "
+        f"named as a critical condition somewhere in this report, and the "
+        f"remainder are the candidates they were chosen against. A selection "
+        f"whose candidate set is not published is a claim rather than a "
+        f"result, which is why the whole matrix is here.",
+        "Engine mount and landing gear cases do not appear. They are minted "
+        "from engine geometry and from ground attitudes at prescribed load "
+        "factors, not from the flight envelope, so no V-n point is their "
+        "source and there is no column for them; their conditions are listed "
+        "in their own sections.",
+        _VN_THRUST_NOTE,
+        "The inputs this matrix was balanced from are not echoed here: the "
+        "project file the analysis was run from is the record of them, exact "
+        "and complete, and a table transcribing it could only disagree with it.",
+    ], tables=tables, page_break=True, landscape=True)
+
+
+# --------------------------------------------------------------------------- #
 # Dispatch
 # --------------------------------------------------------------------------- #
 #: Step key -> the builder that produces its section body.
@@ -7349,6 +7640,7 @@ BUILDERS = {
 #: by the slot it occupies, and a reserved slot has no builder at all -- which is
 #: what makes "reserved" renderable rather than a special case in the loop.
 APPENDIX_BUILDERS = {
+    VN_CONDITIONS: _vn_appendix,
     WING_LOAD_STATIONS: _station_appendix,
     BODY_LOAD_STATIONS: _body_station_appendix,
     HTAIL_LOAD_STATIONS: _htail_station_appendix,

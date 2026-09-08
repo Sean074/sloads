@@ -43,7 +43,10 @@
   numbers the backlog states and every promoted defect bullet now carries its
   own `(#N)` in the file, so the record is self-describing and the cache can be
   rebuilt from it rather than trusted. The measure of the fix: run against a
-  **wiped** map the bridge would now file **one** item — the single open design
-  decision, which has no issue by design — where the same file produced 32. The
+  **wiped** map the bridge would now file **three** items — two defect bullets and
+  the D-5 design decision, none of which the backlog stamps — where the same file
+  produced 32, and **no table row** among them, which is the half that mattered.
+  (Corrected 2026-09-07: this fragment first said *one* item, counting only the
+  decision.) The
   22 spurious issues are closed, each pointing at the one it duplicates. Three
   guards, one of them asserting the cache has not drifted from the record.

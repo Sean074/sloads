@@ -25,6 +25,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sloads import io  # noqa: E402
 from sloads import registry  # noqa: E402
 from sloads import workflow as wf  # noqa: E402
+from sloads.cg_cases import flight_case_ids  # noqa: E402
 from sloads.derived_geometry import mac_reference, station_to_pct_mac  # noqa: E402
 from sloads.field_registry import reduce_to_oracle_inputs  # noqa: E402
 from sloads.models import MissingInputError  # noqa: E402
@@ -227,8 +228,17 @@ def test_each_gap_state_renders_under_its_own_lead():
     step = oc.analysis_steps()[1]
     # EXCLUDED is not here: a deselected section is not printed at all, so it
     # has no rendered lead to be distinct from (owner's decision, 2026-08-30).
+    #
+    # NOT_IMPLEMENTED is **constructed**, not borrowed. It used to be read off a
+    # shipped document, which carried an instance for free: the reserved
+    # Appendix A input-echo slot. Note 44 §22 built the last analysis section and
+    # §23 (OR-194) filled that last reserved slot, so no document sloads produces
+    # has an unbuilt part any more -- which is the milestone, not a reason to
+    # stop asserting the state renders. A project with everything present and
+    # nothing implemented is the state's own cause, stated directly.
     cases = {
-        oc.SectionState.NOT_IMPLEMENTED: _doc(),
+        oc.SectionState.NOT_IMPLEMENTED: oc.build_oracle_document(
+            io.load_project(_GA), _spec(), implemented=frozenset()),
         oc.SectionState.ABSENT: oc.build_oracle_document(
             Project(), _spec(), implemented=frozenset({step.key})),
     }
@@ -1445,20 +1455,26 @@ def test_the_cg_case_table_states_every_case_and_its_role_and_analysis():
     table = next(t for t in weights.tables if "centre-of-gravity cases" in t.title)
 
     assert len(table.rows) == len(project.weight.cg_cases)
+    # The CG ordinal Appendix A indexes its conditions by (note 44 OR-199), read
+    # from its owner rather than restated -- a flight case has one, a
+    # ground-only case has none, and the two tables cannot disagree.
+    ids = flight_case_ids(project)
     for row, case in zip(table.rows, project.weight.cg_cases):
-        assert row[0] == case.name
+        assert row[0] == ids.get(case.name, "--")
+        assert row[1] == case.name
         # A flight case has no role, and says so rather than showing a blank
         # cell that reads as a value somebody forgot to enter.
-        assert row[1] != ""
+        assert row[2] != ""
         if case.role is None:
-            assert row[1] == "--"
+            assert row[2] == "--"
         else:
-            assert case.role.value.replace("_", " ") == row[1]
+            assert case.role.value.replace("_", " ") == row[2]
         analysis = row[table.columns.index("Analysis")]
         for kind in case.analyses:
             assert kind.value in analysis
     assert "ANALYSIS is" in (table.note or "")
     assert "ROLE applies to ground cases only" in (table.note or "")
+    assert "CG is the positional id" in (table.note or "")
 
 
 
@@ -1948,45 +1964,48 @@ def test_the_wing_section_renders_its_four_subsections_numbered_by_the_owner():
              "Load cases assessed", "Critical load distributions"])]
 
 
-def test_wing_loads_is_appendix_b_while_the_input_echo_holds_appendix_a():
-    """G-OR-22 -- the reserved slot letters the appendix that follows it.
+def test_wing_loads_is_appendix_b_and_the_reservation_held_its_place():
+    """G-OR-22/G-OR-131 -- the reserved slot letters the appendix that follows it.
 
-    The whole point of OR-50: shipping the wing-load appendix into an empty
-    tuple would print it as Appendix A today and move it to B the moment the
-    input echo lands, so an issue signed in between would disagree with its own
-    reissue.
+    The whole point of OR-50: shipping the wing-load appendix into an empty tuple
+    would have printed it as Appendix A and moved it to B the moment slot A
+    landed, so an issue signed in between would have disagreed with its own
+    reissue. OR-194 **filled** that slot rather than vacating it, which is the
+    other half of the same argument and the reason this assertion is unchanged
+    in its second clause: B is still B.
     """
-    assert oc.appendix_letter(oc.INPUT_ECHO) == "A"
+    assert oc.appendix_letter(oc.VN_CONDITIONS) == "A"
     assert oc.appendix_letter(oc.WING_LOAD_STATIONS) == "B"
     titles = [s.title for s in _doc().sections]
     # Sliced from the first appendix rather than from the end of the document:
     # a later iteration adds a slot behind these two, and the fact under test is
-    # that the reserved echo holds A and the wing follows it -- not how many
+    # that slot A holds the V-n register and the wing follows it -- not how many
     # appendices there happen to be.
-    first = titles.index("Appendix A: Input echo")
-    assert titles[first:first + 2] == ["Appendix A: Input echo",
+    first = titles.index(oc.appendix_heading(oc.VN_CONDITIONS))
+    assert titles[first:first + 2] == [oc.appendix_heading(oc.VN_CONDITIONS),
                                        "Appendix B: Wing loads by station"]
 
 
-def test_the_reserved_appendix_states_its_state_and_is_not_pointed_at():
-    """A slot is lettered, not referable -- the two are separate facts.
+def test_the_input_echo_is_gone_and_nothing_points_at_it():
+    """OR-194: the echo is retired, and the project file is named in its place.
 
-    Pointing a reader at a page that says "not yet implemented" is worse than
-    pointing nowhere, which is the judgement ``see_appendix`` already makes for
-    a dangling reference.
+    The reservation is spent, so the two facts that used to be asserted about a
+    *reserved* slot become one about a retired one: no symbol, no dangling
+    reference, and the sentence that used to carry the forward reference now
+    points at slot A's real contents instead.
     """
     doc = _doc()
-    echo = _appendix(doc, oc.INPUT_ECHO)
-    assert echo.absent_lead == oc.STATE_TEXT[oc.SectionState.NOT_IMPLEMENTED][0]
-    assert echo.absent_reason == oc.STATE_REASON[oc.SectionState.NOT_IMPLEMENTED]
-    assert not echo.tables and not echo.figures
-    assert oc.appendix_ref(oc.INPUT_ECHO) == ""
-    assert oc.see_appendix(oc.INPUT_ECHO) == ""
-    # The *report's* own Appendix A, not the theory manual's -- which the
-    # introduction cites by name and must go on citing.
-    assert "see Appendix A" not in "\n".join(
-        p for s in _flat(doc.sections) for p in s.body)
-    assert "Appendix A" not in "\n".join(oc.group_prose("loads_configuration"))
+    assert not hasattr(oc, "INPUT_ECHO")
+    assert "Input echo" not in [a.title for a in oc.APPENDICES]
+    prose = "\n".join(oc.group_prose("loads_configuration"))
+    assert "project file" in prose, "the echo is dropped but not replaced"
+    # The reference resolves now that slot A is built -- and it is the *report's*
+    # own Appendix A, not the theory manual's, which the introduction cites by
+    # name and must go on citing.
+    assert "(see Appendix A)" in prose
+    assert oc.appendix_ref(oc.VN_CONDITIONS) == "Appendix A"
+    vn = _appendix(doc, oc.VN_CONDITIONS)
+    assert vn.tables and not vn.absent_reason
 
 
 def test_no_load_the_wing_section_prints_is_marked_ultimate():
@@ -2304,8 +2323,10 @@ def test_the_appendix_is_landscape_and_starts_a_fresh_page():
     doc = _doc()
     station_appendix = _appendix(doc, oc.WING_LOAD_STATIONS)
     assert station_appendix.landscape and station_appendix.page_break
-    echo = _appendix(doc, oc.INPUT_ECHO)
-    assert echo.page_break, "every appendix starts a page, built or reserved"
+    vn = _appendix(doc, oc.VN_CONDITIONS)
+    assert vn.landscape and vn.page_break, (
+        "Appendix A carries nineteen columns (note 44 OR-196) and starts a page "
+        "like every other appendix")
 
     tex = ol.render_oracle_document(doc)
     assert r"\usepackage{pdflscape}" in tex

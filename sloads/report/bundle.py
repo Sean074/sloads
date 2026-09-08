@@ -66,6 +66,7 @@ def bundle_members(
     case_index_csv: str = "",
     safety_factors_csv: str = "",
     gear_report_csv: str = "",
+    vn_conditions_csv: str = "",
     methods: str = "",
     report_tex: str = "",
     report_pdf: Optional[bytes] = None,
@@ -93,6 +94,12 @@ def bundle_members(
         members.append(_member(f"{stem}_safety_factors.csv", safety_factors_csv, stem))
     if gear_report_csv.strip():
         members.append(_member(f"{stem}_gear_loads.csv", gear_report_csv, stem))
+    # Appendix A as a file (note 44 OR-201): the balanced V-n matrix every
+    # section's critical conditions are selected from. A companion to the
+    # report rather than to a deck, so it rides here in the human channel and
+    # not among the sbeam artifacts.
+    if vn_conditions_csv.strip():
+        members.append(_member(f"{stem}_vn_conditions.csv", vn_conditions_csv, stem))
     # The bundle's own controlling statement -- readable without opening a CSV.
     if methods:
         members.append(BundleMember("METHODS.txt", methods, "METHODS.txt"))

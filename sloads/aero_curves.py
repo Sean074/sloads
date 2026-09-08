@@ -169,6 +169,25 @@ def recovered_coefficients(point: VnPoint, wing_area_sqft: float,
             point.m_wf / (q * wing_area_sqft * mac_in))
 
 
+def inertia_drag_factor(dx: float, weight_lb: float) -> float:
+    """``NX = -DX/W`` -- the longitudinal inertia load factor of a balanced point.
+
+    The single owner of where the drag goes (note 44 OR-198, rule 3). FLTLOADS
+    balances the normal force and the pitching moment and writes **no**
+    longitudinal force equation: thrust is not modelled, and DX leaves the
+    balance unopposed. It is not discarded -- SELECT hands this factor to
+    WINGINER, which applies it to the mass distribution as a longitudinal load,
+    so the airplane is in longitudinal equilibrium as a decelerating body.
+
+    Written here rather than at the two points of use because it was spelled
+    twice, in ``modules/select.py`` and ``modules/wing_inertia.py``, and Appendix
+    A prints it as a column beside DX -- a third spelling would have been a third
+    place for the sign convention to drift. Zero weight gives ``0.0``, the
+    tolerant answer both callers already chose.
+    """
+    return -dx / weight_lb if weight_lb else 0.0
+
+
 def recovered_cl(point: VnPoint, wing_area_sqft: float) -> float:
     """The recovered ``CL`` alone (see :func:`recovered_coefficients`)."""
     q = dynamic_pressure(point.v_eas_kt)

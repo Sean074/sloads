@@ -367,7 +367,7 @@ def fields_hash() -> str:
 #: are exactly the v62 meaning (no thrust line existed; every torque assumed
 #: clockwise), so the 62->63 hop is an identity and the Imperial digests do not
 #: move.
-EXPECTED_FIELDS_HASH = "c3a3b48783fc4171"
+EXPECTED_FIELDS_HASH = "7bb3aab4f8675b0e"
 
 
 def test_persisted_dataclass_shapes_are_unchanged():

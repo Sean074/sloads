@@ -118,7 +118,18 @@ MANIFEST: dict[str, str] = {
     # of which is admitted, and neither of which is touched. The import is
     # function-local because ONENGOUT already reads ``effective_vtail_inputs``
     # from here and a module-level one would close a cycle.
-    "sloads/modules/select.py": "c2b3c1caf02fbeee18077e91e95142b7e2db569d1f423262f4716adbd09a04b7",
+    # Third OR-15 admission, granted by the owner 2026-09-07 (note 44 §23,
+    # OR-203): **two lines and one import**. ``_stamp_case_refs`` appends to
+    # ``VnPoint.case_refs`` instead of assigning ``case_ref`` -- clearing the
+    # list first, so stamping one envelope twice equals stamping it once -- and
+    # ``_condition``'s ``nx = -p.dx / _cg_weight(...)`` becomes the OR-198 owner
+    # ``aero_curves.inertia_drag_factor``. No arithmetic is touched: the zero
+    # branch of the new owner is unreachable from here, because ``_cg_weight``
+    # raises on a zero or unknown weight before it. Not admitted and not
+    # touched: every selection criterion, ``htail_balance``, ``elevator_load``,
+    # the v-tail subroutine and the wing slot table. Measured consequence: none
+    # -- the Imperial digests are unmoved.
+    "sloads/modules/select.py": "1685e932f93bdb5ef2165747e23a12628281abe86bc713417fa022a91d3e2a55",
     "sloads/modules/structural_speeds.py": "8fdbc1cc6eb17dbbdda4f5f1b224c7d5d4b86dfe14c923457292db7e123814c1",
     "sloads/modules/tab.py": "f81ff82261cccabedef57491635b3f56767faa61bae31c2d0d0017fc3bcb07e7",
     "sloads/modules/tail_span.py": "22a7832553de87ef9826c6e869e8ec8f1fe4e39c04706224f6af63e0847212b5",
@@ -133,7 +144,12 @@ MANIFEST: dict[str, str] = {
     "sloads/modules/weight_estimate.py": "8439bb62fa62dd1e11e13efe603e2efad517584f5ca441ad52cbc49048c286fe",
     "sloads/modules/weight_onecg.py": "a306666ca1ca3b4bba0a783e424bdb0ed2bcaadb66480c29bbfadfcfe0e1cd24",
     "sloads/modules/wing_geometry.py": "aad13d5f7eb0dbed33b7cf1cab8c06a14be401f0b10a908a40e1fe8000708f4b",
-    "sloads/modules/wing_inertia.py": "d94e9247733c38df51efb35d436c2e7933fc3f562c1950bce14742f66d8bc251",
+    # Same OR-15 admission (note 44 §23, OR-203): **one line and one import**.
+    # ``_case_from_vn``'s ``nx = -vp.dx / weight if weight else 0.0`` becomes
+    # ``inertia_drag_factor(vp.dx, weight)`` -- the same expression, including
+    # the tolerant zero, now read from the one owner instead of spelled here.
+    # Nothing else in the file is admitted or touched.
+    "sloads/modules/wing_inertia.py": "88b1f9369d0b08a43a54aa8a94fcaf66669c2da247475745f4f831c1f8c8c59c",
     # --- the existing oracle GUI (OR-13, row 2) ---------------------------
     "oracle_app/Oracle.py": "b478bf06fd1c998ffa9ee1eebbc51225c24a26a813840529105779b51f5085a1",
     "oracle_app/__init__.py": "bb3135345b421b8fac0f02226050b821770a53c647c4ead72c8dfbd2d156f3d0",

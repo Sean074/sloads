@@ -41,7 +41,7 @@ from sloads.models.enums import RotorDirection
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _FIXTURES = os.path.join(_HERE, "fixtures_schema")
 _EXAMPLES = os.path.join(os.path.dirname(_HERE), "examples")
-_CURRENT = "v63_current.json"
+_CURRENT = "v64_current.json"
 
 
 def _load(name=_CURRENT):
@@ -146,7 +146,7 @@ def test_a_v55_file_loads_through_the_identity_hop_unchanged():
     assert v55["schema_version"] == 55
     hopped = MIGRATIONS[55](copy.deepcopy(v55))
     assert hopped == v55, "the 55->56 identity hop moved something"
-    assert applied_hops(55) == [55, 56, 57, 58, 59, 60, 61, 62]
+    assert applied_hops(55) == [55, 56, 57, 58, 59, 60, 61, 62, 63]
     assert io.project_to_dict(io.project_from_dict(v55)) == \
            io.project_to_dict(io.project_from_dict(_load()))
 
@@ -163,7 +163,7 @@ def test_the_v56_hop_inverts_the_landing_override():
     assert out["schema_version"] == SCHEMA_VERSION
     assert "gear_load_factor" not in out["landing"]
     assert out["landing"]["airplane_load_factor"] == 3.167
-    assert applied_hops(56) == [56, 57, 58, 59, 60, 61, 62]
+    assert applied_hops(56) == [56, 57, 58, 59, 60, 61, 62, 63]
     # The 0.0 sentinel meant "unset": it loads to an unfilled Optional.
     sentinel = copy.deepcopy(v56)
     sentinel["landing"]["gear_load_factor"] = 0.0
@@ -193,7 +193,7 @@ def test_a_v57_file_loads_through_the_identity_hop_unchanged():
     assert v57["schema_version"] == 57
     hopped = MIGRATIONS[57](copy.deepcopy(v57))
     assert hopped == v57, "the 57->58 identity hop moved something"
-    assert applied_hops(57) == [57, 58, 59, 60, 61, 62]
+    assert applied_hops(57) == [57, 58, 59, 60, 61, 62, 63]
     assert io.project_to_dict(io.project_from_dict(v57)) == \
            io.project_to_dict(io.project_from_dict(_load()))
 
@@ -211,7 +211,7 @@ def test_a_v58_file_loads_through_the_identity_hop_unchanged():
     assert v58["schema_version"] == 58
     hopped = MIGRATIONS[58](copy.deepcopy(v58))
     assert hopped == v58, "the 58->59 identity hop moved something"
-    assert applied_hops(58) == [58, 59, 60, 61, 62]
+    assert applied_hops(58) == [58, 59, 60, 61, 62, 63]
     assert io.project_to_dict(io.project_from_dict(v58)) == \
            io.project_to_dict(io.project_from_dict(_load()))
 
@@ -229,7 +229,7 @@ def test_a_v59_file_loads_through_the_identity_hop_unchanged():
     assert v59["schema_version"] == 59
     hopped = MIGRATIONS[59](copy.deepcopy(v59))
     assert hopped == v59, "the 59->60 identity hop moved something"
-    assert applied_hops(59) == [59, 60, 61, 62]
+    assert applied_hops(59) == [59, 60, 61, 62, 63]
     assert io.project_to_dict(io.project_from_dict(v59)) == \
            io.project_to_dict(io.project_from_dict(_load()))
 
@@ -292,9 +292,49 @@ def test_a_v62_file_loads_through_the_identity_hop_unchanged():
     assert v62["schema_version"] == 62
     hopped = MIGRATIONS[62](copy.deepcopy(v62))
     assert hopped == v62, "the 62->63 identity hop moved something"
-    assert applied_hops(62) == [62]
+    assert applied_hops(62) == [62, 63]
     assert io.project_to_dict(io.project_from_dict(v62)) == \
            io.project_to_dict(io.project_from_dict(_load()))
+
+
+def test_a_v63_file_loads_through_the_identity_hop_unchanged():
+    """Design note 44 OR-200: the 63->64 hop is an identity.
+
+    v64 replaces ``VnPoint.case_ref`` (one slot) with ``case_refs`` (a list). A
+    pre-v64 file could never hold more than one ref, so the reader turns the
+    singular key into a one-element list and the hop itself has nothing to do.
+    """
+    v63 = _load("v63_current.json")
+    assert v63["schema_version"] == 63
+    hopped = MIGRATIONS[63](copy.deepcopy(v63))
+    assert hopped == v63, "the 63->64 identity hop moved something"
+    assert applied_hops(63) == [63]
+    assert io.project_to_dict(io.project_from_dict(v63)) == \
+           io.project_to_dict(io.project_from_dict(_load()))
+
+
+def test_a_v63_vn_point_reads_its_single_case_ref_into_the_list():
+    """The identity above, said in the field it is about (note 44 OR-200).
+
+    A persisted v63 envelope carries at most one ``case_ref`` per point; it must
+    come back as a one-element ``case_refs``, and a point with none as an empty
+    list -- not as a list holding ``None``, which every reader would then have to
+    filter.
+    """
+    point = {"case": 14, "condition": "BAL A", "config": "CRUISE", "cg": "CG1",
+             "altitude_ft": 0.0, "v_eas_kt": 121.3, "nz": 1.0, "alpha_deg": 0.6,
+             "g_corr": 1.017, "cl": 0.37, "m_wf": -9420.0, "lzw": 3397.0,
+             "lt": 19.3, "dx": 278.7,
+             "case_ref": {"case_id": "VT-01", "component": "vtail",
+                          "condition": "23.441", "far_reference": "23.441"}}
+    carried = io._vn_point_from_dict(point)
+    assert [r.case_id for r in carried.case_refs] == ["VT-01"]
+    assert carried.case_refs[0].component == "vtail"
+
+    bare = dict(point)
+    del bare["case_ref"]
+    assert io._vn_point_from_dict(bare).case_refs == []
+    assert io._vn_point_from_dict(dict(bare, case_ref=None)).case_refs == []
 
 
 def test_a_v62_engine_reads_back_with_no_thrust_line_and_a_clockwise_propeller():
@@ -315,7 +355,7 @@ def test_the_v60_fixture_hops_its_nulls_through():
     v60 = _load("v60_current.json")
     assert all(s.get("front_spar_pct") is None and s.get("rear_spar_pct") is None
                for s in v60["geometry"]["surfaces"]), "the fixture stopped being blank"
-    assert applied_hops(60) == [60, 61, 62]
+    assert applied_hops(60) == [60, 61, 62, 63]
     assert io.project_to_dict(io.project_from_dict(v60)) == \
            io.project_to_dict(io.project_from_dict(_load()))
 
@@ -352,7 +392,7 @@ def test_migrate_is_idempotent():
 def test_applied_hops_matches_the_chain():
     assert applied_hops(SCHEMA_VERSION) == []            # nothing at/above current
     assert applied_hops(SUPPORTED_FLOOR) == sorted(MIGRATIONS) == \
-        [55, 56, 57, 58, 59, 60, 61, 62]
+        [55, 56, 57, 58, 59, 60, 61, 62, 63]
 
 
 # --------------------------------------------------------------------------- #

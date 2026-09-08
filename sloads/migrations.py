@@ -222,6 +222,25 @@ def _hop_62(d: Dict[str, Any]) -> Dict[str, Any]:
     return d
 
 
+def _hop_63(d: Dict[str, Any]) -> Dict[str, Any]:
+    """v63 -> v64 (design note 44 OR-200, owner 2026-09-07): **identity**.
+
+    v64 replaces ``VnPoint.case_ref`` (one slot) with ``VnPoint.case_refs`` (a
+    list): a V-n point is routinely the source of more than one critical
+    condition -- on ``ga6_normal`` case 14 is VT-01, VT-02 and VT-03 -- and the
+    single slot kept only the last stamp. Nothing read the field outside
+    serialisation, so no delivered load moves.
+
+    Identity here because the *reader* carries the hop: a pre-v64 file could
+    never hold more than one ref, so ``io._vn_point_from_dict`` reads the
+    singular key into a one-element list, which is exactly what the list would
+    have held. Rewriting the key here as well would be the same conversion in
+    two places, and the reader must keep it regardless -- a persisted envelope
+    reaches it through paths that do not run this chain.
+    """
+    return d
+
+
 #: ``{from_version: hop}`` -- applied in ascending order, each turning a file of
 #: version *n* into version *n+1* shape. A version that changes shape adds its
 #: hop here; :data:`SUPPORTED_FLOOR` names the oldest version the chain starts
@@ -235,6 +254,7 @@ MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     60: _hop_60,
     61: _hop_61,
     62: _hop_62,
+    63: _hop_63,
 }
 
 #: The oldest project version this build reads. It sat at ``SCHEMA_VERSION``

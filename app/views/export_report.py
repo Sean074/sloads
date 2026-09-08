@@ -47,6 +47,7 @@ from sloads.export.workbook import build_workbook
 from sloads.modules.balance import build_balanced_cases
 from sloads.modules.net_loads import torsion_axis_label, wing_lra
 from sloads.report import LoadChannel, module_text_report
+from sloads.report import oracle_sections as sec
 from sloads.report.bundle import bundle_members, bundle_zip_bytes
 from sloads.report.content import ComponentLoads, component_loads
 from sloads.report.latex import render_report
@@ -369,6 +370,13 @@ safety_factors_csv = sb.safety_factors_csv(project, header_comment=_csv_stamp)
 # header-only file that reads as "no gear loads".
 gear_report_csv = _try(sb.gear_report_csv, project, _csv_stamp, _system) or ""
 
+# Appendix A as a file (note 44 OR-201): every balanced flight condition the
+# envelope produced, which is the candidate set the critical conditions in the
+# report were selected from. Built from the appendix's own table, so the file a
+# reader downloads and the page they read are one object.
+vn_conditions_csv = _try(sec.vn_conditions_csv, project, _csv_stamp,
+                         system=_system) or ""
+
 # Summary report (Step G8): rendered from the *scoped* component loads and the
 # module results already computed above, so the document describes exactly the
 # files it ships beside -- same numbers, same unit system, same case set.
@@ -441,6 +449,7 @@ def _zip_bundle() -> bytes:
         case_index_csv=case_index_csv,
         safety_factors_csv=safety_factors_csv,
         gear_report_csv=gear_report_csv,
+        vn_conditions_csv=vn_conditions_csv,
         methods=_methods,
         report_tex=_report_tex or "",
         report_pdf=(_pdf if st.session_state.get("report_pdf_key") == _report_tex

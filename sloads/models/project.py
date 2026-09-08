@@ -314,7 +314,13 @@ from .results import EnvelopeResult, LoadsResult, MassResult
 # identity hop: ``None``/``None`` is exactly the v62 state (the schema carried no
 # thrust line at all) and ``CLOCKWISE`` is what every published torque already
 # assumed, so a v62 file loads bit-identical and no delivered load moves.
-SCHEMA_VERSION = 63
+# v64 (design note 44 OR-200, owner 2026-09-07): ``VnPoint.case_ref`` (one slot)
+# becomes ``VnPoint.case_refs`` (a list) -- a V-n point is routinely selected as
+# the source of more than one critical condition, and the single slot kept only
+# the last write. Appendix A is the first reader, which is why it is fixed now.
+# An identity hop: a pre-v64 file could never hold more than one ref, so the
+# singular key reads into a one-element list and no delivered load moves.
+SCHEMA_VERSION = 64
 
 
 @dataclass

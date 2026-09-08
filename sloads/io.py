@@ -950,9 +950,20 @@ def _critical_condition_from_dict(d: Dict[str, Any]) -> CriticalCondition:
 
 
 def _vn_point_from_dict(d: Dict[str, Any]) -> VnPoint:
+    """One persisted V-n point, reading both the v64 list and the v63 singular.
+
+    ``case_ref`` was one slot before schema v64 (note 44 OR-200). A pre-v64 file
+    carries at most one ref, so it reads into a one-element list and the hop is an
+    identity: the singular field could never hold more than the first element of
+    the list that replaces it.
+    """
     d = dict(d)
-    ref = d.pop("case_ref", None)
-    return VnPoint(case_ref=_case_ref_from_dict(ref), **_filtered(VnPoint, d))
+    refs = d.pop("case_refs", None)
+    legacy = d.pop("case_ref", None)
+    if refs is None:
+        refs = [legacy] if legacy else []
+    return VnPoint(case_refs=[r for r in (_case_ref_from_dict(x) for x in refs) if r],
+                   **_filtered(VnPoint, d))
 
 
 def _critical_from_dict(d: Dict[str, Any]) -> CriticalLoadSet:

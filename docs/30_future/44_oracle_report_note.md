@@ -1855,3 +1855,150 @@ computed"*), so nothing refuses; **OR-187** states it instead.
 - **Tricycle gear only.** `UG Table 2.1`, and unchanged by this iteration. A
   tail-wheel airplane has no representation in the schema, so there is nothing to
   state per project; the limitation belongs to Methods and limitations.
+
+## 23. Iteration 10 — Appendix A, the V-n condition register (OR-193 … OR-203)
+
+**Status: AGREED 2026-09-07 (owner, in session).** Drafted from the owner's
+instruction — *"I have decided to change the contents of the report's Appendix A.
+It will now contain the tables that have each of the conditions identified in
+V-n; this is the oracle document McMaster tables on page 179 (which has the
+definition of each mass case: CG, WT, XCG, ZCG) and then pages 180 through 185
+which have Case, Condition, V EAS kts, NZ, Alpha, G CORR, CL, M(W+F), LZW, LT,
+DX. Add a column for CG (CG1 etc) and altitude. Also add columns to indicate if
+this case is W, F, HT, VT, Engine, and that case id — example W-01."* — and from
+the eight answers that followed: *"Q1 do not repeat information that is in other
+sections except the mass case definition. Q2 drop it and just reference the json
+file. Q3 engine drop. We don't have any cases defined as thrust on or off, are
+all assumed off? Add configuration (flap position). Q4 landscape is fine. Q5
+flat. Q6 CG case id; for the baron_58 and regional jet can we convert them to an
+id, the CG table could add the expanded name. Is this too big a change? Q7 yes.
+Q8 add config."*
+
+*Measurements taken 2026-09-07 against the three shipped reports —
+`ga6_normal`, `baron_58`, `concept_regional_jet` — and against `atr42_100` and
+`concept_heavy` where a fourth and fifth shape was needed. Quoted where they
+carry a decision.*
+
+**This is the first appendix that is not a projection of a section.** B through F
+each restate one section's loads at a finer grain, and their state follows that
+section's (`Appendix.step_key`). Appendix A follows no section: it is the matrix
+every section selected *from*, and its reason for existing is that the document
+currently asserts 23 critical conditions without ever showing the reader the 80,
+180 or 200 they were chosen out of. A selection whose candidate set is not
+published is a claim, not a result.
+
+### What the module already produces
+
+`FLTLOADS` (`modules/flight_envelope.py`, Ref 1 Ch 6-8) balances every
+(configuration x altitude x CG case x condition) point and returns a `VnPoint`
+carrying **exactly** the manual's printed columns — `v_eas_kt`, `nz`,
+`alpha_deg`, `g_corr`, `cl`, `m_wf`, `lzw`, `lt`, `dx` — plus the three the owner
+asked to be added as columns, `config`, `cg` and `altitude_ft`, which are already
+fields rather than block headings. **Nothing in this iteration recomputes a
+load.** The arithmetic is untouched; what changes is that a matrix which has
+always existed in memory is published.
+
+Envelope sizes, measured: **80** points on `ga6_normal` (1 config x 1 altitude x
+4 CG x 20 conditions), **180** on `baron_58` (3 altitudes x 3 CG), **200** on
+`concept_regional_jet` (2 altitudes x 5 CG). McMaster's own example is 280.
+
+### Three findings
+
+**A1 — the critical set is 8 to 22 per cent of the matrix, and the rest is
+invisible.** Of 80 / 180 / 200 balanced points, **18 / 17 / 17** are ever named
+as a critical condition. Sections 3 through 6 print the survivors and the
+document nowhere states what they survived. The appendix is the candidate set;
+the component columns are the survivors marked *within* it, which is why they are
+columns on the matrix rather than a second table beside it.
+
+**A2 — the V-n-to-case-id stamp is lossy, and this appendix is its first
+reader.** `select._stamp_case_refs` writes `p.case_ref = ref` onto the
+originating point, but a point may be selected more than once: on `ga6_normal`
+V-n case **14** is `VT-01`, `VT-02` **and** `VT-03`; case **74** is `HT-03` and
+`HT-09`; case **30** is `W-03` and `F-01`. Last write wins and the rest are
+dropped. Measured on all three: **4, 5 and 4** points are multiply selected.
+Nothing shipped is wrong today — `VnPoint.case_ref` has one writer and, outside
+serialisation, **no reader in `sloads/`** — so this is a latent defect whose first
+consumer is the table being built here, which is why it is fixed here rather than
+ranked against the fidelity backlog under rule 6.
+
+**A3 — the register of decisions is missing a decision that shipped code
+cites.** `report/render.py:683` documents `_running_locations` as *"a defect fix
+(note 44 OR-193)"*, `changes/the-ground-delivers-every-case.history.md` announces
+§22 as **OR-183 … OR-193**, and backlog row 38 cites OR-193 — but §22's heading
+reads OR-183 … OR-192 and its decision table has no OR-193 row. The same
+docstring claims the fix is *"gated"*; the only thing holding it is the frozen
+imperial baseline, which fails as a **changed number** rather than as a **stated
+property**, so a future change that moved the engine locations *and* regenerated
+the baseline would pass. A register that a shipped citation can point outside of
+is not a register.
+
+### Decisions
+
+| # | Decision | Amends |
+|---|---|---|
+| **OR-193** | **A condition that states no point of application takes the point of the condition it follows, not the first in the set.** *(Recorded here, in the register, for the fix that shipped in §22 on 2026-09-07 — A3.)* Two of the six engine-mount conditions carry no `loc_*` values while the four beside them for the same engine do; the old fallback reached for the first location in the whole set, so every multi-engine fixture printed the right-hand engine's sudden-stoppage torque and its four gyroscopic sub-cases at the **left-hand** engine's butt line — ten rows on `atr42_100` and `dhc8_dash8`, fifteen on `concept_regional_jet`. Producers emit one engine's conditions together, so the previous location is that engine's. Carried at the render boundary because `modules/engine.py` is frozen for 0.8.2; the producer stating the point on every condition it emits is the proper repair and is filed (backlog row 38, #210). | OR-140, rule 4 |
+| **OR-194** | **Appendix A becomes the V-n condition register, and the input echo is retired rather than relettered** *(owner: "drop it and just reference the json file")*. OR-50 reserved slot A for an input echo and argued the reservation on lettering stability: an appendix that appears later must not push its neighbours along. That argument is spent — the slot is being **filled**, not vacated, so B through F do not move and no issued document disagrees with its reissue. The echo itself is dropped on the owner's ruling and the reason is good independent of the ruling: `project.json` **is** the input echo, exactly and machine-readably, and a table transcribing it is a second copy that can disagree with the first. The document names the file. `GROUP_PROSE`'s `{input_echo}` substitution and `INPUT_ECHO` go with it, since a formatter with nothing to format is the decoration rule 3's precedent warns about. | **OR-50**, OR-32 |
+| **OR-195** | **Appendix A repeats nothing another section carries — except the mass cases, and that exception is the key its own CG column needs** *(owner: "do not repeat information that is in other sections except the mass case definition")*. p179 is headed *V-n Data* and holds five blocks: geometry, structural speeds, altitudes, aero coefficients, and the CG tables. Four of the five are Section 2's — §2.1 Geometry, §2.3 Structural Design Speeds, §2.4 Flight Envelope — and are **not** reproduced. The fifth crosses because the condition table's `CG` column is unreadable without it. Measured while deciding: §2.2 *already* prints `Case | Role | Weight | Xcg (in) | Xcg (% MAC) | Zcg | Analysis`, a strict superset of p179's four columns — so the exception the owner carved out is the one place the document already had covered. Appendix A therefore carries the **key**, not the copy: id, name, WT, XCG, ZCG, the five columns the condition rows resolve against. | OR-140, rule 3 |
+| **OR-196** | **One flat table, landscape, ordered CG then configuration then altitude then case** *(owner: "Q4 landscape is fine", "Q5 flat")*. McMaster prints a block per (config, altitude, CG) under a `FOR CG1 FS= 85.1 WL= 93` heading; the owner's added CG, altitude and configuration columns make that heading redundant, and a block structure whose heading is also a column is the same fact stated twice. The row order **is** the manual's — the blocks flattened in place — so a reader holding p180 against the appendix reads the same sequence. Columns: `CG`, `Config`, `Altitude`, `Case`, `Condition`, `V (EAS)`, `NZ`, `Alpha`, `G corr`, `CL`, `M(W+F)`, `LZW`, `LT`, `DX`, `NX`, `W`, `F`, `HT`, `VT` — nineteen, so the section is landscape, which the owner granted rather than the table being trimmed to fit. | OR-140, OR-141a |
+| **OR-197** | **Four component columns — W, F, HT, VT — and no engine column** *(owner: "Q3 engine drop")*. `modules/engine.py` mints `EM-` ids from engine geometry and the prescribed factors of 23.361 / 23.363 / 23.371; `modules/landing.py` mints `LG-` from ground attitudes. **Neither reads the V-n matrix**, so neither can ever appear in a V-n row: an engine column would be structurally empty on every project that could ever exist, and a permanently blank column reads as a data gap rather than as the fact that engine mount loads are not flight-envelope conditions. The section says so in one sentence instead, which is OR-140's rule — state the absence, do not print it as a hole. | OR-140, rule 3 |
+| **OR-198** | **NX is printed beside DX, and the thrust assumption is stated** *(owner: "we don't have any cases defined as thrust on or off, are all assumed off?")*. Answered from `_balance` (`flight_envelope.py:152`): the balance solves **Z-force and pitch only** — no thrust term, and no X-equation. But the drag does not vanish. `select.py:343` and `wing_inertia.py:376` both take **`NX = -DX / W`** and hand it to WINGINER as a longitudinal inertia load factor, so the airplane *is* in X-equilibrium, by d'Alembert: the whole of DX is reacted as a deceleration. Thrust is therefore **off, consistently and by construction** — a modelled assumption, not an omission. NX is printed because it is the number that says where the drag went, because it is what the wing inertia actually consumes, and because DX alone invites a reader to conclude the airplane is unbalanced longitudinally. Adding power is a change to the balance — a reduced NX and a thrust-line pitching moment about the CG, for which design note 53's `thrust_line_fwd`/`thrust_line_aft` already supply the geometry — and is **filed, not done here**. | OR-57, **rule 6** |
+| **OR-199** | **A CG case carries a derived positional id; its name remains its identity** *(owner: "CG case id … for the baron_58 and regional jet can we convert them to an id, the CG table could add the expanded name. Is this too big a change?")*. It is not: it is a display-only derived view with one owner, and nothing is renamed. `flight_cases(project)` already returns entry order, so `CG1..CGn` is that order indexed — and on `ga6_normal` the cases are *literally* named `CG1`-`CG4` in that order, so the derivation reproduces the manual exactly rather than merely resembling it. The condition table prints the id; Appendix A's mass-case table prints `id | name | WT | XCG | ZCG`; **§2.2 gains the id column** so the two agree and a reader meeting `CG1` in the appendix can find `fwd gross` in Section 2. `CgCase.name` stays the key everywhere else — `selected_case_ids`, `CaseRef.cg`, deck labels, validation and every example JSON are untouched. Stated in the appendix and gated: the ordinal is **positional**, so reordering the cases in the JSON renumbers the appendix in a reissue. That is the same property OR-50 defended for appendix letters, and it is acceptable here for the opposite reason — the id is display-only and carries no persisted reference. | OR-50, rule 3 |
+| **OR-200** | **A V-n point carries every case it was selected for: `case_ref` becomes `case_refs`** (A2). A single slot cannot answer a question with four columns in it. The field is **replaced** rather than joined by a plural sibling, because it has no reader to preserve — one writer, no consumer outside `io.py` — and leaving a dead singular beside a live plural is the decoration this project removes rather than marks. `SCHEMA_VERSION` 63 -> 64, with the old singular key read into a one-element list so any persisted envelope loads unchanged. `_stamp_case_refs` appends; the emission order (wing, htail, vtail, fuselage) becomes the printed order, so `VT-01, VT-02, VT-03` reads as the selection made it. | rule 3, rule 4, M4-2 decision 1 |
+| **OR-201** | **Appendix A ships `<project>_vn_conditions.csv`** *(owner: "Q7 yes")*. OR-186 made per-element applied-load files the general rule; this is the same rule one level up — the appendix's own rows, in the appendix's own shape, as a file, because a 200-row matrix is a thing a reader wants to sort rather than to page through. It is **not** an applied-load file and does not carry the `AppliedLoad` spine: a V-n point is a balanced flight state, not a load at a point, and forcing it into the six-component shape is the defect F1 measured from the other direction. Same rows, same order, same columns as the table, gated against it. | **OR-186**, OR-141 |
+| **OR-202** | **Every `OR-n` cited anywhere in the tree has a row in the register** (A3). OR-193 is defined above, in this iteration's table and flagged as the fix that shipped in §22's step -- rather than by editing §22, whose heading and table are accurate for the decisions taken *there*; the citation now resolves, which is what a register owes. What stops the next one is structural rather than editorial. A citation is a promise the register keeps, in exactly the sense OR-191 made cross-section references a promise the target keeps, and the gate is the same shape: sweep the tree for `OR-n` and `G-OR-n`, and require each to be *defined* somewhere in `docs/30_future/`. OR-193 also gains the gate its own docstring already claimed, asserted as the **property** — a condition with no point takes the point of the condition it follows, and on a multi-engine airplane that is the same engine's — rather than as a frozen digest that a regenerated baseline would wave through. | **OR-191**, rule 3, rule 5 |
+| **OR-203** | **The OR-15 admission of 2026-09-07 (the frozen set), scoped to `modules/select.py` and `modules/wing_inertia.py`** *(owner: "OR-15 granted")*. Three changes and nothing else. **(1)** `_stamp_case_refs` **appends** to `VnPoint.case_refs` instead of assigning `case_ref`, and clears the list first so stamping one envelope twice is the same as stamping it once — the OR-200 fix, at the one line that was losing the ids. **(2)** `select._condition`'s `nx = -p.dx / _cg_weight(weights, p)` and **(3)** `wing_inertia._case_from_vn`'s `nx = -vp.dx / weight if weight else 0.0` both become `inertia_drag_factor(...)` — the OR-198 owner, one import each. **No arithmetic is touched by any of the three**, and the zero-weight branch is preserved exactly: `_cg_weight` raises before it can be reached in `select`, and `wing_inertia`'s tolerant `0.0` is the function's own answer. Explicitly **not** admitted and not touched: every selection criterion, `htail_balance`, `elevator_load`, the v-tail subroutine, the wing slot table, and any refactor or rename elsewhere in either file. Re-pinned in the frozen manifest with the scope recorded beside each hash. The consequence stated and accepted: **none** — no delivered load moves, and the Imperial digests are unchanged, which is the measurement that says so. | OR-13, **OR-15**, OR-181, OR-190 |
+
+### Gates added by this iteration
+
+- **G-OR-131** — *(OR-194/OR-196)* Appendix A renders on all three shipped
+  examples with **one row per V-n point** and no others — the count equal to the
+  built envelope's, asserted against `default_envelope` rather than a stored
+  number — in the agreed column order, in the manual's own row order, and the
+  section is landscape. `INPUT_ECHO` and the `{input_echo}` substitution are gone,
+  and no rendered document contains a dangling reference to them.
+- **G-OR-132** — *(OR-195)* no table in Appendix A carries a column signature
+  another section's table already carries, **except** the mass cases; swept across
+  the whole document rather than asserted against a list, so a later section that
+  starts duplicating the matrix fails here.
+- **G-OR-133** — *(OR-197/OR-200)* every case id stamped on any critical condition
+  appears in exactly one Appendix A row; every multiply-selected point shows **all**
+  of its ids, asserted against a fresh `build_critical` rather than a literal, with
+  `ga6_normal` case 14 carrying `VT-01`, `VT-02` and `VT-03` as the named instance;
+  and no `EM-` or `LG-` id appears anywhere in the appendix.
+- **G-OR-134** — *(OR-198)* every row's `NX` equals `-DX / W` for that row's CG
+  case, compared through the same owner `select` and `wing_inertia` read, so a
+  change to the inertia-drag convention fails here rather than printing two
+  answers; and the thrust statement is present in the appendix body.
+- **G-OR-135** — *(OR-199)* the id map is a bijection over `flight_cases` order;
+  every CG printed in the condition table appears in the mass-case table **and** in
+  §2.2's table under the same id; and on `ga6_normal` every derived id equals the
+  case's own name, which is the manual's numbering reproduced rather than imitated.
+- **G-OR-136** — *(OR-201)* the CSV's rows are the appendix's rows — same count,
+  same order, same values — compared through the builder, so the file and the
+  table cannot disagree. Extends G-OR-90's rule to a non-`AppliedLoad` shape.
+- **G-OR-137** — *(OR-202)* every `OR-n` and `G-OR-n` cited anywhere under
+  `sloads/`, `tests/`, `docs/` or `changes/` is defined in a design note under
+  `docs/30_future/`. The gate that would have caught A3.
+- **G-OR-138** — *(OR-193/OR-202)* a condition carrying no point of application
+  takes the point of the condition it follows, and on every multi-engine fixture
+  that point is **the same engine's** — asserted per engine against the emitted
+  grouping on `atr42_100`, `dhc8_dash8` and `concept_regional_jet`, as a property
+  rather than as a digest.
+
+### Filed, not fixed here
+
+- **No thrust in the balance (OR-198).** Answered rather than changed: thrust is
+  off, and the drag is carried as `NX = -DX/W`. Modelling power would change every
+  balanced point — a reduced NX and a thrust-line pitching moment about the CG —
+  and is a physics change to an oracle-locked module, so it is a design note of
+  its own, not a column. Its effect on a delivered load is unmeasured, so under
+  rule 6 it is parked *without* a rank until someone measures it; the measurement
+  is the first piece of work, not the last.
+- **`modules/engine.py` still states no point on two of six conditions.** Backlog
+  row 38 (#210), unchanged by this iteration. OR-193 is now in the register and
+  OR-198's sibling gate holds the boundary fix; the producer repair still waits on
+  the OR-13 freeze lifting.
+- **The load-case index still carries no loads for 344 of 347 rows.** Backlog row
+  37 (#209), unchanged. OR-201 adds a sixth per-element file and does not reshape
+  the index.
