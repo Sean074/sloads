@@ -534,9 +534,15 @@ def _engine_label(project: Project, index: int, count: int) -> str:
     decks. The designation is a property of the engine, not of the case, and it
     is printed once against the index in Section 11.1's input table, which is
     where a reader looks it up.
+
+    **1-based**, because the engine-loads section numbers the same engines
+    "Engine 1 / Engine 2" and one physical engine must not answer to two
+    numbers in one document (#231; OR-15 admission 2026-09-08). ``index`` is
+    still the 0-based position in ``project.engines``; only the printed name
+    shifts.
     """
     del project
-    return f" (engine {index})" if count >= 2 else ""
+    return f" (engine {index + 1})" if count >= 2 else ""
 
 
 def _fin_cases(project: Project) -> List[FinCase]:
@@ -753,7 +759,13 @@ def run(project: Project) -> ModuleResult:
                 LoadValue("Time to recovery", s.time_to_recovery_s, "s", key="time_to_recovery"),
             ],
             note=(f"{fc.load_case.basis} "
-                  f"Failed engine #{fc.engine_index} at butt line {c.bleng:g} in; "
+                  # 1-based and signed, like every other statement of the failed
+                  # engine's identity and side (#231; OR-15 admission widened to
+                  # this line 2026-09-08): the march runs on the magnitude and
+                  # publishes the side through ``sense``, so the entered butt
+                  # line is recovered the same way the report recovers it.
+                  f"Failed engine {fc.engine_index + 1} at butt line "
+                  f"{-fc.sense * c.bleng:g} in; "
                   f"IZZ {c.izz:g} slug-ft^2. Peak total load at t = {fc.peak.time:g} s."
                   + ("" if s.recovered else
                      f" NOT recovered within {_MAX_SIM_TIME_S:g} s — the airplane is "

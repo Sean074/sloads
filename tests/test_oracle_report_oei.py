@@ -451,6 +451,106 @@ def test_the_fin_inertia_is_zero_on_the_engine_failure_cases_and_says_why():
     assert "unconservative" in prose or "conservative" in prose
 
 
+# --------------------------------------------------------------------------- #
+# G-OR-123 -- one engine, one number, and the side it sits on (#231)
+# --------------------------------------------------------------------------- #
+def _table_named(section, prefix):
+    for sub in [section] + list(section.subsections):
+        for table in sub.tables:
+            if table.title.startswith(prefix):
+                return table
+    raise AssertionError(f"no table titled {prefix!r}")
+
+
+def test_the_oei_input_table_states_the_signed_butt_line():
+    """#231 defect 1. Which side failed sets the fin-load sign, and the input
+    table's own footnote says so -- two rows printing the same unsigned butt
+    line were indistinguishable inputs producing opposite-sign outputs."""
+    project = _project("baron_58")
+    doc = oc.build_oracle_document(project, ReportSpec())
+    table = _table_named(_section_11(doc), "One-engine-inoperative input data")
+    column = next(i for i, c in enumerate(table.columns)
+                  if c.startswith("Butt line"))
+    printed = [float(row[column]) for row in table.rows]
+    # Signed, one per side, and each is the module's own side owner applied to
+    # its own magnitude -- not a lookup this table performs for itself.
+    by_engine = {}
+    for fc in _fin_cases(project):
+        by_engine.setdefault(fc.engine_index, -fc.sense * fc.inputs.bleng)
+    expected = [by_engine[i] for i in sorted(by_engine)]
+    assert len(printed) == len(expected)
+    for got, want in zip(printed, expected):
+        assert math.isclose(got, want, rel_tol=1e-6, abs_tol=1e-9), (got, want)
+    assert any(v < 0 for v in printed) and any(v > 0 for v in printed)
+    assert "signed" in (table.note or "")
+
+
+def test_one_engine_answers_to_one_number_across_the_document():
+    """#231 defect 2. Section 10 numbers the engines 1-based; section 11 and
+    the case names must name the same physical engine by the same number, so
+    the 0-based position never reaches the page."""
+    project = _project("baron_58")
+    doc = oc.build_oracle_document(project, ReportSpec())
+    section_10 = next(s for s in doc.sections if s.title.startswith("10"))
+    section_11 = _section_11(doc)
+
+    # Section 10's columns are the numbering owner: Engine 1..N in entered order.
+    entered = _table_named(section_10, "Engine and propeller data as entered")
+    numbers = [c.removeprefix("Engine ") for c in entered.columns[1:]]
+    assert numbers == [str(i + 1) for i in range(len(numbers))]
+
+    # Section 11's tables print the same 1-based numbers for the same engines.
+    inputs = _table_named(section_11, "One-engine-inoperative input data")
+    assert [row[0].split(" — ")[0] for row in inputs.rows] == numbers
+    stations = _table_named(section_10, "Where the loads act")
+    designations = {row[0]: row[1] for row in stations.rows}
+    for row in inputs.rows:
+        number, _, name = row[0].partition(" — ")
+        assert designations.get(number) == name, row[0]
+    for title in ("Load cases assessed", "Critical one-engine-inoperative"):
+        table = _table_named(section_11, title)
+        engine_column = table.columns.index("Engine")
+        assert {row[engine_column] for row in table.rows} == set(numbers), title
+
+    # The case names themselves carry the same numbers (module owner), and the
+    # 0-based position appears nowhere in the rendered document.
+    labels = {c.label for c in _fin(project) if c.label.startswith(_PREFIX)}
+    assert any("(engine 1)" in lbl for lbl in labels), labels
+    assert any("(engine 2)" in lbl for lbl in labels), labels
+
+    def walk(sections):
+        for s in sections:
+            yield s.title
+            yield from s.body
+            for t in s.tables:
+                yield t.title
+                yield t.note or ""
+                for r in t.rows:
+                    yield from (str(cell) for cell in r)
+            for f in s.figures:
+                yield f.title
+                yield f.caption or ""
+            yield from walk(s.subsections)
+
+    for text in walk(doc.sections):
+        assert "engine 0" not in text.lower(), text[:120]
+
+    # The published condition notes too: "Failed engine #0 at butt line 66 in"
+    # was 0-based AND unsigned, and its "#" form slipped the sweep above. The
+    # note now states the same 1-based number and the same signed butt line
+    # every other statement of the case's identity carries.
+    by_engine = {fc.engine_index: -fc.sense * fc.inputs.bleng
+                 for fc in _fin_cases(project)}
+    published = registry.get("one_engine_out")(project).conditions
+    assert published
+    for condition in published:
+        note = condition.note or ""
+        assert "engine #" not in note.lower(), note[:120]
+        stated = [f"Failed engine {i + 1} at butt line {y:g} in"
+                  for i, y in by_engine.items()]
+        assert any(s in note for s in stated), note[:120]
+
+
 if __name__ == "__main__":                       # zero-dependency self-runner
     import traceback
     failures = 0
