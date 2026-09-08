@@ -134,7 +134,7 @@ for cond in display_conditions:
         f"Thrust ({force_u}, LIMIT)": round(v["engine_thrust"], 1),
         f"Windmill drag ({force_u}, LIMIT)": round(v["windmill_drag"], 1),
         "Max yaw rate (deg/s)": round(v["max_yawing_velocity"], 2),
-        f"Max tail load ({force_u}, LIMIT)": round(v["max_tail_load"], 1),
+        f"Max tail load ({force_u}, LIMIT)": round(v["fy_side"], 1),
         "Time to recovery (s)": round(v["time_to_recovery"], 2),
     })
 st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")

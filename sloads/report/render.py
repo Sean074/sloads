@@ -182,12 +182,15 @@ def _chan_units(units: str, quantity: str, channel: "LoadChannel",
 def _table_sf(results) -> Optional[float]:
     """``1.0`` when every result in a table is already ultimate, else ``None``.
 
-    The basis a *shared* column header may state (OR-118a). A mixed table has
-    none, so its header stays plain and the per-case ``SF`` column carries the
-    distinction.
+    The basis a *shared* column header may state (OR-118a), read from its single
+    owner: ``safety_factors.shared_basis_factor``. The rule used to be written
+    here and *assumed* in ``export.sbeam_bridge``, which is how a mixed table
+    became possible in one deliverable and unthinkable in the other (note 44
+    OR-172 made it actual). One owner, both readers.
     """
-    factors = [getattr(r, "safety_factor", None) for r in results]
-    return 1.0 if factors and all(f == 1.0 for f in factors) else None
+    from ..safety_factors import shared_basis_factor
+
+    return shared_basis_factor(results)
 
 
 def _sf_cell(sf: Optional[float]) -> str:
@@ -641,12 +644,31 @@ def _detect_unit(results, keys) -> str:
     return ""
 
 
-def _detect_moment_unit(results) -> str:
+#: The system an SI result set is recognised by: its force unit. A set with no
+#: moment and no location has nothing else to go on, and guessing Imperial is
+#: how ``(in)`` and ``(ft-lb)`` reached an SI file (note 44 §21). Kept as one
+#: predicate so the length and the moment fallbacks cannot disagree about which
+#: system they are in (rule 4 -- the defect class, not the two instances).
+def _is_si(force_units: str) -> bool:
+    return force_units in ("N", "kN")
+
+
+def _detect_moment_unit(results, force_units: str = "") -> str:
+    """The moment unit of a result set, from the set's own values.
+
+    ``force_units`` is the fallback's system, and it matters: a set that carries
+    forces and **no moment at all** used to fall back to the Imperial ``ft-lb``
+    whatever system it was rendered in, so an SI table could head a column in
+    ft-lb. Nothing exercised it while every result set carrying a case index also
+    carried a moment; the one-engine-out set does not -- its loads are a side
+    force and nothing else -- which is how a system-blind default came to print
+    an Imperial unit into an SI file (note 44 §21).
+    """
     for r in results:
         for v in r.values:
             if v.units in ("ft-lb", "N·m"):
                 return v.units
-    return "ft-lb"
+    return "N·m" if _is_si(force_units) else "ft-lb"
 
 
 def _result_location(r: ConditionResult) -> Optional[tuple]:
@@ -732,8 +754,10 @@ def load_cases_to_rows(results: List[ConditionResult], *,
     Locations are geometry and are not scaled (plain units).
     """
     force_u = _detect_unit(results, set(VERTICAL_KEYS) | {FY_SIDE, FX_THRUST}) or "lb"
-    len_u = _detect_unit(results, set(LOC_KEYS)) or "in"
-    mom_u = _detect_unit(results, {MX_MOUNT_TORQUE}) or _detect_moment_unit(results)
+    len_u = (_detect_unit(results, set(LOC_KEYS))
+             or ("mm" if _is_si(force_u) else "in"))
+    mom_u = (_detect_unit(results, {MX_MOUNT_TORQUE})
+             or _detect_moment_unit(results, force_u))
     table_sf = _table_sf(results)
     force_ult = _chan_units(force_u, "", channel, table_sf)
     mom_ult = _chan_units(mom_u, "", channel, table_sf)

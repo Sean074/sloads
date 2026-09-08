@@ -27,6 +27,7 @@ from sloads import registry  # noqa: E402
 from sloads import workflow as wf  # noqa: E402
 from sloads.derived_geometry import mac_reference, station_to_pct_mac  # noqa: E402
 from sloads.field_registry import reduce_to_oracle_inputs  # noqa: E402
+from sloads.models import MissingInputError  # noqa: E402
 from sloads.models import Project  # noqa: E402
 from sloads.models.report import ReportSpec, SignatureRow  # noqa: E402
 from sloads.report import content  # noqa: E402
@@ -269,11 +270,18 @@ def test_among_printed_sections_not_implemented_outranks_absence():
     """A section the tool cannot build must not claim the reader's inputs are
     missing. Once every section is implemented this ordering stops mattering,
     which is the point at which ABSENT is the only one left."""
-    step = next(s for s in oc.analysis_steps()
-                if s.requires and not oc.splits_for(s.key)
-                and s.key not in oc.IMPLEMENTED)
+    # The subject is any unsplit step that *declares inputs* -- implemented or
+    # not -- and both states are produced by varying ``implemented`` rather than
+    # by finding a step that happens to be unbuilt. The search used to require an
+    # unimplemented one and ran dry the day Section 11 shipped: the only
+    # unimplemented step left is Landing Gear Loads, which declares no
+    # ``requires``, so it is INCLUDED on an empty project and can demonstrate
+    # neither state. Toggling the set is what the test is actually about.
+    step = next((s for s in oc.analysis_steps()
+                 if s.requires and not oc.splits_for(s.key)), None)
+    assert step is not None, "no analysis step declares inputs"
     empty = Project(name="empty")
-    unbuilt = oc.section_plan(empty, _spec())
+    unbuilt = oc.section_plan(empty, _spec(), implemented=frozenset())
     assert next(e for e in unbuilt if e.step_key == step.key).state \
         is oc.SectionState.NOT_IMPLEMENTED
     built = oc.section_plan(empty, _spec(), implemented=frozenset({step.key}))
@@ -1033,7 +1041,16 @@ def test_section_two_invents_no_number():
         # is the owner of that set (the same one the navigation reads), so this
         # cannot drift from what the report actually runs.
         for module in wf.step_modules(step.key):
-            for condition in registry.get(module)(project).conditions:
+            try:
+                result = registry.get(module)(project)
+            except MissingInputError:
+                # A module may legitimately refuse this airplane: ``ga6_normal``
+                # is single-engine and has no 23.367 condition at all. The
+                # report's own runner catches the same way, and a refusal
+                # contributes no numbers -- which is all this test collects. It
+                # must not be what fails first.
+                continue
+            for condition in result.conditions:
                 for value in condition.values:
                     sourced.add(format_value(value.value))
 

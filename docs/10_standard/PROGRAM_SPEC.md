@@ -408,6 +408,48 @@ approved-corrections register [`../20_theory/02_approved_corrections.md`](../20_
 - **Validation:** **sub-formula exactness** vs `ONENGOUT.BAS` (thrust, windmill drag, AVT, EFFECTV, EF, density ratio) + integration/physics closure (recovery, yaw-rate peak, time-step convergence) + refactor-parity with SELECT. The printed **Appendix B twin oracle is unavailable** — Appendix B is absent from the bundled `reference/FAR23Loads_Code.pdf` (only the Appendix A GA single is present) and the FAA User's Guide Ch 22 gives partial inputs/no outputs; recorded as a deferred item. **Fixture coverage (2026-08-13):** the module was registered but **unrunnable on every shipped fixture** — `atr42_100`/`dhc8_dash8` entered the `one_engine_out` slice with no engine horsepower, the other four entered no slice, so the whole simulation path was exercised only on constructed inputs (same class as the `tail_mass` gap). Both turboprops now enter **take-off and max-continuous shaft power** — PW120 2000/1700 shp, PW121 2150/1950 shp, converted from the certificated kW in **EASA TCDS IM.E.041 issue 07 (20 Dec 2023) §5** — and `tests/test_one_engine_out.py::test_the_shipped_turboprops_execute_onengout` is the standing gate. Both fields are entered deliberately rather than left to `_engine_power`'s one-sided fallback: `use_takeoff_power` is the user's choice of rating and a fallback would make it silently. Their **VS cases do not recover** (full asymmetric power at the clean stall speed is below VMC) and say so in band.
 - **Limitation — propeller installations only.** Both terms of the yawing moment are propeller relations from `ONENGOUT.BAS`: thrust `= HP·550·0.85/V` and Glauert windmilling `∝ DIA²`. A turbofan/turbojet multi is **not covered** — the thrust term becomes a shaft-power surrogate and the windmill term collapses to zero with the propeller diameter, understating the asymmetry — which is why `concept_regional_jet` enters **no** `one_engine_out` slice rather than a plausible-looking one. Single-owner wording: `one_engine_out.PROPELLER_ONLY_NOTE`, carried as the `engine-failure-propeller-only` standing limitation in every methods-and-limitations stamp. **Enforced (M4-3(b), 2026-08-16):** `_case_inputs` raises `MissingInputError` when the failed engine's `prop_diameter_in` is zero, so `run`, `time_history` and the UI page all refuse; the gate is the propeller disc rather than `engine_type` because `EngineType` has no turbofan member (a fan is entered as `T` with a 0-in disc) and the schema is frozen. Reciprocating twins still run — the turboprop scope of 23.367(a) is a coverage-table statement (`report/coverage.py`), not a module gate. Guard: `tests/test_one_engine_out.py::test_no_propeller_disc_is_refused`.
 - **Applicability — the condition must exist before it is simulated (#84, C210-43, 2026-08-24).** The yaw forcing is `thrust · BLENG` with `BLENG = |engine_cg[1]|`, so on a single-engine airplane, or on a multi whose *failed* engine sits on the centreline, it is **identically zero**. Nothing gated that: the march ran with no forcing in it and reported zero tail load, zero yaw rate and — because nothing ever moved back — `"NOT recovered within 60 s — the airplane is uncontrollable at this speed (likely below VMC)"`, a false uncontrollability verdict on a condition the airplane cannot have. It reached the owner on a centreline single in the C210 build review, where the thrust/windmill intermediates all verified to the digit. The predicate is now single-sourced as `applicability.engine_failure_not_applicable`, with **three readers**: `_case_inputs` refuses (so `run`, `time_history`, the CLI and the main GUI refuse identically), the oracle GUI's `render_step` states the reason and **withholds the input form** (the #66/PB-7 shape, one step earlier — there is no input to take, not merely nothing to show), and `report/coverage.py`'s 23.367 row reads it, so the report cannot call the condition analysable while the module declines it. Its old `len(engines) > 1` test missed the centreline twin; coverage keeps its own turbopropeller clause on top (the regulation's scope, where this is the model's — see the Limitation above). GUI pages are keyed by workflow step key in `applicability._STEP_NOT_APPLICABLE`, guarded against the #82 stale-tag defect by `tests/test_applicability.py::test_every_step_predicate_names_a_real_workflow_step`.
+- **Every entered engine is failed, and every recovered case is a fin design
+  condition (note 44 §21, OR-172/OR-173/OR-174, 2026-09-07).** One engine's
+  failure loads the fin in one sense and a fin is sized for both, so each engine
+  whose failure produces a yawing moment is marched in turn, with its own case ID
+  and its own sign (`_failed_engine_indices`; an engine on the centreline has no
+  arm and is skipped). `fin_conditions` publishes the recovered cases as
+  `CriticalCondition`s and `select.default_critical` admits them to the vertical
+  tail's critical set, from which Section 6, the chordwise and spanwise
+  distributions, the applied-load appendix and the exported v-tail deck take them
+  unchanged — the split the march already publishes (`LT25`/`LT50` at `xv25` and
+  `xv50`) is the split `taildist` and `tail_span` distribute from. **Measured
+  LIMIT against LIMIT, this is the governing fin load on every twin in the
+  fixture set** — 1.6x `baron_58`'s largest SELECT case, 2.6x `atr42_100`'s, 3.3x
+  `dhc8_dash8`'s — and until this step the fin was sized without it. The
+  chordwise split is read at the instant of **peak total load**, not at each
+  quantity's own maximum, which would combine two instants the airplane never
+  occupies. Two consequences are *stated* rather than worked around: a 23.367
+  condition names no V-n point, so its **case weight is zero and the fin's own
+  lateral inertia relief is switched off** (the relief is unconservative and
+  worth 0.7-1.8 %), and on a **T-tail** the concurrent horizontal-tail tip
+  transfer cannot be resolved for the same reason — which on a T-tail twin means
+  the case that sizes the fin is the case whose tip load is missing. Both are
+  carried in the result's own notes; the second is design note 51's to resolve.
+- **A case that does not recover is published and excluded (OR-174).** The march
+  bounds itself at 60 s; a load at that bound is where the integration stopped,
+  not a design load. `run` reports such a case in full with the uncontrollability
+  statement and a referral to stability and control, and `fin_conditions` omits
+  it — so it reaches no envelope, no distribution, no appendix and no deck. On
+  `atr42_100` and `dhc8_dash8` that is the VS case on both engines.
+- **The headline load is keyed `fy_side`.** It is the fin's side load and the
+  case index maps loads by key; under `max_tail_load` every 23.367 row reached
+  the published case file with an ID, a regulation, a speed, a factor and no load
+  at all (OR-180). The report-facing `CriticalCondition` uses SELECT's own
+  `total_tail_load` instead — two consumers' names for one number, each in the
+  object its consumer reads.
+- **23.367(a)(2) makes the vertical tail's files mixed-basis.** It is prescribed
+  ULTIMATE at SF 1.0 while every case beside it is LIMIT at 1.5, so a v-tail
+  chordwise or spanwise file now carries one ultimate row among limit ones. Per
+  note 49 OR-118a such a file keeps **plain** load columns and states the basis
+  per row in its `SF` cell; only an all-ultimate file carries `-ULT`. The owner
+  of that rule is `safety_factors.shared_basis_factor`, read by both the document
+  and the export.
 - **Notes:** First module to exercise the first-class multi-engine `Project`. The recovered EF chart (ONENGOUT.BAS subr 10000) is now in `_vtail.large_deflection_factor`; wiring it into SELECT's static v-tail loads (replacing `rudder_large_deflection_factor=1.0`) is a deferred mini-step.
 
 ### LGFACTOR — Landing load factor ✅ (Step C10)

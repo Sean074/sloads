@@ -66,7 +66,21 @@ MANIFEST: dict[str, str] = {
     "sloads/modules/landing.py": "e74744924f42f5fba83ba81fe918210db31790d88b02557f068262df052cc56c",
     "sloads/modules/mach_limit.py": "118af4d9c35b2978d5ee204912329e6c5cf2d7b7381535300ea4ed48ef1b5859",
     "sloads/modules/net_loads.py": "d7566c492beb61207fe90d3c47bade599cd25e2d609403a69dd2129a185855ab",
-    "sloads/modules/one_engine_out.py": "d53cb6f04a47fffc2acb5a1be8c7bb93587f63a912d7db57c9bc402372f35045",
+    # OR-15 admission, granted by the owner 2026-09-07 (note 44 §21, OR-181),
+    # scoped to four things and no others -- ``simulate`` and ``_moment``, which
+    # are the march itself, are untouched. (1) ``fin_conditions`` publishes the
+    # 23.367 cases as fin design conditions, because measured LIMIT against
+    # LIMIT they are the *governing* fin load on every twin in the fixture set
+    # -- 1.6x baron_58's largest SELECT case, 2.6x atr42_100's, 3.3x
+    # dhc8_dash8's -- and the fin was being sized without them (OR-172).
+    # (2) the headline load is keyed ``fy_side``, because under ``max_tail_load``
+    # every 23.367 row reached the published case file with an ID, a regulation,
+    # a speed, a factor and no load at all (OR-180). (3) ``recovered`` is carried
+    # out so an uncontrollable case can be printed and *excluded* from the
+    # envelope (OR-174). (4) every entered engine is failed in turn, because one
+    # engine gives the fin one sense of load and a fin is sized for both
+    # (OR-173).
+    "sloads/modules/one_engine_out.py": "d1319c927c8ae7c5444a1ec7773266dcc1e814f8aaa41d495ddddadf10b8ac1d",
     # OR-15 admission, granted by the owner 2026-09-05 (note 44 §15, OR-111):
     # the four maneuver conditions publish the unbalanced pitching moment about
     # the CG, whose equation is recovered from SELECT.BAS 5210/5262/5410/5560.
@@ -83,7 +97,17 @@ MANIFEST: dict[str, str] = {
     # through, rather than at nine call sites. Additive: every new value is
     # appended, and the one insertion that would have moved an existing column
     # (``SIDE GUST``'s ``Yaw inertia IZZ``) was rewritten to append instead.
-    "sloads/modules/select.py": "09ee0ef77bff7aef736d914ad580ec29e943cab9a25be1ea831a1dc8f8299f6c",
+    # Second OR-15 admission, granted by the owner 2026-09-07 (note 44 §21,
+    # OR-181): **one insertion point** in ``default_critical``, appending the
+    # 23.367 fin conditions to the critical set through ``_with_engine_failure``.
+    # Every consumer of the critical set already comes through that function
+    # (M2R-8, review F-C6), which is what lets Section 6, the chordwise and
+    # spanwise distributions, Appendix E and the exported v-tail deck pick the
+    # cases up with no change to ``tail_span.py`` or ``taildist.py`` -- neither
+    # of which is admitted, and neither of which is touched. The import is
+    # function-local because ONENGOUT already reads ``effective_vtail_inputs``
+    # from here and a module-level one would close a cycle.
+    "sloads/modules/select.py": "c2b3c1caf02fbeee18077e91e95142b7e2db569d1f423262f4716adbd09a04b7",
     "sloads/modules/structural_speeds.py": "8fdbc1cc6eb17dbbdda4f5f1b224c7d5d4b86dfe14c923457292db7e123814c1",
     "sloads/modules/tab.py": "f81ff82261cccabedef57491635b3f56767faa61bae31c2d0d0017fc3bcb07e7",
     "sloads/modules/tail_span.py": "22a7832553de87ef9826c6e869e8ec8f1fe4e39c04706224f6af63e0847212b5",

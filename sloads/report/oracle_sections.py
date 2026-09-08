@@ -38,7 +38,7 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import replace
-from typing import Dict, List, Mapping, NamedTuple, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Dict, List, Mapping, NamedTuple, Optional, Sequence, Tuple
 
 from ..constants import IN2_PER_FT2, ULTIMATE_FACTOR
 from ..derived_geometry import (
@@ -76,6 +76,9 @@ from .oracle_content import (
     subsection_ref,
 )
 from .render import format_value, ultimate_units
+
+if TYPE_CHECKING:  # pragma: no cover - typing only, and a cycle if imported
+    from ..modules.one_engine_out import FinCase
 
 
 # --------------------------------------------------------------------------- #
@@ -6272,6 +6275,428 @@ def _engine_mount(project: Project, results: Mapping[str, Optional[ModuleResult]
 
 
 # --------------------------------------------------------------------------- #
+# Section 11 -- One Engine Inoperative (note 44 §21)
+# --------------------------------------------------------------------------- #
+#: The 23.367(b) delay, quoted rather than recomputed: the regulation allows no
+#: corrective action earlier than two seconds after the failure, and every figure
+#: in 11.3 marks it because a transient plotted without its events is a curve
+#: rather than a result (OR-177).
+_OEI_DELAY_S = 2.0
+
+_OEI_SIGN = (
+    "A fin is one surface, and failing the port engine loads it the opposite way "
+    "to failing the starboard one. Every case below is therefore signed: the load "
+    "is positive to starboard, so an engine at positive butt line produces a "
+    "negative fin load and the reverse. The original analysis marched one engine "
+    "and reported a magnitude, which is why the sign is stated here rather than "
+    "assumed -- an envelope that saw one sense only would size the fin for half "
+    "the cases it has to carry."
+)
+
+_OEI_TRANSIENT = (
+    "This is the only time-marching analysis in this document. Every other "
+    "condition is a state of the airplane; this one is an event, integrated from "
+    "the failure through the delay the regulation allows the pilot, the rudder "
+    "travel and the recovery. The loads reported are the peak of that march and "
+    "the instant they occur at is stated with them."
+)
+
+
+def _oei_cases(project: Project) -> List["FinCase"]:
+    """Every 23.367 case the module produces, recovered or not.
+
+    Read from the module's own enumeration rather than from its ``ModuleResult``:
+    the section states the march's *events* -- when corrective action began, when
+    the peak fell -- and a published scalar cannot carry them. OR-6 is not
+    strained by this, because nothing here is derived: the peak instant is the
+    module's own pick, and the loads printed are the module's own values.
+    """
+    from ..modules.one_engine_out import _fin_cases
+
+    try:
+        return list(_fin_cases(project))
+    except (MissingInputError, ValueError, ZeroDivisionError, KeyError, IndexError):
+        return []
+
+
+def _oei_refusal(project: Project) -> str:
+    """The module's own words for why it will not march this airplane.
+
+    Printed instead of a generic absence, because the refusals are not
+    interchangeable: a turbofan installation is refused on coverage grounds --
+    the thrust and windmill terms are propeller relations and a fan's asymmetry
+    would be *understated*, not approximated -- and telling that reader their
+    inputs were incomplete would send them to fix something that is not wrong.
+    """
+    from ..modules.one_engine_out import _fin_cases
+
+    try:
+        _fin_cases(project)
+    except MissingInputError as exc:
+        return str(exc).replace("one_engine_out: ", "").replace(
+            "one_engine_out ", "the analysis ")
+    except (ValueError, ZeroDivisionError, KeyError, IndexError) as exc:
+        return str(exc)
+    return ""
+
+
+def _oei_input_table(project: Project, cases: Sequence["FinCase"],
+                     system: UnitSystem) -> Optional[Table]:
+    """What the simulation was run from, one row per failed engine."""
+    u = Units(system)
+    seen: Dict[int, "FinCase"] = {}
+    for fc in cases:
+        seen.setdefault(fc.engine_index, fc)
+    engines = project.engines or []
+    rows = []
+    for index, fc in sorted(seen.items()):
+        name = ""
+        if 0 <= index < len(engines):
+            name = engines[index].engine_designation or ""
+        c = fc.inputs
+        rows.append([
+            f"{index}{(' — ' + name) if name else ''}",
+            u.plain(c.bleng, "length"),
+            format_value(c.maxhp),
+            u.plain(c.dia_ft * 12.0, "length"),
+            format_value(c.izz),
+            u.plain(c.xcg, "length"),
+            format_value(c.alt_ft),
+        ])
+    if not rows:
+        return None
+    return Table(
+        title="One-engine-inoperative input data",
+        columns=["Failed engine", f"Butt line ({u.label('length')})", "Max SHP",
+                 f"Propeller diameter ({u.label('length')})", "IZZ (slug-ft^2)",
+                 f"CG station ({u.label('length')})", "Altitude (ft)"],
+        rows=rows,
+        note=("Every entered engine whose failure produces a yawing moment is "
+              "marched in turn (design note 44 OR-173); an engine on the "
+              "centreline has no arm and is not. The moment of inertia and the "
+              "CG station are the heaviest mass case's unless the analysis "
+              "overrides them. Max SHP is the take-off or max-continuous shaft "
+              "power, per the input slice's selector."))
+
+
+def _oei_timing_table(cases: Sequence["FinCase"]) -> Optional[Table]:
+    """The transient's own constants -- the schedule the march is run on."""
+    if not cases:
+        return None
+    c = cases[0].inputs
+    rows = [
+        ["Corrective action delay", format_value(_OEI_DELAY_S), "s",
+         "14 CFR 23.367(b): no earlier than 2 s after the failure."],
+        ["Thrust decay time", format_value(c.time2decay), "s",
+         "The failed engine's thrust ramps to zero over this time."],
+        ["Windmill drag build-up", format_value(c.time2drag), "s",
+         "Glauert windmilling drag reaches full value by this time and holds."],
+        ["Rudder travel time", format_value(c.inctimerud), "s",
+         "Full rudder is reached this long after corrective action begins."],
+        ["Maximum rudder deflection", format_value(c.defl_rud_max), "deg",
+         "The rudder throw the recovery is flown with."],
+        ["Integration step", format_value(c.dt), "s",
+         "Euler step of the march."],
+        ["Simulation bound", format_value(60.0), "s",
+         "A case that has not recovered by here is reported uncontrollable."],
+    ]
+    return Table(
+        title="Yaw transient schedule",
+        columns=["Quantity", "Value", "Units", "Basis"],
+        rows=rows,
+        note=("The schedule is the same for every case; only the speed, the "
+              "engine and the resulting march differ."))
+
+
+def _oei_case_list_table(cases: Sequence["FinCase"]) -> Optional[Table]:
+    """Every case assessed, with its regulation, its factor and its outcome."""
+    rows = []
+    for fc in cases:
+        rows.append([
+            fc.case_id,
+            f"{fc.engine_index}",
+            fc.load_case.label,
+            fc.load_case.far_reference,
+            format_value(fc.inputs.v_kt),
+            format_value(fc.load_case.safety_factor),
+            "recovered" if fc.recovered else "NOT recovered",
+        ])
+    if not rows:
+        return None
+    return Table(
+        title="Load cases assessed",
+        columns=["Case ID", "Engine", "Case", "FAR", "V (kt EAS)", "SF", "Outcome"],
+        rows=rows,
+        status_column="Outcome",
+        note=("Each case is considered over a speed range and evaluated at its "
+              "critical (high) end, because the tail load grows with dynamic "
+              "pressure. The factor is the one the regulation prescribes for the "
+              "case, not for the speed: 23.367(a)(2) classifies its loads as "
+              "ULTIMATE, so it carries SF 1.0 while every case beside it carries "
+              "1.5 (design note 44 OR-176). Every load in this section is LIMIT "
+              "and has been multiplied by nothing. A case marked NOT recovered "
+              "is reported in full and is excluded from the design envelope -- "
+              "see the note below the load table."))
+
+
+def _oei_load_table(cases: Sequence["FinCase"], system: UnitSystem) -> Optional[Table]:
+    """The peak fin load of every case, with the state that produced it."""
+    u = Units(system)
+    rows = []
+    for fc in cases:
+        s = fc.summary
+        rows.append([
+            fc.case_id,
+            f"{fc.engine_index}",
+            fc.load_case.label,
+            u.plain(fc.sense * s.lt25_at_peak_lb, "force"),
+            u.plain(fc.sense * s.lt50_at_peak_lb, "force"),
+            u.plain(fc.sense * s.max_tail_load_lb, "force"),
+            format_value(fc.peak.time),
+            format_value(fc.load_case.safety_factor),
+        ])
+    if not rows:
+        return None
+    force = u.label("force")
+    # Eight columns, and the thrust, the windmill drag and the yaw rate are not
+    # among them: they are the transient's own outputs and are tabulated with it
+    # in the next subsection. Eleven columns here would not set upright and the
+    # renderer turned the page -- the same trade OR-163 made one section back,
+    # and the same conclusion: this table is the *loads*, and the forcing that
+    # produced them belongs beside the march that applied it.
+    return Table(
+        title="Critical one-engine-inoperative fin loads (LIMIT)",
+        columns=["Case ID", "Engine", "Case",
+                 f"LT25 ({force})", f"LT50 ({force})", f"Total ({force})",
+                 "t at peak (s)", "SF"],
+        rows=rows,
+        note=("Every load is LIMIT and states the safety factor 14 CFR 23.303 "
+              "prescribes for its condition, which is applied to none of them. "
+              "LT25 is the angle-of-attack load at the 25 % MAC station and LT50 "
+              "the camber and rudder load at the 50 % MAC station; the two are "
+              "read at the single instant of greatest total load, stated beside "
+              "them, rather than each at its own maximum -- which would combine "
+              "two instants the airplane never occupies. " + _OEI_SIGN))
+
+
+def _oei_response_table(cases: Sequence["FinCase"], system: UnitSystem) -> Optional[Table]:
+    """What the march produced: the forcing, the yaw it made and the recovery.
+
+    Split out of the load table, which could not carry eleven columns upright.
+    These are the transient's outputs rather than the fin's loads, so they read
+    better beside the figures than beside the loads in any case.
+    """
+    u = Units(system)
+    force = u.label("force")
+    rows = []
+    for fc in cases:
+        s = fc.summary
+        rows.append([
+            fc.case_id,
+            fc.load_case.label,
+            format_value(fc.inputs.v_kt),
+            u.plain(s.thrust_lb, "force"),
+            u.plain(s.windmill_drag_lb, "force"),
+            format_value(s.max_yaw_rate_deg_s),
+            format_value(s.time_to_recovery_s) if s.recovered else "not recovered",
+        ])
+    if not rows:
+        return None
+    return Table(
+        title="Yaw transient response",
+        columns=["Case ID", "Case", "V (kt EAS)", f"Live-engine thrust ({force})",
+                 f"Windmill drag ({force})", "Max yaw rate (deg/s)",
+                 "Time to recovery (s)"],
+        rows=rows,
+        status_column="Time to recovery (s)",
+        note=("The live engine's thrust and the failed engine's windmilling drag "
+              "are the two terms of the yawing moment, acting about the failed "
+              "engine's butt line. The yaw rate is the peak of the march. A case "
+              "that states 'not recovered' reached the 60 s simulation bound "
+              "with the yaw still building; see the note in the previous "
+              "subsection for what follows from that."))
+
+
+def _oei_figures(cases: Sequence["FinCase"], system: UnitSystem
+                 ) -> Tuple[List[Figure], List["FinCase"]]:
+    """Two figures per case: the yaw response, and the loads that recovered it."""
+    from ..modules.one_engine_out import simulate
+
+    u = Units(system)
+    out: List[Figure] = []
+    # One engine's marches are plotted, not every engine's. On a symmetric
+    # installation the second engine's transient is the first's mirrored, and six
+    # more axes carrying the same curves with the signs flipped is six pages that
+    # tell the reader nothing new. The *loads* are not deduplicated -- both
+    # engines' cases are in the table above and in the fin's envelope, with their
+    # own IDs and their own senses (OR-173) -- because a load is a deliverable and
+    # a figure is an illustration of one. Where an installation is **not**
+    # symmetric the marches differ, the magnitude test below fails, and that
+    # engine is plotted too: the saving is claimed only where it is real.
+    plotted: List["FinCase"] = []
+    mirrored = 0
+    for fc in cases:
+        twin = next((q for q in plotted
+                     if q.load_case.label == fc.load_case.label
+                     and math.isclose(q.summary.max_tail_load_lb,
+                                      fc.summary.max_tail_load_lb, rel_tol=1e-9)
+                     and math.isclose(q.summary.time_to_recovery_s,
+                                      fc.summary.time_to_recovery_s, rel_tol=1e-9)), None)
+        if twin is None:
+            plotted.append(fc)
+        else:
+            mirrored += 1
+    for fc in plotted:
+        rows, _ = simulate(fc.inputs)
+        if not rows:
+            continue
+        t = [r.time for r in rows]
+        tag = f"{fc.load_case.label}, engine {fc.engine_index}"
+        key = f"oei-{fc.case_id.lower()}"
+        marks = [("23.367(b) delay", _OEI_DELAY_S),
+                 ("Peak load", fc.peak.time)]
+        out.append(Figure(
+            key=f"{key}-yaw",
+            title=f"Yaw response — {tag} ({fc.case_id})",
+            data=PlotData(
+                x_label="Time (s)", y_label="Yaw angle (deg), rate (deg/s), rudder (deg)",
+                series=[Series("Yaw angle", t, [r.theta for r in rows]),
+                        Series("Yaw rate", t, [r.theta_dot for r in rows],
+                               style="dashed"),
+                        Series("Rudder deflection", t, [r.rudder_deg for r in rows],
+                               style="dotted")],
+                vlines=marks),
+            caption=("The airplane yaws under the asymmetry until the rudder "
+                     "takes effect. " + ("The march reached the 60 s bound "
+                     "without the yaw returning through zero: this case did not "
+                     "recover." if not fc.recovered else
+                     f"Recovery is complete at {format_value(fc.summary.time_to_recovery_s)} s."))))
+        out.append(Figure(
+            key=f"{key}-load",
+            title=f"Fin load — {tag} ({fc.case_id})",
+            data=PlotData(
+                x_label="Time (s)", y_label=f"Fin load ({u.label('force')}, LIMIT)",
+                series=[Series("LT25 (angle of attack)", t,
+                               [u.plain_value(fc.sense * r.lt25, "force") for r in rows]),
+                        Series("LT50 (camber and rudder)", t,
+                               [u.plain_value(fc.sense * r.lt50, "force") for r in rows],
+                               style="dashed"),
+                        Series("Total", t,
+                               [u.plain_value(fc.sense * r.lt, "force") for r in rows],
+                               style="thick")],
+                vlines=marks),
+            caption=(f"The peak total load falls at "
+                     f"t = {format_value(fc.peak.time)} s. "
+                     f"This case is LIMIT at SF "
+                     f"{format_value(fc.load_case.safety_factor)}"
+                     + (" — 23.367(a)(2) classifies its loads as ULTIMATE, so the "
+                        "prescribed factor is 1.0 and nothing further is applied."
+                        if fc.load_case.safety_factor == 1.0 else
+                        ", stated and applied nowhere."))))
+    return out, plotted
+
+
+def _one_engine_out(project: Project,
+                    results: Mapping[str, Optional[ModuleResult]],  # noqa: ARG001
+                    *, system: UnitSystem, plan: Sequence[SectionPlan]) -> Section:
+    """Section 11 -- One Engine Inoperative, in its three subsections (note 44 §21)."""
+    cases = _oei_cases(project)
+    if not cases:
+        refusal = _oei_refusal(project)
+        return Section("", absent_reason=(
+            f"the one-engine-inoperative transient was not produced for this "
+            f"project — {refusal}" if refusal else
+            "the one-engine-inoperative transient was not produced for this "
+            "project: the engine, vertical-tail or speed data the march is run "
+            "from are incomplete."))
+    excluded = [fc for fc in cases if not fc.recovered]
+    vtail_ref = section_ref(plan, "vtail_loads")
+
+    envelope = [
+        f"The cases below are fin design conditions and are carried as such: "
+        f"every recovered case joins the vertical tail's critical set in "
+        f"{vtail_ref}, is distributed along the chord and the span with the other "
+        f"fin conditions, appears station by station in "
+        f"{appendix_ref(VTAIL_LOAD_STATIONS)}, and is written into the exported "
+        f"deck. This section is where the transient that produced them is "
+        f"stated; it is not a separate set of loads.",
+    ]
+    if excluded:
+        names = ", ".join(f"{fc.case_id} ({fc.load_case.label}, engine "
+                          f"{fc.engine_index})" for fc in excluded)
+        envelope.append(
+            f"{len(excluded)} case(s) are EXCLUDED from that envelope: "
+            f"{names}. The march bounds itself at 60 s and these did not "
+            f"recover within it, so the load reported is where the integration "
+            f"stopped rather than a peak the airplane reached and came back "
+            f"from. A number at the simulation bound is not a design load. These "
+            f"cases are referred to the stability and control discipline for "
+            f"assessment — whether the finding is the model, the speed, or a "
+            f"real minimum-control-speed limit is not a question this analysis "
+            f"answers — and until it is settled they reach no envelope, no load "
+            f"distribution, no appendix and no exported deck. They are printed "
+            f"here in full because suppressing them would hide that the case ran.")
+    envelope.append(
+        "The fin's own lateral inertia is not applied to these cases. A 23.367 "
+        "condition is a transient and names no point on the manoeuvre envelope, "
+        "so it carries no case weight, and the lateral load factor the fin's mass "
+        "would be accelerated by is zero. That inertia *relieves* the air load — "
+        "by 0.7 to 1.8 per cent on the shipped examples — so its absence is "
+        "conservative, and it is stated here rather than obtained by inventing a "
+        "weight the condition does not have.")
+
+    inputs = Section("", body=[
+        _OEI_TRANSIENT,
+        "The analysis fails one engine at a time and integrates the yaw that "
+        "follows: the live engine's thrust and the failed engine's windmilling "
+        "drag act about the failed engine's butt line, the pilot applies rudder "
+        "no earlier than the two seconds 23.367(b) allows, and the fin carries "
+        "what it takes to stop the yaw. What is entered, and the schedule the "
+        "march runs on, are below.",
+    ], tables=[t for t in (_oei_input_table(project, cases, system),
+                           _oei_timing_table(cases),
+                           _oei_case_list_table(cases)) if t is not None])
+
+    critical = Section("", body=envelope,
+                       tables=[t for t in (_oei_load_table(cases, system),)
+                               if t is not None])
+
+    figures, plotted = _oei_figures(cases, system)
+    shown = {fc.case_id for fc in plotted}
+    unplotted = [fc for fc in cases if fc.case_id not in shown]
+    transient_body = [
+        "One pair of figures per case: the airplane's yaw response, and the fin "
+        "load that recovered it. The two-second mark is 23.367(b)'s limit on how "
+        "soon the pilot may act, and the second marker is the instant of peak "
+        "total load — the instant the chordwise split in the previous subsection "
+        "is taken at.",
+    ]
+    if unplotted:
+        names = ", ".join(fc.case_id for fc in unplotted)
+        transient_body.append(
+            f"{names} are not plotted separately. They are the same marches with "
+            f"the fin load in the opposite sense — the installation is symmetric, "
+            f"so failing one engine mirrors failing the other — and their loads "
+            f"are tabulated above and carried in the fin's envelope in their own "
+            f"right. Only the figures are shared.")
+    transient = Section(
+        "", body=transient_body, figures=figures,
+        tables=[t for t in (_oei_response_table(cases, system),) if t is not None])
+
+    return Section("", body=[
+        "This section states the loads an engine failure puts on the vertical "
+        "tail: what the transient was run from, the peak load of each case, and "
+        "the march itself. Every load delivered here is LIMIT, states the safety "
+        "factor 14 CFR 23.303 prescribes for its condition, and has been "
+        "multiplied by nothing.",
+    ], subsections=[
+        replace(inputs, title="Input data"),
+        replace(critical, title="Critical cases"),
+        replace(transient, title="Yaw transient"),
+    ])
+
+
+# --------------------------------------------------------------------------- #
 # Dispatch
 # --------------------------------------------------------------------------- #
 #: Step key -> the builder that produces its section body.
@@ -6302,6 +6727,10 @@ BUILDERS = {
     # Section 10: six components at one point, and no appendix either -- an
     # engine mount takes a point load, not a distribution (note 44 §20).
     "engine_mount": _engine_mount,
+    # Section 11: the suite's only time-marching analysis, and the only section
+    # whose loads are carried by *another* section's appendix -- the recovered
+    # cases are fin design conditions and travel with them (note 44 §21, OR-172).
+    "one_engine_out": _one_engine_out,
 }
 
 #: Appendix title -> the builder that produces its body.
