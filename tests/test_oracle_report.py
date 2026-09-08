@@ -2222,6 +2222,84 @@ def test_the_cumulative_table_says_its_moments_are_the_beams_own():
     assert "positive-magnitude bending integrals" in carried.note
 
 
+def test_the_cumulative_table_states_each_cases_factor_in_its_own_row():
+    """G-OR-20's per-row half for B.2 (#229 defect 2).
+
+    B.2 was the one station table without an ``SF`` column, and its note ended
+    in the fragment *"...Its safety factor."* -- a claim of statement with no
+    statement. The column is read back against the owner case by case, like its
+    fuselage twin's.
+    """
+    project = reduce_to_oracle_inputs(io.load_project(_GA))
+    from sloads.modules.net_loads import build_net_loads, loads_ref_axis_results
+    net = loads_ref_axis_results(project, build_net_loads(project).wing_net)
+    _applied, carried = _appendix_tables(_doc())
+
+    assert carried.columns[-1] == "SF"
+    row = 0
+    for result in net:
+        for _station in result.stations:
+            assert carried.rows[row][-1] == format_value(result.safety_factor)
+            row += 1
+    assert row == len(carried.rows)
+    # The dangling fragment is gone and the claim is the complete sentence.
+    assert "Its safety factor." not in carried.note
+    assert "states in its own row the factor it does not apply" in carried.note
+
+
+def test_the_appendix_intro_claims_the_run_set_and_states_the_envelope_gap():
+    """#229 defect 1 -- Appendix B describes its own tables, honestly.
+
+    The intro claimed *"every selected case"* while the tables carry the entered
+    set, which replaced the selection (C210-30) -- W-02/03/04 are selection-named
+    in the registers and have no station tables here. And the appendix repeats
+    3.2's not-enveloping sentence through the same owner, because the reader of
+    an appendix must not need 3.2 to learn the document holds no down-bending
+    wing case (#165).
+    """
+    for path in (_GA, _TWIN):
+        project = reduce_to_oracle_inputs(io.load_project(path))
+        from sloads.modules.net_loads import (
+            build_net_loads,
+            loads_ref_axis_results,
+        )
+        net = loads_ref_axis_results(project, build_net_loads(project).wing_net)
+        body = _appendix(_doc(path), oc.WING_LOAD_STATIONS).body
+        text = " ".join(body)
+        assert "every selected case" not in text, path
+        assert "every case run" in text, path
+        sentence = osec._negative_case_sentence(net, where="appendix")
+        assert sentence and sentence in body, path
+        # Both shipped sets are positive-only (#165), so what the owner returns
+        # here is the warning, not the roster -- the case this gate exists for.
+        assert "do not envelop the wing" in sentence, path
+
+
+def test_every_load_table_states_the_factor_it_does_not_apply():
+    """G-OR-20/G-OR-4 swept over the whole document (#229, rule 4).
+
+    Every table delivering loads -- marked ``(LIMIT)`` in its title, which
+    G-OR-74's rendered-band gate makes the reliable marker -- states the 14 CFR
+    23.303 factor: an ``SF`` column when it varies by case, or a note stating
+    the one value and that it is applied to nothing. The sweep found B.2 and
+    the ground moment table claiming statement without stating anything.
+    """
+    import re
+
+    for path in (_GA, _TWIN):
+        doc = _doc(path)
+        limit_tables = [t for s in _flat(doc.sections) for t in s.tables
+                        if "LIMIT" in t.title]
+        assert len(limit_tables) > 20, path
+        for table in limit_tables:
+            note = table.note or ""
+            in_column = "SF" in table.columns
+            in_note = bool(re.search(r"factor of [0-9.]+", note)
+                           and ("applied to none" in note
+                                or "applied to nothing" in note))
+            assert in_column or in_note, (path, table.title)
+
+
 def test_every_cumulative_column_is_also_plotted():
     """OR-72, superseding OR-55 -- the five columns of B.2 are 3.4's five figures.
 
@@ -2233,7 +2311,7 @@ def test_every_cumulative_column_is_also_plotted():
     doc = _doc()
     _applied, carried = _appendix_tables(doc)
     tabulated = [c.split(" (")[0] for c in carried.columns
-                 if c.split(" (")[0] not in ("Case", "Station", "Y")]
+                 if c.split(" (")[0] not in ("Case", "Station", "Y", "SF")]
     plotted = [f.title.split(" (")[0].split()[-1]
                for s in _flat([_section_three(doc)]) for f in s.figures
                if f.key.startswith(("wing_shear", "wing_bending",

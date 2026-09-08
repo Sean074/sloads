@@ -1739,7 +1739,8 @@ _LOAD_FACTOR_SIGN = (
     "convention.")
 
 
-def _negative_case_sentence(net: Sequence[object]) -> str:
+def _negative_case_sentence(net: Sequence[object],
+                            where: str = "section") -> str:
     """Whether the analysed set contains a negative-flight-load-factor case.
 
     A wing is enveloped by its positive *and* its negative conditions -- FAR
@@ -1747,7 +1748,9 @@ def _negative_case_sentence(net: Sequence[object]) -> str:
     positive cases produce. A set holding only positive-g cases does not envelop
     the wing, and on the printed sign convention that is not visible at a glance:
     every load factor in the table is a negative number either way. So it is
-    stated (OR-58).
+    stated (OR-58) -- in 3.2 and again in Appendix B (``where``), because the
+    reader of an appendix must not need 3.2 to learn the document holds no
+    down-bending wing case (#229).
     """
     if not net:
         return ""
@@ -1760,7 +1763,7 @@ def _negative_case_sentence(net: Sequence[object]) -> str:
                 "reverse the bending the positive cases produce.")
     return (
         "Every case run here is a positive-load-factor condition. The set holds "
-        "no negative-load-factor case, so the distributions in this section do "
+        f"no negative-load-factor case, so the distributions in this {where} do "
         "not envelop the wing: the negative manoeuvre and negative gust "
         "conditions of 14 CFR 23.333(c), which reverse the bending, are not "
         "among them.")
@@ -2381,6 +2384,7 @@ def _cumulative_table(net: Sequence[object], system: UnitSystem,
     columns = ["Case", "Station", f"Y ({length})"]
     columns += [f"{label} ({u.ult_label(dim)})"
                 for _attr, dim, label in _CUMULATIVE_LOADS]
+    columns.append("SF")
     rows: List[List[str]] = []
     for result in net:
         name = _case_name(result)
@@ -2388,7 +2392,8 @@ def _cumulative_table(net: Sequence[object], system: UnitSystem,
         for index, station in enumerate(getattr(result, "stations", ()), start=1):
             rows.append([name, str(index), u.plain(station.y, "length")]
                         + [u.load(getattr(station, attr), dim, sf)
-                           for attr, dim, _label in _CUMULATIVE_LOADS])
+                           for attr, dim, _label in _CUMULATIVE_LOADS]
+                        + [format_value(sf)])
     if not rows:
         return None
     axis = _torsion_axis(net)
@@ -2404,8 +2409,8 @@ def _cumulative_table(net: Sequence[object], system: UnitSystem,
               "Mxx and Mzz are positive-magnitude bending integrals, so Mxx "
               "shares its sense with the applied Mx while Mzz is the negation "
               f"of a body-axis Mz. The distinction is defined once, in "
-              f"{notation}. Every load is LIMIT; its case's safety factor is stated but not applied. Its "
-              "safety factor."))
+              f"{notation}. Every load is LIMIT and states in its own row the "
+              "factor it does not apply."))
 
 
 def _station_appendix(project: Project, *, system: UnitSystem,
@@ -2417,12 +2422,17 @@ def _station_appendix(project: Project, *, system: UnitSystem,
     applied = _applied_table(net, system, assessed)
     carried = _cumulative_table(net, system, notation)
     body = [
+        # "Every case run", not "every selected case": the tables carry the
+        # entered set, which (correctly, per C210-30) replaced the selection --
+        # W-02/03/04 are named in the register and have no station tables, and
+        # this sentence must not claim otherwise (#229).
         "This appendix carries the wing load distributions of "
-        + section_ref(plan, _WING_STEP) + " in full: every selected case at "
+        + section_ref(plan, _WING_STEP) + " in full: every case run, at "
         "every load station, in the airplane axes and about the loads "
         "reference axis stated in "
         + subsection_ref(plan, _WING_STEP, _WING_INPUTS) + ". It is the same "
         "result the figures are drawn from, printed rather than plotted.",
+        _negative_case_sentence(net, where="appendix"),
         "It is given in two parts, because they are two different quantities "
         "and a reader who takes one for the other builds the wrong model. The "
         "first is the load applied at each station -- what a structural model "
@@ -2430,6 +2440,7 @@ def _station_appendix(project: Project, *, system: UnitSystem,
         "that model should return. The symbols and the relation between them "
         "are stated in " + notation + ".",
     ]
+    body = [paragraph for paragraph in body if paragraph]
     if applied is None or carried is None:
         return Section("", body=body,
                        absent_reason=("The wing load distributions were not "
@@ -6990,8 +7001,10 @@ def _landing_moment_table(cases: Sequence[_GroundCase],
               "condition. Cases 25-33 are absent from this table and not "
               "omitted from it: the supplementary nose-wheel family has no "
               "airplane in equilibrium, so it has no unbalanced moment and no "
-              "airplane load factor to state. The moments are loads and state "
-              "their factor; the load factors are dimensionless and carry none."))
+              "airplane load factor to state. The moments are loads: every one "
+              "is LIMIT and states the 14 CFR 23.303 factor of 1.5, which is "
+              "applied to none of them. The load factors are dimensionless and "
+              "carry none."))
 
 
 def _landing_summary_table(project: Project,
