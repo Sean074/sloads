@@ -63,7 +63,18 @@ MANIFEST: dict[str, str] = {
     "sloads/modules/engine.py": "73aa5d6019fc22c3c56d0545f4bad61afd2224565327f796f9a0b925fac65432",
     "sloads/modules/flap.py": "3bd3bfa06ddc4922227ee922dce85e46691daa528cca28ca582d18c19034ec52",
     "sloads/modules/flight_envelope.py": "acb92d1e78674588fcafb133903dc905c6e40dab05c0ea1afa6d606d60fcb067",
-    "sloads/modules/landing.py": "e74744924f42f5fba83ba81fe918210db31790d88b02557f068262df052cc56c",
+    # OR-15 admission, granted by the owner 2026-09-07 (design note 44 OR-190),
+    # scoped to **two changes and nothing else**: ``_geometry`` becomes public as
+    # ``landing_geometry`` so the oracle report's Section 12.1 can print the p230
+    # lever-arm oracle from the function the reactions were computed by (a rename
+    # and a docstring -- no arithmetic touched), and ``_critical`` becomes
+    # ``critical_reaction``, gains a gear argument, and ``run`` emits the largest
+    # main-gear *and* nose-gear reaction of each family instead of one row ranked
+    # on ``max(main, nose)``. The old rank compared two different gears, so the
+    # three-wheel level landing -- the largest nose reaction of its family, and
+    # the condition the fuselage section forward-references -- appeared in no
+    # summary at all. The shipped condition set goes from 40 to 42.
+    "sloads/modules/landing.py": "aa23b91f343558f6d61c454ec99a869a5ffc39c805b153449e9b5f9716723d33",
     "sloads/modules/mach_limit.py": "118af4d9c35b2978d5ee204912329e6c5cf2d7b7381535300ea4ed48ef1b5859",
     "sloads/modules/net_loads.py": "d7566c492beb61207fe90d3c47bade599cd25e2d609403a69dd2129a185855ab",
     # OR-15 admission, granted by the owner 2026-09-07 (note 44 §21, OR-181),

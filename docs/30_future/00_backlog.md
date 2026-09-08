@@ -508,6 +508,8 @@ the small tier-S defects are indexed under *Open defects* below.
 | 19 | **Whole-pipeline-per-assertion tests, re-aimed at the coverage leg** — *moved from band D 2026-09-04* *(CR-D-6, filed from #46; hygiene; ruled 2026-08-26 (owner): option (b) — the trip figure was the coverage-instrumented run; the row is re-aimed at the run that pays for it)* (#92) | The repeated-pipeline shape gone from the coverage leg's `--durations`; the local command stays the clause's datum. **No `slow` marker** — `00_program_overview.md` §Testing states why | V | S / S–M | — |
 | 20 | **The oracle form reaches into a `field_registry` private** — `oracle_app/form.py:709` calls `fr._locate(paths[0])`, the only access to a `sloads` private from either shell package *(production-release review 2026-08-27 §3.7; moved from band D 2026-09-04 — the GUI milestone is when `field_registry` is next touched)* (#130) | `field_registry` exposes the lookup publicly and `row_class` calls it; the private stays private | V | S / S | when `field_registry` is next touched |
 | 36 | **Down-select at ULTIMATE, and deliver ultimate loads** — an envelope taken over cases whose *prescribed* factors differ is a maximum of quantities that are not comparable, so selecting the critical case at LIMIT can name the wrong case. The fin is where this first bites: note 44 OR-172 admits 23.367 to the v-tail critical set, and 23.367(a)(2) is classified **ULTIMATE** by the regulation (SF 1.0) while every case beside it is LIMIT at 1.5 — so a 2000 lb LIMIT case at 1.5 outranks a 2500 lb case at 1.0 on the ultimate basis the structure is actually sized to, and the LIMIT down-select picks the second. OR-176 marks the factor on every row and every plotted series, which makes the mismatch visible; it does not resolve it. **This reverses note 49 OR-116 for the delivered set** — every load sloads delivers is currently LIMIT with the factor stated and applied nowhere — so it is a load-output contract change and needs a design note at AGREED before any code, plus a sweep of G-OR-71/72/73/74 and the `-ULT` marker rules *(owner, 2026-09-07, in session: "in a later milestone this is the reason I want to do all down select at ultimate and convert all delivered loads to ultimate")* (#193) | Down-select performed on the ultimate basis, delivered loads converted to ULTIMATE, and the stated-factor contract re-expressed for a set that is no longer LIMIT — with the two prescribed-ultimate families (23.367(a)(2), 23.561(b)) no longer a special case because nothing is factored twice | V | L / M | design note first (contract change); note 44 §21 shipped |
+| 37 | **The load-case index carries no loads for 344 of 347 rows** — its six load columns are the engine-mount shape (`render.load_cases_to_rows`' own docstring: *"the load components an engine mount must react"*, `load_keys.LOAD_CASE_KEYS`), and four of the five producers cannot express themselves in it: a landing case has three legs at three points, a wing case a distribution. Measured 2026-09-07: **344/347** rows on `ga6_normal`, **543/555** on `baron_58`, **587/617** on `concept_regional_jet` carry a blank load. Note 44 OR-186 answered the *deliverable* half — each structural element now has an applied-load CSV shaped for its own loads — and left the index itself, because removing or reshaping those columns touches every producer and every consumer of `load_cases_csv`. Either it is an index, in which case the load columns invite a reader to conclude a case carries nothing, or it is a load table, in which case most of it is missing *(note 44 §21 filed, §22 measured)* (#209) | A decision on what the file is, then the columns to match it — the candidate being that it becomes an index in name as well as in fact, with the per-element files carrying the loads | V | M / M | note 44 §22 shipped; a decision on the file's purpose |
+| 38 | **Two engine-mount conditions per engine state no point of application** — the 23.371(c) sudden-stoppage torque and the 23.371(b) gyroscopic condition carry no `loc_*` values while the four beside them for the same engine do. Until 2026-09-07 the index filled the gap with the *first* location in the set, publishing the right-hand engine's stoppage torque and its four gyroscopic sub-cases at the **left-hand** engine's butt line — ten rows on `atr42_100` and `dhc8_dash8`, fifteen on `concept_regional_jet`. Note 44 OR-193 carried the fix at the render boundary (a condition with no point takes the point of the condition it follows, which is that engine's, gated on every fixture); the **producer** stating the point on every condition it emits is the proper repair, and `modules/engine.py` is frozen for 0.8.2 *(note 44 §22, OR-193)* (#210) | `modules/engine.py` emitting `loc_x`/`loc_y`/`loc_z` on all six conditions, and `_running_locations` reduced to the identity it should be | V | S / S | the OR-13 freeze lifting |
 | **C — 1.0.0: additional analysis capability (consumer-gated; design notes first)** ||||||
 | 9 | The aileron's own lift increment is not distributed (#14) | `ACRL` wing cards gain the aero half of the couple (~70 % span); the schema fields shipped v52 and wait for data and a consumer | V | L / M | only if a consumer sizes to `ACRL` |
 | 10 | **Wing fuel (and any tank/store band) is a point mass in WINGINER** — faithful to WINGINER.BAS lines 1180–1270 (every concentrated mass is a spanwise step; only the structure panel is spread), but a wet wing's fuel occupies a span band, so the point model concentrates the inertia relief and puts a fictitious jump in mid-span shear/torsion (**owner, C210 build: "fuel should be spread through the wing not just at one point mass location"**, C210-50, build review 2026-08-23) (#111) | `WingMassInput` gains a distributed-mass band (y_start, y_end, weight, chordwise CG) folded into the per-strip density `w[i]`, reducing exactly to today's point when the band collapses; Appendix A oracle case (concentrated gear only) untouched, lock holds. Interim (documented in the review): split the fuel into N concentrated rows across the tank span with the same centroid — root bending and total shear identical | V | L / M | design note first (physics/L) |
@@ -554,7 +556,7 @@ again; L-8d's mutation case stays parked); F25-2.
   row. Shares an owner with `safety_factors.prescribes_factor`, whose load half
   is the same predicate. The producer `sloads/modules/engine.py` is **frozen**
   (OR-13) until the 0.8.2 cut.
-- **Three examples enter a control-surface area they do not draw.** The area a
+- **Three examples enter a control-surface area they do not draw.** (#216) The area a
   control surface's loads are run on and the area its entered planform outline
   encloses are two entered numbers, and the aileron's disagree: the outline is
   4 % under the analysis area on `baron_58`, 5 % over on `cessna_210` and **44 %
@@ -579,7 +581,7 @@ again; L-8d's mutation case stays parked); F25-2.
   draw the engine where the data says it is. **Filed 2026-09-07.** Tier S, and
   it needs the airplane's own data.
 
-- **An entered thrust line does not steer the thrust in the balanced cases.**
+- **An entered thrust line does not steer the thrust in the balanced cases.** (#217)
   `balance.hub_thrust_set` applies `EngineInput.thrust_lb` as a pure `-x` force,
   and its own docstring says why: *"The P-6 incidence/toe angles (`i_T`, `tau`)
   have no fields and no estimator, and inventing them would put a lateral and a
@@ -632,7 +634,7 @@ again; L-8d's mutation case stays parked); F25-2.
   each. **Filed 2026-09-07.** Tier M, and it touches frozen `modules/aileron.py`
   (OR-13).
 
-- **The fuselage applied set is `Fz` alone — is that the model, or the airplane?**
+- **The fuselage applied set is `Fz` alone — is that the model, or the airplane?** (#218)
   The body beam publishes a vertical applied load per station and nothing else,
   so Appendix C.1 prints `Fx`, `Fy`, `Mx`, `My` and `Mz` as stated zeros. That
   is an accurate statement of what the analysis produces; whether the airplane
@@ -642,7 +644,7 @@ again; L-8d's mutation case stays parked); F25-2.
   has a column waiting for it). Tier M when it lands, and it is a question about
   `body_loads.py`, which is frozen for 0.8.2 under OR-13.
 
-- **A raked fin root resolves onto one waterline, and the axis kinks.**
+- **A raked fin root resolves onto one waterline, and the axis kinks.** (#219)
   `ga6_normal`'s vertical tail meets the body with its **leading** edge at
   waterline 117.0 and its **trailing** edge at 111.5 — a raked root — and
   `resolve_tail_planform` rebases both onto a single root at 111.5. The bottom
@@ -655,7 +657,7 @@ again; L-8d's mutation case stays parked); F25-2.
   does one of these silently, and a fin whose root is square is unaffected,
   which is why no oracle moved.
 
-- **The plane a surface is defined in is positional, not declared.**
+- **The plane a surface is defined in is positional, not declared.** (#220)
   `SurfaceInput.leading_edge`/`trailing_edge` are typed `XYPoint` and documented
   as "(fuselage station X, **butt line Y**)" for every surface. That is false
   for the vertical tail, whose second coordinate is a **waterline** — the code
@@ -674,7 +676,7 @@ again; L-8d's mutation case stays parked); F25-2.
   with V-tail/cruciform support (note 51's successor, today withheld by OR-133),
   not before it.
 
-- **The oracle reduction resets `weight.items[].consumable`, moving a load.**
+- **The oracle reduction resets `weight.items[].consumable`, moving a load.** (#221)
   `reduce_to_oracle_inputs` returns every field outside the oracle input set to
   its dataclass default (OR-43), and this one is outside it: on
   `concept_regional_jet` the reduction flips an item's `consumable` flag, which
@@ -690,7 +692,7 @@ again; L-8d's mutation case stays parked); F25-2.
   under `SUPPLIED_RULE` (a G5 demonstration exists — this measurement) or
   whether a concept fixture is simply outside the reduction's claim.
 
-- **One fuselage quantity is published under two `LoadValue` keys.**
+- **One fuselage quantity is published under two `LoadValue` keys.** (#222)
   `select_fuselage` labels the fuselage load reacted at the wing
   (`LZW − NZ·WW`) `fuselage_down_load_on_wing` on the two down blocks and
   `fuselage_load_on_wing` on the up one, and the balancing tail load `tail_load`
@@ -705,7 +707,7 @@ again; L-8d's mutation case stays parked); F25-2.
   the additive change OR-13 admits, and `sloads/modules/select.py` is frozen
   until the 0.8.2 cut. Tier M when it lands — the rename needs the two labels to
   survive as display text while the keys converge.
-- **One surface, two names: retire `fin_*` for `vtail_*`.** The vertical tail's
+- **One surface, two names: retire `fin_*` for `vtail_*`.** (#223) The vertical tail's
   *data* is spelled `vtail_*` (`vtail_loads`, `vtail_area_sqft`, `VTAIL`,
   `vtail_root_waterline_z`) while the owners that place and load it are spelled
   `fin_*` (`fin_root`, `fin_root_waterline`, `FinRoot`, `fin_root_z`, `fin_tip`,

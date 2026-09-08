@@ -58,7 +58,7 @@ from sloads.models import (
     WeightInput,
 )
 from sloads.modules.landing import (
-    _geometry,
+    landing_geometry,
     build_landing,
     landing_load_factor,
     landing_reactions,
@@ -171,7 +171,7 @@ def test_lgfactor_spring_vs_oleo():
 # --------------------------------------------------------------------------- #
 def test_landload_geometry_oracle():
     inp = _ga_landing()
-    g = _geometry(inp, _ga_gear(), _GA_NLG, _GA_CGS, _MLW)
+    g = landing_geometry(inp, _ga_gear(), _GA_NLG, _GA_CGS, _MLW)
     assert math.isclose(g.k, 0.324, rel_tol=3e-3), g.k
     assert math.isclose(g.gamma_deg, 17.978, rel_tol=3e-3), g.gamma_deg
     # Ground angles: 3-/2-wheel level, ground roll, tail down.
@@ -194,7 +194,7 @@ def test_landload_geometry_oracle():
 def test_landload_lever_arms_oracle():
     """The BP / DP / ground-roll AP-CP lever arms reproduce the p230 table exactly."""
     inp = _ga_landing()
-    g = _geometry(inp, _ga_gear(), _GA_NLG, _GA_CGS, _MLW)
+    g = landing_geometry(inp, _ga_gear(), _GA_NLG, _GA_CGS, _MLW)
     # Level-attitude BP for the three CG cases (p230).
     assert math.isclose(g.bp[0][0], 19.796, rel_tol=2e-3), g.bp[0]
     assert math.isclose(g.bp[0][1], 28.512, rel_tol=2e-3), g.bp[0]
@@ -594,7 +594,7 @@ def test_landload_case_formulas():
     """Closure on the FAR-section reaction formulas (LANDLOAD.BAS 910-1900)."""
     inp = _ga_landing()
     lf = landing_load_factor(184.125, 3230, 7, 19, 7, 0.667, True)
-    g = _geometry(inp, _ga_gear(), _GA_NLG, _GA_CGS, _MLW)
+    g = landing_geometry(inp, _ga_gear(), _GA_NLG, _GA_CGS, _MLW)
     rx = {c.case: c for c in landing_reactions(inp, _ga_gear(), lf, _GA_CGS, mlw=_MLW, mtow=_MTOW)}
     nlg, k = _GA_NLG, g.k
     w1 = _GA_CGS[0].weight_lb
@@ -773,7 +773,7 @@ def test_lift_factor_moves_the_gear_reaction():
     # K rises with L at fixed N: K = NAP/NLG * K0 = (3.167/2.167)*0.256133
     # = 0.3743, gamma 20.52 deg (the note's printed 0.3586/19.72 was an
     # arithmetic slip, corrected with the note in this change).
-    g = _geometry(p.landing, _ga_gear(), nlg, _GA_CGS, _MLW)
+    g = landing_geometry(p.landing, _ga_gear(), nlg, _GA_CGS, _MLW)
     assert math.isclose(g.k, 3.167 / 2.167 * 0.256133, rel_tol=1e-4), g.k
     assert math.isclose(g.gamma_deg, 20.522, rel_tol=1e-3), g.gamma_deg
 
@@ -853,7 +853,7 @@ def test_unbalanced_moments_closure():
     original port but delivered nowhere and asserted nowhere until M4-17e."""
     inp = _ga_landing()
     lf = landing_load_factor(184.125, 3230, 7, 19, 7, 0.667, True)
-    g = _geometry(inp, _ga_gear(), _GA_NLG, _GA_CGS, _MLW)
+    g = landing_geometry(inp, _ga_gear(), _GA_NLG, _GA_CGS, _MLW)
     rx = {c.case: c for c in landing_reactions(inp, _ga_gear(), lf, _GA_CGS, mlw=_MLW, mtow=_MTOW)}
     wr = _MTOW / _MLW
     # 2-wheel level (4) and tail-down (7): -2 * RMP * BP for the attitude/CG pair.
@@ -904,12 +904,20 @@ def test_ground_line_inertia_factors_closure():
 
 
 def test_run_emits_full_case_matrix():
-    """M4-17e: run() carries the 33-case matrix alongside the 7 summary conditions,
-    so the ULTIMATE deliverable is not thinner than the LIMIT analysis screen."""
+    """M4-17e: run() carries the 33-case matrix alongside the summary conditions,
+    so the ULTIMATE deliverable is not thinner than the LIMIT analysis screen.
+
+    **Eight** summaries since note 44 OR-185, not six: a family is ranked once per
+    gear it loads, and 23.479(a) and 23.493 load both. The count is written as its
+    parts rather than as 42 so that a change to any one of the three is legible in
+    the failure rather than arithmetic the reader has to redo.
+    """
     p = io.load_project(_GA)
     mod = run(p)
     _, rx = build_landing(p)
-    assert len(mod.conditions) == 1 + 6 + 33, len(mod.conditions)
+    summaries = [c for c in mod.conditions if "critical" in c.title]
+    assert len(summaries) == 8, [c.title for c in summaries]
+    assert len(mod.conditions) == 1 + 8 + 33, len(mod.conditions)
     matrix = [c for c in mod.conditions if " — case " in c.title]
     assert len(matrix) == 33
     # A summary condition and its matrix row are the same physical case -> same id.
@@ -983,23 +991,31 @@ def test_landing_csv_is_ultimate_and_carries_moments_and_factors():
 
 
 def test_critical_ranking_includes_side_load():
-    """M4-17e: _critical ranks on the full sqrt(V^2+D^2+S^2), not the printed
-    two-component RMP/RESULT. Numerically inert on the bundled examples (the picks are
-    unchanged) -- the point is that the 23.485 pick is no longer a tie-break accident."""
+    """M4-17e: ``critical_reaction`` ranks on the full sqrt(V^2+D^2+S^2), not the
+    printed two-component RMP/RESULT. Numerically inert on the bundled examples (the
+    picks are unchanged) -- the point is that the 23.485 pick is no longer a tie-break
+    accident.
+
+    Since note 44 OR-185 the rank is **per gear**, so each family is asked for the
+    gear it loads: the first five main-wheel families keep their historical picks,
+    and the 23.499 supplementary family is a nose-wheel one and is asked as such.
+    """
     from dataclasses import replace as _replace
 
-    from sloads.modules.landing import _critical
+    from sloads.modules.landing import critical_reaction
 
     inp = _ga_landing()
     lf = landing_load_factor(184.125, 3230, 7, 19, 7, 0.667, True)
     rx = landing_reactions(inp, _ga_gear(), lf, _GA_CGS, mlw=_MLW, mtow=_MTOW)
-    for far, case in (("23.479(a)", 4), ("23.481", 7), ("23.483", 10),
-                      ("23.485", 19), ("23.493", 16), ("23.499", 28)):
-        assert _critical(rx, far).case == case, (far, _critical(rx, far).case)
+    for far, gear, case in (("23.479(a)", "main", 4), ("23.481", "main", 7),
+                            ("23.483", "main", 10), ("23.485", "main", 19),
+                            ("23.493", "main", 16), ("23.499", "nose", 28)):
+        got = critical_reaction(rx, far, gear)
+        assert got is not None and got.case == case, (far, gear, got)
     # With an inflated side load on case 22 the pick must follow it; the old
     # max(rmp, result) ranking could not see SMP at all.
     boosted = [_replace(c, smp=c.smp * 10) if c.case == 22 else c for c in rx]
-    assert _critical(boosted, "23.485").case == 22
+    assert critical_reaction(boosted, "23.485", "main").case == 22
 
 
 def test_the_role_fixes_the_order_not_the_name(tmp_path):

@@ -1709,3 +1709,149 @@ content outranks the iteration that found it.
 - **`atr42_100` and `dhc8_dash8` do not recover at VS.** Both reach the 60 s
   bound. Whether that is the model, the fixture's VS, or a real VMC finding is a
   stability-and-control question (OR-174) and is not settled here.
+
+---
+
+## 22. Iteration 9 — Section 12, Landing Gear Loads (OR-183 … OR-192)
+
+**Status: AGREED 2026-09-07 (owner, in session).** Drafted from the owner's
+answers to three findings and six questions — *"F1 all cases should be listed.
+F2 add all conditions, no critical case downselect can be done without
+considering the airplane loads. F3 the user can overwrite the computed, that is
+the user's decision. Q1 fold 12.4 into 12.3. Q2 Ok. Q3 Nose and main. Q4 The csv
+and the appendix should have the same style as the other wing, fuselage and
+empennage sections, i.e. case, load application point, all 6 loads in global, and
+SF. Q5 granted. Q6 can we replicate figures similar to those in the oracle
+document pages 233 and 234 that explain the angles and identify which cases use
+which geometry?"* — and from the five that followed: *"C1 b. C2 Use both points
+but the one that is applicable for the case. C3 33, with 25–33 flagged as
+carrying no airplane equilibrium — confirmed. C4 A separate CSV file for each
+structural element, i.e. each appendix wing, h-tail, v-tail, fuselage, engine and
+another for landing. Then they can be specifically shaped for the loads presented
+in that csv. C5 three figures that cover all cases would be very helpful."*
+
+*Measurements taken 2026-09-07 against `examples/ga6_normal.project.json`,
+`examples/baron_58.project.json` and `examples/concept_regional_jet.project.json`
+— the three shipped reports, and the first section since Section 2 that all three
+produce — and quoted where they carry a decision.*
+
+**This is the last analysis-body section.** With it the derived body is complete:
+every `oracle_steps()` step with a `bas` that produces results has a built
+section, and `IMPLEMENTED` stops being a subset of `analysis_steps()`.
+
+**What the module already produces.** `LGFACTOR` + `LANDLOAD`
+(`modules/landing.py`, Ref 1 Ch 20 p126-130) emit **40 conditions**: the
+landing-load-factor condition, six per-FAR-family "critical reaction" summaries,
+and the full **33-case reaction matrix**, each matrix case carrying ~48 values in
+two frames — the airplane-datum delivered set for all three wheels (an unloaded
+wheel at zero, never omitted) and the manual's primed ground-line set — plus the
+unbalanced moments and the ground-line inertia factors. Cases 1-24 are already
+assembled into balanced ground cases and exported; 25-33 are the 23.499
+supplementary-nose family, gear-design conditions with no airplane in
+equilibrium. Oracles: Appendix A p236 (`V 9.0048 / N 3.0951 / NLG 2.4281`) and
+p230 (`K 0.324 / GAMMA 17.978` and the AP/BP/DP/CP lever-arm table).
+
+### The three findings that reshaped the iteration
+
+**F1 — every landing row reaches the load-case index with no load, and so does
+almost everything else.** Measured 2026-09-07: **40 of 40** landing rows carry a
+blank load on all three shipped examples. Sweeping the whole registry the figure
+is **344 of 347** rows on `ga6_normal`, **543 of 555** on `baron_58` and **587 of
+617** on `concept_regional_jet` — only the engine module's handful are filled.
+This is not a landing defect. `render.load_cases_to_rows`' own docstring says its
+columns are *"the load components an engine mount must react"*, and
+`load_keys.LOAD_CASE_KEYS` is that shape: one force triple and one moment triple
+at one point. A landing case has **three legs at three points** and cannot be
+expressed in it at all. This is the question filed at the end of §21 — *is that
+file an index or a load table?* — and Section 12 is where it stopped being
+deferrable. **Answered by OR-186.**
+
+**F2 — the family "critical reaction" summaries hide the case that sizes the nose
+gear.** `landing._critical` returns **one** case per FAR reference, ranked on
+`max(main-wheel resultant, nose-wheel resultant)`. On all three shipped examples
+the 2-wheel level landing wins 23.479(a) on main-wheel load, so the **3-wheel
+level landing never appears as a critical row** — although its nose reaction is
+the largest of the family (`1786.8` / `4194.3` / `8178.8` lb) and it is the
+condition **Section 4's own advisory forward-references by name**: *"the forward
+fuselage is critical for up bending in the three-wheel level landing … those
+conditions are analysed in §12."* Under §21's own precedent the document may not
+forward-reference a condition the target section does not contain. **Answered by
+OR-184 and OR-185.**
+
+**F3 — two of the three shipped examples run at an entered load factor, not the
+computed one.** `ga6_normal` enters `N = 3.167` against LGFACTOR's energy
+estimate `3.0970`; `concept_regional_jet` enters `2.67` — exactly the 23.473(g)
+floor — against `2.3755`. The reactions run at the entered value. The owner's
+ruling is that this is the user's decision to make (*"the user can overwrite the
+computed"*), so nothing refuses; **OR-187** states it instead.
+
+| # | Decision | Amends |
+|---|---|---|
+| **OR-183** | **Section 12 is three subsections: 12.1 Input Data and Gear Geometry, 12.2 Landing Load Factor and 12.3 Ground Load Conditions** *(owner: "fold 12.4 into 12.3")*. The free body — where the reaction acts, at what strut state and ground angle, and what arrives at the gear reference point — is not a separate analysis from the reactions; it is the same reactions stated at their point. A fourth subsection would have split one statement across two headings, which is the defect OR-140 names in the small. 12.2 stands alone rather than folding into 12.1 because LGFACTOR is a **separate program** with its own oracle and its own regulation (23.473(d)-(g)), and its output is the input the whole of 12.3 runs at. | OR-171 (§11's three), OR-158 |
+| **OR-184** | **No critical-case down-select survives into this section: all 33 conditions are delivered** *(owner: "add all conditions, no critical case down-select can be done without considering the airplane loads")*. A ground case sizes a gear leg through a load path the loads analysis cannot see — a drag brace, a side brace, a trunnion — and the case that governs one member is not the case that governs another. Ranking 33 conditions on a single scalar therefore answers a question nobody asked, and answers it in a way that **removes** the case a reader needs. So Section 12 and Appendix F carry **every** case; the summaries below are a reading aid and are labelled as one, never a selection. This is the same principle as OR-174 approached from the other side: there, a case the analysis cannot stand behind is excluded and said to be; here, no case may be excluded at all. | **OR-57**, OR-174, rule 6 |
+| **OR-185** | **Where a family critical is named it is named twice — nose and main** *(owner: "nose and main")*. `_critical`'s `max(main, nose)` is not a tie-break, it is a comparison between two different gears: the winner sizes one and the loser's larger reaction on the other gear is discarded. F2 is that defect with a number on it. Each FAR family now yields **two** summary conditions, the largest main-wheel reaction and the largest nose-wheel reaction, each ranked on its own gear's full three-component magnitude, and a family whose nose reactions are all zero yields the main row only. The shipped condition set goes from **40 to 42**: only the 23.479(a) and 23.493 families load both gears, so the other four yield one row each, which is itself the measurement that the single-scalar rank was discarding a real condition rather than a duplicate. Fixed in the module rather than in the report *(owner: "C1 b")*, so that the CSV, Results Review, the GUI and the document are corrected together — fixing the PDF and leaving the CSV wrong is publishing two answers. | rule 3, rule 4, **rule 6** |
+| **OR-186** | **Each structural element gets its own applied-load CSV, shaped for the loads it carries; the case index stays a register of identities and says so** *(owner: "a separate CSV file for each structural element … then they can be specifically shaped for the loads presented in that csv")*. F1's 344-of-347 is what a single flat row shape costs when four of the five producers do not speak it. The wing, fuselage and both tails already have theirs through `applied_load_csv`; this decision adds the **landing gear** and the **engine mount** and makes the rule general. The common spine is the owner's own list — *case, load application point, all six load components in the global frame, and SF* — and each file may carry the columns its element needs beside it. The case index is **not** reshaped here: it is a cross-module schema change touching every producer, and it is filed with its measurement. What changes is that Section 12 states plainly where the loads are, so a reader meeting a blank load column is not left to conclude the case carries nothing. | **rule 4**, OR-141, OR-180, note 38 GF-6 |
+| **OR-187** | **The load factor the reactions ran at is stated beside the one LGFACTOR computed, and the difference is not treated as an error** *(owner: "the user can overwrite the computed, that is the user's decision")*. 12.2 prints both pairs — the drop-test energy `N`/`NLG` and the governing pair — names which governed, and where they differ says so in one sentence. `below_energy_caution`'s warning is printed where the module raises it (an entered `N` **below** the energy estimate, as `cessna_210` has), because a user's decision is still a decision a reader should see; it is a statement, not a refusal. This is OR-57's rule applied to a scalar instead of a case list: a section that presents an entered number as a computed one describes an analysis nobody ran. | **OR-57**, note 37 LF-6 |
+| **OR-188** | **Appendix F is the gear's applied set, all 33 cases, at the point design note 39 names for each** *(owner: "Q2 Ok"; "C3 33, with 25-33 flagged"; "C2 use both points but the one that is applicable for the case")*. One row per case per **loaded** leg, in the `AppliedLoad` shape every other appendix uses, so B through F are one style. The application point is **not** re-decided here: `gear_loads.application_point_of` already owns Appendix A's own printed point-of-load column and answers `AXLE` or `GROUND_CONTACT` per case, which is exactly *"the one that is applicable"* — the row states that point and names it. A wheel reaction is a **pure force**, so `Mx`/`My`/`Mz` are structurally zero and are printed rather than blanked, on OR-140's rule. The delivery to the gear reference point — the second point, and the transfer moment it produces — stays in 12.3's free body, which is where a load applied at one point and delivered to another is one statement. Cases **25-33 are carried and flagged**: they are 23.499 gear-design conditions with no airplane in equilibrium, which is why the balanced deck carries 1-24, and omitting them from a set the owner asked to be complete would repeat F2 at the family level. | OR-141a, **design note 39 AP-1/AP-2**, OR-140 |
+| **OR-189** | **Three attitude figures, drawn from the manual's own, each naming the cases that use it** *(owner: "three figures that cover all cases would be very helpful")*. Appendix A prints two — p234's `3 WHEEL LEVEL LANDING` and p235's `BRAKED ROLL` — and sloads computes **three** attitudes, so the third is drawn rather than left to prose. Each figure carries what the manual's carries: the fuselage station line, the ground line, the ground angle, the CG at its station, the wheel at its rolling radius and axle position, the resultant's direction, and `K` / `GAMMA` / `BETA` where the attitude has them. What is added is the owner's requirement that they *"identify which cases use which geometry"*, which the manual leaves to the reader: **level, compressed axle — cases 1-6 and 10-12; tail-down, compressed axle — cases 7-9; ground roll, static axle — cases 13-33**. That mapping is `landing.attitude_of`'s, read rather than restated. | OR-7, OR-32, rule 3 |
+| **OR-190** | **The OR-15 admission of 2026-09-07 (the frozen set), scoped to `modules/landing.py` alone** *(owner: "Q5 granted"; "C1 b")*. Two changes and nothing else. **(1)** `_geometry` becomes public as `landing_geometry` so 12.1 can print the p230 oracle — `K`, `GAMMA`, the three ground angles, `BETA` and the AP/BP/DP/CP lever arms — which is a rename and a docstring, no arithmetic touched. **(2)** `_critical` becomes `critical_reaction`, gains a gear argument, and `run` emits the nose and main summaries of OR-185 — public because the report ranks the same set for its own reading-aid table, and a report reaching into a module's private name is a second owner wearing a disguise. Explicitly **not** admitted and not touched: `landing_reactions`, `landing_load_factor`, `_geometry`'s body, and any refactor, rename or reformatting elsewhere in the file. Re-pinned in the frozen manifest with the scope recorded beside the hash. The consequence stated and accepted: the shipped condition set grows from 40 to 42, so the landing CSV and every digest taken over it move. | OR-13, OR-15, OR-181 |
+| **OR-191** | **Section 4's forward reference is now satisfied, and that is asserted rather than assumed.** `_body_advisories` tells the reader that the three-wheel level landing is analysed in Section 12. Before OR-185 it was not — the condition existed in the matrix but no summary named it, and the matrix was not in the document at all. A cross-reference is a promise the target keeps, so the gate holds Section 12 to containing, by name, every condition another section sends a reader to it for. | OR-113, rule 3 |
+| **OR-192** | **All three shipped reports carry this section, and the concept one carries its own warning.** `ga6_normal`, `baron_58` and `concept_regional_jet` all produce Section 12 — the first section since Section 2 that every shipped report contains, and the reason this iteration needs no new fixture. `concept_regional_jet` is category C, so the module's concept note travels with the conditions: an unverified extrapolation past the FAR23 band, with 23.473(g) warn-only rather than refusing. Its entered `N` is **exactly** the 23.473(g) floor of 2.67 while its energy estimate is 2.3755, which is the sharpest illustration in the fixture set of why OR-187 prints both. A project with no `landing` slice — `concept_heavy` — renders the ABSENT state, which is correct: it is missing an input, not exempt from a regulation, so OR-178's `NOT_APPLICABLE` is **not** used here. | OR-37, OR-178, OR-182 |
+
+### Gates added by this iteration
+
+- **G-OR-123** — *(OR-184)* Section 12 and Appendix F contain **all 33** LANDLOAD
+  cases on every shipped example, asserted by case number, and no case present in
+  the module's result set is absent from the document. The gate that a
+  down-select cannot creep back in.
+- **G-OR-124** — *(OR-185)* every FAR ground family with a non-zero nose reaction
+  yields two summary conditions; the nose row is ranked on the nose magnitude and
+  the main row on the main magnitude; and on all three shipped examples the
+  23.479(a) nose row is **case 2**, a three-wheel level landing (measured
+  2026-09-07: case 2 on all five fixtures that carry gear geometry). Asserted against a
+  re-rank of the full matrix rather than a stored number.
+- **G-OR-125** — *(OR-186)* the landing and engine applied CSVs exist, carry the
+  common spine (case, application point, six components, SF), and their rows are
+  the same `applied_loads` records the appendix prints — so file and table cannot
+  disagree. Extends G-OR-90 to the two new components.
+- **G-OR-126** — *(OR-187)* where the governing load factor differs from the
+  energy estimate, 12.2 prints both and names which governed; where
+  `below_energy_caution` fires, its sentence appears. Asserted on `ga6_normal`
+  (entered above) and on a project entered below.
+- **G-OR-127** — *(OR-188)* every Appendix F row states a point that
+  `application_point_of` names for its case, compared through that owner rather
+  than against a literal; cases 25-33 are present and carry the
+  no-airplane-equilibrium flag; every row's moments are zero.
+- **G-OR-128** — *(OR-189)* three figures, each naming its attitude, its axle
+  state, its ground angle and its case list, with the case lists partitioning
+  1-33 exactly — asserted against `landing.attitude_of`, so a change to the
+  attitude map fails here rather than printing a figure that claims cases it does
+  not cover.
+- **G-OR-129** — *(OR-191)* every condition another section forward-references by
+  name appears in the section referenced. Written against Section 4's
+  three-wheel-level-landing advisory, which is the instance, and swept across
+  `_body_advisories`.
+- **G-OR-130** — *(OR-183/OR-192)* Section 12 renders on all three shipped
+  examples with its three subsections; a project with no `landing` slice renders
+  ABSENT and **not** `NOT_APPLICABLE`; and `IMPLEMENTED` now covers every entry of
+  `analysis_steps()`, which is the gate that the analysis body is complete.
+
+### Filed, not fixed here
+
+- **The load-case index carries no loads for 344 of 347 rows.** Measured above
+  (F1). Its six load columns are the engine-mount shape and four of the five
+  producers cannot express themselves in it. OR-186 answers the *deliverable*
+  question — each element gets a file shaped for its own loads — but leaves the
+  index itself unchanged, because reshaping it is a schema decision touching
+  every producer and every consumer of `load_cases_csv`. The candidate answer is
+  that it becomes an index in name as well as in fact, with the load columns
+  removed and the per-element files carrying the loads. Filed against 0.9.x.
+- **No gear kinematic model.** Section 12 delivers the reaction, its point, the
+  attitude and what arrives at the reference point. It does **not** state drag
+  brace, side brace, trunnion or axle bending, and 12.3 says so — the same
+  sentence the GUI page already carries. This is a scope boundary, not a defect,
+  and is recorded so that OR-184's "no down-select" is read as what it is: the
+  loads analysis handing a complete set to a discipline that can rank it.
+- **Tricycle gear only.** `UG Table 2.1`, and unchanged by this iteration. A
+  tail-wheel airplane has no representation in the schema, so there is nothing to
+  state per project; the limitation belongs to Methods and limitations.

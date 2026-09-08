@@ -61,6 +61,10 @@ IMPLEMENTED: FrozenSet[str] = frozenset({
     # its recovered cases are *fin* conditions and travel in the vertical tail's
     # (note 44 §21, OR-172); the section states the march that produced them.
     "one_engine_out",
+    # Section 12 -- the ground loads, and the last analysis-body section. With it
+    # this set covers the whole of ``analysis_steps()``: there is no longer a
+    # step whose section is a stated placeholder (note 44 §22, OR-183).
+    "landing_loads",
 })
 
 #: The document's fixed front matter, in order, ahead of the analysis body.
@@ -136,6 +140,14 @@ HTAIL_LOAD_STATIONS = "Horizontal tail loads by station"
 
 #: The appendix carrying the vertical tail's spanwise loads (OR-130a/OR-136).
 VTAIL_LOAD_STATIONS = "Vertical tail loads by station"
+
+#: The appendix carrying every ground load case, leg by leg (OR-188).
+#:
+#: Not "by station": the gear is the one element of the airframe whose applied
+#: set is indexed by *case*, because a gear leg is a point and 33 conditions act
+#: at it. The title says so rather than borrowing a word that would promise a
+#: distribution this appendix does not have.
+GEAR_LOAD_CASES = "Landing gear loads by case"
 
 
 @dataclass(frozen=True)
@@ -413,6 +425,7 @@ APPENDICES: Tuple[Appendix, ...] = (
     Appendix(BODY_LOAD_STATIONS, step_key="fuselage_loads", built=True),
     Appendix(HTAIL_LOAD_STATIONS, step_key="htail_loads", built=True),
     Appendix(VTAIL_LOAD_STATIONS, step_key="vtail_loads", built=True),
+    Appendix(GEAR_LOAD_CASES, step_key="landing_loads", built=True),
 )
 
 
@@ -1010,6 +1023,7 @@ __all__ = [
     "BODY_LOAD_STATIONS",
     "DOCUMENT_TITLES",
     "FRONT_SECTIONS",
+    "GEAR_LOAD_CASES",
     "GROUP_PROSE",
     "HTAIL_LOAD_STATIONS",
     "IMPLEMENTED",

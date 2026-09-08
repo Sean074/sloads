@@ -49,6 +49,7 @@ from sloads.modules.aileron import build_aileron
 from sloads.modules.flap import build_flap
 from sloads.modules.tab import build_tabs
 from sloads.report import oracle_content as oc
+from sloads.report import oracle_sections as os_
 from sloads.report.render import format_value
 
 _EXAMPLES = os.path.join(
@@ -119,10 +120,15 @@ def test_the_control_sections_add_no_appendix_and_no_manifest_row():
     ``APPENDIX_BUILDERS`` would fail here, not in review.
     """
     doc = _doc()
-    letters = [s.title.split(":")[0] for s in doc.sections
-               if s.title.startswith("Appendix")]
-    assert letters == ["Appendix A", "Appendix B", "Appendix C",
-                       "Appendix D", "Appendix E"]
+    # Asserted as the property this decision *is* -- no appendix belongs to any
+    # of these three steps -- rather than by pinning the whole appendix list.
+    # The list form failed the day the landing gear earned Appendix F, which
+    # said nothing about control surfaces (note 44 §22).
+    owned = {a.step_key for a in oc.APPENDICES if a.step_key}
+    for step in ("aileron_loads", "flap_loads", "tab_loads"):
+        assert step not in owned, step
+        assert step not in os_.APPENDIX_BUILDERS
+    assert [s.title for s in doc.sections if s.title.startswith("Appendix")]
     for step in ("aileron_loads", "flap_loads", "tab_loads"):
         assert not any(a.step_key == step for a in oc.APPENDICES), step
 

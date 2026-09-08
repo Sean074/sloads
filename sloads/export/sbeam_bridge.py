@@ -712,6 +712,32 @@ _APPLIED_CSV_NOTES = {
         "# Fx and Mx are zero: this analysis models no chordwise load on either\n"
         "# tail surface, and the bending the structure carries is the normal\n"
         "# load acting through the arms stated here.\n"),
+    "landing_gear": (
+        "# The applied landing gear load set: one row per LANDLOAD case per\n"
+        "# loaded leg, all 33 cases, at the point that case's reaction is\n"
+        "# applied at -- the axle or the ground contact point, per FAR 23\n"
+        "# Appendix C and the manual's own point-of-load column. The point is\n"
+        "# named in the Station column of every row, because it is not the same\n"
+        "# point for every case.\n"
+        "# NO CRITICAL-CASE DOWN-SELECT HAS BEEN APPLIED. A ground case sizes a\n"
+        "# gear member through a load path this analysis does not model, so\n"
+        "# every case is delivered and the ranking is the gear discipline's.\n"
+        "# Cases 25-33 are the 23.499 supplementary nose-wheel family: gear\n"
+        "# design conditions with no airplane in equilibrium, which is why the\n"
+        "# assembled ground deck carries cases 1-24 only.\n"
+        "# Mx, My and Mz are zero throughout: a wheel reaction is a pure force\n"
+        "# at the point stated here. The couple that carries it to the gear\n"
+        "# reference point is in the gear load report (gear_loads.csv), which\n"
+        "# states both ends of the leg.\n"
+        "# MyyAxis is n/a: a point load has no torsion reference axis.\n"),
+    "engine": (
+        "# The applied engine mount load set: six components at one point, one\n"
+        "# row per case, at the combined engine and propeller CG. The 23.371(b)\n"
+        "# gyroscopic condition appears as its four sign combinations, each its\n"
+        "# own row and its own case id.\n"
+        "# Moments are right-handed about the airplane axes at the point stated\n"
+        "# here; Mx is the mount reaction torque about the thrust axis.\n"
+        "# MyyAxis is n/a: a point load has no torsion reference axis.\n"),
 }
 
 
@@ -796,7 +822,23 @@ _BODY_TORSION_AXIS = "fuselage loads reference axis"
 #: card. The component is carried on the row because the beam-frame -> body-axis
 #: moment map depends on it -- a surface's torsion is about its **span** axis,
 #: and the fin's span is not the wing's.
-APPLIED_COMPONENTS = ("wing", "fuselage", "htail", "vtail")
+APPLIED_COMPONENTS = ("wing", "fuselage", "htail", "vtail",
+                      "landing_gear", "engine")
+
+#: The two components whose applied set is a **point load**, not a beam.
+#:
+#: A gear leg and an engine mount deliver a force (and, for the mount, a couple)
+#: at a named point rather than a distribution along a station axis, so they have
+#: no torsion reference axis and their free moments are already right-handed
+#: about CID 0. They join the applied set anyway because the question a reader
+#: asks of every element is the same one -- what do I apply, where, for which
+#: case, at what factor -- and answering it in one shape for four components and
+#: a different shape for two is what left the load-case index carrying no load on
+#: 344 of ``ga6_normal``'s 347 rows (note 44 OR-186).
+_POINT_LOAD_COMPONENTS = ("landing_gear", "engine")
+
+#: What a point-load row states instead of a torsion reference axis.
+_NO_TORSION_AXIS = "n/a (point load)"
 
 
 @dataclass(frozen=True)
@@ -1029,6 +1071,100 @@ def tail_applied_load_rows(arg, component: str) -> List[AppliedLoad]:
     return out
 
 
+def gear_applied_load_rows(project: Project) -> List[AppliedLoad]:
+    """The landing gear's applied load set: one row per case per loaded leg.
+
+    **All 33 LANDLOAD cases** (note 44 OR-184/OR-188), against the assembled
+    ground deck's 24. No critical-case down-select survives into this set: a
+    ground case sizes a gear member through a load path the loads analysis cannot
+    see -- a drag brace, a side brace, a trunnion -- so ranking 33 conditions on
+    one scalar removes the case a reader needs. Cases 25-33 are the 23.499
+    supplementary-nose family, which has no airplane in equilibrium to assemble;
+    they are carried here and flagged in the document rather than dropped.
+
+    **The point is not re-decided here.** Each row states the point
+    :func:`sloads.gear_loads.application_point_of` names for its case -- the axle
+    or the ground contact point, Appendix A's own printed point-of-load column
+    (design note 39 AP-1/AP-2) -- and :attr:`~sloads.gear_loads.DeliveredLeg.
+    point_name` names it in the row's label. That is what "the one that is
+    applicable for the case" means operationally, and it has one owner.
+
+    A wheel reaction is a **pure force**: the free moments are zero, and they are
+    published as zeros rather than blanked, on the rule that a reader may not be
+    left to decide whether an absent column is a zero or an omission. The
+    *delivery* of that force to the gear reference point -- the second point, and
+    the couple the lever arm makes there -- is :func:`gear_report_rows`, which is
+    where a load applied at one point and received at another is one statement.
+
+    A leg carrying nothing in a case is skipped, matching the free-body report
+    beside it; which gears a family lifts clear is stated by the module's own
+    condition values, where all three wheels appear and the unloaded ones are
+    zero.
+    """
+    from ..gear_loads import delivered_gear_legs, gear_case_loads
+    from ..safety_factors import table_for
+
+    table = table_for(project)
+    out: List[AppliedLoad] = []
+    cases = gear_case_loads(project)
+    legs_by_case = delivered_gear_legs(cases)
+    for case in cases:
+        sf = table.required_factor_for(case)
+        case_id = case.case_ref.case_id if case.case_ref else ""
+        for leg in legs_by_case.get(case.case, ()):
+            if not leg.carries_load:
+                continue
+            x, y, z = leg.point
+            fx, fy, fz = leg.force
+            out.append(AppliedLoad(
+                case=case.description, case_id=case_id,
+                label=f"{leg.name} at {leg.point_name}",
+                # No grid: the exported ground deck applies the reaction at the
+                # gear reference node, not at the point it acts, so naming a
+                # grid here would point a consumer at a node these coordinates
+                # are not.
+                gid=None,
+                x=x, y=y, z=z, fx=fx, fy=fy, fz=fz,
+                mxx_free=0.0, myy_free=0.0, mzz_free=0.0,
+                safety_factor=sf, torsion_axis=_NO_TORSION_AXIS,
+                component="landing_gear", body_moments=True))
+    return out
+
+
+def engine_applied_load_rows(project: Project) -> List[AppliedLoad]:
+    """The engine mount's applied load set: six components at one point per case.
+
+    The mount takes a point load, which is why it has no appendix of its own
+    (note 44 OR-158) -- but it is still an element a reader sizes, so it gets its
+    own file in the same shape as every other (OR-186). The rows are the engine
+    module's own conditions read through :mod:`sloads.load_keys`, including the
+    four sign combinations the 23.371(b) gyroscopic condition expands into, so
+    this file and the load-case index cannot come to state different loads for
+    the same case.
+
+    Moments are already right-handed about CID 0 -- the mount reaction torque and
+    the gyroscopic couple are stated in airplane axes at the combined engine and
+    propeller CG -- so the row says so rather than being routed through a beam's
+    convention it does not have.
+    """
+    from ..registry import get
+    from ..report.render import point_load_records
+
+    out: List[AppliedLoad] = []
+    for rec in point_load_records(get("engine")(project).conditions):
+        out.append(AppliedLoad(
+            case=rec.description, case_id=rec.case_id, label=rec.label, gid=None,
+            x=rec.x, y=rec.y, z=rec.z, fx=rec.fx, fy=rec.fy, fz=rec.fz,
+            mxx_free=rec.mx, myy_free=rec.my, mzz_free=rec.mz,
+            # A non-load condition prescribes no factor (#154); the applied row
+            # needs a number, and 1.0 is the one that changes nothing.
+            safety_factor=(1.0 if rec.safety_factor is None
+                           else rec.safety_factor),
+            torsion_axis=_NO_TORSION_AXIS,
+            component="engine", body_moments=True))
+    return out
+
+
 def applied_loads(component: str, arg,
                   project: Optional[Project] = None) -> List[AppliedLoad]:
     """The applied load set of ``component`` -- the one entry point (OR-141).
@@ -1042,6 +1178,17 @@ def applied_loads(component: str, arg,
         return applied_load_rows(arg)
     if component == "fuselage":
         return fuselage_applied_load_rows(arg, project)
+    if component in _POINT_LOAD_COMPONENTS:
+        # A point-load set is built from the ``Project``, not from a results
+        # argument: its producer is a module run, not a beam whose stations the
+        # caller already holds. Refusing rather than defaulting, because a caller
+        # that reached here without one asked for a set that cannot be built.
+        if project is None:
+            raise ValueError(
+                f"applied_loads({component!r}) needs a project: a point-load set "
+                "is built from the module run, not from a results argument")
+        return (gear_applied_load_rows(project) if component == "landing_gear"
+                else engine_applied_load_rows(project))
     return tail_applied_load_rows(arg, component)
 
 
@@ -1110,6 +1257,8 @@ APPLIED_CSV_NAMES = {
     "fuselage": "fuselage_applied_loads.csv",
     "htail": "htail_applied_loads.csv",
     "vtail": "vtail_applied_loads.csv",
+    "landing_gear": "landing_gear_applied_loads.csv",
+    "engine": "engine_applied_loads.csv",
 }
 
 

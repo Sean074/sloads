@@ -502,10 +502,12 @@ def test_section_10_adds_no_appendix():
     """An engine mount takes a point load, not a distribution, so section 10
     adds no appendix of its own -- the set stays A-E."""
     doc = _doc("ga6_normal")
-    letters = [s.title.split(":")[0] for s in doc.sections
-               if s.title.startswith("Appendix")]
-    assert letters == ["Appendix A", "Appendix B", "Appendix C",
-                       "Appendix D", "Appendix E"]
+    # The property, not the list: no appendix belongs to the engine step. Pinning
+    # the whole set made this test fail the day another section earned an
+    # appendix of its own, which is not what it is about (note 44 §22).
+    owned = {a.step_key for a in oc.APPENDICES if a.step_key}
+    assert "engine_mount" not in owned
+    assert [s.title for s in doc.sections if s.title.startswith("Appendix")]
 
 
 if __name__ == "__main__":  # pragma: no cover - zero-dependency self-runner
