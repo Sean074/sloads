@@ -347,6 +347,81 @@ def test_three_attitude_figures_partition_every_case():
         assert sorted(covered) == list(_ALL_CASES), name
 
 
+def test_the_case_table_attitude_matches_the_owner_case_by_case():
+    """G-OR-128 extension (#227). The printed attitude is ``attitude_of``'s.
+
+    The 2026-09-08 review found the Attitude column swapped between the
+    tail-down and ground-roll families: the builder indexed
+    ``_GROUND_ATTITUDES`` by tuple position with a ground-angle index, and the
+    tuple is deliberately not in gra order (its gra-index lives in its own
+    third element). The figures were right and the table wrong, which is
+    exactly the disagreement OR-189 exists to prevent — so the gate now reads
+    the printed column back against the owner, case by case, on every shipped
+    example.
+    """
+    from sloads.modules.landing import attitude_of
+    from sloads.report.oracle_sections import _GROUND_ATTITUDES
+
+    title_of = {gra: title for title, _state, gra in _GROUND_ATTITUDES}
+    for name in _SHIPPED:
+        table = _table(_section_12(_doc(name)).subsections[2],
+                       "Ground load conditions")
+        case_col = _column(table, "Case")
+        attitude_col = _column(table, "Attitude")
+        state_col = _column(table, "Strut state")
+        assert len(table.rows) == len(_ALL_CASES), name
+        for row in table.rows:
+            state, gra = attitude_of(int(row[case_col]))
+            assert row[attitude_col] == title_of[gra], (name, row)
+            assert row[state_col] == state, (name, row)
+
+
+def _cases_from_run_words(words):
+    """``"1-6 and 10-12"`` back to case numbers -- the inverse of the printer."""
+    cases = []
+    for part in words.replace(" and ", ", ").split(", "):
+        if "-" in part:
+            first, last = part.split("-")
+            cases.extend(range(int(first), int(last) + 1))
+        else:
+            cases.append(int(part))
+    return cases
+
+
+def test_the_strut_state_table_claims_exactly_its_own_cases():
+    """G-OR-128 extension (#227). No case-range claim spans a foreign case.
+
+    The review's second defect: the strut-state table printed each geometry's
+    cases as ``min-max``, so the level attitude's 1-6 and 10-12 became
+    "1-12" — claiming the tail-down cases 7-9 at a second ground angle. The
+    runs are now printed exactly, and this gate expands them back and asserts
+    each row's set equals the cases whose legs the free body actually carries
+    at that state, angle and stroke.
+    """
+    from sloads.gear_loads import gear_case_loads
+
+    for name in _SHIPPED:
+        project = _project(name)
+        expected = {}
+        for case in gear_case_loads(project):
+            for leg in case.legs:
+                key = (leg.leg, leg.strut_state,
+                       round(leg.ground_angle_deg, 4), round(leg.stroke_in, 4))
+                expected.setdefault(key, []).append(case.case)
+        table = _table(_section_12(_doc(name)).subsections[0],
+                       "Gear attitude and strut state")
+        angle_col = _column(table, "Ground angle")
+        seen_rows = 0
+        for row in table.rows:
+            claimed = _cases_from_run_words(row[-1])
+            matches = [sorted(numbers) for (leg, state, _angle, _stroke), numbers
+                       in expected.items()
+                       if leg == row[0] and state == row[1]]
+            assert sorted(claimed) in matches, (name, row)
+            seen_rows += 1
+        assert seen_rows == len(expected), (name, angle_col)
+
+
 def test_each_figure_names_its_axle_state_and_its_ground_angle():
     """G-OR-128. The two facts that make the figure an explanation.
 
