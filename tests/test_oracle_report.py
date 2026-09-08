@@ -140,6 +140,79 @@ def test_an_input_only_step_gets_no_analysis_section():
     assert not (set(input_only) & plan_keys)
 
 
+def test_every_cross_reference_names_a_key_the_full_plan_carries():
+    """A ref key no plan row can ever match is a false claim, not a gap (#230).
+
+    ``NOT_CARRIED`` was written for genuinely deselected or unbuilt targets. A
+    key that never existed in the plan ("flight_envelope_cases") or was retired
+    by a refactor ("tail_loads", OR-129) degrades to the same sentence, so every
+    issue of every report told the reader content was missing that it carries.
+    The sweep resolves literal keys, module-level constants and the declared
+    composer, and **fails on an argument it cannot resolve**, so a new call
+    site cannot opt out by indirection.
+    """
+    import inspect
+
+    from sloads.report import oracle_package as opack
+
+    valid = {e.step_key for e in oc.section_plan(io.load_project(_GA), _spec())}
+    # The one dynamic composer: its whole range must be plan keys, after which
+    # a call to it with a non-literal component is known good.
+    composers = {"_tail_section_key"}
+    for split in oc.SECTION_SPLITS:
+        assert osec._tail_section_key(split.component) in valid
+
+    checked = 0
+    for module in (osec, opack):
+        tree = ast.parse(inspect.getsource(module))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            name = (node.func.id if isinstance(node.func, ast.Name) else
+                    node.func.attr if isinstance(node.func, ast.Attribute)
+                    else "")
+            if name not in ("section_ref", "subsection_ref"):
+                continue
+            assert len(node.args) >= 2, (
+                f"{module.__name__}:{node.lineno} passes no key")
+            arg = node.args[1]
+            checked += 1
+            if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                key = arg.value
+            elif isinstance(arg, ast.Name):
+                key = getattr(module, arg.id, None)
+            elif (isinstance(arg, ast.Call) and isinstance(arg.func, ast.Name)
+                    and arg.func.id in composers):
+                continue  # range verified above
+            else:
+                key = None
+            assert isinstance(key, str), (
+                f"{module.__name__}:{node.lineno} passes a key this sweep "
+                "cannot resolve; use a literal, a module constant, or a "
+                "declared composer")
+            assert key in valid, (
+                f"{module.__name__}:{node.lineno} references {key!r}, which "
+                "no row of the full plan carries -- the reader would be told "
+                "the content is 'in a section this issue does not carry'")
+    assert checked > 20, "the sweep stopped finding the call sites"
+
+
+@pytest.mark.parametrize("path", [_GA, _TWIN])
+def test_a_full_build_never_claims_its_own_content_is_missing(path):
+    """The runtime half of the #230 guard, on both shipped examples.
+
+    With nothing deselected every section renders, so every cross-reference
+    must resolve to a number: a surviving ``NOT_CARRIED`` in a full build is a
+    dangling key reached through a path the static sweep could not resolve.
+    """
+    doc = _doc(path)
+    for section in _flat(doc.sections):
+        for paragraph in section.body:
+            assert oc.NOT_CARRIED not in paragraph, (section.title, paragraph)
+        for table in section.tables:
+            assert oc.NOT_CARRIED not in (table.note or ""), table.title
+
+
 def test_section_numbers_come_from_the_owner_not_from_literals():
     """Numbering moves when a section is inserted above it (review F-R2).
 

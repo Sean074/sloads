@@ -551,8 +551,13 @@ def test_every_repeated_quantity_and_advisory_names_what_stands_behind_it():
     """
     doc = _doc()
     body = _prose(_section_four(doc))
-    tail = oc.section_ref(doc.plan, "tail_loads")
+    # "htail_loads", not "tail_loads": OR-129 retired the unsplit key, and this
+    # test's own lookup degraded to NOT_CARRIED in lockstep with the section's,
+    # so it asserted the defect it existed to prevent (#230). Demanding a
+    # resolved number is what keeps that from recurring.
+    tail = oc.section_ref(doc.plan, "htail_loads")
     landing = oc.section_ref(doc.plan, "landing_loads")
+    assert tail.startswith("section ") and landing.startswith("section ")
     assert f"with a reference to {tail}" in body
     assert f"analysed in {landing}" in body
     assert "M4-21" in body
