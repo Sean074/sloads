@@ -67,6 +67,15 @@ class Item:
     pri: Optional[int] = None
     number: Optional[int] = None    # issue number once created
     line: int = 0                   # 1-based line in the backlog
+    #: The ``(#N)`` the backlog line **already** carries, if any. Read at parse
+    #: time and honoured by :func:`create`, which used to consult the persisted
+    #: map alone: the map is keyed on a *truncated* title, so editing a row's
+    #: wording made its key miss and ``create`` filed the row again. That is not
+    #: hypothetical -- on 2026-09-07 one run opened **19 duplicate issues** for
+    #: rows that were plainly stamped with their own numbers in the same line it
+    #: had just parsed. ``rewrite_backlog`` has skipped stamped rows since it was
+    #: written; this is the same rule on the other half of the bridge.
+    existing: Optional[int] = None
     merged: List[str] = field(default_factory=list)  # titles folded into this issue
 
 
@@ -110,7 +119,10 @@ def parse_backlog(text: str) -> List[Item]:
                 if "hygiene" in title.lower() or "CH-" in title:
                     labels[-1] = "kind:hygiene"
                 body = row_body(pri, band, title, ships, tag, tier, depends)
-                items.append(Item("row", _plain(title), body, labels, band, pri, line=i + 1))
+                refs = ISSUE_REF.findall(line)
+                items.append(Item("row", _plain(title), body, labels, band, pri,
+                                  line=i + 1,
+                                  existing=int(refs[0]) if refs else None))
             i += 1
             continue
         m = DETAIL_HEADING.match(line)
@@ -133,7 +145,25 @@ def parse_backlog(text: str) -> List[Item]:
                 buf.append(lines[j])
                 j += 1
             head = DEFECT_BULLET.match(line).group(1)
-            items.append(Item("defect", _plain(head), "\n".join(buf), ["kind:defect", "tag:V"], line=i + 1))
+            # A defect bullet whose *heading* is only a reference -- "- #170 -- ..."
+            # -- is a pointer to an issue that already exists, not a new defect.
+            # Filing it opened issues literally titled "#170" and "#171"
+            # (2026-09-07). The bullet's own ``(#N)``, or a bare leading ``#N``,
+            # is that issue.
+            refs = (ISSUE_REF.findall(line)
+                    or re.findall(r"^\s*[-*]\s+\**#(\d+)\**", line))
+            # A heading ending in a colon is a lead-in to a list of issues, not
+            # the name of a defect -- "Overtaken by note 49, close on GitHub:"
+            # became an issue with exactly that title on 2026-09-07. Skipped
+            # rather than adopted: its own body's first ``(#N)`` is one of the
+            # issues it is asking to *close*, so adopting it would alias this
+            # bullet to an unrelated issue and hide it.
+            if _plain(head).rstrip().endswith(":"):
+                i = j
+                continue
+            items.append(Item("defect", _plain(head), "\n".join(buf),
+                              ["kind:defect", "tag:V"], line=i + 1,
+                              existing=int(refs[0]) if refs else None))
             i = j
             continue
         if section.startswith("Open design decisions") and line.startswith("- [ ] **"):
@@ -364,6 +394,14 @@ def create(items: Sequence[Item], milestone: Optional[str]) -> Dict[str, int]:
             numbers = json.load(fh)
     for it in items:
         if it.title in numbers:
+            continue
+        # The line already names its issue: adopt that number rather than filing
+        # a second one. The persisted map is keyed on a truncated title and a
+        # reworded row misses it, which is how 19 duplicates were opened in one
+        # run on 2026-09-07 -- for rows whose own text carried their number.
+        if it.existing is not None:
+            it.number = it.existing
+            numbers[it.title] = it.existing
             continue
         cmd = ["issue", "create", "--title", it.title, "--body", it.body, "--label", ",".join(it.labels)]
         if milestone and it.band == "A":

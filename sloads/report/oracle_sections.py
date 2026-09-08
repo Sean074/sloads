@@ -67,6 +67,7 @@ from ..units import UnitSystem, convert_results
 from .content import Figure, PlotData, Section, Series, Table, Units, speed_altitude_plot_data, weight_cg_plot_data
 from .oracle_content import (
     BODY_LOAD_STATIONS,
+    GEAR_LOAD_CASES,
     HTAIL_LOAD_STATIONS,
     VTAIL_LOAD_STATIONS,
     WING_LOAD_STATIONS,
@@ -77,7 +78,8 @@ from .oracle_content import (
 )
 from .render import format_value, ultimate_units
 
-if TYPE_CHECKING:  # pragma: no cover - typing only, and a cycle if imported
+if TYPE_CHECKING:
+    from ..models.results import GearReactionCase  # pragma: no cover - typing only, and a cycle if imported
     from ..modules.one_engine_out import FinCase
 
 
@@ -6696,6 +6698,610 @@ def _one_engine_out(project: Project,
     ])
 
 
+# =========================================================================== #
+# Section 12 -- Landing Gear Loads (note 44 §22)
+# =========================================================================== #
+#: The three ground attitudes LANDLOAD computes in, and what each is.
+#:
+#: ``(title, strut state, ground-angle index, the axle state in words)``. The
+#: **case list** of each is not written here: it is read from
+#: :func:`sloads.modules.landing.attitude_of`, which is the owner, so a figure
+#: cannot come to claim cases the reactions were not computed in its geometry
+#: (OR-189, rule 3).
+_GROUND_ATTITUDES: Tuple[Tuple[str, str, int], ...] = (
+    ("Level landing", "compressed", 0),
+    ("Tail-down landing", "compressed", 2),
+    ("Ground roll and handling", "static", 1),
+)
+
+#: What this analysis does **not** state about a gear leg, in the section's own
+#: words -- the same sentence the Landing Loads page carries, because a scope
+#: boundary stated two ways is two boundaries.
+_GEAR_SCOPE = (
+    "This analysis has no gear kinematic model. It states the reaction, the "
+    "point it acts at, the attitude and strut state it was computed in, and "
+    "what arrives at the gear reference point. It does not state drag-brace, "
+    "side-brace, trunnion or axle-bending loads, and must not be read as doing "
+    "so: with the contact patch, the components, the ground angle, the stroke "
+    "and the reference-point reaction, a gear engineer builds those."
+)
+
+
+class _GroundCase(NamedTuple):
+    """One LANDLOAD case with everything the section prints about it."""
+
+    reaction: "GearReactionCase"
+    attitude: str
+    strut_state: str
+    point_name: str
+
+
+def _ground_cases(project: Project) -> List[_GroundCase]:
+    """Every LANDLOAD case, with its attitude and its point of load.
+
+    Both read from their owners -- :func:`~sloads.modules.landing.attitude_of`
+    and :func:`~sloads.gear_loads.application_point_of` -- rather than reproduced
+    from the family ranges here, so the document, the reactions and the exported
+    rows cannot come to disagree about which geometry a case was computed in.
+    """
+    from ..gear_loads import application_point_of
+    from ..modules.landing import attitude_of, build_landing
+
+    _lf, reactions = build_landing(project)
+    out: List[_GroundCase] = []
+    for c in reactions:
+        state, index = attitude_of(c.case)
+        out.append(_GroundCase(reaction=c, attitude=_GROUND_ATTITUDES[index][0],
+                               strut_state=state,
+                               point_name=application_point_of(c.case)))
+    return out
+
+
+def _landing_geometry_table(project: Project, system: UnitSystem) -> Optional[Table]:
+    """The p230 lever-arm table: K, GAMMA, the ground angles, BETA and AP/BP/DP/CP.
+
+    Appendix A's own printed intermediates, and one of this module's two oracles.
+    Read from :func:`~sloads.modules.landing.landing_geometry` -- the function the
+    reactions themselves are computed from (OR-190) -- so these are the arms the
+    table above was built with rather than a second construction of them.
+    """
+    from ..cg_cases import landing_role_cases, max_landing_weight
+    from ..modules.landing import (
+        build_landing,
+        gear_geometry,
+        governing_load_factors,
+        landing_geometry,
+    )
+
+    inp = project.landing
+    if inp is None:
+        return None
+    lf, _reactions = build_landing(project)
+    _n, nlg = governing_load_factors(inp, lf)
+    cgs = landing_role_cases(project)
+    geo = landing_geometry(inp, gear_geometry(project), nlg, cgs,
+                           max_landing_weight(project))
+    u = Units(system)
+    length = u.label("length")
+    rows: List[List[str]] = []
+    for index, (title, _state, gra_index) in enumerate(_GROUND_ATTITUDES):
+        del index
+        for cg_index, cg in enumerate(cgs):
+            rows.append([
+                title, cg.name,
+                format_value(geo.gra[gra_index]),
+                format_value(geo.beta[gra_index]),
+                u.plain(geo.ap[gra_index][cg_index], "length"),
+                u.plain(geo.bp[gra_index][cg_index], "length"),
+                u.plain(geo.dp[gra_index][cg_index], "length"),
+                u.plain(geo.cp[gra_index][cg_index], "length"),
+            ])
+    return Table(
+        title="Ground angles and lever arms, by attitude and loading",
+        columns=["Attitude", "Loading", "Ground angle (deg)", "BETA (deg)",
+                 f"AP ({length})", f"BP ({length})", f"DP ({length})",
+                 f"CP ({length})"],
+        rows=rows, small=True,
+        note=(f"K = {format_value(geo.k)} and GAMMA = arctan K = "
+              f"{format_value(geo.gamma_deg)} deg; BETA is GAMMA less the ground "
+              "angle in the level attitude and the negative of the ground angle "
+              "in the other two, whose reaction is normal to the ground. AP, BP "
+              "and DP are the lever arms about the CG and the axles; CP is the "
+              "ground-roll vertical offset and exists in that attitude alone. A "
+              "zero arm is an arm the attitude does not use, not a missing "
+              "value. These are geometry: none is a load, none is scaled, and "
+              "none carries a safety factor."))
+
+
+def _landing_factor_table(project: Project) -> Optional[Table]:
+    """LGFACTOR: the drop-test estimate and the pair the reactions ran at (OR-187)."""
+    from ..modules.landing import build_landing, governing_load_factors
+
+    inp = project.landing
+    if inp is None:
+        return None
+    lf, _reactions = build_landing(project)
+    n_gov, nlg_gov = governing_load_factors(inp, lf)
+    entered = inp.airplane_load_factor is not None
+    rows = [
+        ["Limit descent velocity", format_value(lf.sink_rate_fps), "ft/s",
+         "23.473(d): 4.4 (W/S)^0.25, held between 7 and 10 ft/s."],
+        ["Airplane load factor N (energy)", format_value(lf.airplane_load_factor),
+         "", "LGFACTOR's drop-test work-energy estimate."],
+        ["Gear load factor NLG (energy)", format_value(lf.gear_load_factor), "",
+         "N less the wing lift factor L."],
+        ["Airplane load factor N (governing)", format_value(n_gov), "",
+         "Entered on the project." if entered
+         else "The energy value: no N is entered."],
+        ["Gear load factor NLG (governing)", format_value(nlg_gov), "",
+         "N - L, always derived: the lift factor moves the reaction."],
+    ]
+    return Table(
+        title="Landing load factor (LGFACTOR, FAR 23.473)",
+        columns=["Quantity", "Value", "Units", "Basis"], rows=rows,
+        note=("The governing pair is what the 33 reaction cases below were "
+              "computed at. Load factors are dimensionless and are never scaled: "
+              "they carry no safety factor and no unit."))
+
+
+def _landing_case_table(cases: Sequence[_GroundCase]) -> Optional[Table]:
+    """Every case: what it is, which loading, and the geometry it was computed in."""
+    if not cases:
+        return None
+    rows = [[str(g.reaction.case), g.reaction.description, g.reaction.far_reference,
+             g.reaction.cg_name, g.attitude, g.strut_state, g.point_name]
+            for g in cases]
+    return Table(
+        title="Ground load conditions", small=True,
+        columns=["Case", "Condition", "FAR", "Loading", "Attitude",
+                 "Strut state", "Point of load"],
+        rows=rows,
+        note=("All 33 conditions, in LANDLOAD's own numbering. Cases 25-33 are "
+              "the FAR 23.499 supplementary nose-wheel family: gear design "
+              "conditions with no airplane in equilibrium, which is why the "
+              "assembled ground deck carries cases 1-24 and this list carries "
+              "all of them. The point of load is the point that case's reaction "
+              "acts at, and it is not the same point for every case."))
+
+
+def _landing_reaction_table(cases: Sequence[_GroundCase],
+                            system: UnitSystem) -> Optional[Table]:
+    """The per-wheel reactions, in the ground-line frame the manual prints."""
+    if not cases:
+        return None
+    u = Units(system)
+    force = u.ult_label("force")
+    rows = []
+    for g in cases:
+        c = g.reaction
+        rows.append([str(c.case)]
+                    + [u.load(v, "force", 1.5) for v in
+                       (c.vmp, c.dmp, c.smp, c.vnp, c.dnp, c.snp)])
+    return Table(
+        title="Gear reactions per wheel (ground line, LIMIT)", small=True,
+        columns=["Case", f"VMP ({force})", f"DMP ({force})", f"SMP ({force})",
+                 f"VNP ({force})", f"DNP ({force})", f"SNP ({force})"],
+        rows=rows,
+        note=("Vertical, drag and side, per wheel: MP the main gear, NP the "
+              "nose. Stated in the ground-line frame, which is the frame the "
+              "original analysis prints and a gear engineer reads; the airplane "
+              "datum set a structures model applies is in the appendix. A zero "
+              "is a wheel this case lifts clear, not a missing value. Every "
+              "reaction is LIMIT and states the 14 CFR 23.303 factor of 1.5, "
+              "which is applied to none of them."))
+
+
+def _landing_moment_table(cases: Sequence[_GroundCase],
+                          system: UnitSystem) -> Optional[Table]:
+    """The unbalanced moments and the datum load factors (p232 and p233)."""
+    rows = []
+    u = Units(system)
+    moment = u.ult_label("moment")
+    for g in cases:
+        c = g.reaction
+        if c.case > 24:
+            continue
+        rows.append([str(c.case),
+                     u.load(c.pitch, "moment", 1.5),
+                     u.load(c.roll, "moment", 1.5),
+                     u.load(c.yaw, "moment", 1.5),
+                     format_value(c.nr), format_value(c.nv), format_value(c.nd)])
+    if not rows:
+        return None
+    return Table(
+        title="Unbalanced moments and load factors (airplane datum, LIMIT)",
+        small=True,
+        columns=["Case", f"Pitch ({moment})", f"Roll ({moment})",
+                 f"Yaw ({moment})", "NR", "NV", "ND"],
+        rows=rows,
+        note=("The moment the ground reaction leaves unbalanced about the CG, "
+              "and the resultant, vertical and drag load factors of the same "
+              "condition. Cases 25-33 are absent from this table and not "
+              "omitted from it: the supplementary nose-wheel family has no "
+              "airplane in equilibrium, so it has no unbalanced moment and no "
+              "airplane load factor to state. The moments are loads and state "
+              "their factor; the load factors are dimensionless and carry none."))
+
+
+def _landing_summary_table(project: Project,
+                           system: UnitSystem) -> Optional[Table]:
+    """The largest reaction on each gear, per family -- a reading aid (OR-184/185)."""
+    from ..modules.landing import (
+        GEARS,
+        build_landing,
+        critical_reaction,
+        gear_reaction_magnitude,
+    )
+
+    _lf, reactions = build_landing(project)
+    u = Units(system)
+    force = u.ult_label("force")
+    rows = []
+    for far, title in (("23.479(a)", "Level landing"),
+                       ("23.481", "Tail-down landing"),
+                       ("23.483", "One-wheel landing"), ("23.485", "Side load"),
+                       ("23.493", "Braked roll"),
+                       ("23.499", "Supplementary nose wheel")):
+        for gear, gear_label in GEARS:
+            c = critical_reaction(reactions, far, gear)
+            if c is None:
+                continue
+            rows.append([title, far, gear_label, str(c.case), c.cg_name,
+                         u.load(gear_reaction_magnitude(c, gear), "force", 1.5)])
+    if not rows:
+        return None
+    return Table(
+        title="Largest reaction on each gear, by condition family",
+        columns=["Family", "FAR", "Gear", "Case", "Loading",
+                 f"Resultant ({force})"],
+        rows=rows,
+        note=("A reading aid, and not a down-select: every one of the 33 "
+              "conditions is delivered. A ground case sizes a gear member "
+              "through a load path this analysis does not model, so the case "
+              "that governs one member is not the case that governs another, "
+              "and ranking the set on a single number would remove the case a "
+              "reader needs. Each gear is ranked on its own three-component "
+              "resultant; a family that lifts one gear clear appears once. A "
+              "family is listed for both gears because the largest main-wheel "
+              "case and the largest nose-wheel case are two different "
+              "questions -- on this airplane the 23.479(a) nose row is a "
+              "three-wheel level landing and its main row is a two-wheel one."))
+
+
+def _landing_free_body_table(project: Project,
+                             system: UnitSystem) -> Optional[Table]:
+    """Where each leg is, in each attitude: strut state, ground angle and stroke."""
+    from ..gear_loads import gear_case_loads
+
+    try:
+        cases = gear_case_loads(project)
+    except MissingInputError:
+        return None
+    u = Units(system)
+    length = u.label("length")
+    seen: Dict[Tuple[str, str, float, float], List[int]] = {}
+    for case in cases:
+        for leg in case.legs:
+            key = (leg.leg, leg.strut_state, round(leg.ground_angle_deg, 4),
+                   round(leg.stroke_in, 4))
+            seen.setdefault(key, []).append(case.case)
+    if not seen:
+        return None
+    rows: List[List[str]] = []
+    for (leg_name, state, angle, stroke), numbers in seen.items():
+        rows.append([leg_name, state, format_value(angle),
+                     u.plain(stroke, "length"),
+                     f"{min(numbers)}-{max(numbers)}"])
+    return Table(
+        title="Gear attitude and strut state, by case",
+        columns=["Leg", "Strut state", "Ground angle (deg)",
+                 f"Stroke from extended ({length})", "Cases"],
+        rows=rows,
+        note=("The landing families are computed near the top of the stroke and "
+              "the handling families near the bottom -- impact against sitting. "
+              "The gear reference point does not move between attitudes: a "
+              "trunnion is fixed to the airframe, so the difference lands in the "
+              "lever arm rather than in the node."))
+
+
+def _circle(cx: float, cy: float, r: float, n: int = 48
+            ) -> Tuple[List[float], List[float]]:
+    """One wheel, as a closed polyline: a figure carries no circle primitive."""
+    xs = [cx + r * math.cos(2.0 * math.pi * i / n) for i in range(n + 1)]
+    ys = [cy + r * math.sin(2.0 * math.pi * i / n) for i in range(n + 1)]
+    return xs, ys
+
+
+def _attitude_case_numbers(index: int) -> List[int]:
+    """The LANDLOAD cases computed in attitude ``index``, from the owner.
+
+    Asked of :func:`~sloads.modules.landing.attitude_of` case by case rather than
+    restated as a range here. A figure that named its own cases could come to
+    claim geometry the reactions were not computed in, and the reader would have
+    no way to see it (OR-189).
+    """
+    from ..modules.landing import attitude_of
+
+    return [case for case in range(1, 34) if attitude_of(case)[1] == index]
+
+
+def _case_range_words(numbers: Sequence[int]) -> str:
+    """``"1-6 and 10-12"`` -- a case list as the runs it actually is."""
+    if not numbers:
+        return "no cases"
+    runs: List[List[int]] = [[numbers[0], numbers[0]]]
+    for case in numbers[1:]:
+        if case == runs[-1][1] + 1:
+            runs[-1][1] = case
+        else:
+            runs.append([case, case])
+    parts = [str(a) if a == b else f"{a}-{b}" for a, b in runs]
+    if len(parts) == 1:
+        return parts[0]
+    return ", ".join(parts[:-1]) + " and " + parts[-1]
+
+
+def _attitude_figure(project: Project, index: int, *,
+                     system: UnitSystem) -> Figure:
+    """One ground attitude: the airplane, the ground line and the angle between.
+
+    Appendix A's p234 and p235 drawn for all three attitudes rather than the two
+    the manual prints (OR-189). The airframe is the side view Section 2 already
+    draws, through its own owner; what this figure adds is the ground line at the
+    attitude's computed ground angle, the wheels at the axle state the attitude
+    is computed in, and the CG the lever arms are taken about.
+
+    Drawn in the airplane's own axes, so the fuselage station line is horizontal
+    and the **ground** is what tilts -- which is the same picture the manual
+    draws and the same sign: a positive ground angle is nose-up.
+    """
+    from ..cg_cases import landing_role_cases
+    from ..gear_loads import gear_case_loads
+    from ..modules.landing import gear_geometry, ground_angles
+
+    title, state, gra_index = _GROUND_ATTITUDES[index]
+    key = f"ground_attitude_{gra_index}"
+    numbers = _attitude_case_numbers(gra_index)
+    inp = project.landing
+    if inp is None:
+        return Figure(key=key, title=f"{title} attitude", absent_reason=(
+            "the project enters no landing inputs, so there is no attitude to "
+            "draw."))
+    try:
+        gear = gear_geometry(project)
+        angles = ground_angles(inp, gear)
+        cgs = landing_role_cases(project)
+        by_case = {case.case: case for case in gear_case_loads(project)}
+    except (MissingInputError, ValueError) as exc:
+        return Figure(key=key, title=f"{title} attitude",
+                      absent_reason=f"the attitude could not be drawn: {exc}")
+
+    angle = angles[gra_index]
+    scale, length_units = _length_channel(system)
+    series, drawn = _airframe_series(project, "water", scale)
+
+    # The contact patch is **not** constructed here. It is read off the free
+    # body of a case computed in this attitude, whose legs already carry the
+    # patch from the one owner (``gear_loads.contact_patch``, design note 39
+    # AP-2). A figure that built its own would be a second construction of the
+    # point the loads act at, and the two would be free to drift -- which is what
+    # ``test_gear_report`` exists to catch, and did.
+    sample = by_case.get(numbers[0]) if numbers else None
+    if sample is None:
+        return Figure(key=key, title=f"{title} attitude", absent_reason=(
+            "no ground case is computed in this attitude for this project."))
+    legs = {"main": ("Main gear", gear.main_gear),
+            "nose": ("Nose gear", gear.nose_gear)}
+    patches: List[Tuple[float, float]] = []
+    for leg_load in sorted(sample.legs, key=lambda le: le.leg != "nose"):
+        name, leg = legs[leg_load.leg]
+        ax, az = (leg.axle_compressed if state == "compressed"
+                  else leg.axle_static)
+        px, _py, pz = leg_load.patch
+        patches.append((px * scale, pz * scale))
+        wheel_x, wheel_y = _circle(ax * scale, az * scale,
+                                   leg.rolling_radius_in * scale)
+        series.append(Series(name, wheel_x, wheel_y, "solid", closed=True))
+        series.append(Series("", [ax * scale, px * scale],
+                             [az * scale, pz * scale], "dotted"))
+
+    # The ground line. In the level and ground-roll attitudes it runs through
+    # both contact patches -- which is what the ground angle *is*, the slope of
+    # that line against the fuselage station axis. Tail-down is the entered bump
+    # angle with the nose wheel clear, so the line is struck through the main
+    # patch alone at that angle, and the figure shows the nose wheel above it.
+    xs = [v for s in series for v in s.x] or [0.0]
+    x0, x1 = min(xs), max(xs)
+    span = (x1 - x0) or 1.0
+    x0, x1 = x0 - 0.05 * span, x1 + 0.05 * span
+    slope = math.tan(math.radians(angle))
+    ref_x, ref_z = patches[-1]
+    series.append(Series(
+        f"Ground line ({format_value(angle)} deg)", [x0, x1],
+        [ref_z + (x0 - ref_x) * slope, ref_z + (x1 - ref_x) * slope], "dashed"))
+
+    points = [(cg.name, cg.xcg * scale, cg.zcg * scale) for cg in cgs]
+    x_label, y_label = _PLANFORM_AXES["water"]
+    outlines = ", ".join(drawn) if drawn else ""
+    caption = [
+        f"The airplane in the {title.lower()} attitude, to scale on equal axes, "
+        f"drawn in the airplane's own axes so the fuselage station line is "
+        f"horizontal and the ground is what tilts. The ground angle is "
+        f"{format_value(angle)} deg, positive nose-up.",
+        f"The wheels are drawn at the {state} axle positions with their "
+        f"entered rolling radii, and the dotted line from each axle is the "
+        f"radius to the contact patch the reaction acts through.",
+        f"This geometry computes LANDLOAD cases "
+        f"{_case_range_words(numbers)} — every case in the tables above that "
+        f"names this attitude, and no other.",
+    ]
+    if gra_index == 2:
+        caption.append(
+            "The nose wheel is clear of the ground in this attitude: the ground "
+            "angle is the entered tail-down bump angle rather than the slope of "
+            "the axle line, so the line is struck through the main-wheel contact "
+            "alone and the nose wheel is drawn where it sits, above it.")
+    if outlines:
+        caption.append(
+            f"The airframe is {outlines} as the project enters them, through the "
+            f"owners Section 2 draws them with, so no shape here is this "
+            f"figure's own.")
+    caption.append(
+        "The markers are the three landing loadings the lever arms are taken "
+        "about. Nothing in this figure is a load: no value is scaled and none "
+        "carries a safety factor.")
+    return Figure(
+        key=key, title=f"{title} attitude ({state} axle)",
+        data=PlotData(f"{x_label} ({length_units})",
+                      f"{y_label} ({length_units})", series,
+                      points=points, points_label="Landing CG loadings"),
+        caption=" ".join(caption))
+
+
+def _landing_loads(project: Project,
+                   results: Mapping[str, Optional[ModuleResult]],  # noqa: ARG001
+                   *, system: UnitSystem, plan: Sequence[SectionPlan]) -> Section:
+    """Section 12 -- Landing Gear Loads, in its three subsections (note 44 §22)."""
+    try:
+        cases = _ground_cases(project)
+    except (MissingInputError, ValueError) as exc:
+        return Section("", absent_reason=(
+            f"the ground load conditions were not produced for this project: "
+            f"{exc}"))
+    if not cases:
+        return Section("", absent_reason=(
+            "the ground load conditions were not produced for this project."))
+
+    fuselage_ref = section_ref(plan, "fuselage_loads")
+    inputs = Section("", body=[
+        "The ground conditions are computed from the gear geometry, the three "
+        "landing loadings and the design weights. The gear geometry is the axle "
+        "position at each strut state, the rolling radius and the tread, entered "
+        "once on the configuration and read here; the loadings are the aft "
+        "maximum landing, forward maximum landing and forward light cases of the "
+        "one shared weight and CG list, which is why a change to either reaches "
+        "this section without being retyped into it.",
+        "The three attitudes below are what the geometry produces, and every "
+        "case in this section is computed in one of them. Which cases use which "
+        "geometry is stated on each figure.",
+    ], tables=[t for t in (_landing_free_body_table(project, system),
+                           _landing_geometry_table(project, system))
+               if t is not None],
+        figures=[_attitude_figure(project, index, system=system)
+                 for index in range(len(_GROUND_ATTITUDES))])
+
+    factor_body = [
+        "The landing load factor is the drop-test work-energy balance of FAR "
+        "23.473(d)-(g): the airplane arrives at the limit descent velocity and "
+        "the tyre and strut absorb that energy over their deflections at their "
+        "efficiencies. It is the input the whole of the next subsection runs at.",
+    ]
+    inp = project.landing
+    if inp is not None and inp.airplane_load_factor is not None:
+        from ..modules.landing import below_energy_caution
+
+        factor_body.append(
+            "This project enters an airplane load factor rather than taking "
+            "the computed one, and the reactions run at the entered value. Both "
+            "are printed below so the difference is visible: an entered design "
+            "load factor is a legitimate decision and a common one, but a "
+            "section that presented it as the output of the drop-test "
+            "calculation would describe an analysis nobody ran.")
+        caution = below_energy_caution(project)
+        if caution:
+            factor_body.append(caution)
+    if project.is_concept:
+        factor_body.append(
+            "This airplane is outside the FAR 23 band, so this is an unverified "
+            "extrapolation and the FAR 23.473(g) floors are stated rather than "
+            "enforced: the regulation requires N of at least 2.67 and NLG of at "
+            "least 2.0, and in this category a shortfall is reported, not "
+            "refused.")
+    factor = Section("", body=factor_body,
+                     tables=[t for t in (_landing_factor_table(project),)
+                             if t is not None])
+
+    conditions = Section("", body=[
+        "Every one of the 33 ground conditions is delivered. No critical-case "
+        "down-select has been applied and none can be: a ground case sizes a "
+        "gear member through a load path this analysis does not model, so the "
+        "case that governs a drag brace is not the case that governs a trunnion, "
+        "and a set ranked on one number would have removed the case a reader "
+        "needs. The summary below names the largest reaction on each gear as a "
+        "reading aid and nothing more.",
+        "Every load in this section is LIMIT and states the factor 14 CFR 23.303 "
+        "prescribes for its condition — 1.5 throughout, ground loads being limit "
+        "loads under 23.471 — and has been multiplied by nothing.",
+        f"The three-wheel and two-wheel level landings are also the conditions "
+        f"{fuselage_ref} sends a reader here for: the forward fuselage is "
+        f"critical for up bending in the first and may be critical for down "
+        f"bending in the second. Both appear below by name.",
+        _GEAR_SCOPE,
+    ], tables=[t for t in (_landing_summary_table(project, system),
+                           _landing_case_table(cases),
+                           _landing_reaction_table(cases, system),
+                           _landing_moment_table(cases, system))
+               if t is not None])
+
+    return Section("", body=[
+        "This section states the loads the ground puts on the airplane: the "
+        "landing load factor the gear is designed to absorb, and the wheel "
+        "reactions of every FAR Part 23 ground condition — level, tail-down, "
+        "one-wheel, side, braked roll and the supplementary nose-wheel family. "
+        f"The applied set, leg by leg and case by case, is "
+        f"{appendix_ref(GEAR_LOAD_CASES)}.",
+    ], subsections=[
+        replace(inputs, title="Input data and gear geometry"),
+        replace(factor, title="Landing load factor"),
+        replace(conditions, title="Ground load conditions"),
+    ])
+
+
+def _gear_appendix(project: Project, *, system: UnitSystem,
+                   plan: Sequence[SectionPlan]) -> Section:
+    """Appendix F -- the gear's applied load set, all 33 cases (OR-188)."""
+    del plan
+    from ..export.sbeam_bridge import applied_loads
+
+    try:
+        rows = applied_loads("landing_gear", None, project)
+    except (MissingInputError, ValueError) as exc:
+        return Section("", absent_reason=(
+            f"the ground load conditions were not produced for this project, so "
+            f"there are no gear loads to list: {exc}"), page_break=True)
+    table = applied_load_table(
+        rows, system=system,
+        title="Applied landing gear loads by case (LIMIT)",
+        note=("One row per case per loaded leg, all 33 conditions, at the point "
+              "that case's reaction acts at — the axle or the ground contact "
+              "point, named in the Station column because it is not the same "
+              "point for every case. Forces are in airplane axes, the frame a "
+              "structures model applies. Mx, My and Mz are zero for every row "
+              "and are printed rather than blanked: a wheel reaction is a pure "
+              "force at the point stated here, and the couple that carries it "
+              "to the gear reference point is stated with the free body in the "
+              "section. GID is blank throughout: the exported ground deck "
+              "applies the reaction at the gear reference node, so naming a grid "
+              "at these coordinates would point a consumer at a node they are "
+              "not. Every row is LIMIT and states the 14 CFR 23.303 factor, "
+              "which is applied to none of them."))
+    if table is None:
+        return Section("", absent_reason=(
+            "no leg carries load in any ground condition for this project."),
+            page_break=True)
+    return Section("", body=[
+        "The landing gear's applied load set: what to apply, where, for which "
+        "case, at what factor. It is the same set as the file "
+        "``landing_gear_applied_loads.csv``, built from one call, so the page "
+        "and the file cannot disagree.",
+        "No critical-case down-select has been applied. Cases 25-33 are the FAR "
+        "23.499 supplementary nose-wheel family: gear design conditions with no "
+        "airplane in equilibrium, which is why the assembled ground deck carries "
+        "cases 1-24 and this appendix carries all 33.",
+        _GEAR_SCOPE,
+    ], tables=[table], page_break=True)
+
+
 # --------------------------------------------------------------------------- #
 # Dispatch
 # --------------------------------------------------------------------------- #
@@ -6731,6 +7337,10 @@ BUILDERS = {
     # whose loads are carried by *another* section's appendix -- the recovered
     # cases are fin design conditions and travel with them (note 44 §21, OR-172).
     "one_engine_out": _one_engine_out,
+    # Section 12: the ground loads, and the last analysis-body section. The only
+    # one whose appendix is indexed by case rather than by station -- a gear leg
+    # is a point and 33 conditions act at it (note 44 §22, OR-188).
+    "landing_loads": _landing_loads,
 }
 
 #: Appendix title -> the builder that produces its body.
@@ -6743,6 +7353,7 @@ APPENDIX_BUILDERS = {
     BODY_LOAD_STATIONS: _body_station_appendix,
     HTAIL_LOAD_STATIONS: _htail_station_appendix,
     VTAIL_LOAD_STATIONS: _vtail_station_appendix,
+    GEAR_LOAD_CASES: _gear_appendix,
 }
 
 

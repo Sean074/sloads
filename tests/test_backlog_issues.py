@@ -174,5 +174,76 @@ def test_no_open_row_sits_in_a_band_whose_release_is_already_cut(bi, backlog_tex
     )
 
 
+
+
+def test_create_never_files_a_row_that_already_names_its_issue(bi, backlog_text):
+    """A line carrying ``(#N)`` is already filed, and ``create`` must adopt it.
+
+    ``rewrite_backlog`` has skipped stamped rows since it was written; ``create``
+    consulted the persisted map alone, and that map is keyed on a **truncated**
+    title, so rewording a row made its key miss and the row was filed again. On
+    2026-09-07 one run opened **19 duplicate issues** — for rows whose own text
+    named their number in the line the parser had just read. The two halves of
+    the bridge now apply the same rule, and this is the assertion that they do.
+    """
+    for it in bi.parse_backlog(backlog_text):
+        line = backlog_text.splitlines()[it.line - 1]
+        refs = bi.ISSUE_REF.findall(line)
+        if refs and it.kind in ("row", "defect"):
+            assert it.existing == int(refs[0]), (it.kind, it.title[:60])
+
+
+def test_a_defect_bullet_that_is_only_a_pointer_is_not_a_new_defect(bi):
+    """Two kinds of bullet name no defect of their own, and both were filed.
+
+    ``- **#170** — ...`` is a pointer to an existing issue, and it produced an
+    issue titled ``"#170"``. A heading ending in a colon is a lead-in to a list
+    of issues (``"Overtaken by note 49, close on GitHub:"``) and produced one
+    titled exactly that. Neither is a defect; the first adopts the number it
+    names and the second is skipped entirely, because its body's first ``(#N)``
+    is an issue it is asking to *close* and adopting it would alias the bullet to
+    something unrelated.
+    """
+    text = ("## Open defects (index)\n\n"
+            "- **#170** — a defect already filed under its own number.\n"
+            "- **Overtaken by note 49, close on GitHub:** **#182** and **#181**.\n"
+            "- **A real unfiled defect.** With a body that says so.\n")
+    defects = [it for it in bi.parse_backlog(text) if it.kind == "defect"]
+    titles = [it.title for it in defects]
+    # The colon lead-in is not an item at all.
+    assert not any(t.rstrip().endswith(":") for t in titles), titles
+    # The pointer bullet is still parsed -- ``rewrite`` needs the line -- but it
+    # names its issue, so ``create`` adopts rather than files. What must never
+    # happen is an issue **titled** "#170", and the assertion is on the thing
+    # that would file it.
+    pointer = next(it for it in defects if it.title == "#170")
+    assert pointer.existing == 170
+    filed = [it.title for it in defects if it.existing is None]
+    assert filed == ["A real unfiled defect."], filed
+
+
+def test_the_issue_map_agrees_with_the_numbers_the_backlog_states(bi, backlog_text):
+    """No persisted key may point somewhere other than the line's own ``(#N)``.
+
+    The map is a cache of what ``create`` filed; the backlog line is the record.
+    When they disagreed, 19 issues were opened before anybody looked. This
+    asserts the cache has not drifted from the record again.
+    """
+    import json
+    import os
+
+    path = os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), ".github", "backlog_issue_map.json")
+    if not os.path.exists(path):
+        return
+    with open(path, encoding="utf-8") as fh:
+        numbers = json.load(fh)
+    by_title = {it.title: it for it in bi.issue_set(bi.parse_backlog(backlog_text))}
+    for title, number in numbers.items():
+        item = by_title.get(title)
+        if item is None or item.existing is None:
+            continue
+        assert number == item.existing, (title[:60], number, item.existing)
+
 if __name__ == "__main__":  # zero-dependency self-runner
     sys.exit(pytest.main([__file__, "-p", "no:xdist", "-q"]))

@@ -535,11 +535,23 @@ def test_a_table_is_turned_only_when_it_cannot_be_set_upright():
         assert L.table_orientation(table) is not fits, table.title
         if not fits:
             turned.add((name, table.title))
-    # The one table on either airplane that genuinely cannot be set upright:
-    # eleven columns of case identity, weight, CG, two stations, three loads, a
-    # moment and the factor. Pinned so that a table quietly becoming unfittable
-    # is a visible change rather than a silent rotation.
-    assert {t for _n, t in turned} == {"Pull-up maneuver fuselage loads (LIMIT)"}
+    # The tables on either airplane that genuinely cannot be set upright. Pinned
+    # so that a table quietly becoming unfittable is a visible change rather than
+    # a silent rotation -- the mechanism itself is asserted above, in both
+    # directions, for every table including these.
+    #
+    # * the pull-up fuselage table: eleven columns of case identity, weight, CG,
+    #   two stations, three loads, a moment and the factor;
+    # * the gear appendix: the applied set's thirteen columns with a *named*
+    #   application point in the Station cell rather than a station number
+    #   ("main right at ground contact point"), because a gear case does not act
+    #   at the same point as the case above it and the row has to say which
+    #   (note 44 §22, OR-188). Its four sibling appendices fit because a strip
+    #   station is a number.
+    assert {t for _n, t in turned} == {
+        "Pull-up maneuver fuselage loads (LIMIT)",
+        "Applied landing gear loads by case (LIMIT)",
+    }
 
 
 def test_a_turned_table_opens_exactly_one_landscape_environment():

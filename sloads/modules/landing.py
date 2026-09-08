@@ -219,9 +219,23 @@ def ground_angles(inp: LandingInput, gear: LandingGearGeometry
             inp.tail_down_angle_deg)
 
 
-def _geometry(inp: LandingInput, gear: LandingGearGeometry, nlg: float,
-              cgs: List[CgCase], mlw: float) -> _Geometry:
-    """Ground angles, BETA and the AP/BP/DP/CP lever arms (LANDLOAD.BAS 50-720)."""
+def landing_geometry(inp: LandingInput, gear: LandingGearGeometry, nlg: float,
+                     cgs: List[CgCase], mlw: float) -> _Geometry:
+    """Ground angles, BETA and the AP/BP/DP/CP lever arms (LANDLOAD.BAS 50-720).
+
+    Public since design note 44 OR-190 (an OR-15 admission scoped to this file):
+    ``K``, ``GAMMA``, the three ground angles, ``BETA`` and the lever arms are
+    Appendix A p230's printed table and one of this module's two oracles, and the
+    oracle report's Section 12.1 prints them. The rename is the whole of the
+    change -- no arithmetic here is touched -- so that the report reads the
+    numbers the reactions were actually computed from rather than a second
+    construction of them beside it (practice 3).
+
+    ``nlg`` is the **governing** gear load factor, the pair
+    :func:`governing_load_factors` returns, not the energy estimate: ``K`` is
+    ``NAP/NLG * K0`` and a caller passing the energy value would print lever arms
+    that no reaction in the table was computed at.
+    """
     nap = nlg + inp.lift_factor
     k0 = _appendix_c_k0(mlw)
     k = nap / nlg * k0
@@ -470,7 +484,7 @@ def landing_reactions(inp: LandingInput, gear: LandingGearGeometry,
         raise ValueError("LANDLOAD needs exactly 3 CG cases (aft/fwd max landing, fwd light)")
     _, nlg = governing_load_factors(inp, lf_result)
     lf = inp.lift_factor
-    geo = _geometry(inp, gear, nlg, cgs, mlw)
+    geo = landing_geometry(inp, gear, nlg, cgs, mlw)
     k = geo.k
     ap, bp, dp, cp = geo.ap, geo.bp, geo.dp, geo.cp
     wr = mtow / mlw if mlw else 1.0
@@ -886,24 +900,59 @@ def below_energy_caution(project: Project) -> Optional[str]:
             "run below the drop-test work-energy estimate for this gear.")
 
 
-def _critical(cases: List[GearReactionCase], far: str) -> Optional[GearReactionCase]:
-    """The case of the given FAR family with the largest resultant ground reaction.
+#: The two gears a ground case can react on, and the components of each.
+#:
+#: A family's largest reaction is **two** questions, not one -- design note 44
+#: OR-185. Until 2026-09-07 this module answered it with a single
+#: ``max(main, nose)``, which is not a tie-break between two candidates for one
+#: title but a comparison between two different gears: the winner sizes one of
+#: them and the loser's larger reaction on the *other* gear was discarded. On
+#: every shipped example that hid the three-wheel level landing -- the largest
+#: nose reaction of the 23.479(a) family (``1786.8`` lb on ``ga6_normal``,
+#: ``4194.3`` on ``baron_58``, ``8178.8`` on the regional jet), and the very
+#: condition the fuselage section's own advisory sends a reader to Section 12
+#: to find.
+GEARS: Tuple[Tuple[str, str], ...] = (
+    ("main", "main-gear"),
+    ("nose", "nose-gear"),
+)
 
-    Ranked on the **full three-component** reaction magnitude -- sqrt(V^2+D^2+S^2)
-    for the main wheel and likewise for the nose -- not on the stored ``rmp``/
-    ``result``, which are the two-component sqrt(V^2+D^2) values LANDLOAD prints and
-    exclude the side load entirely. For the 23.485 side family that made the pick a
-    tie-break accident: cases 19-22 share an identical VMP, so ``max`` returned
-    whichever came first (M4-17e). Ranking only -- no stored value changes, so the
-    oracles are unaffected."""
+
+def gear_reaction_magnitude(c: GearReactionCase, gear: str) -> float:
+    """One gear's **full three-component** reaction magnitude for case ``c``.
+
+    ``sqrt(V^2 + D^2 + S^2)``, not the stored ``rmp``/``result``, which are the
+    two-component ``sqrt(V^2 + D^2)`` values LANDLOAD prints and exclude the side
+    load entirely. For the 23.485 side family that made the pick a tie-break
+    accident: cases 19-22 share an identical VMP, so ``max`` returned whichever
+    came first (M4-17e). Ranking only -- no stored value changes, so the oracles
+    are unaffected.
+    """
+    if gear == "main":
+        return (_sq(c.vmp) + _sq(c.dmp) + _sq(c.smp)) ** 0.5
+    if gear == "nose":
+        return (_sq(c.vnp) + _sq(c.dnp) + _sq(c.snp)) ** 0.5
+    raise ValueError(f"no such gear {gear!r} (expected one of {[g for g, _ in GEARS]})")
+
+
+def critical_reaction(cases: List[GearReactionCase], far: str,
+                      gear: str) -> Optional[GearReactionCase]:
+    """The case of FAR family ``far`` with the largest reaction on ``gear``.
+
+    ``None`` where the family puts no load on that gear at all -- a tail-down or
+    one-wheel landing has the nose clear of the ground, and the 23.499
+    supplementary-nose family has no main-wheel reaction -- so a family yields one
+    summary row or two, and never a row of zeros presented as a critical case.
+    """
     family = [c for c in cases if c.far_reference == far]
     if not family:
         return None
 
     def magnitude(c: GearReactionCase) -> float:
-        return max((_sq(c.vmp) + _sq(c.dmp) + _sq(c.smp)) ** 0.5,
-                   (_sq(c.vnp) + _sq(c.dnp) + _sq(c.snp)) ** 0.5)
+        return gear_reaction_magnitude(c, gear)
 
+    if not any(magnitude(c) for c in family):
+        return None
     # The tie rule, not raw ``max``: this family is the documented tie above
     # (cases 19-22 share a VMP), so the winner is the first in case order, on
     # every platform (CR-B-1; ``picks.extreme``).
@@ -1077,27 +1126,30 @@ def run(project: Project) -> ModuleResult:
     from ..gear_loads import delivered_gear_legs, gear_case_loads
     legs_by_case = delivered_gear_legs(gear_case_loads(project))
 
-    # One summary condition per FAR ground-load family (the critical wheel reaction).
+    # Two summary conditions per FAR ground-load family -- the largest main-gear
+    # reaction and the largest nose-gear reaction (OR-185). A family that puts no
+    # load on one of them yields the other row alone.
     for far, title in (("23.479(a)", "Level landing"), ("23.481", "Tail-down landing"),
                        ("23.483", "One-wheel landing"), ("23.485", "Side load"),
                        ("23.493", "Braked roll"), ("23.499", "Supplementary nose wheel")):
-        c = _critical(reactions, far)
-        if c is None:
-            continue
-        legs = legs_by_case.get(c.case, ())
-        # The summary states the *same* case the matrix row does, through the
-        # same builder -- it names which case governs the family, and a second
-        # hand-written value list beside it would be free to drift into a
-        # different frame or a different application point from the row it
-        # points at. Design note 38 GF-6: every channel, one statement.
-        conditions.append(ConditionResult(
-            title=f"{title} (critical reaction)",
-            far_reference=far,
-            values=([LoadValue("Case", float(c.case), "", key="case")]
-                    + _case_values(c, legs)),
-            note=case_note(legs),
-            case_ref=c.case_ref,
-        ))
+        for gear, gear_label in GEARS:
+            c = critical_reaction(reactions, far, gear)
+            if c is None:
+                continue
+            legs = legs_by_case.get(c.case, ())
+            # The summary states the *same* case the matrix row does, through the
+            # same builder -- it names which case governs the family, and a second
+            # hand-written value list beside it would be free to drift into a
+            # different frame or a different application point from the row it
+            # points at. Design note 38 GF-6: every channel, one statement.
+            conditions.append(ConditionResult(
+                title=f"{title} (critical {gear_label} reaction)",
+                far_reference=far,
+                values=([LoadValue("Case", float(c.case), "", key="case")]
+                        + _case_values(c, legs)),
+                note=case_note(legs),
+                case_ref=c.case_ref,
+            ))
     # The full 33-case matrix (M4-17e), so the ULTIMATE deliverable (CSV / Results
     # Review / Export) is no longer thinner than the LIMIT analysis screen, and the
     # unbalanced moments + ground-line inertia factors -- a third of the original

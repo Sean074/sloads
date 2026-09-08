@@ -15,9 +15,10 @@ from __future__ import annotations
 
 import re
 from enum import Enum
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, NamedTuple, Optional, Sequence
 
 from ..case_ids import NO_LOAD_ID, deck_load_id
+from ..constants import IN_PER_FT
 from ..frames import is_report_only
 from ..load_keys import (
     FX_THRUST,
@@ -27,6 +28,7 @@ from ..load_keys import (
     LOC_KEYS,
     MX_MOUNT_TORQUE,
     VERTICAL_KEYS,
+    gyro_key,
     parse_gyro_key,
 )
 from ..models import ConditionResult, CriticalCondition, EngineInput, LoadValue
@@ -678,12 +680,39 @@ def _result_location(r: ConditionResult) -> Optional[tuple]:
     return None
 
 
-def _global_location(results):
+def _running_locations(results: Sequence[ConditionResult]) -> List[tuple]:
+    """Each condition's point of application, one per condition, in order.
+
+    A condition with no location of its own takes the location of **the last
+    condition that had one**, not the first in the whole set.
+
+    This is a defect fix (note 44 OR-193, found 2026-09-07 building the engine's
+    applied-load file). Two of the six engine-mount conditions -- the sudden
+    stoppage torque of 23.371(c) and the gyroscopic condition of 23.371(b) --
+    carry no ``loc_*`` values, while the four beside them for the same engine do.
+    The old fallback was the *first* location in the set, so on every multi-engine
+    fixture the load-case index printed the right-hand engine's stoppage torque
+    and its four gyroscopic sub-cases at the **left-hand** engine's butt line:
+    ten rows on ``atr42_100`` and ``dhc8_dash8``, fifteen on
+    ``concept_regional_jet``, each a real load at a point on the wrong side of
+    the airplane. A blank column invites a reader to ask; a mirrored coordinate
+    does not.
+
+    The producers emit an engine's conditions together, so the previous location
+    is that engine's -- verified against every shipped example, and gated, since
+    it is a property of the emission order rather than of the type. The proper
+    repair is for the producer to state the point on every condition it emits;
+    ``modules/engine.py`` is frozen for 0.8.2, so this boundary carries it and
+    the producer fix is filed.
+    """
+    out: List[tuple] = []
+    last = (None, None, None)
     for r in results:
         loc = _result_location(r)
         if loc is not None:
-            return loc
-    return (None, None, None)
+            last = loc
+        out.append(last)
+    return out
 
 
 def _val(loadvalue: Optional[LoadValue]):
@@ -736,6 +765,118 @@ def _gyro_subcases(r: ConditionResult):
         yield desc, c.get("myy", ""), c.get("mzz", ""), thrust, vertical, _gyro_subcase_id(r, num)
 
 
+class PointLoadRecord(NamedTuple):
+    """One condition's load as six components at one point (note 44 OR-186).
+
+    The shape the load-case index has always spoken -- a force triple and a
+    moment triple at a single location -- named once so that the index and the
+    engine's own applied-load file are two views of one extraction rather than
+    two extractions that agree today. A component the condition does not carry is
+    ``0.0``, not blank: this record is consumed by a file whose columns are the
+    whole vector, and a reader may not be left to decide whether an absent
+    component is a zero or an omission.
+    """
+
+    case_id: str
+    far_reference: str
+    description: str
+    label: str
+    x: float
+    y: float
+    z: float
+    fx: float
+    fy: float
+    fz: float
+    mx: float
+    my: float
+    mz: float
+    safety_factor: Optional[float]
+
+
+def _f(value) -> float:
+    """A load cell as a number; a component the condition does not carry is zero."""
+    return 0.0 if value == "" or value is None else float(value)
+
+
+def _gyro_lb_in(r: ConditionResult, case: int, component: str) -> float:
+    """One gyroscopic sub-case moment component, as raw ``lb-in``.
+
+    Read from the value rather than from :func:`_gyro_subcases`' tuple, because
+    the tuple carries the number and not the unit, and this record is unit-fixed.
+    The key is minted by the one owner (:func:`sloads.load_keys.gyro_key`).
+    """
+    return _moment_lb_in(_find(r.values, gyro_key(case, component)))
+
+
+def _moment_lb_in(v: Optional[LoadValue]) -> float:
+    """A moment ``LoadValue`` as raw ``lb-in``, read off the value's own units.
+
+    The engine module states its torques in **ft-lb** -- which is what the
+    load-case index heads its column with, and correctly, because that is the
+    unit the value carries. An applied-load record is raw ``lb-in`` throughout
+    (:class:`~sloads.export.sbeam_bridge.AppliedLoad`), so the conversion happens
+    here, once, against the unit the producer wrote rather than against an
+    assumption about which producer it was. A moment in neither unit raises: a
+    silent pass-through would put a number twelve times too small on a card.
+    """
+    if v is None:
+        return 0.0
+    if v.units in ("lb-in", ""):
+        return float(v.value)
+    if v.units == "ft-lb":
+        return float(v.value) * IN_PER_FT
+    raise ValueError(
+        f"point_load_records: {v.key!r} is a moment in {v.units!r}; the applied "
+        "record is raw lb-in and knows how to convert ft-lb only")
+
+
+def point_load_records(results: Sequence[ConditionResult]) -> List[PointLoadRecord]:
+    """Every condition of ``results`` as six components at one point.
+
+    The single owner of the extraction :func:`load_cases_to_rows` performs
+    inline: which value is the vertical force, which the mount torque, and how
+    the 23.371(b) gyroscopic condition expands into its four sign combinations.
+    Written when the engine mount gained an applied-load file of its own
+    (OR-186), so that the file and the index cannot come to disagree about the
+    same case -- the failure mode M4-9 was written about, one level up.
+
+    A condition carrying no location of its own takes the point of the condition
+    it follows, through :func:`_running_locations` -- the same owner the load-case
+    index uses, so the two files state one point per case. A condition that
+    reaches here with no location at all, its own or inherited, is skipped: a
+    point load with no point is not a load (design note 39).
+    """
+    out: List[PointLoadRecord] = []
+    for r, loc in zip(results, _running_locations(results)):
+        if loc is None or any(v is None for v in loc):
+            continue
+        x, y, z = (_f(v) for v in loc)
+        if _has_gyro_subcases(r):
+            for num, (desc, my, mz, fx, fz, gyro_id) in enumerate(
+                    _gyro_subcases(r), start=1):
+                del my, mz          # read through _gyro_lb_in, for the units
+                out.append(PointLoadRecord(
+                    case_id=gyro_id, far_reference=r.far_reference,
+                    description=r.title, label=desc,
+                    x=x, y=y, z=z,
+                    fx=_f(fx), fy=0.0, fz=_f(fz),
+                    mx=0.0, my=_gyro_lb_in(r, num, "myy"),
+                    mz=_gyro_lb_in(r, num, "mzz"),
+                    safety_factor=r.safety_factor))
+            continue
+        out.append(PointLoadRecord(
+            case_id=r.case_ref.case_id if r.case_ref else "",
+            far_reference=r.far_reference, description=r.title, label=r.title,
+            x=x, y=y, z=z,
+            fx=_f(_val(_find(r.values, FX_THRUST))),
+            fy=_f(_val(_find(r.values, FY_SIDE))),
+            fz=_f(_val(_find_any(r.values, VERTICAL_KEYS))),
+            mx=_moment_lb_in(_find(r.values, MX_MOUNT_TORQUE)),
+            my=0.0, mz=0.0,
+            safety_factor=r.safety_factor))
+    return out
+
+
 def load_cases_to_rows(results: List[ConditionResult], *,
                        channel: LoadChannel = LoadChannel.LIMIT,
                        ) -> List[Dict[str, object]]:
@@ -761,7 +902,7 @@ def load_cases_to_rows(results: List[ConditionResult], *,
     table_sf = _table_sf(results)
     force_ult = _chan_units(force_u, "", channel, table_sf)
     mom_ult = _chan_units(mom_u, "", channel, table_sf)
-    g_loc = _global_location(results)
+    locations = _running_locations(results)
 
     c_id = f"Loc X ({len_u})", f"Loc Y ({len_u})", f"Loc Z ({len_u})"
     c_vert = f"Vertical load ({force_ult})"
@@ -800,8 +941,7 @@ def load_cases_to_rows(results: List[ConditionResult], *,
 
     rows: List[Dict[str, object]] = []
     idx = 0
-    for r in results:
-        loc = _result_location(r) or g_loc
+    for r, loc in zip(results, locations):
         sf = r.safety_factor
         if _has_gyro_subcases(r):
             for desc, my, mz, fx, fz, gyro_id in _gyro_subcases(r):
