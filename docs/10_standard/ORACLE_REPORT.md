@@ -503,12 +503,21 @@ and one appendix, built from the `wing_loads` step
 - **Every appendix SHALL start a fresh page**, and Appendix B **SHALL** be
   landscape throughout — one orientation per appendix, so it survives a column
   being added rather than being re-decided per table.
-- **The Appendix A input echo holds a reserved slot** that renders its OR-32
-  state. Lettering is derived from position, so an unreserved slot would print
-  the wing appendix as A today and move it to B when the echo lands — and an
-  issue signed in between would disagree with its own reissue. A reserved slot
-  is lettered and **SHALL NOT** be referable: prose points at a built appendix
-  only.
+- **Appendix A is the balanced V-n condition register** (note 44 §23, OR-194):
+  every point the flight envelope produces, which is the candidate set sections
+  3 through 6 select their design conditions **from**. It is the one appendix
+  that is not a projection of a section, and the reason it exists is that a
+  selection whose candidate set is not published is a claim rather than a
+  result. It holds slot A because that slot was **reserved** for it to fill:
+  lettering is derived from position, so an unreserved slot would have printed
+  the wing appendix as A and moved it to B when A landed, and an issue signed in
+  between would have disagreed with its own reissue. B through F did not move,
+  which is the reservation vindicated rather than merely retired. The rule it
+  established stands for any future slot: a reserved appendix is lettered and
+  **SHALL NOT** be referable, and prose points at a built appendix only.
+- **The inputs SHALL NOT be echoed into a table** (OR-194). The project file is
+  an exact, machine-readable echo of them; a transcription is a second copy that
+  can disagree with the first, so the document names the file instead.
 
 ## 3.5 Section 4: Fuselage Loads
 
@@ -1132,7 +1141,7 @@ without a guard is prose, not a gate).
 | 2.3 Structural Design Speeds | 2026-08-30 | `test_oracle_report.py::test_the_paired_tables_pair_keys_the_modules_actually_produce` , `::test_a_paired_table_drops_a_units_column_no_row_fills` |
 | 2.4 Speed/altitude envelope | 2026-08-31 | `test_oracle_report.py::test_the_speed_altitude_envelope_opens_2_4_and_reaches_sea_level`, `::test_the_speed_altitude_envelope_plots_only_machlim_s_own_speeds`, `::test_vh_is_marked_at_sea_level_and_is_not_drawn_as_a_boundary`, `::test_the_speed_altitude_envelope_has_one_builder_for_both_reports`, `::test_an_airplane_with_no_mach_inputs_says_so_instead_of_drawing` |
 | 2.4 Flight Envelope | 2026-08-30 | `test_oracle_report.py::test_the_envelope_boundary_order_is_the_analysis_order`, `::test_the_envelope_figures_plot_only_produced_design_points`, `::test_one_envelope_figure_per_loading_and_altitude` |
-| 3. Wing Loads (subsections, appendix lettering) | 2026-09-01 | `test_oracle_report.py::test_the_wing_section_renders_its_four_subsections_numbered_by_the_owner`, `::test_wing_loads_is_appendix_b_while_the_input_echo_holds_appendix_a`, `::test_the_reserved_appendix_states_its_state_and_is_not_pointed_at` |
+| 3. Wing Loads (subsections, appendix lettering) | 2026-09-01 | `test_oracle_report.py::test_the_wing_section_renders_its_four_subsections_numbered_by_the_owner`, `::test_wing_loads_is_appendix_b_and_the_reservation_held_its_place`, `::test_the_input_echo_is_gone_and_nothing_points_at_it` |
 | 3.1 Loads reference axis and wing inputs | 2026-09-01 | `test_oracle_report.py::test_every_wing_torsion_names_the_axis_it_is_stated_about`, `::test_the_reference_axis_is_drawn_open_on_a_closed_planform`, `::test_the_span_load_is_drawn_at_zero_unit_and_the_airplanes_own_clmax`, `::test_the_span_load_curves_are_airloads_own_distribution`, `::test_a_project_with_no_flaps_down_set_says_so_and_draws_nothing` |
 | 3.2 Load-factor sign and envelope coverage (OR-58) | 2026-09-03 | `test_oracle_report.py::test_the_register_states_what_the_sign_of_a_load_factor_means`, `::test_a_case_set_with_no_negative_load_factor_says_it_does_not_envelop` |
 | 3.2 Case-list provenance (OR-57) | 2026-09-03 | `test_oracle_report.py::test_the_register_states_the_matrix_the_selection_actually_searched`, `::test_an_entered_wing_case_list_is_not_reported_as_the_selections_result`, `::test_a_project_that_enters_no_wing_cases_reports_the_selections_own_result` |
@@ -1145,7 +1154,7 @@ without a guard is prose, not a gate).
 | B.1 states all six components and prints its structural zeros (OR-65, OR-66) | 2026-09-03 | `test_sbeam_bridge.py::test_the_applied_set_states_all_six_components`, `::test_the_applied_set_reproduces_the_whole_vmt_at_every_station`; note 46 G-OR-35/36 |
 | Appendix page breaks and landscape (OR-63) | 2026-09-03 | `test_oracle_report.py::test_the_appendix_is_landscape_and_starts_a_fresh_page` |
 | Carry-through entered as a station (note 50 OR-121…OR-127) | 2026-09-05 | `test_oracle_inputs.py::test_an_entered_spar_station_reaches_the_fuselage_fitting_loads`, `::test_the_spar_station_survives_the_oracle_projection`, `test_derived_geometry.py::test_carry_through_from_entered_spar_stations`, `::test_the_estimator_has_one_owner`, `test_migrations.py::test_the_v60_hop_converts_an_entered_carry_through` |
-| 4. Fuselage Loads (subsections, appendix lettering) | 2026-09-06 | `test_oracle_report_fuselage.py::test_the_fuselage_section_renders_its_five_subsections_numbered_by_the_owner`, `::test_fuselage_loads_is_appendix_c_behind_the_echo_and_the_wing` |
+| 4. Fuselage Loads (subsections, appendix lettering) | 2026-09-06 | `test_oracle_report_fuselage.py::test_the_fuselage_section_renders_its_five_subsections_numbered_by_the_owner`, `::test_fuselage_loads_is_appendix_c_behind_the_vn_register_and_the_wing` |
 | 4.1 The beam and its provenance (OR-96) | 2026-09-06 | `test_oracle_report_fuselage.py::test_the_beam_states_its_provenance_and_prints_its_total`, `::test_a_project_with_no_beam_states_the_absence_and_still_builds` |
 | 4.1/4.4 Assumed against entered spar stations (OR-97) | 2026-09-06 | `test_oracle_report_fuselage.py::test_the_fitting_loads_state_whether_their_spar_stations_were_assumed` |
 | 4.2 Case-list provenance, load-factor sign, envelope coverage (OR-99) | 2026-09-06 | `test_oracle_report_fuselage.py::test_the_register_states_which_path_its_case_list_came_from`, `::test_the_register_states_what_the_sign_of_its_load_factors_means`, `::test_the_register_names_its_negative_load_factor_condition` |

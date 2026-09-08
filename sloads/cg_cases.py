@@ -28,7 +28,7 @@ Every consumer reads from here and none filters for itself.
 from __future__ import annotations
 
 import math
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from .models import (
     GROUND_CASE_ROLE_ORDER,
@@ -86,6 +86,28 @@ def flight_cases(project: Project) -> List[CgCase]:
     the pre-hop ``flight_loads.cg_cases`` exactly.
     """
     return cases_for(project, AnalysisKind.FLIGHT)
+
+
+def flight_case_ids(project: Project) -> Dict[str, str]:
+    """``{case name -> "CG1"}`` -- the positional id of every FLIGHT case.
+
+    The one owner of the CG ordinal (note 44 OR-199). McMaster's V-n data names
+    its mass cases ``CG1``..``CG4`` (Ref 1 Appendix A p179) and prints the id in
+    every balanced-flight row; a sloads project names them freely, so the id is
+    **derived** from :func:`flight_cases` order rather than entered, and the name
+    remains the identity everywhere else -- ``selected_case_ids``, ``CaseRef.cg``,
+    deck labels and validation are untouched by this map.
+
+    The ordinal is positional, and that costs nothing extra: entry order is
+    already the FLIGHT contract (:func:`cases_for`), and the **V-n case numbers**
+    are built from the same order, so a project that reorders its cases renumbers
+    its conditions with or without this map.
+
+    On ``ga6_normal`` the cases are themselves named ``CG1``..``CG4`` in entry
+    order, so the derivation reproduces the manual exactly rather than resembling
+    it -- which is what ``tests/test_oracle_report_vn.py`` asserts.
+    """
+    return {c.name: f"CG{i}" for i, c in enumerate(flight_cases(project), start=1)}
 
 
 def ground_cases(project: Project) -> List[CgCase]:

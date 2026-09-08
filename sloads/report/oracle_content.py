@@ -126,8 +126,11 @@ SECTION_GROUPS: Tuple[SectionGroup, ...] = (
     ),
 )
 
-#: The appendix that echoes the analysed inputs, referred to by name once built.
-INPUT_ECHO = "Input echo"
+#: The appendix carrying the balanced V-n conditions the whole analysis selects
+#: from (note 44 OR-194/OR-196). It replaces the reserved "Input echo" slot: a
+#: project file is already an exact, machine-readable echo of the inputs, and a
+#: table transcribing it is a second copy that can disagree with the first.
+VN_CONDITIONS = "Balanced flight conditions (V-n)"
 
 #: The appendix carrying the wing loads station by station (OR-56).
 WING_LOAD_STATIONS = "Wing loads by station"
@@ -222,11 +225,11 @@ def step_is_implemented(step_key: str, implemented: FrozenSet[str]) -> bool:
 #: The lead paragraphs a group prints under its own heading, before its
 #: subsections. Keyed by :attr:`SectionGroup.key`.
 #:
-#: ``{input_echo}`` is filled by :func:`group_prose` from what the document
+#: ``{vn_conditions}`` is filled by :func:`group_prose` from what the document
 #: actually carries; a literal "Appendix A" here would be a cross-reference
 #: written as a literal, which is the thing :func:`section_number` exists to
-#: prevent one level up -- and today it would point at nothing, while colliding
-#: with the theory manual's own Appendix A that the introduction cites by name.
+#: prevent one level up -- and it would collide with the theory manual's own
+#: Appendix A that the introduction cites by name.
 GROUP_PROSE = {
     "loads_configuration": (
         # The owner's wording, 2026-08-30. Corrected on the way in: the first
@@ -239,8 +242,14 @@ GROUP_PROSE = {
         "load factors, and the flight envelope those speeds and factors bound. "
         "This defines the loads configuration for this analysis.",
 
-        "Every value below is reproduced from the analysis as computed"
-        "{input_echo}; nothing in this section is re-derived.",
+        # The inputs are no longer echoed into an appendix (note 44 OR-194):
+        # the project file is the echo, and is named as such rather than
+        # transcribed into a table that can drift from it.
+        "Every value below is reproduced from the analysis as computed; nothing "
+        "in this section is re-derived. The inputs themselves are not restated: "
+        "the project file the analysis was run from is the record of them. The "
+        "balanced flight conditions the envelope produces are tabulated in "
+        "full{vn_conditions}.",
     ),
 }
 
@@ -412,15 +421,15 @@ class Appendix:
 
 #: The appendices the document prints, in order. **Position is the letter.**
 #:
-#: The Appendix A input echo (note 44 §339) is agreed and not built, and it holds
-#: its slot anyway (OR-50). Lettering is derived from position, so shipping the
-#: wing-load appendix into an empty tuple would print it as Appendix A today and
-#: move it to B the moment the echo lands -- and an issue signed in between would
-#: disagree with its own reissue. A reserved slot renders its OR-32 state, which
-#: is the mechanism a not-yet-built *section* already uses, rather than a second
-#: way of saying the same thing.
+#: Slot A was reserved, unbuilt, for an input echo from note 44 §339 to OR-194
+#: (OR-50): lettering is derived from position, so shipping the wing-load appendix
+#: into an empty tuple would have printed it as Appendix A and moved it to B the
+#: moment the echo landed, and an issue signed in between would have disagreed
+#: with its own reissue. OR-194 **fills** that slot rather than vacating it -- with
+#: the V-n condition register, the matrix every section selects from -- so the
+#: reservation did its job and B through F never moved.
 APPENDICES: Tuple[Appendix, ...] = (
-    Appendix(INPUT_ECHO),
+    Appendix(VN_CONDITIONS, step_key="flight_envelope", built=True),
     Appendix(WING_LOAD_STATIONS, step_key="wing_loads", built=True),
     Appendix(BODY_LOAD_STATIONS, step_key="fuselage_loads", built=True),
     Appendix(HTAIL_LOAD_STATIONS, step_key="htail_loads", built=True),
@@ -482,7 +491,7 @@ def group_prose(group_key: str) -> List[str]:
     stating its own cross-reference as a literal is the defect
     :func:`section_number` exists to prevent, one level up.
     """
-    return [paragraph.format(input_echo=see_appendix(INPUT_ECHO))
+    return [paragraph.format(vn_conditions=see_appendix(VN_CONDITIONS))
             for paragraph in GROUP_PROSE.get(group_key, ())]
 
 
@@ -1027,12 +1036,12 @@ __all__ = [
     "GROUP_PROSE",
     "HTAIL_LOAD_STATIONS",
     "IMPLEMENTED",
-    "INPUT_ECHO",
     "NOT_CARRIED",
     "SECTION_GROUPS",
     "SECTION_SPLITS",
     "STATE_REASON",
     "STATE_TEXT",
+    "VN_CONDITIONS",
     "VTAIL_LOAD_STATIONS",
     "WING_LOAD_STATIONS",
     "Appendix",

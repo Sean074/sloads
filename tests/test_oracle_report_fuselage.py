@@ -129,17 +129,22 @@ def test_the_fuselage_section_renders_its_five_subsections_numbered_by_the_owner
              "Load distributions"])]
 
 
-def test_fuselage_loads_is_appendix_c_behind_the_echo_and_the_wing():
-    """G-OR-53 -- the letter follows position, and the reserved slot holds A."""
-    assert oc.appendix_letter(oc.INPUT_ECHO) == "A"
+def test_fuselage_loads_is_appendix_c_behind_the_vn_register_and_the_wing():
+    """G-OR-53 -- the letter follows position, and slot A holds the V-n register.
+
+    Slot A was reserved and unbuilt when this gate was written; OR-194 filled it
+    rather than vacating it, so B and C are exactly where they were. That is the
+    fact OR-50 reserved the slot to protect, now demonstrated rather than argued.
+    """
+    assert oc.appendix_letter(oc.VN_CONDITIONS) == "A"
     assert oc.appendix_letter(oc.WING_LOAD_STATIONS) == "B"
     assert oc.appendix_letter(oc.BODY_LOAD_STATIONS) == "C"
     # Sliced from the first appendix, not from the end of the document: a
     # fourth appendix must not be able to break a gate about the first three,
     # and the tail sections added exactly that (note 44 §17, OR-136).
     titles = [s.title for s in _doc().sections]
-    first = titles.index("Appendix A: Input echo")
-    assert titles[first:first + 3] == ["Appendix A: Input echo",
+    first = titles.index(oc.appendix_heading(oc.VN_CONDITIONS))
+    assert titles[first:first + 3] == [oc.appendix_heading(oc.VN_CONDITIONS),
                                        "Appendix B: Wing loads by station",
                                        "Appendix C: Fuselage loads by station"]
 

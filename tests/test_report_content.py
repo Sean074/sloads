@@ -460,6 +460,8 @@ MANIFEST_BASIS = {
     "<project>.json": "\u2014",
     "<project>_case_index.csv": "IDs are verbatim, never renumbered",
     "<project>_safety_factors.csv": "factors, not loads \u2014 nothing here is scaled",
+    "<project>_vn_conditions.csv":
+        "LIMIT; SF 1.5 stated in the report, applied to nothing here",
     "METHODS.txt": "\u2014",
     "<project>_summary_report.tex": "the basis of every other file here",
     "<project>_summary_report.pdf": "identical content to the .tex beside it",
@@ -584,6 +586,7 @@ SUMMARISED_IN = {
     "sbeam/<project>_mass_check.bdf": ("balanced", ""),
     "sbeam/<project>_inertia_only.bdf": ("balanced", ""),
     "<project>_gear_loads.csv": ("gear", ""),
+    "<project>_vn_conditions.csv": ("conditions", ""),
 }
 
 

@@ -2315,6 +2315,15 @@ def _manifest_rows(comps: ComponentLoads, module_results, u: Units,
         ["<project>_case_index.csv",
          "Every case ID produced by this run, mapped to its full definition.",
          "—", "IDs are verbatim, never renumbered", section_ref("conditions")],
+        # Appendix A as a file (note 44 OR-201). Unconditional: every project
+        # that produces a report produces an envelope, and a row gated on a
+        # rebuild would name a file the bundle carries only sometimes.
+        ["<project>_vn_conditions.csv",
+         "Every balanced flight condition on the V-n envelope — the candidate "
+         "set the wing, fuselage and empennage design conditions were selected "
+         "from, with the case IDs each point was selected as.",
+         human, "LIMIT; SF 1.5 stated in the report, applied to nothing here",
+         section_ref("conditions")],
         ["<project>_safety_factors.csv",
          "The governing safety-factor table: the authority every case's SF is "
          "derived from.", "—", "factors, not loads — nothing here is scaled",

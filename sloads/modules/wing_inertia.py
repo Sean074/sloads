@@ -35,6 +35,7 @@ import math
 from dataclasses import dataclass, field, replace
 from typing import Dict, List, NamedTuple, Optional
 
+from ..aero_curves import inertia_drag_factor
 from ..basic import basic_trunc3
 from ..case_ids import COMPONENT_PREFIX, WING_BAND_EXTRA, WING_SLOTS, wing_case_id
 from ..cg_cases import flight_cases
@@ -373,7 +374,7 @@ def _resolve_case(project: Project, case: WingLoadCase,
     nx = case.nx
     if nx is None:
         weight = _case_weight(project, vp.cg)
-        nx = -vp.dx / weight if weight else 0.0
+        nx = inertia_drag_factor(vp.dx, weight)
     return WingLoadCase(name=case.name, case=case.case, nz=nz, nx=nx,
                         unbal_moment=case.unbal_moment, cl=case.cl, v_eas_kt=case.v_eas_kt)
 

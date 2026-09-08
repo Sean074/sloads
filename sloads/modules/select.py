@@ -56,6 +56,7 @@ import math
 from dataclasses import replace
 from typing import Dict, List, NamedTuple, Optional, Tuple
 
+from ..aero_curves import inertia_drag_factor
 from ..case_ids import WING_BAND_EXTRA, WING_SLOTS, CaseIdAllocator, wing_case_id
 from ..cg_cases import flight_cases, max_takeoff_weight
 from ..constants import (
@@ -340,7 +341,7 @@ def _cg_case(cg_map: Dict[str, CgCase], p: VnPoint) -> CgCase:
 
 def _condition(component: str, label: str, far: str, p: VnPoint, weights: Dict[str, float]) -> CriticalCondition:
     """Wrap a selected :class:`VnPoint` as a :class:`CriticalCondition`."""
-    nx = -p.dx / _cg_weight(weights, p)
+    nx = inertia_drag_factor(p.dx, _cg_weight(weights, p))
     return CriticalCondition(
         component=component, label=label, far_reference=far, case=p.case,
         loads=[
@@ -1265,8 +1266,14 @@ def _stamp_case_refs(project: Project, conditions: List[CriticalCondition],
                      envelope: Optional[EnvelopeResult] = None) -> None:
     """Mint a :class:`CaseRef` per condition, in this list's fixed emission order
     (wing, then htail, then vtail, then fuselage -- ``build_critical``'s own call
-    order), and copy it onto the originating :class:`VnPoint` in
+    order), and **append** it to the originating :class:`VnPoint` in
     ``Project.envelope.vn`` when one exists, so the V-n table can show it too.
+
+    Appended, not assigned (note 44 OR-200): a point is routinely selected more
+    than once -- ``ga6_normal``'s V-n case 14 is VT-01, VT-02 and VT-03, case 74
+    is HT-03 and HT-09, case 30 is W-03 and F-01 -- and the single slot this
+    replaced kept only the last of them. Appendix A prints all of them, in this
+    list's order, which is the order the selection made.
 
     One allocator, scoped to this call, mints the htail/vtail/fuselage sequences.
     **Wing conditions do not use it** (M4-2 decision 4): their ``seq`` comes from
@@ -1277,7 +1284,14 @@ def _stamp_case_refs(project: Project, conditions: List[CriticalCondition],
     """
     allocator = CaseIdAllocator()
     allocator.seed("wing", WING_BAND_EXTRA)
-    vn_by_case = {p.case: p for p in _resolve_envelope(project, envelope).vn}
+    points = _resolve_envelope(project, envelope).vn
+    # Cleared before appending, so stamping the same envelope twice is the same
+    # as stamping it once. Assignment gave that for free; appending does not, and
+    # ``build_critical`` is reachable more than once per envelope instance (the
+    # report's Appendix A resolves the matrix and then asks for the selection).
+    for point in points:
+        point.case_refs.clear()
+    vn_by_case = {p.case: p for p in points}
     for c in conditions:
         p = vn_by_case.get(c.case) if c.case is not None else None
         if c.component == "wing" and c.label in WING_SLOTS:
@@ -1295,7 +1309,7 @@ def _stamp_case_refs(project: Project, conditions: List[CriticalCondition],
         )
         c.case_ref = ref
         if p is not None:
-            p.case_ref = ref
+            p.case_refs.append(ref)
 
 
 def build_critical(project: Project,

@@ -683,7 +683,7 @@ def _augmented_project():
     p.envelope = EnvelopeResult(
         vn=[VnPoint(case="PHAA", condition="A", config="cruise", cg="fwd", altitude_ft=0.0,
                     v_eas_kt=1, nz=1, alpha_deg=1, g_corr=1, cl=1, m_wf=1, lzw=1, lt=1, dx=1,
-                    case_ref=ref)],
+                    case_refs=[ref])],
         tail_balance=[TailBalanceLoad(case="c", condition="A", tail_load_lb=1.0,
                                       tail_cp_station=1.0, flaps_down=False)],
         critical=CriticalLoadSet(

@@ -35,6 +35,7 @@ from sloads.report.bundle import (
     manifest_name_for,
 )
 from sloads.report.content import build_report, component_loads
+from sloads.report.oracle_sections import vn_conditions_csv
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _EXAMPLES = os.path.join(_ROOT, "examples")
@@ -114,6 +115,7 @@ def _bundle(name, *, with_pdf=False):
                             *(mr.conditions for mr in results)),
         safety_factors_csv=_try(sb.safety_factors_csv, project),
         gear_report_csv=_try(sb.gear_report_csv, project),
+        vn_conditions_csv=_try(vn_conditions_csv, project),
         methods="methods",
         report_tex=tex,
         report_pdf=b"%PDF-1.4" if with_pdf else None,

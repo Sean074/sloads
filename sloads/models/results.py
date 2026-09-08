@@ -226,10 +226,17 @@ class VnPoint:
     lzw: float
     lt: float
     dx: float
-    # Stamped by SELECT (case_ids.py) when this point is chosen as a governing
-    # critical condition -- the same CaseRef as the CriticalCondition it produced.
-    # None for the bulk of the V-n matrix (never selected).
-    case_ref: Optional["CaseRef"] = None
+    # Stamped by SELECT (case_ids.py) for **every** critical condition this point
+    # was chosen for -- the same CaseRefs as the CriticalConditions it produced,
+    # in SELECT's own emission order (wing, htail, vtail, fuselage). Empty for the
+    # bulk of the matrix, which is never selected.
+    #
+    # A *list* since note 44 OR-200: one point is routinely selected more than
+    # once (on ``ga6_normal`` V-n case 14 is VT-01, VT-02 **and** VT-03; case 74
+    # is HT-03 and HT-09; case 30 is W-03 and F-01), and the singular field this
+    # replaces kept only the last write. It had no reader outside serialisation,
+    # so it is replaced rather than joined by a plural sibling.
+    case_refs: List["CaseRef"] = field(default_factory=list)
 
 
 @dataclass
