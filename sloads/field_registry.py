@@ -143,6 +143,14 @@ SENTINEL_DEFAULTS: Dict[str, str] = {
     "geometry.landing_gear.nose_gear.weight_lb":
         "0 = not stated; gear_loads.leg_weight returns None and the report "
         "prints the inertia term blank (G-12a)",
+    "engines[].thrust_line_aft":
+        "(0,0,0) = not stated; export/coordinates.engine_thrust_axis assumes "
+        "the airplane's forward axis and every deliverable marks it ASSUMED "
+        "(design note 53, D-53.3)",
+    "engines[].thrust_line_fwd":
+        "(0,0,0) = not stated; export/coordinates.engine_thrust_axis assumes "
+        "the airplane's forward axis and every deliverable marks it ASSUMED "
+        "(design note 53, D-53.3)",
 }
 
 #: ``Project`` attributes that are read-through **properties**, not stored
@@ -1468,6 +1476,25 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "ENGLOADS reciprocating/turbine branch; every field of both branches (ENGTORQ, CRUZTORQ, "
        "DT, CYL) is ORIGINAL here, so the switch between them is -- corrected building G5"),
     _E("engines[].mounted_on", _ENG, _SLDS, "fuselage/wing carrier, Step C5"),
+    # All three are ``supplied``: without them the oracle projection strips the
+    # fields, and OR-21 makes the report a function of that projection -- so a
+    # thrust line the user entered would be invisible to the very section that
+    # exists to resolve loads about it, and a counter-rotating engine's report
+    # would state the wrong rotation. The two points are also sentinel defaults
+    # (registered above): absent means assumed-with-a-note, which is exactly the
+    # class #98 refuses to filter off an oracle page.
+    _E("engines[].thrust_line_aft", _ENG, _SLDS,
+       "thrust line, aft point (design note 53, D-53.1). G5: omitted, every "
+       "engine-mount moment resolves about the assumed forward axis rather "
+       "than the entered line", supplied=True),
+    _E("engines[].thrust_line_fwd", _ENG, _SLDS,
+       "thrust line, forward point (design note 53, D-53.1). G5: omitted, "
+       "every engine-mount moment resolves about the assumed forward axis "
+       "rather than the entered line", supplied=True),
+    _E("engines[].prop_direction", _ENG, _SLDS,
+       "propeller rotation, pilot's view (design note 53, D-53.4). G5: "
+       "omitted, a counter-clockwise engine's every torque is published with "
+       "the wrong sign", supplied=True),
     _E("engines[].engine_weight_lb", _ENG, _ORIG, "ENGLOADS ENGWT", "engine mass",
        EXTERNAL + "the weight database (decision D-25 mass SSOT; review N1 instance 5: regional jet 300 lb apart)",
        governs=True),

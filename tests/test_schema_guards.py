@@ -359,7 +359,15 @@ def fields_hash() -> str:
 #: that means exactly what v59 meant, so the 59->60 hop is an identity, and a
 #: shape change all the same because ``LoadValue`` is persisted inside
 #: ``critical.conditions[].loads``.
-EXPECTED_FIELDS_HASH = "990aad17864c2702"
+#: v63 (design note 53 D-53.1/D-53.4): ``EngineInput`` gains
+#: ``thrust_line_aft``/``thrust_line_fwd`` -- the engine's thrust line as two
+#: entered stations, ``(0, 0, 0)`` on both meaning not entered, the sentinel
+#: ``LandingGearInput.attach`` already uses -- and ``prop_direction``, which way
+#: the propeller turns seen from the pilot's seat. Additive with defaults that
+#: are exactly the v62 meaning (no thrust line existed; every torque assumed
+#: clockwise), so the 62->63 hop is an identity and the Imperial digests do not
+#: move.
+EXPECTED_FIELDS_HASH = "c3a3b48783fc4171"
 
 
 def test_persisted_dataclass_shapes_are_unchanged():

@@ -11,7 +11,7 @@
       "engine_cg": [
         22.0,
         0.0,
-        92.0
+        -10.0
       ],
       "prop_weight_lb": 74,
       "prop_diameter_in": 84,
@@ -22,7 +22,7 @@
       "prop_cg": [
         -10.0,
         0.0,
-        100.0
+        93.022
       ],
       "takeoff_hp": 285,
       "max_cont_hp": 265,
@@ -49,7 +49,7 @@
         0.0
       ],
       "prop_direction": "CW",
-      "mounted_on": "fuselage"
+      "mounted_on": null
     }
   ],
   "engine_layout": "1N",
@@ -475,7 +475,7 @@
       },
       {
         "name": "fwd light",
-        "weight_lb": 2800,
+        "weight_lb": 2803,
         "xcg": 72.64,
         "zcg": 92,
         "analyses": [
@@ -518,7 +518,7 @@
         "symmetric": true,
         "elements": 20,
         "tip_cap_width_in": 0.0,
-        "ref_axis_pct": 0.4,
+        "ref_axis_pct": null,
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
         "sob_y_in": null
@@ -556,260 +556,6 @@
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
         "sob_y_in": null
-      },
-      {
-        "name": "htail",
-        "leading_edge": [
-          [
-            247.6,
-            0
-          ],
-          [
-            255.207,
-            63.685
-          ],
-          [
-            256.117,
-            70.1
-          ],
-          [
-            261,
-            72.1
-          ],
-          [
-            268.1,
-            73.1
-          ]
-        ],
-        "trailing_edge": [
-          [
-            284,
-            0
-          ],
-          [
-            284,
-            1.445
-          ],
-          [
-            292.567,
-            6.2
-          ],
-          [
-            290.662,
-            33.2
-          ],
-          [
-            288.657,
-            33.201
-          ],
-          [
-            286.3,
-            66.6
-          ],
-          [
-            284.7,
-            69.7
-          ],
-          [
-            279.8,
-            71.9
-          ],
-          [
-            274,
-            72.7
-          ],
-          [
-            268.1,
-            73.1
-          ]
-        ],
-        "symmetric": true,
-        "elements": 20,
-        "tip_cap_width_in": 0.0,
-        "ref_axis_pct": 0.4,
-        "front_spar_x_in": null,
-        "rear_spar_x_in": null,
-        "sob_y_in": null
-      },
-      {
-        "name": "vtail",
-        "leading_edge": [
-          [
-            240.912,
-            117.0
-          ],
-          [
-            277.0,
-            168.5
-          ]
-        ],
-        "trailing_edge": [
-          [
-            292.917,
-            111.5
-          ],
-          [
-            302.0,
-            166.794
-          ]
-        ],
-        "symmetric": false,
-        "elements": 20,
-        "tip_cap_width_in": 0.0,
-        "ref_axis_pct": 0.4,
-        "front_spar_x_in": null,
-        "rear_spar_x_in": null,
-        "sob_y_in": null
-      },
-      {
-        "name": "elevator",
-        "leading_edge": [
-          [
-            272.75,
-            0
-          ],
-          [
-            273.138,
-            66.6
-          ],
-          [
-            261,
-            72.1
-          ],
-          [
-            268.1,
-            73.1
-          ]
-        ],
-        "trailing_edge": [
-          [
-            284,
-            0
-          ],
-          [
-            284,
-            1.445
-          ],
-          [
-            292.567,
-            6.2
-          ],
-          [
-            290.662,
-            33.2
-          ],
-          [
-            288.657,
-            33.201
-          ],
-          [
-            286.3,
-            66.6
-          ],
-          [
-            284.7,
-            69.7
-          ],
-          [
-            279.8,
-            71.9
-          ],
-          [
-            274,
-            72.7
-          ],
-          [
-            268.1,
-            73.1
-          ]
-        ],
-        "symmetric": true,
-        "elements": 20,
-        "tip_cap_width_in": 0.0,
-        "ref_axis_pct": null,
-        "front_spar_x_in": null,
-        "rear_spar_x_in": null,
-        "sob_y_in": null
-      },
-      {
-        "name": "rudder",
-        "leading_edge": [
-          [
-            292.917,
-            111.5
-          ],
-          [
-            275.798,
-            114.685
-          ],
-          [
-            292.443,
-            163.539
-          ],
-          [
-            280.098,
-            164.773
-          ],
-          [
-            282.0,
-            168.0
-          ]
-        ],
-        "trailing_edge": [
-          [
-            292.917,
-            111.5
-          ],
-          [
-            302.0,
-            166.794
-          ],
-          [
-            282.0,
-            168.0
-          ]
-        ],
-        "symmetric": false,
-        "elements": 20,
-        "tip_cap_width_in": 0.0,
-        "ref_axis_pct": null,
-        "front_spar_x_in": null,
-        "rear_spar_x_in": null,
-        "sob_y_in": null
-      },
-      {
-        "name": "flap",
-        "leading_edge": [
-          [
-            122.567,
-            23
-          ],
-          [
-            114.065,
-            108.753
-          ],
-          [
-            129.522,
-            110.401
-          ]
-        ],
-        "trailing_edge": [
-          [
-            142.567,
-            23
-          ],
-          [
-            129.522,
-            110.401
-          ]
-        ],
-        "symmetric": false,
-        "elements": 20,
-        "tip_cap_width_in": 0.0,
-        "ref_axis_pct": null,
-        "front_spar_x_in": null,
-        "rear_spar_x_in": null,
-        "sob_y_in": null
       }
     ],
     "parametric": {
@@ -824,28 +570,6 @@
       "body_drag_waterline_z": 0.0,
       "tail_type": "conventional",
       "h_tail_z": 0.0
-    },
-    "fuselage": {
-      "sections": [
-        {
-          "x": -12.0,
-          "width": 0.0,
-          "height": 0.0,
-          "z_centre": null
-        },
-        {
-          "x": 99.39,
-          "width": 46.0,
-          "height": 68.7,
-          "z_centre": null
-        },
-        {
-          "x": 306.26,
-          "width": 4.6,
-          "height": 10.3,
-          "z_centre": null
-        }
-      ]
     },
     "empennage": {
       "htail": {
@@ -907,8 +631,7 @@
           96.2,
           6.0,
           66.0
-        ],
-        "weight_lb": 77.5
+        ]
       },
       "nose_gear": {
         "axle_compressed": [
@@ -930,8 +653,7 @@
           1.6,
           0.0,
           58.0
-        ],
-        "weight_lb": 49.0
+        ]
       },
       "tread_in": 114.5
     }
@@ -1062,13 +784,13 @@
       {
         "name": "itemized loading",
         "weight_lb": 3400.0,
-        "cg_x": 84.99947352941177,
+        "cg_x": 84.99947352941176,
         "cg_y": 0.0,
         "cg_z": 92.57893529411764,
         "ixx": 5566065.777145765,
-        "iyy": 9534656.489103382,
-        "izz": 14002929.711957619,
-        "ixz": 622619.4856941765,
+        "iyy": 9534656.489103384,
+        "izz": 14002929.711957617,
+        "ixz": 622619.4856941764,
         "gear_down": true
       }
     ]
@@ -1142,7 +864,7 @@
         "z": 0.0
       }
     ],
-    "ref_waterline": 87.7,
+    "ref_waterline": 55.0,
     "stations_are_override": false
   },
   "select_input": {

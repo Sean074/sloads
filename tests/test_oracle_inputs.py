@@ -367,8 +367,17 @@ def test_the_supplied_set_stays_small_against_the_asked_set():
     original asked for, or the reduction is being faked. 15 % since #98: the
     row-selector and sentinel-default classes (nine marks, each demonstrated
     below or guarded in ``test_field_registry.py``) took the set past the old
-    10 % line — the dial moved with the reason, and it still binds."""
-    assert len(supplied_paths()) < 0.15 * len(original_paths())
+    10 % line — the dial moved with the reason, and it still binds.
+
+    **16 % since design note 53** (2026-09-07), and the reason again: the
+    engine's thrust line is two stations and its rotation is one enum, and all
+    three change a *published* number if the oracle projection cannot see them
+    — an entered thrust line would be invisible to the section that exists to
+    resolve loads about it, and a counter-rotating engine's report would state
+    the wrong rotation while the analysis used the right one. Each is
+    demonstrated below. The dial has moved twice in the project's life, both
+    times with a class of field behind it and never to close a failure."""
+    assert len(supplied_paths()) < 0.16 * len(original_paths())
 
 
 def test_every_shipped_example_is_classified():
@@ -410,6 +419,50 @@ def test_the_reduction_drops_the_stored_slices_and_rederives_the_mass():
 # the nine rows marked supplied at #98 (the C210-46/49 hidden-field family and
 # its rule-4 sweep) has its demonstration here, so the marks are never
 # speculative.
+
+
+def test_the_thrust_line_and_rotation_are_invisible_to_the_report_if_omitted():
+    """Design note 53, the G5 demonstration for its three ``supplied`` marks.
+
+    The report is a function of the oracle projection (OR-21), so a field the
+    projection drops is a field section 10 cannot see. Omitted, an engine that
+    states a thrust line has its loads resolved about the *assumed* axis
+    instead, and a counter-clockwise engine's torque is published with the wrong
+    sign — in a document whose whole subject is which axis the loads act about.
+    """
+    from dataclasses import replace
+
+    from sloads.export.coordinates import engine_thrust_axis
+    from sloads.models.enums import RotorDirection
+    from sloads.modules.engine import run_all, torque_sense
+
+    project = _load("ga6_normal.project.json")
+    project.engines = [
+        replace(e, thrust_line_aft=(30.0, 0.0, 90.0),
+                thrust_line_fwd=(-10.0, 0.0, 120.0),
+                prop_direction=RotorDirection.COUNTERCLOCKWISE)
+        for e in project.engines]
+    reduced = reduce_to_oracle_inputs(project)
+
+    stated, reduced_engine = project.engines[0], reduced.engines[0]
+    assert engine_thrust_axis(stated) == engine_thrust_axis(reduced_engine), (
+        "the oracle projection dropped the thrust line, so the report would "
+        "resolve every engine-mount moment about an axis the user did not state")
+    assert torque_sense(stated) == torque_sense(reduced_engine), (
+        "the oracle projection dropped the rotation, so the report would "
+        "publish this engine's torque with the wrong sign")
+    assert (_torque(run_all(stated)) == _torque(run_all(reduced_engine)))
+
+
+def _torque(conditions):
+    """The first published engine-mount torque in a condition list."""
+    from sloads.load_keys import MX_MOUNT_TORQUE
+
+    for condition in conditions:
+        for value in condition.values:
+            if value.key == MX_MOUNT_TORQUE:
+                return value.value
+    return None
 
 
 def test_tab_surface_routes_the_case_and_its_absence_would_misroute_it():

@@ -10,6 +10,9 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `engines[].engine_designation` | `str` | e.g. "CONTINENTAL IO-520-BB" | `''` | original | ENGLOADS engine designation |
 | `engines[].engine_type` | `EngineType` |  | `EngineType.RECIPROCATING` | original | ENGLOADS reciprocating/turbine branch; every field of both branches (ENGTORQ, CRUZTORQ, DT, CYL) is ORIGINAL here, so the switch between them is -- corrected building G5 |
 | `engines[].mounted_on` | `Optional[str]` | "fuselage" \| "wing" | `None` | sloads | fuselage/wing carrier, Step C5 |
+| `engines[].thrust_line_aft` | `Tuple[float, float, float]` |  | `(0.0, 0.0, 0.0)` | sloads (supplied) | thrust line, aft point (design note 53, D-53.1). G5: omitted, every engine-mount moment resolves about the assumed forward axis rather than the entered line |
+| `engines[].thrust_line_fwd` | `Tuple[float, float, float]` |  | `(0.0, 0.0, 0.0)` | sloads (supplied) | thrust line, forward point (design note 53, D-53.1). G5: omitted, every engine-mount moment resolves about the assumed forward axis rather than the entered line |
+| `engines[].prop_direction` | `RotorDirection` |  | `RotorDirection.CLOCKWISE` | sloads (supplied) | propeller rotation, pilot's view (design note 53, D-53.4). G5: omitted, a counter-clockwise engine's every torque is published with the wrong sign |
 | `engines[].engine_weight_lb` | `float` | ENGWT | `0.0` | original | ENGLOADS ENGWT; quantity: *engine mass*; override of `external: the weight database (decision D-25 mass SSOT; review N1 instance 5: regional jet 300 lb apart)` |
 | `engines[].engine_cg` | `Tuple[float, float, float]` | XENG, YENG, ZENG | `(0.0, 0.0, 0.0)` | original | ENGLOADS XENG/YENG/ZENG; quantity: *engine station*; override of `external: the weight database (decision D-25 mass SSOT; review N1 instance 5: regional jet 130 in apart)` |
 | `engines[].hub_weight_lb` | `Optional[float]` | HUBWT | `None` | original | ENGLOADS HUBWT |

@@ -51,7 +51,16 @@ MANIFEST: dict[str, str] = {
     # nothing is recomputed.
     "sloads/modules/body_loads.py": "9681f7baa70a5f4388236849c8967ce8d272234257347f3ed0012480f5811c39",
     "sloads/modules/configuration.py": "1c0cd2b1b21b04544eb919d69cfc48c6a151016be151ea4f77a261bf79549667",
-    "sloads/modules/engine.py": "572e52b63e2587a9ad7a59987dad3f3970c3e5401c2a7f00fd92b67f9a1488c6",
+    # OR-15 admission, granted by the owner 2026-09-07 (design note 53, D-53.5),
+    # scoped to **the torque sign and nothing else** -- not a refactor, not a
+    # rename, not formatting in the same file. ``torque_sense`` reads the new
+    # ``EngineInput.prop_direction`` and is the one place it reaches a published
+    # load; ``_floored_torque`` exists because BASIC's ``INT`` floors, so the
+    # sign cannot be applied inside the flooring without a counter-clockwise
+    # engine publishing a stoppage torque 1 ft-lb short. Clockwise is the
+    # default, so every shipped project is bit-identical and the Appendix A
+    # figures are untouched.
+    "sloads/modules/engine.py": "73aa5d6019fc22c3c56d0545f4bad61afd2224565327f796f9a0b925fac65432",
     "sloads/modules/flap.py": "3bd3bfa06ddc4922227ee922dce85e46691daa528cca28ca582d18c19034ec52",
     "sloads/modules/flight_envelope.py": "acb92d1e78674588fcafb133903dc905c6e40dab05c0ea1afa6d606d60fcb067",
     "sloads/modules/landing.py": "e74744924f42f5fba83ba81fe918210db31790d88b02557f068262df052cc56c",
@@ -93,7 +102,12 @@ MANIFEST: dict[str, str] = {
     # --- the existing oracle GUI (OR-13, row 2) ---------------------------
     "oracle_app/Oracle.py": "b478bf06fd1c998ffa9ee1eebbc51225c24a26a813840529105779b51f5085a1",
     "oracle_app/__init__.py": "bb3135345b421b8fac0f02226050b821770a53c647c4ead72c8dfbd2d156f3d0",
-    "oracle_app/form.py": "e3e91804ff0d5b5d53de628bbcd1c847b6fea86db32049436651485abc926518",
+    # OR-15 admission, granted by the owner 2026-09-07 (design note 53, D-53.1),
+    # scoped to **two ``MEMBER_LABELS`` rows and nothing else**: the engine's
+    # thrust line is a composite field in the oracle input set, and this table
+    # is the only place a composite's members are named -- unnamed it renders
+    # as "1, 2". Additive; no existing field's behaviour changes.
+    "oracle_app/form.py": "18d32966d2c91a280eb16cfe0103a7db028fed9901c70cb2200f76d96c22523e",
     "oracle_app/labels.py": "93e442a1fff2174fdd17dd56f8d0b5f91e071641ead341be3dc5b71ede7cebf9",
     "oracle_app/results.py": "b49e5a8676cc747e559579c8ca0f5f5f8b2e8d2be07903d8cdd4b214b5b46645",
 }

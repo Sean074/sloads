@@ -203,6 +203,25 @@ def _hop_61(d: Dict[str, Any]) -> Dict[str, Any]:
     return d
 
 
+def _hop_62(d: Dict[str, Any]) -> Dict[str, Any]:
+    """v62 -> v63 (design note 53, owner 2026-09-07): **identity**.
+
+    v63 gives ``EngineInput`` a thrust line as two entered points and the
+    propeller's rotation direction. ``None`` on both points is exactly the v62
+    state -- the schema carried no thrust line at all -- and the axis then falls
+    back to the airplane's forward direction, marked ASSUMED (D-53.3).
+    ``CLOCKWISE`` is what every published engine torque already assumed before
+    the field existed (D-53.4), so a v62 file loads bit-identical and no
+    delivered load moves across this hop.
+
+    The one number that *does* move on a v62 file is the oracle report's section
+    10.2, and it moves because D-53.3 supersedes note 44 OR-161: the axis is no
+    longer derived from the engine CG to the hub. That is a change of published
+    view, not of stored data, so it is not this hop's to carry.
+    """
+    return d
+
+
 #: ``{from_version: hop}`` -- applied in ascending order, each turning a file of
 #: version *n* into version *n+1* shape. A version that changes shape adds its
 #: hop here; :data:`SUPPORTED_FLOOR` names the oldest version the chain starts
@@ -215,6 +234,7 @@ MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     59: _hop_59,
     60: _hop_60,
     61: _hop_61,
+    62: _hop_62,
 }
 
 #: The oldest project version this build reads. It sat at ``SCHEMA_VERSION``

@@ -225,6 +225,69 @@ with st.form("engine_mount_form"):
         max_cont_rpm = st.number_input(
             "Max continuous RPM", value=float(cur.max_cont_rpm), step=10.0, key=widget_key(k("contrpm", False)))
 
+    # --- The thrust line and the propeller's rotation (design note 53) ------ #
+    #
+    # Stated here rather than left to a derivation: an axis taken from the
+    # engine CG to the hub is a line between two *mass* stations and carries
+    # every error in either -- 71.6 deg off the airplane axis on one shipped
+    # example. The caption is not decoration: D-53.7 makes the sign convention
+    # part of the control, because the one thing a user cannot check on the
+    # results page is which way round "clockwise" was meant.
+    st.subheader("Thrust line and rotation")
+    st.caption(
+        "Rotation is **clockwise seen from the pilot's seat** by default -- the "
+        "same view the manual's stoppage and rotor conventions use. It sets the "
+        "sign of every torque the engine delivers to the airframe: a propeller "
+        "turning clockwise from that seat delivers a **counter-clockwise** "
+        "torque to the structure, which is why the reported engine mount torque "
+        "is negative. It sets nothing else -- the gyroscopic case is assessed "
+        "for all four sign combinations either way.")
+    d1, d2, d3 = st.columns(3)
+    with d1:
+        _rotations = {"Clockwise (from the pilot's seat)": RotorDirection.CLOCKWISE,
+                      "Counter-clockwise": RotorDirection.COUNTERCLOCKWISE}
+        _labels = list(_rotations)
+        _current = next((i for i, name in enumerate(_labels)
+                         if _rotations[name] is cur.prop_direction), 0)
+        prop_direction = _rotations[st.selectbox(
+            "Propeller rotation", _labels, index=_current,
+            key=widget_key(k("propdir", False)),
+            help="Viewed from the rear of the engine looking forward.")]
+        state_line = st.checkbox(
+            "State the thrust line", value=any(cur.thrust_line_fwd),
+            key=widget_key(k("stateline", False)),
+            help=("Unticked, both points sit at the origin -- this schema's "
+                  "'not stated' -- the loads resolve about the airplane's "
+                  "forward axis, and every deliverable marks that ASSUMED."))
+    with d2:
+        st.markdown(f"**Thrust line, aft point ({U['length']})**")
+        _aft = cur.thrust_line_aft if any(cur.thrust_line_aft) else cur.engine_cg
+        xta = st.number_input("X aft", value=dflt(_aft[0], "length"),
+                              disabled=not state_line, key=widget_key(k("xta")))
+        yta = st.number_input("Y aft", value=dflt(_aft[1], "length"),
+                              disabled=not state_line, key=widget_key(k("yta")))
+        zta = st.number_input("Z aft", value=dflt(_aft[2], "length"),
+                              disabled=not state_line, key=widget_key(k("zta")))
+    with d3:
+        st.markdown(f"**Thrust line, forward point ({U['length']})**")
+        _fwd = cur.thrust_line_fwd if any(cur.thrust_line_fwd) else cur.prop_cg
+        xtf = st.number_input("X forward", value=dflt(_fwd[0], "length"),
+                              disabled=not state_line, key=widget_key(k("xtf")))
+        ytf = st.number_input("Y forward", value=dflt(_fwd[1], "length"),
+                              disabled=not state_line, key=widget_key(k("ytf")))
+        ztf = st.number_input("Z forward", value=dflt(_fwd[2], "length"),
+                              disabled=not state_line, key=widget_key(k("ztf")))
+    st.caption(
+        "The forward point is forward **because it is entered here**, never "
+        "inferred from the smaller station -- which is what lets a pusher "
+        "installation be stated without a special case. Enter both points or "
+        "neither; one alone states no direction and is refused by name.")
+    # ``(0, 0, 0)`` is this schema's "not stated" for an optional station
+    # (design note 53, D-53.1), the sentinel ``LandingGearInput.attach`` uses.
+    _unstated = (0.0, 0.0, 0.0)
+    thrust_line_aft = (xta, yta, zta) if state_line else _unstated
+    thrust_line_fwd = (xtf, ytf, ztf) if state_line else _unstated
+
     # Type-specific inputs
     takeoff_hp = max_cont_hp = cylinders = None
     max_engine_torque = cruise_torque = hub_weight_lb = stop_time_s = None
@@ -446,6 +509,9 @@ if applied:
         design_yaw_rate_rad_s=design_yaw_rate,
         design_pitch_rate_rad_s=design_pitch_rate,
         thrust_lb=thrust_lb,
+        thrust_line_aft=thrust_line_aft,
+        thrust_line_fwd=thrust_line_fwd,
+        prop_direction=prop_direction,
         # No widget renders ``mounted_on`` (BM-4's engine parent), so it has to be
         # carried across explicitly: rebuilding the input from the form alone reset
         # a stated "fuselage" to None, and the deck then inferred the parent from

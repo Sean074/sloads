@@ -37,6 +37,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
+from dataclasses import replace
+
 from sloads import io
 from sloads.export.coordinates import engine_applied_load, engine_thrust_axis
 from sloads.load_keys import FY_SIDE, FZ_VERTICAL, MX_MOUNT_TORQUE, gyro_key
@@ -134,7 +136,7 @@ def test_the_printed_components_are_the_resolution_of_the_printed_scalars():
 
         cases = []
         for eng in resolved_engines(project):
-            axis, _assumed = engine_thrust_axis(eng.engine_cg, eng.prop_cg)
+            axis, _assumed = engine_thrust_axis(eng)
             for condition in run_all(eng, include_far25=project.include_far25):
                 values = {v.key: v.value for v in condition.values}
                 if any(k.startswith("gyro_case") for k in values):
@@ -310,39 +312,50 @@ def test_every_engine_gets_its_own_rows_at_its_own_butt_line():
 # --------------------------------------------------------------------------- #
 # G-OR-109 -- an assumed axis is marked, a derived one is not
 # --------------------------------------------------------------------------- #
-def test_an_assumed_thrust_axis_is_marked_and_a_derived_one_is_not():
-    """G-OR-109. Both directions, on shipped data: the regional jet enters its
-    hub at the engine CG and can derive nothing; the others enter it forward.
+def test_an_assumed_thrust_axis_is_marked_and_an_entered_one_is_not():
+    """G-OR-109, as design note 53 D-53.3 leaves it. Both directions.
 
-    A statement that never fires and one that always fires both fail here."""
-    jet = _section(_doc("concept_regional_jet"))
-    stations = _table(jet, "Where the loads act")
-    axis = _column(stations, "Thrust axis")
-    assert all("ASSUMED" in row[axis] for row in stations.rows)
-    assert any("ASSUMED" in sentence for sentence in _text(jet))
-
-    for name in ("ga6_normal", "baron_58", "cessna_210"):
+    Every shipped example states no thrust line, so every one is ASSUMED; the
+    entered direction is exercised on a constructed project, because no airplane
+    in the tree enters one yet. The gate that a statement which always fires and
+    one which never fires both fail is kept -- it just needs a project built to
+    fire it the other way.
+    """
+    for name in _ALL:
         section = _section(_doc(name))
         stations = _table(section, "Where the loads act")
-        assert not any("ASSUMED" in row[_column(stations, "Thrust axis")]
-                       for row in stations.rows), name
+        axis = _column(stations, "Thrust axis")
+        assert all("ASSUMED" in row[axis] for row in stations.rows), name
+        assert any("ASSUMED" in sentence for sentence in _text(section)), name
+
+    project = _project("ga6_normal")
+    project.engines = [replace(e, thrust_line_aft=(30.0, 0.0, 95.0),
+                               thrust_line_fwd=(-10.0, 0.0, 95.0))
+                       for e in project.engines]
+    section = _section(_doc(project=project))
+    stations = _table(section, "Where the loads act")
+    assert not any("ASSUMED" in row[_column(stations, "Thrust axis")]
+                   for row in stations.rows)
 
 
-def test_a_derived_axis_is_the_direction_from_the_mount_node_to_the_hub():
-    """The axis is derived from the two stations and from nothing else, so the
-    printed cosines are checkable against the stations printed beside them."""
-    for name in ("ga6_normal", "cessna_210"):
-        project = _project(name)
-        section = _section(_doc(project=project))
-        stations = _table(section, "Where the loads act")
-        row = stations.rows[0]
-        mount = [float(v) for v in row[_column(stations, "Mount node")].split(",")]
-        hub = [float(v) for v in row[_column(stations, "Hub node")].split(",")]
-        printed = [float(v) for v in row[_column(stations, "Thrust axis")].split(",")]
-        delta = [h - m for h, m in zip(hub, mount)]
-        length = math.sqrt(sum(v * v for v in delta))
-        for got, want in zip(printed, (v / length for v in delta)):
-            assert math.isclose(got, want, abs_tol=5e-4), name
+def test_an_entered_thrust_line_is_the_axis_the_loads_resolve_about():
+    """D-53.1/D-53.3. The axis is the entered pair's difference, normalised, and
+    the loads follow it: a line inclined in ``z`` puts part of the torque onto
+    ``Mz``, where a line along ``x`` puts all of it onto ``Mx``."""
+    project = _project("ga6_normal")
+    project.engines = [replace(e, thrust_line_aft=(30.0, 0.0, 90.0),
+                               thrust_line_fwd=(-10.0, 0.0, 120.0))
+                       for e in project.engines]
+    section = _section(_doc(project=project))
+    stations = _table(section, "Where the loads act")
+    printed = [float(v) for v in
+               stations.rows[0][_column(stations, "Thrust axis")].split(",")]
+    length = math.hypot(-40.0, 30.0)
+    for got, want in zip(printed, (-40.0 / length, 0.0, 30.0 / length)):
+        assert math.isclose(got, want, abs_tol=5e-4)
+
+    components = _table(section, "Engine mount loads")
+    assert float(components.rows[0][_column(components, "Mz")]) != 0.0
 
 
 # --------------------------------------------------------------------------- #

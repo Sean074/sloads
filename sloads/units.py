@@ -350,6 +350,8 @@ def to_imperial(inp: EngineInput, system: UnitSystem) -> EngineInput:
         hub_weight_lb=w(inp.hub_weight_lb),
         engine_cg=cg(inp.engine_cg),
         prop_cg=cg(inp.prop_cg),
+        thrust_line_aft=cg(inp.thrust_line_aft),
+        thrust_line_fwd=cg(inp.thrust_line_fwd),
         prop_diameter_in=ln_(inp.prop_diameter_in),
         prop_inertia=j(inp.prop_inertia),
         max_engine_torque=tq(inp.max_engine_torque),
@@ -450,6 +452,9 @@ _PROJECT_FIELD_KIND = {
     # the three ``axle_*`` gear points are the same shape one dimension down
     # (``Vec3``/``XYPoint``), and convert the same way.
     "engine_cg": "length_in", "prop_cg": "length_in", "attach": "length_in",
+    # The engine's thrust line, as two entered stations (design note 53,
+    # D-53.1). Points, exactly as the two CGs beside them are.
+    "thrust_line_aft": "length_in", "thrust_line_fwd": "length_in",
     "axle_static": "length_in", "axle_compressed": "length_in",
     "axle_extended": "length_in",
     # Inch stations and waterlines that carry **no** ``_in`` suffix (2026-08-19).
