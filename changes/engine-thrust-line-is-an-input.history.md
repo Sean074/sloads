@@ -1,5 +1,14 @@
 ## Step 163 — The engine's thrust line is an input (design note 53, tier L, 2026-09-07)
 
+**Landed in Step 162's commit, `175369e`.** The two steps were built in one
+working tree and `solo_close.sh` gates and stages the whole of it, so this step's
+files went in under *"The engine mount takes six components at one point"*. Both
+are recorded here as the separate steps they are — separate design notes,
+separate gate sets, separate fragments — and the changelog is assembled from
+these fragments rather than from commit messages, so nothing is lost by the
+sharing. Noted because a reader tracing this step to a commit of its own will not
+find one.
+
 **Objective.** Section 10 shipped a day earlier resolving each engine's torque
 and thrust onto the airplane axes, and it needed an axis to resolve them about.
 The schema had never carried one, so note 44 OR-161 derived it from the engine CG
