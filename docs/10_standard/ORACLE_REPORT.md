@@ -116,9 +116,11 @@ the section printing and there is then no reader to owe a reason to. Among the
 states that print, *not yet implemented* outranks *absent*. When every section
 is implemented that ordering stops mattering and *absent* is the only one left.
 
-Selection is limited to analysis-body sections and the input echo. Front matter,
-the governing-loads summary and methods & limitations are never selectable: they
-carry the load basis and the traceability statements.
+Selection is limited to analysis-body sections. Front matter, the
+governing-loads summary and methods & limitations are never selectable: they
+carry the load basis and the traceability statements. (The input echo was
+selectable while it existed; OR-194 retired it, and Appendix A — the V-n
+register, which follows no section — is not offered.)
 
 The cover carries identity and the approval record and nothing that has to be
 read through. With the analysis basis and a thirteen-item list of unbuilt
@@ -517,21 +519,10 @@ and one appendix, built from the `wing_loads` step
 - **Every appendix SHALL start a fresh page**, and Appendix B **SHALL** be
   landscape throughout — one orientation per appendix, so it survives a column
   being added rather than being re-decided per table.
-- **Appendix A is the balanced V-n condition register** (note 44 §23, OR-194):
-  every point the flight envelope produces, which is the candidate set sections
-  3 through 6 select their design conditions **from**. It is the one appendix
-  that is not a projection of a section, and the reason it exists is that a
-  selection whose candidate set is not published is a claim rather than a
-  result. It holds slot A because that slot was **reserved** for it to fill:
-  lettering is derived from position, so an unreserved slot would have printed
-  the wing appendix as A and moved it to B when A landed, and an issue signed in
-  between would have disagreed with its own reissue. B through F did not move,
-  which is the reservation vindicated rather than merely retired. The rule it
-  established stands for any future slot: a reserved appendix is lettered and
-  **SHALL NOT** be referable, and prose points at a built appendix only.
-- **The inputs SHALL NOT be echoed into a table** (OR-194). The project file is
-  an exact, machine-readable echo of them; a transcription is a second copy that
-  can disagree with the first, so the document names the file instead.
+- **Wing Loads is Appendix B, behind Appendix A.** Slot A was reserved ahead of
+  it (OR-50) so the lettering could not move under a signed issue, and is now
+  filled by the V-n condition register — §3.13 owns that appendix, the retired
+  input echo included (OR-194).
 
 ## 3.5 Section 4: Fuselage Loads
 
@@ -750,15 +741,15 @@ module `taildist`), which is **split by surface**: the horizontal tail is sectio
   the discrete load path). A column of dashes is not a statement, so the control
   columns go rather than print empty.
 - **Appendix D is an applied-load deck and nothing else (owner, 2026-09-07).**
-  `Case | GID | X | Y | Z | Fz | SF`, the point in **airplane axes** from the
-  same mapper the exported deck uses. Appendix B splits applied from carried
-  because the wing section is where a reader checks a beam model's own answer;
-  the empennage appendix is a deck to load a model *with*, so what the structure
-  carries is stated at the root in the section instead. There is **no `Fx`
-  column**: this analysis models no chordwise force on either tail surface and
-  no empennage dihedral, so the other components are absent by construction
-  rather than zero by measurement, and OR-61's ruling — a column of zeros reads
-  as a measured zero — keeps them out. The appendix states both absences.
+  Appendix B splits applied from carried because the wing section is where a
+  reader checks a beam model's own answer; the empennage appendix is a deck to
+  load a model *with*, so what the structure carries is stated at the root in
+  the section instead. Its column set, frame and structural-zero rules are
+  **§3.8's** (note 44 §18, agreed later the same day and amending this
+  section): the thirteen-column applied spine, with the zeros printed and
+  named. The `Fz`-only, no-`Fx` set this section first specified is superseded
+  — §3.8's *"an absence must be true"* finding is why, and one standard states
+  one column set.
 - **The h-tail station waterline is asked of its owner and its provenance is
   stated beside it (#236).** The waterline §5.1's station table and Appendix D
   print is `tail_geometry.h_tail_waterline`'s — the same resolution
@@ -1050,6 +1041,150 @@ engine, and the two scalars they were resolved from beside them.
 - **The section adds no appendix.** A mount takes a point load, not a
   distribution, so there is nothing for a station table to carry.
 
+## 3.11 Section 11: One Engine Inoperative
+
+*Agreed 2026-09-07 (note 44 §21, OR-171 … OR-182). Three subsections: 11.1
+Input Data, 11.2 Critical Cases and 11.3 Yaw Transient — the third exists
+because this analysis is a time march, and a peak stated without the event that
+produced it is a number without a result.*
+
+**The 23.367 cases are the governing fin loads, and the whole v-tail chain
+carries them.** On every shipped twin the one-engine-out case exceeds SELECT's
+largest fin case, by up to 3.3× — the measurement that reorganised this
+iteration under rule 6.
+
+- **The 23.367 conditions SHALL join the fin's critical set** (OR-172), and
+  every admitted case SHALL reach the chordwise distribution, the spanwise
+  distribution, Appendix E and the exported v-tail deck. A document that prints
+  a governing load in Section 11 while Section 6 calls a smaller one critical
+  has published a contradiction.
+- **One case per entered engine, and no mirror asserted** (OR-173). A mirrored
+  case is the report minting a case the analysis did not run (OR-6); OR-166 is
+  the precedent one section back.
+- **An uncontrollable case is printed in full and excluded from the envelope**
+  (OR-174): its load at the simulation bound, the uncontrollability statement,
+  and the referral to the stability-and-control discipline. It reaches no
+  critical set, no distribution, no appendix and no deck — printing it and
+  excluding it are both required.
+- **The chordwise split is taken at the instant of peak total load** (OR-175),
+  never as each quantity's own maximum, and the condition publishes that
+  instant's sideslip and rudder angle as its aero state.
+- **The ULTIMATE-classified case is marked wherever it appears** (OR-176):
+  23.367(a)(2) carries SF 1.0 beside neighbours at 1.5, so every table row
+  *and every plotted series* naming it states its factor in band, and no load
+  in the section is marked `-ULT`.
+- **Six figures per engine's speed set** (OR-177) — attitude and load histories
+  — each marking the 23.367(b) two-second delay, the onset of corrective action
+  and the peak.
+- **A single-engine airplane renders `NOT_APPLICABLE`, not `ABSENT`** (OR-178):
+  it is not missing inputs, it has no one-engine-inoperative condition, and the
+  reason string is `applicability.step_not_applicable`'s own, naming the
+  regulation.
+- **The fin's inertia relief is absent on these cases and the section says so**
+  (OR-179): a 23.367 condition names no V-n point, so `n_y = 0` by design and
+  its absence is conservative.
+- **The case-index rows carry their side load** (OR-180), keyed as the column
+  `load_cases_to_rows` maps; the sparse index at large is filed, not gated
+  (G-OR-118's narrowing).
+- **`baron_58` carries the section** (OR-182); `ga6_normal` is single-engine,
+  the concept jet's fan installation is refused on `PROPELLER_ONLY_NOTE`
+  grounds, and `atr42_100` joins the shipped set when note 51's T-tail lands.
+
+## 3.12 Section 12: Landing Gear Loads
+
+*Agreed 2026-09-07 (note 44 §22, OR-183 … OR-193). Three subsections: 12.1
+Input Data and Gear Geometry, 12.2 Landing Load Factor and 12.3 Ground Load
+Conditions. The last analysis-body section: with it, `IMPLEMENTED` covers every
+entry of `analysis_steps()`.*
+
+**Every case is delivered; no down-select survives** (OR-184). A ground case
+sizes a gear leg through load paths this analysis cannot see, so ranking 33
+conditions on one scalar removes the case a reader needs. The summaries are a
+reading aid and are labelled as one.
+
+- **A family critical is named twice — nose and main** (OR-185), each ranked on
+  its own gear's full three-component magnitude. The single-scalar rank hid the
+  three-wheel level landing that sizes the nose gear on every shipped example.
+  Fixed in the module, so the CSV, Results Review, the GUI and the document are
+  corrected together.
+- **Each structural element gets its own applied-load CSV** (OR-186), on the
+  common spine — case, application point, six global components, SF — and the
+  case index stays a register of identities, stated as such rather than left to
+  read as empty loads.
+- **12.2 prints the governing load factor beside LGFACTOR's energy estimate**
+  (OR-187), names which governed, and prints `below_energy_caution`'s sentence
+  where it fires. An entered number presented as a computed one describes an
+  analysis nobody ran (OR-57).
+- **Appendix F is the gear's applied set, all 33 cases** (OR-188), each row at
+  the point `gear_loads.application_point_of` names for its case; a wheel
+  reaction is a pure force, so the moment zeros are printed rather than blanked
+  (OR-140); cases 25–33 are carried and flagged as carrying no airplane
+  equilibrium.
+- **Three attitude figures, drawn from the manual's own** (OR-189), each naming
+  its axle state, ground angle and the cases that use it — the mapping read
+  from `landing.attitude_of`, with the case lists partitioning 1–33 exactly.
+- **A cross-reference is a promise the target keeps** (OR-191): every condition
+  another section forward-references by name SHALL appear in the section
+  referenced, gated against `_body_advisories`.
+- **All three shipped reports carry the section** (OR-192); the concept
+  airplane's category-C extrapolation note travels with its conditions, and a
+  project with no `landing` slice renders `ABSENT` — it is missing an input,
+  not exempt from a regulation, so `NOT_APPLICABLE` is not used here.
+- **OR-193** (recorded in §23's register for the fix shipped here): a condition
+  stating no point of application takes the point of the condition it follows —
+  the same engine's — never the first in the set.
+
+## 3.13 Appendix A: the V-n condition register
+
+*Agreed 2026-09-07 (note 44 §23, OR-193 … OR-203). The first appendix that is
+not a projection of a section: it is the matrix every section selected from,
+and a selection whose candidate set is not published is a claim, not a
+result.*
+
+- **Appendix A is the balanced V-n condition register** (OR-194): every point
+  the flight envelope produces — the candidate set sections 3 through 6 select
+  their design conditions **from**, with the survivors marked within it by the
+  component columns. It holds slot A because OR-50 **reserved** that slot:
+  lettering is derived from position, so B through F did not move when A
+  landed, which is the reservation vindicated. The rule stands for any future
+  slot: a reserved appendix is lettered and **SHALL NOT** be referable, and
+  prose points at a built appendix only.
+- **The input echo is retired, not relettered** (OR-194). The inputs SHALL NOT
+  be echoed into a table: `project.json` is an exact, machine-readable echo of
+  them, and a transcription is a second copy that can disagree with the first.
+  The document names the file instead, and `INPUT_ECHO` and the `{input_echo}`
+  substitution are gone with it.
+- **The appendix repeats nothing another section carries — except the mass
+  cases** (OR-195), which are the key its own CG column resolves against: id,
+  name, WT, XCG, ZCG, and nothing §2 already prints beyond that key.
+- **One flat table, landscape, ordered CG then configuration then altitude then
+  case** (OR-196) — the manual's blocks flattened in place, so a reader holding
+  p180 against the appendix reads the same sequence, with the block headings
+  become columns.
+- **Four component columns — W, F, HT, VT — and no engine or gear column**
+  (OR-197). Neither module reads the V-n matrix, so their ids can never appear
+  in a row, and a permanently blank column reads as a data gap; the section
+  states the absence in a sentence instead (OR-140).
+- **NX is printed beside DX and the thrust assumption is stated** (OR-198):
+  thrust is off by construction — the balance solves Z-force and pitch only,
+  and the whole of DX is reacted as the longitudinal inertia factor
+  `NX = -DX/W`, the number WINGINER actually consumes. Power in the balance is
+  filed, not done.
+- **A CG case carries a derived positional id; its name remains its identity**
+  (OR-199). `CG1..CGn` is `flight_cases` entry order indexed — display-only,
+  persisted nowhere — and §2.2 gains the id column so the appendix and Section
+  2 index the same cases by the same id.
+- **A V-n point carries every case it was selected for** (OR-200):
+  `case_ref` became `case_refs`, because a multiply-selected point that keeps
+  one id has dropped the others silently.
+- **The appendix ships `<project>_vn_conditions.csv`** (OR-201) — same rows,
+  same order, same columns as the table, gated against it. It is not an
+  applied-load file: a V-n point is a balanced flight state, not a load at a
+  point.
+- **Every `OR-n` cited anywhere in the tree has a row in a design-note
+  register** (OR-202) — a citation is a promise the register keeps, gated the
+  same way OR-191 gates cross-section references.
+
 ## 4. Identity, signatures and DRAFT
 
 The title block carries report number, revision, issue date, issuing
@@ -1122,7 +1257,7 @@ cover, per §4.
   normal case to police the rare one.
 - The fingerprint is **not a signature** — there is no key, so it detects
   accident, not tampering — and it is not the record of what was analysed. The
-  input echo is that.
+  packaged `project.json` is that (OR-194).
 - **The anchors were reduced from six rows to two** on 2026-08-30 (design
   weight, wing area, VC and VD removed as analysis outputs a reader meets in the
   body). The consequence is stated rather than glossed: name and category are a
@@ -1221,6 +1356,11 @@ without a guard is prose, not a gate).
 | 10. The Appendix A engine, and the basis (OR-159, OR-170) | 2026-09-07 | `test_oracle_report_engine.py::test_the_appendix_a_engine_reaches_the_document`, `::test_no_load_the_engine_section_prints_is_marked_ultimate`, `::test_section_10_adds_no_appendix` |
 | 10.1 Three views, and the body outline's owner (OR-168, OR-169) | 2026-09-07 | `test_oracle_report_engine.py::test_the_three_views_are_built_and_name_what_they_drew`, `::test_a_project_with_no_outline_still_draws_its_engines`, `::test_a_project_with_no_engine_states_the_section_absent`, `::test_the_body_outline_has_one_owner_and_three_views` |
 | 4.1 Side view, and mass against beam | 2026-09-07 | `test_oracle_report_fuselage.py::test_the_side_view_draws_the_mass_the_beam_and_the_load_paths`, `::test_the_beam_table_states_where_the_mass_is_and_where_the_beam_runs` |
+| 6. Vertical Tail (mirror, withholding, Appendix E) | 2026-09-06 | `test_oracle_report_vtail.py::test_section_six_renders_five_subsections_mirroring_section_five`, `::test_every_appendix_a_vertical_tail_condition_is_present_and_named`, `::test_every_arrangement_other_than_conventional_withholds_the_span_loads`, `::test_appendix_e_places_every_load_where_the_deck_places_it`, `::test_no_load_appendix_e_prints_is_marked_ultimate` |
+| Applied appendices: one deck in one frame (OR-139…OR-146, G-OR-90) | 2026-09-07 | `test_oracle_report_applied.py::test_every_applied_appendix_prints_the_same_columns`, `::test_every_tail_appendix_row_is_the_card_the_deck_writes`, `::test_every_applied_appendix_says_why_its_zero_columns_are_zero`, `::test_no_applied_appendix_calls_a_live_component_absent` |
+| 11. One Engine Inoperative (OR-171…OR-182, G-OR-113…G-OR-122) | 2026-09-07 | `test_oracle_report_oei.py::test_the_engine_failure_cases_are_in_the_fins_critical_set`, `::test_every_admitted_case_reaches_the_distributions_the_appendix_and_the_deck`, `::test_a_case_that_does_not_recover_is_printed_and_reaches_no_envelope`, `::test_the_ultimate_case_states_its_factor_and_the_section_marks_no_load_ultimate`, `::test_a_single_engine_airplane_is_told_the_condition_does_not_apply` |
+| 12. Landing Gear Loads (OR-183…OR-193, G-OR-123…G-OR-130) | 2026-09-07 | `test_oracle_report_landing.py::test_every_landload_case_reaches_the_section_and_the_appendix`, `::test_each_family_is_ranked_once_per_gear_it_loads`, `::test_the_governing_load_factor_is_printed_beside_the_energy_estimate`, `::test_three_attitude_figures_partition_every_case`, `::test_the_conditions_the_fuselage_section_points_here_for_are_here`, `::test_the_analysis_body_is_complete` |
+| Appendix A: the V-n condition register (OR-193…OR-203, G-OR-131…G-OR-138) | 2026-09-07 | `test_oracle_report_vn.py::test_appendix_a_carries_every_balanced_point_and_no_others`, `::test_the_input_echo_is_retired_and_leaves_no_dangling_reference`, `::test_every_selected_case_id_appears_against_its_own_point`, `::test_every_printed_nx_is_the_inertia_drag_factor_of_its_own_row`, `::test_the_csv_carries_exactly_the_rows_the_appendix_prints`, `::test_every_or_id_cited_anywhere_is_defined_in_a_design_note` |
 
 ## 8. Conformance
 
@@ -1262,6 +1402,41 @@ without a guard is prose, not a gate).
 - [x] Three views, each drawing whatever airframe outline the project enters and
       naming it; a project with none still draws its engines (OR-168, OR-169) —
       `test_oracle_report_engine.py`
+- [x] The 23.367 conditions are in the fin's critical set and reach both
+      distributions, Appendix E and the exported v-tail deck; Sections 6 and 11
+      name the same critical fin case (OR-172, G-OR-113/G-OR-114) —
+      `test_oracle_report_oei.py`
+- [x] Every entered engine is failed as its own case, an uncontrollable case is
+      printed with its referral and reaches no envelope, and the SF-1.0 case
+      states its factor wherever tabulated or plotted, with no `-ULT` in the
+      section (OR-173, OR-174, OR-176) — `test_oracle_report_oei.py`
+- [x] A single-engine airplane renders `NOT_APPLICABLE` with the
+      regulation-citing reason read from `applicability.step_not_applicable`,
+      never `ABSENT` (OR-178, G-OR-120) — `test_oracle_report_oei.py`
+- [x] Section 12 and Appendix F carry all 33 LANDLOAD cases with no down-select;
+      each FAR ground family is ranked once per gear it loads (OR-184, OR-185,
+      G-OR-123/G-OR-124) — `test_oracle_report_landing.py`
+- [x] The governing landing load factor is printed beside the energy estimate
+      with the caution where it fires; every Appendix F row acts at the point
+      `application_point_of` names, with cases 25–33 flagged and the moment
+      zeros printed (OR-187, OR-188) — `test_oracle_report_landing.py`
+- [x] Three attitude figures partition cases 1–33 against `landing.attitude_of`,
+      every forward-referenced condition is present in the section referenced,
+      and the analysis body is complete (OR-189, OR-191, G-OR-130) —
+      `test_oracle_report_landing.py`
+- [x] Appendix A carries one row per balanced V-n point in the agreed columns
+      and the manual's row order, repeats no other section's table except the
+      mass-case key, and the retired input echo leaves no dangling reference
+      (OR-194…OR-196, G-OR-131/G-OR-132) — `test_oracle_report_vn.py`
+- [x] Every selected case id appears against its own point — a multiply-selected
+      point shows all of its ids — no `EM-` or `LG-` id reaches the register,
+      and every `NX` is the inertia-drag owner's own value with the thrust
+      statement present (OR-197, OR-198, OR-200, G-OR-133/G-OR-134) —
+      `test_oracle_report_vn.py`
+- [x] The CG ids are a bijection over `flight_cases` entry order, shared with
+      §2.2's table; the V-n CSV carries exactly the appendix's rows; and every
+      `OR-n`/`G-OR-n` cited anywhere in the tree is defined in a design note
+      (OR-199, OR-201, OR-202, G-OR-135…G-OR-137) — `test_oracle_report_vn.py`
 - [x] Appendix B is two subsections — the applied loads and the loads carried —
       sharing no load column, with B.1 carrying the point each load acts at —
       `test_oracle_report.py`
@@ -1318,11 +1493,13 @@ without a guard is prose, not a gate).
       in the subsection body — `test_oracle_report.py`
 
 - [x] Section 3 renders four subsections numbered by the numbering owner, and
-      Wing Loads is Appendix B behind a reserved, unreferable Appendix A —
+      Wing Loads is Appendix B behind Appendix A — the slot reserved
+      unreferable until the V-n register filled it (OR-50, OR-194) —
       `test_oracle_report.py`
-- [x] Every load section 3 and Appendix B print carries the `-ULT` marker, and
-      each root value is the module's own LIMIT result times that case's stated
-      factor — `test_oracle_report.py`
+- [x] No load section 3 or Appendix B prints is marked ultimate: every value is
+      the module's own LIMIT result with that case's factor stated in band and
+      applied nowhere (OR-89/OR-116, superseding the `-ULT` marking this
+      standard first specified) — `test_oracle_report.py`
 - [x] Every wing torsion names the axis it is stated about, and the reference
       axis is drawn as an open path on a closed planform —
       `test_oracle_report.py`
@@ -1336,8 +1513,9 @@ without a guard is prose, not a gate).
       run or not — `test_oracle_report.py`
 - [x] 3.2 states that Nz is the inertia load factor and says when the analysed
       set holds no negative-load-factor case — `test_oracle_report.py`
-- [x] Appendix B carries the station increment and the cumulative total, and the
-      station coordinates are printed once — `test_oracle_report.py`
+- [x] Appendix B.2 — the carried set, beside B.1's applied one (OR-59) —
+      carries the station increment and the cumulative total, and the station
+      coordinates are printed once — `test_oracle_report.py`
 
 - [x] The section set is `oracle_steps()`'s result-producing steps, both
       directions — `test_oracle_report.py`
