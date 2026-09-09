@@ -40,7 +40,7 @@ header says so in capitals. What was scoped as a report section became a ruling
 about what a loads analysis may hand a downstream discipline.
 
 **A second defect, found building the engine file (OR-193).** Two of the six
-engine-mount conditions — the 23.371(c) sudden-stoppage torque and the 23.371(b)
+engine-mount conditions — the 23.361(b)(1) sudden-stoppage torque and the 23.371(b)
 gyroscopic condition — carry no `loc_*` values while the four beside them for the
 same engine do, and `load_cases_to_rows` filled the gap with the **first**
 location in the whole set. The right-hand engine's stoppage torque and its four
