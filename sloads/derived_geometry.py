@@ -21,12 +21,14 @@ read-only. So there is no independently-editable copy and a save->reload is a no
 """
 from __future__ import annotations
 
+import dataclasses
 import math
 from typing import List, NamedTuple, Optional, Tuple
 
 from . import workflow as wf
 from .constants import DEFAULT_FRONT_SPAR_PCT, DEFAULT_REAR_SPAR_PCT, IN2_PER_FT2
 from .models import MissingInputError, Project, SurfaceInput, WeightEnvelopeInput
+from .models.results import ConditionResult
 from .picks import extreme
 
 
@@ -462,6 +464,42 @@ def mac_reference(project: Project,
     if ref is None:
         return None
     return MacReference(ref.xlemac, ref.mac, "planform", surface_name)
+
+
+def planform_geometry_condition(project: Project,
+                                surface_name: Optional[str] = None,
+                                ) -> Optional[ConditionResult]:
+    """The stored planform's own WINGGEOM condition, or ``None`` (#234).
+
+    The reference-geometry statement for a document: the
+    :func:`~sloads.modules.wing_geometry.surface_properties` condition of the
+    stored surface polylines, resolved to the same surface
+    :func:`mac_reference` reads (so a printed MAC/XLEMAC and the %MAC
+    conversions cannot come from two different wings), trimmed to the
+    reference quantities -- MAC, its butt line and leading-edge station,
+    aspect ratio and span. The integrated areas are deliberately dropped:
+    the governing S is STRSPEED's, which honours the typed override, and a
+    raw integral printed beside it would be a second answer to the same
+    question. The load-station count is input, not geometry. ``None`` when
+    there is no stored surface of that name or it cannot be integrated --
+    the same states in which :func:`mac_reference` has no planform leg.
+    """
+    if surface_name is None:
+        ref = mac_reference(project)
+        surface_name = ref.surface_name if ref is not None else "wing"
+    geom = project.geometry
+    surf = geom.by_name(surface_name) if geom is not None else None
+    if surf is None:
+        return None
+    from .modules.wing_geometry import surface_properties
+    try:
+        condition = surface_properties(surf)
+    except ValueError:
+        return None
+    keep = ("mac", "yle_mac_butt_line_of_mac", "xle_mac_station_of_mac_le",
+            "aspect_ratio", "span")
+    return dataclasses.replace(
+        condition, values=[v for v in condition.values if v.key in keep])
 
 
 def require_mac_reference(project: Project,
