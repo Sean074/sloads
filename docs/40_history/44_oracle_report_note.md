@@ -3,10 +3,10 @@
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6: the owner of what a note touches reviews it as a PR)*
 
 **Status: AGREED 2026-08-29 (owner, in session — `CLAUDE.md` rule 1's
-working-alone path); BUILT — every agreed iteration through §22 (Landing Gear
-Loads, step 165, 2026-09-07) has shipped on `dev/v0.8.2`, and the 2026-09-08
-review's 0.8.2 fix set (#227–#238) is closed. Milestone: 0.8.2; the note
-archives at the cut.** The three §5 open
+working-alone path); SHIPPED — every agreed iteration through §23 (Appendix A,
+step 166, 2026-09-07) shipped on `dev/v0.8.2`, and the 2026-09-08 review's
+0.8.2 fix set (#227–#238) is closed. Milestone 0.8.2 (#151); archived at the
+0.8.2 cut, 2026-09-08 — the plan of record for the milestone.** The three §5 open
 questions were answered the same day and are recorded as OR-10 … OR-12 (§5),
 on the same footing as OR-1 … OR-9. §6 (2026-08-30) adds the milestone's
 development constraints (OR-13 … OR-15) and §7 (2026-08-30) settles the report
