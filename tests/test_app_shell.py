@@ -600,6 +600,7 @@ def test_no_view_calls_st_stop_directly():
 _NAMED_SCRIPT = """
 import os, streamlit as st
 from sloads import io as sloads_io
+_real_projects_dir = sloads_io.default_projects_dir
 sloads_io.default_projects_dir = lambda: {projects_dir!r}
 _real_download = st.download_button
 def _recording(label, data, **kw):
@@ -615,6 +616,7 @@ try:
     st.session_state["_saved_path"] = saved_path()
 finally:
     st.download_button = _real_download
+    sloads_io.default_projects_dir = _real_projects_dir
 """
 
 
