@@ -175,8 +175,8 @@ def identity_matches(stored_fingerprint: str, stored_version: int,
         return True, "The project matches the definition this report was baselined against."
     return False, (
         "The project has changed since this report was baselined. The document "
-        "still builds, and states the mismatch; read the input echo to see what "
-        "moved.")
+        "still builds, and states the mismatch; diff the packaged project.json "
+        "against the current project to see what moved.")
 
 
 __all__ = [

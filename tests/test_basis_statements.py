@@ -135,6 +135,15 @@ _CLAIMS = (
     r"limit x (?:1\.5|SF|the per-case SF|safety factor)",
 )
 
+#: Claims retired with their subject (#237). OR-194 removed the input echo from
+#: the document and designated the packaged ``project.json`` its machine-readable
+#: record; prose that still sends the reader to the echo points at a document
+#: that no longer exists. Same gate, same reason: every numeric check was green
+#: while the words on the deliverable were wrong.
+_RETIRED = (
+    r"\binput echo\b",
+)
+
 
 def _residue(text: str) -> str:
     """``text``, normalised, with every sanctioned sentence blanked."""
@@ -161,6 +170,11 @@ def assert_states_limit(label: str, text: str, *, min_chars: int = 0) -> None:
             f"{label}: matches {claim!r} of its own loads. Under note 49 OR-116 "
             f"every load sloads delivers is LIMIT and the safety factor is "
             f"stated, never applied — including in the exported deck.")
+    for retired in _RETIRED:
+        assert not re.search(retired, residue), (
+            f"{label}: matches {retired!r}, a retired claim. OR-194 retired the "
+            f"input echo; the packaged project.json is the machine-readable "
+            f"record of the inputs — point the reader there (#237).")
 
 
 # --------------------------------------------------------------------------- #
@@ -192,7 +206,11 @@ def test_the_oracle_report_states_limit(example):
     doc = oc.build_oracle_document(
         project,
         ReportSpec(title="FAR 23 Structural Design Loads",
-                   report_number="LR-0142", revision="B", abstract="An abstract."))
+                   report_number="LR-0142", revision="B", abstract="An abstract."),
+        # stamped, so the Analysis-basis fingerprint caption renders -- the
+        # branch that carried #237's "input echo" pointer and that an
+        # unstamped build leaves unswept
+        fingerprint="deadbeef" * 8, fingerprint_version=1)
     tex = ol.render_oracle_document(doc)
     assert_states_limit(f"{example}: oracle report", tex, min_chars=20_000)
     assert "LIMIT" in tex
@@ -242,6 +260,21 @@ def test_the_report_basis_statement_says_who_applies_the_factor():
     assert "sizing analysis" in rc.BASIS_STATEMENT
 
 
+def test_the_provenance_mismatch_message_names_the_project_file():
+    """#237: the provenance banner's mismatch sentence sent the reader to the
+    input echo OR-194 had retired. The rendered-document gates above cannot see
+    it -- it reaches the screen through the GUI banner, not the LaTeX render --
+    so the message is asserted at its owner: it names the packaged
+    ``project.json`` and survives the retired-claim scan."""
+    from sloads.report.fingerprint import FINGERPRINT_VERSION, identity_matches
+
+    project = io.load_project(_GA)
+    ok, message = identity_matches("0" * 64, FINGERPRINT_VERSION, project)
+    assert not ok
+    assert "project.json" in message
+    assert_states_limit("provenance mismatch message", message)
+
+
 #: One real sentence per ``_CLAIMS`` pattern, quoted from the artifact that
 #: shipped it. Kept as data so the meta-test below can prove both directions:
 #: each witness fails the gate, and each pattern catches some witness.
@@ -257,12 +290,20 @@ _WITNESSES = (
     "All **33 cases** \u00d7 each loaded leg, ULTIMATE.",
     "The **Review/Export** pages report **ULTIMATE** loads.",
     "The ULTIMATE file is limit \u00d7 the per-case `SF` (14 CFR 23.303).",
+    # a retired claim, quoted from the sentence that shipped it (#237)
+    "The document still builds, and states the mismatch; read the input "
+    "echo to see what moved.",
 )
 
-#: The GUI trees this gate reads. ``oracle_app/`` is **excluded**: it is frozen
-#: under note 44 OR-13, and its three surviving claims are filed, not fixed
-#: (OR-14). Adding it here is the first step of that later ticket.
+#: The GUI trees this gate reads. ``oracle_app/`` is **excluded** as a tree: it
+#: is frozen under note 44 OR-13, and its three surviving claims are filed, not
+#: fixed (OR-14). Adding it here is the first step of that later ticket.
 _GUI_TREES = ("app", "app_shell")
+
+#: Files swept individually: this milestone's new pages, which are not under
+#: the OR-13 freeze and get no grace period (#237 -- the report page's
+#: selection caption stated the retired deselection behavior).
+_GUI_FILES = ("oracle_app/report.py",)
 
 
 def _live_literals(path):
@@ -314,6 +355,12 @@ def test_no_gui_string_claims_ultimate():
                 for lineno, text in _live_literals(path):
                     seen += 1
                     assert_states_limit(f"{rel}:{lineno}", text)
+    for rel in _GUI_FILES:
+        path = os.path.join(_ROOT, rel)
+        assert os.path.isfile(path), rel
+        for lineno, text in _live_literals(path):
+            seen += 1
+            assert_states_limit(f"{rel}:{lineno}", text)
     assert seen > 1000, (
         f"swept only {seen} literals -- this gate cannot pass by finding no "
         f"GUI source to read")
@@ -334,6 +381,9 @@ def test_the_gate_would_catch_each_spelling():
     for claim in _CLAIMS:
         assert any(re.search(claim, _residue(w)) for w in _WITNESSES), (
             f"no witness exercises {claim!r}")
+    for retired in _RETIRED:
+        assert any(re.search(retired, _residue(w)) for w in _WITNESSES), (
+            f"no witness exercises retired claim {retired!r}")
     # the true sentences pass
     assert_states_limit("ok", "Loads are ALREADY ULTIMATE (SF=1.0) -- apply "
                               "no further factor.")

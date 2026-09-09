@@ -169,8 +169,8 @@ def _provenance_block(doc: OracleDocument) -> str:
             + escape(doc.fingerprint[:16]) + r"} (definition v"
             + escape(str(doc.fingerprint_version))
             + r"). This detects an accidental change to the analysis inputs; "
-            + r"it is not a signature, and the input echo remains the "
-            + r"definitive record of what was analysed.}")
+            + r"it is not a signature, and the packaged \texttt{project.json} "
+            + r"remains the definitive record of what was analysed.}")
     return "\n\n".join(p for p in parts if p)
 
 
