@@ -218,8 +218,10 @@ its tier:
   are fine; `docs/00_INDEX.md` is the index (guarded both ways by
   `tests/test_doc_currency.py`).
 - Every note carries `**Owner:** @handle` and `**Reviewers:** …` under its title.
-- `30_future/` holds only `00_backlog.md`, the live notes, and nothing else.
-  Shipped notes move to `40_history/` at release cut (note 26 DV-5).
+- `30_future/` holds only `00_backlog.md`, the live plan files
+  (`01_concept_loads_plan.md`, `03_gui_rework_plan.md`), `02_parked.md`, and the
+  live notes — nothing else. Shipped notes and completed plans move to
+  `40_history/` at release cut (note 26 DV-5).
 
 ## 6. The three shared counters — rebase before you regenerate (MD-7)
 

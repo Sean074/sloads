@@ -72,7 +72,8 @@ stale.
 - **Pure calc, no I/O.** A module exposes `run(project: Project) -> ModuleResult`,
   reads the upstream fields it needs from `Project`, and returns results. No file
   access, no Streamlit, no printing inside `sloads/` calc code — `io.py` is the
-  only place dataclasses meet JSON/CSV.
+  only place calc dataclasses meet JSON/CSV (`sloads/export/` additionally
+  writes the deliverable files: decks, packages, reports).
 - **Reuse the result types.** Emit `LoadValue`/`ConditionResult`/`ModuleResult`
   so `report.py`, `units.py`, and the CSV writer work unchanged. The CSV is always
   "one row per load case" via `load_cases_to_rows` — generalise it, don't reinvent
