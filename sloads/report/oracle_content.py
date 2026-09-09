@@ -31,6 +31,7 @@ from .. import workflow as wf
 from ..models import Project
 from ..models.report import ReportSpec, is_draft
 from ..models.results import ModuleResult
+from ..safety_factors import ENGINE_FAILURE_NOUN
 from ..units import UnitSystem
 from .content import Section
 
@@ -862,8 +863,9 @@ _INTRODUCTION = [
     "factor; sloads applies it nowhere, here or in the exported deck, so it is "
     "the sizing analysis that applies it. The -ULT marker appears only on the "
     "two families the regulation prescribes already ultimate — 23.367(a)(2) "
-    "engine torque and 23.561(b) emergency-landing inertia — which ask for "
-    "nothing further. Quantities that are not loads take no factor at all.",
+    f"{ENGINE_FAILURE_NOUN} and 23.561(b) emergency-landing inertia — which "
+    "ask for nothing further. Quantities that are not loads take no factor "
+    "at all.",
 
 ]
 

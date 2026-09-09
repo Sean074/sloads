@@ -92,7 +92,7 @@ justification:
 |---|---|---|---|---|
 | General structural loads | 23.301–23.307 | LIMIT | 1.5 | "Strength requirements are specified in terms of limit and ultimate loads" — **23.301(a)** |
 | Flight loads (manoeuvre, gust, engine torque, gyroscopic) | 23.321–23.371 | LIMIT | 1.5 | flight load factors are prescribed as limit values — **23.321(a)** |
-| Sudden engine stoppage | 23.367(a)(2) | ULTIMATE | 1.0 | the case is prescribed as an **ultimate** load — **23.367(a)(2)** |
+| Unsymmetrical loads due to engine failure | 23.367(a)(2) | ULTIMATE | 1.0 | "the loads resulting from the disconnection of the engine compressor from the turbine or from loss of the turbine blades are considered to be ultimate loads" — **23.367(a)(2)** (sudden stoppage is 23.361(b)(1), LIMIT, in the row above) |
 | Control surface and system loads | 23.391–23.459 | LIMIT | 1.5 | **23.391**ff |
 | Ground and landing loads | 23.471–23.511 | LIMIT | 1.5 | "The **limit** ground loads specified in this subpart…" — **23.471**; every embedded multiplier (1.33/0.83 **23.485**, 0.8 **23.493**, 2.25 **23.499**) is a limit quantity |
 | Water loads | 23.521–23.537 | LIMIT | 1.5 | **23.521** |
