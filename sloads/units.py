@@ -94,6 +94,10 @@ LB_IN2_TO_KG_M2 = LB_TO_KG * (IN_TO_MM / 1000.0) ** 2    # lb-in^2 -> kg*m^2
 # ones where the dimension is a product of them (rule 3: one owner per factor).
 FT2_TO_M2 = FT_TO_M ** 2                                 # ft^2 -> m^2 (0.09290304)
 IN2_TO_M2 = (IN_TO_MM / 1000.0) ** 2                     # in^2 -> m^2 (6.4516e-4)
+# lb/ft^2 (wing loading, dynamic pressure) -> kPa, derived: lbf/ft^2 in N/m^2,
+# over 1000. Same dimension as ``pressure``; a second row because the Imperial
+# unit string differs and the factor must live in exactly one place (#232).
+PSF_TO_KPA = LBF_TO_N / FT2_TO_M2 / 1000.0               # lb/ft^2 -> kPa (0.04788...)
 HP_TO_KW = 0.745699872                                   # hp -> kW (exact, NIST)
 # A slug is lbf*s^2/ft, so slug*ft^2 = lbf*ft*s^2 and kg*m^2 = N*m*s^2: the
 # inertia factor *is* the torque factor (1.3558179483314), and is written so.
@@ -169,6 +173,12 @@ HUMAN_SI: Dict[str, SIDimension] = {
     "torque": SIDimension(FT_LB_TO_N_M, "N·m"),              # ft-lb -> N·m
     "moment_in": SIDimension(LB_IN_TO_N_M, "N·m"),           # lb-in -> N·m
     "pressure": SIDimension(PSI_TO_KPA, "kPa"),              # lb/in^2 -> kPa
+    # lb/ft^2 is a *state* (wing loading, dynamic pressure), never a delivered
+    # load, and the unit string is what :func:`is_load_unit` discriminates on --
+    # so its SI label is kN/m² (the same magnitude as kPa) rather than the
+    # design-pressure load label "kPa", exactly as lb/ft^2 is not lb/in^2 (#232).
+    "pressure_psf": SIDimension(PSF_TO_KPA, "kN/m²"),        # lb/ft^2 -> kN/m²
+    "velocity_fps": SIDimension(FT_TO_M, "m/s"),             # ft/s -> m/s
     "power": SIDimension(HP_TO_KW, "kW"),                    # hp -> kW
     "inertia_slugft2": SIDimension(SLUG_FT2_TO_KG_M2, "kg·m²"),  # slug-ft^2 -> kg·m^2
     "inertia_lbin2": SIDimension(LB_IN2_TO_KG_M2, "kg·m²"),  # lb-in^2 -> kg·m^2
@@ -227,6 +237,12 @@ _RESULT_TO_SI = _view(**{
     "lb/in^2": "pressure",          # lb/in^2 -> kPa (design pressure)
     "slug-ft^2": "inertia_slugft2",  # slug-ft^2 -> kg·m^2 (inertia)
     "lb-in^2": "inertia_lbin2",     # lb-in^2 -> kg·m^2 (inertia, mass basis)
+    # Three rows the SI report review found missing (#232): an echoed area, a
+    # wing loading / dynamic pressure and a sink rate passed through
+    # unconverted, wearing their Imperial labels beside converted neighbours.
+    "ft^2": "area_sqft",            # ft^2 -> m^2 (planform/control-surface area)
+    "lb/ft^2": "pressure_psf",      # lb/ft^2 -> kN/m^2 (wing loading, dynamic q)
+    "ft/s": "velocity_fps",         # ft/s -> m/s (landing sink rate)
 })
 # Airspeed and altitude are deliberately absent: they are aviation-standard
 # (KEAS / ft) in both systems and are never converted. The calc emits them as

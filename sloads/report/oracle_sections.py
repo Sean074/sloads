@@ -907,13 +907,22 @@ def _weights(project: Project,
              plan: Sequence[SectionPlan]) -> Section:  # noqa: ARG001
     conditions = _conditions(results.get("weight_mass"), system)
     tables = []
-    for condition in conditions:
+    for source in conditions:
+        condition = source
         # The module's condition title names the analysis ("...for one
         # loading"), which is our machinery describing itself. With a single
         # loading the document says what the table *is*; with several, the
         # condition title is the only thing that tells them apart and is kept.
         title = ("Mass properties" if len(conditions) == 1
                  else f"Mass properties -- {condition.title}")
+        if system is UnitSystem.SI:
+            # The module states each inertia twice, slug-ft^2 and lb-in^2, and
+            # both convert to the same kg*m^2 -- so the second channel, whose
+            # "(lb-in^2)" is baked into its label, printed four mislabeled
+            # duplicates in the SI issue (#232). One channel per system.
+            condition = replace(condition, values=[
+                v for v in condition.values
+                if not str(getattr(v, "key", "")).endswith("_lb_in_2")])
         table = _value_table(title, condition)
         if table is not None:
             tables.append(table)
@@ -924,11 +933,20 @@ def _weights(project: Project,
     if vertices is not None:
         tables.append(vertices)
 
+    inertia_sentence = (
+        # Conditioned with the table above it: the Imperial issue prints both
+        # conventions and says why; the SI issue prints one channel and must
+        # not promise the pair it does not carry (#232).
+        "The inertias are stated once, in kg*m^2: the two Imperial "
+        "conventions the database carries (slug-ft^2 and lb-in^2) convert to "
+        "the same SI value, so repeating them would print the same number "
+        "twice. " if system is UnitSystem.SI else
+        "The inertias are stated twice, in slug-ft^2 and in "
+        "lb-in^2, because the two conventions are both current and a factor of "
+        "12^2 between them is not a difference a reader should have to detect. ")
     body = [
         "The weight, centre of gravity and mass moments of inertia of each "
-        "loading analysed. The inertias are stated twice, in slug-ft^2 and in "
-        "lb-in^2, because the two conventions are both current and a factor of "
-        "12^2 between them is not a difference a reader should have to detect. "
+        "loading analysed. " + inertia_sentence +
         "The principal-axis set and its inclination follow; the angle is "
         "measured up from the waterline and aft from the centre of gravity.",
         _ENVELOPE_NOTE,
@@ -2591,7 +2609,7 @@ def _beam_table(project: Project, system: UnitSystem) -> Optional[Table]:
                 "the side view above."))
 
 
-def _beam_provenance(project: Project) -> str:
+def _beam_provenance(project: Project, system: UnitSystem) -> str:
     """Where the beam's mass came from, and whether the beam is whole (OR-96)."""
     from ..mass_distribution import partition_closes
 
@@ -2612,12 +2630,21 @@ def _beam_provenance(project: Project) -> str:
         check = partition_closes(project)
     except Exception:
         return sentence
+    # The check's own ``detail`` is an Imperial diagnostic sentence; the
+    # document restates the account from the check's parts through the units
+    # owner, so the SI issue does not read "5990.0 lb" beside a kg table (#232).
+    u = Units(system)
+    mass = u.label("mass")
+    account = (" + ".join(f"{name} {u.plain(value, 'mass')}"
+                          for name, value in check.parts)
+               + f" = {u.plain(check.got, 'mass')} {mass} against "
+               + f"{u.plain(check.want, 'mass')} {mass} of items")
     return sentence + " " + (
         "The beam and the wing together account for the whole airplane: "
-        f"{check.detail}."
+        f"{account}."
         if check.ok else
         "The beam and the wing do not account for the whole airplane: "
-        f"{check.detail}. The distributions below integrate the beam as it "
+        f"{account}. The distributions below integrate the beam as it "
         "stands.")
 
 
@@ -2691,13 +2718,14 @@ def _body_side_view(project: Project, system: UnitSystem) -> Figure:
             "a fact about the airplane rather than about the loads below."))
 
 
-def _carry_through_sentence(project: Project) -> str:
+def _carry_through_sentence(project: Project, system: UnitSystem) -> str:
     """The carry-through the unbalanced moment is reacted over (OR-97, note 50).
 
     Stated in 4.1 because it is geometry, and stated again beside the fitting
     loads in 4.4 because that is where a reader meets the numbers it sized. The
     provenance travels with it in both places: an assumed spar station is never
-    reported as input.
+    reported as input. The stations go through the length channel: they were
+    the SI issue's only stations in inches (#232).
     """
     from ..derived_geometry import carry_through
 
@@ -2710,12 +2738,14 @@ def _carry_through_sentence(project: Project) -> str:
             "The wing carry-through could not be derived for this project, so "
             "the unbalanced moment has no wing attachment to be reacted at. "
             "The consequence is stated with the distributions.")
+    scale, length = _length_channel(system)
+    span = (f"{format_value(carry.x_f * scale)} to "
+            f"{format_value(carry.x_r * scale)} {length}")
     if carry.assumed:
         return (
             "The wing carry-through runs from fuselage station "
-            f"{format_value(carry.x_f)} to {format_value(carry.x_r)} in, and "
-            "neither station was entered for this airplane: both are the "
-            "estimator's, placed at "
+            f"{span}, and neither station was entered for this airplane: "
+            "both are the estimator's, placed at "
             f"{format_value(carry.front_pct * 100.0)} and "
             f"{format_value(carry.rear_pct * 100.0)} per cent of the root "
             "chord. Every wing-attach fitting load in this document is "
@@ -2724,9 +2754,8 @@ def _carry_through_sentence(project: Project) -> str:
             "the estimate.")
     return (
         "The wing carry-through runs from fuselage station "
-        f"{format_value(carry.x_f)} to {format_value(carry.x_r)} in, entered "
-        "for this airplane. The wing-attach fitting loads below are sized on "
-        "that geometry as entered.")
+        f"{span}, entered for this airplane. The wing-attach fitting loads "
+        "below are sized on that geometry as entered.")
 
 
 def _body_beam(project: Project, *, system: UnitSystem,
@@ -2740,8 +2769,8 @@ def _body_beam(project: Project, *, system: UnitSystem,
         "fuselage geometry itself is stated in "
         + section_ref(plan, "configuration_layout") + " and is not repeated "
         "here.",
-        _beam_provenance(project),
-        _carry_through_sentence(project),
+        _beam_provenance(project, system),
+        _carry_through_sentence(project, system),
         "The fuselage beam excludes the wing mass outside the fuselage, which "
         "the wing analysis carries: the two together are the whole airplane, "
         "and the carry-through enters this beam as a reaction rather than as "
@@ -3281,7 +3310,7 @@ def _body_closure(project: Project, *, system: UnitSystem,
         "load alone: the two leave a vertical force and a moment over, and the "
         "wing carries both. This subsection states what the wing attachment "
         "carries and what is left at the aft end once it does.",
-        _carry_through_sentence(project),
+        _carry_through_sentence(project, system),
         _closure_sentence(project, system),
         "Every load in this subsection is LIMIT. The safety factor 14 CFR "
         "23.303 prescribes for each case is stated in its own row and is "
@@ -4732,7 +4761,7 @@ _SPANWISE_RULE = (
     "the analysis does rather than a rule added here: the load is divided by an "
     "area to obtain the pressure, so the pressure is uniform over that area by "
     "construction. It follows that the load per unit span is proportional to "
-    "the local chord -- a tapered surface carries more load per inch of span at "
+    "the local chord -- a tapered surface carries more load per unit span at "
     "its wide end at the same pressure -- and that the total is recovered by "
     "integrating the pressure over the surface's area, not by multiplying it by "
     "a mean chord.")
@@ -6444,6 +6473,7 @@ def _oei_input_table(project: Project, cases: Sequence["FinCase"],
     for fc in cases:
         seen.setdefault(fc.engine_index, fc)
     engines = project.engines or []
+    i_scale, i_units = _scalar_channel("slug-ft^2", system)
     rows = []
     for index, fc in sorted(seen.items()):
         name = ""
@@ -6460,7 +6490,7 @@ def _oei_input_table(project: Project, cases: Sequence["FinCase"],
             u.plain(-fc.sense * c.bleng, "length"),
             format_value(c.maxhp),
             u.plain(c.dia_ft * 12.0, "length"),
-            format_value(c.izz),
+            _scalar_cell(c.izz, i_scale),
             u.plain(c.xcg, "length"),
             format_value(c.alt_ft),
         ])
@@ -6469,7 +6499,7 @@ def _oei_input_table(project: Project, cases: Sequence["FinCase"],
     return Table(
         title="One-engine-inoperative input data",
         columns=["Failed engine", f"Butt line ({u.label('length')})", "Max SHP",
-                 f"Propeller diameter ({u.label('length')})", "IZZ (slug-ft^2)",
+                 f"Propeller diameter ({u.label('length')})", f"IZZ ({i_units})",
                  f"CG station ({u.label('length')})", "Altitude (ft)"],
         rows=rows,
         note=("Every entered engine whose failure produces a yawing moment is "
@@ -6921,7 +6951,8 @@ def _landing_geometry_table(project: Project, system: UnitSystem) -> Optional[Ta
               "none carries a safety factor."))
 
 
-def _landing_factor_table(project: Project) -> Optional[Table]:
+def _landing_factor_table(project: Project,
+                          system: UnitSystem) -> Optional[Table]:
     """LGFACTOR: the drop-test estimate and the pair the reactions ran at (OR-187)."""
     from ..modules.landing import build_landing, governing_load_factors
 
@@ -6931,9 +6962,13 @@ def _landing_factor_table(project: Project) -> Optional[Table]:
     lf, _reactions = build_landing(project)
     n_gov, nlg_gov = governing_load_factors(inp, lf)
     entered = inp.airplane_load_factor is not None
+    # The value converts; the basis keeps the regulation's own Imperial-form
+    # formula and bounds, because 23.473(d) is written in ft/s and a translated
+    # quotation is no longer a quotation (#232).
+    v_scale, v_units = _scalar_channel("ft/s", system)
     rows = [
-        ["Limit descent velocity", format_value(lf.sink_rate_fps), "ft/s",
-         "23.473(d): 4.4 (W/S)^0.25, held between 7 and 10 ft/s."],
+        ["Limit descent velocity", _scalar_cell(lf.sink_rate_fps, v_scale),
+         v_units, "23.473(d): 4.4 (W/S)^0.25, held between 7 and 10 ft/s."],
         ["Airplane load factor N (energy)", format_value(lf.airplane_load_factor),
          "", "LGFACTOR's drop-test work-energy estimate."],
         ["Gear load factor NLG (energy)", format_value(lf.gear_load_factor), "",
@@ -7328,7 +7363,7 @@ def _landing_loads(project: Project,
             "least 2.0, and in this category a shortfall is reported, not "
             "refused.")
     factor = Section("", body=factor_body,
-                     tables=[t for t in (_landing_factor_table(project),)
+                     tables=[t for t in (_landing_factor_table(project, system),)
                              if t is not None])
 
     conditions = Section("", body=[
