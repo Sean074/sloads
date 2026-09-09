@@ -114,6 +114,38 @@ def test_every_index_row_points_at_a_file():
 
 
 # --------------------------------------------------------------------------- #
+# A live note's INDEX row is a pointer, not a second copy of the note (#187)
+# --------------------------------------------------------------------------- #
+# Note 44's row grew to ~600 words restating OR-13..OR-37 with its own copy of
+# the status, and the 46/47 rows mirrored the stale AGREED that #183 fixed in
+# the notes themselves -- a second hand-maintained statement per note, the
+# rule-3 drift class. A `30_future/` row is one sentence plus the pointer and
+# carries **no status**: the note's own Status line is the single owner.
+# `40_history/` rows are exempt -- an archived note's status can never change
+# again, so those rows are frozen record, not a drift surface.
+_LIVE_ROW_CAP = 320
+_STATUS_WORD = re.compile(r"\b(AGREED|SHIPPED|BUILT|PROPOSED)\b")
+
+
+def test_a_live_note_index_row_is_one_line_and_states_no_status():
+    offenders = []
+    with open(_INDEX, encoding="utf-8") as fh:
+        for line in fh:
+            if not line.startswith("| [`") or "](30_future/" not in line:
+                continue
+            name = line.split("[`", 1)[1].split("`]", 1)[0]
+            if len(line.rstrip()) > _LIVE_ROW_CAP:
+                offenders.append(f"{name}: {len(line.rstrip())} chars (cap {_LIVE_ROW_CAP})")
+            claim = _STATUS_WORD.search(line)
+            if claim:
+                offenders.append(f"{name}: states a status ({claim.group(0)}) -- "
+                                 "the note's own Status line is the single owner")
+    assert not offenders, (
+        "docs/00_INDEX.md rows for live 30_future/ files must be one sentence "
+        "plus the pointer, no status (#187):\n  " + "\n  ".join(offenders))
+
+
+# --------------------------------------------------------------------------- #
 # The release-state statement has one owner (owner ruling 2026-08-28,
 # production-release review §3.5/§5.3)
 # --------------------------------------------------------------------------- #
