@@ -538,6 +538,64 @@ def test_metadata_does_not_leak_into_any_table_cell():
 # --------------------------------------------------------------------------- #
 # G-OR-12 -- the document's unit owner is the spec
 # --------------------------------------------------------------------------- #
+#: Imperial tokens an SI issue must not print (#232), and the stated
+#: carve-outs it may. The carve-outs are exact substrings, stripped before the
+#: scan, so a paragraph that contains a carve-out AND a residue still fails.
+_IMPERIAL_TOKENS = (
+    r"\blb\b|\blbs\b|lb-in|lb/ft|lb/in|ft\^2|\bslug|in\^2|per inch"
+    r"|\(in\)|\(ft\)|\bft/s\b|\bpsf\b|\bpsi\b \(")
+_SI_CARVE_OUTS = (
+    "Altitude (ft)",                     # aviation-standard, like KEAS
+    "held between 7 and 10 ft/s",        # 23.473(d) quoted in its own units
+    "4.4 (W/S)^0.25",                    # the same regulation's formula
+    "(slug-ft^2 and lb-in^2)",           # 2.2 naming the conventions it converted
+)
+
+
+@pytest.mark.parametrize("path", [_GA, _TWIN])
+def test_the_si_issue_carries_no_imperial_residue(path):
+    """#232 / G-OR-12 extension: the SI build is SI everywhere it speaks.
+
+    The 2026-09-08 review found the SI conversion reached the load tables but
+    left residue a reader cannot tell from deliberate carve-outs: kg*m^2
+    inertias labelled lb-in^2, a kg table beside "5990.0 lb" prose, areas in
+    ft^2, wing loading and dynamic pressure in lb/ft^2, carry-through stations
+    in inches, and Imperial -ULT marker examples in the limitations. Every
+    fixed string now goes through the units owner; this sweep is what keeps
+    the next one from surviving to an issue.
+    """
+    doc = _doc(path, spec=_spec(unit_system=UnitSystem.SI))
+    pattern = __import__("re").compile(_IMPERIAL_TOKENS)
+
+    def scrubbed(text):
+        for carve in _SI_CARVE_OUTS:
+            text = text.replace(carve, "")
+        return text
+
+    def texts():
+        yield "limitations", doc.limitations
+        yield "units_note", doc.units_note
+        for section in _flat(doc.sections):
+            yield section.title, " ".join(section.body)
+            for table in section.tables:
+                yield table.title, " ".join(table.columns)
+                yield table.title, table.note or ""
+                for row in table.rows:
+                    yield table.title, " ".join(str(c) for c in row)
+            for figure in section.figures:
+                yield figure.title, figure.caption or ""
+                if figure.data is not None:
+                    yield figure.title, " ".join(
+                        [figure.data.x_label, figure.data.y_label]
+                        + [s.name for s in figure.data.series])
+
+    for where, text in texts():
+        match = pattern.search(scrubbed(text))
+        assert match is None, (
+            f"{where!r} still says {match.group(0)!r} in the SI issue: "
+            f"...{text[max(0, match.start() - 60):match.end() + 60]}...")
+
+
 def test_the_document_reads_the_spec_unit_system():
     imperial = _doc(spec=_spec(unit_system=UnitSystem.IMPERIAL))
     si = _doc(spec=_spec(unit_system=UnitSystem.SI))

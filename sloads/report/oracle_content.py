@@ -901,7 +901,8 @@ _LIMITATIONS_DROPPED = (
 )
 
 
-def default_limitations(project: Project) -> str:
+def default_limitations(project: Project,
+                        system: UnitSystem = UnitSystem.IMPERIAL) -> str:
     """The limitations and scope text the GUI pre-fills.
 
     Taken from :func:`sloads.report.methods.methods_statement` -- the single
@@ -910,6 +911,11 @@ def default_limitations(project: Project) -> str:
     "METHODS AND LIMITATIONS" banner is stripped: the subsection already carries
     that title, and printing it twice reads as a paste.
 
+    ``system`` is the issue's own (#232): the statement quotes the ``-ULT``
+    marker examples and the unit channels, and an SI report that pre-filled
+    the Imperial statement advertised markers (``lbs-ULT``...) none of its
+    files carry.
+
     From then on the author owns the text (owner's decision, 2026-08-30). That
     makes it a **snapshot**: it will not track a later change to the project or
     to the shared statement, which is the price of a signed issue continuing to
@@ -917,7 +923,7 @@ def default_limitations(project: Project) -> str:
     """
     from .methods import methods_statement
 
-    text = methods_statement(project)
+    text = methods_statement(project, system=system)
     kept = [para for para in text.split("\n\n")
             if para.strip()
             and not para.lstrip().startswith(_LIMITATIONS_BANNER)
@@ -1018,7 +1024,7 @@ def build_oracle_document(
         fingerprint_version=fingerprint_version,
         abstract=spec.abstract,
         limitations=(spec.limitations.strip()
-                     or default_limitations(project)),
+                     or default_limitations(project, system)),
         units_note=("All values are stated in SI units." if system is UnitSystem.SI
                     else "All values are stated in Imperial units."),
         plan=plan,

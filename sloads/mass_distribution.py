@@ -386,6 +386,11 @@ class MassCheck:
     got: float
     want: float
     detail: str
+    #: The named addends of ``got``, so a consumer in another unit system can
+    #: restate the account through its own units owner instead of quoting the
+    #: Imperial ``detail`` sentence verbatim (#232). Empty for checks whose
+    #: ``got`` is not a sum.
+    parts: Tuple[Tuple[str, float], ...] = ()
 
     @property
     def gap(self) -> float:
@@ -414,6 +419,7 @@ def partition_closes(project: Project) -> MassCheck:
         got=wing + beam, want=total,
         detail=(f"wing {wing:.1f} + fuselage beam {beam:.1f} = {wing + beam:.1f} lb "
                 f"against {total:.1f} lb of items"),
+        parts=(("wing", wing), ("fuselage beam", beam)),
     )
 
 

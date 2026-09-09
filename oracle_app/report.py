@@ -319,7 +319,8 @@ def _prose_block(project) -> None:
                "report opens saying what they say. Once edited it is yours, and "
                "will not track later changes to the project.")
     limitations = _text("Limitations and scope",
-                        spec.limitations or oc.default_limitations(project),
+                        spec.limitations
+                        or oc.default_limitations(project, spec.unit_system),
                         "report_limitations", area=True)
     _set_spec(replace(spec, introduction=introduction, limitations=limitations))
 
