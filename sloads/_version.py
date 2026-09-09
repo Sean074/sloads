@@ -21,6 +21,6 @@ pulls in the whole package, and the build environment has none of its
 dependencies. A file with one literal in it cannot fail that way.
 """
 
-__version__ = "0.8.1"
+__version__ = "0.8.2"
 
 __all__ = ["__version__"]
