@@ -262,6 +262,57 @@ def test_a_design_note_does_not_claim_unbuilt_work_it_has_shipped(note):
 
 
 # --------------------------------------------------------------------------- #
+# A note a history fragment closed against must say SHIPPED/BUILT (#183)
+# --------------------------------------------------------------------------- #
+# The #128 guard above fires only on explicit "unbuilt" phrasing, so a header
+# left at plain AGREED after the work landed passes CI -- three of the last
+# four tier-L closures did exactly that (notes 46/47/48, review R-13), and the
+# 0.8.2 hygiene pass found two more the issue did not know about (50, 53). It
+# matters because `RELEASE_PROCESS.md` §4 step 3 rolls notes to
+# `docs/40_history/` BY STATUS HEADER: an unflipped note is skipped by the roll
+# and a wrong status enters the permanent record. The evidence is the same
+# in-repo proxy #128 uses, narrowed to where it is unambiguous: a
+# `changes/*.history.md` fragment's own `## Step` heading names the note it
+# ships (``(design note 53, tier L``); a prose mention in a fragment body
+# ("until note 51 lands") is exactly what this must NOT count.
+_STEP_NOTE_CITE = re.compile(r"^## Step[^(]*\((?:design )?note (\d+)\b", re.M)
+#: The note's Status paragraph: from the ``**Status`` line to the first blank.
+_STATUS_PARA = re.compile(r"^\*\*Status[^\n]*(?:\n(?!\n)[^\n]*)*", re.M)
+
+
+def _history_shipped_notes():
+    """Note numbers named in a ``## Step`` heading of a history fragment."""
+    shipped = {}
+    if not os.path.isdir(_CHANGES):
+        return shipped
+    for name in sorted(os.listdir(_CHANGES)):
+        if not name.endswith(".history.md"):
+            continue
+        with open(os.path.join(_CHANGES, name), encoding="utf-8") as fh:
+            for number in _STEP_NOTE_CITE.findall(fh.read()):
+                shipped.setdefault(number, name)
+    return shipped
+
+
+@pytest.mark.parametrize("note", _design_notes())
+def test_a_note_closed_by_a_history_fragment_says_shipped(note):
+    number = note.split("_", 1)[0].lstrip("0")
+    fragment = _history_shipped_notes().get(number)
+    if fragment is None:
+        return
+    text = "\n".join(_lines(os.path.join(_NOTES_DIR, note)))
+    status = _STATUS_PARA.search(text)
+    assert status, f"{note} has no **Status** line to carry its shipped state"
+    assert _SHIPPED_MARK.search(status.group(0)), (
+        f"{note} is the design basis of changes/{fragment} (its step heading "
+        f"names note {number}) but its Status paragraph carries no "
+        "SHIPPED/BUILT/✅ mark. Flip the header -- RELEASE_PROCESS.md §4 "
+        "step 3 rolls notes by status, so a stale AGREED skips the roll and "
+        "enters the record wrong (#183)."
+    )
+
+
+# --------------------------------------------------------------------------- #
 # A standard doc's conformance table must name tests that exist
 # --------------------------------------------------------------------------- #
 #: How a standard doc cites a test: ``file.py::test_name`` for the first of a
