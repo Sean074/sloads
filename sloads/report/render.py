@@ -688,7 +688,7 @@ def _running_locations(results: Sequence[ConditionResult]) -> List[tuple]:
 
     This is a defect fix (note 44 OR-193, found 2026-09-07 building the engine's
     applied-load file). Two of the six engine-mount conditions -- the sudden
-    stoppage torque of 23.371(c) and the gyroscopic condition of 23.371(b) --
+    stoppage torque of 23.361(b)(1) and the gyroscopic condition of 23.371(b) --
     carry no ``loc_*`` values, while the four beside them for the same engine do.
     The old fallback was the *first* location in the set, so on every multi-engine
     fixture the load-case index printed the right-hand engine's stoppage torque

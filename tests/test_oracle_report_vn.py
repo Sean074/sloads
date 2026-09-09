@@ -506,7 +506,7 @@ def test_a_condition_with_no_point_takes_the_point_of_its_own_engine():
     a change that moved the locations and regenerated the baseline would pass.
 
     Two of the six engine-mount conditions carry no ``loc_*`` values: the
-    sudden-stoppage torque of 23.371(c) and the gyroscopic condition of
+    sudden-stoppage torque of 23.361(b)(1) and the gyroscopic condition of
     23.371(b). The old fallback reached for the first location in the whole set,
     so a twin printed the right engine's stoppage torque and its four gyroscopic
     sub-cases at the **left** engine's butt line -- ten rows on ``atr42_100``,

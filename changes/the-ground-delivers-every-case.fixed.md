@@ -11,7 +11,7 @@
   section to find. Each family is now ranked once per gear it loads, and the
   shipped condition set goes from 40 to 42.
 - **A multi-engine load-case index placed one engine's loads at the other engine's butt line (OR-193).**
-  Two of the six engine-mount conditions — the 23.371(c) sudden-stoppage torque
+  Two of the six engine-mount conditions — the 23.361(b)(1) sudden-stoppage torque
   and the 23.371(b) gyroscopic condition — carry no `loc_*` values while the four
   beside them for the same engine do, and `load_cases_to_rows` filled the gap
   with the **first** location in the whole set. So the right-hand engine's
