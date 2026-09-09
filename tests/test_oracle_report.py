@@ -1656,6 +1656,41 @@ def test_the_cg_case_table_prints_the_percent_mac_relation_and_its_reference():
     assert "planform" in note
 
 
+def test_the_planform_table_prints_the_pair_every_pct_mac_is_measured_from():
+    """2.1's MAC and XLEMAC are the %MAC reference's own numbers (#234).
+
+    Table 1 used to print WINGGEOM's integration of the parametric cross-check
+    trapezoid (XLEMAC 56.73 on the GA-6) while 2.2's %MAC note printed the
+    stored polylines' pair (63.62) and attributed it to "the wing planform
+    stated in 2.1" -- two answers, one claimed provenance, and a reader
+    converting %MAC with Table 1's numbers landed inches away from the
+    document's own stations. The table must print the pair ``mac_reference``
+    resolves from the planform, and 2.2's note must attribute its pair to the
+    planform it actually read.
+    """
+    project = reduce_to_oracle_inputs(io.load_project(_GA))
+    section = _section_two(_doc())
+    geometry = next(s for s in _flat([section]) if s.tables)
+    table = next(t for t in geometry.tables
+                 if t.title == "Wing planform geometry")
+    rows = {row[0]: row[1] for row in table.rows}
+    ref = mac_reference(project)
+    assert ref is not None and ref.source == "planform"
+    assert rows["MAC"] == format_value(ref.mac)
+    assert rows["XLE(MAC) station of MAC LE"] == format_value(ref.xlemac)
+    # The GA-6 wing is cranked (LE break at BL 46.5), so the retired
+    # parametric-trapezoid pair genuinely differs -- the equality above cannot
+    # pass by both tables reading the trapezoid.
+    from sloads.modules.configuration import _wing_geometry
+    parametric = _wing_geometry(project.geometry.parametric)
+    assert (format_value(parametric["XLE(MAC) station of MAC LE"])
+            != rows["XLE(MAC) station of MAC LE"])
+    # 2.2 prints the same pair and attributes it to the planform of 2.1.
+    note = _cg_case_table(project).note or ""
+    assert format_value(ref.xlemac) in note and format_value(ref.mac) in note
+    assert "planform stated in 2.1" in note
+
+
 def test_a_case_table_with_no_mac_reference_says_so_instead_of_printing_zero():
     """G-OR-32: an unresolvable %MAC is stated absent, never printed as 0.
 

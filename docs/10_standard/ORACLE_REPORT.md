@@ -331,6 +331,12 @@ Properties, 2.3 Structural Design Speeds, 2.4 Flight Envelope.
   (estimate)* and *Landing-gear geometry (estimate)* conditions, both of which
   note themselves first-order with no oracle. A first-order estimate printed
   beside oracle-locked geometry reads as carrying the same standing.
+- **2.1's wing planform table prints the integration of the planform the
+  analyses use** — the stored surface polylines, resolved through the same
+  chain as the %MAC reference — never the configuration module's parametric
+  cross-check, whose regenerated trapezoid disagrees with a cranked wing by
+  inches of XLEMAC (#234). The parametric condition is the fallback only when
+  no stored wing integrates, the case where 2.2 has no planform pair either.
 
 ### 3.3.1 The document is a function of the oracle projection
 

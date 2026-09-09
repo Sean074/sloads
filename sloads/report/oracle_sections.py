@@ -48,6 +48,7 @@ from ..constants import IN2_PER_FT2, ULTIMATE_FACTOR
 from ..derived_geometry import (
     MacReference,
     mac_reference,
+    planform_geometry_condition,
     station_to_pct_mac,
     wing_reference,
 )
@@ -604,12 +605,47 @@ def _planform_figure(project: Project, key: str, parent: str, title: str,
         caption=" ".join(caption))
 
 
+def _stored_planform_condition(project: Project,
+                               system: UnitSystem) -> Optional[ConditionResult]:
+    """The wing planform the analyses integrate, or ``None`` (#234).
+
+    Table 1 printed WINGGEOM's integration of the configuration module's
+    *parametric cross-check* -- two-point polylines regenerated from the layout
+    scalars -- while every spanwise distribution and every %MAC in the document
+    integrates the stored surface polylines. On a cranked wing the two are
+    inches of XLEMAC apart (GA-6: 56.73 vs 63.62), and 2.2's %MAC note
+    attributed its pair to this table, so a reader converting %MAC with Table
+    1's numbers landed on different stations than the document's with no
+    warning. The section now prints the stored planform's own condition, read
+    from the one resolver (``derived_geometry.planform_geometry_condition``,
+    which resolves the same surface the %MAC reference reads); the parametric
+    condition remains only as the fallback when there is no integrable stored
+    wing -- the case where 2.2 has no planform pair to attribute either. The
+    typed wing area S and the ``envelope.xlemac``/``mac`` pair stay legitimate
+    overrides of the integration; they are named as such where they are
+    printed, not reconciled away.
+    """
+    condition = planform_geometry_condition(project)
+    if condition is None:
+        return None
+    surface_name = condition.title.rpartition(": ")[2] or "wing"
+    condition = replace(
+        condition,
+        note=(f"MAC, XLEMAC and aspect ratio are WINGGEOM's closed-form "
+              f"integration of the stored {surface_name} leading- and "
+              "trailing-edge polylines -- the planform the figures draw and "
+              "the spanwise distributions of the following sections "
+              "integrate."))
+    return next(iter(convert_results([condition], system)))
+
+
 def _geometry(project: Project,
               results: Mapping[str, Optional[ModuleResult]], *,
               system: UnitSystem,
               plan: Sequence[SectionPlan]) -> Section:  # noqa: ARG001
     conditions = _conditions(results.get("configuration_layout"), system)
-    planform = _find(conditions, _GEOMETRY_CONDITION)
+    planform = (_stored_planform_condition(project, system)
+                or _find(conditions, _GEOMETRY_CONDITION))
 
     # Wing area is produced by structural_speeds, not by the geometry module,
     # but it is geometry and this is where a reader looks for it. Taken from the
