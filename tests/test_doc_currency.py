@@ -345,5 +345,62 @@ def test_the_unbuilt_guard_would_catch_the_two_it_was_written_for():
         assert _UNBUILT_CLAIM.search(sentence), sentence
 
 
+# --------------------------------------------------------------------------- #
+# Every shipped oracle-report guard module has a row in the standard's register
+# --------------------------------------------------------------------------- #
+
+_ORACLE_REPORT_STD = os.path.join("docs", "10_standard", "ORACLE_REPORT.md")
+
+
+def _report_guard_modules():
+    """Every ``tests/test_oracle_report*.py`` file, by name.
+
+    The glob is the source, not a hand list: the defect this guard exists for
+    is a shipped guard module the standard never mentions, and a hand list
+    would itself be a copy that goes stale the same way.
+    """
+    tests_dir = os.path.join(_ROOT, "tests")
+    return sorted(n for n in os.listdir(tests_dir)
+                  if n.startswith("test_oracle_report") and n.endswith(".py"))
+
+
+def _uncited_report_modules(text):
+    return [name for name in _report_guard_modules() if name not in text]
+
+
+def test_every_oracle_report_guard_module_is_cited_by_the_standard():
+    """A shipped guard module the register never names is an agreement held by
+    prose alone -- G-OR-8's own defect, in the standard that states G-OR-8.
+
+    Found by the 2026-09-08 review (#238): iterations 8, 9 and 10 shipped with
+    their gates in ``test_oracle_report_oei.py``, ``_landing.py`` and
+    ``_vn.py``, and `ORACLE_REPORT.md` cited none of them -- nor the earlier
+    ``_vtail.py`` and ``_applied.py``. `test_every_test_a_standard_doc_cites_exists`
+    checks the citations that are there; this is the other direction, which is
+    the one that failed.
+    """
+    text = "\n".join(_lines(_ORACLE_REPORT_STD))
+    uncited = _uncited_report_modules(text)
+    assert not uncited, (
+        f"ORACLE_REPORT.md never cites {uncited}. Every shipped oracle-report "
+        f"guard module needs a row in the standard's §7 register (or a "
+        f"conformance entry): an agreement without a named guard is prose "
+        f"(G-OR-8, #238).")
+
+
+def test_the_module_citation_guard_would_catch_an_unregistered_module():
+    """The guard's teeth: the five modules #238 found missing, against a doc
+    that cites only the base file -- which is what the register looked like."""
+    modules = _report_guard_modules()
+    doc_citing_only_the_base = "see `test_oracle_report.py::test_a_thing`"
+    uncited = _uncited_report_modules(doc_citing_only_the_base)
+    for name in ("test_oracle_report_oei.py", "test_oracle_report_landing.py",
+                 "test_oracle_report_vn.py", "test_oracle_report_vtail.py",
+                 "test_oracle_report_applied.py"):
+        assert name in modules, name
+        assert name in uncited, name
+    assert "test_oracle_report.py" not in uncited
+
+
 if __name__ == "__main__":  # zero-dependency self-runner
     sys.exit(pytest.main([__file__, "-p", "no:xdist", "-q"]))

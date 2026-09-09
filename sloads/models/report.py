@@ -170,9 +170,10 @@ class ReportSpec:
     #: sidebar governs what the analysis pages display; this governs the report,
     #: so that a spec plus a project is a complete, reproducible recipe.
     unit_system: UnitSystem = UnitSystem.IMPERIAL
-    #: Workflow step keys the user deselected for this issue (OR-19). Stored by
-    #: step key and never by section number, which moves as steps are added.
-    #: A deselected section is still rendered, with its exclusion stated.
+    #: Workflow step keys the user deselected for this issue (OR-19, as revised
+    #: 2026-08-30). Stored by step key and never by section number, which moves
+    #: as steps are added. A deselected section is not rendered at all and the
+    #: numbering closes up behind it.
     excluded_steps: Tuple[str, ...] = ()
     identity: ProjectIdentity = field(default_factory=ProjectIdentity)
 
