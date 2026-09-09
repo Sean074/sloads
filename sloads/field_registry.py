@@ -923,7 +923,7 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("geometry.parametric.le_root_x", _GEO, _ORIG, "WINGGEOM centreline LE station"),
     _E("geometry.parametric.root_waterline_z", _GEO, _ORIG, "WINGGEOM root-chord waterline"),
     _E("geometry.parametric.datum_x", _GEO, _ORIG, "WINGGEOM nose datum reference"),
-    _E("geometry.parametric.h_tail_z", _GEO, _ORIG, "SELECT h-tail vertical offset (Ch 9)"),
+    _E("geometry.parametric.h_tail_z", _GEO, _ORIG, "h-tail waterline offset (Ch 9; places load stations, #236)"),
     # Was "layout sketch only" until note 44 OR-134. It is not: the oracle
     # report withholds the vertical tail's spanwise loads on any value other
     # than CONVENTIONAL (OR-133), so the document is a function of this field --

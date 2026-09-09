@@ -3783,8 +3783,44 @@ def _station_point(station, component: str) -> Tuple[float, float, float]:
     return tail_station_to_airplane(station.x, station.y, component, station.z)
 
 
+def _htail_waterline_sentence(project: Project, system: UnitSystem) -> str:
+    """The provenance of the waterline every h-tail station prints (#236).
+
+    Asked of the owner (``tail_geometry.h_tail_waterline``) -- the same
+    resolution ``tail_span`` placed the stations with -- so the sentence cannot
+    claim a placement the analysis did not make. The wing-root branch is the one
+    the 2026-09-08 review filed (R12): the placeholder printed as an airplane
+    coordinate with no statement, placing the GA-6's tail 32.5 in low for any
+    reader importing the points.
+    """
+    from ..tail_geometry import h_tail_waterline
+
+    resolved = h_tail_waterline(project)
+    u = Units(system)
+    z = u.plain(resolved.z, "length")
+    length = u.label("length")
+    if resolved.basis == "entered":
+        return (f" The waterline every station sits on, {z} {length}, is "
+                "entered geometry: the wing-root reference plane plus the "
+                "entered h-tail offset (h_tail_z).")
+    if resolved.basis == "fin-tip":
+        return (f" The waterline every station sits on, {z} {length}, is the "
+                "fin tip the horizontal surface is mounted on, from the same "
+                "owner that places the fin.")
+    if resolved.basis == "mid-fin":
+        return (f" The waterline every station sits on, {z} {length}, is "
+                "ASSUMED as the mid-fin point a defaulted cruciform is drawn "
+                "at. Enter h_tail_z to state it.")
+    return (f" The waterline printed for every station, {z} {length}, is "
+            "ASSUMED: it is the wing-root reference plane the analysis "
+            "carries, not the surface's true waterline, because no h-tail "
+            "offset (h_tail_z) is entered. No load in this document depends "
+            "on it -- the surface loads normal to its own plane, so this "
+            "coordinate places the points, not the forces on them.")
+
+
 def _tail_lra_station_table(results: Sequence[TailSpanResult], component: str,
-                            system: UnitSystem, *,
+                            system: UnitSystem, *, project: Project,
                             withheld: bool = False) -> Optional[Table]:
     """The tail's loads reference axis, station by station.
 
@@ -3821,6 +3857,8 @@ def _tail_lra_station_table(results: Sequence[TailSpanResult], component: str,
               f"safety factor. The point is in airplane axes, so the "
               f"{names['span_axis']} is the coordinate that runs with the span "
               f"and the other two are fixed by where the surface is mounted."
+              + (_htail_waterline_sentence(project, system)
+                 if component == "htail" else "")
               + (" The loads applied at these stations are withheld for this "
                  "airplane's tail arrangement, and the reason is stated in "
                  "full with this section's spanwise loads. The stations "
@@ -3838,6 +3876,7 @@ def _tail_inputs(project: Project, component: str, *, system: UnitSystem,
     withheld = _vtail_withheld(project, component)
     tables = [t for t in (_tail_constants_table(project, component),
                           _tail_lra_station_table(results, component, system,
+                                                  project=project,
                                                   withheld=withheld))
               if t is not None]
     body = [
@@ -4703,7 +4742,10 @@ def _tail_station_appendix(project: Project, component: str, *,
               "prescribes for its condition, which is applied to none of them. "
               "The station point is the loads reference axis of the surface, "
               "mapped to airplane axes, and the moments are right-handed about "
-              f"those axes about that point. {absent}"))
+              "those axes about that point."
+              + (_htail_waterline_sentence(project, system)
+                 if component == "htail" else "")
+              + f" {absent}"))
     if table is None:
         return Section("", absent_reason=(
             f"the {names['surface']} spanwise loads produced no applied "

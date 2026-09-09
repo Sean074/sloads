@@ -759,6 +759,18 @@ module `taildist`), which is **split by surface**: the horizontal tail is sectio
   no empennage dihedral, so the other components are absent by construction
   rather than zero by measurement, and OR-61's ruling — a column of zeros reads
   as a measured zero — keeps them out. The appendix states both absences.
+- **The h-tail station waterline is asked of its owner and its provenance is
+  stated beside it (#236).** The waterline §5.1's station table and Appendix D
+  print is `tail_geometry.h_tail_waterline`'s — the same resolution
+  `tail_span` places the stations and the exported `GRID`s with — and both
+  tables **SHALL** carry the provenance sentence built from that owner: entered
+  geometry where `h_tail_z` is entered, the fin tip on a T-tail, and where
+  nothing places the surface, the sentence **SHALL** say the printed value is
+  the wing-root reference plane ASSUMED, not the surface's true waterline, and
+  that no delivered load depends on it. The 2026-09-08 review (R12) filed the
+  silent form: the GA-6 printed WL 78.5 for a surface at WL 111 under a note
+  calling it airplane axes, and an analyst importing the points placed the tail
+  32.5 in low.
 - **The Appendix A tail oracles are not reproducible from the shipped
   fixture, and the document is not pinned to them.** They are selected from a
   three-altitude envelope while every case `ga6_normal` delivers is at sea

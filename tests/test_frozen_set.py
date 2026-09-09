@@ -140,7 +140,15 @@ MANIFEST: dict[str, str] = {
     "sloads/modules/select.py": "1685e932f93bdb5ef2165747e23a12628281abe86bc713417fa022a91d3e2a55",
     "sloads/modules/structural_speeds.py": "8fdbc1cc6eb17dbbdda4f5f1b224c7d5d4b86dfe14c923457292db7e123814c1",
     "sloads/modules/tab.py": "f81ff82261cccabedef57491635b3f56767faa61bae31c2d0d0017fc3bcb07e7",
-    "sloads/modules/tail_span.py": "22a7832553de87ef9826c6e869e8ec8f1fe4e39c04706224f6af63e0847212b5",
+    # OR-15 admission, granted by the owner 2026-09-08 (#236, option B), scoped
+    # to ``_h_tail_waterline`` and its import line and nothing else: the
+    # function becomes a thin reader of the new single owner
+    # ``tail_geometry.h_tail_waterline`` so the h-tail's stations, Appendix D
+    # and the exported GRIDs sit at the entered ``h_tail_z`` waterline instead
+    # of the wing-root placeholder. No delivered load moves -- the surface
+    # loads in fz only, so z places points, not forces (only ``ga6_normal``'s
+    # deck coordinates change, re-frozen in ``fixtures_imperial``).
+    "sloads/modules/tail_span.py": "45f13471925ef5400779ffd67a25e819fce8eab62e8f97f0f88ca717d0b86842",
     "sloads/modules/taildist.py": "3848d95ed35894bfe58e16e2c2f6a21e12a93ea493e533ccfdf40bf4caead3fb",
     # Re-hashed 2026-08-31 under an OR-15 row 1 admission (issue #157, design
     # note 45): WTENV gained the aft edge of the loading envelope and the

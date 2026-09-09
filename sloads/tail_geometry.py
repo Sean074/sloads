@@ -490,6 +490,83 @@ def fin_root(project: Project) -> FinRoot:
         entered_geometry=entered_fin_root(project))
 
 
+@dataclass(frozen=True)
+class HTailWaterline:
+    """Where the horizontal tail sits, and on whose authority.
+
+    Same contract as :class:`FinRoot`: ``assumed`` is False only for an entered
+    value, ``basis`` names the branch of :func:`h_tail_waterline` that produced
+    it, and ``note`` is the in-band sentence a derived value owes its consumer.
+    """
+
+    z: float
+    assumed: bool
+    basis: str
+    note: str = ""
+
+
+def h_tail_waterline(project: Project,
+                     fin: Optional[TailPlanform] = None) -> HTailWaterline:
+    """Waterline of the horizontal tail (in) -- **the single owner** (#236).
+
+    Read by ``tail_span._h_tail_waterline`` for the load stations (so the report's
+    station tables, Appendix D and the exported ``GRID``s all carry it) and echoed
+    by the report's provenance sentences, so the document cannot state a
+    provenance the resolution did not have. The three-view
+    (``configuration.tail_planform``) resolves the same entered branch from the
+    same fields, drift-guarded in ``tests/test_tail_geometry.py``.
+
+    The h-tail loads in ``fz`` only, so this coordinate enters no delivered load
+    -- it places stations and ``GRID``s, not forces (``z`` pairs with ``Fx`` in
+    ``Myy`` and with ``Fy`` in ``Mxx``, and the surface carries neither). That is
+    why the wing-root placeholder survived here for so long, and why the 2026-09-08
+    review (R12) filed it anyway: the document printed the placeholder as an
+    airplane coordinate, and an analyst importing Appendix D's points placed the
+    GA-6's tail 32.5 in low.
+
+    Resolution order::
+
+        T-tail with a resolved fin -> fin root + fin span (the fin tip)
+        cruciform, h_tail_z blank  -> fin root + fin span / 2 (assumed True)
+        h_tail_z entered           -> root_waterline_z + h_tail_z (assumed False)
+        otherwise                  -> root_waterline_z, with a loud note
+        no layout                  -> 0.0, same note
+
+    The cruciform branch mirrors the three-view's own mid-fin default so the
+    sketch and the deck place one surface once (``CONVENTIONS.md`` §7 rule 2) --
+    before this owner the deck used the wing root there, 32+ in below the drawn
+    surface on any real cruciform.
+    """
+    if fin is None:
+        fin = resolve_tail_planform(project, VTAIL)
+    geometry = project.geometry
+    layout = geometry.parametric if geometry is not None else None
+    if (layout is not None and fin is not None and fin.span > 0
+            and layout.tail_type == TailType.T_TAIL):
+        z = fin.root_z + fin.span
+        return HTailWaterline(z, fin.root_z_assumed, "fin-tip", (
+            f"h-tail waterline {z:.1f} in is the fin tip the horizontal "
+            "surface sits on (fin root + fin span, from the fin-root owner)."))
+    if (layout is not None and fin is not None and fin.span > 0
+            and layout.tail_type == TailType.CRUCIFORM
+            and not layout.h_tail_z):
+        z = fin.root_z + fin.span / 2.0
+        return HTailWaterline(z, True, "mid-fin", (
+            f"h-tail waterline {z:.1f} in ASSUMED as the mid-fin point the "
+            "three-view draws a defaulted cruciform at. Enter h_tail_z to "
+            "state it."))
+    if layout is not None and layout.h_tail_z:
+        return HTailWaterline(
+            layout.root_waterline_z + layout.h_tail_z, False, "entered")
+    z = layout.root_waterline_z if layout is not None else 0.0
+    return HTailWaterline(z, True, "wing-root", (
+        f"h-tail waterline {z:.1f} in ASSUMED as the wing-root reference plane "
+        "-- h_tail_z is not entered, so this is not the surface's true "
+        "waterline. No delivered load depends on it (the h-tail loads in fz "
+        "only); it places the load stations and the exported GRIDs. Enter "
+        "h_tail_z to state it."))
+
+
 def resolve_tail_planform(project: Project,
                           component: str) -> Optional[TailPlanform]:
     """The planform to run strips on, or ``None`` when the surface is not modelled.
@@ -651,9 +728,11 @@ __all__ = [
     "TAIL_COMPONENTS",
     "VTAIL",
     "FinRoot",
+    "HTailWaterline",
     "TailPlanform",
     "fin_root",
     "fin_root_waterline",
+    "h_tail_waterline",
     "half_area_centroid",
     "is_conventional_tail",
     "is_t_tail",
