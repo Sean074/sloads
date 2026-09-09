@@ -393,6 +393,37 @@ def test_the_seed_is_registered_for_the_oracle_geometry_page():
         "the seed writes a field the registry does not put on the page")
 
 
+def test_lra_overlay_puts_a_waterline_span_surface_in_the_side_view():
+    """A fin/rudder LRA belongs in the Side view, unmirrored (0.8.2 walk).
+
+    A vertical surface's polyline second coordinate is a waterline (the GA6 fin
+    root is ``(240.912, 117.0)``), so drawing its LRA in the Top view puts the
+    fin in the x-y plane, off past the wingtip — found at the 0.8.2 pre-release
+    walk. And the frame decides, never ``symmetric``: ``baron_58`` sets
+    ``symmetric=True`` on its fin, which mirrored about y=0 would hang a second
+    fin below the airplane."""
+    from sloads.models import SurfaceInput
+    from sloads.modules.configuration import lra_overlays
+
+    wing = SurfaceInput(name="wing", symmetric=True,
+                        leading_edge=[(45.0, 0.0), (64.3, 46.5)],
+                        trailing_edge=[(146.0, 0.0), (120.0, 46.5)])
+    # The baron_58 trap: a fin marked symmetric.
+    fin = SurfaceInput(name="vtail", symmetric=True,
+                       leading_edge=[(240.9, 117.0), (277.0, 168.5)],
+                       trailing_edge=[(295.0, 117.0), (293.0, 168.5)])
+    rudder = SurfaceInput(name="rudder", symmetric=False,
+                          leading_edge=[(292.9, 111.5), (275.8, 114.7)],
+                          trailing_edge=[(295.0, 111.5), (293.0, 114.7)])
+    by_name = {ov["name"]: ov for ov in lra_overlays([wing, fin, rudder])}
+
+    assert by_name["wing"]["view"] == "top"
+    assert min(by_name["wing"]["y"]) == -46.5, "a symmetric planform surface mirrors"
+    for name in ("vtail", "rudder"):
+        assert by_name[name]["view"] == "side", f"{name} spans waterline, not butt line"
+        assert min(by_name[name]["y"]) >= 111.5, f"{name} must never mirror about y=0"
+
+
 if __name__ == "__main__":
     import traceback
 
