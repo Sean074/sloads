@@ -10,6 +10,1974 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.2] — 2026-09-08
+
+### Added
+
+- **Appendix A is the balanced V-n condition register (design note 44 §23, tier L, 2026-09-07).**
+  Every balanced flight condition the envelope produces — 80 rows on
+  `ga6_normal`, 180 on `baron_58`, 200 on `concept_regional_jet` — reproducing
+  Ref 1 Appendix A p179 (the mass cases) and p180-185 (the balanced-flight
+  columns), with the manual's per-block `FOR CG1 FS= … WL= …` headings turned
+  into CG, configuration and altitude columns so the table is flat. The document
+  named 23 critical conditions and never showed the reader the 80, 180 or 200
+  they were selected out of; a selection whose candidate set is not published is
+  a claim, not a result. The four component columns mark which rows were
+  selected, and as what: `W-03`, `F-01`, `VT-01, VT-02, VT-03`.
+- **`<project>_vn_conditions.csv`** ships in the export bundle and the manifest —
+  the appendix as a file, all nineteen columns in one flat row, built from the
+  same rows the page prints.
+- **Section 2.2 gains a `CG` column**, the positional id the conditions are
+  indexed by, so a reader meeting `CG1` in Appendix A can find `fwd gross` in
+  Section 2. One owner, `cg_cases.flight_case_ids`; the case *name* remains the
+  identity everywhere else.
+- **`NX` is printed beside `DX`** in the conditions table — the inertia drag
+  factor `−DX/W` the drag leaves the balance as. The appendix states in one
+  paragraph that thrust is not modelled and why the airplane is nonetheless in
+  longitudinal equilibrium.
+
+- **An applied-load CSV per surface (note 44 §18 OR-141a, tier L, 2026-09-07).**
+  `fuselage_applied_loads.csv`, `htail_applied_loads.csv` and
+  `vtail_applied_loads.csv` join `wing_applied_loads.csv` in the export bundle and on
+  the Export page, each carrying its component's whole applied set — the case, the
+  point the load acts at, all six body-axis components and the factor. One file per
+  surface rather than one airframe file with a component column: a consumer loads the
+  surface they are sizing, and a single file would have to be filtered before it could
+  be used. The file and its appendix are the same rows through the same owner, and
+  **G-OR-90** holds both to the cards the deck writes.
+
+- **Appendix C is split into C.1 applied and C.2 carried (note 44 §18 OR-144, tier L,
+  2026-09-07).** On the reasoning that split Appendix B and was never the wing's alone:
+  the load applied at a station and the load carried across it are different quantities,
+  and a reader who takes one for the other builds the wrong model. They shared one
+  table, with the distinction carried by a sentence in a note.
+
+- **The oracle report gains sections 7, 8 and 9 — aileron, flap and tab (note 44 §19
+  OR-147, tier L, 2026-09-07).** Each states the critical condition, the load it
+  produces and the pressure to apply, over the surface Section 2 already draws. They
+  add **no appendix, no station table and no CSV**: the A–E pattern exists because a
+  wing, a body and a tail deliver a distributed load a structures model integrates
+  station by station, and a control surface delivers a pressure the reader applies.
+  **G-OR-95** holds the appendix set at A–E, so "no appendix" is a checked property of
+  the document rather than an intention.
+
+- **Two figures per section: how to apply the load, and where (OR-153).** The chordwise
+  application diagram draws the profile against the fraction of the surface's local
+  chord, with the hinge line and the point the resultant acts at marked; it is built
+  from the module's own profile, so it exists on every project that runs the module.
+  The planform locator shades the surface on its host, drawn from Section 2's entered
+  outlines through the same owner §2.1 uses. Where an outline is not entered the
+  locator states the absence — measured, that is the flap and the elevator on three of
+  the four examples — and says in the same breath that the loads and pressures are
+  unaffected, because they are computed from the entered areas and not from a shape.
+
+- **The spanwise distribution is stated, where the oracle leaves it ambiguous
+  (OR-151).** The pressure is uniform along the span and the chordwise profile is in
+  fractions of the *local* surface chord. That is not an assumption added by the
+  document: each of the three equations divides a load by an **area**, so the pressure
+  is uniform over that area by construction. **G-OR-97** holds the printed profile to
+  it — mean pressure times the entered area is the printed load, on every case of every
+  shipped example — so a future edit cannot move the profile or the area without the
+  other.
+
+- **One sign convention, in the same words in all three (OR-150).** Pressure is
+  positive acting normal to the control surface's own plane, in the sense a
+  trailing-edge-down deflection produces; a positive pressure gives a nose-down moment
+  about the hinge line and a negative pressure, which a trailing-edge-up throw produces,
+  gives a trailing-edge-down moment about it. The airplane axis that normal is belongs
+  to the host — `z` for a wing- or horizontal-tail-borne surface, `y` for a rudder — and
+  is named rather than left to the reader.
+
+- **Section 11, One Engine Inoperative (design note 44 §21, tier L, 2026-09-07).**
+  The oracle report's eleventh section, in three subsections: 11.1 Input Data,
+  11.2 Critical Cases and 11.3 Yaw Transient. The third exists because this is
+  the suite's only time-marching analysis — every other condition is a state of
+  the airplane, this one is an event — and a peak load stated without the march
+  that produced it is a number a reader cannot check. 11.3 carries one pair of
+  figures per case, the yaw response and the fin load that recovered it, each
+  marking 23.367(b)'s two-second limit on corrective action and the instant of
+  peak total load; a symmetric installation's second engine is not re-plotted,
+  and the section says so.
+- **The 23.367 engine-failure cases are fin design conditions (note 44 OR-172,
+  tier L, 2026-09-07).** Every recovered case now joins the vertical tail's
+  critical set and travels with it: Section 6, the chordwise and spanwise
+  distributions, the applied-load appendix and the exported v-tail deck.
+  `one_engine_out.fin_conditions` publishes them and `select.default_critical`
+  admits them at one insertion point.
+- **A `NOT_APPLICABLE` section state (note 44 OR-178).** The airplane has no such
+  condition — distinct from the tool not producing it and from the inputs being
+  missing. Its reason is read from `applicability.step_not_applicable`, the
+  predicate the module refuses on and the coverage table cites.
+
+- **Section 10, Engine Mount Loads, in the oracle report (note 44 §20, tier L,
+  2026-09-07).** Two subsections. **10.1 Input Data** states the entered engine
+  and propeller data one column per engine, the three stations in play — the
+  beam model's mount node, its hub node and the combined engine + propeller CG
+  the loads act at — the thrust axis as direction cosines, the case list by
+  regulation, and the sign convention. **10.2 Critical Cases** states all six
+  airplane-axis components of the load each condition applies to the airframe,
+  one row per case per engine, and beside it the torque about the engine's own
+  thrust line and the thrust along it — the two scalars the six were resolved
+  from, so a reader can repeat the resolution rather than take it. Every case is
+  LIMIT with its factor stated and applied nowhere; the section adds no appendix,
+  because a mount takes a point load and not a distribution.
+
+- **Three views of the engine installation, drawing whatever airframe the project
+  enters (note 44 §20 OR-168/OR-169).** Side, front and plan, each with the
+  fuselage from its section table, the wing and the empennage through the owners
+  Section 2 and the three-view sketch already use, and every engine's mount node,
+  hub node, application point and thrust line marked on it. A project that enters
+  no outline still gets all three: the engines are the subject and the airframe
+  is context. `derived_geometry.fuselage_outline` is the new single owner of the
+  drawn body — the section table had been in the schema since the schema had a
+  body, and nothing drew it.
+
+- **`export/coordinates.engine_thrust_axis` and `engine_applied_load`**, the one
+  owner of an engine's thrust line and of the airplane-axis resolution of the
+  torque and thrust that act about it. `CONVENTIONS.md` §1 already makes this
+  module the single edit point for every axis resolution in the suite; the report
+  asks it rather than restating its signs, the same shape OR-146 gave the fin's
+  torsion.
+
+- **The engine's thrust line is an input (design note 53, tier L, 2026-09-07).**
+  `EngineInput.thrust_line_aft` and `thrust_line_fwd` state the line as two
+  points in the airplane frame, with `(0, 0, 0)` meaning not entered — the
+  sentinel `LandingGearInput.attach` already uses. The forward point is forward
+  **because it is entered as such**, never inferred from the smaller fuselage
+  station, so a pusher installation is expressible with no special case
+  anywhere. Both or neither: one point alone states no direction and is refused
+  by name, as are two points that coincide. An engine that states no line is resolved about the
+  airplane's forward axis and marked **ASSUMED** on every deliverable that prints
+  it. Entered on the Engine Mount page, drawn on the Configuration & Layout
+  three-view and on the oracle report's three views of the installation.
+
+- **The propeller's rotation direction is an input, per engine
+  (`EngineInput.prop_direction`).** Clockwise seen from the pilot's seat by
+  default — what every published torque already assumed — so no existing project
+  moves by a pound-foot. A counter-clockwise engine reverses the sign of every
+  torque it delivers to the airframe, in every deliverable that carries one. Per
+  engine rather than per airplane, because a counter-rotating twin is the
+  configuration the field exists for. It reuses `RotorDirection`, which the
+  schema has carried on `Rotor` since the turbine rotor model and which nothing
+  read until now.
+
+- **`derived_geometry.engine_thrust_segments`**, the one producer of an engine's
+  thrust line as something to draw, read by both three-view consumers so they
+  cannot disagree about where a line runs or how long an assumed one is. The
+  length of an assumed line is a fraction of the body, not of the plot, so the
+  same engine draws the same line in the report and in the GUI.
+
+- **The GA6 example carries its printed Appendix A empennage (tier L, 2026-08-30).**
+  `examples/ga6_normal.project.json` gains horizontal tail, vertical tail, elevator, rudder
+  and flap entries in `geometry.surfaces`, transcribed from the coordinate tables Appendix A
+  prints for each (p145 flap, p149 rudder, p151 h-tail, p153 elevator, p157 tab). The
+  fixture had kept those WINGGEOM runs' **outputs** as scalars and dropped their **inputs**.
+  Every entered polyline reproduces its own printed AREA/SIDE, MAC, YLE(MAC), XLE(MAC) and
+  aspect ratio to within **0.084 %**. The GA6 tail therefore stops being an assumed
+  rectangle: its spanwise strip distribution, its deck and its LRA beam model now describe
+  the surface the manual drew.
+
+- **The oracle report states the fuselage loads (#151 iteration 4, design note 44
+  §13/§15, tier L, 2026-09-06).** Section 4, in five subsections and Appendix C,
+  built from the `fuselage_loads` step (`NETLOADS`, Reference 1 Ch 15 p103):
+  4.1 the fuselage beam and where its mass came from, 4.2 the run register and
+  the notation, 4.3 the manual's own **CRITICAL FUSELAGE LOADS** summary
+  (Appendix A p198, all seven blocks), 4.4 the closure of the beam and the
+  wing-attach fitting loads, 4.5 the distributions. Appendix C carries every case
+  at every station, as a view of `sbeam_bridge.body_span_load_csv`'s own rows
+  rather than a second assembler. Every load is LIMIT, states the factor
+  14 CFR 23.303 prescribes for its case, and is multiplied by nothing.
+
+- **`body_loads` publishes the four critical fuselage conditions it had been
+  discarding (design note 44 §15 OR-108, tier L, 2026-09-06).**
+  `select_fuselage` had always computed blocks 1, 2, 3 and 7 of p198;
+  `run()` returned `ModuleResult(conditions=[])` and threw them away, so the
+  oracle GUI's Fuselage Loads page printed *"Body Loads produced no
+  conditions."* beside a full station table where the manual prints its summary,
+  and every other component page showed its critical cases. One `ModuleResult`
+  now feeds the GUIs, the CLI, `load_cases_csv` and report section 4 through
+  renderers that were already generic.
+
+- **SELECT publishes the unbalanced pitching moment about the CG (design note 44
+  §15 OR-111, tier L, 2026-09-06).** The one field of p198 with no owner in this
+  project, and not reconstructible from the printed page by inspection — the arm
+  closes against neither the 25 % nor the 50 % MAC until the balanced elevator
+  load is subtracted. Recovered from `SELECT.BAS` 5210/5262/5410/5560, cited in
+  `docs/20_theory/00_theory_sources.md`, and verified against the printed page on
+  both cases (+243,203.9 against a printed 243203.5; −43,169.9 against
+  −43170.23). The sign asymmetry between the unchecked and checked forms is the
+  original's and is ported as found.
+
+- **The methods statement declares the p198 tail-station deviation (G-OR-70,
+  tier M, 2026-09-06).** `report/methods.APPROVED_CORRECTIONS` gains the OR-112
+  entry, so every stamped CSV, deck and report states it in band. The register is
+  the authority and the guard reads the register, which is what caught the
+  omission the moment the entry was approved.
+
+- **The oracle report states the horizontal tail's loads (#151 iteration 5,
+  design note 44 §17, tier L, 2026-09-07).** Section 5, in five subsections and
+  Appendix D, built from the `tail_loads` step (`TAILDIST`, Reference 1 Ch 10):
+  5.1 the surface, its elevator and the loads reference axis the distributed
+  loads are stated about, 5.2 the design conditions and the search that produced
+  them, 5.3 the critical loads with the aerodynamic state each was computed at,
+  5.4 the chordwise pressure distribution and its figure, 5.5 the spanwise loads
+  on the beam. Appendix D carries every condition's **applied** load at every
+  station, in airplane axes, as a view of `sbeam_bridge.tail_span_csv`'s own
+  rows rather than a second assembler; what the structure carries is stated at
+  the root, where it is greatest. Every table keys on the case reference
+  (`HT-01`), every load is LIMIT, states the factor 14 CFR 23.303 prescribes for
+  its condition, and is multiplied by nothing.
+
+- **The tail is two sections, and G-OR-2 becomes a partition (design note 44 §17
+  OR-128/OR-129, tier L, 2026-09-06).** An analyst reads by surface, so the
+  horizontal tail is section 5 and the vertical tail section 6, and everything
+  below them renumbers — free, because `section_number` derives from position
+  and no cross-reference is written as a literal. One step across two sections
+  breaks the old one-step-one-section rule, so the rule becomes *one step, one
+  declared partition*, keyed on `component`: **every published condition lands
+  in exactly one section**, asserted in both directions, which is a stronger
+  gate than the counting one it replaces.
+
+- **Every critical tail condition states the load its control surface carries
+  (design note 44 §17 OR-132, tier L, 2026-09-06).** `elevator_load` was
+  published on 2 of 9 horizontal-tail conditions and `load_on_rudder` on 2 of 4
+  vertical-tail ones, so section 5.2's table would have had a blank
+  control-surface column on seven rows for no reason the analysis could give:
+  both are pure functions of the 25 %/50 % split every one of those conditions
+  already carries. Published in `_htail_condition`, the one constructor they all
+  pass through, rather than at nine call sites. Second **OR-15 admission** over
+  frozen `sloads/modules/select.py`; additive, and the one insertion that would
+  have moved an existing CSV column was rewritten to append instead.
+
+- **The oracle technical report: the report page, the report spec and the issue package (note 44 §7–§9, tier L, 2026-08-30).**
+  The oracle GUI gains a **Report** page — the one page of that front end that is
+  not a workflow step — which edits a report specification and builds an **issue
+  package**: a directory holding `report.tex`, the `report.json` the page edits,
+  a `build.json` as-built stamp, a copy of `project.json`, and a `MANIFEST.txt`
+  that meets `SUMMARY_REPORT.md` §4.7 in both directions. Iteration 1 delivers
+  the front matter — cover, abstract, contents, list of figures, list of tables
+  and §1 Introduction — with every derived analysis section already present as a
+  stated placeholder, so the derived-section gate holds from the first commit
+  rather than the last.
+  New owners: `ReportSpec` + `REPORT_SCHEMA_VERSION` (`sloads/models/report.py`),
+  the provenance fingerprint and anchors (`sloads/report/fingerprint.py`), the
+  content model and its four section states (`sloads/report/oracle_content.py`),
+  the document's furniture (`sloads/report/oracle_latex.py`), the package member
+  list and manifest (`sloads/report/oracle_package.py`), and the package writer
+  (`sloads/export/report_package.py`). The report's content rules accrue in the
+  new `docs/10_standard/ORACLE_REPORT.md`.
+  The page chooses **where** packages are written with the operating system's own
+  folder dialog (`sloads/export/directory_dialog.py`) — reachable because the
+  oracle GUI runs locally, so the machine serving the page is the machine the
+  user is at — with an in-app folder browser as the fallback for a machine that
+  has no dialog. A folder that this process cannot write to is reported when it
+  is chosen, not when the build fails: choosing a folder on macOS is not being
+  granted it.
+
+- **Section 2.1 of the oracle technical report draws its planform figures (note 44 OR-45,
+  tier M, 2026-08-31).** One to-scale figure per main surface — wing, horizontal tail,
+  vertical tail — showing the entered leading- and trailing-edge polylines as a closed
+  outline with the control surfaces that live on it filled on top, each region labelled
+  with the area the table beside it already prints. OR-45 promised the figures with the
+  tables in iteration 2 and only the tables shipped; this is the other half. New owner:
+  `sloads/report/planform_tex.py`, a TikZ emitter dispatched by figure key from
+  `plots_tex.figure_body_tex`. Drawn on `axis equal image` — a swept tapered surface on
+  independent axes is a different shape from the one the loads were computed for — with
+  the butt-line surfaces spanwise-across and the station axis reversed, so a 402-inch wing
+  fits a page and still reads nose-up in the airplane's own stations. Regions are told
+  apart by fill density, never colour (`SUMMARY_REPORT.md` §4.3), and the vertical tail is
+  drawn in the fuselage-station/waterline plane and never mirrored: the frame decides that,
+  not `SurfaceInput.symmetric`, which `examples/baron_58.project.json` sets `true` on its
+  fin. **No hinge line is drawn**, and the caption says why: the suite carries a control
+  surface's areas forward and aft of its hinge as scalars and no hinge geometry, so a line
+  would be an inference printed with the standing of entered geometry. It arrives with #156.
+  Figures stay **source, not images** — `SUMMARY_REPORT.md` §2's image prohibition, which
+  the 2026-08-30 *Data reference* amendment reaffirmed verbatim, is unchanged and a polygon
+  costs nothing to keep it.
+
+- **Section 2 of the oracle technical report — Loads Configuration (note 44 OR-38…OR-44,
+  tier L, 2026-08-30).** The report's first analysis section: 2.1 Geometry, 2.2 Weight and
+  Mass Properties, 2.3 Structural Design Speeds, 2.4 Flight Envelope, grouped as
+  subsections of one numbered section so every workflow step keeps exactly one home
+  (G-OR-2 unchanged). 2.3 prints each design speed and limit load factor beside the
+  FAR 23 minimum computed for it, with no compliance verdict — that is the reviewer's
+  finding. 2.4 draws one V-n diagram per loading and altitude block, the boundary a
+  polyline through the design points FLTLOADS produced, with gust cases marked
+  separately and VA/VC/VD as reference lines. New owners: `sloads/report/oracle_sections.py`
+  (one content builder per step key), `oracle_content.DOCUMENT_TITLES` (the document
+  names its own sections rather than borrowing the GUI's navigation labels) and
+  `oracle_content.SECTION_GROUPS` (grouping declared as data, members guarded contiguous).
+
+- **Section 2 states the configuration in full (note 44 OR-45…OR-47, tier L, 2026-08-30).**
+  2.1 carries one table per surface — wing planform, horizontal tail and elevator, vertical
+  tail and rudder, aileron, flap, and each trim tab — with areas, planform figures, tail arm
+  stations and control deflections. 2.2 adds the weight and centre-of-gravity cases: name,
+  role, weight, Xcg, Zcg and analysis, under a note explaining which load families each
+  analysis tag feeds and which of the landing analysis's three positional loadings a ground
+  case's role supplies. These are the first values the report reads from the project rather
+  than from a `ModuleResult`, so the section states once that they are the configuration as
+  entered, and the G-OR-3 guard was widened from "every number came from a result" to "every
+  number came from a result or from the project as entered, and none is invented".
+
+- **Section 2.4 opens with the speed and altitude envelope (tier M, 2026-08-31).**
+  The oracle report's §2.4 gains, ahead of its V-n diagrams, the operating envelope in speed
+  and altitude: V(MC), V(MNE) and V(MD) from **sea level** to the maximum operating altitude,
+  each constant in equivalent airspeed below the shoulder altitude and Mach-limited above it,
+  with Vh marked at sea level where it is entered. The Mach-limited half is tabulated beside
+  it from MACHLIM's own `ModuleResult`. The V-n diagrams are slices of this envelope, so the
+  envelope now comes before its cuts. The figure has **one builder**,
+  `report.content.speed_altitude_plot_data`, shared with the summary report (OR-7) — so the
+  summary report's speed/altitude figure now begins at sea level and marks Vh in place of
+  starting at the shoulder altitude.
+
+- **The oracle report states the vertical tail's loads (note 44 §17, tier L, 2026-09-07).**
+  Section 6, *Vertical Tail and Rudder Loads*, in five subsections mirroring section 5 —
+  the surface and its loads reference axis, the four design conditions of 14 CFR
+  23.441(a)(1)/(2)/(3) and 23.443(b) with the method that selected them, the critical
+  loads with the rudder load on every one of them, the chordwise pressure distribution,
+  and the spanwise loads at the root — plus **Appendix E**, the vertical tail's
+  applied-load deck (`Case | GID | X | Y | Z | Fy | SF`) in airplane axes from the same
+  mapper the exported deck uses. One builder produces sections 5 and 6 with the surface
+  as a parameter, so the two are the same analysis read twice rather than two copies
+  kept in step. Every load is LIMIT and states the 14 CFR 23.303 factor it has not been
+  multiplied by.
+
+- **The report withholds the vertical tail's spanwise loads on a non-conventional tail
+  (note 44 OR-133/OR-134/OR-133a, tier L, 2026-09-07).** sloads models the empennage as
+  a conventional tail; on a T-tail, cruciform or V-tail the fin is additionally the
+  horizontal tail's supporting structure in the sense of 23.427(a), and that path is not
+  modelled. Section 6.5 and Appendix E render the stated state under **"Not supported"**
+  and no table; 6.2's condition register and 6.3's summary state that the set is short a
+  condition and **name it**; 6.1's loads-reference-axis stations still print, because
+  they are geometry, with the reason in the table's own note. Section 5, 6.3's totals,
+  6.4 and Appendix D are unaffected, gated by diff. **The withholding is the report's
+  only** — the calc, the decks, the CLI and the GUI are untouched, so the balanced
+  deck's lateral cases still assemble on all three shipped T-tails.
+
+- **Section 2.2 draws the weight and centre-of-gravity envelope (note 44 OR-45 / note 45 WE-8, tier M, 2026-08-31).**
+  The oracle report's §2.2 gains the figure the manual prints at Appendix A p140,
+  *"USEFUL LOAD ENVELOPE AND STRUCTURAL LIMITS"*: both loading edges swept from the
+  minimum flight weight, the closed structural CG-limit envelope, and every entered
+  weight/CG case marked — cases sharing a point sharing one marker and both names. The
+  plotted vertices are tabulated beside it, weight, station and waterline, read from
+  WTENV's own `ModuleResult` rather than re-swept. The figure has **one builder**,
+  `report.content.weight_cg_plot_data`, shared with the summary report (OR-7), so the
+  summary report's weight/CG figure gains the aft edge and the closed limit envelope in
+  place of its three vertical limit rules. `report.oracle_content.run_sections` now runs
+  a step's **folded** modules as well as its primary one, keyed by module name —
+  `sloads.workflow.step_modules` owns that set — so a page whose `bas` names three
+  programs can report from all three without a second run point.
+
+- **The oracle report gains Section 3, Wing Loads, and Appendix B (tier L, 2026-09-01).**
+  The report's first load-bearing section: 3.1 the wing data the cases were run from — the
+  loads reference axis (station table plus a planform figure with the axis drawn on it), the
+  Schrenk span load `c*cl` at `CL = 0`, `1.0` and the airplane's own `CLmax`, and the
+  airplane-less-tail lift and moment curves with every balanced condition marked on them;
+  3.2 the run register of selected cases with speed, altitude, weight, CG case and 14 CFR
+  paragraph, plus the axes and sign convention, **what the searched V-n matrix enumerates**
+  (every combination of configuration, weight/CG case, altitude and condition — a V-n diagram
+  states none of those) and **where the case list came from**: the critical-load selection's
+  own search, or a case list entered on the project, which wins when present. Where it is
+  entered, every condition the selection names is tabulated against whether it was run. It also
+  states that `Nz` is the inertia load factor (so a +3.8 g case prints as −3.8) and says, from
+  the analysed set, whether that set holds a negative-load-factor condition at all; 3.3 the root loads of every case; 3.4 the net
+  distributions of `Sz`, `Mxx`, `Myy` and `Sx` along the span, every selected case on one
+  axes. **Appendix B** carries the same distributions station by station, in two parts:
+  **B.1 the applied loads** — the point each load acts at (`X`, `Y`, `Z`) and the `Fz`, `Fx`
+  and free `Myy` applied there, which is a deck a structural model can be built from directly
+  — and **B.2 the loads carried**, the cumulative `Sz`, `Sx`, `Mxx` and `Myy` that model
+  should return. The applied moment is the **free** moment, never a difference of the
+  cumulative column: most of that difference is the outboard shear carried across the bay's
+  sweep and dihedral, which a model generates for itself. Section 3.2 gains a **notation
+  table** — every symbol with its units and whether it is an applied increment or a cumulative
+  load — and writes out the recurrences that build one from the other. Each appendix starts a
+  fresh page, and Appendix B is landscape.
+
+  **Every load the section delivers is ULTIMATE and carries the `-ULT` marker; every input
+  distribution is LIMIT and says so.** Section 2 satisfied G-OR-4 by carrying no force or
+  moment at all; section 3 satisfies it by marking every one of them.
+
+  The **Appendix A input echo now holds a reserved slot** that renders its "not yet
+  implemented" state, so Wing Loads is Appendix B from the first build rather than being
+  lettered A today and renumbered when the echo lands. A reserved slot is lettered but not
+  referable — prose points only at a built appendix.
+
+- **Section 12, Landing Gear Loads — the analysis body is complete (design note 44 §22, tier L, 2026-09-07).**
+  The oracle report's last derived section, and the first since Section 2 that all
+  three shipped reports carry. Three subsections: the gear geometry with the
+  manual's own `K` / `GAMMA` / ground-angle / `AP`-`BP`-`DP`-`CP` lever-arm table
+  (Appendix A p230, reproduced to the printed figures), the LGFACTOR load factor
+  with the drop-test estimate printed beside the pair the reactions ran at, and
+  every one of the 33 FAR Part 23 ground conditions. `IMPLEMENTED` now covers the
+  whole of `analysis_steps()`.
+- **Appendix F — landing gear loads by case (OR-188).** The gear's applied set:
+  one row per case per loaded leg, all 33 conditions, at the point that case's
+  reaction acts at — the axle or the ground contact point, per design note 39's
+  own owner. The first appendix indexed by case rather than by station.
+- **Three ground-attitude figures (OR-189).** Appendix A prints two (p234's
+  three-wheel level landing, p235's braked roll); sloads computes three
+  attitudes, so the third is drawn. Each carries its ground angle, its axle
+  state, the wheels at their contact patches and the CG the lever arms are taken
+  about — and, which the manual leaves to the reader, the LANDLOAD cases that use
+  that geometry: 1-6 and 10-12 level, 7-9 tail-down, 13-33 ground roll.
+- **An applied-load CSV for every structural element (OR-186).** The landing gear
+  and the engine mount join the wing, fuselage and both tails: `case`, load
+  application point, all six components in the global frame, and `SF`, each file
+  free to carry the columns its element needs beside the common spine.
+
+- **The applied wing load set is an export, not just an appendix (OR-64, tier M,
+  2026-09-03).** `export.sbeam_bridge.applied_load_rows` /
+  `applied_load_csv` publish the loads a structures model is built from — `Fz`,
+  `Fx` and the section free moment `Myy free` at each strip's own point, plus one
+  row per concentrated wing mass at its own coordinates — as
+  `wing_applied_loads.csv`, ULTIMATE, in the solver unit channel, with its
+  torsion axis and per-case `SF` in-band. Offered as **Download applied load
+  set** on the Wing Loads page (stated about the wing's loads reference axis,
+  like the Export page's) and carried in the Export bundle with its own manifest
+  row. The applied moment is the **free** moment, never the increment of the
+  cumulative `Myy`: the two carry different physics and differ in sign on
+  `ga6_normal` PHAA's inboard strips, because `ΔMyy` includes the sweep and
+  dihedral transfer of outboard shear that a model applying these forces at these
+  coordinates regenerates for itself.
+- **The oracle report's Appendix B.1 is now a view of that one owner (OR-64,
+  tier M, 2026-09-03).** The table and the downloadable file are assembled from
+  the same list and gated against each other row for row, so the appendix a
+  stress analyst reads and the deck they build cannot disagree about what is
+  applied.
+
+- **WTENV computes both edges of the loading envelope (design note 45, tier L, 2026-08-31, issue #157).**
+  `WTENV.BAS` sorts the discretionary weight items by fuselage station, sweeps them
+  cumulatively from the minimum flight weight, then re-sorts in the opposite order and
+  sweeps again — one subroutine (`GOSUB 657`) called twice, printing a **forward** and an
+  **aft** edge. The port emitted the ascending sweep alone. Both edges now come from one
+  direction-taking sweep, each vertex carrying the weight, station **and waterline** the
+  original prints, and both are oracle-locked to Appendix A p139 — all 16 printed rows on
+  all three printed columns, within ±0.1 %. The aft edge is a new
+  `ConditionResult` appended after the four that existed; nothing that existed changed, and
+  the ballast reference selection still reads the forward edge alone, so no delivered load,
+  load factor, CG case or balanced condition moves. `sloads.modules.weight_envelope`
+  gains the public `loading_envelope(project, aft=...)` and the `EnvelopeVertex` triple;
+  `loading_envelope_points` stays as its station-only projection for existing callers.
+  WTENV's summary shape (`report.render.weight_station_rows`) gains a **Waterline** column,
+  shown only for a result set that has one.
+
+### Changed
+
+- **The reserved "Input echo" appendix is retired, not relettered (design note 44 OR-194, tier L, 2026-09-07).**
+  A project
+  file is already an exact, machine-readable echo of the inputs; a table
+  transcribing it is a second copy that can disagree with the first, so the
+  document names the file instead. Slot A was *filled* rather than vacated, so
+  Appendices B through F did not move — which is the outcome the reservation
+  (note 44 OR-50) existed to protect.
+- **`VnPoint.case_ref` becomes `VnPoint.case_refs`, a list** (schema 63 → 64,
+  identity hop). A V-n point is routinely selected as the source of more than one
+  critical condition and the single slot kept only the last write.
+- **`aero_curves.inertia_drag_factor` is the one owner of `NX = −DX/W`**,
+  replacing the two spellings in `modules/select.py` and
+  `modules/wing_inertia.py`. No delivered number moves.
+- **One OR-15 admission** (note 44 OR-203, granted 2026-09-07), scoped to
+  `modules/select.py` (two lines, one import) and `modules/wing_inertia.py` (one
+  line, one import). No arithmetic is touched and no delivered number moves — the
+  frozen Imperial digests are unchanged, which is the measurement that says so.
+  Both files are re-pinned with the scope recorded beside the hash.
+
+- **One column set for every applied appendix (note 44 §18 OR-139/OR-140/OR-141, tier L,
+  2026-09-07).** B.1 (wing), C.1 (fuselage), D (horizontal tail) and E (vertical tail)
+  print `Case | Station | GID | X | Y | Z | Fx | Fy | Fz | Mx | My | Mz | SF`, in
+  airplane axes, right-handed about CID 0. A reader who has learnt one applied appendix
+  has learnt all four, and a heading cannot drift between them because there is one
+  place it is written. `AppliedLoad` gains a `component` and `applied_loads` becomes the
+  one entry point with a producer per component, so the appendix, the CSV and the deck
+  are three views of one list — four assemblers of one load set is what let D and E
+  diverge from the deck unnoticed.
+
+- **The structural zeros are printed, and the note names the producer each one lacks
+  (note 44 §18 OR-140, tier L, 2026-09-07).** This supersedes OR-61, which omitted `Fy`
+  from B.1 because "a column of zeros in a deck reads as a measured zero". The reasoning
+  stands everywhere else and keeps its reach over the results tables; the remedy was
+  wrong for an appendix that is a deck, whose reader is writing FORCE/MOMENT cards and
+  cannot tell an omitted column from a zero one. The export channel had already ruled
+  this way for the same data. Until now B.1 printed six components and explained the
+  zeros while D and E omitted them and explained the omission: two policies for one
+  question, one chapter apart.
+
+- **Appendix B.2 and section 3.4 state chord bending (design note 47, tier L, 2026-09-03).**
+  `Mzz` was left out of the report's cumulative appendix as "not delivered by
+  this analysis" and out of its distribution figures as a load nobody reads off
+  a plot. Neither was true: it is computed for every case, oracle-locked at the
+  root (Appendix A p222), printed by `wing_span_loads.csv`, printed at the root
+  by 3.3, and named by the closure gate the appendix is written under — and at
+  the root it *exceeds* the torsion beside it on four of the five example cases
+  (`ga6_normal` ACRL, 86,959 against 48,244 lb-in). B.2 gains it as a fifth
+  column and 3.2 gains its recurrence `Mzz(i) = Mzz(i+1) + Sx(i+1) dy`
+  (**OR-71**, superseding note 46's OR-70); 3.4 gains a fifth figure and the
+  figure set is tied to the column set by gate, so a further column cannot
+  arrive unplotted by omission rather than by decision (**OR-72**, superseding
+  note 44's OR-55 on this point). B.2's note now restates that its moments are
+  the beam's own positive-magnitude integrals — `Mzz` being the negation of a
+  body-axis `Mz` — rather than only pointing at the notation table, because the
+  reader B.2 is written for looks a number up and B.1's `Mz` is identically zero
+  (**OR-73**). No calculated value changes: a column the result already carried
+  becomes a column that is printed.
+
+- **The wing carry-through is entered as a fuselage station (design note 50, tier L, 2026-09-05).**
+  `SurfaceInput.front_spar_pct`/`.rear_spar_pct` are replaced by
+  `front_spar_x_in`/`rear_spar_x_in` — the station itself, in the geometry page's
+  length channel (**schema v60 → v61**). A chord fraction is taken on the
+  centreline root chord while the wing-attach fittings are at the fuselage, so on
+  a swept or cranked wing no value of the fraction could express the station:
+  `ga6_normal`'s MAC leading edge sits 18.6 in aft of its root leading edge, which
+  is also why %MAC was ruled out as an entry unit (20 % root chord is 2.28 %MAC
+  there) and why the stored datum is a global X that does not migrate when
+  somebody refines the planform (OR-121, OR-126).
+- **A blank spar station derives, and says so on the page (design note 50, tier L, 2026-09-05).**
+  The pair is a note 36 collapsed override — blank derives, typed overrides — so
+  the geometry page states the station the analysis will actually use
+  (*"Blank — derives from 20 % of the root chord (currently 65.20 in). Enter a
+  value only to override."*) without writing it into the project. Accepting the
+  estimate therefore stays visibly an assumption: `CarryThrough.assumed` is True
+  exactly when nobody entered a station, and a page visit cannot promote a
+  derived station to an entered one (OR-123, OR-126).
+- **The assumed carry-through moves to 20 % / 60 % of the root chord (design note 50, tier L, 2026-09-05).**
+  From 15 % / 65 %, in `constants.DEFAULT_FRONT_SPAR_PCT`/`_REAR_SPAR_PCT`, which
+  are now the estimator for an unentered station rather than a stored input's
+  fallback. On `ga6_normal` the carry-through moves from x = 60.15–110.65 in to
+  65.20–105.60 in and the front fitting load moves −1.5 % / −11.6 % / −10.6 % /
+  −4.2 % across the four fuselage conditions; `baron_58` moves further (−25.9 %
+  to −33.4 %). **No printed oracle moves** — Ch 15 ships none — so the acceptance
+  is the module's own equilibrium-closure gates, re-run and green, and the
+  Imperial baseline is regenerated in the body channels only (OR-122).
+
+- **A disagreement between two entered areas is stated, not resolved silently (note 44
+  §19 OR-152, tier L, 2026-09-07).** The area a control surface's loads are run on and
+  the area its entered outline encloses are two different inputs, and they disagree on
+  three of the four examples: the aileron's drawn outline is 4 % under its analysis area
+  on `baron_58`, 5 % over on `cessna_210` and **44 % under** on
+  `concept_regional_jet`. The printed pressure is the module's, computed from the
+  analysis area; past 2 % the section says so, in both directions, and leaves which one
+  is the airplane to the configuration. A figure that had shaded the outline and divided
+  the load by it would have printed a pressure 77 % high on the regional jet for a load
+  nothing had changed.
+
+- **A tab is drawn on its control surface, not on the fixed one (OR-149, OR-155).** A
+  tab is cut into an elevator, a rudder or an aileron, so that is what the locator draws
+  it on. No tab planform is entered anywhere in the schema, so the rectangle is the
+  entered area at the entered station — chord `MACTAB`, span `STAB/MACTAB`, trailing
+  edge on the host's — and the caption says so in as many words. A shape a reader could
+  mistake for entered geometry is what this document must not draw silently.
+
+- **The flap prints the set its pick came from (OR-156).** The critical flap load is the
+  largest of four 23.345(a) conditions — `ga6_normal` prints 212 / 425 / 629 / 625 lb,
+  and that the last two are within 1 % is content a reader is owed. Where no engine
+  record carries take-off power and a propeller diameter the 23.457(b) slipstream case
+  does not exist, and the section states that condition with its consequence rather than
+  printing a quietly smaller number.
+
+- **ONENGOUT fails every engine, not the selected one (note 44 OR-173, tier L,
+  2026-09-07).** One engine's failure loads the fin in one sense; a fin is sized
+  for both. Each entered engine whose failure produces a yawing moment is now
+  marched in turn and carries its own case ID and its own sign. No case is a
+  mirror of another — on an asymmetric installation the marches genuinely
+  differ. `failed_engine_index` remains the selector for the single-case views.
+- **An uncontrollable case is printed and excluded from the envelope (OR-174).**
+  Where the march reaches its 60 s bound without recovering, the case is
+  reported in full with the uncontrollability statement and a referral to the
+  stability-and-control discipline, and it reaches no critical set, no
+  distribution, no appendix and no deck. A load at the simulation bound is where
+  the integration stopped, not a design load. On `atr42_100` and `dhc8_dash8`
+  that is the VS case on both engines.
+- **The already-ultimate basis rule gets one owner (`safety_factors.shared_basis_factor`).**
+  Admitting 23.367(a)(2) — which the regulation prescribes ULTIMATE at SF 1.0 —
+  to the fin's set makes the v-tail files *mixed*: one ultimate row among limit
+  ones. A mixed file keeps plain load columns and states the basis per row in
+  its `SF` cell; only an all-ultimate file carries `-ULT` (note 49 OR-118a). The
+  rule was written in `report.render` and merely *assumed* in
+  `export.sbeam_bridge`; both now read the one owner, and the methods stamp
+  states the mixed-file case in as many words.
+
+- **Section 10 resolves each engine's loads about its entered thrust line, not
+  about a line derived from the engine CG and the hub (design note 53 D-53.3,
+  superseding note 44 OR-161).** The derived axis was a line between two *mass*
+  stations and inherited every error in either: measured **14.0°** off the
+  airplane axis on `ga6_normal` and **71.6°** — very nearly straight up — on
+  `cessna_210`, whose engine CG waterline is a filed defect. On `ga6_normal` the
+  section now prints `Mx +737.34 / Mz 0` for 23.361(a)(1) and `+740.44 / 0` for
+  (a)(2), where it printed `+715.32 / −178.83` and `+718.34 / −179.58`. The
+  **magnitude is unchanged** — `|M|` is 737.3383 and 740.4429 either way — so
+  this does not change how hard the mount is worked; it corrects which axis the
+  work is about. Section 10.1 states the rotation per engine and states why the
+  gyroscopic condition is exempt from it.
+
+- **Project schema v62 → v63**, additive and an identity hop: `None` on both
+  thrust-line points is exactly the v62 state, since the schema carried no thrust
+  line at all, and clockwise is what every published torque already assumed.
+
+- **Figure labels are placed clear of the lines, and axes print readable ticks (tier M, 2026-09-01).**
+  Two display defects in `report.plots_tex`, the emitter behind every figure in both the
+  summary report and the oracle technical report. Marker labels were all emitted directly
+  above their point, so any marker near a line had its label written through it — on the GA6
+  that was `Vh` on the never-exceed boundary, two CG cases on the loading edges and all four
+  gust points on the V-n boundary. Each label is now placed by a rule evaluated against the
+  figure's own geometry: the box the text occupies is scored for clearance from every plotted
+  segment, reference line and other marker, and the first position that clears wins — so a
+  label with room stays above its marker and only an obstructed one moves. Separately, an axis
+  with a large range printed under a shared `·10⁴` multiplier (the speed/altitude figure's
+  altitude axis read `0.5 1 1.5`); axes now print fixed ticks with thousands separators.
+
+- **The fuselage beam states where its mass is and where the beam runs (schema
+  v62, tier L, 2026-09-07).** `FuselageStation` gains `y`/`z`, the butt line and
+  waterline the lumped mass acts at, blank-deriving from the weight-weighted
+  centroid of the item-database masses lumped at that station. They are a
+  different statement from `FuselageMassInput.ref_waterline`, which is where the
+  *beam* runs: on `ga6_normal` the body mass spans waterline 52 to 105 about a
+  beam at 87.7. Chapter 15 solves the body as a symmetric-flight vertical beam
+  and reads neither coordinate — only the station enters its shear and bending —
+  so no delivered fuselage load moves across the hop, which is additive and
+  loads a v61 file bit-identical.
+
+- **Section 4.1 draws the airplane in side view (tier L, 2026-09-07).** A station
+  table answers *how much, where along the body*; it cannot answer *does this
+  look like the airplane*. The figure is in the X–Z plane — the plane Chapter 15
+  solves in — and carries the three things a reader checks a beam against: each
+  station's mass at the waterline it acts at, labelled with that mass; the beam
+  those masses are carried on; and the stations the load enters and leaves at,
+  the wing carry-through's two spars and the horizontal tail's balancing load.
+  Table 21 gains Y and Z beside the weight, and says which of them the analysis
+  reads.
+
+- **The case reference is the identity in every fuselage and tail table (tier M,
+  2026-09-07).** The pull-up, wing-attach and tail tables drop their
+  condition-name columns: `F-01` and `HT-01` are the machine identity (M4-9), and
+  the name and its regulation are stated once in each section's register rather
+  than repeated in four tables. The tail register gains the safety factor, so the
+  factor is stated wherever a case is named.
+
+- **Appendix C places every station on the airplane (tier M, 2026-09-07).** `X`,
+  `Y` and `Z` on every row: the body beam runs down the centre plane on the
+  fuselage loads reference axis, so `Y` is zero by construction and `Z` is that
+  axis's waterline — the position of the structure, not of the mass it carries,
+  which the beam table states separately.
+
+- **Wing Loads and Fuselage Loads download buttons are relabelled by channel
+  (#192, tier M, 2026-09-05).** *"— LIMIT (CSV)"* and *"— ULTIMATE (CSV)"*
+  become *"— analysis table (CSV)"* and *"— sbeam bridge (CSV)"*: both files on
+  each page have been LIMIT since note 49 OR-116, so a basis marker no longer
+  tells them apart and the label names what does differ. The shared LIMIT basis
+  and the unapplied 14 CFR 23.303 factor are stated once in the caption beneath
+  them. File names and file contents are unchanged — the `*_ULT.csv` names stay
+  stale until OR-81 retires them in 0.8.3.
+
+- **Design note 48 records the LIMIT-channel contract, agreed (tier S, 2026-09-04).**
+  Reviewing **#154** — a `ConditionResult` holding no load still carrying
+  `safety_factor = 1.5`, so a geometry table prints an ULTIMATE banner — found
+  the factor applied on far more surfaces than the contract's purpose requires;
+  the `engine` CLI report scales a mean takeoff torque 554.4 → 831.6 ft-lb.
+  `docs/40_history/48_limit_channel_note.md` states the rulings that follow
+  (**OR-76 … OR-86**, gates **G-OR-44 … G-OR-48**): module analysis becomes a
+  LIMIT channel while the oracle GUI, the technical report and the export deck
+  stay ULTIMATE through 0.8.2; the factor is **stated, never applied** as the
+  endpoint, with the last multiply removed in 0.8.3's own boundary note; LIMIT
+  becomes the global default with no per-artifact marker, retiring M4-15 in
+  0.8.3; and the factorless test gets one owner,
+  `safety_factors.prescribes_factor` — *no load-unit value and no `case_ref`* —
+  leaving the governing family table untouched. Measured, that rule is a stable
+  38 conditions on both GA6 and Baron 58, with `select`'s 6 critical wing cases
+  protected by the `case_ref` clause. Decisions only: no code, no schema hop, no
+  frozen file touched; #154 stays open and implements inside the note.
+
+- **Every load sloads delivers is LIMIT — stated, never applied (design note 49,
+  tier L, 2026-09-05).** The safety factor of 14 CFR 23.303 is stated against
+  every case and applied nowhere: not on a module view, not in the case index,
+  not in either report, not in an exported CSV, and **not in the sbeam deck**.
+  `sloads` is an external-loads program; the regulation says the factor must be
+  applied, not by whom, and the sizing analysis is where it is applied
+  (**OR-116/OR-117**, owner's ruling, overruling note 48's OR-87 and OR-93).
+  The multiply is **removed** from 81 sites across 7 files rather than
+  neutralised — a `_sf()` returning 1.0 would have left dead arithmetic reading
+  as if a factor were applied, which is the opposite of what the ruling is for.
+- **The deck states, per subcase, the factor it did not apply (OR-117).** One
+  owner for that sentence, `export.sbeam_bridge.basis_sentence`, on the wing,
+  fuselage, tail-chordwise, tail-spanwise, control-surface, stick, assembled
+  balanced and LRA decks. This is the obligation that **replaces** the multiply:
+  until now a recipient could read the basis off the numbers, and now the
+  sentence is the only thing between them and a 1.5× error.
+- **`report.LoadChannel` has one member (tier L, 2026-09-05).** Note 48 built it
+  as a switch and defaulted it to ULTIMATE so the frozen `oracle_app` needed no
+  edit; the default inverted underneath that file, and the `ULTIMATE` member was
+  **removed** so a stale caller fails at import rather than silently receiving
+  limit loads. `to_ultimate` and `render._ult` are deleted. The parameter itself
+  goes at #29, when `app/views/` can be edited.
+- **The `-ULT` marker now means one thing: apply nothing further.** It survives
+  on the two families 14 CFR prescribes already ultimate — 23.367(a)(2) sudden
+  engine stoppage and 23.561(b) emergency-landing inertia — and nowhere else
+  (**OR-118**), which makes it rare enough to be conspicuous. A shared column
+  header is marked only when *every* case in its table is already ultimate
+  (**OR-118a**); otherwise it is plain and the `SF` column carries the basis.
+- **Every artifact's in-band basis statement was rewritten to match its
+  contents.** ~35 statements on shipped deliverables still claimed ULTIMATE
+  after the arithmetic changed: the summary report's title-page basis line, the
+  compiled PDF's per-page footer, fourteen rows of Appendix A's bundle manifest,
+  the oracle report's §1 paragraph and issue-package README, the workbook's
+  units line on both channels, and three validation warnings.
+- **Standard docs record the inverted contract.** `CONVENTIONS.md` §3 (retitled
+  *"LIMIT load contract — stated, never applied"*), `CLAUDE.md`'s Phase C
+  mission sentence and load-output contract, `PROGRAM_SPEC.md`'s M4-15 block,
+  `SUMMARY_REPORT.md` §3.1, `ORACLE_REPORT.md` §3/§3.4,
+  `00_program_overview.md`, `PROJECT_GUIDE.md`, `GUI_design.md`,
+  `GUI_USER_GUIDE.md` and `theory_sources.md`.
+
+- **The approved-corrections reference is the FAR paragraph only where one
+  governs (#174, tier M, 2026-09-05).** Three register entries deviate from
+  McMaster's arithmetic rather than from a regulation, and the two LANDLOAD
+  entries each span several paragraphs, so those lines carry the source program
+  (`CONSTANTS`, `LANDLOAD`, `WINGGEOM`) and state the FAR range inside the
+  correction text. The report table's column is renamed `FAR` → `Reference`
+  accordingly, and `SUMMARY_REPORT.md` §4.4 states the rule (owner ruling,
+  2026-09-05).
+
+- **Module analysis is a LIMIT channel (design note 48, tier L, 2026-09-04).**
+  The CLI's text and CSV output, the app's per-module tables and download
+  buttons, the export bundle's `_report.txt` and per-module CSVs, and the
+  sidebar's results zip now render **LIMIT** loads: the calc's own values, plain
+  units with no `-ULT` marker, and the safety factor named in the `SF` column
+  without being applied. ULTIMATE remains the channel of case selection, the
+  sbeam export deck, the case index and the oracle technical report — none of
+  which moves. `report.LoadChannel` is the parameter and it **defaults to
+  ULTIMATE**, so the frozen `oracle_app` renders exactly as before without
+  passing one (**OR-77**); `app/` and `cli.py` opt in explicitly.
+  `methods_statement` takes the channel too, so a stamped CSV forwarded on its
+  own states **its own** basis rather than the bundle's — the old block asserted
+  "All loads reported here are ULTIMATE" into every CSV header, which stopped
+  being true of the file it was stamped into.
+- **The load-unit vocabulary has one owner (tier L, 2026-09-04).**
+  `units.LOAD_UNITS` / `units.is_load_unit`, moved out of `report/render.py` now
+  that the limit/ultimate boundary is no longer its only consumer
+  (CLAUDE.md rule 3).
+
+- **A paired table with nothing to put in its units column no longer prints one (tier S, 2026-08-31).**
+  The oracle report's §2.3 *Limit manoeuvre load factors* table stated a blank `Units` cell on
+  every row, which reads as a unit somebody forgot to enter. A limit load factor is
+  dimensionless — the subsection's own text says so, and "g" would name an acceleration the
+  table does not state — so the column is dropped where no row fills it. The structural design
+  speeds table beside it keeps its column. The rule is in `_paired_table`, not at the one
+  table, so any dimensionless pairing added later behaves the same way.
+
+- **The oracle report's CG-case table states Xcg in %MAC, and the relation it used (tier M, 2026-08-31).**
+  §2.2's *Weight and centre-of-gravity cases* table gains an `Xcg (% MAC)` column beside the
+  station, and its note now prints the relation both ways —
+  `%MAC = 100 (X - XLEMAC) / MAC` and `X = XLEMAC + (%MAC / 100) MAC` — with the XLEMAC and
+  MAC in use and whether they came from the typed `envelope.xlemac`/`mac` override or the wing
+  planform of §2.1. The column comes from `derived_geometry.mac_reference` and
+  `station_to_pct_mac`, the one resolver and one relation the CG limit lines and the summary
+  report's `% MAC` column already use, so a case and a limit on the same page cannot end up
+  measured from two different wings. Where no reference resolves, the column prints a dash and
+  the note says why, rather than showing the contract's `0.0` as if it were an answer.
+
+- **Report dates are pickers, and an unsigned row prints no date.** The report
+  page's issue date and three signature dates are date pickers storing ISO
+  `YYYY-MM-DD`, so one title block cannot carry `30/8/26` and `Aug 30 2026` at
+  once. The pickers open **empty** rather than at today — a date on a formal
+  report is a claim about an event, and a control that defaults to the current
+  date makes that claim on the author's behalf. A stored value that is not a
+  date is preserved and reported rather than silently replaced, since the spec
+  is a file a person is meant to be able to edit. In the document, a signature
+  row with no name no longer prints its date: a date beside a ruled name blank
+  reads as an approval that happened and was signed illegibly.
+
+- **The report's introduction and limitations are yours to write.** The report
+  page gains an **Introduction** block with two text areas: section 1's prose,
+  and a new *Limitations and scope* subsection. Both open pre-filled — the
+  introduction with the standard text, the limitations from the same methods and
+  limitations statement the CSV and deck exports carry — and are the author's
+  from then on, so a signed issue keeps saying what it said when it was signed.
+- **The analysis basis is now Project, FAR 23 category, sloads version and
+  project schema version**, with the category spelled out
+  ("Normal / commuter (N)") from the existing category owner rather than left as
+  a letter to look up. Design weight, wing area, VC and VD are dropped: they are
+  analysis outputs a reader meets in the body. The two version rows answer
+  *produced by what* — the questions that matter when a result cannot be
+  reproduced years later.
+- **A deselected section is no longer printed.** No heading, no reason, and the
+  sections after it renumber to close the gap. The "Sections not yet produced by
+  this tool" block is gone from the document.
+- The limitations pre-fill carries STATUS, BASIS and KNOWN LIMITATIONS only.
+  PROVENANCE, UNITS, CATEGORY, VERIFICATION, MATH and APPROVED CORRECTIONS are
+  filtered out of the *report's copy* — four describe the tool rather than this
+  issue's limits, and the other two are already stated in the document.
+
+- **The report's title page carries identity and signatures only.** The analysis
+  basis (project anchors and the input fingerprint) and the list of sections the
+  issue does not carry have moved to the end of the introduction. Both are read
+  rather than glanced at, and on the cover they pushed the signature block onto
+  a second sheet — leaving the approval record on a page carrying none of the
+  document's identity. The cover now fits one sheet: marking, title, document
+  control, the three signature rows and the distribution statement.
+- **Fixed:** the page footer printed the classification marking on top of the
+  load-basis sentence. `fancyhdr` places its left, centre and right slots
+  independently, so a marking of any real length overprinted its neighbour; the
+  footer is now one full-width table whose columns share the line by
+  construction. A placeholder's sentence is capitalised after its bold lead, and
+  the introduction no longer points at the title page for a list that is not
+  there any more.
+- **An empty List of Figures or List of Tables now says it is empty**, and both
+  appear in the Contents alongside the Abstract. A heading with nothing under it
+  is a silent absence — the one thing this document does not do anywhere else —
+  and a reader cannot tell "this issue has no figures" from "the list failed to
+  generate". The Contents is also no longer spaced like body paragraphs, so the
+  front matter fits one page instead of three.
+
+- **The V-n figures state their construction once, not four times (tier S, 2026-08-31).**
+  Each of §2.4's V-n diagrams carried the same three-sentence caption, differing only in the
+  loading named in its title, so the report printed one paragraph four times and the caption
+  line ran to several lines under every figure. The statement — how the boundary is drawn,
+  that gust points are not vertices of it, and that the load factors are LIMIT — is now made
+  once in the subsection body above the figures, and each figure's caption line carries its
+  block name alone: *Figure 5: Flight envelope – CRUISE CG1 @ 0 ft*. The guard that requires
+  section 2 to identify a reported load factor as LIMIT was pointed at the governing prose
+  rather than relaxed, and requires the V-n captions to stay empty.
+
+- **`Series` says whether a polyline bounds a region (tier L, 2026-09-01).**
+  `report.content.Series` gains `closed`, and `planform_tex` closes a path only when it is
+  set. A planform outline is a closed region; the loads reference axis drawn on the same
+  figure is not, and closing it would cut a chord from tip back to root that no part of the
+  airplane follows. `report.content.Units` gains `load_value`/`plain_value`, the number forms
+  of the conversions its string methods already made, so a plotted load goes through the
+  ULTIMATE boundary by the same route as the tabulated one beside it.
+
+- **Full-project review filed, and the backlog given the milestones it was missing (review `2026-09-04_project_review.md` R-1…R-27, issues #172–#191, tier S, 2026-09-05).**
+  A two-phase pass at `dev/v0.8.2` — implementation, maintainability and process
+  controls, then analysis-method accuracy, safety-factor application and
+  third-party-analyst usability. **No wrong number was found on any delivered
+  load surface**, and an independent re-derivation of global equilibrium from the
+  shipped balanced deck's own cards (written outside the project, using no sloads
+  code) closed to 5.5e-8 Imperial / 2.2e-6 SI across all 44 subcases on both the
+  `ga6_normal` oracle fixture and `concept_regional_jet`. The findings are filed
+  as issues, the folds as comments on their host issues (R-8→#170, R-22→#17,
+  R-25→#19), and the triage lands as Pri 26–35 of `docs/30_future/00_backlog.md`
+  — an **addition, not a re-cut**: the 2026-08-29 order stands, and the
+  milestone-less **band D is dissolved**, its rows keeping their Pri numbers and
+  taking the milestones the triage assigned. The three first-order rows are
+  deliverable-facing: the LRA decks for `ga6_normal` and `cessna_210` do not
+  solve in the pinned sbeam while the roundtrip gate covers only the two
+  fixtures that pass (#172), the shipped methods statement declares 3 of 7
+  approved oracle deviations behind a guard that checks itself (#174), and the
+  balanced deck ships `SOL 101` + `SPC = 1` over zero elements with the
+  explanation living only in a test docstring (#173). Defects #170 and #171 gain
+  bodies in the backlog's open-defect index and issue numbers in design note 48's
+  findings list. The dissolution itself is guarded: it left **#92 and #130 in the
+  table twice**, in two bands and two milestones with two bodies, which
+  `test_backlog_issues.py`'s render round-trip caught at closure — the band-C
+  originals are removed and the 0.9.0 copies the triage assigned are the ones
+  that stand.
+
+- **`SUMMARY_REPORT.md` §2 splits self-containment into an image rule and a data
+  rule (tier M, 2026-08-30, design note 44 OR-23/OR-26).** The prohibition on
+  external **image** files is unchanged and absolute — figures remain pgfplots/TikZ
+  source — and the standard now states the properties it protects: deterministic,
+  diffable, unit-testable as text, vector in the document's own fonts. A new *Data
+  reference* clause permits a report **delivered as a package** to read plain-text
+  data files from inside that package, so a table or figure is drawn from the
+  delivered data rather than restating it, on four conditions: the file is listed
+  in the §4.7 manifest, its path is relative and stays inside the package root, it
+  is self-describing to §3.1 (units, `-ULT`, safety factor and basis), and
+  determinism holds for the whole package. A report delivered as a **standalone
+  `.tex`** — which the Export page's summary-report download is — SHALL NOT
+  reference any external file, now held by
+  `test_report_latex.py::test_the_standalone_tex_references_no_external_file`.
+
+- **The backlog records note 49 overtaking the review's safety-factor findings
+  (review 2026-09-04 follow-up, tier S, 2026-09-05).** Note 49 §8 removed every
+  multiply, so two review findings changed character and two closed:
+  **#170**'s defect-index entry is re-scoped from a scaled number to a wrong
+  *statement* (`SF=1.5` stated against an engine rating) and widened to the
+  R-8 class (max-continuous and max-accelerating torque, the two balance
+  pre-closure residuals — fix by construction, not by row); row 32 (**#177**)
+  likewise now claims a mis-stated factor (override ignored, `1.5` where the
+  stamped path says `N/A`), not a mis-applied one. The promised
+  **"Review 2026-09-04 small items" index** is added (#175/#176/#178/#179/
+  #180/#188), with #178's mislabel noted as mattering *more* post-note-49,
+  since the statement is now all there is. **#181 and #182 are recorded as
+  overtaken and are closed on GitHub** — the Subpart-D sentence ships in every
+  basis statement, and OR-119 ruled the G-OR-49/OR-93 contradiction *decided,
+  not fixed*. Row 24's deliverable line drops "ULT-marked" for "LIMIT with the
+  factor stated per case (note 49 OR-116)".
+
+- **No critical-case down-select survives into the ground loads (design note 44 OR-184, tier L, 2026-09-07).**
+  Section 12 and Appendix F carry every one of the 33 LANDLOAD conditions, and
+  say so. A ground case sizes a gear member through a load path the loads
+  analysis does not model — a drag brace, a side brace, a trunnion — so the case
+  that governs one member is not the case that governs another, and ranking 33
+  conditions on a single scalar answers a question nobody asked while removing
+  the case a reader needs. The per-family largest reactions are still printed and
+  are labelled a reading aid.
+- **The entered landing load factor is stated beside the computed one (OR-187).**
+  `ga6_normal` enters `N = 3.167` against LGFACTOR's energy estimate of 3.0970;
+  `concept_regional_jet` enters 2.67 — exactly the 23.473(g) floor — against
+  2.3755. The reactions run at the entered value, which is the user's decision to
+  make; §12.2 prints both pairs and names which governed, because a section that
+  presented an entered number as the output of the drop-test calculation would
+  describe an analysis nobody ran.
+- **`modules/landing.py` under the OR-15 admission of 2026-09-07 (OR-190).**
+  `_geometry` becomes `landing_geometry` and `_critical` becomes
+  `critical_reaction` with a gear argument. No arithmetic in either is touched.
+
+- **The applied wing load set states all six body-axis components (design note 46, tier L, 2026-09-03).**
+  Appendix B.1 of the oracle technical report and the `wing_applied_loads.csv`
+  download beside it published `Fz`, `Fx` and `Myy free`. A consumer writing
+  `FORCE`/`MOMENT` cards needs the whole vector, and from three columns cannot
+  tell whether a missing one is zero or merely unpublished. Both views now
+  carry `Fx`, `Fy`, `Fz`, `Mx`, `My`, `Mz`, with the three structural zeros
+  **printed** and their reason stated: the wing chain has no producer for a
+  spanwise strip load and no delivered wing condition is lateral (`Fy`), and a
+  strip applies forces and a section moment and nothing else, so all of the
+  cumulative `Mxx`/`Mzz` is those forces acting through arms the coordinates
+  already state (`Mx`, `Mz`). The map from the calc's positive-magnitude beam
+  convention to right-handed body axes has one owner, `applied_body_moments`
+  over `coordinates.bending_moment_vector`, so neither view carries sign logic.
+  Both wing CSVs now state in-band which moment convention each column block
+  uses — the span-load file carries applied card components and cumulative beam
+  integrals side by side, and its `Mz` and `Mzz` have opposite senses.
+
+### Fixed
+
+- **A stale AGREED header on a shipped design note now fails CI (issue #183,
+  tier S, 2026-09-08).** Three of the last four tier-L closures left their
+  note's Status at plain AGREED (46/47/48, review R-13), and the #128 guard
+  never fired because it matches only explicit "unbuilt" phrasing — while
+  `RELEASE_PROCESS.md` §4 step 3 rolls notes to `docs/40_history/` **by status
+  header**, so an unflipped note is skipped by the roll and a wrong status
+  enters the permanent record. The flip half shipped with #190 (which found
+  note 50 equally stale); this change adds the guard and, sweeping with it,
+  found and flipped a fifth the issue did not know about: **note 53**, whose
+  work shipped 2026-09-07 as step 163 in step 162's commit `175369e`. The
+  guard (`test_doc_currency.py`) uses the same in-repo proxy as #128, narrowed
+  to where it is unambiguous: a `changes/*.history.md` fragment whose own
+  `## Step` heading names "(design) note N" is that note's closure record, and
+  note N's Status paragraph must then carry SHIPPED/BUILT/✅. A prose mention
+  in a fragment body ("until note 51 lands") deliberately does not count —
+  note 51 is exactly that case today and stays AGREED. Proven both ways:
+  reverting note 53's header fails the guard on that note alone.
+
+- **A live design note's INDEX row is a pointer again, not a second copy of
+  the note (issue #187, tier S, 2026-09-08).** Note 44's `docs/00_INDEX.md`
+  row had grown to ~600 words restating OR-13…OR-37 with its own copy of the
+  status, and other rows mirrored the stale AGREED that #183 fixed in the
+  notes — a second hand-maintained statement per note, the rule-3 drift
+  class, already drifting. All ten `30_future/` rows are rewritten to one
+  sentence plus the pointer with **no status**: the note's own Status line is
+  the single owner. Guarded (`test_doc_currency.py`): a `30_future/` row over
+  320 characters or carrying AGREED/SHIPPED/BUILT/PROPOSED fails CI.
+  `40_history/` rows are exempt by decision — an archived note's status can
+  never change again, so those rows are frozen record and the long
+  descriptions there are the index's value as a finding aid for closed work.
+  Proven both ways: adding "AGREED 2026-08-29" back to note 44's row fails
+  the guard.
+
+- **A V-n point selected by more than one condition kept only the last case id (design note 44 OR-200, tier L, 2026-09-07).**
+  `select._stamp_case_refs` assigned `p.case_ref` per condition, so a point that
+  is the source of several lost all but one: on `ga6_normal` V-n case 14 is
+  `VT-01`, `VT-02` **and** `VT-03`, case 74 is `HT-03` and `HT-09`, case 30 is
+  `W-03` and `F-01` — 4, 5 and 4 multiply-selected points on the three shipped
+  examples. Nothing shipped was wrong, because the field had one writer and no
+  reader outside serialisation; it is fixed at its first reader rather than
+  ranked against the fidelity backlog. The stamp now appends, and clears first,
+  so stamping one envelope twice is the same as stamping it once.
+- **The register of decisions was missing a decision that shipped code cites.**
+  `report/render.py`, the step-165 history fragment and backlog row 38 all cite
+  "note 44 OR-193", but design note 44 defined only OR-183 … OR-192. OR-193 is
+  now in the register, and **G-OR-137** sweeps every `OR-n`/`G-OR-n` cited
+  anywhere under `sloads/`, `tests/`, `docs/` or `changes/` and requires each to
+  be defined in a design note — the gate that would have caught it.
+- **OR-193's own gate was a frozen digest, not a stated property.** Its docstring
+  claimed the fix was gated; the only thing holding it was the Imperial baseline,
+  which fails as a *changed number*, so a change that moved the engine locations
+  and regenerated the baseline would have passed. **G-OR-138** asserts the
+  property instead: every condition an engine emits sits at one point, and no two
+  engines share it — verified to fail against the defect it names.
+
+- **Appendix B claimed the selected set, stated no factor, and dangled its footnote (#229, 2026-09-08 review R4/R5, tier S, 2026-09-08).**
+  The intro claimed *"every selected case"* while the tables carry the entered
+  set that replaced the selection (C210-30) — W-02/03/04 are selection-named
+  in the registers and have no station tables — it now says "every case run"
+  and repeats §3.2's not-enveloping warning through the same owner
+  (`_negative_case_sentence`), so the reader of the appendix does not need
+  §3.2 to learn the document holds no down-bending wing case. B.2, the one
+  load table without an `SF` column, carries one now, read back against the
+  owner case by case like its fuselage twin, and its footnote's dangling
+  fragment ("…Its safety factor.") is repaired. The rule-4 sweep found the
+  same claim-without-statement in the ground unbalanced-moment table's note,
+  fixed the same way, and a new G-OR-20/G-OR-4 extension gate sweeps every
+  `(LIMIT)`-titled table in both shipped documents: the 23.303 factor is
+  stated in an `SF` column or, where it is one value, in the note with its
+  applied-to-nothing clause.
+
+- **Appendices D and E did not carry every applied load the deck emits, and said they
+  did (note 44 §18 OR-143, tier L, 2026-09-07).** Both stated that "a row here and the
+  card that carries it are the same load". Per station the spanwise deck writes a
+  `MOMENT` card from the strip torsion and folds the span-axis axial into the `FORCE`
+  card; the appendix printed one force column and no moment at all. First case, summed
+  over stations: horizontal-tail applied torsion **6,689 lb-in** on `ga6_normal` and
+  **232,139** on `concept_regional_jet`; fin torsion **2,351** and **80,117**, with
+  **23.1 lb** and **638.5 lb** of axial. Appendix E's note further stated that the two
+  components beside its normal load were "not zero by measurement but absent by
+  construction" — for the fin `Fz` is neither, and never was. Three shipped examples
+  also carry a T-tail transfer node that neither appendix printed. A reader building a
+  model from D or E got an under-loaded surface and was told the set was complete.
+  **G-OR-90** now holds every appendix row to the card the deck writes at that grid,
+  case by case, on all three shipped examples.
+
+- **The fin's torsion was stated about an axis a lateral load cannot twist (note 44 §18
+  OR-142/OR-146, tier L, 2026-09-07).** `applied_body_moments` returned
+  `(mx, myy_free, mz)` for every row — right for the wing and the horizontal tail, whose
+  span is `y`, and wrong for the fin, whose span is `z`: its torsion is `Mz`, and
+  negated. Section 6.5 printed the same quantity as **`Myy` = 4,561 lb-in** at
+  `ga6_normal`'s fin root, when the airplane's `My` on a fin is *identically zero*: a
+  lateral force produces no moment about the `y` axis at all. Section 3.2 maps the beam
+  symbols onto body axes two chapters earlier, so a reader carried that map into
+  section 6 where it was wrong by ninety degrees. `coordinates.tail_torsion_to_airplane`
+  had owned the right map, with the sign derived rather than asserted, since the deck was
+  written; the report was the consumer that did not call it. Section 6.5 and Appendix E
+  now print `Mzz`/`Mz`, and each notation table names the airplane axis rather than
+  leaving the letter to carry it.
+
+- **Appendix B.1 stated its safety factor somewhere else (note 44 §18 OR-139, tier L,
+  2026-09-07).** Alone among the four applied appendices, and in the one a reader is
+  likeliest to lift rows from. It also carried no `GID`, so a wing row was the only one
+  that could not be tied to the card that carries it.
+
+- **The single-owner constant guard read a glyph width as the dynamic-pressure divisor
+  (tier S, 2026-09-07).** `\b295\b` treats a decimal point as a word boundary, so it
+  matched the `295` inside `6.295`. Every literal in that guard now has to *start* a
+  number rather than be a run of digits taken out of the middle of one.
+
+- **The oracle report defines every symbol it prints (design note 47, tier L, 2026-09-03).**
+  Section 3.3 shipped the column heading `Root chord bending Mzz` against a 3.2
+  notation table that defined no `Mzz` — a break of the report's own rule that a
+  column heading anywhere in section 3 names a symbol from that table and
+  nothing else. The guard covered the two appendix tables only, so the rule was
+  unguarded exactly where it was broken. `LoadValue` gains `symbol`, the notation
+  symbol held as data on the value rather than as a substring of its display
+  label (OR-74, the third instance of the move `frame` and `point` already
+  made), and the guard reads it. Parsing was never an option: `Root torsion Myy
+  (25% chord)` does not end in its symbol, and two different labels carry the
+  same one. The guard now walks section 3's own tables as well as the appendix's
+  (OR-75) and additionally asserts that each label prints the symbol it declares,
+  so heading and notation cannot drift apart in either direction. Second **OR-15
+  admission** of 2026-09-03: `sloads/modules/net_loads.py` is frozen, and the
+  manifest is updated in the same commit per G-OR-9. `LoadValue` is persisted
+  inside `critical.conditions[].loads`, so the addition is an on-disk shape
+  change and `SCHEMA_VERSION` bumps to 60 with an identity hop — the third of
+  exactly this shape, after v58's `frame` and v59's `point`.
+
+- **A deck value on a rounding tie printed two different loads (tier M,
+  2026-09-06).** `dev/v0.8.2` had been red on the Linux CI leg for four
+  consecutive commits — the frozen Imperial digest failing on
+  `concept_regional_jet`'s `sbeam/balanced_deck` while the same commit passed on
+  the developer's Mac. `_fmt` states **seven** significant digits, which is finer
+  than a computed load reproduces across platforms, so a value sitting on the
+  decimal rounding tie of its seventh digit took round-half-even off the last
+  bit: `-341426.25` in the regional jet's `MOMENT` cards printed
+  `-3.414262E+05` here and `-3.414263E+05` there, for one load. Every emitted
+  value is now canonicalised to twelve significant figures first —
+  **248 of the 159,407 values the six baseline decks emit were tie-fragile under
+  ±3 ulp; none are now**, and 36 emitted lines moved, every one a single digit in
+  the seventh place where no information was carried.
+- **The same load printed as two different numbers on one row of a shipped gear
+  report.** `atr42_100`'s `LG-19…LG-22` stated *Ground-line V* as
+  `2.448331E+04` and *Datum Fz* — the same load — as `2.448330E+04`, because the
+  two columns straddled the tie from opposite sides. They now agree. This was
+  live in a delivered artifact, not only in CI.
+- **The twelve-figure rule has one owner instead of two copies.** The human
+  channel got this fix at #147 (`report/render.py`); the solver channel never
+  did, and the class recurred one channel over. `units.canonical` is now the
+  single owner both read (`CONVENTIONS.md` §7, clauses (d) and (e)), guarded by
+  `test_platform_stability.py::test_no_emitted_deck_value_hangs_on_the_last_ulp`
+  over every value every deck actually emits on all six examples.
+
+- **The 23.367 cases reached the load-case index carrying no load at all (note 44
+  OR-180, tier L, 2026-09-07).** The module published its headline load under the
+  key `max_tail_load`; `render.load_cases_to_rows` maps `fy_side`. Every 23.367
+  row in the published case file therefore had an ID, a regulation, a speed and a
+  factor, and no load. The fin load is a side load and is keyed as one.
+- **An SI deliverable could head a column in `ft-lb` or `in`.**
+  `render._detect_moment_unit` fell back to the Imperial `ft-lb`, and the
+  location fallback to `in`, whatever system the set was rendered in. Nothing
+  exercised it while every result set with a case index also carried a moment and
+  a location; the one-engine-out set carries neither. Both fallbacks now read the
+  set's own force unit for their system.
+- **Deck subcase comments overran the 72-column card width.**
+  `subcase_map_block` and three per-case `$` headers built their own lines
+  instead of going through `sbeam_bridge._comment`, so they carried their own
+  width assumption — fine while every condition name was as short as `PHAA`, and
+  an overrun on the four turboprop tail decks the moment one was not. The width
+  is the emitter's property now, which is the rule the wing decks were already
+  moved to.
+- **A negative zero in the tail deck's inertia statement.** The fin's lateral
+  factor is exactly zero on a condition naming no V-n point, so the inertia total
+  printed `-0.0 lb` — which reads as a small negative load rather than as none.
+
+- **`ga6_normal`'s engine and propeller CG waterlines are corrected against
+  Appendix A p227 (note 44 §20 OR-170, tier L, 2026-09-07).** The fixture entered
+  `engine_cg = (22, 0, −10)` and `prop_cg = (−10, 0, 93.022)`, putting the worked
+  example's engine at waterline −10 and its combined CG at **3.166** where the
+  page prints **93.022**. Reading the page's input block back gives
+  `ENGINE CG 22, 0, 92` and `PROPELLER CG −10, 0, 100`, which reproduce the
+  printed combined CG exactly — the propeller's `x` had been pasted into the
+  engine's `z`, and the printed *combined* `z` into the propeller's. The fixture
+  comment recorded that only `x` was ever checked, and no test asserted `zpp`;
+  one does now. The deck's `lra-engine-mount` and `lra-engine-hub` nodes move
+  with it, so the Imperial baseline digests are regenerated.
+
+- **A FAR 25 gyroscopic condition no longer loses its four sign combinations.**
+  `report.render.load_cases_to_rows` fanned out a gyroscopic condition by
+  matching its FAR **reference** against `23.371(b)`, so `25.371` — which packs
+  the same four sub-cases under a different reference — printed a single row with
+  no moments in it at all, on the Engine Mount page's load-case file. The
+  question "does this condition fan out?" is now asked of the **keys** the
+  sub-cases are carried in, which is what identifies them.
+
+- **A report section that discovers its own absence renders it.** A builder that
+  returned a stated absence — because a module declined to produce a result from
+  slices the plan had found populated — had that sentence dropped, leaving a
+  numbered heading with nothing under it. It now renders through the ABSENT
+  state's own lead, so a builder cannot word absence a second way. The hole was
+  under every builder that returns one, sections 7, 8 and 9 included.
+
+- **A counter-clockwise engine's sudden-stoppage torque is no longer a
+  pound-foot short.** `ENGLOADS.BAS` prints `INT(-TORQSUDSTOP)` and BASIC's
+  `INT` **floors** rather than truncating toward zero, so applying the rotation
+  direction inside the flooring made `floor(-6824.6) = -6825` for one sense and
+  `floor(+6824.6) = +6824` for the other — a difference in the rounding
+  presented as a difference in the load. The oracle's own floored value is the
+  clockwise one, and the opposite sense now publishes its exact negative. Caught
+  by **G-53.1** on its first run; the printed Appendix B figure is untouched.
+
+- **Entered leading- and trailing-edge polylines are the geometry source of record
+  (tier L, 2026-08-30).** Where a surface carries LE/TE polylines, its area, aspect ratio,
+  MAC and 25 %-MAC station are computed from them. `sloads/modules/wing_geometry.py`
+  integrates the closed planform in **closed form** rather than by WINGGEOM's unprinted
+  strip count: both edges are piecewise linear, so every integral has an exact value on
+  each interval between their breakpoints. `elements` reverts to meaning only the spanwise
+  load-station count. A surface whose edges span different stations is closed by its root
+  and tip chords — the root chord running from the lowest-span leading-edge point to the
+  lowest-span trailing-edge point, the tip chord likewise at maximum span — and its span is
+  measured across both edges. `tail_geometry` and `TailPlanform` now ask
+  `wing_geometry.planform_boundary` instead of carrying two more copies of the integration;
+  the copies had already drifted apart. Registered oracle deviation:
+  `docs/20_theory/02_approved_corrections.md`, "WINGGEOM's strip sum goes closed-form".
+
+- **Two cross-references pointed at plan keys that cannot exist (#230, 2026-09-08 review R6, tier S, 2026-09-08).**
+  `NOT_CARRIED` was written for genuinely deselected or unbuilt targets, but
+  §2.4 passed `"flight_envelope_cases"` — a key the plan has never had — and
+  §4.3 with Table 25's footnote passed `"tail_loads"`, retired as a section
+  key by the OR-129 htail/vtail partition, so every issue of every report
+  told the reader its design-case tabulation and its pull-up derivation were
+  *"in a section this issue does not carry"* while carrying both. §2.4 now
+  points at Appendix A (the candidate register) and the component case
+  registers; §4.3 points at the horizontal-tail section through the existing
+  `_tail_section_key` composer. Two guards make it structural: a static
+  sweep resolves every key passed to `section_ref`/`subsection_ref` —
+  literals, module constants, the declared composer — and fails on a key
+  the full plan does not carry *or* an argument it cannot resolve, and a
+  runtime gate asserts a full build of both shipped examples never prints
+  `NOT_CARRIED` anywhere. G-OR-68's own test was complicit — it looked up
+  `"tail_loads"` too, degraded in lockstep and asserted the broken sentence —
+  and now demands a resolved section number on both references.
+
+- **The folder-dialog test no longer asserts the host's own dialog helpers (tier S, 2026-08-31).**
+  `test_the_folder_dialog_never_raises_and_never_invents_a_path` stubbed the
+  subprocess but not the command resolution, so it read whichever helper the
+  machine running it happened to have. `choose_directory` returns `None` before it
+  runs anything when the platform has none, and the CI runner has neither `zenity`
+  nor `kdialog` — so the first case failed there while passing on every developer
+  Mac. The four non-answers it covers are decisions made *after* the helper runs,
+  so the helper has to exist for them to be reachable; the platform is now pinned
+  alongside the subprocess. `sloads/export/directory_dialog.py` is unchanged: its
+  behaviour on a machine with no dialog was correct, and is what the sibling test
+  pins from the other side.
+
+- **The fuselage LRA waterline is read (tier L, 2026-09-07).**
+  `FuselageMassInput.ref_waterline` has been documented since it was added as the
+  waterline the body's mass distribution is carried along, and nothing read it:
+  the component deck put the body beam at `z = 0` ("the component in isolation")
+  and the airplane LRA model ran it on the fuselage section-centre line. On
+  `ga6_normal` that is 23.5 in from where the project file says the beam is, and
+  the field registry recorded the state as *"reserved … any value, 0 included, is
+  currently equivalent"*. `derived_geometry.fuselage_lra` is now the single owner
+  — entered waterline, else the section-centre line, else a loud zero — and
+  `export/lra_model` asks it. The third instance of one defect class this
+  milestone: an entered value with the right intent, shadowed by a derived
+  stand-in, with nothing saying so.
+
+- **Four of six fixtures placed their body beam outside their own fuselage
+  (tier L, 2026-09-07).** Found by wiring the waterline up: `atr42_100` 35 in
+  below its floor, `dhc8_dash8` 47 in, `cessna_210` 10, `ga6_normal` 5 — and
+  three unrelated airplanes all entering the same round `100.0`, which is what a
+  placeholder looks like. Using them as entered made the ATR-42's LRA deck
+  singular. Every value is corrected to its own body's centre line, and
+  `fuselage_lra` states a waterline that lies outside the body it belongs to
+  rather than trusting it, so the class cannot recur silently. The corrected
+  values reproduce the previous node positions to the rounding of an entered
+  number (0.03 in), so no deck geometry moves and no load changes.
+
+- **Section 12's attitude labels were swapped between families, and its case-range claim overlapped (#227, 2026-09-08 review R1/R2, tier S, 2026-09-08).**
+  The Ground load conditions table labelled the tail-down landings (cases
+  13–24) "Ground roll and handling" and the ground-roll cases 7–9 "Tail-down
+  landing": `_ground_cases` indexed `_GROUND_ATTITUDES` by tuple *position*
+  with `attitude_of`'s ground-angle index, and that tuple is deliberately not
+  in gra order — its gra-index lives in its own third element, which the
+  (correct) figures read. The loads themselves were verified right; only the
+  label picked the wrong geometry for the reader. The title is now matched on
+  the gra-index element. The strut-state table's second defect: it printed
+  each geometry's cases as `min-max`, so the level attitude's 1–6 and 10–12
+  became "1-12", claiming 7–9 at two ground angles at once — it now prints
+  the exact runs through `_case_range_words`. Two G-OR-128 extension gates
+  read both printed columns back against `attitude_of` and the free body,
+  case by case, on every shipped example (rule 3: the owner existed, the
+  consumer bypassed it).
+
+- **The GUI journey test no longer drives disabled widgets (tier S, 2026-09-02).**
+  `tests/test_gui_journey.py::_touch_everything` set a value on every widget on every page,
+  disabled ones included. A Streamlit release refused the interaction outright — *"Cannot
+  update a disabled radio widget ... A browser user cannot interact with a disabled
+  widget"* — turning the whole journey suite red on CI while the pinned local environment
+  still permitted it. Disabled widgets are now skipped, for both the value-bearing widgets
+  and the form submit buttons. That is what the function's own docstring has always claimed
+  ("every **editable** block"): a page disables a control to say this cannot be entered here
+  and now, and a journey that drove it anyway asserted about a gesture no browser user can
+  make. No assertion was weakened — every `KNOWN_OPEN` entry still reproduces, which is the
+  guard that says so.
+
+- **The GUI no longer claims ULTIMATE on LIMIT deliverables, and G-OR-74 now
+  reaches the screen (#192, tier M, 2026-09-05).** Note 49's OR-116 made every
+  delivered load LIMIT, but its AST sweep was a one-off discovery pass, so the
+  gate that replaced it read only rendered documents. **21 live false claims
+  survived in 15 `app/` files** — including a *"Download net wing loads —
+  ULTIMATE (CSV)"* button whose bytes are byte-identical to the module's LIMIT
+  values, so an analyst who trusted the label under-sized by 1.5, and captions
+  on Wing, Fuselage, Tail, Landing, Flight Envelope and Results Review stating
+  *"= limit × 1.5 (14 CFR 23.303)"* of numbers nothing multiplies. All are now
+  LIMIT statements naming the factor they do not apply.
+- **The Wing and Fuselage download buttons name their channel, not their basis.**
+  Both files on each page have been LIMIT since OR-116, so a basis marker no
+  longer distinguishes them: they are now *analysis table* and *sbeam bridge*.
+  The `*_ULT.csv` file names are unchanged and stay stale until OR-81 (0.8.3).
+- **G-OR-74's checker could be defeated by typography.** `_CLAIMS` was a
+  substring list, so markdown emphasis split `**ULTIMATE** = limit` and the
+  U+00D7 `×` in `limit × SF` never matched its ASCII spelling; text is now
+  normalised before the scan. The claim boundary also excludes a trailing
+  hyphen, so Structural Speeds' true *"ULTIMATE-independent design limit
+  speeds"* is no longer a false hit.
+- **A green test was pinning the false claim.**
+  `test_deliverable_units.py::test_the_export_page_states_the_system_it_will_write`
+  asserted the Export page caption *contains* "ULTIMATE"; it now requires LIMIT.
+
+- **Section 10 promised gyroscopic cases no reciprocating installation runs (#228, 2026-09-08 review R3, tier S, 2026-09-08).**
+  §10.1's prose — "14 CFR 23.371(b) is assessed for every sign combination of
+  its two moments, all four of which are printed below" — and the case-list
+  note describing the a/b/c/d suffixes were fixed strings, unconditioned on
+  engine type, so both shipped reports (GA-6 and Baron, reciprocating)
+  contradicted their own printed case set, which correctly carries no
+  23.371(b) case. The gyroscopic prose (exemption, thrust-appears-only-there,
+  side-load clause, table note) is now conditioned on a gyroscopic case being
+  in the printed set — read off the tables themselves, not the engine type —
+  and the no-gyro build states its own not-applicable in the §11 discipline:
+  the reason stated, nothing promised. A G-OR-107 extension gate asserts the
+  a/b/c/d prose appears iff a suffixed case is printed, across examples
+  covering both directions.
+
+- **The oracle technical report printed 1.5× Appendix A's figures, and nothing
+  caught it (design note 49 E-c, tier L, 2026-09-05).** Appendix A is a **limit**
+  oracle and the oracle tests compare at calc level — they never cross the render
+  boundary — so §3's tables rendered ultimate against a document whose whole
+  purpose is to be read against p131, and the entire oracle suite stayed green.
+  `oracle_sections._load_cell` no longer scales.
+- **Seven deck comments asserted the loads were ultimate over LIMIT cards
+  (2026-09-05).** Five said *"Loads are ULTIMATE (limit x SF=1.5)"* — the wing
+  card block, fuselage, chordwise tail, spanwise tail and control surface — and
+  two of those printed a derivation, `= 1.5 x (LT25 + LT50)` and
+  `(= 1.5 x critical load …)`, for sums that no longer contained the 1.5. Two
+  more said it in different words: the balanced deck's *"the cards below are
+  ULTIMATE"*, ten times per deck, and the wing stick deck's
+  *"(closed-form, ULTIMATE)"*. Found by **G-OR-73** on its first run.
+- **Appendix A's bundle manifest called the per-module CSVs ULTIMATE, and had
+  since design note 48 (2026-09-05).** Those CSVs moved to LIMIT then and the
+  manifest was never re-read, so the controlling document's statement of what
+  each bundle file *is* contradicted the file for a whole release.
+  `test_every_manifest_row_states_the_basis_its_file_actually_carries` could not
+  see it: it pins the manifest's prose against a hand-written map in the test
+  file, so it detects drift between the two and not falsehood in the pair. Both
+  were wrong and it stayed green. **G-OR-74** is the truth side; the pin keeps
+  its own job, and `SUMMARY_REPORT.md` §4.7 now requires both.
+- **`tests/test_report_latex.py` had a gate that passed on prose (2026-09-05).**
+  `test_ultimate_markers_and_sf_columns_are_present` asserted `"lbs-ULT" in tex`
+  and passed after the sweep — satisfied by the methods stamp *explaining* the
+  marker (*"…carry a '-ULT' marker (lbs-ULT, …)"*) rather than by any data cell.
+  Replaced by a check on table content with the explanatory prose excluded.
+- **`tests/test_data_dictionary.py`'s self-runner was broken (2026-09-05).** Its
+  `__main__` block called `test_gui_design_schema_line_current`, a name that no
+  longer exists, so the zero-dependency self-runner CLAUDE.md requires of every
+  test file died with `NameError`. Found by the new citation guard, which caught
+  `GUI_design.md` naming the same dead test.
+- **Five test citations in the standard docs named tests that no longer exist
+  (2026-09-05).** Two in `ORACLE_REPORT.md`'s conformance table and two in
+  `SUMMARY_REPORT.md`'s checklist (renamed by this milestone), one in
+  `GUI_design.md` (predating it), and one in `02_approved_corrections.md`'s
+  superseded ground-roll entry — reworded to past tense rather than renamed, so
+  the historical record stands and the reference still resolves. A conformance
+  row naming a deleted test claims a gate that is not there.
+
+- **The methods statement declares every approved correction, and its guard reads
+  the register (#174, review R-3, tier M, 2026-09-05).** `report.methods`
+  declared 3 of the register's 7 approved deviations, so four reached no analyst:
+  the truncated-constants sweep (2026-08-17), both LANDLOAD sign corrections
+  (#133/#134, 2026-08-29) and WINGGEOM's closed-form integration (2026-08-30) —
+  the last three move printed-page figures an analyst compares against the
+  manual. All four are now stamped in band on every channel: CSV headers, sbeam
+  deck comments, `METHODS.txt`, the workbook's *Methods* sheet and report §5.
+  `test_statement_lists_every_approved_correction` no longer checks the rendered
+  statement against the tuple it was rendered from — a circular guard CI could
+  not fail — but parses
+  [`docs/20_theory/02_approved_corrections.md`](docs/20_theory/02_approved_corrections.md)
+  and asserts set, order and text against its `## Register` section, with a
+  companion asserting no *withdrawn* or *declined* heading is ever declared.
+
+- **A condition that is not a load case no longer claims a safety factor
+  (#154, design note 48, tier L, 2026-09-04).** Surface geometry, weights,
+  centres of gravity, design speeds, Mach-limit lines and a dimensionless
+  landing load factor carried `safety_factor = 1.5` from the dataclass default
+  and printed it, so a table of areas and chord lengths was headed
+  `[ULTIMATE, SF=1.5]`. `ConditionResult.safety_factor` is now `Optional[float]`
+  and renders `N/A`; `safety_factors.prescribes_factor` is its single owner — a
+  condition prescribes no factor exactly when it states no value in load units
+  **and** carries no `case_ref`. Measured, that is 38 conditions on both shipped
+  airframes. The `case_ref` clause is load-bearing: SELECT's six critical wing
+  conditions publish no load value (their loads live on `WingLoadResult`) but
+  are load cases whose bulk-data cards are factored, and blanking them would
+  have printed `N/A` in the case index against a factored case. The governing
+  table writes the `None` through `stamp()`, since `registry.run_all_modules`
+  re-stamps every condition and a dataclass default alone would not have
+  survived the shipped path. Nothing substitutes 1.0 silently: `_ult`, `_scale`,
+  `GoverningTable.required_factor_for` and the report's `_required_sf` all raise
+  on a load found inside a factorless condition.
+
+- **Both failed engines printed at the same butt line, and "Engine 1" meant a different engine per page (#231, 2026-09-08 review R7, tier S, 2026-09-08).**
+  §11's input table printed `bleng` — the march's magnitude — so the Baron's
+  two rows both said +1676 mm while the section's own footnote explains that
+  which side failed sets the fin-load sign; the signed butt line is now
+  recovered through the module's own side owner (`-sense × bleng`) and the
+  note states the convention. The identity flip — §10 "Engine 1/Engine 2",
+  §11 "engine 0/engine 1" — is settled 1-based with one owner per layer:
+  `_engine_label` in `one_engine_out.py` now mints " (engine 1)" into the
+  case names, and the published condition note's "Failed engine #0 at butt
+  line 66 in" — 0-based and unsigned in one breath — states the 1-based
+  number and the signed butt line (OR-15 admission granted 2026-09-08,
+  scoped to those two sites),
+  and §11's tables, figure titles and exclusion prose print through a single
+  `_oei_engine_number` owner. Guards: the input table's butt lines equal the
+  side owner's signed values on the Baron, §10 and §11 name the same engine
+  by the same number with the same designation, the case names carry
+  "(engine 1)/(engine 2)", and "engine 0" appears nowhere in the rendered
+  document. The OR-13 manifest records the admission against the new hash,
+  and the Imperial baseline is regenerated for the label-only drift in the
+  twins' case names.
+
+- **Three owners described 23.367(a)(2) with three nouns, two of them torque (#233 closing #178, 2026-09-08 review R9, tier S, 2026-09-08).**
+  The report Introduction said "engine torque", the methods statement "engine
+  torque and engine-failure fin loads", and the governing safety-factor
+  table's own basis "the sudden-stoppage torque case" (#178) — but the
+  family's members are the OEI fin cases, and every torque condition (23.361
+  mount torque, 23.361(b)(1) sudden stoppage) is LIMIT ×1.5, so each torque
+  noun invited exactly the backwards reading §10 warns against: treating
+  mount torque as already ultimate. The regulation's own subjects
+  (14 CFR 23.367, "Unsymmetrical loads due to engine failure"; (a)(2) makes
+  ultimate "the loads resulting from the disconnection of the engine
+  compressor from the turbine or from loss of the turbine blades",
+  CFR-2011-title14-vol1) are now one noun —
+  `safety_factors.ENGINE_FAILURE_NOUN`, "engine-failure unsymmetrical loads"
+  — stated in the rewritten row basis and consumed verbatim by the
+  Introduction and the methods statement; the theory register's family table
+  row is renamed to match. Guard: the basis must quote the CFR's subjects and
+  the family's self-description, the Introduction and the methods statement
+  must carry the owner's noun and may attach no torque noun to 23.367 in any
+  clause.
+
+- **Section 2.1's wing table printed a different MAC/XLEMAC pair than every
+  %MAC in the document, under 2.2's claim that they were one (#234, 2026-09-08
+  review R10, tier S, 2026-09-08).**
+  Table 1 was the configuration module's *parametric cross-check* — WINGGEOM's
+  integration of a two-point trapezoid regenerated from the layout scalars —
+  while the spanwise distributions and the %MAC reference integrate the stored
+  surface polylines; on the GA-6's cranked wing the two are 6.9 in of XLEMAC
+  apart (56.73 vs 63.62), and 2.2's note attributed its pair to "the wing
+  planform stated in 2.1", so a reader converting %MAC with Table 1's numbers
+  landed on different stations than the document's with no warning. 2.1 now
+  prints the stored planform's own integration through a new owner accessor,
+  `derived_geometry.planform_geometry_condition` (resolving the same surface
+  `mac_reference` reads, honouring gate DG-3's producer/owner shape), with a
+  note naming the polylines it integrated; the parametric condition remains
+  only as the fallback when no
+  stored wing integrates — the case where 2.2 has no planform pair to
+  attribute either. The typed wing area S and the `envelope.xlemac`/`mac`
+  pair stay legitimate overrides and are named as such where printed; the
+  integrated areas leave the table so STRSPEED's governing S is stated once.
+  Register rule added (ORACLE_REPORT.md §2.1). Guard: 2.1's MAC and XLE(MAC)
+  rows must equal the %MAC reference's formatted pair — proven distinct from
+  the trapezoid's — and 2.2's note must print that pair and its provenance.
+
+- **Two entered fields the oracle document depends on were reset before it read them
+  (note 44 OR-134a, tier L, 2026-09-07).** The document is a function of
+  `reduce_to_oracle_inputs` (OR-43), so a field outside the oracle input set is
+  silently replaced by its dataclass default between the project and the page — not
+  absent, *different*. `geometry.parametric.tail_type` was reset to `CONVENTIONAL`, so
+  every airplane read as a conventional tail and the withholding above fired on nothing;
+  `geometry.surfaces[].ref_axis_pct` was reset to the 25 % default, so the document
+  stated its torsion about the quarter chord while every other consumer used the entered
+  40 % — `ga6_normal`'s horizontal-tail root torsion **60.8 → 34.5 lb-in**,
+  `concept_regional_jet`'s **4141.7 → 3645.3**, and every Appendix D/E applied-load `X`
+  **3–6 in** off the deck card the appendix states it is the same load as. All seven
+  shipped examples enter the axis. Both fields are now `supplied` and render in the
+  registry-driven oracle form; no frozen file was touched.
+
+- **The wing torsion is stated about the axis OR-51 ruled it is stated about (tier L,
+  2026-09-07).** Section 3's gate asserted `25% chord` and its docstring explained the
+  reset above as a decision — *"the report cannot print a 40 % chord torsion"* — where
+  OR-51 had ruled the opposite in as many words: *"`ga6_normal` enters `ref_axis: 0.4`,
+  so its wing torsion is delivered about the LRA 40 % chord … the report must not print
+  one and call it the other."* The gate now reads the axis from the project rather than
+  pinning a literal.
+
+- **Section 6 no longer borrows section 5's flaps-extended absence (note 44 OR-131,
+  tier L, 2026-09-07).** The flaps-extended gust of 23.425(a)(2) is a *horizontal* tail
+  requirement with no counterpart in 23.441 or 23.443; stating it under the vertical
+  tail described an absence that is not that surface's. Caught by the OR-131 gate on the
+  first build of the mirror.
+
+- **The vertical tail's loads reference axis was drawn along its root, not up its
+  span (owner, 2026-09-07).** `WingStationLoad` documented its coordinates as airplane
+  axes, and for the wing and the horizontal tail they are. On the **fin** they are not:
+  `y` is the span coordinate in the surface's own plane and `z` is the root waterline
+  that span is measured from. Section 6.1 read the names at face value, so Figure 24
+  drew the axis as a flat row of markers along the constant 111.5 root waterline
+  instead of climbing 112.9 → 167.1 up the fin, and its station table labelled the
+  height above the root a *butt line*. Both now resolve the point through
+  `export.coordinates.tail_station_to_airplane` — the owner the exported deck and
+  Appendices D and E already used, which is why those were right — so the figure, the
+  table and the FORCE card place a station at one point by construction. The analysis,
+  the decks and the CSVs were never affected.
+
+- **The tail and wing loads-reference-axis figures legended their stations "Design CG
+  cases" (tier M, 2026-09-07).** `PlotData.points_label` was left at the V-n figure's
+  default, so three figures named a different figure entirely — the defect that field
+  was added to prevent. They say "Load stations".
+
+- **Table columns could print on top of one another (tier M, 2026-09-07).** The width
+  solver documents a floor — a column is never narrower than its longest unbreakable
+  token, because a `p` column wraps between words and never inside one — and its last
+  fallback scaled every column past it. On `ga6_normal` the `14 CFR` column of Table 25
+  needed 63pt for `23.423(a)(1)` and was given 26, so the regulation printed over the CG
+  case as `23.423(a)(1)G4` and a reader could not tell which CG case the condition was
+  run at. The floor is absolute now; a table that cannot be set upright at either size
+  is turned onto a landscape page instead (owner, 2026-09-07).
+
+- **Every landscape appendix was sized for a portrait page (tier M, 2026-09-07).**
+  Column widths were computed against `TEXT_WIDTH_PT` regardless of orientation, so
+  Appendices B, C, D and E were squeezed into two-thirds of the page they print on —
+  and the Baron's applied-wing-load table fell below its own floor for want of space
+  that was there all along. The landscape width is now measured (652.85pt of
+  `\linewidth`, not the 719.9pt the paper size suggests: `includeheadfoot` takes the
+  running head and footer out of the block), and a section's orientation is inherited by
+  its subsections, where the appendix tables actually live.
+
+- **`fancyhdr` warned once per page that the running head did not fit (tier S,
+  2026-09-07).** 77 identical warnings on the report's own example, in both report
+  renderers, because a `\small` head is taller than the 12pt default `\headheight`.
+  Declared.
+
+- **The column widths were modelled; they are measured now (tier M, 2026-09-07).** The
+  solver sized every column from a four-class glyph model — upper, lower, digit, narrow
+  — scaled off a 0.5 em average, and a model is only as good as its worst word. Its
+  worst word was `assumed`: 34.02pt of Latin Modern against a predicted 30.24, so the
+  Spars column of Table 12 was floored 3.8pt under the one token it had to hold and
+  every row of it overprinted. The floor test passed throughout, because it checked the
+  solver against the same wrong ruler the solver used. Every printable ASCII character,
+  roman and bold, was set by `tectonic` on this module's own preamble and its `\wd`
+  read back; the two table sizes are one font, so their ratio is exact as well (1.0811,
+  against the 5.0/4.5 assumed). Summing the measured glyphs reproduces a real word to a
+  hundredth of a point, and a new gate holds the tables to eight of TeX's own readings.
+  `ga6_normal`, `baron_58` and `concept_regional_jet` now build with **no warnings at
+  all**, against 33 overfull boxes plus 77 `fancyhdr` on `ga6_normal` alone before.
+
+- **The single-owner constant guard read a glyph width as the dynamic-pressure divisor
+  (tier S, 2026-09-07).** `\b295\b` treats a decimal point as a word boundary, so it
+  matched the `295` inside `6.295` and reported the renderer for open-coding
+  `DYNAMIC_PRESSURE_DIVISOR`. Every literal in the guard now has to *start* a number
+  rather than be a run of digits taken out of the middle of one.
+
+- **Report renderer: table splitting, figure lists and marker legends (tier S, 2026-08-30).**
+  Three defects found by reading compiled PDFs during the oracle-report GUI review, all in
+  the renderer shared with the summary report.
+  A table short enough to fit a page is now set as one unbreakable `[H]` float instead of a
+  `longtable`: `longtable` split the Baron's five-row Mach table between its last row and
+  `\endlastfoot` and printed the repeated header and bottom rule alone at the top of the
+  next page, under no data — a break no inter-row penalty prevents, because the foot is not
+  a row. Tables past `latex.UNBREAKABLE_ROWS` still use `longtable`, because a hundred-row
+  case index has to break somewhere.
+  `figure_tex` emits `\caption[<title>]{<title>: <caption>}`, so the List of Figures carries
+  titles rather than four near-identical explanatory paragraphs.
+  The marker-series legend moved from a hard-coded "Design CG cases" in the emitter to
+  `PlotData.points_label`, which had the oracle report's gust design points inheriting a
+  legend naming a different figure.
+
+- **A deleted row is the row the button names (#153, tier M, 2026-08-30).**
+  The per-row delete in the oracle form removed the *last* row rather than the one
+  it named: clicking "Delete row 2 · aileron" on `ga6_normal` removed `flap`. The
+  deletion always reached the project — what undid it was the render that
+  followed. A row widget keys itself by row index and Streamlit's retained state
+  outvotes the value seeded from the model, so every row below the deleted one was
+  renumbered onto its neighbour's state and the tail of the table was typed back
+  over itself one place up. `_retire_renumbered_rows` now retires the state of the
+  rows a deletion renumbers, and only those: a row above the deletion did not move
+  and keeps an edit typed in the same interaction as the click. Swept across both
+  table shapes — the flat grid is one `st.data_editor` whose pending edits are an
+  index-keyed map, and a polyline inside a renumbered row had a cached frame
+  drawing the row that used to be there. Unreachable before this milestone, which
+  gave `ga6_normal` seven surfaces where every fixture had held two.
+
+- **The notes directory and the backlog agree with reality at the 0.8.2 cut
+  (issue #190, tier S, 2026-09-08).** The 2026-09-04 project review's direct
+  answer to "the backlog and notes are bloated and uncoordinated", taken in one
+  pass ahead of the cut. Status headers: notes 46, 47 and 50 now say SHIPPED
+  with the step that shipped them (50 was found stale by the same sweep — the
+  issue predated it), note 48 says its 0.8.2 half shipped and note 49 carries
+  OR-85/86, and note 44 says every agreed iteration through §22 is built rather
+  than "nothing built". Archived to `docs/40_history/` under their own numbers
+  (the notes-35–43 precedent): 09, 11, 24, 32, 34, 45, 46, 47, 48 and 50, with
+  every inbound link in docs, code docstrings and tests re-pointed — except the
+  two in frozen `sloads/modules/` docstrings (`tail_span.py`, `balance.py`),
+  which are left stale rather than edited without an OR-15 admission.
+  `00_backlog.md`'s "Where things stand (2026-08-29)" narrative and the five
+  superseded stacked re-cut preambles rolled to
+  `40_history/44_backlog_state_narrative_to_2026-08-29.md` per the file's own
+  2026-08-16 precedent; the live table apparatus (system of record, ordering
+  rules, removal rule, review additions, the priority table) stays. Note 03's
+  dead "Phase G" backlog pointer re-aimed at the #29/0.9.0 band; note 01
+  carries a phase-complete banner. The six #29-pre-assigned parked rows
+  (M4-11b, L-8b/c/d/e/f) moved into the backlog's 0.9.0 band with bodies and
+  filed as #247–#252 by the bridge, so `02_parked.md` again means off-mission
+  only. Rule-6 numbers stated on the
+  parks that lacked them: M4-19 and M4-21 park at **0** (the term is off by
+  default / evaluates to zero on every emitted balanced trim point), and M4-4
+  gets its measured pair — the Ch 9 `Iyy` approximation is +32 % over the
+  per-CG precise value on `ga6_normal` and +123 % on `baron_58`, conservative
+  in sign and oracle-locked, which is the pair that parks it. The step-14
+  indeterminate-path mention gained the stub body it never had. The milestone
+  half of the issue (thirteen unmilestoned defects, #171) was closed by the
+  owner in the 2026-09-08 review session; the remaining milestone assignments
+  and the `_staging_tmp2/` deletion are the owner's `gh`/local actions.
+
+- **The three-view draws the fin's loads reference axis in the side view, not
+  the top (tier S, 2026-09-08, found at the §3.5 pre-release walk).** The
+  Configuration & Layout LRA overlay looped over every WINGGEOM surface and
+  drew each into the Top view, treating the polyline's second coordinate as a
+  butt line — but a vertical surface's second coordinate is a **waterline**
+  (the GA6 fin root is `(240.912, 117.0)`), so the fin's and rudder's LRA
+  rendered in the x-y plane, off past the wingtip. Worse latent on `baron_58`:
+  its fin sets `symmetric=True`, which the loop would mirror about y=0,
+  hanging a second fin below the airplane — the same trap the oracle report's
+  planform figures already ruled on (the frame decides, never `symmetric`).
+  The frame logic now has one owner, `configuration.lra_overlays` — vtail and
+  rudder go to the Side view (X vs waterline), never mirrored; planform
+  surfaces keep the Top view with the symmetric mirror — and the view consumes
+  it. `sloads/modules/configuration.py` is frozen (note 44 OR-13): edited
+  under an owner OR-15 admission granted 2026-09-08, scoped to one additive
+  function and its import, recorded on the manifest hash in
+  `tests/test_frozen_set.py`. Guarded
+  (`test_configuration.py::test_lra_overlay_puts_a_waterline_span_surface_in_the_side_view`);
+  proven both ways — forcing every surface into the Top frame fails the guard.
+
+- **The nose gear's critical ground case was never reported (design note 44 OR-185, tier L, 2026-09-07).**
+  `landing._critical` ranked each FAR family on `max(main-wheel resultant,
+  nose-wheel resultant)` and returned one case. That is not a tie-break between
+  two candidates for one title — it is a comparison between two different gears,
+  and the loser's larger reaction on the *other* gear was discarded. On every
+  shipped example the two-wheel level landing won 23.479(a) on main-wheel load,
+  so the **three-wheel level landing never appeared as a critical case** although
+  its nose reaction is the largest of the family (1786.8 lb on `ga6_normal`,
+  4194.3 on `baron_58`, 8178.8 on `concept_regional_jet`) — and it is the
+  condition the fuselage section's own advisory sends a reader to the landing
+  section to find. Each family is now ranked once per gear it loads, and the
+  shipped condition set goes from 40 to 42.
+- **A multi-engine load-case index placed one engine's loads at the other engine's butt line (OR-193).**
+  Two of the six engine-mount conditions — the 23.361(b)(1) sudden-stoppage torque
+  and the 23.371(b) gyroscopic condition — carry no `loc_*` values while the four
+  beside them for the same engine do, and `load_cases_to_rows` filled the gap
+  with the **first** location in the whole set. So the right-hand engine's
+  stoppage torque and its four gyroscopic sub-cases were published at the
+  left-hand engine's station: ten rows on `atr42_100` and `dhc8_dash8`, fifteen
+  on `concept_regional_jet`, each a real load on the wrong side of the airplane.
+  A condition with no location of its own now takes the point of the condition it
+  follows, which is that engine's. The producer stating the point on every
+  condition it emits is the proper repair and is filed: `modules/engine.py` is
+  frozen for 0.8.2.
+- **Seven markdown emphasis markers were reaching the printed page, and the class had no guard.**
+  `latex.py` has no `**` → `\textbf` conversion and never had one, so a marker
+  written into a figure caption, a table note or a body paragraph is always a
+  literal artefact. Section 12 shipped seven and the previous iteration's were
+  caught by eye, which is what makes it a class rather than a slip. Stripped, and
+  swept: no rendered oracle document on any shipped report may contain `**` or a
+  non-ASCII character, asserted over every section, caption, note and appendix.
+- **`backlog_issues.py create` filed 19 duplicate issues for rows that already named their own.**
+  The bridge's two halves disagreed: `rewrite_backlog` has always skipped a line
+  carrying `(#N)`, while `create` consulted only the persisted map — which is
+  keyed on a **truncated title**, so rewording a row made its key miss and the
+  row was filed again. One run on 2026-09-07 opened #194–#208 and #211–#214 for
+  rows whose own text named their number in the line the parser had just read,
+  plus three issues titled from parser fragments (`"#170"`, `"#171"`,
+  `"Overtaken by note 49, close on GitHub:"`). `Item` now carries the number its
+  line already states, `create` adopts it instead of filing, a defect bullet
+  whose heading is only a pointer adopts the issue it names, and a heading ending
+  in a colon is a lead-in rather than a defect. The map is re-pointed at the
+  numbers the backlog states and every promoted defect bullet now carries its
+  own `(#N)` in the file, so the record is self-describing and the cache can be
+  rebuilt from it rather than trusted. The measure of the fix: run against a
+  **wiped** map the bridge would now file **three** items — two defect bullets and
+  the D-5 design decision, none of which the backlog stamps — where the same file
+  produced 32, and **no table row** among them, which is the half that mattered.
+  (Corrected 2026-09-07: this fragment first said *one* item, counting only the
+  decision.) The
+  22 spurious issues are closed, each pointing at the one it duplicates. Three
+  guards, one of them asserting the cache has not drifted from the record.
+
+- **Every h-tail load station printed the wing-root waterline as an airplane
+  coordinate (#236, 2026-09-08 review R12, tier M, 2026-09-08).**
+  The GA-6 report printed WL 78.5 — the wing root — for every h-tail station in
+  §5.1 and Appendix D under a note calling the point airplane axes, while the
+  airplane's h-tail sits at WL 111; an analyst importing the points placed the
+  tail 32.5 in low with no way to know. The number was `tail_span`'s documented
+  placeholder (z enters no load for a surface that loads in fz only), and the
+  filed 0.8.2 scope was a disclosure sentence — the owner widened it (option B,
+  OR-15 admission over `sloads/modules/tail_span.py`): `LayoutInput.h_tail_z`,
+  until now a three-view sketch offset, is a real analysis input read by the
+  new single owner `tail_geometry.h_tail_waterline` (fin tip on a T-tail,
+  mid-fin on a defaulted cruciform — the deck used the wing root there, below
+  the drawn surface — `root_waterline_z + h_tail_z` where entered, the
+  wing-root plane marked ASSUMED with a loud note otherwise).
+  `tail_span._h_tail_waterline` is a thin reader of it, so §5.1's station
+  table, Appendix D and the exported GRIDs all moved together; both tables now
+  carry a provenance sentence built from the same owner
+  (`oracle_sections._htail_waterline_sentence`), so the document cannot claim
+  a placement the resolution did not make. `ga6_normal` enters 32.5 and
+  `baron_58` 13.0 (their own h-tail mass items); `cessna_210`/`concept_heavy`
+  stay blank and print the ASSUMED disclosure. No delivered load moved — z
+  pairs with the force components the surface does not carry. Register rule
+  added (ORACLE_REPORT.md §3.6). Guards, all bite-proven: the owner's entered/
+  assumed/fin-tip branches, a three-view-vs-load-path drift guard (the fin's
+  twin), and the report's two-direction guard — the GA-6 must print 111.0 with
+  the entered sentence, and the GA-6 with `h_tail_z` blanked (the reviewed
+  state) must print 78.5 with the ASSUMED not-the-true-waterline sentence in
+  both tables.
+
+- **A test's monkeypatch of `io.default_projects_dir` leaked into later tests
+  (tier S, 2026-09-08).** `tests/test_app_shell.py`'s `_NAMED_SCRIPT` (the
+  #65/PB-6 save tests) replaced `sloads.io.default_projects_dir` with a lambda
+  returning the test's `tmp_path` and never put it back — the same script's
+  `try/finally` restored `st.download_button` but not this. Streamlit's
+  `AppTest` runs the script in the test process, so the patch survived for the
+  rest of the xdist worker's life, and whenever the scheduler later placed
+  `test_io.py::test_default_projects_dir_is_repo_relative` on that worker it
+  read the leaked temp dir: the CI failures on the #234/#235/#236 pushes
+  (`assert 'test_open_re...' == 'projects'`), green locally only because the
+  scheduling differs. The original is now captured before the patch and
+  restored in the same `finally`. Proven by running the polluting and polluted
+  tests in one process: fails without the restore, passes with it. The sweep
+  found no other unrestored module-attribute patch in the test tree.
+
+- **The report GUI stated the retired deselection behavior, and two provenance
+  sentences pointed at the retired input echo (#237, 2026-09-08 review G2+G3,
+  tier S, 2026-09-08).** The report page's selection caption promised the
+  safeguard the document deliberately does not provide — "a deselected section
+  is still printed, stating that it was excluded" — where the agreed, guarded
+  rule (ORACLE_REPORT.md §3.1) is silent omission with renumbering; it now
+  states that rule and its rationale. Two pointers survived OR-194's retirement
+  of the input echo: the printed fingerprint caption ("the input echo remains
+  the definitive record", `oracle_latex.py`) and the provenance banner's
+  mismatch message ("read the input echo to see what moved", `fingerprint.py`);
+  both now name the packaged `project.json`, OR-194's machine-readable record.
+  Two docstring-only mentions swept by hand (`models/report.py`,
+  `oracle_sections.py`). Guard: G-OR-74 gained a retired-claims scan ("input
+  echo" banned in both rendered documents and the GUI literal sweep), the sweep
+  now reads `oracle_app/report.py` (the milestone's new page — not under the
+  OR-13 freeze, unlike the rest of the tree), the mismatch message is asserted
+  at its owner, and a quoted witness proves the new pattern bites.
+
+- **Planform provenance was fixed text, able to say "entered" over a derived
+  planform (#235, 2026-09-08 review R11, tier S, 2026-09-08).**
+  The reviewed reports got it wrong in both directions: GA-6's §2.1 prose said
+  "generated" over entered polylines (that leg fell with #234, which replaced
+  the parametric cross-check condition in §2.1), and the reviewed Baron report
+  derived both tail planforms yet said "entered" in every caption — polylines
+  the Baron example has since gained with #160's real tail geometry, so the
+  fixture no longer reproduces it. The structural defect remained: the words
+  lived in independent fixed strings ("as entered … entered vertices" in the
+  planform and LRA figure captions, the "cannot be drawn as entered" refusals,
+  the pressure-locator opening, the §2.1 DERIVED prose) with only the
+  "Planform basis" table row actually consulting the supplied-flag. One
+  wording owner now (`oracle_sections._PROVENANCE_WORD`, keyed on
+  `_planform_assumed`, which asks `resolve_tail_planform`): the basis rows,
+  both caption families, the refusals and the prose all build their word from
+  it, so a caption cannot claim a provenance the flag does not. Register rule
+  added (ORACLE_REPORT.md §2.1). Guard: both directions — GA-6 (supplied)
+  must say "entered" with no DERIVED claim, and the Baron stripped of its
+  tail surfaces (the reviewed state) must say DERIVED in the basis rows,
+  absent-figure reasons and prose with no "entered" claim; proven to bite on
+  a re-fixed basis row.
+
+- **ORACLE_REPORT.md's register had fallen three shipped iterations behind, and
+  carried entries later decisions had inverted (#238, 2026-09-08 review, tier S,
+  2026-09-08).** The standard had no section for Section 11 OEI (note 44 §21),
+  Section 12 Landing Gear (§22) or Appendix A as the V-n condition register
+  (§23) — all AGREED and shipped — and its §7 register and §8 conformance list
+  cited none of their guard modules; §3.11–§3.13 are now written from the
+  iterations' SHALLs, with register rows and conformance entries, and §3.4's two
+  stray OR-194 bullets moved into §3.13. Three stale entries were corrected to
+  the current rulings ("reserved, unreferable Appendix A" → the slot OR-194
+  filled; "carries the `-ULT` marker" → LIMIT with the factor stated, per
+  OR-116; the pre-OR-59 single-table Appendix B → B.2 beside B.1), and §3.6's
+  `Fz`-only Appendix D column set now defers to §3.8's thirteen-column applied
+  spine, which amended it. The rule-4 sweep caught the same classes elsewhere:
+  §3.1's selection scope still offered the retired input echo, §5 still called
+  the echo "the record of what was analysed" (now the packaged `project.json`),
+  and `models/report.py` still claimed a deselected section is rendered with
+  its exclusion stated. Guard: `test_doc_currency.py` now requires every
+  shipped `test_oracle_report*.py` module to be cited by the standard — the
+  direction the existing dead-citation guard did not check, and the one that
+  failed (five modules were uncited: `_oei`, `_landing`, `_vn`, `_vtail`,
+  `_applied`) — with a meta-test proving it bites.
+
+- **The SI issue carried Imperial residue a reader could not tell from carve-outs (#232, 2026-09-08 review R8, tier S, 2026-09-08).**
+  The conversion owner was missing three rows — `ft^2`, `lb/ft^2` and `ft/s`
+  passed through `convert_results` unconverted — so areas, wing loading,
+  dynamic pressure and the sink rate wore Imperial labels beside converted
+  neighbours; they now convert (`m²`, `kN/m²`, `m/s` — kN/m², not the
+  design-pressure load label kPa, because the unit string is what
+  `is_load_unit` discriminates on and wing loading must not grow a factor
+  column). Table 7's second inertia channel, whose "(lb-in^2)" is baked into
+  the frozen module's labels, printed four kg·m² values as lb-in^2; the SI
+  issue prints one channel and its intro says why. §4.1's mass account quoted
+  the calc's Imperial diagnostic ("5990.0 lb of items" beside a kg table) —
+  `MassCheck` now carries its named parts and the report restates the account
+  through the units owner; the carry-through stations go through the length
+  channel. The OEI input table's IZZ converts, "per inch of span" is per unit
+  span, and the limitations statement is built for the issue's own system, so
+  an SI report no longer advertises `lbs-ULT` markers none of its files
+  carry. Guard: a document-wide sweep of both examples' SI builds bans every
+  Imperial token outside the stated carve-outs (altitude in ft beside KEAS,
+  and 23.473(d) quoted in its own units), with the carve-outs stripped before
+  the scan so they cannot shelter a residue.
+
+- **Four process-doc corrections from the 2026-09-04 project review (issue
+  #189, tier S, 2026-09-08).** (1) `00_backlog.md`'s head no longer keeps a
+  prose list of live design notes — the guarded `docs/00_INDEX.md` is the
+  index; the list had already drifted once (closed 09 listed, 45–49 omitted).
+  (2) `DEVELOPMENT_PROCESS.md` §5's "`30_future/` holds only `00_backlog.md`,
+  the live notes, and nothing else" now names what the directory actually
+  holds: the plan files and `02_parked.md` too. (3) `GIT_FLOW_GUIDE.docx` is
+  demoted from `10_standard/` to
+  `docs/40_history/49_git_flow_guide_to_2026-08-16.docx` — it advertised the
+  squash flow the process retired at the 0.7.2 cut, and a binary doc's currency
+  rests on a prose promise no test can check (precedent CR-D-4); its
+  `WORKFLOW_COMMANDS.txt` INDEX row's stale "merge-commit PR" phrase is swept
+  to rebase-merged in the same pass. (4) `00_program_overview.md`'s "`io.py` is
+  the only place dataclasses meet JSON/CSV" is scoped to calc dataclasses —
+  `sloads/export/` writes the deliverable files and always has. Guarded
+  (`test_doc_currency.py::test_the_standard_tree_holds_only_guardable_text_formats`):
+  a non-`.md`/`.txt` file in `docs/10_standard/` fails CI. Proven both ways: a
+  scratch `.docx` dropped into the tree fails the guard.
+
+- **The sudden-stoppage torque was cited under the gyroscopic regulation
+  (tier S, 2026-09-08).** Five prose sites attributed the engine sudden-stoppage
+  torque condition to 23.371(c) — but 14 CFR 23.371 is the gyroscopic and
+  aerodynamic engine-mount section and has no such paragraph; sudden stoppage
+  is 23.361(b)(1), as the emitting module (`modules/engine.py`), the case-title
+  map (`report/oracle_sections.py`) and `safety_factors.py` all already state.
+  Corrected in the `_running_locations` docstring (`report/render.py`), the
+  G-OR-138 guard's docstring (`tests/test_oracle_report_vn.py`), backlog row 38
+  (the #210 producer repair) and the two OR-193 change fragments awaiting the
+  0.8.2 cut. The neighbouring "gyroscopic condition of 23.371(b)" citation was
+  checked against its owner and is correct. No behavior change; every code
+  `far_reference` was already right.
+
+- **The release tag now waits for the merge push's full-matrix run on `main`
+  (issue #184, tier S, 2026-09-08).** The 3.10/3.11 compatibility legs and the
+  coverage floor run only on the push to `main`, "fixed forward" — but
+  `RELEASE_PROCESS.md` §4 step 4 tagged immediately after the merge with no
+  requirement that that run was green, and 0.8.0 was tagged while it was red
+  at install (#132; the classifier half was fixed then, this is the
+  tag-on-red half). Step 4 now instructs
+  `scripts/branch_protection_snapshot.py --check-main-run` before tagging —
+  the new mode lives beside `--check` because both need the `gh` credential
+  CI does not have (that script's founding constraint) — and it refuses a red
+  **or still-in-progress** newest run on `main`, since tagging before the
+  matrix finishes is the same hole with better luck.
+  `tests/test_ci_conformance.py` gains the credential-free hop: §4 step 4
+  must name `--check-main-run` and the script must offer it, so neither can
+  be edited away without the other noticing. Proven both ways: removing the
+  name from the doc fails the guard.
+
+- **The saved-projects list no longer crashes on an unreadable folder.**
+  `list_saved_projects` guarded a *missing* projects directory but not one that
+  exists and cannot be read, so a projects folder in a macOS TCC-protected
+  location (`~/Desktop`, `~/Documents`, `~/Downloads`) raised `PermissionError`
+  straight through the sidebar render. A directory this process cannot read now
+  reports as holding no projects, which is the question the sidebar is asking.
+
+- **The report stamped a stale sloads version.** The provenance stamp read
+  `importlib.metadata`, which reports the version recorded in `PKG-INFO` when the
+  package was *installed* — so in an editable checkout every report built after
+  the 0.8.1 bump stated 0.8.0 until somebody reinstalled, naming a build it did
+  not come from. The version now has one owner, `sloads/_version.py`:
+  `pyproject.toml` declares it dynamic and reads that attribute, and so does the
+  report generator, so an edit is in effect immediately and the two cannot
+  disagree. Release note: the bump target is now `sloads/_version.py`, not
+  `pyproject.toml`.
+
+- **The vertical tail is placed by its own geometry, and placed once (#160,
+  tier L, 2026-09-06).** `tail_geometry.fin_root_waterline` asks the entered
+  `vtail` polyline first: it states the fin's placement directly, in the
+  waterline datum the rest of the geometry is entered in, where every branch
+  below it reconstructs that placement from something else. The explicit
+  `vtail_root_waterline_z` is not a typed override of it (note 36 OV-1) but a
+  second spelling of one measurement, so a disagreement is resolved to the
+  polyline and `FinRoot.note` names the value it did not use — stated in band
+  rather than refused, because the scalar is a shipped input field and has to
+  stay typable. Guard: no shipped project may carry a disagreeing pair.
+
+- **`ga6_normal`'s fin was modelled 33 in low for 20 days (#160, tier L,
+  2026-09-06).** It carried `vtail_root_waterline_z = 78.5` — the airplane's
+  *wing* root waterline, entered 2026-08-17 as note 19 §10.2 step (i)'s
+  "zero-movement change that pins today's assumed value as a stated one" so that
+  step (ii)'s body outline would have an attributable digest wave. Step (ii)
+  shipped in the same pass and could never take effect: `explicit` led the
+  resolution order, so the pin shadowed both the outline it was scaffolding for
+  (98.44) and the fin's own entered edges (111.5), while reporting itself
+  `assumed=False`. The pin is cleared. The fin's roll arm `z_fin − z_cg` goes
+  11.89 → 44.89 in and the four lateral cases' roll accelerations move 5–12×
+  (`SUDDEN RUDDER` −6.888 → −85.952 deg/s²), yaw ~2 % through `Ixz`. The fin
+  load and `n_y` are bit-identical on every fixture, which is the check that a
+  lever arm moved and not the aerodynamics. No Appendix A oracle moves — the
+  lateral cases have no printed oracle and are pinned by measurement.
+
+- **Five fins were entered symmetric, and were each reported at twice their own
+  size (#160, tier L, 2026-09-06).** `baron_58`, `cessna_210`, `atr42_100`,
+  `dhc8_dash8` and `concept_regional_jet` set `symmetric: true` on a vertical
+  tail. `wing_geometry.surface_properties` reads that flag for the area/span/AR
+  bookkeeping, so each fin was reported at `2 × area` and `2 × span` against its
+  own entered scalars (`baron_58` 48.58 ft², span 132.0, AR 2.49 against an
+  entered 24.30, 66.0, 1.26) — and `airloads.resolve_aero_surfaces` reads the
+  same flag as *the* predicate for "is this a lifting surface AIRLOADS
+  analyses", so every one of the five also shipped a **Schrenk symmetric
+  spanwise lift distribution for its fin**, computed on the doubled aspect ratio
+  and printed under `FAR 23.301`. Both are gone. The guard checks the reported
+  geometry against the entered scalars rather than the flag, so it is the same
+  gate the day someone reaches the same wrong number another way.
+
+- **The same five fins were entered root-relative (#160, tier L, 2026-09-06).**
+  Their polylines were based at waterline 0 while the load path placed each fin
+  on the body, so §2.1 drew every one on the airplane centreline — 110 in low on
+  `baron_58`. Each is rebased onto its own resolved root (`baron_58` 110.0
+  entered; `cessna_210` 100.2, `atr42_100` 191.2 and `dhc8_dash8` 203.5 from
+  their own fuselage outlines; the RJ's 87.0 from the T-tail relation, exact).
+  One convention now: **a fin polyline's second coordinate is a waterline in the
+  airplane datum**, which is how `ga6_normal` always entered its own.
+
+- **The surface has one name: the vertical tail (owner ruling, tier S,
+  2026-09-06).** "v-tail" where space requires, `vtail` as the code token —
+  matching the regulation, the schema, the component key and what the reports
+  already print. Stated in `CONVENTIONS.md` §7.2, because today the *data* is
+  spelled `vtail_*` while the owners that place and load it are spelled `fin_*`,
+  which is one thing under two names inside one call chain. The identifier sweep
+  is filed for the 0.8.2 cut (it reaches frozen `modules/tail_span.py`); new code
+  takes the agreed name from the first line.
+
+- **The exported wing deck's torsion is applied, not differenced (design note 46, tier L, 2026-09-03).**
+  `sbeam_bridge.wing_nodal_loads` built its `MOMENT` cards by differencing the
+  cumulative `Myy` between adjacent stations. That column already contains the
+  sweep and dihedral transfer of the shear carried outboard, so a solver
+  applying the card at a point — and generating the transfer itself, from the
+  geometry — counted the transfer twice. Under the rigid-body accumulation a
+  solver performs, the exported wing torsion was wrong by **151 / 190 / 120 %**
+  on `ga6_normal` (PHAA / TORS / ACRL) and **34 / 21 %** on `baron_58`; shear
+  and both bending columns closed exactly, which is why the error survived a
+  full closure sweep. The nodal set is now the **applied** set on the deck's
+  nodes — each strip's own `fx`, `fz` and free torsion `myy_free` at its own
+  point, each concentrated wing mass reduced to the node inboard of it as its
+  force plus the **full** three-component `r × F` offset couple (the couple's
+  torsion member is the one the differencing had been supplying wrong). It
+  reproduces the published `Sx`, `Sz`, `Mxx`, `Myy` and `Mzz` at **every**
+  station of every case of both example airplanes to ~1e-15 relative. `FORCE`
+  cards are unchanged — a strip's own load and the difference of the cumulative
+  shear are the same number — so only `MOMENT(My)` moves. The deck's
+  equilibrium claim strengthens with it: the wing now asserts the full
+  rigid-body `m.y`, where before only the bare card sum `m0.y` could be
+  asserted and `equilibrium.py` recorded the weaker claim as a convention.
+  Side-of-body internal and collapsed loads state their torsion about a shared
+  reference point (`sob_reference_point`), which a free-moment card set makes
+  load-bearing where a differenced one did not.
+
+- **Concentrated wing masses are published as applied point loads (#166, tier L, 2026-09-03).**
+  `WINGINER` adds each concentrated wing mass — engine, gear, fuel, a store — to the
+  cumulative shears, bending and torsion of every station inboard of it, and leaves the
+  per-strip `Fz`/`Fx` panel-only. The mass was therefore published nowhere as an *applied*
+  load, so any set of strip loads handed to a structural model was short by the whole of it:
+  on `examples/baron_58.project.json` PHAA, **4,821.5 lb of a 5,004.1 lb root shear**, exactly
+  the load factor times the four entered masses. It is inertia relief, so the omission is
+  unconservative in shear and, with the masses at 57-95 in span, substantially so in root
+  bending. `WingLoadResult` now carries a `point_loads` list of `ConcentratedLoad`, each a
+  pure force at its own `X`, `Y`, `Z` — a concentrated mass has no free moment, since every
+  moment it produces is that force acting through an arm the geometry already states.
+
+- **`WingStationLoad.myy_free` is populated by the wing chain (tier L, 2026-09-03).**
+  The field existed and was left `0.0`, so the free per-strip torsion had to be reconstructed
+  from the cumulative column by undoing the sweep and dihedral transfer. That reconstruction is
+  exact for an air load and **wrong** once a concentrated mass steps the shear — the step is
+  not a transfer, so it lands in the recovered free moment as a spurious term. It is now
+  published at source: the section pitching moment from `AIRLOADS`, the panel mass' 50%-chord
+  offset from `WINGINER`, summed by `NETLOADS` and shifted with the reference axis on the
+  strip's own force. No cumulative value moves and no oracle is affected.
+
+- **WINGGEOM is no longer described as a strip integrator (#155, tier M, 2026-08-30).**
+  The closed-form planform integration shipped earlier in 0.8.2 left the surrounding
+  prose behind: `wing_geometry`'s own module docstring still taught the strip method
+  its `surface_properties` had stopped using, and `configuration` reported
+  MAC/XLEMAC/AR as coming "via the WINGGEOM strip integrator" — a note the oracle
+  report reproduces verbatim in §2.1. Corrected everywhere the claim appears
+  (`wing_geometry`, `configuration`, `airloads`, `models/inputs`, three test headers,
+  `PROGRAM_SPEC.md`, `00_theory_sources.md`, `01_concept_loads_plan.md`), while
+  statements about strips that are still true — AIRLOADS' own span loop, the spanwise
+  load stations, `tail_geometry` — were left standing.
+- **The WINGGEOM surface table reports `Load stations`, not `Integration elements`
+  (tier M, 2026-08-30).** `elements` is the user's spanwise load-station count and no
+  longer drives any integral, so the row now says what it is (key
+  `integration_elements` → `load_stations`; nothing read it). No number changes.
+- **The Appendix A aileron is a tight oracle again (tier M, 2026-08-30).** Its ±2 %
+  band existed only because the strip sum's result depended on an element count the
+  manual never tabulates. Closed-form integration reaches area 932, MAC 11.645 and
+  AR 7.036 within 0.037 %, so the tolerance returns to the suite's ±0.1 %.
+
+### Removed
+
+- **`SurfaceInput.front_spar_pct` / `.rear_spar_pct` (design note 50, tier L, 2026-09-05).**
+  Replaced by the entered station, not kept beside it: two stored fields for one
+  quantity with only one of them on the page is the duplicate-owner shape this
+  project removes rather than marks. The **v60 → v61** hop is the first in the
+  live chain that converts a value rather than being an identity — a file that
+  *entered* a fraction has its station computed from that airplane's own
+  polylines, so a carry-through survives the hop as the same physical station
+  instead of reverting to the (also changed) default. All seven bundled examples
+  wrote both keys `null`, so no fixture data moved (OR-124, OR-127).
+
 ## [0.8.1] — 2026-08-29
 
 ### Breaking
