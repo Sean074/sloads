@@ -111,13 +111,49 @@ def diff(snap: dict, now: dict) -> list:
     ]
 
 
+def check_main_run(branch: str) -> int:
+    """Exit status for ``--check-main-run``: 0 iff the newest run is green.
+
+    The tag precondition of ``RELEASE_PROCESS.md`` §4 step 4 (#184): the push
+    to ``main`` that the milestone merge makes runs the full 3.10/3.11 +
+    coverage matrix — the gate of record for the whole milestone — and it runs
+    *only* there, "fixed forward". 0.8.0 was tagged while that run was red at
+    install (#132); the classifier half was fixed then, this is the
+    tag-on-red half. An **in-progress** run also refuses: tagging before the
+    matrix finishes is the same hole with better luck.
+    """
+    runs = _gh_json(
+        f"repos/:owner/:repo/actions/runs?branch={branch}&per_page=1"
+    ).get("workflow_runs", [])
+    if not runs:
+        print(f"no workflow runs found on `{branch}` — nothing to tag against.")
+        return 1
+    run = runs[0]
+    status, conclusion = run.get("status"), run.get("conclusion")
+    label = f"run {run.get('id')} (`{run.get('display_title', '')}`) on `{branch}`"
+    if status != "completed":
+        print(f"{label} is still {status} — wait for the full matrix before tagging (#184).")
+        return 1
+    if conclusion != "success":
+        print(f"{label} completed with {conclusion!r} — fix `{branch}` before tagging (#184).")
+        return 1
+    print(f"{label} completed green — clear to tag.")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--check", action="store_true", help="exit 1 if the snapshot has drifted from live")
     g.add_argument("--write", action="store_true", help="refresh the snapshot from live")
+    g.add_argument("--check-main-run", action="store_true",
+                   help="exit 1 unless the newest workflow run on the protected "
+                        "branch completed green (the §4 step-4 tag precondition, #184)")
     ap.add_argument("--date", help="value for `captured` on --write (default: today)")
     args = ap.parse_args(argv)
+
+    if args.check_main_run:
+        return check_main_run(load()["branch"])
 
     snap = load()
     now = live(snap["branch"])
