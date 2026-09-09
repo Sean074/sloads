@@ -1020,6 +1020,18 @@ def test_the_report_page_renders_for_a_project_with_nothing_in_it():
     assert not at.exception, [e.message for e in at.exception]
 
 
+def test_the_selection_caption_states_the_agreed_deselection_rule():
+    """#237: the page's caption promised the safeguard §3.1 deliberately
+    reverses -- "a deselected section is still printed, stating that it was
+    excluded" -- over a build whose guarded behavior is silent omission with
+    renumbering. The GUI must state the rule of the document it builds, not the
+    one OR-19's reversal retired."""
+    at = _page()
+    captions = " ".join(c.value for c in at.caption)
+    assert "not printed at all" in captions
+    assert "still printed" not in captions
+
+
 def test_the_page_offers_no_download():
     """OR-22/OR-27: the build writes a directory. The oracle GUI has exactly one
     download call site by gate, and it belongs to the results page."""

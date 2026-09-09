@@ -5273,8 +5273,8 @@ def _flap_slipstream_table(result: Optional[ModuleResult],
 
     Built through :class:`~sloads.report.content.Units` rather than through
     :func:`_value_table`, which is section 2's shape and marks a load it meets
-    ``-ULT`` by design -- it is the input echo's table and no load is meant to
-    reach it. This one carries a load, so it states the factor in an ``SF``
+    ``-ULT`` by design -- it is the description section's table and no load is
+    meant to reach it. This one carries a load, so it states the factor in an ``SF``
     column and marks nothing (note 49 OR-116).
     """
     condition = _find(getattr(result, "conditions", ()) or (), "Flap loads in")

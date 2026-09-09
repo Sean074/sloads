@@ -126,8 +126,8 @@ class ProjectIdentity:
 
     The fingerprint is **not a signature**: there is no key, so it detects
     accident, not tampering. It is also not the record of what was analysed --
-    the Appendix A input echo is that. This is the fast comparator that says
-    *go read Appendix A, something moved*.
+    the packaged ``project.json`` is that (OR-194). This is the fast comparator
+    that says *go diff the project file, something moved*.
     """
 
     project_name: str = ""

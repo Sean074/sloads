@@ -376,9 +376,10 @@ def _marking_block() -> None:
 def _selection_block() -> List[wf.WorkflowStep]:
     spec = _spec()
     st.subheader("Sections in this issue")
-    st.caption("A deselected section is still printed, stating that it was "
-               "excluded -- a reader is never handed a shortened document "
-               "without being told.")
+    st.caption("A deselected section is not printed at all -- no heading, no "
+               "reason -- and the sections after it renumber to close the "
+               "gap. Deselection is your own act here, so there is no second "
+               "party to inform.")
     steps = oc.analysis_steps()
     excluded = set(spec.excluded_steps)
     columns = st.columns(3)
