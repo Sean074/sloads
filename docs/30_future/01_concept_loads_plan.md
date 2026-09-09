@@ -2,6 +2,11 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6: the owner of what a note touches reviews it as a PR)*
 
+> **Phase complete (2026-09-08, issue #190):** the concept-loads → sbeam sizing
+> loop this plan describes is demonstrated and in CI. The open capability items
+> that grew out of it live in [`00_backlog.md`](00_backlog.md) — this document
+> is kept as the phase narrative and the decisions of record.
+
 The active development plan that grows sloads from a faithful ≤12,500 lb
 **FAR Part 23 Subpart C** replication into an **initial-concept distributed-loads
 tool**: one that can exceed the FAR23 weight and seat limits, assesses a candidate

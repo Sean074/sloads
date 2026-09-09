@@ -2,7 +2,12 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: AGREED, 2026-09-04 (owner).** R1–R4 were agreed 2026-09-03; **R5
+**Status: AGREED, 2026-09-04 (owner); the 0.8.2 half SHIPPED 2026-09-04
+(step "Module analysis is a LIMIT channel",
+`changes/module-analysis-is-limit.history.md`). The remaining half — the
+render/export boundary (OR-86) and the safety-factor page (OR-85) — is
+carried by note 49, which supersedes this note's treatment of both.**
+R1–R4 were agreed 2026-09-03; **R5
 (OR-86)** and **D-a … D-f** were ruled 2026-09-04, four of them against this
 note's first recommendation. §3 is written against the rulings as taken.
 Milestone **0.8.2** for the LIMIT channel and the #154 fix; **0.8.3** for the

@@ -1,7 +1,7 @@
 """The mass single source of truth: ``weight.items`` -> per-component inertia.
 
 Plan 11 decision **B-2**, step **B1**
-(``docs/30_future/11_balanced_airframe_cases_plan.md``). Conventions:
+(``docs/40_history/11_balanced_airframe_cases_plan.md``). Conventions:
 ``docs/10_standard/CONVENTIONS.md``.
 
 Why this module exists

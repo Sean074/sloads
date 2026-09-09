@@ -3,7 +3,9 @@
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
 **Status: AGREED 2026-09-03 (owner, in session — `CLAUDE.md` rule 1's
-working-alone path).** Milestone: **0.8.2** (D-4). Closure tier **L**: the
+working-alone path); SHIPPED 2026-09-03 (step "Chord bending is stated, and a
+symbol is data", `changes/b2-chord-bending.history.md`).** Milestone:
+**0.8.2** (D-4). Closure tier **L**: the
 owner's ruling on D-6 takes the structural fix, which adds a field to
 `LoadValue` and edits a **frozen** module under an **OR-15 admission** — the
 same shape as note 45, which was tier L for the same reasons. The draft's
@@ -251,7 +253,7 @@ carried becomes a column that is printed.
 - `ORACLE_REPORT.md` §3.3: the "Appendix B is a structures deck" bullet lists
   B.2 as `Sz`, `Sx`, `Mxx`, `Myy`, `Mzz`; the 3.4 bullet lists five figures;
   new bullets record OR-71 … OR-75; §8 gains the matching Conformance rows.
-- `docs/30_future/46_applied_wing_load_set_note.md` §2: OR-70 marked
+- `docs/40_history/46_applied_wing_load_set_note.md` §2: OR-70 marked
   **superseded by OR-71**, the row kept rather than deleted.
 - `docs/30_future/44_oracle_report_note.md`: OR-55's `Mzz` sentence marked
   **superseded by OR-72**; §2.2's admission recorded beside the first one.

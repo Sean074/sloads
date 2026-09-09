@@ -2,8 +2,10 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6: the owner of what a note touches reviews it as a PR)*
 
-> **Status:** design/spec complete; the §6 feature scope is **closed** and the
-> step-by-step plan lives in [`00_backlog.md`](00_backlog.md) → **Phase G**. This
+> **Status:** design/spec complete; the §6 feature scope is **closed**. The
+> step-by-step build is the **main-GUI development band anchored by #29
+> (milestone 0.9.0)** — `00_backlog.md` no longer carries a "Phase G" section
+> (issue #190, 2026-09-08). This
 > document is the narrative, the assessment vs. the current code, and the locked
 > decisions. (To avoid confusion: the six **analysis-flow phases** in §4 are the
 > GUI's *workflow sections*; "Phase G" is the *development phase* that builds them.)

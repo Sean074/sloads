@@ -79,5 +79,13 @@
   "mypy strictness ratchet — stage 2 export/, stage 3 modules/ (design note 27 ST-3; detail below) (#19)": 19,
   "mypy strictness ratchet — stage 2 export/, stage 3 modules/, plus io.py as its own stage (95 Any-typed lines, the sch…": 19,
   "solo_close.sh verifies fragment existence, not tier content — nothing checks a tier-M closure touched PROGRAM_SPEC.md…": 185,
-  "use_container_width survives in app_shell/ on an unbounded Streamlit floor — eleven sites (sidebar.py ×7, project_sta…": 129
+  "use_container_width survives in app_shell/ on an unbounded Streamlit floor — eleven sites (sidebar.py ×7, project_sta…": 129,
+  "Two engine-mount conditions per engine state no point of application — the 23.361(b)(1) sudden-stoppage torque and th…": 210,
+  "The flight balance models no thrust — flight_envelope._balance solves the normal force and the pitching moment about …": 226,
+  "M4-11b — Split the highest-complexity view functions — six app/views/ functions at CC E/F (worst _tab_design_speeds F…": 247,
+  "L-8b — help= tooltip rollout completion — app-wide coverage ~45 %; worst pages 0/6 and 0/7 (body below) (moved from 0…": 248,
+  "L-8c — Results/Export consolidation parity — the 8 folded modules' results missing from \"All results by section\"; fol…": 249,
+  "L-8d — Widget freshness audit, the mutation half — a widget that goes stale while the project is mutated underneath i…": 250,
+  "L-8e — Uncovered input fields & UX nits — remaining JSON-only fields, error-string de-jargonizing, sidebar anchoring,…": 251,
+  "L-8f — Display-only and numerically-inert nits — none changes a load (body below) (moved from 02_parked.md, #190)": 252
 }

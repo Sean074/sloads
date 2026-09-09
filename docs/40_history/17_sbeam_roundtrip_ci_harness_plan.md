@@ -459,7 +459,7 @@ L-1 and with plan 07 §9** — all three need the same wing/body seam accounting
 and none should invent it separately. Effort: M. Full reasoning and the
 measured numbers: §1.1 of this plan. **Superseded in detail 2026-08-15** by the
 backlog's rewritten step 13 body and
-[`24_lra_beam_model_review_note.md`](../30_future/24_lra_beam_model_review_note.md) R-3 /
+[`24_lra_beam_model_review_note.md`](24_lra_beam_model_review_note.md) R-3 /
 BM-1: source = explicit `SurfaceInput.sob_y_in` with `fuselage_width/2` as the
 marked-assumed fallback and `inboard_rib_y` excluded; (b) holds for the
 per-component deck, while the LRA model starts at the SOB (§1.1 constraint 1 as

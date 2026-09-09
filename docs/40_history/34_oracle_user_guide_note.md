@@ -21,7 +21,7 @@ manual (`20_theory/`) and not an architecture note (note 32).
 
 Sources reviewed: `CLAUDE.md`, `docs/10_standard/GUI_USER_GUIDE.md`,
 `docs/10_standard/GUI_design.md`, `docs/10_standard/DATA_DICTIONARY.md` +
-`docs/generate_data_dict.py`, `docs/30_future/32_oracle_gui_note.md`,
+`docs/generate_data_dict.py`, `docs/40_history/32_oracle_gui_note.md`,
 `oracle_app/*.py`, `app_shell/*.py`, `sloads/workflow.py`,
 `sloads/field_registry.py`, `examples/*.project.json`.
 

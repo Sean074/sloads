@@ -13,7 +13,7 @@ and the ground/landing families of FAR 23.471–23.499.
   explains; it never overrides). Module spec:
   [`PROGRAM_SPEC.md`](../10_standard/PROGRAM_SPEC.md) "Balanced cases and the
   assembled deck". Decision records: plans
-  [11](../30_future/11_balanced_airframe_cases_plan.md) (B-1…B-8) and
+  [11](../40_history/11_balanced_airframe_cases_plan.md) (B-1…B-8) and
   [13](../40_history/18_b8a_lateral_closure_plan.md) (L-1…L-8) and
   [18](../40_history/23_step10_ground_cases_plan.md) (G-1…G-13, the ground
   families, §9), and decision

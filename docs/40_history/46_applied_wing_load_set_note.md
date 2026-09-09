@@ -3,8 +3,10 @@
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6: the owner of what a note touches reviews it as a PR)*
 
 **Status: AGREED 2026-09-03 (owner, in session — `CLAUDE.md` rule 1's
-working-alone path).** Milestone: **0.8.2**. Closure tier **L** (part B; part A
-is tier M and ships with it). No frozen file is edited: everything here lives in
+working-alone path); SHIPPED 2026-09-03 (step "Six components, and a deck
+built from them", `changes/wing-applied-load-set-six-components.history.md`).**
+Milestone: **0.8.2**. Closure tier **L** (part B; part A
+is tier M and shipped with it). No frozen file is edited: everything here lives in
 `sloads/export/` and `sloads/report/`, and `sloads/modules/` is untouched.
 
 The oracle report's Appendix B.1 and the `wing_applied_loads.csv` beside it

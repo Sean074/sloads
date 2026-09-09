@@ -3,7 +3,7 @@
   `safety_factor = 1.5`, so a geometry table prints an ULTIMATE banner — found
   the factor applied on far more surfaces than the contract's purpose requires;
   the `engine` CLI report scales a mean takeoff torque 554.4 → 831.6 ft-lb.
-  `docs/30_future/48_limit_channel_note.md` states the rulings that follow
+  `docs/40_history/48_limit_channel_note.md` states the rulings that follow
   (**OR-76 … OR-86**, gates **G-OR-44 … G-OR-48**): module analysis becomes a
   LIMIT channel while the oracle GUI, the technical report and the export deck
   stay ULTIMATE through 0.8.2; the factor is **stated, never applied** as the

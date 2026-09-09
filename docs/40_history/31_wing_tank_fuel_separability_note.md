@@ -24,7 +24,7 @@ per side). **No printed oracle** covers a wing-tank fuel split — `ga6_normal`
 invariants** (rule 2): the wing tie and the partition, both already in code.
 
 Related and not duplicated here:
-[`11_balanced_airframe_cases_plan.md`](../30_future/11_balanced_airframe_cases_plan.md) (B-2, the
+[`11_balanced_airframe_cases_plan.md`](11_balanced_airframe_cases_plan.md) (B-2, the
 mass SSOT; §4 the double-count authority table),
 [`12_conm2_mass_export_plan.md`](32_conm2_mass_export_plan.md) (C1 — the per-case
 itemization this note explicitly does **not** rebuild),
