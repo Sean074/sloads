@@ -50,7 +50,14 @@ MANIFEST: dict[str, str] = {
     # computed and this module discarded. Additive -- no value changes and
     # nothing is recomputed.
     "sloads/modules/body_loads.py": "9681f7baa70a5f4388236849c8967ce8d272234257347f3ed0012480f5811c39",
-    "sloads/modules/configuration.py": "1c0cd2b1b21b04544eb919d69cfc48c6a151016be151ea4f77a261bf79549667",
+    # OR-15 admission, granted by the owner 2026-09-08 (the §3.5 pre-release
+    # walk), scoped to **one additive function and its import** -- the
+    # three-view's LRA overlay drew every surface into the Top view, so a fin's
+    # LRA (whose polyline second coordinate is a waterline, not a butt line)
+    # rendered in the x-y plane past the wingtip. ``lra_overlays`` owns the
+    # frame per surface (vtail/rudder to the Side view, never mirrored); no
+    # existing line of the module changes and no published load is touched.
+    "sloads/modules/configuration.py": "557d675ef19c171cf77a4864177de14e896e60927bd4b7beec4c2bbb06ce86d8",
     # OR-15 admission, granted by the owner 2026-09-07 (design note 53, D-53.5),
     # scoped to **the torque sign and nothing else** -- not a refactor, not a
     # rename, not formatting in the same file. ``torque_sense`` reads the new

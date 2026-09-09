@@ -56,13 +56,14 @@ from sloads.modules.configuration import (
     component_stations,
     configuration_properties,
     gear_stations,
+    lra_overlays,
     match_component_station,
     tail_planform,
     wing_layout_from_surface,
     wing_polylines,
     wing_surface,
 )
-from sloads.modules.wing_geometry import geometry_properties, interp_x, surface_top_outline
+from sloads.modules.wing_geometry import geometry_properties, surface_top_outline
 from sloads.report import LoadChannel, module_text_report
 
 _TAIL_TYPE_LABELS = {
@@ -364,23 +365,17 @@ def _three_view() -> go.Figure:
     # torsion is stated about (SurfaceInput.ref_axis_pct — the beam-model
     # elastic axis, typically 40–50% chord), drawn per WINGGEOM surface. Falls
     # back to the parametric wing planform at 25% chord when no surface exists.
+    # lra_overlays owns the frame: a fin/rudder polyline's second coordinate is
+    # a waterline, so its LRA belongs in the Side view, never the Top.
     _lra_surfs = project.geometry.surfaces if project.geometry is not None else []
     if not _lra_surfs:
         _lra_surfs = [SurfaceInput(name="wing", leading_edge=le, trailing_edge=te)]
-    for _s in _lra_surfs:
-        if len(_s.leading_edge) < 2 or len(_s.trailing_edge) < 2:
-            continue
-        _ys = sorted({p[1] for p in _s.leading_edge} | {p[1] for p in _s.trailing_edge})
-        _xa = [interp_x(_s.leading_edge, y)
-               + _s.ref_axis * (interp_x(_s.trailing_edge, y) - interp_x(_s.leading_edge, y))
-               for y in _ys]
-        _mirror = _s.symmetric
+    for _ov in lra_overlays(_lra_surfs):
         fig.add_scatter(
-            x=(_xa[::-1] + _xa) if _mirror else _xa,
-            y=([-y for y in _ys[::-1]] + _ys) if _mirror else _ys,
+            x=_ov["x"], y=_ov["y"],
             mode="lines", line={"color": "#9467bd", "dash": "dashdot", "width": 2},
-            name=f"LRA {_s.name} ({_s.ref_axis * 100:g}% chord)",
-            row=1, col=1)
+            name=f"LRA {_ov['name']} ({_ov['ref_axis'] * 100:g}% chord)",
+            row=1, col=1 if _ov["view"] == "top" else 2)
     # Fuselage top-view outline: the body sections (plan-view half-widths) when a
     # fuselage outline is present, else the coarse length x width rectangle.
     fuse = project.geometry.fuselage if project.geometry is not None else None
