@@ -37,6 +37,7 @@ from typing import Dict, List, Optional
 from ..applicability import far23_applicability
 from ..constants import ULTIMATE_FACTOR
 from ..models import SCHEMA_VERSION, Project
+from ..safety_factors import ENGINE_FAILURE_NOUN
 from ..units import (
     Channel,
     UnitSystem,
@@ -496,7 +497,7 @@ def methods_statement(
         f"25), and 'N/A' means no factor applies to that condition because "
         f"it states no load. Load quantities carry plain units. The one "
         f"exception is a load computed ALREADY ULTIMATE -- 14 CFR "
-        f"23.367(a)(2) engine torque and engine-failure fin loads, and "
+        f"23.367(a)(2) {ENGINE_FAILURE_NOUN}, and "
         f"23.561(b) emergency-landing inertia -- which state SF=1.0; apply "
         f"nothing further to those. Where EVERY row of a file is already "
         f"ultimate its load columns carry a '-ULT' marker "

@@ -125,6 +125,17 @@ _LIMIT_BASIS = ("14 CFR 23.303 / 25.303 — a factor of safety of 1.5 must be "
                 "applied to the prescribed limit load, by the sizing analysis "
                 "and not by sloads (note 49 OR-116)")
 
+#: The one noun for the 23.367(a)(2) family (#233; #178 found this table's old
+#: "sudden-stoppage torque" — a 23.361(b)(1) LIMIT case, not this family). The
+#: section is "Unsymmetrical loads due to engine failure"; (a)(2) makes ultimate
+#: the loads from disconnection of the engine compressor from the turbine or
+#: loss of the turbine blades — the OEI fin cases, no torque among them.
+#: Every prose description of the family (this row's basis, the report
+#: Introduction, the methods statement) consumes this noun, so a torque noun
+#: cannot again invite reading the 23.361 mount torque — LIMIT ×1.5 — as
+#: already ultimate.
+ENGINE_FAILURE_NOUN = "engine-failure unsymmetrical loads"
+
 #: The governing table's rows, in regulation order. **Adding a produced FAR
 #: reference without a family here is a red build, not a footnote** — the
 #: unclassified case shows up as :data:`RowStatus.DEFAULTED`.
@@ -138,11 +149,14 @@ FAMILIES: Tuple[Family, ...] = (
            "Flight load factors represent the ratio of an aerodynamic force to "
            "the weight and are prescribed as limit values (23.321(a)); "
            + _LIMIT_BASIS),
-    Family("engine_ultimate", "Sudden engine stoppage — prescribed ultimate",
+    Family("engine_ultimate",
+           "Unsymmetrical loads due to engine failure — prescribed ultimate",
            "23.367(a)(2)", LoadClass.ULTIMATE,
-           "23.367(a)(2) prescribes the sudden-stoppage torque case as an "
-           "ULTIMATE load: it is already ultimate as computed, so apply "
-           "nothing (SF = 1.0)."),
+           "23.367(a)(2) prescribes the " + ENGINE_FAILURE_NOUN + " — those "
+           "resulting from the disconnection of the engine compressor from "
+           "the turbine or from loss of the turbine blades — as ULTIMATE: "
+           "they are already ultimate as computed, so apply nothing "
+           "(SF = 1.0)."),
     Family("control_system", "Control surface and system loads", "23.391–23.459",
            LoadClass.LIMIT,
            "The control surface loads of 23.391–23.459, including the "

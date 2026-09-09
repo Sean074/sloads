@@ -28,8 +28,10 @@ surface.
 code comments are swept by hand, not gated, because they carry no claim to anyone
 outside the repository.
 
-**The one true use of the word.** OR-118's two families — 23.367(a)(2) engine
-torque and 23.561(b) emergency-landing inertia — *are* ultimate as computed, and
+**The one true use of the word.** OR-118's two families — the 23.367(a)(2)
+engine-failure unsymmetrical loads (#233's noun, owned by
+``safety_factors.ENGINE_FAILURE_NOUN``) and 23.561(b) emergency-landing
+inertia — *are* ultimate as computed, and
 must keep saying so. Rather than exempt whole documents, the checker blanks the
 sanctioned sentences first and then scans what is left, so an exemption cannot
 quietly widen to cover a neighbouring false claim.
@@ -81,7 +83,9 @@ EXAMPLES = ("ga6_normal.project.json", "concept_regional_jet.project.json")
 _SANCTIONED = (
     "ALREADY ULTIMATE",
     "already ultimate",
-    "prescribes the sudden-stoppage torque case as an ULTIMATE load",
+    # (#233 retired "prescribes the sudden-stoppage torque case as an ULTIMATE
+    # load" here: the governing table's rewritten basis — the CFR's own noun —
+    # says "as ULTIMATE:", which is no claim shape and needs no sanction)
     "prescribes ULTIMATE inertia load factors",
     "a load the regulation already prescribes",
     # the -ULT marker's own explanation, which must name what it marks

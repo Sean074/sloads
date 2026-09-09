@@ -82,7 +82,7 @@ def test_limit_and_ultimate_are_the_two_layer_1_values():
 def test_an_exact_row_beats_the_range_it_sits_inside():
     """23.367(a)(2) is an ULTIMATE case inside the LIMIT flight-loads range.
 
-    If the range out-voted the exact row, the sudden-stoppage case would silently
+    If the range out-voted the exact row, the engine-failure case would silently
     be factored a second time — 1.5x the load the regulation already calls
     ultimate.
     """
@@ -94,6 +94,46 @@ def test_an_exact_row_beats_the_range_it_sits_inside():
     class _Limit:
         far_reference = "23.367(a)(1)"
     assert GoverningTable.for_project().factor_for(_Limit()).factor == 1.5
+
+
+def test_the_engine_failure_family_speaks_the_regulation_noun():
+    """One noun for 23.367(a)(2), owned by the governing table (#233, #178).
+
+    Three owners described the family with three nouns — "engine torque" (the
+    report Introduction), "engine torque and engine-failure fin loads" (the
+    methods statement) and "the sudden-stoppage torque case" (this table's own
+    basis). The family's actual members are the OEI fin cases; every torque
+    condition (23.361 mount torque, 23.361(b)(1) sudden stoppage) is LIMIT
+    ×1.5 — so each torque noun invited exactly the backwards reading §10 warns
+    about, a reader treating mount torque as already ultimate. 14 CFR
+    23.367(a)(2)'s own subjects are "the loads resulting from the
+    disconnection of the engine compressor from the turbine or from loss of
+    the turbine blades" (CFR-2011-title14-vol1-sec23-367).
+    """
+    import re
+
+    from sloads.report import oracle_content as oc
+    from sloads.safety_factors import ENGINE_FAILURE_NOUN, family
+
+    fam = family("engine_ultimate")
+    # the basis restates the regulation's own subjects, and carries the noun
+    assert "disconnection of the engine compressor" in fam.basis
+    assert "loss of the turbine blades" in fam.basis
+    assert ENGINE_FAILURE_NOUN in fam.basis
+    # ...and no 23.361 noun anywhere in the family's self-description
+    for text in (ENGINE_FAILURE_NOUN, fam.label, fam.basis):
+        assert "torque" not in text.lower(), text
+        assert "stoppage" not in text.lower(), text
+    # both prose consumers state the owner's noun beside the reference
+    intro = oc.default_introduction()
+    stamp = methods_statement(io.load_project(_GA))
+    assert f"23.367(a)(2) {ENGINE_FAILURE_NOUN}" in intro
+    assert f"23.367(a)(2) {ENGINE_FAILURE_NOUN}" in stamp
+    # ...and neither reattaches a torque noun to 23.367 in any clause
+    for label, text in (("introduction", intro), ("methods", stamp)):
+        for clause in re.finditer(r"23\.367[^.;]*", text):
+            assert "torque" not in clause.group(0).lower(), (label,
+                                                             clause.group(0))
 
 
 def test_a_reference_naming_families_that_disagree_is_not_classified_by_word_order():
