@@ -11,10 +11,10 @@ and [`../../CHANGELOG.md`](../../CHANGELOG.md); the pre-2026-08-16 running
 [`../40_history/10_backlog_state_narrative_to_2026-08-16.md`](../40_history/10_backlog_state_narrative_to_2026-08-16.md).
 Narratives and plans: [`01_concept_loads_plan.md`](01_concept_loads_plan.md)
 (concept mode), [`03_gui_rework_plan.md`](03_gui_rework_plan.md) (GUI),
-design notes per step (live ones here — 21 (parked), 44, 49 (its 0.8.3 half),
-51–53; notes 09/11/24/32/34/45/46/47/48/50 rolled to
-[`../40_history/`](../00_INDEX.md#40_history--historic-record) at the 0.8.2 cut
-(issue 190); notes 35/36/37 rolled at the 0.8.0 cut; the pre-2026-08-29 "where
+design notes per step ([`../00_INDEX.md`](../00_INDEX.md) is the guarded index
+of the live set — no list is kept here; shipped notes roll to
+[`../40_history/`](../00_INDEX.md#40_history--historic-record) at each cut,
+keeping their numbers; the pre-2026-08-29 "where
 things stand" narrative and superseded re-cut preambles are in
 [`../40_history/44_backlog_state_narrative_to_2026-08-29.md`](../40_history/44_backlog_state_narrative_to_2026-08-29.md)); architecture
 [`../10_standard/PROJECT_GUIDE.md §7`](../10_standard/PROJECT_GUIDE.md); per-module

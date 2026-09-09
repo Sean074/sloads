@@ -146,6 +146,26 @@ def test_a_live_note_index_row_is_one_line_and_states_no_status():
 
 
 # --------------------------------------------------------------------------- #
+# The standard tree holds only guardable text formats (#189)
+# --------------------------------------------------------------------------- #
+# GIT_FLOW_GUIDE.docx sat in 10_standard/ advertising the squash flow the
+# process retired at the 0.7.2 cut -- a binary doc's currency rests on a prose
+# promise no test can check (precedent: CR-D-4, two docs stating a dead
+# setting). Standard docs must be formats the guards in this file can read.
+_GUARDABLE_EXT = {".md", ".txt"}
+
+
+def test_the_standard_tree_holds_only_guardable_text_formats():
+    binaries = sorted(
+        f for f in os.listdir(os.path.join(_DOCS, "10_standard"))
+        if os.path.splitext(f)[1] not in _GUARDABLE_EXT
+    )
+    assert not binaries, (
+        "docs/10_standard/ files no drift guard can read (#189) -- demote them "
+        f"to docs/40_history/ or convert to markdown: {binaries}")
+
+
+# --------------------------------------------------------------------------- #
 # The release-state statement has one owner (owner ruling 2026-08-28,
 # production-release review §3.5/§5.3)
 # --------------------------------------------------------------------------- #
