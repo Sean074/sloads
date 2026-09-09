@@ -684,7 +684,11 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   `mass_distribution.tail_surface_weight` (an entered
   `TailMassInput.panel_weight_lb` survives as an explicit override — a row whose
   `surface` is not a `TAIL_SURFACES` name is **refused by name** there rather
-  than left silently inert, #98); and
+  than left silently inert, #98); the h-tail's station waterline from its owner
+  `tail_geometry.h_tail_waterline` (#236: fin tip on a T-tail, mid-fin on a
+  defaulted cruciform, `root_waterline_z + h_tail_z` where entered, the
+  wing-root plane marked ASSUMED otherwise — it enters no load, only the
+  station points and exported `GRID`s); and
   TAILDIST's aft-of-hinge pressure block in discrete mode.
 - **Writes:** one `TailSpanResult` per condition per surface — a station table
   of `WingStationLoad` (**LIMIT**) that is **full span, tip to tip** for the

@@ -138,7 +138,7 @@ from ..models import (
 )
 from ..picks import extreme
 from ..registry import register
-from ..tail_geometry import HTAIL, VTAIL, TailPlanform, is_t_tail, resolve_tail_planform
+from ..tail_geometry import HTAIL, VTAIL, TailPlanform, h_tail_waterline, is_t_tail, resolve_tail_planform
 from .select import default_critical, vn_points
 
 MODULE_NAME = "tail_span"
@@ -996,22 +996,17 @@ def ttail_transfer(project: Project, cond: CriticalCondition,
 
 def _h_tail_waterline(project: Project,
                       fin: Optional[TailPlanform] = None) -> float:
-    """The waterline the h-tail's stations sit on.
+    """The waterline the h-tail's stations sit on -- asked of its owner (#236).
 
-    On a **T-tail** the horizontal surface sits on the fin tip, so its waterline
-    is the fin's resolved root plus its span -- the same owner
-    (:func:`~sloads.tail_geometry.fin_root_waterline`) the fin deck and the
-    three-view read, so the surface cannot be drawn on the fin and modelled at
-    the wing root (backlog Pri 1 sweep, 2026-08-16: it was, by 146-180 in on
-    every T-tail fixture). ``z`` carries no moment for a surface that loads in
-    ``fz`` only, so this moves ``GRID``s and the LRA fin-tip joint, not a load.
-    Otherwise the wing root waterline, as before.
+    :func:`~sloads.tail_geometry.h_tail_waterline` resolves it (fin tip on a
+    T-tail, mid-fin on a defaulted cruciform, ``root_waterline_z + h_tail_z``
+    where entered, the wing-root plane with a loud note otherwise); the report's
+    provenance sentences read the same owner, so a station table cannot state a
+    placement this resolution did not make. ``z`` carries no moment for a
+    surface that loads in ``fz`` only, so this moves ``GRID``s and the LRA
+    fin-tip joint, not a load.
     """
-    if fin is not None and is_t_tail(project) and fin.span > 0:
-        return fin.root_z + fin.span
-    geometry = project.geometry
-    layout = geometry.parametric if geometry is not None else None
-    return layout.root_waterline_z if layout is not None else 0.0
+    return h_tail_waterline(project, fin).z
 
 
 def build_tail_span(project: Project) -> Dict[str, List[TailSpanResult]]:

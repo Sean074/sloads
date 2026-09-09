@@ -33,6 +33,7 @@ from sloads.tail_geometry import (
     VTAIL,
     _polyline_mac_and_x25,
     fin_root,
+    h_tail_waterline,
     half_area_centroid,
     resolve_tail_planform,
     validate_tail_planform,
@@ -572,6 +573,53 @@ def test_the_three_view_and_the_load_path_place_one_fin_once(example):
     sketch_root = min(z for _, z in panels["v_tail"]["side"])
     assert sketch_root == pytest.approx(
         resolve_tail_planform(project, VTAIL).root_z, rel=1e-9)
+
+
+def test_the_htail_waterline_owner_reads_the_entered_offset():
+    """#236: an entered ``h_tail_z`` places the h-tail, marked entered.
+
+    The GA-6's h-tail sits at WL 111 (its own mass item); before the owner the
+    load stations and Appendix D printed the wing root's 78.5 as an airplane
+    coordinate, 32.5 in low.
+    """
+    resolved = h_tail_waterline(_project("ga6_normal.project.json"))
+    assert resolved.z == pytest.approx(111.0)
+    assert resolved.basis == "entered" and resolved.assumed is False
+
+
+def test_the_htail_waterline_owner_assumes_the_wing_root_plane_and_says_so():
+    """No ``h_tail_z`` -> the wing-root plane stands in, ASSUMED and stated."""
+    resolved = h_tail_waterline(_project("cessna_210.project.json"))
+    assert resolved.z == pytest.approx(86.0)
+    assert resolved.assumed is True and resolved.basis == "wing-root"
+    assert "ASSUMED" in resolved.note and "h_tail_z" in resolved.note
+
+
+def test_the_htail_waterline_owner_puts_a_t_tail_on_the_fin_tip():
+    project = _project("atr42_100.project.json")
+    resolved = h_tail_waterline(project)
+    fin = resolve_tail_planform(project, VTAIL)
+    assert resolved.z == pytest.approx(fin.root_z + fin.span)
+    assert resolved.basis == "fin-tip"
+
+
+@pytest.mark.parametrize("example", ["ga6_normal.project.json",
+                                     "baron_58.project.json"])
+def test_the_three_view_and_the_load_path_place_one_htail_once(example):
+    """The #236 drift guard, the h-tail twin of the fin's above.
+
+    ``configuration.tail_planform`` draws the horizontal tail and ``tail_span``
+    loads it; on a conventional tail with an entered offset both must resolve
+    ``root_waterline_z + h_tail_z``. This fails the day one of them grows its
+    own copy of the formula.
+    """
+    from sloads.modules.configuration import tail_planform
+
+    project = _project(example)
+    panels = tail_planform(project.geometry.parametric,
+                           project.geometry.empennage, project)
+    sketch_z = panels["h_tail"]["side"][0][1]
+    assert sketch_z == pytest.approx(h_tail_waterline(project).z, rel=1e-9)
 
 
 if __name__ == "__main__":

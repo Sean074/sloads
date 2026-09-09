@@ -1825,12 +1825,18 @@ class LayoutInput:
     # ``ga6_normal``'s pitch residual over the gate. So it is stated, not guessed
     # from geometry that does not mean what it looks like.
     body_drag_waterline_z: float = 0.0   # 0 -> derived (zw), marked assumed
-    # Empennage arrangement + drawing offset only. The tail area/span/arm moved to
+    # Empennage arrangement + vertical placement. The tail area/span/arm moved to
     # the single-source GeometryInput.empennage (Step G6); the three-view and the
     # stability estimate read the analysis-native values there (htail/vtail area,
-    # span and the 25%-MAC stations), so nothing is entered twice.
-    tail_type: TailType = TailType.CONVENTIONAL  # empennage arrangement (layout sketch only)
+    # span and the 25%-MAC stations), so nothing is entered twice. ``h_tail_z``
+    # is a real analysis input since #236: ``tail_geometry.h_tail_waterline``
+    # (the owner) reads it to place the h-tail's load stations and exported
+    # GRIDs, the same branch the three-view draws from. 0 -> not entered: the
+    # wing-root plane stands in, marked ASSUMED and stated in-band -- it enters
+    # no load (the surface loads in fz only), only the printed/exported points.
+    tail_type: TailType = TailType.CONVENTIONAL  # empennage arrangement
     h_tail_z: float = 0.0            # h-tail vertical offset from root_waterline_z, in
+    #                                  (0 -> wing-root plane assumed, stated in-band)
     # Landing-gear geometry moved to the single-source GeometryInput.landing_gear
     # (Step G6b): the three-view and the tip-back/overturn/clearance estimate derive
     # the station/track/height from the native LANDLOAD axle geometry there.

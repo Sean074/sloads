@@ -2226,6 +2226,55 @@ def test_the_input_echo_is_gone_and_nothing_points_at_it():
     assert vn.tables and not vn.absent_reason
 
 
+def _htail_lra_table(doc):
+    """§5.1's loads-reference-axis station table (the h-tail's, not the fin's)."""
+    return next(t for s in _flat(doc.sections) for t in s.tables
+                if t.title.startswith("Loads reference axis by station")
+                and "butt line is the coordinate" in (t.note or ""))
+
+
+def test_the_htail_station_waterline_states_its_provenance_in_both_directions():
+    """#236 (2026-09-08 review R12): no placeholder printed as a coordinate.
+
+    The reviewed GA-6 printed WL 78.5 -- the wing root -- for every h-tail load
+    station in §5.1 and Appendix D under a note calling it airplane axes, while
+    the airplane's h-tail sits at WL 111; an analyst importing the points placed
+    the tail 32.5 in low with no way to know. ``h_tail_z`` is now a real input
+    read by the one owner (``tail_geometry.h_tail_waterline``), and both tables
+    state the waterline's provenance from that owner: entered where it is,
+    ASSUMED-and-said where it is not.
+    """
+    # Entered direction: the GA-6 enters h_tail_z = 32.5 -> WL 111.
+    doc = _doc()
+    table = _htail_lra_table(doc)
+    assert all(row[3] == format_value(111.0) for row in table.rows), table.rows
+    assert "entered h-tail offset (h_tail_z)" in table.note
+    assert "ASSUMED" not in table.note
+    appendix = _appendix(doc, oc.HTAIL_LOAD_STATIONS)
+    note = appendix.tables[0].note
+    assert "entered h-tail offset (h_tail_z)" in note
+    # The fin's twin table says nothing about h_tail_z -- the sentence is the
+    # h-tail's alone.
+    fin_table = next(t for s in _flat(doc.sections) for t in s.tables
+                     if t.title.startswith("Loads reference axis by station")
+                     and t is not table)
+    assert "h_tail_z" not in (fin_table.note or "")
+
+    # Assumed direction: the reviewed state -- no h_tail_z entered.
+    project = io.load_project(_GA)
+    blank = dataclasses.replace(
+        project, geometry=dataclasses.replace(
+            project.geometry, parametric=dataclasses.replace(
+                project.geometry.parametric, h_tail_z=0.0)))
+    doc = oc.build_oracle_document(blank, _spec())
+    table = _htail_lra_table(doc)
+    assert all(row[3] == format_value(78.5) for row in table.rows), table.rows
+    assert "ASSUMED" in table.note
+    assert "not the surface's true waterline" in table.note
+    note = _appendix(doc, oc.HTAIL_LOAD_STATIONS).tables[0].note
+    assert "ASSUMED" in note and "not the surface's true waterline" in note
+
+
 def test_no_load_the_wing_section_prints_is_marked_ultimate():
     """G-OR-20/G-OR-21, inverted by note 49 OR-89/OR-116/OR-94a.
 

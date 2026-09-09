@@ -832,7 +832,7 @@
       "root_waterline_z": 92.0,
       "body_drag_waterline_z": 0.0,
       "tail_type": "conventional",
-      "h_tail_z": 0.0
+      "h_tail_z": 13.0
     },
     "fuselage": {
       "sections": [
