@@ -433,5 +433,33 @@ def test_the_dependency_ceiling_policy_rests_on_an_unpinned_install():
         )
 
 
+# --------------------------------------------------------------------------- #
+# The tag precondition and its script cannot drift apart (#184)
+# --------------------------------------------------------------------------- #
+def test_the_tag_step_names_the_green_main_check_and_the_script_offers_it():
+    """§4 step 4 tags after the merge, but the full 3.10/3.11 + coverage
+    matrix runs only on that push to `main`, "fixed forward" -- and 0.8.0 was
+    tagged while that run was red at install (#132). The precondition is a
+    scripted check (`--check-main-run`), kept beside `--check` because both
+    need the `gh` credential CI does not have; this test is the credential-free
+    hop: the doc must name the check, and the script must actually offer it,
+    so neither can be edited away without the other noticing (#184).
+    """
+    release = _read(_RELEASE)
+    step4 = release[release.index("4. **Tag"):]
+    step4 = step4[:step4.index("5. **")]
+    assert "--check-main-run" in step4, (
+        "RELEASE_PROCESS.md §4 step 4 no longer names the "
+        "branch_protection_snapshot.py --check-main-run precondition -- the "
+        "tag-on-red half of #132 is open again (#184)"
+    )
+    script = _read(os.path.join(_ROOT, "scripts", "branch_protection_snapshot.py"))
+    assert "--check-main-run" in script and "def check_main_run" in script, (
+        "scripts/branch_protection_snapshot.py no longer offers "
+        "--check-main-run, which RELEASE_PROCESS.md §4 step 4 instructs the "
+        "release manager to run before tagging (#184)"
+    )
+
+
 if __name__ == "__main__":  # zero-dependency self-runner
     sys.exit(pytest.main([__file__, "-p", "no:xdist", "-q"]))

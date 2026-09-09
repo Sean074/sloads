@@ -124,7 +124,15 @@ already closed, each in its own commit, so the PR body carries **no**
    - move every plan/design note in `docs/30_future/` whose status header reads *shipped* to `docs/40_history/` (next free number; update its `docs/00_INDEX.md` row);
    - if [`../40_history/00_completed_development.md`](../40_history/00_completed_development.md) exceeds **1,500 lines** (`tests/test_changelog_fragments.py` warns), cut it at the *previous* release's "Release cut" block and move everything below that block verbatim into a new frozen `docs/40_history/NN_completed_development_to_<prev>.md` (header text: copy `11_completed_development_to_0.5.0.md`); the live file keeps this release's cycle plus its own release-cut block; add the INDEX row and the pointer line in the live file's header.
    Nothing here is an audit: statuses and line counts are the only inputs.
-4. **Tag:** `git tag -a vX.Y.Z -m "Release vX.Y.Z"` then `git push origin vX.Y.Z`. Create a GitHub Release from the tag with the changelog entry as the body.
+4. **Tag — only on a green `main`.** The merge's push to `main` runs the full
+   3.10/3.11 + coverage matrix, the gate of record for the whole milestone, and
+   it runs only there — so the tag waits for it: run
+   `.venv/bin/python scripts/branch_protection_snapshot.py --check-main-run`
+   and proceed only on exit 0 (it refuses a red **or still-running** newest run
+   on `main`). 0.8.0 was tagged while that run was red at install (#132); this
+   precondition is the tag-on-red half of that finding (#184). Then
+   `git tag -a vX.Y.Z -m "Release vX.Y.Z"` and `git push origin vX.Y.Z`.
+   Create a GitHub Release from the tag with the changelog entry as the body.
 5. **Archive verification** — record the numerical output (module figure vs. Appendix figure) for the modules in this release under `docs/40_history/` as a permanent regression baseline.
 
 ---
