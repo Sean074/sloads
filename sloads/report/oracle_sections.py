@@ -316,9 +316,21 @@ def _input_table(title: str, source: object,
 #: that both tails were rectangles, which would have been false for a project
 #: that had entered its polylines -- the document stating an assumption the
 #: analysis did not make.
+#: The one provenance word per supplied-state (#235).
+#:
+#: The fact owner is the surface's supplied-flag -- whether its leading- and
+#: trailing-edge polylines are in ``geometry.surfaces`` -- read through
+#: :func:`_planform_assumed`. Every provenance word a caption, table row or
+#: prose sentence prints is built from this map rather than typed in place:
+#: the reviewed Baron report derived both tails and still said "entered"
+#: throughout its captions, because each surface's wording was a fixed string
+#: that only coincided with the flag while every fixture happened to enter its
+#: polylines.
+_PROVENANCE_WORD = {True: "DERIVED", False: "entered"}
+
 _PLANFORM_BASIS = {
-    True: "DERIVED rectangle from area and span",
-    False: "entered leading- and trailing-edge polylines",
+    True: f"{_PROVENANCE_WORD[True]} rectangle from area and span",
+    False: f"{_PROVENANCE_WORD[False]} leading- and trailing-edge polylines",
 }
 
 
@@ -528,8 +540,9 @@ def _planform_figure(project: Project, key: str, parent: str, title: str,
         # the table above reports as a DERIVED planform: the rectangle the
         # analysis assumes is not a shape worth drawing, and drawing it would
         # give the assumption the standing of entered geometry.
-        derived = (" The table above reports its planform DERIVED for the same "
-                   "reason." if _planform_assumed(project, parent) else "")
+        derived = (f" The table above reports its planform "
+                   f"{_PROVENANCE_WORD[True]} for the same reason."
+                   if _planform_assumed(project, parent) else "")
         return Figure(
             key=key, title=title,
             absent_reason=(
@@ -539,6 +552,10 @@ def _planform_figure(project: Project, key: str, parent: str, title: str,
 
     scale, length_units = _length_channel(system)
     mirror = bool(surface.symmetric) and frame == "butt"
+    # The provenance word from the owner (#235): this branch draws a stored
+    # surface, so the flag resolves supplied -- but the word is read, never
+    # assumed, so a caption cannot claim a provenance the flag does not.
+    word = _PROVENANCE_WORD[_planform_assumed(project, parent)]
     try:
         series = _region_series(project, parent, OUTLINE_STYLE,
                                 _region_label(parent, areas.get(parent)),
@@ -549,7 +566,7 @@ def _planform_figure(project: Project, key: str, parent: str, title: str,
         # half-filled project, and §3.4 makes it say what is missing.
         return Figure(key=key, title=title,
                       absent_reason=(f"the {printed.lower()} planform cannot be "
-                                     f"drawn as entered -- {problem}"))
+                                     f"drawn as {word} -- {problem}"))
     drawn = []
     # ``zip`` stops at the shorter: a parent grown a third control surface would
     # lose it silently, so ``test_oracle_report.py`` holds every spec's child
@@ -575,9 +592,9 @@ def _planform_figure(project: Project, key: str, parent: str, title: str,
               for x, y in entered]
 
     caption = [
-        f"The {printed.lower()} as entered, drawn to scale on equal axes: the "
+        f"The {printed.lower()} as {word}, drawn to scale on equal axes: the "
         "outline is the leading- and trailing-edge polylines the analysis "
-        "integrated, and the marked points are the entered vertices.",
+        f"integrated, and the marked points are the {word} vertices.",
     ]
     if drawn:
         names = [_REGION_NAMES.get(c, c).lower() for c in drawn]
@@ -674,8 +691,9 @@ def _geometry(project: Project,
     if any(_planform_assumed(project, component)
            for component in ("htail", "vtail")):
         body.append(
-            "Where a tail table below states a DERIVED planform, that surface "
-            "has no entered leading- and trailing-edge polylines and is treated "
+            f"Where a tail table below states a {_PROVENANCE_WORD[True]} "
+            f"planform, that surface has no {_PROVENANCE_WORD[False]} leading- "
+            "and trailing-edge polylines and is treated "
             "as a rectangle of its stated area and span. A tapered surface "
             "carries its load further inboard, so the root bending reported "
             "later is conservative, while the station-by-station distribution "
@@ -1514,13 +1532,15 @@ def _lra_planform_figure(project: Project, net: Sequence[object],
                                      "about cannot be drawn."))
     scale, length_units = _length_channel(system)
     mirror = bool(surface.symmetric)
+    # The provenance word from the one owner (#235), never typed in place.
+    word = _PROVENANCE_WORD[_planform_assumed(project, name)]
     try:
         series = _region_series(project, name, OUTLINE_STYLE, "Wing planform",
                                 mirror, "butt", scale)
     except ValueError as problem:
         return Figure(key=key, title=title,
                       absent_reason=("the wing planform cannot be drawn as "
-                                     f"entered -- {problem}"))
+                                     f"{word} -- {problem}"))
     axis = _torsion_axis(net)
     stations = list(getattr(net[0], "stations", ()))
     points = [_oriented("butt", s.x * scale, s.y * scale) for s in stations]
@@ -1542,7 +1562,7 @@ def _lra_planform_figure(project: Project, net: Sequence[object],
                       # cases" -- a legend naming a different figure entirely,
                       # which is the defect ``points_label`` was added for.
                       points_label="Load stations"),
-        caption=("The wing as entered, with the loads reference axis of this "
+        caption=(f"The wing as {word}, with the loads reference axis of this "
                  f"analysis ({axis}) drawn through the load stations every "
                  "distributed load in this section is stated at. The marked "
                  "points are those stations. Nothing in this figure is a load."))
@@ -3697,6 +3717,8 @@ def _tail_lra_planform_figure(project: Project, component: str,
     scale, length_units = _length_channel(system)
     frame = "butt" if component == "htail" else "water"
     mirror = bool(surface.symmetric) and frame == "butt"
+    # The provenance word from the one owner (#235), never typed in place.
+    word = _PROVENANCE_WORD[_planform_assumed(project, component)]
     try:
         series = _region_series(project, component, OUTLINE_STYLE,
                                 names["surface"].capitalize(), mirror, frame, scale)
@@ -3707,7 +3729,7 @@ def _tail_lra_planform_figure(project: Project, component: str,
                                      frame, scale)
     except ValueError as problem:
         return Figure(key=key, title=title, absent_reason=(
-            f"the {names['surface']} planform cannot be drawn as entered -- "
+            f"the {names['surface']} planform cannot be drawn as {word} -- "
             f"{problem}"))
     stations = list(getattr(results[0], "stations", ()))
     # The in-plane pair of the resolved airplane point: a butt-line frame plots
@@ -3729,7 +3751,7 @@ def _tail_lra_planform_figure(project: Project, component: str,
                       [("", x, y) for x, y in points],
                       points_label="Load stations"),
         caption=(f"The {names['surface']} and its {names['control']} as "
-                 f"entered, with the loads reference axis of this analysis "
+                 f"{word}, with the loads reference axis of this analysis "
                  f"({axis}) drawn through the load stations every distributed "
                  f"load in this section is stated at. The marked points are "
                  f"those stations. Nothing in this figure is a load."))
@@ -4960,11 +4982,13 @@ def _control_locator_figure(project: Project, *, key: str, title: str,
             f"nothing to locate the {printed} on."))
     scale, length_units = _length_channel(system)
     mirror = bool(host_surface.symmetric) and frame == "butt"
+    # The provenance word from the one owner (#235), never typed in place.
+    host_word = _PROVENANCE_WORD[_planform_assumed(project, host)]
     series = _outline_series(project, host, OUTLINE_STYLE, mirror, frame, scale)
     if not series:
         return Figure(key=key, title=title, absent_reason=(
-            f"the {host_printed} planform cannot be drawn as entered, so there "
-            f"is nothing to locate the {printed} on."))
+            f"the {host_printed} planform cannot be drawn as {host_word}, so "
+            f"there is nothing to locate the {printed} on."))
     region = _outline_series(project, surface, REGION_STYLES[0], mirror, frame,
                              scale)
     if not region and not extra:
@@ -4983,7 +5007,7 @@ def _control_locator_figure(project: Project, *, key: str, title: str,
                    f"over the {label}, uniformly along its span.")
     else:
         opening = (f"Where the pressure acts: the {printed} shaded on the "
-                   f"{host_printed} as both are entered, drawn to scale on "
+                   f"{host_printed} as both are {host_word}, drawn to scale on "
                    f"equal axes.")
         applied = ("The pressure of the profile beside this figure is applied "
                    "over the shaded region, uniformly along its span.")

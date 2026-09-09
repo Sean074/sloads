@@ -1761,6 +1761,58 @@ def test_a_tail_table_states_where_its_planform_came_from():
     assert warned is assumed
 
 
+def test_provenance_words_follow_the_supplied_flag_in_both_directions():
+    """No fixed 'entered'/'DERIVED' can outlive the state it describes (#235).
+
+    The reviewed Baron report derived both tail planforms and still said
+    "entered" in every caption, because each surface's provenance word was a
+    fixed string; the reviewed GA-6 said "generated" over entered polylines
+    for the mirror reason. Both example fixtures now enter their polylines
+    (#160 gave the Baron real tail geometry), so the derived direction is
+    exercised on the reviewed state itself: the Baron with its tail surfaces
+    stripped. Every provenance word must follow the supplied-flag through the
+    one wording owner, in both directions.
+    """
+    # Entered direction: GA-6, polylines supplied for all three surfaces.
+    section = _section_two(_doc())
+    geometry = next(s for s in _flat([section]) if s.tables)
+    for title in ("Horizontal tail", "Vertical tail"):
+        table = next(t for t in geometry.tables if t.title.startswith(title))
+        basis = next(r for r in table.rows if r[0] == "Planform basis")
+        assert basis[1].startswith("entered"), basis
+        assert "DERIVED" not in basis[1]
+    drawn = [f for f in geometry.figures if f.key.startswith("planform_")]
+    assert len(drawn) == 3
+    for figure in drawn:
+        assert figure.caption and "as entered" in figure.caption, figure.key
+        assert "DERIVED" not in (figure.caption or ""), figure.key
+    assert "DERIVED" not in " ".join(geometry.body)
+
+    # Derived direction: the Baron as reviewed -- no tail polylines entered.
+    project = io.load_project(os.path.join(_EXAMPLES, "baron_58.project.json"))
+    stripped = dataclasses.replace(
+        project,
+        geometry=dataclasses.replace(
+            project.geometry,
+            surfaces=[s for s in project.geometry.surfaces
+                      if s.name not in ("htail", "vtail")]))
+    doc = oc.build_oracle_document(stripped, _spec())
+    section = _section_two(doc)
+    geometry = next(s for s in _flat([section]) if s.tables)
+    for title in ("Horizontal tail", "Vertical tail"):
+        table = next(t for t in geometry.tables if t.title.startswith(title))
+        basis = next(r for r in table.rows if r[0] == "Planform basis")
+        assert basis[1].startswith("DERIVED"), basis
+        assert "entered" not in basis[1]
+    for key in ("planform_htail", "planform_vtail"):
+        figure = next(f for f in geometry.figures if f.key == key)
+        assert figure.caption is None or figure.caption == ""
+        reason = figure.absent_reason or ""
+        assert "DERIVED" in reason, (key, reason)
+        assert "as entered" not in reason, (key, reason)
+    assert "DERIVED" in " ".join(geometry.body)
+
+
 # --------------------------------------------------------------------------- #
 # 2.1's planform figures (OR-45: "each carries ... its planform figures")
 # --------------------------------------------------------------------------- #
