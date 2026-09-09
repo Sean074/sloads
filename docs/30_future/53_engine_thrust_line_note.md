@@ -2,7 +2,10 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: AGREED 2026-09-07 (owner, in session) — no code yet.** Drafted from the
+**Status: AGREED 2026-09-07 (owner, in session); SHIPPED 2026-09-07 (step 163,
+"The engine's thrust line is an input",
+`changes/engine-thrust-line-is-an-input.history.md`, landed in step 162's
+commit `175369e`).** Drafted from the
 owner's ruling: *"The thrust line I want to change. The user should input it and
 the geometry section of the GUI should support this. Two points would be
 sufficient, the user should also define the rotation direction. If the user does
