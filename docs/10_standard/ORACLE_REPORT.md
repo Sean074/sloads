@@ -331,6 +331,14 @@ Properties, 2.3 Structural Design Speeds, 2.4 Flight Envelope.
   (estimate)* and *Landing-gear geometry (estimate)* conditions, both of which
   note themselves first-order with no oracle. A first-order estimate printed
   beside oracle-locked geometry reads as carrying the same standing.
+- **A planform provenance word follows the supplied-flag through one wording
+  owner.** Whether a surface's polylines were supplied is
+  `resolve_tail_planform`'s to answer, and every "entered"/"DERIVED" a caption,
+  table row or prose sentence prints **SHALL** be built from the one word map
+  (`oracle_sections._PROVENANCE_WORD`), never typed in place: the reviewed
+  Baron report derived both tails and said "entered" throughout, because each
+  wording was a fixed string that only coincided with the flag while every
+  fixture happened to enter its polylines (#235).
 - **2.1's wing planform table prints the integration of the planform the
   analyses use** — the stored surface polylines, resolved through the same
   chain as the %MAC reference — never the configuration module's parametric
