@@ -30,30 +30,6 @@ all 6 examples still round-trip byte-identically; the frozen fixture in
 `test_pre_g6_file_lands_its_tail_slices_on_the_empennage` became at #93 — is
 rewritten against the direct path or deleted with the properties.
 
-### M4-11b — Split the highest-complexity view functions **[maintainability]**
-The scaffold helpers (`unit_number_input`, `page_header`/`page`) exist and are
-tested (M4-11a); the complexity-splitting half did not ship. CC re-measured with
-`radon` on 2026-08-04:
-
-| function | file | CC |
-|---|---|---|
-| `_tab_design_speeds` | `structural_speeds.py` | **F (72)** |
-| `_three_view` | `configuration_layout.py` | **F (63)** |
-| `_tab_vn` | `flight_envelope.py` | **F (44)** |
-| `_tab_cg_inertia` | `weight_mass.py` | **E (40)** |
-| `_subject_from_project` | `aircraft_comparison.py` | **E (34)** |
-| `_tab_trim` | `flight_envelope.py` | **E (33)** |
-
-Split each into seed / form / render (and `landing_reactions` per attitude), and
-finish adopting `unit_number_input` in the views that still hand-pair
-`to_display`/`to_imperial_scalar`. **Note `engine_mount` is already correct by a
-different route** — it converts the whole `EngineInput` at Apply via
-`units.to_imperial`, so per-field adoption there would double-convert; either
-leave it or migrate the whole page in one move. `radon` is in the `dev` extra
-(D-17, reporting only) — re-measure before and after.
-
----
-
 ## Phase F25 deferrals
 
 (F25-0/1/2/4 remain in the backlog; details and the full gap table in
@@ -106,65 +82,6 @@ CL) — implement the coefficient generator or keep as a tracked scope gap
 Confirm vs WINGINER.BAS whether a THETADOT pitch-acceleration case is expected;
 surface `DMYY` if a per-strip incremental torsion column is wanted.
 
-### L-8b — `help=` tooltip rollout completion
-App-wide tooltip coverage is ~45%. Worst pages: flap loads 0/6, one-engine-out
-0/7, wing loads 2/10 (structural speeds is complete at 21/21); the G6/G6b
-sections add ~30 untooltipped widgets. Finish the rollout page by page.
-
-### L-8c — Results/Export consolidation parity
-Results Review "All results by section" omits the 8 folded modules' results —
-map folded → host step so they appear. Human-label the folded-module CSVs on
-Export ("balloads (CSV)" → a descriptive name).
-
-### L-8d — Widget freshness audit (deferred from M2-7)
-Input widgets pass both `key=` and `value=`, so Streamlit's session_state can win
-over the project-seeded `value=` and show a stale field after the project changes
-underneath (cross-page Apply, programmatic load). **Not a data-loss bug** (Apply
-is required to persist, and per-page unit-suffixed keys limit the blast radius);
-audit the `key=`+`value=` widgets and re-seed on a project change, or prove it
-cannot occur. `tests/test_persistence.py` locks the data-persistence half.
-**The keyed half of the data-loss class shipped 2026-08-21 as #51** — a *project
-generation* stamped into every project-seeded widget key
-(`app_shell/widget_keys.py`), bumped once per project replacement (`adopt`, and
-the JSON editor's Apply) and guarded by `tests/test_widget_freshness.py`. That
-sweep also settled the rationale above: `app/views/`' Apply step defers the
-overwrite to the user's click rather than preventing it, so those views were
-stamped too. **The unkeyed half shipped 2026-08-22, closing #51's reopen:** the
-98 `app/views/` widgets that carried no `key=` at all — whose Streamlit identity
-derived from their *arguments*, stable whenever the seed value repeats, so a
-value typed before a load survived it (reproduced on `structural_speeds`' VB
-against `atr42_100`) — now all carry stamped keys, landed as one pass with
-#44's unit-boundary rollout (`unit_number_input` stamps for its callers). The
-guard's "no `key=` is per-render" premise was inverted to fail closed, with a
-type-then-load reproduction test and a per-key shell allowlist. What stays
-parked *here* is the rest of the audit — a widget that goes stale while the
-project is **mutated** underneath it (a cross-page Apply, a seed chain), which
-no generation bump covers because the project was never replaced.
-
-### L-8e — Uncovered input fields & UX nits
-Add widgets (or a documented JSON-only status) for the remaining uncovered
-fields: `speeds.chosen_va`/`chosen_vf`, `one_engine_out.speeds_kt`,
-`weight.envelope.fuselage_nose_x`/`fuselage_tail_x`. Plus: de-jargonize error
-strings (no internal slice names); move the Geometry parametric form and the
-Flight-Envelope altitude Apply out of the sidebar (or visually anchor them);
-first-run Loads Plots info should use the linked `gate()`; the OEO "define ≥2
-engines" warning needs a page link; save-filename sanitization; `st.spinner` on
-heavy recomputes. *(The `use_container_width` migration left this bullet on
-2026-08-28: its shared-`app_shell/` half is band-B row #129 by the 2026-08-24
-rule-2 fix-site placement — production-release review §3.7, owner ruling §5.4 —
-and #129 carries the whole migration, `app/views/` included, because a
-deprecated parameter removed upstream breaks both front-ends at once.)*
-
-### L-8f — Display-only and numerically-inert nits **[lowest priority]**
-None of these change a load. V-n plot negative closure should show −1.0 at VD for
-U/A categories (loads are right; display only); chosen VA is silently clamped to
-VC (BASIC only raises — warn instead); 190-lb occupant caption for U/A
-(23.25(a)(2)); MC-vs-MD Mach cap on cruise stall-line conditions (numerically
-inert — comment or match BASIC); ENGLOADS `prop_blades` captured but unused;
-AILERON positive-deflection coercion undocumented; WTONECG YBAR omitted;
-TAILDIST average-chord only (not the guide's N-station-chord variants,
-Figs 20.7–20.10).
-
 ### L-8h — Three result units still have no SI mapping
 `units._RESULT_TO_SI` has no entry for `ft^2` (6 values, wing area), `lb/ft^2`
 (6, wing loading) or `ft/s` (5, sink rate), so those cells stay Imperial inside an
@@ -183,7 +100,22 @@ OCR-garbled — the reaction matrix stays closure-/legible-cell-locked).
 
 ## Parked 2026-08-16 — scope and deficiency review
 
-Moved here by the 2026-08-16 review ([`../50_reviews/2026-08-16_scope_and_deficiency_review.md`](../50_reviews/2026-08-16_scope_and_deficiency_review.md) §2.2/§2.3): each item's stated effect on a delivered load is below the base method's own error bar, or the item is outside the FAR 23 mission (the Part 25 pack), or its consumer does not exist yet. Bodies are kept in full. **Power effects:** the seven-step plan of note 21 is parked; the *thrust `FORCE` at the engine hub* was carved out of it and stays ranked in the backlog. **Step 14:** the indeterminate-path half (continuous fuselage, carry-through element, redundant hinges — note 24 R-12) is parked here without a body of its own; the descoped row shipped 2026-08-17 as **consumer-editable** per-family `PBAR`/`MAT1` cards in the LRA deck (`lra_model.SECTION_FAMILIES`) — no input path, by decision: section properties are the sizing tool's output, so the seam is the deck, not the schema.
+Moved here by the 2026-08-16 review ([`../50_reviews/2026-08-16_scope_and_deficiency_review.md`](../50_reviews/2026-08-16_scope_and_deficiency_review.md) §2.2/§2.3): each item's stated effect on a delivered load is below the base method's own error bar, or the item is outside the FAR 23 mission (the Part 25 pack), or its consumer does not exist yet. Bodies are kept in full. **Power effects:** the seven-step plan of note 21 is parked; the *thrust `FORCE` at the engine hub* was carved out of it and stays ranked in the backlog. **Step 14:** the indeterminate-path half is parked below with its own body (stub added 2026-09-08, #190); the descoped row shipped 2026-08-17 as **consumer-editable** per-family `PBAR`/`MAT1` cards in the LRA deck (`lra_model.SECTION_FAMILIES`) — no input path, by decision: section properties are the sizing tool's output, so the seam is the deck, not the schema.
+
+### [V] Step 14, the indeterminate-path half — real stiffness on redundant load paths *(stub body added 2026-09-08, #190; parked 2026-08-16 without one)*
+Note 24 R-12's list: a **continuous fuselage** beam through the wing box, a
+**carry-through element**, and **redundant hinge/attachment sets** — every
+place the LRA model's load path is statically indeterminate, so member loads
+depend on member stiffness the loads analysis does not model. The shipped
+posture (2026-08-16 review §2.3, unchanged): sloads delivers applied loads and
+a determinate skeleton with consumer-editable per-family `PBAR`/`MAT1` cards
+(`lra_model.SECTION_FAMILIES`); the stiffness that resolves an indeterminate
+path is the **sizing tool's output**, so the seam stays at the deck.
+**Rule 6:** no delivered load moves until sloads itself resolves such a path,
+and doing so would make it a sizing tool — this is a scope boundary, not a
+fidelity gap with a number. Activation needs an owner decision that moves the
+mission boundary (the OR-184 completeness ruling points the other way:
+deliver every case, let the sizing discipline own the paths).
 
 ### [V] M4-19 — Distributed fuselage aero pitching moment (Multhopp/Nelson)
 Step G4's `sloads/fuselage_moment.py` returns a **scalar** Munk slope
@@ -208,6 +140,13 @@ off-by-default stays off (Appendix A/B bit-for-bit). New inputs: `i_f` and the
 wing root-chord station for the `∂ε_u/∂α` curve. Update
 `reference/fuselage_pitching_moment.md` (which currently documents the Munk-only
 scope and its deliberate omissions) alongside the calc.
+**Rule 6 — the number that parks it is 0** (stated 2026-09-08, #190): the
+fuselage-moment term is **off by default** and, when enabled, feeds only the
+trim solve via `flight_envelope._apply_fuselage_moment` — no delivered
+distributed load carries it today, so refining its slope moves no delivered
+load until the per-station integrand gains a `body_loads` consumer.
+Activation: move to the backlog when that consumer is built, with the
+10–40 % slope over-prediction restated against the load it then changes.
 
 ### [V] M4-21 — Fuselage pitching load factor (Ch 15's missing half)
 Ch 15 (Ref 1 p103) says to multiply the station weights by the **linear and
@@ -220,10 +159,26 @@ distribution with net moment and no net shear. **Not a closure mechanism:** for
 the balanced trim points `θ̈ = 0`, so M4-1 (shipped) stands on its own. Needs `θ̈`,
 hence `Iyy` and an unbalanced pitching condition (`build_envelope` emits only
 balanced trim points today) — pairs naturally with **M4-4**.
+**Rule 6 — the number that parks it is 0** (stated 2026-09-08, #190): the term
+is `-m_i·θ̈·(x_i - x_cg)` and every condition `build_envelope` emits is a
+balanced trim point with `θ̈ = 0`, so on every delivered case the term
+evaluates to exactly zero — its consumer (an unbalanced 23.423 pitching
+condition in the envelope) does not exist. Activation: arrives with that
+condition, at which point the number to state is `-Iyy·θ̈` per case.
 
 ### [V] M4-4 — Per-CG precise inertia in SELECT
 Wire the persisted WTONECG per-CG inertia into SELECT's checked-maneuver `Iyy`
 and v-tail `IZZ` (currently the Ch 9 approximations, which match the oracle).
+**Rule 6 — the number** (measured 2026-09-08, #190): the Ch 9 slender-rod
+`Iyy = W·(LF/12)²/g/12·0.44` exceeds the per-CG precise value by **+32 %** on
+`ga6_normal` (2726 vs 2058 slug-ft²) and **+123 %** on `baron_58` (6076 vs
+2730), and the checked-maneuver tail increment `T = Iyy·θ̈/arm` scales linearly
+with it — first-order on that one increment, but in the **conservative**
+direction (the approximation over-predicts the delivered tail load), and the
+Ch 9 value is what Appendix A prints, so replacing it is an oracle deviation
+needing the owner's approval and a `02_approved_corrections.md` entry, not a
+drop-in. Parked on that pair — conservative sign plus oracle lock — not on
+size; a promotion is a fidelity decision, not a defect fix.
 
 ### [V] M4-3 — ONENGOUT data-flow + turboprop gate
 (a) v-tail geometry provenance (`vtail_loads` slice vs `geometry`) — derive or

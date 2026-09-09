@@ -997,7 +997,7 @@ unstarted: a control surface whose load reaches the parent surface through
 first hinge-moment output — and a **T-tail** whose fin deck carries the
 horizontal tail it is holding up. Tier L (new physics, schema change, new result
 types), design note agreed in chat first as
-[`plan 09 §10`](../30_future/09_distributed_empennage_loads_plan.md).
+[`plan 09 §10`](09_distributed_empennage_loads_plan.md).
 
 **Deliverables.**
 - **T6 — the discrete control-load path.** `control_load_mode = "discrete"`,

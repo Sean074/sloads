@@ -1,6 +1,6 @@
 """The LRA beam model -- the third deliverable (step 12, note 24 R-1).
 
-Design notes: ``docs/30_future/24_lra_beam_model_review_note.md`` (the agreed
+Design notes: ``docs/40_history/24_lra_beam_model_review_note.md`` (the agreed
 target, decisions BM-1..BM-5) and
 ``docs/40_history/27_lra_model_implementation_note.md`` (the implementation
 decisions LM-1..LM-7 this module encodes). Conventions:

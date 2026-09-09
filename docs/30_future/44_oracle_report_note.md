@@ -3,7 +3,10 @@
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6: the owner of what a note touches reviews it as a PR)*
 
 **Status: AGREED 2026-08-29 (owner, in session — `CLAUDE.md` rule 1's
-working-alone path); nothing built. Milestone: 0.8.2.** The three §5 open
+working-alone path); BUILT — every agreed iteration through §22 (Landing Gear
+Loads, step 165, 2026-09-07) has shipped on `dev/v0.8.2`, and the 2026-09-08
+review's 0.8.2 fix set (#227–#238) is closed. Milestone: 0.8.2; the note
+archives at the cut.** The three §5 open
 questions were answered the same day and are recorded as OR-10 … OR-12 (§5),
 on the same footing as OR-1 … OR-9. §6 (2026-08-30) adds the milestone's
 development constraints (OR-13 … OR-15) and §7 (2026-08-30) settles the report
@@ -37,8 +40,8 @@ here are therefore taken as future main-report decisions unless explicitly
 marked oracle-only.
 
 Sources reviewed: `CLAUDE.md`, `docs/10_standard/SUMMARY_REPORT.md`,
-`docs/10_standard/CONVENTIONS.md`, `docs/30_future/32_oracle_gui_note.md`,
-`docs/30_future/34_oracle_user_guide_note.md`, `sloads/report/*.py`,
+`docs/10_standard/CONVENTIONS.md`, `docs/40_history/32_oracle_gui_note.md`,
+`docs/40_history/34_oracle_user_guide_note.md`, `sloads/report/*.py`,
 `sloads/workflow.py`, `oracle_app/*.py`, `app/views/export_report.py`.
 
 ---
@@ -1014,7 +1017,7 @@ gain `symbol=`. The manifest is updated in the same commit per G-OR-9.
 constructor calls; no value, unit, key or label changes, and
 `report.render.results_to_rows` builds its columns explicitly, so no CSV and no
 Imperial digest is touched. Full reasoning and the decisions it carries
-(OR-71 … OR-75) are in [design note 47](47_appendix_b2_chord_bending_note.md).
+(OR-71 … OR-75) are in [design note 47](../40_history/47_appendix_b2_chord_bending_note.md).
 
 ---
 
@@ -1088,7 +1091,7 @@ airplanes G-OR-1 builds — and are quoted where they carry a decision.*
 
 ## 14. The carry-through becomes an oracle input (OR-103 … OR-107)
 
-> **SUPERSEDED 2026-09-05 by [design note 50](50_fuselage_carry_through_note.md)**
+> **SUPERSEDED 2026-09-05 by [design note 50](../40_history/50_fuselage_carry_through_note.md)**
 > (OR-121 … OR-127), which answers OR-97 by making the carry-through an entered
 > **fuselage station** rather than an entered chord fraction. OR-103 and OR-105
 > are superseded/withdrawn, OR-104 survives re-cast as the estimator for a blank

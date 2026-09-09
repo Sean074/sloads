@@ -668,7 +668,7 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   23.427(a) when the two sides differ and 23.421 otherwise.
 - **Source:** `sloads/modules/tail_span.py`; planform resolution and the
   half/full bookkeeping in `sloads/tail_geometry.py`. Design note:
-  [`../30_future/09_distributed_empennage_loads_plan.md`](../30_future/09_distributed_empennage_loads_plan.md)
+  [`../40_history/09_distributed_empennage_loads_plan.md`](../40_history/09_distributed_empennage_loads_plan.md)
   (decisions T-2/T-3/T-4/T-6/T-8/T-9/T-10/T-13/T-15/T-16), with plan 13's L-1/L-7
   for the fin. **It computes no total of its own** — `LT25`/`LT50` and the v-tail
   side loads are read from SELECT, never recomputed (T-7), so no Appendix A
@@ -824,7 +824,7 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
 - **Source:** `sloads/modules/balance.py`. Theory of record:
   [`../20_theory/balanced_cases.md`](../20_theory/balanced_cases.md). Design
   notes: plan 11
-  ([`../30_future/11_balanced_airframe_cases_plan.md`](../30_future/11_balanced_airframe_cases_plan.md),
+  ([`../40_history/11_balanced_airframe_cases_plan.md`](../40_history/11_balanced_airframe_cases_plan.md),
   decisions B-1…B-8 — the method), plan 13
   ([`../40_history/18_b8a_lateral_closure_plan.md`](../40_history/18_b8a_lateral_closure_plan.md),
   L-1…L-8 — the lateral families), decision **D-R8** (23.427(a)), and plan 18
@@ -1496,7 +1496,7 @@ result that lacks what a deck needs is a stated error, never an empty column.
 ### LRA beam model — export + import (step 12, 2026-08-16)
 - **Source:** `sloads/export/lra_model.py` (export) and
   `sloads/export/lra_import.py` (import). Design notes:
-  `docs/30_future/24_lra_beam_model_review_note.md` (target F1–F8, decisions
+  `docs/40_history/24_lra_beam_model_review_note.md` (target F1–F8, decisions
   BM-1…BM-5, agreed 2026-08-15) and
   `docs/40_history/27_lra_model_implementation_note.md` (LM-1…LM-7).
 - **The three-artifact statement (note 24 R-1).** The suite ships three solver

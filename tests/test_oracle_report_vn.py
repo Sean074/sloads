@@ -452,8 +452,11 @@ def test_the_csv_is_empty_rather_than_a_bare_header_when_there_is_no_envelope():
 # G-OR-137 -- the register keeps its promises
 # --------------------------------------------------------------------------- #
 #: Where a decision or a gate may be *defined*. A citation anywhere in the tree
-#: must resolve to one of these files.
-_NOTE_DIR = os.path.join(_ROOT, "docs", "30_future")
+#: must resolve to one of these files. Design notes keep defining their ids
+#: after they archive at a release cut (#190 rolled notes 45-48/50 with live
+#: OR/G-OR registers to 40_history), so both directories are the register.
+_NOTE_DIRS = (os.path.join(_ROOT, "docs", "30_future"),
+              os.path.join(_ROOT, "docs", "40_history"))
 _CITING = ("sloads", "tests", "app", "app_shell", "oracle_app", "scripts",
            "changes", "docs")
 _ID = re.compile(r"\b(G-OR-\d+|OR-\d+)\b")
@@ -461,11 +464,12 @@ _ID = re.compile(r"\b(G-OR-\d+|OR-\d+)\b")
 
 def _defined_ids():
     defined = set()
-    for entry in sorted(os.listdir(_NOTE_DIR)):
-        if not entry.endswith(".md"):
-            continue
-        with open(os.path.join(_NOTE_DIR, entry), encoding="utf-8") as fh:
-            defined |= set(_ID.findall(fh.read()))
+    for note_dir in _NOTE_DIRS:
+        for entry in sorted(os.listdir(note_dir)):
+            if not entry.endswith(".md"):
+                continue
+            with open(os.path.join(note_dir, entry), encoding="utf-8") as fh:
+                defined |= set(_ID.findall(fh.read()))
     return defined
 
 
@@ -493,7 +497,7 @@ def test_every_or_id_cited_anywhere_is_defined_in_a_design_note():
                         dangling.setdefault(cited, os.path.relpath(path, _ROOT))
     assert not dangling, (
         "these decision/gate ids are cited but defined in no design note "
-        "under docs/30_future/: " + ", ".join(
+        "under docs/30_future/ or docs/40_history/: " + ", ".join(
             f"{k} ({v})" for k, v in sorted(dangling.items())))
 
 

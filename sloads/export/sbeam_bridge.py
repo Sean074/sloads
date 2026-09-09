@@ -60,7 +60,7 @@ with the rigid-body transfer, the exported torsion was wrong by 151 % / 190 % /
 120 % on ``ga6_normal`` (PHAA / TORS / ACRL) and 34 % / 21 % on ``baron_58``,
 while shear and both bending columns closed exactly. Rebuilt from the applied
 set the worst error over every station of every case of both airplanes is
-2.5e-15. Design note: ``docs/30_future/46_applied_wing_load_set_note.md``
+2.5e-15. Design note: ``docs/40_history/46_applied_wing_load_set_note.md``
 (OR-67).
 
 Concentrated masses: the offset couples

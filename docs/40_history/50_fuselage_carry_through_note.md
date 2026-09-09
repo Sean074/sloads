@@ -3,7 +3,9 @@
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
 **Status: AGREED 2026-09-05 (owner, in session — `CLAUDE.md` rule 1's
-working-alone path).** Milestone **0.8.2**;
+working-alone path); SHIPPED 2026-09-05 (step "The wing carry-through is
+entered as a fuselage station",
+`changes/carry-through-is-a-station.history.md`).** Milestone **0.8.2**;
 closure tier **L** (schema hop, and the oracle input set is a stated contract —
 gate G5). `CLAUDE.md` rule 1 puts this note at AGREED before code.
 

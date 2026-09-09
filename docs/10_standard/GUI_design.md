@@ -965,7 +965,7 @@ documented value, "derive the loading by searching the item database", which is
 what every pre-v50 project does bit-for-bit. Where it *is* entered the loading is
 authoritative and the case's `weight_lb`/`xcg`/`zcg` become a checked echo of it;
 v51 the entered side-of-body butt line `SurfaceInput.sob_y_in` (decision
-**BM-1**, note `../30_future/24_lra_beam_model_review_note.md`) — one quantity
+**BM-1**, note `../40_history/24_lra_beam_model_review_note.md`) — one quantity
 read by the wing SOB reporting node and the h-tail attachment. Additive and
 optional, so no hop: absent falls back to half the fuselage width, marked
 assumed;

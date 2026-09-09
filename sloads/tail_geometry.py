@@ -1,6 +1,6 @@
 """The empennage planform the spanwise strip integrator runs on (plan 09 T1).
 
-Design note: ``docs/30_future/09_distributed_empennage_loads_plan.md`` decisions
+Design note: ``docs/40_history/09_distributed_empennage_loads_plan.md`` decisions
 **T-1** (reuse ``SurfaceInput``) and **T-8** (full-span h-tail bookkeeping).
 Conventions: ``docs/10_standard/CONVENTIONS.md`` §1 (axes), §7 (single-source
 owners).

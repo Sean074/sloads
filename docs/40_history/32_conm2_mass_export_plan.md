@@ -49,7 +49,7 @@ a new unit channel member, GUI + CLI surface, and a new CI gate.
 > generator over the exported deck: an overlay `CONM2` that no `MASSSET` names is
 > **baseline** to sbeam, so it is counted in every case. See the history entry.
 
-Related: [`11_balanced_airframe_cases_plan.md`](../30_future/11_balanced_airframe_cases_plan.md)
+Related: [`11_balanced_airframe_cases_plan.md`](11_balanced_airframe_cases_plan.md)
 (shares the mass SSOT; step B1 there is a hard dependency),
 [`10_sbeam_roundtrip_ci_harness_plan.md`](17_sbeam_roundtrip_ci_harness_plan.md)
 (the solver gate this rides on). Conventions:
