@@ -1252,25 +1252,42 @@ class TailLoadsInput:
     ``Project.flight_loads``. The horizontal-tail maneuver/gust/unsymmetrical, the
     flaps-extended balancing (which needs the flapped V-n envelope), the vertical
     tail and the fuselage net loads are later C6 increments.
+
+    **Two groups of fields, marked** (note 54 D-54.1 / #25 step 1). The first
+    group is *planform geometry* -- every area, span, MAC station and aspect
+    ratio here is a scalar reading of a surface that ``wing_geometry.
+    surface_properties`` can integrate from edge polylines, and the D-54.1
+    boundary-line model derives them all; until it lands they stay entered and
+    **oracle-authoritative** (the scalars win, ``tail_geometry``'s 1 %
+    validator holds the two representations together). The membership is
+    machine-read from :data:`HTAIL_BOUNDARY_DERIVED` (each such field is
+    marked ``[D]`` below), which step 2 consumes.
+    The second group -- incidences, zero-lift angles, effectiveness, travels,
+    the wing lift slope -- is *aero and control settings*: no geometry derives
+    them, and they stay where they are.
     """
+    # Field order is a persisted shape (`test_schema_guards.fields_hash`), so
+    # the D-54.1 grouping is *logical* -- the [D] marks below and the
+    # HTAIL_BOUNDARY_DERIVED map -- until step 2's schema bump regroups
+    # physically with the change that earns the version hop.
     tail_incidence_deg: float = 0.0            # IT (WL to tail chord)
     wing_zero_lift_cruise_deg: float = 0.0     # IW, cruise config
     wing_zero_lift_enroute_deg: float = 0.0    # IW, enroute config
     wing_zero_lift_landing_deg: float = 0.0    # IW, landing config
-    aspect_ratio_wing: float = 0.0             # ARW (downwash)
-    aspect_ratio_htail: float = 0.0            # ARHT (tail lift slope)
-    htail_area_sqft: float = 0.0               # ST
+    aspect_ratio_wing: float = 0.0             # [D] ARW (downwash; from the wing planform)
+    aspect_ratio_htail: float = 0.0            # [D] ARHT (tail lift slope)
+    htail_area_sqft: float = 0.0               # [D] ST
     elevator_effectiveness: float = 0.0        # dalpha/ddelta_e as a fraction of AHT
-    xt25: float = 0.0                          # fuselage station of 25% tail MAC
-    xt50: float = 0.0                          # fuselage station of 50% tail MAC
+    xt25: float = 0.0                          # [D] fuselage station of 25% tail MAC
+    xt50: float = 0.0                          # [D] fuselage station of 50% tail MAC
     # Maneuver / gust (FAR 23.423 / 23.425) -- elevator geometry, airplane length
     # (for the approximate pitch inertia) and the wing lift slope (for the gust
     # downwash relief). Used by the unchecked/checked-maneuver and gust searches.
     elevator_te_up_deg: float = 0.0            # EUP (full trailing-edge-up)
     elevator_te_down_deg: float = 0.0          # EDN (full trailing-edge-down)
-    elevator_area_sqft: float = 0.0            # SE (total elevator area)
-    elevator_fwd_hinge_sqft: float = 0.0       # SEFWDHL
-    elevator_aft_hinge_sqft: float = 0.0       # SEAFTHL
+    elevator_area_sqft: float = 0.0            # [D] SE (total elevator area)
+    elevator_fwd_hinge_sqft: float = 0.0       # [D] SEFWDHL
+    elevator_aft_hinge_sqft: float = 0.0       # [D] SEAFTHL
     # LF (airplane length, for the approximate Iyy) is NOT here: it is a
     # whole-airplane quantity stored once on EmpennageInput.airplane_length_in
     # (#52, v55) and read from the Project by SELECT.
@@ -1279,7 +1296,7 @@ class TailLoadsInput:
     # (BLHTAIL, inches) sets the average tail chord CAVE = S/B for the chordwise
     # profile. The elevator areas above (full both-sides, sq ft) supply the hinge-
     # line chord station; 0 disables the chordwise distribution for this surface.
-    htail_semispan_in: float = 0.0             # BLHTAIL (tail semi-span, inches)
+    htail_semispan_in: float = 0.0             # [D] BLHTAIL (tail semi-span, inches)
 
 
 # --------------------------------------------------------------------------- #
@@ -1310,32 +1327,94 @@ class VTailLoadsInput:
     match tightly). ``izz_slugft2`` overrides the default airplane yaw inertia
     ``IZZ = (Wwing/g)*B^2/12 + ((0.62*GW - Wwing)/g)*LF^2/12`` (``Wwing = 0.09*GW``).
     The per-CG IZZ override is a later refinement.
+
+    **Two groups of fields, marked** (note 54 D-54.1 / #25 step 1), the same
+    seam as :class:`TailLoadsInput`: the planform-geometry group is what the
+    boundary-line model derives (membership machine-read from
+    :data:`VTAIL_BOUNDARY_DERIVED`, each such field marked ``[D]`` below; entered and oracle-authoritative until
+    step 2 lands), the rest -- deflections, effectiveness factors, mass and
+    inertia -- stays entered. ``vtail_root_waterline_z`` is *placement*, not
+    planform: it already has its own owner and resolution order
+    (``tail_geometry.vtail_root_waterline``, plan 13 L-1) and is not part of
+    the D-54.1 seam.
     """
+    # Field order is a persisted shape (`test_schema_guards.fields_hash`); the
+    # D-54.1 grouping is logical ([D] + VTAIL_BOUNDARY_DERIVED) until step 2's
+    # schema bump, exactly as on TailLoadsInput above.
     rudder_deflection_deg: float = 0.0         # RD (full rudder)
-    vtail_area_sqft: float = 0.0               # SV
-    rudder_area_sqft: float = 0.0              # SR
-    rudder_fwd_hinge_sqft: float = 0.0         # SRFWDHL
-    rudder_aft_hinge_sqft: float = 0.0         # SRAFTHL
-    aspect_ratio_vtail: float = 0.0            # ARVT
-    vtail_mac_in: float = 0.0                  # VMAC (inches; VMAC_ft = VMAC_in/12)
-    xv25: float = 0.0                          # fuselage station of 25% vtail MAC
-    xv50: float = 0.0                          # fuselage station of 50% vtail MAC (ONENGOUT camber load)
+    vtail_area_sqft: float = 0.0               # [D] SV
+    rudder_area_sqft: float = 0.0              # [D] SR
+    rudder_fwd_hinge_sqft: float = 0.0         # [D] SRFWDHL
+    rudder_aft_hinge_sqft: float = 0.0         # [D] SRAFTHL
+    aspect_ratio_vtail: float = 0.0            # [D] ARVT
+    vtail_mac_in: float = 0.0                  # [D] VMAC (inches; VMAC_ft = VMAC_in/12)
+    xv25: float = 0.0                          # [D] fuselage station of 25% vtail MAC
+    xv50: float = 0.0                          # [D] fuselage station of 50% vtail MAC (ONENGOUT camber load)
     # LF (airplane length, for the default IZZ) lives once on
     # EmpennageInput.airplane_length_in (#52, v55); SELECT reads it from the Project.
-    wing_span_in: float = 0.0                  # B (inches; IZZ uses B_ft = B_in/12)
+    wing_span_in: float = 0.0                  # [D] B (inches; IZZ uses B_ft = B_in/12; from the wing planform)
     gross_weight_lb: float = 0.0               # GW (IZZ default; 0 -> use the heaviest CG case)
     rudder_large_deflection_factor: float = 1.0  # EFV (subr 10000 chart; ~1.0)
     izz_slugft2: float = 0.0                   # 0 -> compute the default IZZ
     # Chordwise distribution (TAILDIST, Ch 10) -- the vertical-tail span (BLHTAIL,
     # inches; the single surface, so its full span) sets the average chord
     # CAVE = SV/B. 0 disables the chordwise distribution for the vertical tail.
-    vtail_span_in: float = 0.0                 # BLHTAIL (vertical-tail span, inches)
+    vtail_span_in: float = 0.0                 # [D] BLHTAIL (vertical-tail span, inches)
     # Waterline of the fin root (in). **0 -> derive it** (see
     # ``tail_geometry.vtail_root_waterline``); the derived value is marked
     # ``assumed`` and stated in-band. Plan 13 decision L-1: the fin's height above
     # the CG is a first-order roll load in a lateral balanced case, so where it
     # comes from is a decision of record rather than an implicit zero.
     vtail_root_waterline_z: float = 0.0        # 0 -> derived, marked assumed
+
+
+# --------------------------------------------------------------------------- #
+# The boundary-derived field marking (note 54 D-54.1 / #25 step 1)
+# --------------------------------------------------------------------------- #
+#: The empennage scalars the boundary-line model derives, per input block:
+#: ``{field name: the surface whose boundary lines derive it}``. This is the
+#: **machine-readable half of the D-54.1 seam** -- step 2's derivation reads
+#: these maps to know which entered scalars it replaces, and the drift guard
+#: (``tests/test_empennage.py``) pins the membership against the dataclasses
+#: so a field added to either block must declare which side of the seam it is
+#: on.
+#:
+#: The values name the *deriving* surface, because two of the h-tail block's
+#: scalars and one of the v-tail's are wing quantities: ``ARW``, ``AW``'s
+#: companion ``B`` -- integrated from the **wing's** polylines by the same
+#: ``wing_geometry.surface_properties`` owner (and already blank-deriving
+#: today via ``select.effective_tail_inputs``/``effective_vtail_inputs``, the
+#: note 36 OV-1 contract this marking extends to the whole group).
+#:
+#: Until step 2 lands these stay entered and **oracle-authoritative**: the
+#: scalars win, and ``tail_geometry.validate_tail_planform`` holds the two
+#: representations of one surface together at 1 %. When they derive, Appendix
+#: A's printed elevator/stabilizer/rudder figures become **predictions**
+#: (±0.1 %, page-cited) rather than transcriptions.
+HTAIL_BOUNDARY_DERIVED: Dict[str, str] = {
+    "aspect_ratio_wing": "wing",
+    "aspect_ratio_htail": "htail",
+    "htail_area_sqft": "htail",
+    "xt25": "htail",
+    "xt50": "htail",
+    "elevator_area_sqft": "elevator",
+    "elevator_fwd_hinge_sqft": "elevator",
+    "elevator_aft_hinge_sqft": "elevator",
+    "htail_semispan_in": "htail",
+}
+
+VTAIL_BOUNDARY_DERIVED: Dict[str, str] = {
+    "vtail_area_sqft": "vtail",
+    "rudder_area_sqft": "rudder",
+    "rudder_fwd_hinge_sqft": "rudder",
+    "rudder_aft_hinge_sqft": "rudder",
+    "aspect_ratio_vtail": "vtail",
+    "vtail_mac_in": "vtail",
+    "xv25": "vtail",
+    "xv50": "vtail",
+    "wing_span_in": "wing",
+    "vtail_span_in": "vtail",
+}
 
 
 # --------------------------------------------------------------------------- #
@@ -1883,9 +1962,11 @@ def default_fuselage_outline(parametric: "LayoutInput") -> Optional[FuselageOutl
 
 __all__ = [
     "CATEGORIES",
+    "HTAIL_BOUNDARY_DERIVED",
     "STRUT_TYPES",
     "TAB_SURFACES",
     "TAIL_SURFACES",
+    "VTAIL_BOUNDARY_DERIVED",
     "AeroCoeffSet",
     "AeroCoefficientsInput",
     "AeroInput",
