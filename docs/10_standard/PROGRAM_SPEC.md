@@ -685,10 +685,14 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   `TailMassInput.panel_weight_lb` survives as an explicit override — a row whose
   `surface` is not a `TAIL_SURFACES` name is **refused by name** there rather
   than left silently inert, #98); the h-tail's station waterline from its owner
-  `tail_geometry.h_tail_waterline` (#236: fin tip on a T-tail, mid-fin on a
-  defaulted cruciform, `root_waterline_z + h_tail_z` where entered, the
-  wing-root plane marked ASSUMED otherwise — it enters no load, only the
-  station points and exported `GRID`s); and
+  `tail_geometry.h_tail_waterline` (#236, completed by design note 54 D-54.4 /
+  #261: fin tip on a T-tail — where an entered `h_tail_z` contradicts the fin
+  tip past `PLANFORM_TOLERANCE` of the fin span, the fin tip wins and the note
+  names the entered value **NOT USED**, the two-spellings rule — mid-fin on a
+  defaulted cruciform, `root_waterline_z + h_tail_z` where entered, the h-tail
+  **mass items' weight-weighted `z`** marked ASSUMED basis `mass-item`, and the
+  wing-root plane marked ASSUMED as the last resort — it enters no load, only
+  the station points and exported `GRID`s); and
   TAILDIST's aft-of-hinge pressure block in discrete mode.
 - **The raked-root ruling (design note 54 D-54.3, #219, 2026-09-09).** Where a
   surface's two edge polylines do not cover the same span — the GA6 fin's
