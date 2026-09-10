@@ -56,6 +56,7 @@ historical record.
 | [`49_stated_never_applied_note.md`](30_future/49_stated_never_applied_note.md) | **The factor is stated, never applied** — the LIMIT/SF delivery contract (OR-87…OR-93) and the 0.8.3 boundary half (OR-85/86) |
 | [`51_ttail_asymmetric_transfer_note.md`](30_future/51_ttail_asymmetric_transfer_note.md) | **The T-tail fin carries the horizontal tail's asymmetry** — the AC 23-9 transfer method and its rulings (D-51.x) |
 | [`52_wing_roll_cases_note.md`](30_future/52_wing_roll_cases_note.md) | **The wing's rolling cases arrive complete** — the ACRL/TORS unbalanced-roll design (D-52.1…D-52.9) |
+| [`54_geometry_joint_model_note.md`](30_future/54_geometry_joint_model_note.md) | **The geometry model owns the joints** — boundary lines, per-surface LRA and the first-class joint register (D-54.1…D-54.8) |
 
 ## 40_history — Historic record
 

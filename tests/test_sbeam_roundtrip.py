@@ -90,7 +90,7 @@ from sloads.export.roundtrip import (
 from sloads.mass_distribution import derive_case_loadings
 from sloads.modules.balance import (
     build_balanced_cases,
-    fin_load,
+    vtail_load,
     is_lateral,
 )
 from sloads.modules.body_loads import build_body_loads
@@ -630,7 +630,7 @@ def test_assembled_deck_reacts_to_zero(sbeam, example, system):
             # the side load flowing through them, or "reaction ~ 0" would be the
             # trivial statement that nothing lateral was applied at all.
             side = sum(abs(scale * n[1]) for _, scale, n in forces[sid])
-            floor = 0.1 * abs(fin_load(case))
+            floor = 0.1 * abs(vtail_load(case))
             _, floor, _ = to_force(0.0, floor, 0.0, _units(system))
             assert side > abs(floor), (
                 f"{where}: only {side} of side load reached the solver")
@@ -769,7 +769,7 @@ def test_a_flipped_fin_load_breaks_the_assembled_solve(sbeam, system):
     # carries -2*L_v and the support reacts +2*L_v. Asserting the number and not
     # merely "non-zero" is what makes this a calibration of the gate rather than
     # a smoke test -- it says how much of a sign error it would take to hide.
-    _, want, _ = to_force(0.0, 2.0 * fin_load(case), 0.0,
+    _, want, _ = to_force(0.0, 2.0 * vtail_load(case), 0.0,
                           _units(system))
     assert closes(got.force[1], want, scale=applied.force_scale), got.force[1]
 

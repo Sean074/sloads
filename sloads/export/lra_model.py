@@ -365,8 +365,8 @@ def build_lra_model(project: Project) -> LraModel:
         spans = build_tail_span(project)
     except (ValueError, KeyError):
         spans = {}
-    fin_chain: List[LraNode] = []
-    fin_tip: Optional[LraNode] = None
+    vtail_chain: List[LraNode] = []
+    vtail_tip: Optional[LraNode] = None
     vt = spans.get(VTAIL) or []
     planform_v = resolve_tail_planform(project, VTAIL) if vt else None
     if vt and planform_v is not None:  # spans exist only where the planform resolved
@@ -377,8 +377,8 @@ def build_lra_model(project: Project) -> LraModel:
         line = [(n.pos[2], n.pos) for n in stations]
         root = LraNode(_ATTACH_BAND.allocate(0), _interp_chain(line, root_z),
                        "lra-fin-root", "C")
-        fin_chain = [root, *sorted(stations, key=lambda n: n.pos[2])]
-        fin_tip = fin_chain[-1]
+        vtail_chain = [root, *sorted(stations, key=lambda n: n.pos[2])]
+        vtail_tip = vtail_chain[-1]
         pending_body_ties.append((root.pos[0], [root.gid],
                                   "fin root -> fuselage (R-5)"))
 
@@ -400,7 +400,7 @@ def build_lra_model(project: Project) -> LraModel:
                        for i, st in enumerate(ht[0].stations)]
         htail_chain.sort(key=lambda n: n.pos[1])
         if att.y == [0.0]:
-            if fin_tip is None:
+            if vtail_tip is None:
                 raise LraRefusal(
                     "T-tail layout with no fin beam -- the h-tail's only "
                     "support is the fin-tip joint, which does not exist "
@@ -408,7 +408,7 @@ def build_lra_model(project: Project) -> LraModel:
             htail_chain, joint = _insert_on_chain(
                 htail_chain, lambda n: n.pos[1], 0.0,
                 _ATTACH_BAND.allocate(1), "lra-attach", "C")
-            model.rbe2s.append((fin_tip.gid, "123456", [joint.gid],
+            model.rbe2s.append((vtail_tip.gid, "123456", [joint.gid],
                                 "T-tail joint: h-tail centreline -> fin tip "
                                 "(R-6; the fin deck's T7 lumped transfer is "
                                 "NEVER applied to this model)"))
@@ -432,7 +432,7 @@ def build_lra_model(project: Project) -> LraModel:
     control_nodes: List[LraNode] = []
     for comp, chain, key_fn in (
             (HTAIL, htail_chain, lambda n: n.pos[1]),
-            (VTAIL, fin_chain, lambda n: n.pos[2])):
+            (VTAIL, vtail_chain, lambda n: n.pos[2])):
         rs = spans.get(comp) or []
         if not rs or not rs[0].control_loads or not chain:
             continue
@@ -452,7 +452,7 @@ def build_lra_model(project: Project) -> LraModel:
                                 f"{comp} {cp.kind} node -> parent LRA (LM-6)"))
     # Chains are registered only now: a control node's parent may have been
     # inserted into them, and a chain frozen earlier would orphan it.
-    for chain, family in ((fin_chain, "vtail"), (htail_chain, "htail")):
+    for chain, family in ((vtail_chain, "vtail"), (htail_chain, "htail")):
         model.nodes += chain
         model.add_chain(chain, family)
     model.nodes += control_nodes
@@ -606,8 +606,8 @@ def build_lra_model(project: Project) -> LraModel:
     }
     if htail_chain:
         model.members["htail"] = htail_chain
-    if fin_chain:
-        model.members["vtail"] = fin_chain
+    if vtail_chain:
+        model.members["vtail"] = vtail_chain
     if gear_nodes:
         model.members["gear"] = gear_nodes
     if engine_nodes:

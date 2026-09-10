@@ -2267,10 +2267,10 @@ def test_the_htail_station_waterline_states_its_provenance_in_both_directions():
     assert "entered h-tail offset (h_tail_z)" in note
     # The fin's twin table says nothing about h_tail_z -- the sentence is the
     # h-tail's alone.
-    fin_table = next(t for s in _flat(doc.sections) for t in s.tables
+    vtail_table = next(t for s in _flat(doc.sections) for t in s.tables
                      if t.title.startswith("Loads reference axis by station")
                      and t is not table)
-    assert "h_tail_z" not in (fin_table.note or "")
+    assert "h_tail_z" not in (vtail_table.note or "")
 
     # Assumed direction: the reviewed state -- no h_tail_z entered.
     project = io.load_project(_GA)

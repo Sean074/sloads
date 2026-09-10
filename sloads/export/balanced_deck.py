@@ -82,7 +82,6 @@ from ..modules.balance import (
     build_balanced_cases,
     carry_sources_absent,
     case_source_name,
-    fin_load,
     htail_load,
     htail_side_loads,
     is_ground,
@@ -90,6 +89,7 @@ from ..modules.balance import (
     is_unsymmetrical_htail,
     skipped_condition_lines,
     skipped_conditions,
+    vtail_load,
 )
 from ..rigid_body import radians_per_s2
 from ..units import Channel, DeliverableUnits, UnitSystem, deliverable_units
@@ -326,10 +326,10 @@ def _header(case: BalancedCaseResult, u: DeliverableUnits) -> List[str]:
             "family; the gate that does is that the solved field, rotated back "
             "to the ground line, reproduces LANDLOAD's NVP/NDP/NS exactly."))
     if is_lateral(case):
-        _, fin_fy, _ = to_force(0.0, fin_load(case), 0.0, u)
+        _, vtail_fy, _ = to_force(0.0, vtail_load(case), 0.0, u)
         _, _, res_mz = to_moment(0.0, 0.0, case.residual_mz, u)
         sentences.append(
-            f"LATERAL case: applied fin side load {fin_fy:.1f} {u.force.label} "
+            f"LATERAL case: applied fin side load {vtail_fy:.1f} {u.force.label} "
             f"LIMIT -- like the residuals above and the cards below, which "
             f"are LIMIT too (note 49 OR-116) -- "
             f"distributed over the fin span from its root waterline. The "

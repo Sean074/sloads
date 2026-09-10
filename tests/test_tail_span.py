@@ -44,7 +44,7 @@ from sloads.modules.flight_envelope import build_envelope
 from sloads.modules.select import build_critical
 from sloads.modules.tail_span import (
     ATTACH_ENTERED,
-    ATTACH_FIN_TIP,
+    ATTACH_VTAIL_TIP,
     ATTACH_OUTLINE,
     ATTACH_STRIP_PAIR,
     X25_PCT,
@@ -547,7 +547,7 @@ def test_the_ttail_htail_is_reacted_at_the_fin_tip_not_at_the_fuselage():
     attach = htail_attachment(project, planform)
     assert is_t_tail(project)
     assert attach.y == [0.0]
-    assert attach.basis == ATTACH_FIN_TIP
+    assert attach.basis == ATTACH_VTAIL_TIP
     assert attach.assumed is False
 
 

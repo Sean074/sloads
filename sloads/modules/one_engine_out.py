@@ -467,14 +467,14 @@ def _case_inputs(project: Project, v_kt: float,
 #: taken from the engine's butt line -- ``+y`` engine, ``-y`` fin load, and the
 #: reverse -- which is what makes note 44 OR-173 a physical statement rather than
 #: a doubling of rows.
-def _fin_sense(engine_cg_y: float) -> float:
+def _vtail_sense(engine_cg_y: float) -> float:
     return -1.0 if engine_cg_y > 0.0 else 1.0
 
 
-class FinCase(NamedTuple):
+class VtailCase(NamedTuple):
     """One engine's failure at one speed: the march, its peak and its identity.
 
-    The single enumeration :func:`run` and :func:`fin_conditions` both walk, so
+    The single enumeration :func:`run` and :func:`vtail_conditions` both walk, so
     the section's printed cases and the envelope's admitted ones cannot come from
     two different sets (note 44 OR-172/OR-174).
     """
@@ -545,7 +545,7 @@ def _engine_label(project: Project, index: int, count: int) -> str:
     return f" (engine {index + 1})" if count >= 2 else ""
 
 
-def _fin_cases(project: Project) -> List[FinCase]:
+def _vtail_cases(project: Project) -> List[VtailCase]:
     """Every engine's failure at every speed, marched, with its case ID minted.
 
     The order is engine-major so that one engine's speed sweep reads as a block
@@ -569,12 +569,12 @@ def _fin_cases(project: Project) -> List[FinCase]:
     allocator.seed("vtail", VTAIL_BAND_ONENGOUT)
     from .engine import effective_engine
 
-    cases: List[FinCase] = []
+    cases: List[VtailCase] = []
     for index in indices:
         label = _engine_label(project, index, len(indices))
         entered = project.engines[index] if 0 <= index < len(project.engines or []) else None
         try:
-            sense = _fin_sense(effective_engine(project, entered).engine_cg[1]) if entered else 1.0
+            sense = _vtail_sense(effective_engine(project, entered).engine_cg[1]) if entered else 1.0
         except ValueError:
             sense = 1.0
         for lc in _load_cases(project, oeo):
@@ -586,14 +586,14 @@ def _fin_cases(project: Project) -> List[FinCase]:
             # ``picks.extreme`` for the tie rule, as every published pick uses.
             peak = extreme(rows, lambda r: r.lt) if rows else HistoryRow(
                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-            cases.append(FinCase(
+            cases.append(VtailCase(
                 engine_index=index, engine_label=label, load_case=lc, inputs=c,
                 summary=summary, peak=peak, sense=sense,
                 case_id=allocator.next_id("vtail")))
     return cases
 
 
-def fin_conditions(project: Project) -> List[CriticalCondition]:
+def vtail_conditions(project: Project) -> List[CriticalCondition]:
     """The 23.367 cases as fin design conditions, for the v-tail critical set.
 
     **Why this exists** (note 44 OR-172). Measured 2026-09-07, LIMIT against
@@ -625,7 +625,7 @@ def fin_conditions(project: Project) -> List[CriticalCondition]:
 
     vt = effective_vtail_inputs(project)
     out: List[CriticalCondition] = []
-    for fc in _fin_cases(project):
+    for fc in _vtail_cases(project):
         if not fc.recovered:
             continue
         s, c = fc.summary, fc.inputs
@@ -707,7 +707,7 @@ def time_history(project: Project, speed_label: str,
     for lc in _load_cases(project, oeo):
         if lc.label == wanted and engine_index is None:
             return simulate(_case_inputs(project, lc.v_hi_kt))[0]
-    for fc in _fin_cases(project):
+    for fc in _vtail_cases(project):
         if engine_index is not None and fc.engine_index != engine_index:
             continue
         if wanted in (fc.load_case.label, fc.title,
@@ -728,11 +728,11 @@ def run(project: Project) -> ModuleResult:
     Every case the module produces is published here, **including one that did
     not recover** -- the load at the simulation bound, with the uncontrollability
     statement and the referral to stability and control beside it. What such a
-    case does not do is reach an envelope: :func:`fin_conditions` is the filter,
+    case does not do is reach an envelope: :func:`vtail_conditions` is the filter,
     and OR-174 is why the two lists differ.
     """
     conditions: List[ConditionResult] = []
-    for fc in _fin_cases(project):
+    for fc in _vtail_cases(project):
         c, s = fc.inputs, fc.summary
         conditions.append(ConditionResult(
             title=fc.title,

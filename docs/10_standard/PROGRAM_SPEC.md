@@ -307,7 +307,7 @@ approved-corrections register [`../20_theory/02_approved_corrections.md`](../20_
 - **Reads:** `Project.mass` (WTONECG inertia), `Project.geometry` (WINGGEOM), `Project.envelope.vn` (FLTLOADS); plus AIRLOADS/AIRLOAD4 spanwise airloads. Run once per component (wing, fuselage, htail, vtail).
 - **Writes:** the governing (critical) flight-load set per surface → `Project.envelope.critical`. Per Ch 9 this is **much more than selection** — SELECT *computes* the rational critical loads: wing loads (PHAA/PMAA/PLAA/NMAA, accelerated & steady roll), rational + balancing + maneuvering + up/down-gust + unsymmetrical **horizontal** tail loads, **vertical** tail loads (23.441/23.443), and **fuselage** loads (23.301/23.331/23.351/23.471; Ch 9 + Ch 15 net fuselage).
 - **Validation:** Appendix A/B — the selected critical points (`SELWGLDS/SELHTLDS/SELVTLDS/SELFSLDS`).
-- **Publishes (L-7, 2026-08-17):** every vertical-tail condition carries its sideslip `beta_deg` in the SC-1 sense (`SUDDEN RUDDER` 0, `YAW TO SIDESLIP` +19.5, `YAW 15 NEUTRAL` +15, `SIDE GUST` the load's own `−Kgt·Ude/V`) and the fin's `cy_beta_fin` / `cn_beta_fin` per degree about `xw`, built from the same `AVT`, `S_v` and arm as the load (`select.fin_sideslip_derivatives`, `_vt_side_gust_terms`) — the balance reads them and re-derives nothing (note 19 decisions L-7.6 / L-7.11). No load or oracle changes.
+- **Publishes (L-7, 2026-08-17):** every vertical-tail condition carries its sideslip `beta_deg` in the SC-1 sense (`SUDDEN RUDDER` 0, `YAW TO SIDESLIP` +19.5, `YAW 15 NEUTRAL` +15, `SIDE GUST` the load's own `−Kgt·Ude/V`) and the fin's `cy_beta_fin` / `cn_beta_fin` per degree about `xw`, built from the same `AVT`, `S_v` and arm as the load (`select.vtail_sideslip_derivatives`, `_vt_side_gust_terms`) — the balance reads them and re-derives nothing (note 19 decisions L-7.6 / L-7.11). No load or oracle changes.
 - **Publishes (note 44 §15 OR-111, 2026-09-05):** each of the four maneuver conditions carries `unbalanced_moment_about_cg` (lb-in), the pitching moment the tail-load increment leaves about the CG — the one field of the manual's **CRITICAL FUSELAGE LOADS** page (Appendix A p198, blocks 4 and 5) that had no owner in this project. The equation is recovered from `SELECT.BAS` 5210/5262 (unchecked, negated) and 5410/5560 (checked, not negated): the increment is measured from the balanced 50 %-chord load and the arm runs from the CG to the 50 % tail MAC. The sign asymmetry is the original's and is ported as found; cited in [`../20_theory/00_theory_sources.md`](../20_theory/00_theory_sources.md), and the page's printed `FS 50 PERCENT HORIZ TAIL = 0` is registered as an approved deviation (OR-112). Additive: no existing value moves.
 - **Publishes (note 44 §17 OR-132, 2026-09-06):** **every** critical tail condition states the load its control surface carries — `elevator_load` on all nine horizontal-tail conditions and `load_on_rudder` on all four vertical-tail ones. Both are pure functions of the rational 25 %/50 % split each condition already carries (`select.elevator_load`, `select.rudder_load_parts`), and both had been emitted on **two** conditions each, so the oracle report's critical-case tables would have carried a blank control-surface column on nine of thirteen rows. The horizontal half is published in `_htail_condition`, the one constructor every horizontal-tail condition passes through, rather than at nine call sites; the unsymmetrical 23.427(a) condition scales the governing case's elevator load by the same ratio its own total is scaled by, and the report prints it beside the RH/LH split and never apart from it (OR-135). Additive: every value is appended and no existing column moves. Second **OR-15 admission** over `sloads/modules/select.py`.
 - **The fuselage beam's waterline has an owner (2026-09-07, schema v62).** `FuselageMassInput.ref_waterline` is the fuselage **loads reference axis** waterline and is read by `derived_geometry.fuselage_lra` — entered value, else the fuselage section-centre line, else a loud zero — which `export/lra_model` asks for the body chain and the oracle report asks for Appendix C's station positions. It had been read by nothing. Separately, `FuselageStation` gains `y`/`z`: **where the lumped mass acts**, blank-deriving from the item database's weight-weighted centroid. The two are different statements about one station and differ by up to 50 in on `ga6_normal`. Ch 15's symmetric-flight vertical solve reads neither — only the station enters its shear and bending — so both place geometry and neither moves a load.
@@ -414,7 +414,7 @@ approved-corrections register [`../20_theory/02_approved_corrections.md`](../20_
   failure loads the fin in one sense and a fin is sized for both, so each engine
   whose failure produces a yawing moment is marched in turn, with its own case ID
   and its own sign (`_failed_engine_indices`; an engine on the centreline has no
-  arm and is skipped). `fin_conditions` publishes the recovered cases as
+  arm and is skipped). `vtail_conditions` publishes the recovered cases as
   `CriticalCondition`s and `select.default_critical` admits them to the vertical
   tail's critical set, from which Section 6, the chordwise and spanwise
   distributions, the applied-load appendix and the exported v-tail deck take them
@@ -435,7 +435,7 @@ approved-corrections register [`../20_theory/02_approved_corrections.md`](../20_
 - **A case that does not recover is published and excluded (OR-174).** The march
   bounds itself at 60 s; a load at that bound is where the integration stopped,
   not a design load. `run` reports such a case in full with the uncontrollability
-  statement and a referral to stability and control, and `fin_conditions` omits
+  statement and a referral to stability and control, and `vtail_conditions` omits
   it — so it reaches no envelope, no distribution, no appendix and no deck. On
   `atr42_100` and `dhc8_dash8` that is the VS case on both engines.
 - **The headline load is keyed `fy_side`.** It is the fin's side load and the
@@ -1193,7 +1193,7 @@ result that lacks what a deck needs is a stated error, never an empty column.
   The chordwise TAILDIST path and every Appendix A figure are unchanged.
 - **Where the h-tail beam is reacted (decision T-8a, 2026-08-15).**
   `tail_span.htail_attachment` is the single owner, returning stations *and* their
-  provenance (`HTailAttachment`, the `FinRoot`/`BodyDragWaterline` shape).
+  provenance (`HTailAttachment`, the `VtailRoot`/`BodyDragWaterline` shape).
   Resolution order: a **T-tail** layout gives **one** support, the fin-tip joint
   at `y = 0` — a T-tail horizontal surface is not fuselage-attached at all, so a
   fuselage-side pair would describe a load path the airplane does not have, and

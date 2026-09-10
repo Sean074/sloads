@@ -88,9 +88,9 @@ def test_the_t_tail_htail_hangs_on_the_fin_tip_not_the_fuselage():
     assert ("lra-attach", "C") in families
     assert ("lra-attach", "R") not in families
     joint = next(n for n in model.nodes if n.family == "lra-attach")
-    fin_tip_ties = [gms for _gn, _cm, gms, label in model.rbe2s
+    vtail_tip_ties = [gms for _gn, _cm, gms, label in model.rbe2s
                     if "fin tip" in label]
-    assert fin_tip_ties and joint.gid in fin_tip_ties[0]
+    assert vtail_tip_ties and joint.gid in vtail_tip_ties[0]
 
 
 def test_the_split_fuselage_has_no_element_through_the_carry_through():
