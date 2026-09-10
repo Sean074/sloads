@@ -124,7 +124,7 @@ SELECT's four rational v-tail conditions -- sudden rudder, yaw to sideslip, yaw
 15 neutral, side gust -- assemble as balanced cases too, and they are the first
 lateral load factors this suite has ever produced. All four sit on V-n points at
 ``n_z ~ 1``, so the vertical/longitudinal/pitch half is the symmetric machinery
-unchanged; what is added is the fin's distributed side load (:func:`fin_sets`)
+unchanged; what is added is the fin's distributed side load (:func:`vtail_sets`)
 and the three lateral degrees of freedom of the closure B8a-2 built.
 
 **Nothing balances a rudder kick, and nothing is supposed to.** In the symmetric
@@ -163,7 +163,7 @@ carry, and the full-span tail topology (plan 09 decision T-8) was built for it.
 **The applied tail load is SELECT's own, and it replaces the trim load** rather
 than adding to it: ``RH + LH`` *is* the condition's total tail load, and applying
 ``vn.lt`` beside it would count the balancing part twice. The h-tail strips come
-from :func:`htail_sets`, the exact analogue of :func:`fin_sets` -- air only, with
+from :func:`htail_sets`, the exact analogue of :func:`vtail_sets` -- air only, with
 the surface's mass left in :func:`body_inertia` to ride the closure field, so
 each mass still enters exactly one set.
 
@@ -1234,7 +1234,7 @@ def hub_thrust_set(project: Project, cg: CgCase
         f"standing as the 23.427(a) maneuver tail load"] + notes
 
 
-def fin_sets(result: TailSpanResult) -> List[BalancedLoad]:
+def vtail_sets(result: TailSpanResult) -> List[BalancedLoad]:
     """The fin's distributed side load, in airplane axes (decision L-6, plan 13 §2).
 
     A pure consumer of :mod:`sloads.modules.tail_span`, which is itself a pure
@@ -1278,7 +1278,7 @@ def fin_sets(result: TailSpanResult) -> List[BalancedLoad]:
 def htail_sets(result: TailSpanResult) -> List[BalancedLoad]:
     """The horizontal tail's distributed load, in airplane axes (D-R8, F-R5).
 
-    :func:`fin_sets`' sibling, and deliberately built the same way: a pure
+    :func:`vtail_sets`' sibling, and deliberately built the same way: a pure
     consumer of :mod:`sloads.modules.tail_span`, which is a pure consumer of
     SELECT, so the 23.427(a) load an assembled case carries is SELECT's own
     RH/LH split strip for strip and no oracle is at risk from assembling it.
@@ -1523,16 +1523,16 @@ def is_lateral(case: BalancedCaseResult) -> bool:
     """Does this case carry an applied fin load? (i.e. is it one of B8a-3's.)
 
     The ``vtail-air`` tag has exactly one reader -- here and in
-    :func:`fin_load` -- so the deck header, the row table and the gates all agree
+    :func:`vtail_load` -- so the deck header, the row table and the gates all agree
     on what a lateral case *is* (``CLAUDE.md`` practice 3). Asked of the tag and
-    not of :func:`fin_load`'s net, because a fin set whose strips happened to sum
+    not of :func:`vtail_load`'s net, because a fin set whose strips happened to sum
     to zero would still be a lateral case: it is the distribution that is
     handed, not the resultant (the same distinction :func:`is_handed` draws).
     """
     return any(ld.source == "vtail-air" for ld in case.loads)
 
 
-def fin_load(case: BalancedCaseResult) -> float:
+def vtail_load(case: BalancedCaseResult) -> float:
     """The **net** applied fin side load; ``0.0`` when there is no fin set.
 
     The number the deck reports and the gates pin. Use :func:`is_lateral` to ask
@@ -1841,7 +1841,7 @@ def assemble(project: Project, condition: str, vn: VnPoint,
     symmetric caller is unchanged.
 
     ``lateral`` is the applied side-load set -- the fin distribution of a
-    23.441/23.443 condition (B8a-3, :func:`fin_sets`). The symmetric half of the
+    23.441/23.443 condition (B8a-3, :func:`vtail_sets`). The symmetric half of the
     case is assembled from the V-n point exactly as it always was: all four
     v-tail conditions sit at ``n_z ~ 1``, so nothing about the vertical,
     longitudinal or pitching physics changes when a side load is added beside it,
@@ -2058,7 +2058,7 @@ def _tail_distributions(project: Project, component: str, builder) -> dict:
     return {r.case: builder(r) for r in spans.get(component, ())}
 
 
-def _fin_distributions(project: Project) -> dict:
+def _vtail_distributions(project: Project) -> dict:
     """``{condition label: fin load set}`` for every v-tail condition, or ``{}``.
 
     Built once per project rather than per case: ``build_tail_span`` re-resolves
@@ -2067,7 +2067,7 @@ def _fin_distributions(project: Project) -> dict:
     assembles no lateral case -- the same "the whole chain must exist" rule the
     symmetric families follow.
     """
-    return _tail_distributions(project, VTAIL, fin_sets)
+    return _tail_distributions(project, VTAIL, vtail_sets)
 
 
 def _htail_distributions(project: Project) -> dict:
@@ -2131,7 +2131,7 @@ def build_balanced_cases(
     vn = {p.case: p for p in envelope.vn}
     cgs = {c.name: c for c in flight_cases(project)}
     loadings = {ld.name: ld for ld in derive_case_loadings(project)}
-    fins = _fin_distributions(project)
+    vtails = _vtail_distributions(project)
     htails = _htail_distributions(project)
 
     record: List[SkippedCondition] = skipped if skipped is not None else []
@@ -2146,7 +2146,7 @@ def build_balanced_cases(
             unb = (unbalanced_rolling_moment(project, cond.label)
                    if cond.label in ROLLING_WING_CONDITIONS else 0.0)
         elif cond.component == VTAIL and cond.label in BALANCED_VTAIL_CONDITIONS:
-            lateral = fins.get(cond.label, ())
+            lateral = vtails.get(cond.label, ())
             if not lateral:
                 record.append(_skip(cond, "no-fin-loads"))
                 continue
@@ -2733,7 +2733,7 @@ def run(project: Project) -> ModuleResult:
         lateral_values = [
             # The case's defining applied load, reported before the motion it
             # causes: nothing balances it, so the three below ARE its reaction.
-            LoadValue("Applied fin side load", fin_load(c), "lb",
+            LoadValue("Applied fin side load", vtail_load(c), "lb",
                       key="balanced_fin_load"),
             LoadValue("Lateral load factor Ny", c.delta_ny, "g",
                       key="balanced_ny"),
@@ -2815,8 +2815,6 @@ __all__ = [
     "build_balanced_cases",
     "carry_sources_absent",
     "case_source_name",
-    "fin_load",
-    "fin_sets",
     "handed_twin",
     "htail_load",
     "htail_sets",
@@ -2838,5 +2836,7 @@ __all__ = [
     "skipped_conditions",
     "source_case_name",
     "unbalanced_rolling_moment",
+    "vtail_load",
+    "vtail_sets",
     "wing_sets",
 ]

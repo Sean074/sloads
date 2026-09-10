@@ -88,7 +88,7 @@ from .render import format_value, ultimate_units
 if TYPE_CHECKING:
     # pragma: no cover - typing only, and a cycle if imported at runtime
     from ..models.results import EnvelopeResult, GearReactionCase
-    from ..modules.one_engine_out import FinCase
+    from ..modules.one_engine_out import VtailCase
 
 
 # --------------------------------------------------------------------------- #
@@ -6296,7 +6296,7 @@ def _tail_view_series(project: Project, frame: str, scale: float) -> List[Series
     """Both empennage surfaces in one view, through the three-view's own owner.
 
     :func:`sloads.modules.configuration.tail_planform` already returns each panel
-    in all three views and already reads ``tail_geometry.fin_root_waterline`` for
+    in all three views and already reads ``tail_geometry.vtail_root_waterline`` for
     where the fin's root sits, so asking it is what stops this figure putting the
     fin at a second waterline (``CONVENTIONS.md`` §7 rule 2).
     """
@@ -6518,7 +6518,7 @@ _OEI_TRANSIENT = (
 )
 
 
-def _oei_cases(project: Project) -> List["FinCase"]:
+def _oei_cases(project: Project) -> List["VtailCase"]:
     """Every 23.367 case the module produces, recovered or not.
 
     Read from the module's own enumeration rather than from its ``ModuleResult``:
@@ -6527,10 +6527,10 @@ def _oei_cases(project: Project) -> List["FinCase"]:
     strained by this, because nothing here is derived: the peak instant is the
     module's own pick, and the loads printed are the module's own values.
     """
-    from ..modules.one_engine_out import _fin_cases
+    from ..modules.one_engine_out import _vtail_cases
 
     try:
-        return list(_fin_cases(project))
+        return list(_vtail_cases(project))
     except (MissingInputError, ValueError, ZeroDivisionError, KeyError, IndexError):
         return []
 
@@ -6544,10 +6544,10 @@ def _oei_refusal(project: Project) -> str:
     would be *understated*, not approximated -- and telling that reader their
     inputs were incomplete would send them to fix something that is not wrong.
     """
-    from ..modules.one_engine_out import _fin_cases
+    from ..modules.one_engine_out import _vtail_cases
 
     try:
-        _fin_cases(project)
+        _vtail_cases(project)
     except MissingInputError as exc:
         return str(exc).replace("one_engine_out: ", "").replace(
             "one_engine_out ", "the analysis ")
@@ -6567,11 +6567,11 @@ def _oei_engine_number(index: int) -> str:
     return str(index + 1)
 
 
-def _oei_input_table(project: Project, cases: Sequence["FinCase"],
+def _oei_input_table(project: Project, cases: Sequence["VtailCase"],
                      system: UnitSystem) -> Optional[Table]:
     """What the simulation was run from, one row per failed engine."""
     u = Units(system)
-    seen: Dict[int, "FinCase"] = {}
+    seen: Dict[int, "VtailCase"] = {}
     for fc in cases:
         seen.setdefault(fc.engine_index, fc)
     engines = project.engines or []
@@ -6615,7 +6615,7 @@ def _oei_input_table(project: Project, cases: Sequence["FinCase"],
               "power, per the input slice's selector."))
 
 
-def _oei_timing_table(cases: Sequence["FinCase"]) -> Optional[Table]:
+def _oei_timing_table(cases: Sequence["VtailCase"]) -> Optional[Table]:
     """The transient's own constants -- the schedule the march is run on."""
     if not cases:
         return None
@@ -6644,7 +6644,7 @@ def _oei_timing_table(cases: Sequence["FinCase"]) -> Optional[Table]:
               "engine and the resulting march differ."))
 
 
-def _oei_case_list_table(cases: Sequence["FinCase"]) -> Optional[Table]:
+def _oei_case_list_table(cases: Sequence["VtailCase"]) -> Optional[Table]:
     """Every case assessed, with its regulation, its factor and its outcome."""
     rows = []
     for fc in cases:
@@ -6675,7 +6675,7 @@ def _oei_case_list_table(cases: Sequence["FinCase"]) -> Optional[Table]:
               "see the note below the load table."))
 
 
-def _oei_load_table(cases: Sequence["FinCase"], system: UnitSystem) -> Optional[Table]:
+def _oei_load_table(cases: Sequence["VtailCase"], system: UnitSystem) -> Optional[Table]:
     """The peak fin load of every case, with the state that produced it."""
     u = Units(system)
     rows = []
@@ -6715,7 +6715,7 @@ def _oei_load_table(cases: Sequence["FinCase"], system: UnitSystem) -> Optional[
               "two instants the airplane never occupies. " + _OEI_SIGN))
 
 
-def _oei_response_table(cases: Sequence["FinCase"], system: UnitSystem) -> Optional[Table]:
+def _oei_response_table(cases: Sequence["VtailCase"], system: UnitSystem) -> Optional[Table]:
     """What the march produced: the forcing, the yaw it made and the recovery.
 
     Split out of the load table, which could not carry eleven columns upright.
@@ -6753,8 +6753,8 @@ def _oei_response_table(cases: Sequence["FinCase"], system: UnitSystem) -> Optio
               "subsection for what follows from that."))
 
 
-def _oei_figures(cases: Sequence["FinCase"], system: UnitSystem
-                 ) -> Tuple[List[Figure], List["FinCase"]]:
+def _oei_figures(cases: Sequence["VtailCase"], system: UnitSystem
+                 ) -> Tuple[List[Figure], List["VtailCase"]]:
     """Two figures per case: the yaw response, and the loads that recovered it."""
     from ..modules.one_engine_out import simulate
 
@@ -6769,7 +6769,7 @@ def _oei_figures(cases: Sequence["FinCase"], system: UnitSystem
     # a figure is an illustration of one. Where an installation is **not**
     # symmetric the marches differ, the magnitude test below fails, and that
     # engine is plotted too: the saving is claimed only where it is real.
-    plotted: List["FinCase"] = []
+    plotted: List["VtailCase"] = []
     mirrored = 0
     for fc in cases:
         twin = next((q for q in plotted

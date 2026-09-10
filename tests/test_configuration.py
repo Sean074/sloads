@@ -256,12 +256,12 @@ def test_tail_planform_conventional_draws_h_and_v_tail_near_fuselage():
     layout = _tail_layout(TailType.CONVENTIONAL)
     panels = tail_planform(layout, _tail_e())
     assert set(panels) == {"h_tail", "v_tail"}
-    fin_root_z = layout.root_waterline_z + layout.fuselage_height / 2.0
+    vtail_root_z = layout.root_waterline_z + layout.fuselage_height / 2.0
     # No explicit h_tail_z -> conventional tail sits at the fuselage waterline.
     h_z = panels["h_tail"]["side"][0][1]
     assert math.isclose(h_z, layout.root_waterline_z)
     v_z0 = panels["v_tail"]["side"][0][1]
-    assert math.isclose(v_z0, fin_root_z)
+    assert math.isclose(v_z0, vtail_root_z)
 
 
 def test_tail_planform_draws_elevator_and_rudder_when_hinge_areas_set():
@@ -278,10 +278,10 @@ def test_tail_planform_draws_elevator_and_rudder_when_hinge_areas_set():
 def test_tail_planform_t_tail_places_h_tail_atop_fin():
     layout = _tail_layout(TailType.T_TAIL)
     panels = tail_planform(layout, _tail_e())
-    fin_root_z = layout.root_waterline_z + layout.fuselage_height / 2.0
+    vtail_root_z = layout.root_waterline_z + layout.fuselage_height / 2.0
     v_span_in = 48.0
     h_z = panels["h_tail"]["side"][0][1]
-    assert math.isclose(h_z, fin_root_z + v_span_in)
+    assert math.isclose(h_z, vtail_root_z + v_span_in)
 
 
 def test_tail_planform_t_tail_respects_explicit_h_tail_z():
@@ -294,10 +294,10 @@ def test_tail_planform_t_tail_respects_explicit_h_tail_z():
 def test_tail_planform_cruciform_places_h_tail_mid_fin():
     layout = _tail_layout(TailType.CRUCIFORM)
     panels = tail_planform(layout, _tail_e())
-    fin_root_z = layout.root_waterline_z + layout.fuselage_height / 2.0
+    vtail_root_z = layout.root_waterline_z + layout.fuselage_height / 2.0
     v_span_in = 48.0
     h_z = panels["h_tail"]["side"][0][1]
-    assert math.isclose(h_z, fin_root_z + v_span_in * 0.5)
+    assert math.isclose(h_z, vtail_root_z + v_span_in * 0.5)
 
 
 def test_tail_planform_v_tail_draws_two_diagonal_panels_not_h_v():

@@ -746,7 +746,7 @@ def fuselage_height_at(outline, x: float) -> Optional[float]:
     **The single owner of "how tall is the fuselage here"** -- the height sibling
     of :func:`fuselage_width_at`, added for the fin-root datum (backlog Pri 1,
     from T-8a): the fin sits on the tail cone's local top,
-    ``z_centre(x_fin) + height(x_fin)/2``, not half the *maximum* body height
+    ``z_centre(x_vtail) + height(x_vtail)/2``, not half the *maximum* body height
     above the wing root.
     """
     return _section_dim_at(outline, x, "height")
@@ -879,7 +879,7 @@ class BodyDragWaterline(NamedTuple):
     ``z`` is the waterline (in), ``assumed`` False only when the project entered
     it, and ``basis`` names where it came from. ``note`` is the in-band statement
     a derived value carries onto every deliverable -- the same provenance shape
-    :class:`CarryThrough` and ``tail_geometry.FinRoot`` use."""
+    :class:`CarryThrough` and ``tail_geometry.VtailRoot`` use."""
     z: float
     assumed: bool
     basis: str
@@ -911,7 +911,7 @@ def body_drag_waterline(project: Project) -> BodyDragWaterline:
         otherwise                      -> zw, with a loud note    (assumed True)
 
     There is no geometry branch, and its absence is the decision. The obvious
-    candidate, ``root_waterline_z``, is the datum ``tail_geometry.fin_root_waterline``
+    candidate, ``root_waterline_z``, is the datum ``tail_geometry.vtail_root_waterline``
     measures "the top of the fuselage" from -- but it is the **wing** root, and
     using it puts ``ga6_normal``'s ``SIDE GUST`` pitch residual at -1.173 %,
     over the 1 % gate, on the Appendix A fixture. It would also be a trap rather

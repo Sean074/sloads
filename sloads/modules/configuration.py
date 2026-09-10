@@ -49,7 +49,7 @@ from ..models import (
     Vec3,
 )
 from ..registry import register
-from ..tail_geometry import fin_root, fin_root_waterline
+from ..tail_geometry import vtail_root, vtail_root_waterline
 from .wing_geometry import interp_x, surface_properties
 
 _FAR = "configuration"  # modern addition; no FAR condition / no .BAS oracle
@@ -212,7 +212,7 @@ def tail_planform(layout: LayoutInput,
 
     The vertical-tail root comes from ``tail_geometry``'s single owner -- with
     ``project`` given, the full resolution order including the fuselage-outline
-    datum ``z_centre(x_fin) + height(x_fin)/2`` (backlog Pri 1); layout-only,
+    datum ``z_centre(x_vtail) + height(x_vtail)/2`` (backlog Pri 1); layout-only,
     the ``root_waterline_z + fuselage_height / 2`` fallback. ``layout.h_tail_z``
     is a further user offset; if left at ``0`` for ``T_TAIL``/``CRUCIFORM`` a
     sensible default (top of fin / mid-fin) is used instead of the fuselage
@@ -233,9 +233,9 @@ def tail_planform(layout: LayoutInput,
     # outline datum too (backlog Pri 1); layout-only callers get the same
     # resolution order minus the outline branch.
     if project is not None:
-        fin_root_z = fin_root(project).z
+        vtail_root_z = vtail_root(project).z
     else:
-        fin_root_z = fin_root_waterline(
+        vtail_root_z = vtail_root_waterline(
             layout, v_span_in, vt.vtail_root_waterline_z if vt is not None else 0.0).z
     panels: Dict[str, Dict[str, List[Tuple[float, float]]]] = {}
 
@@ -252,10 +252,10 @@ def tail_planform(layout: LayoutInput,
                 panels[f"v_tail_{side}"] = {
                     "top": [(x_le, 0.0), (x_te, 0.0), (x_te, sgn * proj_y),
                             (x_le, sgn * proj_y), (x_le, 0.0)],
-                    "side": [(x_le, fin_root_z), (x_te, fin_root_z),
-                             (x_te, fin_root_z + proj_z), (x_le, fin_root_z + proj_z),
-                             (x_le, fin_root_z)],
-                    "front": [(0.0, fin_root_z), (sgn * proj_y, fin_root_z + proj_z)],
+                    "side": [(x_le, vtail_root_z), (x_te, vtail_root_z),
+                             (x_te, vtail_root_z + proj_z), (x_le, vtail_root_z + proj_z),
+                             (x_le, vtail_root_z)],
+                    "front": [(0.0, vtail_root_z), (sgn * proj_y, vtail_root_z + proj_z)],
                 }
         return panels
 
@@ -264,12 +264,12 @@ def tail_planform(layout: LayoutInput,
         chord = area_in2 / v_span_in
         x_mac = vt.xv25
         x_le, x_te = x_mac - 0.25 * chord, x_mac + 0.75 * chord
-        z1 = fin_root_z + v_span_in
+        z1 = vtail_root_z + v_span_in
         panels["v_tail"] = {
             "top": [(x_le, 0.0), (x_te, 0.0)],
-            "side": [(x_le, fin_root_z), (x_te, fin_root_z), (x_te, z1),
-                     (x_le, z1), (x_le, fin_root_z)],
-            "front": [(0.0, fin_root_z), (0.0, z1)],
+            "side": [(x_le, vtail_root_z), (x_te, vtail_root_z), (x_te, z1),
+                     (x_le, z1), (x_le, vtail_root_z)],
+            "front": [(0.0, vtail_root_z), (0.0, z1)],
         }
         # Rudder: aft Saft/S chord band over the fin height (Side view).
         r_frac = _hinge_fraction(vt.rudder_aft_hinge_sqft, v_area)
@@ -277,9 +277,9 @@ def tail_planform(layout: LayoutInput,
             x_hinge = x_te - r_frac * chord
             panels["rudder"] = {
                 "top": [(x_hinge, 0.0), (x_te, 0.0)],
-                "side": [(x_hinge, fin_root_z), (x_te, fin_root_z), (x_te, z1),
-                         (x_hinge, z1), (x_hinge, fin_root_z)],
-                "front": [(0.0, fin_root_z), (0.0, z1)],
+                "side": [(x_hinge, vtail_root_z), (x_te, vtail_root_z), (x_te, z1),
+                         (x_hinge, z1), (x_hinge, vtail_root_z)],
+                "front": [(0.0, vtail_root_z), (0.0, z1)],
             }
 
     if ht is not None and h_area > 0 and h_span_in > 0:  # h_area > 0 already implies ht
@@ -295,9 +295,9 @@ def tail_planform(layout: LayoutInput,
         # the two disagree by 32 in (backlog Pri 1, 2026-08-16).
         h_tail_z = layout.h_tail_z
         if h_tail_z == 0.0 and layout.tail_type == TailType.T_TAIL:
-            h_z = fin_root_z + v_span_in
+            h_z = vtail_root_z + v_span_in
         elif h_tail_z == 0.0 and layout.tail_type == TailType.CRUCIFORM:
-            h_z = fin_root_z + v_span_in * 0.5
+            h_z = vtail_root_z + v_span_in * 0.5
         else:
             h_z = layout.root_waterline_z + h_tail_z
 

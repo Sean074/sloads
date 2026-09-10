@@ -89,7 +89,7 @@ from sloads.modules.balance import (
     SYMMETRIC_WING_CONDITIONS,
     build_balanced_cases,
     carry_sources_absent,
-    fin_load,
+    vtail_load,
     handed_twin,
     htail_load,
     htail_side_loads,
@@ -1190,7 +1190,7 @@ def test_the_body_drag_waterline_is_stated_and_is_the_only_free_parameter(exampl
     asks for on a cross-cutting convention:
 
     * **provenance** -- an underived waterline is marked ``assumed`` and says so
-      in-band, exactly as ``FinRoot`` does for the fin root (decision D-1 follows
+      in-band, exactly as ``VtailRoot`` does for the fin root (decision D-1 follows
       that pattern deliberately);
     * **the owner is the one that is used** -- entering
       ``body_drag_waterline_z`` moves every case's pitch residual by exactly
@@ -1960,7 +1960,7 @@ def test_the_lateral_dof_are_untouched(example):
 #: the yaw follows from the same ``Izz``/``Ixz`` tensor B8a-2 pinned, and the
 #: roll is the fin's own moment about the CG (asserted in
 #: :func:`test_the_roll_moment_is_the_applied_couple`). The fin loads themselves
-#: are SELECT's, unchanged -- see :func:`sloads.modules.balance.fin_sets`.
+#: are SELECT's, unchanged -- see :func:`sloads.modules.balance.vtail_sets`.
 #:
 #: The yaw figures are **not** those of plan 13 §3.1: those were measured against
 #: the placement-only ``Izz`` that preceded L-3. Against the shipped tensor
@@ -1994,7 +1994,7 @@ _LATERAL_CASE_NUMBERS = {
         'YAW TO SIDESLIP': (-97.7496, -0.028750, -18.260820, +15.664357),
     },
     # The three fixtures with a published fuselage outline (T-8a). Backlog Pri 1
-    # gave the "fuselage-top" branch of fin_root_waterline its body datum --
+    # gave the "fuselage-top" branch of vtail_root_waterline its body datum --
     # z_centre(xv25) + height(xv25)/2 in place of the wing root plus half the
     # *maximum* body height -- which on these high-wing types brought the fin
     # root back DOWN (atr42 223.15 -> 191.17 in; see test_tail_geometry's
@@ -2068,13 +2068,13 @@ def test_the_lateral_cases_are_pinned(example):
     for label, (fin, ny, r_dot, p_dot) in want.items():
         case = got[label]
         where = f"{example} {label}"
-        assert fin_load(case) == pytest.approx(fin, rel=1e-4), (
-            f"{where}: fin side load {fin_load(case):.4f} lb")
+        assert vtail_load(case) == pytest.approx(fin, rel=1e-4), (
+            f"{where}: fin side load {vtail_load(case):.4f} lb")
         assert case.delta_ny == pytest.approx(ny, rel=1e-4), (
             f"{where}: Ny {case.delta_ny:+.6f} g")
         # ...and Ny is not a fitted number: it is Sum Fy = 0, i.e. L_v / W.
         assert case.delta_ny == pytest.approx(
-            fin_load(case) / case.weight_lb, rel=1e-12), where
+            vtail_load(case) / case.weight_lb, rel=1e-12), where
 
         got_p, _, got_r = (math.degrees(v) for v in
                            radians_per_s2((case.p_dot, case.q_dot, case.r_dot)))
@@ -2107,9 +2107,9 @@ def test_the_applied_fin_set_is_air_only_so_the_mass_is_applied_once(example):
         if not is_lateral(case) or case.hand != "R":
             continue
         span = spans[case.label]
-        assert fin_load(case) == pytest.approx(span.air_total, rel=1e-12), (
+        assert vtail_load(case) == pytest.approx(span.air_total, rel=1e-12), (
             f"{example} {case.label}: the applied fin set is not air only -- "
-            f"{fin_load(case):.4f} lb against SELECT's {span.air_total:.4f} lb")
+            f"{vtail_load(case):.4f} lb against SELECT's {span.air_total:.4f} lb")
         # And the deck the fin is sized from *does* carry the inertia, so the two
         # differ by exactly the mass ratio. Both statements have to hold at once.
         if span.inertia_modelled and span.case_weight_lb:
@@ -2160,7 +2160,7 @@ def test_the_symmetric_half_of_a_lateral_case_still_closes(example):
         assert abs(mz) < 1e-9 * case.n_w * case.semi_span, f"{where} Mz"
 
         # ...and the lateral residual IS the fin load, not a balance error.
-        assert case.residual_fy == pytest.approx(fin_load(case), rel=1e-12), where
+        assert case.residual_fy == pytest.approx(vtail_load(case), rel=1e-12), where
 
 
 # --------------------------------------------------------------------------- #
@@ -2456,7 +2456,7 @@ def test_the_handed_twins_are_mirror_images(example):
         assert left.residual_fy == -right.residual_fy
         assert left.residual_mx == -right.residual_mx
         assert left.residual_mz == -right.residual_mz
-        assert fin_load(left) == -fin_load(right)
+        assert vtail_load(left) == -vtail_load(right)
         # Even under the mirror: the twin is the same case in these DOF.
         assert left.residual_fz == right.residual_fz
         assert left.residual_fx == right.residual_fx

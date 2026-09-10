@@ -331,8 +331,8 @@ def test_direct_assemble_without_terms_keeps_the_standing_statement_only():
     env = default_envelope(p)
     from sloads.cg_cases import flight_cases
     from sloads.mass_distribution import derive_case_loadings
-    from sloads.modules.balance import _fin_distributions
-    fins = _fin_distributions(p)
+    from sloads.modules.balance import _vtail_distributions
+    fins = _vtail_distributions(p)
     cond = next(c for c in default_critical(p, env).conditions if c.label == "YAW 15 NEUTRAL")
     point = {pt.case: pt for pt in env.vn}[cond.case]
     cg = {c.name: c for c in flight_cases(p)}[point.cg]

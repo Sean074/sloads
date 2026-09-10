@@ -183,7 +183,7 @@ class HTailAttachment(NamedTuple):
     consequence of *entered* data alone; ``basis`` names the branch that produced
     them and is the discriminator a downstream model gates on (note 24 BM-3);
     ``note`` is the in-band sentence a derived value owes its consumer. Same
-    provenance shape as ``tail_geometry.FinRoot`` and
+    provenance shape as ``tail_geometry.VtailRoot`` and
     ``derived_geometry.BodyDragWaterline``.
     """
 
@@ -198,7 +198,7 @@ class HTailAttachment(NamedTuple):
 #: conventional attachment on (note 24 BM-3), because it is not a fuselage
 #: dimension at all, merely two adjacent stations that happen to straddle the
 #: centreline.
-ATTACH_FIN_TIP = "t-tail fin-tip joint"
+ATTACH_VTAIL_TIP = "t-tail fin-tip joint"
 ATTACH_ENTERED = "entered attachment butt line (sob_y_in)"
 ATTACH_OUTLINE = "fuselage outline at the h-tail LRA station"
 ATTACH_STRIP_PAIR = "innermost strip pair -- no fuselage geometry"
@@ -250,7 +250,7 @@ def htail_attachment(project: Project, planform: TailPlanform) -> HTailAttachmen
         return HTailAttachment([], False, "", "")
     if is_t_tail(project):
         return HTailAttachment(
-            [0.0], False, ATTACH_FIN_TIP,
+            [0.0], False, ATTACH_VTAIL_TIP,
             "T-TAIL layout: the horizontal tail is not fuselage-attached, so its "
             "beam has ONE support -- the fin-tip joint on the centreline, which "
             "reacts moment as well as shear. A fuselage-side pair would describe "
@@ -995,7 +995,7 @@ def ttail_transfer(project: Project, cond: CriticalCondition,
 
 
 def _h_tail_waterline(project: Project,
-                      fin: Optional[TailPlanform] = None) -> float:
+                      vtail: Optional[TailPlanform] = None) -> float:
     """The waterline the h-tail's stations sit on -- asked of its owner (#236).
 
     :func:`~sloads.tail_geometry.h_tail_waterline` resolves it (fin tip on a
@@ -1006,7 +1006,7 @@ def _h_tail_waterline(project: Project,
     surface that loads in ``fz`` only, so this moves ``GRID``s and the LRA
     fin-tip joint, not a load.
     """
-    return h_tail_waterline(project, fin).z
+    return h_tail_waterline(project, vtail).z
 
 
 def build_tail_span(project: Project) -> Dict[str, List[TailSpanResult]]:
@@ -1052,7 +1052,7 @@ def build_tail_span(project: Project) -> Dict[str, List[TailSpanResult]]:
         # The fin's own root waterline (plan 13 L-1), not zero: the roll moment a
         # side load makes about the CG is ``-Fy*(z - z_cg)``, so a fin modelled on
         # the centreline gets that moment wrong and can get it wrong in *sign*.
-        # Owned by ``tail_geometry.fin_root_waterline`` and carried on the
+        # Owned by ``tail_geometry.vtail_root_waterline`` and carried on the
         # planform, so the three-view and this deck place one fin once.
         z_offset = (_h_tail_waterline(project, planforms.get(VTAIL))
                     if component == HTAIL else planform.root_z)
@@ -1288,9 +1288,9 @@ register(MODULE_NAME, run)
 
 
 __all__ = [
-    "ATTACH_FIN_TIP",
     "ATTACH_OUTLINE",
     "ATTACH_STRIP_PAIR",
+    "ATTACH_VTAIL_TIP",
     "CONTROL_MODES",
     "DEFAULT_CONTROL_MODE",
     "DEFAULT_LOAD_FACTOR",

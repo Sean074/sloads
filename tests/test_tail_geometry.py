@@ -32,7 +32,7 @@ from sloads.tail_geometry import (
     PLANFORM_TOLERANCE,
     VTAIL,
     _polyline_mac_and_x25,
-    fin_root,
+    vtail_root,
     h_tail_waterline,
     half_area_centroid,
     resolve_tail_planform,
@@ -350,7 +350,7 @@ def test_every_fixture_still_loads_and_round_trips(example):
 #:
 #: T-8a moved three of them, and backlog Pri 1 moved the same three again by
 #: giving the "fuselage-top" branch its body datum. The branch is now
-#: ``z_centre(x_fin) + height(x_fin)/2`` -- the section-centre line
+#: ``z_centre(x_vtail) + height(x_vtail)/2`` -- the section-centre line
 #: (``derived_geometry.fuselage_centreline``, note 24 R-4; defaulted from the
 #: body-drag waterline and marked assumed on all three, since no fixture enters
 #: ``z_centre``) plus half the **local** body height at the fin's ``xv25``.
@@ -427,7 +427,7 @@ def test_no_fixture_places_its_fin_twice(example):
     20 days.
     """
     project = _project(example)
-    root = fin_root(project)
+    root = vtail_root(project)
     assert root.basis == "geometry" and not root.assumed, example
     assert not root.note, f"{example}: {root.note}"
 
@@ -473,13 +473,13 @@ def test_the_fin_polyline_leads_the_explicit_scalar_and_says_what_it_ignored():
     """
     project = _project("ga6_normal.project.json")
     project.vtail_loads.vtail_root_waterline_z = 101.5
-    root = fin_root(project)
+    root = vtail_root(project)
     assert root.z == pytest.approx(111.5)          # the polyline's own root
     assert not root.assumed and root.basis == "geometry"
     assert "101.5" in root.note and "NOT USED" in root.note
     # Within tolerance it is the same measurement twice, and says nothing.
     project.vtail_loads.vtail_root_waterline_z = 111.4
-    assert not fin_root(project).note
+    assert not vtail_root(project).note
 
 
 def test_an_entered_fin_root_wins_and_is_not_assumed():
@@ -506,8 +506,8 @@ def test_the_t_tail_branch_puts_the_fin_tip_at_the_horizontal_tail():
     project = _project("concept_regional_jet.project.json")
     layout = project.geometry.parametric
     planform = resolve_tail_planform(project, VTAIL)
-    fin_tip = planform.root_z + planform.span
-    assert fin_tip == pytest.approx(layout.root_waterline_z + layout.h_tail_z)
+    vtail_tip = planform.root_z + planform.span
+    assert vtail_tip == pytest.approx(layout.root_waterline_z + layout.h_tail_z)
     fuselage_top = layout.root_waterline_z + layout.fuselage_height / 2.0
     assert fuselage_top - planform.root_z == pytest.approx(18.0)
 
@@ -620,6 +620,55 @@ def test_the_three_view_and_the_load_path_place_one_htail_once(example):
                            project.geometry.empennage, project)
     sketch_z = panels["h_tail"]["side"][0][1]
     assert sketch_z == pytest.approx(h_tail_waterline(project).z, rel=1e-9)
+
+
+# --------------------------------------------------------------------------- #
+# One surface, one name (#223, CONVENTIONS.md §7.2: "fin" is retired)
+# --------------------------------------------------------------------------- #
+#: The two serialized names the sweep deliberately kept: JSON schema fields on
+#: the shipped condition record (``io.py`` reads them by key), so renaming them
+#: is a schema change, not a spelling fix. Nothing else may join this set.
+_SERIALIZED_FIN_NAMES = {"cy_beta_fin", "cn_beta_fin"}
+
+
+def test_no_fin_identifier_survives_or_returns():
+    """The vertical tail has one code name, ``vtail`` (owner ruling 2026-09-06).
+
+    Before #223 the *data* was spelled ``vtail_*`` while the owners that place
+    and load the surface were spelled ``fin_*`` (``fin_root``,
+    ``fin_root_waterline``, ``FinRoot``) -- one thing under two names in the
+    same call chain. This walks every production identifier (names, arguments,
+    attributes, function and class names -- strings and comments exempt, so
+    prose may still say "fin") and fails on any whose name-parts contain the
+    token; the allowlist is the serialized boundary above, closed.
+    """
+    import ast
+    import re
+
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    offenders = []
+    for tree_dir in ("sloads", "app", "app_shell", "oracle_app", "scripts"):
+        for dirpath, _dirs, files in os.walk(os.path.join(root, tree_dir)):
+            for fname in files:
+                if not fname.endswith(".py"):
+                    continue
+                path = os.path.join(dirpath, fname)
+                with open(path, encoding="utf-8") as fh:
+                    tree = ast.parse(fh.read())
+                for node in ast.walk(tree):
+                    for attr in ("id", "name", "attr", "arg"):
+                        value = getattr(node, attr, None)
+                        if not isinstance(value, str):
+                            continue
+                        if value in _SERIALIZED_FIN_NAMES:
+                            continue
+                        parts = re.split(r"_+|(?<=[a-z])(?=[A-Z])", value)
+                        if any(p.lower() in ("fin", "fins") for p in parts if p):
+                            offenders.append(
+                                f"{os.path.relpath(path, root)}: {value}")
+    assert not offenders, (
+        "identifiers spelling the vertical tail 'fin' (retired, #223): "
+        + ", ".join(sorted(set(offenders))))
 
 
 if __name__ == "__main__":

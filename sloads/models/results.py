@@ -445,7 +445,7 @@ class WingStationLoad:
     #: assembled balanced case applies the surface's mass **once**, through the
     #: component-tagged mass items in its closure field, so the applied
     #: aerodynamic set it reads from here must not have inertia in it as well
-    #: (``balance.fin_sets``). Before the tail carried any inertia, ``fz`` *was*
+    #: (``balance.vtail_sets``). Before the tail carried any inertia, ``fz`` *was*
     #: the air load and the distinction cost nothing; the moment it stopped being
     #: so, a consumer with no way to ask would have double-counted the mass
     #: silently. ``fz - f_inertia`` is the air load, exactly.

@@ -149,12 +149,12 @@ if _assumed:
 # A fin case can carry the axial term with **no** lateral one: no V-n point means
 # no case weight, so n_y has no denominator and is reported as absent rather than
 # invented. The relief figure below therefore reads from a case that has one.
-_fin = [r for r in results if r.component == VTAIL and r.inertia_modelled]
-_fin_lat = [r for r in _fin if r.case_weight_lb > 0.0]
-if _fin:
+_vtail = [r for r in results if r.component == VTAIL and r.inertia_modelled]
+_vtail_lat = [r for r in _vtail if r.case_weight_lb > 0.0]
+if _vtail:
     _relief = (f"`W_vt/W` ≈ "
-               f"{100.0 * _fin_lat[0].surface_weight_lb / _fin_lat[0].case_weight_lb:.2f} %"
-               if _fin_lat else "`W_vt/W` of the case weight")
+               f"{100.0 * _vtail_lat[0].surface_weight_lb / _vtail_lat[0].case_weight_lb:.2f} %"
+               if _vtail_lat else "`W_vt/W` of the case weight")
     st.caption(
         "**The fin's mass acts on two axes, and they are different loads.** Its "
         "*bending* inertia runs sideways at `n_y = side load / case weight` — the "

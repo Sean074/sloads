@@ -189,7 +189,7 @@ def default_critical(project: Project,
 
 #: Label prefix every 23.367 fin condition carries, and the identity this module
 #: de-duplicates on. A literal shared with nothing: the conditions are minted by
-#: ``one_engine_out.fin_conditions`` and only recognised here.
+#: ``one_engine_out.vtail_conditions`` and only recognised here.
 _ENGINE_FAILURE_PREFIX = "ONE ENGINE OUT"
 
 
@@ -218,13 +218,13 @@ def _with_engine_failure(project: Project, critical: CriticalLoadSet) -> Critica
     the whole fin set over an absent optional condition would take Section 6 down
     with it.
     """
-    from .one_engine_out import fin_conditions
+    from .one_engine_out import vtail_conditions
 
     if any(c.label.startswith(_ENGINE_FAILURE_PREFIX)
            for c in critical.conditions):
         return critical
     try:
-        extra = fin_conditions(project)
+        extra = vtail_conditions(project)
     except (MissingInputError, ValueError, ZeroDivisionError, KeyError, IndexError):
         return critical
     if not extra:
@@ -1081,7 +1081,7 @@ def _vt_side_gust(p: VnPoint, cg: CgCase, vt: VTailLoadsInput, izz: float) -> fl
     return _vt_side_gust_terms(p, cg, vt, izz)[0]
 
 
-def fin_sideslip_derivatives(project: Project, vt: VTailLoadsInput
+def vtail_sideslip_derivatives(project: Project, vt: VTailLoadsInput
                              ) -> Tuple[Optional[float], Optional[float]]:
     """The fin's ``(Cy_beta, Cn_beta)`` **per degree, suite sign, about ``xw``**
     (L-7, decision L-7.11) -- built from the very ``AVT``, ``S_v`` and arm that
@@ -1121,7 +1121,7 @@ def select_vtail(project: Project, envelope: Optional[EnvelopeResult] = None) ->
     # opinion of it.
     gw = vt.gross_weight_lb or max_takeoff_weight(project, required=False)
     izz = vt.izz_slugft2 or _default_izz(vt, gw, airplane_length_in(project))
-    cy_fin, cn_fin = fin_sideslip_derivatives(project, vt)
+    cy_vtail, cn_vtail = vtail_sideslip_derivatives(project, vt)
     out: List[CriticalCondition] = []
 
     # 1. Sudden full rudder deflection (FAR 23.441(a)(1)) -- largest rudder load.
@@ -1134,7 +1134,7 @@ def select_vtail(project: Project, envelope: Optional[EnvelopeResult] = None) ->
                LoadValue("Load on rudder", on_rudder1, "lb", key="load_on_rudder"),
                LoadValue("V (EAS)", p1.v_eas_kt, "kt(EAS)", key="v_eas")],
         lt25=0.0, lt50=lv,
-        beta_deg=0.0, cy_beta_fin=cy_fin, cn_beta_fin=cn_fin,
+        beta_deg=0.0, cy_beta_fin=cy_vtail, cn_beta_fin=cn_vtail,
         # Fin AoA is 0 by the method (23.441(a)(1): deflection before yaw);
         # the state is the input full-rudder throw at the governing point.
         alpha_tail_deg=0.0, delta_deg=vt.rudder_deflection_deg,
@@ -1153,7 +1153,7 @@ def select_vtail(project: Project, envelope: Optional[EnvelopeResult] = None) ->
                LoadValue("Load due to rudder (cp 50%)", lrud, "lb", key="load_due_to_rudder_cp_50_pct"),
                LoadValue("Load on rudder", on_rudder2, "lb", key="load_on_rudder")],
         lt25=lyaw, lt50=lrud,
-        beta_deg=19.5, cy_beta_fin=cy_fin, cn_beta_fin=cn_fin,
+        beta_deg=19.5, cy_beta_fin=cy_vtail, cn_beta_fin=cn_vtail,
         # The fin AoA the method feeds _vt_aoa_load: opposite sign to beta_deg,
         # which is the SC-1 restatement (AS-3).
         alpha_tail_deg=-19.5, delta_deg=vt.rudder_deflection_deg,
@@ -1175,7 +1175,7 @@ def select_vtail(project: Project, envelope: Optional[EnvelopeResult] = None) ->
                          math.fsum(rudder_load_parts(0.0, _vt_aoa_load(-15.0, p3, vt), vt)),
                          "lb", key="load_on_rudder")],
         lt25=_vt_aoa_load(-15.0, p3, vt), lt50=0.0,
-        beta_deg=15.0, cy_beta_fin=cy_fin, cn_beta_fin=cn_fin,
+        beta_deg=15.0, cy_beta_fin=cy_vtail, cn_beta_fin=cn_vtail,
         alpha_tail_deg=-15.0, delta_deg=0.0,
         q_psf=dynamic_pressure_psf(p3.v_eas_kt)))
 
@@ -1196,7 +1196,7 @@ def select_vtail(project: Project, envelope: Optional[EnvelopeResult] = None) ->
                          math.fsum(rudder_load_parts(0.0, gust_load, vt)),
                          "lb", key="load_on_rudder")],
         lt25=gust_load, lt50=0.0,
-        beta_deg=gust_beta, cy_beta_fin=cy_fin, cn_beta_fin=cn_fin,
+        beta_deg=gust_beta, cy_beta_fin=cy_vtail, cn_beta_fin=cn_vtail,
         # The effective gust AoA on the fin, -beta in the SC-1 hand -- the very
         # Kgt*Ude/V that made the load, so lt25 = alpha*AVT/57.3*q*SV holds
         # exactly. q_psf stays None: 23.443(b) is linear in V, no q term (AS-4).

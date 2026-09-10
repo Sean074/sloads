@@ -301,11 +301,11 @@ def _scalars(project: Project, component: str) -> Optional[Tuple[float, float, f
 
 
 @dataclass(frozen=True)
-class FinRoot:
+class VtailRoot:
     """Where the vertical tail's root sits, and on whose authority.
 
     ``assumed`` is False only for an entered value; ``basis`` names the branch of
-    :func:`fin_root_waterline` that produced it, and ``note`` is the in-band
+    :func:`vtail_root_waterline` that produced it, and ``note`` is the in-band
     sentence a derived value owes its consumer.
     """
 
@@ -315,11 +315,11 @@ class FinRoot:
     note: str = ""
 
 
-def fin_root_waterline(layout: Optional["LayoutInput"], vtail_span_in: float = 0.0,
+def vtail_root_waterline(layout: Optional["LayoutInput"], vtail_span_in: float = 0.0,
                        explicit: float = 0.0,
                        centreline: Optional[FuselageCentreline] = None,
-                       outline=None, x_fin: float = 0.0,
-                       entered_geometry: float = 0.0) -> FinRoot:
+                       outline=None, x_vtail: float = 0.0,
+                       entered_geometry: float = 0.0) -> VtailRoot:
     """Waterline of the vertical-tail root (in) -- **the single owner** (L-1).
 
     Design note: ``docs/40_history/18_b8a_lateral_closure_plan.md`` §5.1, decision
@@ -338,7 +338,7 @@ def fin_root_waterline(layout: Optional["LayoutInput"], vtail_span_in: float = 0
         entered vtail polyline   -> its own root waterline             (assumed False)
         explicit input           -> use it                            (assumed False)
         T-tail with h_tail_z set -> root_waterline_z + h_tail_z - span (assumed True)
-        fuselage outline present -> z_centre(x_fin) + height(x_fin)/2
+        fuselage outline present -> z_centre(x_vtail) + height(x_vtail)/2
         otherwise                -> root_waterline_z + fuselage_height/2
         no layout / no data      -> 0.0, with a loud note
 
@@ -386,9 +386,9 @@ def fin_root_waterline(layout: Optional["LayoutInput"], vtail_span_in: float = 0
     The outline branch is the fuselage-top formula with a real body datum
     (backlog Pri 1, from T-8a): the section-centre line
     (:func:`~sloads.derived_geometry.fuselage_centreline`, note 24 R-4) plus half
-    the **local** body height at the fin station, both evaluated at ``x_fin``
+    the **local** body height at the fin station, both evaluated at ``x_vtail``
     (the fin's 25 %-MAC station ``xv25``). It fires only when the local height is
-    non-zero -- a pointed tail cone at ``x_fin`` states no top to sit on.
+    non-zero -- a pointed tail cone at ``x_vtail`` states no top to sit on.
 
     The layout fallback is the branch the outline datum replaces, retained for a
     project with no fuselage outline: ``fuselage_height / 2`` above
@@ -409,53 +409,53 @@ def fin_root_waterline(layout: Optional["LayoutInput"], vtail_span_in: float = 0
                 "The fin's height above the CG is the roll arm of every side "
                 "load it carries, so the surface is placed twice, differently: "
                 "correct the polyline or clear the scalar.")
-        return FinRoot(entered_geometry, False, "geometry", note)
+        return VtailRoot(entered_geometry, False, "geometry", note)
     if explicit:
-        return FinRoot(explicit, False, "entered")
+        return VtailRoot(explicit, False, "entered")
     if layout is None:
-        return FinRoot(0.0, True, "none", _FIN_ROOT_UNKNOWN)
+        return VtailRoot(0.0, True, "none", _VTAIL_ROOT_UNKNOWN)
     if (layout.tail_type == TailType.T_TAIL and layout.h_tail_z
             and vtail_span_in > 0):
         z = layout.root_waterline_z + layout.h_tail_z - vtail_span_in
-        return FinRoot(z, True, "t-tail", (
+        return VtailRoot(z, True, "t-tail", (
             f"vtail root waterline {z:.1f} in ASSUMED from the T-tail relation "
             f"(root_waterline_z {layout.root_waterline_z:.1f} + h_tail_z "
             f"{layout.h_tail_z:.1f} - fin span {vtail_span_in:.1f}), which puts "
             "the fin tip at the horizontal tail. Enter "
             "vtail_root_waterline_z to state it."))
     if centreline is not None:
-        height = fuselage_height_at(outline, x_fin)
+        height = fuselage_height_at(outline, x_vtail)
         if height:
-            z_c = centreline.z_at(x_fin)
+            z_c = centreline.z_at(x_vtail)
             z = z_c + height / 2.0
             note = (
                 f"vtail root waterline {z:.1f} in ASSUMED as the local fuselage "
                 f"top (z_centre {z_c:.1f} + height {height:.1f} / 2 at FS "
-                f"{x_fin:.1f}). Enter vtail_root_waterline_z to state it.")
+                f"{x_vtail:.1f}). Enter vtail_root_waterline_z to state it.")
             if centreline.assumed and centreline.note:
                 note += " " + centreline.note
-            return FinRoot(z, True, "fuselage-top", note)
+            return VtailRoot(z, True, "fuselage-top", note)
     if layout.root_waterline_z or layout.fuselage_height:
         z = layout.root_waterline_z + layout.fuselage_height / 2.0
-        return FinRoot(z, True, "fuselage-top", (
+        return VtailRoot(z, True, "fuselage-top", (
             f"vtail root waterline {z:.1f} in ASSUMED as the fuselage top "
             f"(root_waterline_z {layout.root_waterline_z:.1f} + fuselage_height "
             f"{layout.fuselage_height:.1f} / 2) -- with no fuselage outline the "
             "WING root stands in for the body centreline. Enter "
             "vtail_root_waterline_z or a fuselage outline to state it."))
-    return FinRoot(0.0, True, "none", _FIN_ROOT_UNKNOWN)
+    return VtailRoot(0.0, True, "none", _VTAIL_ROOT_UNKNOWN)
 
 
 #: What a fin with no vertical placement at all owes its consumer. Loud, because
 #: the consequence is not a small error: the roll moment of a fin side load about
 #: the CG takes the *wrong sign* when the fin is modelled below it.
-_FIN_ROOT_UNKNOWN = (
+_VTAIL_ROOT_UNKNOWN = (
     "vtail root waterline is 0 -- no parametric fuselage and no "
     "vtail_root_waterline_z, so the fin is placed on the airplane centreline. "
     "Its roll arm about the CG is therefore wrong, and may be wrong in sign.")
 
 
-def entered_fin_root(project: Project) -> float:
+def entered_vtail_root(project: Project) -> float:
     """The fin root waterline the ``vtail`` polyline states, or ``0.0``.
 
     The root is the lowest point of **either** edge, the same rule
@@ -471,7 +471,7 @@ def entered_fin_root(project: Project) -> float:
     return min(surf.leading_edge[0][1], surf.trailing_edge[0][1])
 
 
-def fin_root(project: Project) -> FinRoot:
+def vtail_root(project: Project) -> VtailRoot:
     """The fin root for this project, from the single owner above.
 
     The project-level entry point: resolves the outline datum (the section-centre
@@ -480,21 +480,21 @@ def fin_root(project: Project) -> FinRoot:
     """
     geometry = project.geometry
     vt = project.vtail_loads
-    return fin_root_waterline(
+    return vtail_root_waterline(
         geometry.parametric if geometry is not None else None,
         vt.vtail_span_in if vt is not None else 0.0,
         vt.vtail_root_waterline_z if vt is not None else 0.0,
         centreline=fuselage_centreline(project),
         outline=geometry.fuselage if geometry is not None else None,
-        x_fin=vt.xv25 if vt is not None else 0.0,
-        entered_geometry=entered_fin_root(project))
+        x_vtail=vt.xv25 if vt is not None else 0.0,
+        entered_geometry=entered_vtail_root(project))
 
 
 @dataclass(frozen=True)
 class HTailWaterline:
     """Where the horizontal tail sits, and on whose authority.
 
-    Same contract as :class:`FinRoot`: ``assumed`` is False only for an entered
+    Same contract as :class:`VtailRoot`: ``assumed`` is False only for an entered
     value, ``basis`` names the branch of :func:`h_tail_waterline` that produced
     it, and ``note`` is the in-band sentence a derived value owes its consumer.
     """
@@ -506,7 +506,7 @@ class HTailWaterline:
 
 
 def h_tail_waterline(project: Project,
-                     fin: Optional[TailPlanform] = None) -> HTailWaterline:
+                     vtail: Optional[TailPlanform] = None) -> HTailWaterline:
     """Waterline of the horizontal tail (in) -- **the single owner** (#236).
 
     Read by ``tail_span._h_tail_waterline`` for the load stations (so the report's
@@ -537,20 +537,20 @@ def h_tail_waterline(project: Project,
     before this owner the deck used the wing root there, 32+ in below the drawn
     surface on any real cruciform.
     """
-    if fin is None:
-        fin = resolve_tail_planform(project, VTAIL)
+    if vtail is None:
+        vtail = resolve_tail_planform(project, VTAIL)
     geometry = project.geometry
     layout = geometry.parametric if geometry is not None else None
-    if (layout is not None and fin is not None and fin.span > 0
+    if (layout is not None and vtail is not None and vtail.span > 0
             and layout.tail_type == TailType.T_TAIL):
-        z = fin.root_z + fin.span
-        return HTailWaterline(z, fin.root_z_assumed, "fin-tip", (
+        z = vtail.root_z + vtail.span
+        return HTailWaterline(z, vtail.root_z_assumed, "fin-tip", (
             f"h-tail waterline {z:.1f} in is the fin tip the horizontal "
             "surface sits on (fin root + fin span, from the fin-root owner)."))
-    if (layout is not None and fin is not None and fin.span > 0
+    if (layout is not None and vtail is not None and vtail.span > 0
             and layout.tail_type == TailType.CRUCIFORM
             and not layout.h_tail_z):
-        z = fin.root_z + fin.span / 2.0
+        z = vtail.root_z + vtail.span / 2.0
         return HTailWaterline(z, True, "mid-fin", (
             f"h-tail waterline {z:.1f} in ASSUMED as the mid-fin point the "
             "three-view draws a defaulted cruciform at. Enter h_tail_z to "
@@ -588,7 +588,7 @@ def resolve_tail_planform(project: Project,
     # The fin root is a property of the *surface's placement*, not of how its
     # planform was obtained, so it is resolved once here and applies equally to an
     # entered polyline and a derived rectangle (L-1).
-    root = fin_root(project) if component == VTAIL else FinRoot(0.0, False, "n/a")
+    root = vtail_root(project) if component == VTAIL else VtailRoot(0.0, False, "n/a")
     root_notes = [root.note] if root.note else []
 
     if surf is not None:
@@ -727,11 +727,9 @@ __all__ = [
     "PLANFORM_TOLERANCE",
     "TAIL_COMPONENTS",
     "VTAIL",
-    "FinRoot",
     "HTailWaterline",
     "TailPlanform",
-    "fin_root",
-    "fin_root_waterline",
+    "VtailRoot",
     "h_tail_waterline",
     "half_area_centroid",
     "is_conventional_tail",
@@ -739,4 +737,6 @@ __all__ = [
     "resolve_tail_planform",
     "tail_layout",
     "validate_tail_planform",
+    "vtail_root",
+    "vtail_root_waterline",
 ]

@@ -43,7 +43,7 @@ from sloads import io, registry
 from sloads.applicability import _STEP_NOT_APPLICABLE, step_not_applicable
 from sloads.models import MissingInputError
 from sloads.models.report import ReportSpec
-from sloads.modules.one_engine_out import _fin_cases, fin_conditions, simulate
+from sloads.modules.one_engine_out import _vtail_cases, vtail_conditions, simulate
 from sloads.modules.select import default_critical
 from sloads.modules.tail_span import build_tail_span
 from sloads.modules.taildist import build_tail_chordwise
@@ -75,7 +75,7 @@ def _section_11(doc):
     return next(s for s in doc.sections if s.title.startswith("11"))
 
 
-def _fin(project):
+def _vtail(project):
     return [c for c in default_critical(project).conditions
             if c.component == "vtail"]
 
@@ -94,7 +94,7 @@ def _total(condition):
 def test_the_engine_failure_cases_are_in_the_fins_critical_set():
     """OR-172. The admission itself, on every twin."""
     for name in _TWINS:
-        labels = [c.label for c in _fin(_project(name))]
+        labels = [c.label for c in _vtail(_project(name))]
         assert any(lbl.startswith(_PREFIX) for lbl in labels), name
 
 
@@ -109,7 +109,7 @@ def test_section_six_and_section_eleven_name_the_same_critical_fin_case():
     so this also pins that the engine-failure case is the one that wins.
     """
     for name in _TWINS:
-        conditions = _fin(_project(name))
+        conditions = _vtail(_project(name))
         governing = max(conditions, key=lambda c: abs(_total(c)))
         assert governing.label.startswith(_PREFIX), (name, governing.label)
         oei = [c for c in conditions if c.label.startswith(_PREFIX)]
@@ -131,7 +131,7 @@ def test_every_admitted_case_reaches_the_distributions_the_appendix_and_the_deck
 
     for name in _TWINS:
         project = _project(name)
-        admitted = {c.case_ref.case_id for c in fin_conditions(project)}
+        admitted = {c.case_ref.case_id for c in vtail_conditions(project)}
         assert admitted, name
 
         chordwise = {r.case for r in build_tail_chordwise(project)
@@ -141,7 +141,7 @@ def test_every_admitted_case_reaches_the_distributions_the_appendix_and_the_deck
         appendix = {row.case for row in applied_loads("vtail", spanwise)}
         deck = tail_span_csv(spanwise, component="vtail")
 
-        by_id = {c.case_ref.case_id: c.label for c in fin_conditions(project)}
+        by_id = {c.case_ref.case_id: c.label for c in vtail_conditions(project)}
         for case_id in admitted:
             label = by_id[case_id]
             assert label in chordwise, (name, case_id, "chordwise")
@@ -162,7 +162,7 @@ def test_every_engine_is_failed_and_both_senses_of_fin_load_are_present():
     """
     for name in _TWINS:
         project = _project(name)
-        cases = _fin_cases(project)
+        cases = _vtail_cases(project)
         engines = {fc.engine_index for fc in cases}
         assert len(engines) >= 2, (name, engines)
         loads = [fc.sense * fc.summary.max_tail_load_lb for fc in cases]
@@ -186,13 +186,13 @@ def test_a_case_that_does_not_recover_is_printed_and_reaches_no_envelope():
     saw_one = False
     for name in ("atr42_100", "dhc8_dash8"):
         project = _project(name)
-        cases = _fin_cases(project)
+        cases = _vtail_cases(project)
         stalled = [fc for fc in cases if not fc.recovered]
         recovered = [fc for fc in cases if fc.recovered]
         assert stalled and recovered, name        # both branches, same run
         saw_one = True
 
-        admitted = {c.case_ref.case_id for c in fin_conditions(project)}
+        admitted = {c.case_ref.case_id for c in vtail_conditions(project)}
         for fc in stalled:
             assert fc.case_id not in admitted, (name, fc.case_id)
         for fc in recovered:
@@ -236,7 +236,7 @@ def test_the_chordwise_split_is_the_pair_at_the_instant_of_peak_total_load():
     """
     differed = False
     for name in _TWINS:
-        for fc in _fin_cases(_project(name)):
+        for fc in _vtail_cases(_project(name)):
             rows, summary = simulate(fc.inputs)
             peak = max(rows, key=lambda r: r.lt)
             assert math.isclose(summary.lt25_at_peak_lb, peak.lt25, rel_tol=1e-12)
@@ -475,7 +475,7 @@ def test_the_oei_input_table_states_the_signed_butt_line():
     # Signed, one per side, and each is the module's own side owner applied to
     # its own magnitude -- not a lookup this table performs for itself.
     by_engine = {}
-    for fc in _fin_cases(project):
+    for fc in _vtail_cases(project):
         by_engine.setdefault(fc.engine_index, -fc.sense * fc.inputs.bleng)
     expected = [by_engine[i] for i in sorted(by_engine)]
     assert len(printed) == len(expected)
@@ -514,7 +514,7 @@ def test_one_engine_answers_to_one_number_across_the_document():
 
     # The case names themselves carry the same numbers (module owner), and the
     # 0-based position appears nowhere in the rendered document.
-    labels = {c.label for c in _fin(project) if c.label.startswith(_PREFIX)}
+    labels = {c.label for c in _vtail(project) if c.label.startswith(_PREFIX)}
     assert any("(engine 1)" in lbl for lbl in labels), labels
     assert any("(engine 2)" in lbl for lbl in labels), labels
 
@@ -540,7 +540,7 @@ def test_one_engine_answers_to_one_number_across_the_document():
     # note now states the same 1-based number and the same signed butt line
     # every other statement of the case's identity carries.
     by_engine = {fc.engine_index: -fc.sense * fc.inputs.bleng
-                 for fc in _fin_cases(project)}
+                 for fc in _vtail_cases(project)}
     published = registry.get("one_engine_out")(project).conditions
     assert published
     for condition in published:
