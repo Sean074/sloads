@@ -95,6 +95,54 @@ def test_select_tail_loads_survive_round_trip_bit_for_bit():
     assert before and before == after
 
 
+# --------------------------------------------------------------------------- #
+# The boundary-derived seam (note 54 D-54.1 / #25 step 1)
+# --------------------------------------------------------------------------- #
+def test_the_boundary_derived_marking_partitions_the_tail_blocks():
+    """Rule 3's drift guard on the D-54.1 seam.
+
+    Every field of the two tail input blocks sits on exactly one side:
+    planform geometry the boundary-line model derives (named, with the surface
+    whose lines derive it), or aero/control/mass data that stays entered. A
+    field added to either block without declaring its side fails here, and the
+    memberships are pinned so the seam cannot drift before step 2 consumes it.
+    """
+    import dataclasses
+
+    from sloads.models.inputs import (
+        HTAIL_BOUNDARY_DERIVED,
+        VTAIL_BOUNDARY_DERIVED,
+    )
+
+    stays_entered = {
+        TailLoadsInput: {
+            "tail_incidence_deg", "wing_zero_lift_cruise_deg",
+            "wing_zero_lift_enroute_deg", "wing_zero_lift_landing_deg",
+            "elevator_effectiveness", "elevator_te_up_deg",
+            "elevator_te_down_deg", "wing_lift_slope_per_rad",
+        },
+        VTailLoadsInput: {
+            "rudder_deflection_deg", "gross_weight_lb",
+            "rudder_large_deflection_factor", "izz_slugft2",
+            # Placement, not planform: the L-1 owner's field.
+            "vtail_root_waterline_z",
+        },
+    }
+    derived = {TailLoadsInput: HTAIL_BOUNDARY_DERIVED,
+               VTailLoadsInput: VTAIL_BOUNDARY_DERIVED}
+    surfaces = {"wing", "htail", "vtail", "elevator", "rudder"}
+    for cls in (TailLoadsInput, VTailLoadsInput):
+        fields = {f.name for f in dataclasses.fields(cls)}
+        marked, entered = set(derived[cls]), stays_entered[cls]
+        assert marked | entered == fields, cls.__name__
+        assert not (marked & entered), cls.__name__
+        assert set(derived[cls].values()) <= surfaces, cls.__name__
+    # The counts of record (note 54 D-54.1's 9-of-17 plus the wing span the
+    # v-tail block also carries):
+    assert len(HTAIL_BOUNDARY_DERIVED) == 9
+    assert len(VTAIL_BOUNDARY_DERIVED) == 10
+
+
 if __name__ == "__main__":
     test_tail_loads_property_proxies_to_empennage()
     print("ok property proxy")

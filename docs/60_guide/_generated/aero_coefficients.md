@@ -7,7 +7,7 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 
 | Field | Type | Units / notes | Default | Origin | Provenance |
 | --- | --- | --- | --- | --- | --- |
-| `geometry.empennage.htail.aspect_ratio_wing` | `float` | ARW (downwash) | `0.0` | original | SELECT ARW (downwash); a wing quantity, edited with the wing aero data (#95, C210-6 display group); quantity: *wing planform aspect ratio*; override of `external: the wing planform AR (derived_geometry.wing_aspect_ratio, the OV-5 consolidated owner; note 36 OV-2, C210-36)` |
+| `geometry.empennage.htail.aspect_ratio_wing` | `float` | [D] ARW (downwash; from the wing planform) | `0.0` | original | SELECT ARW (downwash); a wing quantity, edited with the wing aero data (#95, C210-6 display group); quantity: *wing planform aspect ratio*; override of `external: the wing planform AR (derived_geometry.wing_aspect_ratio, the OV-5 consolidated owner; note 36 OV-2, C210-36)` |
 | `geometry.empennage.htail.wing_lift_slope_per_rad` | `float` | AW (gust downwash relief 1 - 36*aw/ARW) | `0.0` | original | SELECT AW; a wing quantity, edited with the wing aero data (#95, C210-6 display group); quantity: *wing lift-curve slope*; override of `external: the cruise aero set's C1 x 57.3 (select.wing_lift_slope_per_rad; note 36 OV-2, C210-36)` |
 | `geometry.empennage.htail.wing_zero_lift_cruise_deg` | `float` | IW, cruise config | `0.0` | original | SELECT IW (cruise); wing aero, #95 C210-6 display group |
 | `geometry.empennage.htail.wing_zero_lift_enroute_deg` | `float` | IW, enroute config | `0.0` | original | SELECT IW (enroute); wing aero, #95 C210-6 display group |

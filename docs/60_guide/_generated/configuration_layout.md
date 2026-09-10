@@ -36,32 +36,32 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `geometry.fuselage.sections[].height` | `float` |  | `**required**` | sloads (supplied) | body outline model, Step G1; structurally required |
 | `geometry.fuselage.sections[].z_centre` | `Optional[float]` |  | `None` | sloads | body outline model, Step G1 |
 | `geometry.empennage.airplane_length_in` | `float` | LF (inches; LF_ft = LF_in/12 in the inertias) | `0.0` | original | SELECT LF (Iyy and default IZZ) |
-| `geometry.empennage.htail.aspect_ratio_htail` | `float` | ARHT (tail lift slope) | `0.0` | original | SELECT ARHT |
-| `geometry.empennage.htail.htail_area_sqft` | `float` | ST | `0.0` | original | SELECT ST |
-| `geometry.empennage.htail.htail_semispan_in` | `float` | BLHTAIL (tail semi-span, inches) | `0.0` | original | SELECT BLHTAIL |
-| `geometry.empennage.htail.elevator_area_sqft` | `float` | SE (total elevator area) | `0.0` | original | SELECT SE; blank derives as SEFWDHL + SEAFTHL -- one owner for the elevator-area triple (#95, C210-5); override of `external: its own hinge halves, SEFWDHL + SEAFTHL (select.derived_elevator_area; a typed SE that disagrees warns, validation.elevator_area_mismatch)` |
-| `geometry.empennage.htail.elevator_aft_hinge_sqft` | `float` | SEAFTHL | `0.0` | original | SELECT SEAFTHL |
-| `geometry.empennage.htail.elevator_fwd_hinge_sqft` | `float` | SEFWDHL | `0.0` | original | SELECT SEFWDHL |
+| `geometry.empennage.htail.aspect_ratio_htail` | `float` | [D] ARHT (tail lift slope) | `0.0` | original | SELECT ARHT |
+| `geometry.empennage.htail.htail_area_sqft` | `float` | [D] ST | `0.0` | original | SELECT ST |
+| `geometry.empennage.htail.htail_semispan_in` | `float` | [D] BLHTAIL (tail semi-span, inches) | `0.0` | original | SELECT BLHTAIL |
+| `geometry.empennage.htail.elevator_area_sqft` | `float` | [D] SE (total elevator area) | `0.0` | original | SELECT SE; blank derives as SEFWDHL + SEAFTHL -- one owner for the elevator-area triple (#95, C210-5); override of `external: its own hinge halves, SEFWDHL + SEAFTHL (select.derived_elevator_area; a typed SE that disagrees warns, validation.elevator_area_mismatch)` |
+| `geometry.empennage.htail.elevator_aft_hinge_sqft` | `float` | [D] SEAFTHL | `0.0` | original | SELECT SEAFTHL |
+| `geometry.empennage.htail.elevator_fwd_hinge_sqft` | `float` | [D] SEFWDHL | `0.0` | original | SELECT SEFWDHL |
 | `geometry.empennage.htail.elevator_te_down_deg` | `float` | EDN (full trailing-edge-down) | `0.0` | original | SELECT EDN |
 | `geometry.empennage.htail.elevator_te_up_deg` | `float` | EUP (full trailing-edge-up) | `0.0` | original | SELECT EUP |
 | `geometry.empennage.htail.elevator_effectiveness` | `float` | dalpha/ddelta_e as a fraction of AHT | `0.0` | original | SELECT dalpha/ddelta_e |
 | `geometry.empennage.htail.tail_incidence_deg` | `float` | IT (WL to tail chord) | `0.0` | original | SELECT IT |
-| `geometry.empennage.htail.xt25` | `float` | fuselage station of 25% tail MAC | `0.0` | original | SELECT 25% tail MAC station |
-| `geometry.empennage.htail.xt50` | `float` | fuselage station of 50% tail MAC | `0.0` | original | SELECT 50% tail MAC station |
-| `geometry.empennage.vtail.aspect_ratio_vtail` | `float` | ARVT | `0.0` | original | SELECT ARVT |
-| `geometry.empennage.vtail.vtail_area_sqft` | `float` | SV | `0.0` | original | SELECT SV |
-| `geometry.empennage.vtail.vtail_mac_in` | `float` | VMAC (inches; VMAC_ft = VMAC_in/12) | `0.0` | original | SELECT VMAC |
-| `geometry.empennage.vtail.vtail_span_in` | `float` | BLHTAIL (vertical-tail span, inches) | `0.0` | original | SELECT BLHTAIL (v-tail span) |
-| `geometry.empennage.vtail.rudder_area_sqft` | `float` | SR | `0.0` | original | SELECT SR; blank derives as SRFWDHL + SRAFTHL -- one owner for the rudder-area triple (#95, C210-5); override of `external: its own hinge halves, SRFWDHL + SRAFTHL (select.derived_rudder_area; a typed SR that disagrees warns, validation.rudder_area_mismatch)` |
-| `geometry.empennage.vtail.rudder_aft_hinge_sqft` | `float` | SRAFTHL | `0.0` | original | SELECT SRAFTHL |
-| `geometry.empennage.vtail.rudder_fwd_hinge_sqft` | `float` | SRFWDHL | `0.0` | original | SELECT SRFWDHL |
+| `geometry.empennage.htail.xt25` | `float` | [D] fuselage station of 25% tail MAC | `0.0` | original | SELECT 25% tail MAC station |
+| `geometry.empennage.htail.xt50` | `float` | [D] fuselage station of 50% tail MAC | `0.0` | original | SELECT 50% tail MAC station |
+| `geometry.empennage.vtail.aspect_ratio_vtail` | `float` | [D] ARVT | `0.0` | original | SELECT ARVT |
+| `geometry.empennage.vtail.vtail_area_sqft` | `float` | [D] SV | `0.0` | original | SELECT SV |
+| `geometry.empennage.vtail.vtail_mac_in` | `float` | [D] VMAC (inches; VMAC_ft = VMAC_in/12) | `0.0` | original | SELECT VMAC |
+| `geometry.empennage.vtail.vtail_span_in` | `float` | [D] BLHTAIL (vertical-tail span, inches) | `0.0` | original | SELECT BLHTAIL (v-tail span) |
+| `geometry.empennage.vtail.rudder_area_sqft` | `float` | [D] SR | `0.0` | original | SELECT SR; blank derives as SRFWDHL + SRAFTHL -- one owner for the rudder-area triple (#95, C210-5); override of `external: its own hinge halves, SRFWDHL + SRAFTHL (select.derived_rudder_area; a typed SR that disagrees warns, validation.rudder_area_mismatch)` |
+| `geometry.empennage.vtail.rudder_aft_hinge_sqft` | `float` | [D] SRAFTHL | `0.0` | original | SELECT SRAFTHL |
+| `geometry.empennage.vtail.rudder_fwd_hinge_sqft` | `float` | [D] SRFWDHL | `0.0` | original | SELECT SRFWDHL |
 | `geometry.empennage.vtail.rudder_deflection_deg` | `float` | RD (full rudder) | `0.0` | original | SELECT RD |
 | `geometry.empennage.vtail.rudder_large_deflection_factor` | `float` | EFV (subr 10000 chart; ~1.0) | `1.0` | original | SELECT EFV (subr 10000) |
-| `geometry.empennage.vtail.wing_span_in` | `float` | B (inches; IZZ uses B_ft = B_in/12) | `0.0` | original | SELECT B; blank derives from the WINGGEOM wing planform's own span (#95, C210-3 -- the C210 build typed 440 in against the integrator's 441); quantity: *wing planform span*; override of `external: the wing planform span (derived_geometry.wing_span_in, the WINGGEOM strip integral's span; select.effective_vtail_inputs)` |
+| `geometry.empennage.vtail.wing_span_in` | `float` | [D] B (inches; IZZ uses B_ft = B_in/12; from the wing planform) | `0.0` | original | SELECT B; blank derives from the WINGGEOM wing planform's own span (#95, C210-3 -- the C210 build typed 440 in against the integrator's 441); quantity: *wing planform span*; override of `external: the wing planform span (derived_geometry.wing_span_in, the WINGGEOM strip integral's span; select.effective_vtail_inputs)` |
 | `geometry.empennage.vtail.gross_weight_lb` | `float` | GW (IZZ default; 0 -> use the heaviest CG case) | `0.0` | original | SELECT GW; quantity: *max take-off weight*; override of `weight.max_takeoff_weight_lb (MTOW SSOT G-14; review N1 instance 1)` |
 | `geometry.empennage.vtail.izz_slugft2` | `float` | 0 -> compute the default IZZ | `0.0` | original | SELECT IZZ; 0 -> the SELECT.BAS rod estimate, now disclosed (#95, C210-25: it measured +49 % over WTONECG's database IZZ on the C210 with nothing saying an estimate was in play); override of `external: the rod-estimate default IZZ, two slender rods over the span and airplane length (select.default_side_gust_izz, SELECT.BAS 8884; WTONECG's database IZZ is disclosed beside the results, not consumed)` |
-| `geometry.empennage.vtail.xv25` | `float` | fuselage station of 25% vtail MAC | `0.0` | original | SELECT 25% v-tail MAC station |
-| `geometry.empennage.vtail.xv50` | `float` | fuselage station of 50% vtail MAC (ONENGOUT camber load) | `0.0` | original | ONENGOUT camber-load station |
+| `geometry.empennage.vtail.xv25` | `float` | [D] fuselage station of 25% vtail MAC | `0.0` | original | SELECT 25% v-tail MAC station |
+| `geometry.empennage.vtail.xv50` | `float` | [D] fuselage station of 50% vtail MAC (ONENGOUT camber load) | `0.0` | original | ONENGOUT camber-load station |
 | `geometry.empennage.vtail.vtail_root_waterline_z` | `float` | 0 -> derived, marked assumed | `0.0` | sloads | v-tail root waterline, plan 09 (tail_span) |
 | `aileron_loads.area_aft_hinge_sqft` | `float` | SAAFT | `0.0` | original | AILERON SAAFT |
 | `aileron_loads.area_fwd_hinge_sqft` | `float` | SAFWD | `0.0` | original | AILERON SAFWD |

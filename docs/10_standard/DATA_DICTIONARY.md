@@ -53,19 +53,19 @@ Geometry/aero inputs for SELECT's rational horizontal-tail loads (Ch 9).
 | `wing_zero_lift_cruise_deg` | `float` | IW, cruise config | `0.0` |
 | `wing_zero_lift_enroute_deg` | `float` | IW, enroute config | `0.0` |
 | `wing_zero_lift_landing_deg` | `float` | IW, landing config | `0.0` |
-| `aspect_ratio_wing` | `float` | ARW (downwash) | `0.0` |
-| `aspect_ratio_htail` | `float` | ARHT (tail lift slope) | `0.0` |
-| `htail_area_sqft` | `float` | ST | `0.0` |
+| `aspect_ratio_wing` | `float` | [D] ARW (downwash; from the wing planform) | `0.0` |
+| `aspect_ratio_htail` | `float` | [D] ARHT (tail lift slope) | `0.0` |
+| `htail_area_sqft` | `float` | [D] ST | `0.0` |
 | `elevator_effectiveness` | `float` | dalpha/ddelta_e as a fraction of AHT | `0.0` |
-| `xt25` | `float` | fuselage station of 25% tail MAC | `0.0` |
-| `xt50` | `float` | fuselage station of 50% tail MAC | `0.0` |
+| `xt25` | `float` | [D] fuselage station of 25% tail MAC | `0.0` |
+| `xt50` | `float` | [D] fuselage station of 50% tail MAC | `0.0` |
 | `elevator_te_up_deg` | `float` | EUP (full trailing-edge-up) | `0.0` |
 | `elevator_te_down_deg` | `float` | EDN (full trailing-edge-down) | `0.0` |
-| `elevator_area_sqft` | `float` | SE (total elevator area) | `0.0` |
-| `elevator_fwd_hinge_sqft` | `float` | SEFWDHL | `0.0` |
-| `elevator_aft_hinge_sqft` | `float` | SEAFTHL | `0.0` |
+| `elevator_area_sqft` | `float` | [D] SE (total elevator area) | `0.0` |
+| `elevator_fwd_hinge_sqft` | `float` | [D] SEFWDHL | `0.0` |
+| `elevator_aft_hinge_sqft` | `float` | [D] SEAFTHL | `0.0` |
 | `wing_lift_slope_per_rad` | `float` | AW (gust downwash relief 1 - 36*aw/ARW) | `0.0` |
-| `htail_semispan_in` | `float` | BLHTAIL (tail semi-span, inches) | `0.0` |
+| `htail_semispan_in` | `float` | [D] BLHTAIL (tail semi-span, inches) | `0.0` |
 
 ### `VTailLoadsInput`
 
@@ -74,19 +74,19 @@ Geometry/aero inputs for SELECT's rational vertical-tail loads (Ch 9).
 | Field | Type | Units / notes | Default |
 | --- | --- | --- | --- |
 | `rudder_deflection_deg` | `float` | RD (full rudder) | `0.0` |
-| `vtail_area_sqft` | `float` | SV | `0.0` |
-| `rudder_area_sqft` | `float` | SR | `0.0` |
-| `rudder_fwd_hinge_sqft` | `float` | SRFWDHL | `0.0` |
-| `rudder_aft_hinge_sqft` | `float` | SRAFTHL | `0.0` |
-| `aspect_ratio_vtail` | `float` | ARVT | `0.0` |
-| `vtail_mac_in` | `float` | VMAC (inches; VMAC_ft = VMAC_in/12) | `0.0` |
-| `xv25` | `float` | fuselage station of 25% vtail MAC | `0.0` |
-| `xv50` | `float` | fuselage station of 50% vtail MAC (ONENGOUT camber load) | `0.0` |
-| `wing_span_in` | `float` | B (inches; IZZ uses B_ft = B_in/12) | `0.0` |
+| `vtail_area_sqft` | `float` | [D] SV | `0.0` |
+| `rudder_area_sqft` | `float` | [D] SR | `0.0` |
+| `rudder_fwd_hinge_sqft` | `float` | [D] SRFWDHL | `0.0` |
+| `rudder_aft_hinge_sqft` | `float` | [D] SRAFTHL | `0.0` |
+| `aspect_ratio_vtail` | `float` | [D] ARVT | `0.0` |
+| `vtail_mac_in` | `float` | [D] VMAC (inches; VMAC_ft = VMAC_in/12) | `0.0` |
+| `xv25` | `float` | [D] fuselage station of 25% vtail MAC | `0.0` |
+| `xv50` | `float` | [D] fuselage station of 50% vtail MAC (ONENGOUT camber load) | `0.0` |
+| `wing_span_in` | `float` | [D] B (inches; IZZ uses B_ft = B_in/12; from the wing planform) | `0.0` |
 | `gross_weight_lb` | `float` | GW (IZZ default; 0 -> use the heaviest CG case) | `0.0` |
 | `rudder_large_deflection_factor` | `float` | EFV (subr 10000 chart; ~1.0) | `1.0` |
 | `izz_slugft2` | `float` | 0 -> compute the default IZZ | `0.0` |
-| `vtail_span_in` | `float` | BLHTAIL (vertical-tail span, inches) | `0.0` |
+| `vtail_span_in` | `float` | [D] BLHTAIL (vertical-tail span, inches) | `0.0` |
 | `vtail_root_waterline_z` | `float` | 0 -> derived, marked assumed | `0.0` |
 
 ## Enumerations
