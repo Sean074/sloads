@@ -87,6 +87,11 @@ dev = [
     # user guide's PNGs. Dev-only tooling, never imported at runtime; the
     # browser itself is a one-time `.venv/bin/playwright install chromium`.
     "playwright>=1.45",
+    # LRA beam-model three-view renderer (`scripts/plot_lra_model.py`): draws
+    # the step-12 skeleton + planform outlines as a PNG. Dev-only tooling,
+    # never imported by sloads at runtime; the script degrades to a clear
+    # install message when it is absent.
+    "matplotlib>=3.8",
 ]
 # The sbeam round-trip gate's solver (decision S-1, design note
 # docs/40_history/17_sbeam_roundtrip_ci_harness_plan.md). Deliberately NOT in
