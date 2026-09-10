@@ -275,6 +275,14 @@ from .wing_inertia import inertia_units, resolve_wing_cases
 
 MODULE_NAME = "balance"
 
+#: Quantity hint on the **pre-closure residual** force and moment: a statement
+#: about how well the case closed, not a load the airframe carries (review
+#: 2026-09-04 R-8, #170). The closed case is what it carries; these are what was
+#: left over before the residual was distributed, so 14 CFR 23.303's factor states
+#: a design quantity where there is none. Vocabulary owner:
+#: :data:`sloads.units.NON_LOAD_QUANTITIES`.
+CLOSURE_DIAGNOSTIC = "diagnostic"
+
 #: Wing conditions whose load set is symmetric about the centreline. ``TORS``
 #: joined this list at B7 **by measurement**: its ``unbal_moment`` is zero on
 #: every fixture, because a steady roll has no unbalanced rolling moment (see the
@@ -2757,11 +2765,13 @@ def run(project: Project) -> ModuleResult:
                 LoadValue("Weight", c.weight_lb, "lb", quantity="mass",
                           key="balanced_weight"),
                 LoadValue("Residual Fz (pre-closure)", c.residual_fz, "lb",
+                          quantity=CLOSURE_DIAGNOSTIC,
                           key="balanced_residual_fz"),
                 LoadValue("Residual Fz (% of n*W)",
                           100.0 * c.force_residual_fraction, "%",
                           key="balanced_residual_fz_pct"),
                 LoadValue("Residual My (pre-closure)", c.residual_my, "lb-in",
+                          quantity=CLOSURE_DIAGNOSTIC,
                           key="balanced_residual_my"),
                 LoadValue("Residual My (% of n*W*MAC)",
                           100.0 * c.moment_residual_fraction, "%",

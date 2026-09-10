@@ -142,6 +142,14 @@ def resolved_engines(project: Project) -> List[EngineInput]:
             for i, eng in enumerate(project.engines, start=1)]
 
 
+#: Quantity hint on the engine's **own** torque rating -- the input to a design
+#: torque, not a load the mount carries (#170). 14 CFR 23.303's factor applies to
+#: the ``mx_mount_torque`` derived from it, never to the rating, so the rating
+#: takes no ``SF`` cell and no ``-ULT`` marker. Vocabulary owner:
+#: :data:`sloads.units.NON_LOAD_QUANTITIES`.
+ENGINE_RATING = "characteristic"
+
+
 def torque_sense(inp: EngineInput) -> float:
     """``+1`` or ``-1``: the sign the engine's torque on the airframe carries.
 
@@ -315,7 +323,8 @@ def condition_361_a1(inp: EngineInput) -> ConditionResult:
             LoadValue("Applied at Y", cg[1], "in", key="loc_y"),
             LoadValue("Applied at Z", cg[2], "in", key="loc_z"),
             LoadValue("Torque factor", factor, key="torque_factor"),
-            LoadValue("Mean takeoff torque", base_torque, "ft-lb", key="mean_takeoff_torque"),
+            LoadValue("Mean takeoff torque", base_torque, "ft-lb",
+                      quantity=ENGINE_RATING, key="mean_takeoff_torque"),
             LoadValue("Engine mount torque", torque_sense(inp) * torque, "ft-lb",
                       key="mx_mount_torque"),
         ],
@@ -347,7 +356,8 @@ def condition_361_a2(inp: EngineInput) -> ConditionResult:
             LoadValue("Applied at Y", cg[1], "in", key="loc_y"),
             LoadValue("Applied at Z", cg[2], "in", key="loc_z"),
             LoadValue("Torque factor", factor, key="torque_factor"),
-            LoadValue("Max continuous torque", base_torque, "ft-lb", key="max_continuous_torque"),
+            LoadValue("Max continuous torque", base_torque, "ft-lb",
+                      quantity=ENGINE_RATING, key="max_continuous_torque"),
             LoadValue("Engine mount torque", torque_sense(inp) * torque, "ft-lb",
                       key="mx_mount_torque"),
         ],
@@ -409,7 +419,8 @@ def condition_361_a3(inp: EngineInput) -> ConditionResult:
             LoadValue("Applied at Z", cg[2], "in", key="loc_z"),
             LoadValue("Torque factor", factor, key="torque_factor"),
             LoadValue("Malfunction factor", TURBOPROP_MALFUNCTION_FACTOR, key="malfunction_factor"),
-            LoadValue("Mean takeoff torque", base_torque, "ft-lb", key="mean_takeoff_torque"),
+            LoadValue("Mean takeoff torque", base_torque, "ft-lb",
+                      quantity=ENGINE_RATING, key="mean_takeoff_torque"),
             LoadValue("Engine mount torque", torque_sense(inp) * torque, "ft-lb",
                       key="mx_mount_torque"),
         ],
@@ -609,7 +620,8 @@ def condition_25_361_a3ii(inp: EngineInput) -> ConditionResult:
             LoadValue("Applied at X", cg[0], "in", key="loc_x"),
             LoadValue("Applied at Y", cg[1], "in", key="loc_y"),
             LoadValue("Applied at Z", cg[2], "in", key="loc_z"),
-            LoadValue("Max accelerating torque", accel_torque, "ft-lb", key="max_accelerating_torque"),
+            LoadValue("Max accelerating torque", accel_torque, "ft-lb",
+                      quantity=ENGINE_RATING, key="max_accelerating_torque"),
             LoadValue("Engine mount torque", torque_sense(inp) * accel_torque, "ft-lb",
                       key="mx_mount_torque"),
         ],

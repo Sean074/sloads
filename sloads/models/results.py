@@ -55,11 +55,17 @@ class LoadValue:
     ``net_loads``' ``f"Root torsion Myy ({axis})"`` is the label that made the
     case: its text varies with the elastic-axis input while the quantity does not.
 
-    ``units`` is the Imperial display string. ``quantity`` is an optional
-    dimension hint used only to disambiguate SI conversion where the unit string
-    alone is ambiguous: a bare ``"lb"`` is pounds-*force* for a load (→ N) but
-    pounds-*mass* for a weight (→ kg). A weight sets ``quantity="mass"``; loads
-    leave it blank and convert by unit string. See :mod:`sloads.units`.
+    ``units`` is the Imperial display string. ``quantity`` is an optional hint the
+    producer sets when the unit string alone does not answer a question about the
+    value, and it answers two. **Dimension:** a bare ``"lb"`` is pounds-*force*
+    for a load (→ N) but pounds-*mass* for a weight (→ kg), so a weight sets
+    ``quantity="mass"``. **Load-ness:** a value in load units that is not a
+    structural load declares itself through
+    :data:`sloads.units.NON_LOAD_QUANTITIES`, so it takes no safety factor and no
+    ``-ULT`` marker — ``"characteristic"`` is ENGLOADS' engine torque *rating*,
+    the input to a design torque rather than a load the mount carries (#170).
+    Loads leave the field blank and convert by unit string. See
+    :mod:`sloads.units`.
 
     ``frame`` names the reference frame the value is stated in, for the
     quantities that have one: :mod:`sloads.frames` owns the vocabulary and the

@@ -400,7 +400,16 @@ class Units:
 
 
 def _load_dimension(units: str, quantity: str = "") -> Optional[str]:
-    """The deliverable dimension a LoadValue scales with, or ``None`` if not a load."""
+    """The deliverable dimension a LoadValue converts by, or ``None`` for none.
+
+    Tests ``"mass"`` alone, **not** :data:`sloads.units.NON_LOAD_QUANTITIES` — the
+    question here is dimensional ("which SI factor"), not structural ("is this a
+    load"). ``"mass"`` is the one hint that changes the answer, because ``"lb"``
+    is both pounds-mass and pounds-force. A ``"characteristic"`` (#170) is not a
+    load but still has a dimension: an engine's mean takeoff torque converts
+    ``ft-lb`` → ``N·m`` like every other torque, and routing this through the
+    load-ness set would leave it stated in Imperial inside an SI document.
+    """
     if quantity == "mass":
         return None
     return _UNIT_DIMENSION.get(units)

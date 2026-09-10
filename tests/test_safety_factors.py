@@ -45,7 +45,7 @@ from sloads.safety_factors import (
     classify,
     prescribes_factor,
 )
-from sloads.units import is_load_unit
+from sloads.units import NON_LOAD_QUANTITIES, is_load_unit
 from sloads.validation import consistency_warnings
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -430,6 +430,112 @@ def test_an_unmodified_project_raises_no_safety_factor_warning():
     codes = [w.code for w in consistency_warnings(io.load_project(_GA))]
     assert not [c for c in codes if c.startswith("safety_factor_override")]
     assert "safety_factor_below_regulation" not in codes
+
+
+
+# --------------------------------------------------------------------------- #
+# #170: a machine rating in load units is not a load (note 48 §1.2/§2.4)
+# --------------------------------------------------------------------------- #
+#: The engine's own torque ratings -- the *input* to a design torque. Each is
+#: published in ``ft-lb`` beside the ``mx_mount_torque`` derived from it, which is
+#: the load. Named here so the discrimination is asserted on the shipped fixtures
+#: rather than trusted: a rating that loses its hint, or a mount torque that
+#: gains one, fails below.
+_ENGINE_RATINGS = {"mean_takeoff_torque", "max_continuous_torque",
+                   "max_accelerating_torque"}
+
+#: ``balance``'s pre-closure residuals -- the second half of the same finding
+#: (review 2026-09-04 R-8). Equilibrium-quality diagnostics in load units, which
+#: were factored and ``-ULT``-marked beside the applied loads of the case they
+#: describe. Their percentage forms were never in load units, which is how the
+#: pair came to be marked two different ways.
+_CLOSURE_DIAGNOSTICS = {"balanced_residual_fz", "balanced_residual_my"}
+
+#: Every key the class covers -- the rule-4 sweep, not the one filed row.
+_NON_LOADS = _ENGINE_RATINGS | _CLOSURE_DIAGNOSTICS
+
+
+def test_the_unit_alone_does_not_decide_what_a_load_is():
+    """The predicate's two declarations, at the owner (#170).
+
+    ``ft-lb`` is a load unit and stays one; the producer's hint is what removes a
+    value from the class. Before #170 the test was on the unit alone, and an
+    engine rating therefore took 14 CFR 23.303's factor -- 554.4 ft-lb of mean
+    takeoff torque stated as 831.6 on the ultimate channel, a number with no
+    meaning.
+    """
+    assert is_load_unit("ft-lb")                          # a moment is a load
+    assert not is_load_unit("ft-lb", "characteristic")     # an engine rating is not
+    assert not is_load_unit("lb", "mass")                  # a weight is not
+    assert not is_load_unit("in")                          # nor is a station
+    # every hint that removes a value from the class is in the owner's vocabulary
+    assert {"mass", "characteristic"} <= NON_LOAD_QUANTITIES
+
+
+def test_a_non_load_in_load_units_is_not_load_marked_but_its_neighbours_are():
+    """The discrimination holds per value, across every fixture, both ways.
+
+    The reverse half is the one that matters: a blanket exclusion of ``ft-lb`` in
+    ENGLOADS would pass the forward assertion and silently drop the factor from
+    the mount torque, the gyroscopic couples and the stoppage torque -- the real
+    loads of the same conditions. Swept over all fixtures together rather than per
+    fixture, because a concept example need not declare a powerplant at all.
+    """
+    ratings = mounts = 0
+    for path in _EXAMPLES:
+        for item in _all_cases(io.load_project(path)):
+            for v in getattr(item, "values", None) or []:
+                where = (os.path.basename(path), item.title, v.key)
+                if v.key in _NON_LOADS:
+                    assert v.quantity in NON_LOAD_QUANTITIES, where
+                    assert not is_load_unit(v.units, v.quantity or ""), where
+                    ratings += 1
+                elif v.units == "ft-lb":
+                    assert is_load_unit(v.units, v.quantity or ""), where
+                    mounts += 1
+    assert ratings and mounts, (ratings, mounts)   # neither half may empty out
+    # and the class is swept, not sampled: every key of it was actually seen
+    seen = {v.key for path in _EXAMPLES
+            for item in _all_cases(io.load_project(path))
+            for v in (getattr(item, "values", None) or [])}
+    assert _NON_LOADS <= seen, _NON_LOADS - seen
+
+
+@pytest.mark.parametrize("path", _EXAMPLES, ids=lambda p: os.path.basename(p))
+def test_no_published_quantity_hint_is_outside_the_owners_vocabulary(path):
+    """Drift guard on the hint itself (CLAUDE.md rule 3).
+
+    ``quantity`` answers two questions -- SI dimension and load-ness -- and a hint
+    invented at a producer without a row at an owner answers neither. A new value
+    here must be added to :data:`sloads.units.NON_LOAD_QUANTITIES` or to the SI
+    dimension table, deliberately.
+    """
+    from sloads.units import HUMAN_SI
+
+    known = set(NON_LOAD_QUANTITIES) | set(HUMAN_SI)
+    for item in _all_cases(io.load_project(path)):
+        for v in getattr(item, "values", None) or []:
+            if v.quantity:
+                assert v.quantity in known, (item.title, v.key, v.quantity)
+
+
+def test_an_engine_rating_states_no_factor_in_the_delivered_row():
+    """The end of the channel, which is what #170 is about.
+
+    ``results_to_rows`` is the delivered CSV/report row. The rating's ``SF`` cell
+    is empty because nothing prescribes a factor for it; the mount torque's states
+    the condition's own factor. Both rows sit in one condition, which is why a
+    condition-level rule could never have fixed this.
+    """
+    from sloads.registry import get
+    from sloads.report.render import results_to_rows
+
+    engine = get("engine")(io.load_project(_GA))
+    rows = {r["Quantity"]: r for r in results_to_rows(engine.conditions)}
+    assert rows["Mean takeoff torque"]["SF"] == "", rows["Mean takeoff torque"]
+    assert rows["Engine mount torque"]["SF"], rows["Engine mount torque"]
+    # and the value itself is untouched -- the marker moved, not the number
+    assert "-ULT" not in rows["Mean takeoff torque"]["Units"]
 
 
 if __name__ == "__main__":
