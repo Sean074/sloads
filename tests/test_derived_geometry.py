@@ -674,9 +674,9 @@ def test_every_strip_sweep_asks_the_precondition_owner():
     """Rule 3's drift guard: a new sweep must not repeat ``wing_inertia``'s omission.
 
     The structural mark of a strip sweep is that it interpolates an edge
-    polyline -- it hands ``leading_edge``/``trailing_edge`` to ``interp_x`` (or
-    ``tail_geometry._interp``), which divides by the butt-line difference of the
-    segment it lands on and indexes ``pts[-2]``. Those are the entry points a
+    polyline -- it hands ``leading_edge``/``trailing_edge`` to ``interp_x``,
+    which divides by the span-coordinate difference of the segment it lands on
+    and indexes ``pts[-2]``. Those are the entry points a
     GUI can reach with a half-entered planform. Before #71 there were five, and
     of the five two carried an inline copy of the check, one carried half of it
     and two carried nothing; the copies had already begun to differ. Anything

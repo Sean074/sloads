@@ -108,7 +108,14 @@ def interp_x(polyline: List, y: float) -> float:
         (x0, y0), (x1, y1) = pts[i], pts[i + 1]
         if y0 <= y <= y1:
             return (x1 - x0) * (y - y0) / (y1 - y0) + x0
-    (x0, y0), (x1, y1) = pts[-2], pts[-1]
+    # Nearest segment, as documented: the first below the range, the last
+    # above it. Extrapolating the last segment for a below-range query -- the
+    # code until #219's sweep -- answered with a slope from the wrong end of
+    # the surface on any polyline with more than one segment.
+    if y < pts[0][1]:
+        (x0, y0), (x1, y1) = pts[0], pts[1]
+    else:
+        (x0, y0), (x1, y1) = pts[-2], pts[-1]
     return (x1 - x0) * (y - y0) / (y1 - y0) + x0
 
 

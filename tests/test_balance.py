@@ -1987,11 +1987,19 @@ _LATERAL_CASE_NUMBERS = {
     # so p_dot moves 5-12x and r_dot ~2 % through the Ixz coupling. The fin LOAD
     # and Ny are bit-identical, which is the check that a lever arm moved and not
     # the aerodynamics.
+    # 2026-09-09 (#219, D-54.3): the raked-root ruling. ga6's fin LRA and
+    # 25/50 % load points now continue on the edges' own slopes through the
+    # 5.5 in of raked root instead of collapsing onto the trailing-edge root
+    # point, so the load application stations there moved up to 33.5 in
+    # *forward* -- the yaw arm (x - x_cg) shrank and r_dot fell 0.6-2.9 %,
+    # p_dot shifting ~0.1 % through the Ixz coupling. The fin LOAD and Ny are
+    # bit-identical, which is the check that a lever arm moved and not the
+    # aerodynamics. ga6 is the only raked fixture; every other pin is untouched.
     'ga6_normal.project.json': {
-        'SIDE GUST': (603.9910, +0.177644, +183.331377, -96.691715),
-        'SUDDEN RUDDER': (585.6409, +0.172247, +175.352003, -85.951927),
-        'YAW 15 NEUTRAL': (-525.6850, -0.154613, -148.932941, +78.166372),
-        'YAW TO SIDESLIP': (-97.7496, -0.028750, -18.260820, +15.664357),
+        'SIDE GUST': (603.9910, +0.177644, +182.302685, -96.771794),
+        'SUDDEN RUDDER': (585.6409, +0.172247, +174.735861, -86.025707),
+        'YAW 15 NEUTRAL': (-525.6850, -0.154613, -148.052336, +78.271821),
+        'YAW TO SIDESLIP': (-97.7496, -0.028750, -17.732176, +15.727660),
     },
     # The three fixtures with a published fuselage outline (T-8a). Backlog Pri 1
     # gave the "fuselage-top" branch of vtail_root_waterline its body datum --

@@ -31,6 +31,7 @@ from sloads.tail_geometry import (
     HTAIL,
     PLANFORM_TOLERANCE,
     VTAIL,
+    TailPlanform,
     _polyline_mac_and_x25,
     vtail_root,
     h_tail_waterline,
@@ -678,6 +679,70 @@ def test_the_reports_declared_frames_agree_with_the_plane_owner():
             assert frame == frame_of[surface_plane(control)], control
     for component, names in _TAIL_SURFACES.items():
         assert names["span_axis"] == surface_plane(component).value, component
+
+
+# --------------------------------------------------------------------------- #
+# The raked-root ruling (#219, design note 54 D-54.3)
+# --------------------------------------------------------------------------- #
+
+def test_the_ga6_fin_axis_runs_straight_through_the_raked_root():
+    """Gate 5: no slope discontinuity where the closure chord takes over.
+
+    The GA6 fin's edges are each one straight segment, so its loads reference
+    axis is one straight line -- root to tip, through the 5.5 in at the root
+    and the 1.7 in at the tip where only one edge exists. Before D-54.3 the
+    axis was re-evaluated pointwise on the collapsing closure chord and swung
+    from station 259.4 to the trailing-edge root point at 292.9 over the last
+    5.5 in of span (Figure 24's kink).
+    """
+    project = io.load_project(os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "examples", "ga6_normal.project.json"))
+    planform = resolve_tail_planform(project, VTAIL)
+    n = 57
+    stations = [planform.span * j / n for j in range(n + 1)]
+    axis = [planform.x_at(s, planform.ref_axis_pct) for s in stations]
+    slopes = [(x1 - x0) / (s1 - s0)
+              for (x0, s0), (x1, s1) in zip(zip(axis, stations),
+                                            zip(axis[1:], stations[1:]))]
+    for slope in slopes[1:]:
+        assert slope == pytest.approx(slopes[0], abs=1e-9)
+    # And the chord itself keeps the closed-polygon clamp -- the 8 % area
+    # over-read D-54.3 deliberately preserves the fix for:
+    assert planform.chord(0.0) == pytest.approx(0.0, abs=1e-9)
+
+
+def test_a_matching_edge_planform_is_untouched_by_the_raked_root_ruling():
+    """Square-root fins byte-unchanged (D-54.3): where both edges cover the
+    same span, the edge evaluation and the closure evaluation are the same
+    number at every station and every chord fraction."""
+    from sloads.modules.wing_geometry import planform_boundary
+
+    planform = TailPlanform(
+        component=VTAIL,
+        le=[(200.0, 0.0), (230.0, 60.0)],
+        te=[(260.0, 0.0), (250.0, 60.0)],
+        span=60.0, area=3000.0, ref_axis_pct=0.4)
+    left, right, _lo, _hi, _breaks = planform_boundary(planform.le, planform.te)
+    for j in range(13):
+        s = 60.0 * j / 12
+        closure = left(s) + 0.4 * (right(s) - left(s))
+        assert planform.x_at(s, 0.4) == pytest.approx(closure, rel=1e-12)
+
+
+def test_below_range_interpolation_extrapolates_the_nearest_segment():
+    """``interp_x`` extrapolates the segment its docstring always promised.
+
+    On a polyline with more than one segment, a below-range query used to be
+    answered with the *last* segment's slope -- the wrong end of the surface.
+    Only reachable through the raked-root evaluation (#219), where the query
+    below the first point is the whole point.
+    """
+    from sloads.modules.wing_geometry import interp_x
+
+    kinked = [(0.0, 0.0), (10.0, 10.0), (10.0, 20.0)]  # slope 1 then vertical
+    assert interp_x(kinked, -5.0) == pytest.approx(-5.0)   # first segment
+    assert interp_x(kinked, 25.0) == pytest.approx(10.0)   # last segment
 
 
 # --------------------------------------------------------------------------- #

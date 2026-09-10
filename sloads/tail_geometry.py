@@ -181,8 +181,26 @@ class TailPlanform:
         return left(s)
 
     def x_at(self, s: float, pct: float) -> float:
-        """Chordwise station of ``pct`` of the local chord at span ``s``."""
-        return self.x_le(s) + pct * self.chord(s)
+        """Chordwise station of ``pct`` of the local chord at span ``s``.
+
+        **The raked-root ruling (design note 54 D-54.3, #219).** Where the two
+        edges do not cover the same span -- the GA6 fin's trailing edge starts
+        5.5 in below its leading edge, and its leading edge tops out 1.7 in
+        above its trailing edge -- the *chord* keeps the closed-polygon clamp
+        (:meth:`chord`; the 8 % area over-read justified it), but a
+        chord-fraction **line** -- the loads reference axis, the 25/50 % load
+        points, the hinge -- is evaluated on the **edges' own slopes**
+        (``interp_x`` extrapolates the nearest segment) rather than on the
+        closing chord. Re-evaluating the fraction pointwise on the collapsing
+        closure chord swung the GA6 fin's LRA onto the trailing-edge root
+        point (Figure 24's kink): an artifact of pointwise evaluation, not of
+        the surface. Inside the span both edges cover, the two formulations
+        are identical, so a square-root fin is byte-unchanged.
+        """
+        from .modules.wing_geometry import interp_x
+
+        x_le = interp_x(self.le, s)
+        return x_le + pct * (interp_x(self.te, s) - x_le)
 
     def strip_area(self) -> float:
         """The whole-surface area **as the strip quadrature sees it** (in^2):
@@ -203,25 +221,6 @@ class TailPlanform:
         for j in range(h):
             total += self.chord(ds / 2.0 + j * ds) * ds
         return 2.0 * total if self.symmetric else total
-
-
-def _interp(points: List[Tuple[float, float]], s: float) -> float:
-    """Chordwise ``x`` at span ``s`` on a polyline of ``(x, span)`` points.
-
-    Clamped outside the defined range rather than extrapolated: a strip centroid
-    can land a rounding step outside the last point, and extrapolating a chord
-    there would produce a silently wrong (possibly negative) strip.
-    """
-    if len(points) == 1:
-        return points[0][0]
-    if s <= points[0][1]:
-        return points[0][0]
-    for (x0, s0), (x1, s1) in zip(points, points[1:]):
-        if s <= s1:
-            if s1 == s0:
-                return x1
-            return x0 + (x1 - x0) * (s - s0) / (s1 - s0)
-    return points[-1][0]
 
 
 # --------------------------------------------------------------------------- #

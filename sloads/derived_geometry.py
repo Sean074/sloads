@@ -711,9 +711,8 @@ def _section_dim_at(outline, x: float, attr: str) -> Optional[float]:
 
     Linear interpolation between the bracketing sections of the same station
     table :func:`fuselage_summary` reduces to a maximum; clamped at both ends
-    rather than extrapolated, for the same reason ``tail_geometry._interp`` clamps
-    -- a station a rounding step outside the table must not produce a negative
-    body.
+    rather than extrapolated -- a station a rounding step outside the table
+    must not produce a negative body.
     """
     if outline is None or len(getattr(outline, "sections", ())) < 2:
         return None
