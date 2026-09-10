@@ -1105,7 +1105,7 @@ def canonical(value: float) -> float:
     * the solver channel -- ``-341426.25`` in the regional jet's ``MOMENT``
       cards, sitting 0.0 ulp from the tie of its seventh digit and printing
       ``-3.414262E+05`` here and ``-3.414263E+05`` on the Linux CI leg
-      (``export.sbeam_bridge._fmt``).
+      (``export.deck_format.fmt``).
 
     Both were found the same way -- the frozen Imperial digest passing on the
     developer's Mac and failing in CI -- and the second is why this became one

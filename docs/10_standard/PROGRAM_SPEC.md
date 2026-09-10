@@ -1013,7 +1013,7 @@ result that lacks what a deck needs is a stated error, never an empty column.
   Wing Loads page and in the Export bundle. The exported deck is built from this same set (see nodal loads
   below).
 - **Deck `$` comment width.** Every generated `$` sentence in the wing, body,
-  tail and control decks is emitted through `sbeam_bridge._comment`, which wraps
+  tail and control decks is emitted through `deck_format.comment`, which wraps
   at the **72-column free-field card width** (`$ ` + 70) — a property of the
   emitter, not of each hand-fitted sentence, because the same sentence is wider
   in SI. Swept in both unit systems by

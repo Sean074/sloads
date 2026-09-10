@@ -368,7 +368,7 @@ def test_the_body_deliverables_never_render_a_negative_zero(example, system):
     is not reproducible across platforms -- x86 and ARM reassociate the upstream
     arithmetic differently -- so the same commit rendered ``0.00`` locally and
     ``-0.00`` in CI, and the Imperial digest baseline failed on
-    ``sbeam/body_cards`` for a difference that is not a difference. ``_closed()``
+    ``sbeam/body_cards`` for a difference that is not a difference. ``snap_zero()``
     snaps it; this keeps it snapped, in both unit systems (SI is worse: the same
     dust is 175x larger in newtons).
     """
@@ -735,7 +735,7 @@ def test_deck_comments_fit_the_free_field_card_width(example, system):
     line, and ``$ FORCE set sums to root Sz ... Myy ...`` at up to ~100 columns
     in SI); the carve-out existed only because fixing it moves exported wing
     Imperial bytes, which the sweep's own step was not allowed to do. Both wing
-    channels are now built through ``sbeam_bridge._comment``, so the width is a
+    channels are now built through ``deck_format.comment``, so the width is a
     property of the emitter rather than of each hand-fitted sentence.
     """
     wing, body, tail, control, _, _ = _cached(example)
