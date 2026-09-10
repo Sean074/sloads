@@ -179,6 +179,9 @@ unwritten note.
 | 60 | **oracle_app results captions still claim ULTIMATE over LIMIT tables** — the frozen half of #192; the understrength direction *(2026-09-08 review G1)* (#239) | `_ULT_NOTE`/the ULTIMATE default replaced with the LIMIT statement; `oracle_app` added to `_GUI_TREES` so G-OR-74's screen sweep covers this front-end | V | S / S | — (unblocked at the 0.8.2 cut) |
 | 61 | **Override cross-check warnings fire below display precision and print two identical numbers** *(2026-09-08 review G6)* (#243) | One owner for the comparison tolerance (display precision or a stated rel-tol) so every cross-check warning behaves the same | V | S / S | — |
 | 62 | **Report polish rollup from the 2026-09-08 review** — ten tier-S presentation items in one issue so none is lost *(R13–R23)* (#240) | The ten items closed or individually declined with a reason | V | S / S–M | — |
+| 63 | **The issue package's `data/` becomes the oracle GUI's only CSV channel** — pulled into 0.8.3 by owner ruling (2026-09-09): implemented by consolidation, the per-module CSV/text buttons and the results zip retiring in the same change, preceded by the column-inventory pass (OEI march and V-n matrix named) (#245) | `data/` in every package build from the report's own owners, manifest rows, the intermediate channels gone, G-OR-73 re-cut to the consolidated set | V | M / M | after #241 and #242 (the wave), so `data/` is born corrected |
+| 64 | **The conventional h-tail beam sits at the wing-root waterline** — `_h_tail_waterline` returns `root_waterline_z`, 32.5 in low on `ga6_normal`; harmless to the fz-only loads, wrong in Appendix D's printed coordinates and the deck's `GRID`s; #160's class, promoted from the Open defects index at the 2026-09-09 scope ruling (#261) | The waterline read from a stated owner (mass item's `z`, or the T-tail relation), swept per rule 4, guarded on both conventional fixtures; a fix #156's reference plane can adopt unchanged | V | M / M | in the baseline wave (moves every conventional-tail fixture's `GRID`s) |
+| 65 | **Package-split `balance.py` (2,832 lines) and `sbeam_bridge.py` (2,701)** — the two files where every full-airplane change lands; pure moves along their existing section boundaries, guarded by the existing oracle/closure tests *(review R-23; moved from band C 2026-09-09 — note 49 §0's "stays 0.8.3" ruling honored over the banding drift)* (#191) | `modules/balance/` and `export/sbeam_bridge/` as packages; `report/content.py` and `io.py` as later candidates; sequenced right after #15 at the hygiene front so the milestone's diffs land in the final layout | V | S / M | after #15 (Pri 14) |
 | **B2 — 0.9.0: main-GUI development and bug correction** ||||||
 | 7 | **GUI review resumption** — the five unswept sections (Flight, Other, Ground, Plotting, Export) against the 0.7.2 deliverables; findings filed at close (rule 5); re-cut follows (#29) | The review body completed; the UI freeze on `app/views/` re-opened to the extent the findings justify — a reviewed list, not a rework. **The anchor of 0.9.0**, and the re-cut that promotes the parked main-GUI rows: **L-8c** (Results Review omits the 8 folded modules' results), **L-8e** (uncovered input fields + UX nits), **L-8f** (display-only nits), **M4-11b** (the six F/E-complexity view functions) and the **mutation half of L-8d** — which the 2026-08-24 code review showed is a live mechanism, not a theoretical one (a retained widget beat a model grown underneath it; the row-counter fix closed that instance, the class stays open) | V | S (review) / M | 0.8.1 cut |
 | 8 | **Seeding the item table from the estimate is destructive, and its rows are silently zero-stationed** — the oracle half shipped **2026-08-25** (`changes/weight-estimate-advisory.changed.md`): WTESTIMA's block captioned with what reads it (nothing — WTONECG and WTENV read the itemized data base) and the estimate shown beside the entered empty weight and MTOW with the delta. The **seed button itself already exists** and has since before the review (`app/views/weight_mass.py`, `weight_estimate.estimate_to_mass_items`, specified in `PROGRAM_SPEC.md` §WTESTIMA) — C210-9, issue #78 and the 2026-08-24 re-cut all recorded it as unbuilt because the whole C210 build was in the oracle GUI, which has no such button. What is open is the #62-class hardening the issue actually asked for *(C210-9, class c; build review 2026-08-23)* (#78) | Seeded rows **loudly incomplete** until positioned and tagged, rather than arriving at station 0 and untagged — `mass_distribution.infer_component` then lumps every one of them on the fuselage beam, the defect `fuselage_mass_warnings` already reports from the other side; and the button either merges, refuses, or says before the click that it **replaces every item already entered** (its caption says so today, after the fact). Main GUI, so it lands with the `app/views/` freeze lift | V | S–M / S–M | #29 |
@@ -206,7 +209,6 @@ unwritten note.
 | 16 | Calc-side function size (CH-8) — *moved from band D 2026-09-04; re-cut with the review's numbers: `landing_reactions` now 276, plus `envelope` 195, `build_tail_span` 176, `_export_sbeam` 173, `_manifest_rows` 155 and the three `balance.py` assemblers (see the R-22 comment on the issue)* (#17) | Split when touched; **the view functions wait for the GUI review (#29)** | V | S / S | — |
 | 17 | Review 2026-08-10 unscheduled findings m3–m13, m15–m18 + NITs *(defect sweep; moved from band D 2026-09-04)* (#18) | Swept opportunistically (practice 4) or promoted individually | V | S / S–M | — |
 | 18 | mypy strictness ratchet — stage 2 `export/`, stage 3 `modules/`, **plus `io.py` as its own stage** (95 `Any`-typed lines, the schema boundary — the R-25 comment on the issue) *(design note 27 ST-3; moved from band D 2026-09-04)* (#19) | `sloads.export.*`, `sloads.io`, then `sloads.modules.*` added to the `[[tool.mypy.overrides]]` list and narrowed to zero under ST-4; then `warn_return_any`/`disallow_any_generics` toward `--strict` | V | S / S per stage | — |
-| 35 | **Package-split `balance.py` (2,832 lines) and `sbeam_bridge.py` (2,701)** — the two files where every full-airplane change lands; pure moves along their existing section boundaries, guarded by the existing oracle/closure tests *(review R-23)* (#191) | `modules/balance/` and `export/sbeam_bridge/` as packages; `report/content.py` and `io.py` as later candidates | V | S / M | note 49's sweep landed 2026-09-05; after #15 |
 
 **Frozen (review §3) — no further investment; tests and gates kept; touched
 for defects only:** the FAR 23 core; the balanced assembler + handedness;
@@ -376,21 +378,9 @@ Figs 20.7–20.10).
 
 - #222 — One fuselage quantity is published under two `LoadValue` keys.
 - #223 — One surface, two names: retire `fin_*` for `vtail_*`.
-- **The h-tail beam is modelled at the wing root waterline, and the report now
-  prints it.** `tail_span._h_tail_waterline` returns `layout.root_waterline_z`
-  for a conventional tail — 78.5 in on `ga6_normal`, whose h-tail mass item is
-  entered at **111.0**, so the tailplane's beam sits 32.5 in low. Its docstring
-  argues the error is harmless because `z` carries no moment for a surface that
-  loads in `fz` only, and that is true of the loads; it stopped being the whole
-  story on 2026-09-07, when Appendix D began printing the station's airplane
-  coordinates and the exported deck's `GRID`s were already carrying them. Same
-  class as the fin root (#160) and the fuselage LRA: a derived stand-in where
-  the project states the real value, with nothing saying so. The h-tail has no
-  `ref_waterline` of its own; the candidates are the entered `htail` mass item's
-  `z`, the fin-root-plus-span relation already used for a T-tail, and an entered
-  scalar. **Found 2026-09-07 building note 44 §17's Appendix D; filed not fixed**
-  — it moves `GRID` positions on every conventional-tail fixture and wants its
-  own step. Tier M.
+- #261 — The conventional h-tail beam sits at the wing-root waterline; Appendix
+  D and the deck `GRID`s print it (promoted from this index 2026-09-09, rowed
+  Pri 64).
 - #16 — Review 2026-09-04 small items
 - **Overtaken by note 49, close on GitHub:** **#182** (the G-OR-49/OR-93
   contradiction — resolved *decided, not fixed* by **OR-119**: the gate is
