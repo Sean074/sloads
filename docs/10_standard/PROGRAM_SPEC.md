@@ -690,6 +690,17 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   wing-root plane marked ASSUMED otherwise — it enters no load, only the
   station points and exported `GRID`s); and
   TAILDIST's aft-of-hinge pressure block in discrete mode.
+- **The raked-root ruling (design note 54 D-54.3, #219, 2026-09-09).** Where a
+  surface's two edge polylines do not cover the same span — the GA6 fin's
+  trailing edge starts 5.5 in below its leading edge — the **chord** keeps the
+  closed-polygon clamp (`wing_geometry.planform_boundary`; extrapolating
+  over-read the GA6 fin area by 8 %), but a **chord-fraction line** — the LRA,
+  the 25/50 % load points, the hinge — is evaluated on the edges' own slopes
+  (`TailPlanform.x_at`), continuing straight through the closure region rather
+  than being re-evaluated pointwise on the collapsing closure chord, which
+  swung the GA6 fin's LRA 33.5 in aft onto the trailing-edge root point at the
+  root station. Surfaces whose edges cover the same span are byte-unchanged.
+  Gate: `tests/test_tail_geometry.py::test_the_ga6_fin_axis_runs_straight_through_the_raked_root`.
 - **Writes:** one `TailSpanResult` per condition per surface — a station table
   of `WingStationLoad` (**LIMIT**) that is **full span, tip to tip** for the
   h-tail and root-supported for the fin, `attachment_y` (the attachment stations
