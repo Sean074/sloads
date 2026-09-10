@@ -130,6 +130,40 @@ LOAD_UNITS = {
 }
 
 
+#: Quantity hints whose values are **not** structural loads, whatever their unit
+#: string says — the producer's declaration that overrides :data:`LOAD_UNITS`.
+#:
+#: ``"mass"`` was the first: a weight is reported in ``"lb"``, which is also the
+#: unit of a force, and only the producer knows which it minted.
+#:
+#: ``"characteristic"`` is the second (#170, note 48 §1.2/§2.4). A property of a
+#: *machine* can carry load dimension without being a load the structure has to
+#: sustain: ENGLOADS publishes the engine's own **mean takeoff torque** in
+#: ``ft-lb`` beside the mount torque derived from it, and the unit string cannot
+#: tell them apart. 14 CFR 23.303's factor has no meaning applied to a powerplant
+#: rating — the factored quantity is the *design* torque, which the same condition
+#: publishes separately — so the characteristic takes no ``SF`` cell and no
+#: ``-ULT`` marker. It is a declaration by the producer for the same reason
+#: ``"mass"`` is: the unit is not the question.
+#:
+#: ``"diagnostic"`` is the third (review 2026-09-04 R-8, the same finding's second
+#: half). ``balance`` publishes its **pre-closure residual** force and moment so a
+#: reader can judge how well the case closed before the residual was distributed.
+#: They are a statement about the *solution's quality*, not loads the airframe
+#: carries — the closed case is what it carries, and these are what is left over —
+#: so factoring one, or marking it ``-ULT``, states a design quantity where there is
+#: none. The percentage forms beside them were never in load units and so were never
+#: affected, which is how the pair came to be marked inconsistently.
+#:
+#: **Not the same test as a dimension hint.** ``report.content._load_dimension``
+#: and :data:`_SI_BY_QUANTITY` test ``"mass"`` alone, deliberately — they answer
+#: "which SI dimension does this convert by", and a characteristic converts by its
+#: unit string like any other torque (``ft-lb`` → ``N·m``). Load-ness and
+#: dimensional ambiguity are two questions about one field; only this set answers
+#: the first.
+NON_LOAD_QUANTITIES = frozenset({"mass", "characteristic", "diagnostic"})
+
+
 def is_load_unit(units: str, quantity: str = "") -> bool:
     """True if a value in these ``units`` is a structural load.
 
@@ -137,13 +171,13 @@ def is_load_unit(units: str, quantity: str = "") -> bool:
     weight). Wing loading (``lb/ft^2``), positions (``in``), inertias, areas,
     speeds and angles are not loads.
 
-    **Known limitation** (note 48 §2.4, filed not fixed): the test is on the
-    unit, so a machine characteristic that happens to be stated in load units —
-    ENGLOADS' mean takeoff torque in ``ft-lb`` — reads as a load here. Nothing
-    is mis-scaled by it once note 48's endpoint lands, but the fix belongs to
-    this function, not to its callers.
+    The unit alone is not sufficient and was the defect (#170): a producer that
+    knows its value is not a load says so with a
+    :data:`NON_LOAD_QUANTITIES` hint, and that declaration wins. ENGLOADS' mean
+    takeoff torque in ``ft-lb`` is the case that earned it — an engine rating read
+    as a structural load and carried a 1.5 that means nothing applied to it.
     """
-    if quantity == "mass":
+    if quantity in NON_LOAD_QUANTITIES:
         return False
     return units in LOAD_UNITS
 

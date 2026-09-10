@@ -393,8 +393,18 @@ conventions"** section (`SUMMARY_REPORT.md` §4.2.1), single-sourced in
 - The `safety_factor` field is **not** going away: it is what states the factor,
   and it is the only record that those two families are already ultimate.
 - **Loads only** — forces/moments/pressures. Never geometry, weights, inertias, areas,
-  speeds, angles, or dimensionless load factors (`_is_load_unit`,
-  `render.py:66-95`; `load_keys.py` marks application points "geometry, never scaled").
+  speeds, angles, or dimensionless load factors (`units.is_load_unit` — moved there at
+  note 48 OR-83 and read by both the render boundary and
+  `safety_factors.prescribes_factor`; `load_keys.py` marks application points
+  "geometry, never scaled"). **The unit string is not sufficient and the producer has
+  the last word (#170):** a value carrying load dimension that is not a load declares
+  itself with a `units.NON_LOAD_QUANTITIES` hint on its `LoadValue.quantity` —
+  `"mass"` (a weight in `lb`), `"characteristic"` (an engine's own torque *rating*, the
+  input to a design torque), `"diagnostic"` (`balance`'s pre-closure residual, a
+  statement about how well the case closed). Each takes no `SF` cell and no `-ULT`
+  marker, while the real loads of the same condition keep both. A hint answers
+  load-ness only — SI dimension is a separate question about the same field, and a
+  characteristic still converts `ft-lb` → `N·m`.
 - **The governing safety-factor table owns the policy** (`sloads/safety_factors.py`,
   M4-8 / decision G-11, 2026-08-14). It is the **single authority** every factor is
   read from: one row per condition family — the family boundaries are 14 CFR Subpart
