@@ -568,11 +568,15 @@ def h_tail_waterline(project: Project,
     airplane coordinate, and an analyst importing Appendix D's points placed the
     GA-6's tail 32.5 in low.
 
-    Resolution order::
+    Resolution order (design note 54, D-54.4 completed the conventional leg)::
 
-        T-tail with a resolved fin -> fin root + fin span (the fin tip)
+        T-tail with a resolved fin -> fin root + fin span (the fin tip);
+                                      an entered h_tail_z that contradicts it
+                                      is named NOT USED (the two-spellings rule)
         cruciform, h_tail_z blank  -> fin root + fin span / 2 (assumed True)
         h_tail_z entered           -> root_waterline_z + h_tail_z (assumed False)
+        htail mass item(s) entered -> their weight-weighted z (assumed True,
+                                      basis "mass-item")
         otherwise                  -> root_waterline_z, with a loud note
         no layout                  -> 0.0, same note
 
@@ -580,6 +584,24 @@ def h_tail_waterline(project: Project,
     sketch and the deck place one surface once (``CONVENTIONS.md`` §7 rule 2) --
     before this owner the deck used the wing root there, 32+ in below the drawn
     surface on any real cruciform.
+
+    **The two-spellings rule** (D-54.4, the #260 E5 pattern made loud): on a
+    declared T-tail the surface sits on the fin, so the relation *is* the
+    waterline -- but a project may also carry an entered ``h_tail_z`` spelling
+    the same fact a second way. Where the entered spelling disagrees with the
+    fin tip by more than :data:`PLANFORM_TOLERANCE` of the fin span, the fin
+    tip wins **and the note names the entered value as NOT USED**, exactly as
+    the fin-root owner treats its own two spellings. Silent precedence is what
+    let ``atr42_100`` declare ``t_tail`` with ``h_tail_z = 0.0`` and be right
+    only by branch order.
+
+    **The mass-item branch** (D-54.4, decided 2026-09-09): before falling back
+    to the wing-root plane, a conventional tail with no entered ``h_tail_z``
+    takes the h-tail mass items' weight-weighted ``z`` -- an entered statement
+    of where the surface's mass sits, which is a far better placement than the
+    wing root (``cessna_210``'s item puts the surface at 100.0 in where the
+    wing-root plane sat 14 in low at 86.0). ASSUMED, because a mass station is
+    not a surface definition; the note says which item(s) spoke.
     """
     if vtail is None:
         vtail = resolve_tail_planform(project, VTAIL)
@@ -588,9 +610,17 @@ def h_tail_waterline(project: Project,
     if (layout is not None and vtail is not None and vtail.span > 0
             and layout.tail_type == TailType.T_TAIL):
         z = vtail.root_z + vtail.span
-        return HTailWaterline(z, vtail.root_z_assumed, "fin-tip", (
-            f"h-tail waterline {z:.1f} in is the fin tip the horizontal "
-            "surface sits on (fin root + fin span, from the fin-root owner)."))
+        note = (f"h-tail waterline {z:.1f} in is the fin tip the horizontal "
+                "surface sits on (fin root + fin span, from the fin-root owner).")
+        if layout.h_tail_z:
+            entered = layout.root_waterline_z + layout.h_tail_z
+            if abs(entered - z) > PLANFORM_TOLERANCE * vtail.span:
+                note += (f" The entered h_tail_z implies waterline "
+                         f"{entered:.1f} in and is NOT USED: a declared T-tail "
+                         "sits on its fin, and the two spellings disagree by "
+                         f"{abs(entered - z):.1f} in. Clear h_tail_z, or fix "
+                         "the fin geometry it contradicts.")
+        return HTailWaterline(z, vtail.root_z_assumed, "fin-tip", note)
     if (layout is not None and vtail is not None and vtail.span > 0
             and layout.tail_type == TailType.CRUCIFORM
             and not layout.h_tail_z):
@@ -602,6 +632,20 @@ def h_tail_waterline(project: Project,
     if layout is not None and layout.h_tail_z:
         return HTailWaterline(
             layout.root_waterline_z + layout.h_tail_z, False, "entered")
+    from .mass_distribution import distribution
+    from .models import MassComponent
+
+    dist = distribution(project)
+    weight = dist.weight(MassComponent.HTAIL)
+    if weight > 0.0:
+        z = dist.cg("z", MassComponent.HTAIL)
+        names = ", ".join(it.name for it in
+                          dist.by_component.get(MassComponent.HTAIL, []))
+        return HTailWaterline(z, True, "mass-item", (
+            f"h-tail waterline {z:.1f} in ASSUMED as the h-tail mass items' "
+            f"weight-weighted z ({names}) -- h_tail_z is not entered, and a "
+            "mass station is not a surface definition. Enter h_tail_z to "
+            "state it."))
     z = layout.root_waterline_z if layout is not None else 0.0
     return HTailWaterline(z, True, "wing-root", (
         f"h-tail waterline {z:.1f} in ASSUMED as the wing-root reference plane "

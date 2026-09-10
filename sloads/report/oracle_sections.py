@@ -3804,13 +3804,22 @@ def _htail_waterline_sentence(project: Project, system: UnitSystem) -> str:
                 "entered geometry: the wing-root reference plane plus the "
                 "entered h-tail offset (h_tail_z).")
     if resolved.basis == "fin-tip":
-        return (f" The waterline every station sits on, {z} {length}, is the "
-                "fin tip the horizontal surface is mounted on, from the same "
-                "owner that places the fin.")
+        sentence = (f" The waterline every station sits on, {z} {length}, is "
+                    "the fin tip the horizontal surface is mounted on, from "
+                    "the same owner that places the fin.")
+        if "NOT USED" in resolved.note:
+            sentence += (" The entered h-tail offset (h_tail_z) disagrees "
+                         "with the fin tip and is NOT USED (D-54.4).")
+        return sentence
     if resolved.basis == "mid-fin":
         return (f" The waterline every station sits on, {z} {length}, is "
                 "ASSUMED as the mid-fin point a defaulted cruciform is drawn "
                 "at. Enter h_tail_z to state it.")
+    if resolved.basis == "mass-item":
+        return (f" The waterline every station sits on, {z} {length}, is "
+                "ASSUMED as the weight-weighted height of the h-tail mass "
+                "items -- an entered statement of where the surface's mass "
+                "sits, not a surface definition. Enter h_tail_z to state it.")
     return (f" The waterline printed for every station, {z} {length}, is "
             "ASSUMED: it is the wing-root reference plane the analysis "
             "carries, not the surface's true waterline, because no h-tail "

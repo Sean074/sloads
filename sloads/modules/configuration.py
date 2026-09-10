@@ -49,7 +49,13 @@ from ..models import (
     Vec3,
 )
 from ..registry import register
-from ..tail_geometry import SurfacePlane, surface_plane, vtail_root, vtail_root_waterline
+from ..tail_geometry import (
+    SurfacePlane,
+    h_tail_waterline,
+    surface_plane,
+    vtail_root,
+    vtail_root_waterline,
+)
 from .wing_geometry import interp_x, surface_properties
 
 _FAR = "configuration"  # modern addition; no FAR condition / no .BAS oracle
@@ -289,17 +295,23 @@ def tail_planform(layout: LayoutInput,
         x_le, x_te = x_mac - 0.25 * chord, x_mac + 0.75 * chord
         h_half = h_span_in / 2.0
 
-        # A defaulted T-tail / cruciform h-tail sits on the *resolved* fin (the
-        # fin tip / mid-fin from the same owner the load path reads), not on
-        # ``fuselage_height/2 + span`` above the wing root -- on ``atr42_100``
-        # the two disagree by 32 in (backlog Pri 1, 2026-08-16).
-        h_tail_z = layout.h_tail_z
-        if h_tail_z == 0.0 and layout.tail_type == TailType.T_TAIL:
-            h_z = vtail_root_z + v_span_in
-        elif h_tail_z == 0.0 and layout.tail_type == TailType.CRUCIFORM:
-            h_z = vtail_root_z + v_span_in * 0.5
+        # One owner for where the h-tail sits (#236, completed D-54.4): with
+        # the project in hand the sketch reads ``h_tail_waterline`` -- the
+        # same resolution the load path places stations and GRIDs with, so the
+        # drawing cannot disagree with the deck (rule 2; on ``cessna_210`` the
+        # sketch's own entered-else-wing-root logic sat 14 in below the
+        # mass-item placement the owner now resolves). Layout-only callers
+        # keep the local first-order branches, like the fin's root above.
+        if project is not None:
+            h_z = h_tail_waterline(project).z
         else:
-            h_z = layout.root_waterline_z + h_tail_z
+            h_tail_z = layout.h_tail_z
+            if h_tail_z == 0.0 and layout.tail_type == TailType.T_TAIL:
+                h_z = vtail_root_z + v_span_in
+            elif h_tail_z == 0.0 and layout.tail_type == TailType.CRUCIFORM:
+                h_z = vtail_root_z + v_span_in * 0.5
+            else:
+                h_z = layout.root_waterline_z + h_tail_z
 
         panels["h_tail"] = {
             "top": [(x_le, h_half), (x_te, h_half), (x_te, -h_half),

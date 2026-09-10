@@ -2272,7 +2272,11 @@ def test_the_htail_station_waterline_states_its_provenance_in_both_directions():
                      and t is not table)
     assert "h_tail_z" not in (vtail_table.note or "")
 
-    # Assumed direction: the reviewed state -- no h_tail_z entered.
+    # Assumed direction: the reviewed state -- no h_tail_z entered. Since
+    # D-54.4 the GA-6 cannot reproduce the reviewed defect at all: its own
+    # h-tail mass item (WL 111) outranks the wing-root plane, so blanking
+    # h_tail_z moves the *provenance* to ASSUMED mass-item while the printed
+    # coordinate stays the surface's true height, not 78.5.
     project = io.load_project(_GA)
     blank = dataclasses.replace(
         project, geometry=dataclasses.replace(
@@ -2280,11 +2284,11 @@ def test_the_htail_station_waterline_states_its_provenance_in_both_directions():
                 project.geometry.parametric, h_tail_z=0.0)))
     doc = oc.build_oracle_document(blank, _spec())
     table = _htail_lra_table(doc)
-    assert all(row[3] == format_value(78.5) for row in table.rows), table.rows
+    assert all(row[3] == format_value(111.0) for row in table.rows), table.rows
     assert "ASSUMED" in table.note
-    assert "not the surface's true waterline" in table.note
+    assert "h-tail mass" in table.note
     note = _appendix(doc, oc.HTAIL_LOAD_STATIONS).tables[0].note
-    assert "ASSUMED" in note and "not the surface's true waterline" in note
+    assert "ASSUMED" in note and "h-tail mass" in note
 
 
 def test_no_load_the_wing_section_prints_is_marked_ultimate():

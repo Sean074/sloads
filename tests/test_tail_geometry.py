@@ -588,9 +588,33 @@ def test_the_htail_waterline_owner_reads_the_entered_offset():
     assert resolved.basis == "entered" and resolved.assumed is False
 
 
-def test_the_htail_waterline_owner_assumes_the_wing_root_plane_and_says_so():
-    """No ``h_tail_z`` -> the wing-root plane stands in, ASSUMED and stated."""
-    resolved = h_tail_waterline(_project("cessna_210.project.json"))
+@pytest.mark.parametrize("example, z", [("cessna_210.project.json", 100.0),
+                                        ("concept_heavy.project.json", 90.0)])
+def test_the_htail_waterline_owner_reads_the_mass_items(example, z):
+    """D-54.4: no ``h_tail_z`` -> the h-tail mass items' weight-weighted z.
+
+    An entered statement of where the surface's mass sits beats the wing-root
+    placeholder that preceded it -- the C210 sat 14 in low at 86.0 and the
+    concept heavy 10 in high at 100.0. ASSUMED and stated, because a mass
+    station is not a surface definition. Both conventional no-``h_tail_z``
+    fixtures pinned (the note 54 gate-3 moves).
+    """
+    resolved = h_tail_waterline(_project(example))
+    assert resolved.z == pytest.approx(z)
+    assert resolved.assumed is True and resolved.basis == "mass-item"
+    assert "ASSUMED" in resolved.note and "h_tail_z" in resolved.note
+
+
+def test_the_htail_waterline_owner_assumes_the_wing_root_plane_last():
+    """No ``h_tail_z`` *and* no h-tail mass item -> the wing-root plane,
+    ASSUMED and stated -- now the last resort (D-54.4), never outranking an
+    entered statement of the surface's height."""
+    from sloads.models import MassComponent
+
+    project = copy.deepcopy(_project("cessna_210.project.json"))
+    project.weight.items = [it for it in project.weight.items
+                            if it.component is not MassComponent.HTAIL]
+    resolved = h_tail_waterline(project)
     assert resolved.z == pytest.approx(86.0)
     assert resolved.assumed is True and resolved.basis == "wing-root"
     assert "ASSUMED" in resolved.note and "h_tail_z" in resolved.note
@@ -604,8 +628,33 @@ def test_the_htail_waterline_owner_puts_a_t_tail_on_the_fin_tip():
     assert resolved.basis == "fin-tip"
 
 
+def test_a_t_tail_h_tail_z_that_contradicts_the_fin_is_named_not_used():
+    """The two-spellings rule (D-54.4, gate 6 -- the #260 E5 pattern loud).
+
+    A declared T-tail sits on its fin; an entered ``h_tail_z`` spelling a
+    different waterline is not silently outranked by branch order -- the fin
+    tip wins and the note names the entered value NOT USED.
+    """
+    project = copy.deepcopy(_project("atr42_100.project.json"))
+    project.geometry.parametric.h_tail_z = 60.0   # implies 230.0 vs fin tip 316.2
+    resolved = h_tail_waterline(project)
+    assert resolved.z == pytest.approx(316.2)
+    assert resolved.basis == "fin-tip"
+    assert "NOT USED" in resolved.note and "h_tail_z" in resolved.note
+
+
+def test_a_t_tail_h_tail_z_that_agrees_with_the_fin_raises_no_flag():
+    """The RJ enters ``h_tail_z`` = 180.0, which implies exactly its fin tip:
+    two spellings of one fact in agreement carry no NOT-USED note."""
+    resolved = h_tail_waterline(_project("concept_regional_jet.project.json"))
+    assert resolved.z == pytest.approx(225.0)
+    assert resolved.basis == "fin-tip"
+    assert "NOT USED" not in resolved.note
+
+
 @pytest.mark.parametrize("example", ["ga6_normal.project.json",
-                                     "baron_58.project.json"])
+                                     "baron_58.project.json",
+                                     "cessna_210.project.json"])
 def test_the_three_view_and_the_load_path_place_one_htail_once(example):
     """The #236 drift guard, the h-tail twin of the fin's above.
 
