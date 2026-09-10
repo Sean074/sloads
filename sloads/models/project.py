@@ -320,7 +320,18 @@ from .results import EnvelopeResult, LoadsResult, MassResult
 # the last write. Appendix A is the first reader, which is why it is fixed now.
 # An identity hop: a pre-v64 file could never hold more than one ref, so the
 # singular key reads into a one-element list and no delivered load moves.
-SCHEMA_VERSION = 64
+# v65 (design note 54 D-54.1/D-54.8, #25 step 2, owner-agreed 2026-09-09): the
+# boundary-line model. ``SurfaceInput`` gains ``hinge_line`` (the control's
+# aerodynamic hinge axis as an (X, span) polyline; empty = not entered), a
+# control surface's ``trailing_edge`` may be empty (it derives from the
+# parent's -- the two are physically one line), and ``LayoutInput`` gains
+# ``htail_dihedral_deg`` (declared, physics deferred, D-54.8). The two tail
+# input blocks' fields are also **regrouped** into the D-54.1 seam order (the
+# planform-geometry group, then aero/settings) -- the physical regrouping #25
+# step 1 deferred to this bump. All additive with empty/0.0 defaults meaning
+# exactly the v64 state, and JSON stores fields by name, so the 64->65 hop is
+# an identity and no delivered load or GRID moves.
+SCHEMA_VERSION = 65
 
 
 @dataclass

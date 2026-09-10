@@ -502,8 +502,13 @@ def _region_series(project: Project, name: str, style: str, label: str,
     """
     from ..derived_geometry import require_integrable_planform
     from ..modules.wing_geometry import surface_top_outline
+    from ..tail_geometry import resolved_control_surface
 
-    surface = project.geometry.by_name(name) if project.geometry else None
+    # Through the D-54.1 resolver, so a control entered without its own TE
+    # (it derives from the parent's -- physically one line, #25 step 2) still
+    # draws as the closed shape the integrator uses.
+    surface = (resolved_control_surface(project.geometry, name)
+               if project.geometry else None)
     if surface is None:
         return []
     # The same precondition every other consumer of an edge polyline asks
@@ -5399,7 +5404,12 @@ def _tab_rectangle(project: Project, spec, host: str,
     says so in as many words, because a shape a reader could mistake for
     entered geometry is exactly what this document must not draw silently.
     """
-    surface = project.geometry.by_name(host) if project.geometry else None
+    from ..tail_geometry import resolved_control_surface
+
+    # Through the D-54.1 resolver: a control host entered without its own TE
+    # (it derives from the parent's) still has a trailing edge to draw on.
+    surface = (resolved_control_surface(project.geometry, host)
+               if project.geometry else None)
     mac = float(getattr(spec, "mac_in", 0.0) or 0.0)
     area_sqin = float(getattr(spec, "area_sqft", 0.0) or 0.0) * IN2_PER_FT2
     if surface is None or mac <= 0 or area_sqin <= 0:

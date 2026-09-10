@@ -270,9 +270,14 @@ def _engine_stations(project: Project, geometry: GeometryInput) -> Optional[Cond
 
 def geometry_properties(geometry: GeometryInput, project: Optional[Project] = None) -> List[ConditionResult]:
     """Geometric properties for every surface, plus engine stations if applicable."""
+    # Control trailing edges resolve against their parents first (D-54.1, #25
+    # step 2): a control entered without a TE integrates as its parent-derived
+    # shape, and an entered control TE off the parent's is refused there.
+    from ..tail_geometry import resolved_surfaces
+
     if not geometry.surfaces:
         raise MissingInputError("WINGGEOM needs at least one surface")
-    results = [surface_properties(s) for s in geometry.surfaces]
+    results = [surface_properties(s) for s in resolved_surfaces(geometry)]
     if project is not None:
         engines = _engine_stations(project, geometry)
         if engines is not None:

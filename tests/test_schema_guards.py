@@ -367,7 +367,19 @@ def fields_hash() -> str:
 #: are exactly the v62 meaning (no thrust line existed; every torque assumed
 #: clockwise), so the 62->63 hop is an identity and the Imperial digests do not
 #: move.
-EXPECTED_FIELDS_HASH = "7bb3aab4f8675b0e"
+#: v65 (design note 54 D-54.1/D-54.8, #25 step 2): the boundary-line model.
+#: ``SurfaceInput`` gains ``hinge_line`` (the control's aerodynamic hinge axis;
+#: empty = not entered, the hinge-area scalars stay typed), ``LayoutInput``
+#: gains ``htail_dihedral_deg`` (declared stabilizer dihedral, physics
+#: deferred), and the two tail input blocks are **regrouped** into the D-54.1
+#: seam order -- the physical regrouping #25 step 1 deferred to exactly this
+#: bump (its fragment says so), since field order is part of this hash. All
+#: additive with defaults meaning the v64 state and JSON stores fields by
+#: name, so the 64->65 hop is an identity and the Imperial digests do not
+#: move; ``ga6_normal``'s elevator/rudder ``trailing_edge`` entries are
+#: removed in the same re-stamp because the derived TE is byte-identical to
+#: them (asserted in ``tests/test_tail_geometry.py``).
+EXPECTED_FIELDS_HASH = "fb0322cb5386f0ea"
 
 
 def test_persisted_dataclass_shapes_are_unchanged():

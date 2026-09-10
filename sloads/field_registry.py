@@ -912,6 +912,10 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("geometry.surfaces[].tip_cap_width_in", _GEO, _SLDS,
        "rounded tip-cap width, note 36 OV-4 (C210-31): the planform rounding the polylines "
        "cannot carry; aero.surfaces[].tip_ratio falsy-derives from it / semi-span"),
+    _E("geometry.surfaces[].hinge_line", _GEO, _SLDS,
+       "control-surface aerodynamic hinge axis, note 54 D-54.1 (#25 step 2): the boundary "
+       "line the blank hinge-area scalars (SEFWDHL/SEAFTHL, SRFWDHL/SRAFTHL) derive from "
+       "(tail_geometry.control_hinge_areas); empty = not entered, the scalars stay typed"),
     # The five scalars a typed ``wing`` planform determines are seedable from
     # it behind a button (#95, C210-1 / GR-GEOM-3): RECORD_SEEDS above offers
     # ``configuration.parametric_wing_seed`` while the block is not yet typed.
@@ -924,6 +928,10 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("geometry.parametric.root_waterline_z", _GEO, _ORIG, "WINGGEOM root-chord waterline"),
     _E("geometry.parametric.datum_x", _GEO, _ORIG, "WINGGEOM nose datum reference"),
     _E("geometry.parametric.h_tail_z", _GEO, _ORIG, "h-tail waterline offset (Ch 9; places load stations, #236)"),
+    _E("geometry.parametric.htail_dihedral_deg", _GEO, _SLDS,
+       "declared stabilizer dihedral, note 54 D-54.8: no load reads it yet (physics "
+       "deferred, AC 23-9 par 4b is the promoting number); exists so note 51's "
+       "T-tail dihedral guard has an input to fire on"),
     # Was "layout sketch only" until note 44 OR-134. It is not: the oracle
     # report withholds the vertical tail's spanwise loads on any value other
     # than CONVENTIONAL (OR-133), so the document is a function of this field --

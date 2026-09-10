@@ -569,6 +569,8 @@ _PROJECT_PAIR_KIND: Dict[str, Tuple[Optional[str], Optional[str]]] = {
     # (X, Y) planform corner points, both fuselage/butt stations in inches.
     "leading_edge": ("length_in", "length_in"),
     "trailing_edge": ("length_in", "length_in"),
+    # The control's hinge axis (note 54 D-54.1, v65): same frame as the edges.
+    "hinge_line": ("length_in", "length_in"),
     # (Y station, value) spanwise curves: the station converts, the value is a
     # coefficient or an angle in degrees and does not.
     "twist": ("length_in", None),

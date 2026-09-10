@@ -1,5 +1,5 @@
 {
-  "schema_version": 64,
+  "schema_version": 65,
   "name": "GA 6-place single (Appendix A) \u2014 Continental IO-520-BB",
   "engines": [
     {
@@ -521,7 +521,8 @@
         "ref_axis_pct": 0.4,
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
-        "sob_y_in": null
+        "sob_y_in": null,
+        "hinge_line": []
       },
       {
         "name": "aileron",
@@ -555,7 +556,8 @@
         "ref_axis_pct": null,
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
-        "sob_y_in": null
+        "sob_y_in": null,
+        "hinge_line": []
       },
       {
         "name": "htail",
@@ -629,7 +631,8 @@
         "ref_axis_pct": 0.4,
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
-        "sob_y_in": null
+        "sob_y_in": null,
+        "hinge_line": []
       },
       {
         "name": "vtail",
@@ -659,7 +662,8 @@
         "ref_axis_pct": 0.4,
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
-        "sob_y_in": null
+        "sob_y_in": null,
+        "hinge_line": []
       },
       {
         "name": "elevator",
@@ -681,55 +685,15 @@
             73.1
           ]
         ],
-        "trailing_edge": [
-          [
-            284,
-            0
-          ],
-          [
-            284,
-            1.445
-          ],
-          [
-            292.567,
-            6.2
-          ],
-          [
-            290.662,
-            33.2
-          ],
-          [
-            288.657,
-            33.201
-          ],
-          [
-            286.3,
-            66.6
-          ],
-          [
-            284.7,
-            69.7
-          ],
-          [
-            279.8,
-            71.9
-          ],
-          [
-            274,
-            72.7
-          ],
-          [
-            268.1,
-            73.1
-          ]
-        ],
+        "trailing_edge": [],
         "symmetric": true,
         "elements": 20,
         "tip_cap_width_in": 0.0,
         "ref_axis_pct": null,
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
-        "sob_y_in": null
+        "sob_y_in": null,
+        "hinge_line": []
       },
       {
         "name": "rudder",
@@ -755,27 +719,15 @@
             168.0
           ]
         ],
-        "trailing_edge": [
-          [
-            292.917,
-            111.5
-          ],
-          [
-            302.0,
-            166.794
-          ],
-          [
-            282.0,
-            168.0
-          ]
-        ],
+        "trailing_edge": [],
         "symmetric": false,
         "elements": 20,
         "tip_cap_width_in": 0.0,
         "ref_axis_pct": null,
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
-        "sob_y_in": null
+        "sob_y_in": null,
+        "hinge_line": []
       },
       {
         "name": "flap",
@@ -809,7 +761,8 @@
         "ref_axis_pct": null,
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
-        "sob_y_in": null
+        "sob_y_in": null,
+        "hinge_line": []
       }
     ],
     "parametric": {
@@ -823,7 +776,8 @@
       "root_waterline_z": 78.5,
       "body_drag_waterline_z": 0.0,
       "tail_type": "conventional",
-      "h_tail_z": 32.5
+      "h_tail_z": 32.5,
+      "htail_dihedral_deg": 0.0
     },
     "fuselage": {
       "sections": [
@@ -849,39 +803,39 @@
     },
     "empennage": {
       "htail": {
+        "aspect_ratio_wing": 6.095,
+        "aspect_ratio_htail": 4.017,
+        "htail_area_sqft": 36.944,
+        "htail_semispan_in": 73.1,
+        "xt25": 261.027,
+        "xt50": 270.357,
+        "elevator_area_sqft": 16.403,
+        "elevator_fwd_hinge_sqft": 1.639,
+        "elevator_aft_hinge_sqft": 14.792,
         "tail_incidence_deg": 2.0,
         "wing_zero_lift_cruise_deg": 3.988146,
         "wing_zero_lift_enroute_deg": 0.0,
         "wing_zero_lift_landing_deg": 0.0,
-        "aspect_ratio_wing": 6.095,
-        "aspect_ratio_htail": 4.017,
-        "htail_area_sqft": 36.944,
         "elevator_effectiveness": 0.614,
-        "xt25": 261.027,
-        "xt50": 270.357,
         "elevator_te_up_deg": 30.0,
         "elevator_te_down_deg": 20.0,
-        "elevator_area_sqft": 16.403,
-        "elevator_fwd_hinge_sqft": 1.639,
-        "elevator_aft_hinge_sqft": 14.792,
-        "wing_lift_slope_per_rad": 4.605,
-        "htail_semispan_in": 73.1
+        "wing_lift_slope_per_rad": 4.605
       },
       "vtail": {
-        "rudder_deflection_deg": 30.0,
         "vtail_area_sqft": 14.84,
+        "vtail_span_in": 57.0,
+        "vtail_mac_in": 40.403999999999996,
+        "aspect_ratio_vtail": 1.52,
+        "xv25": 266.83,
+        "xv50": 0.0,
         "rudder_area_sqft": 5.236,
         "rudder_fwd_hinge_sqft": 0.57,
         "rudder_aft_hinge_sqft": 4.63,
-        "aspect_ratio_vtail": 1.52,
-        "vtail_mac_in": 40.403999999999996,
-        "xv25": 266.83,
-        "xv50": 0.0,
         "wing_span_in": 402.0,
+        "rudder_deflection_deg": 30.0,
         "gross_weight_lb": 3400.0,
         "rudder_large_deflection_factor": 1.0,
         "izz_slugft2": 0.0,
-        "vtail_span_in": 57.0,
         "vtail_root_waterline_z": 0.0
       },
       "airplane_length_in": 318.264

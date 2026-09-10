@@ -490,20 +490,39 @@ def effective_tail_inputs(project: Project) -> Optional[TailLoadsInput]:
 
     A blank ``aspect_ratio_wing`` derives from the consolidated planform AR
     (:func:`~sloads.derived_geometry.wing_aspect_ratio`); a blank
-    ``wing_lift_slope_per_rad`` from :func:`wing_lift_slope_per_rad`. Typed
-    values pass through untouched, and so does the stored slice -- the resolved
-    values live on a local copy (the ``landing.build_landing`` effective-input
-    pattern), never written back. An ARW that resolves to 0 -- blank and
-    underivable -- is refused by name here rather than reaching the downwash
-    term, which divides by it unguarded (C210-36; the pre-note failure was a
-    bare ``ZeroDivisionError``).
+    ``wing_lift_slope_per_rad`` from :func:`wing_lift_slope_per_rad`; a blank
+    ``elevator_area_sqft`` from its hinge halves (C210-5). Since #25 step 2
+    (design note 54 D-54.1) **every blank field of the planform-geometry
+    group** -- ``HTAIL_BOUNDARY_DERIVED``'s membership -- derives from the
+    entered boundary lines through
+    :func:`sloads.tail_geometry.boundary_derived_scalars`: the tail's own
+    area/semispan/AR and 25/50 %-MAC stations from its polylines, the
+    elevator's area from its resolved planform, the hinge halves from the
+    entered ``hinge_line``. Typed values pass through untouched, and so does
+    the stored slice -- the resolved values live on a local copy (the
+    ``landing.build_landing`` effective-input pattern), never written back.
+    An ARW that resolves to 0 -- blank and underivable -- is refused by name
+    here rather than reaching the downwash term, which divides by it
+    unguarded (C210-36; the pre-note failure was a bare ``ZeroDivisionError``).
     """
+    from ..models.inputs import HTAIL_BOUNDARY_DERIVED
+    from ..tail_geometry import HTAIL, boundary_derived_scalars
+
     ti = project.tail_loads
     if ti is None:
         return None
+    boundary = boundary_derived_scalars(project, HTAIL)
+    updates: Dict[str, float] = {
+        name: boundary[name]
+        for name, surface in HTAIL_BOUNDARY_DERIVED.items()
+        if surface != "wing" and not getattr(ti, name) and boundary.get(name)
+    }
     arw = ti.aspect_ratio_wing or (wing_aspect_ratio(project) or 0.0)
     aw = ti.wing_lift_slope_per_rad or (wing_lift_slope_per_rad(project) or 0.0)
-    se = derived_elevator_area(ti)
+    boundary_se = updates.pop("elevator_area_sqft", 0.0)
+    se = (derived_elevator_area(ti) or boundary_se
+          or updates.get("elevator_fwd_hinge_sqft", 0.0)
+          + updates.get("elevator_aft_hinge_sqft", 0.0))
     if arw <= 0.0:
         raise ValueError(
             "the rational h-tail loads need the wing aspect ratio (ARW): "
@@ -511,11 +530,12 @@ def effective_tail_inputs(project: Project) -> Optional[TailLoadsInput]:
             "no integrable wing planform to derive it from -- the downwash "
             "E = 114.6*CL/(pi*ARW) divides by it. Enter it on the Geometry "
             "page, or add the wing planform.")
-    if (arw == ti.aspect_ratio_wing and aw == ti.wing_lift_slope_per_rad
+    if (not updates and arw == ti.aspect_ratio_wing
+            and aw == ti.wing_lift_slope_per_rad
             and se == ti.elevator_area_sqft):
         return ti
     return replace(ti, aspect_ratio_wing=arw, wing_lift_slope_per_rad=aw,
-                   elevator_area_sqft=se)
+                   elevator_area_sqft=se, **updates)
 
 
 def effective_vtail_inputs(project: Project) -> Optional[VTailLoadsInput]:
@@ -525,19 +545,35 @@ def effective_vtail_inputs(project: Project) -> Optional[VTailLoadsInput]:
     rudder area SR derives as the sum of its hinge halves (SRFWDHL + SRAFTHL,
     C210-5) and a blank wing span B from the WINGGEOM ``wing`` planform's own
     span (:func:`~sloads.derived_geometry.wing_span_in`, C210-3 -- the typed
-    copy disagreed with the integrator's 441 in on the C210 build). Typed
-    values pass through untouched, resolved values live on a local copy, and
-    every SELECT/ONENGOUT consumer reads through here rather than the raw
-    slice, so a derived SR reaches the 23.367 simulation too (rule 4).
+    copy disagreed with the integrator's 441 in on the C210 build). Since #25
+    step 2 (D-54.1) every blank ``VTAIL_BOUNDARY_DERIVED`` field likewise
+    derives from the entered boundary lines
+    (:func:`sloads.tail_geometry.boundary_derived_scalars`): the fin's
+    area/span/MAC/AR and MAC stations, the rudder's area, the hinge halves.
+    Typed values pass through untouched, resolved values live on a local
+    copy, and every SELECT/ONENGOUT consumer reads through here rather than
+    the raw slice, so a derived SR reaches the 23.367 simulation too (rule 4).
     """
+    from ..models.inputs import VTAIL_BOUNDARY_DERIVED
+    from ..tail_geometry import VTAIL, boundary_derived_scalars
+
     vt = project.vtail_loads
     if vt is None:
         return None
-    sr = derived_rudder_area(vt)
+    boundary = boundary_derived_scalars(project, VTAIL)
+    updates: Dict[str, float] = {
+        name: boundary[name]
+        for name, surface in VTAIL_BOUNDARY_DERIVED.items()
+        if surface != "wing" and not getattr(vt, name) and boundary.get(name)
+    }
+    boundary_sr = updates.pop("rudder_area_sqft", 0.0)
+    sr = (derived_rudder_area(vt) or boundary_sr
+          or updates.get("rudder_fwd_hinge_sqft", 0.0)
+          + updates.get("rudder_aft_hinge_sqft", 0.0))
     span = vt.wing_span_in or (wing_span_in(project) or 0.0)
-    if sr == vt.rudder_area_sqft and span == vt.wing_span_in:
+    if not updates and sr == vt.rudder_area_sqft and span == vt.wing_span_in:
         return vt
-    return replace(vt, rudder_area_sqft=sr, wing_span_in=span)
+    return replace(vt, rudder_area_sqft=sr, wing_span_in=span, **updates)
 
 
 def resolved_full_down_aileron_deg(project: Project) -> float:

@@ -65,6 +65,7 @@ from sloads.modules.configuration import (
 )
 from sloads.modules.wing_geometry import geometry_properties, surface_top_outline
 from sloads.report import LoadChannel, module_text_report
+from sloads.tail_geometry import CONTROL_PARENT
 
 _TAIL_TYPE_LABELS = {
     TailType.CONVENTIONAL: "Conventional",
@@ -237,6 +238,15 @@ with st.sidebar:
                             layout.h_tail_z, "h_z", "length", 1.0,
                             help="Vertical offset of the h-tail above the root waterline; leave 0 to auto-place "
                                  "on the fin for a T-tail/cruciform.")
+            htail_dihedral_deg = st.number_input(
+                "Stabilizer dihedral (deg, declared only)",
+                value=float(layout.htail_dihedral_deg), step=0.5,
+                key=widget_key("htail_dihedral"),
+                help="Declared horizontal-tail dihedral (note 54 D-54.8). No load "
+                     "reads it yet — the induced-moment physics is deferred with a "
+                     "stated upgrade path (AC 23-9 ¶4b, DATCOM carryover per note "
+                     "51) — but a declared T-tail dihedral is what note 51's "
+                     "guard will fire on.")
             st.caption(
                 "H-/V-tail **area, span and the elevator/rudder** are the analysis-native "
                 "inputs — set them once in the **Empennage & control surfaces** section "
@@ -284,6 +294,7 @@ if applied:
         dihedral_deg=dihedral_deg, le_sweep_deg=le_sweep_deg, le_root_x=le_root_x,
         root_waterline_z=root_waterline_z,
         tail_type=_TAIL_TYPE_BY_LABEL[tail_type_label], h_tail_z=h_tail_z,
+        htail_dihedral_deg=float(htail_dihedral_deg),
     )
     # M2R-6: validate BEFORE persisting -- reject an invalid layout with a targeted
     # message rather than storing it and blanking the page downstream.
@@ -875,8 +886,27 @@ else:
                 _te_df = st.data_editor(pd.DataFrame(_te, columns=["XTE", "YTE"]),
                                         num_rows="dynamic", column_config=_te_cols,
                                         key=widget_key(f"te_{_surf.name}_{system.value}"))
+                # Control surfaces only (D-54.1, #25 step 2): the hinge axis
+                # polyline the blank hinge-area scalars derive from, and a note
+                # that the TE may be left empty to derive from the parent.
+                _hl_df = None
+                if _surf.name in CONTROL_PARENT:
+                    st.caption(
+                        f"Control surface: leave the TE table empty to derive it "
+                        f"from the {CONTROL_PARENT[_surf.name]} trailing edge "
+                        "(they are one physical line, note 54 D-54.1). The hinge "
+                        "line below is the aerodynamic hinge axis; blank "
+                        "fwd/aft-of-hinge areas derive from it.")
+                    _hl = [(to_display(x, "length", system), to_display(y, "length", system))
+                           for x, y in _surf.hinge_line]
+                    _hl_cols = {"XH": st.column_config.NumberColumn(f"XH ({U['length']})"),
+                                "YH": st.column_config.NumberColumn(f"YH ({U['length']})")}
+                    _hl_df = st.data_editor(pd.DataFrame(_hl, columns=["XH", "YH"]),
+                                            num_rows="dynamic", column_config=_hl_cols,
+                                            key=widget_key(f"hl_{_surf.name}_{system.value}"))
                 _surface_inputs.append((_surf.name, _sym, _elems, _lra_pct,
-                                        _fs_x, _rs_x, _sob, _le_df, _te_df))
+                                        _fs_x, _rs_x, _sob, _le_df, _te_df,
+                                        _hl_df, _surf.hinge_line))
         if st.form_submit_button("Apply surface geometry", type="primary"):
             def _imp_pt(row):
                 return tuple(to_imperial_scalar(v, "length", system) for v in row)
@@ -893,8 +923,14 @@ else:
                     else to_imperial_scalar(float(sob), "length", system),
                     leading_edge=[_imp_pt(r) for r in le_df.dropna().to_numpy().tolist()],
                     trailing_edge=[_imp_pt(r) for r in te_df.dropna().to_numpy().tolist()],
+                    # The hinge editor renders for control surfaces only; a
+                    # non-control surface carries its stored value through the
+                    # rebuild rather than losing it (#148's silent-loss class).
+                    hinge_line=([_imp_pt(r) for r in hl_df.dropna().to_numpy().tolist()]
+                                if hl_df is not None else list(stored_hl)),
                 )
-                for name, sym, elems, lra_pct, fs_x, rs_x, sob, le_df, te_df in _surface_inputs
+                for name, sym, elems, lra_pct, fs_x, rs_x, sob, le_df, te_df,
+                hl_df, stored_hl in _surface_inputs
             ]
             _set_geometry(project, surfaces=_edited)
             st.success(f"Applied {len(_edited)} surface(s).")

@@ -1,5 +1,5 @@
 {
-  "schema_version": 64,
+  "schema_version": 65,
   "name": "Concept commuter twin (>12,500 lb, category C)",
   "weight": {
     "estimation": {
@@ -248,7 +248,8 @@
         "ref_axis_pct": 0.4,
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
-        "sob_y_in": null
+        "sob_y_in": null,
+        "hinge_line": []
       }
     ],
     "parametric": {
@@ -262,7 +263,8 @@
       "root_waterline_z": 100.0,
       "body_drag_waterline_z": 0.0,
       "tail_type": "conventional",
-      "h_tail_z": 0.0
+      "h_tail_z": 0.0,
+      "htail_dihedral_deg": 0.0
     }
   },
   "speeds": {
