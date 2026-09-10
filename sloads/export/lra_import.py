@@ -43,6 +43,7 @@ from ..modules.balance import build_balanced_cases
 from ..units import Channel, UnitSystem, deliverable_units
 from .balanced_deck import case_sids
 from .coordinates import SBEAM_CID, to_force, to_moment, transfer_couple
+from .deck_format import comment, fmt3, stamped
 from .equilibrium import parse_cards
 from .lra_model import (
     LraModel,
@@ -53,7 +54,7 @@ from .lra_model import (
     build_lra_model,
     nearest_node,
 )
-from .sbeam_bridge import _comment, _fmt3, _stamped, basis_sentence
+from .sbeam_bridge import basis_sentence
 
 Vec3 = Tuple[float, float, float]
 
@@ -222,18 +223,18 @@ def lra_loads_on_imported_model(project: Project, imported: ImportedModel, *,
     members = _routing_members(imported)
 
     lines: List[str] = []
-    lines += _comment(
+    lines += comment(
         "SLOADS loads on an IMPORTED beam model (step 12 import): the "
         "assembled balanced cases' load sets transferred onto the imported "
         "GRID set by the LM-1 nearest-node rule with the exact lever-arm "
         "couple -- identical resultant per case. GIDs are the imported "
         "model's own; splice these cards into it.")
-    lines += _comment(
+    lines += comment(
         "The imported beam line IS the consumer's elastic axis, so torsion "
         "is about it by construction (note 24 R-7d).")
     for note in validation:
-        lines += _comment("VALIDATION: " + note)
-    lines += _comment(
+        lines += comment("VALIDATION: " + note)
+    lines += comment(
         "Routing: families the import tags route by identity; everything "
         "else lands on the nearest imported node (marked-assumed fallback, "
         "note 24 R-10).")
@@ -246,7 +247,7 @@ def lra_loads_on_imported_model(project: Project, imported: ImportedModel, *,
                                                     subsequent_indent="    ")]
     for sid, case in zip(sids, cases):
         lines.append("$")
-        lines += _comment(
+        lines += comment(
             f"Case {case.case_ref.case_id if case.case_ref else case.label} "
             f"-- SID {sid}. {basis_sentence(case.safety_factor)}")
         acc: Dict[int, Tuple[List[float], List[float]]] = {}
@@ -268,12 +269,12 @@ def lra_loads_on_imported_model(project: Project, imported: ImportedModel, *,
             fx, fy, fz = to_force(force[0], force[1], force[2], u)
             if max(abs(v) for v in force) > _TOL:
                 lines.append(f"FORCE, {sid}, {gid}, {SBEAM_CID}, 1.0, "
-                             f"{_fmt3(fx, fy, fz)}")
+                             f"{fmt3(fx, fy, fz)}")
             mx, my, mz = to_moment(moment[0], moment[1], moment[2], u)
             if max(abs(v) for v in moment) > _TOL:
                 lines.append(f"MOMENT, {sid}, {gid}, {SBEAM_CID}, 1.0, "
-                             f"{_fmt3(mx, my, mz)}")
-    return _stamped(header_comment, "\n".join(lines) + "\n")
+                             f"{fmt3(mx, my, mz)}")
+    return stamped(header_comment, "\n".join(lines) + "\n")
 
 
 def write_lra_loads_on_imported_model(project: Project, model_path: str,

@@ -11,7 +11,7 @@ interpreter's ``sum()``. Three owners, three guards:
   not see (``(min if want_min else max)(...)`` contains neither ``max(`` nor
   ``min(`` next to ``key=``) plus the same defect class in five other modules
   and in the exporters;
-* ``sbeam_bridge._fmt3`` -- vector-card components snap dust and ``-0`` to
+* ``deck_format.fmt3`` -- vector-card components snap dust and ``-0`` to
   ``0.000000E+00`` (``tests/test_sbeam_bridge.py``);
 * **this file** -- every float summation in ``sloads/`` is ``math.fsum``, which
   is exactly rounded and therefore identical on every platform and Python
@@ -206,12 +206,12 @@ def test_no_printed_deliverable_cell_hangs_on_the_last_ulp():
 
 
 def test_no_emitted_deck_value_hangs_on_the_last_ulp():
-    """``_fmt`` is continuous under last-ulp noise -- the solver-channel half of #147.
+    """``deck_format.fmt`` is continuous under last-ulp noise -- the solver-channel half of #147.
 
     The report channel got this rule at #147; the deck channel did not, and the
     class recurred in the same place it was found the first time: the frozen
     Imperial digest passing on the developer's Mac and failing on the Linux CI
-    leg, this time on ``sbeam/balanced_deck``. ``_fmt`` prints **seven**
+    leg, this time on ``sbeam/balanced_deck``. ``fmt`` prints **seven**
     significant digits, which is finer than a computed load reproduces across
     platforms, so a value sitting on the decimal rounding tie of its seventh
     digit takes round-half-even off the last bit: ``-341426.25`` in the regional
@@ -221,23 +221,40 @@ def test_no_emitted_deck_value_hangs_on_the_last_ulp():
     Asserted over the values the decks **actually emit**, every shipped example,
     by spying on the formatter rather than by re-deriving a candidate set --
     invented values would not have found this one. Before
-    :func:`sloads.units.canonical` reached ``_fmt``, 248 of the 159,407 emitted
+    :func:`sloads.units.canonical` reached ``fmt``, 248 of the 159,407 emitted
     values moved under this band; the sweep is the whole population, so the next
     emitter that formats a solved scalar by hand fails here too.
     """
-    from sloads.export import sbeam_bridge as sb
+    import importlib
+    import pkgutil
+
+    import sloads.export as export_pkg
+    from sloads.export import deck_format
 
     import imperial_baseline as baseline
 
     seen: "list[float]" = []
-    original = sb._fmt
+    original = deck_format.fmt
 
     def spy(value):
         seen.append(value)
         return original(value)
 
+    # Patched at **every** binding, not only at its owner. The sibling writers do
+    # ``from .deck_format import fmt``, so each holds its own reference, and
+    # patching the owner alone would silently shrink this sweep from the whole
+    # emitted population to one module's cards -- the claim the docstring makes.
+    # (#15 moved the primitive out of ``sbeam_bridge``, where one patch sufficed.)
+    patched = [deck_format]
+    for info in pkgutil.iter_modules(export_pkg.__path__):
+        module = importlib.import_module(f"sloads.export.{info.name}")
+        if getattr(module, "fmt", None) is original:
+            patched.append(module)
+    assert len(patched) > 1, patched   # the binding sweep must not empty out
+
     checked = fragile = 0
-    sb._fmt = spy
+    for module in patched:
+        module.fmt = spy
     try:
         for example in baseline.EXAMPLES:
             seen.clear()
@@ -255,7 +272,8 @@ def test_no_emitted_deck_value_hangs_on_the_last_ulp():
                             example, value, printed, neighbour,
                             original(neighbour))
     finally:
-        sb._fmt = original
+        for module in patched:
+            module.fmt = original
     assert checked > 100_000, checked  # the sweep must not quietly empty out
 
 
@@ -267,7 +285,7 @@ def test_the_deck_formatter_still_prints_what_it_used_to():
     already sitting on the tie can move, and there the seventh digit carried no
     information to lose.
     """
-    from sloads.export.sbeam_bridge import _fmt
+    from sloads.export.deck_format import fmt
 
     for value, expected in (
         (1234.5678, "1.234568E+03"),
@@ -276,7 +294,7 @@ def test_the_deck_formatter_still_prints_what_it_used_to():
         (1.0, "1.000000E+00"),
         (-341426.25, "-3.414262E+05"),   # the tie itself, resolved one way only
     ):
-        assert _fmt(value) == expected, (value, _fmt(value), expected)
+        assert fmt(value) == expected, (value, fmt(value), expected)
 
 
 def test_the_formatter_still_says_what_it_used_to_where_nothing_was_at_stake():

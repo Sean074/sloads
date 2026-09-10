@@ -73,7 +73,8 @@ from ..picks import extreme
 from ..units import Channel, DeliverableUnits, UnitSystem, deliverable_units
 from .bands import band
 from .coordinates import SBEAM_CID, to_grid
-from .sbeam_bridge import _fmt, _fmt3, _sf_str, _stamped, beam_station_gid
+from .deck_format import fmt, fmt3, sf_str, stamped
+from .sbeam_bridge import beam_station_gid
 
 # --------------------------------------------------------------------------- #
 # EID / SID bands -- declared in :mod:`sloads.export.bands`, the single owner of
@@ -301,10 +302,10 @@ def _conm2_line(card: MassCard, u: DeliverableUnits) -> str:
     # laterally symmetric airplane has Ixy = Iyz = 0 exactly; Ixz is generally
     # non-zero but the database has no field for it. Emitted as 0 with the
     # header's note rather than silently -- see plan 12 risk R2.
-    return (f"CONM2, {card.eid}, {card.gid}, {SBEAM_CID}, {_fmt(m)}, "
-            f"{_fmt3(ox, oy, oz)}, "
-            f"{_fmt(card.item.ixx * k)}, 0.0, {_fmt(card.item.iyy * k)}, "
-            f"0.0, 0.0, {_fmt(card.item.izz * k)}")
+    return (f"CONM2, {card.eid}, {card.gid}, {SBEAM_CID}, {fmt(m)}, "
+            f"{fmt3(ox, oy, oz)}, "
+            f"{fmt(card.item.ixx * k)}, 0.0, {fmt(card.item.iyy * k)}, "
+            f"0.0, 0.0, {fmt(card.item.izz * k)}")
 
 
 #: An 8-character alphanumeric field, which is sbeam's, not ours to widen.
@@ -473,7 +474,7 @@ def conm2_fragment(project: Project, *,
 
     ``header_comment`` is the ``$``-prefixed methods & units block
     (:func:`~sloads.report.bdf_comment_block`), applied through the same
-    :func:`~sloads.export.sbeam_bridge._stamped` owner the load decks use, so a
+    :func:`~sloads.export.sbeam_bridge.stamped` owner the load decks use, so a
     mass model forwarded on its own states its own basis and unit set. A blank
     value leaves the fragment byte-identical -- which is what keeps
     :func:`mass_check_deck` (which embeds this fragment) from carrying two
@@ -491,7 +492,7 @@ def conm2_fragment(project: Project, *,
     out += [_conm2_line(c, u) for c in cards if c.overlay]
     for i in range(len(loadings)):
         out += ["$"] + _massset_block(cards, loadings, i)
-    return _stamped(header_comment, "\n".join(out) + "\n")
+    return stamped(header_comment, "\n".join(out) + "\n")
 
 
 def mass_properties(project: Project, loading: CaseLoading,  # noqa: ARG001  -- public signature (project reserved for the LRA transfer)
@@ -561,7 +562,7 @@ def mass_check_deck(project: Project, *,
         head += [
             f"SUBCASE {_MASSSET_BAND.allocate(i)}",
             f"  LABEL = {loading.name}",
-            f"  TITLE = mass check, Nz={nz:g} (SF={_sf_str(1.0)}, no load cards)",
+            f"  TITLE = mass check, Nz={nz:g} (SF={sf_str(1.0)}, no load cards)",
             f"  MASSSET = {_MASSSET_BAND.allocate(i)}",
             f"  LOAD = {_GRAV_BAND.allocate(i)}",
             "  SPC = 1",
@@ -576,7 +577,7 @@ def mass_check_deck(project: Project, *,
     ]
     for i, s in enumerate(stations):
         gx, gy, gz = to_grid(s.x, 0.0, 0.0, u)
-        bulk.append(f"GRID, {beam_station_gid(i)}, , {_fmt3(gx, gy, gz)}")
+        bulk.append(f"GRID, {beam_station_gid(i)}, , {fmt3(gx, gy, gz)}")
     # A massless beam joining the stations. The deck would not assemble without
     # elements, and every property here is a placeholder -- except RHO, which is
     # 0.0 and must stay so: sbeam builds a MASSSET's baseline from "CBAR
@@ -588,9 +589,9 @@ def mass_check_deck(project: Project, *,
         "$ Placeholder massless beam -- the deck needs elements to assemble.",
         "$ RHO = 0.0 is NOT a placeholder: a CBAR with density would add mass to",
         "$ the MASSSET baseline and corrupt the comparison.",
-        f"MAT1, 1, {_fmt(1.0e7 * u.pressure.factor)}, , 0.33, 0.0",
-        f"PBAR, 1, 1, {_fmt(u.length.factor ** 2)}, {_fmt(u.length.factor ** 4)}, "
-        f"{_fmt(u.length.factor ** 4)}, {_fmt(u.length.factor ** 4)}",
+        f"MAT1, 1, {fmt(1.0e7 * u.pressure.factor)}, , 0.33, 0.0",
+        f"PBAR, 1, 1, {fmt(u.length.factor ** 2)}, {fmt(u.length.factor ** 4)}, "
+        f"{fmt(u.length.factor ** 4)}, {fmt(u.length.factor ** 4)}",
     ]
     for i in range(len(stations) - 1):
         bulk.append(f"CBAR, {i + 1}, 1, {beam_station_gid(i)}, "
@@ -607,9 +608,9 @@ def mass_check_deck(project: Project, *,
         "$ checked by sloads-side closure.",
     ]
     for i, _ in enumerate(loadings):
-        bulk.append(f"GRAV, {_GRAV_BAND.allocate(i)}, 0, {_fmt(nz * g)}, 0.0, 0.0, -1.0")
+        bulk.append(f"GRAV, {_GRAV_BAND.allocate(i)}, 0, {fmt(nz * g)}, 0.0, 0.0, -1.0")
     bulk += ["$"] + conm2_fragment(project, system=system).splitlines()
-    return _stamped(header_comment, "\n".join(head + bulk + ["ENDDATA"]) + "\n")
+    return stamped(header_comment, "\n".join(head + bulk + ["ENDDATA"]) + "\n")
 
 
 # --------------------------------------------------------------------------- #
@@ -704,8 +705,8 @@ def inertia_only_cards(project: Project, *,
     for gid, weight_lb in weights:
         fz = -weight_lb * nz * u.force.factor
         lines.append(
-            f"FORCE, {sid}, {gid}, {SBEAM_CID}, 1.0, 0.0, 0.0, {_fmt(fz)}")
-    return _stamped(header_comment, "\n".join(lines) + "\n")
+            f"FORCE, {sid}, {gid}, {SBEAM_CID}, 1.0, 0.0, 0.0, {fmt(fz)}")
+    return stamped(header_comment, "\n".join(lines) + "\n")
 
 
 def write_conm2_fragment(project: Project, path: str, *,

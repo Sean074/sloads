@@ -145,7 +145,7 @@ from ..modules.body_loads import CLOSURE_ARTIFACT_CAVEAT as _BODY_ARTIFACT_CAVEA
 from ..modules.net_loads import loads_ref_axis_results
 from ..picks import extreme
 from ..safety_factors import shared_basis_factor
-from ..units import Channel, DeliverableUnits, UnitSystem, canonical, deliverable_units
+from ..units import Channel, DeliverableUnits, UnitSystem, deliverable_units
 from .bands import band
 from .coordinates import (
     SBEAM_CID,
@@ -161,6 +161,20 @@ from .coordinates import (
     to_pressure,
     ttail_transfer_to_airplane,
 )
+from .deck_format import (
+    CARD_TOL,
+    MAT1_E,
+    MAT1_NU,
+    PBAR_A,
+    PBAR_I,
+    PBAR_J,
+    comment,
+    fmt,
+    fmt3,
+    sf_str,
+    snap_zero,
+    stamped,
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -175,24 +189,6 @@ def _units(system: UnitSystem) -> DeliverableUnits:
     here, once.
     """
     return deliverable_units(system, Channel.SOLVER)
-
-
-def _stamped(header_comment: str, deck: str) -> str:
-    """Prepend a ``$``-comment block to a bulk-data deck (M4-20 step 5).
-
-    Every BDF writer takes a ``header_comment`` for the same reason the CSV
-    writers do: a deck forwarded on its own must still state which basis its
-    loads are on and which unit set it is in. Until step 5 the Export page built a
-    ``bdf_comment_block`` and then never applied it, so the four decks were the
-    one channel in the bundle carrying no statement at all.
-
-    ``$`` is a comment to every bulk-data parser, so the block is inert; a blank
-    ``header_comment`` returns the deck untouched, which keeps every existing
-    caller (and the frozen Imperial comparison) byte-identical.
-    """
-    if not header_comment:
-        return deck
-    return header_comment.rstrip("\n") + "\n" + deck
 
 
 def _load_label(label: str, table_sf: Optional[float] = None) -> str:
@@ -264,20 +260,8 @@ def basis_sentence(sf: float) -> str:
         return ("Loads are ALREADY ULTIMATE (SF=1.0) -- apply no further "
                 "factor.")
     return (f"Loads are LIMIT. The 14 CFR 23.303 safety factor "
-            f"SF={_sf_str(sf)} is NOT applied here -- apply it in the sizing "
+            f"SF={sf_str(sf)} is NOT applied here -- apply it in the sizing "
             f"analysis.")
-
-
-def _sf_str(sf: float) -> str:
-    """``SF`` as it appears on a deliverable: ``1.0``/``1.5``/``1.25`` — always
-    with a decimal point (``SF=1`` reads poorly on an engineering document,
-    M4-16)."""
-    s = f"{sf:g}"
-    return s if "." in s else f"{sf:.1f}"
-
-# Loads below this magnitude are treated as zero and not emitted (matches
-# sbeam/results/load_export.py).
-_TOL = 1e-9
 
 
 # GRID id of the clamped wing-root node in the stick model; station nodes follow.
@@ -296,59 +280,6 @@ _SOB_BAND = band("lra-sob")
 def sob_gid() -> int:
     """GRID id of the wing side-of-body reporting node (right half-span)."""
     return _SOB_BAND.allocate(0)
-
-
-def _fmt(val: float) -> str:
-    """Format a load/coordinate component in NASTRAN 6-digit scientific style.
-
-    Canonicalised first: seven printed digits is finer than a computed load is
-    reproducible across platforms, and a value on the tie of its seventh digit
-    prints two ways for one load. :func:`sloads.units.canonical` is the owner of
-    that rule for every channel -- see it for the two cases that earned it.
-    """
-    return f"{canonical(val):.6E}"
-
-
-def _fmt3(x: float, y: float, z: float) -> str:
-    """The three components of one FORCE/MOMENT card, **dust snapped to zero**.
-
-    A component that is zero by construction -- ``Fy`` of a symmetric case, the
-    off-axis terms of a transferred couple -- lands on ~1e-14 of cancellation
-    residue after the coordinate transfers, and ``_fmt`` would print that residue
-    to seven significant digits: ``6.101335E-15`` on one machine,
-    ``1.987480E-14`` on another. Every digit of it is libm/FMA/reassociation
-    noise, so the byte differs across platforms and Python versions while the
-    load does not (the same failure class :func:`_closed` fixed for the stated
-    totals; this is the per-component form, found on the LRA deck's cards in CI).
-
-    The floor is the card's own scale (:data:`_TOL` relative to its largest
-    component, or absolute for an all-tiny card), so a real small component on a
-    light airplane is never masked -- and a card whose components are *all* under
-    the emitter's threshold is not emitted at all, as before.
-    """
-    scale = max(abs(x), abs(y), abs(z), 1.0)
-    return ", ".join(_fmt(_closed(v, scale)) for v in (x, y, z))
-
-
-def _closed(value: float, scale: float) -> float:
-    """A quantity that is zero **by construction** renders as an unsigned zero.
-
-    The fuselage set closes exactly in exact arithmetic -- ``sum(Fz) == 0`` and
-    the terminal ``Myy == 0`` are the equilibrium the deck claims -- but in
-    floating point the sum lands on ~1e-11 of accumulated cancellation dust. Its
-    magnitude is irrelevant at any printed precision; its **sign is not
-    reproducible across platforms** (x86 vs ARM, different libm/FMA builds
-    reassociate the upstream arithmetic), so ``f"{total:.2f}"`` prints ``0.00``
-    on one machine and ``-0.00`` on another. That is a byte difference in a
-    deliverable, and it is what failed the Imperial digest baseline in CI
-    (``sbeam/body_cards``) while the same commit passed locally.
-
-    Cards already have this rule -- nothing under :data:`_TOL` is emitted at all.
-    This gives the *stated totals* the same one, relative to the set's own scale
-    so it cannot mask a real residual on a heavy airplane: a genuine imbalance is
-    orders above ``1e-9 x`` the largest load in the same column.
-    """
-    return 0.0 if abs(value) <= _TOL * max(abs(scale), 1.0) else value
 
 
 def station_gid(i: int) -> int:
@@ -494,7 +425,7 @@ def _require_applied_set_matches_cumulative(result: WingLoadResult) -> None:
     got -= math.fsum(mass.fz * (mass.x - root.x) - mass.fx * (mass.z - root.z)
                      for mass in result.point_loads)
     scale = max(abs(root.myy), abs(got))
-    if scale and abs(got - root.myy) > _TOL * scale:
+    if scale and abs(got - root.myy) > CARD_TOL * scale:
         raise ValueError(
             f"wing case {result.case!r}: the applied set does not rebuild the "
             f"cumulative root torsion ({got:.1f} against {root.myy:.1f} lb-in). "
@@ -602,7 +533,7 @@ def subcase_map_block(results: Sequence) -> List[str]:
         # took the turboprop tail decks past 72 columns in both unit systems.
         # The width is the emitter's property, which is the rule the wing decks
         # were already moved to; this is the last block that had not been.
-        lines += _comment(
+        lines += comment(
             f"SUBCASE {sid} = {case_id or '(no case id)'} -- {condition}{far_txt}")
     return lines
 
@@ -780,7 +711,7 @@ def span_load_csv(arg: ResultsArg, header_comment: str = "", *,
                 sx_h: f"{sx:.1f}", sz_h: f"{sz:.1f}",
                 mxx_h: f"{mxx:.0f}", myy_h: f"{myy:.0f}", mzz_h: f"{mzz:.0f}",
                 "MyyAxis": r.torsion_axis,
-                "SF": f"{_sf_str(sf)}",
+                "SF": f"{sf_str(sf)}",
             })
     return header_comment + _SPAN_CSV_CONVENTIONS + buf.getvalue()
 
@@ -1309,7 +1240,7 @@ def applied_load_csv(arg: ResultsArg, header_comment: str = "", *,
             fx_h: f"{fx:.1f}", fy_h: f"{fy:.1f}", fz_h: f"{fz:.1f}",
             mx_h: f"{mx:.0f}", my_h: f"{my:.0f}", mz_h: f"{mz:.0f}",
             "MyyAxis": load.torsion_axis,
-            "SF": _sf_str(sf),
+            "SF": sf_str(sf),
         })
     return header_comment + _APPLIED_CSV_NOTES[component] + buf.getvalue()
 
@@ -1346,10 +1277,10 @@ def _force_moment_lines(loads: List[NodalLoad], sid: int,
     lines: List[str] = []
     for nl in loads:
         fx, fy, fz = to_force(nl.fx, 0.0, nl.fz, u)
-        if abs(nl.fx) > _TOL or abs(nl.fz) > _TOL:
+        if abs(nl.fx) > CARD_TOL or abs(nl.fz) > CARD_TOL:
             lines.append(
                 f"FORCE, {sid}, {nl.gid}, {SBEAM_CID}, 1.0, "
-                f"{_fmt3(fx, fy, fz)}"
+                f"{fmt3(fx, fy, fz)}"
             )
         # Torsion about y, plus the concentrated-mass offset couples about x/z
         # (zero unless this node brackets a concentrated mass). The bending pair
@@ -1357,25 +1288,12 @@ def _force_moment_lines(loads: List[NodalLoad], sid: int,
         # sign -- coordinates.bending_moment_vector owns that.
         bx, _, bz = bending_moment_vector(nl.mx, nl.mz, u)
         _, my, _ = to_moment(0.0, nl.my, 0.0, u)
-        if max(abs(nl.my), abs(nl.mx), abs(nl.mz)) > _TOL:
+        if max(abs(nl.my), abs(nl.mx), abs(nl.mz)) > CARD_TOL:
             lines.append(
                 f"MOMENT, {sid}, {nl.gid}, {SBEAM_CID}, 1.0, "
-                f"{_fmt3(bx, my, bz)}"
+                f"{fmt3(bx, my, bz)}"
             )
     return lines
-
-
-def _comment(text: str) -> List[str]:
-    """``text`` as ``$`` comment lines, wrapped inside the 72-column card width.
-
-    Free-field bulk data is 72 columns; ``$ `` costs two of them, so the text
-    wraps at 70. Every generated ``$`` sentence goes through here rather than
-    being hand-fitted, because the same sentence is wider in SI (the same load in
-    newtons carries more digits) -- which is exactly how the wing deck's ``$``
-    lines reached ~100 columns unnoticed. Guarded by
-    ``test_deck_comments_fit_the_free_field_card_width``.
-    """
-    return [f"$ {ln}" for ln in textwrap.wrap(text, width=70)]
 
 
 #: Stated on the wing stick deck beside its SPC (plan 10 §1.1) **and** in the
@@ -1411,7 +1329,7 @@ def _offset_couple_note(loads: List[NodalLoad]) -> List[str]:
     consumer who takes the ``FORCE`` cards and discards the ``MOMENT`` set gets
     the smeared (high) bending back -- design note 14 D-1's stated cost.
     """
-    if not any(abs(nl.mx) > _TOL or abs(nl.mz) > _TOL for nl in loads):
+    if not any(abs(nl.mx) > CARD_TOL or abs(nl.mz) > CARD_TOL for nl in loads):
         return []
     note = (
         "MOMENT(Mx/My/Mz) also carries the offset couples of the concentrated "
@@ -1421,7 +1339,7 @@ def _offset_couple_note(loads: List[NodalLoad]) -> List[str]:
         "every node. Applying the FORCE cards without the MOMENT set overstates "
         "root bending (the mass reverts to the node inboard of it)."
     )
-    return _comment(note)
+    return comment(note)
 
 
 def _case_card_block(r: WingLoadResult, sid: int, u: DeliverableUnits) -> List[str]:
@@ -1432,19 +1350,19 @@ def _case_card_block(r: WingLoadResult, sid: int, u: DeliverableUnits) -> List[s
     _, _, root_sz = to_force(0.0, 0.0, loads[0].sz if loads else 0.0, u)
     _, root_myy, _ = to_moment(0.0, loads[0].myy if loads else 0.0, 0.0, u)
     lines = (
-        _comment(f"SLOADS net wing load -- case {r.case} "
+        comment(f"SLOADS net wing load -- case {r.case} "
                  f"(Nz={r.nz:g}, Nx={r.nx:g}), SID {sid}")
         + [f"$ Case ID: {r.case_ref.case_id}" if r.case_ref else "$ Case ID: (none)"]
-        + _comment("Axes: SLOADS station/butt/waterline -> sbeam CID 0 "
+        + comment("Axes: SLOADS station/butt/waterline -> sbeam CID 0 "
                    "(identity).")
         # Its own line, not a clause: wrapping can split a sentence anywhere,
         # and the unit statement is the one part of this block a consumer (and
         # the SI CLI test) greps for.
-        + _comment(f"Lengths in {u.length.label}.")
-        + _comment(basis_sentence(sf))
-        + _comment(f"Torsion My/Myy about the {r.torsion_axis} "
+        + comment(f"Lengths in {u.length.label}.")
+        + comment(basis_sentence(sf))
+        + comment(f"Torsion My/Myy about the {r.torsion_axis} "
                    "(station X = that axis).")
-        + _comment(f"FORCE set sums to root Sz = {root_sz:.1f} {u.force.label}. "
+        + comment(f"FORCE set sums to root Sz = {root_sz:.1f} {u.force.label}. "
                    "Every load here is APPLIED at the point its GRID states: the "
                    "MOMENT(My) cards are each strip's free torsion, so the root "
                    f"torsion Myy = {root_myy:.1f} {u.moment.label} comes back "
@@ -1464,14 +1382,14 @@ def force_moment_cards(arg: ResultsArg, sid_base: int = 1, *,
 
     ``header_comment`` is the ``$``-prefixed methods & units block
     (:func:`~sloads.report.bdf_comment_block`), prepended so a deck forwarded on
-    its own states its own basis and unit set -- see :func:`_stamped`.
+    its own states its own basis and unit set -- see :func:`stamped`.
     """
     results = _as_results(arg)
     u = _units(system)
     blocks: List[str] = ["\n".join(subcase_map_block(results))]
     for idx, r in enumerate(results):
         blocks.append("\n".join(_case_card_block(r, _sid(sid_base, idx, r), u)))
-    return _stamped(header_comment, "\n".join(b for b in blocks if b) + "\n")
+    return stamped(header_comment, "\n".join(b for b in blocks if b) + "\n")
 
 
 def write_force_moment_cards(arg: ResultsArg, path: str, sid_base: int = 1, *,
@@ -1485,21 +1403,6 @@ def write_force_moment_cards(arg: ResultsArg, path: str, sid_base: int = 1, *,
 # --------------------------------------------------------------------------- #
 # Minimal CBAR stick-model BDF (optional)
 # --------------------------------------------------------------------------- #
-# Nominal placeholder structural properties, quoted in the Imperial inch /
-# pound-force set and converted with the rest of the deck. A clamped cantilever
-# loaded only at its nodes is statically determinate, so the reaction loads sbeam
-# recovers are independent of these values; they exist only to make the deck
-# solvable. They are converted anyway because a deck that mixes an Imperial
-# modulus with millimetre GRIDs is wrong on its face -- someone will read it, or
-# swap in a real section, long before anyone re-derives that the reactions do not
-# depend on it.
-_MAT1_E = 1.0e7      # psi (aluminium-ish placeholder)
-_MAT1_NU = 0.33      # dimensionless
-_PBAR_A = 1.0        # in^2
-_PBAR_I = 1.0        # in^4 (I1 = I2)
-_PBAR_J = 1.0        # in^4
-
-
 def _root_node(loads: List[NodalLoad]) -> Tuple[float, float, float]:
     """Clamped root-node coordinates: half a strip inboard of the first station."""
     dy = loads[1].y - loads[0].y if len(loads) >= 2 else 0.0
@@ -1684,7 +1587,7 @@ def _sob_case_lines(r: WingLoadResult, sob_y: float,
     si = sob_internal_loads(r, sob_y)
     sx, _, sz = to_force(si.sx, 0.0, si.sz, u)
     mxx, myy, mzz = to_moment(si.mxx, si.myy, si.mzz, u)
-    return _comment(
+    return comment(
         f"SOB internal loads, case {r.case} (closed-form, LIMIT): "
         f"Sz={sz:.1f}, Sx={sx:.1f} {u.force.label}; Mxx={mxx:.0f}, "
         f"Myy={myy:.0f}, Mzz={mzz:.0f} {u.moment.label}.")
@@ -1747,7 +1650,7 @@ def stick_model_bdf(arg: ResultsArg, sid_base: int = 1, *,
         "$ ------------------------------------------------------------ NODES",
         f"$ Beam axis: the wing {results[0].torsion_axis} line.",
         "$ GRID, GID, CP, X1, X2, X3",
-        f"GRID, {_ROOT_GID}, , {_fmt3(rx, ry, rz)}",
+        f"GRID, {_ROOT_GID}, , {fmt3(rx, ry, rz)}",
     ]
     for gid, (x, y, z) in chain[1:]:
         if gid == sob_node_gid and sob is not None:  # a SOB gid exists only when a station was resolved
@@ -1758,28 +1661,28 @@ def stick_model_bdf(arg: ResultsArg, sid_base: int = 1, *,
                         if sob_index is not None and sob_index + 1 < len(chain)
                         else "")
             bulk.append("$ SLOADS-NODE lra-sob R")
-            bulk += _comment(
+            bulk += comment(
                 f"{sob.note}. Reporting node only (step 13): no load is "
                 "applied here and no station is dropped -- the FORCE/MOMENT "
                 "sets and their station-0 closure are unchanged." + outboard)
         gx, gy, gz = to_grid(x, y, z, u)
-        bulk.append(f"GRID, {gid}, , {_fmt3(gx, gy, gz)}")
+        bulk.append(f"GRID, {gid}, , {fmt3(gx, gy, gz)}")
 
     # Section properties are area / second moment, so they scale as length^2 and
     # length^4 -- derived from the one length factor, never quoted per system.
-    e_mod = to_pressure(_MAT1_E, u)
-    area = _PBAR_A * u.length.factor ** 2
-    inertia = _PBAR_I * u.length.factor ** 4
-    torsion_j = _PBAR_J * u.length.factor ** 4
+    e_mod = to_pressure(MAT1_E, u)
+    area = PBAR_A * u.length.factor ** 2
+    inertia = PBAR_I * u.length.factor ** 4
+    torsion_j = PBAR_J * u.length.factor ** 4
     bulk += [
         "$ --------------------------------------------------------- MATERIAL",
         "$ MAT1, MID, E, G, NU, RHO",
         "$ Placeholder properties: the reactions are stiffness-independent.",
         f"$ E in {u.pressure.label}; A in {u.length.label}^2; I, J in {u.length.label}^4.",
-        f"MAT1, 1, {_fmt(e_mod)}, , {_MAT1_NU}, 0.0",
+        f"MAT1, 1, {fmt(e_mod)}, , {MAT1_NU}, 0.0",
         "$ ------------------------------------------------------- PROPERTIES",
         "$ PBAR, PID, MID, A, I1, I2, J",
-        f"PBAR, 1, 1, {_fmt(area)}, {_fmt(inertia)}, {_fmt(inertia)}, {_fmt(torsion_j)}",
+        f"PBAR, 1, 1, {fmt(area)}, {fmt(inertia)}, {fmt(inertia)}, {fmt(torsion_j)}",
         "$ --------------------------------------------------------- ELEMENTS",
         "$ CBAR, EID, PID, GA, GB, X1, X2, X3  (orientation vector 0,0,1)",
     ]
@@ -1794,7 +1697,7 @@ def stick_model_bdf(arg: ResultsArg, sid_base: int = 1, *,
     bulk += [
         "$ ------------------------------------------------------- CONSTRAINTS",
         "$ SPC1, SID, C, G  (clamp the root node, all 6 DOF)",
-        *_comment("CAVEAT: " + CENTERLINE_CLAMP_NOTE),
+        *comment("CAVEAT: " + CENTERLINE_CLAMP_NOTE),
         f"SPC1, 1, 123456, {_ROOT_GID}",
         "$ ------------------------------------------------------------ LOADS",
     ]
@@ -1803,7 +1706,7 @@ def stick_model_bdf(arg: ResultsArg, sid_base: int = 1, *,
             bulk += _sob_case_lines(r, sob.y, u)
         bulk += _case_card_block(r, _sid(sid_base, idx, r), u)
 
-    return _stamped(header_comment, "\n".join(head + bulk + ["ENDDATA"]) + "\n")
+    return stamped(header_comment, "\n".join(head + bulk + ["ENDDATA"]) + "\n")
 
 
 def write_stick_model_bdf(arg: ResultsArg, path: str, sid_base: int = 1, *,
@@ -1914,7 +1817,7 @@ def _shared_grid_block(gid_x: List[tuple], u: DeliverableUnits,
     lines.append("$ GRID, GID, CP, X1, X2, X3")
     for gid, x in sorted(merged.items()):
         gx, gy, gz = to_grid(x, 0.0, 0.0, u)
-        lines.append(f"GRID, {gid}, , {_fmt3(gx, gy, gz)}")
+        lines.append(f"GRID, {gid}, , {fmt3(gx, gy, gz)}")
     return lines
 
 
@@ -1954,7 +1857,7 @@ def body_span_load_csv(arg, header_comment: str = "", *,
         sf = _sf(r)
         # The cumulative columns close to zero at the aft end (the same
         # equilibrium the deck states), so the terminal cells carry cancellation
-        # dust whose sign is platform-dependent -- see :func:`_closed`.
+        # dust whose sign is platform-dependent -- see :func:`snap_zero`.
         sz_scale = max((abs(s.sz) for s in r.stations), default=0.0)
         myy_scale = max((abs(s.myy) for s in r.stations), default=0.0)
         for gid, s in zip(body_station_gids(r), r.stations):
@@ -1962,11 +1865,11 @@ def body_span_load_csv(arg, header_comment: str = "", *,
             _, _, fz = to_force(0.0, 0.0, s.fz, u)
             _, _, sz = to_force(0.0, 0.0, s.sz, u)
             _, myy, _ = to_moment(0.0, s.myy, 0.0, u)
-            sz, myy = _closed(sz, sz_scale), _closed(myy, myy_scale)
+            sz, myy = snap_zero(sz, sz_scale), snap_zero(myy, myy_scale)
             writer.writerow({
                 "Case": r.case, "GID": gid, x_h: f"{x:.3f}",
                 fz_h: f"{fz:.1f}", sz_h: f"{sz:.1f}",
-                myy_h: f"{myy:.0f}", "SF": f"{_sf_str(sf)}",
+                myy_h: f"{myy:.0f}", "SF": f"{sf_str(sf)}",
             })
     return header_comment + buf.getvalue()
 
@@ -2001,15 +1904,15 @@ def body_force_moment_cards(arg, sid_base: int = 1, *,
         sf = _sf(r)
         _, _, total_fz = to_force(0.0, 0.0, math.fsum(s.fz for s in r.stations), u)
         _, terminal_myy, _ = to_moment(0.0, r.stations[-1].myy, 0.0, u)
-        # Both are zero by construction -- see :func:`_closed` for why the sign of
+        # Both are zero by construction -- see :func:`snap_zero` for why the sign of
         # what floating point actually leaves behind must not reach the file.
-        total_fz = _closed(total_fz, max((abs(s.fz) for s in r.stations), default=0.0))
-        terminal_myy = _closed(terminal_myy,
+        total_fz = snap_zero(total_fz, max((abs(s.fz) for s in r.stations), default=0.0))
+        terminal_myy = snap_zero(terminal_myy,
                                max((abs(s.myy) for s in r.stations), default=0.0))
         lines = [
-            *_comment(f"SLOADS net fuselage load -- case {r.case}, SID {sid}"),
+            *comment(f"SLOADS net fuselage load -- case {r.case}, SID {sid}"),
             f"$ Case ID: {r.case_ref.case_id}" if r.case_ref else "$ Case ID: (none)",
-            *_comment(basis_sentence(sf)),
+            *comment(basis_sentence(sf)),
             f"$ Applied Fz set sums to {total_fz:.2f} {u.force.label} "
             "(vertical equilibrium).",
             f"$ Terminal Myy {terminal_myy:.2f} {u.moment.label} "
@@ -2024,13 +1927,13 @@ def body_force_moment_cards(arg, sid_base: int = 1, *,
                       textwrap.wrap("CAVEAT: " + _BODY_ARTIFACT_CAVEAT, width=70)]
         for gid, s in zip(body_station_gids(r), r.stations):
             fx, fy, fz = to_force(0.0, 0.0, s.fz, u)
-            if abs(s.fz) > _TOL:
+            if abs(s.fz) > CARD_TOL:
                 lines.append(
                     f"FORCE, {sid}, {gid}, {SBEAM_CID}, 1.0, "
-                    f"{_fmt3(fx, fy, fz)}"
+                    f"{fmt3(fx, fy, fz)}"
                 )
         blocks.append("\n".join(lines))
-    return _stamped(header_comment, "\n".join(b for b in blocks if b) + "\n")
+    return stamped(header_comment, "\n".join(b for b in blocks if b) + "\n")
 
 
 def _body_fitting_fields(u: DeliverableUnits,
@@ -2085,7 +1988,7 @@ def body_fitting_load_csv(arg, header_comment: str = "", *,
             xr_h: f"{x_rear:.3f}", rr_h: f"{r_rear:.1f}",
             m_h: f"{m_unbalanced:.0f}",
             "Spars": "assumed" if r.spars_assumed else "entered",
-            "SF": _sf_str(sf),
+            "SF": sf_str(sf),
         })
     return header_comment + buf.getvalue()
 
@@ -2198,8 +2101,8 @@ def _trapezoid_tributary_forces(stations, total: float, what: str) -> List[float
                - (xs[i - 1] if i > 0 else xs[i])) / 2.0 for i in range(n)]
     raw = [s.psi * w for s, w in zip(stations, widths)]
     total_raw = math.fsum(raw)
-    if abs(total_raw) <= _TOL:
-        if abs(total) > _TOL:
+    if abs(total_raw) <= CARD_TOL:
+        if abs(total) > CARD_TOL:
             raise ValueError(
                 f"{what}: the chordwise profile integrates to zero "
                 f"({total_raw:.3e} lb over {n} station(s)), so it cannot carry "
@@ -2271,7 +2174,7 @@ def tail_chordwise_csv(arg, header_comment: str = "", *,
                 x_h: f"{x:.3f}", psi_h: f"{to_pressure(s.psi, u):.4f}",
                 fn_h: f"{fn_out:.1f}",
                 lt25_h: f"{lt25:.2f}", lt50_h: f"{lt50:.2f}",
-                "Axis": axis, "SF": f"{_sf_str(sf)}",
+                "Axis": axis, "SF": f"{sf_str(sf)}",
             })
     return header_comment + buf.getvalue()
 
@@ -2313,9 +2216,9 @@ def tail_force_moment_cards(arg, sid_base: int = 1, *,
         _, _, total = to_force(0.0, 0.0, math.fsum(forces), u)
         _, _, lt_total = to_force(0.0, 0.0, (r.lt25 + r.lt50), u)
         lines = [
-            *_comment(f"SLOADS chordwise {r.component} load -- case {r.case}, SID {sid}"),
+            *comment(f"SLOADS chordwise {r.component} load -- case {r.case}, SID {sid}"),
             f"$ Case ID: {r.case_ref.case_id}" if r.case_ref else "$ Case ID: (none)",
-            *_comment(basis_sentence(sf)),
+            *comment(basis_sentence(sf)),
             f"$ Load is normal to the surface = {axis} in airplane axes.",
             # Split across two lines: a single line overran the 72-col
             # free-field card width once the load reached five figures.
@@ -2324,13 +2227,13 @@ def tail_force_moment_cards(arg, sid_base: int = 1, *,
         ]
         for i, fn in enumerate(forces):
             fx2, fy2, fz2 = to_force(*tail_force_to_airplane(fn, r.component), u)
-            if abs(fn) > _TOL:
+            if abs(fn) > CARD_TOL:
                 lines.append(
                     f"FORCE, {sid}, {tail_station_gid(r.component, i)}, "
-                    f"{SBEAM_CID}, 1.0, {_fmt3(fx2, fy2, fz2)}"
+                    f"{SBEAM_CID}, 1.0, {fmt3(fx2, fy2, fz2)}"
                 )
         blocks.append("\n".join(lines))
-    return _stamped(header_comment, "\n".join(b for b in blocks if b) + "\n")
+    return stamped(header_comment, "\n".join(b for b in blocks if b) + "\n")
 
 
 def write_tail_chordwise_csv(arg, path: str, *,
@@ -2458,7 +2361,7 @@ def _tail_span_grid_block(results: Sequence, component: str,
         px, py, pz = tail_station_to_airplane(st.x, st.y, component, st.z)
         gx, gy, gz = to_grid(px, py, pz, u)
         lines.append(f"GRID, {tail_span_gid(component, i)}, , "
-                     f"{_fmt3(gx, gy, gz)}")
+                     f"{fmt3(gx, gy, gz)}")
     # The discrete control surface's own nodes (T6), on the same LRA line: a hinge
     # station is not a strip midpoint, so it gets its own node rather than the
     # nearest one -- rounding a hinge onto a strip is how a localized load path
@@ -2474,7 +2377,7 @@ def _tail_span_grid_block(results: Sequence, component: str,
             px, py, pz = tail_station_to_airplane(cp.x, cp.y, component, cp.z)
             gx, gy, gz = to_grid(px, py, pz, u)
             lines.append(f"GRID, {tail_control_gid(component, i)}, , "
-                         f"{_fmt3(gx, gy, gz)}")
+                         f"{fmt3(gx, gy, gz)}")
     return lines
 
 
@@ -2484,9 +2387,9 @@ def _tail_span_case_block(r, component: str, sid: int,
     sf = _sf(r)
     _, _, air = to_force(0.0, 0.0, r.air_total, u)
     lines = [
-        *_comment(f"SLOADS spanwise {component} load -- case {r.case}, SID {sid}"),
+        *comment(f"SLOADS spanwise {component} load -- case {r.case}, SID {sid}"),
         f"$ Case ID: {r.case_ref.case_id}" if r.case_ref else "$ Case ID: (none)",
-        *_comment(basis_sentence(sf)),
+        *comment(basis_sentence(sf)),
         f"$ Torsion about the {r.torsion_axis}.",
         f"$ Air load {air:.1f} {u.force.label}; strip loads are applied directly",
         "$   (not differenced from a cumulative column).",
@@ -2530,7 +2433,7 @@ def _tail_span_case_block(r, component: str, sid: int,
         basis.append(f"Surface mass {r.surface_weight_lb:.1f} lb: inertia "
                      f"{iner + 0.0:.1f} {u.force.label} is IN the loads above.")
         axial = tail_span.axial_total(r)
-        if abs(axial) > _TOL:
+        if abs(axial) > CARD_TOL:
             _, _, ax_u = to_force(0.0, 0.0, axial, u)
             basis.append(f"Plus {ax_u:.1f} {u.force.label} AXIAL along the fin's "
                          "own span axis, carried in the same FORCE cards.")
@@ -2557,13 +2460,13 @@ def _tail_span_case_block(r, component: str, sid: int,
         nx, ny, nz = tail_force_to_airplane(st.fz, component)
         ax, ay, az = tail_axial_to_airplane(st.f_span, component)
         fx, fy, fz = to_force(nx + ax, ny + ay, nz + az, u)
-        if abs(st.fz) > _TOL or abs(st.f_span) > _TOL:
+        if abs(st.fz) > CARD_TOL or abs(st.f_span) > CARD_TOL:
             lines.append(f"FORCE, {sid}, {gid}, {SBEAM_CID}, 1.0, "
-                         f"{_fmt3(fx, fy, fz)}")
+                         f"{fmt3(fx, fy, fz)}")
         mx, my, mz = to_moment(*tail_torsion_to_airplane(st.myy_free, component), u)
-        if abs(st.myy_free) > _TOL:
+        if abs(st.myy_free) > CARD_TOL:
             lines.append(f"MOMENT, {sid}, {gid}, {SBEAM_CID}, 1.0, "
-                         f"{_fmt3(mx, my, mz)}")
+                         f"{fmt3(mx, my, mz)}")
 
     # The discrete control surface's attachment loads (T6). Same axis maps as the
     # strips -- a hinge reaction is a normal force and its couple is a torsion
@@ -2571,16 +2474,16 @@ def _tail_span_case_block(r, component: str, sid: int,
     # through ``coordinates`` rather than writing the fin's sign twice.
     for i, cp in enumerate(r.control_loads):
         gid = tail_control_gid(component, i)
-        if abs(cp.f_normal) > _TOL:
+        if abs(cp.f_normal) > CARD_TOL:
             fx, fy, fz = to_force(
                 *tail_force_to_airplane(cp.f_normal, component), u)
             lines.append(f"FORCE, {sid}, {gid}, {SBEAM_CID}, 1.0, "
-                         f"{_fmt3(fx, fy, fz)}")
-        if abs(cp.m_torsion) > _TOL:
+                         f"{fmt3(fx, fy, fz)}")
+        if abs(cp.m_torsion) > CARD_TOL:
             mx, my, mz = to_moment(
                 *tail_torsion_to_airplane(cp.m_torsion, component), u)
             lines.append(f"MOMENT, {sid}, {gid}, {SBEAM_CID}, 1.0, "
-                         f"{_fmt3(mx, my, mz)}")
+                         f"{fmt3(mx, my, mz)}")
 
     # The T-tail transfer (T7), on the fin's last node -- the only load in this
     # deck that is not in the fin's local frame, which is why it has its own map.
@@ -2588,14 +2491,14 @@ def _tail_span_case_block(r, component: str, sid: int,
     if transfer is not None and r.stations:
         gid = tail_span_gid(component, len(r.stations) - 1)
         fvec, mvec = ttail_transfer_to_airplane(transfer.fz, transfer.myy)
-        if abs(transfer.fz) > _TOL:
+        if abs(transfer.fz) > CARD_TOL:
             fx, fy, fz = to_force(*fvec, u)
             lines.append(f"FORCE, {sid}, {gid}, {SBEAM_CID}, 1.0, "
-                         f"{_fmt3(fx, fy, fz)}")
-        if abs(transfer.myy) > _TOL:
+                         f"{fmt3(fx, fy, fz)}")
+        if abs(transfer.myy) > CARD_TOL:
             mx, my, mz = to_moment(*mvec, u)
             lines.append(f"MOMENT, {sid}, {gid}, {SBEAM_CID}, 1.0, "
-                         f"{_fmt3(mx, my, mz)}")
+                         f"{fmt3(mx, my, mz)}")
     return lines
 
 
@@ -2610,7 +2513,7 @@ def tail_span_force_moment_cards(arg, component: str = "htail", sid_base: int = 
     for idx, r in enumerate(results):
         blocks.append("\n".join(
             _tail_span_case_block(r, component, _sid(sid_base, idx, r), u)))
-    return _stamped(header_comment, "\n".join(b for b in blocks if b) + "\n")
+    return stamped(header_comment, "\n".join(b for b in blocks if b) + "\n")
 
 
 def write_tail_span_force_moment_cards(arg, path: str, component: str = "htail",
@@ -2649,8 +2552,8 @@ def tail_span_csv(arg, component: str = "htail", header_comment: str = "", *,
             bend, tor, _ = to_moment(st.mxx, st.myy, 0.0, u)
             # The h-tail's axial column is ``-0.0`` by construction (a negated
             # zero), and would print its sign; snapped like every card component.
-            fax = _closed(to_force(0.0, 0.0, st.f_span, u)[2], abs(fn))
-            sax = _closed(to_force(0.0, 0.0, st.s_span, u)[2], abs(sn))
+            fax = snap_zero(to_force(0.0, 0.0, st.f_span, u)[2], abs(fn))
+            sax = snap_zero(to_force(0.0, 0.0, st.s_span, u)[2], abs(sn))
             writer.writerow({
                 "Case": r.case, "GID": tail_span_gid(component, i),
                 span_h: f"{to_grid(st.y, 0.0, 0.0, u)[0]:.3f}",
@@ -2658,7 +2561,7 @@ def tail_span_csv(arg, component: str = "htail", header_comment: str = "", *,
                 f_h: f"{fn:.2f}", s_h: f"{sn:.2f}",
                 b_h: f"{bend:.0f}", t_h: f"{tor:.0f}",
                 fa_h: f"{fax:.2f}", sa_h: f"{sax:.2f}",
-                "Axis": r.torsion_axis, "SF": f"{_sf_str(sf)}",
+                "Axis": r.torsion_axis, "SF": f"{sf_str(sf)}",
             })
     return header_comment + buf.getvalue()
 
@@ -2742,7 +2645,7 @@ def control_surface_csv(arg, header_comment: str = "", *,
                 "Surface": r.surface, "Case": r.case, "GID": control_station_gid(i),
                 "X (chord frac)": f"{s.x:.3f}",
                 psi_h: f"{to_pressure(s.psi, u):.4f}", fz_h: f"{fz_out:.1f}",
-                load_h: f"{load:.2f}", "SF": f"{_sf_str(sf)}",
+                load_h: f"{load:.2f}", "SF": f"{sf_str(sf)}",
             })
     return header_comment + buf.getvalue()
 
@@ -2782,19 +2685,19 @@ def control_surface_force_moment_cards(arg, sid_base: int = 1, *,
         lines = [
             f"$ SLOADS control-surface load -- {r.surface} {r.case}, SID {sid}",
             f"$ Case ID: {r.case_ref.case_id}" if r.case_ref else "$ Case ID: (none)",
-            *_comment(basis_sentence(sf)),
+            *comment(basis_sentence(sf)),
             f"$ Applied Fz set sums to {total:.1f} {u.force.label} "
             f"(= critical load {critical:.1f} {u.force.label}).",
         ]
         for i, fz in enumerate(forces):
             fx2, fy2, fz2 = to_force(0.0, 0.0, fz, u)
-            if abs(fz) > _TOL:
+            if abs(fz) > CARD_TOL:
                 lines.append(
                     f"FORCE, {sid}, {control_station_gid(i)}, {SBEAM_CID}, 1.0, "
-                    f"{_fmt3(fx2, fy2, fz2)}"
+                    f"{fmt3(fx2, fy2, fz2)}"
                 )
         blocks.append("\n".join(lines))
-    return _stamped(header_comment, "\n".join(b for b in blocks if b) + "\n")
+    return stamped(header_comment, "\n".join(b for b in blocks if b) + "\n")
 
 
 def write_control_surface_csv(arg, path: str, *,
@@ -3112,14 +3015,14 @@ def gear_report_rows(project: Project, units: Optional[DeliverableUnits] = None,
                                    leg.couple[2], u)
             net = leg.net_of_inertia
             inertia = ("" if leg.inertia_fz is None else
-                       _fmt(to_force(0.0, 0.0, leg.inertia_fz, u)[2]))
+                       fmt(to_force(0.0, 0.0, leg.inertia_fz, u)[2]))
             rows.append({
                 "ID": case.case_ref.case_id if case.case_ref else "",
                 "Case": str(case.case),
                 "Condition": case.description,
                 "FAR": case.far_reference,
                 "Loading": case.cg_name,
-                "Design weight": _fmt(case.weight_lb * u.force.factor),
+                "Design weight": fmt(case.weight_lb * u.force.factor),
                 "Leg": leg.leg,
                 # A main row states the starboard wheel of the pair (its patch
                 # is at +tread/2); the port twin is the mirror. Said in the
@@ -3128,22 +3031,22 @@ def gear_report_rows(project: Project, units: Optional[DeliverableUnits] = None,
                 "Carrier": leg.carrier.value if leg.carrier is not None else "",
                 "Strut state": leg.strut_state,
                 "Ground angle (deg)": f"{leg.ground_angle_deg:.3f}",
-                "Stroke": _fmt(leg.stroke_in * u.length.factor),
+                "Stroke": fmt(leg.stroke_in * u.length.factor),
                 "Stroke (%)": f"{leg.stroke_fraction * 100:.1f}",
-                "Patch X": _fmt(px), "Patch Y": _fmt(py), "Patch Z": _fmt(pz),
-                "Ground-line V": _fmt(gv), "Ground-line D": _fmt(gd),
-                "Ground-line S": _fmt(gs),
-                "Datum Fx": _fmt(fx), "Datum Fy": _fmt(fy), "Datum Fz": _fmt(fz),
-                "Ref point X": _fmt(nx), "Ref point Y": _fmt(ny),
-                "Ref point Z": _fmt(nz),
-                "Transfer Mx": _fmt(mx), "Transfer My": _fmt(my),
-                "Transfer Mz": _fmt(mz),
+                "Patch X": fmt(px), "Patch Y": fmt(py), "Patch Z": fmt(pz),
+                "Ground-line V": fmt(gv), "Ground-line D": fmt(gd),
+                "Ground-line S": fmt(gs),
+                "Datum Fx": fmt(fx), "Datum Fy": fmt(fy), "Datum Fz": fmt(fz),
+                "Ref point X": fmt(nx), "Ref point Y": fmt(ny),
+                "Ref point Z": fmt(nz),
+                "Transfer Mx": fmt(mx), "Transfer My": fmt(my),
+                "Transfer Mz": fmt(mz),
                 "Leg weight": ("" if leg.leg_weight_lb is None else
-                               _fmt(leg.leg_weight_lb * u.force.factor)),
+                               fmt(leg.leg_weight_lb * u.force.factor)),
                 "Leg inertia Fz": inertia,
                 "Net Fz above trunnion": ("" if net is None else
-                                          _fmt(to_force(0.0, 0.0, net[2], u)[2])),
-                "SF": _sf_str(sf),
+                                          fmt(to_force(0.0, 0.0, net[2], u)[2])),
+                "SF": sf_str(sf),
             })
     return rows
 

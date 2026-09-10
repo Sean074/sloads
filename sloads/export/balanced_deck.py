@@ -95,7 +95,8 @@ from ..rigid_body import radians_per_s2
 from ..units import Channel, DeliverableUnits, UnitSystem, deliverable_units
 from .bands import band
 from .coordinates import SBEAM_CID, to_force, to_grid, to_moment
-from .sbeam_bridge import _fmt3, _stamped, basis_sentence
+from .deck_format import fmt3, stamped
+from .sbeam_bridge import basis_sentence
 
 #: Node runs, from the band registry (:mod:`sloads.export.bands`) -- the single
 #: owner of every GID/EID/SID band in the suite. These three were 4001/4201/4401
@@ -387,11 +388,11 @@ def _load_lines(case: BalancedCaseResult, sid: int, nodes, u: DeliverableUnits,
         fx, fy, fz = to_force(load.fx, load.fy, load.fz, u)
         if max(abs(load.fx), abs(load.fy), abs(load.fz)) > tol:
             lines.append(f"FORCE, {sid}, {gid}, {SBEAM_CID}, 1.0, "
-                         f"{_fmt3(fx, fy, fz)}")
+                         f"{fmt3(fx, fy, fz)}")
         mx, my, mz = to_moment(load.mx, load.my, load.mz, u)
         if max(abs(load.mx), abs(load.my), abs(load.mz)) > tol:
             lines.append(f"MOMENT, {sid}, {gid}, {SBEAM_CID}, 1.0, "
-                         f"{_fmt3(mx, my, mz)}")
+                         f"{fmt3(mx, my, mz)}")
     return lines
 
 
@@ -434,7 +435,7 @@ def balanced_deck(project: Project, *,
 
     ``header_comment`` is the ``$``-prefixed methods & units block
     (:func:`~sloads.report.bdf_comment_block`), applied through the same
-    :func:`~sloads.export.sbeam_bridge._stamped` owner every other deck uses:
+    :func:`~sloads.export.sbeam_bridge.stamped` owner every other deck uses:
     the mission's primary deliverable states its own basis when it travels
     alone. Blank leaves the deck byte-identical (the frozen Imperial baseline
     renders it unstamped).
@@ -521,7 +522,7 @@ def balanced_deck(project: Project, *,
     ]
     for key, gid in sorted(nodes.items(), key=lambda kv: kv[1]):
         gx, gy, gz = to_grid(key[1], key[2], key[3], u)
-        bulk.append(f"GRID, {gid}, , {_fmt3(gx, gy, gz)}")
+        bulk.append(f"GRID, {gid}, , {fmt3(gx, gy, gz)}")
     bulk += [
         "$ ------------------------------------------------------- CONSTRAINTS",
         "$ Determinate: one node, six DOF. The recovered reaction IS the residual",
@@ -532,7 +533,7 @@ def balanced_deck(project: Project, *,
     for sid, case in zip(sids, cases):
         bulk += ["$", *_header(case, u), *_load_lines(case, sid, nodes, u)]
 
-    return _stamped(header_comment, "\n".join(head + bulk + ["ENDDATA"]) + "\n")
+    return stamped(header_comment, "\n".join(head + bulk + ["ENDDATA"]) + "\n")
 
 
 def write_balanced_deck(project: Project, path: str, *,

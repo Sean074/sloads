@@ -71,8 +71,8 @@ from typing import Dict, List, Sequence, Tuple
 from ..units import Channel, DeliverableUnits, UnitSystem, deliverable_units
 from .bands import band
 from .coordinates import to_pressure
+from .deck_format import MAT1_E, MAT1_NU, PBAR_A, PBAR_I, PBAR_J, fmt
 from .equilibrium import parse_cards
-from .sbeam_bridge import _MAT1_E, _MAT1_NU, _PBAR_A, _PBAR_I, _PBAR_J, _fmt
 
 Vec3 = Tuple[float, float, float]
 
@@ -176,11 +176,11 @@ def _property_lines(u: DeliverableUnits) -> List[str]:
         "$ ---------------------------------------------- WRAPPER PROPERTIES",
         "$ Placeholder section (test-only wrapper); the support is determinate,",
         "$ so the recovered reactions do not depend on these values.",
-        f"MAT1, 1, {_fmt(to_pressure(_MAT1_E, u))}, , {_MAT1_NU}, 0.0",
-        f"PBAR, 1, 1, {_fmt(_PBAR_A * u.length.factor ** 2)}, "
-        f"{_fmt(_PBAR_I * u.length.factor ** 4)}, "
-        f"{_fmt(_PBAR_I * u.length.factor ** 4)}, "
-        f"{_fmt(_PBAR_J * u.length.factor ** 4)}",
+        f"MAT1, 1, {fmt(to_pressure(MAT1_E, u))}, , {MAT1_NU}, 0.0",
+        f"PBAR, 1, 1, {fmt(PBAR_A * u.length.factor ** 2)}, "
+        f"{fmt(PBAR_I * u.length.factor ** 4)}, "
+        f"{fmt(PBAR_I * u.length.factor ** 4)}, "
+        f"{fmt(PBAR_J * u.length.factor ** 4)}",
     ]
 
 

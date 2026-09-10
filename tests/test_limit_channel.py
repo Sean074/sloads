@@ -280,7 +280,7 @@ def test_the_g_or_71_scan_would_catch_a_multiply():
     assert _MULTIPLY.search("x = ULTIMATE_FACTOR * limit")
     assert _MULTIPLY.search("x = limit * ULTIMATE_FACTOR")
     # ...and does not fire on reading or stating the factor, which is the whole
-    # point: `_sf` and `_sf_str` survive OR-116, only the multiply goes.
+    # point: `_sf` and `sf_str` survive OR-116, only the multiply goes.
     assert not _MULTIPLY.search("sf = _sf(result)")
-    assert not _MULTIPLY.search('"SF": _sf_str(sf)')
+    assert not _MULTIPLY.search('"SF": sf_str(sf)')
     assert not _MULTIPLY.search("lf = [cl * q for cl, q in zip(clf, qs)]")

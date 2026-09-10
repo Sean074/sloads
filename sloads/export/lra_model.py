@@ -101,17 +101,19 @@ from ..units import Channel, DeliverableUnits, UnitSystem, deliverable_units
 from .balanced_deck import case_sids
 from .bands import band
 from .coordinates import SBEAM_CID, tail_station_to_airplane, to_force, to_grid, to_moment, to_pressure, transfer_couple
+from .deck_format import (
+    MAT1_E,
+    MAT1_NU,
+    PBAR_A,
+    PBAR_I,
+    PBAR_J,
+    comment,
+    fmt,
+    fmt3,
+    stamped,
+)
 from .roundtrip import _orientation
 from .sbeam_bridge import (
-    _MAT1_E,
-    _MAT1_NU,
-    _PBAR_A,
-    _PBAR_I,
-    _PBAR_J,
-    _comment,
-    _fmt,
-    _fmt3,
-    _stamped,
     basis_sentence,
     sob_gid,
     tail_control_gid,
@@ -703,7 +705,7 @@ STIFFNESS_NOTE = (
 
 def _case_header(case: BalancedCaseResult, sid: int) -> List[str]:
     label = case.case_ref.case_id if case.case_ref else case.label
-    return _comment(
+    return comment(
         f"LRA model case {label} -- {case.label}"
         f"{('-' + case.hand) if case.hand else ''}, SID {sid}: the balanced "
         f"case's load set transferred onto the beam nodes. "
@@ -733,7 +735,7 @@ def lra_model_bdf(project: Project, *,
     sids = case_sids(cases)
 
     head: List[str] = ["SOL 101", "$"]
-    head += _comment(
+    head += comment(
         "LRA BEAM MODEL (step 12) -- a structural idealization: node lines "
         "on the load reference axes, CBAR chains, rigid posts/attachments/"
         "gear/engine ties, and the assembled balanced cases' load sets "
@@ -741,12 +743,12 @@ def lra_model_bdf(project: Project, *,
         "$ SLOADS-NODE tagged nodes; the assembled balanced deck remains the "
         "equilibrium proof and the per-component decks the oracle views "
         "(note 24 R-1).")
-    head += _comment(
+    head += comment(
         "grid line = LRA = the assumed elastic axis at the entered ref_axis "
         "percent chord; torsion is about it (note 24 R-7d).")
-    head += _comment("Stiffness: " + STIFFNESS_NOTE)
+    head += comment("Stiffness: " + STIFFNESS_NOTE)
     for note in model.assumed_notes:
-        head += _comment("ASSUMED: " + note)
+        head += comment("ASSUMED: " + note)
     head.append("$ ------------------------------------------------- CASE MAP")
     for sid, case in zip(sids, cases):
         entry = (f"SUBCASE {sid} = "
@@ -773,7 +775,7 @@ def lra_model_bdf(project: Project, *,
     bulk: List[str] = [
         "$ ------------------------------------------------------------ NODES",
     ]
-    bulk += _comment(
+    bulk += comment(
         "Named nodes carry a '$ SLOADS-NODE <family> <side>' tag (decision "
         "BM-5) -- the identity contract an imported model is mapped by. "
         "Sides: R/L/C, plus F/A for the front/rear-spar posts.")
@@ -783,15 +785,15 @@ def lra_model_bdf(project: Project, *,
         if node.family:
             bulk.append(f"$ SLOADS-NODE {node.family} {node.side}")
         gx, gy, gz = to_grid(*node.pos, units=u)
-        bulk.append(f"GRID, {node.gid}, , {_fmt3(gx, gy, gz)}")
+        bulk.append(f"GRID, {node.gid}, , {fmt3(gx, gy, gz)}")
 
-    e_mod = to_pressure(_MAT1_E, u)
-    area = _PBAR_A * u.length.factor ** 2
-    inertia = _PBAR_I * u.length.factor ** 4
-    torsion_j = _PBAR_J * u.length.factor ** 4
+    e_mod = to_pressure(MAT1_E, u)
+    area = PBAR_A * u.length.factor ** 2
+    inertia = PBAR_I * u.length.factor ** 4
+    torsion_j = PBAR_J * u.length.factor ** 4
     bulk += [
         "$ --------------------------------------------------------- MATERIAL",
-        *_comment(STIFFNESS_NOTE),
+        *comment(STIFFNESS_NOTE),
         f"$ E in {u.pressure.label}; A in {u.length.label}^2; "
         f"I, J in {u.length.label}^4.",
         "$ MAT1, MID, E, G, NU, RHO   /   PBAR, PID, MID, A, I1, I2, J",
@@ -800,9 +802,9 @@ def lra_model_bdf(project: Project, *,
         sid_ = section_id(family)
         bulk += [
             f"$ SLOADS-SECTION {family}",
-            f"MAT1, {sid_}, {_fmt(e_mod)}, , {_MAT1_NU}, 0.0",
-            f"PBAR, {sid_}, {sid_}, {_fmt(area)}, {_fmt(inertia)}, "
-            f"{_fmt(inertia)}, {_fmt(torsion_j)}",
+            f"MAT1, {sid_}, {fmt(e_mod)}, , {MAT1_NU}, 0.0",
+            f"PBAR, {sid_}, {sid_}, {fmt(area)}, {fmt(inertia)}, "
+            f"{fmt(inertia)}, {fmt(torsion_j)}",
         ]
     bulk += [
         "$ --------------------------------------------------------- ELEMENTS",
@@ -815,12 +817,12 @@ def lra_model_bdf(project: Project, *,
                     f"{ga}, {gb}, {vx}, {vy}, {vz}")
     bulk.append("$ RBE2, EID, GN, CM, GM...  (rigid ties, production band)")
     for i, (gn, cm, gms, label) in enumerate(model.rbe2s):
-        bulk += _comment(label)
+        bulk += comment(label)
         bulk.append(f"RBE2, {_RBE2_BAND.allocate(i)}, {gn}, {cm}, "
                     + ", ".join(str(g) for g in gms))
     bulk += [
         "$ ------------------------------------------------------- CONSTRAINTS",
-        *_comment(
+        *comment(
             "Determinate, free-free proof: one node, six DOF, on the forward "
             "fuselage chain node nearest the front post (touched by no rigid "
             "element) -- the recovered reaction IS the case residual stated "
@@ -836,13 +838,13 @@ def lra_model_bdf(project: Project, *,
             fx, fy, fz = to_force(force[0], force[1], force[2], u)
             if max(abs(v) for v in force) > _TOL:
                 bulk.append(f"FORCE, {sid}, {gid}, {SBEAM_CID}, 1.0, "
-                            f"{_fmt3(fx, fy, fz)}")
+                            f"{fmt3(fx, fy, fz)}")
             mx, my, mz = to_moment(moment[0], moment[1], moment[2], u)
             if max(abs(v) for v in moment) > _TOL:
                 bulk.append(f"MOMENT, {sid}, {gid}, {SBEAM_CID}, 1.0, "
-                            f"{_fmt3(mx, my, mz)}")
+                            f"{fmt3(mx, my, mz)}")
 
-    return _stamped(header_comment, "\n".join(head + bulk + ["ENDDATA"]) + "\n")
+    return stamped(header_comment, "\n".join(head + bulk + ["ENDDATA"]) + "\n")
 
 
 def write_lra_model_bdf(project: Project, path: str, *,

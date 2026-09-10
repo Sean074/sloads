@@ -240,6 +240,7 @@ FAR23LOADS/
 │   ├── export/                   # output bridges to external tools (renderers, NOT registered modules)
 │   │   ├── bands.py              # THE GID/EID/SID band registry: one owner per id run, disjointness proved by test
 │   │   ├── coordinates.py        # SLOADS axes -> sbeam CID 0 map + the reflection operator (single edit-point)
+│   │   ├── deck_format.py        # THE deck-writing primitives: card number format, dust snapping, `$` comment wrapping, the `$`-block stamp, placeholder section properties (CH-4)
 │   │   ├── sbeam_bridge.py       # net wing/body/tail/control/gear loads -> span-load CSV + FORCE/MOMENT cards + CBAR stick model + case index + export-scope filter
 │   │   ├── mass_cards.py         # CONM2/MASSSET mass model for sbeam (C1–C5)
 │   │   ├── balanced_deck.py      # the assembled full-span free-free deck — the primary deliverable (B5)

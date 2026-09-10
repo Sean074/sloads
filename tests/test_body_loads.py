@@ -179,7 +179,7 @@ def test_sbeam_body_export_force_set_sums_to_zero():
     assert "FORCE" in cards
     # Re-sum the Fz of every FORCE card in the first load set: must close to ~0.
     # The tolerance is relative to the load magnitude on the cards -- the cards
-    # carry 6 significant digits (_fmt), so a set of ~10^4 lb loads re-sums to
+    # carry 6 significant digits (deck_format.fmt), so a set of ~10^4 lb loads re-sums to
     # ~10^-3 lb of print rounding, not of calc error.
     fz = [float(ln.split(",")[-1]) for ln in cards.splitlines() if ln.startswith("FORCE, 1,")]
     assert math.isclose(sum(fz), 0.0, abs_tol=1e-5 * sum(abs(f) for f in fz))
