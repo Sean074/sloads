@@ -623,6 +623,64 @@ def test_the_three_view_and_the_load_path_place_one_htail_once(example):
 
 
 # --------------------------------------------------------------------------- #
+# The surface-plane owner (#220, design note 54 D-54.2)
+# --------------------------------------------------------------------------- #
+
+def test_the_plane_a_surface_spans_has_one_owner():
+    """Butt-line surfaces span y; the fin and its rudder span z (waterlines)."""
+    from sloads.tail_geometry import SurfacePlane, surface_plane
+
+    for name in ("wing", "htail", "aileron", "flap", "elevator"):
+        assert surface_plane(name) is SurfacePlane.BUTT_LINE, name
+    for name in ("vtail", "rudder"):
+        assert surface_plane(name) is SurfacePlane.WATERLINE, name
+
+
+def test_the_local_to_airplane_maps_follow_the_plane_owner():
+    """The four coordinate maps ask the owner, not their own name test.
+
+    ``"rudder"`` is the probe: no caller passes it today, but it *is* a
+    waterline-span surface, and before D-54.2 each map's private
+    ``== "vtail"`` test would have routed it as a horizontal surface -- a side
+    load emitted as lift. The owner answers once for every waterline-span
+    name.
+    """
+    from sloads.export.coordinates import (
+        tail_axial_to_airplane,
+        tail_force_to_airplane,
+        tail_station_to_airplane,
+        tail_torsion_to_airplane,
+    )
+
+    assert tail_station_to_airplane(10.0, 5.0, "rudder", root_z=100.0) == (10.0, 0.0, 105.0)
+    assert tail_force_to_airplane(3.0, "rudder") == (0.0, 3.0, 0.0)
+    assert tail_axial_to_airplane(2.0, "rudder") == (0.0, 0.0, 2.0)
+    assert tail_torsion_to_airplane(4.0, "rudder") == (0.0, 0.0, -4.0)
+    # And the butt-line side, unchanged:
+    assert tail_force_to_airplane(3.0, "elevator") == (0.0, 0.0, 3.0)
+
+
+def test_the_reports_declared_frames_agree_with_the_plane_owner():
+    """Drift guard (rule 3): declared frame/axis data reads back to the owner.
+
+    The oracle report carries the plane twice as declared data -- the planform
+    figures' ``frame`` and the tail sections' ``span_axis`` noun. Both are
+    asserted against ``surface_plane`` so a surface added or reclassified in
+    one place cannot quietly disagree with the others.
+    """
+    from sloads.report.oracle_sections import _PLANFORM_FIGURES, _TAIL_SURFACES
+    from sloads.tail_geometry import SurfacePlane, surface_plane
+
+    frame_of = {SurfacePlane.BUTT_LINE: "butt", SurfacePlane.WATERLINE: "water"}
+    for _key, parent, _title, controls, frame in _PLANFORM_FIGURES:
+        assert frame == frame_of[surface_plane(parent)], parent
+        for control in controls:
+            assert frame == frame_of[surface_plane(control)], control
+    for component, names in _TAIL_SURFACES.items():
+        assert names["span_axis"] == surface_plane(component).value, component
+
+
+# --------------------------------------------------------------------------- #
 # One surface, one name (#223, CONVENTIONS.md §7.2: "fin" is retired)
 # --------------------------------------------------------------------------- #
 #: The two serialized names the sweep deliberately kept: JSON schema fields on

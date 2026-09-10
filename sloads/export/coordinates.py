@@ -38,6 +38,7 @@ import math
 from typing import TYPE_CHECKING, Tuple
 
 from ..gear_loads import transfer_couple as _transfer_couple
+from ..tail_geometry import SurfacePlane, surface_plane
 from ..units import Channel, DeliverableUnits, UnitSystem, deliverable_units
 
 if TYPE_CHECKING:  # pragma: no cover - typing only, and a cycle at runtime
@@ -207,6 +208,10 @@ def reflect_side(side: str) -> str:
 # -- here -- with a drift guard, because it is a sign/axis convention and those
 # are exactly what CONVENTIONS.md §7 says must never be hand-rolled per call site.
 #
+# *Which* plane a surface spans is not decided here: the four maps below ask
+# ``tail_geometry.surface_plane`` (design note 54, D-54.2 / #220), the one
+# authority, instead of each testing the component name themselves.
+#
 #   horizontal tail: span -> y, normal force -> fz, torsion -> myy  (the wing's map)
 #   vertical tail:   span -> z, normal force -> fy, torsion -> myy
 #
@@ -217,7 +222,7 @@ def reflect_side(side: str) -> str:
 def tail_station_to_airplane(x: float, span: float, component: str,
                              root_z: float = 0.0) -> Vec3:
     """Map a tail station's local ``(x, span)`` to an airplane ``(x, y, z)`` point."""
-    if component == "vtail":
+    if surface_plane(component) is SurfacePlane.WATERLINE:
         return (x, 0.0, root_z + span)
     return (x, span, root_z)
 
@@ -228,7 +233,7 @@ def tail_force_to_airplane(normal: float, component: str) -> Vec3:
     The horizontal tail's normal force is vertical (``fz``); the vertical tail's
     is lateral (``fy``).
     """
-    if component == "vtail":
+    if surface_plane(component) is SurfacePlane.WATERLINE:
         return (0.0, normal, 0.0)
     return (0.0, 0.0, normal)
 
@@ -246,7 +251,7 @@ def tail_axial_to_airplane(axial: float, component: str) -> Vec3:
     day a spanwise ``n_y`` reaches the horizontal tail the axis must already be
     right, not invented then.
     """
-    if component == "vtail":
+    if surface_plane(component) is SurfacePlane.WATERLINE:
         return (0.0, 0.0, axial)
     return (0.0, axial, 0.0)
 
@@ -293,7 +298,7 @@ def tail_torsion_to_airplane(torsion: float, component: str) -> Vec3:
     the call site: a fin torsion emitted with the h-tail's sign is a deck that
     parses, solves, and twists the fin the wrong way.
     """
-    if component == "vtail":
+    if surface_plane(component) is SurfacePlane.WATERLINE:
         return (0.0, 0.0, -torsion)
     return (0.0, torsion, 0.0)
 

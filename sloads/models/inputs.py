@@ -372,19 +372,28 @@ class WeightInput:
 # --------------------------------------------------------------------------- #
 # Aerodynamic surface geometry (WINGGEOM) -- the Project.geometry slice
 # --------------------------------------------------------------------------- #
-XYPoint = Tuple[float, float]  # (fuselage station X, wing/butt station Y), inches
+# (fuselage station X, span coordinate), inches. The span coordinate is a butt
+# line on a butt-line-span surface (wing, h-tail, their controls) and a
+# **waterline** on a waterline-span one (fin, rudder) -- the plane is the
+# surface's, owned by ``sloads.tail_geometry.surface_plane`` (D-54.2/#220).
+XYPoint = Tuple[float, float]
 
 
 @dataclass
 class SurfaceInput:
     """One aerodynamic surface for WINGGEOM, defined by its edge polylines.
 
-    ``leading_edge``/``trailing_edge`` are lists of ``(X, Y)`` points ordered
-    inboard -> outboard (fuselage station X, butt line Y, both inches), exactly as
-    the original program prompts for them. ``elements`` is the strip count the
+    ``leading_edge``/``trailing_edge`` are lists of ``(X, span)`` points ordered
+    root -> tip (fuselage station X and the surface's span coordinate, both
+    inches), exactly as the original program prompts for them. The span
+    coordinate is a butt line on a butt-line-span surface and a waterline on a
+    waterline-span one (fin, rudder) -- see :data:`XYPoint` and the plane owner
+    ``sloads.tail_geometry.surface_plane``. ``elements`` is the strip count the
     chord is integrated over (``H`` in WINGGEOM.BAS; the Appendix A wing uses 20).
     ``symmetric`` marks a surface symmetric about the airplane centre plane (wing,
-    horizontal/vertical tail) versus one defined on a single side (aileron, flap).
+    horizontal/vertical tail) versus one defined on a single side (aileron, flap);
+    whether the flag *draws* a mirror is the plane's decision, never the flag's
+    alone -- a waterline-span surface has no mirror below the airplane.
 
     ``ref_axis_pct`` is the surface's **loads reference axis** as a fraction of
     the local chord — the elastic axis of the beam model the exported loads are

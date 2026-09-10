@@ -166,8 +166,7 @@ unwritten note.
 | 48 | **sbeam-drift weekly workflow files/updates an issue on failure** instead of relying on the Actions page *(review R-18)* (#188) | A failure step opening or commenting on a pinned "sbeam drift" issue | V | S / S | — |
 | 50 | **`safety_factors.classify`: exact-match reference returns before the multi-reference agreement check** — the one hole where "flagged, never defaulted" degrades to silently-first-match; latent, no current producer emits the string *(review R-9)* (#179) | After an exact hit the remaining references are still classified and factor agreement demanded; guard case added | V | S / S | — (the SF cluster) |
 | 51 | **Report side keeps two `getattr(..., ULTIMATE_FACTOR)` fallbacks the M4-16 rule banned from export** — dead defaults that would silently resurrect a flat 1.5 on an attribute rename *(review R-10)* (#180) | Direct attribute access at the three sites, per the rule `sbeam_bridge._sf` already states | V | S / S | — (the SF cluster) |
-| 53 | **The plane a surface is defined in is positional, not declared** — `XYPoint`'s documented "butt line Y" is false for the vertical tail; five name-test branches decide *(owner's question 2026-09-07)* (#220) | One `surface_plane(component)` owner replacing the five branches; docstrings corrected; **no** user-selected plane field yet (it belongs with V-tail/cruciform support) | V | S / S | — (#223 shipped 2026-09-09) |
-| 54 | **A raked fin root resolves onto one waterline, and the axis kinks** — `resolve_tail_planform` rebases GA6's raked root onto 111.5 and the LRA swings aft at the root *(found 2026-09-07, Figure 24)* (#219) | A decision — extrapolate, clamp, or refuse the chord below the lower edge's start — made explicit; square-root fins unaffected | V | M / S | #220's plane owner |
+| 54 | **A raked fin root resolves onto one waterline, and the axis kinks** — `resolve_tail_planform` rebases GA6's raked root onto 111.5 and the LRA swings aft at the root *(found 2026-09-07, Figure 24)* (#219) | A decision — extrapolate, clamp, or refuse the chord below the lower edge's start — made explicit; square-root fins unaffected | V | M / S | — (#220 shipped 2026-09-09) |
 | 55 | **Three examples enter a control-surface area they do not draw** — aileron entered-vs-outline disagreement 4 %/5 %/44 %; three fixtures carry `flap_loads` with no flap outline *(filed 2026-09-07; OR-152 states the disagreement meanwhile)* (#216) | Each pair reconciled from the airplane's data, per example | V | S / S | — |
 | 56 | **One fuselage quantity is published under two `LoadValue` keys** — `select_fuselage`'s down/up blocks split one quantity across two keys; the report's §4.3 fold is the workaround *(found 2026-09-06, OR-14)* (#222) | Keys converge, labels survive as display text; rides the baseline wave (CSV columns move) | V | M / S | the baseline wave (#164 first) |
 | 57 | **Applied-load CSVs drop the case identity: 33 gear cases collapse onto 8 Case strings** — `AppliedLoad.case_id` populated and never emitted *(2026-09-08 review C1)* (#241) | A `Case ID` column (+ `Loading` on the gear file) in `applied_load_csv`; round-trip assert into the case index; digest re-pin | V | M / S | the baseline wave |
@@ -376,7 +375,6 @@ Figs 20.7–20.10).
 
 - #219 — A raked fin root resolves onto one waterline, and the axis kinks.
 
-- #220 — The plane a surface is defined in is positional, not declared.
 
 - #221 — The oracle reduction resets `weight.items[].consumable`, moving a load.
 
