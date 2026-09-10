@@ -241,6 +241,25 @@ def _hop_63(d: Dict[str, Any]) -> Dict[str, Any]:
     return d
 
 
+def _hop_64(d: Dict[str, Any]) -> Dict[str, Any]:
+    """v64 -> v65 (design note 54 D-54.1/D-54.8, #25 step 2): **identity**.
+
+    v65 is the boundary-line model: ``SurfaceInput.hinge_line`` (the control's
+    aerodynamic hinge axis; empty = not entered), a control surface's
+    ``trailing_edge`` allowed empty (it then derives from the parent's TE --
+    physically one line, D-54.1), and ``LayoutInput.htail_dihedral_deg``
+    (declared, physics deferred, D-54.8). The two tail input blocks are also
+    physically regrouped into the D-54.1 seam order, which JSON -- storing
+    fields by name -- cannot see. Every addition's default is exactly the v64
+    meaning: no hinge line existed, every control TE was entered, no dihedral
+    was declared. A v64 file therefore loads bit-identical, every typed scalar
+    stays authoritative (blank-derives is note 36 OV-1's contract, and blank
+    meant "not modelled or derived elsewhere" before too), and no delivered
+    load or ``GRID`` moves.
+    """
+    return d
+
+
 #: ``{from_version: hop}`` -- applied in ascending order, each turning a file of
 #: version *n* into version *n+1* shape. A version that changes shape adds its
 #: hop here; :data:`SUPPORTED_FLOOR` names the oldest version the chain starts
@@ -255,6 +274,7 @@ MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     61: _hop_61,
     62: _hop_62,
     63: _hop_63,
+    64: _hop_64,
 }
 
 #: The oldest project version this build reads. It sat at ``SCHEMA_VERSION``

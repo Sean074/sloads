@@ -843,5 +843,268 @@ def test_no_fin_identifier_survives_or_returns():
         + ", ".join(sorted(set(offenders))))
 
 
+# --------------------------------------------------------------------------- #
+# The boundary-line model (#25 step 2, design note 54 D-54.1/D-54.8)
+# --------------------------------------------------------------------------- #
+#: ``ga6_normal``'s elevator and rudder trailing edges as Appendix A prints
+#: them (elevator p153, rudder p149) -- the polylines the v65 re-stamp REMOVED
+#: from the fixture, pinned here so the derivation below is checked against
+#: the printed truth and not against itself. The elevator's TE is the h-tail's
+#: byte-for-byte; the rudder's is the fin TE plus its own tip closure at
+#: ``(282.0, 168.0)``, which is the rudder LE polyline's top endpoint.
+_GA6_PRINTED_ELEVATOR_TE = [
+    (284, 0), (284, 1.445), (292.567, 6.2), (290.662, 33.2), (288.657, 33.201),
+    (286.3, 66.6), (284.7, 69.7), (279.8, 71.9), (274, 72.7), (268.1, 73.1),
+]
+_GA6_PRINTED_RUDDER_TE = [(292.917, 111.5), (302.0, 166.794), (282.0, 168.0)]
+
+
+def test_a_tail_control_te_derives_byte_identical_to_the_printed_one():
+    """D-54.1's central identity: the control's TE **is** the parent's.
+
+    ``ga6_normal`` no longer enters the elevator/rudder trailing edges -- one
+    physical line was entered twice (#25's opening sentence) -- and the
+    derivation must reproduce Appendix A's own printed coordinate tables
+    exactly: the elevator over the full h-tail TE (the spans coincide), the
+    rudder over the full fin TE with the end-closure to its own LE tip, which
+    reaches 1.2 in above the fin. Byte-identity is what makes the re-stamp a
+    pure de-duplication -- the Imperial digests are unchanged across it.
+    """
+    from sloads.tail_geometry import resolved_control_surface
+
+    geometry = _project("ga6_normal.project.json").geometry
+    assert geometry.by_name("elevator").trailing_edge == []
+    assert geometry.by_name("rudder").trailing_edge == []
+    elevator = resolved_control_surface(geometry, "elevator")
+    rudder = resolved_control_surface(geometry, "rudder")
+    assert elevator.trailing_edge == [tuple(p) for p in _GA6_PRINTED_ELEVATOR_TE]
+    assert rudder.trailing_edge == [tuple(p) for p in _GA6_PRINTED_RUDDER_TE]
+    # ...and the h-tail identity, stated as such: the derived elevator TE is
+    # the parent's polyline verbatim, not merely close to it.
+    assert elevator.trailing_edge == [
+        tuple(p) for p in geometry.by_name("htail").trailing_edge]
+
+
+def test_the_aileron_end_closure_is_why_an_entered_control_te_survives():
+    """The stated limit of the derivation, with #25's own number.
+
+    The GA6 aileron's root closure meets the wing TE at BL 110.401, not at its
+    own root BL 109 -- so clipping the parent TE to the LE's span misses the
+    closure triangle and mis-reads the area by ~1 % ("+1.00 % on the GA6
+    aileron", the #25 row). That is why an entered control TE remains legal:
+    where the true closure departs from the construction, the TE stays typed
+    -- and the copies-agree guard then holds every non-closure point of it on
+    the parent's line instead (the aileron's pass exactly).
+    """
+    from sloads.modules.wing_geometry import surface_properties
+    from sloads.tail_geometry import (
+        derived_control_trailing_edge,
+        validate_control_trailing_edge,
+    )
+
+    geometry = _project("ga6_normal.project.json").geometry
+    wing, aileron = geometry.by_name("wing"), geometry.by_name("aileron")
+    validate_control_trailing_edge(wing, aileron)   # the entered TE lies on it
+
+    def area(surf):
+        return next(v.value for v in surface_properties(surf).values
+                    if v.key == "area_per_side")
+
+    from dataclasses import replace
+    entered = area(aileron)
+    clipped = area(replace(aileron, trailing_edge=derived_control_trailing_edge(
+        wing, aileron)))
+    assert (clipped - entered) / entered == pytest.approx(0.0100, abs=0.0015)
+
+
+def test_an_entered_tail_control_te_off_the_parent_is_refused():
+    """The copies-agree guard, hard on the tail groups (D-54.1): a control TE
+    entered off its parent's line is one boundary described twice, differently
+    -- exactly what #25 was filed on -- and is refused by name, not averaged.
+    The wing controls are exempt until the #260/D-54.6 fixture wave reconciles
+    their estimated polylines (three fixtures sit 0.04-9.4 in off today)."""
+    from dataclasses import replace
+
+    from sloads.tail_geometry import resolved_control_surface
+
+    project = _project("ga6_normal.project.json")
+    geometry = project.geometry
+    htail = geometry.by_name("htail")
+    bad_te = [(x + 2.0, s) for x, s in htail.trailing_edge]
+    surfaces = [replace(s, trailing_edge=bad_te) if s.name == "elevator" else s
+                for s in geometry.surfaces]
+    geometry = replace(geometry, surfaces=surfaces)
+    with pytest.raises(ValueError, match="trailing edge disagrees with its parent"):
+        resolved_control_surface(geometry, "elevator")
+
+
+def test_the_hinge_line_splits_the_control_area_exactly():
+    """``control_hinge_areas`` against closed-form truth: a rectangular
+    control of chord 10 with its hinge at 30 % chord splits 3:7, and the two
+    halves sum to the whole -- the split and the total are integrated by the
+    same owner, so they cannot drift apart."""
+    from sloads.tail_geometry import control_hinge_areas
+
+    control = SurfaceInput(
+        name="elevator",
+        leading_edge=[(100.0, 0.0), (100.0, 50.0)],
+        trailing_edge=[(110.0, 0.0), (110.0, 50.0)],
+        hinge_line=[(103.0, 0.0), (103.0, 50.0)],
+    )
+    fwd, aft = control_hinge_areas(control)
+    assert fwd == pytest.approx(3.0 * 50.0, rel=1e-9)
+    assert aft == pytest.approx(7.0 * 50.0, rel=1e-9)
+
+
+def test_a_hinge_line_that_leaves_the_control_is_refused():
+    """A hinge forward of the LE (or aft of the TE) is not a split, and a
+    hinge line that does not span the control would be closed by invented
+    chords -- both are refused by name (D-54.1), never clamped quietly."""
+    from dataclasses import replace
+
+    from sloads.tail_geometry import control_hinge_areas
+
+    control = SurfaceInput(
+        name="elevator",
+        leading_edge=[(100.0, 0.0), (100.0, 50.0)],
+        trailing_edge=[(110.0, 0.0), (110.0, 50.0)],
+        hinge_line=[(95.0, 0.0), (95.0, 50.0)],
+    )
+    with pytest.raises(ValueError, match="leaves the control chord"):
+        control_hinge_areas(control)
+    short = replace(control, hinge_line=[(103.0, 0.0), (103.0, 20.0)])
+    with pytest.raises(ValueError, match="must cover the control's span"):
+        control_hinge_areas(short)
+
+
+def test_the_boundary_model_predicts_the_printed_appendix_a_figures():
+    """Note 54 gate 7: the derived scalars are **predictions** of Appendix A.
+
+    Every ``[D]``-marked scalar the GA6 boundary lines can supply must land on
+    the printed figure the fixture types -- the "General input for calculation
+    of horiz tail loads" / "Input for vertical tail" tables of the 6-place
+    report, whose surfaces Appendix A also prints as WINGGEOM runs (horizontal
+    tail p151, elevator p153, rudder p149; the fin from the printed planform
+    drawing, entered 2026-08-30) -- within the oracle band, ±0.1 %. This is
+    what turns those figures from transcriptions into checked predictions: a
+    boundary line that drifts off its printed surface moves a derived scalar
+    off its printed value and fails here.
+    """
+    from sloads.tail_geometry import boundary_derived_scalars
+
+    project = _project("ga6_normal.project.json")
+    derived = {**boundary_derived_scalars(project, HTAIL),
+               **boundary_derived_scalars(project, VTAIL)}
+    printed = {
+        # Appendix A "General input for calculation of horiz tail loads";
+        # the surfaces' printed WINGGEOM runs: h-tail p151, elevator p153.
+        "htail_area_sqft": 36.944,
+        "htail_semispan_in": 73.1,
+        "aspect_ratio_htail": 4.017,
+        "xt25": 261.027,
+        "xt50": 270.357,
+        "elevator_area_sqft": 16.403,
+        # Appendix A "Input for vertical tail"; the rudder's run is p149.
+        "vtail_area_sqft": 14.84,
+        "vtail_span_in": 57.0,
+        "vtail_mac_in": 40.404,
+        "aspect_ratio_vtail": 1.52,
+        "xv25": 266.83,
+        "rudder_area_sqft": 5.236,
+    }
+    for field_name, want in printed.items():
+        assert derived[field_name] == pytest.approx(want, rel=1e-3), field_name
+
+
+def test_blank_tail_scalars_derive_from_the_boundary_lines():
+    """The note 36 OV-1 contract over the whole seam: blank the entire
+    ``[D]``-marked membership of both tail blocks on ``ga6_normal`` and every
+    field resolves from the boundary lines to the value the fixture typed
+    (within the 0.1 % prediction band) -- including a hinge-split pair once a
+    hinge line is entered -- and the planform resolver still models both
+    surfaces from polylines alone, not as an assumed rectangle."""
+    from dataclasses import replace
+
+    from sloads.models.inputs import HTAIL_BOUNDARY_DERIVED, VTAIL_BOUNDARY_DERIVED
+    from sloads.modules.select import effective_tail_inputs, effective_vtail_inputs
+
+    project = copy.deepcopy(_project("ga6_normal.project.json"))
+    ht, vt = project.geometry.empennage.htail, project.geometry.empennage.vtail
+    reference = {**{f: getattr(ht, f) for f in HTAIL_BOUNDARY_DERIVED},
+                 **{f: getattr(vt, f) for f in VTAIL_BOUNDARY_DERIVED}}
+    for f in HTAIL_BOUNDARY_DERIVED:
+        setattr(ht, f, 0.0)
+    for f in VTAIL_BOUNDARY_DERIVED:
+        setattr(vt, f, 0.0)
+    # A hinge line for the elevator so the fwd/aft halves have a boundary to
+    # derive from: at the printed split, SEFWDHL/SE = 1.639/16.403 ~ 10 % of
+    # the control's chord ahead of the hinge... the constructed line here is a
+    # placement fixture, not printed data, so the halves are asserted for
+    # consistency (they sum to the elevator's own area), not against print.
+    elevator = project.geometry.by_name("elevator")
+    hinge = [(x + 2.0, s) for x, s in elevator.leading_edge]
+    project.geometry = replace(
+        project.geometry,
+        surfaces=[replace(s, hinge_line=hinge) if s.name == "elevator" else s
+                  for s in project.geometry.surfaces])
+    eff_ht = effective_tail_inputs(project)
+    eff_vt = effective_vtail_inputs(project)
+    # The hinge halves are excluded from the printed comparison: the hinge
+    # line above is a constructed placement, not Appendix A's (which prints
+    # the areas, not the axis), so they are asserted for internal consistency
+    # below rather than against the typed values.
+    for f in set(HTAIL_BOUNDARY_DERIVED) - {"elevator_fwd_hinge_sqft",
+                                            "elevator_aft_hinge_sqft"}:
+        assert getattr(eff_ht, f) == pytest.approx(reference[f], rel=1e-3), f
+    for f in ("vtail_area_sqft", "vtail_span_in", "vtail_mac_in",
+              "aspect_ratio_vtail", "xv25", "rudder_area_sqft", "wing_span_in"):
+        assert getattr(eff_vt, f) == pytest.approx(reference[f], rel=1e-3), f
+    assert (eff_ht.elevator_fwd_hinge_sqft + eff_ht.elevator_aft_hinge_sqft
+            == pytest.approx(eff_ht.elevator_area_sqft, rel=1e-6))
+    for component in (HTAIL, VTAIL):
+        planform = resolve_tail_planform(project, component)
+        assert planform is not None and not planform.assumed, component
+
+
+def test_the_boundary_line_schema_round_trips():
+    """v65's new fields survive the dict boundary: an entered hinge line and a
+    declared stabilizer dihedral come back exactly, and an empty control TE
+    stays empty (it is a meaningful state -- derive from the parent -- not a
+    hole for a reader to default)."""
+    from dataclasses import replace
+
+    project = _project("ga6_normal.project.json")
+    hinge = [(280.0, 0.0), (281.0, 70.0)]
+    project.geometry = replace(
+        project.geometry,
+        surfaces=[replace(s, hinge_line=hinge) if s.name == "elevator" else s
+                  for s in project.geometry.surfaces])
+    project.geometry.parametric.htail_dihedral_deg = 6.0
+    loaded = io.project_from_dict(io.project_to_dict(project))
+    elevator = loaded.geometry.by_name("elevator")
+    assert elevator.hinge_line == hinge
+    assert elevator.trailing_edge == []
+    assert loaded.geometry.parametric.htail_dihedral_deg == 6.0
+
+
+def test_the_declared_dihedral_carries_no_load():
+    """D-54.8's own boundary: the field is declared, the physics deferred.
+    Setting a large stabilizer dihedral moves **nothing** the suite computes
+    today -- every module's rendered output is byte-identical -- so the field
+    cannot leak into a load before note 51's guard and method arrive to
+    spend it."""
+    from sloads import registry
+    from sloads.report import LoadChannel
+
+    def channels(project):
+        return {mr.module: io.load_cases_csv(mr, channel=LoadChannel.LIMIT)
+                for mr in registry.run_all_modules(project)}
+
+    before_project = _project("ga6_normal.project.json")
+    after_project = _project("ga6_normal.project.json")
+    after_project.geometry.parametric.htail_dihedral_deg = 6.0
+    assert channels(after_project) == channels(before_project)
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([os.path.abspath(__file__), "-q"]))

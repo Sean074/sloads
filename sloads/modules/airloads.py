@@ -514,7 +514,12 @@ def run(project: Project) -> ModuleResult:
 
     conditions: List[ConditionResult] = []
     for aero in resolved:
-        geom = project.geometry.by_name(aero.name)
+        # Through the D-54.1 resolver: a control surface entered without its
+        # own TE (it derives from the parent's -- one physical line, #25
+        # step 2) integrates here as its resolved shape.
+        from ..tail_geometry import resolved_control_surface
+
+        geom = resolved_control_surface(project.geometry, aero.name)
         if geom is None:
             raise ValueError(f"aero surface '{aero.name}' has no matching geometry surface")
         cond = spanwise_distribution(geom, aero)

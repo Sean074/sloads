@@ -1,5 +1,5 @@
 {
-  "schema_version": 64,
+  "schema_version": 65,
   "name": "ATR 42-300 (\"ATR 42-100\" prototype designation never entered production; -300 is the closest PW120-powered production analog) \u2014 2x PW120 (concept, category C)",
   "engines": [
     {
@@ -551,7 +551,8 @@
         "ref_axis_pct": 0.4,
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
-        "sob_y_in": null
+        "sob_y_in": null,
+        "hinge_line": []
       },
       {
         "name": "htail",
@@ -581,7 +582,8 @@
         "ref_axis_pct": 0.4,
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
-        "sob_y_in": null
+        "sob_y_in": null,
+        "hinge_line": []
       },
       {
         "name": "vtail",
@@ -611,7 +613,8 @@
         "ref_axis_pct": 0.4,
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
-        "sob_y_in": null
+        "sob_y_in": null,
+        "hinge_line": []
       }
     ],
     "parametric": {
@@ -625,7 +628,8 @@
       "root_waterline_z": 170.0,
       "body_drag_waterline_z": 0.0,
       "tail_type": "t_tail",
-      "h_tail_z": 0.0
+      "h_tail_z": 0.0,
+      "htail_dihedral_deg": 0.0
     },
     "fuselage": {
       "sections": [
@@ -651,39 +655,39 @@
     },
     "empennage": {
       "htail": {
+        "aspect_ratio_wing": 10.9,
+        "aspect_ratio_htail": 4.5,
+        "htail_area_sqft": 85.0,
+        "htail_semispan_in": 110.0,
+        "xt25": 825.0,
+        "xt50": 842.0,
+        "elevator_area_sqft": 26.0,
+        "elevator_fwd_hinge_sqft": 3.0,
+        "elevator_aft_hinge_sqft": 23.0,
         "tail_incidence_deg": 1.0,
         "wing_zero_lift_cruise_deg": 3.0,
         "wing_zero_lift_enroute_deg": 0.0,
         "wing_zero_lift_landing_deg": 0.0,
-        "aspect_ratio_wing": 10.9,
-        "aspect_ratio_htail": 4.5,
-        "htail_area_sqft": 85.0,
         "elevator_effectiveness": 0.62,
-        "xt25": 825.0,
-        "xt50": 842.0,
         "elevator_te_up_deg": 25.0,
         "elevator_te_down_deg": 15.0,
-        "elevator_area_sqft": 26.0,
-        "elevator_fwd_hinge_sqft": 3.0,
-        "elevator_aft_hinge_sqft": 23.0,
-        "wing_lift_slope_per_rad": 5.3,
-        "htail_semispan_in": 110.0
+        "wing_lift_slope_per_rad": 5.3
       },
       "vtail": {
-        "rudder_deflection_deg": 25.0,
         "vtail_area_sqft": 70.0,
+        "vtail_span_in": 125.0,
+        "vtail_mac_in": 92.4,
+        "aspect_ratio_vtail": 1.6,
+        "xv25": 820.0,
+        "xv50": 835.0,
         "rudder_area_sqft": 22.0,
         "rudder_fwd_hinge_sqft": 2.5,
         "rudder_aft_hinge_sqft": 19.5,
-        "aspect_ratio_vtail": 1.6,
-        "vtail_mac_in": 92.4,
-        "xv25": 820.0,
-        "xv50": 835.0,
         "wing_span_in": 967.1999999999999,
+        "rudder_deflection_deg": 25.0,
         "gross_weight_lb": 36817.0,
         "rudder_large_deflection_factor": 1.0,
         "izz_slugft2": 0.0,
-        "vtail_span_in": 125.0,
         "vtail_root_waterline_z": 0.0
       },
       "airplane_length_in": 892.8000000000001

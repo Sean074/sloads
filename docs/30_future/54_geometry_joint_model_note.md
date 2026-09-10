@@ -2,12 +2,18 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: AGREED 2026-09-09 (owner) — no code.** Agreed in chat under the solo
-profile (`DEVELOPMENT_PROCESS.md` §0; rule 1's working-alone branch), for
-implementation on `dev/v0.8.3`. **D-54.3 decided (owner: clamp + straight
-axis)**; **D-54.4 decided (owner: mass-item branch)**. Drafted from the
-2026-09-09 T-tail capability assessment and the approved three-phase plan;
-this note is phase 1.
+**Status: AGREED 2026-09-09 (owner); implementing on `dev/v0.8.3`.** Agreed in
+chat under the solo profile (`DEVELOPMENT_PROCESS.md` §0; rule 1's
+working-alone branch). **D-54.3 decided (owner: clamp + straight axis)**;
+**D-54.4 decided (owner: mass-item branch)**. Drafted from the 2026-09-09
+T-tail capability assessment and the approved three-phase plan; this note is
+phase 1. **Shipped so far:** #223 (2026-09-09), D-54.2/#220, D-54.3/#219,
+D-54.4/#261, and D-54.1/D-54.8 (#25 steps 1+2, schema v65) — all 2026-09-10;
+the fixed-surface TE line of D-54.1's five is carried by the parent-TE +
+control-LE pair and waits for a consumer (stated in
+`changes/boundary-line-model.history.md`, owner to confirm). Remaining:
+D-54.5 (joint register), D-54.6 (#260, rides the baseline wave), D-54.7
+(the registry-walking drift guard).
 
 **Tier L** (schema/contract change: the empennage boundary-line model of #25
 plus a joint register). It is the design note #25's tier-L step has waited for,

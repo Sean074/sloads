@@ -1,5 +1,5 @@
 {
-  "schema_version": 64,
+  "schema_version": 65,
   "name": "RJ-50 concept \u2014 50-seat regional jet (concept mode, Part 25)",
   "engines": [
     {
@@ -467,7 +467,8 @@
         "ref_axis_pct": 0.4,
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
-        "sob_y_in": null
+        "sob_y_in": null,
+        "hinge_line": []
       },
       {
         "name": "aileron",
@@ -497,7 +498,8 @@
         "ref_axis_pct": null,
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
-        "sob_y_in": null
+        "sob_y_in": null,
+        "hinge_line": []
       },
       {
         "name": "htail",
@@ -527,7 +529,8 @@
         "ref_axis_pct": 0.4,
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
-        "sob_y_in": null
+        "sob_y_in": null,
+        "hinge_line": []
       },
       {
         "name": "vtail",
@@ -557,7 +560,8 @@
         "ref_axis_pct": 0.4,
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
-        "sob_y_in": null
+        "sob_y_in": null,
+        "hinge_line": []
       }
     ],
     "parametric": {
@@ -571,7 +575,8 @@
       "root_waterline_z": 45.0,
       "body_drag_waterline_z": 0.0,
       "tail_type": "t_tail",
-      "h_tail_z": 180.0
+      "h_tail_z": 180.0,
+      "htail_dihedral_deg": 0.0
     },
     "fuselage": {
       "sections": [
@@ -597,39 +602,39 @@
     },
     "empennage": {
       "htail": {
+        "aspect_ratio_wing": 8.712,
+        "aspect_ratio_htail": 4.5,
+        "htail_area_sqft": 120.0,
+        "htail_semispan_in": 139.0,
+        "xt25": 1047.0,
+        "xt50": 1075.0,
+        "elevator_area_sqft": 34.0,
+        "elevator_fwd_hinge_sqft": 4.0,
+        "elevator_aft_hinge_sqft": 30.0,
         "tail_incidence_deg": 1.5,
         "wing_zero_lift_cruise_deg": 2.5,
         "wing_zero_lift_enroute_deg": 0.0,
         "wing_zero_lift_landing_deg": 0.0,
-        "aspect_ratio_wing": 8.712,
-        "aspect_ratio_htail": 4.5,
-        "htail_area_sqft": 120.0,
         "elevator_effectiveness": 0.55,
-        "xt25": 1047.0,
-        "xt50": 1075.0,
         "elevator_te_up_deg": 25.0,
         "elevator_te_down_deg": 20.0,
-        "elevator_area_sqft": 34.0,
-        "elevator_fwd_hinge_sqft": 4.0,
-        "elevator_aft_hinge_sqft": 30.0,
-        "wing_lift_slope_per_rad": 5.2,
-        "htail_semispan_in": 139.0
+        "wing_lift_slope_per_rad": 5.2
       },
       "vtail": {
-        "rudder_deflection_deg": 25.0,
         "vtail_area_sqft": 110.0,
+        "vtail_span_in": 138.0,
+        "vtail_mac_in": 115.19999999999999,
+        "aspect_ratio_vtail": 1.2,
+        "xv25": 1010.0,
+        "xv50": 0.0,
         "rudder_area_sqft": 33.0,
         "rudder_fwd_hinge_sqft": 4.0,
         "rudder_aft_hinge_sqft": 29.0,
-        "aspect_ratio_vtail": 1.2,
-        "vtail_mac_in": 115.19999999999999,
-        "xv25": 1010.0,
-        "xv50": 0.0,
         "wing_span_in": 792.0,
+        "rudder_deflection_deg": 25.0,
         "gross_weight_lb": 33000.0,
         "rudder_large_deflection_factor": 1.0,
         "izz_slugft2": 0.0,
-        "vtail_span_in": 138.0,
         "vtail_root_waterline_z": 0.0
       },
       "airplane_length_in": 1056.0

@@ -10,8 +10,8 @@ Two representations of the same surface
 The empennage has carried its geometry as **scalars** since the suite was ported
 -- ``htail_area_sqft``/``htail_semispan_in`` on :class:`TailLoadsInput`,
 ``vtail_area_sqft``/``vtail_span_in`` on :class:`VTailLoadsInput` -- because that
-is all SELECT, TAILDIST and BALLOADS ever needed. Those scalars are
-**oracle-authoritative** and this module never overrides them.
+is all SELECT, TAILDIST and BALLOADS ever needed. A **typed** scalar is
+authoritative and this module never overrides it.
 
 A spanwise distribution needs more: a chord at every station. Decision T-1 gets
 it by reusing the wing's ``SurfaceInput`` -- an ``"htail"`` / ``"vtail"`` entry in
@@ -21,16 +21,28 @@ Where such an entry exists it is authoritative **for strips**, and the 1 %
 validator below is the drift guard that keeps the two representations describing
 one airplane.
 
+The boundary-line model (design note 54 D-54.1, #25 step 2)
+-----------------------------------------------------------
+Since v65 the polylines are the tail group's **five entered boundary lines** --
+tail LE, tail TE, control LE, the control's ``hinge_line``, and the control's
+TE, which is the *parent's* along the interior of its span and therefore
+derives instead of being entered a second time
+(:func:`derived_control_trailing_edge`; an entered copy is held on the
+parent's line by :func:`validate_control_trailing_edge`). Every ``[D]``-marked
+scalar of the two tail blocks **blank-derives** from them
+(:func:`boundary_derived_scalars`, the note 36 OV-1 contract), which is what
+turns Appendix A's printed tail figures from transcriptions into ±0.1 %
+predictions -- the shipped oracle fixtures keep their typed scalars, so no
+delivered number moved when the model landed.
+
 The derived planform, and why it is marked rather than hidden
 --------------------------------------------------------------
-No shipped fixture carries tail polylines, and requiring them would mean
-hand-entering planform data for six airplanes with no oracle to check it
-against. So where the entry is absent this module **derives** a rectangular
-planform from the authoritative scalars -- constant chord ``S/b``, leading edge
-a quarter-chord ahead of the 25 %-MAC station -- which is precisely the
-first-order derivation ``configuration.tail_planform`` has always used for the
-three-view, and which that function's own docstring is careful to call "not a
-structural surface definition".
+Where no tail entry exists (a scalars-only project) this module **derives** a
+rectangular planform from the authoritative scalars -- constant chord ``S/b``,
+leading edge a quarter-chord ahead of the 25 %-MAC station -- which is
+precisely the first-order derivation ``configuration.tail_planform`` has
+always used for the three-view, and which that function's own docstring is
+careful to call "not a structural surface definition".
 
 It is not one here either, and the result says so: every derived planform sets
 ``assumed=True``, which travels into :class:`TailSpanResult`, the page, the CSV
@@ -61,13 +73,14 @@ here.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from .constants import IN2_PER_FT2
 from .derived_geometry import FuselageCentreline, fuselage_centreline, fuselage_height_at, require_integrable_planform
 from .models import LayoutInput, Project, SurfaceInput, TailType
+from .picks import extreme
 
 #: Component names, which are also the ``geometry.surfaces`` entry names (T-1).
 HTAIL = "htail"
@@ -325,21 +338,327 @@ def validate_tail_planform(surf: SurfaceInput, component: str,
 
 
 # --------------------------------------------------------------------------- #
+# The boundary-line model (design note 54 D-54.1, #25 step 2)
+# --------------------------------------------------------------------------- #
+#: Control surface -> the parent surface whose trailing edge it shares. The
+#: physical fact #25 was filed on: a control's trailing edge *is* its parent's
+#: trailing edge along the interior of its span, and entering it a second time
+#: is how one line gets described twice, differently. With this map the copy
+#: either derives (:func:`derived_control_trailing_edge`, a blank control TE)
+#: or is validated to lie on the parent
+#: (:func:`validate_control_trailing_edge`, an entered one).
+CONTROL_PARENT: Dict[str, str] = {
+    "elevator": HTAIL,
+    "rudder": VTAIL,
+    "aileron": "wing",
+    "flap": "wing",
+}
+
+#: Tail parent -> its control surface, for the tail groups the D-54.1 scalar
+#: derivation covers (the wing controls' areas are entered on their own load
+#: slices and are not part of the seam).
+TAIL_CONTROL: Dict[str, str] = {
+    parent: control for control, parent in CONTROL_PARENT.items()
+    if parent in TAIL_COMPONENTS
+}
+
+
+def derived_control_trailing_edge(parent: SurfaceInput,
+                                  control: SurfaceInput) -> List[Tuple[float, float]]:
+    """The control's trailing edge, derived from its parent's (D-54.1).
+
+    The parent's trailing-edge points over the interior of the control's span
+    (taken from its own leading-edge polyline's span extremes), with the ends
+    resolved by where the control sits against the parent's edge:
+
+    * the control's end lands **inside** the parent TE's span -- an
+      interpolated point on the parent TE at that station (the aileron root,
+      where the surface starts mid-span);
+    * the control's end **coincides** with the parent TE's end -- the parent's
+      own vertex, verbatim (the GA6 elevator, whose derived TE is therefore
+      byte-identical to the ``htail`` entry's);
+    * the control extends **past** the parent TE's span -- the control's own
+      leading-edge endpoint closes the boundary (the GA6 rudder, whose tip at
+      ``(282.0, 168.0)`` reaches 1.2 in above the fin TE).
+
+    Where the true closure departs from this construction -- the GA6 aileron's
+    root closure meets the wing TE at BL 110.401, not at its own root BL 109,
+    and clipping to the LE span costs +1.00 % of its area (#25) -- the control
+    keeps an **entered** TE, which :func:`validate_control_trailing_edge` then
+    holds against the parent instead.
+    """
+    from .modules.wing_geometry import interp_x
+
+    spans = [p[1] for p in control.leading_edge]
+    s_lo, s_hi = min(spans), max(spans)
+    te = parent.trailing_edge
+    p_lo, p_hi = te[0][1], te[-1][1]
+    out: List[Tuple[float, float]] = []
+    if s_lo < p_lo:
+        out.append(extreme(control.leading_edge, key=lambda p: p[1],
+                           largest=False))
+    elif s_lo == p_lo:
+        out.append((te[0][0], te[0][1]))
+    else:
+        out.append((interp_x(te, s_lo), s_lo))
+    out.extend((p[0], p[1]) for p in te if s_lo < p[1] < s_hi)
+    if s_hi > p_hi:
+        out.append(extreme(control.leading_edge, key=lambda p: p[1]))
+    elif s_hi == p_hi:
+        out.append((te[-1][0], te[-1][1]))
+    else:
+        out.append((interp_x(te, s_hi), s_hi))
+    return out
+
+
+def validate_control_trailing_edge(parent: SurfaceInput,
+                                   control: SurfaceInput) -> None:
+    """Raise if an entered control TE leaves its parent's trailing edge.
+
+    The #25 "nothing checking the copies agree" guard for the polyline layer,
+    the same standing :func:`validate_tail_planform` has for the scalars: a
+    control whose entered TE is off the parent's is one physical line described
+    twice, differently, and every area split between the two surfaces is
+    quietly wrong by the gap. Each entered TE point must lie on the parent's
+    trailing edge (within :data:`PLANFORM_TOLERANCE` of the parent's root
+    chord) -- except a point that *is* one of the control's own leading-edge
+    vertices, which is an end-closure: the control's boundary meeting the
+    trailing edge, entered once on the LE and repeated to close the polygon
+    (the GA6 aileron root, the GA6 rudder tip).
+    """
+    if not control.trailing_edge:
+        return
+    from .modules.wing_geometry import interp_x
+
+    s_root = parent.trailing_edge[0][1]
+    root_chord = abs(interp_x(parent.trailing_edge, s_root)
+                     - interp_x(parent.leading_edge, s_root))
+    tol = PLANFORM_TOLERANCE * max(root_chord, 1.0)
+    for x, s in control.trailing_edge:
+        if any(abs(x - lx) <= 1e-9 and abs(s - ls) <= 1e-9
+               for lx, ls in control.leading_edge):
+            continue   # an end-closure vertex shared with the control's own LE
+        want = interp_x(parent.trailing_edge, s)
+        if abs(x - want) > tol:
+            raise ValueError(
+                f"{control.name} trailing edge disagrees with its parent "
+                f"{parent.name}: the entered TE point ({x:.3f}, {s:.3f}) is "
+                f"{abs(x - want):.2f} in off the {parent.name} trailing edge "
+                f"({want:.3f} at span {s:.3f}; limit {tol:.2f} in). A "
+                "control's trailing edge IS its parent's (design note 54 "
+                "D-54.1): correct the point, or leave the control's "
+                "trailing_edge empty to derive it.")
+
+
+def resolved_control_surface(geometry, name: str) -> Optional[SurfaceInput]:
+    """The named surface with its trailing edge resolved (D-54.1).
+
+    For a control surface (:data:`CONTROL_PARENT`) whose parent is entered:
+    a blank ``trailing_edge`` derives from the parent
+    (:func:`derived_control_trailing_edge`); an entered one is validated
+    against it (:func:`validate_control_trailing_edge`) and used as given.
+    Every other surface -- and a control whose parent is absent -- is returned
+    verbatim. This is the read every consumer of a control polyline goes
+    through (the WINGGEOM integrator, the report's planform figures), so a
+    TE-less control integrates and draws exactly as its parent-derived shape.
+    """
+    surf = geometry.by_name(name) if geometry is not None else None
+    if surf is None:
+        return None
+    parent_name = CONTROL_PARENT.get(surf.name)
+    if parent_name is None:
+        return surf
+    parent = geometry.by_name(parent_name)
+    if (parent is None or len(parent.trailing_edge) < 2
+            or len(parent.leading_edge) < 2 or len(surf.leading_edge) < 2):
+        return surf
+    # The shared mid-entry precondition (#71, PB-21) before any interpolation
+    # along the parent's edges: a degenerate parent planform (a repeated span
+    # station mid-typing) must come out as the named ValueError refusal, never
+    # as interp_x's bare ZeroDivisionError.
+    require_integrable_planform(parent)
+    if surf.trailing_edge:
+        # The copies-agree guard is hard on the **tail groups** -- D-54.1's
+        # stated scope. The wing controls carry it too in principle, but three
+        # shipped fixtures' estimated aileron polylines sit 0.04-9.4 in off
+        # their wing TE (measured 2026-09-10), and reconciling that data moves
+        # delivered baselines -- which is the #260/D-54.6 fixture wave's
+        # deliberate work, not this step's. The hard guard extends to
+        # aileron/flap when that wave enters their geometry.
+        if parent_name in TAIL_COMPONENTS:
+            validate_control_trailing_edge(parent, surf)
+        return surf
+    return replace(surf, trailing_edge=derived_control_trailing_edge(parent, surf))
+
+
+def resolved_surfaces(geometry) -> List[SurfaceInput]:
+    """Every entered surface with control trailing edges resolved (D-54.1)."""
+    if geometry is None:
+        return []
+    return [resolved_control_surface(geometry, s.name) or s
+            for s in geometry.surfaces]
+
+
+def control_hinge_areas(control: SurfaceInput) -> Optional[Tuple[float, float]]:
+    """``(fwd_in2, aft_in2)`` one-sided areas split at the entered hinge line.
+
+    The hinge line (``SurfaceInput.hinge_line``, the aerodynamic hinge axis as
+    an ``(X, span)`` polyline) divides the control into the area forward of
+    the hinge (the balance/horn, SELECT's ``SEFWDHL``/``SRFWDHL``) and aft of
+    it (``SEAFTHL``/``SRAFTHL``). Both halves are integrated by the one
+    planform owner (``wing_geometry.surface_properties``) over constructed
+    LE/hinge and hinge/TE surfaces, so the split and the whole cannot drift
+    apart. ``None`` when no hinge line (or no resolvable planform) is entered.
+
+    Refused loudly when the hinge line does not span the control (the clamp
+    would silently invent closure chords) or leaves the chord at any strip
+    station (a hinge forward of the LE or aft of the TE is not a split, it is
+    a different surface).
+    """
+    if (len(control.hinge_line) < 2 or len(control.leading_edge) < 2
+            or len(control.trailing_edge) < 2):
+        return None
+    # The shared mid-entry precondition (#71) before the interp sweep below.
+    require_integrable_planform(control)
+    from .modules.wing_geometry import interp_x, surface_properties
+
+    spans = ([p[1] for p in control.leading_edge]
+             + [p[1] for p in control.trailing_edge])
+    s_lo, s_hi = min(spans), max(spans)
+    span = s_hi - s_lo
+    h_spans = [p[1] for p in control.hinge_line]
+    if (min(h_spans) > s_lo + PLANFORM_TOLERANCE * span
+            or max(h_spans) < s_hi - PLANFORM_TOLERANCE * span):
+        raise ValueError(
+            f"{control.name} hinge_line spans {min(h_spans):.1f}.."
+            f"{max(h_spans):.1f} in against the control's {s_lo:.1f}.."
+            f"{s_hi:.1f} in -- the hinge line must cover the control's span "
+            f"(within {PLANFORM_TOLERANCE * 100:.0f} %), or the area split "
+            "would be closed by invented chords.")
+    h = max(2, control.elements)
+    for j in range(h):
+        s = s_lo + (j + 0.5) * span / h
+        x_le = interp_x(control.leading_edge, s)
+        x_te = interp_x(control.trailing_edge, s)
+        x_h = interp_x(control.hinge_line, s)
+        tol = PLANFORM_TOLERANCE * max(abs(x_te - x_le), 1.0)
+        if not (min(x_le, x_te) - tol <= x_h <= max(x_le, x_te) + tol):
+            raise ValueError(
+                f"{control.name} hinge_line leaves the control chord at span "
+                f"{s:.1f} in: hinge {x_h:.2f} against LE {x_le:.2f} / TE "
+                f"{x_te:.2f}. The hinge line splits the control's own area; "
+                "correct the polyline that puts it outside the surface.")
+    fwd = replace(control, trailing_edge=[(p[0], p[1]) for p in control.hinge_line])
+    aft = replace(control, leading_edge=[(p[0], p[1]) for p in control.hinge_line])
+
+    def _area(s_: SurfaceInput) -> float:
+        return float(next(v.value for v in surface_properties(s_).values
+                          if v.key == "area_per_side"))
+
+    return _area(fwd), _area(aft)
+
+
+def boundary_derived_scalars(project: Project, component: str) -> Dict[str, float]:
+    """The boundary-line model's values for the marked scalars (D-54.1).
+
+    ``{field name: derived value}`` for the :data:`~sloads.models.inputs
+    .HTAIL_BOUNDARY_DERIVED` / ``VTAIL_BOUNDARY_DERIVED`` fields of one tail
+    group that the entered boundary lines can supply: the parent surface's
+    area/span/AR/MAC and 25/50 %-MAC stations from the WINGGEOM strip
+    integrator, the control's area from its resolved planform (its TE derived
+    from the parent where not entered), and the hinge-split areas where a
+    ``hinge_line`` is entered. Fields whose lines are absent are simply not in
+    the dict -- the consumer (``select.effective_tail_inputs`` /
+    ``effective_vtail_inputs``, and :func:`resolve_tail_planform`'s scalar
+    read) takes them only for a **blank** entered scalar, the note 36 OV-1
+    contract: typed overrides, blank derives. The two wing-sourced fields of
+    the maps (``aspect_ratio_wing``, ``wing_span_in``) are not produced here;
+    their owners (``derived_geometry.wing_aspect_ratio`` / ``wing_span_in``)
+    predate this model and are consumed in the same functions.
+
+    The half/full bookkeeping is §3.1's, stated once there and applied the
+    same way here: h-tail group areas are **both sides** (the surface is
+    symmetric; ``htail_semispan_in`` is the semispan), v-tail group areas are
+    the single fin's.
+    """
+    geometry = project.geometry
+    if geometry is None or component not in TAIL_COMPONENTS:
+        return {}
+    from .modules.wing_geometry import surface_properties
+
+    out: Dict[str, float] = {}
+    surf = geometry.by_name(component)
+    if surf is not None and len(surf.leading_edge) >= 2 and len(surf.trailing_edge) >= 2:
+        try:
+            vals = {v.key: v.value for v in surface_properties(surf).values}
+        except (ValueError, ZeroDivisionError):
+            vals = {}
+        if vals:
+            aps, span, mac = vals["area_per_side"], vals["span"], vals["mac"]
+            x25 = vals["xle_mac_station_of_mac_le"] + 0.25 * mac
+            x50 = vals["xle_mac_station_of_mac_le"] + 0.50 * mac
+            if component == HTAIL:
+                out.update({
+                    "htail_area_sqft": 2.0 * aps / IN2_PER_FT2,
+                    "htail_semispan_in": span / 2.0,
+                    "aspect_ratio_htail": vals["aspect_ratio"],
+                    "xt25": x25,
+                    "xt50": x50,
+                })
+            else:
+                out.update({
+                    "vtail_area_sqft": aps / IN2_PER_FT2,
+                    "vtail_span_in": span,
+                    "vtail_mac_in": mac,
+                    "aspect_ratio_vtail": vals["aspect_ratio"],
+                    "xv25": x25,
+                    "xv50": x50,
+                })
+    control = resolved_control_surface(geometry, TAIL_CONTROL[component])
+    if (control is not None and len(control.leading_edge) >= 2
+            and len(control.trailing_edge) >= 2):
+        try:
+            c_aps = float(next(v.value for v in surface_properties(control).values
+                               if v.key == "area_per_side"))
+        except (ValueError, ZeroDivisionError, StopIteration):
+            c_aps = 0.0
+        both = 2.0 if component == HTAIL else 1.0
+        if c_aps > 0.0:
+            key = "elevator_area_sqft" if component == HTAIL else "rudder_area_sqft"
+            out[key] = both * c_aps / IN2_PER_FT2
+        halves = control_hinge_areas(control)
+        if halves is not None:
+            fwd, aft = halves
+            if component == HTAIL:
+                out["elevator_fwd_hinge_sqft"] = both * fwd / IN2_PER_FT2
+                out["elevator_aft_hinge_sqft"] = both * aft / IN2_PER_FT2
+            else:
+                out["rudder_fwd_hinge_sqft"] = fwd / IN2_PER_FT2
+                out["rudder_aft_hinge_sqft"] = aft / IN2_PER_FT2
+    return out
+
+
+# --------------------------------------------------------------------------- #
 # Resolution
 # --------------------------------------------------------------------------- #
 def _scalars(project: Project, component: str) -> Optional[Tuple[float, float, float]]:
-    """``(area_sqft, span_in, x25)`` from the oracle-authoritative scalar slice.
+    """``(area_sqft, span_in, x25)`` -- **entered** scalars only, ``0.0`` blank.
 
     ``span_in`` is the **semispan** for the h-tail and the full span for the
     v-tail, i.e. exactly the local span each planform is defined over.
+    ``None`` when the slice itself is absent. The blank-derives leg (D-54.1)
+    is :func:`resolve_tail_planform`'s, so this stays the honest record of
+    what was typed -- which is also what :func:`validate_tail_planform` must
+    compare against (a derived scalar validated against the polyline it was
+    derived from proves nothing).
     """
     if component == HTAIL:
         ti = project.tail_loads
-        if ti is None or ti.htail_area_sqft <= 0 or ti.htail_semispan_in <= 0:
+        if ti is None:
             return None
         return ti.htail_area_sqft, ti.htail_semispan_in, ti.xt25
     vt = project.vtail_loads
-    if vt is None or vt.vtail_area_sqft <= 0 or vt.vtail_span_in <= 0:
+    if vt is None:
         return None
     return vt.vtail_area_sqft, vt.vtail_span_in, vt.xv25
 
@@ -662,6 +981,13 @@ def resolve_tail_planform(project: Project,
     Entered polylines win and are validated; otherwise a rectangular planform is
     derived from the scalars and marked ``assumed``. See the module docstring for
     why the derivation exists and what it costs.
+
+    **Blank scalars derive from the boundary lines** (D-54.1, #25 step 2): a
+    surface whose area/span scalars are not typed but whose polylines are
+    entered is modelled from :func:`boundary_derived_scalars` rather than
+    refused -- the note 36 OV-1 contract, typed overrides and blank derives.
+    The validator compares the polylines against the **entered** scalars only,
+    so it retires field-by-field exactly as the scalars stop being typed.
     """
     if component not in TAIL_COMPONENTS:
         raise ValueError(f"unknown tail component {component!r}; expected one of "
@@ -669,7 +995,18 @@ def resolve_tail_planform(project: Project,
     scalars = _scalars(project, component)
     if scalars is None:
         return None
-    area_sqft, span_in, x25 = scalars
+    entered_area, entered_span, entered_x25 = scalars
+    area_sqft, span_in, x25 = entered_area, entered_span, entered_x25
+    if area_sqft <= 0 or span_in <= 0 or not x25:
+        derived = boundary_derived_scalars(project, component)
+        keys = (("htail_area_sqft", "htail_semispan_in", "xt25")
+                if component == HTAIL else
+                ("vtail_area_sqft", "vtail_span_in", "xv25"))
+        area_sqft = area_sqft or derived.get(keys[0], 0.0)
+        span_in = span_in or derived.get(keys[1], 0.0)
+        x25 = x25 or derived.get(keys[2], 0.0)
+    if area_sqft <= 0 or span_in <= 0:
+        return None
     area_in2 = area_sqft * IN2_PER_FT2
     geometry = project.geometry
     surf = geometry.by_name(component) if geometry is not None else None
@@ -680,7 +1017,8 @@ def resolve_tail_planform(project: Project,
     root_notes = [root.note] if root.note else []
 
     if surf is not None:
-        validate_tail_planform(surf, component, area_sqft, span_in, x25)
+        validate_tail_planform(surf, component, entered_area, entered_span,
+                               entered_x25)
         # The root is the lowest point of **either** edge and the tip the
         # highest, so a fin whose trailing edge reaches below its leading edge
         # measures its full height (owner, 2026-08-30). Every surface entered
@@ -811,21 +1149,29 @@ def is_conventional_tail(project: Project) -> bool:
 
 
 __all__ = [
+    "CONTROL_PARENT",
     "HTAIL",
     "PLANFORM_TOLERANCE",
     "TAIL_COMPONENTS",
+    "TAIL_CONTROL",
     "VTAIL",
     "HTailWaterline",
     "SurfacePlane",
     "TailPlanform",
     "VtailRoot",
+    "boundary_derived_scalars",
+    "control_hinge_areas",
+    "derived_control_trailing_edge",
     "h_tail_waterline",
     "half_area_centroid",
     "is_conventional_tail",
     "is_t_tail",
     "resolve_tail_planform",
+    "resolved_control_surface",
+    "resolved_surfaces",
     "surface_plane",
     "tail_layout",
+    "validate_control_trailing_edge",
     "validate_tail_planform",
     "vtail_root",
     "vtail_root_waterline",

@@ -563,6 +563,8 @@ def _surface_from_dict(d: Dict[str, Any]) -> SurfaceInput:
         front_spar_x_in=_opt_float(d.get("front_spar_x_in")),
         rear_spar_x_in=_opt_float(d.get("rear_spar_x_in")),
         sob_y_in=_opt_float(d.get("sob_y_in")),
+        # v65 (D-54.1): the control's hinge axis; empty = not entered.
+        hinge_line=_points(d.get("hinge_line"), "SurfaceInput.hinge_line"),
     )
 
 
@@ -666,6 +668,10 @@ def geometry_to_dict(inp: GeometryInput) -> Dict[str, Any]:
                 "front_spar_x_in": s.front_spar_x_in,
                 "rear_spar_x_in": s.rear_spar_x_in,
                 "sob_y_in": s.sob_y_in,
+                # v65 (D-54.1): written even when empty, like the edges -- an
+                # empty control trailing_edge is a meaningful state (derive
+                # from the parent), so the polyline trio round-trips whole.
+                "hinge_line": [list(p) for p in s.hinge_line],
             }
             for s in inp.surfaces
         ]

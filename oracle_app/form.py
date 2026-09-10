@@ -98,6 +98,8 @@ MEMBER_LABELS: Dict[str, Tuple[str, ...]] = {
     # WINGGEOM planform polylines: (fuselage station, butt station) per corner.
     "leading_edge": ("X", "Y"),
     "trailing_edge": ("X", "Y"),
+    # The control's hinge axis (note 54 D-54.1); same frame as the edges.
+    "hinge_line": ("X", "Y"),
     # Spanwise curves: butt station against the value at it.
     "twist": ("Y", "Zero-lift angle (deg)"),
     "profile_drag": ("Y", "CDO"),
