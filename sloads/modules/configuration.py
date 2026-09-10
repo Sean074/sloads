@@ -49,7 +49,7 @@ from ..models import (
     Vec3,
 )
 from ..registry import register
-from ..tail_geometry import vtail_root, vtail_root_waterline
+from ..tail_geometry import SurfacePlane, surface_plane, vtail_root, vtail_root_waterline
 from .wing_geometry import interp_x, surface_properties
 
 _FAR = "configuration"  # modern addition; no FAR condition / no .BAS oracle
@@ -321,17 +321,6 @@ def tail_planform(layout: LayoutInput,
     return panels
 
 
-#: Surfaces whose polyline second coordinate is a **waterline**, not a butt
-#: line. A wing or horizontal tail is entered as ``(station, butt line)``; a
-#: fin and its rudder span *upward*, so their corners are ``(station,
-#: waterline)`` -- the GA6 fin root is ``(240.912, 117.0)``. The frame decides
-#: that, never ``SurfaceInput.symmetric``: ``examples/baron_58.project.json``
-#: sets ``symmetric=True`` on its fin, and mirroring it about ``y = 0`` would
-#: draw a second fin hanging below the airplane. Same ruling as the oracle
-#: report's planform figures (``report/oracle_sections._PLANFORM_FIGURES``).
-_WATERLINE_SPAN_SURFACES = ("vtail", "rudder")
-
-
 def lra_overlays(
     surfaces: List[SurfaceInput],
 ) -> List[Dict[str, object]]:
@@ -341,12 +330,13 @@ def lra_overlays(
     (``SurfaceInput.ref_axis`` fraction of local chord, the beam-model elastic
     axis) sampled at every polyline span station, ready to plot. ``view`` names
     the three-view panel the polyline belongs in -- ``"top"`` (X vs butt line)
-    for planform surfaces, ``"side"`` (X vs waterline) for the
-    :data:`_WATERLINE_SPAN_SURFACES`, whose span coordinate *is* a waterline
-    and which the Top view therefore cannot show (found at the 0.8.2
+    for butt-line-span surfaces, ``"side"`` (X vs waterline) for waterline-span
+    ones, which the Top view therefore cannot show (found at the 0.8.2
     pre-release walk: the fin's LRA drew in the x-y plane, off past the
-    wingtip). A symmetric planform surface is mirrored about the centreline; a
-    waterline-span surface never is, whatever its ``symmetric`` flag says.
+    wingtip). Which is which is :func:`sloads.tail_geometry.surface_plane`'s
+    to say (D-54.2/#220), and the frame also decides mirroring: a symmetric
+    butt-line surface is mirrored about the centreline; a waterline-span
+    surface never is, whatever its ``symmetric`` flag says.
     """
     out: List[Dict[str, object]] = []
     for s in surfaces:
@@ -364,7 +354,7 @@ def lra_overlays(
             + s.ref_axis * (interp_x(s.trailing_edge, sp) - interp_x(s.leading_edge, sp))
             for sp in spans
         ]
-        vertical = s.name.startswith(_WATERLINE_SPAN_SURFACES)
+        vertical = surface_plane(s.name) is SurfacePlane.WATERLINE
         if s.symmetric and not vertical:
             xs = xa[::-1] + xa
             ys = [-sp for sp in spans[::-1]] + spans

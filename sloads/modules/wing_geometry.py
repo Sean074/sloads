@@ -90,7 +90,11 @@ def surface_top_outline(
 
 
 def interp_x(polyline: List, y: float) -> float:
-    """Fuselage station X on an edge polyline at butt line ``y``.
+    """Fuselage station X on an edge polyline at span coordinate ``y``.
+
+    ``y`` is the surface's own span coordinate -- a butt line on a
+    butt-line-span surface, a waterline on the fin or rudder
+    (``tail_geometry.surface_plane``, D-54.2/#220).
 
     Piecewise-linear between the defining points, ordered inboard -> outboard
     (WINGGEOM.BAS lines 600-730). A two-point edge is a single straight segment;

@@ -62,6 +62,7 @@ here.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import List, Optional, Tuple
 
 from .constants import IN2_PER_FT2
@@ -72,6 +73,50 @@ from .models import LayoutInput, Project, SurfaceInput, TailType
 HTAIL = "htail"
 VTAIL = "vtail"
 TAIL_COMPONENTS = (HTAIL, VTAIL)
+
+
+class SurfacePlane(Enum):
+    """The plane a surface's polylines are defined in (design note 54, D-54.2).
+
+    Every ``SurfaceInput`` polyline point is ``(fuselage station X, span
+    coordinate)`` -- and what that second coordinate *is* differs by surface. A
+    wing or horizontal tail (and its controls) spans **outboard**, so its span
+    coordinate is a butt line; a vertical tail and its rudder span **upward**,
+    so theirs is a waterline -- the GA6 fin root is ``(240.912, 117.0)``,
+    station 240.912 at *waterline* 117.0. The values are the reader's nouns,
+    which is what the report's span-axis labels print.
+    """
+
+    BUTT_LINE = "butt line"
+    WATERLINE = "waterline"
+
+
+#: Surface-entry names (prefix match) whose span coordinate is a waterline.
+_WATERLINE_SPAN_PREFIXES = ("vtail", "rudder")
+
+
+def surface_plane(name: str) -> SurfacePlane:
+    """The plane the named surface is defined in -- the one authority (#220).
+
+    Before this owner, five call sites decided the question with their own
+    name test -- the four local->airplane maps in ``export/coordinates.py``
+    and the three-view's mirror/view branch in ``modules/configuration.py`` --
+    which is exactly the per-call-site convention drift ``CONVENTIONS.md`` §7
+    exists to end. The plane is a property of the surface, stated once, here.
+
+    Two facts the owner carries with it:
+
+    * **The frame decides mirroring, never ``SurfaceInput.symmetric``**:
+      ``examples/baron_58.project.json`` sets ``symmetric=True`` on its fin,
+      and mirroring a waterline-span surface about ``y = 0`` would draw a
+      second fin hanging below the airplane.
+    * **No user-selected plane field yet** (D-54.2's own ruling): a declared
+      plane input belongs with V-tail/cruciform support, deferred to note 54
+      §8. Until then the name prefix is the declaration.
+    """
+    return (SurfacePlane.WATERLINE
+            if name.startswith(_WATERLINE_SPAN_PREFIXES)
+            else SurfacePlane.BUTT_LINE)
 
 #: Fractional agreement required between an entered planform and the
 #: oracle-authoritative scalars (plan 09 §3.1). Loud, not a silent preference:
@@ -728,6 +773,7 @@ __all__ = [
     "TAIL_COMPONENTS",
     "VTAIL",
     "HTailWaterline",
+    "SurfacePlane",
     "TailPlanform",
     "VtailRoot",
     "h_tail_waterline",
@@ -735,6 +781,7 @@ __all__ = [
     "is_conventional_tail",
     "is_t_tail",
     "resolve_tail_planform",
+    "surface_plane",
     "tail_layout",
     "validate_tail_planform",
     "vtail_root",
