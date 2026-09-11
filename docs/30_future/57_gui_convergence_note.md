@@ -18,6 +18,14 @@ not started. **Milestone 0.8.4 created and the work filed 2026-09-11** as
 retirement), backlog band **B5**; the band is gated on the 0.8.3 cut, not on
 this note (AGREED same day).
 
+**Amended 2026-09-11** (owner, in session): the **xlsx workbook retires
+with #270** — D-57.6's retirement of `export_report` takes `build_workbook`'s
+only consumer, the oracle GUI excludes the workbook by charter (note 32), and
+the owner ruled no one uses it; `sloads/export/workbook.py`, its test file,
+the download button and the methods stamp's workbook channel sentence are
+deleted in the same step. The issue package's `data/` channel (#245) is the
+single tabular home; no `data/`-derived workbook is built.
+
 **Tier L.** A front-end retires and the surviving one's charter changes. **No
 delivered load changes, no calc change, no schema change** — every module,
 report, deck and CSV is untouched; the work is entirely in the shell layer
@@ -155,7 +163,7 @@ Three standing rulings make the convergence lawful rather than novel:
 | **D-57.3** | **The JSON editor moves to `app_shell/`** and registers in the surviving GUI first — the escape hatch that decouples every other port from the schedule. | *Port it last.* Rejected: sequencing it first means no capability window in which a concept field is unenterable. |
 | **D-57.4** | **Plots port as render-only helpers, written fresh.** One plotting module in the shell; V-n chart, three-view, span shear/BM/torsion and the VMT envelope overlays (with `loads_plots`' external-CSV comparison), reading the same result slices the pages already render as tables. The app's implementations are the *spec*, not the source — `_tab_design_speeds` F(72) and `_three_view` F(63) are M4-11b's own exhibit for why the code is not worth importing. | *Import the existing view functions.* Rejected: it ports the complexity debt the 0.9.0 band existed to pay. *No plots (report figures only).* Rejected: the interactive overlays are genuinely used in concept work and the report cannot carry them. |
 | **D-57.5** | **Fleet comparison ports.** It is the Phase-C *"assess vs similar airplanes"* requirement (plan §1), so it lands with the extension tier it belongs to, reading `reference_aircraft.csv` unchanged. | *Retire it.* Rejected: it is mission-traceable, mature, and cheap (S–M). |
-| **D-57.6** | **Five pages retire without port** — `dashboard`, `results_review`, `export_report`, `tail_span_loads`, `balanced_cases` — each closing citing its successor (§1.3). #259 closes superseded with the dashboard; the L-8c omission dies with `results_review`; #255's fix site vanishes if it has not already landed in 0.8.3. | *Port them for completeness.* Rejected under the mission bar: each duplicates a surviving owner, and duplication is the #239 class. |
+| **D-57.6** | **Five pages retire without port** — `dashboard`, `results_review`, `export_report`, `tail_span_loads`, `balanced_cases` — each closing citing its successor (§1.3). #259 closes superseded with the dashboard; the L-8c omission dies with `results_review`; #255's fix site vanishes if it has not already landed in 0.8.3. *(Amended 2026-09-11:)* the **xlsx workbook** goes with `export_report` — module + test + button + methods-stamp sentence — the owner having ruled it unused; `data/` (#245) is the tabular channel and no replacement is built. | *Port them for completeness.* Rejected under the mission bar: each duplicates a surviving owner, and duplication is the #239 class. |
 | **D-57.7** | **The seed button is built fresh in the surviving GUI with #78's hardening in its first version** — seeded rows loudly incomplete until positioned and tagged; merge/refuse/replace stated before the click. #78 re-scopes to this. | *Port then harden.* Rejected: rule 4 — building the known defect into the new home to fix it later is the anti-pattern. |
 | **D-57.8** | **Sequencing: after note 56's implementation lands.** Note 56 already edits seven `app/views/` files in 0.8.3; this note deletes them in 0.8.4. Within 0.8.4: D-57.3 (editor) → D-57.2 (field tiers) → D-57.4/D-57.5 (plots, fleet) → D-57.7 (seed) → D-57.6 + deletion + the guard re-cuts, so the surviving GUI is complete before anything is removed. | *Interleave with 0.8.3.* Rejected: two agents editing `app/views/` in one milestone, one improving and one deleting. |
 
