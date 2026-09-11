@@ -1547,6 +1547,15 @@ result that lacks what a deck needs is a stated error, never an empty column.
   Named nodes carry `$ SLOADS-NODE <family> <side>` identity tags (BM-5).
   The wing chains **start at the side-of-body** (R-3); the deck is free-free
   on one clamped fuselage node whose recovered reaction is the case residual.
+- **The skeleton is checked for solvability before it is returned** (design
+  note 55): no `GRID` is rigidly tied on both sides (a chain of rigid elements,
+  which sbeam refuses — D-55.1 keeps a body tie off a node that is already a
+  dependent); no joint insertion leaves a sliver element (a station within
+  `JOINT_MERGE_FRACTION` of a joint is absorbed **into** it, the joint keeping
+  its owned location — D-55.2); and the clamped support is in no `RBE2` at all
+  (D-55.6). Anything that survives those is an `LraRefusal` naming the
+  condition, on the LM-4 contract. The solve gate runs on **every
+  CLI-exportable fixture** (D-55.4), not the subset that passed.
 - **Every tie node is placed by the joint register** (`sloads/joints.py`, note
   54 D-54.5): the SOB pair and centre hub, the two spar posts, the fin root,
   the T-tail fin-tip↔h-tail-centreline pair and the conventional attachment

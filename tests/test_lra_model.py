@@ -22,7 +22,14 @@ from sloads.export.lra_import import (
     read_lra_model,
     validate_imported_model,
 )
-from sloads.export.lra_model import LraRefusal, build_lra_model, lra_model_bdf, transferred_case_loads
+from sloads.export.lra_model import (
+    JOINT_MERGE_FRACTION,
+    LraRefusal,
+    build_lra_model,
+    lra_model_bdf,
+    transferred_case_loads,
+)
+from sloads.tail_geometry import HTAIL, VTAIL, resolve_tail_planform
 
 _EXAMPLES = os.path.join(os.path.dirname(__file__), "..", "examples")
 
@@ -314,6 +321,135 @@ def test_every_cbar_references_its_family_section_and_the_four_pairs_are_identic
             assert a[2] != b[2] and a[1] == b[1] == 0.0
         elif family == "fuselage":
             assert a[1] == b[1] == 0.0 and a[0] != b[0]
+
+
+# --------------------------------------------------------------------------- #
+# Solvability (design note 55) -- the skeleton a solver will actually factor
+# --------------------------------------------------------------------------- #
+_SOLVE_FIXTURES = ("ga6_normal", "baron_58", "cessna_210",
+                   "atr42_100", "dhc8_dash8", "concept_regional_jet")
+
+
+@pytest.mark.parametrize("name", _SOLVE_FIXTURES)
+def test_no_grid_is_rigidly_tied_on_both_sides(name):
+    """Note 55 gate 1 (D-55.1): no chain of rigid elements, any fixture.
+
+    A ``GRID`` that is an ``RBE2`` dependent *and* an ``RBE2`` independent
+    states ``a -> b -> c`` in rigid links, which sbeam refuses outright -- the
+    reported ``ga6_normal`` failure, where the rear-spar post hung on the
+    centre-box hub (BM-2) and also carried both main-gear ties, because the
+    nearest body station to the trunnions is the post.
+
+    Exact, no threshold: the assertion is a property of the topology.
+    """
+    model = build_lra_model(_project(f"{name}.project.json"))
+    dependents = {}
+    independents = set()
+    for gn, _cm, gms, _lbl in model.rbe2s:
+        independents.add(gn)
+        for g in gms:
+            dependents[g] = dependents.get(g, 0) + 1
+    for gid, count in dependents.items():
+        node = model.node(gid)
+        where = f"{node.family} {node.side}".strip() or f"GRID {gid}"
+        assert count == 1, f"{name}: {where} is dependent in {count} RBE2s"
+        assert gid not in independents, (
+            f"{name}: {where} (GRID {gid}) is dependent in one RBE2 and "
+            "independent in another -- a rigid chain")
+
+
+@pytest.mark.parametrize("name", _SOLVE_FIXTURES)
+def test_no_tail_chain_carries_a_sliver_element(name):
+    """Note 55 gate 2 (D-55.2): a joint insertion never leaves a sliver.
+
+    ``cessna_210``'s h-tail attachment landed 0.0769 in from a strip station --
+    1.07 % of that chain's ``ds`` -- for a 1638:1 element-length ratio and the
+    singular solve #172 reported; ``baron_58`` was next at 0.1266 in / 1.33 %.
+    Every tail ``CBAR`` is now at least ``JOINT_MERGE_FRACTION`` of its own
+    chain's strip width, because a station that close is absorbed *into* the
+    joint instead of leaving a bar between the two.
+
+    The wing and fuselage chains are deliberately not checked -- the fuselage
+    has no strip mesh (its spacing is entered stations plus inserted tie
+    points, legitimately down to 0.087 of its own median here) and the wing's
+    SOB node is placed by position rather than inserted. See
+    ``_refuse_unsolvable_skeleton``.
+    """
+    project = _project(f"{name}.project.json")
+    model = build_lra_model(project)
+    planforms = {c: resolve_tail_planform(project, c) for c in (HTAIL, VTAIL)}
+    pos = {n.gid: n.pos for n in model.nodes}
+    for (ga, gb), family in zip(model.cbars, model.cbar_families):
+        planform = planforms.get(family)
+        if planform is None:
+            continue
+        floor = JOINT_MERGE_FRACTION * (
+            planform.span / max(2, planform.elements))
+        length = sum((pos[ga][i] - pos[gb][i]) ** 2 for i in range(3)) ** 0.5
+        assert length >= floor, (
+            f"{name}: {family} element {ga}-{gb} is {length:.4f} in, below the "
+            f"{floor:.4f} in floor")
+
+
+def test_the_gear_keeps_the_carrier_the_project_entered():
+    """Note 55 gate 3: D-55.1 re-parents, it does not re-route.
+
+    The alternative D-55.1 rejected was folding the gear into the centre-box
+    hub tie, as the engine path folds its hub. ``ga6_normal`` enters
+    ``carrier BODY``, so its gear must still reach a **fuselage** node -- one
+    station off the rear post -- and never the wing hub, which would state a
+    load path the project did not enter.
+    """
+    model = build_lra_model(_project("ga6_normal.project.json"))
+    body = {n.gid for n in model.members["fuselage"]}
+    hub = next(n.gid for n in model.nodes if n.family == "lra-centre")
+    gear_ties = [(gn, gms) for gn, _cm, gms, lbl in model.rbe2s
+                 if "gear" in lbl and "carrier BODY" in lbl]
+    assert gear_ties, "ga6_normal enters BODY-carried gear"
+    for gn, _gms in gear_ties:
+        assert gn in body, "a BODY-carried gear leg parents on the fuselage"
+        assert gn != hub, "never on the wing centre-box hub"
+
+
+@pytest.mark.parametrize("name", _SOLVE_FIXTURES)
+def test_the_support_node_is_in_no_rbe2_at_all(name):
+    """Note 55 gate 5's precondition (D-55.6): the clamp is untied, both ends.
+
+    ``roundtrip._supportable`` has always applied both exclusions, and its
+    docstring records why the second is load-bearing: sbeam's
+    ``recover_reactions`` subtracts the raw applied vector at the constrained
+    DOFs, so a load a rigid element transfers *onto* a constrained node is
+    never subtracted and comes back out as reaction. This picker implemented
+    only the first, so the rule's two halves lived in two files -- the same
+    shape as D-55.1's tie-parent defect, one file down.
+
+    Measured before the fix: ``ga6_normal`` recovered 569.49 lb of Fx against
+    an applied set closing to 0.0002 lb, and ``baron_58`` the same through its
+    nose-gear tie. Both now solve exactly.
+    """
+    model = build_lra_model(_project(f"{name}.project.json"))
+    tied = model.dependent_gids | {gn for gn, _cm, _gms, _lbl in model.rbe2s}
+    assert model.support_gid not in tied, (
+        f"{name}: the support node is an RBE2 member, so its recovered "
+        "reaction carries the rigidly-transferred load")
+
+
+def test_a_project_with_no_vertical_tail_still_builds():
+    """The chain branches are optional, and the D-55.2 tolerances outlive them.
+
+    Both merge tolerances are read when the control-node parents are inserted,
+    which happens whether or not either tail chain exists -- so a project with
+    no fin must not reach an unbound local. Caught during D-55.2's own
+    implementation, which is exactly the shape of project no fixture is.
+    """
+    project = _project("ga6_normal.project.json")
+    project.geometry.surfaces = [s for s in project.geometry.surfaces
+                                 if s.name not in ("vtail", "rudder")]
+    if project.geometry.empennage is not None:
+        project.geometry.empennage.vtail = None
+    project.vtail_loads = None
+    model = build_lra_model(project)
+    assert model.nodes and "vtail" not in model.members
 
 
 if __name__ == "__main__":  # pragma: no cover - self-runner
