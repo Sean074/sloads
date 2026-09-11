@@ -210,6 +210,7 @@ FAR23LOADS/
 │   ├── derived.py                # derived slices (`Project.mass` from `weight.items`) and their one refresher (#62)
 │   ├── selectors.py              # selector names (surface / CG case / coefficient set): seeds, uniqueness, `keyed` lookups (#63)
 │   ├── tail_geometry.py          # the empennage planform the spanwise strip integrator runs on (plan 09 T1)
+│   ├── joints.py                 # THE joint register: where two components meet -- owned location, stated arm, DOF set, basis (note 54 D-54.5)
 │   ├── aero_curves.py            # airplane-less-tail aero-coefficient curves + their closure checks (M4-5)
 │   ├── vn_diagram.py             # pure V-n diagram geometry: stall/manoeuvre/gust polylines (Phase E3)
 │   ├── fuselage_moment.py        # pure Munk slender-body fuselage dCm/dα estimator (off-by-default; Step G4) + the Munk-couple single owner (L-7.7)

@@ -209,11 +209,14 @@ class TailPlanform:
         point (Figure 24's kink): an artifact of pointwise evaluation, not of
         the surface. Inside the span both edges cover, the two formulations
         are identical, so a square-root fin is byte-unchanged.
-        """
-        from .modules.wing_geometry import interp_x
 
-        x_le = interp_x(self.le, s)
-        return x_le + pct * (interp_x(self.te, s) - x_le)
+        Through the one owner (``wing_geometry.chord_fraction_x``), which the
+        wing's own LRA transfer and the joint register also read -- so the two
+        ends of a rigid tie cannot be two spellings of one formula (D-54.5).
+        """
+        from .modules.wing_geometry import chord_fraction_x
+
+        return chord_fraction_x(self.le, self.te, s, pct)
 
     def strip_area(self) -> float:
         """The whole-surface area **as the strip quadrature sees it** (in^2):

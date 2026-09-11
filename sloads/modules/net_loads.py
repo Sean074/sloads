@@ -38,7 +38,7 @@ from ..models import (
 )
 from ..registry import register
 from .airloads import air_load_distribution
-from .wing_geometry import interp_x
+from .wing_geometry import chord_fraction_x
 from .wing_inertia import (
     WingCaseSources,
     _resolve_case,
@@ -124,9 +124,10 @@ def to_loads_ref_axis(results: List[WingLoadResult],
     for r in results:
         stations: List[WingStationLoad] = []
         for s in r.stations:
-            x_le = interp_x(geom.leading_edge, s.y)
-            x_te = interp_x(geom.trailing_edge, s.y)
-            x_lra = x_le + pct * (x_te - x_le)
+            # Through the chord-fraction owner, which the empennage planforms
+            # and the joint register also read (D-54.5).
+            x_lra = chord_fraction_x(geom.leading_edge, geom.trailing_edge,
+                                     s.y, pct)
             stations.append(WingStationLoad(
                 x=x_lra, y=s.y, z=s.z, fx=s.fx, fz=s.fz, sx=s.sx, sz=s.sz,
                 mxx=s.mxx, myy=s.myy + s.sz * (x_lra - s.x), mzz=s.mzz,

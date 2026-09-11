@@ -119,6 +119,28 @@ def interp_x(polyline: List, y: float) -> float:
     return (x1 - x0) * (y - y0) / (y1 - y0) + x0
 
 
+def chord_fraction_x(leading_edge: List, trailing_edge: List,
+                     y: float, pct: float) -> float:
+    """Fuselage station of ``pct`` of the chord at span coordinate ``y``.
+
+    **The single owner of the chord-fraction line** (`CLAUDE.md` practice 3):
+    the loads reference axis, the 25/50 % load points and the hinge are all this
+    expression, and it was written out three times before the joint register
+    would have made it four -- in :meth:`~sloads.tail_geometry.TailPlanform.x_at`
+    for the empennage, in ``net_loads.to_loads_ref_axis`` for the wing, and
+    about to be again in ``joints``. Two ends of one rigid tie resolved by two
+    spellings of one formula is exactly the defect class design note 54 exists
+    to close, so the formula gets an owner before the register reads it.
+
+    Evaluated on the **edges' own slopes** (:func:`interp_x` extrapolates the
+    nearest segment), never on the closed polygon's clamped chord -- the D-54.3
+    raked-root ruling (#219). Inside the span both edges cover, the two
+    formulations are identical, so a square-root surface is byte-unchanged.
+    """
+    x_le = interp_x(leading_edge, y)
+    return x_le + pct * (interp_x(trailing_edge, y) - x_le)
+
+
 def planform_boundary(leading_edge: Sequence, trailing_edge: Sequence):
     """The closed planform's ``(left, right, zmin, zmax, breaks)``.
 
@@ -307,6 +329,7 @@ register(MODULE_NAME, run)
 # --------------------------------------------------------------------------- #
 __all__ = [
     "MODULE_NAME",
+    "chord_fraction_x",
     "geometry_properties",
     "interp_x",
     "run",

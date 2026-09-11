@@ -87,10 +87,22 @@ def test_the_t_tail_htail_hangs_on_the_fin_tip_not_the_fuselage():
     families = {(n.family, n.side) for n in model.nodes if n.family}
     assert ("lra-attach", "C") in families
     assert ("lra-attach", "R") not in families
+    # The fin beam runs to the fin TIP, which is a node because it is a joint
+    # (note 54 D-54.5). Before the register the chain stopped at the outermost
+    # strip midpoint and this tie spanned an arm the airplane does not have.
+    assert ("lra-fin-tip", "C") in families
     joint = next(n for n in model.nodes if n.family == "lra-attach")
-    vtail_tip_ties = [gms for _gn, _cm, gms, label in model.rbe2s
-                    if "fin tip" in label]
-    assert vtail_tip_ties and joint.gid in vtail_tip_ties[0]
+    vtail_tip_ties = [(gn, gms) for gn, _cm, gms, label in model.rbe2s
+                      if "fin tip" in label]
+    assert vtail_tip_ties and joint.gid in vtail_tip_ties[0][1]
+    # ...and it spans the arm the two planform owners state: the h-tail
+    # centreline LRA sits 26.68 in forward of the fin-tip LRA, in the SAME
+    # waterline (note 54 gate 2). The z member is zero by construction -- the
+    # h-tail waterline's fin-tip branch IS fin root + fin span.
+    tip = next(n for n in model.nodes if n.family == "lra-fin-tip")
+    assert tip.gid == vtail_tip_ties[0][0]
+    assert joint.pos[0] - tip.pos[0] == pytest.approx(-26.68, abs=5e-3)
+    assert joint.pos[2] - tip.pos[2] == pytest.approx(0.0, abs=1e-9)
 
 
 def test_the_split_fuselage_has_no_element_through_the_carry_through():
@@ -216,8 +228,8 @@ def test_an_exported_model_reimports_with_every_family_mapped():
     deck = lra_model_bdf(project)
     imported = read_lra_model(deck)
     families = {key.split()[0] for key in imported.tags}
-    assert {"lra-sob", "lra-post", "lra-fin-root", "lra-attach",
-            "lra-centre", "lra-gear"} <= families
+    assert {"lra-sob", "lra-post", "lra-fin-root", "lra-fin-tip",
+            "lra-attach", "lra-centre", "lra-gear"} <= families
     notes = validate_imported_model(project, imported)
     assert any("validated" in n for n in notes)
 

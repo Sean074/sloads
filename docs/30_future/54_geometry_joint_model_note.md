@@ -11,9 +11,12 @@ phase 1. **Shipped so far:** #223 (2026-09-09), D-54.2/#220, D-54.3/#219,
 D-54.4/#261, and D-54.1/D-54.8 (#25 steps 1+2, schema v65) — all 2026-09-10;
 the fixed-surface TE line of D-54.1's five is carried by the parent-TE +
 control-LE pair and waits for a consumer (stated in
-`changes/boundary-line-model.history.md`, owner to confirm). Remaining:
-D-54.5 (joint register), D-54.6 (#260, rides the baseline wave), D-54.7
-(the registry-walking drift guard).
+`changes/boundary-line-model.history.md`, owner to confirm), and
+**D-54.5 + D-54.7 (#262, 2026-09-10)** — the register lives at
+`sloads/joints.py` (the note's open home question, decided at implementation:
+it must import `tail_geometry`, `derived_geometry` *and* `modules/tail_span`,
+so it can live inside none of them, and calc may not import `export/`).
+Remaining: **D-54.6** (#260, rides the baseline wave).
 
 **Tier L** (schema/contract change: the empennage boundary-line model of #25
 plus a joint register). It is the design note #25's tier-L step has waited for,
@@ -144,9 +147,33 @@ boundary-model scalars gate against Appendix A at ±0.1 % where printed.
    printed figure within ±0.1 % (page cited per figure) on the oracle
    fixtures; `validate_tail_planform`'s scalar-vs-polyline comparison retires
    where the scalar is no longer entered.
-8. **Baseline invariance:** on fixtures untouched by D-54.4/D-54.6, every
-   delivered load and every exported `GRID` byte-identical before/after the
-   register lands.
+8. **Baseline invariance — as landed (re-scoped at implementation, #262,
+   owner 2026-09-10).** Gate 8 as written asked for byte-identical `GRID`s,
+   which is incompatible with the register *owning* placement: on five of six
+   fixtures the tie nodes were not on their joints, so making them copies of
+   one owner necessarily moves them. What holds, and what was measured:
+
+   * **Every delivered load is byte-identical on all six fixtures** — module
+     views, case index, both reports, the CSVs, the per-component decks and the
+     assembled balanced deck. Of the 330 baseline channels exactly one moved,
+     `sbeam/lra_model`, on five fixtures (`cessna_210` is byte-identical).
+   * **Equilibrium is preserved exactly.** `transferred_case_loads` holds the
+     balanced case's resultant under the LM-1 transfer rule wherever the nodes
+     sit, so the deck's per-subcase resultant is unchanged to four significant
+     figures on every fixture and every subcase; the largest change is 5.2e-8
+     of the largest applied card. The subcase set is identical.
+   * **What moved in `lra_model.bdf`:** the three T-tail decks gain a
+     `lra-fin-tip` node and one `CBAR`, the R-6 tie is retargeted from the
+     outermost fin strip to that tip (arm corrected from −23.228/−23.753/−20.876
+     to −25.600/−26.100/−26.680 in x, and from +6.25/+6.5/+6.9 to **0** in z),
+     the h-tail centreline `GRID` moves onto its own LRA station, and the
+     transferred couples at the moved nodes are recomputed; `ga6_normal` and
+     `baron_58` move their h-tail attachment pair in x by 0.356 / 0.010 in.
+     On `concept_regional_jet` two load cards merge (46 → 44) as the corrected
+     centreline node becomes the nearest node for loads that previously routed
+     elsewhere — resultant-preserving by LM-1.
+
+   The move is itself the stated, gated fix, in the same class as #261's.
 9. Doc-currency, schema (additive, v-next), `DATA_DICTIONARY.md` regenerated
    via the generator.
 
