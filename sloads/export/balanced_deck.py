@@ -92,11 +92,10 @@ from ..modules.balance import (
     vtail_load,
 )
 from ..rigid_body import radians_per_s2
-from ..units import Channel, DeliverableUnits, UnitSystem, deliverable_units
+from ..units import DeliverableUnits, UnitSystem
 from .bands import band
 from .coordinates import SBEAM_CID, to_force, to_grid, to_moment
-from .deck_format import fmt3, stamped
-from .sbeam_bridge import basis_sentence
+from .deck_format import basis_sentence, fmt3, solver_units, stamped
 
 #: Node runs, from the band registry (:mod:`sloads.export.bands`) -- the single
 #: owner of every GID/EID/SID band in the suite. These three were 4001/4201/4401
@@ -126,10 +125,6 @@ _FALLBACK_SID_BAND = band("balanced-subcase-unmapped")
 #: ``CaseRef`` at all. Every case the suite assembles is **minted** instead --
 #: :func:`~sloads.case_ids.balanced_subcase_id`, see :func:`case_sids`.
 BALANCED_FALLBACK_SID_BASE = _FALLBACK_SID_BAND.start
-
-
-def _units(system: UnitSystem) -> DeliverableUnits:
-    return deliverable_units(system, Channel.SOLVER)
 
 
 def _node_key(load: BalancedLoad) -> Tuple[str, float, float, float]:
@@ -440,7 +435,7 @@ def balanced_deck(project: Project, *,
     alone. Blank leaves the deck byte-identical (the frozen Imperial baseline
     renders it unstamped).
     """
-    u = _units(system)
+    u = solver_units(system)
     if cases:
         cases = list(cases)
         if skipped is None:

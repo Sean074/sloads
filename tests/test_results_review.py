@@ -86,7 +86,7 @@ def test_per_case_safety_factor_is_honoured():
     ``CriticalCondition.safety_factor`` is the case's own limit->ultimate factor
     (models/results.py; 14 CFR 23.303 default 1.5, 1.0 = already ultimate) and the
     render boundary must read it per case -- the same rule the export side applies
-    (``export.sbeam_bridge._sf``), so a report figure and its bulk-data card state
+    (``export.deck_format.case_sf``), so a report figure and its bulk-data card state
     one factor for one case.
     """
     conds = [c for c in select.build_critical(_ga6()).conditions if c.component == "fuselage"]

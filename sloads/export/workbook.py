@@ -30,6 +30,7 @@ from typing import Dict, Optional
 import pandas as pd
 
 from ..units import Channel, UnitSystem, deliverable_units, units_statement
+from .deck_format import solver_units
 
 # Excel sheet names are capped at 31 characters and may not contain
 # ``[]:*?/\\``.
@@ -65,7 +66,7 @@ def _unit_notes(system: UnitSystem) -> Dict[str, str]:
     resolution of the selected system, so a sheet's statement cannot drift from
     the channel the numbers in it were written in."""
     human = units_statement(deliverable_units(system, Channel.HUMAN))
-    solver = units_statement(deliverable_units(system, Channel.SOLVER))
+    solver = units_statement(solver_units(system))
     return {
         "human": (f"Units: {human}. Loads are LIMIT — the SF column states the "
                   f"factor, which is applied nowhere; {_AVIATION}."),

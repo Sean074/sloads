@@ -63,7 +63,10 @@ _EXAMPLE = os.path.join(
     "concept_regional_jet.project.json",
 )
 
-_SF = sb._SF  # ULTIMATE_FACTOR (1.5); the bridge exports LIMIT x _SF.
+# ``ULTIMATE_FACTOR`` (1.5) -- the suite default the export *states* and does not
+# apply (note 49 OR-116). Read from its owner since note 56 D-56.1 promoted it
+# out of ``sbeam_bridge``.
+from sloads.export.deck_format import SUITE_SF as _SF  # noqa: E402
 
 
 def _concept_project():

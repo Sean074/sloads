@@ -68,10 +68,18 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List, Sequence, Tuple
 
-from ..units import Channel, DeliverableUnits, UnitSystem, deliverable_units
+from ..units import DeliverableUnits, UnitSystem
 from .bands import band
 from .coordinates import to_pressure
-from .deck_format import MAT1_E, MAT1_NU, PBAR_A, PBAR_I, PBAR_J, fmt
+from .deck_format import (
+    MAT1_E,
+    MAT1_NU,
+    PBAR_A,
+    PBAR_I,
+    PBAR_J,
+    fmt,
+    solver_units,
+)
 from .equilibrium import parse_cards
 
 Vec3 = Tuple[float, float, float]
@@ -142,10 +150,6 @@ class Topology(Enum):
 # --------------------------------------------------------------------------- #
 # Wrapping a cards-only (or element-less) deck into a solvable model
 # --------------------------------------------------------------------------- #
-def _units(system: UnitSystem) -> DeliverableUnits:
-    return deliverable_units(system, Channel.SOLVER)
-
-
 def _orientation(a: Vec3, b: Vec3) -> Vec3:
     """A ``CBAR`` orientation vector not parallel to the element axis.
 
@@ -362,7 +366,7 @@ def wrap_as_stick_model(deck_text: str, *, support: Support,
             "and must be handed to solve_deck() unwrapped, so the harness tests "
             "the shipped deck rather than a wrapped copy of it")
 
-    u = _units(system)
+    u = solver_units(system)
 
     def _ordered(gids):
         # Beam-line order for CHAIN; for STAR only the first node matters, and

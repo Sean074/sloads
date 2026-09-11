@@ -99,7 +99,7 @@ from ..modules.net_loads import build_net_loads, loads_ref_axis_results
 from ..modules.tail_span import ATTACH_STRIP_PAIR, build_tail_span, htail_attachment
 from ..picks import extreme
 from ..tail_geometry import HTAIL, VTAIL, resolve_tail_planform
-from ..units import Channel, DeliverableUnits, UnitSystem, deliverable_units
+from ..units import UnitSystem
 from .balanced_deck import case_sids
 from .bands import band
 from .coordinates import SBEAM_CID, tail_station_to_airplane, to_force, to_grid, to_moment, to_pressure, transfer_couple
@@ -109,14 +109,15 @@ from .deck_format import (
     PBAR_A,
     PBAR_I,
     PBAR_J,
+    basis_sentence,
     comment,
     fmt,
     fmt3,
+    solver_units,
     stamped,
 )
 from .roundtrip import _orientation
 from .sbeam_bridge import (
-    basis_sentence,
     sob_gid,
     tail_control_gid,
     tail_span_gid,
@@ -893,10 +894,6 @@ def transferred_case_loads(case: BalancedCaseResult, model: LraModel
 # --------------------------------------------------------------------------- #
 # The deck
 # --------------------------------------------------------------------------- #
-def _units(system: UnitSystem) -> DeliverableUnits:
-    return deliverable_units(system, Channel.SOLVER)
-
-
 #: The R-12 statement every LRA deck header carries -- one wording.
 STIFFNESS_NOTE = (
     "placeholder PBAR/MAT1, one pair per section family (wing = MID/PID 1, "
@@ -939,7 +936,7 @@ def lra_model_bdf(project: Project, *,
         raise ValueError(
             "no balanced case could be assembled -- the LRA model carries the "
             "assembled cases' load sets and has nothing to express")
-    u = _units(system)
+    u = solver_units(system)
     sids = case_sids(cases)
 
     head: List[str] = ["SOL 101", "$"]
