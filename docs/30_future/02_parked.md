@@ -96,6 +96,17 @@ surfaces (see backlog decision D-5): AIRLOAD4 swept printed spanwise table;
 ONENGOUT printed twin oracle; LANDLOAD printed wheel-load matrix (p231–233 is
 OCR-garbled — the reaction matrix stays closure-/legible-cell-locked).
 
+### [V] Certification basis / case-coverage matrix *(parked 2026-09-11, owner ruling — scope-reduction review)*
+Raised at review 2026-08-20 §6 rank 7 (#47, closed not-planned): a per-condition
+certification-basis matrix as a deliverable, generated from the case registry
+with a drift guard, so the next FAR 25 case lands against a stated basis. Parked
+as **off the mission bar** (loads → sbeam + oracle report, owner 2026-09-10):
+it is a DER-package feature, the same direction as the "Methods manual / DER
+package" placeholder below, and no FAR 25 case build is scheduled. The full
+body (definition of done, design-note scope) is preserved on the closed issue.
+**Activation:** with the methods-manual/DER-package direction, or before the
+next FAR 25 case build — whichever comes first; design note first (tier L).
+
 ---
 
 ## Parked 2026-08-16 — scope and deficiency review
