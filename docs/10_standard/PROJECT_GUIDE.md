@@ -227,6 +227,7 @@ FAR23LOADS/
 │   │   ├── methods.py            # the ONE methods & limitations statement (+ CSV `#` / BDF `$` wrappers)
 │   │   ├── coverage.py           # FAR 23 Subpart C coverage matrix (covered / n-a / not analysed / out of scope)
 │   │   ├── content.py            # Project + module results → ReportDocument (sections/tables/figures) — no LaTeX
+│   │   ├── tables.py            # the deliverable tables that are not decks: case index, governing SF table, gear report, export-scope filter (note 56 D-56.1, moved out of export/)
 │   │   ├── bundle.py             # THE Export zip's member list: every file it carries, with the manifest row that names it (CR-C-1)
 │   │   ├── results_zip.py        # the sidebar's whole-project results zip: every module run, skip-and-manifest (C210-45)
 │   │   ├── conventions_tex.py    # the report's "Axes and sign conventions" section, from CONVENTIONS.md's owners

@@ -32,6 +32,7 @@ import sloads.modules  # noqa: F401
 from sloads import io
 from sloads.constants import ULTIMATE_FACTOR
 from sloads.export import sbeam_bridge as sb
+from sloads.report import tables as rt
 from sloads.models import SafetyFactorOverride, SafetyFactorPolicyInput
 from sloads.registry import run_all_modules
 from sloads.report.content import build_report, component_loads
@@ -396,14 +397,14 @@ def test_the_case_index_sf_column_is_a_view_of_the_table():
 
 def test_the_companion_csv_states_the_derived_value_beside_the_override():
     """An override is self-evident in the file, not only in the prose beside it."""
-    text = sb.safety_factors_csv(_overridden())
+    text = rt.safety_factors_csv(_overridden())
     assert "Derived SF" in text.splitlines()[0]
     row = next(ln for ln in text.splitlines() if ln.startswith("Ground"))
     assert "1.25" in row and "1.5" in row and RowStatus.OVERRIDE in row
 
 
 def test_the_companion_csv_has_one_row_per_family():
-    text = sb.safety_factors_csv(io.load_project(_GA))
+    text = rt.safety_factors_csv(io.load_project(_GA))
     assert len(text.strip().splitlines()) == len(FAMILIES) + 1
 
 

@@ -16,6 +16,7 @@ import openpyxl
 
 from sloads import io, registry
 from sloads.export import sbeam_bridge as sb
+from sloads.report import tables as rt
 from sloads.export.workbook import build_workbook
 from sloads.modules.aileron import build_aileron
 from sloads.modules.body_loads import build_body_loads
@@ -52,7 +53,7 @@ def _build(system=UnitSystem.IMPERIAL):
     tail = _try(build_tail_chordwise, project)
     control = build_aileron(project) + build_flap(project) + build_tabs(project)
 
-    case_index_csv = sb.case_index_csv_from(
+    case_index_csv = rt.case_index_csv_from(
         net.wing_net, body, tail, control,
         *(mr.conditions for mr in module_results),
     )

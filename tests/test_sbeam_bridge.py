@@ -22,6 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sloads import io
 from sloads.export import sbeam_bridge as sb
+from sloads.report import tables as rt
 from sloads.export.equilibrium import card_totals, closes, parse_cards
 from sloads.modules.flight_envelope import build_envelope
 from sloads.modules.net_loads import build_net_loads
@@ -174,7 +175,7 @@ def test_a_filtered_export_does_not_renumber_the_surviving_subcases():
 
     keep = [r for r in results if r.case_ref.case_id != results[0].case_ref.case_id]
     kept_ids = [r.case_ref.case_id for r in keep]
-    assert sb.filter_by_selected_case_ids(results, kept_ids) == keep
+    assert rt.filter_by_selected_case_ids(results, kept_ids) == keep
     filtered = {r.case_ref.case_id: sb._sid(1, i, r) for i, r in enumerate(keep)}
     assert filtered == {cid: full[cid] for cid in kept_ids}
 
@@ -586,20 +587,20 @@ def test_control_surface_writers(tmp_path=None):
 # --------------------------------------------------------------------------- #
 def test_filter_by_selected_case_ids_none_is_unfiltered():
     results = _wing_net(_GA)
-    assert sb.filter_by_selected_case_ids(results, None) == results
+    assert rt.filter_by_selected_case_ids(results, None) == results
 
 
 def test_filter_by_selected_case_ids_keeps_only_selected():
     results = _wing_net(_GA)
     ids = {results[0].case_ref.case_id}
-    filtered = sb.filter_by_selected_case_ids(results, ids)
+    filtered = rt.filter_by_selected_case_ids(results, ids)
     assert len(filtered) == 1
     assert filtered[0].case_ref.case_id == results[0].case_ref.case_id
 
 
 def test_filter_by_selected_case_ids_empty_selection_drops_all_tagged():
     results = _wing_net(_GA)
-    assert sb.filter_by_selected_case_ids(results, set()) == []
+    assert rt.filter_by_selected_case_ids(results, set()) == []
 
 
 def test_export_package_exposes_all_component_families():
@@ -607,20 +608,29 @@ def test_export_package_exposes_all_component_families():
 
     Before P1-4 ``__all__`` listed only wing + tail, so a caller following the
     package API could export only two of the four component families. The concept
-    deliverable is "all components to sbeam" -- assert body + control + the case
-    index are all importable from the package (not just the submodule).
+    deliverable is "all components to sbeam" -- assert body + control are both
+    importable from the package (not just the submodule).
+
+    The **case index and the export-scope filter left this surface** with note 56
+    D-56.1: they emit no bulk data, so they are not a component family and not
+    part of the export package's API. Their home is
+    :mod:`sloads.report.tables`, and the second half of this test asserts they
+    are reachable there and *not* here -- a re-export would put one name at two
+    addresses, which is the thing that decision removes.
     """
     import sloads.export as export_pkg
     from sloads.export import (  # noqa: F401
         body_force_moment_cards,
         body_span_load_csv,
-        case_index_csv,
         control_surface_csv,
         control_surface_force_moment_cards,
-        filter_by_selected_case_ids,
-        write_case_index_csv,
         write_control_surface_csv,
         write_control_surface_force_moment_cards,
+    )
+    from sloads.report.tables import (  # noqa: F401
+        case_index_csv,
+        filter_by_selected_case_ids,
+        write_case_index_csv,
     )
 
     # Every re-exported name is advertised in __all__ and resolves to the
@@ -630,11 +640,16 @@ def test_export_package_exposes_all_component_families():
         "control_surface_csv", "write_control_surface_csv",
         "control_surface_force_moment_cards",
         "write_control_surface_force_moment_cards",
-        "case_index_csv", "write_case_index_csv",
-        "filter_by_selected_case_ids",
     ):
         assert name in export_pkg.__all__, f"{name} missing from export __all__"
         assert getattr(export_pkg, name) is getattr(sb, name)
+
+    for name in ("case_index_csv", "write_case_index_csv",
+                 "filter_by_selected_case_ids", "safety_factors_csv",
+                 "gear_report_csv"):
+        assert not hasattr(export_pkg, name), (
+            f"{name} is a report table (note 56 D-56.1); the export package "
+            "must not re-export it")
 
 
 # --------------------------------------------------------------------------- #
