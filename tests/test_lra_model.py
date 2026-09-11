@@ -14,6 +14,8 @@ sys.path.insert(0, os.path.dirname(__file__))
 import pytest
 
 from sloads import io
+from sloads.export import bands as bd
+from sloads.export.balanced_deck import balanced_deck
 from sloads.export.coordinates import transfer_couple
 from sloads.export.equilibrium import closes, deck_resultants, parse_cards, resultant
 from sloads.export.lra_import import (
@@ -29,6 +31,7 @@ from sloads.export.lra_model import (
     lra_model_bdf,
     transferred_case_loads,
 )
+from sloads.export.mass_cards import mass_check_deck
 from sloads.tail_geometry import HTAIL, VTAIL, resolve_tail_planform
 
 _EXAMPLES = os.path.join(os.path.dirname(__file__), "..", "examples")
@@ -265,10 +268,14 @@ def test_a_divergent_tagged_node_fails_loudly():
     pattern; loads must never be exported onto the wrong structure."""
     project = _project("atr42_100.project.json")
     deck = lra_model_bdf(project)
+    # Found by its BM-5 tag, not by a literal id: the gid moved once already
+    # (note 56 D-56.3 renumbered the LRA onto its own run) and the tag is the
+    # identity this validator is about.
+    sob = read_lra_model(deck).tags["lra-sob R"]
     doctored = []
     hit = False
-    for i, line in enumerate(deck.splitlines()):
-        if not hit and line.startswith("GRID, 7001,"):
+    for line in deck.splitlines():
+        if not hit and line.startswith(f"GRID, {sob},"):
             f = [c.strip() for c in line.split(",")]
             f[4] = f"{float(f[4]) + 2 * LRA_IMPORT_TOL_IN:.6E}"
             line = ", ".join(f)
@@ -449,6 +456,112 @@ def test_a_project_with_no_vertical_tail_still_builds():
     project.vtail_loads = None
     model = build_lra_model(project)
     assert model.nodes and "vtail" not in model.members
+
+
+# --------------------------------------------------------------------------- #
+# D-56.3 -- the LRA model owns every grid it writes
+# --------------------------------------------------------------------------- #
+#: The LRA's own contiguous run (note 56 D-56.3), read off the registry rather
+#: than spelled out, so a sub-band added or resized here cannot drift from
+#: ``bands.py``.
+_LRA_GID_BANDS = tuple(b for b in bd.BANDS
+                       if b.kind is bd.IdKind.GID and b.name.startswith("lra-"))
+
+
+def _grid_positions(deck_text):
+    """``{gid: (x, y, z)}`` from a deck's free-field ``GRID`` cards."""
+    out = {}
+    for line in deck_text.splitlines():
+        if not line.startswith("GRID,"):
+            continue
+        f = [c.strip() for c in line.split(",")]
+        out[int(f[1])] = (float(f[3]), float(f[4]), float(f[5]))
+    return out
+
+
+def test_the_lra_run_is_contiguous_and_the_family_is_readable_off_the_id():
+    """The shape D-56.3 chose, pinned: one unbroken run of equal sub-bands.
+
+    The point of the run is that ``gid // 1000 - 20`` is the family index, so a
+    grid id in a deck or a solver echo says what kind of point it is without a
+    lookup. That only holds while the sub-bands stay 999 wide on a 1000 stride,
+    which is the thing a later edit would silently break -- a band widened to
+    1000 puts its last id in the next family's thousand.
+    """
+    bands = sorted(_LRA_GID_BANDS, key=lambda b: b.start)
+    assert bands, "the LRA owns no GID band at all"
+    for i, b in enumerate(bands):
+        assert b.start == 20001 + 1000 * i, f"{b.name} breaks the run"
+        assert b.size == 999, f"{b.name} is {b.size} wide, not 999"
+        assert b.start // 1000 - 20 == i
+        assert b.end // 1000 - 20 == i, f"{b.name}'s last id lands in family {i + 1}"
+        assert b.owner.startswith("lra_model."), f"{b.name} is owned by {b.owner}"
+
+
+@pytest.mark.parametrize("example", ("ga6_normal.project.json",
+                                     "baron_58.project.json",
+                                     "atr42_100.project.json",
+                                     "concept_regional_jet.project.json"))
+def test_every_lra_grid_comes_from_the_lra_s_own_band(example):
+    """Note 56 gate 4, asserted from the emitted deck rather than the builder.
+
+    This is the gate the note is named for. The deliverable used to take its
+    right-wing station ids from the wing stick deck's band, its tail-chain ids
+    from the two spanwise decks', its control-node ids from the chordwise
+    decks' and its gear ids from the balanced deck's -- so four artifacts
+    defined the grids of the one that ships, three of them were not
+    deliverables, and two of them no longer exist. Reading the deck text rather
+    than ``build_lra_model`` is deliberate: an id that reaches a file is the
+    thing a solver splices on, and a builder-side assertion would not have
+    caught the borrowing either, since the borrowed ids were perfectly valid.
+    """
+    deck = lra_model_bdf(_project(example))
+    gids = set(_grid_positions(deck))
+    assert gids, f"{example}: the LRA deck wrote no GRID at all"
+    stray = {g for g in gids if not any(g in b for b in _LRA_GID_BANDS)}
+    assert not stray, (
+        f"{example}: LRA grids outside the LRA's run -- "
+        f"{sorted(stray)[:8]} (owners: "
+        f"{sorted({bd.owner_of(g) for g in sorted(stray)[:8]})})")
+
+
+@pytest.mark.parametrize("example", ("ga6_normal.project.json",
+                                     "concept_regional_jet.project.json"))
+def test_no_gid_is_defined_at_two_positions_across_the_shipped_decks(example):
+    """Note 56 gate 3 -- the collision test at the artifact level.
+
+    ``tests/test_bands.py`` proves the *registry* is disjoint; this proves the
+    files are, which is a different claim, because a deck can emit an id its
+    registered band does not contain (that is gate 4) or two decks can each
+    emit correctly from bands that were never compared. The failure this
+    forecloses is the D-19 class applied to ids: two decks that splice cleanly
+    and silently sum unrelated loads on one node.
+
+    It passes today by construction, and that is the point of writing it: note
+    56 asserts (SS1.2) that ``GID 7`` named one point in ``wing_loads.bdf`` and
+    another in ``lra_model.bdf``, and on measurement it did not -- the LRA took
+    the wing stick band's ids for the stations it shares, so the shared ids
+    named the same point. The **borrowing** was real and gate 4 above is what
+    catches it; the position collision was not, and the only one on record
+    (balanced deck into the spanwise h-tail band, review F-C1) was closed by
+    the registry two months ago. So this gate guards a property that is
+    currently true rather than reporting one that is broken, which is the
+    honest reason to pin it: it was true by accident before, and the next deck
+    family is what would re-open it.
+    """
+    project = _project(example)
+    decks = {"lra_model": lra_model_bdf(project),
+             "balanced_deck": balanced_deck(project),
+             "mass_check_deck": mass_check_deck(project)}
+    seen = {}   # gid -> (deck name, position)
+    for name, text in decks.items():
+        for gid, pos in _grid_positions(text).items():
+            prior = seen.setdefault(gid, (name, pos))
+            if prior[0] == name:
+                continue
+            assert prior[1] == pos, (
+                f"{example}: GID {gid} is {prior[1]} in {prior[0]} and {pos} "
+                f"in {name} -- two artifacts define one node")
 
 
 if __name__ == "__main__":  # pragma: no cover - self-runner

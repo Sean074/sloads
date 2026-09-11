@@ -117,12 +117,7 @@ from .deck_format import (
     stamped,
 )
 from .roundtrip import _orientation
-from .sbeam_bridge import (
-    sob_gid,
-    tail_control_gid,
-    tail_span_gid,
-    wing_nodal_loads,
-)
+from .sbeam_bridge import wing_nodal_loads
 
 Vec3 = Tuple[float, float, float]
 
@@ -149,15 +144,36 @@ _COINCIDENT_TOL = 1e-6
 #: fitted threshold.
 JOINT_MERGE_FRACTION = 0.05
 
-_SOB_BAND = band("lra-sob")
-_WING_BAND = band("wing-stick")
+#: Every grid this model writes comes from one of these -- the D-56.3 identity.
+#: There is no id here the model did not allocate itself: before note 56 the
+#: right wing chain took the wing stick deck's station ids, the tail chains the
+#: spanwise decks', the control nodes the chordwise decks' and the gear nodes
+#: the balanced deck's, so the deliverable's grids were defined by four
+#: artifacts, three of which were not deliverables and two of which are now
+#: deleted. ``wing_nodal_loads`` is still read below, for the station
+#: **positions**; its ``gid`` is no longer this model's.
+_RIGHT_BAND = band("lra-wing-right")
 _LEFT_BAND = band("lra-wing-left")
 _FUSELAGE_BAND = band("lra-fuselage")
+_HTAIL_BAND = band("lra-htail")
+_VTAIL_BAND = band("lra-vtail")
+_SOB_BAND = band("lra-sob")
 _CENTRE_BAND = band("lra-centre")
-_ENGINE_BAND = band("lra-engine")
 _ATTACH_BAND = band("lra-attach")
+_CONTROL_BAND = band("lra-control")
+_ENGINE_BAND = band("lra-engine")
+_GEAR_BAND = band("lra-gear")
 _CBAR_BAND = band("lra-cbar")
 _RBE2_BAND = band("lra-rbe2")
+
+
+def sob_gid() -> int:
+    """GRID id of the wing side-of-body reporting node (right half-span).
+
+    Lived in ``sbeam_bridge`` while that module owned every band; it has one
+    consumer and this is it (note 56 D-56.3).
+    """
+    return _SOB_BAND.allocate(0)
 
 #: The four section families of the LRA deck, in ``MID``/``PID`` order 1..4
 #: (backlog Pri 7 -- step 14 descoped, 2026-08-17). Each family gets its own
@@ -482,11 +498,13 @@ def build_lra_model(project: Project) -> LraModel:
         raise LraRefusal(
             f"the side of body (BL {sob.y:.2f}) is outboard of the last wing "
             "station -- there is no wing beam outboard of the joint to build")
-    coincident = [nl for nl in base if abs(nl.y - sob.y) <= _COINCIDENT_TOL]
     j_sob = reg.one(JointName.WING_SOB, "R")
-    sob_r = LraNode(coincident[0].gid if coincident else sob_gid(),
-                    j_sob.location, "lra-sob", "R")
-    right = [sob_r] + [LraNode(nl.gid, (nl.x, nl.y, nl.z)) for nl in outboard]
+    # The SOB node is the LRA's named node whether or not a load station falls
+    # on it: before D-56.3 a coincident station handed over its own gid, which
+    # is how a wing-stick id came to be tagged as an LRA named node.
+    sob_r = LraNode(sob_gid(), j_sob.location, "lra-sob", "R")
+    right = [sob_r] + [LraNode(_RIGHT_BAND.allocate(i), (nl.x, nl.y, nl.z))
+                       for i, nl in enumerate(outboard)]
     sob_l = LraNode(_SOB_BAND.allocate(1), _mirror(sob_r.pos), "lra-sob", "L")
     left = [sob_l] + [LraNode(_LEFT_BAND.allocate(i),
                               _mirror((nl.x, nl.y, nl.z)))
@@ -514,7 +532,7 @@ def build_lra_model(project: Project) -> LraModel:
     vt = spans.get(VTAIL) or []
     planform_v = resolve_tail_planform(project, VTAIL) if vt else None
     if vt and planform_v is not None:  # spans exist only where the planform resolved
-        stations = [LraNode(tail_span_gid(VTAIL, i),
+        stations = [LraNode(_VTAIL_BAND.allocate(i),
                             tail_station_to_airplane(st.x, st.y, VTAIL, st.z))
                     for i, st in enumerate(vt[0].stations)]
         root = LraNode(_ATTACH_BAND.allocate(0),
@@ -530,7 +548,7 @@ def build_lra_model(project: Project) -> LraModel:
         # have, and 2.4-5.8 in of x with it. The tip is a joint, so it is a
         # node.
         if JointName.VTAIL_TIP_HTAIL in reg.names:
-            vtail_tip = LraNode(_ATTACH_BAND.allocate(2),
+            vtail_tip = LraNode(_ATTACH_BAND.allocate(3),
                                 reg.one(JointName.VTAIL_TIP_HTAIL).location,
                                 "lra-fin-tip", "C")
             vtail_chain.append(vtail_tip)
@@ -546,7 +564,7 @@ def build_lra_model(project: Project) -> LraModel:
         att = htail_attachment(project, planform_h)
         if att.basis == ATTACH_STRIP_PAIR:
             raise LraRefusal(_refusal_reason(reg, JointName.HTAIL_ATTACH))
-        htail_chain = [LraNode(tail_span_gid(HTAIL, i),
+        htail_chain = [LraNode(_HTAIL_BAND.allocate(i),
                                tail_station_to_airplane(st.x, st.y, HTAIL, st.z))
                        for i, st in enumerate(ht[0].stations)]
         htail_chain.sort(key=lambda n: n.pos[1])
@@ -605,18 +623,18 @@ def build_lra_model(project: Project) -> LraModel:
         rs = spans.get(comp) or []
         if not rs or not rs[0].control_loads or not chain:
             continue
-        for i, cp in enumerate(rs[0].control_loads):
+        for cp in rs[0].control_loads:
             family = "lra-hinge" if cp.kind == "hinge" else "lra-actuator"
             side = ("C" if comp == VTAIL or abs(cp.y) <= _COINCIDENT_TOL
                     else ("R" if cp.y > 0 else "L"))
-            node = LraNode(tail_control_gid(comp, i),
+            node = LraNode(_CONTROL_BAND.allocate(len(control_nodes)),
                            tail_station_to_airplane(cp.x, cp.y, comp, cp.z),
                            family, side)
             control_nodes.append(node)
             span_key = node.pos[1] if comp == HTAIL else node.pos[2]
             chain, parent = _insert_on_chain(  # noqa: PLW2901  -- the chain grows by the inserted node
                 chain, key_fn, span_key,
-                _ATTACH_BAND.allocate(3 + len(control_nodes)), "", "",
+                _ATTACH_BAND.allocate(4 + len(control_nodes)), "", "",
                 merge_tol=merge)
             model.rbe2s.append((parent.gid, "123456", [node.gid],
                                 f"{comp} {cp.kind} node -> parent LRA (LM-6)"))
@@ -633,7 +651,7 @@ def build_lra_model(project: Project) -> LraModel:
     if lg is not None:
         legs = [("main", lg.main_gear), ("nose", lg.nose_gear)]
         n_gear = 0
-        gear_band = band("balanced-gear")
+        gear_band = _GEAR_BAND
         for leg_name, leg in legs:
             ax, ay, az = leg.attach
             if not any(leg.attach):
@@ -871,8 +889,6 @@ def transferred_case_loads(case: BalancedCaseResult, model: LraModel
     ``(p - n) x F`` (LM-1, owner
     :func:`sloads.export.coordinates.transfer_couple`), so this set's resultant
     about any point is identical to the balanced case's -- the plan-07 gate.
-    The limit->ultimate factor is applied at emission, exactly as the balanced
-    deck applies it.
     """
     acc: Dict[int, Tuple[List[float], List[float]]] = {}
     for load in case.loads:

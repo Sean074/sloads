@@ -23,26 +23,28 @@ The map
 -------
 ::
 
-    GID   1-1000    wing stick model (root node + stations)
-       1001-1500    fuselage mass stations + the tail air load
-       1501-2000    wing carry-through / fallback correction nodes
-       2001-2100    chordwise h-tail stations
-       2101-2200    chordwise v-tail stations
-       3001-4000    control-surface chord stations
-       4001-4500    spanwise h-tail stations
-       4501-5000    spanwise v-tail stations
-       5001-5300    elevator hinge / actuator nodes
-       5301-5600    rudder hinge / actuator nodes
+    GID   1-1000    applied-load model, wing stations
+       1001-1500    applied-load model, fuselage mass stations + tail air load
+       1501-2000    applied-load model, wing carry-through / correction nodes
+       4001-4500    applied-load model, spanwise h-tail stations
+       4501-5000    applied-load model, spanwise v-tail stations
+       5001-5300    applied-load model, elevator hinge / actuator nodes
+       5301-5600    applied-load model, rudder hinge / actuator nodes
        6001-6200    balanced deck, right wing
        6201-6400    balanced deck, left wing
        6401-7000    balanced deck, centreline
-       7001-7100    LRA named nodes: wing side-of-body (lra-sob, BM-5)
-       7101-7600    LRA model, left-wing chain stations (mirror)
-       7601-7800    LRA model, fuselage section-centre line
-       7801-7810    LRA model, wing centre-box hub
-       7811-7860    LRA model, engine hub + mount nodes
-       7861-7880    LRA model, attachment nodes (h-tail pair, fin root/tip)
       10001-10100   balanced deck, gear reference points
+
+      20001-30999   **the LRA model's own run** (note 56 D-56.3). One 999-wide
+                    sub-band per node family, so the family is readable off the
+                    id: family index = gid // 1000 - 20.
+
+      20001-20999    0  right wing chain     25001-25999   5  side of body
+      21001-21999    1  left wing chain      26001-26999   6  wing centre box
+      22001-22999    2  fuselage centreline  27001-27999   7  attachments
+      23001-23999    3  h-tail chain         28001-28999   8  hinge / actuator
+      24001-24999    4  fin chain            29001-29999   9  engine hub + mount
+                                             30001-30999  10  gear attachments
 
     EID      1-1000  stick-model CBAR chain
           9001-9100  CONM2 baseline (always-aboard items)
@@ -157,9 +159,11 @@ BANDS: Tuple[Band, ...] = (
     # ----------------------------------------------------------------- GIDs
     _band("wing-stick", IdKind.GID, 1, 1000, "sbeam_bridge.station_gid",
           "Station i takes 2 + i. GID 1 was the stick model's clamped root and "
-          "is unallocated since note 56 D-56.2 deleted that deck; the hole is "
-          "deliberate until D-56.3's renumber, because closing it now would "
-          "move every station's id for no gain."),
+          "is unallocated since note 56 D-56.2 deleted that deck. The hole "
+          "stays: D-56.3 moved the LRA off this band but the applied-load "
+          "model still allocates from it, and D-56.9 retires the band whole "
+          "when that model re-states its gids at the LRA grids -- so closing "
+          "the hole now would renumber every station twice for no gain."),
     _band("body-mass", IdKind.GID, 1001, 500, "sbeam_bridge.beam_station_gid",
           "Fuselage mass stations and the tail air load, nose->tail."),
     _band("body-reaction", IdKind.GID, 1501, 500, "sbeam_bridge.body_station_gids",
@@ -170,7 +174,10 @@ BANDS: Tuple[Band, ...] = (
     # station and a control-surface chord station are points no delivered
     # artifact states any more. The ranges are left unregistered rather than
     # reused, so a band that reappears there is a new decision and not an
-    # accidental collision with a published map; D-56.3's renumber closes them.
+    # accidental collision with a published map. D-56.3 did not close them --
+    # it moved the LRA out to 20001+ rather than backfilling here; the bands
+    # still registered below this line belong to the applied-load model and go
+    # with it at D-56.9.
     _band("tail-span-htail", IdKind.GID, 4001, 500, "sbeam_bridge.tail_span_gid"),
     _band("tail-span-vtail", IdKind.GID, 4501, 500, "sbeam_bridge.tail_span_gid"),
     _band("tail-control-htail", IdKind.GID, 5001, 300,
@@ -191,37 +198,10 @@ BANDS: Tuple[Band, ...] = (
     _band("balanced-centreline", IdKind.GID, 6401, 600, "balanced_deck.deck_nodes",
           "Fuselage masses, the tail air load, the lumped body Cm, and every "
           "closure point on the centreline."),
-    _band("lra-sob", IdKind.GID, 7001, 100, "sbeam_bridge.sob_gid",
-          "LRA named-node families (decision BM-5): the wing side-of-body "
-          "reporting node, tagged '$ SLOADS-NODE lra-sob <side>' so an imported "
-          "beam model can be mapped by identity rather than by coordinates. "
-          "First of the note 24 R-10 families; the step 12 exporter's own "
-          "families follow at 7101+. Index 0 is the right SOB, 1 the left."),
-    _band("lra-wing-left", IdKind.GID, 7101, 500, "lra_model.left_wing_gid",
-          "The LRA model's left-wing chain stations -- the mirror of the "
-          "wing-stick 1+ stations, which that band already owns for the right "
-          "side. Separate so an antisymmetric case loads the two sides "
-          "without renumbering, exactly as the balanced deck splits 6001/6201."),
-    _band("lra-fuselage", IdKind.GID, 7601, 200, "lra_model.fuselage_gid",
-          "Fuselage section-centre-line nodes (x, 0, z_c(x)) -- note 24 R-4. "
-          "Includes the inserted special stations (posts, fin root x, h-tail "
-          "x, gear/engine x), each tagged '$ SLOADS-NODE' where it is a named "
-          "node of the BM-5 contract."),
-    _band("lra-centre", IdKind.GID, 7801, 10, "lra_model.centre_gid",
-          "The wing centre-box hub node C on the wing LRA at BL 0 -- the "
-          "independent node of the rigid centre-box/post tie (implementation "
-          "note 25 LM-3). A rigid link, deliberately not a CBAR: the "
-          "stiffness carry-through element is step 14's (R-12)."),
-    _band("lra-engine", IdKind.GID, 7811, 50, "lra_model.engine_gid",
-          "Engine hub (thrust point, P-6) and mount nodes, two per engine "
-          "(note 24 R-9). The hub FORCE is absent until the power-effects "
-          "cases ship -- the skeleton is complete before the load exists."),
-    _band("lra-attach", IdKind.GID, 7861, 20, "lra_model.attach_gid",
-          "Attachment nodes that are not stations of any chain: the h-tail "
-          "fuselage-attachment pair (or its T-tail centreline joint) and the "
-          "fin root. Their own band for the registry's standing reason -- an "
-          "attachment is a different point from a strip midpoint, and adding "
-          "one must never renumber the stations beside it."),
+    # 7001-7880 held the LRA model's six families while it borrowed the rest of
+    # its grids from decks that are now deleted. Note 56 D-56.3 moved the whole
+    # model to its own run at 20001+; the range is left unregistered rather than
+    # reused, for the same reason as 2001-4000 above.
     _band("balanced-gear", IdKind.GID, 10001, 100, "balanced_deck.deck_nodes",
           "The gear reference points a ground case's reactions are transferred "
           "to (decision G-2) -- at most one node per leg per side, since a "
@@ -233,6 +213,74 @@ BANDS: Tuple[Band, ...] = (
           "a run with wing strips could only be found by matching coordinates. "
           "Numbered clear of 6001-7000 so that range keeps its published "
           "meaning as the balanced deck's wing and centreline nodes."),
+
+    # ------------------------------------------------- the LRA model's own run
+    # Note 56 D-56.3. Every grid of the one shipped solver artifact comes from
+    # here, so no id it writes is defined at a second position in any other
+    # artifact -- which is the defect the note is named for: the deliverable
+    # was taking its wing station ids straight from the wing stick deck's band
+    # and its gear ids from the balanced deck's, so GID 7 named one point in
+    # `wing_loads.bdf` and another in `lra_model.bdf`.
+    #
+    # One 999-wide sub-band per node family, contiguous and in a fixed order,
+    # so `gid // 1000 - 20` is the family index and an id read off a deck or a
+    # solver echo says what kind of point it is without a lookup. 999 rather
+    # than 1000 is what keeps that arithmetic true at the last id of each band.
+    # The width is deliberate headroom for D-56.4: the mesh becomes `n` equally
+    # spaced grids per member with `n` settable per component, so a band sized
+    # to today's node count would be the next thing to move.
+    _band("lra-wing-right", IdKind.GID, 20001, 999, "lra_model.right_wing_gid",
+          "The right wing chain outboard of the side of body. Until D-56.3 "
+          "these were the wing stick deck's own station ids (`wing-stick`, "
+          "1+) -- the borrowing the note exists to end."),
+    _band("lra-wing-left", IdKind.GID, 21001, 999, "lra_model.left_wing_gid",
+          "The mirror. Separate from the right so an antisymmetric case loads "
+          "the two sides without renumbering, exactly as the balanced deck "
+          "splits 6001/6201."),
+    _band("lra-fuselage", IdKind.GID, 22001, 999, "lra_model.fuselage_gid",
+          "Fuselage section-centre-line nodes (x, 0, z_c(x)) -- note 24 R-4. "
+          "Includes the inserted special stations (posts, fin root x, h-tail "
+          "x, gear/engine x), each tagged '$ SLOADS-NODE' where it is a named "
+          "node of the BM-5 contract."),
+    _band("lra-htail", IdKind.GID, 23001, 999, "lra_model.htail_gid",
+          "The h-tail spanwise chain, both sides. Previously borrowed from "
+          "`tail-span-htail`, which the applied-load model still owns."),
+    _band("lra-vtail", IdKind.GID, 24001, 999, "lra_model.vtail_gid",
+          "The fin chain, root joint to fin tip. Previously borrowed from "
+          "`tail-span-vtail`."),
+    _band("lra-sob", IdKind.GID, 25001, 999, "lra_model.sob_gid",
+          "The wing side-of-body reporting nodes, tagged "
+          "'$ SLOADS-NODE lra-sob <side>' so a consumer (or a re-import) finds "
+          "them by identity rather than by coordinates -- the first of the "
+          "note 24 R-10 named-node families (decision BM-5). Index 0 is the "
+          "right SOB, 1 the left."),
+    _band("lra-centre", IdKind.GID, 26001, 999, "lra_model.centre_gid",
+          "The wing centre-box hub node C at BL 0 -- the independent node of "
+          "the rigid centre-box/post tie (note 25 LM-3). A rigid link, "
+          "deliberately not a CBAR: the stiffness carry-through element is "
+          "step 14's (R-12)."),
+    _band("lra-attach", IdKind.GID, 27001, 999, "lra_model.attach_gid",
+          "Attachment nodes that are not stations of any chain: the h-tail "
+          "fuselage-attachment pair (or its T-tail centreline joint), the fin "
+          "root, the fin tip, and the chain nodes inserted to carry a control "
+          "node's parent. Their own band for the registry's standing reason -- "
+          "an attachment is a different point from a strip midpoint, and "
+          "adding one must never renumber the stations beside it."),
+    _band("lra-control", IdKind.GID, 28001, 999, "lra_model.control_gid",
+          "Hinge and actuator nodes (plan 09 T6). Previously borrowed from "
+          "`tail-control-htail` / `tail-control-vtail`, which the applied-load "
+          "model still owns; one band here rather than two, because the LRA "
+          "model numbers them in one pass across both surfaces."),
+    _band("lra-engine", IdKind.GID, 29001, 999, "lra_model.engine_gid",
+          "Engine hub (thrust point, P-6) and mount nodes, two per engine "
+          "(note 24 R-9). The hub FORCE is absent until the power-effects "
+          "cases ship -- the skeleton is complete before the load exists."),
+    _band("lra-gear", IdKind.GID, 30001, 999, "lra_model.gear_gid",
+          "The gear attachment (trunnion) nodes. Previously borrowed from "
+          "`balanced-gear`, so the same id named a gear reference point in one "
+          "deck and a trunnion in the other. Identifiable BY ID for the same "
+          "reason that band gives: G-13's solver assertion finds the node "
+          "without matching coordinates."),
     # ----------------------------------------------------------------- EIDs
     # EID 1-1000 was the wing stick model's CBAR chain, retired with the deck
     # (note 56 D-56.2). Left unregistered for the reason the GID holes above

@@ -989,7 +989,8 @@ result that lacks what a deck needs is a stated error, never an empty column.
   station is dropped and no card moves (plan 10 §1.1 constraint 1, so the
   Appendix A station-0 closure is untouched). The node carries the first
   `$ SLOADS-NODE lra-sob <side>` identity tag (decision BM-5; GID band
-  `lra-sob`, 7001+), and the wing root design load is stated **two ways and
+  `lra-sob`, 25001+ — the LRA's own run since note 56 D-56.3), and the wing
+  root design load is stated **two ways and
   gated**: `sbeam_bridge.sob_internal_loads` (the closed-form sum of applied
   nodal loads outboard of the cut, stated as the report's "Wing side-of-body
   internal loads" table) against the solver's CBAR end force in the first
