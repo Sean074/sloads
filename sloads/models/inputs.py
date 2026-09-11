@@ -1887,6 +1887,84 @@ class SafetyFactorPolicyInput:
     overrides: List[SafetyFactorOverride] = field(default_factory=list)
 
 
+#: The LRA beam mesh's default node count per member (note 56 D-56.4, owner
+#: ruling 2026-09-11). The wing's 20 is the ruling's own number and matches the
+#: WINGGEOM strip count **by coincidence, not by construction** -- the whole
+#: point of D-56.4 is that the beam is meshed from geometry alone, so the two
+#: are free to disagree and a project that changes either does not move the
+#: other. The rest are chosen to give each member a comparable element length
+#: on the shipped fixtures; none is an oracle number.
+LRA_DEFAULT_GRIDS = {
+    "wing": 20,        # per side, side of body -> tip
+    "fuselage": 12,    # per cantilever, i.e. each side of the carry-through
+    "htail": 12,       # per side
+    "vtail": 10,       # root -> tip
+}
+
+
+# --------------------------------------------------------------------------- #
+@dataclass
+class LraMeshInput:
+    """How finely the LRA beam model is meshed -- one count per member.
+
+    **Persisted input, not a preference** (note 56 D-56.4): the count changes
+    which grids a delivered deck carries, so a project that was exported at 20
+    stations a side has to reopen at 20, which is what makes this a schema
+    field rather than a CLI flag. It changes **no delivered resultant** -- only
+    how finely the same load set is distributed along the same beam -- and
+    ``tests/test_lra_model.py`` gates exactly that.
+
+    Every count is a plain node count along the member, ends included, and is
+    **dimensionless**: it is a discretisation, not a length, so no unit channel
+    converts it (``units._PROJECT_FIELD_KIND``). ``None`` means "the default
+    for that member" (:data:`LRA_DEFAULT_GRIDS`), which is what every bundled
+    example carries -- so the slice is absent from every fixture file and the
+    defaults are the only thing under test until someone states otherwise.
+
+    A count is a floor rather than the final node count: the member's ends, the
+    joint register's owned locations on it, and its gear / engine / hinge /
+    actuator nodes are nodes whatever the count says, because dropping one
+    would drop a load path. What the count controls is the equally spaced
+    grids between them -- and equal spacing is the load-bearing half of the
+    rule, because a mesh decided from geometry alone cannot coincide with the
+    load stations, so the LM-1 transfer is exercised for real on every fixture
+    instead of collapsing to an identity (note 56 SS1.4).
+    """
+    #: Suffixed rather than bare (``wing``, ``fuselage``, ...) because
+    #: :func:`sloads.units.field_classification` keys on the **bare field
+    #: name** across the whole schema, and three of those four names already
+    #: belong to non-numeric fields elsewhere (``GeometryInput.fuselage`` is an
+    #: outline). A bare name would have inherited that answer and slipped past
+    #: the totality gate unclassified -- the gate now refuses the collision
+    #: outright (``test_project_units``), and these names carry no ambiguity to
+    #: refuse.
+    wing_grids: Optional[int] = None
+    fuselage_grids: Optional[int] = None
+    htail_grids: Optional[int] = None
+    vtail_grids: Optional[int] = None
+
+    def count(self, member: str) -> int:
+        """The node count for ``member`` -- the entered one, else the default.
+
+        Raises ``ValueError`` for an unknown member or a count below 2: two is
+        the fewest nodes a beam can have (its own two ends), and a member with
+        one node is not a beam but a point, which would silently drop every
+        element on it.
+        """
+        if member not in LRA_DEFAULT_GRIDS:
+            raise ValueError(
+                f"unknown LRA member {member!r} -- expected one of "
+                f"{sorted(LRA_DEFAULT_GRIDS)}")
+        n = getattr(self, f"{member}_grids")
+        if n is None:
+            return LRA_DEFAULT_GRIDS[member]
+        if int(n) < 2:
+            raise ValueError(
+                f"LRA grid count for {member!r} is {n}: a beam needs at least "
+                "2 nodes (its own two ends)")
+        return int(n)
+
+
 # --------------------------------------------------------------------------- #
 @dataclass
 class LayoutInput:
@@ -2001,6 +2079,7 @@ def default_fuselage_outline(parametric: "LayoutInput") -> Optional[FuselageOutl
 __all__ = [
     "CATEGORIES",
     "HTAIL_BOUNDARY_DERIVED",
+    "LRA_DEFAULT_GRIDS",
     "STRUT_TYPES",
     "TAB_SURFACES",
     "TAIL_SURFACES",
@@ -2028,6 +2107,7 @@ __all__ = [
     "LateralBodyAeroInput",
     "LayoutInput",
     "LoadingDefinition",
+    "LraMeshInput",
     "MachLimitInput",
     "MassItem",
     "MissingInputError",

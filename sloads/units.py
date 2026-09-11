@@ -629,6 +629,14 @@ _DIMENSIONLESS_RULES: Tuple[Tuple[str, str], ...] = (
 _NOT_DIMENSIONAL: Dict[str, str] = {
     # A bool: "override the estimated max-continuous power?", not a horsepower.
     "override_max_continuous_hp": "a bool, not a horsepower",
+    # The LRA beam mesh's per-member node counts (note 56 D-56.4). A
+    # discretisation, not a length: the same integer in both systems, and
+    # converting one would change how finely a deck is meshed by choosing a
+    # unit system.
+    "wing_grids": "a node count, not a length",
+    "fuselage_grids": "a node count, not a length",
+    "htail_grids": "a node count, not a length",
+    "vtail_grids": "a node count, not a length",
     # Load factors (g) and the flight condition they belong to.
     "chosen_n": "a load factor, in g",
     "chosen_nneg": "a load factor, in g",

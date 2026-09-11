@@ -17,6 +17,7 @@ from .inputs import (
     FuselageMassInput,
     GeometryInput,
     LandingInput,
+    LraMeshInput,
     OneEngineOutInput,
     SafetyFactorPolicyInput,
     SelectInput,
@@ -331,7 +332,7 @@ from .results import EnvelopeResult, LoadsResult, MassResult
 # step 1 deferred to this bump. All additive with empty/0.0 defaults meaning
 # exactly the v64 state, and JSON stores fields by name, so the 64->65 hop is
 # an identity and no delivered load or GRID moves.
-SCHEMA_VERSION = 65
+SCHEMA_VERSION = 66
 
 
 @dataclass
@@ -402,6 +403,12 @@ class Project:
     #: derived rows live in :mod:`sloads.safety_factors`; ``None`` (the default,
     #: and every shipped fixture) means the regulation's own factors apply.
     safety_factors: Optional[SafetyFactorPolicyInput] = None
+    #: How finely the LRA beam model is meshed -- one node count per member
+    #: (note 56 D-56.4, v66). ``None`` (the default, and every bundled example)
+    #: means :data:`~sloads.models.inputs.LRA_DEFAULT_GRIDS` for every member.
+    #: Persisted rather than a flag because the count changes which grids a
+    #: delivered deck carries; it changes no delivered resultant.
+    lra_mesh: Optional[LraMeshInput] = None
     loads: Optional[LoadsResult] = None
     # Opt-in FAR 25 superset: when True the engine module appends the optional
     # 14 CFR 25.361/25.371 cases (turbopropeller only) on top of the oracle-locked

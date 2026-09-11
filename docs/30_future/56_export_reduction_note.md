@@ -370,6 +370,7 @@ not only of what was intended.
 | 2 | **The deliverable tables that are not decks move to `report/`.** The case index, the governing safety-factor table, the gear interface report and the export-scope filter become `sloads/report/tables.py`; the export package stops re-exporting them and a guard asserts their absence. Deliverables byte-identical. | 2026-09-10 |
 | 3 | **The five per-component decks are deleted** (D-56.2). `sbeam_bridge.py` 2,639 → 1,413; `EXPORT_TARGETS` 10 → 4; band registry retires four blocks; three standing limitations retire; sbeam digest channels 83 → 33. | 2026-09-11 |
 | 4 | **The LRA model owns every grid it writes** (D-56.3). One contiguous run, `20001-30999`, eleven 999-wide sub-bands on a 1000 stride so `gid // 1000 - 20` is the family index; `sob_gid` moves to `lra_model`; gates 3 and 4 land. Only `sbeam/lra_model` re-stamps. | 2026-09-11 |
+| 5 | **The LRA beam gets its own mesh** (D-56.4). Ends + owned points + equally spaced grids *between* them; counts settable per component (`Project.lra_mesh`, schema 65 -> 66) at wing 20/side, fuselage 12/cantilever, h-tail 12/side, fin 10; members run to their tips; `JOINT_MERGE_FRACTION` retires; gates 5, 10 and 11 land. Only `sbeam/lra_model` re-stamps. | 2026-09-11 |
 
 **Two departures from the note as written, both deliberate.**
 
@@ -443,6 +444,39 @@ a deck with a CBAR outboard of the tagged SOB node whose cards are that wing
 case's, and the LRA deck's cases are balanced cases carrying inertia — a
 different claim, not a rename. It belongs to D-56.4's mesh, where the LRA deck
 becomes the authority for G-OR-90 as well.
+
+---
+
+**Slice 5's three decisions inside D-56.4, which the note left open.**
+
+1. **Segment-based spacing, not uniform-then-merge.** "`n` equally spaced grids
+   plus every owned point" does not on its own give the note's own sentence that
+   joints are mesh points *by construction* -- a uniformly placed grid can still
+   land 0.08 in from a joint, which is note 55's failure wearing new clothes.
+   The owned points divide the member into segments and the grids are laid
+   strictly inside them, so no grid can be near a joint. `n` becomes a target
+   rather than an exact node count, which is what it costs.
+
+2. **`JOINT_MERGE_FRACTION` retires but a floor does not.** The note says the
+   sliver class dies structurally. It does, for the class it names: insertion.
+   It does not for two **owned** locations genuinely close together on one
+   member, where both must be nodes. `_MIN_ELEMENT_FRACTION` catches that, at
+   1:200 of the member's target element length, and its refusal is a data
+   message rather than a bug report. Measured, not chosen: the one observed
+   singular solve was 1:1638 and the tightest legitimate element across four
+   fixtures at three mesh settings is 1:38.
+
+3. **Members run to their tips**, which is an extent change and not only a mesh
+   change. The wing chain stopped 5.0 in inboard of the tip on `ga6_normal` and
+   12.1 in on `atr42_100`: the same omission D-54.5 fixed for the fin, which
+   only got fixed there because a T-tail tie made the tip a joint. Owner ruled
+   2026-09-11.
+
+**Gear and engine nodes are model nodes, not chain stations.** D-56.4 lists
+them in the member node set; they are read here as nodes of the *model*, tied by
+`RBE2` as they already were, with only the hinge and actuator fittings owned by
+their chains (as they already were). Making a tie parent exact rather than
+nearest changes a load path and is left separable.
 
 ---
 

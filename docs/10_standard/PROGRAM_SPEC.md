@@ -1521,13 +1521,33 @@ the applied load set (`applied_loads("htail"|"vtail", ...)`), GID bands `4001+`
   `docs/40_history/24_lra_beam_model_review_note.md` (target F1–F8, decisions
   BM-1…BM-5, agreed 2026-08-15) and
   `docs/40_history/27_lra_model_implementation_note.md` (LM-1…LM-7).
-- **The three-artifact statement (note 24 R-1).** The suite ships three solver
-  artifacts with distinct contracts: the **per-component decks** (oracle-backing
-  free-body views), the **assembled balanced deck** (the equilibrium proof —
-  nodes at load positions, *no elements*, determinate support, reactions ≈ 0),
-  and the **LRA beam model** — a structural idealization whose value is the
-  *internal* loads a solver recovers at its named nodes. The balanced deck
-  stays element-free forever; the LRA model is where structure lives.
+- **The artifact statement (note 24 R-1, re-cut by note 56).** The
+  per-component decks are **deleted** (D-56.2). What ships is the **assembled
+  balanced deck** (the equilibrium proof — nodes at load positions, *no
+  elements*, determinate support, reactions ≈ 0) and the **LRA beam model** — a
+  structural idealization whose value is the *internal* loads a solver recovers
+  at its named nodes. The balanced deck stays element-free forever; the LRA
+  model is where structure lives, and since D-56.3 it allocates every grid it
+  writes from its own contiguous run (`20001–30999`) rather than borrowing from
+  artifacts that are not deliverables.
+- **The mesh is decided from geometry, never from the load stations**
+  (note 56 D-56.4). Each member's node set is its own two **ends**, the joint
+  register's owned locations on it, and `n` grids laid at equal spacing
+  *between* consecutive owned points — so no grid can land beside a joint and
+  note 55's sliver class cannot arise. `n` is per component and settable
+  (`Project.lra_mesh`, schema v66), defaulting to **wing 20 per side, fuselage
+  12 per cantilever, h-tail 12 per side, fin 10**; blank means the default, and
+  every bundled example is blank. Before this the beam *was* the load mesh —
+  the WINGGEOM strips outboard of the side of body and the spanwise tail
+  stations — which made the spanwise half of the LM-1 transfer an identity on
+  every CI fixture, so the arbitrary-grid path a user hits first was the least
+  covered. The strips stay oracle-locked at 20 and simply stop being the beam.
+  A member also runs to its own **tip**: the wing chain used to stop at the
+  outermost strip midpoint, 5.0 in inboard of the tip on `ga6_normal` and
+  12.1 in on `atr42_100` — the omission D-54.5 fixed for the fin, where only
+  the T-tail tie forced the issue. Changing a grid count changes **no delivered
+  resultant**, only how finely the same set is distributed
+  (`test_the_lra_mesh_is_load_blind`).
 - **Writes:** one solvable SOL 101 deck (`lra_model.bdf`): node lines on the
   entered load reference axes (`ref_axis_pct`, **required** — refused when
   unset, R-7c) and the fuselage section-centre line `(x, 0, z_centre)` (R-4);
@@ -1552,9 +1572,12 @@ the applied load set (`applied_loads("htail"|"vtail", ...)`), GID bands `4001+`
 - **The skeleton is checked for solvability before it is returned** (design
   note 55): no `GRID` is rigidly tied on both sides (a chain of rigid elements,
   which sbeam refuses — D-55.1 keeps a body tie off a node that is already a
-  dependent); no joint insertion leaves a sliver element (a station within
-  `JOINT_MERGE_FRACTION` of a joint is absorbed **into** it, the joint keeping
-  its owned location — D-55.2); and the clamped support is in no `RBE2` at all
+  dependent); no element is shorter than `_MIN_ELEMENT_FRACTION` (1:200) of its
+  member's target element length — which since D-56.4 can only happen when two
+  **owned** locations are genuinely that close in the entered geometry, so the
+  refusal names the two points and asks for the geometry rather than for a bug
+  report (note 55's D-55.2 merge band retires with the insertion it guarded);
+  and the clamped support is in no `RBE2` at all
   (D-55.6). Anything that survives those is an `LraRefusal` naming the
   condition, on the LM-4 contract. The solve gate runs on **every
   CLI-exportable fixture** (D-55.4), not the subset that passed.

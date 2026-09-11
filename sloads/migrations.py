@@ -262,6 +262,25 @@ def _hop_64(d: Dict[str, Any]) -> Dict[str, Any]:
 
 #: ``{from_version: hop}`` -- applied in ascending order, each turning a file of
 #: version *n* into version *n+1* shape. A version that changes shape adds its
+def _hop_65(d: Dict[str, Any]) -> Dict[str, Any]:
+    """v65 -> v66 (design note 56 D-56.4, #263): **identity**.
+
+    v66 adds one optional slice, ``lra_mesh`` -- four per-member node counts
+    for the LRA beam model, each ``None`` for "the default". Absent is exactly
+    the v65 meaning, since v65 had no counts at all.
+
+    A v65 file therefore loads bit-identical **and its delivered loads are
+    unchanged**, but its *LRA deck* is not: the same hop ships the mesh that
+    those counts govern, so the beam is meshed from geometry rather than welded
+    to the load stations, and a v65 file reopened here exports different GRIDs.
+    That is the point of D-56.4 and not a migration artifact -- the resultant
+    of every case is identical, gated by ``test_the_lra_mesh_is_load_blind``,
+    and ruling 1 (nothing downstream reproduces an sbeam output) is what makes
+    it free to happen.
+    """
+    return d
+
+
 #: hop here; :data:`SUPPORTED_FLOOR` names the oldest version the chain starts
 #: from.
 MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
@@ -275,6 +294,7 @@ MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     62: _hop_62,
     63: _hop_63,
     64: _hop_64,
+    65: _hop_65,
 }
 
 #: The oldest project version this build reads. It sat at ``SCHEMA_VERSION``

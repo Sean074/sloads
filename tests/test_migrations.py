@@ -41,7 +41,7 @@ from sloads.models.enums import RotorDirection
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _FIXTURES = os.path.join(_HERE, "fixtures_schema")
 _EXAMPLES = os.path.join(os.path.dirname(_HERE), "examples")
-_CURRENT = "v65_current.json"
+_CURRENT = "v66_current.json"
 
 
 def _load(name=_CURRENT):
@@ -146,7 +146,7 @@ def test_a_v55_file_loads_through_the_identity_hop_unchanged():
     assert v55["schema_version"] == 55
     hopped = MIGRATIONS[55](copy.deepcopy(v55))
     assert hopped == v55, "the 55->56 identity hop moved something"
-    assert applied_hops(55) == [55, 56, 57, 58, 59, 60, 61, 62, 63, 64]
+    assert applied_hops(55) == list(range(55, SCHEMA_VERSION))
     assert io.project_to_dict(io.project_from_dict(v55)) == \
            io.project_to_dict(io.project_from_dict(_load()))
 
@@ -163,7 +163,7 @@ def test_the_v56_hop_inverts_the_landing_override():
     assert out["schema_version"] == SCHEMA_VERSION
     assert "gear_load_factor" not in out["landing"]
     assert out["landing"]["airplane_load_factor"] == 3.167
-    assert applied_hops(56) == [56, 57, 58, 59, 60, 61, 62, 63, 64]
+    assert applied_hops(56) == list(range(56, SCHEMA_VERSION))
     # The 0.0 sentinel meant "unset": it loads to an unfilled Optional.
     sentinel = copy.deepcopy(v56)
     sentinel["landing"]["gear_load_factor"] = 0.0
@@ -193,7 +193,7 @@ def test_a_v57_file_loads_through_the_identity_hop_unchanged():
     assert v57["schema_version"] == 57
     hopped = MIGRATIONS[57](copy.deepcopy(v57))
     assert hopped == v57, "the 57->58 identity hop moved something"
-    assert applied_hops(57) == [57, 58, 59, 60, 61, 62, 63, 64]
+    assert applied_hops(57) == list(range(57, SCHEMA_VERSION))
     assert io.project_to_dict(io.project_from_dict(v57)) == \
            io.project_to_dict(io.project_from_dict(_load()))
 
@@ -211,7 +211,7 @@ def test_a_v58_file_loads_through_the_identity_hop_unchanged():
     assert v58["schema_version"] == 58
     hopped = MIGRATIONS[58](copy.deepcopy(v58))
     assert hopped == v58, "the 58->59 identity hop moved something"
-    assert applied_hops(58) == [58, 59, 60, 61, 62, 63, 64]
+    assert applied_hops(58) == list(range(58, SCHEMA_VERSION))
     assert io.project_to_dict(io.project_from_dict(v58)) == \
            io.project_to_dict(io.project_from_dict(_load()))
 
@@ -229,7 +229,7 @@ def test_a_v59_file_loads_through_the_identity_hop_unchanged():
     assert v59["schema_version"] == 59
     hopped = MIGRATIONS[59](copy.deepcopy(v59))
     assert hopped == v59, "the 59->60 identity hop moved something"
-    assert applied_hops(59) == [59, 60, 61, 62, 63, 64]
+    assert applied_hops(59) == list(range(59, SCHEMA_VERSION))
     assert io.project_to_dict(io.project_from_dict(v59)) == \
            io.project_to_dict(io.project_from_dict(_load()))
 
@@ -292,7 +292,7 @@ def test_a_v62_file_loads_through_the_identity_hop_unchanged():
     assert v62["schema_version"] == 62
     hopped = MIGRATIONS[62](copy.deepcopy(v62))
     assert hopped == v62, "the 62->63 identity hop moved something"
-    assert applied_hops(62) == [62, 63, 64]
+    assert applied_hops(62) == list(range(62, SCHEMA_VERSION))
     assert io.project_to_dict(io.project_from_dict(v62)) == \
            io.project_to_dict(io.project_from_dict(_load()))
 
@@ -308,7 +308,7 @@ def test_a_v63_file_loads_through_the_identity_hop_unchanged():
     assert v63["schema_version"] == 63
     hopped = MIGRATIONS[63](copy.deepcopy(v63))
     assert hopped == v63, "the 63->64 identity hop moved something"
-    assert applied_hops(63) == [63, 64]
+    assert applied_hops(63) == list(range(63, SCHEMA_VERSION))
     assert io.project_to_dict(io.project_from_dict(v63)) == \
            io.project_to_dict(io.project_from_dict(_load()))
 
@@ -328,7 +328,7 @@ def test_a_v64_file_loads_through_the_identity_hop_unchanged():
     assert v64["schema_version"] == 64
     hopped = MIGRATIONS[64](copy.deepcopy(v64))
     assert hopped == v64, "the 64->65 identity hop moved something"
-    assert applied_hops(64) == [64]
+    assert applied_hops(64) == list(range(64, SCHEMA_VERSION))
     assert io.project_to_dict(io.project_from_dict(v64)) == \
            io.project_to_dict(io.project_from_dict(_load()))
 
@@ -375,7 +375,7 @@ def test_the_v60_fixture_hops_its_nulls_through():
     v60 = _load("v60_current.json")
     assert all(s.get("front_spar_pct") is None and s.get("rear_spar_pct") is None
                for s in v60["geometry"]["surfaces"]), "the fixture stopped being blank"
-    assert applied_hops(60) == [60, 61, 62, 63, 64]
+    assert applied_hops(60) == list(range(60, SCHEMA_VERSION))
     assert io.project_to_dict(io.project_from_dict(v60)) == \
            io.project_to_dict(io.project_from_dict(_load()))
 
@@ -412,7 +412,7 @@ def test_migrate_is_idempotent():
 def test_applied_hops_matches_the_chain():
     assert applied_hops(SCHEMA_VERSION) == []            # nothing at/above current
     assert applied_hops(SUPPORTED_FLOOR) == sorted(MIGRATIONS) == \
-        [55, 56, 57, 58, 59, 60, 61, 62, 63, 64]
+        list(range(SUPPORTED_FLOOR, SCHEMA_VERSION))
 
 
 # --------------------------------------------------------------------------- #

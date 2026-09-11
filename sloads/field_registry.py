@@ -1603,6 +1603,26 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("tail_mass[].control_load_mode", _WT, _SLDS, "empennage distributed inertia, plan 09 T-3"),
     _E("tail_mass[].hinges_span_in", _WT, _SLDS, "sbeam control-surface bridge station"),
     _E("tail_mass[].actuator_span_in", _WT, _SLDS, "sbeam control-surface bridge station"),
+
+    # --- The LRA beam mesh (note 56 D-56.4) -------------------------------- #
+    # On the geometry page rather than the export page: the mesh is a
+    # discretisation of the airframe's own beam geometry, decided from the
+    # planform and the joint register and from nothing the load model states --
+    # which is the whole content of D-56.4. Filing it under `export_report`
+    # would also strand it outside the oracle GUI, and that page is retiring
+    # (note 57 D-57.6 / #270).
+    _E("lra_mesh.wing_grids", _GEO, _SLDS,
+       "LRA beam mesh: nodes per wing side, side of body -> tip (note 56 "
+       "D-56.4). Blank = the default 20"),
+    _E("lra_mesh.fuselage_grids", _GEO, _SLDS,
+       "LRA beam mesh: nodes per fuselage cantilever, i.e. each side of the "
+       "carry-through (note 56 D-56.4). Blank = the default 12"),
+    _E("lra_mesh.htail_grids", _GEO, _SLDS,
+       "LRA beam mesh: nodes per h-tail side (note 56 D-56.4). Blank = the "
+       "default 12"),
+    _E("lra_mesh.vtail_grids", _GEO, _SLDS,
+       "LRA beam mesh: nodes on the fin, root -> tip (note 56 D-56.4). "
+       "Blank = the default 10"),
 )
 
 BY_PATH: Dict[str, FieldEntry] = {e.path: e for e in REGISTRY}

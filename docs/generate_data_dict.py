@@ -73,6 +73,7 @@ INPUT_SLICES = [
     ("tab_loads", "Tab simplified loads (TABLOADS)"),
     ("one_engine_out", "One-engine-out v-tail loads (ONENGOUT)"),
     ("landing", "Landing loads (LANDLOAD / GEARLOAD)"),
+    ("lra_mesh", "LRA beam mesh: node count per member (design note 56 D-56.4)"),
     ("include_far25", "Opt-in FAR 25 supplemental cases (flag)"),
 ]
 
