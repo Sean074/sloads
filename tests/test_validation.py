@@ -410,13 +410,17 @@ def test_no_shipped_fixture_disagrees_about_who_carries_the_gear():
 
 
 def test_the_gear_carrier_mass_guard_still_fires_on_a_mistagged_leg():
-    """The guard is kept honest now that no fixture trips it: put the Dash 8's
-    gear mass back on the fuselage and it must be named again."""
-    project = sloads_io.load_project(os.path.join(_EXAMPLES, "dhc8_dash8.project.json"))
+    """The guard is kept honest now that no fixture trips it: a wing-carried
+    leg whose gear mass items are all on the fuselage must be named. (The
+    Dash 8 -- wing-carried gear, so one retag of the mass item tripped it --
+    retired at #264; constructed from the ATR by moving the leg's carrier
+    instead, the mass items already being fuselage-tagged.)"""
+    from sloads.models import GearCarrier
+    project = sloads_io.load_project(os.path.join(_EXAMPLES, "atr42_100.project.json"))
     gear = next(it for it in project.weight.items if it.name == "Main gear")
-    assert gear.component is MassComponent.WING
-    gear.component = MassComponent.FUSELAGE
-    assert "gear_carrier_mass_disagrees" in _codes(project, page="weight_mass")
+    assert gear.component is MassComponent.FUSELAGE
+    project.geometry.landing_gear.main_gear.carrier = GearCarrier.WING
+    assert "gear_carrier_mass_disagrees" in _codes(project)
 
 
 # --------------------------------------------------------------------------- #

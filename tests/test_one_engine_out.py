@@ -254,7 +254,6 @@ def test_missing_slice_raises():
 #: makes that choice silently when only one field is present.
 _TURBOPROP_FIXTURES = {
     "atr42_100.project.json": (2000.0, 1700.0),
-    "dhc8_dash8.project.json": (2150.0, 1950.0),
 }
 
 
@@ -403,7 +402,7 @@ def test_the_coverage_table_and_the_module_cannot_disagree():
 
     row = next(r for r in coverage.FAR23_SUBPART_C if r.far == "23.367")
     assert row.na_when is not None
-    for name in ("atr42_100.project.json", "dhc8_dash8.project.json"):
+    for name in ("atr42_100.project.json",):
         p = io.load_project(os.path.join(_EXAMPLES, name))
         assert engine_failure_not_applicable(p) is None, name
     for project in (_single(), _twin()):

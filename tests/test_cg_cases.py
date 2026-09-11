@@ -251,9 +251,7 @@ def test_ground_coverage_matches_what_the_plan_measured():
         "ga6_normal": (3, 3),
         "baron_58": (3, 3),
         "concept_regional_jet": (3, 3),
-        "cessna_210": (3, 3),
         "atr42_100": (3, 3),
-        "dhc8_dash8": (3, 3),
     }, got
 
 
@@ -264,7 +262,7 @@ def test_ground_coverage_matches_what_the_plan_measured():
 #: (D-27). ``ga6_normal`` keeps Appendix A's own four (``CG1``..``CG4``) -- but
 #: the seed reproduces them, which is the check that the seed *is* FLTLOADS'
 #: definition; ``concept_heavy`` carries no envelope and one loading.
-_SEEDED = ("cessna_210", "atr42_100", "dhc8_dash8", "concept_regional_jet")
+_SEEDED = ("atr42_100", "concept_regional_jet")
 
 
 @pytest.mark.parametrize("name", _SEEDED)

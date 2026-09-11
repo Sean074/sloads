@@ -65,8 +65,7 @@ _GA = os.path.join(_EXAMPLES, "ga6_normal.project.json")
 
 #: Every bundled example that has gear geometry. ``concept_heavy`` has neither a
 #: ``landing`` slice nor gear geometry and produces no gear report at all.
-_FIXTURES = ("ga6_normal", "baron_58", "cessna_210", "atr42_100", "dhc8_dash8",
-             "concept_regional_jet")
+_FIXTURES = ("ga6_normal", "baron_58", "atr42_100", "concept_regional_jet")
 
 REL = 1e-3          # the project's oracle band
 

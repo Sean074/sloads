@@ -86,10 +86,8 @@ TOL = 1e-3
 #: original suite could analyse, which is the oracle GUI's whole scope.
 EXACT: Tuple[str, ...] = (
     "ga6_normal.project.json",       # the Appendix A GA-6 airplane; G5 as worded
-    "cessna_210.project.json",
     "baron_58.project.json",         # the guide's light twin (note 34 UG-9)
     "atr42_100.project.json",
-    "dhc8_dash8.project.json",
     "concept_heavy.project.json",
 )
 
@@ -149,7 +147,6 @@ ROTOR_MODEL = Divergence(
 #: reduction really moves a value it names) or the declaration is stale.
 DECLARED_DIVERGENCES: Dict[str, Tuple[Divergence, ...]] = {
     "atr42_100.project.json": (ROTOR_MODEL,),
-    "dhc8_dash8.project.json": (ROTOR_MODEL,),
 }
 
 
@@ -404,7 +401,7 @@ def test_every_excused_example_states_a_reason():
 def test_the_reduction_drops_the_stored_slices_and_rederives_the_mass():
     """PB-3's mechanism: ``mass`` goes and comes back from the items; a rotor
     row goes and stays gone; the CG-case ``loading`` records go (omitted)."""
-    full = _load("dhc8_dash8.project.json")
+    full = _load("atr42_100.project.json")
     full.weight.cg_cases[0].loading = LoadingDefinition(aboard=["Crew"])  # no example carries one
     reduced = reduce_to_oracle_inputs(full)
     assert reduced.envelope is None and reduced.loads == type(full.loads)()

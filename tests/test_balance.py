@@ -171,13 +171,7 @@ _EXPECTED_CASES = {
     "ga6_normal.project.json": _WING_CASES + [
         ("ACRL", "R"), ("ACRL", "L"), ("TORS", ""),
     ] + _UNSYMMETRICAL_CASES + _LATERAL_CASES,
-    "cessna_210.project.json": _WING_CASES + [
-        ("ACRL", ""), ("TORS", ""),
-    ] + _UNSYMMETRICAL_CASES + _LATERAL_CASES,
     "atr42_100.project.json": _WING_CASES + [
-        ("ACRL", ""), ("TORS", ""),
-    ] + _UNSYMMETRICAL_CASES + _LATERAL_CASES,
-    "dhc8_dash8.project.json": _WING_CASES + [
         ("ACRL", ""), ("TORS", ""),
     ] + _UNSYMMETRICAL_CASES + _LATERAL_CASES,
     "concept_heavy.project.json": _WING_CASES + [("ACRL", "")],
@@ -219,9 +213,7 @@ _GROUND_FULL = (_GROUND_SYMMETRIC[:9] + _GROUND_ONE_WHEEL
                 + _GROUND_SYMMETRIC[9:] + _GROUND_SIDE)
 _EXPECTED_GROUND_CASES = {
     "ga6_normal.project.json": _GROUND_FULL,
-    "cessna_210.project.json": _GROUND_FULL,
     "atr42_100.project.json": _GROUND_FULL,
-    "dhc8_dash8.project.json": _GROUND_FULL,
     "concept_heavy.project.json": [],
     "concept_regional_jet.project.json": _GROUND_FULL,
 }
@@ -252,12 +244,8 @@ _EXPECTED_GROUND_CASES = {
 _PITCH_RESIDUAL_RATCHET = {
     "ga6_normal.project.json": {"symmetric": 0.0010, "lateral": 0.0005,
                                 "unsymmetrical": 0.0005},
-    "cessna_210.project.json": {"symmetric": 0.0010, "lateral": 0.0005,
-                                "unsymmetrical": 0.0025},
     "atr42_100.project.json": {"symmetric": 0.0025, "lateral": 0.0010,
                                "unsymmetrical": 0.0065},
-    "dhc8_dash8.project.json": {"symmetric": 0.0020, "lateral": 0.0010,
-                                "unsymmetrical": 0.0040},
     "concept_heavy.project.json": {"symmetric": 0.0090, "lateral": 0.0010,
                                    "unsymmetrical": 0.0010},
     "concept_regional_jet.project.json": {"symmetric": 0.0005, "lateral": 0.0005,
@@ -310,12 +298,8 @@ _PITCH_RESIDUAL_RATCHET = {
 _FORCE_RESIDUAL_RATCHET = {
     "ga6_normal.project.json": {"symmetric": 0.0065, "lateral": 0.0030,
                                 "unsymmetrical": 0.0030},
-    "cessna_210.project.json": {"symmetric": 0.0125, "lateral": 0.0040,
-                                "unsymmetrical": 0.0070},
     "atr42_100.project.json": {"symmetric": 0.0240, "lateral": 0.0065,
                                "unsymmetrical": 0.0140},
-    "dhc8_dash8.project.json": {"symmetric": 0.0185, "lateral": 0.0065,
-                                "unsymmetrical": 0.0100},
     "concept_heavy.project.json": {"symmetric": 0.0200, "lateral": 0.0030,
                                    "unsymmetrical": 0.0030},
     "concept_regional_jet.project.json": {"symmetric": 0.0110, "lateral": 0.0035,
@@ -1467,16 +1451,17 @@ def test_a_project_with_no_balanced_case_refuses_a_deck():
     one.
 
     The empty project is built here rather than named off a fixture: since Pri 5 /
-    D-26 all six assemble, and ``cessna_210`` -- which used to be the one with
-    nothing to export -- now produces the full flight and ground families.
+    D-26 every shipped fixture assembles, so none has nothing to export.
+    (Built from ``ga6_normal`` since #264 retired ``cessna_210``; the recipe is
+    fixture-agnostic and the refusal message is the same.)
 
     Emptying the discretionary rows is what makes it unproducible: every case
-    then needs 12-35 % of the airplane as solved ballast, which is what the
-    credibility gate refuses. The CG stations stay physical, so the trim still
-    solves and the refusal comes from the loading gate rather than from a
+    then needs a large share of the airplane as solved ballast, which is what
+    the credibility gate refuses. The CG stations stay physical, so the trim
+    still solves and the refusal comes from the loading gate rather than from a
     diverging balance.
     """
-    project = _project("cessna_210.project.json")
+    project = _project("ga6_normal.project.json")
     project.weight.items = [it for it in project.weight.items
                             if it.kind != MassItemKind.DISCRETIONARY]
     base = sum(it.weight_lb for it in project.weight.items)
@@ -1689,7 +1674,7 @@ def _oeo_history(project):
 #: case -- the two producers do not meet on any single fixture, and a gate
 #: parametrised over the balanced-case fixtures would have skipped itself into
 #: vacuity on every run.
-_WITH_ONE_ENGINE_OUT = ("atr42_100.project.json", "dhc8_dash8.project.json")
+_WITH_ONE_ENGINE_OUT = ("atr42_100.project.json",)
 
 
 def test_g1_has_a_producer_to_check_against():

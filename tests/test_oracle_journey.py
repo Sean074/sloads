@@ -56,7 +56,7 @@ _EXAMPLES = os.path.join(_ROOT, "examples")
 
 #: The Appendix A airplane, and a twin turboprop so One Engine Out has a case
 #: and the rotor divergence is exercised through the reduction.
-JOURNEYS = ("ga6_normal", "dhc8_dash8")
+JOURNEYS = ("ga6_normal", "atr42_100")
 
 _SCRIPT = '''
 import streamlit as st

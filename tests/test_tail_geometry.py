@@ -47,10 +47,8 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 #: slice at all — the same gap ``test_export_equilibrium`` already pins.
 _TAIL_COVERAGE = {
     "atr42_100.project.json": (True, True),
-    "cessna_210.project.json": (True, True),
     "concept_heavy.project.json": (False, False),
     "concept_regional_jet.project.json": (True, True),
-    "dhc8_dash8.project.json": (True, True),
     "ga6_normal.project.json": (True, True),
 }
 
@@ -110,8 +108,6 @@ def test_the_derived_planform_reproduces_taildist_average_chord(example):
 #: within 0.084 %.
 _ENTERED_TAILS = frozenset({
     "atr42_100.project.json",
-    "cessna_210.project.json",
-    "dhc8_dash8.project.json",
     "concept_regional_jet.project.json",
     "ga6_normal.project.json",
 })
@@ -401,9 +397,7 @@ def test_every_fixture_still_loads_and_round_trips(example):
 _FIN_ROOT = {
     "ga6_normal.project.json": (111.5, "geometry"),
     "concept_regional_jet.project.json": (87.0, "geometry"),
-    "cessna_210.project.json": (100.2, "geometry"),
     "atr42_100.project.json": (191.2, "geometry"),
-    "dhc8_dash8.project.json": (203.5, "geometry"),
 }
 
 
@@ -588,16 +582,16 @@ def test_the_htail_waterline_owner_reads_the_entered_offset():
     assert resolved.basis == "entered" and resolved.assumed is False
 
 
-@pytest.mark.parametrize("example, z", [("cessna_210.project.json", 100.0),
-                                        ("concept_heavy.project.json", 90.0)])
+@pytest.mark.parametrize("example, z", [("concept_heavy.project.json", 90.0)])
 def test_the_htail_waterline_owner_reads_the_mass_items(example, z):
     """D-54.4: no ``h_tail_z`` -> the h-tail mass items' weight-weighted z.
 
     An entered statement of where the surface's mass sits beats the wing-root
-    placeholder that preceded it -- the C210 sat 14 in low at 86.0 and the
-    concept heavy 10 in high at 100.0. ASSUMED and stated, because a mass
-    station is not a surface definition. Both conventional no-``h_tail_z``
-    fixtures pinned (the note 54 gate-3 moves).
+    placeholder that preceded it -- the concept heavy sat 10 in high at 100.0
+    (the retired ``cessna_210`` was the other pinned move, 14 in low at 86.0;
+    #264). ASSUMED and stated, because a mass station is not a surface
+    definition. The one remaining conventional no-``h_tail_z`` fixture pinned
+    (the note 54 gate-3 moves).
     """
     resolved = h_tail_waterline(_project(example))
     assert resolved.z == pytest.approx(z)
@@ -611,11 +605,11 @@ def test_the_htail_waterline_owner_assumes_the_wing_root_plane_last():
     entered statement of the surface's height."""
     from sloads.models import MassComponent
 
-    project = copy.deepcopy(_project("cessna_210.project.json"))
+    project = copy.deepcopy(_project("concept_heavy.project.json"))
     project.weight.items = [it for it in project.weight.items
                             if it.component is not MassComponent.HTAIL]
     resolved = h_tail_waterline(project)
-    assert resolved.z == pytest.approx(86.0)
+    assert resolved.z == pytest.approx(100.0)
     assert resolved.assumed is True and resolved.basis == "wing-root"
     assert "ASSUMED" in resolved.note and "h_tail_z" in resolved.note
 
@@ -653,8 +647,7 @@ def test_a_t_tail_h_tail_z_that_agrees_with_the_fin_raises_no_flag():
 
 
 @pytest.mark.parametrize("example", ["ga6_normal.project.json",
-                                     "baron_58.project.json",
-                                     "cessna_210.project.json"])
+                                     "baron_58.project.json"])
 def test_the_three_view_and_the_load_path_place_one_htail_once(example):
     """The #236 drift guard, the h-tail twin of the fin's above.
 

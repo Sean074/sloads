@@ -40,12 +40,12 @@ FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 #: Every shipped example — the GA single the oracle is locked to, the twins, and
 #: the two concept-mode configurations that exceed the FAR 23 caps.
+#: (``cessna_210`` and ``dhc8_dash8`` retired to unmaintained parking, #264;
+#: ``baron_58`` predates this list and has never been in it.)
 EXAMPLES = (
     "atr42_100.project.json",
-    "cessna_210.project.json",
     "concept_heavy.project.json",
     "concept_regional_jet.project.json",
-    "dhc8_dash8.project.json",
     "ga6_normal.project.json",
 )
 

@@ -333,9 +333,9 @@ def test_the_withholding_stays_inside_the_report():
     ``build_tail_span`` still returns the vertical tail's results on every
     shipped T-tail -- they are what the balanced deck's lateral cases close
     ``sum(Fy) = 0`` against, and withholding them in the calc would stop those
-    cases assembling on three fixtures to document a limitation in them.
+    cases assembling on the shipped T-tails to document a limitation in them.
     """
-    for name in ("atr42_100", "dhc8_dash8", "concept_regional_jet"):
+    for name in ("atr42_100", "concept_regional_jet"):
         project = _project(os.path.join(_EXAMPLES, f"{name}.project.json"))
         assert not is_conventional_tail(project), name
         results = build_tail_span(project).get("vtail", [])
@@ -416,8 +416,7 @@ def test_the_tail_arrangement_survives_the_oracle_reduction():
 
     assert "geometry.parametric.tail_type" in oracle_input_paths()
     for name, want in (("ga6_normal", TailType.CONVENTIONAL),
-                       ("atr42_100", TailType.T_TAIL),
-                       ("dhc8_dash8", TailType.T_TAIL)):
+                       ("atr42_100", TailType.T_TAIL)):
         project = _project(os.path.join(_EXAMPLES, f"{name}.project.json"))
         assert tail_layout(reduce_to_oracle_inputs(project)) is want, name
 

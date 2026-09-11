@@ -308,11 +308,12 @@ FAR23LOADS/
 │   └── fixtures_schema/          # one frozen file at the current schema; the shape tripwire lives in test_schema_guards.py
 ├── examples/
 │   ├── ga6_normal.project.json   # Appendix A — 6-place GA single (category N); the oracle fixture
-│   ├── cessna_210.project.json   # a second GA single (category N)
+│   ├── baron_58.project.json     # light twin (category N); the twin closure lock
 │   ├── atr42_100.project.json    # ATR 42-100 turboprop twin (concept mode, category C)
-│   ├── dhc8_dash8.project.json   # Dash-8 twin turboprop (concept mode, category C)
 │   ├── concept_heavy.project.json     # 18,000 lb concept commuter twin (concept mode, category C)
 │   └── concept_regional_jet.project.json  # concept regional jet — the T-tail / lateral fixture
+│   # (cessna_210 and dhc8_dash8 retired to unmaintained parking at #264,
+│   #  2026-09-11 — recoverable from history at the v0.8.2 tag)
 │   # (a dedicated Appendix B twin_turboprop.project.json is still a backlog item;
 │   #  the engine module's Appendix-B turboprop case is currently inline in
 │   #  tests/test_engine.py)

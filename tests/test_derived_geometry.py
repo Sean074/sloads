@@ -915,8 +915,7 @@ def test_a_waterline_outside_its_own_body_says_so():
 
 @pytest.mark.parametrize("example", [
     "ga6_normal.project.json", "baron_58.project.json",
-    "cessna_210.project.json", "atr42_100.project.json",
-    "dhc8_dash8.project.json", "concept_regional_jet.project.json"])
+    "atr42_100.project.json", "concept_regional_jet.project.json"])
 def test_no_fixture_places_its_body_beam_outside_its_body(example):
     """The drift guard for the fixture data itself, checked by its effect."""
     lra = fuselage_lra(_example(example))

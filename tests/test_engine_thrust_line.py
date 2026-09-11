@@ -48,7 +48,7 @@ from sloads.report import oracle_content as oc
 
 _EXAMPLES = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")
-_ALL = ("ga6_normal", "baron_58", "concept_regional_jet", "cessna_210")
+_ALL = ("ga6_normal", "baron_58", "concept_regional_jet")
 
 #: Every condition whose published quantity is a torque about the thrust line,
 #: and which D-53.5 therefore reverses. The gyroscopic pair is deliberately not

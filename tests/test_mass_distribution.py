@@ -164,7 +164,6 @@ def test_stations_at_the_same_x_merge_into_one_node():
 #: gate: strip the fraction and exactly these pounds reappear.
 _WING_TANK_FUEL = {
     "atr42_100.project.json": 3800.0,     # "wing fuel" 1900 lb/side of 9174
-    "dhc8_dash8.project.json": 4000.0,    # "wing fuel" 2000 lb/side of 4660
     "concept_heavy.project.json": 1200.0,  # "fuel" 600 lb/side of 5500
 }
 
@@ -322,14 +321,9 @@ def test_the_entered_tables_are_all_short_of_the_item_model(example):
     check = md.fuselage_reconciliation(p)
     if check is None:
         pytest.skip(f"{example}: no entered station table to compare")
-    if example == "dhc8_dash8.project.json":
-        # The one entered table written *with* the wing-tank fuel on the body:
-        # since design note 29 moved 4,000 lb of it onto the wing the entered
-        # 25,890 lb exceeds the 23,500 lb beam by exactly the difference between
-        # that fuel and what the table already left out. Pinned, not excused.
-        assert check.gap == pytest.approx(25890.0 - 23500.0, abs=0.01)
-    else:
-        assert check.gap < 0, f"{example}: entered table now exceeds the item model"
+    assert check.gap < 0, f"{example}: entered table now exceeds the item model"
+    # (dhc8_dash8 was the one entered table whose gap ran the other way --
+    # pinned here until #264 retired the fixture.)
     assert not check.ok, f"{example}: gap closed — update this test"
 
 

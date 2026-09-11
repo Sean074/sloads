@@ -56,9 +56,9 @@ _EXAMPLES = os.path.join(
 #: it has: the Appendix A engine on a single nose installation (``ga6_normal``),
 #: a twin at mirrored butt lines with a derived axis (``baron_58``), a
 #: turbopropeller set with the four gyroscopic sub-cases and an **assumed** axis
-#: (``concept_regional_jet``), and a second single (``cessna_210``).
+#: (``concept_regional_jet``).
 _SHIPPED = ("ga6_normal", "baron_58", "concept_regional_jet")
-_ALL = _SHIPPED + ("cessna_210",)
+_ALL = _SHIPPED
 
 
 def _path(name):
@@ -171,7 +171,7 @@ def test_the_document_and_the_csv_carry_opposite_torque_signs():
     equality is asserted on. A build in which they agreed in sign would mean one
     of them had silently adopted the other's convention.
     """
-    for name in ("ga6_normal", "baron_58", "cessna_210"):
+    for name in ("ga6_normal", "baron_58"):
         project = _project(name)
         section = _section(_doc(project=project))
         components = _table(section, "Engine mount loads")
