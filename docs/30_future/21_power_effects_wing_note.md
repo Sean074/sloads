@@ -17,7 +17,7 @@ deliberately *not* re-trimmed, and the unbalance is stated in-band and carried
 by the closure (option B of §4.2, which this note rejected for the *full* step,
 is accepted for the carve-out precisely because the carve-out applies no
 slipstream and claims no trim). Shipped behaviour of record:
-[`../20_theory/balanced_cases.md`](../20_theory/balanced_cases.md) §2.1 and
+[`../20_theory/ch09_balanced_airplane.md`](../20_theory/ch09_balanced_airplane.md) §2.1 and
 `CONVENTIONS.md` §7; gates `tests/test_hub_thrust.py`. The next artefact for the
 rest is still the code implementation plan (§8 is its skeleton).** Written to `CLAUDE.md` required practice 1 (design note before
 code, physics/L step). Follows the L-7 note's form

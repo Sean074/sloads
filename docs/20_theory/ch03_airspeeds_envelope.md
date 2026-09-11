@@ -1,10 +1,15 @@
-# Design Airspeeds (STRSPEED / MACHLIM)
+# Chapter 3 — Design Airspeeds and the V-n Envelope (STRSPEED / MACHLIM / FLTLOADS)
 
 How the `structural_speeds` module (`sloads/modules/structural_speeds.py`, ported
 from `STRSPEED.BAS`) and the `mach_limit` module (`sloads/modules/mach_limit.py`,
 ported from `MACHLIM.BAS`) define the structural design airspeeds, the limit
 maneuver load factors, the cruise/dive Mach numbers, and the speed families
 derived from them (Mach-limit lines, preliminary operating-limitation placards).
+§13 then covers the flight envelope those speeds bound — the `flight_envelope`
+module (FLTLOADS) — and the **case inventory** it hands downstream: this chapter
+owns what conditions exist; which of them govern a component is each component
+chapter's own opening section (ch04 §Cases analyzed for SELECT's wing/fuselage
+down-select; ch05/ch08 for the empennage and ground families).
 
 - **Source of truth:** Reference 1 (McMaster) Ch 6; the regression oracle is
   Appendix A (GA single) — design speeds p155–156, Mach lines p160. The
@@ -361,7 +366,72 @@ though nothing checked it.
 
 ---
 
-## 13. Worked example (Appendix A, GA six-place single)
+## 13. The V-n envelope and the case inventory (FLTLOADS; FAR 23.333 / 23.341)
+
+![Representative V-n envelope](figures/vn_envelope.svg)
+
+*(Illustrative shape and numbers — the schematic is drawn from the equations,
+not from Appendix A.)*
+
+The design speeds of §§5–8 bound the **flight envelope** of FAR 23.333: the
+maneuver diagram (stall line up to `n` at VA, the `n` ceiling across to VD, the
+negative boundary through `n_neg` at VC) overlaid with the 23.341 gust lines
+from `n = 1` at V = 0 through the derived gust velocities (50 fps at VC, 25 fps
+at VD, tapering above 20,000 ft). The `flight_envelope` module (FLTLOADS,
+Reference 1 Ch 8) **balances the airplane at every corner** of that envelope:
+at each point it finds the angle of attack producing the required load factor
+and the horizontal-tail load that zeroes the pitching moment about the CG,
+
+    LT = [MM + LZ·(Xcg − Xw) − DX·(Zcg − Zw)] / (XT − Xcg)
+    NZ = (LZ + LT) / W
+
+with the airplane-less-tail coefficients entered as CL/CD/CM polynomials in α,
+Glauert-corrected, and the gust load factor per 23.341's Pratt formula
+(`Kg = 0.88μ/(5.3 + μ)`). The result is the **balanced matrix** — one row per
+condition × CG case × altitude — and that matrix *is* the case inventory: the
+maneuver corners (the `MAN A`…`MAN D` and stall-line points, i.e. the
+positive/negative high- and low-angle-of-attack families PHAA/PLAA/NHAA/NLAA in
+SELECT's naming), the ± gust points at VC and VD, and the level-flight
+balancing rows.
+
+**This chapter selects nothing.** The inventory is handed downstream whole:
+
+| Consumer | What it takes | Where described |
+|---|---|---|
+| SELECT | prunes the matrix to the critical wing (and fuselage) conditions before analysis | ch04 §Cases analyzed |
+| Balancing tail loads | one `LT` per envelope point — the h-tail balancing family | ch05 |
+| WINGINER / NETLOADS | the selected conditions' wing loads for distribution | ch04 |
+| The empennage maneuver/gust conditions | design speeds and load factors only — their cases come from 23.421–23.445, not from this matrix | ch05 |
+| Ground families | nothing — a ground case has no V-n point | ch08 |
+
+**Assumptions & limitations.**
+
+- The airplane is **rigid** and balanced quasi-statically at discrete points;
+  no dynamic pitch overshoot is modelled at the envelope stage (the checked
+  maneuver conditions of 23.423 add the prescribed increments — ch05).
+- The aero input is the airplane-less-tail **polynomial fit**; the balance is
+  only as good as the entered coefficients, and the compressibility correction
+  is Glauert's applied relative to the coefficients' reference Mach.
+- The stall-line CL varies with Mach by a least-squares fit to an **AR-6
+  23016/23009 wing's** CLmax-vs-Mach curve (Ch 8) — a calibration inherited
+  from the manual, adequate for GA sections and unexamined outside them.
+- The tail centre of pressure is assumed at ~5 % tail MAC flaps-up / ~25 %
+  flaps-down (the Ch 8 "Assumption"); SELECT later refines the chordwise split
+  rationally, and the balancing loads inherit whatever error remains.
+- Gust load factors use the 23.341 discrete-gust formula; there is **no
+  Part 25 gust pack** (no U_ref schedule, no continuous turbulence) — the gap
+  and its plan are [`../30_future/04_far25_gap_analysis.md`](../30_future/04_far25_gap_analysis.md).
+- The gust cases reuse the manoeuvre **spanwise** shape (decision D-31): inside
+  the Schrenk method's own uncertainty band by construction — see
+  [`00_theory_sources.md`](00_theory_sources.md) §Base-method uncertainty.
+
+**How it is validated.** Oracle-locked: the balanced matrix is asserted against
+Appendix A's printed "V-n Data" (p179–180 — e.g. cruise CG1 `MAN A` V 121.3 /
+NZ +3.80 / LT +493) within ±0.1 %, in `tests/test_flight_envelope.py`; the
+per-module row in [`00_theory_sources.md`](00_theory_sources.md) is the
+authoritative status.
+
+## 14. Worked example (Appendix A, GA six-place single)
 
 Oracle figures asserted in `tests/test_structural_speeds.py` /
 `tests/test_mach_limit.py` (±0.1%):
@@ -376,7 +446,7 @@ Oracle figures asserted in `tests/test_structural_speeds.py` /
 | ~~MFC 0.4836~~ (p160) | withdrawn from scope 2026-08-26, #79 — see §11 | — |
 | V(MC) from 12,000 to 18,000 ft | 170.16 → 150.77 kt | p160 |
 
-## 14. Implementation gaps (Part 25) — documented, not silent
+## 15. Implementation gaps (Part 25) — documented, not silent
 
 | Requirement | Status |
 |---|---|
@@ -384,9 +454,9 @@ Oracle figures asserted in `tests/test_structural_speeds.py` /
 | 25.335(a)(2) `VC ≥ VB + 1.32·U_ref` | Ordering check only (§10); the `U_ref` term deferred to F25-1 |
 | 25.335(b)(1) upset-criterion speed increase | **Not implemented** (backlogged); every margin-route output states it |
 | Margin route for FAR 23 categories N/U/A (23.335(b)(4)) | Restricted to concept `C` (decision D-1); extension backlogged |
-| Full Part 25 catalog (gust loads, MZFW cases, …) | [`01_far25_gap_analysis.md`](01_far25_gap_analysis.md) |
+| Full Part 25 catalog (gust loads, MZFW cases, …) | [`../30_future/04_far25_gap_analysis.md`](../30_future/04_far25_gap_analysis.md) |
 
-## 15. Sources
+## 16. Sources
 
 | What | Where |
 |---|---|

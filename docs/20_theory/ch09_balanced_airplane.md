@@ -1,4 +1,4 @@
-# Balanced Free-Free Airplane Cases — the Balancing Method
+# Chapter 9 — The Balanced Free-Free Airplane: the Balancing Method
 
 How `sloads/modules/balance.py` assembles a **full-span, free-free airplane load
 case** — aero and inertia together, wing tip to wing tip, nose to tail — and
@@ -900,3 +900,173 @@ drift direction becomes the check on the reflection operator.
 | §9's six-DOF ground closure; the deck applying the report's own reaction | `test_the_ground_case_closes_in_all_six_dof`, `test_the_deck_applies_the_reports_reference_point_reaction` |
 | §9's reflected 23.485 twin reproducing LANDLOAD's own opposite drift | `test_the_reflected_side_case_reproduces_landloads_own_twin` |
 | §9's `ρ` measured from the two resolutions, and the ground-roll attitude finding | `test_the_two_frames_round_trip_through_the_rotation`, `test_the_ground_roll_attitude_is_resolved_against_the_other_sign` |
+
+## 11. The closure-gate record (moved from the theory hub)
+
+Sections 3–4 state the method — the pre-closure residual as part of the
+deliverable, and the one rigid-body closure field. This section is the
+**validation record** for it: the acceptance gates with their achieved
+values, the relief field's independent producers, and the lateral cases'
+pinning. §10 maps each figure to its test.
+
+### 11.1 The assembled-case acceptance gates (steps B2–B6, 2026-08-08)
+
+The FAR 23 core validates against Appendix A; the *assembled airplane* has no
+printed oracle at all, so its gate is equilibrium itself. Plan 11's acceptance,
+now in CI (`tests/test_balance.py`):
+
+| Identity | Gate | Achieved |
+|---|---|---|
+| `\|ΣFz\|/(n·W)` before closure | < 1 % | 0.05–0.70 % |
+| `\|ΣMy_cg\|/(n·W·MAC)` before closure | < 1 % | 0.12–1.04 % |
+| `\|Δn\|/n` (relief applied) | < 1 % | 0.05–0.70 % |
+| all six components after closure (B8a-2) | ~ 0 | ≤ 2e-16 of n·W |
+| the same, re-derived from the deck's own card text | ~ 0 | ~1e-7 (card format) |
+| the same, re-derived by **sbeam** from the deck's own `GRID` cards | ~ 0 | export tolerance, both unit systems |
+| the symmetric half of a **lateral** case, fin load removed (B8a-3) | unchanged | exact — a fin set carries `fy`/`mz` only |
+| the **trim half** of the 23.427(a) case, lumped `vn.lt` restored (D-R8) | < 1 % force, per-fixture pitch | 0.187 / −0.246 % force, 0.301 / 0.694 % pitch |
+| the 23.427(a) applied halves against SELECT's own RH/LH (D-R8) | exact | 6.7e-16 relative |
+| the 23.427(a) applied roll against `(RH − LH)·ȳ` (D-R8) | exact | ratio 1.000000000, both fixtures |
+
+The pre-closure force and pitch rows are read **per family**: the lateral cases
+sit at V-n points the symmetric families never visit, and their pitch residual is
+larger there (ga6 `SUDDEN RUDDER` 0.341 %, RJ `SIDE GUST` 1.586 %). Ceilings are
+stated per fixture *and* per family rather than merged, so the symmetric bounds
+keep their bite. `residual_mx` on a rolling case and `residual_fy`/`residual_mz`
+on a lateral one are **applied loads, not errors**, and are outside this table by
+construction (`CONVENTIONS.md` §1). The 23.427(a) case's `Fz`/`My` are outside it
+for the same reason and the strongest instance of it: its applied tail load is a
+*maneuver* load replacing the trim tail load, so the residual is that mismatch in
+full (−49.8 % of `n·W` on the ga6) and the closure is the pitching maneuver
+itself — what is gated there is the trim half, in the rows above (D-R8, decision
+of record; FAR 23.427(a) via `select_htail_unsymmetrical`, SELECT.BAS 6030-6180,
+Ref 1 Appendix C p440-441, with the approved M1-4 deviation). A **powered**
+case's `Fx`/`My` are outside it on the same construction and with the strongest
+gate of the set: the V-n point it is assembled at is thrust-free, so the entered
+hub thrust and its arm `−T·(z_hub − z_cg)` *are* the pre-closure residual in
+closed form, carried by `n_x = (D − ΣT)/W` and `q̇` — asserted as an identity,
+not a bound, by `tests/test_hub_thrust.py` G-3/G-4 (`balance.hub_thrust_set`,
+#10; §2.1).
+
+The measurement is deliberately taken **before** the closure: the gate is on what
+the physics achieves, not on what the correction hides. The remaining ~0.3 %
+**force** floor is the strip-versus-closed-form lift difference plan 11 R3
+predicted (ga6 PHAA: the spanwise integral gives 12,940 lb against the trim's
+12,969) — a model difference rather than a quadrature error, since it converges
+to −42.3 lb / 0.327 % as `elements` → ∞. The **pitch** residual had a different
+cause and no `elements` dependence at all — the couple left by the airplane's
+non-wing drag, which nothing in the assembled model carried (measured 2026-08-15;
+backlog Pri 5). Carrying it as the `body-axial` load brings pitch to the same
+lift-model floor: **0.014–0.086 % on every fixture and family**, and the
+per-fixture ceiling the RJ's low-CL cases needed is retired.
+
+**The non-wing drag** (`balance.body_axial_set`) is the airplane-less-tail
+polar's body-axis `x` force less what the wing strips carry — `drag_cd(config,
+cl)` against `airloads`' section profile plus lifting-line induced drag, resolved
+through the same `α`. That it is parasite drag rather than a lift-model
+disagreement is measured: decomposing into wind axes gives `ΔL/L` ≤ 0.6 % while
+`ΔC_D` is a near-constant −0.018 across all seven ga6 cases. Outside the polar's
+one-sided trusted-`α` window `constants.POLAR_TRUSTED_ALPHA_DEG` = (−10°, +15°)
+it inverts sign (above: the RJ's strip induced drag overshoots the polar; below:
+the crude-polar fixtures' `NMAA` at −12.9…−14.3°, the fit read 13° under zero
+lift) and a forward value there is **not applied** — `ΔC_D` still reported
+unclamped, `body_axial_clamped` set (note 20 D-4 as revised 2026-08-17).
+**Gate:** the applied axial resultant equals the trim's `dx` and `delta_nx`
+equals `dx/W`, both to 1e-9, except on the recorded clamped cases where both are
+the strips' own `fx`; the `ΔC_D` band is pinned per fixture and asserted
+negative inside the window; the clamped set is pinned both ways with per-case
+residual ceilings. Its waterline is the single owner
+`derived_geometry.body_drag_waterline` — the only free parameter of the load, and
+stated rather than derived because the suite has no body-centreline datum (design
+note `../40_history/24_body_drag_carrier_note.md` §8.1).
+
+One term still has no distributed carrier and is stated as lumped rather than
+omitted: the fuselage's share of the airplane-less-tail `Cm` (the Munk moment,
+until M4-19 distributes it — a sign-changing slope term, −6.6 to +4.9 % of
+n·W·MAC on ga6 and −8.5 to +5.8 % on the RJ).
+
+### 11.2 The relief field and its two producers (step B8a-2, 2026-08-09)
+
+**Equation.** The closure relief is the rigid-body d'Alembert field, the standard
+result for a free body accelerating under an unbalanced load — **no suite source,
+because no suite program assembles an airplane**:
+
+    f_i = −m_i (a_cg + ω̇ × r_i)        moment about the CG:  −[I]{ω̇}
+
+with `[I]` the full inertia tensor of the assembled mass set (`Ixx`…`Ixz`) plus,
+per plan 13 decision L-3, the entered self-inertia of every item the assembly
+carries as a *point*. So `{ω̇} = [I]⁻¹{M}` — one coupled 3×3 solve, because `Ixz`
+is 8.4 % of the ga6's pitch inertia. Owner: `sloads/rigid_body.py`; conventions in
+`CONVENTIONS.md` §1 and §7. Angular accelerations are carried in weight-space
+`1/in` (g per inch of arm), the same convention that makes the translational DOF
+come out as load factors.
+
+Having no printed oracle, the field is gated by **identities against independent
+producers**, one per rotational degree of freedom — which is what makes this a
+substitute rather than a self-check:
+
+| DOF | Independent producer | Status |
+|---|---|---|
+| **yaw** | `ONENGOUT.BAS` 282-286 — `THETA2DOT = MOM/12/IZZ·57.3`, Ref 1 Ch 11 p87-88 (FAR 23.367). **Oracle-locked FAR 23 code**, checked step by step against its own time history | exact, `rel_tol = 1e-12` |
+| **roll** | `WINGINER`'s `fz_r`/`iwxx` unit-roll recurrence (Appendix A-locked). Reproduces the **shape** strip for strip; the **magnitude** ratio is the wing span's share of the roll moment — 0.795230 ga6 / 0.769455 RJ — because WINGINER's wing-only model has no term for mass off the roll axis | shape exact; ratio pinned |
+| **pitch** | none — `Iyy` has no second producer in the suite. Carried by the closure identity `Σ r × f = −[I]{ω̇}` and by the six-DOF closure itself | identity only |
+| **the tensor** | `WTONECG` (Appendix A p136 oracle) via `Izz(closure) = Izz(WTONECG) − wing self-Izz + Σw·y²(WINGINER spread)` | 0.0 % ga6, +0.40 % RJ |
+
+**A caution recorded with the yaw row:** the two producers meet on no shipped
+fixture — the two airplanes that assemble a balanced case enter no
+`one_engine_out` slice, and the two that enter one carry no engine horsepower, so
+ONENGOUT cannot execute on any fixture as shipped (filed on the backlog). The
+gate supplies that single input and reads everything else from the fixture.
+
+### 11.3 The lateral (±β) cases (step B8a-3, 2026-08-09)
+
+**Equations.** No new aerodynamics: the fin load is SELECT's, `LV` per FAR
+23.441(a)(1)–(a)(3) and 23.443(b) (cited in the `select` row of
+[`00_theory_sources.md`](00_theory_sources.md), Ref 1 Ch 9,
+`SELECT.BAS` subr 8300), distributed along the span by `tail_span`'s
+chord-proportional shape and mapped to airplane axes by `export/coordinates.py`.
+What is new is the **lateral balance**, which is the same rigid-body statement as
+the symmetric one, read in the other three DOF:
+
+    ΣFy = 0  →  n_y = L_v / W
+    ΣMz = 0  →  ψ̈ from the coupled {ω̇} = [I]⁻¹{M} solve above
+    ΣMx = 0  →  ṗ, coupled to ψ̈ through Ixz; the fin's own roll moment is
+                −L_v·(z_fin − z_cg), which is why the fin root waterline is a
+                load quantity (B8a-1, `CONVENTIONS.md` §7.2)
+
+**The measured size of that lever arm (2026-09-06, #160).** `z_fin` is resolved
+from the fin's own entered polyline since the resolution order was corrected, and
+on `ga6_normal` that moved the fin root 78.5 → 111.5 in — the 78.5 was the
+airplane's *wing* root waterline, entered as scaffolding and left shadowing both
+the polyline and the body outline. The whole 33 in lands on `z_fin − z_cg`, which
+goes 11.89 → 44.89 in, and the four lateral cases' roll accelerations move 5–12×
+(`SUDDEN RUDDER` −6.888 → −85.952 deg/s²); `ψ̈` moves ~2 % through the `Ixz`
+coupling. **`L_v` and `n_y` are bit-identical on every fixture**, which is the
+check that this moved a lever arm and not the aerodynamics — and it is the
+measurement that says how much of the lateral answer the fin's waterline owns.
+
+**Why the 1 % residual gate does not apply here.** `residual_fy` and
+`residual_mz` before closure *are* the fin load, by construction — nothing in an
+airplane balances a rudder kick. The gate that does apply is that the case's
+**symmetric half** still closes (`CONVENTIONS.md` §1); it does exactly, since a
+fin set carries `fy` and `mz` only. Same standing as `ACRL`'s roll residual.
+
+Having no printed oracle, the cases are pinned by measurement in both directions
+(`tests/test_balance.py::test_the_lateral_cases_are_pinned`, `rel_tol = 1e-4`),
+with `n_y` additionally asserted **structurally** as `L_v/W` rather than only
+pinned:
+
+| Condition | ga6: `L_v` lb / `n_y` g / `ψ̈` / `ṗ` deg/s² | RJ: `L_v` lb / `n_y` g / `ψ̈` / `ṗ` deg/s² |
+|---|---|---|
+| `SUDDEN RUDDER` | +585.7 / +0.17227 / +178.05 / −12.04 | +6907.3 / +0.20931 / +51.57 / −57.75 |
+| `YAW TO SIDESLIP` | −97.8 / −0.02875 / −19.44 / +3.24 | −3548.2 / −0.10752 / −20.84 / +31.13 |
+| `YAW 15 NEUTRAL` | −525.7 / −0.15463 / −151.91 / +11.75 | −8042.7 / −0.24372 / −55.70 / +68.37 |
+| `SIDE GUST` | +604.0 / +0.17764 / +185.51 / −20.16 | +7080.4 / +0.21456 / +42.93 / −77.88 |
+
+The fin loads reconcile with Appendix A's printed vertical-tail totals (+591 /
+−92 / −526 / +604 — the hub's `select` row): they are the same numbers, since the
+balance consumes SELECT and never recomputes it.
+
+**The wing-body sideslip term** (decision L-7) is §7.4's — the measured
+on/off deltas, the conservatism statement and the static-directional-
+stability gate live there and are not restated here.

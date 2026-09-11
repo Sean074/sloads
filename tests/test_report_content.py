@@ -303,7 +303,7 @@ def test_the_balanced_sections_residual_verdict_is_over_the_gated_family_only():
     pre-closure residual over every case, so on `ga6_normal` it declared the
     primary deliverable at 143.885 % against a 1 % gate — that number being the
     23.427(a) maneuver tail load, which the deck's own `$` header, the case-table
-    note and `balanced_cases.md` §3/§9.4 all say the gate does not apply to. The
+    note and `ch09_balanced_airplane.md` §3/§9.4 all say the gate does not apply to. The
     gate read the case objects and nothing read the sentence, so the report
     contradicted the deck it describes in every shipped ga6/RJ bundle since 0.6.0.
     Asserted against `residual_gate_applies`, the owner, rather than a literal.
