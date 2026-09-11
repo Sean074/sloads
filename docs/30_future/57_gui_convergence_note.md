@@ -6,8 +6,15 @@
 no ruling below has been taken: §2.2 lists the owner decisions this note needs
 before it can flip to AGREED. Drafted from the owner-commissioned scope-reduction
 review of 2026-09-10 (in session), whose boundary answers are the governing basis
-in §2.1. Issue: *(file on promotion — descriptive name, no new ID series;
-CLAUDE.md rule 5)*.
+in §2.1. **Milestone 0.8.4 created and the work filed 2026-09-11** as
+[#265](https://github.com/Sean074/sloads/issues/265) (D-57.3, the editor)
+→ [#266](https://github.com/Sean074/sloads/issues/266) (D-57.2, the tiers)
+→ [#267](https://github.com/Sean074/sloads/issues/267) (D-57.4, plots)
+→ [#268](https://github.com/Sean074/sloads/issues/268) (D-57.5, fleet)
+→ [#269](https://github.com/Sean074/sloads/issues/269) (D-57.7, the seed)
+→ [#270](https://github.com/Sean074/sloads/issues/270) (D-57.1/D-57.6, the
+retirement), backlog band **B5**; every implementation issue is blocked on
+this note reaching AGREED.
 
 **Tier L.** A front-end retires and the surviving one's charter changes. **No
 delivered load changes, no calc change, no schema change** — every module,
