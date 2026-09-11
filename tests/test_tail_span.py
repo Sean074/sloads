@@ -758,13 +758,6 @@ def test_an_unknown_mode_raises():
         build_tail_span(project)
 
 
-def test_the_deck_states_the_mode():
-    """The deck says which load path it contains -- T5's other gate."""
-    from sloads.export import sbeam_bridge as sb
-
-    results = build_tail_span(_project("ga6_normal.project.json"))[HTAIL]
-    text = sb.tail_span_force_moment_cards(results, component=HTAIL)
-    assert "Control-surface load: SMEARED into this surface." in text
 
 
 # --------------------------------------------------------------------------- #
@@ -1019,20 +1012,6 @@ def test_discrete_mode_refuses_geometry_it_cannot_believe():
             build_tail_span(project)
 
 
-def test_the_discrete_deck_carries_the_hinge_nodes_and_says_what_they_are():
-    """The deck's own text: the mode, the hinge moment, and the arm it is on."""
-    from sloads.export import sbeam_bridge as sb
-
-    _, discrete = _discrete()
-    text = sb.tail_span_force_moment_cards(discrete, component=HTAIL)
-    assert "Control-surface load: DISCRETE into this surface." in text
-    assert "HINGE MOMENT" in text
-    grids = {int(ln.split(",")[1]) for ln in text.splitlines()
-             if ln.startswith("GRID,")}
-    control = {sb.tail_control_gid(HTAIL, i) for i in range(len(discrete[0].control_loads))}
-    assert control <= grids, "hinge/actuator nodes must be defined in the deck"
-    over = [ln for ln in text.splitlines() if ln.startswith("$") and len(ln) > 72]
-    assert not over, over
 
 
 # --------------------------------------------------------------------------- #
@@ -1115,19 +1094,6 @@ def test_the_transferred_moment_is_the_two_lever_arms():
         assert not t.cp_assumed, "the RJ's V-n points publish a balanced tail CP"
 
 
-def test_a_conventional_fin_deck_is_unchanged_by_the_t_tail_code():
-    """Byte-level gating isolation: flip the layout back and the deck returns."""
-    from sloads.export import sbeam_bridge as sb
-    from sloads.models import TailType
-
-    project = _project("concept_regional_jet.project.json")
-    with_t = sb.tail_span_force_moment_cards(
-        build_tail_span(project)[VTAIL], component=VTAIL)
-    project.geometry.parametric.tail_type = TailType.CONVENTIONAL
-    without = sb.tail_span_force_moment_cards(
-        build_tail_span(project)[VTAIL], component=VTAIL)
-    assert "T-TAIL TRANSFER" in with_t and "T-TAIL TRANSFER" not in without
-    assert len(with_t.splitlines()) > len(without.splitlines())
 
 
 # --------------------------------------------------------------------------- #
@@ -1225,19 +1191,6 @@ def test_the_override_flag_round_trips():
     assert back.tail_mass == p.tail_mass
 
 
-def test_the_deck_states_its_inertia_basis():
-    """The deck's own text says whether inertia is in the numbers, and how much."""
-    from sloads.export import sbeam_bridge as sb
-
-    p = io.load_project(os.path.join(_ROOT, "examples", "ga6_normal.project.json"))
-    p.envelope = build_envelope(p)
-    spans = build_tail_span(p)
-    h_text = sb.tail_span_force_moment_cards(spans[HTAIL], component=HTAIL)
-    assert "Surface mass 42.0 lb: inertia" in h_text
-    assert "NO INERTIA" not in h_text
-    v_text = sb.tail_span_force_moment_cards(spans[VTAIL], component=VTAIL)
-    assert "Surface mass 23.0 lb: inertia" in v_text
-    assert "AXIAL along the fin's" in v_text
 
 
 if __name__ == "__main__":

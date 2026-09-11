@@ -253,48 +253,32 @@ if _selected_ids is not None:
             "exports always include the full set regardless of this toggle."
         )
 
-# (filename, content) for each available BDF/CSV sbeam artifact.
+# (filename, content) for each available sbeam artifact.
+#
+# **Note 56 D-56.2** deleted the five families of per-component deck this block
+# used to build (wing stick BDF + span CSV, fuselage FORCE deck + span CSV +
+# fitting CSV, tail chordwise, control surface). What is left is the applied
+# load set per component -- the record of what is applied, where, for which
+# case, at what factor -- plus the assembled airframe deck and the mass model
+# below, which are the deliverable.
 _bdf_artifacts: dict = {}
 if _wing:
-    _bdf_artifacts["wing_loads.bdf"] = _try(
-        sb.force_moment_cards, _wing, header_comment=_bdf_stamp, system=_system) or ""
-    _bdf_artifacts["wing_span_loads.csv"] = _try(
-        sb.span_load_csv, _wing, header_comment=_csv_stamp, system=_system) or ""
+    # The applied set, per component (note 44 OR-141a): the same rows the
+    # oracle report's applied appendix prints, so a reader who prefers the file
+    # to the page is loading the same load set -- and, under D-56.9, the same
+    # rows the delivered cards are written from, which is what G-OR-90 holds
+    # both to.
     _bdf_artifacts["wing_applied_loads.csv"] = _try(
         sb.applied_load_csv, _wing, header_comment=_csv_stamp, system=_system) or ""
-    from sloads.derived_geometry import sob_station
-
-    _bdf_artifacts["wing_stick.bdf"] = _try(
-        sb.stick_model_bdf, _wing, header_comment=_bdf_stamp, system=_system,
-        sob=sob_station(project)) or ""
 if _body:
-    _bdf_artifacts["fuselage_loads.bdf"] = _try(
-        sb.body_force_moment_cards, _body, header_comment=_bdf_stamp,
-        system=_system) or ""
-    _bdf_artifacts["fuselage_span_loads.csv"] = _try(
-        sb.body_span_load_csv, _body, header_comment=_csv_stamp, system=_system) or ""
-    # The applied set, per component (note 44 OR-141a): the same rows the oracle
-    # report's applied appendix prints, so a reader who prefers the file to the
-    # page is loading the same load set -- and the same rows the deck writes
-    # cards from, which is what G-OR-90 holds all three to.
     _bdf_artifacts["fuselage_applied_loads.csv"] = _try(
         sb.applied_load_csv, _body, header_comment=_csv_stamp, system=_system,
         component="fuselage", project=project) or ""
-    # Reported beside the FORCE set, never in it -- the span loads already carry
-    # the carry-through reaction (M4-1).
-    _bdf_artifacts["fuselage_fitting_loads.csv"] = _try(
-        sb.body_fitting_load_csv, _body, header_comment=_csv_stamp,
-        system=_system) or ""
 if _tail:
-    _bdf_artifacts["tail_loads.bdf"] = _try(
-        sb.tail_force_moment_cards, _tail, header_comment=_bdf_stamp,
-        system=_system) or ""
-    _bdf_artifacts["tail_chordwise.csv"] = _try(
-        sb.tail_chordwise_csv, _tail, header_comment=_csv_stamp, system=_system) or ""
     # The tails' applied sets come from the **spanwise** results, which are
-    # their own producer: the chordwise ``_tail`` set above is a different
-    # quantity and cannot stand in. Built here rather than read off the project
-    # so the artifact exists whenever the surface does, which is what lets the
+    # their own producer: the chordwise ``_tail`` set is a different quantity
+    # and cannot stand in. Built here rather than read off the project so the
+    # artifact exists whenever the surface does, which is what lets the
     # manifest name it unconditionally (note 44 OR-141a).
     from sloads.modules.tail_span import build_tail_span
 
@@ -303,13 +287,6 @@ if _tail:
         _bdf_artifacts[sb.APPLIED_CSV_NAMES[_surface]] = _try(
             sb.applied_load_csv, _spans.get(_surface) or [],
             header_comment=_csv_stamp, system=_system, component=_surface) or ""
-if _control:
-    _bdf_artifacts["control_surface_loads.bdf"] = _try(
-        sb.control_surface_force_moment_cards, _control,
-        header_comment=_bdf_stamp, system=_system) or ""
-    _bdf_artifacts["control_surface_loads.csv"] = _try(
-        sb.control_surface_csv, _control, header_comment=_csv_stamp,
-        system=_system) or ""
 
 # The assembled full-span deliverable and the mass model that checks its inertia
 # half (decision D-R2). Both were page-only downloads until 2026-08-10: the
@@ -478,15 +455,10 @@ def _workbook_bytes() -> bytes:
     span_csvs = {
         title: _bdf_artifacts[key]
         for title, key in [
-            ("Wing Span Loads", "wing_span_loads.csv"),
             ("Wing Applied Loads", "wing_applied_loads.csv"),
             ("Fuselage Applied Loads", "fuselage_applied_loads.csv"),
             ("H-Tail Applied Loads", "htail_applied_loads.csv"),
             ("V-Tail Applied Loads", "vtail_applied_loads.csv"),
-            ("Fuselage Span Loads", "fuselage_span_loads.csv"),
-            ("Fuselage Fitting Loads", "fuselage_fitting_loads.csv"),
-            ("Tail Chordwise", "tail_chordwise.csv"),
-            ("Control Surface Loads", "control_surface_loads.csv"),
         ]
         if _bdf_artifacts.get(key)
     }
@@ -598,34 +570,29 @@ def _bdf_row(label: str, *names):
                             key=f"bdf_{name}", disabled=not content)
 
 
-_bdf_row("Wing", "wing_loads.bdf", "wing_span_loads.csv",
-         "wing_applied_loads.csv", "wing_stick.bdf")
-_bdf_row("Fuselage", "fuselage_loads.bdf", "fuselage_span_loads.csv",
-         "fuselage_fitting_loads.csv", "fuselage_applied_loads.csv")
+# The applied load sets, per component. Since note 56 D-56.2 these are the only
+# per-component artifacts: the decks that stood beside them are deleted, so
+# there is no longer a per-component structural model to mistake for the
+# deliverable. The deliverable is the assembled airframe below.
+_bdf_row("Wing", "wing_applied_loads.csv")
+_bdf_row("Fuselage", "fuselage_applied_loads.csv")
 if _body:
     if any(getattr(r, "closure_artifact", False) for r in _body):
         st.caption(
             "⚠️ **Fuselage closure artifact.** The wing spar stations could not be "
             "derived, so the unbalanced moment was reacted by a correction spread "
             "over the whole body rather than the wing carry-through: the beam "
-            "closes, but the correction has no physical source and no fitting "
-            "loads are reported. The caveat is stamped as `$ CAVEAT:` comments in "
-            "`fuselage_loads.bdf`. Define the wing spar chord fractions on the "
-            "**Configuration & Layout** page to get the Ch 15 reaction."
+            "closes, but the correction has no physical source. Define the wing "
+            "spar chord fractions on the **Configuration & Layout** page to get "
+            "the Ch 15 reaction."
         )
-    else:
+    elif any(getattr(r, "spars_assumed", False) for r in _body):
         st.caption(
             "The body distribution closes both ΣFz and ΣM at the front/rear spar "
-            "attachments (Ref 1 Ch 15 p103); each `fuselage_loads.bdf` block "
-            "states both residuals. `fuselage_fitting_loads.csv` reports the "
-            "wing-attach fitting loads — the span loads already carry them, so do "
-            "not apply them on top."
-            + (" Spar stations are **assumed** (default chord fractions)."
-               if any(getattr(r, "spars_assumed", False) for r in _body) else "")
+            "attachments (Ref 1 Ch 15 p103). Spar stations are **assumed** "
+            "(default chord fractions)."
         )
-_bdf_row("Tail", "tail_loads.bdf", "tail_chordwise.csv",
-         "htail_applied_loads.csv", "vtail_applied_loads.csv")
-_bdf_row("Control surfaces", "control_surface_loads.bdf", "control_surface_loads.csv")
+_bdf_row("Tail", "htail_applied_loads.csv", "vtail_applied_loads.csv")
 _bdf_row("Assembled airframe (free-free)", "balanced_airframe.bdf")
 _bdf_row("LRA beam model", "lra_model.bdf")
 if _balanced_cases:

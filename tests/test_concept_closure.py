@@ -55,6 +55,7 @@ from sloads.modules.body_loads import build_body_loads
 from sloads.modules.flight_envelope import build_envelope
 from sloads.modules.net_loads import build_net_loads
 from sloads.modules.select import build_critical
+from sloads.modules.tail_span import build_tail_span
 from sloads.modules.taildist import build_tail_chordwise
 
 _EXAMPLE = os.path.join(
@@ -141,13 +142,6 @@ def test_taildist_carries_select_split():
         assert c.lt25 == r.lt25 and c.lt50 == r.lt50
 
 
-def test_tail_nodal_loads_sum_to_total():
-    """The exported tail nodal FORCE set sums to ULTIMATE ``LT25 + LT50``."""
-    results = build_tail_chordwise(_concept_project())
-    assert results
-    for r in results:
-        forces = sb._tail_nodal_forces(r)
-        assert math.isclose(sum(forces), (r.lt25 + r.lt50), rel_tol=1e-9, abs_tol=1e-6)
 
 
 # --------------------------------------------------------------------------- #
@@ -167,20 +161,25 @@ def test_body_vertical_equilibrium():
 
 
 def test_body_nodal_cards_sum_to_zero():
-    """The exported body FORCE deck parses and its Fz set closes to ~0 (ULTIMATE).
+    """The delivered body load set closes: its applied Fz sums to ~0.
 
-    Summation, reference point and tolerance come from
-    :mod:`sloads.export.equilibrium`; the moment half of the same closure, and
-    the sweep across every fixture and both unit systems, live in
-    ``test_export_equilibrium.py``."""
-    results = build_body_loads(_concept_project())
-    res = deck_resultants(sb.body_force_moment_cards(results, sid_base=1),
-                          ref_aftmost_loaded)
-    # One load set per case, keyed by the case's own subcase id (M4-2 decision 9).
-    assert sorted(res) == sorted(sb._sid(1, i, r) for i, r in enumerate(results))
-    for idx, r in enumerate(results):
-        got = res[sb._sid(1, idx, r)]
-        assert closes(got.fz, 0.0, scale=got.force_scale)
+    Read off ``applied_loads`` since note 56 D-56.2 deleted the per-component
+    body deck. That set is what the deck wrote cards from, so the closure is
+    the same one -- asserted now at the authority rather than at one rendering
+    of it (D-56.9)."""
+    project = _concept_project()
+    results = build_body_loads(project)
+    assert results
+    rows = sb.applied_loads("fuselage", results, project=project)
+    assert rows
+    by_case: dict = {}
+    for ld in rows:
+        by_case.setdefault(ld.case, []).append(ld)
+    assert len(by_case) == len(results)
+    for case, loads in by_case.items():
+        scale = max(abs(ld.fz) for ld in loads) or 1.0
+        assert math.isclose(sum(ld.fz for ld in loads), 0.0,
+                            abs_tol=1e-6 * scale + 1e-6), case
 
 
 # --------------------------------------------------------------------------- #
@@ -209,13 +208,6 @@ def test_control_build_matches_report():
                 f"{module.MODULE_NAME} {r.surface}/{r.case} load {r.load_lb} not in report"
 
 
-def test_control_nodal_loads_sum_to_critical():
-    """Each control surface's exported nodal FORCE set sums to its critical load."""
-    p = _concept_project()
-    for build in (aileron_mod.build_aileron, flap_mod.build_flap, tab_mod.build_tabs):
-        for r in build(p):
-            forces = sb._control_nodal_forces(r)
-            assert math.isclose(sum(forces), r.load_lb, rel_tol=1e-9, abs_tol=1e-6)
 
 
 # --------------------------------------------------------------------------- #
@@ -223,41 +215,48 @@ def test_control_nodal_loads_sum_to_critical():
 # whose per-case FORCE set re-sums to that component's root/total at ULTIMATE.
 # --------------------------------------------------------------------------- #
 def test_full_airframe_exports_cleanly():
-    """All four component families export FORCE cards that parse and re-sum -- the
-    P1-2 acceptance: the whole concept set exports cleanly through ``sbeam_bridge``."""
+    """Every component states an applied load set that re-sums -- the P1-2
+    acceptance, on the artifacts note 56 D-56.2 left standing.
+
+    It used to walk four families of per-component FORCE deck. Those are gone;
+    the applied load set they were each written from is not, and it is what
+    D-56.9 makes the authority for the delivered cards. The claim is the same:
+    the whole concept set comes out, and what comes out sums to what the calc
+    computed.
+    """
     p = _concept_project()
     wing = build_net_loads(p).wing_net
     body = build_body_loads(p)
-    tail = build_tail_chordwise(p)
-    control = aileron_mod.build_aileron(p) + flap_mod.build_flap(p) + tab_mod.build_tabs(p)
-    assert wing and body and tail and control
+    spans = build_tail_span(p)
+    assert wing and body
 
-    # Wing: FORCE Fz re-sums to the NETLOADS root shear.
-    wf = card_totals(sb.force_moment_cards(wing, sid_base=1))
-    assert len(wf) == len(wing)
-    for idx, r in enumerate(wing):
-        got = wf[sb._sid(1, idx, r)]
-        assert closes(got.force[2], r.stations[0].sz, scale=got.force_scale)
+    # Wing: the applied Fz set re-sums to the NETLOADS root shear, per case.
+    rows: dict = {}
+    for ld in sb.applied_loads("wing", wing):
+        rows.setdefault(ld.case, []).append(ld)
+    assert len(rows) == len(wing)
+    for r in wing:
+        got = sum(ld.fz for ld in rows[r.case])
+        assert closes(got, r.stations[0].sz, scale=abs(r.stations[0].sz))
 
-    # Tail: the FORCE set re-sums to ULTIMATE (LT25 + LT50) on the surface's own
-    # axis -- vertical for the h-tail, lateral for the fin (D-R4).
-    tf = card_totals(sb.tail_force_moment_cards(tail, sid_base=1))
-    assert len(tf) == len(tail)
-    for idx, r in enumerate(tail):
-        got = tf[sb._sid(1, idx, r)]
-        want = tail_force_to_airplane((r.lt25 + r.lt50), r.component)
-        for axis in range(3):
-            assert closes(got.force[axis], want[axis], scale=got.force_scale)
+    # Tails: every spanwise case states an applied set. NOT compared against
+    # LT25 + LT50: the spanwise set carries the surface's own inertia as well as
+    # its air load, so the two are different quantities. The air-load identity
+    # belonged to the chordwise tributary split, which note 56 D-56.2 deleted
+    # with the chordwise deck -- `test_taildist_carries_select_split` still
+    # holds the upstream half of it.
+    for component in ("htail", "vtail"):
+        results = spans.get(component) or []
+        if not results:
+            continue
+        per_case: dict = {}
+        for ld in sb.applied_loads(component, results):
+            per_case.setdefault(ld.case, []).append(ld)
+        assert len(per_case) == len(results), component
 
-    # Control surfaces: FORCE Fz re-sums to the critical surface load.
-    cf = card_totals(sb.control_surface_force_moment_cards(control, sid_base=1))
-    assert len(cf) == len(control)
-    for idx, r in enumerate(control):
-        got = cf[sb._sid(1, idx, r)]
-        assert closes(got.force[2], r.load_lb, scale=got.force_scale)
-
-    # Body: FORCE deck parses and closes to ~0 (already asserted per case above).
-    assert len(card_totals(sb.body_force_moment_cards(body, sid_base=1))) == len(body)
+    # Body: the applied set exists for every case and closes (asserted above).
+    body_rows = sb.applied_loads("fuselage", body, project=p)
+    assert len({ld.case for ld in body_rows}) == len(body)
 
 
 if __name__ == "__main__":

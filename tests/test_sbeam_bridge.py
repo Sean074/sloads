@@ -82,85 +82,12 @@ def test_concept_closure():
                             r.stations[0].myy, rel_tol=1e-9, abs_tol=1e-3)
 
 
-# --------------------------------------------------------------------------- #
-# FORCE/MOMENT card text
-# --------------------------------------------------------------------------- #
-def test_force_moment_cards_round_trip():
-    """Re-summed FORCE / MOMENT match the NETLOADS root totals.
-
-    Summation and tolerance come from :mod:`sloads.export.equilibrium`, the
-    single owner (this file used to hand-roll both, as did three other places).
-    The bare card deck carries no ``GRID`` cards, so it gets the geometry-free
-    :func:`card_totals`; the moment-closure sweep that does integrate lever arms
-    lives in ``test_export_equilibrium.py``."""
-    results = _wing_net(_GA)
-    totals = card_totals(sb.force_moment_cards(results, sid_base=1))
-    # One SID per case, taken from the case's own id (M4-2 decision 9): ga6's
-    # PHAA / TORS / ACRL hold wing slots 1 / 6 / 5 -> 101 / 106 / 105.
-    assert sorted(totals) == [101, 105, 106]
-    for idx, r in enumerate(results):
-        got = totals[sb._sid(1, idx, r)]
-        root = r.stations[0]
-        assert closes(got.force[2], root.sz, scale=got.force_scale)
-        assert closes(got.force[0], root.sx, scale=got.force_scale)
-        # The bare card deck has no GRID cards, so the lever arms come from the
-        # nodal loads rather than from the deck's own text; the deck-text sweep
-        # that integrates them lives in ``test_export_equilibrium.py``.
-        transfer = _nodal_torsion_about_root(sb.wing_nodal_loads(r)) \
-            - sum(n.my for n in sb.wing_nodal_loads(r))
-        assert closes(got.moment[1] + transfer, root.myy,
-                      scale=got.moment_scale)
 
 
-def test_force_moment_card_format():
-    text = sb.force_moment_cards(_wing_net(_GA))
-    force_lines = [ln for ln in text.splitlines() if ln.startswith("FORCE")]
-    assert force_lines
-    for ln in force_lines:
-        f = [c.strip() for c in ln.split(",")]
-        assert len(f) == 8                  # FORCE, SID, GID, CID, scale, N1, N2, N3
-        assert f[3] == "0"                  # CID 0 (basic frame)
-        assert float(f[4]) == 1.0           # unit scale; magnitude in components
-        assert "E" in f[5]                  # scientific %.6E format
 
 
-def test_near_zero_components_skipped():
-    # No card should carry an all-zero direction vector.
-    text = sb.stick_model_bdf(_wing_net(_GA))
-    for ln in text.splitlines():
-        if ln.startswith(("FORCE", "MOMENT")):
-            f = [c.strip() for c in ln.split(",")]
-            assert any(abs(float(v)) > 0 for v in f[5:8])
 
 
-# --------------------------------------------------------------------------- #
-# Stick model deck
-# --------------------------------------------------------------------------- #
-def test_stick_model_structure():
-    results = _wing_net(_GA)
-    text = sb.stick_model_bdf(results)
-    assert text.startswith("SOL 101")
-    assert "BEGIN BULK" in text and text.rstrip().endswith("ENDDATA")
-    grids, cbars, spc1, forces, moments = parse_cards(text)
-    n_stations = len(results[0].stations)
-    # One GRID per station + a clamped root node; a CBAR per element of the chain.
-    assert len(grids) == n_stations + 1
-    assert len(cbars) == n_stations
-    # CBAR chain is connected root -> station 0 -> ... -> tip.
-    assert cbars[0][1] == 1                                  # GA of first bar is the root node
-    for (_, _, gb_prev), (_, ga, _) in zip(cbars, cbars[1:]):
-        assert ga == gb_prev
-    # Root node clamped in all 6 DOF, and it is not a loaded grid.
-    assert spc1 and spc1[0][1] == "123456" and spc1[0][2] == [1]
-    loaded = {gid for cards in forces.values() for gid, _, _ in cards}
-    assert 1 not in loaded
-    # One case-control subcase + load set per case, numbered from the case id;
-    # the leading $ map block names each one (M4-2 decisions 8/10).
-    subcases = [ln for ln in text.splitlines() if ln.startswith("SUBCASE ")]
-    assert len(subcases) == len(results)
-    assert sorted(forces) == [101, 105, 106]
-    assert [int(ln.split()[1]) for ln in subcases] == [101, 106, 105]
-    assert text.count("$ SUBCASE ") == len(results)
 
 
 def test_a_filtered_export_does_not_renumber_the_surviving_subcases():
@@ -179,14 +106,15 @@ def test_a_filtered_export_does_not_renumber_the_surviving_subcases():
     filtered = {r.case_ref.case_id: sb._sid(1, i, r) for i, r in enumerate(keep)}
     assert filtered == {cid: full[cid] for cid in kept_ids}
 
-    # ... and the deck itself carries those numbers, with the map block naming
-    # the condition behind each one.
-    text = sb.stick_model_bdf(keep)
+    # ... and the map block a deck carries names the surviving cases under those
+    # same numbers. It read the wing stick deck's text until note 56 D-56.2
+    # deleted it; `subcase_map_block` is the owner both it and every surviving
+    # deck render from, so the property is asserted at the owner.
+    lines = "\n".join(sb.subcase_map_block(keep))
     for cid in kept_ids:
-        assert f"SUBCASE {full[cid]}\n" in text
-        assert f"$ SUBCASE {full[cid]} = {cid} -- " in text
+        assert f"$ SUBCASE {full[cid]} = {cid} -- " in lines
     dropped = results[0].case_ref.case_id
-    assert f"SUBCASE {full[dropped]}\n" not in text
+    assert f"$ SUBCASE {full[dropped]} = " not in lines
 
 
 def test_subcase_map_names_the_governing_condition():
@@ -203,39 +131,8 @@ def test_subcase_map_names_the_governing_condition():
         assert f"FAR {ref.far_reference}" in ln
 
 
-def test_grids_match_station_geometry():
-    results = _wing_net(_GA)
-    grids, *_ = parse_cards(sb.stick_model_bdf(results))
-    for i, st in enumerate(results[0].stations):
-        gx, gy, gz = grids[sb.station_gid(i)]
-        assert math.isclose(gx, st.x, abs_tol=1e-3)
-        assert math.isclose(gy, st.y, abs_tol=1e-3)
-        assert math.isclose(gz, st.z, abs_tol=1e-3)
 
 
-# --------------------------------------------------------------------------- #
-# Span-load CSV
-# --------------------------------------------------------------------------- #
-def test_span_load_csv_shape():
-    from sloads.report.methods import strip_comment_lines
-
-    results = _wing_net(_GA)
-    text = strip_comment_lines(sb.span_load_csv(results))
-    lines = text.strip().splitlines()
-    header = lines[0].split(",")
-    # Every dimensional column states its unit and, if it is a load, its ULT
-    # marker (M4-20 step 4). Before that the header was bare -- ``Fx``, ``My`` --
-    # and a reader had to know the file was Imperial from somewhere else.
-    # Mx/Mz are the concentrated-mass offset couples -- part of the applied
-    # nodal load, hence beside Fx/Fz/My rather than with the cumulative columns.
-    assert header == ["Case", "GID", "X (in)", "Y (in)", "Z (in)",
-                      "Fx (lb)", "Fz (lb)", "My (lb-in)",
-                      "Mx (lb-in)", "Mz (lb-in)",
-                      "Sx (lb)", "Sz (lb)", "Mxx (lb-in)",
-                      "Myy (lb-in)", "Mzz (lb-in)", "MyyAxis", "SF"]
-    assert len(lines) - 1 == sum(len(r.stations) for r in results)
-    # The torsion axis travels in-band: untransferred results state 25% chord.
-    assert all(line.split(",")[-2] == "25% chord" for line in lines[1:])
 
 
 # --------------------------------------------------------------------------- #
@@ -389,26 +286,6 @@ def test_the_applied_csv_states_its_units_axis_and_factor():
     assert row["SF"] == "1.5"
 
 
-def test_each_wing_csv_states_the_moment_convention_it_uses():
-    """The two files carry different moment conventions and must say so (OR-69).
-
-    ``Mz`` (an applied card component, right-handed) and ``Mzz`` (the beam's
-    positive-magnitude bending integral) sit in the same row of the span-load
-    file with opposite senses, and no column heading can carry that. The applied
-    file states its structural zeros for the same reason: a printed zero and an
-    omitted column are different claims.
-    """
-    net = _lra_net(_GA)
-    span = sb.span_load_csv(net)
-    assert "right-handed about" in span
-    assert "negation of the body-axis Mz" in span
-
-    applied = sb.applied_load_csv(net)
-    assert "Fy is zero throughout" in applied
-    assert "Mx and Mz are zero throughout" in applied
-    # and the statements are comments, so the file still parses as a table
-    assert len(_csv_rows(applied)) == sum(
-        len(r.stations) + len(r.point_loads) for r in net)
 
 
 def test_the_applied_csv_leaves_a_point_masss_gid_blank():
@@ -444,15 +321,14 @@ def test_applied_load_writer(tmp_path=None):
 def test_accepts_project_and_requires_loads():
     p = io.load_project(_GA)
     try:
-        sb.span_load_csv(p)  # no Project.loads set yet
+        sb.applied_load_csv(p)  # no Project.loads set yet
     except ValueError:
         pass
     else:
         raise AssertionError("expected ValueError when Project.loads is missing")
     p.loads = build_net_loads(p)
-    from sloads.report.methods import strip_comment_lines
-
-    assert strip_comment_lines(sb.span_load_csv(p)).startswith("Case,GID")
+    rows = _csv_rows(sb.applied_load_csv(p))
+    assert rows and "GID" in rows[0]
 
 
 def test_project_export_transfers_to_loads_ref_axis():
@@ -463,123 +339,33 @@ def test_project_export_transfers_to_loads_ref_axis():
     p.loads = build_net_loads(p)
     wing = p.geometry.by_name(p.wing_mass.surface)
     wing.ref_axis_pct = 0.40
-    from sloads.report.methods import strip_comment_lines
-
-    text = strip_comment_lines(sb.span_load_csv(p))
-    lines = text.strip().splitlines()
-    assert all(line.split(",")[-2] == "LRA 40% chord" for line in lines[1:])
-    # Cumulative root torsion = the 25%-chord value + SF x Sz x (x_lra - x_25).
+    rows = _csv_rows(sb.applied_load_csv(p))
+    assert rows and all(r["MyyAxis"] == "LRA 40% chord" for r in rows)
+    # The applied station X is the LRA point, not the 25% chord it was computed
+    # about: the transfer moved the point the load is stated at.
     raw = p.loads.wing_net[0].stations[0]
-    sf = p.loads.wing_net[0].safety_factor
     x_le = interp_x(wing.leading_edge, raw.y)
     x_te = interp_x(wing.trailing_edge, raw.y)
     x_lra = x_le + 0.40 * (x_te - x_le)
-    expected = (raw.myy + raw.sz * (x_lra - raw.x))
-    # Look the column up by name -- a positional index silently follows the
-    # wrong column the next time one is added (it did, when Mx/Mz arrived).
-    myy_col = lines[0].split(",").index("Myy (lb-in)")
-    row = lines[1].split(",")
-    assert math.isclose(float(row[myy_col]), expected, rel_tol=1e-3, abs_tol=1.0)
-    # The BDF headers and stick-model beam axis carry the same label.
-    assert "$ Torsion My/Myy about the LRA 40% chord" in sb.force_moment_cards(p)
-    assert "$ Beam axis: the wing LRA 40% chord line." in sb.stick_model_bdf(p)
+    assert math.isclose(float(rows[0]["X (in)"]), x_lra, rel_tol=1e-3, abs_tol=0.01)
 
 
 def test_writers(tmp_path=None):
     import tempfile
 
-    results = _wing_net(_GA)
+    results = _lra_net(_GA)
     d = tmp_path or tempfile.mkdtemp()
-    csv_p = os.path.join(str(d), "w.span_loads.csv")
-    bdf_p = os.path.join(str(d), "w.loads.bdf")
-    stick_p = os.path.join(str(d), "w.stick.bdf")
-    sb.write_span_load_csv(results, csv_p)
-    sb.write_force_moment_cards(results, bdf_p)
-    sb.write_stick_model_bdf(results, stick_p)
-    for path in (csv_p, bdf_p, stick_p):
-        assert os.path.getsize(path) > 0
+    csv_p = os.path.join(str(d), "w.applied_loads.csv")
+    sb.write_applied_load_csv(results, csv_p)
+    assert os.path.getsize(csv_p) > 0
 
 
-# --------------------------------------------------------------------------- #
-# Control-surface export (Step C8): closure -- the FORCE set sums to the load.
-# --------------------------------------------------------------------------- #
-def _control_results():
-    from sloads.modules.aileron import build_aileron
-    from sloads.modules.flap import build_flap
-    from sloads.modules.tab import build_tabs
-
-    p = io.load_project(_GA)
-    return build_aileron(p) + build_flap(p) + build_tabs(p)
 
 
-def test_degenerate_chordwise_profile_raises():
-    """A profile integrating to zero under a non-zero case load raises (review F-C4).
-
-    The former ``scale = 0.0`` fallback emitted an empty load set while the case
-    header still claimed the applied total -- a deck contradicting itself. Both
-    chordwise writers share one owner (``_trapezoid_tributary_forces``), so both
-    are pinned here; a zero case load keeps the (consistent) zero set.
-    """
-    from sloads.models.results import ControlSurfaceLoadResult, ControlSurfaceStation, TailChordResult, TailChordStation
-
-    flat = [TailChordStation(x=x, psi=0.0) for x in (0.0, 10.0, 20.0)]
-    tail = TailChordResult(case="X", component="htail", lt25=300.0, lt50=-100.0,
-                           stations=flat, safety_factor=1.0)
-    try:
-        sb._tail_nodal_forces(tail)
-        raise AssertionError("degenerate tail profile did not raise")
-    except ValueError as exc:
-        assert "integrates to zero" in str(exc) and "htail" in str(exc)
-
-    # Antisymmetric pressures cancel to the same degeneracy, not just all-zero.
-    tail.stations = [TailChordStation(x=0.0, psi=1.0),
-                     TailChordStation(x=10.0, psi=0.0),
-                     TailChordStation(x=20.0, psi=-1.0)]
-    try:
-        sb._tail_nodal_forces(tail)
-        raise AssertionError("cancelling tail profile did not raise")
-    except ValueError as exc:
-        assert "integrates to zero" in str(exc)
-
-    tail.lt25, tail.lt50 = 0.0, 0.0        # no claim to contradict -> zero set stands
-    assert sb._tail_nodal_forces(tail) == [0.0, 0.0, 0.0]
-
-    cs = ControlSurfaceLoadResult(
-        surface="aileron", case="down aileron", load_lb=250.0, safety_factor=1.0,
-        stations=[ControlSurfaceStation(x=x, psi=0.0) for x in (0.0, 0.5, 1.0)])
-    try:
-        sb._control_nodal_forces(cs)
-        raise AssertionError("degenerate control-surface profile did not raise")
-    except ValueError as exc:
-        assert "integrates to zero" in str(exc) and "aileron" in str(exc)
-
-    cs.load_lb = 0.0
-    assert sb._control_nodal_forces(cs) == [0.0, 0.0, 0.0]
 
 
-def test_control_surface_force_closure():
-    """Each control-surface FORCE set's applied Fz sums to the critical load."""
-    results = _control_results()
-    assert results
-    for r in results:
-        forces = sb._control_nodal_forces(r)
-        assert math.isclose(sum(forces), r.load_lb, rel_tol=1e-6, abs_tol=1e-6), r.case
-    cards = sb.control_surface_force_moment_cards(results)
-    assert "FORCE" in cards
-    assert sb.control_surface_csv(results).startswith("Surface,Case,GID")
 
 
-def test_control_surface_writers(tmp_path=None):
-    import tempfile
-
-    results = _control_results()
-    d = tmp_path or tempfile.mkdtemp()
-    csv_p = os.path.join(str(d), "cs.csv")
-    bdf_p = os.path.join(str(d), "cs.bdf")
-    sb.write_control_surface_csv(results, csv_p)
-    sb.write_control_surface_force_moment_cards(results, bdf_p)
-    for path in (csv_p, bdf_p):
-        assert os.path.getsize(path) > 0
 
 
 # --------------------------------------------------------------------------- #
@@ -606,26 +392,27 @@ def test_filter_by_selected_case_ids_empty_selection_drops_all_tagged():
 def test_export_package_exposes_all_component_families():
     """Step P1-4: the whole export surface is reachable from ``sloads.export``.
 
-    Before P1-4 ``__all__`` listed only wing + tail, so a caller following the
-    package API could export only two of the four component families. The concept
-    deliverable is "all components to sbeam" -- assert body + control are both
-    importable from the package (not just the submodule).
+    Step P1-4 asserted that all four *component deck* families were reachable
+    from the package. **Note 56 D-56.2 deleted all of them**, so what this test
+    pins is the surface that replaced them: the applied load set and the
+    station numbering, which are what the decks were built from and what the
+    deliverable is now stated at.
 
-    The **case index and the export-scope filter left this surface** with note 56
-    D-56.1: they emit no bulk data, so they are not a component family and not
-    part of the export package's API. Their home is
-    :mod:`sloads.report.tables`, and the second half of this test asserts they
-    are reachable there and *not* here -- a re-export would put one name at two
-    addresses, which is the thing that decision removes.
+    The second half is the half that keeps its force. Names that left the
+    package must be **absent**, not re-exported: a compatibility alias would put
+    one name at two addresses, which is exactly the condition note 56 removes.
+    Both groups are listed -- the report tables that went to
+    :mod:`sloads.report.tables` at D-56.1, and the deck writers that went
+    nowhere at D-56.2.
     """
     import sloads.export as export_pkg
     from sloads.export import (  # noqa: F401
-        body_force_moment_cards,
-        body_span_load_csv,
-        control_surface_csv,
-        control_surface_force_moment_cards,
-        write_control_surface_csv,
-        write_control_surface_force_moment_cards,
+        applied_load_csv,
+        applied_loads,
+        beam_station_gid,
+        body_station_gids,
+        station_gid,
+        write_applied_load_csv,
     )
     from sloads.report.tables import (  # noqa: F401
         case_index_csv,
@@ -635,12 +422,9 @@ def test_export_package_exposes_all_component_families():
 
     # Every re-exported name is advertised in __all__ and resolves to the
     # sbeam_bridge implementation (no accidental shadowing).
-    for name in (
-        "body_span_load_csv", "body_force_moment_cards",
-        "control_surface_csv", "write_control_surface_csv",
-        "control_surface_force_moment_cards",
-        "write_control_surface_force_moment_cards",
-    ):
+    for name in ("applied_loads", "applied_load_csv", "write_applied_load_csv",
+                 "station_gid", "beam_station_gid", "body_station_gids",
+                 "wing_nodal_loads"):
         assert name in export_pkg.__all__, f"{name} missing from export __all__"
         assert getattr(export_pkg, name) is getattr(sb, name)
 
@@ -650,6 +434,18 @@ def test_export_package_exposes_all_component_families():
         assert not hasattr(export_pkg, name), (
             f"{name} is a report table (note 56 D-56.1); the export package "
             "must not re-export it")
+
+    for name in ("span_load_csv", "force_moment_cards", "stick_model_bdf",
+                 "body_span_load_csv", "body_force_moment_cards",
+                 "body_fitting_load_csv", "tail_chordwise_csv",
+                 "tail_force_moment_cards", "tail_span_csv",
+                 "tail_span_force_moment_cards", "control_surface_csv",
+                 "control_surface_force_moment_cards"):
+        assert not hasattr(export_pkg, name), (
+            f"{name} is a per-component deck writer (note 56 D-56.2); it was "
+            "deleted, and an alias here would resurrect the name without the "
+            "artifact")
+        assert not hasattr(sb, name), f"{name} still exists in sbeam_bridge"
 
 
 # --------------------------------------------------------------------------- #
@@ -692,65 +488,10 @@ def test_wing_export_mixes_factors_across_cases():
                             rel_tol=1e-9, abs_tol=1e-6), r.case
 
 
-def test_cards_state_the_factor_they_used():
-    """The ``$`` header quotes the case's actual SF, never a baked-in 1.5.
-
-    At ``SF = 1.0`` that sentence is the already-ultimate one (note 49 OR-118):
-    no shipped fixture exports a 23.367(a)(2) or 23.561(b) case to a deck, so
-    this is where the branch is exercised on a real deck rather than on a string.
-    """
-    cards = sb.force_moment_cards(_wing_net_with_sf(1.0))
-    # "SF=1.0", not "SF=1" -- deliverable formatting (M4-16).
-    assert "$ Loads are ALREADY ULTIMATE (SF=1.0) -- apply no further" in cards
-    assert "SF=1.5" not in cards
 
 
-def test_span_csv_carries_the_safety_factor_column():
-    """Every exported load case states its factor (the CLAUDE.md ULT contract)."""
-    from sloads.report.methods import strip_comment_lines
-
-    rows = [ln.split(",") for ln in strip_comment_lines(
-        sb.span_load_csv(_wing_net_with_sf(1.0))).strip().splitlines()]
-    assert rows[0][-1] == "SF"
-    assert {r[-1] for r in rows[1:]} == {"1.0"}
 
 
-def test_body_tail_control_exports_honour_the_factor():
-    """The other three component families state the result's own factor too.
-
-    They *stated* and *scaled* by it until note 49 OR-116; now they only state
-    it, so what this holds is that the number still comes off the case."""
-    from sloads.modules.body_loads import build_body_loads
-    from sloads.modules.taildist import build_tail_chordwise
-
-    p = io.load_project(_GA)
-    if p.envelope is None:
-        p.envelope = build_envelope(p)
-
-    body = build_body_loads(p)
-    for r in body:
-        r.safety_factor = 1.0
-    body_rows = [ln.split(",") for ln in sb.body_span_load_csv(body).strip().splitlines()]
-    assert body_rows[0][-1] == "SF" and {r[-1] for r in body_rows[1:]} == {"1.0"}
-    assert ("$ Loads are ALREADY ULTIMATE (SF=1.0) -- apply no further"
-            in sb.body_force_moment_cards(body))
-
-    tail = build_tail_chordwise(p)
-    assert tail
-    for r in tail:
-        r.safety_factor = 1.0
-        assert math.isclose(sum(sb._tail_nodal_forces(r)), r.lt25 + r.lt50,
-                            rel_tol=1e-6, abs_tol=1e-6), r.case
-    tail_rows = [ln.split(",") for ln in sb.tail_chordwise_csv(tail).strip().splitlines()]
-    assert tail_rows[0][-1] == "SF" and {r[-1] for r in tail_rows[1:]} == {"1.0"}
-
-    control = _control_results()
-    for r in control:
-        r.safety_factor = 1.0
-        assert math.isclose(sum(sb._control_nodal_forces(r)), r.load_lb,
-                            rel_tol=1e-6, abs_tol=1e-6), r.case
-    cs_rows = [ln.split(",") for ln in sb.control_surface_csv(control).strip().splitlines()]
-    assert cs_rows[0][-1] == "SF" and {r[-1] for r in cs_rows[1:]} == {"1.0"}
 
 
 def test_taildist_and_body_copy_the_condition_factor():
@@ -892,92 +633,12 @@ def test_sob_internal_loads_match_the_cumulative_table_at_a_cut():
                                 rel_tol=1e-6, abs_tol=1.0)
 
 
-def test_sob_collapse_plus_internal_preserves_the_resultant():
-    """The LRA-model wing beam starts at the SOB with nothing lost (R-3).
-
-    The collapsed inboard load (force + lever-arm couples at the SOB) plus the
-    internal load outboard must reproduce the half-span root totals exactly --
-    on ``atr42_100``, whose concentrated wing masses (engines, nacelles, fuel)
-    only balance if the offset couples carry their lever arms through both sums.
-    """
-    p = io.load_project(_ATR)
-    if p.envelope is None:
-        p.envelope = build_envelope(p)
-    from sloads.derived_geometry import sob_station
-
-    y_sob = sob_station(p).y
-    for r in build_net_loads(p).wing_net:
-        s, sf = r.stations, r.safety_factor
-        si = sb.sob_internal_loads(r, y_sob)
-        cl = sb.sob_collapsed_load(r, sb.sob_reference_point(r, y_sob))
-        assert cl.gid == sb.sob_gid()
-        assert math.isclose(cl.fz + si.sz, s[0].sz, rel_tol=1e-9, abs_tol=1e-6)
-        assert math.isclose(cl.fx + si.sx, s[0].sx, rel_tol=1e-9, abs_tol=1e-6)
-        # Torsion is about the SOB reference point, so the root value transfers
-        # over the chordwise and vertical offset between it and the root station
-        # -- the same transfer the two halves already share (note 46 OR-67).
-        ref = sb.sob_reference_point(r, y_sob)
-        want_my = (s[0].myy + (s[0].z - ref[2]) * s[0].sx
-                   - (s[0].x - ref[0]) * s[0].sz)
-        assert math.isclose(cl.my + si.myy, want_my, rel_tol=1e-9, abs_tol=1e-3)
-        # Moments about the SOB: root bending transferred over (y0 - y_sob).
-        assert math.isclose(cl.mx + si.mxx,
-                            (s[0].mxx + s[0].sz * (s[0].y - y_sob)),
-                            rel_tol=1e-6, abs_tol=1.0)
-        assert math.isclose(cl.mz + si.mzz,
-                            (s[0].mzz + s[0].sx * (s[0].y - y_sob)),
-                            rel_tol=1e-6, abs_tol=1.0)
 
 
-def test_the_stick_deck_gains_a_tagged_sob_node_and_keeps_its_cards():
-    """Step 13 in the per-component wing deck: the node is ADDED, the oracle kept.
-
-    Plan 10 §1.1 constraint 1: the station set cannot be truncated at the SOB.
-    So against the same results, the tagged deck must carry every GRID, FORCE
-    and MOMENT card of the plain one unchanged -- the SOB is one new GRID
-    (band ``lra-sob``, decision BM-5) splitting one CBAR, and nothing else.
-    """
-    from sloads.derived_geometry import sob_station
-
-    p, wing = _project_and_wing(_RJ)
-    sob = sob_station(p)
-    plain = sb.stick_model_bdf(wing)
-    tagged = sb.stick_model_bdf(wing, sob=sob)
-    assert "\n$ SLOADS-NODE lra-sob R\n" not in plain
-    assert "\n$ SLOADS-NODE lra-sob R\n" in tagged
-    g0, c0, _, f0, m0 = parse_cards(plain)
-    g1, c1, _, f1, m1 = parse_cards(tagged)
-    assert f1 == f0 and m1 == m0
-    assert set(g1) - set(g0) == {sb.sob_gid()}
-    assert all(g1[gid] == g0[gid] for gid in g0)
-    assert len(c1) == len(c0) + 1
-    for (_, _, gb_prev), (_, ga, _) in zip(c1, c1[1:]):
-        assert ga == gb_prev
-    # The node sits at the resolved butt line, interpolated onto the beam line.
-    assert math.isclose(g1[sb.sob_gid()][1], sob.y)
-    # Each case states its closed-form SOB internal loads in-band.
-    assert tagged.count("$ SOB internal loads, case") == len(wing)
 
 
-def test_a_project_without_a_body_ships_the_deck_it_always_did():
-    """ga6/concept_heavy state no side of body -> the deck must not invent one."""
-    results = _wing_net(_GA)
-    assert sb.stick_model_bdf(results) == sb.stick_model_bdf(results, sob=None)
-    assert "\n$ SLOADS-NODE lra-sob R\n" not in sb.stick_model_bdf(results)
 
 
-def test_a_sob_outside_the_beam_is_refused_not_bent_onto_it():
-    """A butt line outboard of the tip (or on the clamp) is a geometry statement
-    this deck cannot carry: no node, no tag, deck unchanged."""
-    from sloads.derived_geometry import SobStation
-
-    results = _wing_net(_GA)
-    tip = results[0].stations[-1].y
-    for bad_y in (tip + 10.0, 0.0):
-        text = sb.stick_model_bdf(
-            results, sob=SobStation(bad_y, True, "test", "test"))
-        assert "\n$ SLOADS-NODE lra-sob R\n" not in text
-        assert text == sb.stick_model_bdf(results)
 
 
 def test_the_export_package_takes_no_silent_defaults():
@@ -1007,14 +668,21 @@ def test_the_export_package_takes_no_silent_defaults():
 
 def test_tail_span_export_refuses_an_unknown_component():
     """The slice lookup is a map, so a bad component name is a stated error,
-    not an empty export (CH-2)."""
+    not an empty export (CH-2).
+
+    Asserted at ``applied_loads`` since note 56 D-56.2 deleted the spanwise
+    deck writer: the map is the same one, and the public entry point is the
+    better place to hold it.
+    """
     project = io.load_project(_GA)
-    try:
-        sb.tail_span_force_moment_cards(project, component="canard")
-    except ValueError as exc:
-        assert "unknown component" in str(exc) and "'canard'" in str(exc)
-    else:
-        raise AssertionError("an unknown component was accepted")
+    for entry in (lambda: sb.applied_loads("canard", project),
+                  lambda: sb._tail_span_results(project, "canard")):
+        try:
+            entry()
+        except ValueError as exc:
+            assert "'canard'" in str(exc), str(exc)
+        else:
+            raise AssertionError("an unknown component was accepted")
 
 
 def test_card_components_snap_dust_and_negative_zero():
@@ -1062,6 +730,11 @@ if __name__ == "__main__":
 def test_a_mixed_basis_csv_keeps_a_plain_header_and_an_all_ultimate_one_is_marked():
     """OR-118a's per-table rule, now that a mixed table exists (note 44 §21).
 
+    Read against the v-tail's **applied load set** since note 56 D-56.2 deleted
+    the chordwise CSV it used to read; the 23.367(a)(2) case sits in that file
+    for the same reason it sat in the other one, so the rule keeps its live
+    demonstration.
+
     This test used to assert the *fact* that no already-ultimate case reached a
     per-component CSV, and said in as many words that it was a fact about the
     result set rather than a law -- so that the day one arrived, the guard would
@@ -1082,25 +755,26 @@ def test_a_mixed_basis_csv_keeps_a_plain_header_and_an_all_ultimate_one_is_marke
     import glob
     import os
 
-    from sloads.export.sbeam_bridge import tail_chordwise_csv
+    from sloads.export.sbeam_bridge import applied_load_csv
     from sloads.io import load_project
-    from sloads.modules.taildist import build_tail_chordwise
+    from sloads.modules.tail_span import build_tail_span
     from sloads.safety_factors import shared_basis_factor
 
     def _header_marked(text):
-        return "-ULT" in text.splitlines()[0]
+        return "-ULT" in [ln for ln in text.splitlines()
+                          if not ln.startswith("#")][0]
 
     saw_mixed = False
     for path in sorted(glob.glob(os.path.join(_EXAMPLES, "*.project.json"))):
         project = load_project(path)
         try:
-            results = build_tail_chordwise(project)
+            results = build_tail_span(project).get("vtail") or []
         except Exception:
             continue
         if not results:
             continue
         factors = {r.safety_factor for r in results}
-        text = tail_chordwise_csv(results)
+        text = applied_load_csv(results, component="vtail")
         if len(factors) > 1:
             saw_mixed = True
             assert not _header_marked(text), (
@@ -1109,7 +783,8 @@ def test_a_mixed_basis_csv_keeps_a_plain_header_and_an_all_ultimate_one_is_marke
             assert shared_basis_factor(results) is None
             # ...and the distinction has to be somewhere, so it is in the rows.
             assert any(row.strip().endswith(",1.0")
-                       for row in text.splitlines()), (
+                       for row in text.splitlines()
+                       if not row.startswith("#")), (
                 f"{os.path.basename(path)}: the already-ultimate row states no "
                 f"SF of 1.0, so the mixed file states its basis nowhere")
         elif factors == {1.0}:
@@ -1118,7 +793,7 @@ def test_a_mixed_basis_csv_keeps_a_plain_header_and_an_all_ultimate_one_is_marke
                 f"the load columns must carry -ULT (OR-118)")
 
     assert saw_mixed, (
-        "no shipped example produces a mixed-basis tail file any more. Either "
+        "no shipped example produces a mixed-basis fin file any more. Either "
         "23.367 has left the fin's critical set (note 44 OR-172) or the "
         "fixtures have changed; this rule then has no live demonstration and "
         "the reason it exists has to be re-established, not deleted.")

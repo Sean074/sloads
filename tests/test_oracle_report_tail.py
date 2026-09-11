@@ -40,7 +40,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sloads import io  # noqa: E402
-from sloads.export.sbeam_bridge import tail_span_csv  # noqa: E402
+from sloads.export.sbeam_bridge import applied_load_csv  # noqa: E402
 from sloads.models.report import ReportSpec  # noqa: E402
 from sloads.modules.select import default_critical  # noqa: E402
 from sloads.modules.taildist import build_tail_chordwise  # noqa: E402
@@ -414,26 +414,35 @@ def test_the_checked_pair_states_the_pitch_inertia_it_was_computed_with():
 # --------------------------------------------------------------------------- #
 # OR-130a -- the spanwise loads are appendix content, and D is a view
 # --------------------------------------------------------------------------- #
-def test_appendix_d_and_the_tail_span_csv_are_one_load_set():
+def test_appendix_d_and_the_applied_load_csv_are_one_load_set():
     """OR-64's ruling one surface over: a view of the export owner, not a
     second assembler. Compared as numbers over the columns both carry, because
     the two round for different readers; the identity that matters is the load.
+
+    **The authority changed, the gate did not** (note 56 D-56.2/D-56.9). It read
+    ``tail_span_csv`` until the spanwise tail deck and its companion were
+    deleted; ``applied_loads("htail", ...)`` is the row set both were built
+    from. The h-tail's applied normal force is its ``Fz`` in either file --
+    the appendix was already applied-only, so nothing about the comparison
+    narrows.
     """
     from sloads.modules.tail_span import build_tail_span
     project = io.load_project(_GA)
     results = build_tail_span(project)["htail"]
-    rows = list(csv.DictReader(_io.StringIO(tail_span_csv(results, "htail"))))
+    _text = applied_load_csv(results, component="htail")
+    _rows = "\n".join(ln for ln in _text.splitlines() if not ln.startswith("#"))
+    rows = list(csv.DictReader(_io.StringIO(_rows)))
     table = _appendix(_doc(), oc.HTAIL_LOAD_STATIONS).tables[0]
     assert len(table.rows) == len(rows)
     gid = table.columns.index("GID")
     ids = {r.case: r.case_ref.case_id for r in results}
     for row, want in zip(table.rows, rows):
         assert row[0] == ids[want["Case"]] and row[gid] == want["GID"]
-        # The applied normal force is the identity that matters: the deck and
-        # the appendix are the same load set, printed for two readers.
+        # The applied normal force is the identity that matters: the delivered
+        # cards and the appendix are the same load set, printed for two readers.
         i = next(i for i, c in enumerate(table.columns) if c.startswith("Fz"))
-        assert math.isclose(float(row[i].replace(",", "")), float(want["Fn (lb)"]),
-                            rel_tol=1e-3, abs_tol=1.0), (row[i], want["Fn (lb)"])
+        assert math.isclose(float(row[i].replace(",", "")), float(want["Fz (lb)"]),
+                            rel_tol=1e-3, abs_tol=1.0), (row[i], want["Fz (lb)"])
     # ...and the carried set is deliberately absent (owner, 2026-09-07).
     assert not any(c.startswith(("Sn", "Mxx", "Myy")) for c in table.columns)
 

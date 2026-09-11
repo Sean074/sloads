@@ -359,6 +359,57 @@ anything finer.
 
 ---
 
+## 7b. Implementation record
+
+Written as the slices land, so the note stays the account of what happened and
+not only of what was intended.
+
+| slice | what landed | date |
+|---|---|---|
+| 1 | **The load-output contract statements get one owner.** `deck_format` takes `solver_units`, `load_label`, `ult_label`, `SUITE_SF`, `case_sf`, `basis_sentence`; four private `_units` copies and four inline `Channel.SOLVER` resolutions collapse onto one. A drift guard pins `deck_format.py` as the only module in `export/` that resolves the solver channel. | 2026-09-10 |
+| 2 | **The deliverable tables that are not decks move to `report/`.** The case index, the governing safety-factor table, the gear interface report and the export-scope filter become `sloads/report/tables.py`; the export package stops re-exporting them and a guard asserts their absence. Deliverables byte-identical. | 2026-09-10 |
+| 3 | **The five per-component decks are deleted** (D-56.2). `sbeam_bridge.py` 2,639 → 1,413; `EXPORT_TARGETS` 10 → 4; band registry retires four blocks; three standing limitations retire; sbeam digest channels 83 → 33. | 2026-09-11 |
+
+**Two departures from the note as written, both deliberate.**
+
+1. **The order of steps 2 and 3 is inverted for the applied-load group.**
+   Gate 1 ("the move must precede the delete") was reasoned on the *report
+   tables*, which sit physically among the deck writers and which the oracle
+   report reaches — slice 2 satisfied it. For the applied-load family an AST
+   closure showed the coupling to the deck writers is **fourteen names, all of
+   them GID allocators, bands or results-coercion helpers**, which is D-56.9's
+   own statement in structural form. The delete keeps all fourteen, so moving
+   first would have meant a transitional `report → export.sbeam_bridge` import
+   and a second move of the same names one slice later.
+
+2. **`EXPORT_TARGETS` is `("balanced", "gear", "lra", "mass")`, not
+   `("lra", "mass")`.** `gear` survives because **D-56.1 — this note — reclassified
+   the gear interface report as a document** and moved it to `report.tables`; it
+   ships in the bundle and this is the only headless route to it. `balanced`
+   survives because demoting the balanced deck to an internal producer turns on
+   §8's first open item, which is still open. The "ten to two" line was a count,
+   not a decision, and dropping a live deliverable to satisfy it would have been
+   the wrong reading of the note against itself.
+
+**One defect introduced and not closed.** The case index still publishes a
+`LOAD/SUBCASE (component)` column and no artifact quotes those numbers any more.
+`tests/test_case_ids.py` asserts the absence explicitly, so the gap fails loudly
+if a component pairing reappears — but an index naming a deck that does not
+exist is misleading content in a shipped deliverable. It narrows **#209** and
+should be the next thing closed after the applied-load move.
+
+**One gate lost, recorded here rather than in a test that no longer exists.**
+`test_the_sob_internal_load_is_the_first_outboard_elements_end_force` solved the
+wing stick deck and compared the recovered CBAR end force against
+`sob_internal_loads`. The closed form is still gated against the cumulative
+table (`test_sbeam_bridge`), but the **solver** cross-check has no host: it needs
+a deck with a CBAR outboard of the tagged SOB node whose cards are that wing
+case's, and the LRA deck's cases are balanced cases carrying inertia — a
+different claim, not a rename. It belongs to D-56.4's mesh, where the LRA deck
+becomes the authority for G-OR-90 as well.
+
+---
+
 ## 8. Deferred
 
 * **Whether `roundtrip.py` (595 lines) collapses to the single LRA solve gate.**

@@ -641,9 +641,11 @@ Design note 44 §13 (OR-94 … OR-102), §14/design note 50 (the carry-through) 
   reference axis, so `Y` is zero by construction and `Z` is that axis's
   waterline — the position of the structure, not of the mass it carries.
 - **Appendix C is a view of the export owner, not a second assembler.** Its rows
-  are the ones `sbeam_bridge.body_span_load_csv` writes, in the same order with
-  the same grid identifiers, converted at this document's own boundary rather
-  than the solver deck's. It **SHALL** start a fresh page and be landscape, on
+  are the ones `sbeam_bridge.applied_loads("fuselage", ...)` produces, in the
+  same order with the same grid identifiers, converted at this document's own
+  boundary rather than the solver deck's. (It read `body_span_load_csv` until
+  note 56 D-56.2 deleted that deck companion; the underlying row set is the
+  same one, which is why the appendix did not change with it.) It **SHALL** start a fresh page and be landscape, on
   Appendix B's rule.
 
 
@@ -1333,11 +1335,11 @@ without a guard is prose, not a gate).
 | 5.1 Design conditions | 2026-09-06 | `test_oracle_report_tail.py::test_the_23_427_deviation_is_stated_where_the_case_is_introduced`, `::test_section_five_points_at_the_non_conventional_tail_limitation`, `::test_every_appendix_a_condition_is_present_and_named_as_the_oracle_names_it` |
 | 5.2 Critical loads and control-surface loads | 2026-09-06 | `test_oracle_report_tail.py::test_every_condition_states_its_elevator_load`, `::test_the_unsymmetrical_row_states_its_split_beside_its_elevator_load`, `::test_the_checked_pair_states_the_pitch_inertia_it_was_computed_with`, `::test_every_condition_states_its_aero_state_or_the_reason_there_is_none`, `::test_the_printed_totals_are_the_modules_own_unscaled_values` |
 | 5.3 Chordwise distribution | 2026-09-06 | `test_oracle_report_tail.py::test_the_printed_pressures_are_taildists_own`, `::test_the_chord_stations_print_once_and_the_constants_are_reference_data`, `::test_the_chordwise_figure_plots_every_condition_once` |
-| 5.4 Spanwise loads and Appendix D | 2026-09-06 | `test_oracle_report_tail.py::test_appendix_d_and_the_tail_span_csv_are_one_load_set`, `::test_the_spanwise_notation_defines_every_symbol_a_column_uses`, `::test_the_spanwise_subsection_states_it_has_no_printed_oracle` |
+| 5.4 Spanwise loads and Appendix D | 2026-09-06 | `test_oracle_report_tail.py::test_appendix_d_and_the_applied_load_csv_are_one_load_set`, `::test_the_spanwise_notation_defines_every_symbol_a_column_uses`, `::test_the_spanwise_subsection_states_it_has_no_printed_oracle` |
 | 5. The basis and absence | 2026-09-06 | `test_oracle_report_tail.py::test_no_load_the_tail_section_prints_is_marked_ultimate`, `::test_every_tail_load_table_states_the_factor_it_does_not_apply`, `::test_a_project_with_no_tail_states_its_absence_and_still_builds` |
 | 5.1 Input data, axis and constants | 2026-09-07 | `test_oracle_report_tail.py::test_the_input_data_subsection_draws_the_surface_with_its_axis`, `::test_the_input_data_subsection_states_the_axis_station_by_station` |
 | 5.5 The hinge-moment absence | 2026-09-07 | `test_oracle_report_tail.py::test_the_spanwise_subsection_says_why_there_is_no_hinge_moment` |
-| Appendix D as an applied deck | 2026-09-07 | `test_oracle_report_tail.py::test_appendix_d_places_every_load_on_the_airplane`, `::test_appendix_d_and_the_tail_span_csv_are_one_load_set` |
+| Appendix D as an applied deck | 2026-09-07 | `test_oracle_report_tail.py::test_appendix_d_places_every_load_on_the_airplane`, `::test_appendix_d_and_the_applied_load_csv_are_one_load_set` |
 | 7-9. Control surfaces deliver a pressure and no appendix (OR-147) | 2026-09-07 | `test_oracle_report_control.py::test_the_control_sections_add_no_appendix_and_no_manifest_row`, `::test_the_three_sections_are_built_rather_than_placeholders` |
 | 7-9. The geometry is Section 2's (OR-148) | 2026-09-07 | `test_oracle_report_control.py::test_no_control_section_reprints_a_geometry_input`, `::test_every_control_section_points_at_the_geometry_section` |
 | 7-9. One sign convention (OR-150) | 2026-09-07 | `test_oracle_report_control.py::test_every_control_section_states_the_sign_convention_in_the_same_words`, `::test_the_aileron_prints_both_throws_with_opposite_signs` |
@@ -1357,7 +1359,7 @@ without a guard is prose, not a gate).
 | 10.1 Three views, and the body outline's owner (OR-168, OR-169) | 2026-09-07 | `test_oracle_report_engine.py::test_the_three_views_are_built_and_name_what_they_drew`, `::test_a_project_with_no_outline_still_draws_its_engines`, `::test_a_project_with_no_engine_states_the_section_absent`, `::test_the_body_outline_has_one_owner_and_three_views` |
 | 4.1 Side view, and mass against beam | 2026-09-07 | `test_oracle_report_fuselage.py::test_the_side_view_draws_the_mass_the_beam_and_the_load_paths`, `::test_the_beam_table_states_where_the_mass_is_and_where_the_beam_runs` |
 | 6. Vertical Tail (mirror, withholding, Appendix E) | 2026-09-06 | `test_oracle_report_vtail.py::test_section_six_renders_five_subsections_mirroring_section_five`, `::test_every_appendix_a_vertical_tail_condition_is_present_and_named`, `::test_every_arrangement_other_than_conventional_withholds_the_span_loads`, `::test_appendix_e_places_every_load_where_the_deck_places_it`, `::test_no_load_appendix_e_prints_is_marked_ultimate` |
-| Applied appendices: one deck in one frame (OR-139…OR-146, G-OR-90) | 2026-09-07 | `test_oracle_report_applied.py::test_every_applied_appendix_prints_the_same_columns`, `::test_every_tail_appendix_row_is_the_card_the_deck_writes`, `::test_every_applied_appendix_says_why_its_zero_columns_are_zero`, `::test_no_applied_appendix_calls_a_live_component_absent` |
+| Applied appendices: one deck in one frame (OR-139…OR-146, G-OR-90) | 2026-09-07 | `test_oracle_report_applied.py::test_every_applied_appendix_prints_the_same_columns`, `::test_the_tail_appendices_carry_the_torsion_the_deck_emits`, `::test_every_applied_appendix_says_why_its_zero_columns_are_zero`, `::test_no_applied_appendix_calls_a_live_component_absent` |
 | 11. One Engine Inoperative (OR-171…OR-182, G-OR-113…G-OR-122) | 2026-09-07 | `test_oracle_report_oei.py::test_the_engine_failure_cases_are_in_the_fins_critical_set`, `::test_every_admitted_case_reaches_the_distributions_the_appendix_and_the_deck`, `::test_a_case_that_does_not_recover_is_printed_and_reaches_no_envelope`, `::test_the_ultimate_case_states_its_factor_and_the_section_marks_no_load_ultimate`, `::test_a_single_engine_airplane_is_told_the_condition_does_not_apply` |
 | 12. Landing Gear Loads (OR-183…OR-193, G-OR-123…G-OR-130) | 2026-09-07 | `test_oracle_report_landing.py::test_every_landload_case_reaches_the_section_and_the_appendix`, `::test_each_family_is_ranked_once_per_gear_it_loads`, `::test_the_governing_load_factor_is_printed_beside_the_energy_estimate`, `::test_three_attitude_figures_partition_every_case`, `::test_the_conditions_the_fuselage_section_points_here_for_are_here`, `::test_the_analysis_body_is_complete` |
 | Appendix A: the V-n condition register (OR-193…OR-203, G-OR-131…G-OR-138) | 2026-09-07 | `test_oracle_report_vn.py::test_appendix_a_carries_every_balanced_point_and_no_others`, `::test_the_input_echo_is_retired_and_leaves_no_dangling_reference`, `::test_every_selected_case_id_appears_against_its_own_point`, `::test_every_printed_nx_is_the_inertia_drag_factor_of_its_own_row`, `::test_the_csv_carries_exactly_the_rows_the_appendix_prints`, `::test_every_or_id_cited_anywhere_is_defined_in_a_design_note` |

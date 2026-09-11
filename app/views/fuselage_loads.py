@@ -30,7 +30,6 @@ from sloads import (
     to_imperial_scalar,
     to_si_scalar,
 )
-from sloads.export import sbeam_bridge as sb
 from sloads.models import FuselageMassInput, FuselageStation
 from sloads.modules.body_loads import body_load_rows, build_body_loads
 
@@ -229,13 +228,13 @@ st.dataframe(pd.DataFrame(body_limit_rows(body_load_rows([res]), system)),
 # converted, unit-suffixed rows, L-8i -- ``limit_csv`` owns both) vs the sbeam
 # bridge's body span CSV (per-case SF column), the same content family the
 # Export page ships. The ``*_ULT.csv`` name is stale until OR-81 (0.8.3).
+# One file, not two: note 56 D-56.2 deleted the per-component fuselage deck and
+# the span-load CSV beside it. The fuselage applied load set survives and is on
+# the **Export** page, which is where the deck channel now lives.
 _dl = st.columns(2)
 _dl[0].download_button("Download fuselage loads — analysis table (CSV)",
                        body_limit_csv(body_load_rows(results), system),
                        file_name="net_fuselage_loads_LIMIT.csv", mime="text/csv")
-_dl[1].download_button("Download fuselage loads — sbeam bridge (CSV)",
-                       sb.body_span_load_csv(results, system=system),
-                       file_name="net_fuselage_loads_ULT.csv", mime="text/csv")
 st.caption(
     "Both files are **LIMIT**; each row states the 14 CFR 23.303 factor it does "
     "not apply. The analysis table carries a `Basis` column and matches the "

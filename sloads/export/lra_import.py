@@ -43,7 +43,7 @@ from ..modules.balance import build_balanced_cases
 from ..units import UnitSystem
 from .balanced_deck import case_sids
 from .coordinates import SBEAM_CID, to_force, to_moment, transfer_couple
-from .deck_format import comment, fmt3, solver_units, stamped
+from .deck_format import basis_sentence, comment, fmt3, solver_units, stamped
 from .equilibrium import parse_cards
 from .lra_model import (
     LraModel,
@@ -54,7 +54,6 @@ from .lra_model import (
     build_lra_model,
     nearest_node,
 )
-from .sbeam_bridge import basis_sentence
 
 Vec3 = Tuple[float, float, float]
 

@@ -156,17 +156,21 @@ def _band(*args, **kwargs) -> Band:
 BANDS: Tuple[Band, ...] = (
     # ----------------------------------------------------------------- GIDs
     _band("wing-stick", IdKind.GID, 1, 1000, "sbeam_bridge.station_gid",
-          "GID 1 is the clamped root; station i takes 2 + i."),
+          "Station i takes 2 + i. GID 1 was the stick model's clamped root and "
+          "is unallocated since note 56 D-56.2 deleted that deck; the hole is "
+          "deliberate until D-56.3's renumber, because closing it now would "
+          "move every station's id for no gain."),
     _band("body-mass", IdKind.GID, 1001, 500, "sbeam_bridge.beam_station_gid",
           "Fuselage mass stations and the tail air load, nose->tail."),
     _band("body-reaction", IdKind.GID, 1501, 500, "sbeam_bridge.body_station_gids",
           "Wing carry-through / fallback correction nodes -- a separate band so "
           "inserting one never renumbers a mass station."),
-    _band("tail-chord-htail", IdKind.GID, 2001, 100, "sbeam_bridge.tail_station_gid"),
-    _band("tail-chord-vtail", IdKind.GID, 2101, 100, "sbeam_bridge.tail_station_gid",
-          "Its own sub-block: the two surfaces' chord stations are different "
-          "points, so one shared run would define a node at two locations."),
-    _band("control-surface", IdKind.GID, 3001, 1000, "sbeam_bridge.control_station_gid"),
+    # 2001-2200 (tail chordwise) and 3001-4000 (control surface) were retired
+    # by note 56 D-56.2 with the decks that allocated them: a chordwise tail
+    # station and a control-surface chord station are points no delivered
+    # artifact states any more. The ranges are left unregistered rather than
+    # reused, so a band that reappears there is a new decision and not an
+    # accidental collision with a published map; D-56.3's renumber closes them.
     _band("tail-span-htail", IdKind.GID, 4001, 500, "sbeam_bridge.tail_span_gid"),
     _band("tail-span-vtail", IdKind.GID, 4501, 500, "sbeam_bridge.tail_span_gid"),
     _band("tail-control-htail", IdKind.GID, 5001, 300,
@@ -230,8 +234,9 @@ BANDS: Tuple[Band, ...] = (
           "Numbered clear of 6001-7000 so that range keeps its published "
           "meaning as the balanced deck's wing and centreline nodes."),
     # ----------------------------------------------------------------- EIDs
-    _band("stick-element", IdKind.EID, 1, 1000, "sbeam_bridge.stick_model_bdf",
-          "The CBAR chain of the minimal stick model."),
+    # EID 1-1000 was the wing stick model's CBAR chain, retired with the deck
+    # (note 56 D-56.2). Left unregistered for the reason the GID holes above
+    # are: the published map said what lived there.
     _band("mass-baseline", IdKind.EID, 9001, 100, "mass_cards.mass_cards",
           "Always-aboard items -- the MASSSET baseline (plan 12 C-1).",
           clear_of_gids=True),
@@ -262,7 +267,7 @@ BANDS: Tuple[Band, ...] = (
           "deck's ties are never mistaken for exported structure.",
           clear_of_gids=True),
     # ----------------------------------------------------------------- SIDs
-    _band("spc", IdKind.SID, 1, 1, "sbeam_bridge / balanced_deck / roundtrip",
+    _band("spc", IdKind.SID, 1, 1, "balanced_deck / lra_model / roundtrip",
           "The constraint set. A different NASTRAN namespace from LOAD, but "
           "registered so nothing quietly allocates a load set at 1."),
     _band("subcase-W", IdKind.SID, 101, 99, "case_ids.subcase_id"),

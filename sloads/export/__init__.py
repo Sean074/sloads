@@ -1,23 +1,25 @@
 """Export bridges from SLOADS results to external structural tools.
 
-Currently the sbeam bridge (C4): turns SLOADS component loads into
-sbeam-consumable span/chordwise-load CSVs, ``FORCE``/``MOMENT`` bulk-data cards,
-and an optional CBAR stick-model BDF. See :mod:`sloads.export.sbeam_bridge`.
+**One solver artifact** (note 56): the full-span balanced free-free airplane
+model on the loads reference axis — :mod:`sloads.export.lra_model` — plus the
+``CONM2`` mass model beside it. The five families of *per-component* deck this
+package used to ship (wing stick BDF, body, tail chordwise, tail spanwise,
+control surface, each with a CSV companion) were deleted by **D-56.2**. They
+were parallel model concepts sharing one ID space with the deliverable, none of
+them the deliverable, and the GIDs the deliverable needed it was borrowing from
+them.
 
-The concept deliverable is "all components to sbeam", so the package API exports
-all four component families plus the case index:
-
-- **Wing** — :func:`span_load_csv`, :func:`force_moment_cards`,
-  :func:`stick_model_bdf` (+ ``write_*`` variants), built from the NETLOADS net
-  wing load (``Project.loads.wing_net``).
-- **Body / fuselage** — :func:`body_span_load_csv`, :func:`body_force_moment_cards`,
-  :func:`body_fitting_load_csv` (the wing-attach fitting loads, reported beside
-  the FORCE set rather than in it) — all three with ``write_*`` variants —
-  and :func:`body_station_gids`.
-- **Tail** — :func:`tail_chordwise_csv`, :func:`tail_force_moment_cards`
-  (+ ``write_*`` variants).
-- **Control surfaces** — :func:`control_surface_csv`,
-  :func:`control_surface_force_moment_cards` (+ ``write_*`` variants).
+- **The airplane model** — :mod:`sloads.export.lra_model`: the LRA beam with
+  aero and inertia together, left and right cases, closing against ``nz × W``
+  without the safety factor (gate G-OR-72). :mod:`sloads.export.lra_import`
+  reads a user-defined LRA definition back in, so an imported beam and a
+  generated one are the same contract at different vintages.
+- **The applied load set** — :mod:`sloads.export.sbeam_bridge`:
+  :func:`applied_loads`, what is applied, where, for which case, at what factor,
+  in one row shape for all six components. The station numbering
+  (:func:`station_gid`, :func:`beam_station_gids`, :func:`tail_span_gid`, …)
+  stays with it: an applied-load row states which station it is at, and the LRA
+  model and the mass export tie to the same points, so they must agree.
 - **Mass model** — :mod:`sloads.export.mass_cards`: :func:`conm2_fragment`,
   :func:`mass_check_deck` and :func:`inertia_only_cards`, the ``CONM2``/
   ``MASSSET`` export that gives sbeam an *independently parsed* mass model to
@@ -56,31 +58,13 @@ from .equilibrium import (
 )
 from .sbeam_bridge import (
     NodalLoad,
+    applied_load_csv,
+    applied_loads,
     beam_station_gid,
-    body_fitting_load_csv,
-    body_force_moment_cards,
-    body_span_load_csv,
     body_station_gids,
-    control_surface_csv,
-    control_surface_force_moment_cards,
-    force_moment_cards,
-    span_load_csv,
     station_gid,
-    stick_model_bdf,
-    tail_chordwise_csv,
-    tail_force_moment_cards,
-    tail_station_gid,
     wing_nodal_loads,
-    write_body_fitting_load_csv,
-    write_body_force_moment_cards,
-    write_body_span_load_csv,
-    write_control_surface_csv,
-    write_control_surface_force_moment_cards,
-    write_force_moment_cards,
-    write_span_load_csv,
-    write_stick_model_bdf,
-    write_tail_chordwise_csv,
-    write_tail_force_moment_cards,
+    write_applied_load_csv,
 )
 from .workbook import build_workbook
 
@@ -89,46 +73,27 @@ __all__ = [
     "CardTotals",
     "NodalLoad",
     "Resultant",
+    # The applied load set (sloads.export.sbeam_bridge)
+    "applied_load_csv",
+    "applied_loads",
     "beam_station_gid",
-    "body_fitting_load_csv",
-    "body_force_moment_cards",
-    # Body / fuselage
-    "body_span_load_csv",
     "body_station_gids",
     "build_workbook",
+    # Export-boundary closure gate (sloads.export.equilibrium)
     "card_totals",
     "closes",
-    # Control surfaces
-    "control_surface_csv",
-    "control_surface_force_moment_cards",
     "deck_resultants",
-    "force_moment_cards",
-    # Export-boundary closure gate (sloads.export.equilibrium)
     "parse_cards",
     "ref_aftmost_loaded",
     "ref_first_loaded",
     "resultant",
-    # Wing
-    "span_load_csv",
+    # Station numbering -- one owner, because the applied set, the LRA model
+    # and the mass export all state which station they are at.
     "station_gid",
-    "stick_model_bdf",
-    # Tail
-    "tail_chordwise_csv",
-    "tail_force_moment_cards",
-    "tail_station_gid",
     "to_force",
     "to_grid",
     "to_moment",
     "to_pressure",
     "wing_nodal_loads",
-    "write_body_fitting_load_csv",
-    "write_body_force_moment_cards",
-    "write_body_span_load_csv",
-    "write_control_surface_csv",
-    "write_control_surface_force_moment_cards",
-    "write_force_moment_cards",
-    "write_span_load_csv",
-    "write_stick_model_bdf",
-    "write_tail_chordwise_csv",
-    "write_tail_force_moment_cards",
+    "write_applied_load_csv",
 ]

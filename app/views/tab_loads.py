@@ -26,7 +26,6 @@ from sloads import (
     to_imperial_scalar,
     to_si_scalar,
 )
-from sloads.export import sbeam_bridge as sb
 from sloads.modules.tab import build_tabs, run
 
 st.title("Control-Surface Tab Loads — TABLOADS")
@@ -128,8 +127,8 @@ for cond in display_conditions:
                  f"TE {pressure_u} (LIMIT)": round(to_si_scalar(v["tab_te_pressure"], "psi", system), 4)})
 st.write(pd.DataFrame(rows))
 
-st.download_button("Download tab loads (CSV)", sb.control_surface_csv(results, system=system),
-                   file_name="tab_loads.csv", mime="text/csv")
-st.download_button("Download FORCE cards (sbeam)",
-                   sb.control_surface_force_moment_cards(results, system=system),
-                   file_name="tab_loads.bdf", mime="text/plain")
+# The CSV and FORCE-card downloads that stood here were the per-component
+# control-surface deck and its companion (note 56 D-56.2, deleted): a chordwise
+# pressure distribution on one surface, as its own structural model. The
+# surface's load is stated in the table above and reaches the deliverable
+# through the assembled airframe deck on the **Export** page.

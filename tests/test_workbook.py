@@ -23,6 +23,7 @@ from sloads.modules.body_loads import build_body_loads
 from sloads.modules.flap import build_flap
 from sloads.modules.net_loads import build_net_loads
 from sloads.modules.tab import build_tabs
+from sloads.modules.tail_span import build_tail_span
 from sloads.modules.taildist import build_tail_chordwise
 from sloads.units import Channel, UnitSystem, deliverable_units, units_statement
 
@@ -57,12 +58,17 @@ def _build(system=UnitSystem.IMPERIAL):
         net.wing_net, body, tail, control,
         *(mr.conditions for mr in module_results),
     )
-    span_csvs = {"Wing Span Loads": sb.span_load_csv(net.wing_net, system=system),
-                 "Control Surface Loads": sb.control_surface_csv(control, system=system)}
+    # Note 56 D-56.2: the span/chordwise deck companions are gone; the tabular
+    # sbeam sheets are the per-component applied load sets.
+    span_csvs = {"Wing Applied Loads": sb.applied_load_csv(net.wing_net, system=system)}
     if body:
-        span_csvs["Fuselage Span Loads"] = sb.body_span_load_csv(body, system=system)
-    if tail:
-        span_csvs["Tail Chordwise"] = sb.tail_chordwise_csv(tail, system=system)
+        span_csvs["Fuselage Applied Loads"] = sb.applied_load_csv(
+            body, system=system, component="fuselage", project=project)
+    spans = _try(build_tail_span, project) or {}
+    for _surface in ("htail", "vtail"):
+        if spans.get(_surface):
+            span_csvs[f"{_surface.title()} Applied Loads"] = sb.applied_load_csv(
+                spans[_surface], system=system, component=_surface)
     project_info = {"Name": project.name, "Engineer": project.engineer or "", "Date": project.date or ""}
 
     xlsx_bytes = build_workbook(project_info, module_csvs, module_labels, case_index_csv,

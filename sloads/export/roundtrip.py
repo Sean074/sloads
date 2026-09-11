@@ -20,12 +20,12 @@ surface has to consume this authority instead of hand-rolling a second one.
 
 What has to be wrapped, and why
 -------------------------------
-Only the wing deck is solvable as exported: ``stick_model_bdf`` writes ``SOL
-101`` with ``GRID``/``CBAR``/``PBAR``/``MAT1``/``SPC1``. The body and tail decks
-are load-cards-only, and the assembled balanced deck carries case control,
-``GRID``s and a determinate ``SPC1`` but **no elements** -- it is a load set on a
-node cloud, which is all a load deliverable needs to be and is singular to a
-linear static solve.
+Since note 56 D-56.2 deleted the per-component decks, what this wrapper faces
+is the assembled balanced deck: it carries case control, ``GRID``s and a
+determinate ``SPC1`` but **no elements** -- a load set on a node cloud, which is
+all a load deliverable needs to be and is singular to a linear static solve.
+(The LRA model is the exception: it writes its own ``CBAR`` chains and needs no
+wrapping. This wrapper exists for the elementless artifact.)
 
 :func:`wrap_as_stick_model` supplies the missing structure from the deck's own
 ``GRID`` cards (plan 07 decision E-5 put them there; without them this is
@@ -85,7 +85,7 @@ from .equilibrium import parse_cards
 Vec3 = Tuple[float, float, float]
 
 #: SID of the constraint set the wrapper emits, and that its synthesised case
-#: control selects. Matches ``stick_model_bdf``'s and ``balanced_deck``'s, so a
+#: control selects. Matches ``balanced_deck``'s and ``lra_model``'s, so a
 #: wrapped deck and a shipped one name their constraints the same way.
 SPC_SID = band("spc").start
 
@@ -172,9 +172,10 @@ def _orientation(a: Vec3, b: Vec3) -> Vec3:
 def _property_lines(u: DeliverableUnits) -> List[str]:
     """``MAT1``/``PBAR`` placeholder section, converted to the deck's units.
 
-    Imported from :mod:`sloads.export.sbeam_bridge` rather than redeclared, so
-    the "a determinate structure's reactions are stiffness-independent" claim
-    stays true in exactly one place.
+    Placeholder values: the wrapper's support is determinate, so the
+    recovered reactions do not depend on them. Stated here rather than shared
+    with a shipped deck, because this wrapper is test scaffolding and a real
+    model's properties are the stress analyst's (note 56 ruling 2).
     """
     return [
         "$ ---------------------------------------------- WRAPPER PROPERTIES",

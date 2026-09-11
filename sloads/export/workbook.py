@@ -105,7 +105,8 @@ def build_workbook(
     ``module_labels`` -- ``{module_name: display title}`` for the sheet name.
     ``case_index_csv`` -- the case-index CSV text.
     ``span_csvs`` -- ``{sheet_title: csv_text}`` for the tabular sbeam artifacts
-    (wing/fuselage span loads, tail chordwise, control-surface loads).
+    (the per-component applied load sets; the span/chordwise deck companions
+    that were also here went with note 56 D-56.2).
     ``methods`` -- the methods & limitations statement (Step G8.3); when given it
     becomes a dedicated *Methods* sheet, so a workbook forwarded on its own
     carries its own basis like every other channel.

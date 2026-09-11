@@ -20,7 +20,9 @@ Plan: ``docs/40_history/14_m4-20_deliverable_units_plan.md`` §4 step 1.
 
 from __future__ import annotations
 
+import csv
 import glob
+import io as _io
 import json
 import math
 import os
@@ -251,17 +253,21 @@ def test_every_bundle_channel_carries_the_unit_statement():
         "load-case CSV": io.load_cases_csv(
             registry.get("engine")(project), header_comment=csv_stamp,
             system=UnitSystem.SI),
-        "span CSV": sb.span_load_csv(results, header_comment=csv_stamp,
-                                     system=UnitSystem.SI),
-        "FORCE/MOMENT deck": sb.force_moment_cards(
-            results, header_comment=bdf_stamp, system=UnitSystem.SI),
-        "stick model": sb.stick_model_bdf(
-            results, header_comment=bdf_stamp, system=UnitSystem.SI),
+        "applied CSV": sb.applied_load_csv(results, header_comment=csv_stamp,
+                                           system=UnitSystem.SI),
+        "balanced deck": _balanced_deck(
+            project, header_comment=bdf_stamp, system=UnitSystem.SI),
         "METHODS.txt": methods_statement(project, **kw),
     }
     for name, text in channels.items():
         assert "UNITS: SI." in text, f"{name} states no unit system"
         assert "N·mm, MPa" in text, f"{name} does not name the solver set"
+
+
+def _balanced_deck(project, **kw):
+    from sloads.export.balanced_deck import balanced_deck
+
+    return balanced_deck(project, **kw)
 
 
 def test_the_deck_stamp_is_comment_only_and_optional():
@@ -271,10 +277,10 @@ def test_the_deck_stamp_is_comment_only_and_optional():
     byte-identical — that is what keeps the frozen Imperial comparison and every
     existing caller unaffected (D-21).
     """
-    results = _ga_wing_net()
-    bare = sb.force_moment_cards(results)
-    stamped = sb.force_moment_cards(
-        results, header_comment=bdf_comment_block(_ga_project()))
+    project = _ga_project()
+    bare = _balanced_deck(project)
+    stamped = _balanced_deck(
+        project, header_comment=bdf_comment_block(project))
     assert stamped != bare
     added = stamped[: len(stamped) - len(bare)]
     assert all(ln.startswith("$") or not ln for ln in added.splitlines())
@@ -295,10 +301,10 @@ def test_the_export_page_applies_the_stamp_it_builds():
         source = fh.read()
 
     assignments = [ln for ln in source.splitlines() if '.bdf"] = ' in ln]
-    # wing FORCE/MOMENT + wing stick model + fuselage + tail + control surfaces,
-    # then the assembled free-free deck, the LRA beam model (step 12) and the
-    # three mass-model files (D-R2).
-    assert len(assignments) == 10, assignments
+    # The assembled free-free deck, the LRA beam model (step 12) and the three
+    # mass-model files (D-R2). It was ten until note 56 D-56.2 deleted the five
+    # per-component deck families.
+    assert len(assignments) == 5, assignments
     for line in assignments:
         # The call may wrap; take the whole statement up to the closing `or ""`.
         stmt = source.split(line, 1)[1].split('or ""', 1)[0]
@@ -319,7 +325,7 @@ def test_the_stamp_still_round_trips_for_csv_readers():
     readers (``workbook._csv_to_df`` reads with ``comment="#"``) are the audited
     path, and a stamp they cannot skip is a header row of prose."""
     stamp = csv_comment_block(_ga_project(), system=UnitSystem.SI)
-    payload = sb.span_load_csv(_ga_wing_net(), system=UnitSystem.SI)
+    payload = sb.applied_load_csv(_ga_wing_net(), system=UnitSystem.SI)
     # The payload carries comment lines of its own (note 46 OR-69), so what the
     # stamp must not disturb is the payload's *rows*, not its whole text.
     assert (strip_comment_lines(stamp + payload)
@@ -362,9 +368,7 @@ def test_every_export_page_writer_call_takes_the_bundle_system():
     source = _view_source("export_report")
     # The unit-taking writers, by name; case_index_* is deliberately absent —
     # it carries only Speed (kt) and Altitude (ft), both aviation carve-outs.
-    writers = ("span_load_csv", "force_moment_cards", "stick_model_bdf",
-               "body_span_load_csv", "body_fitting_load_csv", "tail_chordwise_csv",
-               "control_surface_csv", "load_cases_csv",
+    writers = ("applied_load_csv", "load_cases_csv",
                # The mass model (D-R2): the one family whose unit set is checked
                # for dimensional consistency, because a CONM2 M read as weight is
                # wrong by 386x in a file that parses cleanly.
@@ -381,8 +385,10 @@ def test_every_export_page_writer_call_takes_the_bundle_system():
         window = source[match.end(): match.end() + 220]
         assert "system=_system" in window, f"{name} call defaults to Imperial:\n{window}"
         checked += 1
-    # 5 decks + 5 sbeam CSVs + the per-module load-case CSV + 3 mass-model files.
-    assert checked == 14, f"{checked} writer calls found, expected 14"
+    # The three applied-load CSV calls (wing, fuselage, the tails' shared call)
+    # + the per-module load-case CSV + 3 mass-model files. It was 14 until note
+    # 56 D-56.2 deleted the per-component decks and their companions.
+    assert checked == 7, f"{checked} writer calls found, expected 7"
     # The assembled deck is imported by name rather than through a module alias,
     # so it is matched on its own — it is the primary deliverable, and a bundle
     # that wrote it in the wrong system would be wrong about the whole airplane.
@@ -803,35 +809,63 @@ def test_si_deck_still_closes_on_the_root_shear_and_torsion():
     moment by the force factor -- would leave every number plausible and the
     closure broken. Checking the *set sums to the root* in the new units is what
     actually catches it.
+
+    Read off the **applied load set** since note 56 D-56.2 deleted the wing card
+    deck: that set is what the cards were written from, and under D-56.9 it is
+    the authority the delivered cards are written from, so the scale it is
+    rendered at is the scale that reaches a solver.
     """
+    from sloads.report.methods import strip_comment_lines
+
     results = _ga_wing_net()
     for system in (UnitSystem.IMPERIAL, UnitSystem.SI):
-        blocks = _card_sums(sb.force_moment_cards(results, system=system))
-        assert len(blocks) == len(results), system
-        for r, (stated_sz, stated_myy, fz, my) in zip(results, blocks):
-            assert math.isclose(fz, stated_sz, rel_tol=1e-5), (system, fz, stated_sz)
-            # The MOMENT cards carry each strip's *free* torsion, so the root
-            # torsion is the card set plus the FORCE cards' own lever arms
-            # (note 46 OR-67). The bare card deck has no GRIDs, so the arms
-            # come from the nodal loads and are scaled into the deck's units.
-            k = deliverable_units(system, Channel.SOLVER).moment.factor
-            nodes = sb.wing_nodal_loads(r)
-            x0, z0 = nodes[0].x, nodes[0].z
-            transfer = k * math.fsum(
-                (n.z - z0) * n.fx - (n.x - x0) * n.fz for n in nodes)
-            assert math.isclose(my + transfer, stated_myy, rel_tol=1e-5), (
-                system, my + transfer, stated_myy)
+        u = deliverable_units(system, Channel.SOLVER)
+        text = strip_comment_lines(sb.applied_load_csv(results, system=system))
+        rows = list(csv.DictReader(_io.StringIO(text)))
+        assert rows, system
+        fz_col = next(c for c in rows[0] if c.startswith("Fz "))
+        my_col = next(c for c in rows[0] if c.startswith("My "))
+        x_col = next(c for c in rows[0] if c.startswith("X "))
+        z_col = next(c for c in rows[0] if c.startswith("Z "))
+        for r in results:
+            mine = [row for row in rows if row["Case"] == r.case]
+            assert mine, (system, r.case)
+            fz = math.fsum(float(row[fz_col]) for row in mine)
+            assert math.isclose(fz, r.stations[0].sz * u.force.factor,
+                                rel_tol=1e-4), (system, r.case, fz)
+            # The My column carries each strip's *free* torsion, so the root
+            # torsion is that set plus the applied forces' own lever arms
+            # (note 46 OR-67), taken about the root row's own point. The CSV
+            # rounds to a fixed decimal, so the tolerance is the rendering's,
+            # not the arithmetic's -- a scale error is a factor of 1000, which
+            # no rounding hides.
+            fx_col = next(c for c in rows[0] if c.startswith("Fx "))
+            x0, z0 = float(mine[0][x_col]), float(mine[0][z_col])
+            my = math.fsum(float(row[my_col]) for row in mine)
+            transfer = math.fsum(
+                (float(row[z_col]) - z0) * float(row[fx_col])
+                - (float(row[x_col]) - x0) * float(row[fz_col])
+                for row in mine)
+            want = r.stations[0].myy * u.moment.factor
+            assert math.isclose(my + transfer, want, rel_tol=1e-3), (
+                system, r.case, my + transfer, want)
 
 
 def test_si_deck_is_the_imperial_deck_times_the_solver_factors():
     """Same cards, same GIDs, same SIDs -- only the magnitudes move, each by its
     own dimension's factor. In particular the moment moves by force x length
-    (N*mm), not by the human channel's N*m: that difference is D-19's 1000x."""
-    results = _ga_wing_net()
+    (N*mm), not by the human channel's N*m: that difference is D-19's 1000x.
+
+    Read off the **assembled deck** since note 56 D-56.2 deleted the wing card
+    deck. That is the deck that ships, so it is the one whose numbers a reader
+    would be misled by."""
+    from sloads.export.balanced_deck import balanced_deck
+
+    project = _ga_project()
     u = deliverable_units(UnitSystem.SI, Channel.SOLVER)
-    imp = [ln for ln in sb.force_moment_cards(results).splitlines()
+    imp = [ln for ln in balanced_deck(project).splitlines()
            if ln.startswith(("FORCE,", "MOMENT,"))]
-    si = [ln for ln in sb.force_moment_cards(results, system=UnitSystem.SI).splitlines()
+    si = [ln for ln in balanced_deck(project, system=UnitSystem.SI).splitlines()
           if ln.startswith(("FORCE,", "MOMENT,"))]
     assert len(imp) == len(si) and imp
 
@@ -859,11 +893,13 @@ def test_the_solver_deck_never_uses_the_human_moment():
     assert the deck's moments are *not* what the human channel would have
     written -- a stronger statement than 'the factor is the one we chose'.
     """
-    results = _ga_wing_net()
+    from sloads.export.balanced_deck import balanced_deck
+
+    project = _ga_project()
     human = deliverable_units(UnitSystem.SI, Channel.HUMAN)
-    si = [ln for ln in sb.force_moment_cards(results, system=UnitSystem.SI).splitlines()
+    si = [ln for ln in balanced_deck(project, system=UnitSystem.SI).splitlines()
           if ln.startswith("MOMENT,")]
-    imp = [ln for ln in sb.force_moment_cards(results).splitlines()
+    imp = [ln for ln in balanced_deck(project).splitlines()
            if ln.startswith("MOMENT,")]
     compared = 0
     for a, b in zip(imp, si):
@@ -904,16 +940,17 @@ def test_every_sbeam_writer_takes_a_system():
     least-updated writer, so enumerate them rather than trust the sweep."""
     import inspect
 
+    from sloads.export.balanced_deck import balanced_deck
+    from sloads.export.lra_model import lra_model_bdf, write_lra_model_bdf
+
+    # Seventeen writers became four at note 56 D-56.2: the per-component deck
+    # families are deleted and what ships is the applied load set, the balanced
+    # deck and the LRA model. The rule is unchanged -- every writer that puts a
+    # dimensional number in a file takes the bundle's system, keyword-only,
+    # defaulting to Imperial.
     writers = [
-        sb.span_load_csv, sb.write_span_load_csv,
-        sb.force_moment_cards, sb.write_force_moment_cards,
-        sb.stick_model_bdf, sb.write_stick_model_bdf,
-        sb.body_span_load_csv, sb.body_force_moment_cards, sb.body_fitting_load_csv,
-        sb.tail_chordwise_csv, sb.write_tail_chordwise_csv,
-        sb.tail_force_moment_cards, sb.write_tail_force_moment_cards,
-        sb.control_surface_csv, sb.write_control_surface_csv,
-        sb.control_surface_force_moment_cards,
-        sb.write_control_surface_force_moment_cards,
+        sb.applied_load_csv, sb.write_applied_load_csv,
+        balanced_deck, lra_model_bdf, write_lra_model_bdf,
     ]
     for fn in writers:
         param = inspect.signature(fn).parameters.get("system")
@@ -932,14 +969,14 @@ def test_sbeam_headers_state_their_units_in_both_systems():
         from sloads.report.methods import strip_comment_lines
 
         header = strip_comment_lines(
-            sb.span_load_csv(results, system=system)).splitlines()[0]
+            sb.applied_load_csv(results, system=system)).splitlines()[0]
         cells = header.split(",")
-        assert cells[2] == f"X {length}", header
-        assert cells[5] == f"Fx {force}", header
-        assert cells[7] == f"My {moment}", header
+        assert cells[3] == f"X {length}", header
+        assert cells[6] == f"Fx {force}", header
+        assert cells[10] == f"My {moment}", header
         # Only the non-dimensional columns are bare.
         bare = [c for c in cells if "(" not in c]
-        assert bare == ["Case", "GID", "MyyAxis", "SF"], bare
+        assert bare == ["Case", "Station", "GID", "MyyAxis", "SF"], bare
 
 
 # --------------------------------------------------------------------------- #
@@ -1134,14 +1171,18 @@ def test_cli_exports_an_si_sbeam_deck():
     Step 2 made this combination refuse outright (the deck had no SI unit set yet)
     and step 4 lifted the refusal; this is the end-to-end proof that the lift is
     real and reaches the files rather than only the writer signatures.
+
+    Run on the **balanced** target since note 56 D-56.2 deleted the wing one --
+    and there is no default target any more, so the target is named.
     """
     import tempfile
 
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     example = os.path.join(here, "examples", "ga6_normal.project.json")
     with tempfile.TemporaryDirectory() as d:
-        prefix = os.path.join(d, "wing")
-        assert cli.main([example, "--export-sbeam", prefix, "--units", "si"]) == 0
+        prefix = os.path.join(d, "out")
+        assert cli.main([example, "--export-sbeam", prefix, "--units", "si",
+                         "--export-target", "balanced"]) == 0
         written = sorted(os.listdir(d))
         assert written, "export wrote nothing"
         deck = next(f for f in written if f.endswith(".bdf"))
@@ -1151,11 +1192,6 @@ def test_cli_exports_an_si_sbeam_deck():
         # a clause could be split across two lines, a line cannot.
         assert "$ Lengths in mm." in text
         assert "N·mm" in text and "N·m." not in text, "deck must not use the human moment"
-
-        span = next(f for f in written if f.endswith(".csv"))
-        with open(os.path.join(d, span)) as fh:
-            header = _cli_csv_header(fh.read())
-        assert "X (mm)" in header and "N·mm" in header, header
 
 
 # --------------------------------------------------------------------------- #

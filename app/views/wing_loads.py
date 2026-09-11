@@ -387,14 +387,16 @@ st.dataframe(pd.DataFrame(wing_limit_rows(wing_load_rows([net]), system)),
 # the wing's loads reference axis, so it goes through ``loads_ref_axis_results``
 # -- the transfer the Export page's Project argument does for itself.
 _lra_net = loads_ref_axis_results(project, loads.wing_net)
-_dl = st.columns(3)
+# Two files, not three: note 56 D-56.2 deleted the wing stick deck and the
+# span-load CSV that was its companion. The applied load set is what a
+# structures model is built from and it survives — the span CSV's cumulative
+# columns are an engineering reference the analysis table beside it already
+# carries.
+_dl = st.columns(2)
 _dl[0].download_button("Download net wing loads — analysis table (CSV)",
                        wing_limit_csv(wing_load_rows(loads.wing_net), system),
                        file_name="net_wing_loads_LIMIT.csv", mime="text/csv")
-_dl[1].download_button("Download net wing loads — sbeam bridge (CSV)",
-                       sb.span_load_csv(loads.wing_net, system=system),
-                       file_name="net_wing_loads_ULT.csv", mime="text/csv")
-_dl[2].download_button("Download applied load set — sbeam bridge (CSV)",
+_dl[1].download_button("Download applied load set (CSV)",
                        sb.applied_load_csv(_lra_net, system=system),
                        file_name="wing_applied_loads_ULT.csv", mime="text/csv")
 st.caption(

@@ -456,6 +456,9 @@ def test_the_manifest_lists_the_balanced_deck_and_the_mass_model():
 #: only job is to be compared against a solver's own recovery. The F-D2 test
 #: could not see it, because it read the row's name and stopped there. So every
 #: row's basis cell is pinned here, and a new row arrives with its basis stated.
+# Note 56 D-56.2 removed ten rows from this table with the per-component decks
+# they described. The rule is unchanged: every manifest row's basis cell is
+# pinned here, and a new row arrives with its basis stated.
 MANIFEST_BASIS = {
     "<project>.json": "\u2014",
     "<project>_case_index.csv": "IDs are verbatim, never renumbered",
@@ -469,13 +472,6 @@ MANIFEST_BASIS = {
     "<project>_report.txt": "LIMIT",
     "<project>_gear_loads.csv":
         "LIMIT; contact patch ground-line, reference point airplane-datum",
-    "sbeam/<project>_wing_stick.bdf": "geometry only",
-    "sbeam/<project>_fuselage_loads.bdf": "LIMIT",
-    "sbeam/<project>_fuselage_fitting_loads.csv":
-        "already carried by the span loads \u2014 do not superpose",
-    "sbeam/<project>_control_surface_loads.csv":
-        "standard simplified distributions; LIMIT",
-    "sbeam/<project>_control_surface_loads.bdf": "LIMIT",
     "sbeam/<project>_balanced_airframe.bdf":
         "LIMIT; determinate support, its reaction is the residual",
     "sbeam/<project>_lra_model.bdf": "LIMIT; torsion about each surface's LRA",
@@ -489,16 +485,10 @@ MANIFEST_BASIS = {
 #: Rows whose basis cell names a **live** value (the wing's loads reference axis,
 #: which the project may move) and so is pinned by substring, not by equality.
 MANIFEST_BASIS_CONTAINS = {
-    "sbeam/<project>_wing_span_loads.csv": ("torsion Myy about the", "LIMIT"),
     "sbeam/<project>_wing_applied_loads.csv": ("free torsion about the", "LIMIT"),
-    "sbeam/<project>_wing_loads.bdf": ("torsion about the", "LIMIT"),
-    "sbeam/<project>_fuselage_span_loads.csv": ("torsion Mxx about the body X axis",
-                                                "LIMIT"),
     "sbeam/<project>_fuselage_applied_loads.csv": ("applied increments", "LIMIT"),
     "sbeam/<project>_htail_applied_loads.csv": ("free torsion is My", "LIMIT"),
     "sbeam/<project>_vtail_applied_loads.csv": ("free torsion is Mz", "LIMIT"),
-    "sbeam/<project>_tail_chordwise.csv": ("Fn is normal to the surface", "LIMIT"),
-    "sbeam/<project>_tail_loads.bdf": ("normal to each surface", "LIMIT"),
 }
 
 
@@ -562,22 +552,12 @@ SUMMARISED_IN = {
     "METHODS.txt": ("methods", ""),
     "load_cases/<project>_<module>.csv": ("results", ""),
     "<project>_report.txt": ("results", ""),
-    "sbeam/<project>_wing_span_loads.csv": ("results", "Wing"),
     "sbeam/<project>_wing_applied_loads.csv": ("results", "Wing"),
-    "sbeam/<project>_wing_loads.bdf": ("results", "Wing"),
-    "sbeam/<project>_wing_stick.bdf": ("results", "Wing"),
-    "sbeam/<project>_fuselage_span_loads.csv": ("results", "Fuselage"),
-    "sbeam/<project>_fuselage_loads.bdf": ("results", "Fuselage"),
-    "sbeam/<project>_fuselage_fitting_loads.csv": ("results", "Fuselage"),
     "sbeam/<project>_fuselage_applied_loads.csv": ("results", "Fuselage"),
     "sbeam/<project>_htail_applied_loads.csv":
         ("results", "Horizontal tail / Vertical tail"),
     "sbeam/<project>_vtail_applied_loads.csv":
         ("results", "Horizontal tail / Vertical tail"),
-    "sbeam/<project>_tail_chordwise.csv": ("results", "Horizontal tail / Vertical tail"),
-    "sbeam/<project>_tail_loads.bdf": ("results", "Horizontal tail / Vertical tail"),
-    "sbeam/<project>_control_surface_loads.csv": ("results", "Control surfaces"),
-    "sbeam/<project>_control_surface_loads.bdf": ("results", "Control surfaces"),
     "<project>_summary_report.tex": ("inputs", ""),
     "<project>_summary_report.pdf": ("inputs", ""),
     "sbeam/<project>_balanced_airframe.bdf": ("balanced", ""),

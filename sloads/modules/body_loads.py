@@ -313,8 +313,9 @@ def body_load_rows(results: List[BodyLoadResult]) -> List[Dict[str, str]]:
 
     All loads are **LIMIT** (the oracle-traceable calc values), stated in-band by
     the ``Basis`` column so the basis travels with any table/CSV built from these
-    rows (defect M4-15); the ULTIMATE deliverable is
-    ``sbeam_bridge.body_span_load_csv``.
+    rows (defect M4-15). The delivered form of the same loads is
+    ``sbeam_bridge.applied_load_csv("fuselage", ...)`` and the LRA deck's
+    cards -- both LIMIT too, since note 49 OR-116.
     """
     rows: List[Dict[str, str]] = []
     for r in results:

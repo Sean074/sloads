@@ -76,6 +76,7 @@ re-run after editing, never hand-edit the SVGs).
 | [`54_geometry_joint_model_note.md`](30_future/54_geometry_joint_model_note.md) | **The geometry model owns the joints** — boundary lines, per-surface LRA and the first-class joint register (D-54.1…D-54.8) |
 | [`55_lra_deck_solvability_note.md`](30_future/55_lra_deck_solvability_note.md) | **Every exported LRA deck solves, or the export refuses** — the rigid-chain and sliver-element defects, and the solve gate that covers every fixture (D-55.1…D-55.5) |
 | [`56_export_reduction_note.md`](30_future/56_export_reduction_note.md) | **The export package reduces to one solver artifact** — four shipped model concepts become two, `sbeam_bridge.py` dissolving into `report/` and deletion, with the LRA beam model owning its own grids and mesh (D-56.1…D-56.8) |
+| [`57_gui_convergence_note.md`](30_future/57_gui_convergence_note.md) | **The two front-ends converge on one** — `oracle_app` re-chartered as the single GUI with a marked sloads-extension field tier, four capabilities ported, `app/views/` retired and the 0.9.0 band superseded (D-57.1…D-57.8) |
 
 ## 40_history — Historic record
 

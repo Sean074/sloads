@@ -203,14 +203,17 @@ def test_the_statement_declares_no_correction_the_register_declined():
 #: flight-only body deck). Opening or closing a caveat now edits this set in the
 #: same commit, and an omission is a red test rather than a silent claim of
 #: completeness.
+# Note 56 D-56.2 RETIRED three of these with the per-component decks:
+# `export-case-filter`, `flight-only-body-deck` and `centerline-clamp`. Each
+# described a limitation of a deck that no longer exists, and each pointed the
+# reader at the assembled full-span deck, which is now the only view there is.
+# Their removal is a deliberate narrowing of the caveat set, made in the same
+# commit as the deletion -- which is what this contract is for.
 STANDING_LIMITATION_KEYS = {
     "control-surface-distributions",
-    "export-case-filter",
-    "flight-only-body-deck",
     "pressurization",
     "lateral-aero",
     "aileron-couple",
-    "centerline-clamp",
     "engine-failure-propeller-only",
     # Decision G-9, opened with the ground families: ground and flight are
     # separate governing families and no envelope over both is claimed. Declared
@@ -256,12 +259,15 @@ def test_the_in_band_caveats_and_the_report_use_one_wording():
     controlling document is two caveats, and a reader who spots the difference
     cannot tell which is current. Each of these is owned by the module that
     applies it and quoted, not paraphrased, by the report."""
-    from sloads.export.sbeam_bridge import CENTERLINE_CLAMP_NOTE
     from sloads.modules.balance import AILERON_COUPLE_NOTE, LATERAL_AERO_NOTE
     from sloads.modules.one_engine_out import PROPELLER_ONLY_NOTE
 
+    # ``CENTERLINE_CLAMP_NOTE`` left this list with the wing stick deck (note 56
+    # D-56.2): its caveat described that deck's BL 0 clamp, and the caveat was
+    # retired with the artifact rather than reworded -- see the note in
+    # ``report/methods.py`` and the key set in this file.
     text = methods_statement(_project(_GA))
-    for owner_note in (LATERAL_AERO_NOTE, AILERON_COUPLE_NOTE, CENTERLINE_CLAMP_NOTE,
+    for owner_note in (LATERAL_AERO_NOTE, AILERON_COUPLE_NOTE,
                        PROPELLER_ONLY_NOTE):
         # From the second character: the notes are written to sit mid-sentence
         # in band, and one of them opens a report bullet, so only the case of the
@@ -472,10 +478,10 @@ def test_load_cases_csv_carries_the_stamp_and_still_parses():
     assert rows_plain, "fixture produced no rows to compare"
 
 
-def test_span_load_csv_carries_the_stamp_and_still_parses():
+def test_applied_load_csv_carries_the_stamp_and_still_parses():
     project, wing = _wing_net(_GA)
-    plain = sb.span_load_csv(wing)
-    stamped = sb.span_load_csv(wing, header_comment=csv_comment_block(project))
+    plain = sb.applied_load_csv(wing)
+    stamped = sb.applied_load_csv(wing, header_comment=csv_comment_block(project))
     assert stamped.startswith("#") and "ULTIMATE" in stamped
     # The file carries comment lines of its own (the moment-convention block,
     # note 46 OR-69), so the invariant is that the stamp disturbs nothing --
