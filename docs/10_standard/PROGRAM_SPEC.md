@@ -1547,6 +1547,16 @@ result that lacks what a deck needs is a stated error, never an empty column.
   Named nodes carry `$ SLOADS-NODE <family> <side>` identity tags (BM-5).
   The wing chains **start at the side-of-body** (R-3); the deck is free-free
   on one clamped fuselage node whose recovered reaction is the case residual.
+- **Every tie node is placed by the joint register** (`sloads/joints.py`, note
+  54 D-54.5): the SOB pair and centre hub, the two spar posts, the fin root,
+  the T-tail fin-tip↔h-tail-centreline pair and the conventional attachment
+  pair are *copies* of the register's owned locations, and the exporter's
+  refusals read the register's refusal reasons — so the two ends of a rigid tie
+  cannot be two spellings of one formula. The **fin chain runs root → strips →
+  tip**: the tip is a joint, therefore a node (`lra-fin-tip`), where the chain
+  previously stopped at the outermost strip *midpoint* and hung the horizontal
+  tail off it. `tail_span`/T7 is deliberately **not** rewired — its transfer is
+  referenced to the node it is applied at and is statically exact as written.
 - **Loads:** the assembled balanced cases' sets — same `SUBCASE`/`SID` minting,
   same LIMIT basis and per-subcase factor statement — each load transferred to the nearest node of
   the member its `source` names with the exact lever-arm couple `(p − n) × F`

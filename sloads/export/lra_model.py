@@ -90,6 +90,8 @@ from ..derived_geometry import (
     fuselage_lra,
     sob_station,
 )
+from ..joints import JointName
+from ..joints import joints as joint_register
 from ..models import BalancedCaseResult, BalancedLoad, Project
 from ..models.enums import GearCarrier
 from ..modules.balance import build_balanced_cases
@@ -251,21 +253,48 @@ def _nearest_station(nodes: Sequence["LraNode"], x: float) -> "LraNode":
 
 
 def _insert_on_chain(chain: List[LraNode], key_fn, key: float, gid: int,
-                     family: str, side: str) -> Tuple[List[LraNode], LraNode]:
+                     family: str, side: str,
+                     pos: Optional[Vec3] = None) -> Tuple[List[LraNode], LraNode]:
     """``chain`` with a node at coordinate ``key`` -- the coincident station
-    re-tagged, or a new node interpolated onto the chain's own line and
-    inserted in order. Returns ``(chain, the node)``."""
+    re-tagged, or a new node inserted in order. Returns ``(chain, the node)``.
+
+    ``pos`` is the node's **owned** position, from the joint register: a joint
+    is placed where its owner says, not where the chain's polyline happens to
+    pass. Interpolating instead is what put the T-tail h-tail centreline node on
+    the innermost *strip's* station rather than the centreline's -- 2.6 in out
+    on ``concept_regional_jet``, on a swept surface where the two differ.
+    Omitted (``None``) for a node with no joint of its own, which interpolates
+    onto the chain's own line as before.
+    """
     for i, node in enumerate(chain):
         if abs(key_fn(node) - key) <= _COINCIDENT_TOL:
-            tagged = LraNode(node.gid, node.pos, family or node.family,
-                             side or node.side)
+            tagged = LraNode(node.gid, pos if pos is not None else node.pos,
+                             family or node.family, side or node.side)
             chain[i] = tagged
             return chain, tagged
     line = [(key_fn(n), n.pos) for n in chain]
-    node = LraNode(gid, _interp_chain(line, key), family, side)
+    node = LraNode(gid, pos if pos is not None else _interp_chain(line, key),
+                   family, side)
     chain.append(node)
     chain.sort(key=key_fn)
     return chain, node
+
+
+def _refusal_reason(reg, name: JointName) -> str:
+    """The register's reason for refusing ``name`` -- the one wording (D-54.5).
+
+    The register grades a joint it cannot place and names the missing datum;
+    this exporter decides that the grade is fatal (BM-3/LM-4) and raises it. A
+    second copy of the sentence here is the same drift in prose that the node
+    positions had in numbers, so there is no fallback text: a refusal path the
+    register does not know about is a bug, not a default.
+    """
+    refusal = reg.refusal(name)
+    if refusal is None:                     # pragma: no cover -- see docstring
+        raise LraRefusal(
+            f"the LRA beam model cannot place the {name.value!r} joint and the "
+            "joint register states no reason -- this is an sloads defect")
+    return refusal.reason
 
 
 def build_lra_model(project: Project) -> LraModel:
@@ -287,12 +316,28 @@ def build_lra_model(project: Project) -> LraModel:
                 "the axis (typically 0.40) on the Geometry page")
     if geom.by_name("wing") is None:
         raise LraRefusal("the LRA beam model needs a 'wing' geometry surface")
+
+    # **Where the joints are is their own owner** (design note 54 D-54.5). Every
+    # node this function places at an inter-component tie is a *copy* of the
+    # register's location rather than a second resolution of the same geometry:
+    # before it, each end of each tie was resolved independently and the T-tail
+    # R-6 arm was out by up to 5.8 in (22 %) with 6.9 in of z that does not
+    # exist. The register reads the same owners this function already reads
+    # (``sob_station``, ``carry_through``, ``fuselage_lra``,
+    # ``htail_attachment``, the planforms), so nothing new is resolved here --
+    # only the two spellings collapse into one.
+    #
+    # It is resolved before the missing-datum checks below so those can raise
+    # the register's own refusal *reason*: which datum is missing is a fact
+    # about the geometry, and a second copy of the sentence here is the same
+    # drift in prose that the positions had in numbers. **Whether** a missing
+    # joint is fatal stays the exporter's policy (BM-3) -- the register only
+    # grades it.
+    reg = joint_register(project)
+
     sob = sob_station(project)
     if sob is None:
-        raise LraRefusal(
-            "no side of body resolves (no entered sob_y_in and no fuselage "
-            "width) -- the wing beam starts at the SOB (note 24 R-3) and this "
-            "exporter will not invent a body (BM-1)")
+        raise LraRefusal(_refusal_reason(reg, JointName.WING_SOB))
     centreline = fuselage_centreline(project)
     if centreline is None:
         raise LraRefusal(
@@ -307,10 +352,7 @@ def build_lra_model(project: Project) -> LraModel:
     lra = fuselage_lra(project)
     ct = carry_through(project)
     if ct is None:
-        raise LraRefusal(
-            "no wing carry-through resolves (degenerate root chord or spar "
-            "stations) -- the split-fuselage posts sit at the front/rear-spar "
-            "stations (BM-2) and cannot be placed")
+        raise LraRefusal(_refusal_reason(reg, JointName.WING_SPAR_POST))
 
     model = LraModel()
     notes = model.assumed_notes
@@ -318,13 +360,14 @@ def build_lra_model(project: Project) -> LraModel:
         notes.append(sob.note)
     if lra.note:
         notes.append(lra.note)
-    if ct.assumed:
-        notes.append(
-            f"wing spar stations ASSUMED -- derived at "
-            f"{ct.front_pct * 100.0:.0f}/{ct.rear_pct * 100.0:.0f} % of the root "
-            f"chord, so the posts sit at fuselage stations "
-            f"{ct.x_f:.1f}/{ct.x_r:.1f}. Enter front/rear_spar_x_in to state "
-            "the joint")
+    # The spar-station sentence is the register's, so the grade the deliverable
+    # prints and the grade the register carries are one wording (note 54 gate 4).
+    # Appended here, where this block already builds the header's honesty list
+    # in order -- the SOB and attachment sentences are appended by the branches
+    # that own them, below.
+    post_note = reg.by_name(JointName.WING_SPAR_POST)
+    if post_note and post_note[0].assumed:
+        notes.append(post_note[0].note)
 
     pending_body_ties: List[Tuple[float, List[int], str]] = []
 
@@ -332,26 +375,21 @@ def build_lra_model(project: Project) -> LraModel:
     net = build_net_loads(project)
     wing_results = loads_ref_axis_results(project, net.wing_net)
     base = wing_nodal_loads(wing_results[0])
-    wing_line = [(nl.y, (nl.x, nl.y, nl.z)) for nl in base]
     outboard = [nl for nl in base if nl.y > sob.y + _COINCIDENT_TOL]
     if not outboard:
         raise LraRefusal(
             f"the side of body (BL {sob.y:.2f}) is outboard of the last wing "
             "station -- there is no wing beam outboard of the joint to build")
     coincident = [nl for nl in base if abs(nl.y - sob.y) <= _COINCIDENT_TOL]
-    if coincident:
-        sob_r = LraNode(coincident[0].gid,
-                        (coincident[0].x, coincident[0].y, coincident[0].z),
-                        "lra-sob", "R")
-    else:
-        sob_r = LraNode(sob_gid(), _interp_chain(wing_line, sob.y),
-                        "lra-sob", "R")
+    j_sob = reg.one(JointName.WING_SOB, "R")
+    sob_r = LraNode(coincident[0].gid if coincident else sob_gid(),
+                    j_sob.location, "lra-sob", "R")
     right = [sob_r] + [LraNode(nl.gid, (nl.x, nl.y, nl.z)) for nl in outboard]
     sob_l = LraNode(_SOB_BAND.allocate(1), _mirror(sob_r.pos), "lra-sob", "L")
     left = [sob_l] + [LraNode(_LEFT_BAND.allocate(i),
                               _mirror((nl.x, nl.y, nl.z)))
                       for i, nl in enumerate(outboard)]
-    hub_c = LraNode(_CENTRE_BAND.allocate(0), _interp_chain(wing_line, 0.0),
+    hub_c = LraNode(_CENTRE_BAND.allocate(0), j_sob.counterpart,
                     "lra-centre", "C")
     model.nodes += right + left + [hub_c]
     model.add_chain(right, "wing")
@@ -373,12 +411,21 @@ def build_lra_model(project: Project) -> LraModel:
         stations = [LraNode(tail_span_gid(VTAIL, i),
                             tail_station_to_airplane(st.x, st.y, VTAIL, st.z))
                     for i, st in enumerate(vt[0].stations)]
-        root_z = planform_v.root_z
-        line = [(n.pos[2], n.pos) for n in stations]
-        root = LraNode(_ATTACH_BAND.allocate(0), _interp_chain(line, root_z),
+        root = LraNode(_ATTACH_BAND.allocate(0),
+                       reg.one(JointName.VTAIL_ROOT).location,
                        "lra-fin-root", "C")
         vtail_chain = [root, *sorted(stations, key=lambda n: n.pos[2])]
-        vtail_tip = vtail_chain[-1]
+        # **The fin beam runs to the fin tip** (D-54.5). Until the register the
+        # chain stopped at the outermost strip *midpoint*, half a strip below
+        # the top of the surface, and the T-tail R-6 tie hung the horizontal
+        # tail off that -- a 6.25/6.5/6.9 in vertical arm the airplane does not
+        # have, and 2.4-5.8 in of x with it. The tip is a joint, so it is a
+        # node.
+        if JointName.VTAIL_TIP_HTAIL in reg.names:
+            vtail_tip = LraNode(_ATTACH_BAND.allocate(2),
+                                reg.one(JointName.VTAIL_TIP_HTAIL).location,
+                                "lra-fin-tip", "C")
+            vtail_chain.append(vtail_tip)
         pending_body_ties.append((root.pos[0], [root.gid],
                                   "fin root -> fuselage (R-5)"))
 
@@ -390,11 +437,7 @@ def build_lra_model(project: Project) -> LraModel:
     if ht and planform_h is not None:  # spans exist only where the planform resolved
         att = htail_attachment(project, planform_h)
         if att.basis == ATTACH_STRIP_PAIR:
-            raise LraRefusal(
-                "the h-tail attachment resolves to the innermost-strip-pair "
-                "fallback, which is not a fuselage dimension at all (BM-3) -- "
-                "enter the h-tail attachment butt line (sob_y_in) or a "
-                "fuselage outline")
+            raise LraRefusal(_refusal_reason(reg, JointName.HTAIL_ATTACH))
         htail_chain = [LraNode(tail_span_gid(HTAIL, i),
                                tail_station_to_airplane(st.x, st.y, HTAIL, st.z))
                        for i, st in enumerate(ht[0].stations)]
@@ -407,7 +450,8 @@ def build_lra_model(project: Project) -> LraModel:
                     "without a modelled vertical tail")
             htail_chain, joint = _insert_on_chain(
                 htail_chain, lambda n: n.pos[1], 0.0,
-                _ATTACH_BAND.allocate(1), "lra-attach", "C")
+                _ATTACH_BAND.allocate(1), "lra-attach", "C",
+                pos=reg.one(JointName.VTAIL_TIP_HTAIL).counterpart)
             model.rbe2s.append((vtail_tip.gid, "123456", [joint.gid],
                                 "T-tail joint: h-tail centreline -> fin tip "
                                 "(R-6; the fin deck's T7 lumped transfer is "
@@ -416,13 +460,19 @@ def build_lra_model(project: Project) -> LraModel:
             if att.assumed:
                 notes.append(att.note)
             y_att = max(att.y)
+            # Both ends of this tie come from the register, so the attachment
+            # node and the body station it reacts against are one construction:
+            # interpolating the node off the strip chain while taking the body
+            # station from the planform put them 0.36 in apart on ga6_normal.
+            j_r = reg.one(JointName.HTAIL_ATTACH, "R")
+            j_l = reg.one(JointName.HTAIL_ATTACH, "L")
             htail_chain, att_r = _insert_on_chain(
                 htail_chain, lambda n: n.pos[1], y_att,
-                _ATTACH_BAND.allocate(1), "lra-attach", "R")
+                _ATTACH_BAND.allocate(1), "lra-attach", "R", pos=j_r.location)
             htail_chain, att_l = _insert_on_chain(
                 htail_chain, lambda n: n.pos[1], -y_att,
-                _ATTACH_BAND.allocate(2), "lra-attach", "L")
-            attach_x = planform_h.x_at(0.0, planform_h.ref_axis_pct)
+                _ATTACH_BAND.allocate(2), "lra-attach", "L", pos=j_l.location)
+            attach_x = j_r.counterpart[0]
             pending_body_ties.append((attach_x, [att_l.gid, att_r.gid],
                                       "h-tail attachments -> fuselage; the "
                                       "span between them is placeholder-"
