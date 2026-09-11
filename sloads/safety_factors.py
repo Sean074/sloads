@@ -307,6 +307,48 @@ def shared_basis_factor(results: Sequence[Any]) -> Optional[float]:
     return 1.0 if factors and all(f == 1.0 for f in factors) else None
 
 
+# --------------------------------------------------------------------------- #
+# The comparison basis (design note 58)
+# --------------------------------------------------------------------------- #
+def ultimate_basis(value: float, safety_factor: float) -> float:
+    """The magnitude one load case is ranked against another by: ``|value| x SF``.
+
+    An envelope or governing-case pick taken over cases whose *prescribed*
+    factors differ is a maximum of quantities that are not comparable -- a
+    2,000 lb LIMIT case at SF 1.5 sizes more structure than a 2,500 lb case at
+    SF 1.0, and a raw-magnitude pick names the second (note 58 D-58.2; the fin
+    is where it first bites, 23.367(a)(2) being ULTIMATE among LIMIT cases
+    since note 44 OR-172). So every comparison *between* load cases is made on
+    the basis the structure is actually sized to. On a uniform-factor set this
+    is the raw ranking scaled by a constant, so nothing moves where factors
+    agree -- which is every set but the fin's.
+
+    **This is a comparison key, never a delivered value** (note 49 OR-116:
+    every load sloads delivers is LIMIT, the factor stated and applied
+    nowhere). The factor is required, not defaulted: a case without one is not
+    a load case and has no business in a governing-case comparison
+    (:func:`prescribes_factor` is that boundary's owner).
+    """
+    return abs(value) * safety_factor
+
+
+def uniform_factor(factors: "Sequence[float]") -> Optional[float]:
+    """The one factor a set shares, or ``None`` for a mixed set.
+
+    The owner of "same basis" for cross-case *value* constructs (note 58
+    D-58.3): a pointwise envelope publishes values, and there is no honest
+    value to publish across differing prescribed factors -- the LIMIT envelope
+    is not a governance statement, an ultimate-scaled trace would deliver a
+    factored load (the G-OR-71 class), and the LIMIT values of ultimate-basis
+    winners draw a non-enveloping curve. So a mixed set is refused by name,
+    never averaged or defaulted. Distinct from :func:`shared_basis_factor`,
+    which answers a *header wording* question (may a shared column claim
+    ``-ULT``) and returns ``1.0`` or ``None`` only.
+    """
+    distinct = set(factors)
+    return distinct.pop() if len(distinct) == 1 else None
+
+
 def prescribes_factor(item: Any) -> bool:
     """True unless ``item`` is a condition to which no safety factor applies.
 

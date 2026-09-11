@@ -224,6 +224,11 @@ if __name__ == "__main__":
 _NOT_A_SAFETY_FACTOR = {
     "sloads/modules/flap.py": "`sf` is the flap area of one side (sq ft), "
                               "FLAPLOAD.BAS's own name for it",
+    "sloads/safety_factors.py": "`ultimate_basis` IS |value| x SF -- the "
+                                "comparison key every governing-case pick "
+                                "ranks on (note 58 D-58.2), a basis and "
+                                "never a delivered value; the scope test "
+                                "below pins it as the file's only multiply",
 }
 
 #: ``[\w.]*`` before each name is not decoration: the forms actually removed
@@ -292,3 +297,21 @@ def test_the_g_or_71_scan_would_catch_a_multiply():
     assert not _MULTIPLY.search("sf = case_sf(result)")
     assert not _MULTIPLY.search('"SF": sf_str(sf)')
     assert not _MULTIPLY.search("lf = [cl * q for cl, q in zip(clf, qs)]")
+
+
+def test_the_safety_factors_exemption_covers_exactly_the_comparison_key():
+    """The G-OR-71 exemption for ``safety_factors.py`` stays as narrow as its
+    stated reason: the file's ONE matching line is ``ultimate_basis``'s own
+    ``abs(value) * safety_factor`` (note 58 D-58.2 -- a ranking key, never a
+    delivered value). A second multiply appearing anywhere in the file fails
+    here, so the per-file exemption cannot quietly widen into a blind spot."""
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    path = os.path.join(root, "sloads", "safety_factors.py")
+    hits = []
+    with open(path, encoding="utf-8") as fh:
+        for n, line in enumerate(fh, 1):
+            code = line.split("#", 1)[0]
+            if _MULTIPLY.search(code):
+                hits.append((n, line.strip()))
+    assert len(hits) == 1, hits
+    assert hits[0][1] == "return abs(value) * safety_factor", hits

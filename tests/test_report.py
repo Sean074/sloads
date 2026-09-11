@@ -4,6 +4,8 @@ import os
 import sys
 from dataclasses import replace
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fixtures import io520bb, turboprop
@@ -45,9 +47,20 @@ def test_envelope_extremes_is_two_sided():
     # A true load envelope keeps BOTH pointwise extremes: at station 1 the
     # governing positive value (4) and the governing negative one (-5) belong to
     # different cases -- a single max-|value| trace would report only -5.
-    upper, lower = envelope_extremes([[1.0, -5.0, 3.0], [2.0, 4.0, -6.0]])
+    upper, lower = envelope_extremes([[1.0, -5.0, 3.0], [2.0, 4.0, -6.0]],
+                                     [1.5, 1.5])
     assert upper == [2.0, 4.0, 3.0]
     assert lower == [1.0, -5.0, -6.0]
+
+
+def test_envelope_extremes_refuses_a_mixed_factor_selection():
+    """Note 58 D-58.3, with teeth: the series are built so the SF 1.0 case
+    beats the SF 1.5 case ONLY on the ultimate basis (150 vs 110 raw LIMIT,
+    150 vs 165 at ultimate) -- exactly the shape a raw-LIMIT envelope would
+    rank wrongly. The construct is refused by name, factors in the message,
+    rather than published on either basis."""
+    with pytest.raises(ValueError, match=r"differing prescribed safety factors"):
+        envelope_extremes([[150.0, 150.0], [110.0, 110.0]], [1.0, 1.5])
 
 
 def test_every_row_has_a_location():
