@@ -50,6 +50,7 @@ from sloads.modules.net_loads import (
 from sloads.modules.tab import build_tabs
 from sloads.modules.taildist import build_tail_chordwise
 from sloads.report import envelope_extremes
+from sloads.safety_factors import uniform_factor
 
 st.title("Loads Plots")
 
@@ -144,7 +145,8 @@ def _wing_cases(results, sys_=None):
                   [to_si_scalar(s.mxx, "lb-in", sys_) for s in r.stations]),
           # The torsion label carries its reference axis (the result's stamp).
           "myy": (f"Torsion Myy about {r.torsion_axis}", si_scalar_label("lb-in", sys_),
-                  [to_si_scalar(s.myy, "lb-in", sys_) for s in r.stations])})
+                  [to_si_scalar(s.myy, "lb-in", sys_) for s in r.stations])},
+         r.safety_factor)
         for r in results
     ]
 
@@ -157,7 +159,8 @@ def _fuselage_cases(results, sys_=None):
          {"sz": ("Shear Sz", si_scalar_label("lbf", sys_),
                  [to_si_scalar(s.sz, "lbf", sys_) for s in r.stations]),
           "myy": ("Bending Myy", si_scalar_label("lb-in", sys_),
-                  [to_si_scalar(s.myy, "lb-in", sys_) for s in r.stations])})
+                  [to_si_scalar(s.myy, "lb-in", sys_) for s in r.stations])},
+         r.safety_factor)
         for r in results
     ]
 
@@ -169,7 +172,8 @@ def _tail_cases(results, component):
          [to_si_scalar(s.x, "in", system) for s in sorted(r.stations, key=lambda s: s.x)],
          {"psi": ("Net pressure PSI", si_scalar_label("psi", system),
                   [to_si_scalar(s.psi, "psi", system)
-                   for s in sorted(r.stations, key=lambda s: s.x)])})
+                   for s in sorted(r.stations, key=lambda s: s.x)])},
+         r.safety_factor)
         for r in filtered
     ]
 
@@ -182,7 +186,8 @@ def _control_surface_cases(results, surface_match):
          [s.x for s in sorted(r.stations, key=lambda s: s.x)],
          {"psi": ("Pressure PSI", si_scalar_label("psi", system),
                   [to_si_scalar(s.psi, "psi", system)
-                   for s in sorted(r.stations, key=lambda s: s.x)])})
+                   for s in sorted(r.stations, key=lambda s: s.x)])},
+         r.safety_factor)
         for r in filtered
     ]
 
@@ -206,15 +211,19 @@ _COMPONENTS = {
 
 
 def _overlay_figure(title: str, x_label: str, y_label: str, x: list,
-                     traces: "list[tuple[str, list]]") -> go.Figure:
+                     traces: "list[tuple[str, list]]",
+                     factors: "list[float]") -> go.Figure:
     fig = go.Figure()
     for name, y in traces:
         fig.add_trace(go.Scatter(x=x, y=y, name=name, mode="lines+markers", line={"width": 1.5}))
-    if len(traces) > 1:
+    if len(traces) > 1 and uniform_factor(factors) is not None:
         # Two-sided envelope: pointwise max AND min across the cases. The
         # opposite-sign extreme can govern a different part of the structure, so
-        # a single max-|value| trace is not a true envelope.
-        upper, lower = envelope_extremes([y for _, y in traces])
+        # a single max-|value| trace is not a true envelope. Drawn only over a
+        # same-factor selection (note 58 D-58.3): across differing prescribed
+        # SFs the LIMIT envelope ranks cases on a basis the structure is not
+        # sized to, so it is withheld and the caller states why.
+        upper, lower = envelope_extremes([y for _, y in traces], factors)
         fig.add_trace(go.Scatter(x=x, y=upper, name="envelope (max)",
                                  mode="lines", line={"width": 4, "dash": "dot"}))
         fig.add_trace(go.Scatter(x=x, y=lower, name="envelope (min)",
@@ -254,17 +263,27 @@ else:
         st.info("Select at least one case ID above.")
     else:
         y_fields = list(shown[0][3].keys())
+        shown_factors = [sf for *_, sf in shown]
+        if len(shown) > 1 and uniform_factor(shown_factors) is None:
+            st.caption(
+                "**Envelope withheld:** the selected cases prescribe different "
+                f"safety factors ({', '.join(sorted({f'{f:g}' for f in shown_factors}))}), "
+                "and a pointwise LIMIT envelope across them would rank cases on "
+                "a basis the structure is not sized to (note 58). Each case is "
+                "drawn with its own curve; compare on the ultimate basis, "
+                "load × SF.")
         for field in y_fields:
             y_title, unit, _ = shown[0][3][field]
-            traces = [(labels[cid], data[field][2]) for cid, _, _, data in shown]
+            traces = [(labels[cid], data[field][2]) for cid, _, _, data, _sf in shown]
             x = shown[0][2]
             fig = _overlay_figure(f"{y_title} — {title}", x_label,
-                                  f"{y_title} ({unit}, LIMIT)", x, traces)
+                                  f"{y_title} ({unit}, LIMIT)", x, traces,
+                                  shown_factors)
             st.plotly_chart(fig, width="stretch")
 
         st.subheader("Case-index for this selection")
         st.dataframe(pd.DataFrame([
-            {"Case ID": cid, "Condition": lab} for cid, lab, _, _ in shown
+            {"Case ID": cid, "Condition": lab} for cid, lab, _, _, _sf in shown
         ]), hide_index=True, width="stretch")
 
         # Comparison-CSV download: the currently displayed component/cases, one
@@ -273,7 +292,7 @@ else:
         fieldnames = ["Case ID", "Condition", x_label, "Field", "Value"]
         writer = csv.DictWriter(buf, fieldnames=fieldnames)
         writer.writeheader()
-        for cid, lab, x, data in shown:
+        for cid, lab, x, data, _sf in shown:
             for _field, (y_title, unit, values) in data.items():
                 for xv, yv in zip(x, values):
                     # ", LIMIT" travels with the file, matching the plot axis
@@ -281,11 +300,13 @@ else:
                     # its reference axis the same way.
                     writer.writerow({"Case ID": cid, "Condition": lab, x_label: xv,
                                      "Field": f"{y_title} ({unit}, LIMIT)", "Value": yv})
-        # The plotted two-sided envelope rows travel with the file too.
-        if len(shown) > 1:
+        # The plotted two-sided envelope rows travel with the file too --
+        # under the same same-basis rule as the plot (note 58 D-58.3).
+        if len(shown) > 1 and uniform_factor(shown_factors) is not None:
             for field in y_fields:
                 y_title, unit, _ = shown[0][3][field]
-                upper, lower = envelope_extremes([data[field][2] for _, _, _, data in shown])
+                upper, lower = envelope_extremes(
+                    [data[field][2] for _, _, _, data, _sf in shown], shown_factors)
                 for env_name, env in (("ENVELOPE (max)", upper), ("ENVELOPE (min)", lower)):
                     for xv, yv in zip(shown[0][2], env):
                         writer.writerow({"Case ID": env_name,

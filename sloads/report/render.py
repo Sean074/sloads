@@ -68,7 +68,8 @@ def format_value(value: float) -> str:
     return f"{value:.4g}"
 
 
-def envelope_extremes(series: List[List[float]]) -> "tuple[List[float], List[float]]":
+def envelope_extremes(series: List[List[float]],
+                      factors: List[float]) -> "tuple[List[float], List[float]]":
     """Pointwise ``(upper, lower)`` envelope across equal-length value series.
 
     A true load envelope is two-sided: at each station the maximum **and** the
@@ -76,7 +77,30 @@ def envelope_extremes(series: List[List[float]]) -> "tuple[List[float], List[flo
     part of the structure). A single max-|value| trace hides the opposite-sign
     extreme and can jump discontinuously where the governing sign flips, so it
     is not used for envelopes.
+
+    **A pointwise envelope is a same-basis construct** (note 58 D-58.3), so the
+    per-series prescribed safety factors are a required argument and a mixed
+    set is refused by name: comparing an SF 1.0 curve against an SF 1.5 curve
+    on raw LIMIT magnitude ranks cases on a basis the structure is not sized
+    to, and no honest mixed *value* exists to publish instead (an
+    ultimate-scaled trace would deliver a factored load — the G-OR-71 class).
+    The caller renders the per-case curves and states in band why the envelope
+    is withheld; :func:`sloads.safety_factors.uniform_factor` is the owner of
+    the same-basis question, used here and available to callers that want to
+    decide before building the series.
+
+    The published values stay raw ``max``/``min`` (note 58 D-58.5): the
+    platform-stable-tie rule (``picks.extreme``) protects *pick identity*, and
+    a value envelope publishes no identity.
     """
+    from ..safety_factors import uniform_factor
+
+    if uniform_factor(factors) is None:
+        raise ValueError(
+            "a pointwise envelope across load cases with differing prescribed "
+            f"safety factors ({sorted(set(factors))}) compares quantities the "
+            "structure is not sized to; render the per-case curves and state "
+            "the withholding instead (note 58 D-58.3)")
     upper = [max(vals) for vals in zip(*series)]
     lower = [min(vals) for vals in zip(*series)]
     return upper, lower

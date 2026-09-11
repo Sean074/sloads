@@ -99,22 +99,58 @@ def test_the_engine_failure_cases_are_in_the_fins_critical_set():
 
 
 def test_section_six_and_section_eleven_name_the_same_critical_fin_case():
-    """G-OR-113.
+    """G-OR-113, re-keyed to the ultimate basis (note 58 D-58.4).
 
     This is the whole argument for OR-172 written as an assertion. A document
     that printed a governing load in section 11 while section 6 called a smaller
     one critical would have published the contradiction rather than resolved it.
     Measured 2026-09-07, LIMIT against LIMIT, the 23.367 case governs on every
-    twin in the fixture set -- 1.6x, 2.6x and 3.3x the largest SELECT fin case --
-    so this also pins that the engine-failure case is the one that wins.
+    twin in the fixture set -- 1.6x, 2.6x and 3.3x the largest SELECT fin case.
+
+    Since note 58 the pick of record is made on the **ultimate basis**
+    (``safety_factors.ultimate_basis``, |load| x SF): the fin set is the one
+    mixed-factor set in the suite -- 23.367(a)(2) is ULTIMATE SF 1.0 among
+    LIMIT 1.5 cases -- and a raw-LIMIT max ranks it on a basis the structure
+    is not sized to. Both bases are asserted here, which is also the pin that
+    **no shipped pick flips** (measured 2026-09-11: the governing VD case
+    leads the ULTIMATE case by ~2.2x on the ultimate basis on both twins; a
+    fixture that closes that gap inside 1.5x announces itself here first).
     """
+    from sloads.picks import extreme
+    from sloads.safety_factors import ultimate_basis
+
     for name in _TWINS:
         conditions = _vtail(_project(name))
-        governing = max(conditions, key=lambda c: abs(_total(c)))
+        governing = extreme(
+            conditions, key=lambda c: ultimate_basis(_total(c), c.safety_factor))
         assert governing.label.startswith(_PREFIX), (name, governing.label)
+        # The no-flip pin: the raw-LIMIT pick names the same case today.
+        at_limit = max(conditions, key=lambda c: abs(_total(c)))
+        assert at_limit.label == governing.label, (
+            name, "the LIMIT and ultimate-basis picks diverged -- the mixed-"
+            "factor gap has closed; re-measure and restate note 58 SS1.3")
         oei = [c for c in conditions if c.label.startswith(_PREFIX)]
         select = [c for c in conditions if not c.label.startswith(_PREFIX)]
-        assert max(abs(_total(c)) for c in oei) > max(abs(_total(c)) for c in select), name
+        assert (max(ultimate_basis(_total(c), c.safety_factor) for c in oei)
+                > max(ultimate_basis(_total(c), c.safety_factor) for c in select)), name
+
+
+def test_the_ultimate_basis_disagrees_with_limit_where_it_should():
+    """Note 58 gate 2's other half: the basis rule itself has teeth.
+
+    Constructed so the two bases MUST disagree -- an SF 1.0 case at 150 lb
+    against an SF 1.5 case at 110 lb (ultimate 150 vs 165). A raw-LIMIT max
+    names the first; the ultimate basis names the second, which is the case
+    that sizes more structure. If ``ultimate_basis`` ever degrades to the raw
+    magnitude, this fails before any fixture does.
+    """
+    from sloads.safety_factors import ultimate_basis
+
+    cases = ((150.0, 1.0), (110.0, 1.5))
+    at_limit = max(cases, key=lambda c: abs(c[0]))
+    at_ultimate = max(cases, key=lambda c: ultimate_basis(c[0], c[1]))
+    assert at_limit == (150.0, 1.0)
+    assert at_ultimate == (110.0, 1.5)
 
 
 # --------------------------------------------------------------------------- #

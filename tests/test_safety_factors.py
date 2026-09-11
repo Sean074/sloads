@@ -539,5 +539,32 @@ def test_an_engine_rating_states_no_factor_in_the_delivered_row():
     assert "-ULT" not in rows["Mean takeoff torque"]["Units"]
 
 
+# --------------------------------------------------------------------------- #
+# The comparison basis (note 58 D-58.2/D-58.3)
+# --------------------------------------------------------------------------- #
+def test_the_ultimate_basis_is_magnitude_times_the_prescribed_factor():
+    """|value| x SF, sign-blind -- the quantity structure is sized to. On a
+    uniform set it is the raw ranking scaled by a constant, which is why
+    nothing moves anywhere factors agree."""
+    from sloads.safety_factors import ultimate_basis
+
+    assert ultimate_basis(100.0, 1.5) == 150.0
+    assert ultimate_basis(-100.0, 1.5) == 150.0
+    assert ultimate_basis(150.0, 1.0) == 150.0
+    # The defect case note 58 exists for: 110 @ 1.5 outranks 150 @ 1.0.
+    assert ultimate_basis(110.0, 1.5) > ultimate_basis(150.0, 1.0)
+
+
+def test_uniform_factor_names_the_shared_factor_or_refuses():
+    """The same-basis owner for cross-case value constructs -- distinct from
+    shared_basis_factor, which answers the -ULT header-wording question and
+    returns 1.0 or None only."""
+    from sloads.safety_factors import uniform_factor
+
+    assert uniform_factor([1.5, 1.5, 1.5]) == 1.5
+    assert uniform_factor([1.0]) == 1.0
+    assert uniform_factor([1.5, 1.0]) is None
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

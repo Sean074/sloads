@@ -421,6 +421,25 @@ conventions"** section (`SUMMARY_REPORT.md` §4.2.1), single-sourced in
   whose bulk-data card can still state different factors, which is the F-R1
   defect class — and a test asserts it is empty on every shipped path.
   Layer 1 is `DERIVED_FACTOR`: `LIMIT → 1.5`, `ULTIMATE → 1.0` (14 CFR 23.303/25.303).
+- **Comparisons between load cases are made on the ultimate basis; deliveries
+  stay LIMIT** (design note 58, 2026-09-11). A governing-case pick or a
+  cross-case envelope taken over cases whose *prescribed* factors differ ranks
+  quantities the structure is not sized to — the fin is where it bites,
+  23.367(a)(2) being ULTIMATE SF 1.0 among LIMIT 1.5 cases (note 44 OR-172) —
+  so any such comparison keys on `safety_factors.ultimate_basis`
+  (`|value| × SF`; on a uniform set this is the raw ranking, so nothing moves
+  where factors agree), and a pointwise *value* envelope is a same-basis
+  construct: `safety_factors.uniform_factor` decides, and
+  `report.envelope_extremes` **refuses a mixed-factor selection by name** —
+  there is no honest mixed value to publish, and an ultimate-scaled trace
+  would deliver a factored load (the G-OR-71 class). The comparison basis is
+  a key, never a delivered value: note 49 OR-116 stands by explicit ruling
+  (#193 closed decided-not-done). Guards:
+  `tests/test_safety_factors.py::test_the_ultimate_basis_is_magnitude_times_the_prescribed_factor`
+  + `::test_uniform_factor_names_the_shared_factor_or_refuses`,
+  `tests/test_report.py::test_envelope_extremes_refuses_a_mixed_factor_selection`,
+  and G-OR-113 re-keyed with the no-flip pin
+  (`tests/test_oracle_report_oei.py`).
 - `ConditionResult.safety_factor` is the **carrier** (`Optional[float]`, default
   `constants.ULTIMATE_FACTOR = 1.5`). Three values, three meanings, and they are
   not interchangeable: **1.5** a limit load, with 1.5 stated and left for the
