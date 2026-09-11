@@ -17,12 +17,14 @@ outlive them:
   appendices are built from it directly, and under note 56 D-56.9 it is the
   authority the delivered cards are written from.
 * **The station numbering** -- :func:`station_gid`, :func:`beam_station_gid`,
-  :func:`body_station_gids`, :func:`tail_span_gid`, :func:`tail_control_gid`,
-  :func:`sob_gid`. Each is a thin view of a band in
-  :mod:`sloads.export.bands`. The decks that consumed them are gone; the
-  numbering is not, because an applied-load row states which station it is at
-  and the LRA model and the CONM2 mass export tie to the same named points.
-  They must agree, so there is one owner rather than three derivations.
+  :func:`body_station_gids`, :func:`tail_span_gid`, :func:`tail_control_gid`.
+  Each is a thin view of a band in :mod:`sloads.export.bands`. The decks that
+  consumed them are gone; the numbering is not, because an applied-load row
+  states which station it is at. It numbers **nothing that ships** as of note
+  56 D-56.3 -- the LRA model now allocates every grid it writes from its own
+  run, rather than taking these -- so these five are the applied-load model's
+  own stations and retire with it at D-56.9, when a row's station becomes the
+  LRA grid the card is written at.
 * **The side-of-body internal loads** (step 13, note 24 R-3) --
   :func:`sob_internal_loads`, the internal load at the wing-to-fuselage cut,
   which the oracle report states as the wing root design loads.
@@ -170,17 +172,6 @@ from .deck_format import (
 # nothing but breaks every citation of the map. See the registry for the whole
 # GID/EID/SID layout and why one owner replaced the per-file constants.
 _WING_BAND = band("wing-stick")
-
-# The wing side-of-body reporting node (step 13) -- the first LRA named-node
-# family (decision BM-5). Its GRID carries a ``$ SLOADS-NODE lra-sob <side>``
-# tag so a consumer (or a re-import) finds it by identity, not by coordinates.
-_SOB_BAND = band("lra-sob")
-
-
-def sob_gid() -> int:
-    """GRID id of the wing side-of-body reporting node (right half-span)."""
-    return _SOB_BAND.allocate(0)
-
 
 def station_gid(i: int) -> int:
     """GRID id of wing station ``i`` (0 = root), past the clamped root node.

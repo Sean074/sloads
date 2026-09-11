@@ -369,6 +369,7 @@ not only of what was intended.
 | 1 | **The load-output contract statements get one owner.** `deck_format` takes `solver_units`, `load_label`, `ult_label`, `SUITE_SF`, `case_sf`, `basis_sentence`; four private `_units` copies and four inline `Channel.SOLVER` resolutions collapse onto one. A drift guard pins `deck_format.py` as the only module in `export/` that resolves the solver channel. | 2026-09-10 |
 | 2 | **The deliverable tables that are not decks move to `report/`.** The case index, the governing safety-factor table, the gear interface report and the export-scope filter become `sloads/report/tables.py`; the export package stops re-exporting them and a guard asserts their absence. Deliverables byte-identical. | 2026-09-10 |
 | 3 | **The five per-component decks are deleted** (D-56.2). `sbeam_bridge.py` 2,639 → 1,413; `EXPORT_TARGETS` 10 → 4; band registry retires four blocks; three standing limitations retire; sbeam digest channels 83 → 33. | 2026-09-11 |
+| 4 | **The LRA model owns every grid it writes** (D-56.3). One contiguous run, `20001-30999`, eleven 999-wide sub-bands on a 1000 stride so `gid // 1000 - 20` is the family index; `sob_gid` moves to `lra_model`; gates 3 and 4 land. Only `sbeam/lra_model` re-stamps. | 2026-09-11 |
 
 **Two departures from the note as written, both deliberate.**
 
@@ -397,6 +398,41 @@ not only of what was intended.
 if a component pairing reappears — but an index naming a deck that does not
 exist is misleading content in a shipped deliverable. It narrows **#209** and
 should be the next thing closed after the applied-load move.
+
+**Slice 4's two departures, and a claim of this note's that did not survive
+measurement.**
+
+1. **The band registry does not collapse to ~8 here.** D-56.3's row promises it
+   and slice 4 leaves **eleven** LRA GID bands where there were six. The
+   families the model used to borrow are now its own and each keeps a
+   registered owner, because `owner_of` has to keep answering "who put this id
+   in my deck?". The count falls at **D-56.9**, when the applied-load model
+   stops carrying its own station numbering — `wing-stick`, the two body runs
+   and the four tail runs are all still allocated from, and they number nothing
+   that ships. `wing-stick`'s `GID 1` hole stays open for the same reason:
+   D-56.2's note said D-56.3 would close it, and closing it now would renumber
+   every station twice.
+
+2. **The sub-bands are sized for D-56.4, not for today.** 999 wide against a
+   present maximum of 84 grids on the largest fixture. D-56.4 makes the mesh
+   `n` equally spaced grids per member with `n` settable per component, so a
+   band sized to the current node count would be the next thing to move, and
+   ruling 1's "the renumber happens once" is the whole reason a wholesale move
+   was cheaper than a partial one.
+
+**§1.2's `GID 7` illustration does not reproduce.** This note says three times
+— §1.2, the issue body and the backlog row — that `GID 7` named one point in
+`wing_loads.bdf` and a different point in `lra_model.bdf`. Measured at slice 4:
+it did not. The LRA took the wing stick band's ids for the stations it shares,
+so the shared ids named the *same* point, and the gear ids it took from
+`balanced-gear` were the same trunnion in both decks. The **borrowing** was
+real and is what D-56.3 fixes — the deliverable's grids were defined by four
+artifacts, three of them not deliverables — and gate 4 is what catches it. The
+position collision was not, and the only one on record (the balanced deck into
+the spanwise h-tail band, review F-C1) the registry closed two months ago.
+Gate 3 is kept and its docstring says so: it pins a property that was true by
+accident, which is what the next deck family would re-open. The decision is
+unchanged; the sentence that motivated it was wrong.
 
 **One gate lost, recorded here rather than in a test that no longer exists.**
 `test_the_sob_internal_load_is_the_first_outboard_elements_end_force` solved the

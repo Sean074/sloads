@@ -94,7 +94,7 @@ def read_lra_model(text: str,
 
     ``$ SLOADS-NODE <family> <side>`` comment lines tag the next ``GRID``
     card, exactly as the exporter writes them; ``sidecar`` entries
-    (``{"lra-sob R": 7001, ...}``) override/extend the in-deck tags. Raises
+    (``{"lra-sob R": 25001, ...}``) override/extend the in-deck tags. Raises
     when the model carries no ``GRID`` at all -- there is nothing to route
     loads onto.
     """
