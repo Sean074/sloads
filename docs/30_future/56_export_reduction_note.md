@@ -16,6 +16,12 @@ artifacts become two, and every exported id moves. No delivered load changes.
 Measurements in §1 are taken at `dev/v0.8.3` after #262 and #172, i.e. with the
 joint register (note 54 D-54.5) and the solvability fixes (note 55) in place.
 
+**Amended 2026-09-10, before implementation** (owner flagged, note-55 D-55.6
+precedent): D-56.2's consumer count was measured on `export_report.py` alone
+and said "the GUI Export page". There are **seven** `app/views/` consumers;
+the decision is unchanged, its blast radius in the main GUI is not. No
+decision text other than that sentence moved.
+
 ---
 
 ## 1. What the code does today, and what is missing
@@ -169,7 +175,7 @@ analysis views. Note 55 made the solve claim true on all six fixtures.
 | # | Decision | Alternative rejected |
 |---|---|---|
 | **D-56.1** | **`sbeam_bridge.py` splits three ways and ceases to exist.** The applied-load model (`AppliedLoad`, `applied_loads` + its five row builders, `applied_body_moments`, `sob_internal_loads`, ~600 lines) and the report tables (case index, `safety_factors_csv`, `gear_report_csv`, `filter_by_selected_case_ids`, `LOAD_ID_COLUMN`, `CENTERLINE_CLAMP_NOTE`, ~370) **move to `report/`**; the per-component decks (~1,900) are **deleted**. | *Package-split it in place* (#191's plan). Rejected: it preserves the misfiling. Two of the three groups are report code that never belonged in an export bridge, and the third is being deleted — splitting first means moving the same lines twice. |
-| **D-56.2** | **The per-component solver decks are deleted** — wing stick BDF + span CSV, body, tail chordwise, tail span, control surface, cards *and* companion CSVs. Their only non-test consumer is the GUI Export page; `tail_span_force_moment_cards` has **zero** production consumers. | *Keep them as views.* Rejected under ruling 1: they are not used, they own five GID bands the deliverable borrows from, and they carry most of the milestone's open export work. |
+| **D-56.2** | **The per-component solver decks are deleted** — wing stick BDF + span CSV, body, tail chordwise, tail span, control surface, cards *and* companion CSVs. Their non-test consumers are **seven `app/views/` modules**, not one: `export_report.py` (17 symbols), `wing_loads.py` (`applied_load_csv`, `span_load_csv`), `fuselage_loads.py` (`body_span_load_csv`), `tab_loads.py`, `aileron_loads.py` and `flap_loads.py` (`control_surface_csv`, `control_surface_force_moment_cards`) and `landing_loads.py` (`gear_report_csv`). Of those, `applied_load_csv` and `gear_report_csv` are in D-56.1's **move** group, so their pages re-point at `report/`; the rest are in the delete group, so **those per-page download buttons go with the decks**. That is a consequence of this decision in the main GUI, not #245's oracle-GUI channel — ruling 6 does not cover it. `tail_span_force_moment_cards` has **zero** production consumers. | *Keep them as views.* Rejected under ruling 1: they are not used, they own five GID bands the deliverable borrows from, and they carry most of the milestone's open export work. |
 | **D-56.3** | **The LRA model owns one contiguous grid band.** It stops importing `station_gid` / `tail_span_gid` / `tail_control_gid` / `sob_gid`. Every shipped artifact's grids come from exactly one band it owns, so no GID is defined at two positions anywhere in the set. `bands.py` collapses from 25+ bands to ~8. | *Keep the borrowing and just delete the borrowed-from decks.* Not viable: the bands would survive as orphans owned by deleted code, which is the blind spot the registry exists to close. |
 | **D-56.4** | **The LRA beam gets its own mesh: joint-driven, minimal.** Nodes are the joints and load-transfer points plus a few intermediates; loads land by LM-1 `(p − n) × F`, already the shared owner. Joints become mesh points **by construction**, so note 55's sliver class dies structurally and `JOINT_MERGE_FRACTION` and the sliver leg of `_refuse_unsolvable_skeleton` retire. The wing load mesh stays oracle-locked at 20 strips; it simply stops being the beam. | *Keep it welded* (note 55's posture). Rejected on §1.4: a welded mesh is a degenerate special case that hides the general one, so the arbitrary-grid path a real user hits first stays the least tested. *Formalise the merge rule instead.* Rejected: it maintains the class rather than removing it. |
 | **D-56.5** | **`lra_import` stays in core; the "script" is a thin CLI entry point over it.** Importing an unsized LRA definition as the load target and putting loads on an already-sized model are the same code at different vintages. The `LRA_IMPORT_TOL_IN` validation against the project's own geometry stays with it. | *Move it to `scripts/`.* Rejected after ruling 3: the geometry validation needs core, and a second copy of the LM-1 transfer would become likely — forking the one rule this note exists to unify. |
@@ -273,6 +279,7 @@ anything finer.
   all five decks" sentence in the frozen-baseline paragraph is now wrong and must
   be re-cut with the channel count.
 * `docs/00_INDEX.md` — row for this note *(landed with the note)*.
+* **The seven `app/views/` modules D-56.2 names.** Removing a download button whose backing writer no longer exists is a consequence of this note, not #29's GUI review, so the `app/views/` hold does not bar it and no OR-15 admission is sought. Nothing else on those pages is touched, and the fragment states which buttons went.
 * **No `theory_sources.md` citation.** Stated explicitly rather than silently
   omitted: this note changes no equation and cites no oracle. Gate 8 is why.
 * **No schema change.** `SCHEMA_VERSION` stands; `DATA_DICTIONARY.md`
