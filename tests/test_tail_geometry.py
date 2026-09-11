@@ -47,6 +47,7 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 #: slice at all — the same gap ``test_export_equilibrium`` already pins.
 _TAIL_COVERAGE = {
     "atr42_100.project.json": (True, True),
+    "baron_58.project.json": (True, True),
     "concept_heavy.project.json": (False, False),
     "concept_regional_jet.project.json": (True, True),
     "ga6_normal.project.json": (True, True),
@@ -108,6 +109,7 @@ def test_the_derived_planform_reproduces_taildist_average_chord(example):
 #: within 0.084 %.
 _ENTERED_TAILS = frozenset({
     "atr42_100.project.json",
+    "baron_58.project.json",
     "concept_regional_jet.project.json",
     "ga6_normal.project.json",
 })

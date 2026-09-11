@@ -1010,6 +1010,31 @@ def test_imperial_output_matches_the_frozen_baseline():
         assert not drifted, f"{example}: Imperial output changed in {drifted}"
 
 
+def test_the_baseline_pins_every_bundled_example():
+    """The EXAMPLES tuple is tied to ``examples/`` itself (rule 3).
+
+    ``baron_58`` shipped in ``examples/`` for weeks while the D-21 baseline's
+    hand-kept list never gained it, so the closure-locked twin's delivered
+    bytes were unguarded and no test could say so — the list's "every shipped
+    example" claim was prose with no drift guard. This is that guard: a
+    fixture added to (or removed from) ``examples/`` now fails here until the
+    baseline is deliberately regenerated, which is exactly the loud pause a
+    regeneration is supposed to be.
+    """
+    import glob
+
+    import imperial_baseline as baseline
+
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    bundled = {os.path.basename(p)
+               for p in glob.glob(os.path.join(here, "examples", "*.project.json"))}
+    assert bundled == set(baseline.EXAMPLES), (
+        "examples/ and imperial_baseline.EXAMPLES disagree -- add or remove "
+        "the fixture in EXAMPLES and regenerate the digest fixture "
+        "deliberately (.venv/bin/python tests/imperial_baseline.py): "
+        f"{sorted(bundled ^ set(baseline.EXAMPLES))}")
+
+
 def test_the_frozen_baseline_is_not_vacuous():
     """A guard over an empty set passes forever — pin the coverage too.
 
@@ -1021,8 +1046,9 @@ def test_the_frozen_baseline_is_not_vacuous():
 
     frozen = baseline.load_fixture()
     assert set(frozen) == set(baseline.EXAMPLES)
-    # > 150 over the four baselined fixtures (was > 200 over six, #264).
-    assert sum(len(v) for v in frozen.values()) > 150, "baseline lost channels"
+    # > 200 over the five baselined fixtures (re-pinned when baron_58 joined,
+    # 2026-09-11; it was > 150 over four after #264's retire).
+    assert sum(len(v) for v in frozen.values()) > 200, "baseline lost channels"
     for example, channels in frozen.items():
         assert any(c.startswith("csv/") for c in channels), example
 

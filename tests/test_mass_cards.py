@@ -167,6 +167,7 @@ _WTENV_FLIGHT = ["aft gross", "fwd gross", "fwd regardless", "min weight", "mid 
 _DERIVABLE = {
     "ga6_normal.project.json": ["CG1", "CG2", "CG3", "CG4"],
     "atr42_100.project.json": _WTENV_FLIGHT,
+    "baron_58.project.json": ["aft gross"],
     "concept_heavy.project.json": ["CGmax"],
     "concept_regional_jet.project.json": _WTENV_FLIGHT,
 }
