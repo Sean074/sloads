@@ -174,6 +174,14 @@ _EXPECTED_CASES = {
     "atr42_100.project.json": _WING_CASES + [
         ("ACRL", ""), ("TORS", ""),
     ] + _UNSYMMETRICAL_CASES + _LATERAL_CASES,
+    # baron_58 entered the walk 2026-09-11 (#271, EXAMPLES made structural):
+    # one derivable loading ("aft gross"), so the wing families and the
+    # unsymmetrical pair drop for want of a loading and are recorded (F-C7);
+    # TORS and the full lateral set assemble on it.
+    "baron_58.project.json": [("TORS", "")] + [
+        (label, hand) for label, hand in _LATERAL_CASES
+        if label != "SIDE GUST"     # non-derivable loading; dropped, recorded
+    ],
     "concept_heavy.project.json": _WING_CASES + [("ACRL", "")],
     "concept_regional_jet.project.json": _WING_CASES + [
         ("ACRL", "R"), ("ACRL", "L"), ("TORS", ""),
@@ -214,6 +222,7 @@ _GROUND_FULL = (_GROUND_SYMMETRIC[:9] + _GROUND_ONE_WHEEL
 _EXPECTED_GROUND_CASES = {
     "ga6_normal.project.json": _GROUND_FULL,
     "atr42_100.project.json": _GROUND_FULL,
+    "baron_58.project.json": _GROUND_FULL,
     "concept_heavy.project.json": [],
     "concept_regional_jet.project.json": _GROUND_FULL,
 }
@@ -246,6 +255,11 @@ _PITCH_RESIDUAL_RATCHET = {
                                 "unsymmetrical": 0.0005},
     "atr42_100.project.json": {"symmetric": 0.0025, "lateral": 0.0010,
                                "unsymmetrical": 0.0065},
+    # baron_58 measured 2026-09-11 (#271): symmetric (TORS) 0.542 %, lateral
+    # 0.528 % -- above the other type fixtures, the documented fixture-data
+    # pattern; no unsymmetrical family assembles (shape-keeping placeholder).
+    "baron_58.project.json": {"symmetric": 0.0060, "lateral": 0.0055,
+                              "unsymmetrical": 0.0005},
     "concept_heavy.project.json": {"symmetric": 0.0090, "lateral": 0.0010,
                                    "unsymmetrical": 0.0010},
     "concept_regional_jet.project.json": {"symmetric": 0.0005, "lateral": 0.0005,
@@ -300,6 +314,9 @@ _FORCE_RESIDUAL_RATCHET = {
                                 "unsymmetrical": 0.0030},
     "atr42_100.project.json": {"symmetric": 0.0240, "lateral": 0.0065,
                                "unsymmetrical": 0.0140},
+    # baron_58 measured 2026-09-11 (#271): symmetric 0.191 %, lateral 0.117 %.
+    "baron_58.project.json": {"symmetric": 0.0025, "lateral": 0.0015,
+                              "unsymmetrical": 0.0005},
     "concept_heavy.project.json": {"symmetric": 0.0200, "lateral": 0.0030,
                                    "unsymmetrical": 0.0030},
     "concept_regional_jet.project.json": {"symmetric": 0.0110, "lateral": 0.0035,
@@ -977,6 +994,7 @@ _DELTA_CD_BAND = {
     'ga6_normal.project.json': (-0.0208, -0.0164),
     'cessna_210.project.json': (-0.0822, -0.0030),
     'atr42_100.project.json': (-0.1519, +0.0221),
+    'baron_58.project.json': (-0.0398, -0.0299),
     'dhc8_dash8.project.json': (-0.1061, -0.0018),
     'concept_heavy.project.json': (-0.1385, +0.0398),
     'concept_regional_jet.project.json': (-0.0372, +0.0726),
@@ -1674,7 +1692,7 @@ def _oeo_history(project):
 #: case -- the two producers do not meet on any single fixture, and a gate
 #: parametrised over the balanced-case fixtures would have skipped itself into
 #: vacuity on every run.
-_WITH_ONE_ENGINE_OUT = ("atr42_100.project.json",)
+_WITH_ONE_ENGINE_OUT = ("atr42_100.project.json", "baron_58.project.json")
 
 
 def test_g1_has_a_producer_to_check_against():
@@ -1731,6 +1749,7 @@ _CLOSURE_IZZ = {
     # wing-tank fuel left the centreline lump for WINGINER's spanwise spread, so
     # Izz gained its Sum w*y^2 -- +33 % / +31 % / +29 %. Physics, not drift.
     'atr42_100.project.json': {'fwd gross': 197124.6, 'aft gross': 204234.6},
+    'baron_58.project.json': {'aft gross': 12195.4},
     'dhc8_dash8.project.json': {'fwd gross': 276188.3, 'min weight': 184928.0, 'aft gross': 269576.3, 'fwd regardless': 261441.6},
     'concept_heavy.project.json': {'CGmax': 32302.1},
 #: The RJ's three moved on 2026-08-30: its CG cases were re-seeded to the
@@ -1986,6 +2005,14 @@ _LATERAL_CASE_NUMBERS = {
         'YAW 15 NEUTRAL': (-525.6850, -0.154613, -148.052336, +78.271821),
         'YAW TO SIDESLIP': (-97.7496, -0.028750, -17.732176, +15.727660),
     },
+    # baron_58 entered the walk 2026-09-11 (#271). Its SIDE GUST sits on a
+    # non-derivable loading and drops, recorded (F-C7), so three of the four
+    # lateral conditions are pinned here.
+    'baron_58.project.json': {
+        'SUDDEN RUDDER': (1287.5019, +0.234091, +114.210539, -25.415381),
+        'YAW 15 NEUTRAL': (-1357.1866, -0.246761, -113.210638, +26.891483),
+        'YAW TO SIDESLIP': (-476.8407, -0.086698, -32.963291, +9.543547),
+    },
     # The three fixtures with a published fuselage outline (T-8a). Backlog Pri 1
     # gave the "fuselage-top" branch of vtail_root_waterline its body datum --
     # z_centre(xv25) + height(xv25)/2 in place of the wing root plus half the
@@ -2056,7 +2083,10 @@ def test_the_lateral_cases_are_pinned(example):
     got = {c.label: c for c in build_balanced_cases(_project(example))
            if is_lateral(c) and c.hand == "R"}
     assert sorted(got) == sorted(want), f"{example}: {sorted(got)}"
-    assert sorted(got) == sorted(BALANCED_VTAIL_CONDITIONS), example
+    # Legality, not completeness: baron_58's SIDE GUST sits on a non-derivable
+    # loading and drops (recorded, F-C7), so the full-set claim is per fixture
+    # -- the exact set is the `want` pin above.
+    assert set(got) <= set(BALANCED_VTAIL_CONDITIONS), example
 
     for label, (fin, ny, r_dot, p_dot) in want.items():
         case = got[label]

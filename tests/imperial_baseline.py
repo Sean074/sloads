@@ -41,9 +41,14 @@ FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 #: Every shipped example — the GA single the oracle is locked to, the twins, and
 #: the two concept-mode configurations that exceed the FAR 23 caps.
 #: (``cessna_210`` and ``dhc8_dash8`` retired to unmaintained parking, #264;
-#: ``baron_58`` predates this list and has never been in it.)
+#: ``baron_58`` added 2026-09-11 — it postdated this list and was never
+#: pinned, so the closure-locked twin's delivered bytes went unguarded. The
+#: tie to ``examples/`` is now structural:
+#: ``test_deliverable_units.py::test_the_baseline_pins_every_bundled_example``
+#: fails when a fixture is added or removed without a deliberate regeneration.)
 EXAMPLES = (
     "atr42_100.project.json",
+    "baron_58.project.json",
     "concept_heavy.project.json",
     "concept_regional_jet.project.json",
     "ga6_normal.project.json",
