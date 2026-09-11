@@ -71,10 +71,8 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 #: locked to, the twins, and the two concept configurations.
 EXAMPLES = (
     "atr42_100.project.json",
-    "cessna_210.project.json",
     "concept_heavy.project.json",
     "concept_regional_jet.project.json",
-    "dhc8_dash8.project.json",
     "ga6_normal.project.json",
 )
 

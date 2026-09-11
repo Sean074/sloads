@@ -299,9 +299,8 @@ Load any of these from **Start → Project JSON Editor** (or `New from example`)
 | Example | Category | Runs |
 |---|---|---|
 | `ga6_normal` | FAR 23 Normal (Appendix A) | full workflow, all six phases |
-| `cessna_210` | FAR 23 Normal | full workflow |
+| `baron_58` | FAR 23 Normal (light twin) | full workflow |
 | `concept_regional_jet` | concept jet (T-tail, Part 25 supplement on, **25.335(b) Mach-margin dive speed**) | full workflow |
-| `dhc8_dash8` | concept twin-turboprop (one-engine-out) | full workflow |
 | `atr42_100` | concept twin-turboprop (one-engine-out) | full workflow |
 | `concept_heavy` | **minimal concept core** | V-n → Flight Envelope only |
 

@@ -55,10 +55,10 @@ _EXAMPLES = os.path.join(
 
 #: Between them these cover every state section 11 has: a single-engine airplane
 #: that has no 23.367 condition at all (``ga6_normal``), a reciprocating twin
-#: that recovers at every speed (``baron_58``), and two turboprop twins whose VS
-#: case does **not** recover (``atr42_100``, ``dhc8_dash8``) -- which is the only
-#: place OR-174's exclusion can be exercised on shipped data.
-_TWINS = ("baron_58", "atr42_100", "dhc8_dash8")
+#: that recovers at every speed (``baron_58``), and a turboprop twin whose VS
+#: case does **not** recover (``atr42_100``) -- the only place OR-174's
+#: exclusion can be exercised on shipped data.
+_TWINS = ("baron_58", "atr42_100")
 _NO_CONDITION = "ga6_normal"
 _PREFIX = "ONE ENGINE OUT"
 
@@ -188,7 +188,7 @@ def test_a_case_that_does_not_recover_is_printed_and_reaches_no_envelope():
     suppressing it would hide that the case ran -- and it reaches nothing.
     """
     saw_one = False
-    for name in ("atr42_100", "dhc8_dash8"):
+    for name in ("atr42_100",):
         project = _project(name)
         cases = _vtail_cases(project)
         stalled = [fc for fc in cases if not fc.recovered]
@@ -292,7 +292,7 @@ def test_the_case_index_load_columns_are_still_sparse_across_producers():
     whatever they decided.
     """
     blank = total = 0
-    for name in _TWINS + (_NO_CONDITION, "cessna_210", "concept_regional_jet"):
+    for name in _TWINS + (_NO_CONDITION, "concept_regional_jet"):
         project = _project(name)
         for module in registry.available():
             try:

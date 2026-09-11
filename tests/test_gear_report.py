@@ -92,9 +92,7 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 #: on five should be able to see immediately that this is by construction.
 _GEAR_FIXTURES = {
     "ga6_normal.project.json": True,
-    "cessna_210.project.json": True,
     "atr42_100.project.json": True,
-    "dhc8_dash8.project.json": True,
     "concept_regional_jet.project.json": True,
     # No gear geometry and no landing slice -- backlog: giving it both is cheap
     # fixture data and buys a sixth fixture plus the only concept-mode exercise
@@ -381,9 +379,7 @@ def test_the_entered_leg_weights_agree_with_the_item_database():
     """
     expected = {
         "ga6_normal.project.json": (77.5, 49.0, 155.0 + 49.0),
-        "cessna_210.project.json": (85.0, 57.0, 170.0 + 57.0),
         "atr42_100.project.json": (525.0, 260.0, 1050.0 + 260.0),
-        "dhc8_dash8.project.json": (600.0, 300.0, 1200.0 + 300.0),
         "concept_regional_jet.project.json": (575.0, 300.0, 1150.0 + 300.0),
     }
     for example, (main, nose, database) in expected.items():

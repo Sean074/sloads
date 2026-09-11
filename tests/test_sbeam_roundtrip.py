@@ -200,9 +200,7 @@ SOB_MATRIX = ("concept_regional_jet.project.json", "atr42_100.project.json")
 LRA_SOLVE_MATRIX = (
     "ga6_normal.project.json",
     "baron_58.project.json",
-    "cessna_210.project.json",
     "atr42_100.project.json",
-    "dhc8_dash8.project.json",
     "concept_regional_jet.project.json",
 )
 

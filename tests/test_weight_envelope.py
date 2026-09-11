@@ -422,7 +422,7 @@ def test_the_forward_edge_has_exactly_one_owner():
     """G-WE-4: ``loading_envelope_points`` is the station-only projection of the
     same sweep, not a second walk -- so the GUI chart and the report can never
     be shown different vertices."""
-    for name in ("ga6_normal", "cessna_210", "dhc8_dash8", "concept_heavy"):
+    for name in ("ga6_normal", "atr42_100", "concept_heavy"):
         path = os.path.join(os.path.dirname(_EXAMPLE), f"{name}.project.json")
         project = io.load_project(path)
         assert calc.loading_envelope_points(project) == [

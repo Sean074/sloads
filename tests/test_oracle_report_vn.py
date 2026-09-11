@@ -520,7 +520,7 @@ def test_a_condition_with_no_point_takes_the_point_of_its_own_engine():
     from sloads.registry import get
     from sloads.report.render import point_load_records
 
-    for name in ("atr42_100", "dhc8_dash8", "concept_regional_jet"):
+    for name in ("atr42_100", "concept_regional_jet"):
         project = _project(name)
         assert len(project.engines) > 1, name
         records = point_load_records(get("engine")(project).conditions)

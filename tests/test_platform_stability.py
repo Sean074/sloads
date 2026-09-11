@@ -274,7 +274,8 @@ def test_no_emitted_deck_value_hangs_on_the_last_ulp():
     finally:
         for module in patched:
             module.fmt = original
-    assert checked > 100_000, checked  # the sweep must not quietly empty out
+    # 90,693 values at the #264 fixture set (was >100k over six fixtures).
+    assert checked > 80_000, checked  # the sweep must not quietly empty out
 
 
 def test_the_deck_formatter_still_prints_what_it_used_to():

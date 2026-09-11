@@ -601,7 +601,7 @@ def test_v38_adds_no_key_to_the_shipped_examples():
     """
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     paths = sorted(glob.glob(os.path.join(here, "examples", "*.project.json")))
-    assert len(paths) == 7, paths
+    assert len(paths) == 5, paths   # 7 before #264 retired two fixtures
     for path in paths:
         with open(path) as fh:
             on_disk = json.load(fh)
@@ -1021,7 +1021,8 @@ def test_the_frozen_baseline_is_not_vacuous():
 
     frozen = baseline.load_fixture()
     assert set(frozen) == set(baseline.EXAMPLES)
-    assert sum(len(v) for v in frozen.values()) > 200, "baseline lost channels"
+    # > 150 over the four baselined fixtures (was > 200 over six, #264).
+    assert sum(len(v) for v in frozen.values()) > 150, "baseline lost channels"
     for example, channels in frozen.items():
         assert any(c.startswith("csv/") for c in channels), example
 

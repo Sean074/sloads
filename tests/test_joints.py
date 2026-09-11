@@ -56,14 +56,14 @@ from sloads.joints import (
 
 _EXAMPLES = os.path.join(os.path.dirname(__file__), "..", "examples")
 
-#: Every shipped fixture that builds an LRA model -- the note's gate tables
-#: name all six, so the walk covers all six.
-FIXTURES = ("ga6_normal", "baron_58", "cessna_210",
-            "atr42_100", "dhc8_dash8", "concept_regional_jet")
+#: Every shipped fixture that builds an LRA model -- the walk covers the
+#: whole set (the note 54 gate tables named six; two retired at #264).
+FIXTURES = ("ga6_normal", "baron_58",
+            "atr42_100", "concept_regional_jet")
 
 #: The three T-tails, whose tip joint is the arm note 51's transfer moments
 #: are computed across (note 54 §5).
-T_TAILS = ("atr42_100", "dhc8_dash8", "concept_regional_jet")
+T_TAILS = ("atr42_100", "concept_regional_jet")
 
 #: D-54.7's tolerance: "positions are copies of one owner, not measurements".
 #: Applied to the built model, where the copy is exact.
@@ -262,9 +262,8 @@ def test_the_register_states_the_note_54_gate_numbers():
     number is worth.
     """
     # Gate 1 -- the fin-root joint sits on the L-1 owner's resolution.
-    roots = {"ga6_normal": 111.5, "baron_58": 110.0, "cessna_210": 100.2,
-             "atr42_100": 191.2, "dhc8_dash8": 203.5,
-             "concept_regional_jet": 87.0}
+    roots = {"ga6_normal": 111.5, "baron_58": 110.0,
+             "atr42_100": 191.2, "concept_regional_jet": 87.0}
     for name, z in roots.items():
         reg = joints(_project(name))
         joint = reg.one(JointName.VTAIL_ROOT)
@@ -281,7 +280,7 @@ def test_the_register_states_the_note_54_gate_numbers():
     # stated x-arm IS the measured LRA offset. The z member is zero by
     # construction (h_tail_waterline's fin-tip branch is that same sum), which
     # is the tell that both ends come from one owner pair.
-    tips = {"atr42_100": (316.2, -25.6), "dhc8_dash8": (333.5, -26.1),
+    tips = {"atr42_100": (316.2, -25.6),
             "concept_regional_jet": (225.0, -26.7)}
     for name, (z, dx) in tips.items():
         reg = joints(_project(name))
@@ -293,8 +292,7 @@ def test_the_register_states_the_note_54_gate_numbers():
 
     # Gate 3 -- the conventional attachment pair equals htail_attachment with
     # its basis, on the D-54.4 waterline.
-    pairs = {"ga6_normal": (6.7, 111.0), "baron_58": (4.6, 105.0),
-             "cessna_210": (10.9, 100.0)}
+    pairs = {"ga6_normal": (6.7, 111.0), "baron_58": (4.6, 105.0)}
     for name, (y, z) in pairs.items():
         reg = joints(_project(name))
         right = reg.one(JointName.HTAIL_ATTACH, "R")
@@ -303,11 +301,11 @@ def test_the_register_states_the_note_54_gate_numbers():
         assert left.location[1] == pytest.approx(-y, abs=0.05), name
         assert right.location[2] == pytest.approx(z, abs=0.05), name
         assert right.assumed is True, name          # all three are outline-derived
-    # ga6_normal's h-tail waterline is ENTERED and unchanged at 111.0; the
-    # cessna's moved off the wing-root plane to the mass-item branch at 100.0
-    # when D-54.4 shipped, and the register carries that, not the placeholder.
-    assert joints(_project("cessna_210")).one(
-        JointName.HTAIL_ATTACH, "R").location[2] == pytest.approx(100.0, abs=0.05)
+    # ga6_normal's h-tail waterline is ENTERED and unchanged at 111.0. (The
+    # register-carries-the-mass-item-branch assertion retired with cessna_210,
+    # #264 -- the branch itself stays pinned in test_tail_geometry on
+    # concept_heavy, which enters no tail outline and so builds no register
+    # joint to assert it through.)
 
 
 def test_the_walk_would_have_caught_the_tip_joint_arm():

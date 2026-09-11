@@ -34,10 +34,10 @@ _GA = os.path.join(_EXAMPLES, "ga6_normal.project.json")
 _CONCEPT = os.path.join(_EXAMPLES, "concept_regional_jet.project.json")
 _CONCEPT_HEAVY = os.path.join(_EXAMPLES, "concept_heavy.project.json")
 #: A second FAR 23 (non-concept) fixture, so the concept-caveat test proves the
-#: caveat is conditional rather than merely present. Every twin in ``examples/``
-#: is a concept-category airplane, which is why this one is another GA single.
-_GA_2 = os.path.join(_EXAMPLES, "cessna_210.project.json")
-_TWIN = os.path.join(_EXAMPLES, "dhc8_dash8.project.json")
+#: caveat is conditional rather than merely present. ``baron_58`` is category N,
+#: which is what the test needs (``cessna_210`` held this slot until #264).
+_GA_2 = os.path.join(_EXAMPLES, "baron_58.project.json")
+_TWIN = os.path.join(_EXAMPLES, "atr42_100.project.json")
 
 
 def _tex(path=_GA, **kwargs) -> str:

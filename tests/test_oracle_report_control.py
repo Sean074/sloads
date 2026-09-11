@@ -58,10 +58,11 @@ _EXAMPLES = os.path.join(
 #: The airplanes these sections are asserted on. Between them they cover every
 #: state the sections have: an outline entered for all three surfaces
 #: (``ga6_normal``), an aileron outline alone with a slipstream case
-#: (``baron_58``), the same without one (``concept_regional_jet``), and both
-#: senses of the area disagreement (``baron_58`` under, ``cessna_210`` over).
+#: (``baron_58``), the same without one (``concept_regional_jet``), and the
+#: under sense of the area disagreement (``baron_58``; the over sense lost its
+#: shipped exerciser when ``cessna_210`` retired, #264).
 _SHIPPED = ("ga6_normal", "baron_58", "concept_regional_jet")
-_ALL = _SHIPPED + ("cessna_210",)
+_ALL = _SHIPPED
 
 #: Section number -> the module's own record builder, so a gate can compare the
 #: document against what it was built from without knowing which section it is.
@@ -222,8 +223,13 @@ def test_the_printed_profile_integrates_back_to_the_printed_load():
 # G-OR-99 -- the area disagreement, both ways
 # --------------------------------------------------------------------------- #
 def test_a_disagreeing_pair_of_entered_areas_is_stated():
-    """OR-152: stated, not resolved silently in either direction."""
-    for name, sense in (("baron_58", "smaller"), ("cessna_210", "larger"),
+    """OR-152: stated, not resolved silently in either direction.
+
+    Both shipped exercisers now disagree in the same direction -- the
+    "larger" sense lost its fixture with ``cessna_210`` (#264); the wording
+    branch itself is direction-symmetric.
+    """
+    for name, sense in (("baron_58", "smaller"),
                         ("concept_regional_jet", "smaller")):
         prose = _prose(_section(_doc(name), "7."))
         assert "The two entered areas of this aileron disagree" in prose, name

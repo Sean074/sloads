@@ -75,8 +75,7 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 #: Fixtures with a modelled empennage. ``concept_heavy`` has no tail slice; the
 #: twins have one, so the sweep is the full set that can produce a tail deck.
-EXAMPLES = ("ga6_normal.project.json", "cessna_210.project.json",
-            "atr42_100.project.json", "dhc8_dash8.project.json",
+EXAMPLES = ("ga6_normal.project.json", "atr42_100.project.json",
             "concept_regional_jet.project.json")
 
 #: A tail mass held **fixed across every fixture**, so the analytic closures below
@@ -1107,9 +1106,7 @@ def test_the_transferred_moment_is_the_two_lever_arms():
 #: "weighs nothing" and the code has to say which.
 _DERIVED_TAIL_WEIGHT = {
     "ga6_normal.project.json": (42.0, 23.0),
-    "cessna_210.project.json": (45.0, 25.0),
     "atr42_100.project.json": (320.0, 270.0),
-    "dhc8_dash8.project.json": (350.0, 300.0),
     "concept_regional_jet.project.json": (520.0, 640.0),
     "concept_heavy.project.json": (400.0, None),
 }

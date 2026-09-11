@@ -131,14 +131,13 @@ def _skip_if_empty(results, example, what):
 #: :func:`test_offset_couples_exist_only_where_a_concentrated_mass_does`.
 _COUPLE_NODES = {
     "atr42_100.project.json": 1,      # engine + fuel, one strip
-    "dhc8_dash8.project.json": 2,     # gear (BL 75) inboard of engine + fuel
     "concept_heavy.project.json": 1,  # engine + fuel, one strip
 }
 
 
 def _has_concentrated_wing_mass(example: str) -> bool:
     """True if the fixture hangs point masses (engine, gear, fuel, store) on the
-    wing -- ``atr42_100``, ``dhc8_dash8``, ``concept_heavy`` do; the rest do not."""
+    wing -- ``atr42_100`` and ``concept_heavy`` do; the rest do not."""
     wm = _project(example).wing_mass
     return bool(wm and wm.concentrated)
 
@@ -423,10 +422,8 @@ def test_every_example_has_decks():
     coverage = {ex: tuple(bool(c) for c in _cached(ex)) for ex in EXAMPLES}
     assert coverage == {
         "atr42_100.project.json": (True, True, True, False, True, True),
-        "cessna_210.project.json": (True, True, True, True, True, True),
         "concept_heavy.project.json": (True, True, False, False, False, False),
         "concept_regional_jet.project.json": (True, True, True, True, True, True),
-        "dhc8_dash8.project.json": (True, True, True, False, True, True),
         "ga6_normal.project.json": (True, True, True, True, True, True),
     }
 

@@ -325,18 +325,6 @@ Figs 20.7–20.10).
 - #170 — Mean takeoff torque is factored: `is_load_unit` tests the unit alone (rowed, Pri 49).
 - #216 — Three examples enter a control-surface area they do not draw.
 
-- **`cessna_210`'s engine and propeller CG waterlines put the engine below the
-  airplane.** The fixture enters `engine_cg = (20, 0, −8)` and
-  `prop_cg = (−12, 0, 88)`, giving a combined CG at waterline **4.843** and a
-  thrust line inclined 7° nose-down. It is the same class of slip note 44 §20
-  OR-170 corrected on `ga6_normal` — where Appendix A p227 supplied the right
-  numbers (92 and 100) and the fixture carried the propeller's `x` in the
-  engine's `z` slot — but the C210 has **no printed page to correct it from**, so
-  it is filed with its number rather than guessed at. It moves the deck's
-  `lra-engine-mount` and `lra-engine-hub` nodes, and section 10's three views
-  draw the engine where the data says it is. **Filed 2026-09-07.** Tier S, and
-  it needs the airplane's own data.
-
 - #217 — An entered thrust line does not steer the thrust in the balanced cases.
 
 - #209 — No engine-mount case reaches the LRA deck. *(Reworded 2026-09-10: note

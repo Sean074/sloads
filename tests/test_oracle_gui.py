@@ -818,7 +818,7 @@ _OPTIONAL_BLOCKS = _optional_record_blocks()
 #: A GA single has no engine-out condition, so its One Engine Out page collects
 #: nothing at all (#84, C210-43) and has no blocks to add or remove. The twin is
 #: the airplane that page exists for.
-_TWIN = os.path.join(_EXAMPLES, "dhc8_dash8.project.json")
+_TWIN = os.path.join(_EXAMPLES, "atr42_100.project.json")
 
 
 def _applicable(key):

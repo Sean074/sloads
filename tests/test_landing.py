@@ -800,18 +800,24 @@ def test_nvp_recovers_the_governing_n_on_every_example():
             assert math.isclose(by[m].nvp, 0.5 * nlg + p.landing.lift_factor,
                                 rel_tol=1e-9), (name, m)
         checked += 1
-    assert checked >= 6, "the bundled fleet shrank"
+    assert checked >= 4, "the bundled fleet shrank"   # 6 before #264 retired two
 
 
-def test_below_energy_caution_fires_on_cessna_not_ga6():
-    """G-LF-6's caution half (note 37, LF-7): cessna_210 enters N = 3.167 below
-    its computed 3.3885 and is told so; ga6 enters 3.167 above its 3.0951 and is
-    not. One owner (``below_energy_caution``) serves both GUIs."""
+def test_below_energy_caution_fires_below_the_energy_value_not_above():
+    """G-LF-6's caution half (note 37, LF-7): an entered N below the computed
+    energy value is told so; ga6 enters 3.167 above its 3.0970 and is not.
+    One owner (``below_energy_caution``) serves both GUIs. (``cessna_210``
+    was the shipped fixture that tripped it, 3.1670 vs 3.3885, until #264;
+    the below case is now constructed from ga6 with N lowered to 2.90 --
+    above the 23.473(g) floor, below the energy estimate.)"""
+    import copy
     from sloads.modules.landing import below_energy_caution
-    assert below_energy_caution(io.load_project(_GA)) is None
-    caution = below_energy_caution(
-        io.load_project(os.path.join(_EXAMPLES, "cessna_210.project.json")))
-    assert caution is not None and "3.1670" in caution and "3.3885" in caution
+    ga6 = io.load_project(_GA)
+    assert below_energy_caution(ga6) is None
+    lowered = copy.deepcopy(ga6)
+    lowered.landing.airplane_load_factor = 2.90
+    caution = below_energy_caution(lowered)
+    assert caution is not None and "2.9000" in caution and "3.0970" in caution
 
 
 def test_lift_factor_caption_is_shared_by_both_guis():

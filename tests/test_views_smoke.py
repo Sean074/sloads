@@ -21,7 +21,7 @@ _EXAMPLE = os.path.join(_ROOT, "examples", "ga6_normal.project.json")
 # StreamlitValueAboveMaxError that fired when the weight-estimate power widget was
 # capped at 3000 hp while seeding a loaded value above that cap. The Estimate tab
 # now lives on the merged Weight & Mass Properties page (Step G3).
-_BEYOND_GA = os.path.join(_ROOT, "examples", "dhc8_dash8.project.json")
+_BEYOND_GA = os.path.join(_ROOT, "examples", "atr42_100.project.json")
 _WEIGHT_ESTIMATE = os.path.join(_ROOT, "app", "views", "weight_mass.py")
 _EXPORT = os.path.join(_ROOT, "app", "views", "export_report.py")
 _VIEWS = sorted(glob.glob(os.path.join(_ROOT, "app", "views", "*.py")))

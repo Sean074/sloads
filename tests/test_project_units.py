@@ -90,7 +90,7 @@ def test_imperial_is_a_no_op():
 
 
 def test_round_trip_is_lossless_on_example_projects():
-    for fname in ("ga6_normal.project.json", "dhc8_dash8.project.json", "concept_heavy.project.json"):
+    for fname in ("ga6_normal.project.json", "atr42_100.project.json", "concept_heavy.project.json"):
         project = io.load_project(os.path.join(_EXAMPLES, fname))
         original = io.project_to_dict(project)
         si = project_dict_to_display(original, UnitSystem.SI)

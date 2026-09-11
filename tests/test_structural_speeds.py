@@ -391,17 +391,17 @@ def test_speed_ratio_route_reproduces_todays_numbers_on_every_example():
     of what the code now does. (VA/VF re-pinned 2026-08-17 when the dynamic
     pressure went from ``V^2/295`` to the exact ``V^2/295.237`` -- issue #26,
     register line in ``02_approved_corrections.md``; VD/VC do not depend on q.) VD/VC/VA/VF together cover every branch of the
-    speed resolution -- including cessna_210, where the K_d*VCmin term governs
-    (214.53) rather than the 1.25*VC floor (208.75).
+    speed resolution. (Until #264, ``cessna_210`` also exercised the branch
+    where the K_d*VCmin term governs VD (214.53) rather than the 1.25*VC floor
+    (208.75); no surviving fixture rides that branch, which the unit tests of
+    ``design_speed_values`` still cover.)
     """
     import glob
 
     frozen = {                       # name: (vd, vc, va, vf)
         "atr42_100": (300.0, 240.0, 167.756878, 161.136638),
-        "cessna_210": (214.529286, 167.0, 125.800909, 104.454285),
         "concept_heavy": (312.5, 250.0, 189.338480, 147.085572),
         "concept_regional_jet": (387.5, 310.0, 187.071106, 169.649611),
-        "dhc8_dash8": (306.25, 245.0, 145.599724, 140.532490),
         # VA/VF re-pinned 2026-08-30 (register line in 02_approved_corrections):
         # both scale with sqrt(W/S), and the wing area moves 0.019 % under
         # closed-form planform integration -- VA 121.352521 -> 121.340758

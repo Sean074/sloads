@@ -49,8 +49,7 @@ _EXAMPLES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 _ALL_EXAMPLES = [
     os.path.join(_EXAMPLES, "ga6_normal.project.json"),
     os.path.join(_EXAMPLES, "concept_heavy.project.json"),
-    os.path.join(_EXAMPLES, "cessna_210.project.json"),
-    os.path.join(_EXAMPLES, "dhc8_dash8.project.json"),
+    os.path.join(_EXAMPLES, "atr42_100.project.json"),
 ]
 
 

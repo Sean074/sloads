@@ -166,9 +166,7 @@ def test_imperial_mass_is_deliberately_not_the_identity():
 _WTENV_FLIGHT = ["aft gross", "fwd gross", "fwd regardless", "min weight", "mid gross"]
 _DERIVABLE = {
     "ga6_normal.project.json": ["CG1", "CG2", "CG3", "CG4"],
-    "cessna_210.project.json": _WTENV_FLIGHT,
     "atr42_100.project.json": _WTENV_FLIGHT,
-    "dhc8_dash8.project.json": _WTENV_FLIGHT,
     "concept_heavy.project.json": ["CGmax"],
     "concept_regional_jet.project.json": _WTENV_FLIGHT,
 }

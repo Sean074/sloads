@@ -65,10 +65,11 @@ from sloads.modules.balance import (  # noqa: E402
     resultant6,
 )
 
-#: A twin-turboprop with wing-mounted engines whose hub (``prop_cg``, x = 300)
-#: is forward of the mount (x = 365) and off the centreline (y = +/-168) -- so
+#: A twin-turboprop with wing-mounted engines whose hub (``prop_cg``, x = 305)
+#: is forward of the mount (x = 370) and off the centreline (y = +/-161) -- so
 #: the thrust has a real lever arm in pitch and the two hubs are distinct nodes.
-TWIN = "dhc8_dash8.project.json"
+#: (``dhc8_dash8`` until #264 retired it; same layout class.)
+TWIN = "atr42_100.project.json"
 
 #: A single, fuselage-mounted engine on the centreline: the degenerate case the
 #: closed forms must also hold for (and the one where ``side`` is ``"C"``).
@@ -105,9 +106,7 @@ def _flight(cases):
 # G-1 -- off by default, and off means bit-for-bit
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize("example", ["ga6_normal.project.json",
-                                     "cessna_210.project.json",
                                      "atr42_100.project.json",
-                                     "dhc8_dash8.project.json",
                                      "concept_regional_jet.project.json"])
 def test_no_shipped_fixture_enters_thrust(example):
     """G-1a. Today's cases are **exactly** zero-thrust, which is the claim the

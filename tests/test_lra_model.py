@@ -65,10 +65,11 @@ def test_the_transfer_couple_is_the_exact_lever_arm_cross_product():
 # The skeleton (LM-2..LM-6) on the shipped fixtures
 # --------------------------------------------------------------------------- #
 def test_the_skeleton_carries_every_named_node_family():
-    """Conventional layout (cessna_210 -- the twins are T-tails since backlog
-    Pri 1): SOB pair, posts, fin root, h-tail attachment pair, gear, engine --
-    each tagged, each tied (BM-5)."""
-    model = build_lra_model(_project("cessna_210.project.json"))
+    """Conventional layout with a centreline engine (ga6_normal;
+    cessna_210 held this slot until #264 -- the surviving twins are either
+    T-tails or wing-engined): SOB pair, posts, fin root, h-tail attachment
+    pair, gear, engine -- each tagged, each tied (BM-5)."""
+    model = build_lra_model(_project("ga6_normal.project.json"))
     families = {(n.family, n.side) for n in model.nodes if n.family}
     for expected in (("lra-sob", "R"), ("lra-sob", "L"), ("lra-post", "F"),
                      ("lra-post", "A"), ("lra-fin-root", "C"),
@@ -206,9 +207,7 @@ def test_discrete_control_nodes_ship_as_tagged_skeleton(monkeypatch):
 # The plan-07 invariant on the transferred set (gate 1)
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize("example", ["atr42_100.project.json",
-                                     "concept_regional_jet.project.json",
-                                     "dhc8_dash8.project.json",
-                                     "cessna_210.project.json"])
+                                     "concept_regional_jet.project.json"])
 def test_the_transferred_set_has_the_balanced_decks_resultant(example):
     """Every case, all six components, about one reference point: the LRA
     deck's card resultant equals the assembled balanced deck's -- the transfer
@@ -326,8 +325,8 @@ def test_every_cbar_references_its_family_section_and_the_four_pairs_are_identic
 # --------------------------------------------------------------------------- #
 # Solvability (design note 55) -- the skeleton a solver will actually factor
 # --------------------------------------------------------------------------- #
-_SOLVE_FIXTURES = ("ga6_normal", "baron_58", "cessna_210",
-                   "atr42_100", "dhc8_dash8", "concept_regional_jet")
+_SOLVE_FIXTURES = ("ga6_normal", "baron_58",
+                   "atr42_100", "concept_regional_jet")
 
 
 @pytest.mark.parametrize("name", _SOLVE_FIXTURES)
