@@ -281,9 +281,17 @@ def _pairs_from_decks(artifacts):
     """``{case_id: subcase_int}`` per deck family, read from the decks' own text.
 
     Card-only channels state the pairing in their ``$`` subcase-map block
-    (``$ SUBCASE 103 = W-03 -- PHAA``); the stick and assembled decks state it as
+    (``$ SUBCASE 103 = W-03 -- PHAA``); the assembled and LRA decks state it as
     a ``SUBCASE n`` / ``LABEL = id`` pair in the case control section. Both are
     parsed, so every deck family this project writes is covered.
+
+    **The component half returns empty since note 56 D-56.2**, and that is a
+    fact about the artifacts rather than about this parser: the per-component
+    decks that quoted ``LOAD/SUBCASE (component)`` numbers are deleted, so no
+    shipped file states a component pairing for the index to be checked
+    against. The parser is left intact -- it costs nothing and it is what the
+    gate would need the day a component number is emitted again -- and the
+    callers below assert the assembled family only, saying so.
     """
     import re
 
@@ -331,9 +339,13 @@ def test_the_index_quotes_the_decks_own_numbers():
     rows = _index_rows(artifacts)
     component, assembled = _pairs_from_decks(artifacts)
     hands = _hands_by_case_id(_LINKAGE_EXAMPLE)
-    assert component and assembled, sorted(artifacts)
+    assert assembled, sorted(artifacts)
+    assert not component, (
+        "a shipped artifact states a component-deck subcase pairing again -- "
+        "add COMPONENT_DECK back to the loop below; note 56 D-56.2 left the "
+        "index's component column with no artifact quoting it")
 
-    for family, pairs in ((COMPONENT_DECK, component), (ASSEMBLED_DECK, assembled)):
+    for family, pairs in ((ASSEMBLED_DECK, assembled),):
         column = LOAD_ID_COLUMN[family]
         for case_id, sid in pairs.items():
             assert case_id in rows, (family, case_id)

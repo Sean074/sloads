@@ -151,8 +151,14 @@ def test_carry_through_collapses_onto_the_two_point_solve_as_d_shrinks():
 
 def test_fallback_closes_but_is_flagged_a_closure_artifact():
     """No derivable spar stations -> the whole-body correction. It still closes
-    the beam, but it is flagged, reports no fitting loads, and carries the
-    caveat onto the deliverable."""
+    the beam, but it is flagged and reports no fitting loads.
+
+    The last leg of this test read the ``$ CAVEAT:`` line off the per-component
+    body deck and the emptiness of the fitting CSV. Note 56 D-56.2 deleted both
+    files, so what the flag reaches is the Export page's caption and the
+    report's conditional block, which read ``closure_artifact`` directly -- the
+    flag asserted here. The flag is the thing; the deck was one of its readers.
+    """
     results = body_loads.build_body_loads(_no_spars_project())
     assert results
     for r in results:
@@ -161,9 +167,6 @@ def test_fallback_closes_but_is_flagged_a_closure_artifact():
         assert r.r_front is None and r.r_rear is None
         assert r.m_unbalanced != 0.0        # the moment it had to cancel is still reported
     assert body_loads.fitting_load_rows(results) == []
-    cards = sbeam_bridge.body_force_moment_cards(results)
-    assert "$ CAVEAT:" in cards
-    assert sbeam_bridge.body_fitting_load_csv(results).strip().count("\n") == 0  # header only
 
 
 def test_body_load_rows_shape():
@@ -173,46 +176,10 @@ def test_body_load_rows_shape():
     assert all(r["Basis"] == "LIMIT" for r in rows)
 
 
-def test_sbeam_body_export_force_set_sums_to_zero():
-    res = body_loads.build_body_loads(_project())
-    cards = sbeam_bridge.body_force_moment_cards(res)
-    assert "FORCE" in cards
-    # Re-sum the Fz of every FORCE card in the first load set: must close to ~0.
-    # The tolerance is relative to the load magnitude on the cards -- the cards
-    # carry 6 significant digits (deck_format.fmt), so a set of ~10^4 lb loads re-sums to
-    # ~10^-3 lb of print rounding, not of calc error.
-    fz = [float(ln.split(",")[-1]) for ln in cards.splitlines() if ln.startswith("FORCE, 1,")]
-    assert math.isclose(sum(fz), 0.0, abs_tol=1e-5 * sum(abs(f) for f in fz))
 
 
-def test_sbeam_body_span_csv():
-    csv_text = sbeam_bridge.body_span_load_csv(body_loads.build_body_loads(_project()))
-    lines = [ln for ln in csv_text.splitlines() if ln.strip()]
-    # Unit-and-ULT-marked headers since M4-20 step 4 (was bare "X,Fz,Sz,Myy").
-    assert lines[0] == "Case,GID,X (in),Fz (lb),Sz (lb),Myy (lb-in),SF"
-    assert len(lines) > 1
 
 
-def test_body_bdf_ships_no_caveat_on_the_carry_through_path():
-    """M4-1 closed: a set reacted at the spar attachments carries no caveat.
-
-    The old lock asserted the opposite (every set stated the open ΣM limitation).
-    It is inverted here: the caveat now belongs only to the whole-body fallback,
-    which ``test_body_bdf_flags_the_closure_artifact`` covers. The assumed-spar
-    provenance still ships on every card block.
-    """
-    results = body_loads.build_body_loads(_project())
-    assert all(not r.closure_artifact for r in results)
-    cards = sbeam_bridge.body_force_moment_cards(results)
-    assert "$ CAVEAT:" not in cards
-    # The spar stations were not entered, so every block says so (decision 2).
-    assert len([ln for ln in cards.splitlines()
-                if "spar stations ASSUMED" in ln]) == len(results)
-    # Each block states both closure residuals.
-    assert len([ln for ln in cards.splitlines()
-                if "moment equilibrium" in ln]) == len(results)
-    # Every comment line stays inside the free-field card width.
-    assert all(len(ln) <= 72 for ln in cards.splitlines() if ln.startswith("$"))
 
 
 def test_body_gids_are_stable_when_the_spar_stations_move():
@@ -249,25 +216,6 @@ def test_body_gid_blocks_are_disjoint():
     assert len(set(sbeam_bridge.body_station_gids(r))) == len(r.stations)
 
 
-def test_body_fitting_load_csv_is_ultimate():
-    """The wing-attach fitting loads ship as their own ULTIMATE CSV -- not in the
-    FORCE set, which already carries them as the carry-through distribution."""
-    results = body_loads.build_body_loads(_project())
-    lines = sbeam_bridge.body_fitting_load_csv(results).strip().splitlines()
-    # The force marker is the renderer's ``lb`` since M4-20 step 4; this
-    # file used to be the only deliverable spelling it ``lb-ULT``.
-    assert lines[0].split(",") == [
-        "Case", "Case ID", "X front (in)", "R front (lb)", "X rear (in)",
-        "R rear (lb)", "M unbalanced (lb-in)", "Spars", "SF"]
-    assert len(lines) == len(results) + 1
-    row = dict(zip(lines[0].split(","), lines[1].split(",")))
-    r = results[0]
-    sf = r.safety_factor
-    assert math.isclose(float(row["R front (lb)"]), r.r_front, rel_tol=1e-4)
-    assert math.isclose(float(row["R rear (lb)"]), r.r_rear, rel_tol=1e-4)
-    assert row["SF"] == f"{sf:g}" and row["Spars"] == "assumed"
-    # Stations are geometry, never scaled by the limit->ultimate factor.
-    assert math.isclose(float(row["X front (in)"]), r.x_front, rel_tol=1e-9)
 
 
 def test_moment_closure_fields_round_trip_through_io():

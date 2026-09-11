@@ -358,7 +358,7 @@ approved-corrections register [`../20_theory/02_approved_corrections.md`](../20_
 - **Reads:** `Project.speeds` (STRSPEED VA/VC/VD via `design_speed_values`, the only upstream input per UG Table 2.2), `Project.aileron_loads` (`AileronLoadsInput`: up/down deflection, area fwd/aft of hinge).
 - **Writes:** critical up/down aileron loads + forward-of-hinge pressures → `ConditionResult`; `ControlSurfaceLoadResult` (simplified chordwise profile) for `Project.loads.control_surface` + the sbeam control-surface bridge.
 - **Validation:** Appendix A "Critical Aileron Loads" p200 (down 271.44 / up −180.96 lb @170 kt; psi +0.484 / −0.323) within ±0.1% — `tests/test_aileron.py`.
-- **Notes:** Deflected (unsymmetrical) conditions only; symmetrical undeflected is never critical (Ref 1 Ch 16). The pure-function oracle uses the manual's entered VA=121; the pipeline's computed VA≈121.3 shifts the load ~0.3% (tested at 0.4%). **A slice with no aileron area stays an *invalid* input, not a missing one** (m2, `tests/test_cli.py::test_an_invalid_control_surface_input_fails_rather_than_vanishing`): the run fails rather than quietly shipping a deck one case short. What changed at #145 is only who has to die of it — `registry.run_all_modules_reporting` hands the failure back by name, so the Results Review and Export pages name the module instead of going down whole, which they had been doing on three of the seven bundled examples.
+- **Notes:** Deflected (unsymmetrical) conditions only; symmetrical undeflected is never critical (Ref 1 Ch 16). The pure-function oracle uses the manual's entered VA=121; the pipeline's computed VA≈121.3 shifts the load ~0.3% (tested at 0.4%). **A slice with no aileron area stays an *invalid* input, not a missing one** (m2): the run fails rather than quietly shipping a deliverable one case short. Its CLI gate went with the `control` export target at note 56 D-56.2; the contract itself is unchanged and is held by `registry.run_all_modules_reporting`. What changed at #145 is only who has to die of it — `registry.run_all_modules_reporting` hands the failure back by name, so the Results Review and Export pages name the module instead of going down whole, which they had been doing on three of the seven bundled examples.
 
 ### FLAPLOAD — Flap loads (built, Step C8)
 - **FAR §:** 23.345 (flaps), 23.457 (flap hinge / slipstream).
@@ -382,7 +382,7 @@ approved-corrections register [`../20_theory/02_approved_corrections.md`](../20_
 - **Source:** Ch 10, `TAILDIST.BAS` (subroutine 3000).
 - **Module:** `modules/taildist.py` (registers `"taildist"`).
 - **Reads:** `Project.envelope.critical` (SELECT — each h-tail/v-tail `CriticalCondition` now carries the rational `lt25`/`lt50` split), plus the chordwise geometry on `Project.tail_loads` (`htail_semispan_in` + the elevator areas) and `Project.vtail_loads` (`vtail_span_in` + the rudder areas).
-- **Writes:** the five-station chordwise net pressure profile per critical h-tail / v-tail condition (`TailChordResult` on `Project.loads.tail_chordwise`) → text report + CSV + sbeam FORCE export (`sbeam_bridge.tail_*`) → **and the oracle report's sections 5.3/6.3** (note 44 §17 OR-128: the tail step is *split by surface*, so `taildist`'s conditions are partitioned on `component` into section 5, Horizontal Tail and Elevator Loads, and section 6, Vertical Tail and Rudder Loads; the chord stations and the AHT / AVT constants print once per section because they are geometry and are identical in every condition). **#100 (note 35):** each `TailChordResult` also carries the source condition's published aero state (`alpha_tail_deg`/`beta_deg`/`delta_deg`/`q_psf`, copied from the `CriticalCondition`, never re-derived).
+- **Writes:** the five-station chordwise net pressure profile per critical h-tail / v-tail condition (`TailChordResult` on `Project.loads.tail_chordwise`) → text report + CSV (the sbeam FORCE export went with note 56 D-56.2) → **and the oracle report's sections 5.3/6.3** (note 44 §17 OR-128: the tail step is *split by surface*, so `taildist`'s conditions are partitioned on `component` into section 5, Horizontal Tail and Elevator Loads, and section 6, Vertical Tail and Rudder Loads; the chord stations and the AHT / AVT constants print once per section because they are geometry and are identical in every condition). **#100 (note 35):** each `TailChordResult` also carries the source condition's published aero state (`alpha_tail_deg`/`beta_deg`/`delta_deg`/`q_psf`, copied from the `CriticalCondition`, never re-derived).
 - **Validation:** Appendix A "Chordwise Distribution of Tail Loads" — 13 horizontal (p237) + 4 vertical (p245) conditions' `PSI(X1..X5)` within ±0.1%. The four flaps-extended horizontal rows depend on the deferred flapped V-n landing aero (the pure-`chordwise_pressures` oracle test covers all 13 directly).
 - **Notes:** Net chordwise load = additive (angle-of-attack, 4×avg at LE → avg at 25% chord → 0 at TE) + camber (trapezoid symmetric about 50% chord). Working in the suite's full both-sides areas folds the program's half-area / both-sides-load factors of two into the unified `LT/S` form. Replaces the arbitrary FAR Appendix B figures (pre-Amendment 42). Each distribution **carries the governing condition's citation** — `TailChordResult.far_reference` is copied verbatim from the source SELECT `CriticalCondition` (23.421 balancing, 23.423 maneuver, 23.425 gust, 23.427 unsymmetrical h-tail; 23.441/23.443 v-tail) rather than a single hardcoded `23.421`. **Each condition states the aero state that made it (#100, note 35 AS-2/AS-4):** the AT/fin AoA, elevator/rudder deflection, sideslip and q the source method actually used render ahead of the stations (`taildist.aero_state_values`; angles and q are never SF-scaled, CONVENTIONS §3), and a quantity the method never defines — the checked-maneuver δ (the 23.423(b) increment is an inertia term), the side-gust q (23.443(b) is linear in V), any htail β — states its fixed reason instead; a persisted set that predates the fields says “re-run SELECT” (G-AS-4). The AHT / AVT + EFFECTV intermediates print **once per component** (`taildist.component_constants`) by calling the same single-source owners inside the loads (`_vtail.lift_curve_slope`, `_vtail.rudder_effectiveness` — AS-5, the `surface_geom` precedent); the closure gates G-AS-1..G-AS-5 live in `tests/test_taildist_aero_state.py`.
 
@@ -990,15 +990,14 @@ result that lacks what a deck needs is a stated error, never an empty column.
   `$ SLOADS-NODE lra-sob <side>` identity tag (decision BM-5; GID band
   `lra-sob`, 7001+), and the wing root design load is stated **two ways and
   gated**: `sbeam_bridge.sob_internal_loads` (the closed-form sum of applied
-  nodal loads outboard of the cut, stated per case in the deck `$` header and
-  as the report's "Wing side-of-body internal loads" table) against the
-  solver's CBAR end force in the first element outboard (round-trip CI,
+  nodal loads outboard of the cut, stated as the report's "Wing side-of-body
+  internal loads" table) against the solver's CBAR end force in the first
+  element outboard (round-trip CI,
   `test_the_sob_internal_load_is_the_first_outboard_elements_end_force`).
-  `sob_collapsed_load` is the other half — the inboard strip loads as one
-  resultant-preserving equivalent at the SOB — consumed by the step 12 LRA
-  beam model (whose wing beam starts at the SOB), never by this deck. A project
-  with neither an entered butt line nor a fuselage width (ga6, concept_heavy)
-  ships the deck it always did. The h-tail attachment reads the same
+  `sob_collapsed_load` was the other half — the inboard strip loads as one
+  resultant-preserving equivalent at the SOB — and went with the wing stick
+  deck at note 56 D-56.2; the LRA beam model does its own routing through the
+  one transfer owner. The h-tail attachment reads the same
   `sob_y_in` quantity (`tail_span.htail_attachment`, basis `ATTACH_ENTERED`,
   the only non-T-tail branch not marked assumed).
 - **The applied load set (2026-09-03, six components 2026-09-03).**
@@ -1204,12 +1203,12 @@ result that lacks what a deck needs is a stated error, never an empty column.
   `htail`/`vtail` entry in `geometry.surfaces` (validated against the
   oracle-authoritative area/span to 1 %) or is **derived as a rectangle and
   marked assumed** — `sloads/tail_geometry.py` owns both. Decks:
-  `tail_span_force_moment_cards`, GID bands `4001+` (h-tail) / `4501+` (v-tail),
-  `GRID` on the LRA at real airplane positions, strip loads applied **directly**
-  (not differenced from a cumulative column), and a `$` header stating the
-  control-load mode and that the deck **supersedes** the fuselage deck's point
-  tail-load station for any combined-airframe sum. Surfaces: the **Tail Span
-  Loads** page, the Export page, `cli.py --export-target htail-span|vtail-span`.
+the applied load set (`applied_loads("htail"|"vtail", ...)`), GID bands `4001+`
+  (h-tail) / `4501+` (v-tail) on the LRA at real airplane positions, strip loads
+  stated **directly** (not differenced from a cumulative column). The spanwise
+  *deck* that rendered these as cards was deleted by note 56 D-56.2 — it had no
+  production consumer — so the loads reach a solver through the assembled
+  airframe deck. Surfaces: the **Tail Span Loads** page and the Export page.
   The chordwise TAILDIST path and every Appendix A figure are unchanged.
 - **Where the h-tail beam is reacted (decision T-8a, 2026-08-15).**
   `tail_span.htail_attachment` is the single owner, returning stations *and* their

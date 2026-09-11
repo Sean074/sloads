@@ -55,7 +55,7 @@ from sloads import io
 from sloads.export import sbeam_bridge as sb
 from sloads.export.balanced_deck import balanced_deck
 from sloads.export.lra_model import lra_model_bdf
-from sloads.export.sbeam_bridge import basis_sentence
+from sloads.export.deck_format import basis_sentence
 from sloads.modules.aileron import build_aileron
 from sloads.modules.balance import build_balanced_cases
 from sloads.modules.body_loads import build_body_loads
@@ -177,31 +177,55 @@ def _pairs(example: str):
     spans = _try(build_tail_span, project) or {}
     balanced = _try(build_balanced_cases, project, []) or []
 
-    from sloads.derived_geometry import sob_station
-
     out = []
 
     def add(name, deck, csv_text, results):
         if deck and results:
             out.append((name, deck, csv_text, list(results)))
 
-    add("wing_cards", _try(sb.force_moment_cards, wing),
-        _try(sb.span_load_csv, wing), wing)
-    add("wing_stick",
-        _try(sb.stick_model_bdf, wing, sob=sob_station(project)), None, wing)
-    add("body_cards", _try(sb.body_force_moment_cards, body),
-        _try(sb.body_span_load_csv, body), body)
-    add("tail_cards", _try(sb.tail_force_moment_cards, tail),
-        _try(sb.tail_chordwise_csv, tail), tail)
-    add("control_cards", _try(sb.control_surface_force_moment_cards, control),
-        _try(sb.control_surface_csv, control), control)
-    for component in ("htail", "vtail"):
-        results = spans.get(component) or []
-        add(f"{component}_span",
-            _try(sb.tail_span_force_moment_cards, results, component=component),
-            _try(sb.tail_span_csv, results, component=component), results)
+    # Note 56 D-56.2 deleted seven of the nine entries this list used to carry
+    # -- the wing cards and stick deck, the body, chordwise-tail,
+    # control-surface and two spanwise-tail decks, each with its CSV companion.
+    # What is left is the two artifacts that ship. The gate is *narrower in
+    # surface and unchanged in force*: `test_no_deck_claims_a_factor_has_been
+    # _applied` below still scans whole texts, so neither survivor can grow a
+    # false sentence, and the document half moves to the applied-load CSVs,
+    # which are where a per-component SF column lives now.
     add("balanced_deck", _try(balanced_deck, project), None, balanced)
     add("lra_model", _try(lra_model_bdf, project), None, balanced)
+    return out
+
+
+def _documents(example: str):
+    """``[(name, csv text, results)]`` -- every bundle document with an SF column.
+
+    Split out from :func:`_pairs` because the two halves of G-OR-73 stopped
+    travelling together at note 56 D-56.2: a deck and its companion CSV used to
+    be one artifact pair, and the surviving decks (balanced, LRA) have no CSV
+    while the surviving CSVs (the applied load sets) have no deck of their own.
+    Pairing them anyway would have meant either dropping the document half or
+    asserting a deck/document agreement that no longer has two sides.
+    """
+    project = io.load_project(os.path.join(_ROOT, "examples", example))
+    net = _try(build_net_loads, project)
+    wing = loads_ref_axis_results(project, net.wing_net) if net is not None else None
+    body = _try(build_body_loads, project)
+    spans = _try(build_tail_span, project) or {}
+
+    out = []
+
+    def add(name, csv_text, results):
+        if csv_text and results:
+            out.append((name, csv_text, list(results)))
+
+    add("wing_applied", _try(sb.applied_load_csv, wing), wing)
+    add("fuselage_applied",
+        _try(sb.applied_load_csv, body, component="fuselage", project=project),
+        body)
+    for component in ("htail", "vtail"):
+        results = spans.get(component) or []
+        add(f"{component}_applied",
+            _try(sb.applied_load_csv, results, component=component), results)
     return out
 
 
@@ -265,32 +289,30 @@ def test_the_stated_factor_is_the_cases_own(example):
 
 
 @pytest.mark.parametrize("example", EXAMPLES, ids=lambda e: e.split(".")[0])
-def test_the_deck_and_its_document_agree(example):
-    """**G-OR-73**, third half: "and the two agree".
+def test_every_document_states_the_factor_it_did_not_apply(example):
+    """**G-OR-73**, third half: the document side.
 
-    Both are compared to the case's own factor rather than to each other, so a
-    drift that moved deck and CSV together -- the same helper feeding both -- is
-    still caught. The CSV is keyed by the case *name* and the deck by the case
-    *id*; the result object is what joins them, which is why the pairing above is
-    written out by hand.
+    It read "and the two agree" until note 56 D-56.2, when the decks and the
+    CSVs stopped being the same artifacts. The *check* is unchanged and is the
+    one that carried the force: both halves were always compared to the case's
+    own ``safety_factor`` rather than to each other, precisely so a drift that
+    moved deck and CSV together -- the same helper feeding both -- would still
+    be caught. Comparing them to one another was the weaker of the two
+    assertions, and it is the only one the split costs.
     """
-    for name, deck, csv_text, results in _pairs(example):
-        if not csv_text:
-            continue
+    documents = _documents(example)
+    assert documents, f"{example}: no document built -- the gate would be vacuous"
+    for name, csv_text, results in documents:
         factors = csv_factors(csv_text)
         assert factors is not None, (
             f"{example}/{name}: the document carries no SF column; every "
             f"bundle document states the factor it did not apply")
-        stated, _missing = deck_statements(deck)
         for result in results:
-            case_id, case = _case_id(result), getattr(result, "case", "")
+            case = getattr(result, "case", "")
             assert case in factors, f"{example}/{name}: no SF row for {case!r}"
             assert float(factors[case]) == result.safety_factor, (
                 f"{example}/{name}: document states SF={factors[case]} for "
                 f"{case!r}; its governing factor is {result.safety_factor}")
-            if case_id in stated:
-                assert stated[case_id] == float(factors[case]), (
-                    f"{example}/{name}: deck and document disagree on {case_id}")
 
 
 #: Every way a shipped artifact has actually claimed its own numbers are
@@ -318,23 +340,25 @@ def test_no_deck_claims_a_factor_has_been_applied():
     ``basis_sentence`` is the only wording allowed to state the basis on a deck.
     Five blocks still said "Loads are ULTIMATE (limit x SF=...)" over LIMIT
     cards, and two more said it in different words -- which is why the scan
-    below is a list of spellings, and why it covers the CSV twin as well as the
-    deck. Kept as a whole-text scan so a builder this file does not pair cannot
-    quietly grow an eighth.
+    below is a list of spellings, and why it covers the documents as well as the
+    decks. Kept as a whole-text scan so a builder this file does not pair cannot
+    quietly grow an eighth -- which is the half of this gate that note 56
+    D-56.2 did not narrow: the surviving artifacts are scanned entire.
     """
     for example in EXAMPLES:
-        for name, deck, csv_text, _results in _pairs(example):
-            for label, text in ((name, deck), (f"{name} csv", csv_text)):
-                if not text:
-                    continue
-                # Blank the legitimate sentence first, so the spellings below
-                # can stay broad.
-                prose = _unwrapped(text).replace(_TRUE_ULTIMATE, "<ok>")
-                for claim in _CLAIMS_ULTIMATE:
-                    assert claim not in prose, (
-                        f"{example}/{label}: says {claim!r} of its own numbers; "
-                        f"under note 49 OR-116 every load sloads delivers is "
-                        f"LIMIT and the factor is applied nowhere")
+        artifacts = [(n, d) for n, d, _c, _r in _pairs(example)]
+        artifacts += [(f"{n} csv", c) for n, c, _r in _documents(example)]
+        for label, text in artifacts:
+            if not text:
+                continue
+            # Blank the legitimate sentence first, so the spellings below can
+            # stay broad.
+            prose = _unwrapped(text).replace(_TRUE_ULTIMATE, "<ok>")
+            for claim in _CLAIMS_ULTIMATE:
+                assert claim not in prose, (
+                    f"{example}/{label}: says {claim!r} of its own numbers; "
+                    f"under note 49 OR-116 every load sloads delivers is "
+                    f"LIMIT and the factor is applied nowhere")
 
 
 def test_the_already_ultimate_sentence_is_read_as_a_stated_factor():

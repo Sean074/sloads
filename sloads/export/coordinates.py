@@ -24,9 +24,9 @@ may be written in the SI solver set (N / mm / N*mm / MPa) instead of the Imperia
 one. Each function takes a :class:`~sloads.units.DeliverableUnits` and applies
 its factor, so this module is the *only* place in the export channel where a load
 or a coordinate is multiplied by anything. Nothing in ``sbeam_bridge`` scales:
-its arithmetic is unchanged and unit-free, and it routes every dimensional value
-it emits -- cards *and* CSV cells -- through these three functions, so a file's
-numbers cannot disagree with the cards beside it.
+its arithmetic is unchanged and unit-free, and every dimensional value the
+export channel emits -- cards *and* CSV cells -- routes through these three
+functions, so a file's numbers cannot disagree with the cards beside it.
 
 Imperial is the all-1.0 identity set, so an Imperial deck takes the same code
 path and cannot drift.

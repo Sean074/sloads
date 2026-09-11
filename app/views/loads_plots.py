@@ -9,8 +9,8 @@ component, overlay the spanwise/chordwise curve for the selected case IDs plus
 their two-sided envelope (pointwise max and min across the cases — a max-|value|
 trace would hide the opposite-sign extreme, which can govern),
 see a combined wing+fuselage "total loads" snapshot for one case, and
-optionally compare against an externally-computed span-load CSV in the same
-schema :mod:`sloads.export.sbeam_bridge` exports.
+optionally compare against an externally-computed span-load CSV in the
+documented comparison schema (see the import section below).
 
 Wing torsion here (like the Export page) is stated about the wing surface's
 **loads reference axis** (LRA, ``SurfaceInput.ref_axis_pct`` — the beam-model
@@ -345,16 +345,21 @@ else:
     st.plotly_chart(fig, width="stretch")
 
 # --------------------------------------------------------------------------- #
-# External-comparison CSV import: the sbeam_bridge span-load CSV schema
+# External-comparison CSV import
 # (wing: Case,GID,X,Y,Z,Fx,Fz,My,Sx,Sz,Mxx,Myy,Mzz; body: Case,GID,X,Fz,Sz,Myy).
 # Pure overlay against the live-computed curve above -- no numeric diff table.
+#
+# This was the span-load CSV schema, which note 56 D-56.2 stopped producing
+# along with the per-component decks. The reader stays, and the columns are
+# unchanged: its input is a file from ANOTHER tool, so the schema is a published
+# interchange format, not a description of something sloads writes. Tying it to
+# a producer that no longer exists would be the only way to break it.
 # --------------------------------------------------------------------------- #
 st.divider()
 st.header("External-comparison import")
 st.caption(
-    "Import a span-load CSV in the same schema the **Export** page writes "
-    "(`sloads.export.sbeam_bridge.span_load_csv` / `body_span_load_csv`) to "
-    "overlay an externally-computed distribution against the curves above. "
+    "Import a span-load CSV in the schema below to overlay an "
+    "externally-computed distribution against the curves above. "
     f"Computed wing torsion here is about the **{_WING_TORSION_AXIS}** — check "
     "the imported file's `MyyAxis` column states the same axis before comparing "
     "`Myy` (mixed axes are comparable only after transfer)."
@@ -390,8 +395,8 @@ if uploaded is not None:
                 f"({sorted(_BODY_COLS)})."
             )
         else:
-            # The imported span-load CSV is always in canonical Imperial units
-            # (sloads.export.sbeam_bridge never converts), so build a
+            # The imported span-load CSV is read as canonical Imperial units,
+            # so build a
             # Imperial-forced overlay reference here regardless of the global
             # toggle -- the ``wing_cases``/``body_cases`` used in "Total loads"
             # above may be SI-converted and would otherwise mismatch units.

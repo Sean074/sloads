@@ -62,7 +62,6 @@ def artifacts(example: str) -> Dict[str, str]:
     """``{channel: text}`` for one example, rendered in Imperial with no stamp."""
     from sloads import io, registry
     from sloads.export import sbeam_bridge as sb
-    from sloads.report import tables as rt
     from sloads.export.balanced_deck import balanced_deck
     from sloads.modules.aileron import build_aileron
     from sloads.modules.balance import build_balanced_cases
@@ -73,6 +72,7 @@ def artifacts(example: str) -> Dict[str, str]:
     from sloads.modules.tail_span import build_tail_span
     from sloads.modules.taildist import build_tail_chordwise
     from sloads.report import LoadChannel, module_text_report
+    from sloads.report import tables as rt
 
     project = io.load_project(os.path.join(_ROOT, "examples", example))
     out: Dict[str, str] = {}
@@ -99,30 +99,22 @@ def artifacts(example: str) -> Dict[str, str]:
     for build in (build_aileron, build_flap, build_tabs):
         control += (_try(build, project) or [])
 
-    from sloads.derived_geometry import sob_station
-
-    def _stick(arg):
-        # The shipped deck states the side-of-body node (step 13), so the
-        # baseline renders it the way the CLI and the Export page do.
-        return sb.stick_model_bdf(arg, sob=sob_station(project))
-
-    for name, fn, arg in (
-        ("wing_span", sb.span_load_csv, wing),
-        ("wing_cards", sb.force_moment_cards, wing),
-        ("wing_stick", _stick, wing),
-        ("body_span", sb.body_span_load_csv, body),
-        ("body_fitting", sb.body_fitting_load_csv, body),
-        ("body_cards", sb.body_force_moment_cards, body),
-        ("tail_chordwise", sb.tail_chordwise_csv, tail),
-        ("tail_cards", sb.tail_force_moment_cards, tail),
-        ("control_csv", sb.control_surface_csv, control),
-        ("control_cards", sb.control_surface_force_moment_cards, control),
-    ):
-        if not arg:
-            continue
-        text = _try(fn, arg)
+    # Note 56 D-56.2 deleted ten of the channels this baseline used to render
+    # -- the wing span CSV, wing cards, wing stick deck, body span/fitting/cards,
+    # tail chordwise and cards, and both control-surface files -- together with
+    # the two spanwise tail decks below them. What replaces them is the applied
+    # load set per component, which is the row set every one of those decks was
+    # written from, so the *loads* under digest are unchanged even though the
+    # channel names and the byte counts are not.
+    if wing:
+        text = _try(sb.applied_load_csv, wing)
         if text:
-            out[f"sbeam/{name}"] = text
+            out["sbeam/wing_applied"] = text
+    if body:
+        text = _try(sb.applied_load_csv, body, component="fuselage",
+                    project=project)
+        if text:
+            out["sbeam/body_applied"] = text
 
     # Spanwise empennage (plan 09 T4). Per surface, because each has its own axis
     # map and its own GID band -- a shared channel would hide a swap between them.
@@ -131,11 +123,9 @@ def artifacts(example: str) -> Dict[str, str]:
         results = spans.get(component) or []
         if not results:
             continue
-        for name, fn in ((f"{component}_span_cards", sb.tail_span_force_moment_cards),
-                         (f"{component}_span_csv", sb.tail_span_csv)):
-            text = _try(fn, results, component=component)
-            if text:
-                out[f"sbeam/{name}"] = text
+        text = _try(sb.applied_load_csv, results, component=component)
+        if text:
+            out[f"sbeam/{component}_applied"] = text
 
     # The assembled full-span deck -- the mission's aim-2 deliverable, and until
     # B8a-2 the one deliverable this baseline did **not** cover. Found while

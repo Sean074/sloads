@@ -5,19 +5,17 @@ write it" is not the same as "the deliverable exists". Three gaps closed here,
 each with its own gate:
 
 * **F-D1 — reachability.** ``--export-target`` is the whole deliverable menu:
-  wing, body, tail, the two spanwise empennage surfaces, control surfaces, the
-  assembled **balanced free-free deck** (the mission's primary artifact, which
-  was writable only from a Streamlit page) and the CONM2 **mass model**.
+  the **LRA beam model**, the assembled **balanced free-free deck** (the
+  mission's primary artifact, which was writable only from a Streamlit page),
+  the **gear interface report** and the CONM2 **mass model**. It listed ten
+  targets until note 56 D-56.2 deleted the six that wrote per-component decks.
   :func:`test_the_export_menu_is_the_deliverable_menu` pins the menu against
   ``cli.EXPORT_TARGETS`` and against argparse, so a target cannot be implemented
   without being offered or offered without being implemented.
-* **F-C2 / decision D-R5 — the wing axis.** The CLI passed a bare result list to
-  the writers, so the boundary transfer to the surface's loads reference axis
-  never ran and the headless deck's torsion, station X and lever arms were about
-  the 25 % chord while the GUI's were about the LRA. The two front-ends are now
-  the same deck, and the axis is pinned on a project whose LRA is *not* the
-  quarter chord — on a shipped fixture (``ref_axis_pct`` 0.25 everywhere) the
-  transfer is a no-op and would pin nothing.
+* **F-C2 / decision D-R5 — the wing axis.** Retired with the wing target
+  (note 56 D-56.2): there is no headless per-component wing deck to state an
+  axis. The transfer itself is unchanged and is gated at its owner
+  (``test_sbeam_bridge.test_project_export_transfers_to_loads_ref_axis``).
 * **F-D3 / L-8g — the stamp.** Every headless CSV and BDF carries the Step G8.3
   methods & limitations block, so a file forwarded on its own still states its
   ULTIMATE basis, its category and its approved corrections.
@@ -95,14 +93,9 @@ def test_the_export_menu_is_the_deliverable_menu():
 
 
 @pytest.mark.parametrize("target,expected", [
-    ("wing", ["out.loads.bdf", "out.span_loads.csv"]),
-    ("body", ["out.body_fitting_loads.csv", "out.body_loads.bdf",
-              "out.body_span_loads.csv"]),
-    ("tail", ["out.tail_chordwise.csv", "out.tail_loads.bdf"]),
-    ("htail-span", ["out.htail_span.csv", "out.htail_span_loads.bdf"]),
-    ("vtail-span", ["out.vtail_span.csv", "out.vtail_span_loads.bdf"]),
-    ("control", ["out.control_surface.bdf", "out.control_surface.csv"]),
     ("balanced", ["out.balanced_airframe.bdf"]),
+    ("gear", ["out.gear_loads.csv"]),
+    ("lra", ["out.lra_model.bdf"]),
     ("mass", ["out_inertia_only.bdf", "out_mass.bdf", "out_mass_check.bdf"]),
 ])
 def test_every_export_target_writes_its_artifacts(tmp_path, target, expected):
@@ -177,48 +170,8 @@ def _project_with_lra(tmp_path, pct: float) -> str:
     return path
 
 
-def test_the_cli_wing_deck_is_stated_about_the_loads_reference_axis(tmp_path):
-    """D-R5: the headless wing export transfers to the LRA, and says so in-band.
-
-    The axis is pinned by name in the span CSV's ``MyyAxis`` column -- the
-    in-band statement a consumer reads -- so a regression to the 25 % chord
-    fails here rather than shipping a silently different torsion.
-    """
-    path = _project_with_lra(tmp_path, 0.45)
-    prefix = os.path.join(str(tmp_path), "w")
-    assert cli.main([path, "--export-sbeam", prefix]) == 0
-
-    with open(prefix + ".span_loads.csv", newline="") as fh:
-        rows = list(csv.DictReader(_io.StringIO(strip_comment_lines(fh.read()))))
-    assert rows
-    assert {r["MyyAxis"] for r in rows} == {"LRA 45% chord"}, "not on the LRA"
 
 
-def test_the_headless_and_gui_wing_decks_are_the_same_deck(tmp_path):
-    """Both front-ends produce the same bytes -- the module contract, both ways.
-
-    ``report.content.component_loads`` (the GUI/report route) transfers to the
-    LRA; the CLI now uses the same two calls. This asserts the *outcome* rather
-    than the call sequence, so a future divergence in either front-end fails.
-    """
-    path = _project_with_lra(tmp_path, 0.45)
-    prefix = os.path.join(str(tmp_path), "w")
-    assert cli.main([path, "--export-sbeam", prefix, "--stick-model"]) == 0
-
-    from sloads.derived_geometry import sob_station
-
-    project = sloads_io.load_project(path)
-    gui = loads_ref_axis_results(project, build_net_loads(project).wing_net)
-    # The GUI route (app/views/export_report.py) passes the resolved SOB to the
-    # stick model, so the reference build here does too.
-    sob = sob_station(project)
-    for suffix, build in ((".loads.bdf", lambda r: sb.force_moment_cards(r)),
-                          (".stick.bdf", lambda r: sb.stick_model_bdf(r, sob=sob))):
-        with open(prefix + suffix) as fh:
-            assert fh.read().endswith(build(gui)), suffix
-    with open(prefix + ".span_loads.csv", newline="") as fh:
-        assert strip_comment_lines(fh.read()) == strip_comment_lines(
-            sb.span_load_csv(gui))
 
 
 # --------------------------------------------------------------------------- #
@@ -272,13 +225,13 @@ def test_a_stamped_headless_deck_still_parses_as_bulk_data(tmp_path):
     Asserted through the suite's own card parser (the closure gate's owner), so
     the claim is the same one the equilibrium tests rely on.
     """
+    from sloads.export.balanced_deck import balanced_deck
     from sloads.export.equilibrium import parse_cards
 
     project = sloads_io.load_project(GA6)
-    unstamped = sb.force_moment_cards(
-        loads_ref_axis_results(project, build_net_loads(project).wing_net))
-    _export(tmp_path, "wing")
-    with open(os.path.join(str(tmp_path), "out.loads.bdf")) as fh:
+    unstamped = balanced_deck(project)
+    _export(tmp_path, "balanced")
+    with open(os.path.join(str(tmp_path), "out.balanced_airframe.bdf")) as fh:
         stamped = fh.read()
     assert stamped != unstamped, "the fixture must actually be stamped"
     assert parse_cards(stamped) == parse_cards(unstamped)
@@ -293,7 +246,8 @@ def test_a_headless_export_is_byte_stable_across_runs(tmp_path):
     a, b = tmp_path / "a", tmp_path / "b"
     a.mkdir(), b.mkdir()
     for d in (a, b):
-        assert cli.main([GA6, "--export-sbeam", str(d / "out")]) == 0
+        assert cli.main([GA6, "--export-sbeam", str(d / "out"),
+                         "--export-target", "balanced"]) == 0
     for name in sorted(os.listdir(str(a))):
         with open(str(a / name)) as fh_a, open(str(b / name)) as fh_b:
             assert fh_a.read() == fh_b.read(), name
@@ -301,8 +255,9 @@ def test_a_headless_export_is_byte_stable_across_runs(tmp_path):
     # ...and a supplied timestamp does reach the file, so the determinism above
     # is the default rather than the stamp being incapable of carrying one.
     assert cli.main([GA6, "--export-sbeam", str(b / "t"),
+                     "--export-target", "balanced",
                      "--generated", "2026-08-10 09:00"]) == 0
-    with open(str(b / "t.loads.bdf")) as fh:
+    with open(str(b / "t.balanced_airframe.bdf")) as fh:
         assert "2026-08-10 09:00" in fh.read()
 
 
@@ -335,47 +290,8 @@ def test_an_absent_input_is_one_error_line_not_a_traceback(tmp_path, capsys, tar
         "a failed export must not leave a partial artifact set"
 
 
-def test_an_invalid_control_surface_input_fails_rather_than_vanishing(tmp_path, capsys):
-    """m2's core: bad input and absent input are different answers.
-
-    ``except ValueError`` around each control-surface build made a mistyped
-    aileron area indistinguishable from an airplane with no aileron -- the deck
-    simply came out short a case. ``MissingInputError`` ("not my turn") still
-    skips; a plain ``ValueError`` (an invalid domain input) now fails the run.
-    """
-    with open(GA6) as fh:
-        raw = json.load(fh)
-    assert raw["aileron_loads"]["area_fwd_hinge_sqft"] > 0
-    raw["aileron_loads"]["area_fwd_hinge_sqft"] = 0.0
-    raw["aileron_loads"]["area_aft_hinge_sqft"] = 0.0
-    path = os.path.join(str(tmp_path), "bad.project.json")
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(raw, fh)
-
-    assert cli.main([path, "--export-sbeam", os.path.join(str(tmp_path), "out"),
-                     "--export-target", "control"]) == 1
-    assert "aileron area" in capsys.readouterr().err
 
 
-def test_a_surface_with_no_input_slice_is_still_skipped(tmp_path):
-    """The other half of the contract: absent really does mean skip.
-
-    A project with no tab slice still exports its aileron and flap loads --
-    tightening the ``except`` must not turn "not fitted" into a failed run.
-    """
-    with open(GA6) as fh:
-        raw = json.load(fh)
-    assert raw.pop("tab_loads", None) is not None
-    path = os.path.join(str(tmp_path), "no_tab.project.json")
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(raw, fh)
-
-    prefix = os.path.join(str(tmp_path), "out")
-    assert cli.main([path, "--export-sbeam", prefix,
-                     "--export-target", "control"]) == 0
-    with open(prefix + ".control_surface.csv", newline="") as fh:
-        rows = list(csv.DictReader(_io.StringIO(strip_comment_lines(fh.read()))))
-    assert rows, "the fitted surfaces still export"
 
 
 def test_a_module_run_reports_its_error_the_same_way(tmp_path, capsys):

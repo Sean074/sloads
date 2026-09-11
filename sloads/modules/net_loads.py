@@ -239,8 +239,9 @@ def wing_load_rows(results: List[WingLoadResult]) -> List[Dict[str, str]]:
     the ``Basis`` column so the basis travels with any table/CSV built from these
     rows (defect M4-15); the ``MyyAxis`` column likewise carries the torsion
     reference axis (25% chord as computed, or the LRA after
-    :func:`to_loads_ref_axis`). The ULTIMATE deliverable is
-    ``sbeam_bridge.span_load_csv``.
+    :func:`to_loads_ref_axis`). The delivered form of the same loads is
+    ``sbeam_bridge.applied_load_csv`` and the LRA deck's cards -- both LIMIT
+    too, since note 49 OR-116: there is no ultimate deliverable anywhere.
     """
     rows: List[Dict[str, str]] = []
     for r in results:

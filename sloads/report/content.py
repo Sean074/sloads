@@ -1659,16 +1659,16 @@ def _wing_section(project: Project, comps: ComponentLoads, u: Units,
                   "loads inboard of the joint. " + sob.note + ". The wing stick "
                   "deck carries a tagged reporting node (SLOADS-NODE lra-sob); "
                   "the same quantities are recoverable as the CBAR end force in "
-                  "the first element outboard, and the two statements are gated "
-                  "against each other in the round-trip CI."),
+                  "the first element outboard."),
         ))
 
     section.body.append(
-        f"Full station-by-station distributions for all {len(comps.wing)} wing cases "
-        "are in the companion file wing_span_loads.csv and the sbeam deck "
-        "wing_loads.bdf; the applied load set they accumulate from -- strip by "
-        "strip and mass by mass, each at its own point -- is in "
-        "wing_applied_loads.csv (see the bundle manifest)."
+        f"The applied load set for all {len(comps.wing)} wing cases -- strip by "
+        "strip and mass by mass, each at its own point, as all six body-axis "
+        "components -- is in the companion file wing_applied_loads.csv (see the "
+        "bundle manifest). The cumulative shear, bending and torsion it "
+        "accumulates to are tabulated above; a solver computes them from the "
+        "applied set."
     )
     return section
 
@@ -1774,7 +1774,7 @@ def _tail_section(component: str, title: str, comps: ComponentLoads, u: Units,
         rows=rows,
         note="LT25 is the angle-of-attack (additive) load at 25% MAC and LT50 the "
              "camber load at 50% MAC — the rational chordwise split TAILDIST "
-             "distributes. Full chordwise profiles are in tail_chordwise.csv.",
+             "distributes.",
     ))
     return section
 
@@ -2358,10 +2358,6 @@ def _manifest_rows(comps: ComponentLoads, module_results, u: Units,
     if comps.wing:
         axis = comps.wing[0].torsion_axis
         rows += [
-            ["sbeam/<project>_wing_span_loads.csv",
-             "Station-by-station net wing shear, bending and torsion.", deck,
-             f"torsion Myy about the {axis}; LIMIT",
-             section_ref("results", "Wing")],
             ["sbeam/<project>_wing_applied_loads.csv",
              "The applied wing load set: one row per strip and one per "
              "concentrated wing mass, each at its own point, as all six "
@@ -2370,25 +2366,9 @@ def _manifest_rows(comps: ComponentLoads, module_results, u: Units,
              "read as an omission.", deck,
              f"free torsion about the {axis}; LIMIT",
              section_ref("results", "Wing")],
-            ["sbeam/<project>_wing_loads.bdf",
-             "FORCE/MOMENT bulk data for the wing.", deck,
-             f"torsion about the {axis}; LIMIT", section_ref("results", "Wing")],
-            ["sbeam/<project>_wing_stick.bdf", "CBAR stick model of the wing beam.",
-             deck, "geometry only", section_ref("results", "Wing")],
         ]
     if comps.body:
         rows += [
-            ["sbeam/<project>_fuselage_span_loads.csv",
-             "Station-by-station fuselage net shear, bending and torsion.", deck,
-             "torsion Mxx about the body X axis; LIMIT",
-             section_ref("results", "Fuselage")],
-            ["sbeam/<project>_fuselage_loads.bdf",
-             "FORCE/MOMENT bulk data for the fuselage.", deck, "LIMIT",
-             section_ref("results", "Fuselage")],
-            ["sbeam/<project>_fuselage_fitting_loads.csv",
-             "Wing-attach front/rear spar fitting loads.", deck,
-             "already carried by the span loads — do not superpose",
-             section_ref("results", "Fuselage")],
             ["sbeam/<project>_fuselage_applied_loads.csv",
              "The applied fuselage load set: one row per station of the body "
              "beam, at the point on the loads reference axis where the "
@@ -2397,16 +2377,6 @@ def _manifest_rows(comps: ComponentLoads, module_results, u: Units,
              "printed as stated zeros.", deck,
              "applied increments, not cumulative; LIMIT",
              section_ref("results", "Fuselage")],
-        ]
-    if comps.tail:
-        rows += [
-            ["sbeam/<project>_tail_chordwise.csv",
-             "Chordwise tail load intensities per critical condition.", deck,
-             "leading-edge-first stations; Fn is normal to the surface (Axis "
-             "column: h-tail Fz, fin Fy); LIMIT", _TAILS_REF],
-            ["sbeam/<project>_tail_loads.bdf", "FORCE/MOMENT bulk data for the tails.",
-             deck, "loads normal to each surface — h-tail Fz, fin Fy; LIMIT",
-             _TAILS_REF],
         ]
     for _surface, _name in ((("htail", "horizontal tail"), ("vtail", "vertical tail"))
                             if comps.tail else ()):
@@ -2417,19 +2387,8 @@ def _manifest_rows(comps: ComponentLoads, module_results, u: Units,
              f"The applied {_name} load set: one row per strip, plus any "
              "discrete control-surface node and, on a T-tail, the transfer "
              "node — as all six body-axis components, at the point each acts "
-             "at. Every row is a card the spanwise deck writes at the same "
-             "GID. Nothing in it is a running total.", deck,
+             "at. Nothing in it is a running total.", deck,
              f"free torsion is {_torsion}; LIMIT", _TAILS_REF])
-    if comps.control:
-        rows += [
-            ["sbeam/<project>_control_surface_loads.csv",
-             "Simplified chordwise control-surface distributions.", deck,
-             "standard simplified distributions; LIMIT",
-             section_ref("results", "Control surfaces")],
-            ["sbeam/<project>_control_surface_loads.bdf",
-             "FORCE/MOMENT bulk data for the control surfaces.", deck, "LIMIT",
-             section_ref("results", "Control surfaces")],
-        ]
     # The assembled deliverable and its mass model. Listed here for the reason
     # the manifest exists at all: an artifact the controlling document does not
     # name travels without a basis, and these two are the mission's primary

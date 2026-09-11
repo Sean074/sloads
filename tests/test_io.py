@@ -469,7 +469,8 @@ def _all_loaded_safety_factors(d):
 def test_safety_factor_corrupt_values_coerce_to_default_on_load():
     """Defect M4-14: a corrupt persisted factor must never pass the readers.
 
-    null crashed the export (`TypeError` out of `body_span_load_csv`); 0.5 (or any
+    null crashed the export (`TypeError` out of the body span CSV, whose role
+    the applied-load CSV took at note 56 D-56.2); 0.5 (or any
     value below 1.0) silently under-scaled every card still labelled ULTIMATE. The
     legal band is [1.0, ULTIMATE_FACTOR], owned by the load-case definition;
     anything else falls back to the conservative default.
@@ -493,13 +494,14 @@ def test_safety_factor_legal_band_loads_verbatim():
 
 def test_safety_factor_null_no_longer_crashes_the_export():
     """The exact M4-14 repro: `"safety_factor": null` then the body export."""
-    from sloads.export.sbeam_bridge import body_span_load_csv
+    from sloads.export.sbeam_bridge import applied_load_csv
 
     d = _m4_14_project_dict()
     _set_all_safety_factors(d, None)
     p = io.project_from_dict(d)
-    csv_text = body_span_load_csv(p.loads.body_net)   # raised TypeError before
-    assert csv_text.strip().splitlines()[1].endswith("1.5")
+    csv_text = applied_load_csv(p.loads.body_net, component="fuselage")
+    rows = [ln for ln in csv_text.splitlines() if not ln.startswith("#")]
+    assert rows[1].endswith("1.5")
 
 
 def test_a_bare_engine_file_is_refused():

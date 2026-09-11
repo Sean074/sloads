@@ -190,12 +190,12 @@ def test_the_balanced_hand_blocks_and_the_registry_cannot_drift():
 # --------------------------------------------------------------------------- #
 # The allocators agree with the bands that claim to own them
 # --------------------------------------------------------------------------- #
+# The tail-chord and control-surface rows went with their allocators when note
+# 56 D-56.2 deleted the decks that used them; their id ranges are unregistered
+# now, which `test_no_band_overlaps_another` covers as absence.
 @pytest.mark.parametrize("name,call", [
-    ("wing-stick", lambda i: sb.station_gid(i - 1)),   # GID 1 is the clamped root
+    ("wing-stick", lambda i: sb.station_gid(i - 1)),   # index 0 is unallocated
     ("body-mass", sb.beam_station_gid),
-    ("tail-chord-htail", lambda i: sb.tail_station_gid("htail", i)),
-    ("tail-chord-vtail", lambda i: sb.tail_station_gid("vtail", i)),
-    ("control-surface", sb.control_station_gid),
     ("tail-span-htail", lambda i: sb.tail_span_gid("htail", i)),
     ("tail-span-vtail", lambda i: sb.tail_span_gid("vtail", i)),
 ])
@@ -210,14 +210,13 @@ def test_allocators_come_out_of_their_own_band(name, call):
 
 
 def test_the_public_base_constants_still_name_their_bands():
-    """The per-module constants are aliases now, not sources. Callers (and the
-    decks' ``$`` headers) still read them, so pin what they resolve to."""
-    assert sb._ROOT_GID == bd.band("wing-stick").start == 1
-    assert sb._BODY_GID_BASE == bd.band("body-mass").start == 1001
-    assert sb._BODY_CARRY_GID_BASE == bd.band("body-reaction").start == 1501
-    assert sb._CS_GID_BASE == bd.band("control-surface").start == 3001
-    assert sb._HTAIL_SPAN_GID_BASE == bd.band("tail-span-htail").start == 4001
-    assert sb._VTAIL_SPAN_GID_BASE == bd.band("tail-span-vtail").start == 4501
+    """The per-module constants are aliases now, not sources. Callers still read
+    them, so pin what they resolve to.
+
+    The ``sbeam_bridge`` half of this list went with note 56 D-56.2: those
+    constants existed for the decks' ``$`` header lines, and there are no such
+    decks. The allocators themselves are covered above, against the same bands.
+    """
     assert bdk.BALANCED_WING_R_BASE == bd.band("balanced-wing-right").start == 6001
     assert bdk.BALANCED_WING_L_BASE == bd.band("balanced-wing-left").start == 6201
     assert bdk.BALANCED_BODY_BASE == bd.band("balanced-centreline").start == 6401

@@ -127,7 +127,7 @@ def test_every_admitted_case_reaches_the_distributions_the_appendix_and_the_deck
     the exported model does not carry -- which is the defect OR-172 was fixing,
     one layer down.
     """
-    from sloads.export.sbeam_bridge import applied_loads, tail_span_csv
+    from sloads.export.sbeam_bridge import applied_load_csv, applied_loads
 
     for name in _TWINS:
         project = _project(name)
@@ -139,7 +139,11 @@ def test_every_admitted_case_reaches_the_distributions_the_appendix_and_the_deck
         spanwise = build_tail_span(project)["vtail"]
         span_cases = {r.case for r in spanwise}
         appendix = {row.case for row in applied_loads("vtail", spanwise)}
-        deck = tail_span_csv(spanwise, component="vtail")
+        # The delivered file. It was ``tail_span_csv`` until note 56 D-56.2
+        # deleted the spanwise deck and its companion; the applied-load CSV is
+        # what a consumer downloads now, and the claim -- an admitted case
+        # reaches the file, not just the calc -- is the same one.
+        deck = applied_load_csv(spanwise, component="vtail")
 
         by_id = {c.case_ref.case_id: c.label for c in vtail_conditions(project)}
         for case_id in admitted:

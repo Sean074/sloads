@@ -5,19 +5,35 @@ acts at, all six body-axis components and the factor. This file owns what is
 true of all four at once. What is true of one -- Appendix E's withholding,
 Appendix B's concentrated masses -- stays in that section's own file.
 
-The gate that matters most here is **G-OR-90**: an appendix row and the card the
-deck writes for that grid are the same load. Everything else in §18 follows a
+The gate that matters most here is **G-OR-90**: an appendix row and the card
+written for that grid are the same load. Everything else in §18 follows a
 format ruling; that one is a defect gate. Until 2026-09-07 the tail appendices
 printed the strip normal force and nothing else, while the deck wrote a MOMENT
 card for the strip torsion and folded the fin's span-axis axial into the FORCE
 card -- 232,139 lb-in of applied torsion missing from one appendix of one
 example, under a sentence saying the row and the card were the same load.
 
+**G-OR-90 lost one of its two legs at note 56 D-56.2, and gained the reason it
+does not need it.** The leg that went compared ``applied_loads`` against
+``tail_span_force_moment_cards``: two renderings of one load set, which is a
+real check only while two writers can disagree. D-56.9 makes the applied set
+*the* authority the delivered cards are written from -- one writer -- so that
+comparison is now tautological and was deleted rather than kept as decoration.
+The leg that carries the defect is the other one, and it is untouched: the
+appendix is compared against ``applied_loads`` in
+``test_oracle_report_tail.py`` and ``test_oracle_report_fuselage.py``, and the
+specific OR-143 omission is pinned by
+:func:`test_the_tail_appendices_carry_the_torsion_the_deck_emits` below, which
+never read a deck. When the LRA deck writes cards at these rows' grids
+(D-56.4's mesh), the deleted leg comes back with the LRA deck as its
+authority -- that is the form the note calls for.
+
 Gates covered:
 
 * **G-OR-89** -- one column set, in one order, across all four appendices.
-* **G-OR-90** -- every row is the deck's card for that GID: same components,
-  same sign, same point.
+* **G-OR-90** -- every appendix row is the card for that GID: same components,
+  same sign, same point. Its deck-comparison leg is pending the LRA mesh (see
+  above); the appendix-vs-load-set leg is live in the two section files.
 * **G-OR-91** -- the fin's torsion is Mz and negated; the h-tail's is My.
 * **G-OR-92** -- a column printed as zero is named in the note; a component
   that is non-zero anywhere is not describable as absent.
@@ -134,59 +150,6 @@ def _cards(text):
     return out
 
 
-@pytest.mark.parametrize("name", _SHIPPED)
-@pytest.mark.parametrize("component", ("htail", "vtail"))
-def test_every_tail_appendix_row_is_the_card_the_deck_writes(name, component):
-    """G-OR-90, the half that failed. Row for card, component for component.
-
-    The deck is the authority: it is what a solver is actually given. Any load
-    it emits at a grid and the appendix does not print at that grid is a load a
-    reader building a model from the appendix leaves out, under a sentence
-    saying the two are the same. That is what this asserts, in the direction
-    that catches it -- every card is found, not merely every row is valid.
-    """
-    from sloads.modules.tail_span import build_tail_span
-
-    project = _project(name)
-    results = build_tail_span(project).get(component, [])
-    if not results:
-        pytest.skip(f"{name} has no {component} spanwise loads")
-
-    seen = total_rows = 0
-    # One case at a time: a GID repeats in every case's block, so a deck read
-    # whole would compare one grid's card against the sum of its rows in every
-    # condition -- which passes for a single-case airplane and hides everything
-    # else. The case is the unit the deck itself is written in (one SID each).
-    for result in results:
-        rows = sb.applied_loads(component, [result])
-        assert rows, (name, component, result.case)
-        total_rows += len(rows)
-        deck = _cards(sb.tail_span_force_moment_cards([result], component))
-        assert deck, (name, component, result.case)
-        by_gid = {}
-        for row in rows:
-            forces = (row.fx, row.fy, row.fz)
-            moments = sb.applied_body_moments(row)
-            prev = by_gid.get(row.gid, ((0.0,) * 3, (0.0,) * 3))
-            by_gid[row.gid] = (tuple(a + b for a, b in zip(prev[0], forces)),
-                               tuple(a + b for a, b in zip(prev[1], moments)))
-        for (kind, _sid, gid), card in deck.items():
-            if gid not in by_gid:
-                continue      # a chord-station or control grid this set omits
-            want = by_gid[gid][0 if kind == "FORCE" else 1]
-            scale = max(max(abs(v) for v in card), 1.0)
-            for got, expected in zip(card, want):
-                assert math.isclose(got, expected, rel_tol=1e-5,
-                                    abs_tol=1e-5 * scale), (
-                    name, component, result.case, kind, gid, card, want)
-            seen += 1
-    # Every row is a card and then some: a strip contributes a FORCE and, where
-    # its torsion is non-zero, a MOMENT, so the matched-card count is at least
-    # the row count. A number below it means rows the deck does not write --
-    # or, as before 2026-09-07, cards the appendix does not carry.
-    assert seen >= total_rows, (
-        f"{name} {component}: {seen} cards matched against {total_rows} applied "
-        "rows -- the appendix is not the deck")
 
 
 @pytest.mark.parametrize("name", _SHIPPED)

@@ -18,7 +18,7 @@ Gates covered:
   distribution.
 * **G-OR-58** -- 4.2 states which path its case list came from, what the sign of
   its load factors means, and whether the set holds a negative-g condition.
-* **G-OR-59** -- Appendix C's rows and the ``body_span_load_csv`` download are
+* **G-OR-59** -- Appendix C's rows and the applied-load CSV download are
   one load set and agree row for row.
 * **G-OR-64** -- ``body_loads.run()`` publishes one condition per p198 block
   1/2/3/7, each with its FAR reference and its V-n case number.
@@ -43,7 +43,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sloads import io  # noqa: E402
 from sloads import registry  # noqa: E402
-from sloads.export.sbeam_bridge import body_span_load_csv  # noqa: E402
+from sloads.export.sbeam_bridge import applied_load_csv  # noqa: E402
 from sloads.field_registry import reduce_to_oracle_inputs  # noqa: E402
 from sloads.models.report import ReportSpec  # noqa: E402
 from sloads.modules import body_loads  # noqa: E402
@@ -383,32 +383,46 @@ def test_the_appendix_table_and_the_exported_csv_are_one_load_set():
     """Row for row, in the same order, with the same grid identifiers.
 
     Appendix C is a *view* of the export owner and not a second assembler
-    (OR-101): the table a reader checks here and the CSV they download from the
-    Fuselage Loads page have to be the same load set, or the document describes
-    an analysis the deck does not.
+    (OR-101): the table a reader checks here and the CSV they download have to
+    be the same load set, or the document describes an analysis the delivered
+    loads do not.
+
+    **The authority changed, the gate did not** (note 56 D-56.2/D-56.9). It read
+    ``body_span_load_csv`` -- the per-component fuselage deck's companion --
+    until that deck was deleted. ``applied_loads("fuselage", ...)`` is the row
+    set both were always built from, which is why the appendix is unchanged by
+    the move.
+
+    **C.2 drops out of this gate**, and it is worth saying why rather than
+    letting a shortened tuple pass for an oversight: C.2 is the *cumulative*
+    table, and the span CSV was the only artifact that ever carried cumulative
+    columns. Nothing exports them now and nothing should -- a running total is
+    what a solver computes from the applied set, not something a load deck
+    states. C.2's numbers are gated against the calc in
+    ``test_body_loads.py``; there is no second assembler left for it to
+    disagree with.
     """
     project = reduce_to_oracle_inputs(io.load_project(_GA))
     net = body_loads.build_body_loads(project)
-    exported = list(csv.DictReader(_io.StringIO(body_span_load_csv(net))))
+    # The applied CSV opens with its OR-140 conventions block; the reader here
+    # wants the table, so the `#` lines come off first.
+    _text = applied_load_csv(net, component="fuselage", project=project)
+    _rows = "\n".join(ln for ln in _text.splitlines() if not ln.startswith("#"))
+    exported = list(csv.DictReader(_io.StringIO(_rows)))
     doc = _doc(project=project)
-    # Split into C.1 applied and C.2 carried (OR-144); between them they carry
-    # every column the export writes, and each is checked against it.
     applied = _table(doc, "Applied fuselage loads by station")
-    carried = _table(doc, "Cumulative fuselage loads by station")
-    for table, names in ((applied, ("X (in)", "Fz (lb)")),
-                         (carried, ("X (in)", "Sz (lb)", "Myy (lb-in)"))):
-        assert len(table.rows) == len(exported)
-        columns = {name: index for index, name in enumerate(table.columns)}
-        for row, out in zip(table.rows, exported):
-            assert row[columns["GID"]] == out["GID"]
-            assert row[columns["SF"]] == out["SF"]
-            # The two renderers round differently -- the document to significant
-            # figures, the deck to a fixed decimal -- so the values are compared
-            # as numbers, which is what "one load set" means.
-            for column in names:
-                table_value = float(row[columns[column]].replace(",", ""))
-                assert math.isclose(table_value, float(out[column]),
-                                    rel_tol=1e-3, abs_tol=1.0), (column, row)
+    assert len(applied.rows) == len(exported)
+    columns = {name: index for index, name in enumerate(applied.columns)}
+    for row, out in zip(applied.rows, exported):
+        assert row[columns["GID"]] == out["GID"]
+        assert row[columns["SF"]] == out["SF"]
+        # The two renderers round differently -- the document to significant
+        # figures, the CSV to a fixed decimal -- so the values are compared as
+        # numbers, which is what "one load set" means.
+        for column in ("X (in)", "Fz (lb)"):
+            table_value = float(row[columns[column]].replace(",", ""))
+            assert math.isclose(table_value, float(out[column]),
+                                rel_tol=1e-3, abs_tol=1.0), (column, row)
 
 
 # --------------------------------------------------------------------------- #

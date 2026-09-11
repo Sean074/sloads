@@ -163,7 +163,6 @@ APPROVED_CORRECTIONS = (
 #: planforms), which state themselves only when they apply.
 def _standing_limitations() -> tuple:
     """``((key, text), ...)`` — deferred so the owning modules import lazily."""
-    from ..export.sbeam_bridge import CENTERLINE_CLAMP_NOTE
     from ..modules.balance import AILERON_COUPLE_NOTE, LATERAL_AERO_NOTE
     from ..modules.one_engine_out import PROPELLER_ONLY_NOTE
 
@@ -171,27 +170,18 @@ def _standing_limitations() -> tuple:
         ("control-surface-distributions",
          "Control-surface distributions are the *standard simplified* forms (not "
          "a measured or CFD chordwise distribution)."),
-        ("export-case-filter",
-         "Wing and control-surface exports carry the full case set even when a "
-         "governing-set filter is applied elsewhere: their case identities are "
-         "minted separately from the governing set, so the filter cannot reach "
-         "them."),
-        # Reworded, not retired, at decision G-1: ground cases now exist -- in the
-        # assembled deck, which is where they are born -- so the second half of
-        # the old sentence ("no ground case is assembled into a balanced
-        # free-free case") became false and had to change. The first half stands:
-        # the PER-COMPONENT fuselage deck is still flight-only, and a consumer
-        # working from those views alone still gets no ground case.
-        ("flight-only-body-deck",
-         "The PER-COMPONENT fuselage deck is FLIGHT-ONLY. Ground cases are "
-         "assembled -- they are balanced free-free cases in the assembled "
-         "full-span deck, with the gear reactions transferred to each leg's "
-         "reference point -- but they are not projected back onto the "
-         "per-component fuselage view, which is planar by construction while a "
-         "ground case is irreducibly three-dimensional (drag and side load at a "
-         "contact patch well below and off the fuselage beam line). A consumer "
-         "working from the per-component decks alone therefore gets no ground "
-         "case, and must take them from the assembled deck."),
+        # `export-case-filter`, `flight-only-body-deck` and `centerline-clamp`
+        # were RETIRED by note 56 D-56.2, not reworded. Each stated a limitation
+        # of a PER-COMPONENT deck -- that the wing and control-surface exports
+        # escaped the governing-set filter, that the fuselage view was
+        # flight-only, that the wing stick model's SPC sat at BL 0 and so
+        # reported a half-span total rather than a root load. Those decks no
+        # longer exist. The assembled full-span deck each caveat pointed the
+        # reader TOWARD is now the only view there is, so the sentences have no
+        # subject left; keeping them would describe the deliverable as having a
+        # limitation it cannot have. Retiring a caveat is the one edit that can
+        # quietly widen a claim, so it is recorded here and in the same commit
+        # as the deletion, against the key set in `tests/test_methods_stamp.py`.
         # Decisions G-9 and D-28. Stated as a standing limitation rather than
         # left to be inferred from the absence of a comparison: a reader who
         # finds two governing tables and no envelope over them should be told
@@ -236,8 +226,6 @@ def _standing_limitations() -> tuple:
          "at the wing aerodynamic centre: " + AILERON_COUPLE_NOTE + "."),
         # The deck says the same sentence after a "CAVEAT:" lead-in; here it opens
         # a bullet, so only its first letter differs.
-        ("centerline-clamp",
-         CENTERLINE_CLAMP_NOTE[0].upper() + CENTERLINE_CLAMP_NOTE[1:]),
     )
 
 

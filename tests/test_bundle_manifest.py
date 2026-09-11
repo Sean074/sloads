@@ -58,17 +58,8 @@ def _try(fn, *args, **kwargs):
 def _sbeam_artifacts(project, comps, cases):
     art = {}
     if comps.wing:
-        from sloads.derived_geometry import sob_station
-
-        art["wing_loads.bdf"] = _try(sb.force_moment_cards, comps.wing)
-        art["wing_span_loads.csv"] = _try(sb.span_load_csv, comps.wing)
         art["wing_applied_loads.csv"] = _try(sb.applied_load_csv, comps.wing)
-        art["wing_stick.bdf"] = _try(sb.stick_model_bdf, comps.wing,
-                                     sob=sob_station(project))
     if comps.body:
-        art["fuselage_loads.bdf"] = _try(sb.body_force_moment_cards, comps.body)
-        art["fuselage_span_loads.csv"] = _try(sb.body_span_load_csv, comps.body)
-        art["fuselage_fitting_loads.csv"] = _try(sb.body_fitting_load_csv, comps.body)
         art["fuselage_applied_loads.csv"] = _try(
             sb.applied_load_csv, comps.body, component="fuselage", project=project)
     if comps.tail:
@@ -78,13 +69,6 @@ def _sbeam_artifacts(project, comps, cases):
         for _surface in ("htail", "vtail"):
             art[sb.APPLIED_CSV_NAMES[_surface]] = _try(
                 sb.applied_load_csv, spans.get(_surface) or [], component=_surface)
-    if comps.tail:
-        art["tail_loads.bdf"] = _try(sb.tail_force_moment_cards, comps.tail)
-        art["tail_chordwise.csv"] = _try(sb.tail_chordwise_csv, comps.tail)
-    if comps.control:
-        art["control_surface_loads.bdf"] = _try(
-            sb.control_surface_force_moment_cards, comps.control)
-        art["control_surface_loads.csv"] = _try(sb.control_surface_csv, comps.control)
     if cases:
         art["balanced_airframe.bdf"] = _try(balanced_deck, project, cases=cases)
         art["lra_model.bdf"] = _try(lra_model_bdf, project, cases=cases)

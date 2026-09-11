@@ -7,42 +7,41 @@ report to stdout):
     python cli.py engine examples/ga6_normal.project.json        # text to stdout
     python cli.py --list                                         # registered modules
 
-Or export loads to sbeam (CSV + FORCE/MOMENT cards). ``--export-target`` is the
-whole deliverable menu -- every artifact the Export & Report page writes is
-reachable headless, because the concept-loads -> sbeam sizing loop is meant to be
-scripted:
+Or export the solver deliverables. ``--export-target`` is the whole menu --
+every artifact the Export & Report page writes is reachable headless, because
+the concept-loads -> sbeam sizing loop is meant to be scripted.
+
+**Note 56 D-56.2 cut this menu from ten targets to four.** The six that went
+(``wing``, ``body``, ``tail``, ``htail-span``, ``vtail-span``, ``control``)
+wrote *per-component* decks: each one a separate structural model of one piece
+of the airplane, sharing an ID space with the deliverable and borrowing GIDs
+from it. The deliverable is the whole airplane, balanced, with aero and inertia
+together -- so the per-component views were four extra model concepts to
+maintain and none of them was what ships.
 
 ===============  ===========================================================
 target           what it writes
 ===============  ===========================================================
-``wing``         the net wing load: span-load CSV + FORCE/MOMENT cards
-                 (+ an optional CBAR stick model), transferred to the wing's
-                 loads reference axis
-``body``         the fuselage net distribution: FORCE deck, span-load CSV and
-                 the wing-attach fitting-load CSV
-``tail``         the chordwise tail loads (TAILDIST)
-``htail-span``   the **spanwise** empennage beam loads (plan 09 T4)
-``vtail-span``
-``control``      the simplified control-surface loads (AILERON/FLAPLOAD/
-                 TABLOADS)
-``balanced``     the assembled full-span balanced free-free deck -- the
-                 mission's primary loads deliverable
-``gear``         the landing gear interface load definition (decision G-12) --
-                 per case and per leg, the reaction at the tyre contact patch
-                 with its strut state and ground angle, and the same reaction
-                 at the gear reference point
-``mass``         the CONM2/MASSSET mass model (same artifacts, same owner and
-                 same names as ``--export-conm2``)
 ``lra``          the LRA beam model (step 12) -- node lines on the load
                  reference axes, CBAR chains, rigid posts/attachments/gear/
                  engine ties, the balanced cases' load sets transferred onto
                  the nodes. With ``--lra-import MODEL.bdf`` the loads are
                  instead transferred onto the imported model's own nodes,
                  under its GIDs (the named-node contract maps the families)
+``balanced``     the assembled full-span balanced free-free deck
+``gear``         the landing gear interface load definition (decision G-12) --
+                 per case and per leg, the reaction at the tyre contact patch
+                 with its strut state and ground angle, and the same reaction
+                 at the gear reference point
+``mass``         the CONM2/MASSSET mass model (same artifacts, same owner and
+                 same names as ``--export-conm2``)
 ===============  ===========================================================
 
-    python cli.py --export-sbeam out examples/ga6_normal.project.json
-    python cli.py --export-sbeam out --export-target body examples/ga6_normal.project.json
+There is no default target any more: ``wing`` was the default because it was
+the first thing the bridge could write, and a menu whose default has been
+deleted should ask rather than guess.
+
+    python cli.py --export-sbeam out --export-target lra examples/ga6_normal.project.json
     python cli.py --export-sbeam out --export-target balanced examples/ga6_normal.project.json
     python cli.py --export-conm2 out examples/ga6_normal.project.json
 
@@ -75,7 +74,6 @@ surface is absent fails too.
 from __future__ import annotations
 
 import argparse
-import contextlib
 import sys
 
 from sloads import MissingInputError, io, registry
@@ -86,8 +84,22 @@ from sloads.units import UnitSystem, convert_results, unit_system_from
 #: This tuple is the deliverable menu -- review F-D1 was that the menu and the
 #: deliverable set had diverged, so a test pins them together rather than a
 #: comment asking future readers to keep them in step.
-EXPORT_TARGETS = ("wing", "body", "tail", "htail-span", "vtail-span",
-                  "control", "balanced", "gear", "mass", "lra")
+#:
+#: **Ten to four** (note 56 D-56.2). ``wing``, ``body``, ``tail``,
+#: ``htail-span``, ``vtail-span`` and ``control`` wrote the per-component solver
+#: decks, which are deleted: they were parallel model concepts sharing an ID
+#: space with the deliverable, and none of them was the deliverable.
+#:
+#: The note's own summary says this tuple goes to ``("lra", "mass")``. It does
+#: not, on two counts, and the difference is deliberate. ``gear`` survives
+#: because D-56.1 -- the same note -- reclassified the gear interface report as
+#: a **document**, not a deck, and moved it to ``report.tables``; it ships in
+#: the bundle and is the only headless route to it. ``balanced`` survives
+#: because demoting the balanced deck to an internal producer turns on whether
+#: ``roundtrip.py`` collapses to the single LRA solve gate, which is still open
+#: (note 56 §8). Dropping either on the strength of a count would remove a live
+#: deliverable ahead of its replacement.
+EXPORT_TARGETS = ("balanced", "gear", "mass", "lra")
 
 
 def resolve_units(project, flag=None) -> UnitSystem:
@@ -182,7 +194,7 @@ def _export_conm2(project, prefix: str,
     return 0
 
 
-def _export_sbeam(project, prefix: str, target: str, stick_model: bool,
+def _export_sbeam(project, prefix: str, target: str,
                   system: UnitSystem = UnitSystem.IMPERIAL,
                   csv_stamp: str = "", bdf_stamp: str = "",
                   lra_import: str = "") -> int:
@@ -193,92 +205,9 @@ def _export_sbeam(project, prefix: str, target: str, stick_model: bool,
     ``csv_stamp``/``bdf_stamp`` ride along for the same reason (G8.3).
 
     Nothing here catches an exception: an absent or invalid input reaches
-    ``main``'s single error contract. The one exception is the ``control``
-    target -- see below.
+    ``main``'s single error contract.
     """
-    from sloads.export import sbeam_bridge as sb
     from sloads.report import tables as rt
-
-    if target == "tail":
-        from sloads.modules.taildist import build_tail_chordwise
-
-        results = build_tail_chordwise(project)
-        csv_path = f"{prefix}.tail_chordwise.csv"
-        bdf_path = f"{prefix}.tail_loads.bdf"
-        sb.write_tail_chordwise_csv(results, csv_path, header_comment=csv_stamp,
-                                    system=system)
-        sb.write_tail_force_moment_cards(results, bdf_path,
-                                         header_comment=bdf_stamp, system=system)
-        print(f"Wrote {len(results)} tail condition(s) to: {csv_path}, {bdf_path}")
-        return 0
-
-    if target in ("htail-span", "vtail-span"):
-        from sloads.modules.tail_span import build_tail_span
-
-        component = target.split("-")[0]
-        results = build_tail_span(project)[component]
-        if not results:
-            raise MissingInputError(
-                f"no spanwise {component} loads: the surface needs an area and a "
-                "span, and a critical condition carrying an LT25/LT50 split")
-        csv_path = f"{prefix}.{component}_span.csv"
-        bdf_path = f"{prefix}.{component}_span_loads.bdf"
-        with open(csv_path, "w", encoding="utf-8", newline="") as fh:
-            fh.write(sb.tail_span_csv(results, component=component,
-                                      header_comment=csv_stamp, system=system))
-        sb.write_tail_span_force_moment_cards(results, bdf_path, component=component,
-                                              header_comment=bdf_stamp,
-                                              system=system)
-        print(f"Wrote {len(results)} {component} condition(s) to: "
-              f"{csv_path}, {bdf_path}")
-        return 0
-
-    if target == "control":
-        from sloads.modules.aileron import build_aileron
-        from sloads.modules.flap import build_flap
-        from sloads.modules.tab import build_tabs
-
-        # The three surfaces are independent inputs, so an *absent* slice skips
-        # that surface only -- but an *invalid* one is a defect and propagates,
-        # per the error-handling contract (MissingInputError is "not my turn";
-        # a plain ValueError is a bad input). Catching ValueError here made a
-        # mistyped aileron area indistinguishable from an unfitted aileron.
-        results = []
-        for build in (build_aileron, build_flap, build_tabs):
-            with contextlib.suppress(MissingInputError):
-                results.extend(build(project))
-        if not results:
-            raise MissingInputError(
-                "no control-surface loads: this project has no aileron, flap or "
-                "tab input slice to export")
-        csv_path = f"{prefix}.control_surface.csv"
-        bdf_path = f"{prefix}.control_surface.bdf"
-        sb.write_control_surface_csv(results, csv_path, header_comment=csv_stamp,
-                                     system=system)
-        sb.write_control_surface_force_moment_cards(
-            results, bdf_path, header_comment=bdf_stamp, system=system)
-        print(f"Wrote {len(results)} control-surface condition(s) to: {csv_path}, {bdf_path}")
-        return 0
-
-    if target == "body":
-        from sloads.modules.body_loads import build_body_loads
-
-        results = build_body_loads(project)
-        bdf_path = f"{prefix}.body_loads.bdf"
-        span_path = f"{prefix}.body_span_loads.csv"
-        # Reported beside the FORCE set, never in it -- the span loads already
-        # carry the carry-through reaction (M4-1), so applying the point
-        # reactions too would double them.
-        fitting_path = f"{prefix}.body_fitting_loads.csv"
-        sb.write_body_force_moment_cards(results, bdf_path,
-                                         header_comment=bdf_stamp, system=system)
-        sb.write_body_span_load_csv(results, span_path, header_comment=csv_stamp,
-                                    system=system)
-        sb.write_body_fitting_load_csv(results, fitting_path,
-                                       header_comment=csv_stamp, system=system)
-        print(f"Wrote {len(results)} fuselage condition(s) to: "
-              f"{bdf_path}, {span_path}, {fitting_path}")
-        return 0
 
     if target == "gear":
         # The gear report needs LANDLOAD output and gear geometry and **no mass
@@ -331,31 +260,9 @@ def _export_sbeam(project, prefix: str, target: str, stick_model: bool,
         print(f"Wrote {len(cases)} balanced case(s) to: {bdf_path}{note}")
         return 0
 
-    # Wing (the default). The results are transferred to the wing surface's loads
-    # reference axis first -- decision D-R5: the headless deck and the GUI's are
-    # the same deck, and the module contract ("when the export is built from a
-    # Project, the bridge first transfers the loads to the LRA") holds on the
-    # route the sizing loop actually scripts. Every exported wing torsion,
-    # station X and lever arm is therefore about the LRA, stated in-band by the
-    # span CSV's `MyyAxis` column and the deck's `$` header.
-    from sloads.modules.net_loads import build_net_loads, loads_ref_axis_results
-
-    results = loads_ref_axis_results(project, build_net_loads(project).wing_net)
-    csv_path = f"{prefix}.span_loads.csv"
-    bdf_path = f"{prefix}.loads.bdf"
-    sb.write_span_load_csv(results, csv_path, header_comment=csv_stamp, system=system)
-    sb.write_force_moment_cards(results, bdf_path, header_comment=bdf_stamp,
-                                system=system)
-    written = [csv_path, bdf_path]
-    if stick_model:
-        from sloads.derived_geometry import sob_station
-
-        stick_path = f"{prefix}.stick.bdf"
-        sb.write_stick_model_bdf(results, stick_path, header_comment=bdf_stamp,
-                                 system=system, sob=sob_station(project))
-        written.append(stick_path)
-    print(f"Wrote {len(results)} case(s) to: " + ", ".join(written))
-    return 0
+    raise MissingInputError(
+        f"unknown export target {target!r} -- expected one of "
+        + ", ".join(EXPORT_TARGETS))
 
 
 def _tool_version() -> str:
@@ -410,22 +317,18 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--export-sbeam", metavar="PREFIX",
         help="export loads to sbeam files prefixed with PREFIX; which loads is "
-             "--export-target (default: the net wing load). PROJECT is then the "
-             "second positional argument",
+             "--export-target, which is required. PROJECT is then the second "
+             "positional argument",
     )
     parser.add_argument(
         "--export-target",
         choices=EXPORT_TARGETS,
-        default="wing",
-        help="with --export-sbeam, which deliverable to export (default: wing). "
+        default="lra",
+        help="with --export-sbeam, which deliverable to export (default: lra). "
+             "'lra' is the LRA beam model (step 12) -- the primary deliverable; "
              "'balanced' is the assembled full-span free-free deck; 'gear' is "
              "the landing gear interface load definition; 'mass' is "
-             "the CONM2/MASSSET model, identical to --export-conm2; 'lra' is "
-             "the LRA beam model (step 12)",
-    )
-    parser.add_argument(
-        "--stick-model", action="store_true",
-        help="with --export-sbeam, also write the CBAR stick-model BDF (wing target)",
+             "the CONM2/MASSSET model, identical to --export-conm2",
     )
     parser.add_argument(
         "--lra-import", metavar="MODEL_BDF", default="",
@@ -481,7 +384,7 @@ def main(argv=None) -> int:
             if args.export_target == "mass":
                 return _export_conm2(project, args.export_sbeam, system, bdf_stamp)
             return _export_sbeam(project, args.export_sbeam,
-                                 args.export_target, args.stick_model,
+                                 args.export_target,
                                  system, csv_stamp, bdf_stamp,
                                  lra_import=args.lra_import)
         except ValueError as exc:      # MissingInputError included -- it subclasses

@@ -23,7 +23,6 @@ from sloads import (
     labels_for,
     to_si_scalar,
 )
-from sloads.export import sbeam_bridge as sb
 from sloads.modules.aileron import build_aileron, run
 
 st.title("Aileron Loads — AILERON")
@@ -112,8 +111,8 @@ st.write(pd.DataFrame([
          round(to_si_scalar(vals["pressure_fwd_of_hinge_up"], "psi", system), 4)},
 ]))
 
-st.download_button("Download aileron loads (CSV)", sb.control_surface_csv(results, system=system),
-                   file_name="aileron_loads.csv", mime="text/csv")
-st.download_button("Download FORCE cards (sbeam)",
-                   sb.control_surface_force_moment_cards(results, system=system),
-                   file_name="aileron_loads.bdf", mime="text/plain")
+# The CSV and FORCE-card downloads that stood here were the per-component
+# control-surface deck and its companion (note 56 D-56.2, deleted): a chordwise
+# pressure distribution on one surface, as its own structural model. The
+# surface's load is stated in the table above and reaches the deliverable
+# through the assembled airframe deck on the **Export** page.

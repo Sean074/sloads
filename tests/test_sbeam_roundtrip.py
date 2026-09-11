@@ -170,30 +170,8 @@ def _units(system):
     return deliverable_units(system, Channel.SOLVER)
 
 
-def _tail_groups(tail):
-    """The tail deck's two disjoint beams, by component.
-
-    The h-tail and v-tail chord lines both start at ``x = 0`` on ``y = z = 0``
-    (each stated from its own leading edge), so their stations are coincident in
-    space and a single element run through them is degenerate.
-    """
-    groups = {}
-    for r in tail:
-        groups.setdefault(r.component, set()).update(
-            sb.tail_station_gid(r.component, i) for i in range(len(r.stations)))
-    return [sorted(g) for g in groups.values()]
 
 
-def _span_groups(results, component):
-    """The one beam a spanwise tail deck contains, as the wrapper's node group.
-
-    One group, not two: unlike the *chordwise* deck — where the h-tail and v-tail
-    are separate beams with coincident stations — a spanwise deck carries a single
-    surface, and for the h-tail that surface is one full-span member through the
-    centreline (decision T-8).
-    """
-    return [[sb.tail_span_gid(component, i)
-             for i in range(len(results[0].stations))]]
 
 
 def _solved(text):
@@ -201,69 +179,6 @@ def _solved(text):
     return solve_deck(text), parse_cards(text)[0]
 
 
-# --------------------------------------------------------------------------- #
-# Wing -- the deck that is solvable exactly as exported
-# --------------------------------------------------------------------------- #
-@pytest.mark.roundtrip
-@pytest.mark.parametrize("example", WING_MATRIX)
-@pytest.mark.parametrize("system", SYSTEMS)
-def test_wing_stick_deck_solves_and_recovers_the_root_loads(sbeam, example, system):
-    """W-a...W-d: the wing stick model solves, and sbeam recovers the NETLOADS root.
-
-    W-a/W-b (reaction == -applied resultant) are the cheap global closure and
-    will essentially never fail alone. W-c/W-d are the substance: the recovered
-    reaction and the element-1 end-B internal loads are compared against
-    ``r.stations[0]`` -- the NETLOADS quadrature, computed by different code than
-    the cards.
-
-    **Never a root-node moment comparison** (S-6). The clamped root node sits half
-    a strip inboard of station 0 and, on a swept wing, offset in ``x``, so the
-    reaction moment is not station-0 ``Mxx``/``Myy``: on ``ga6_normal`` PHAA it is
-    -1.847E5 against a -91,410 lb-in root torsion. Element 1 is the exception the
-    identities rest on -- ``_root_node`` copies station 0's ``x`` and ``z``, so
-    that element lies exactly along ``y`` and its local frame maps cleanly onto
-    the airplane axes.
-    """
-    _, wing, _, _ = _components(example)
-    u = _units(system)
-    text = sb.stick_model_bdf(wing, sid_base=1, system=system)
-    sols, grids = _solved(text)
-    _, _, _, forces, moments = parse_cards(text)
-    root = grids[sb._ROOT_GID]
-
-    assert sorted(sols) == sorted(sb._sid(1, i, r) for i, r in enumerate(wing))
-
-    for idx, r in enumerate(wing):
-        sid = sb._sid(1, idx, r)
-        sol, st = sols[sid], r.stations[0]
-        where = f"{example} {system.value} wing {r.case}"
-        applied = resultant(forces, moments, grids, sid, root)
-        reaction = sol.reactions[sb._ROOT_GID]
-
-        # W-a / W-b: the solver's reaction is the applied resultant, negated,
-        # about the node the deck itself constrains.
-        for axis, want in enumerate((applied.fx, applied.fy, applied.fz)):
-            assert closes(reaction[axis], -want, scale=applied.force_scale), \
-                f"{where} W-a axis {axis}"
-        for axis, want in enumerate((applied.mx, applied.my, applied.mz)):
-            assert closes(reaction[3 + axis], -want, scale=applied.moment_scale), \
-                f"{where} W-b axis {axis}"
-
-        # W-c: the vertical reaction is the NETLOADS root shear.
-        want_fx, _, want_fz = to_force(st.sx, 0.0, st.sz, u)
-        assert closes(reaction[2], -want_fz, scale=abs(want_fz)), f"{where} W-c Sz"
-        assert closes(reaction[0], -want_fx, scale=abs(want_fx)), f"{where} W-c Sx"
-
-        # W-d: element 1's end-B internal loads are the root station's cumulative
-        # shear, bending and lateral bending. Element 1 runs exactly along +y, so
-        # its local frame is a fixed permutation of the airplane axes: local y is
-        # airplane z (shear1 == Sz) and local "bending 2" is airplane Mxx.
-        bar = sol.bar_forces[1]
-        want_mxx, _, _ = to_moment(st.mxx, 0.0, 0.0, u)
-        _, _, want_mzz = to_moment(0.0, 0.0, st.mzz, u)
-        assert closes(bar.shear1, want_fz, scale=abs(want_fz)), f"{where} W-d shear"
-        assert closes(bar.bm2_b, want_mxx, scale=abs(want_mxx)), f"{where} W-d Mxx"
-        assert closes(bar.bm1_b, -want_mzz, scale=abs(want_mzz)), f"{where} W-d Mzz"
 
 
 #: The two matrix members whose projects state a side of body (a published
@@ -292,286 +207,18 @@ LRA_SOLVE_MATRIX = (
 )
 
 
-@pytest.mark.roundtrip
-@pytest.mark.parametrize("example", SOB_MATRIX)
-@pytest.mark.parametrize("system", SYSTEMS)
-def test_the_sob_internal_load_is_the_first_outboard_elements_end_force(
-        sbeam, example, system):
-    """Step 13's gate: the side-of-body load, stated two ways, agrees.
-
-    Way one is sloads' closed form (``sob_internal_loads`` -- the applied nodal
-    loads outboard of the cut, summed with their lever arms); way two is the
-    solver's CBAR end force in the first element outboard of the tagged SOB
-    node. The bridge between them is the deck's own cards: the closed form must
-    match the global card resultant about the SOB (shear, chord shear and both
-    bending components -- torsion is stated about the swept axis line, not the
-    global y, so it is gated in ``test_sbeam_bridge`` against the cumulative
-    table instead), and the solver's end-A force must be that resultant in the
-    element's local frame. The SOB element is generally *not* along ``y`` (the
-    beam line is swept), so unlike W-d the frame map is computed, not permuted:
-    ``e_x`` along A->B, ``e_y`` the projected orientation vector ``(0,0,1)``,
-    ``e_z = e_x x e_y`` -- sbeam's own construction (``transform_matrix``). End
-    A moments come back in the element-applied sign, hence ``bm1_a``/``bm2_a``
-    compare negated; the constant-along-the-element forces come back at end B
-    in the internal sign.
-    """
-    import numpy as np
-
-    p, wing, _, _ = _components(example)
-    sob = sob_station(p)
-    assert sob is not None, "the SOB matrix member must state a side of body"
-    u = _units(system)
-    text = sb.stick_model_bdf(wing, sid_base=1, system=system, sob=sob)
-    sols, grids = _solved(text)
-    _, cbars, _, forces, moments = parse_cards(text)
-
-    sg = sb.sob_gid()
-    out_eid, out_gb = next((eid, gb) for eid, ga, gb in cbars if ga == sg)
-    a = np.array(grids[sg])
-    b = np.array(grids[out_gb])
-    e_x = (b - a) / np.linalg.norm(b - a)
-    v = np.array([0.0, 0.0, 1.0])
-    v_perp = v - v.dot(e_x) * e_x
-    e_y = v_perp / np.linalg.norm(v_perp)
-    rot = np.vstack([e_x, e_y, np.cross(e_x, e_y)])
-    y_sob = a[1]                       # in deck units, exactly as printed
-
-    for idx, r in enumerate(wing):
-        sid = sb._sid(1, idx, r)
-        where = f"{example} {system.value} SOB {r.case}"
-
-        # The deck's applied cards outboard of the cut, summed about the SOB.
-        f_g = np.zeros(3)
-        m_g = np.zeros(3)
-        f_scale = m_scale = 0.0
-        for gid, scale, n in forces.get(sid, ()):
-            g = np.array(grids[gid])
-            if g[1] < y_sob - 1e-9:
-                continue
-            f = scale * np.array(n)
-            f_g += f
-            m_g += np.cross(g - a, f)
-            f_scale += float(np.abs(f).max())
-        for gid, scale, n in moments.get(sid, ()):
-            if grids[gid][1] < y_sob - 1e-9:
-                continue
-            m_g += scale * np.array(n)
-        m_scale = max(m_scale, float(np.abs(m_g).max()))
-
-        # Closed form == card resultant (Sz/Sx exactly; Mxx/Mzz in the calc's
-        # bending signs: global Mx = +Mxx, global Mz = -Mzz).
-        si = sb.sob_internal_loads(r, sob.y)
-        want_fx, _, want_fz = to_force(si.sx, 0.0, si.sz, u)
-        want_mxx, _, want_mzz = to_moment(si.mxx, 0.0, si.mzz, u)
-        assert closes(f_g[2], want_fz, scale=f_scale), f"{where} Sz"
-        assert closes(f_g[0], want_fx, scale=f_scale), f"{where} Sx"
-        assert closes(m_g[0], want_mxx, scale=m_scale), f"{where} Mxx"
-        assert closes(m_g[2], -want_mzz, scale=m_scale), f"{where} Mzz"
-
-        # Solver end force in the first element outboard == that resultant.
-        f_e = rot @ f_g
-        m_e = rot @ m_g
-        bar = sols[sid].bar_forces[out_eid]
-        assert closes(bar.axial, f_e[0], scale=f_scale), f"{where} axial"
-        assert closes(bar.shear1, f_e[1], scale=f_scale), f"{where} shear1"
-        assert closes(bar.shear2, f_e[2], scale=f_scale), f"{where} shear2"
-        assert closes(bar.torque, m_e[0], scale=m_scale), f"{where} torque"
-        assert closes(bar.bm1_a, -m_e[1], scale=m_scale), f"{where} bm1_a"
-        assert closes(bar.bm2_a, -m_e[2], scale=m_scale), f"{where} bm2_a"
 
 
-# --------------------------------------------------------------------------- #
-# Body -- free-free, on a determinate support (S-3.1)
-# --------------------------------------------------------------------------- #
-def _body_deck(body, system):
-    return wrap_as_stick_model(
-        sb.body_force_moment_cards(body, sid_base=1, system=system),
-        support=Support.DETERMINATE, system=system, title="fuselage beam")
 
 
-@pytest.mark.roundtrip
-@pytest.mark.parametrize("example", MATRIX)
-@pytest.mark.parametrize("system", SYSTEMS)
-def test_body_deck_solves_free_free(sbeam, example, system):
-    """B-a / B-b: the fuselage deck solves, and its determinate support reacts zero.
-
-    B-a is most of the value on its own -- it proves the ``GRID`` cards plan 07
-    added are real, consistent and sufficient to stand a model up.
-
-    B-b is the free-free claim proved **through the solver**: the support carries
-    exactly the residual the applied set fails to balance, and the lever arms are
-    the ones sbeam computes from the deck's own coordinates, not the ones sloads
-    used. A deck that closes on paper but reacts non-zero here has a geometry
-    error the card sum cannot see -- which is what the third negative test below
-    demonstrates.
-    """
-    _, _, body, _ = _components(example)
-    text = _body_deck(body, system)
-    sols, grids = _solved(text)
-    _, _, _, forces, moments = parse_cards(text)
-
-    for idx, r in enumerate(body):
-        sid = sb._sid(1, idx, r)
-        where = f"{example} {system.value} body {r.case}"
-        applied = resultant(forces, moments, grids, sid, (0.0, 0.0, 0.0))
-        got = total_reaction(sols[sid].reactions, grids)
-        for axis in range(3):
-            assert closes(got.force[axis], 0.0, scale=applied.force_scale), \
-                f"{where} B-b force axis {axis}: {got.force[axis]}"
-            assert closes(got.moment[axis], 0.0, scale=applied.moment_scale), \
-                f"{where} B-b moment axis {axis}: {got.moment[axis]}"
 
 
-@pytest.mark.roundtrip
-@pytest.mark.parametrize("example", MATRIX)
-@pytest.mark.parametrize("system", SYSTEMS)
-def test_body_deck_recovers_the_cumulative_beam(sbeam, example, system):
-    """B-c: sbeam reassembles the Ch 15 cumulative shear and bending, station by station.
-
-    The design note's B-c ("recovered CBAR shear at the aft-most element ~ 0")
-    does not hold and would not mean much if it did: the last element carries the
-    last station's load, and the quantity that vanishes at a free end is the
-    *bending*, trivially. The real statement available here is far stronger and is
-    the body's analog of W-c/W-d -- sbeam is handed the per-station ``FORCE``
-    cards and the ``GRID`` coordinates, and from those alone it must reproduce
-    ``body_loads``' entire cumulative table, whose terminal value being zero is
-    the deck header's "moment equilibrium" claim.
-
-    Local frame: each element runs along +x, so its ``bm2`` is the airplane
-    ``Myy`` and its ``shear1`` is minus the cumulative ``Sz``.
-
-    Indexed by **station position**, not by GID: a fuselage may carry two loads
-    at one station (``concept_regional_jet`` puts the tail air load at exactly a
-    mass lump's station), which is one node of the beam and therefore one cut.
-    The cumulative shear at that cut is the table's *last* entry there.
-    """
-    _, _, body, _ = _components(example)
-    u = _units(system)
-    text = _body_deck(body, system)
-    sols, grids = _solved(text)
-    positions = sorted({grids[g][0] for g in grids})
-
-    def _deck_x(x):
-        """The station coordinate **as the deck wrote it** -- six significant
-        figures. Re-deriving it in Python instead would miss by a rounding step
-        in SI, where the millimetre value has more digits than the card keeps."""
-        return float(f"{to_grid(x, 0.0, 0.0, u)[0]:.6E}")
-
-    for idx, r in enumerate(body):
-        sid = sb._sid(1, idx, r)
-        sol = sols[sid]
-        where = f"{example} {system.value} body {r.case}"
-        # Table order, so a coincident pair leaves the outboard-most cumulative
-        # value -- the one the cut just outboard of that station carries.
-        sz = {_deck_x(s.x): s.sz for s in r.stations}
-        myy = {_deck_x(s.x): s.myy for s in r.stations}
-        scale = max(abs(to_force(0.0, 0.0, s.sz, u)[2]) for s in r.stations)
-        m_scale = max(abs(to_moment(0.0, s.myy, 0.0, u)[1]) for s in r.stations)
-        assert len(sol.bar_forces) == len(positions) - 1
-
-        for eid, bar in sorted(sol.bar_forces.items()):
-            x_a, x_b = positions[eid - 1], positions[eid]
-            _, _, want_sz = to_force(0.0, 0.0, sz[x_a], u)
-            _, want_myy, _ = to_moment(0.0, myy[x_b], 0.0, u)
-            assert closes(bar.shear1, -want_sz, scale=scale), \
-                f"{where} B-c shear, element {eid} (station {x_a})"
-            assert closes(bar.bm2_b, want_myy, scale=m_scale), \
-                f"{where} B-c bending, element {eid} (station {x_b})"
 
 
-# --------------------------------------------------------------------------- #
-# Tail -- clamped at the leading-edge chord station
-# --------------------------------------------------------------------------- #
-def _tail_deck(tail, system):
-    return wrap_as_stick_model(
-        sb.tail_force_moment_cards(tail, sid_base=1, system=system),
-        support=Support.CLAMPED_FIRST, system=system,
-        groups=_tail_groups(tail), title="tail chord beams")
 
 
-@pytest.mark.roundtrip
-@pytest.mark.parametrize("example", MATRIX)
-@pytest.mark.parametrize("system", SYSTEMS)
-def test_tail_deck_solves_and_recovers_the_total_load(sbeam, example, system):
-    """T-a...T-c: the tail deck solves; its reaction is ``LT25 + LT50`` and the
-    chordwise first moment about the leading-edge station.
-
-    Both tail beams are clamped, so the reaction of a case that loads only one
-    component is that component's alone -- the other contributes zero, which is
-    itself a check that no card leaked across the two GID blocks.
-
-    Each surface is reacted on its **own** axis (D-R4): the h-tail's normal load is
-    vertical, the fin's lateral, so the fin's total comes back as ``Fy`` and its
-    chordwise first moment as ``Mz``.
-    """
-    _, _, _, tail = _components(example)
-    u = _units(system)
-    text = _tail_deck(tail, system)
-    sols, grids = _solved(text)
-    _, _, _, forces, moments = parse_cards(text)
-
-    for idx, r in enumerate(tail):
-        sid = sb._sid(1, idx, r)
-        where = f"{example} {system.value} tail {r.component} {r.case}"
-        ref = ref_first_loaded(sid, grids, forces.get(sid, []))
-        applied = resultant(forces, moments, grids, sid, ref)
-        got = total_reaction(sols[sid].reactions, grids, ref=ref)
-
-        total = (r.lt25 + r.lt50)
-        want_f = to_force(*tail_force_to_airplane(total, r.component), u)
-        scale = max(abs(v) for v in want_f)
-        for axis in range(3):
-            assert closes(got.force[axis], -want_f[axis], scale=scale), \
-                f"{where} T-b axis {axis}"
-        # T-c: the reaction moment about the LE station is the deck's own
-        # chordwise first moment -- recovered by the solver from the GRID
-        # coordinates rather than read back out of the card text. Which moment
-        # component carries it follows the force axis: My for the h-tail, Mz for
-        # the fin.
-        for axis, want in enumerate((applied.mx, applied.my, applied.mz)):
-            assert closes(got.moment[axis], -want, scale=applied.moment_scale), \
-                f"{where} T-c axis {axis}"
 
 
-# --------------------------------------------------------------------------- #
-# Spanwise empennage decks (plan 09 T4)
-# --------------------------------------------------------------------------- #
-@pytest.mark.roundtrip
-@pytest.mark.parametrize("example", MATRIX)
-@pytest.mark.parametrize("system", SYSTEMS)
-@pytest.mark.parametrize("component", ("htail", "vtail"))
-def test_tail_span_deck_solves(sbeam, example, system, component):
-    """The spanwise tail decks solve, and their supports react the applied set.
-
-    The h-tail is the first **full-span** beam in the suite to reach a solver, and
-    the v-tail the first deck whose load is a side force. Both are wrapped with a
-    determinate support and checked the way the body deck is: the reaction is the
-    negative of the applied resultant, computed by sbeam from the deck's own
-    ``GRID`` coordinates.
-    """
-    _, _, _, _ = _components(example)
-    project, _, _, _ = _components(example)
-    spans = build_tail_span(project)
-    results = spans[component]
-    assert results, f"{example}: no {component} spanwise result"
-
-    text = wrap_as_stick_model(
-        sb.tail_span_force_moment_cards(results, component=component,
-                                        sid_base=1, system=system),
-        support=Support.DETERMINATE, system=system,
-        groups=_span_groups(results, component),
-        title=f"{component} spanwise beam")
-    sols, grids = _solved(text)
-    _, _, _, forces, moments = parse_cards(text)
-
-    for idx, r in enumerate(results):
-        sid = sb._sid(1, idx, r)
-        where = f"{example} {system.value} {component}-span {r.case}"
-        applied = resultant(forces, moments, grids, sid, (0.0, 0.0, 0.0))
-        got = total_reaction(sols[sid].reactions, grids)
-        for axis, want in enumerate((applied.fx, applied.fy, applied.fz)):
-            assert closes(got.force[axis], -want, scale=applied.force_scale), \
-                f"{where} reaction axis {axis}"
 
 
 # --------------------------------------------------------------------------- #
@@ -1021,42 +668,6 @@ def test_flattening_refuses_a_deck_it_cannot_fold():
         flatten_mass_case(replaced, mc.MASSSET_SID_BASE)
 
 
-# --------------------------------------------------------------------------- #
-# The end-to-end claim: the path a real user takes (S-5)
-# --------------------------------------------------------------------------- #
-@pytest.mark.roundtrip
-def test_wing_deck_solves_through_the_sbeam_command_line(sbeam, tmp_path):
-    """``python -m sbeam ga6.stick.bdf`` exits 0 and writes an ``.f06`` that agrees.
-
-    Every other test here goes through sbeam's Python API, which keeps them out
-    of hostage to another repository's report formatting. This one proves the
-    path an actual user takes works end to end -- and it is the only test that
-    reads ``.f06`` text, asserting a substring and one number rather than a
-    layout.
-    """
-    _, wing, _, _ = _components("ga6_normal.project.json")
-    u = _units(UnitSystem.IMPERIAL)
-    bdf = tmp_path / "ga6.stick.bdf"
-    bdf.write_text(sb.stick_model_bdf(wing, sid_base=1, system=UnitSystem.IMPERIAL))
-
-    run = subprocess.run([sys.executable, "-m", "sbeam", str(bdf)],
-                         capture_output=True, text=True)
-    assert run.returncode == 0, f"sbeam exited {run.returncode}: {run.stderr}"
-    f06 = (tmp_path / "ga6.stick.f06").read_text()
-    assert "F O R C E S   O F   S I N G L E - P O I N T   C O N S T R A I N T" in f06
-    for idx, r in enumerate(wing):
-        assert f"SUBCASE {sb._sid(1, idx, r)}" in f06
-
-    # The root reaction printed in the .f06 is the span CSV's root shear (W-c).
-    first = wing[0]
-    _, _, want = to_force(0.0, 0.0, first.stations[0].sz, u)
-    block = f06.split(f"SUBCASE {sb._sid(1, 0, first)}")[1]
-    spc = block.split("S I N G L E - P O I N T   C O N S T R A I N T")[1].splitlines()
-    row = [ln for ln in spc if ln.split()[:2] == [str(sb._ROOT_GID), "G"]][0]
-    # The six components are fixed-width and run together when one is negative
-    # ("1.537812E+03-1.255918E-09"), so they are read as numbers, not as columns.
-    got = float(re.findall(r"-?\d\.\d+E[+-]\d+", row)[2])   # T1, T2, T3
-    assert closes(got, -want, scale=abs(want)), f"f06 root T3 {got} vs {-want}"
 
 
 # --------------------------------------------------------------------------- #
@@ -1073,33 +684,6 @@ def _mutate(text, predicate, transform):
     return "\n".join(out) + "\n"
 
 
-@pytest.mark.roundtrip
-def test_a_scaled_wing_force_card_breaks_the_wing_assertions(sbeam):
-    """Mutation 1: scale one wing ``FORCE`` card's ``n3`` by 1.01 -> W-a and W-c fail."""
-    _, wing, _, _ = _components("ga6_normal.project.json")
-    u = _units(UnitSystem.IMPERIAL)
-    text = sb.stick_model_bdf(wing, sid_base=1)
-    sid = sb._sid(1, 0, wing[0])
-
-    def bump(line):
-        f = line.split(",")
-        f[-1] = f" {float(f[-1]) * 1.01:.6E}"
-        return ",".join(f)
-
-    broken = _mutate(text, lambda ln: ln.startswith(f"FORCE, {sid},"), bump)
-    sols, grids = _solved(broken)
-    _, _, _, forces, moments = parse_cards(broken)
-    applied = resultant(forces, moments, grids, sid, grids[sb._ROOT_GID])
-    reaction = sols[sid].reactions[sb._ROOT_GID]
-    st = wing[0].stations[0]
-    _, _, want_fz = to_force(0.0, 0.0, st.sz, u)
-
-    # W-a still holds -- the solver faithfully reacts whatever it was given...
-    assert closes(reaction[2], -applied.fz, scale=applied.force_scale)
-    # ...and W-c is what catches it, because its target is the NETLOADS
-    # quadrature rather than the cards.
-    assert not closes(reaction[2], -want_fz, scale=abs(want_fz))
-    assert not closes(sols[sid].bar_forces[1].shear1, want_fz, scale=abs(want_fz))
 
 
 @pytest.mark.roundtrip
@@ -1109,39 +693,54 @@ def test_swapped_subcase_load_ids_break_the_per_case_assertions(sbeam):
     Symmetry is the risk this rules out: if every case were checked against a
     deck-wide total, a routing error would pass. Case identity (M4-2 decisions
     8/9) is only real if a mis-selected load set is detectable.
-    """
-    _, wing, _, _ = _components("ga6_normal.project.json")
-    u = _units(UnitSystem.IMPERIAL)
-    a, b = sb._sid(1, 0, wing[0]), sb._sid(1, 1, wing[1])
-    text = sb.stick_model_bdf(wing, sid_base=1)
-    swapped = text.replace(f"  LOAD = {a}", "  LOAD = @@").replace(
-        f"  LOAD = {b}", f"  LOAD = {a}").replace("  LOAD = @@", f"  LOAD = {b}")
-    assert swapped != text
 
-    sols, _ = _solved(swapped)
-    st = wing[0].stations[0]
-    _, _, want_fz = to_force(0.0, 0.0, st.sz, u)
-    assert not closes(sols[a].reactions[sb._ROOT_GID][2], -want_fz,
-                      scale=abs(want_fz))
+    **This became a deck-text check at note 56 D-56.2, and that is a real
+    narrowing worth stating.** It used to mutate the wing stick deck and watch
+    a clamped reaction move, because that deck reacted each case's own non-zero
+    resultant. The assembled deck cannot host the same mutation: every balanced
+    free-free case has a zero resultant *by construction*, so swapping two
+    subcases' load sets leaves all six reactions at zero and no
+    reaction-based gate can see it. Rather than write a solve that proves
+    nothing, the property is asserted where it is observable -- a subcase
+    selects its own case's ``LOAD`` set, in the deck's own text.
+    """
+    project, _, _, _ = _components("ga6_normal.project.json")
+    text = balanced_deck(project, system=UnitSystem.IMPERIAL)
+    pairs = re.findall(r"SUBCASE (\d+)\n(?:.*\n)*?  LOAD = (\d+)", text)
+    assert len(pairs) >= 2, "the deck must carry several subcases"
+    for subcase, load in pairs:
+        assert subcase == load, (
+            f"SUBCASE {subcase} selects LOAD {load}: a subcase must select its "
+            "own case's load set, or the deck routes a condition's loads to "
+            "another condition's name (M4-2 decisions 8/9)")
 
 
 @pytest.mark.roundtrip
-def test_a_displaced_body_grid_breaks_the_free_free_reaction(sbeam):
-    """Mutation 3: displace one body ``GRID``'s ``x`` by 1% -> B-b fails.
+def test_a_displaced_grid_breaks_the_free_free_reaction(sbeam):
+    """Mutation 3: displace one loaded ``GRID``'s ``x`` by 1% -> the gate fails.
 
     This is the assertion a card-sum check **cannot** make. The applied ``FORCE``
-    cards are untouched, so every force sum in the deck still closes exactly; what
-    moves is a lever arm the solver reads from the file, and only a solve that
-    assembles the model from those coordinates can see it. If this test ever
-    stops failing, B-b has stopped being a geometry check.
+    cards are untouched, so every force sum in the deck still closes exactly;
+    what moves is a lever arm the solver reads from the file, and only a solve
+    that assembles the model from those coordinates can see it. If this test
+    ever stops failing, the free-free gate has stopped being a geometry check.
+
+    Run against the **assembled deck** since note 56 D-56.2 deleted the
+    per-component body deck it used to mutate. That is where it belongs: the
+    assembled deck is the deliverable whose header claims its support does
+    nothing, so it is the free-free claim that needs calibrating.
     """
-    _, _, body, _ = _components("ga6_normal.project.json")
-    text = _body_deck(body, UnitSystem.IMPERIAL)
-    sid = sb._sid(1, 0, body[0])
+    project, _, _, _ = _components("ga6_normal.project.json")
+    cases = build_balanced_cases(project)
+    text = _assembled_deck_from(project, UnitSystem.IMPERIAL, [cases[0]])
     grids = parse_cards(text)[0]
-    # Displace a mid-beam node: an end node is a support, and moving it would
-    # change the support geometry rather than a load's lever arm.
-    target = sorted(grids, key=lambda g: grids[g][0])[len(grids) // 2]
+    # Displace a loaded node well away from the support: moving a support node
+    # would change the support geometry rather than a load's lever arm.
+    _, _, spc1, forces0, _ = parse_cards(text)
+    (_, _, support_gids), = [c for c in spc1 if c[1] == "123456"]
+    (sid0, cards), = forces0.items()
+    loaded = sorted({g for g, _, _ in cards} - set(support_gids))
+    target = loaded[len(loaded) // 2]
 
     def shift(line):
         f = line.split(",")
@@ -1151,11 +750,13 @@ def test_a_displaced_body_grid_breaks_the_free_free_reaction(sbeam):
     broken = _mutate(text, lambda ln: ln.startswith(f"GRID, {target},"), shift)
     sols, broken_grids = _solved(broken)
     _, _, _, forces, moments = parse_cards(broken)
+    (sid, sol), = sols.items()
 
-    applied = resultant(forces, moments, broken_grids, sid, (0.0, 0.0, 0.0))
+    ref = broken_grids[support_gids[0]]
+    applied = resultant(forces, moments, broken_grids, sid, ref)
     assert closes(applied.fz, 0.0, scale=applied.force_scale), \
         "the force sum must still close -- only geometry was mutated"
-    got = total_reaction(sols[sid].reactions, broken_grids)
+    got = total_reaction(sol.reactions, broken_grids, ref=ref)
     assert not closes(got.moment[1], 0.0, scale=applied.moment_scale)
 
 
@@ -1163,78 +764,44 @@ def test_a_displaced_body_grid_breaks_the_free_free_reaction(sbeam):
 # The wrapper itself -- checked without a solver, so it is covered everywhere
 # --------------------------------------------------------------------------- #
 def test_the_wrapper_refuses_a_deck_with_no_geometry():
-    """Control-surface decks carry no ``GRID`` cards, and cannot be wrapped (S-3)."""
-    from sloads.modules.aileron import build_aileron
+    """A deck with no ``GRID`` cards cannot be wrapped (S-3).
 
-    control = build_aileron(_project("ga6_normal.project.json"))
-    text = sb.control_surface_force_moment_cards(control, sid_base=1)
+    It used to pass the control-surface deck, which carried loads and no
+    geometry; note 56 D-56.2 deleted that deck, so the input is written here
+    instead. Writing it out is if anything better: the refusal is a property of
+    the wrapper, and sourcing the input from a shipped artifact made it look
+    like a property of that artifact.
+    """
+    cards_only = "\n".join([
+        "$ a load set with no geometry",
+        "FORCE, 101, 7, 0, 1.0, 0.000000E+00, 0.000000E+00, 1.000000E+03",
+        "MOMENT, 101, 7, 0, 1.0, 0.000000E+00, 1.000000E+03, 0.000000E+00",
+    ])
     with pytest.raises(ValueError, match="no GRID cards"):
-        wrap_as_stick_model(text, support=Support.CLAMPED_FIRST)
+        wrap_as_stick_model(cards_only, support=Support.CLAMPED_FIRST)
 
 
-def test_the_wrapper_refuses_an_already_solvable_deck():
-    """The wing stick deck must be tested as shipped, not as a wrapped copy."""
-    _, wing, _, _ = _components("ga6_normal.project.json")
-    with pytest.raises(ValueError, match="already carries CBAR"):
-        wrap_as_stick_model(sb.stick_model_bdf(wing, sid_base=1),
-                            support=Support.CLAMPED_FIRST)
 
 
 def test_the_wrapper_refuses_an_ungrouped_node():
-    """A node in no group is unattached, hence singular -- so it must be loud."""
-    _, _, _, tail = _components("ga6_normal.project.json")
-    text = sb.tail_force_moment_cards(tail, sid_base=1)
+    """A node in no group is unattached, hence singular -- so it must be loud.
+
+    Run against the assembled deck with a deliberately short group list, since
+    note 56 D-56.2 deleted the chordwise tail deck this used to wrap. Same
+    refusal, same reason; the input is now the artifact the wrapper actually
+    exists for.
+    """
+    project, _, _, _ = _components("ga6_normal.project.json")
+    text = balanced_deck(project, system=UnitSystem.IMPERIAL)
+    grids = sorted(parse_cards(text)[0])
+    assert len(grids) > 2, "the deck must have nodes to leave out of a group"
     with pytest.raises(ValueError, match="in no group"):
         wrap_as_stick_model(text, support=Support.CLAMPED_FIRST,
-                            groups=_tail_groups(tail)[:1])
+                            groups=[grids[:2]])
 
 
-def test_the_tail_wrapper_needs_its_groups():
-    """Ungrouped, the wrapper threads one beam through **both** tail surfaces.
-
-    Pinned because it is the finding that shaped the wrapper's API, and because
-    the failure is silent rather than loud: the h-tail and v-tail chord lines are
-    different beams stated from their own leading edges, so their stations
-    interleave in ``x`` and their first stations are coincident. A single element
-    run through them solves happily and means nothing. ``groups`` is therefore
-    load-bearing, not decorative.
-    """
-    _, _, _, tail = _components("ga6_normal.project.json")
-    text = sb.tail_force_moment_cards(tail, sid_base=1)
-    groups = _tail_groups(tail)
-    assert len(groups) == 2, "ga6 exports both an h-tail and a v-tail"
-    bands = {gid: i for i, g in enumerate(groups) for gid in g}
-
-    _, mixed, _, _, _ = parse_cards(
-        wrap_as_stick_model(text, support=Support.CLAMPED_FIRST))
-    assert any(bands[ga] != bands[gb] for _, ga, gb in mixed), \
-        "ungrouped, the chain is expected to cross the two tail beams"
-
-    _, clean, _, _, _ = parse_cards(
-        wrap_as_stick_model(text, support=Support.CLAMPED_FIRST, groups=groups))
-    assert all(bands[ga] == bands[gb] for _, ga, gb in clean), \
-        "grouped, no element may join the h-tail to the v-tail"
 
 
-@pytest.mark.parametrize("system", SYSTEMS)
-def test_the_body_wrapper_support_is_determinate(system):
-    """Six constraints, no redundancy -- and the deck's own cards are untouched.
-
-    Statically determinate is the whole basis of "the reaction is the residual":
-    a redundant support would share the residual out by stiffness and the zero
-    target would stop meaning anything.
-    """
-    _, _, body, _ = _components("ga6_normal.project.json")
-    cards = sb.body_force_moment_cards(body, sid_base=1, system=system)
-    text = _body_deck(body, system)
-    _, cbars, spc1, forces, moments = parse_cards(text)
-    grids, _, _, card_forces, card_moments = parse_cards(cards)
-
-    assert (forces, moments) == (card_forces, card_moments), \
-        "the wrapper must not touch the deck's load cards"
-    assert len(cbars) == len(grids) - 1, "one element per gap in the beam line"
-    constrained = sum(len(comp) for _, comp, gids in spc1 for _ in gids)
-    assert constrained == 6, f"support has {constrained} constraints, not 6"
 
 
 def test_the_assembled_wrapper_keeps_the_decks_own_support():
