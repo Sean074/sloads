@@ -5,6 +5,31 @@ the map from "the number in the code" to "the page it came from". **Per the
 project's documentation requirement, cite the source in the code and the test
 whenever you port or change a calculation** (see `CLAUDE.md`).
 
+## The theory manual (chapter map)
+
+This file is the **hub**: sources, oracle status, citation rules and
+validation policy. The explanatory theory manual lives in the chapters beside
+it — method, assumptions & limitations, worked examples, and the per-area
+validation record (the closure narratives that used to live at the end of
+this file):
+
+| Chapter | Covers |
+|---|---|
+| [`ch01_introduction.md`](ch01_introduction.md) | What sloads computes, the pipeline, reading LIMIT output, the two front-ends |
+| [`ch02_conventions.md`](ch02_conventions.md) | Axes, signs, units, handedness and the load contract, illustrated — `CONVENTIONS.md` stays normative |
+| [`ch03_airspeeds_envelope.md`](ch03_airspeeds_envelope.md) | Design airspeeds (STRSPEED/MACHLIM), the V-n envelope and the case inventory |
+| [`ch04_wing_loads.md`](ch04_wing_loads.md) | SELECT down-select, wing distributions, the roll cases and their closure |
+| [`ch05_empennage_loads.md`](ch05_empennage_loads.md) | H-tail/v-tail conditions, one engine out, spanwise/hinge/T-tail closures |
+| [`ch06_body_loads.md`](ch06_body_loads.md) | The Ch 15 fuselage beam and its equilibrium closure |
+| [`ch07_engine_loads.md`](ch07_engine_loads.md) | Engine-mount loads (ENGLOADS) with the worked IO-520-BB example |
+| [`ch08_ground_loads.md`](ch08_ground_loads.md) | LANDLOAD, the ground family rules and the two approved sign corrections |
+| [`ch09_balanced_airplane.md`](ch09_balanced_airplane.md) | The balancing method, worked examples, and the assembled-case closure record |
+| [`ch10_mass_model.md`](ch10_mass_model.md) | The mass SSOT, entered loadings, CONM2, surface-inertia closures |
+| [`ch11_export_sbeam.md`](ch11_export_sbeam.md) | The export boundary, deck contract, card-text equilibrium and the solver round-trip |
+
+[`02_approved_corrections.md`](02_approved_corrections.md) remains the
+register of record for oracle deviations.
+
 ## Authoritative references (in `reference/`)
 
 | Short name | File | Role |
@@ -226,14 +251,14 @@ its equations come from and the Appendix A/B figures its test checks against.
 
 | Module | `.BAS` source | Reference 1 location | Oracle (appendix figures) |
 |--------|---------------|----------------------|---------------------------|
-| `engine` (ENGLOADS) | `ENGLOADS.BAS` | Engine-mount loads chapter; theory walk-through + worked IO-520-BB example in [`engine_loads.md`](engine_loads.md) | Appendix A p131 / Appendix B p251. **Approved corrections (both per AC 23-19A, `reference/AC_23-19A_engine_torque.md`):** 23.361(c)'s mean-torque factor applies to *all* of paragraph (a), but the manual/`.BAS` leave the two takeoff-derived cases unfactored (Amdt 23-26 error, restored by Amdt 23-45). **(a)(1)** takeoff torque → `factor × mean takeoff` (manual 554.39 unfactored → IO-520-BB 737.34; manual figure kept as "mean takeoff torque" in `test_361_a1`). **(a)(3)** malfunction torque → `1.6 × 1.25 × mean takeoff` (manual/`.BAS` `TTP=1.6*ENGTORQ` apply 1.6 × mean only); no printed Appendix B engine-mount output exists in the bundled PDF, so it is formula-checked in `test_361_a3_applies_mean_torque_factor`. See the register of record `docs/20_theory/02_approved_corrections.md` (policy in CLAUDE.md).  **23.361(b)(1) sudden stoppage** has no printed engine-mount figure in the bundled Appendix B either, so it is closure-locked on `I·ω/Δt` summed over prop + rotors (`test_361_b1_closes_on_the_angular_momentum_formula`), with the reported whole-integer torque floored per ENGLOADS.BAS line 944's `INT(-TORQSUDSTOP)` (`reference/FAR23Loads_Code.pdf` p466) — CR-B-3. **LIMNZ/mass derive (note 36 OV-7, #97):** a blank `limit_load_factor` falsy-derives from the FAR 23.337 limit the design speeds own (`design_speed_values(project).n`), and with an `engine_mass_item`/`prop_mass_item` selector set the engine/prop weight and CG falsy-derive from the named weight-database row (decision D-25 mass SSOT); a typed value overrides (`engine_mass_row_mismatch` warns on disagreement) and a selector naming no row is refused by name. **The torque's axis and sense (note 44 §20 OR-161/OR-162, 2026-09-07):** `ENG MOUNT TORQUE` is a scalar about the engine's thrust line with no axis printed anywhere in the manual (Appendix A p227-229 print it as one number beside a vertical load and a point). The thrust line is derived from the entered stations as the direction from the engine CG to the propeller hub, forward, and "clockwise from the pilot's view is positive" **is** the right-hand sense about that line, because the pilot looks along it. The published scalar is already what the engine applies to the airframe: third law twice — a propeller turning clockwise from the seat is driven by `+Q`, returns `-Q` to the engine, is held by `+Q` from the mount, so the engine delivers `-Q` to the airframe, which is the negative figure the manual prints. Resolved onto airplane axes that is `mx = +Q` for a forward thrust line, the left roll a clockwise propeller produces; the two readings agreeing is what makes the sign derived rather than asserted. Single owner `export/coordinates.engine_thrust_axis`/`engine_applied_load`, gated by `test_oracle_report_engine.py` **G-OR-104**/**G-OR-105**. |
+| `engine` (ENGLOADS) | `ENGLOADS.BAS` | Engine-mount loads chapter; theory walk-through + worked IO-520-BB example in [`ch07_engine_loads.md`](ch07_engine_loads.md) | Appendix A p131 / Appendix B p251. **Approved corrections (both per AC 23-19A, `reference/AC_23-19A_engine_torque.md`):** 23.361(c)'s mean-torque factor applies to *all* of paragraph (a), but the manual/`.BAS` leave the two takeoff-derived cases unfactored (Amdt 23-26 error, restored by Amdt 23-45). **(a)(1)** takeoff torque → `factor × mean takeoff` (manual 554.39 unfactored → IO-520-BB 737.34; manual figure kept as "mean takeoff torque" in `test_361_a1`). **(a)(3)** malfunction torque → `1.6 × 1.25 × mean takeoff` (manual/`.BAS` `TTP=1.6*ENGTORQ` apply 1.6 × mean only); no printed Appendix B engine-mount output exists in the bundled PDF, so it is formula-checked in `test_361_a3_applies_mean_torque_factor`. See the register of record `docs/20_theory/02_approved_corrections.md` (policy in CLAUDE.md).  **23.361(b)(1) sudden stoppage** has no printed engine-mount figure in the bundled Appendix B either, so it is closure-locked on `I·ω/Δt` summed over prop + rotors (`test_361_b1_closes_on_the_angular_momentum_formula`), with the reported whole-integer torque floored per ENGLOADS.BAS line 944's `INT(-TORQSUDSTOP)` (`reference/FAR23Loads_Code.pdf` p466) — CR-B-3. **LIMNZ/mass derive (note 36 OV-7, #97):** a blank `limit_load_factor` falsy-derives from the FAR 23.337 limit the design speeds own (`design_speed_values(project).n`), and with an `engine_mass_item`/`prop_mass_item` selector set the engine/prop weight and CG falsy-derive from the named weight-database row (decision D-25 mass SSOT); a typed value overrides (`engine_mass_row_mismatch` warns on disagreement) and a selector naming no row is refused by name. **The torque's axis and sense (note 44 §20 OR-161/OR-162, 2026-09-07):** `ENG MOUNT TORQUE` is a scalar about the engine's thrust line with no axis printed anywhere in the manual (Appendix A p227-229 print it as one number beside a vertical load and a point). The thrust line is derived from the entered stations as the direction from the engine CG to the propeller hub, forward, and "clockwise from the pilot's view is positive" **is** the right-hand sense about that line, because the pilot looks along it. The published scalar is already what the engine applies to the airframe: third law twice — a propeller turning clockwise from the seat is driven by `+Q`, returns `-Q` to the engine, is held by `+Q` from the mount, so the engine delivers `-Q` to the airframe, which is the negative figure the manual prints. Resolved onto airplane axes that is `mx = +Q` for a forward thrust line, the left roll a clockwise propeller produces; the two readings agreeing is what makes the sign derived rather than asserted. Single owner `export/coordinates.engine_thrust_axis`/`engine_applied_load`, gated by `test_oracle_report_engine.py` **G-OR-104**/**G-OR-105**. |
 | `engine` — supplemental FAR 25 cases | n/a (not in ENGLOADS) | `reference/14CFR_Part25_engine_torque.md` (verbatim 14 CFR 25.361 decel/accel + 25.371 gyroscopic) | **No oracle** — formula-closure tested (`tests/test_engine_far25.py`). Reduced to the non-duplicative cases: (a)(3)(i) stoppage `@1g`; (a)(3)(ii) max-accel torque `@1g` (no FAR 23 analog); 25.371 fixed-rate gyro on A2 load factor. The torque cases (a)(1)(i)/(ii)/(iii) were removed as exact duplicates of the corrected 23.361(a)(1)/(a)(2)/(a)(3) (post AC 23-19A). Turbopropeller only; enabled by `Project.include_far25`. **25.371 under-prediction guard (P1-5):** optional advisory rates `EngineInput.design_yaw_rate_rad_s`/`design_pitch_rate_rad_s` flag the fixed 2.5/1.0 rad/s stand-in as non-conservative (`WARNING … UNDER-PREDICTED` note) when a declared rate exceeds it — warn-only (D-2), the moment is unchanged. |
 | `weight_estimate` (WTESTIMA) | `WTESTIMA.BAS` | Ch 2; Appendix C p374-376 (`K`, fuel/component/engine-weight correlations; UG Tables 3.1/3.2) | Appendix A p133 (MTOW 3468, empty 2150, component breakdown) |
 | `weight_onecg` (WTONECG) | `WTONECG.BAS` | Ch 4; Appendix C p377-381 (CG `S2/S1`; parallel-axis inertias ÷144·g; principal-axis rotation) | Appendix A p136 (aft gross: weight 3400, XBAR 84.999, ZBAR 92.579, IXX/IYY/IZZ 1201.5/2058.2/3022.8 slug-ft²)  **M4-17a:** no equation change — the persisted `Project.mass` slice is now produced by the GUI (the Weight & Mass **Apply weight items** handler calls `build_mass`) and by every bundled example, so its ZBAR is a real waterline source for the Landing Loads CG seed. |
 | `wing_geometry` (WINGGEOM) | `WINGGEOM.BAS` | Ch 5; Appendix C geometry subroutine p409-410 (`A=ΣC·dy`, `MAC=ΣC²·dy/A`, `XLEMAC=XBAR−MAC/2`, `AR=(2·Ytip)²/2A`). **Integrated in closed form since 2026-08-30**, not as a strip sum: the manual's strip count `H` is an input it never prints, so its printed figures carry each run's own discretisation ([`02_approved_corrections.md`](02_approved_corrections.md)). | Appendix A runs WINGGEOM **once per surface** and prints a coordinate table plus AREA/SIDE, MAC, YLE(MAC), XLE(MAC) and AR for each: wing p141 (13257 / 69.246 / 87.854 / 63.641 / 6.095), aileron p142 (932 / 11.645), aileron fwd p143 and aft p144, flap p145 (1544 / 17.869), rudder p149 (754 / 14.187), h-tail p151 (2660 / 37.317 / 4.017), h-stabilizer p152 (1479 / 21.245), elevator p153 (1181 / 16.535), elevator fwd p155 and aft p156 (1065 / 15.216), elevator tab p157 (226 / 7.478). All within 0.084 %. **Printed pages 147 and 148 — Vertical Tail Geometry and Vertical Stabilizer Geometry — are missing from the bundled scan**; the contents page lists both. The v-tail's coordinates survive on the p150 figure and its planform is gated by closure against the fixture's scalars instead (area 0.014 %, span and AR exact). **Since the boundary-line model (note 54 D-54.1, #25 step 2) these citations also gate the derived SELECT scalars**: the h-tail/elevator/rudder inputs a blank field derives from the polylines must land on the printed figure within ±0.1 % (`tests/test_tail_geometry.py::test_the_boundary_model_predicts_the_printed_appendix_a_figures`) — the transcription became a checked prediction. |
 | `weight_envelope` (WTENV) | `WTENV.BAS` (Appendix C p382-383) | Ch 3 (`X(limit)=XLEMAC+pct·MAC/100`; ballast `WB=WL−WA`, `XB=(WL·XL−WA·XA)/WB`) | Ch 3 p21-22 (stations 85.1/77.49/72.64; min flight 2063@73.09; max load 3322@84.56; ballast wts 78/418/158). Aft-gross ballast station is the exact moment balance (~108.5); the manual hand-rounded to 103.7 (limit station 85.0 vs 85.107). **Ballast reference selection (M1-7, review T8):** each reference is the heaviest forward-loading vertex within the point's limit — the aft-gross reference is the heaviest loading **not exceeding gross** (mirroring forward-regardless), equal to the full loading on the GA6 (3322 → 78 lb, oracle unchanged) but correctly below gross on databases whose full loading exceeds gross (prior code used the full loading unconditionally → 0 ballast). Degenerate references (empty candidate set; loading already at/above the target weight; heaviest ≤-gross loading already at/aft of the aft-CG limit) emit an explicit `"(none — …)"` marker row rather than a dropped row or a nonphysical station (`test_aft_gross_uses_heaviest_loading_below_gross`, `test_aft_gross_degenerate_reference_reports_marker`, `test_ballast_marker_rows_not_dropped`). **Nonphysical ballast station (M1-11):** the forward-regardless reference is selected by weight only, so on synthetic over-gross concept databases whose loadings all sit aft of the forward limit the moment balance can land a ballast station outside the fuselage (e.g. dhc8_dash8 → −112 in, forward of the nose datum). A physical fore/aft station extent — explicit `envelope.fuselage_nose_x`/`fuselage_tail_x` override, else the Step G1 fuselage outline, else the station-0 datum with an unbounded tail — gates every computed ballast station; one outside it emits the same `"(none — …)"` marker (`test_fwd_regardless_station_outside_extent_marks_none`, `test_fwd_regardless_negative_station_marks_none_via_datum`, `test_fwd_regardless_station_inside_extent_kept`, `test_fwd_regardless_extent_from_geometry_outline_kept`). GA6 oracle (158 @ 71.08) unchanged — its stations are physical. **Limit-point flight cases (D-27, 2026-08-17):** the four structural-limit points FLTLOADS.BAS prompts for (Ch 3 p21: aft gross, fwd gross, fwd regardless, minimum weight) are seeded from this module's stations by `cg_cases.seed_flight_cases` (+ one `mid gross` case); on the GA6 the seed reproduces CG1..CG4 (3400 @ 85.1 / 77.49, 2800 @ 72.64, 2063 @ 73.09) to the printed rounding (`test_the_seed_reproduces_appendix_a_s_four_points_on_ga6`). **Both envelope edges (note 45, #157, 2026-08-31):** `WTENV.BAS` sorts the discretionary items ascending, sweeps cumulatively from the minimum flight weight (`GOSUB 657` at line 330 -- FORWARD EDGE), re-sorts descending and sweeps again (line 500 -- AFT EDGE), printing `XBAR`/`ZBAR`/weight per vertex (760/770); the port emitted the ascending sweep alone until note 45. Both edges are now computed by one direction-taking sweep and **oracle-locked to Appendix A p139**, all 16 printed rows on all three printed columns within +/-0.1 % (`test_both_edges_reproduce_appendix_a_p139`). The lock runs on a **test-local transcription of the Appendix A p138 data base, not `ga6_normal`**: the manual runs WTENV on two data bases, Ch 3's without baggage (max loading 3322 @ 84.56, the fixture, and the basis of the 78/418/158 ballast lock above) and Appendix A's with `BAGGAGE 120 @ 180` (max 3442 @ 87.89), so completing the fixture to match Appendix A would break the Ch 3 oracle. The manual's printed **item-name order within an equal-station tie is not reproduced and is not an oracle**: lines 220/420 compare strictly, so its sort is unstable, and it runs over the whole dimensioned array, whose blank records migrate through it -- the order is a function of the declared array size, and cannot move a number because tied items share a station (`test_an_edge_is_invariant_to_the_entry_order_of_equal_station_items`). The ballast reference selection continues to read the forward edge alone, as the Ch 3 hand calculation does (WE-7), so no delivered quantity moves. |
-| `structural_speeds` (STRSPEED) | `STRSPEED.BAS` | Theory walk-through in [`design_airspeeds.md`](design_airspeeds.md). Ch 6 (`n=2.1+24000/(W+10000)`; `VC_min=Kc·√(W/S)`; `VD=max(Kd·VCmin, 1.25·VC)` — the K_d term uses the *minimum* cruise VCmin, per STRSPEED.BAS `V2DMIN=K2·V1CMIN` lines 380/390 and FAR 23.335(b)(2); `VA=VS·√n`; `VF=max(1.4VS, 1.8VSF)` with **VS/VSF derived from CLmax** — `VS=√(295·(W/S)/CLmax_clean)`, `VSF=√(295·(W/S)/CLmax_flap)` at the design weight (M1-1b, User's Guide p7-5; CLmax is `aero_coeffs.clmax_clean`/`clmax_flap`, the single stall-speed source — distinct from the FLTLOADS balance clamp `AeroCoeffSet.stall_cl`, which carries the 0.9 stall-margin factor and may differ by ~0.1%); atmosphere `a=29.02436√(T+459.4)`) | Appendix A V-n table (VA 121.3, VC 170, VD 212.5, VF 105.5; n +3.8/−1.52; MC 0.323, MD 0.403 @ 12000 ft; S = 2·13257/144 = 184.1 ft²). Chosen-speeds case (p156): chosen VD 212.5 clears both floors, so the 1.25·VC floor shows. **No-chosen-speeds case (p155, Cat N): VD(min)=Kd·VCmin=1.40·141.8=198.53 kt governs** — the M1-1 fix (`test_vd_floor_no_chosen_speeds`); prior code reported Kd·VCmin only as an advisory and returned the 1.25·VCmin floor (177.26, 10.7% non-conservative). Concept mode (Cat C) treats the GA-calibrated Kd term as advisory only. **Dive-speed basis (F25-2, 14 CFR 25.335(b) / 23.335(b)(4); `reference/14CFR_25_335_design_airspeeds.md`, `reference/14CFR_MC_MD_speed_margin.md`):** the regulation offers two routes *disjunctively* — the speed ratio `VC/MC ≤ 0.8·VD/MD` (algebraically `VD ≥ 1.25·VC`, i.e. what the suite always implemented) **or** a minimum Mach margin `MD ≥ MC + margin`. `speeds.vd_basis` selects; on the margin route the 1.25·VC floor is NOT also applied (that would re-impose what the "or" relieves) and the value it would have imposed is reported as `vd_ratio_floor`. Margin policy is owned solely by `resolve_mach_margin`: default **0.07 M** (Amdt 25-91, eff. 1997-08-28; AC 25.335-1A "sufficient without further investigation"), **0.05–0.07 M only with a written rational-analysis basis** (25.335(b)(2), automatic systems credited) and flagged, **below 0.05 M refused** (absolute floor). A chosen VD short of the required margin is *raised* to meet it. **Concept category "C" only** (decision D-1) so the Appendix A oracles stay locked. **No oracle exists** — the gates are stated invariants: the reduction invariant (speed-ratio route reproduces the pre-F25-2 VD/VC/VA/VF for all six shipped examples at 1e-6) and the margin-route vectors on the RJ fixture (VD 350 → MD 0.85112, margin +0.09728; VD 320 → raised to 338.79). **Incomplete by construction:** 25.335(b) requires the *greater of* the Mach margin and the (b)(1) upset-criterion speed increase; the upset term is not implemented and every margin-route output says so. **Kc/Kd clamp (M1-6, review T9):** the 23.335(a)/(b) coefficient schedule is tabulated only to W/S = 100 (Kc → 28.6, Kd → 1.35); `constants.py` now holds Kc/Kd at those endpoints for W/S ≥ 100 (STRSPEED.BAS clamps there) instead of extrapolating the taper below them (non-conservative for the heavy-concept band). Inert on GA (W/S ≈ 20); for W/S > 100 the design-speeds condition carries an OUT-OF-BAND note flagging VC(min)/VD(min) as GA-extrapolated advisories (`test_speed_coefficients_clamp_at_wing_loading_100`, `test_out_of_band_note_above_wing_loading_100`). **Operating-limitation implications (M2-10, advisory — no oracle):** `operational_placards`/`operational_implications` derive the preliminary Subpart-G placards from the design speeds — VNE=0.9·VD, VNO=min(VC, 0.89·VNE), MNE=0.9·MD (recip yellow-arc; **14 CFR 23.1505(a)/(b)**), VMO=VC/MMO=MC (turbine/no-yellow-arc; **Ref 1 p47**), VFE=VF (**23.1511**). Optional operational **targets** invert the ladder into required design minima (VNE⇒VD≥VNE/0.9; VNO⇒VC≥VNO and VD≥VNO/0.89/0.9; VMO⇒VC≥VMO; MMO⇒MD≥MMO+the **resolved Mach margin** (F25-2: `resolve_mach_margin`, default 0.07 per **25.335(b)(2)**/**23.335(b)(4)(iii)**, floor 0.05 per **23.335(b)(4)(ii)** — it was a hardcoded 0.05); VFE⇒VF≥VFE) and warn-only on infeasibility (`operational_target_checks`; dashboard via `validation._check_operational_targets`). Regulation text: `reference/14CFR_operating_limitations.md` (web-verified 2011 CFR ed. + Ref 1 p47). GA6 placards checked in `test_operational_placards_ga6` (VNE 191.25, VNO 170, MNE 0.363, VMO 170, MMO 0.3226, VFE 105.5); display/validation only — no load-math change, oracles unaffected. |
-| `mach_limit` (MACHLIM) | `MACHLIM.BAS` (Appendix C p393-394) | Theory walk-through in [`design_airspeeds.md`](design_airspeeds.md). Ch 6 (`MNE=0.9·MD`; `V(M,EAS)=M·a·√σ`; shared `standard_atmosphere`). **`MFC=1.2·MD` and its `V(FC)` are withdrawn from scope** (#79, 2026-08-26): flutter substantiation is 23.629, not a design load, and the symbol is read as §25.253's VFC/MFC — registered in [`02_approved_corrections.md`](02_approved_corrections.md) §Withdrawn from scope, which is *not* a correction: the printed figure stands. **MC/MD are arguments, not inputs (F25-2):** `design_speed_values` is the sole producer; they were previously stored on `MachLimitInput` *and* recomputed by the GUI, so the CLI and the GUI reported different MNE for one project (RJ: 0.738 vs 0.848). Drift-guarded by `test_mc_md_come_from_strspeed_on_every_front_end`. **The shoulder altitude is an argument too (v55, #52):** `speeds.shoulder_altitude_ft` is its one home, so the table's first row and the Mach numbers on it are at the same altitude by construction; no equation moved (note 33 §8, gates DG-6/DG-7). | Appendix A p160 (MC 0.323, MD 0.403, shoulder 12000 → 18000 ft: MNE 0.3627; V(MC) 170.16→150.77, V(MD) 212.31→188.11; the page's MFC 0.4836 and V(FC) are out of scope, above). Program used a=29.02 vs the shared helper's 29.02436 (~0.01%). |
+| `structural_speeds` (STRSPEED) | `STRSPEED.BAS` | Theory walk-through in [`ch03_airspeeds_envelope.md`](ch03_airspeeds_envelope.md). Ch 6 (`n=2.1+24000/(W+10000)`; `VC_min=Kc·√(W/S)`; `VD=max(Kd·VCmin, 1.25·VC)` — the K_d term uses the *minimum* cruise VCmin, per STRSPEED.BAS `V2DMIN=K2·V1CMIN` lines 380/390 and FAR 23.335(b)(2); `VA=VS·√n`; `VF=max(1.4VS, 1.8VSF)` with **VS/VSF derived from CLmax** — `VS=√(295·(W/S)/CLmax_clean)`, `VSF=√(295·(W/S)/CLmax_flap)` at the design weight (M1-1b, User's Guide p7-5; CLmax is `aero_coeffs.clmax_clean`/`clmax_flap`, the single stall-speed source — distinct from the FLTLOADS balance clamp `AeroCoeffSet.stall_cl`, which carries the 0.9 stall-margin factor and may differ by ~0.1%); atmosphere `a=29.02436√(T+459.4)`) | Appendix A V-n table (VA 121.3, VC 170, VD 212.5, VF 105.5; n +3.8/−1.52; MC 0.323, MD 0.403 @ 12000 ft; S = 2·13257/144 = 184.1 ft²). Chosen-speeds case (p156): chosen VD 212.5 clears both floors, so the 1.25·VC floor shows. **No-chosen-speeds case (p155, Cat N): VD(min)=Kd·VCmin=1.40·141.8=198.53 kt governs** — the M1-1 fix (`test_vd_floor_no_chosen_speeds`); prior code reported Kd·VCmin only as an advisory and returned the 1.25·VCmin floor (177.26, 10.7% non-conservative). Concept mode (Cat C) treats the GA-calibrated Kd term as advisory only. **Dive-speed basis (F25-2, 14 CFR 25.335(b) / 23.335(b)(4); `reference/14CFR_25_335_design_airspeeds.md`, `reference/14CFR_MC_MD_speed_margin.md`):** the regulation offers two routes *disjunctively* — the speed ratio `VC/MC ≤ 0.8·VD/MD` (algebraically `VD ≥ 1.25·VC`, i.e. what the suite always implemented) **or** a minimum Mach margin `MD ≥ MC + margin`. `speeds.vd_basis` selects; on the margin route the 1.25·VC floor is NOT also applied (that would re-impose what the "or" relieves) and the value it would have imposed is reported as `vd_ratio_floor`. Margin policy is owned solely by `resolve_mach_margin`: default **0.07 M** (Amdt 25-91, eff. 1997-08-28; AC 25.335-1A "sufficient without further investigation"), **0.05–0.07 M only with a written rational-analysis basis** (25.335(b)(2), automatic systems credited) and flagged, **below 0.05 M refused** (absolute floor). A chosen VD short of the required margin is *raised* to meet it. **Concept category "C" only** (decision D-1) so the Appendix A oracles stay locked. **No oracle exists** — the gates are stated invariants: the reduction invariant (speed-ratio route reproduces the pre-F25-2 VD/VC/VA/VF for all six shipped examples at 1e-6) and the margin-route vectors on the RJ fixture (VD 350 → MD 0.85112, margin +0.09728; VD 320 → raised to 338.79). **Incomplete by construction:** 25.335(b) requires the *greater of* the Mach margin and the (b)(1) upset-criterion speed increase; the upset term is not implemented and every margin-route output says so. **Kc/Kd clamp (M1-6, review T9):** the 23.335(a)/(b) coefficient schedule is tabulated only to W/S = 100 (Kc → 28.6, Kd → 1.35); `constants.py` now holds Kc/Kd at those endpoints for W/S ≥ 100 (STRSPEED.BAS clamps there) instead of extrapolating the taper below them (non-conservative for the heavy-concept band). Inert on GA (W/S ≈ 20); for W/S > 100 the design-speeds condition carries an OUT-OF-BAND note flagging VC(min)/VD(min) as GA-extrapolated advisories (`test_speed_coefficients_clamp_at_wing_loading_100`, `test_out_of_band_note_above_wing_loading_100`). **Operating-limitation implications (M2-10, advisory — no oracle):** `operational_placards`/`operational_implications` derive the preliminary Subpart-G placards from the design speeds — VNE=0.9·VD, VNO=min(VC, 0.89·VNE), MNE=0.9·MD (recip yellow-arc; **14 CFR 23.1505(a)/(b)**), VMO=VC/MMO=MC (turbine/no-yellow-arc; **Ref 1 p47**), VFE=VF (**23.1511**). Optional operational **targets** invert the ladder into required design minima (VNE⇒VD≥VNE/0.9; VNO⇒VC≥VNO and VD≥VNO/0.89/0.9; VMO⇒VC≥VMO; MMO⇒MD≥MMO+the **resolved Mach margin** (F25-2: `resolve_mach_margin`, default 0.07 per **25.335(b)(2)**/**23.335(b)(4)(iii)**, floor 0.05 per **23.335(b)(4)(ii)** — it was a hardcoded 0.05); VFE⇒VF≥VFE) and warn-only on infeasibility (`operational_target_checks`; dashboard via `validation._check_operational_targets`). Regulation text: `reference/14CFR_operating_limitations.md` (web-verified 2011 CFR ed. + Ref 1 p47). GA6 placards checked in `test_operational_placards_ga6` (VNE 191.25, VNO 170, MNE 0.363, VMO 170, MMO 0.3226, VFE 105.5); display/validation only — no load-math change, oracles unaffected. |
+| `mach_limit` (MACHLIM) | `MACHLIM.BAS` (Appendix C p393-394) | Theory walk-through in [`ch03_airspeeds_envelope.md`](ch03_airspeeds_envelope.md). Ch 6 (`MNE=0.9·MD`; `V(M,EAS)=M·a·√σ`; shared `standard_atmosphere`). **`MFC=1.2·MD` and its `V(FC)` are withdrawn from scope** (#79, 2026-08-26): flutter substantiation is 23.629, not a design load, and the symbol is read as §25.253's VFC/MFC — registered in [`02_approved_corrections.md`](02_approved_corrections.md) §Withdrawn from scope, which is *not* a correction: the printed figure stands. **MC/MD are arguments, not inputs (F25-2):** `design_speed_values` is the sole producer; they were previously stored on `MachLimitInput` *and* recomputed by the GUI, so the CLI and the GUI reported different MNE for one project (RJ: 0.738 vs 0.848). Drift-guarded by `test_mc_md_come_from_strspeed_on_every_front_end`. **The shoulder altitude is an argument too (v55, #52):** `speeds.shoulder_altitude_ft` is its one home, so the table's first row and the Mach numbers on it are at the same altitude by construction; no equation moved (note 33 §8, gates DG-6/DG-7). | Appendix A p160 (MC 0.323, MD 0.403, shoulder 12000 → 18000 ft: MNE 0.3627; V(MC) 170.16→150.77, V(MD) 212.31→188.11; the page's MFC 0.4836 and V(FC) are out of scope, above). Program used a=29.02 vs the shared helper's 29.02436 (~0.01%). |
 | airspeed conversions (Step E7) | — (presentation layer for the Speed–Altitude Envelope chart) | KTAS = KEAS/√σ; KCAS via the standard subsonic compressible impact-pressure relation `qc/P0 = δ·((1+0.2·M²)^3.5 − 1)`, `δ = σ·(a/a0)²`, `KCAS = a0·√(5·((qc/P0+1)^(2/7) − 1))` (`constants.convert_airspeed`; a0 = `SEA_LEVEL_SOUND_KT`) | No manual oracle (a display transform over MACHLIM). Checked by identity/ordering in `tests/test_airspeed_conversions.py`: KEAS==KCAS==KTAS at sea level; EAS < CAS < TAS at altitude. Standard airspeed relations (NASA RP-1046). |
 | `airloads` (AIRLOADS + TAU) | `AIRLOADS.BAS` / `TAU.BAS` | Ch 7 p46-47 (Schrenk: additive `c·cl=½(mo·c/Mo+4S/πB·√(1−(2y/B)²))` for CL=1; basic `Awo=Σmo·c·ac·dy/Σmo·c·dy`, `c·cl_b=(mo/2)(ac−Awo)c`; combine `c·cl=c·cl_a·CL+c·cl_b`; wing slope `M=mo/(1+mo/πAR·(1+τ))` Peery 9.59); TAU quartic curve-fit p407 (ANC(1) 1938) | Appendix A p161-162 (additive `CC(LA1)` elem 1/10/20 = 91.05576 / 69.44847 / 31.82978, `C(LA1)` elem 1 = 0.9275981, additive ∫ → CL 1.00061; basic `Awo` = 3.988146, `CC(lb)` elem 1 = +5.09762, `Clb` elem 1 = 0.05193). Modernized π vs the BASIC's 3.1416 → ±0.1% drift. **Twist sign (decision SC-4, 2026-08-10):** the twist-table entries `ac` are the WL-to-section-zero-lift angle, nose-up-positive in the same sense as α — verified in the basic-lift formula `c·cl_b=(mo/2)(ac−Awo)c` (a more positive entry lifts more; washout enters negative at the tip) and the induced-angle use `ai=(α−Awo+refang)−kcl/mo`. Label only; no computed number depends on the statement. **Derive-by-default (note 36 OV-2/OV-4, #97):** a blank `taper_ratio` falsy-derives as the polyline tip/centreline chord ratio and a blank `tip_ratio` as `tip_cap_width_in`/semi-span before the TAU fit runs (`derived_geometry.taper_ratio_from_planform`/`tip_ratio_from_planform`, resolved once in `airloads.resolved_tau`); an entered ratio or `tau` overrides, so every printed oracle is untouched — the pre-fix blank landed on the fit's pointed-wing knot (τ = 0.206209) silently. |
 | `flight_envelope` (FLTLOADS) | `FLTLOADS.BAS` (Appendix C p421-428) | Ch 8 (balance subr 3900: `CL=C0+ΣCi·αⁱ·G/Gmn`, `CD=ΣDi·CLⁱ`, `CM=M0+ΣMi·αⁱ·G/Gmn`; `L=CL·Q·S`, `Q=V²/295`; rotate `LZ=L·cosα+D·sinα`, `DX=D·cosα−L·sinα`; balance `LT=[M(W+F)+LZ(Xcg−Xw)−DX(Zcg−Zw)]/(XT−Xcg)`, `NZ=(LZ+LT)/W`; iterate α to NZ then Q to Mach-adjusted stall; Glauert `G=1/√(1−M²)`; CLmax-vs-Mach 5th-order fit; gust subr 4864 FAR 23.341: `μ=2(W/S)/(ρ·c̄·a·g)`, `Kg=.88μ/(5.3+μ)`, `NZ=1+NG·Kg·Ude·V·a/(498·W/S)`, `Ude` 50 fps @ VC / 25 @ VD) | Appendix A "V-n Data" p179-180 (cruise CG1: STALL 1G V 61.4 / LZW 3266 / LT 132; MAN A V 121.3 / NZ +3.80 / LZW 12419 / LT 493; GUST +C NZ +3.96; AC ROLL LT 412; CG2 MAN A LZW 12970 / LT −59). AoA converges to ±0.005 NZ → ~0.5% noise on low-load points; LT + corner speeds/factors match tightly. The program's private speed of sound (518.688 vs the shared 518.4) was retired 2026-08-17 — measured to pin no printed oracle; `a` is read from `constants.standard_atmosphere` (issue #26 C-7, register). **Step G5** adds `trim_sweep()` — the same balance re-run at interpolated CG stations for the BAL A/C/D 1-g trim loads (the Flight Envelope "Trim & Stability" plot); adds no equations, so a station coinciding with a CG case reproduces `build_envelope`'s BAL load exactly (`tests/test_trim_sweep.py`). **Flaps-extended (LANDING) corner set** (subr 3000, n≤2 per FAR 23.345, sea level only): the `BAL 1.4VSF` point balances at **1.4× the 1-g flaps-down stall (`STALL 1GL`)** speed — `FLTLOADS.BAS` p300–302 saves the STALL 1GL speed for this condition — matching Appendix A p181 (LANDING CG5, case 89 `BAL 1.4VS`: V 83.6 kt / LT −430 lb; landing-config aero polynomials printed in the p179 input listing). Earlier code captured `STALL 2G` (≈√2× higher), giving a balance speed ~1.4× too high and LT ~2.2× too large — review finding T2, fixed in M1-2 (`test_bal_1p4vsf_balances_at_one_g_flaps_down_stall`). **Published as the oracle report's Appendix A (note 44 §23, OR-194 … OR-201):** the matrix reproduces the printed layout of Appendix A p179 (the mass cases: CG, WT, XCG, ZCG) and p180-185 (CASE, CONDITION, V(EAS), NZ, ALPHA, G CORR, CL, M(W+F), LZW, LT, DX), with the manual's per-block `FOR CG1 FS= … WL= …` headings turned into CG, configuration and altitude *columns* so the table is flat. **The numbers are not re-oracled there**: they are this row's oracle, and the appendix is a view of it, gated on view fidelity (`tests/test_oracle_report_vn.py`, G-OR-131) rather than on a second comparison against the manual — one fact, one owner. One column is added that the manual does not print: **NX**, the inertia drag factor `−DX/W`. It is not new arithmetic — `select` and `wing_inertia` have always derived it and handed it to WINGINER — but it was spelled twice and is now owned by `aero_curves.inertia_drag_factor` (note 44 OR-198). It is printed because it is the answer to what the balance does with DX: **thrust is not modelled**, the balance solves the normal force and the pitching moment and writes no longitudinal force equation, so the whole of the drag is reacted as a longitudinal inertia load and every condition in the matrix is thrust-off by construction. Modelling power (a reduced NX plus a thrust-line pitching moment about the CG, for which design note 53's `thrust_line_fwd`/`thrust_line_aft` supply the geometry) would move every balanced point and is filed, not done. |
@@ -344,562 +369,16 @@ and their sources (`tests/test_concept_closure.py`):
 | Control surfaces | each `build_*` critical load matches its `run` analysis report (`lb`-unit `LoadValue`) | AILERON/FLAPLOAD/TABLOADS build↔run |
 | All (export) | every component's nodal FORCE set — and its re-parsed cards — sums to that component's root/total, exactly, at **LIMIT** (note 49 OR-116; nothing is scaled, so the closure is `sum(dFz) == root` rather than `== sf × root`). **These gates are scale-invariant and therefore cannot see the basis at all** — they were green at either — which is why **G-OR-72** asserts the balanced deck's resultant against `nz × W` *without* the factor, as a check the existing set structurally could not provide | `export/sbeam_bridge` increment construction + `tests/test_export_equilibrium.py` (G-OR-72) |
 
-### The balanced free-free case as a closure gate (step B2–B6, 2026-08-08)
+### Where each closure narrative now lives
 
-Theory walk-through with worked examples (wing symmetric/antisymmetric, the
-low-tail / T-tail lateral empennage cases, the 23.427(a) unsymmetrical
-horizontal tail, and the ground/landing families — §9, where the load factor is
-solved rather than given and the gate is LANDLOAD's own closed form) in
-[`balanced_cases.md`](balanced_cases.md).
+The step-by-step closure records were moved into the theory-manual chapters
+(2026-09-10); each chapter's "How it is validated" section is now the home:
 
-The FAR 23 core validates against Appendix A; the *assembled airplane* has no
-printed oracle at all, so its gate is equilibrium itself. Plan 11's acceptance,
-now in CI (`tests/test_balance.py`):
-
-| Identity | Gate | Achieved |
-|---|---|---|
-| `\|ΣFz\|/(n·W)` before closure | < 1 % | 0.05–0.70 % |
-| `\|ΣMy_cg\|/(n·W·MAC)` before closure | < 1 % | 0.12–1.04 % |
-| `\|Δn\|/n` (relief applied) | < 1 % | 0.05–0.70 % |
-| all six components after closure (B8a-2) | ~ 0 | ≤ 2e-16 of n·W |
-| the same, re-derived from the deck's own card text | ~ 0 | ~1e-7 (card format) |
-| the same, re-derived by **sbeam** from the deck's own `GRID` cards | ~ 0 | export tolerance, both unit systems |
-| the symmetric half of a **lateral** case, fin load removed (B8a-3) | unchanged | exact — a fin set carries `fy`/`mz` only |
-| the **trim half** of the 23.427(a) case, lumped `vn.lt` restored (D-R8) | < 1 % force, per-fixture pitch | 0.187 / −0.246 % force, 0.301 / 0.694 % pitch |
-| the 23.427(a) applied halves against SELECT's own RH/LH (D-R8) | exact | 6.7e-16 relative |
-| the 23.427(a) applied roll against `(RH − LH)·ȳ` (D-R8) | exact | ratio 1.000000000, both fixtures |
-
-The pre-closure force and pitch rows are read **per family**: the lateral cases
-sit at V-n points the symmetric families never visit, and their pitch residual is
-larger there (ga6 `SUDDEN RUDDER` 0.341 %, RJ `SIDE GUST` 1.586 %). Ceilings are
-stated per fixture *and* per family rather than merged, so the symmetric bounds
-keep their bite. `residual_mx` on a rolling case and `residual_fy`/`residual_mz`
-on a lateral one are **applied loads, not errors**, and are outside this table by
-construction (`CONVENTIONS.md` §1). The 23.427(a) case's `Fz`/`My` are outside it
-for the same reason and the strongest instance of it: its applied tail load is a
-*maneuver* load replacing the trim tail load, so the residual is that mismatch in
-full (−49.8 % of `n·W` on the ga6) and the closure is the pitching maneuver
-itself — what is gated there is the trim half, in the rows above (D-R8, decision
-of record; FAR 23.427(a) via `select_htail_unsymmetrical`, SELECT.BAS 6030-6180,
-Ref 1 Appendix C p440-441, with the approved M1-4 deviation). A **powered**
-case's `Fx`/`My` are outside it on the same construction and with the strongest
-gate of the set: the V-n point it is assembled at is thrust-free, so the entered
-hub thrust and its arm `−T·(z_hub − z_cg)` *are* the pre-closure residual in
-closed form, carried by `n_x = (D − ΣT)/W` and `q̇` — asserted as an identity,
-not a bound, by `tests/test_hub_thrust.py` G-3/G-4 (`balance.hub_thrust_set`,
-#10; `balanced_cases.md` §2.1).
-
-The measurement is deliberately taken **before** the closure: the gate is on what
-the physics achieves, not on what the correction hides. The remaining ~0.3 %
-**force** floor is the strip-versus-closed-form lift difference plan 11 R3
-predicted (ga6 PHAA: the spanwise integral gives 12,940 lb against the trim's
-12,969) — a model difference rather than a quadrature error, since it converges
-to −42.3 lb / 0.327 % as `elements` → ∞. The **pitch** residual had a different
-cause and no `elements` dependence at all — the couple left by the airplane's
-non-wing drag, which nothing in the assembled model carried (measured 2026-08-15;
-backlog Pri 5). Carrying it as the `body-axial` load brings pitch to the same
-lift-model floor: **0.014–0.086 % on every fixture and family**, and the
-per-fixture ceiling the RJ's low-CL cases needed is retired.
-
-**The non-wing drag** (`balance.body_axial_set`) is the airplane-less-tail
-polar's body-axis `x` force less what the wing strips carry — `drag_cd(config,
-cl)` against `airloads`' section profile plus lifting-line induced drag, resolved
-through the same `α`. That it is parasite drag rather than a lift-model
-disagreement is measured: decomposing into wind axes gives `ΔL/L` ≤ 0.6 % while
-`ΔC_D` is a near-constant −0.018 across all seven ga6 cases. Outside the polar's
-one-sided trusted-`α` window `constants.POLAR_TRUSTED_ALPHA_DEG` = (−10°, +15°)
-it inverts sign (above: the RJ's strip induced drag overshoots the polar; below:
-the crude-polar fixtures' `NMAA` at −12.9…−14.3°, the fit read 13° under zero
-lift) and a forward value there is **not applied** — `ΔC_D` still reported
-unclamped, `body_axial_clamped` set (note 20 D-4 as revised 2026-08-17).
-**Gate:** the applied axial resultant equals the trim's `dx` and `delta_nx`
-equals `dx/W`, both to 1e-9, except on the recorded clamped cases where both are
-the strips' own `fx`; the `ΔC_D` band is pinned per fixture and asserted
-negative inside the window; the clamped set is pinned both ways with per-case
-residual ceilings. Its waterline is the single owner
-`derived_geometry.body_drag_waterline` — the only free parameter of the load, and
-stated rather than derived because the suite has no body-centreline datum (design
-note `../40_history/24_body_drag_carrier_note.md` §8.1).
-
-One term still has no distributed carrier and is stated as lumped rather than
-omitted: the fuselage's share of the airplane-less-tail `Cm` (the Munk moment,
-until M4-19 distributes it — a sign-changing slope term, −6.6 to +4.9 % of
-n·W·MAC on ga6 and −8.5 to +5.8 % on the RJ).
-
-#### The relief field itself, and its two producers (step B8a-2, 2026-08-09)
-
-**Equation.** The closure relief is the rigid-body d'Alembert field, the standard
-result for a free body accelerating under an unbalanced load — **no suite source,
-because no suite program assembles an airplane**:
-
-    f_i = −m_i (a_cg + ω̇ × r_i)        moment about the CG:  −[I]{ω̇}
-
-with `[I]` the full inertia tensor of the assembled mass set (`Ixx`…`Ixz`) plus,
-per plan 13 decision L-3, the entered self-inertia of every item the assembly
-carries as a *point*. So `{ω̇} = [I]⁻¹{M}` — one coupled 3×3 solve, because `Ixz`
-is 8.4 % of the ga6's pitch inertia. Owner: `sloads/rigid_body.py`; conventions in
-`CONVENTIONS.md` §1 and §7. Angular accelerations are carried in weight-space
-`1/in` (g per inch of arm), the same convention that makes the translational DOF
-come out as load factors.
-
-Having no printed oracle, the field is gated by **identities against independent
-producers**, one per rotational degree of freedom — which is what makes this a
-substitute rather than a self-check:
-
-| DOF | Independent producer | Status |
-|---|---|---|
-| **yaw** | `ONENGOUT.BAS` 282-286 — `THETA2DOT = MOM/12/IZZ·57.3`, Ref 1 Ch 11 p87-88 (FAR 23.367). **Oracle-locked FAR 23 code**, checked step by step against its own time history | exact, `rel_tol = 1e-12` |
-| **roll** | `WINGINER`'s `fz_r`/`iwxx` unit-roll recurrence (Appendix A-locked). Reproduces the **shape** strip for strip; the **magnitude** ratio is the wing span's share of the roll moment — 0.795230 ga6 / 0.769455 RJ — because WINGINER's wing-only model has no term for mass off the roll axis | shape exact; ratio pinned |
-| **pitch** | none — `Iyy` has no second producer in the suite. Carried by the closure identity `Σ r × f = −[I]{ω̇}` and by the six-DOF closure itself | identity only |
-| **the tensor** | `WTONECG` (Appendix A p136 oracle) via `Izz(closure) = Izz(WTONECG) − wing self-Izz + Σw·y²(WINGINER spread)` | 0.0 % ga6, +0.40 % RJ |
-
-**A caution recorded with the yaw row:** the two producers meet on no shipped
-fixture — the two airplanes that assemble a balanced case enter no
-`one_engine_out` slice, and the two that enter one carry no engine horsepower, so
-ONENGOUT cannot execute on any fixture as shipped (filed on the backlog). The
-gate supplies that single input and reads everything else from the fixture.
-
-#### The lateral (±β) cases (step B8a-3, 2026-08-09)
-
-**Equations.** No new aerodynamics: the fin load is SELECT's, `LV` per FAR
-23.441(a)(1)–(a)(3) and 23.443(b) (cited in the `select` row above, Ref 1 Ch 9,
-`SELECT.BAS` subr 8300), distributed along the span by `tail_span`'s
-chord-proportional shape and mapped to airplane axes by `export/coordinates.py`.
-What is new is the **lateral balance**, which is the same rigid-body statement as
-the symmetric one, read in the other three DOF:
-
-    ΣFy = 0  →  n_y = L_v / W
-    ΣMz = 0  →  ψ̈ from the coupled {ω̇} = [I]⁻¹{M} solve above
-    ΣMx = 0  →  ṗ, coupled to ψ̈ through Ixz; the fin's own roll moment is
-                −L_v·(z_fin − z_cg), which is why the fin root waterline is a
-                load quantity (B8a-1, `CONVENTIONS.md` §7.2)
-
-**The measured size of that lever arm (2026-09-06, #160).** `z_fin` is resolved
-from the fin's own entered polyline since the resolution order was corrected, and
-on `ga6_normal` that moved the fin root 78.5 → 111.5 in — the 78.5 was the
-airplane's *wing* root waterline, entered as scaffolding and left shadowing both
-the polyline and the body outline. The whole 33 in lands on `z_fin − z_cg`, which
-goes 11.89 → 44.89 in, and the four lateral cases' roll accelerations move 5–12×
-(`SUDDEN RUDDER` −6.888 → −85.952 deg/s²); `ψ̈` moves ~2 % through the `Ixz`
-coupling. **`L_v` and `n_y` are bit-identical on every fixture**, which is the
-check that this moved a lever arm and not the aerodynamics — and it is the
-measurement that says how much of the lateral answer the fin's waterline owns.
-
-**Why the 1 % residual gate does not apply here.** `residual_fy` and
-`residual_mz` before closure *are* the fin load, by construction — nothing in an
-airplane balances a rudder kick. The gate that does apply is that the case's
-**symmetric half** still closes (`CONVENTIONS.md` §1); it does exactly, since a
-fin set carries `fy` and `mz` only. Same standing as `ACRL`'s roll residual.
-
-Having no printed oracle, the cases are pinned by measurement in both directions
-(`tests/test_balance.py::test_the_lateral_cases_are_pinned`, `rel_tol = 1e-4`),
-with `n_y` additionally asserted **structurally** as `L_v/W` rather than only
-pinned:
-
-| Condition | ga6: `L_v` lb / `n_y` g / `ψ̈` / `ṗ` deg/s² | RJ: `L_v` lb / `n_y` g / `ψ̈` / `ṗ` deg/s² |
-|---|---|---|
-| `SUDDEN RUDDER` | +585.7 / +0.17227 / +178.05 / −12.04 | +6907.3 / +0.20931 / +51.57 / −57.75 |
-| `YAW TO SIDESLIP` | −97.8 / −0.02875 / −19.44 / +3.24 | −3548.2 / −0.10752 / −20.84 / +31.13 |
-| `YAW 15 NEUTRAL` | −525.7 / −0.15463 / −151.91 / +11.75 | −8042.7 / −0.24372 / −55.70 / +68.37 |
-| `SIDE GUST` | +604.0 / +0.17764 / +185.51 / −20.16 | +7080.4 / +0.21456 / +42.93 / −77.88 |
-
-The fin loads reconcile with Appendix A's printed vertical-tail totals (+591 /
-−92 / −526 / +604 — see the `select` row): they are the same numbers, since the
-balance consumes SELECT and never recomputes it.
-
-**The wing-body sideslip term** (decision L-7, shipped 2026-08-17 — see the
-`lateral_body_aero` row above): the wing-body side force and yawing moment in
-sideslip are computed per case and applied beside the fin's load when
-`aero_coeffs.lateral_body_aero.enabled`; **off by default**, because the term
-raises `|n_y|` (the side force adds to the fin's at `+β`) and lowers `|ψ̈|` (the
-body's couple is destabilizing and opposes the fin's) — with it off `ψ̈` is
-over-stated (conservative) and `n_y` **under**-stated (not conservative), by the
-amount every lateral case now states. Measured on the shipped fixtures, term on
-vs off: `concept_regional_jet` `|n_y|` +11 % / +11 % / +33 % and `|ψ̈|` −73 % /
-−71 % / reversed on `YAW 15 NEUTRAL` / `SIDE GUST` / `YAW TO SIDESLIP`;
-`ga6_normal` `|n_y|` +27 % / +27 % / ×2.9 and `|ψ̈|` −41 % / −40 % / reversed.
-The 23.441(a)(2) reversal is the regulation's overswing past equilibrium under
-full rudder, not a failure (note 19 §4); the valid gate is static directional
-stability, `Cn_β,fin + Cn_β,body < 0` about `xw` — RJ −0.00154/deg (fin −0.00486,
-body +0.00332), ga6 −0.00107/deg (fin −0.00176, body +0.00069). The fin's own
-design load (SELECT's) is untouched. The distributed per-station body load is
-still paired with M4-19; the lumped term is carried in-band on every lateral case
-rather than living only here.
-
-### The spanwise empennage closures as the oracle substitute (step T1–T5, 2026-08-08)
-
-Appendix A gives the tail's **totals** (SELECT) and its **chordwise** profile
-(TAILDIST) and stops. There is no printed oracle for a spanwise tail
-distribution, so the gate is `CLAUDE.md` practice 2's substitute — and the
-chord-proportional shape (decision T-2) makes it an unusually strong one, because
-every target is **analytic** rather than a re-run of the quadrature.
-`sloads/modules/tail_span.py`; gates in `tests/test_tail_span.py`.
-
-**Where that beam is supported has no oracle either (T-8a, 2026-08-15).** The
-attachment stations are a *geometry* statement, not a load one, so no Appendix A
-figure moves with them and none can validate them. The gate is therefore
-structural rather than numeric: `tail_span.htail_attachment` is the single owner
-and returns the stations **with their provenance**, `tests/test_tail_span.py`
-pins one test per branch (T-tail fin tip / body outline interpolated at the
-h-tail LRA station / the stated `±ds/2` pair), and the outline test asserts the
-interpolated width is under a quarter of the maximum section — the guard against
-silently reverting to `derived_geometry.fuselage_summary`, whose maximum is five
-times too wide at `atr42_100`'s h-tail. The branch a consumer may build
-structure on is named by `attachment_basis`, never inferred.
-
-Per strip `j` of the **whole** planform area `S`, with `LT25`/`LT50` read from
-SELECT and never recomputed (T-7):
-
-    w25 = k_side·LT25·(c_j·dy)/S      w50 = k_side·LT50·(c_j·dy)/S
-    fz  = w25 + w50                  tor = w25·(x_lra − x_25) + w50·(x_lra − x_50)
-    fi  = −n_n·W_surf·(c_j·dy)/S     (d'Alembert, T-9; n_n = the surface's own normal-axis factor)
-    fa  = −n_a·W_surf·(c_j·dy)/S     (axial along the span — the fin only)
-
-`W_surf` is derived from the `htail`/`vtail`-tagged `weight.items` since
-2026-08-10, not entered: see "The fin's two inertia axes" below.
-
-| Closure | Analytic target | Why it is not a tautology |
-|---|---|---|
-| **Force** | Σ air = `LT25 + LT50` exactly | The target is SELECT's own total; a factor-of-two in the half/full bookkeeping lands here |
-| **Bending** | root = `L_half · ȳ`, with `ȳ = (b/3)(c_r + 2c_t)/(c_r + c_t)` | The centroid is computed from the planform, not from the load table |
-| **Centreline rolling** | `(L_RH − L_LH)·ȳ` — **identically zero for every symmetric case** | The gate the full-span topology buys; a per-side deck cannot state it, and a mirrored-wrong half or mis-signed side scale is invisible to a force sum |
-| **Torsion** | `(LT25+LT50)·x̄_lra − LT25·x̄_25 − LT50·x̄_50`, area-weighted | Assembled from area-weighted chordwise means, a different computation from the per-strip sum |
-| **Inertia** | Σ = `−n·W_surf`, **signed by `n` alone** | Companion test asserts a *down*-load case comes out **larger** in magnitude than air alone |
-| **Reduction** | LRA at 25 % chord ⇒ the `LT25` torsion term vanishes identically | Same property the wing's LRA transfer is pinned by |
-
-**The inertia-sign gate is the one worth naming.** The intuitive rule — inertia
-opposes the air load — is wrong for a tail, and wrong in the unconservative
-direction: the GA6 conditions that size the horizontal tail are down-load
-(`UNCHECKED MAN DN`, ≈ −1400 lb), so a magnitude-opposing rule would relieve
-exactly them. Decision T-9 makes the sign `−n` unconditionally, and the test
-asserts the *increase*.
-
-All six closures are additionally checked against a **tapered and swept**
-planform, because every shipped fixture takes the derived rectangle — without
-that, the torsion transfer term (identically zero on an unswept surface) would
-never be exercised.
-
-**Deck-side, the same conditions are gated twice more:** the plan-07 invariant
-sweep gains a spanwise h-tail row (force, and the centreline rolling moment: zero
-symmetric, non-zero for 23.427(a)) and a v-tail row (the load is `Fy` and the
-torsion `Mzz` — a force-only check in the wrong component would still "close"),
-and plan 10's harness solves both decks in the real sbeam.
-
-### The discrete control-surface path and the first hinge moment (step T6, 2026-08-13)
-
-Also without a printed oracle, and gated the same way. The control-surface load
-itself is **not** new physics — it is `select.elevator_load` (SELECT.BAS
-5216-5218) and its rudder counterpart, Appendix-A-locked and here only *read*,
-decomposed into the two parts it is the sum of so each can leave the spanwise
-distribution from the chord station TAILDIST placed it at. What is new is where
-that load enters the structure, and the moment it makes about the hinge line.
-
-    c_e   = CEAFTHL = (Saft/S)·CAVE       aft-of-hinge chord              (TAILDIST)
-    e     = c_e/3                         centroid of the aft-of-hinge block
-    HM    = L_cs·e                        the hinge moment
-    hinge i: F_i = k_side·L_cs·t_i        chord-weighted tributary, Σ t_i = 1
-             M_i = F_i·(x_lra − x_hl)
-    actuator: M_a = −HM
-
-**The third is exact, not a rule of thumb.** TAILDIST's net trailing-edge
-pressure is identically zero (`WATT3 = WCAM3 = 0`), so the pressure block aft of
-the hinge line is *always* a triangle running from its hinge-line value to
-nothing — whatever the condition, whatever the deflection — and a triangle's
-centroid is a third of its base. That is what lets the suite's first hinge-moment
-output be gated by a closed form instead of a quadrature.
-
-| Closure | Analytic target | Why it is not a tautology |
-|---|---|---|
-| **Cross-mode force** | `ΣF(discrete) == ΣF(smeared)`, `rel_tol 1e-12` | The identity is a property of the *construction* (exactly `L_cs` removed, exactly `L_cs` applied), not of the strip quadrature — which would be exact for a derived rectangle and only 1 %-true for an entered polyline |
-| **Hinge set** | `Σ F_hinge == L_cs`; the actuator carries no force at all | The load arrives from SELECT and is shared by a tributary rule the test derives independently (25 / 50 / 25 % for hinges at 10 / 40 / 70 in) |
-| **Chordwise identity** | hinge torsion + actuator couple = `L_cs·(x_lra − x_cp)`, `x_cp = x_hl + c_e/3` | Reverse the actuator's sign and the sum lands on the hinge *line* — a 4.86 in chordwise error on ga6 with nothing else in the deck to notice it |
-| **Cross-mode torsion** | moves by exactly `att·x_25 + cam·x_50 − L_cs·x_cp` | Stated as an identity rather than "within a tolerance", so the difference is *explained* (one chordwise relocation) rather than merely bounded |
-| **Mode isolation** | no attachment geometry ⇒ every shipped deck and Imperial digest unchanged | The default path is pinned byte-for-byte, so a discrete-mode defect cannot leak into the mode nobody selected |
-
-Where a condition publishes no control-surface load of its own — the balancing,
-checked, gust and unsymmetrical h-tail conditions, and the rudder-neutral fin
-ones — the load is **derived** by integrating the aft-of-hinge block
-(`0.5·c_e·ψ(x_hl)·span`) and marked as derived on the result, the page, the CSV
-and the deck header. Derive-and-mark, the same contract the tail planform is
-under.
-
-### The T-tail transfer (step T7, 2026-08-13)
-
-A rational-pairing decision (T-5) rather than a closure: for each v-tail case,
-the **balancing** horizontal-tail load at that case's own V-n point plus that
-point's h-tail inertia, carried at the fin's last node. Its gate is a free-body
-statement read from the deck's own card text — the fin deck's resultant about the
-origin equals the v-tail-only resultant plus the transferred set at its stated
-node — plus byte-level gating isolation: flip `tail_type` back to conventional
-and the deck returns exactly. `concept_regional_jet` is the suite's only T-tail
-fixture, so it is the only Imperial digest the step moves.
-
-### The fin's two inertia axes, and its exact-ratio closure (2026-08-10)
-
-A surface's inertia is built on the acceleration along **its own normal axis**,
-and that is where the two empennage surfaces stop being alike. The h-tail's
-normal axis is the airplane's vertical, so `n_n = n_z` and there is no axial
-term. The **fin spans in `z`**, so the same vertical acceleration runs *along*
-its beam: it takes `n_n = n_y` for bending and `n_a = n_z` for an axial column
-that compresses the surface and produces no bending at all.
-
-`n_y` has no producer in a single-condition view — a lateral load factor is a
-property of a balanced case — so it is derived the one self-consistent way
-available, from the only lateral aerodynamic load the suite models, which is the
-fin's own:
-
-    n_y = (LT25 + LT50) / W_case          W_case = the condition's V-n CG case weight
-
-That makes the fin's closure **exact and case-independent**, which is why it is
-the gate:
-
-| Closure | Analytic target | Why it is not a tautology |
-|---|---|---|
-| **Fin lateral inertia** | `Σ inertia / Σ air ≡ −W_vt/W_case` | The left side comes out of the strip quadrature; the right is two scalars it never touches. `n_y ∝ Fy` cancels the air load out of the ratio, so the identity holds on a rudder kick and a side gust alike — and fails immediately if the *vertical* factor is reached for where the lateral one belongs |
-| **Fin axial column** | `Σ f_span = −n_z·W_vt`, and root bending unchanged by it | An axial load has no moment about its own line of action; asserting both at once catches it leaking into the bending channel |
-
-**Two limitations, both stated in-band on every fin result rather than only
-here.** First, the term **relieves**: the surface total comes out at exactly
-`(1 − W_vt/W_case)` of the air load — 0.68 % on `ga6_normal`, 1.84 % on the
-regional jet — which is the *unconservative* direction, and small only because a
-fin is light. Second, it inherits decision **L-7**: with the wing-body sideslip
-term off (the shipped default) the real airplane's `n_y` is *larger* than this
-one (the missing side force adds to the fin's), so the relief above is a lower
-bound on itself; with the term on the balanced case carries the larger `n_y`
-and the relief follows it.
-A condition naming no V-n point has no `W_case` and therefore gets **no** lateral
-term, reported rather than filled with a gross-weight stand-in.
-
-This supersedes plan 13 decision **L-8** for the per-condition view (user
-decision, 2026-08-10). The assembled balanced case still accounts for the fin's
-mass in its closure field, so the applied aerodynamic set it reads from
-`tail_span` is taken as `fz − f_inertia`: each mass enters exactly one field.
-
-### The rolling case's roll closure as a closure gate (step B7, 2026-08-08)
-
-The balanced-case gate above is a *smallness* gate: the residual before closure
-must be under 1 %. An **antisymmetric** case cannot be gated that way, because
-what it is out of balance in is not an error. On an accelerated-roll condition
-(FAR 23.349) the applied aileron couple is 6.71 % of `n·W·b/2` on `ga6_normal`
-and 2.00 % on `concept_regional_jet`, and the airplane is *supposed* not to
-balance it — it rolls. The couple is reacted by roll acceleration, exactly as
-drag is reacted by `nx`: nothing else in a free-free model can.
-
-So the gate here is an **identity against an independent producer** instead.
-Closing the roll residual with mass-proportional relief `k·w_i·y_i` (physically
-`−m_i·ṗ·y_i`) must reproduce **WINGINER's own unit-roll inertia distribution** —
-`fz_r[i] = w_i·y_i·10⁵/Iwxx`, WINGINER.BAS's accelerated-roll case, which is
-oracle-locked FAR 23 code that this step did not touch and that knows nothing
-about the balance layer:
-
-| | ga6_normal ACRL | concept_regional_jet ACRL |
-|---|---|---|
-| UNB (in-lb) | −149,043 | −600,000 |
-| per-strip closure ÷ `ur·fz_r` | **1.000000** | **1.000000** |
-| net force added by the roll term | 6.4e-14 lb | 2.3e-13 lb |
-| `residual_mx` vs `−UNB` | exact | exact |
-| all six DOF after relief | machine precision | machine precision |
-
-The wing-item/WINGINER-panel scale (0.9903 and 1.0100) **cancels identically**,
-because the closure normalises on the same masses the assembled model carries —
-which is why the agreement is exact rather than approximate, and why it is a
-gate rather than a coincidence. Both twins then solve in the real sbeam with
-determinate-support reactions ≈ 0 (plan 10's assembled leg).
-
-Sign, recovered rather than assumed: WINGINER's unit-roll set produces a rolling
-moment of exactly `+UNB` (its normalisation makes `Σ y·fz_r = 100,000` for a unit
-case, verified), and NETLOADS enters inertia opposing the air load — so the *aero*
-couple is `−UNB`. The strip-for-strip identity is what confirms that sign is
-right rather than merely self-consistent.
-
-**Scope limit, stated in-band wherever the case is rendered:** the aileron's own
-lift increment has no spanwise carrier (`AileronLoadsInput` has areas, no butt
-lines), so the couple is lumped at the wing aerodynamic centre. This reduces
-*exactly* to the oracle-locked model — WINGINER also carries only the inertia
-reaction — but it means `ACRL` wing bending omits the differential lift itself.
-Filed on the backlog.
-
-### The CONM2 mass model as an *external* check (step C1–C5, 2026-08-08)
-
-Every closure gate above is internal: sloads checking sloads. The distributed
-**inertia** load has no printed oracle and, until this step, no external check
-either — the same code computed it and wrote it out, so no artifact could
-disagree. The `CONM2` export supplies one: sbeam parses the mass model
-independently, and its own grid-point-weight generator recovers weight, CG and
-inertia from it.
-
-Verified by hand 2026-08-08 (sbeam is not a dependency, so CI cannot run it):
-`sbeam.gpwg.compute_gpwg` reproduces sloads' mass, CG-x and CG-z for all four
-`ga6_normal` payload cases exactly. The `GRAV`-driven nodal-inertia comparison
-(plan 12 C6) needs the round-trip harness and is filed.
-
-Two scope limits, stated rather than discovered: `GRAV` is a uniform
-*translational* field and sbeam has no `RFORCE`, so rotational-acceleration
-inertia (pitch/yaw) is not recoverable from a `CONM2` set and stays checked by
-sloads-side closure; and a payload case is only exported when the weight database
-can produce it as a loading — 7 of the 18 shipped cases, all four of ga6's among
-them.
-
-### The mass model as a closure gate (step B1, 2026-08-08)
-
-The Ch 15 fuselage beam has no printed oracle (Ref 1 ships no program for it), and
-its *input* — the longitudinal mass distribution — had none either: it was a
-hand-entered lump table that nothing checked. Step B1 makes
-`weight.items` the single source and gates the beam on reconciliation identities
-instead (`sloads/mass_distribution.py`, `tests/test_mass_distribution.py`):
-
-| Identity | What it locks |
+| Record | Chapter |
 |---|---|
-| `Σ(wing items) + Σ(beam stations) == Σ(all items) == W` | The partition is complete: no item lost between the two distributions, none counted twice |
-| `Σ(items tagged wing) == 2 × (panel_weight_lb + Σ concentrated)` | The itemized wing and WINGINER's spanwise model describe one wing. Both WINGINER terms are per **side**, so the airplane carries twice their sum. **Holds on every shipped fixture since design note 29 (2026-08-17):** the wing-tank share of a fuel row is stated as `MassItem.wing_fraction` (derived from WINGINER's own `concentrated` entry — 3,800 / 4,000 / 1,200 lb on the three fuel-in-wing fixtures, no number invented) and read through `reacted_parts`; before it those pounds rode both beams — 7–15 % of the body beam, above the base-method band — and were pinned open. The tie is the invariant gate for that step (no printed oracle covers a fuel split), and it is a validator (`wing_mass_tie_open`) as well as a test |
-| entered `fuselage_mass.stations` vs the derived table | Reported, never silently taken — the two disagreed by 10–100 % of the beam on every shipped fixture |
-
-The beam carries the empennage (it hangs off the aft fuselage) and excludes the
-wing (which enters as the Ch 15 p103 carry-through reaction — applying it as mass
-too would double it). The free-free closure the beam already satisfied
-(`ΣFz = 0`, terminal `Myy = 0`) is unchanged by all of this: it held on the light
-beam and holds on the correct one, which is precisely why it could not have caught
-the missing mass.
-
-### The entered loading, and what checks it (D-25, 2026-08-15)
-
-There is **no printed oracle for a loading**: Appendix A prints weights, CGs and
-inertias, never the item set behind a CG case, and WTONECG/WTENV take the loading
-hierarchy as data. The suite's answer had been to *derive* one — search the
-discretionary subsets of `weight.items` for a set that reproduces the case's
-weight and CG with a solved ballast row inside the fuselage — which is a search,
-not a source. D-25 makes the loading an input (`CgCase.loading`), following the
-same `MassItemKind` partition WTONECG's database uses (empty → minimum flight
-weight → discretionary useful load, Ref 1 Ch 4), with fuel treated as continuously
-burnable per 23.473(b)/(c) as decision G-5 already established for the derived
-route.
-
-What replaces the missing oracle is a **checked echo** (D-25a) plus a reduction
-identity, both in CI:
-
-| Gate | What it locks |
-|---|---|
-| `Σw`, `Σwx/Σw`, `Σwz/Σw` of the entered loading vs the case's `weight_lb`/`xcg`/`zcg`, within `max(0.5 lb, 0.1 %)` and `0.5 in` | The stated loading really is the case it claims to be. The loading is authoritative, so this is *reported*, never absorbed by adjusting the loading |
-| entering the loading the search finds reproduces the searched result item-for-item (`rel=1e-12`) | The entered route is a superset of the derived one, not a second answer — the same reduction rule concept mode obeys against FAR 23 |
-
-The credibility gate (10 % ballast) stays on **solved** ballast only (D-25d): a
-number the tool invented has to be plausible, whereas a number an engineer states
-is data — and stress/flight-test ballast on a real airplane is not bounded by what
-a search finds comfortable. The fraction is stated everywhere the case appears
-rather than being silently accepted.
-
-### The export-boundary closure gate (step 1, 2026-08-08)
-
-The identities above are evaluated on in-memory results. Because concept mode has
-no printed oracle, the **deliverable itself** needs a stated closure gate too
-(`CLAUDE.md` required practice 2) — the deck a solver actually reads, not the
-objects it was rendered from. `sloads/export/equilibrium.py` re-derives Σ`FORCE`
-and Σ`MOMENT` **from the emitted card text**, about the per-component reference
-of `CONVENTIONS.md` §1, and `tests/test_export_equilibrium.py` sweeps every
-shipped example × {Imperial, SI} × every deck family:
-
-| Deck | Force closure | Moment closure | Basis |
-|---|---|---|---|
-| Wing | Σ`FORCE`.Fz/Fx = SF × root `Sz`/`Sx` | the **full rigid-body** `m` about the root station = SF × root `Mxx`/`Myy`/`−Mzz`, at every station and not only the root | Ch 14 (net loads); WINGINER quadrature |
-| Body | Σ`FORCE`.Fz = 0 | Σ`FORCE` moment about the aft-most `GRID` = 0 | **Ch 15 p103** — the fuselage beam is assembled free-free (inertia + tail air load + wing carry-through), so its equilibrium statement is `Σ = 0` |
-| Tail | Σ`FORCE` = SF × (`LT25`+`LT50`) on the surface's normal axis (h-tail `Fz`, fin `Fy`) | chordwise first moment = the profile's own (deck ↔ CSV cannot disagree), about `My` / `Mz` respectively | Ch 10 |
-| Control | Σ`FORCE`.Fz = SF × critical load | — (no geometry; chord-fraction profile) | AILERON/FLAPLOAD/TABLOADS |
-
-Two findings recorded because they are the kind that get re-proposed:
-
-1. **The invariant is not `Σ FORCE = n·W`.** That form (as originally worded) is
-   unrealizable per-component: the body deck already closes to *zero*, the decks'
-   case ids are disjoint by construction so no case pairs a wing, body and tail
-   block, and the wing deck is a root-clamped half-span whose root shear is not
-   `n·W/2` (fuselage-carried lift plus inertia relief; and doubling is wrong for
-   the antisymmetric cases outright). The assembled-airframe `n·W` closure is a
-   separate item, pairing with the assembled stick model.
-2. **A beam torsion is not a rigid-body moment** — see `CONVENTIONS.md` §1 —
-   **but the wing deck's torsion now is one** (design note 46 OR-67/OR-68,
-   2026-09-03). While the `MOMENT` cards were increments of the cumulative
-   `Myy` they already contained the sweep/dihedral transfer of the outboard
-   shear, so only the bare card sum could be asserted; measured against the
-   published table under the rigid-body accumulation a solver performs, the
-   exported torsion was wrong by 151/190/120 % on `ga6_normal`
-   (PHAA/TORS/ACRL) and 34/21 % on `baron_58`, while shear and both bending
-   columns closed exactly — which is why differencing survived the closure
-   sweep for as long as it did. The cards now carry each strip's **free**
-   torsion at its own node, so the transfer is the solver's to generate and
-   the claim is `m.y`. Closure gate: the six-component resultant of the applied
-   set reproduces `Sx`/`Sz`/`Mxx`/`Myy`/`−Mzz` at every station of every case
-   of both example airplanes to ~2.5e-15 relative
-   (`tests/test_sbeam_bridge.py::test_the_applied_set_reproduces_the_whole_vmt_at_every_station`;
-   from the deck's own text,
-   `tests/test_export_equilibrium.py::test_wing_deck_reproduces_the_station_table_at_every_node`).
-
-Tolerances have one owner (`equilibrium.REL_TOL` / `ZERO_REL_TOL`): `1e-4`
-relative against a non-zero target, and against a **zero** target
-`1e-6 × Σ|term| + 1e-3` in deck units — summed, not maxed, because the error
-being bounded is accumulated `%.6E` card truncation (~5e-7 per card). A moment
-term is summed **before** the cross product cancels, and against the *absolute*
-coordinate the card format rounds rather than the arm: a swept, dihedralled
-wing's torsion is a small difference of two large products, and budgeting it by
-the cancelled result called a 44 N·mm text-rounding residue a physics failure
-(note 46).
-
-### The solver round-trip as a closure gate (step 2, 2026-08-08)
-
-The gate above reads the deck's own card text; this one hands the deck to
-**another program**. Where no printed oracle exists, an independent *consumer*
-reproducing the numbers is the strongest substitute available (`CLAUDE.md`
-required practice 2), and it is the only form that covers whether the deliverable
-is solvable at all. `sloads/export/roundtrip.py` parses and solves each deck
-through sbeam's own `parse_bdf` / `run_sol101`, and
-`tests/test_sbeam_roundtrip.py` sweeps `ga6_normal` + `concept_regional_jet` ×
-{Imperial, SI} over four deck families. Design note:
-`docs/40_history/17_sbeam_roundtrip_ci_harness_plan.md`.
-
-| Deck | What the solver must reproduce | Independent of the cards? |
-|---|---|---|
-| Wing (stick, as exported) | reaction = −Σ applied (force and moment, about the deck's own clamped node); reaction `T3` and element-1 end-B `SHEAR-1`/`BENDING-2`/`BENDING-1` = SF × root `Sz`/`Mxx`/`−Mzz` | **Yes** for the last two — the target is the NETLOADS quadrature (`r.stations[0]`), while the cards come from `wing_nodal_loads` |
-| Body (test-only wrapper, determinate support) | the deck **solves**; Σ reactions = 0; and every element's `SHEAR-1`/`BENDING-2 B` = −SF × cumulative `Sz` / +SF × cumulative `Myy`, station by station | **Yes** — sbeam reassembles the whole Ch 15 p103 cumulative table from the `FORCE` cards and `GRID` coordinates alone |
-| Tail (test-only wrapper, clamped at the LE station) | the deck solves; reaction `T3` = −SF × (`LT25`+`LT50`); reaction moment about the LE station = the chordwise first moment | Partly — the total is Ch 10's, the moment is the deck's own profile |
-| Assembled full-span (as exported) | the deck solves and **all six** reaction components are zero at its determinate support | **Yes** — the target is the constant 0 |
-
-Three points of substance, none of them re-derivable from the card-sum gate:
-
-1. **Never a root-node moment comparison** (decision S-6). The wing stick model's
-   clamped node sits half a strip inboard of station 0 and, on a swept wing,
-   offset in `x`, so its reaction moment is *not* station-0 `Mxx`/`Myy` — on
-   `ga6_normal` PHAA, −1.847E5 against a −91,410 lb-in root torsion. Element 1 is
-   the exception the identities rest on: `_root_node` copies station 0's `x` and
-   `z`, so that element lies exactly along `y` and its local frame is a fixed
-   permutation of the airplane axes.
-2. **"Reactions ≈ 0" is the free-free proof, not a modelling convenience.** SOL
-   101 has no inertia relief (sbeam's `SUPORT` is SOL 144 only), so the free-free
-   decks carry a **statically determinate** support, which by construction
-   carries exactly the residual the applied set fails to balance — computed from
-   the lever arms *sbeam* derives from the deck's `GRID` cards, not the ones
-   sloads used. A deck that closes on paper but reacts non-zero here has a
-   geometry error no card sum can see; the third negative test below demonstrates
-   exactly that.
-3. **The gate is shown to bite.** Three mutation tests assert it *fails*: a wing
-   `FORCE` card scaled by 1.01, two `SUBCASE`s' `LOAD` ids swapped, and one body
-   `GRID` displaced by 1 % — the last of which leaves every force sum in the deck
-   closing exactly, so only the solve can catch it.
-
-Tolerances are the export-boundary gate's own (`equilibrium.closes`), deliberately:
-the two gates must never disagree about what "equal" means.
-
-**Recorded solver finding (2026-08-08).** sbeam's `recover_reactions` subtracts
-the *unreduced* applied vector at the constrained DOFs, so a load that a rigid
-element transfers onto a constrained node is never subtracted and reappears as
-reaction. Found here: `concept_regional_jet`'s fuselage carries the tail air load
-at exactly a mass lump's station, and the support at that node reported 1738.13 lb
-against an applied set closing to 0.007 lb — to the pound, the tied node's own
-load. The harness supports elsewhere (`roundtrip._supportable`), which costs
-nothing since determinacy needs two distinct positions and not two particular
-ones. This is a finding *about sbeam*, filed for that repository, not a sloads
-defect.
-
-These hold to machine precision on the concept fixture (wing/tail rel ≈ 1e-16, body
-terminal shear ≈ 1e-12 lb). The wing-`Nz·W` and tail-moment identities deliberately
-re-use the FLTLOADS equilibrium formulas — their purpose is to prove the **concept
-branch stays balanced** (no silent NaN / unbalanced result), not to re-derive the
-aero. The FAR23 identity (concept reduces exactly to FAR23 on GA inputs) is a
-separate guard, Step P1-3.
+| The assembled balanced case (B2–B6), the relief field (B8a-2), the lateral cases (B8a-3) | [`ch09_balanced_airplane.md`](ch09_balanced_airplane.md) §11 |
+| The rolling case's roll closure (B7) | [`ch04_wing_loads.md`](ch04_wing_loads.md) |
+| The spanwise empennage closures (T1–T5), the control-surface path and hinge moment (T6), the T-tail transfer (T7) | [`ch05_empennage_loads.md`](ch05_empennage_loads.md) |
+| The vertical tail's two inertia axes; the mass-distribution gate (B1); the entered loading (D-25); the CONM2 external check (C1–C5) | [`ch10_mass_model.md`](ch10_mass_model.md) |
+| The export-boundary closure and the solver round-trip | [`ch11_export_sbeam.md`](ch11_export_sbeam.md) |
+| The fuselage beam's equilibrium closure | [`ch06_body_loads.md`](ch06_body_loads.md) |

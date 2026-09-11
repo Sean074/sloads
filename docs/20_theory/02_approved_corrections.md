@@ -146,7 +146,7 @@ not touch: the pre-closure residual pitching moment of the assembled ground case
 measured against LANDLOAD's *own* printed unbalanced moments. On `ga6_normal`
 case 13 it falls from **−757.1 to −0.7 lb-in**, and `q̈` from −8.0e-5 to −7.4e-8.
 A correct lever arm closes the case; the wrong-signed one was what the residual
-had been reading. (`balanced_cases.md` §9.5.)
+had been reading. (`ch09_balanced_airplane.md` §9.5.)
 
 **Physical claim, stated so it can be checked by eye.** In the 23.485 side
 family the ground-line load is purely normal, so the entire body-frame drag
@@ -161,7 +161,7 @@ is **flipped** and renamed `test_rho_is_minus_the_ground_angle_in_every_attitude
 than recovered from the case (the recovered form is self-consistent by
 construction and structurally cannot see a sign error). The p230 arm oracle
 re-pins to the p235 figure; the p231/p232/p233 page locks re-pin cell by cell via
-`_CORRECTED`; `balanced_cases.md` §9.5's worked example and the frozen Imperial
+`_CORRECTED`; `ch09_balanced_airplane.md` §9.5's worked example and the frozen Imperial
 digest are re-generated with this entry cited. Assumption recorded on the gate:
 the nose-up sense of `GRA` is derived on **tricycle** geometry, the only
 arrangement the suite models.

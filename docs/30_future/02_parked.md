@@ -33,7 +33,7 @@ rewritten against the direct path or deleted with the properties.
 ## Phase F25 deferrals
 
 (F25-0/1/2/4 remain in the backlog; details and the full gap table in
-[`../20_theory/01_far25_gap_analysis.md`](../20_theory/01_far25_gap_analysis.md).)
+[`04_far25_gap_analysis.md`](04_far25_gap_analysis.md).)
 
 - **F25-3 — Maneuver & tail surrogates (M).** Checked-maneuver 25.331(c)(2)
   static evaluation; yaw overswing case; 25.427/25.349 schedule checks.
@@ -232,7 +232,7 @@ input slice, the case-generation side, and `classify()` learning to route a name
 failure case to its own row rather than to the family its FAR reference implies.
 This is a *practical* 25.302, distinct from the full probabilistic **Appendix K**
 method, which the F25 gap analysis keeps out of scope — see
-[`../20_theory/01_far25_gap_analysis.md`](../20_theory/01_far25_gap_analysis.md).
+[`04_far25_gap_analysis.md`](04_far25_gap_analysis.md).
 **Acceptance:** a Layer-2 named case round-trips through `io.py` and renders as
 `lbs-ULT SF=1.25`, and the governing table states it with its basis. Coordinates
 with Phase F25. Effort: M.
@@ -299,7 +299,7 @@ dive-speed machinery is already built (F25-2): "T" inherits
 the category gate widens.
 (Pattern: opt-in supplement per module, FAR 23 path untouched, "static
 surrogate — not certification" banner. Full gap table:
-[`../20_theory/01_far25_gap_analysis.md`](../20_theory/01_far25_gap_analysis.md).)
+[`04_far25_gap_analysis.md`](04_far25_gap_analysis.md).)
 
 ### [V] F25-4 — Ground-loads parameter variant (M)
 LGFACTOR at 10/6 fps, lift = W, LDW/MTOW pairing; LANDLOAD tables documented as
@@ -365,5 +365,5 @@ TAILDIST page asks for the angle form.
 - **Methods manual / DER package**: a consolidated front section (scope,
   assumptions, method per FAR condition group, approved deviations,
   oracle-vs-closure table) assembled from theory-sources + PROGRAM_SPEC +
-  docstrings; then per-module walkthroughs in the `engine_loads.md` style
+  docstrings; then per-module walkthroughs in the `ch07_engine_loads.md` style
   (SELECT and FLTLOADS first).

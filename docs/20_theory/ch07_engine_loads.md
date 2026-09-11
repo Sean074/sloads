@@ -1,4 +1,13 @@
-# Engine-Mount Loads (ENGLOADS)
+# Chapter 7 — Engine-Mount Loads (ENGLOADS)
+
+> **Cases analyzed:** the engine-mount family derives entirely from its own
+> FAR conditions — 23.361 (engine torque), 23.363 (side load), 23.371
+> (gyroscopic) — evaluated at prescribed powers and factors, with no V-n
+> down-select. The 23.367 one-engine-out condition, though titled
+> "unsymmetrical loads due to engine failure", delivers a **vertical-tail**
+> load and is covered in [`ch05_empennage_loads.md`](ch05_empennage_loads.md).
+> Sign and truncation conventions preserved from the original are
+> `CONVENTIONS.md` §5.
 
 How the `engine` module (`sloads/modules/engine.py`, ported from `ENGLOADS.BAS`)
 computes the structural design loads an engine mount must sustain under **FAR Part

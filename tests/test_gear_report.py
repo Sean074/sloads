@@ -1089,7 +1089,7 @@ def test_the_si_channel_states_si_units_and_converted_values():
                         rel_tol=1e-5)
 
 
-#: The worked example of ``docs/20_theory/balanced_cases.md`` §9.5, figure for
+#: The worked example of ``docs/20_theory/ch09_balanced_airplane.md`` §9.5, figure for
 #: figure. Three families on ``ga6_normal``: a level landing that carries lift
 #: (23.479), a ground-handling case that carries none (23.493), and the handed
 #: side condition (23.485). Keyed by LANDLOAD case number.

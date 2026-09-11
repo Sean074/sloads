@@ -842,7 +842,7 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   23.443 (the four rational v-tail conditions), and 23.479–23.493 for the ground
   families, with 23.471 as the family's general-sentence fallback (R6-C1).
 - **Source:** `sloads/modules/balance.py`. Theory of record:
-  [`../20_theory/balanced_cases.md`](../20_theory/balanced_cases.md). Design
+  [`../20_theory/ch09_balanced_airplane.md`](../20_theory/ch09_balanced_airplane.md). Design
   notes: plan 11
   ([`../40_history/11_balanced_airframe_cases_plan.md`](../40_history/11_balanced_airframe_cases_plan.md),
   decisions B-1…B-8 — the method), plan 13
@@ -894,7 +894,7 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   `Fz`/`My` **are** the applied load, by construction. Each is gated instead on
   the case's symmetric (or trim) half, with the defining set removed, still
   closing inside 1 %. Stated in full in
-  [`../20_theory/balanced_cases.md`](../20_theory/balanced_cases.md) (§3, and §9
+  [`../20_theory/ch09_balanced_airplane.md`](../20_theory/ch09_balanced_airplane.md) (§3, and §9
   for the ground families). A **powered** case (one carrying an entered engine
   thrust) joins them for the same reason and with a stronger gate of its own:
   the V-n point it is assembled at is thrust-free, so its pre-closure `Fx` and
@@ -945,7 +945,7 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   A condition whose CG the weight database cannot produce is **recorded, not
   invented**. The ground families' own method — the `n_z = 0` solve, the applied
   gear/lift set and the LANDLOAD identity — is
-  [`balanced_cases.md`](../20_theory/balanced_cases.md) §9; the gear free body
+  [`ch09_balanced_airplane.md`](../20_theory/ch09_balanced_airplane.md) §9; the gear free body
   itself is `gear_loads` above.
 
 ---
