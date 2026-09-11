@@ -31,6 +31,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import cli
 from sloads import io, registry
 from sloads.export import sbeam_bridge as sb
+from sloads.report import tables as rt
 from sloads.models import ConditionResult, LoadValue, Project
 from sloads.registry import run_all_modules
 from sloads.report.methods import (
@@ -399,8 +400,8 @@ def test_the_case_index_needs_no_system():
     """
     # The deck-number columns are parenthesised by deck *family*, not by unit
     # (design note 17), so they are named out rather than caught by the "(" test.
-    deck_cols = set(sb.LOAD_ID_COLUMN.values())
-    dimensional = [k for k in sb._CASE_INDEX_FIELDS if "(" in k and k not in deck_cols]
+    deck_cols = set(rt.LOAD_ID_COLUMN.values())
+    dimensional = [k for k in rt._CASE_INDEX_FIELDS if "(" in k and k not in deck_cols]
     assert dimensional == ["Speed (kt)", "Altitude (ft)"], dimensional
 
 

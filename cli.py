@@ -197,6 +197,7 @@ def _export_sbeam(project, prefix: str, target: str, stick_model: bool,
     target -- see below.
     """
     from sloads.export import sbeam_bridge as sb
+    from sloads.report import tables as rt
 
     if target == "tail":
         from sloads.modules.taildist import build_tail_chordwise
@@ -285,9 +286,9 @@ def _export_sbeam(project, prefix: str, target: str, stick_model: bool,
         # which is why it is its own target rather than a file the balanced
         # target happens to drop beside its deck.
         csv_path = f"{prefix}.gear_loads.csv"
-        sb.write_gear_report_csv(project, csv_path, header_comment=csv_stamp,
+        rt.write_gear_report_csv(project, csv_path, header_comment=csv_stamp,
                                  system=system)
-        rows = sb.gear_report_rows(project)
+        rows = rt.gear_report_rows(project)
         print(f"Wrote {len(rows)} gear interface load row(s) to: {csv_path}")
         return 0
 

@@ -28,9 +28,10 @@ all four component families plus the case index:
   :func:`deck_resultants` and :func:`closes`, the single owner of "re-derive a
   deck's Σ force / Σ moment from its own card text and check the claim its
   header makes". Every deck-closure check in the suite goes through it.
-- **Case index** — :func:`case_index_csv` (+ ``write_case_index_csv``) and
-  :func:`filter_by_selected_case_ids`, the manifest tying exported decks back to
-  their FAR 23 load-case IDs and the selective-export filter.
+- **Case index, safety-factor table, gear report** — **no longer here.** They
+  emit no bulk data and know nothing of a GRID; they are documents, and note 56
+  D-56.1 moved them to :mod:`sloads.report.tables`, which is where their
+  consumers already were. Import them from there, not from this package.
 
 :mod:`sloads.export.pdf` (Step G8.6) also lives here but is **deliberately not
 re-exported**: it is the one module in the codebase that runs a subprocess and
@@ -60,14 +61,9 @@ from .sbeam_bridge import (
     body_force_moment_cards,
     body_span_load_csv,
     body_station_gids,
-    case_index_csv,
     control_surface_csv,
     control_surface_force_moment_cards,
-    filter_by_selected_case_ids,
     force_moment_cards,
-    gear_report_csv,
-    gear_report_rows,
-    safety_factors_csv,
     span_load_csv,
     station_gid,
     stick_model_bdf,
@@ -78,12 +74,9 @@ from .sbeam_bridge import (
     write_body_fitting_load_csv,
     write_body_force_moment_cards,
     write_body_span_load_csv,
-    write_case_index_csv,
     write_control_surface_csv,
     write_control_surface_force_moment_cards,
     write_force_moment_cards,
-    write_gear_report_csv,
-    write_safety_factors_csv,
     write_span_load_csv,
     write_stick_model_bdf,
     write_tail_chordwise_csv,
@@ -104,23 +97,17 @@ __all__ = [
     "body_station_gids",
     "build_workbook",
     "card_totals",
-    # Case index
-    "case_index_csv",
     "closes",
     # Control surfaces
     "control_surface_csv",
     "control_surface_force_moment_cards",
     "deck_resultants",
-    "filter_by_selected_case_ids",
     "force_moment_cards",
-    "gear_report_csv",
-    "gear_report_rows",
     # Export-boundary closure gate (sloads.export.equilibrium)
     "parse_cards",
     "ref_aftmost_loaded",
     "ref_first_loaded",
     "resultant",
-    "safety_factors_csv",
     # Wing
     "span_load_csv",
     "station_gid",
@@ -137,12 +124,9 @@ __all__ = [
     "write_body_fitting_load_csv",
     "write_body_force_moment_cards",
     "write_body_span_load_csv",
-    "write_case_index_csv",
     "write_control_surface_csv",
     "write_control_surface_force_moment_cards",
     "write_force_moment_cards",
-    "write_gear_report_csv",
-    "write_safety_factors_csv",
     "write_span_load_csv",
     "write_stick_model_bdf",
     "write_tail_chordwise_csv",

@@ -48,6 +48,7 @@ from sloads.modules.balance import build_balanced_cases
 from sloads.modules.net_loads import torsion_axis_label, wing_lra
 from sloads.report import LoadChannel, module_text_report
 from sloads.report import oracle_sections as sec
+from sloads.report import tables as rt
 from sloads.report.bundle import bundle_members, bundle_zip_bytes
 from sloads.report.content import ComponentLoads, component_loads
 from sloads.report.latex import render_report
@@ -178,7 +179,7 @@ _wing, _body, _tail, _control = (_components.wing, _components.body,
 # Every case ID this run produced, so the deselected set can be named explicitly
 # rather than described only as "filtered".
 _all_case_ids = {
-    r["ID"] for r in sb.case_index_rows_from(
+    r["ID"] for r in rt.case_index_rows_from(
         _wing or [], _body or [], _tail or [], _control,
         *(mr.conditions for mr in module_results),
     ) if r.get("ID")
@@ -242,9 +243,9 @@ module_csvs = {mr.module: sloads_io.load_cases_csv(mr, header_comment=_csv_stamp
 
 if _selected_ids is not None:
     if _body:
-        _body = sb.filter_by_selected_case_ids(_body, _selected_ids)
+        _body = rt.filter_by_selected_case_ids(_body, _selected_ids)
     if _tail:
-        _tail = sb.filter_by_selected_case_ids(_tail, _selected_ids)
+        _tail = rt.filter_by_selected_case_ids(_tail, _selected_ids)
     if _wing or _control:
         st.caption(
             "Wing and control-surface case selection isn't wired to the Critical "
@@ -347,7 +348,7 @@ if project.weight is not None and project.weight.items:
 # Case-index table (Step D1): ID -> full definition, from every module's own
 # ConditionResults (covers engine/landing/SELECT) plus the sbeam component
 # deliverables recomputed above (covers the full wing/body/tail/control sets).
-case_index_csv = sb.case_index_csv_from(
+case_index_csv = rt.case_index_csv_from(
     # Deck-exported results first: first-seen defines a row's flight condition,
     # and the row states the condition its cards were computed at (see
     # ``case_index_rows_from``).
@@ -362,13 +363,13 @@ case_index_csv = sb.case_index_csv_from(
 # The governing safety-factor table (M4-8 / G-11): the authority every SF in this
 # bundle is derived from, travelling as its own stamped channel so a deck's SF=
 # marker can be traced without the report.
-safety_factors_csv = sb.safety_factors_csv(project, header_comment=_csv_stamp)
+safety_factors_csv = rt.safety_factors_csv(project, header_comment=_csv_stamp)
 
 # The gear interface load definition (G-12): the boundary condition a gear
 # analysis starts from, which no other channel in this bundle states. Absent --
 # not empty -- on a project with no gear geometry, so the bundle never carries a
 # header-only file that reads as "no gear loads".
-gear_report_csv = _try(sb.gear_report_csv, project, _csv_stamp, _system) or ""
+gear_report_csv = _try(rt.gear_report_csv, project, _csv_stamp, _system) or ""
 
 # Appendix A as a file (note 44 OR-201): every balanced flight condition the
 # envelope produced, which is the candidate set the critical conditions in the

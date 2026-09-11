@@ -80,9 +80,10 @@ _ALLOWED = {
         "reports on what the project *holds* (a persisted safety factor mutated "
         "in-session); computing an envelope here would check a different object "
         "than the one that will be exported",
-    "export/sbeam_bridge.py":
-        "the case index lists the cases the project carries; the bridge renders, "
-        "it never computes loads",
+    "report/tables.py":
+        "the case index lists the cases the project carries; it renders, it "
+        "never computes loads (moved here from export/sbeam_bridge.py by note "
+        "56 D-56.1 -- the reason is the table's, not the bridge's)",
     "modules/body_loads.py":
         "_critical_fuselage: a documented narrow variant -- fuselage conditions "
         "only, via select_fuselage rather than build_critical, so a body deck does "

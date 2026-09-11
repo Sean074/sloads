@@ -41,7 +41,6 @@ from sloads.cg_cases import (
     max_takeoff_weight,
 )
 from sloads.derived_geometry import wing_reference
-from sloads.export import sbeam_bridge as sb
 from sloads.frames import AIRPLANE_DATUM, GROUND_LINE, caption
 from sloads.gear_loads import UNSPRUNG_NOTE, gear_case_loads
 from sloads.models import MissingInputError
@@ -53,6 +52,7 @@ from sloads.modules.landing import (
     run,
 )
 from sloads.report import LoadChannel
+from sloads.report import tables as rt
 from sloads.validation import (
     landing_reaction_warnings,
 )
@@ -397,7 +397,7 @@ else:
         "reaction, a gear engineer builds those.")
     st.download_button(
         "Download gear interface loads (CSV)",
-        sb.gear_report_csv(project, system=system),
+        rt.gear_report_csv(project, system=system),
         file_name="gear_loads.csv", mime="text/csv")
     st.caption(
         f"All **33 cases** × each loaded leg, **LIMIT** — each row states the "

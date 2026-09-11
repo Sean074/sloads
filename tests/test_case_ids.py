@@ -39,7 +39,7 @@ from sloads.case_ids import (
     unhanded_case_id,
     wing_case_id,
 )
-from sloads.export.sbeam_bridge import LOAD_ID_COLUMN
+from sloads.report.tables import LOAD_ID_COLUMN
 from sloads.modules.flight_envelope import build_envelope
 from sloads.modules.one_engine_out import run as run_one_engine_out
 from sloads.modules.select import build_critical

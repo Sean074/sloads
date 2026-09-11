@@ -62,6 +62,7 @@ def artifacts(example: str) -> Dict[str, str]:
     """``{channel: text}`` for one example, rendered in Imperial with no stamp."""
     from sloads import io, registry
     from sloads.export import sbeam_bridge as sb
+    from sloads.report import tables as rt
     from sloads.export.balanced_deck import balanced_deck
     from sloads.modules.aileron import build_aileron
     from sloads.modules.balance import build_balanced_cases
@@ -163,7 +164,7 @@ def artifacts(example: str) -> Dict[str, str]:
     # Deck-exported results first (see ``case_index_rows_from``): first-seen
     # defines a row's flight condition, and the row states the condition its
     # cards were computed at.
-    index = _try(sb.case_index_csv_from,
+    index = _try(rt.case_index_csv_from,
                  wing or [], body or [], tail or [], control,
                  *(mr.conditions for mr in module_results),
                  assembled=balanced)
@@ -172,7 +173,7 @@ def artifacts(example: str) -> Dict[str, str]:
     # The gear load report (G-12) -- five of six fixtures produce one, and the
     # sixth has no gear geometry at all, so its absence here is the coverage
     # statement rather than a gap.
-    gear = _try(sb.gear_report_csv, project)
+    gear = _try(rt.gear_report_csv, project)
     if gear:
         out["gear_report"] = gear
     return out

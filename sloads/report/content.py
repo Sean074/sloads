@@ -1338,8 +1338,8 @@ def _case_index_table(module_results, comps: ComponentLoads,
     table in the report identifies its rows by case id and points here rather
     than repeating the pair.
     """
-    from ..export.sbeam_bridge import LOAD_ID_COLUMN, case_index_rows_from
     from ..safety_factors import GoverningTable
+    from .tables import LOAD_ID_COLUMN, case_index_rows_from
 
     # Deck-exported results first, SELECT's conditions after: first-seen defines
     # a row's flight condition, and this table is the join from a SUBCASE to the

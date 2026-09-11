@@ -25,6 +25,7 @@ import sloads.modules  # noqa: F401  (module registration)
 from sloads import io
 from sloads.export import mass_cards as mc
 from sloads.export import sbeam_bridge as sb
+from sloads.report import tables as rt
 from sloads.export.balanced_deck import balanced_deck
 from sloads.export.lra_model import lra_model_bdf
 from sloads.modules.balance import build_balanced_cases
@@ -110,11 +111,11 @@ def _bundle(name, *, with_pdf=False):
         project_json=io.project_to_json(project),
         text_report="report text",
         module_csvs={mr.module: _try(io.load_cases_csv, mr) for mr in results},
-        case_index_csv=_try(sb.case_index_csv_from, comps.wing or [], comps.body or [],
+        case_index_csv=_try(rt.case_index_csv_from, comps.wing or [], comps.body or [],
                             comps.tail or [], comps.control,
                             *(mr.conditions for mr in results)),
-        safety_factors_csv=_try(sb.safety_factors_csv, project),
-        gear_report_csv=_try(sb.gear_report_csv, project),
+        safety_factors_csv=_try(rt.safety_factors_csv, project),
+        gear_report_csv=_try(rt.gear_report_csv, project),
         vn_conditions_csv=_try(vn_conditions_csv, project),
         methods="methods",
         report_tex=tex,

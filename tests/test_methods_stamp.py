@@ -28,6 +28,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import sloads.modules  # noqa: F401
 from sloads import io
 from sloads.export import sbeam_bridge as sb
+from sloads.report import tables as rt
 from sloads.modules.flight_envelope import build_envelope
 from sloads.modules.net_loads import build_net_loads
 from sloads.registry import run_all_modules
@@ -486,8 +487,8 @@ def test_case_index_csv_carries_the_stamp():
     project = _project(_GA)
     if project.envelope is None:
         project.envelope = build_envelope(project)
-    plain = sb.case_index_csv(project)
-    stamped = sb.case_index_csv(project, header_comment=csv_comment_block(project))
+    plain = rt.case_index_csv(project)
+    stamped = rt.case_index_csv(project, header_comment=csv_comment_block(project))
     assert stamped.startswith("#")
     assert strip_comment_lines(stamped) == plain
 

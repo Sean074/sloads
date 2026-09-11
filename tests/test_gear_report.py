@@ -47,7 +47,7 @@ from sloads.export.balanced_deck import (
     balanced_deck,
     deck_nodes,
 )
-from sloads.export.sbeam_bridge import gear_report_rows
+from sloads.report.tables import gear_report_rows
 from sloads.gear_loads import (
     AXLE,
     GROUND_CONTACT,
@@ -1040,7 +1040,7 @@ def test_the_csv_states_its_units_its_factor_and_its_wheel():
     comment. Before R6-C2 none of this was in the file: the ULTIMATE basis
     lived solely in the methods stamp above the table.
     """
-    from sloads.export.sbeam_bridge import gear_report_csv
+    from sloads.report.tables import gear_report_csv
 
     header, rows = _parsed_csv(
         gear_report_csv(_project("ga6_normal.project.json")))
@@ -1067,7 +1067,7 @@ def test_the_si_channel_states_si_units_and_converted_values():
     cannot regress: mm is exactly 25.4 x in, N is 4.448222 x lb, and the
     moment column carries the solver channel's ``Nmm-ULT``.
     """
-    from sloads.export.sbeam_bridge import gear_report_csv
+    from sloads.report.tables import gear_report_csv
     from sloads.units import UnitSystem
 
     project = _project("ga6_normal.project.json")
