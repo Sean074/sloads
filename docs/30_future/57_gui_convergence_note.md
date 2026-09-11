@@ -2,19 +2,21 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: DRAFT 2026-09-10** — proposed for **milestone 0.8.4**. Unlike note 56,
-no ruling below has been taken: §2.2 lists the owner decisions this note needs
-before it can flip to AGREED. Drafted from the owner-commissioned scope-reduction
-review of 2026-09-10 (in session), whose boundary answers are the governing basis
-in §2.1. **Milestone 0.8.4 created and the work filed 2026-09-11** as
+**Status: AGREED 2026-09-11** (owner, in session, under the solo profile —
+`DEVELOPMENT_PROCESS.md` §0; rule 1's working-alone branch). Drafted 2026-09-10
+from the owner-commissioned scope-reduction review of that day, whose boundary
+answers are the governing basis in §2.1; the five rulings in §2.2 were **taken
+as proposed on 2026-09-11**. Implementation waits for the **0.8.3 cut** — band
+B4 is still in flight — so the milestone's issues are filed and sequenced but
+not started. **Milestone 0.8.4 created and the work filed 2026-09-11** as
 [#265](https://github.com/Sean074/sloads/issues/265) (D-57.3, the editor)
 → [#266](https://github.com/Sean074/sloads/issues/266) (D-57.2, the tiers)
 → [#267](https://github.com/Sean074/sloads/issues/267) (D-57.4, plots)
 → [#268](https://github.com/Sean074/sloads/issues/268) (D-57.5, fleet)
 → [#269](https://github.com/Sean074/sloads/issues/269) (D-57.7, the seed)
 → [#270](https://github.com/Sean074/sloads/issues/270) (D-57.1/D-57.6, the
-retirement), backlog band **B5**; every implementation issue is blocked on
-this note reaching AGREED.
+retirement), backlog band **B5**; the band is gated on the 0.8.3 cut, not on
+this note (AGREED same day).
 
 **Tier L.** A front-end retires and the surviving one's charter changes. **No
 delivered load changes, no calc change, no schema change** — every module,
@@ -112,7 +114,7 @@ Three standing rulings make the convergence lawful rather than novel:
 * **OG-13 / gate G6**: a project saved by either GUI opens in the other
   unchanged — so retirement of one front-end strands no saved file.
 
-### 2.2 Rulings required (owner — this note flips to AGREED when these are taken)
+### 2.2 Rulings (owner, 2026-09-11, in session — each taken as proposed)
 
 1. **R-57.1 — the convergence itself.** `oracle_app` becomes *the* sloads GUI
    and `app/views/` retires (deleted, with `app/Home.py`). The alternative —
@@ -138,6 +140,9 @@ Three standing rulings make the convergence lawful rather than novel:
 5. **R-57.5 — naming.** Whether the surviving GUI keeps the "oracle" name and
    `sloads-oracle` entry point, or takes a neutral name with the oracle tier as
    its stated default view. Presentation only, but it gates the docs re-cut.
+   **Taken as the first branch:** the name and entry point stand for now; the
+   rename mechanics stay deferred (§8) and can be picked up at any later
+   milestone without touching this note's decisions.
 
 ---
 
