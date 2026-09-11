@@ -334,7 +334,7 @@ def governing_loads_table(
     The factor is read per case, never assumed flat: SELECT stamps
     ``CriticalCondition.safety_factor`` (:class:`ConditionResult`'s contract, 14 CFR
     23.303 -> 1.5 by default, 1.0 for a case whose loads are already ultimate), and
-    the export side scales the same way (``export.sbeam_bridge._sf``), so a report
+    the export side scales the same way (``export.deck_format.case_sf``), so a report
     figure and its bulk-data card cannot state different factors for one case
     (review F-R1; M4-8 Layer 1 report-side slice). There is deliberately no
     caller-supplied override — the case is the single owner of its factor.

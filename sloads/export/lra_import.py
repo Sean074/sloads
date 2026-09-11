@@ -40,10 +40,10 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 from ..models import BalancedCaseResult, Project
 from ..modules.balance import build_balanced_cases
-from ..units import Channel, UnitSystem, deliverable_units
+from ..units import UnitSystem
 from .balanced_deck import case_sids
 from .coordinates import SBEAM_CID, to_force, to_moment, transfer_couple
-from .deck_format import comment, fmt3, stamped
+from .deck_format import comment, fmt3, solver_units, stamped
 from .equilibrium import parse_cards
 from .lra_model import (
     LraModel,
@@ -218,7 +218,7 @@ def lra_loads_on_imported_model(project: Project, imported: ImportedModel, *,
     if not cases:
         raise ValueError("no balanced case could be assembled -- there is no "
                          "load set to transfer onto the imported model")
-    u = deliverable_units(system, Channel.SOLVER)
+    u = solver_units(system)
     sids = case_sids(cases)
     members = _routing_members(imported)
 

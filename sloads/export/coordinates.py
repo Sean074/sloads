@@ -39,7 +39,8 @@ from typing import TYPE_CHECKING, Tuple
 
 from ..gear_loads import transfer_couple as _transfer_couple
 from ..tail_geometry import SurfacePlane, surface_plane
-from ..units import Channel, DeliverableUnits, UnitSystem, deliverable_units
+from ..units import DeliverableUnits, UnitSystem
+from .deck_format import solver_units
 
 if TYPE_CHECKING:  # pragma: no cover - typing only, and a cycle at runtime
     from ..models.inputs import EngineInput
@@ -52,7 +53,7 @@ SBEAM_CID = 0
 
 #: The default unit set: the Imperial identity, so an un-parameterised call
 #: behaves exactly as it did before the unit scale existed.
-IMPERIAL = deliverable_units(UnitSystem.IMPERIAL, Channel.SOLVER)
+IMPERIAL = solver_units(UnitSystem.IMPERIAL)
 
 
 def _checked(units: DeliverableUnits) -> DeliverableUnits:
@@ -70,7 +71,7 @@ def _checked(units: DeliverableUnits) -> DeliverableUnits:
             f"{units.channel.value} unit set ({units.force.label}, "
             f"{units.length.label}, {units.moment.label}, {units.pressure.label}) "
             "is not dimensionally consistent and must not be written to an sbeam "
-            "deck -- resolve it with deliverable_units(system, Channel.SOLVER)"
+            "deck -- resolve it with solver_units(system)"
         )
     return units
 

@@ -98,6 +98,36 @@ def test_solver_set_is_dimensionally_consistent():
         assert u.moment.factor == u.force.factor * u.length.factor
 
 
+def test_only_deck_format_resolves_the_solver_channel_in_the_export_package():
+    """One owner for *which unit set a deck may use* (note 56 D-56.1, rule 3).
+
+    ``deliverable_units(system, Channel.SOLVER)`` was written out longhand in a
+    private ``_units`` helper in **four** export modules -- ``sbeam_bridge``,
+    ``balanced_deck``, ``roundtrip``, ``lra_model`` -- and inline in four more,
+    each re-deciding the same thing. Four copies agreed only because nobody had
+    edited one of them yet; ``deck_format.solver_units`` is now the single
+    owner, and this is the guard that keeps a fifth from appearing.
+
+    Scoped to ``sloads/export/`` on purpose. ``report/`` names the channel
+    legitimately -- ``methods`` and ``content`` *compare* the human and solver
+    sets to state them side by side, which is the opposite of picking one to
+    write a deck in.
+    """
+    export_dir = os.path.join(_REPO, "sloads", "export")
+    offenders = []
+    for name in sorted(os.listdir(export_dir)):
+        if not name.endswith(".py") or name == "deck_format.py":
+            continue
+        path = os.path.join(export_dir, name)
+        with open(path, encoding="utf-8") as fh:
+            for n, line in enumerate(fh, 1):
+                if "Channel.SOLVER" in line:
+                    offenders.append(f"sloads/export/{name}:{n}: {line.strip()}")
+    assert not offenders, (
+        "the solver unit set has one owner, deck_format.solver_units; these "
+        "resolve the channel themselves:\n  " + "\n  ".join(offenders))
+
+
 def test_human_set_is_not_dimensionally_consistent_in_si():
     """The human set pairs N·m with a mm length — deliberately, and it must never
     be used to write a deck. Pinned so the channel split cannot be "tidied" away."""

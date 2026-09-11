@@ -42,7 +42,7 @@ def _wing_net(path):
 # Nodal-load closure (the core guarantee)
 # --------------------------------------------------------------------------- #
 # The bridge exports ULTIMATE loads (limit x SF); closure holds against SF x root.
-_SF = sb._SF
+from sloads.export.deck_format import SUITE_SF as _SF  # noqa: E402
 
 
 def _nodal_torsion_about_root(nodes):

@@ -2,10 +2,10 @@
 
 One owner for *how a card is written* — number format, dust snapping, ``$``
 comment wrapping, the ``$``-block stamp, and the placeholder section properties
-a determinate stick model needs to be solvable. Nothing here knows what a load
-*is*: the contract statements (basis sentence, ``-ULT`` marker, the per-case
-factor) stay with the writers in :mod:`sloads.export.sbeam_bridge`, which is
-where the load-output contract lives.
+a determinate stick model needs to be solvable. It also owns the load-output
+contract's *statements* — the basis sentence, the ``-ULT`` marker, the per-case
+factor and the solver unit set — which note 56 D-56.1 brought here when
+``sbeam_bridge`` was dissolved.
 
 **Why it is its own module (CH-4, #15).** These helpers were private names in
 ``sbeam_bridge``, and five sibling writers — ``mass_cards``, ``balanced_deck``,
@@ -23,9 +23,23 @@ not (see their docstrings and ``tests/test_platform_stability.py``).
 from __future__ import annotations
 
 import textwrap
-from typing import List
+from typing import List, Optional, Union
 
-from ..units import canonical
+from ..constants import ULTIMATE_FACTOR
+from ..models import (
+    BodyLoadResult,
+    ControlSurfaceLoadResult,
+    TailChordResult,
+    TailSpanResult,
+    WingLoadResult,
+)
+from ..units import (
+    Channel,
+    DeliverableUnits,
+    UnitSystem,
+    canonical,
+    deliverable_units,
+)
 
 # --------------------------------------------------------------------------- #
 # Number formatting
@@ -149,3 +163,96 @@ MAT1_NU = 0.33      # dimensionless
 PBAR_A = 1.0        # in^2
 PBAR_I = 1.0        # in^4 (I1 = I2)
 PBAR_J = 1.0        # in^4
+
+
+# --------------------------------------------------------------------------- #
+# The load-output contract: solver unit set, column label, per-case factor
+# --------------------------------------------------------------------------- #
+# Promoted here from ``sbeam_bridge`` with note 56 D-56.1, for the reason this
+# module's docstring already gives for the format helpers: they were private
+# names that siblings reached across the package to import through the
+# underscore. ``_units`` had gone further and drifted into **four identical
+# copies** -- ``sbeam_bridge``, ``balanced_deck``, ``roundtrip`` and
+# ``lra_model`` -- each re-deciding which unit set a deck may use.
+#
+# D-56.1 dissolves ``sbeam_bridge`` and sends its report half to ``report/``, so
+# a helper both halves need must have one owner or it becomes a fifth copy.
+# The authority for *which* factor a case carries is still
+# :mod:`sloads.safety_factors` (M4-8 / G-11); these only render what it decides.
+
+
+def solver_units(system: UnitSystem) -> DeliverableUnits:
+    """The **solver** unit set for ``system`` -- the only one a deck may use (D-19).
+
+    Resolved per writer rather than passed around as a bare factor, so a caller
+    cannot hand one file a different set from the file beside it: the writer's
+    parameter is a *system*, and which units that means for a deck is decided
+    here, once.
+    """
+    return deliverable_units(system, Channel.SOLVER)
+
+
+def load_label(label: str, table_sf: Optional[float] = None) -> str:
+    """The unit label for a load column in an export CSV.
+
+    LIMIT is the project's only basis (note 49 OR-116) and every export file
+    states it in the comment stamp, so a load column normally carries its plain
+    unit and the row's ``SF`` cell states the factor that was not applied.
+
+    ``table_sf`` is the table's **shared** basis from
+    :func:`sloads.safety_factors.shared_basis_factor` -- ``1.0`` only when every
+    row of the file is already ultimate, which earns the ``-ULT`` marker on the
+    header, and ``None`` for a mixed file, whose header stays plain (OR-118a).
+
+    **This used to be a guarded assumption and is now a computation.** The
+    already-ultimate families -- ``engine_ultimate`` (23.367(a)(2)) and
+    ``emergency`` (23.561(b)) -- reached no per-component CSV when this was
+    written, and ``test_sbeam_bridge.py`` asserted it rather than trusting it.
+    Note 44 OR-172 admitted 23.367 to the fin's critical set, an
+    ``engine_ultimate`` case went into the v-tail chordwise and spanwise files
+    beside five LIMIT ones, and the guard fired on the first run -- which is
+    exactly what it was for. The mixed file keeps a plain header and states the
+    rule in its stamp; only an all-ultimate file is marked.
+    """
+    return ult_label(label) if table_sf == 1.0 else label
+
+
+def ult_label(label: str) -> str:
+    """``label`` with the already-ultimate marker (note 49 OR-118)."""
+    return f"{label}-ULT"
+
+
+# Every exported force / moment / pressure magnitude is the calc's LIMIT value,
+# unscaled (note 49 OR-116). The *case's* factor (``result.safety_factor``;
+# 14 CFR 23.303 -> 1.5 by default, 1.0 for a case whose values are already
+# ultimate) is stated beside the cards, never multiplied into them.
+# ``SUITE_SF`` is the suite default constant (kept for the closure tests, which
+# read it); :func:`case_sf` reads each result's own field directly (M4-13/M4-16).
+SUITE_SF = ULTIMATE_FACTOR
+
+
+def case_sf(result: Union[WingLoadResult, BodyLoadResult, TailChordResult,
+                          TailSpanResult, ControlSurfaceLoadResult]) -> float:
+    """The limit->ultimate factor to scale ``result``'s loads by (defect M4-7).
+
+    Read off the result so each exported load set carries its own case's factor,
+    rather than a flat suite-wide constant that would double-factor a case already
+    at ultimate (``safety_factor = 1.0``). Every producer mints the field
+    (M4-13), so the attribute is read directly — no ``getattr`` fallback that
+    would mask an attribute rename (M4-16)."""
+    return result.safety_factor
+
+
+def basis_sentence(sf: float) -> str:
+    """The per-subcase basis line every deck carries (note 49 OR-117).
+
+    The deck is read by a program, so the factor it does not apply is stated
+    where a person opening the file cannot miss it. A case computed already
+    ultimate says so instead, and asks for nothing further (OR-118).
+    """
+    if sf == 1.0:
+        return ("Loads are ALREADY ULTIMATE (SF=1.0) -- apply no further "
+                "factor.")
+    return (f"Loads are LIMIT. The 14 CFR 23.303 safety factor "
+            f"SF={sf_str(sf)} is NOT applied here -- apply it in the sizing "
+            f"analysis.")

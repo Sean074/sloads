@@ -70,10 +70,10 @@ from ..mass_distribution import (
 )
 from ..models import MassItem, Project
 from ..picks import extreme
-from ..units import Channel, DeliverableUnits, UnitSystem, deliverable_units
+from ..units import DeliverableUnits, UnitSystem
 from .bands import band
 from .coordinates import SBEAM_CID, to_grid
-from .deck_format import fmt, fmt3, sf_str, stamped
+from .deck_format import fmt, fmt3, sf_str, solver_units, stamped
 from .sbeam_bridge import beam_station_gid
 
 # --------------------------------------------------------------------------- #
@@ -115,7 +115,7 @@ def _checked_mass_units(units: DeliverableUnits) -> DeliverableUnits:
             f"{units.channel.value} unit set (mass {units.mass.label}) is not "
             "dimensionally consistent -- F = m*a does not hold in it, so it must "
             "not be written to a CONM2 card. Resolve it with "
-            "deliverable_units(system, Channel.SOLVER)"
+            "solver_units(system)"
         )
     return units
 
@@ -480,7 +480,7 @@ def conm2_fragment(project: Project, *,
     :func:`mass_check_deck` (which embeds this fragment) from carrying two
     stamps.
     """
-    u = _checked_mass_units(deliverable_units(system, Channel.SOLVER))
+    u = _checked_mass_units(solver_units(system))
     cards, loadings = mass_cards(project)
     if not cards:
         raise ValueError(
@@ -505,7 +505,7 @@ def mass_properties(project: Project, loading: CaseLoading,  # noqa: ARG001  -- 
     not only to how much there is, which is the point of checking a distribution
     rather than a total.
     """
-    u = _checked_mass_units(deliverable_units(system, Channel.SOLVER))
+    u = _checked_mass_units(solver_units(system))
     items = loading.items
     w = math.fsum(it.weight_lb for it in items)
     if not w:
@@ -547,7 +547,7 @@ def mass_check_deck(project: Project, *,
 
     Carries **no** ``FORCE``/``MOMENT`` cards, by construction (C-6).
     """
-    u = _checked_mass_units(deliverable_units(system, Channel.SOLVER))
+    u = _checked_mass_units(solver_units(system))
     _, loadings = mass_cards(project)
     if not loadings:
         raise ValueError(
@@ -672,7 +672,7 @@ def inertia_only_cards(project: Project, *,
     limit-to-ultimate factor to one side and not the other is the obvious way to
     make this check pass while meaning nothing, so neither side has one.
     """
-    u = _checked_mass_units(deliverable_units(system, Channel.SOLVER))
+    u = _checked_mass_units(solver_units(system))
     if loading is None:
         stations = fuselage_beam_stations(project)
         if not stations:

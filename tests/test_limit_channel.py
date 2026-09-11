@@ -231,8 +231,14 @@ _NOT_A_SAFETY_FACTOR = {
 #: pattern anchored straight to the bare name matches neither. The teeth test
 #: below found that gap; without it this scan would have shipped blind to the
 #: exact spelling it exists to catch.
+#: ``case_sf`` beside ``_sf``: note 56 D-56.1 promoted the per-case factor
+#: reader out of ``sbeam_bridge`` into ``deck_format`` under a public name, and
+#: ``\bsf\b`` does **not** match inside ``case_sf`` (``_`` is a word character,
+#: so there is no boundary before ``sf``). Without this alternative the rename
+#: alone would have blinded the scan to ``* case_sf(result)`` -- silently, since
+#: a text guard that matches nothing still passes.
 _MULTIPLY = re.compile(
-    r"\*\s*_sf\(|\*\s*[\w.]*\bsf\b|\bsf\s*\*"
+    r"\*\s*[\w.]*(?:case_sf|_sf)\(|\*\s*[\w.]*\bsf\b|\bsf\s*\*"
     r"|\*\s*[\w.]*\bsafety_factor\b|\bsafety_factor\s*\*"
     r"|\*\s*[\w.]*\bULTIMATE_FACTOR\b|\bULTIMATE_FACTOR\s*\*")
 
@@ -277,10 +283,12 @@ def test_the_g_or_71_scan_would_catch_a_multiply():
     assert _MULTIPLY.search("row = v.value * c.safety_factor")
     assert _MULTIPLY.search("y = station.myy * r.safety_factor")
     assert _MULTIPLY.search("fz = load.fz * _sf(result)")
+    assert _MULTIPLY.search("fz = load.fz * case_sf(result)")
+    assert _MULTIPLY.search("fz = load.fz * deck_format.case_sf(result)")
     assert _MULTIPLY.search("x = ULTIMATE_FACTOR * limit")
     assert _MULTIPLY.search("x = limit * ULTIMATE_FACTOR")
     # ...and does not fire on reading or stating the factor, which is the whole
-    # point: `_sf` and `sf_str` survive OR-116, only the multiply goes.
-    assert not _MULTIPLY.search("sf = _sf(result)")
+    # point: `case_sf` and `sf_str` survive OR-116, only the multiply goes.
+    assert not _MULTIPLY.search("sf = case_sf(result)")
     assert not _MULTIPLY.search('"SF": sf_str(sf)')
     assert not _MULTIPLY.search("lf = [cl * q for cl, q in zip(clf, qs)]")

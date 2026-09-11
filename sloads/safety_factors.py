@@ -296,7 +296,7 @@ def shared_basis_factor(results: Sequence[Any]) -> Optional[float]:
 
     **The single owner of that rule.** It was written twice -- once in
     ``report.render._table_sf`` for the document's tables, once as an assumption
-    in ``export.sbeam_bridge._load_label`` that no already-ultimate case would
+    in ``export.deck_format.load_label`` that no already-ultimate case would
     ever reach a per-component CSV. Note 44 OR-172 made the assumption false:
     admitting 23.367 to the fin's critical set puts an ``engine_ultimate`` case
     into the v-tail chordwise and spanwise sets alongside five LIMIT ones. The
