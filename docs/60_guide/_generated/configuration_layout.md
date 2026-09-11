@@ -90,4 +90,8 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `geometry.landing_gear.nose_gear.carrier` | `Optional[GearCarrier]` | BODY \| WING -- no default (G-2) | `None` | sloads (supplied) | BODY\|WING carrier, decision G-2; load-bearing (G5, #98, C210-49): None = not stated, the export assumes and warns rather than routes |
 | `geometry.landing_gear.nose_gear.weight_lb` | `float` | whole leg, trunnion down (G-12a) | `0.0` | sloads (supplied) | leg weight, decision G-12a; load-bearing (G5, #98, C210-49): 0 = not stated, the gear report's free body stays open (no inertia term) |
 | `engine_layout` | `Optional[EngineLayout]` |  | `None` | sloads (supplied) | multi-engine layout constraint, Step C5 -- the arrangement the entered engines already describe, where the original ran one program per fixed layout. Load-bearing (G5): omitting it moves the twins' nacelle geometry |
+| `lra_mesh.wing_grids` | `Optional[int]` |  | `None` | sloads | LRA beam mesh: nodes per wing side, side of body -> tip (note 56 D-56.4). Blank = the default 20 |
+| `lra_mesh.fuselage_grids` | `Optional[int]` |  | `None` | sloads | LRA beam mesh: nodes per fuselage cantilever, i.e. each side of the carry-through (note 56 D-56.4). Blank = the default 12 |
+| `lra_mesh.htail_grids` | `Optional[int]` |  | `None` | sloads | LRA beam mesh: nodes per h-tail side (note 56 D-56.4). Blank = the default 12 |
+| `lra_mesh.vtail_grids` | `Optional[int]` |  | `None` | sloads | LRA beam mesh: nodes on the fin, root -> tip (note 56 D-56.4). Blank = the default 10 |
 

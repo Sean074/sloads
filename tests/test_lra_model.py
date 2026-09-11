@@ -6,6 +6,7 @@ gates this file pins). The solver half of the gates -- reactions, the SOB and
 post internal loads through sbeam -- lives in ``tests/test_sbeam_roundtrip.py``.
 """
 
+import copy
 import os
 import sys
 
@@ -25,20 +26,28 @@ from sloads.export.lra_import import (
     validate_imported_model,
 )
 from sloads.export.lra_model import (
-    JOINT_MERGE_FRACTION,
+    _MIN_ELEMENT_FRACTION,
     LraRefusal,
     build_lra_model,
     lra_model_bdf,
     transferred_case_loads,
 )
 from sloads.export.mass_cards import mass_check_deck
-from sloads.tail_geometry import HTAIL, VTAIL, resolve_tail_planform
+from sloads.export.sbeam_bridge import wing_nodal_loads
+from sloads.models import LRA_DEFAULT_GRIDS, LraMeshInput
+from sloads.modules.balance import build_balanced_cases
+from sloads.modules.net_loads import build_net_loads, loads_ref_axis_results
 
 _EXAMPLES = os.path.join(os.path.dirname(__file__), "..", "examples")
 
 
 def _project(name: str):
     return io.load_project(os.path.join(_EXAMPLES, name))
+
+
+def _dist(a, b):
+    """Straight-line distance between two airplane points."""
+    return sum((a[i] - b[i]) ** 2 for i in range(3)) ** 0.5
 
 
 _ORIGIN = (0.0, 0.0, 0.0)
@@ -365,36 +374,136 @@ def test_no_grid_is_rigidly_tied_on_both_sides(name):
 
 
 @pytest.mark.parametrize("name", _SOLVE_FIXTURES)
-def test_no_tail_chain_carries_a_sliver_element(name):
-    """Note 55 gate 2 (D-55.2): a joint insertion never leaves a sliver.
+def test_no_member_can_carry_a_sliver_element(name):
+    """Note 56 gate 5: the sliver is impossible by construction, not merged away.
 
-    ``cessna_210``'s h-tail attachment landed 0.0769 in from a strip station --
-    1.07 % of that chain's ``ds`` -- for a 1638:1 element-length ratio and the
-    singular solve #172 reported; ``baron_58`` was next at 0.1266 in / 1.33 %.
-    Every tail ``CBAR`` is now at least ``JOINT_MERGE_FRACTION`` of its own
-    chain's strip width, because a station that close is absorbed *into* the
-    joint instead of leaving a bar between the two.
+    Note 55 could only mitigate this. The beam was the load mesh, so a joint
+    was an *insertion* into it, and an insertion landing a percent of a strip
+    from a station left a bar between the two: ``cessna_210``'s h-tail
+    attachment at 0.0769 in (1.07 % of ``ds``, a 1638:1 element ratio, the
+    singular solve #172 reported), ``baron_58`` next at 0.1266 in. The fix was
+    a merge band wide enough to swallow the station.
 
-    The wing and fuselage chains are deliberately not checked -- the fuselage
-    has no strip mesh (its spacing is entered stations plus inserted tie
-    points, legitimately down to 0.087 of its own median here) and the wing's
-    SOB node is placed by position rather than inserted. See
-    ``_refuse_unsolvable_skeleton``.
+    D-56.4 removes the mechanism. The owned points come first and the equally
+    spaced grids are laid **strictly between** consecutive owned points, so no
+    grid can land beside a joint -- there is nothing to merge and nothing to
+    tune. What is asserted here is therefore the construction itself, on every
+    member rather than on the two tail chains the merge band covered: every
+    element is at least ``_MIN_ELEMENT_FRACTION`` of its member's own target
+    element length.
     """
     project = _project(f"{name}.project.json")
     model = build_lra_model(project)
-    planforms = {c: resolve_tail_planform(project, c) for c in (HTAIL, VTAIL)}
+    mesh = project.lra_mesh or LraMeshInput()
     pos = {n.gid: n.pos for n in model.nodes}
-    for (ga, gb), family in zip(model.cbars, model.cbar_families):
-        planform = planforms.get(family)
-        if planform is None:
+    checked = 0
+    for family, nodes in model.members.items():
+        if family == "all" or len(nodes) < 2:
             continue
-        floor = JOINT_MERGE_FRACTION * (
-            planform.span / max(2, planform.elements))
-        length = sum((pos[ga][i] - pos[gb][i]) ** 2 for i in range(3)) ** 0.5
-        assert length >= floor, (
-            f"{name}: {family} element {ga}-{gb} is {length:.4f} in, below the "
-            f"{floor:.4f} in floor")
+        member = "wing" if family.startswith("wing") else family
+        try:
+            count = mesh.count(member)
+        except ValueError:
+            continue                        # gear/engine: ties, not chains
+        length = _dist(nodes[0].pos, nodes[-1].pos)
+        floor = _MIN_ELEMENT_FRACTION * length / max(1, count - 1)
+        for (ga, gb), fam in zip(model.cbars, model.cbar_families):
+            if fam != family:
+                continue
+            checked += 1
+            assert _dist(pos[ga], pos[gb]) >= floor, (
+                f"{name}: {family} element {ga}-{gb} is "
+                f"{_dist(pos[ga], pos[gb]):.4f} in, below the {floor:.4f} in floor")
+    assert checked, f"{name}: no chain element was checked at all"
+
+
+@pytest.mark.parametrize("name", _SOLVE_FIXTURES)
+def test_the_lra_mesh_is_load_blind(name):
+    """Note 56 gate 10, and the whole argument of the note in one assertion.
+
+    The beam used to *be* the load mesh: the wing chain was the WINGGEOM strips
+    outboard of the side of body and the tail chains were the spanwise load
+    stations. So the spanwise half of the LM-1 transfer was an identity on every
+    CI fixture, and the arbitrary-grid routing a real user hits first was the
+    least-covered path in the package -- a degenerate special case hiding the
+    general one.
+
+    Two halves, because either alone is weak. **Position**: no chain node sits
+    on a load station, so the transfer is a real transfer everywhere. (The side
+    of body is exempt -- it is an owned joint that a station may legitimately
+    coincide with, which is a fact about the airplane, not about the mesh.)
+    **Resultant**: changing a member's grid count changes no delivered
+    resultant, only how finely the same load set is distributed -- which is what
+    says the mesh is free to move at all.
+    """
+    project = _project(f"{name}.project.json")
+    model = build_lra_model(project)
+    stations = {round(nl.y, 6) for nl in wing_nodal_loads(
+        loads_ref_axis_results(project, build_net_loads(project).wing_net)[0])}
+    on_a_station = [n for n in model.members["wing-R"]
+                    if round(n.pos[1], 6) in stations and n.family != "lra-sob"]
+    assert not on_a_station, (
+        f"{name}: {len(on_a_station)} wing beam node(s) sit on a load station "
+        "-- the mesh is welded to the load model again")
+
+    cases = build_balanced_cases(project)
+    fine = copy.deepcopy(project)
+    fine.lra_mesh = LraMeshInput(wing_grids=31, htail_grids=17,
+                                 vtail_grids=15, fuselage_grids=19)
+    coarse = copy.deepcopy(project)
+    coarse.lra_mesh = LraMeshInput(wing_grids=7, htail_grids=5,
+                                   vtail_grids=4, fuselage_grids=5)
+    models = [build_lra_model(p) for p in (fine, coarse)]
+    assert len({len(m.nodes) for m in models}) == 2, "the count changed nothing"
+    ref = None
+    for m in models:
+        for case in cases[:3]:
+            loads = transferred_case_loads(case, m)
+            pos = {n.gid: n.pos for n in m.nodes}
+            total = _resultant_about_origin(loads, pos)
+            if ref is None:
+                ref = {}
+            key = case.label + (case.hand or "")
+            if key not in ref:
+                ref[key] = total
+                continue
+            for i, comp in enumerate("FxFyFzMxMyMz"[j:j + 2]
+                                     for j in range(0, 12, 2)):
+                scale = max(1.0, abs(ref[key][i]))
+                assert abs(total[i] - ref[key][i]) <= 1e-6 * scale, (
+                    f"{name} {key}: {comp} moved with the grid count "
+                    f"({ref[key][i]:.6g} -> {total[i]:.6g})")
+
+
+def _resultant_about_origin(loads, pos):
+    """``[Fx, Fy, Fz, Mx, My, Mz]`` of a transferred set about the datum."""
+    out = [0.0] * 6
+    for gid, (f, m) in loads.items():
+        x, y, z = pos[gid]
+        out[0] += f[0]; out[1] += f[1]; out[2] += f[2]
+        out[3] += m[0] + y * f[2] - z * f[1]
+        out[4] += m[1] + z * f[0] - x * f[2]
+        out[5] += m[2] + x * f[1] - y * f[0]
+    return out
+
+
+def test_a_grid_count_below_two_is_refused_by_name():
+    """A member with one node is a point, not a beam, and every element on it
+    would vanish silently. The count owner refuses rather than clamps."""
+    with pytest.raises(ValueError, match="at least"):
+        LraMeshInput(wing_grids=1).count("wing")
+    with pytest.raises(ValueError, match="unknown LRA member"):
+        LraMeshInput().count("canard")
+
+
+def test_an_absent_mesh_slice_is_the_default_table():
+    """Note 56 gate 11's readable half: a v65 project carries no counts, so the
+    defaults are what every bundled fixture is meshed at."""
+    assert LraMeshInput().count("wing") == LRA_DEFAULT_GRIDS["wing"] == 20
+    project = _project("ga6_normal.project.json")
+    assert project.lra_mesh is None
+    model = build_lra_model(project)
+    assert len(model.members["wing-R"]) == 20
 
 
 def test_the_gear_keeps_the_carrier_the_project_entered():

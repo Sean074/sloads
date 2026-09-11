@@ -79,6 +79,7 @@ from .models import (
     LoadingDefinition,
     LoadsResult,
     LoadValue,
+    LraMeshInput,
     MachLimitInput,
     MassCase,
     MassComponent,
@@ -1182,6 +1183,21 @@ def safety_factors_to_dict(inp: SafetyFactorPolicyInput) -> Dict[str, Any]:
     return asdict(inp)
 
 
+def lra_mesh_from_dict(d: Dict[str, Any]) -> LraMeshInput:
+    """Build an :class:`LraMeshInput` (note 56 D-56.4, v66) from a plain dict."""
+    return LraMeshInput(**_filtered(LraMeshInput, d))
+
+
+def lra_mesh_to_dict(inp: LraMeshInput) -> Dict[str, Any]:
+    """Serialize the entered LRA node counts, dropping the unstated ones.
+
+    ``None`` means "the default for that member", and an absent key means the
+    same thing, so writing the nulls would put four rows of no information into
+    every project that touched the page once.
+    """
+    return {k: v for k, v in asdict(inp).items() if v is not None}
+
+
 # --------------------------------------------------------------------------- #
 # Control-surface load input slices <-> dict (AILERON / FLAPLOAD / TABLOADS)
 # --------------------------------------------------------------------------- #
@@ -1443,6 +1459,7 @@ def project_from_dict(d: Dict[str, Any]) -> Project:
         one_engine_out = d.get("one_engine_out")
         landing = d.get("landing")
         safety_factors = d.get("safety_factors")
+        lra_mesh = d.get("lra_mesh")
         loads = d.get("loads")
         engines, layout = _engines_from_dict(d)
         weight_slice = weight_from_dict(weight) if weight else None
@@ -1485,6 +1502,7 @@ def project_from_dict(d: Dict[str, Any]) -> Project:
             # override -- the governing table is the regulation's own factors.
             safety_factors=(safety_factors_from_dict(safety_factors)
                             if safety_factors else None),
+            lra_mesh=lra_mesh_from_dict(lra_mesh) if lra_mesh else None,
             loads=loads_from_dict(loads) if loads else None,
             include_far25=bool(d.get("include_far25", False)),
         )
@@ -1585,6 +1603,12 @@ def project_to_dict(project: Project) -> Dict[str, Any]:
     # absent one are the same statement, and the fixtures must stay byte-for-byte.
     if project.safety_factors is not None and project.safety_factors.overrides:
         out["safety_factors"] = safety_factors_to_dict(project.safety_factors)
+    # Same rule as the override layer above: an all-default mesh and an absent
+    # one are the same statement, so the fixtures stay byte-for-byte.
+    if project.lra_mesh is not None:
+        mesh = lra_mesh_to_dict(project.lra_mesh)
+        if mesh:
+            out["lra_mesh"] = mesh
     if project.loads is not None:
         out["loads"] = loads_to_dict(project.loads)
     if project.include_far25:

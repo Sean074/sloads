@@ -151,9 +151,10 @@ def _reachable_fields():
             return [t for a in args for t in unwrap(a)]
         return [hint] if isinstance(hint, type) else []
 
-    seen, found = set(), {}
+    seen, found, collisions = set(), {}, {}
 
     def record(name, owner, hint):
+        collisions.setdefault(name, {}).setdefault(_is_numeric(hint), owner)
         found.setdefault(name, (owner, _is_numeric(hint)))
 
     def walk(cls):
@@ -179,7 +180,7 @@ def _reachable_fields():
         record(f.name, "Project", hint)
         for sub in unwrap(hint):
             walk(sub)
-    return found
+    return found, collisions
 
 
 def test_every_numeric_project_field_is_classified():
@@ -201,7 +202,7 @@ def test_every_numeric_project_field_is_classified():
     unconverted in both directions), it is a **wrong number on screen**.
     """
     unclassified = sorted(
-        (name, owner) for name, (owner, numeric) in _reachable_fields().items()
+        (name, owner) for name, (owner, numeric) in _reachable_fields()[0].items()
         if numeric and field_classification(name) is None)
     assert not unclassified, (
         "these project fields hold a number that sloads.units classifies no "
@@ -215,7 +216,7 @@ def test_every_numeric_project_field_is_classified():
 def test_every_classification_is_of_a_field_that_exists():
     """No table may name a field the schema no longer has -- the inverse of the
     totality guard, and what keeps a stale row from looking like coverage."""
-    reachable = _reachable_fields()
+    reachable = _reachable_fields()[0]
     for table, label in ((_NOT_DIMENSIONAL, "_NOT_DIMENSIONAL"),
                          (AVIATION_STANDARD, "AVIATION_STANDARD"),
                          (_PROJECT_PAIR_KIND, "_PROJECT_PAIR_KIND")):
@@ -223,6 +224,47 @@ def test_every_classification_is_of_a_field_that_exists():
             assert name in reachable, (
                 f"{name} is listed in {label} but is no longer a project field "
                 "-- remove the entry")
+
+
+#: The one collision that predates the gate below, pinned with its reason
+#: rather than waved through. ``WeightEstimationInput.engines`` is an engine
+#: **count** while ``Project.engines`` is the list of engine inputs, and the
+#: walker reaches the list first -- so the count has never been asked whether
+#: it is classified. It is harmless today, because a count is dimensionless and
+#: unconverted is the right answer by accident; the fix is to rename it
+#: ``engine_count``, which moves the published field-registry path
+#: ``weight.estimation.engines`` and so belongs to its own change rather than
+#: to note 56's LRA mesh. A row here is a decision on the record, not a
+#: silence: removing the name is how the rename closes.
+_KNOWN_AMBIGUOUS = {"engines"}
+
+
+def test_one_field_name_never_means_a_number_here_and_a_dataclass_there():
+    """The classification tables key on the **bare field name**, so a name must
+    mean one kind of thing across the whole schema.
+
+    The totality guard above walks the schema into a ``{name: ...}`` dict with
+    ``setdefault``, so when two dataclasses use one name the **first** one
+    reached wins -- and if that one is non-numeric, a numeric field of the same
+    name elsewhere is never asked whether it is classified. It is invisible to
+    a gate whose whole claim is totality.
+
+    That is not hypothetical: ``LraMeshInput`` (note 56 D-56.4) was first
+    written with fields ``wing``/``fuselage``/``htail``/``vtail``, and three of
+    the four inherited ``GeometryInput``'s non-numeric answer and slipped
+    straight through. Only ``wing``, which nothing else claimed, was flagged.
+    The fields are ``*_grids`` now; this is the gate that would have said so.
+    """
+    _fields, collisions = _reachable_fields()
+    ambiguous = {name: owners for name, owners in collisions.items()
+                 if len(owners) > 1 and name not in _KNOWN_AMBIGUOUS}
+    assert not ambiguous, (
+        "these field names are numeric in one dataclass and not in another, so "
+        "sloads.units can only give one of them the right answer and the "
+        "totality guard cannot see the other. Rename one side: "
+        + "; ".join(f"{n}: " + ", ".join(f"{o} ({'numeric' if k else 'not'})"
+                                         for k, o in sorted(owners.items()))
+                    for n, owners in sorted(ambiguous.items())))
 
 
 def test_no_field_is_classified_twice():
@@ -254,7 +296,7 @@ def test_every_exemption_states_a_reason():
 def test_every_dimensionless_rule_still_covers_something():
     """A rule that matches no field is dead weight standing in for coverage --
     and worse, it would keep matching a *future* field by accident."""
-    names = [n for n, (_owner, numeric) in _reachable_fields().items() if numeric]
+    names = [n for n, (_owner, numeric) in _reachable_fields()[0].items() if numeric]
     for pattern, _reason in _DIMENSIONLESS_RULES:
         assert any(re.search(pattern, n) for n in names), (
             f"no numeric project field matches {pattern!r} -- remove the rule")

@@ -189,9 +189,15 @@ class JointRegister:
         """The refusal recorded for ``name``, if any."""
         return next((r for r in self.refusals if r.name == name), None)
 
-def _wing_lra_point(project: Project, y: float,
-                    surface_name: str = "wing") -> Optional[Vec3]:
+def wing_lra_point(project: Project, y: float,
+                   surface_name: str = "wing") -> Optional[Vec3]:
     """The wing loads-reference-axis point at butt line ``y``.
+
+    **The owner of "where the wing beam is at this span"** -- public since note
+    56 D-56.4, which needs it for a mesh decided from geometry rather than read
+    off the load stations. It was already the register's own resolver; making
+    it public is what stops the exporter growing a fifth spelling of the
+    chord-fraction line beside ``chord_fraction_x``'s documented four.
 
     The same construction the delivered wing stations are on
     (``net_loads.to_loads_ref_axis`` -- one chord-fraction owner) lifted onto
@@ -303,7 +309,7 @@ def _htail_joints(project: Project, joints: List[Joint],
 def _wing_joints(project: Project, joints: List[Joint],
                  refusals: List[Refusal]) -> None:
     """The side-of-body pair and the two spar posts, tied to the centre-box hub."""
-    hub = _wing_lra_point(project, 0.0)
+    hub = wing_lra_point(project, 0.0)
     if hub is None:
         return
     sob = sob_station(project)
@@ -313,7 +319,7 @@ def _wing_joints(project: Project, joints: List[Joint],
             "width) -- the wing beam starts at the SOB (note 24 R-3) and this "
             "exporter will not invent a body (BM-1)")))
     else:
-        right = _wing_lra_point(project, abs(sob.y)) or hub  # hub resolved => so does this
+        right = wing_lra_point(project, abs(sob.y)) or hub  # hub resolved => so does this
         for side, here in (("R", right), ("L", _mirror(right))):
             # The left joint is the RIGHT one mirrored, never a second
             # evaluation at -y: the chord-fraction owner extrapolates its
@@ -392,4 +398,5 @@ __all__ = [
     "Refusal",
     "Vec3",
     "joints",
+    "wing_lra_point",
 ]

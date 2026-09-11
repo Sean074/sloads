@@ -82,7 +82,7 @@ from __future__ import annotations
 
 import textwrap
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Callable, Dict, List, Mapping, NamedTuple, Optional, Sequence, Tuple
 
 from ..derived_geometry import (
     carry_through,
@@ -90,15 +90,15 @@ from ..derived_geometry import (
     fuselage_lra,
     sob_station,
 )
-from ..joints import JointName
+from ..joints import JointName, wing_lra_point
 from ..joints import joints as joint_register
-from ..models import BalancedCaseResult, BalancedLoad, Project
+from ..models import BalancedCaseResult, BalancedLoad, LraMeshInput, Project
 from ..models.enums import GearCarrier
 from ..modules.balance import build_balanced_cases
-from ..modules.net_loads import build_net_loads, loads_ref_axis_results
 from ..modules.tail_span import ATTACH_STRIP_PAIR, build_tail_span, htail_attachment
+from ..modules.wing_geometry import require_integrable_planform
 from ..picks import extreme
-from ..tail_geometry import HTAIL, VTAIL, resolve_tail_planform
+from ..tail_geometry import HTAIL, VTAIL, h_tail_waterline, resolve_tail_planform
 from ..units import UnitSystem
 from .balanced_deck import case_sids
 from .bands import band
@@ -117,7 +117,6 @@ from .deck_format import (
     stamped,
 )
 from .roundtrip import _orientation
-from .sbeam_bridge import wing_nodal_loads
 
 Vec3 = Tuple[float, float, float]
 
@@ -130,19 +129,38 @@ _TOL = 1e-9
 #: 0.0769 in from a strip station and emit a sliver element (D-55.2).
 _COINCIDENT_TOL = 1e-6
 
-#: **Is this the same station?** -- the geometric question, as a fraction of the
-#: chain's own strip width ``ds`` (design note 55 D-55.2, owner 2026-09-10). A
-#: station within this of an inserted joint is absorbed *into* the joint: the
-#: merged node keeps the station's ``gid`` and the **joint's** owned position,
-#: so no element shorter than ``JOINT_MERGE_FRACTION * ds`` is ever emitted.
+#: **The shortest element the mesh may emit**, as a fraction of the member's own
+#: target element length (note 56 D-56.4). It replaces ``JOINT_MERGE_FRACTION``,
+#: and the thing it guards is not the thing that one guarded.
 #:
-#: 5 % separates the shipped data with a 25x margin either way: the two slivers
-#: it absorbs sat at 1.07 % (``cessna_210``) and 1.33 % (``baron_58``) of a
-#: strip, and the nearest legitimate neighbour it must *not* absorb is
-#: ``ga6_normal``'s at 33.66 %. The note records that anything from ~3 % to
-#: ~25 % would separate them, so this is a judgement inside a wide band, not a
-#: fitted threshold.
-JOINT_MERGE_FRACTION = 0.05
+#: Note 55's sliver came from *inserting* a joint into a mesh fixed by the load
+#: model: the joint landed 0.0769 in from a strip station on ``cessna_210``
+#: (1.07 % of a strip, a 1638:1 element ratio) and 0.1266 in on ``baron_58``,
+#: and the fix was a merge band wide enough to absorb the station. Under D-56.4
+#: nothing is inserted: the owned points come **first** and the equally spaced
+#: grids are laid strictly *between* consecutive owned points, so an
+#: insertion-induced sliver is not a thing that can happen. That is the class
+#: the note says dies structurally, and it does.
+#:
+#: What survives is narrower and is a **data** condition rather than an sloads
+#: defect: two *owned* locations -- two joints, a joint and a gear trunnion --
+#: genuinely close together on one member. Both must be nodes (dropping either
+#: drops a load path), so the element between them is as short as the airplane
+#: says it is, and the honest answer is to refuse and name them rather than to
+#: merge one away.
+#:
+#: **1:200 of the member's target element length**, and the two numbers it sits
+#: between are measured rather than chosen. The one observed singular solve
+#: (note 55, ``cessna_210``'s h-tail attachment) was at **1:1638**. The tightest
+#: *legitimate* element across the four shipped fixtures at three mesh
+#: settings -- default, and counts coarse and fine enough to be unreasonable --
+#: is **1:38**, on ``ga6_normal``'s fuselage, where two body ties really are
+#: close together. So this is an order of magnitude clear of the worst honest
+#: geometry and still an order clear of the failure. Note 55's 5 % band is not
+#: the precedent: that number decided whether to *merge* a station, which is a
+#: question about strip scale, and this one decides whether to *refuse* a
+#: solve, which is a question about stiffness contrast.
+_MIN_ELEMENT_FRACTION = 0.005
 
 #: Every grid this model writes comes from one of these -- the D-56.3 identity.
 #: There is no id here the model did not allocate itself: before note 56 the
@@ -288,6 +306,107 @@ def _nearest_station(nodes: Sequence["LraNode"], x: float) -> "LraNode":
     return extreme(nodes, lambda n: abs(n.pos[0] - x), largest=False)
 
 
+class _Owned(NamedTuple):
+    """A point the mesh must carry whatever the node count says.
+
+    ``param`` is the member's own span coordinate (butt line on the wing and
+    h-tail, waterline on the fin, fuselage station on the body). ``pos`` is the
+    **owned** airplane location when an owner states one -- the joint register's
+    location, never a second resolution of the same geometry (note 54 D-54.5);
+    ``None`` means "put it on the member's own line", which is what a gear or
+    engine station is.
+    """
+
+    param: float
+    pos: Optional[Vec3] = None
+    family: str = ""
+    side: str = ""
+    #: A named node's own id, when its family has a band of its own (the side
+    #: of body is the standing case). ``None`` takes the member band's next id
+    #: like any other grid.
+    gid: Optional[int] = None
+
+
+def _mesh_params(owned: Sequence[float], n: int) -> List[float]:
+    """Every owned parameter, plus near-uniform grids laid **between** them.
+
+    The D-56.4 mesh rule, and the reason note 55's sliver class cannot recur.
+    The owned points divide the member into segments; the target element length
+    is the member's length over ``n - 1``; each segment takes the whole number
+    of elements closest to its own length and splits itself equally into them.
+    So every grid is strictly interior to a segment and no grid can land beside
+    an owned point -- which is what "joints are mesh points by construction"
+    has to mean to be true.
+
+    ``n`` is a **target**, not the node count: a member whose owned points are
+    unevenly spread rounds segment by segment, so the total lands near ``n``
+    rather than on it. Trading the exact count for the sliver is the right way
+    round -- one is a number in a form, the other is a singular stiffness
+    matrix.
+
+    Decided from ``owned`` and ``n`` alone, both geometry, so the result cannot
+    coincide with the load stations: that is the whole argument of note 56
+    SS1.4, and it is what keeps the LM-1 transfer a real transfer in CI rather
+    than an identity.
+    """
+    pts = sorted(owned)
+    if len(pts) < 2:
+        return list(pts)
+    length = pts[-1] - pts[0]
+    if length <= _COINCIDENT_TOL:
+        return [pts[0]]
+    h = length / (n - 1)
+    out = [pts[0]]
+    for a, b in zip(pts, pts[1:]):
+        seg = b - a
+        elements = max(1, round(seg / h))
+        out += [a + seg * i / elements for i in range(1, elements)]
+        out.append(b)
+    return out
+
+
+def _mesh_chain(owned: Sequence[_Owned], n: int, band,
+                point_at: Callable[[float], Vec3],
+                first_index: int = 0) -> List[LraNode]:
+    """The member's nodes, in order: :func:`_mesh_params` turned into grids.
+
+    Owned points keep their owner's position and identity tag; every other node
+    is placed on the member's own line by ``point_at``. Ids come from ``band``
+    in mesh order, so reading a deck top to bottom walks the beam.
+    """
+    by_param: Dict[float, _Owned] = {}
+    for o in owned:
+        match = next((p for p in by_param if abs(p - o.param) <= _COINCIDENT_TOL),
+                     None)
+        if match is None:
+            by_param[o.param] = o
+        elif by_param[match].pos is None and o.pos is not None:
+            by_param[match] = o._replace(param=match)
+    nodes: List[LraNode] = []
+    for i, param in enumerate(_mesh_params(list(by_param), n)):
+        own = next((by_param[p] for p in by_param
+                    if abs(p - param) <= _COINCIDENT_TOL), None)
+        pos = own.pos if own is not None and own.pos is not None else point_at(param)
+        gid = own.gid if own is not None and own.gid is not None \
+            else band.allocate(first_index + i)
+        nodes.append(LraNode(gid, pos,
+                             own.family if own else "", own.side if own else ""))
+    return nodes
+
+
+def _control_spans(spans: Mapping[str, Sequence], component: str) -> List:
+    """The control-surface fittings on ``component`` -- hinges and actuators.
+
+    One reader for the three places that need them: the two chains, which carry
+    a node at each fitting's span (D-56.4), and the tie loop that hangs the
+    fitting node off it. ``y`` is the surface's own span coordinate on both
+    surfaces -- a butt line on the h-tail, a waterline above the root on the fin
+    -- which is why one accessor serves both.
+    """
+    rs = spans.get(component) or []
+    return list(rs[0].control_loads) if rs and rs[0].control_loads else []
+
+
 def _insert_on_chain(chain: List[LraNode], key_fn, key: float, gid: int,
                      family: str, side: str,
                      pos: Optional[Vec3] = None,
@@ -335,34 +454,35 @@ def _insert_on_chain(chain: List[LraNode], key_fn, key: float, gid: int,
     return chain, node
 
 
-def _refuse_unsolvable_skeleton(model: LraModel,
-                                merge_tols: Dict[str, float]) -> None:
+def _refuse_unsolvable_skeleton(model: LraModel, mesh: LraMeshInput) -> None:
     """Refuse a skeleton this exporter knows a solver will not factor (D-55.5).
 
-    The backstop, not the fix: D-55.1 and D-55.2 are what keep these conditions
-    from arising, and neither fires on any shipped fixture. It exists because
-    the mission claim is that *the exported deck solves* -- so the one thing the
-    exporter must never do is hand over a deck that dies in the user's solver
-    with a diagnostic about the matrix rather than about the airplane. LM-4's
-    contract: name the condition, because the fix is never a default.
+    The backstop, not the fix. It exists because the mission claim is that *the
+    exported deck solves* -- so the one thing the exporter must never do is hand
+    over a deck that dies in the user's solver with a diagnostic about the
+    matrix rather than about the airplane. LM-4's contract: name the condition,
+    because the fix is never a default.
 
-    Two conditions, both exact -- neither invents a threshold:
+    Two conditions:
 
     * **A chain of rigid elements.** A ``GRID`` that is an ``RBE2`` dependent
       and also an ``RBE2`` independent (or a dependent twice over) states
       ``a -> b -> c`` in rigid links, which sbeam refuses outright. This is
       ``ga6_normal``'s pre-D-55.1 state: the rear-spar post hung on the hub and
-      carried both main-gear ties.
-    * **A sliver element on a chain that has a strip width.** Every ``CBAR`` of
-      the tail chains is at least that chain's own
-      :data:`JOINT_MERGE_FRACTION` of ``ds`` -- which D-55.2 guarantees by
-      absorbing near stations into the joint, so a violation here is an sloads
-      defect rather than a data one. The wing and fuselage chains are
-      deliberately **not** checked: the fuselage has no strip mesh at all (its
-      spacing is entered stations plus inserted tie points, legitimately down
-      to 0.087 of its own median on ``ga6_normal``), and the wing's SOB node is
-      placed by position rather than inserted. A threshold invented for those
-      would be a guess, and this function does not guess.
+      carried both main-gear ties. Unchanged.
+
+    * **A sliver element**, and this one changed its subject at note 56 D-56.4.
+      It used to catch a joint *inserted* a percent of a strip from a load
+      station -- an sloads defect, which the merge band existed to prevent.
+      Nothing is inserted now: the owned points come first and the grids are
+      laid strictly between them, so the only way two nodes land close together
+      is that two **owned locations** are close together, which is a statement
+      about the airplane. So the message changed too: it names the two points
+      and asks for the geometry, rather than asking for a bug report. The floor
+      is :data:`_MIN_ELEMENT_FRACTION` of the member's own target element
+      length, which is the member's length over its node count -- a scale the
+      mesh rule already has, rather than a strip width the beam no longer
+      borrows. No shipped fixture comes near it.
     """
     dependents: Dict[int, int] = {}
     independents = set()
@@ -383,19 +503,33 @@ def _refuse_unsolvable_skeleton(model: LraModel,
                 "data one: please report it with the project file")
 
     pos = {n.gid: n.pos for n in model.nodes}
-    for (ga, gb), family in zip(model.cbars, model.cbar_families):
-        floor = merge_tols.get(family)
-        if not floor:
-            continue                        # no strip width -- see the docstring
-        length = _dist2(pos[ga], pos[gb]) ** 0.5
-        if length < floor:
-            raise LraRefusal(
-                f"the {family} chain carries a {length:.4f} in element between "
-                f"GRID {ga} and {gb}, below the {floor:.4f} in floor a joint "
-                "insertion may leave (design note 55 D-55.2). A sliver element "
-                "conditions the stiffness matrix to the point of a singular "
-                "solve. This is an sloads defect, not a data one: please "
-                "report it with the project file")
+    for family, nodes in model.members.items():
+        if len(nodes) < 2:
+            continue
+        ends = [nodes[0].pos, nodes[-1].pos]
+        length = _dist2(ends[0], ends[1]) ** 0.5
+        member = "wing" if family == "wing" else family
+        try:
+            count = mesh.count(member)
+        except ValueError:                  # pragma: no cover -- every chain maps
+            continue
+        floor = _MIN_ELEMENT_FRACTION * length / max(1, count - 1)
+        if floor <= 0.0:
+            continue
+        for ga, gb in ((a, b) for (a, b), f in zip(model.cbars, model.cbar_families)
+                       if f == family):
+            element = _dist2(pos[ga], pos[gb]) ** 0.5
+            if element < floor:
+                raise LraRefusal(
+                    f"the {family} chain carries a {element:.4f} in element "
+                    f"between GRID {ga} and {gb}, below the {floor:.4f} in "
+                    "floor (note 56 D-56.4). Two locations this model must "
+                    "carry as separate nodes -- joints, attachments, the "
+                    "member's own ends -- are that close together in the "
+                    "entered geometry, and a sliver element conditions the "
+                    "stiffness matrix to the point of a singular solve. "
+                    "Check those two points, or raise the member's grid count "
+                    "so the mesh either side of them is no finer than they are")
 
 
 def _refusal_reason(reg, name: JointName) -> str:
@@ -488,27 +622,57 @@ def build_lra_model(project: Project) -> LraModel:
         notes.append(post_note[0].note)
 
     pending_body_ties: List[Tuple[float, List[int], str]] = []
+    mesh = project.lra_mesh or LraMeshInput()
 
     # ------------------------------------------------------------- wing chains
-    net = build_net_loads(project)
-    wing_results = loads_ref_axis_results(project, net.wing_net)
-    base = wing_nodal_loads(wing_results[0])
-    outboard = [nl for nl in base if nl.y > sob.y + _COINCIDENT_TOL]
-    if not outboard:
+    # **The beam is meshed from the geometry, not from the load stations**
+    # (note 56 D-56.4). Until this it *was* the load stations: the chain was the
+    # WINGGEOM strips outboard of the side of body, which made the spanwise half
+    # of the LM-1 transfer an identity on every fixture -- so the arbitrary-grid
+    # routing a real user hits first was the least-tested path in the package,
+    # and the strip mesh that the replication contract freezes at 20 was also,
+    # silently, the structural model. They are separate now: the strips stay
+    # oracle-locked and stop being the beam.
+    wing_surf = geom.by_name("wing")
+    if wing_surf is None:                   # pragma: no cover -- refused above
+        raise LraRefusal("the LRA beam model needs a 'wing' geometry surface")
+    require_integrable_planform(wing_surf)
+    tip_y = max(pt[1] for pt in
+                list(wing_surf.leading_edge) + list(wing_surf.trailing_edge))
+    if tip_y <= sob.y + _COINCIDENT_TOL:
         raise LraRefusal(
-            f"the side of body (BL {sob.y:.2f}) is outboard of the last wing "
-            "station -- there is no wing beam outboard of the joint to build")
+            f"the side of body (BL {sob.y:.2f}) is at or outboard of the wing "
+            f"tip (BL {tip_y:.2f}) -- there is no wing beam outboard of the "
+            "joint to build")
+
+    def _wing_point(y: float) -> Vec3:
+        pt = wing_lra_point(project, y)
+        if pt is None:                      # pragma: no cover -- guarded above
+            raise LraRefusal("the wing beam's own line cannot be resolved")
+        return pt
+
     j_sob = reg.one(JointName.WING_SOB, "R")
-    # The SOB node is the LRA's named node whether or not a load station falls
-    # on it: before D-56.3 a coincident station handed over its own gid, which
-    # is how a wing-stick id came to be tagged as an LRA named node.
-    sob_r = LraNode(sob_gid(), j_sob.location, "lra-sob", "R")
-    right = [sob_r] + [LraNode(_RIGHT_BAND.allocate(i), (nl.x, nl.y, nl.z))
-                       for i, nl in enumerate(outboard)]
-    sob_l = LraNode(_SOB_BAND.allocate(1), _mirror(sob_r.pos), "lra-sob", "L")
-    left = [sob_l] + [LraNode(_LEFT_BAND.allocate(i),
-                              _mirror((nl.x, nl.y, nl.z)))
-                      for i, nl in enumerate(outboard)]
+    # **The beam runs to the tip.** It used to stop at the outermost strip
+    # *midpoint*, half a strip inboard of the surface -- 5.0 in on
+    # ``ga6_normal`` (2.5 % of semispan), 12.1 in on ``atr42_100``. That is the
+    # same omission design note 54 D-54.5 fixed for the fin, where it only got
+    # fixed because the T-tail tie made the tip a joint; here there is no tie to
+    # force the issue, which is exactly why it survived. A member's end is its
+    # end (D-56.4).
+    # The gear trunnions and the engine mount/hub are nodes of the model in
+    # their own right, tied to the chain by the RBE2s below; they are not chain
+    # stations, and D-56.4's "its gear / engine / hinge / actuator nodes" is
+    # read that way here. The hinge and actuator nodes on the tail chains are
+    # the exception and stay chain-inserted, because they already were.
+    wing_owned = [_Owned(sob.y, j_sob.location, "lra-sob", "R", gid=sob_gid()),
+                  _Owned(tip_y, None, "lra-wing-tip", "R")]
+    right = _mesh_chain(wing_owned, mesh.count("wing"), _RIGHT_BAND, _wing_point)
+    sob_r = right[0]
+    left = [LraNode(_SOB_BAND.allocate(1) if n.family == "lra-sob"
+                    else _LEFT_BAND.allocate(i),
+                    _mirror(n.pos), n.family, "L" if n.side else "")
+            for i, n in enumerate(right)]
+    sob_l = left[0]
     hub_c = LraNode(_CENTRE_BAND.allocate(0), j_sob.counterpart,
                     "lra-centre", "C")
     model.nodes += right + left + [hub_c]
@@ -519,111 +683,118 @@ def build_lra_model(project: Project) -> LraModel:
                         "rigid, NOT a stiffness carry-through (step 14 / R-12)"))
 
     # -------------------------------------------------------------- fin chain
+    # Both tail chains are meshed by D-56.4 exactly as the wing is: the surface's
+    # own ends and its owned joints, with equally spaced grids laid between them.
+    # They used to be the spanwise **load** stations, which is what made a joint
+    # an *insertion* into someone else's mesh -- and an insertion landing a
+    # percent of a strip from a station is note 55's sliver. Nothing is inserted
+    # any more, so that class cannot arise (see _MIN_ELEMENT_FRACTION).
     try:
         spans = build_tail_span(project)
     except (ValueError, KeyError):
         spans = {}
     vtail_chain: List[LraNode] = []
     vtail_tip: Optional[LraNode] = None
-    # The D-55.2 "same station" tolerances, bound before either chain branch:
-    # a project with no fin (or no h-tail) skips that branch entirely, and the
-    # control-node loop below reads both eagerly.
-    h_merge = v_merge = _COINCIDENT_TOL
-    vt = spans.get(VTAIL) or []
-    planform_v = resolve_tail_planform(project, VTAIL) if vt else None
-    if vt and planform_v is not None:  # spans exist only where the planform resolved
-        stations = [LraNode(_VTAIL_BAND.allocate(i),
-                            tail_station_to_airplane(st.x, st.y, VTAIL, st.z))
-                    for i, st in enumerate(vt[0].stations)]
-        root = LraNode(_ATTACH_BAND.allocate(0),
-                       reg.one(JointName.VTAIL_ROOT).location,
-                       "lra-fin-root", "C")
-        vtail_chain = [root, *sorted(stations, key=lambda n: n.pos[2])]
-        v_merge = JOINT_MERGE_FRACTION * (
-            planform_v.span / max(2, planform_v.elements))
-        # **The fin beam runs to the fin tip** (D-54.5). Until the register the
-        # chain stopped at the outermost strip *midpoint*, half a strip below
-        # the top of the surface, and the T-tail R-6 tie hung the horizontal
-        # tail off that -- a 6.25/6.5/6.9 in vertical arm the airplane does not
-        # have, and 2.4-5.8 in of x with it. The tip is a joint, so it is a
-        # node.
+    planform_v = resolve_tail_planform(project, VTAIL)
+    if planform_v is not None and planform_v.span > 0.0:
+        root_j = reg.one(JointName.VTAIL_ROOT)
+        root_z = planform_v.root_z
+
+        def _vtail_point(s_local: float) -> Vec3:
+            return tail_station_to_airplane(
+                planform_v.x_at(s_local, planform_v.ref_axis_pct),
+                s_local, VTAIL, root_z)
+
+        vtail_owned = [_Owned(0.0, root_j.location, "lra-fin-root", "C",
+                            gid=_ATTACH_BAND.allocate(0))]
         if JointName.VTAIL_TIP_HTAIL in reg.names:
-            vtail_tip = LraNode(_ATTACH_BAND.allocate(3),
-                                reg.one(JointName.VTAIL_TIP_HTAIL).location,
-                                "lra-fin-tip", "C")
-            vtail_chain.append(vtail_tip)
+            vtail_owned.append(_Owned(planform_v.span,
+                                    reg.one(JointName.VTAIL_TIP_HTAIL).location,
+                                    "lra-fin-tip", "C",
+                                    gid=_ATTACH_BAND.allocate(3)))
+        else:
+            vtail_owned.append(_Owned(planform_v.span, None, "lra-fin-tip", "C"))
+        vtail_owned += [_Owned(cp.y) for cp in _control_spans(spans, VTAIL)]
+        vtail_chain = _mesh_chain(vtail_owned, mesh.count("vtail"),
+                                  _VTAIL_BAND, _vtail_point)
+        root = vtail_chain[0]
+        vtail_tip = next((n for n in vtail_chain if n.family == "lra-fin-tip"), None)
+        if JointName.VTAIL_TIP_HTAIL not in reg.names:
+            vtail_tip = None
         pending_body_ties.append((root.pos[0], [root.gid],
                                   "fin root -> fuselage (R-5)"))
 
     # ------------------------------------------------------------ h-tail chain
     htail_chain: List[LraNode] = []
-    ht = spans.get(HTAIL) or []
-    attach_x: Optional[float] = None
-    planform_h = resolve_tail_planform(project, HTAIL) if ht else None
-    if ht and planform_h is not None:  # spans exist only where the planform resolved
+    planform_h = resolve_tail_planform(project, HTAIL)
+    if planform_h is not None and planform_h.span > 0.0:
         att = htail_attachment(project, planform_h)
         if att.basis == ATTACH_STRIP_PAIR:
             raise LraRefusal(_refusal_reason(reg, JointName.HTAIL_ATTACH))
-        htail_chain = [LraNode(_HTAIL_BAND.allocate(i),
-                               tail_station_to_airplane(st.x, st.y, HTAIL, st.z))
-                       for i, st in enumerate(ht[0].stations)]
-        htail_chain.sort(key=lambda n: n.pos[1])
-        # The geometric "same station" tolerance for every joint inserted on
-        # this chain (D-55.2): a fraction of the h-tail's own strip width.
-        h_merge = JOINT_MERGE_FRACTION * (
-            planform_h.span / max(2, planform_h.elements))
+        h_wl = h_tail_waterline(project, planform_v).z
+
+        def _htail_point(y: float) -> Vec3:
+            return tail_station_to_airplane(
+                planform_h.x_at(abs(y), planform_h.ref_axis_pct),
+                y, HTAIL, h_wl)
+
+        # One chain across the whole span, tip to tip -- the h-tail is one beam
+        # and the centreline is not an end of it. The count is per side, so the
+        # target for the chain is twice it.
+        span_h = planform_h.span
+        h_owned = [_Owned(-span_h, None, "lra-htail-tip", "L"),
+                   _Owned(span_h, None, "lra-htail-tip", "R")]
         if att.y == [0.0]:
             if vtail_tip is None:
                 raise LraRefusal(
                     "T-tail layout with no fin beam -- the h-tail's only "
                     "support is the fin-tip joint, which does not exist "
                     "without a modelled vertical tail")
-            htail_chain, joint = _insert_on_chain(
-                htail_chain, lambda n: n.pos[1], 0.0,
-                _ATTACH_BAND.allocate(1), "lra-attach", "C",
-                pos=reg.one(JointName.VTAIL_TIP_HTAIL).counterpart,
-                merge_tol=h_merge)
-            model.rbe2s.append((vtail_tip.gid, "123456", [joint.gid],
-                                "T-tail joint: h-tail centreline -> fin tip "
-                                "(R-6; the fin deck's T7 lumped transfer is "
-                                "NEVER applied to this model)"))
+            h_owned.append(_Owned(
+                0.0, reg.one(JointName.VTAIL_TIP_HTAIL).counterpart,
+                "lra-attach", "C", gid=_ATTACH_BAND.allocate(1)))
         else:
             if att.assumed:
                 notes.append(att.note)
             y_att = max(att.y)
             # Both ends of this tie come from the register, so the attachment
-            # node and the body station it reacts against are one construction:
-            # interpolating the node off the strip chain while taking the body
-            # station from the planform put them 0.36 in apart on ga6_normal.
+            # node and the body station it reacts against are one construction.
             j_r = reg.one(JointName.HTAIL_ATTACH, "R")
             j_l = reg.one(JointName.HTAIL_ATTACH, "L")
-            htail_chain, att_r = _insert_on_chain(
-                htail_chain, lambda n: n.pos[1], y_att,
-                _ATTACH_BAND.allocate(1), "lra-attach", "R", pos=j_r.location,
-                merge_tol=h_merge)
-            htail_chain, att_l = _insert_on_chain(
-                htail_chain, lambda n: n.pos[1], -y_att,
-                _ATTACH_BAND.allocate(2), "lra-attach", "L", pos=j_l.location,
-                merge_tol=h_merge)
-            attach_x = j_r.counterpart[0]
-            pending_body_ties.append((attach_x, [att_l.gid, att_r.gid],
+            h_owned += [_Owned(y_att, j_r.location, "lra-attach", "R",
+                               gid=_ATTACH_BAND.allocate(1)),
+                        _Owned(-y_att, j_l.location, "lra-attach", "L",
+                               gid=_ATTACH_BAND.allocate(2))]
+        h_owned += [_Owned(cp.y) for cp in _control_spans(spans, HTAIL)]
+        htail_chain = _mesh_chain(h_owned, 2 * mesh.count("htail"),
+                                  _HTAIL_BAND, _htail_point)
+        if att.y == [0.0]:
+            assert vtail_tip is not None    # refused above when it is missing
+            joint = next(n for n in htail_chain if n.family == "lra-attach")
+            model.rbe2s.append((vtail_tip.gid, "123456", [joint.gid],
+                                "T-tail joint: h-tail centreline -> fin tip "
+                                "(R-6; the fin deck's T7 lumped transfer is "
+                                "NEVER applied to this model)"))
+        else:
+            att_r = next(n for n in htail_chain
+                         if n.family == "lra-attach" and n.side == "R")
+            att_l = next(n for n in htail_chain
+                         if n.family == "lra-attach" and n.side == "L")
+            pending_body_ties.append((j_r.counterpart[0], [att_l.gid, att_r.gid],
                                       "h-tail attachments -> fuselage; the "
                                       "span between them is placeholder-"
                                       "stiffness-dependent (R-12)"))
 
     # ------------------------------------- control-surface nodes (T6 discrete)
+    # A hinge or actuator fitting is an owned point of its chain (above), so its
+    # parent is a node **at** its span rather than the nearest station to it --
+    # which is what LM-6 always meant and what the strip mesh could only
+    # approximate.
     control_nodes: List[LraNode] = []
-    # The same "is this the same station" tolerance the attachment joints use
-    # (D-55.2, swept per CLAUDE.md rule 4): a hinge or actuator fitting that
-    # lands a fraction of a strip from an existing station would insert the
-    # identical sliver element, on the identical chains.
-    for comp, chain, key_fn, merge in (
-            (HTAIL, htail_chain, lambda n: n.pos[1], h_merge),
-            (VTAIL, vtail_chain, lambda n: n.pos[2], v_merge)):
-        rs = spans.get(comp) or []
-        if not rs or not rs[0].control_loads or not chain:
+    for comp, chain, axis in ((HTAIL, htail_chain, 1), (VTAIL, vtail_chain, 2)):
+        if not chain:
             continue
-        for cp in rs[0].control_loads:
+        for cp in _control_spans(spans, comp):
             family = "lra-hinge" if cp.kind == "hinge" else "lra-actuator"
             side = ("C" if comp == VTAIL or abs(cp.y) <= _COINCIDENT_TOL
                     else ("R" if cp.y > 0 else "L"))
@@ -631,15 +802,18 @@ def build_lra_model(project: Project) -> LraModel:
                            tail_station_to_airplane(cp.x, cp.y, comp, cp.z),
                            family, side)
             control_nodes.append(node)
-            span_key = node.pos[1] if comp == HTAIL else node.pos[2]
-            chain, parent = _insert_on_chain(  # noqa: PLW2901  -- the chain grows by the inserted node
-                chain, key_fn, span_key,
-                _ATTACH_BAND.allocate(4 + len(control_nodes)), "", "",
-                merge_tol=merge)
+            # Through the platform-stable owner: a fitting on the centreline
+            # of a symmetric surface is equidistant from the two nodes either
+            # side of it, and a bare min() would hand that tie to whichever way
+            # the local libm rounded (CONVENTIONS.md SS7).
+            here = node.pos[axis]
+
+            def _gap(n: LraNode, a: int = axis, p: float = here) -> float:
+                return abs(n.pos[a] - p)
+
+            parent = extreme(chain, _gap, largest=False)
             model.rbe2s.append((parent.gid, "123456", [node.gid],
                                 f"{comp} {cp.kind} node -> parent LRA (LM-6)"))
-    # Chains are registered only now: a control node's parent may have been
-    # inserted into them, and a chain frozen earlier would orphan it.
     for chain, family in ((vtail_chain, "vtail"), (htail_chain, "htail")):
         model.nodes += chain
         model.add_chain(chain, family)
@@ -730,31 +904,34 @@ def build_lra_model(project: Project) -> LraModel:
     model.nodes += engine_nodes
 
     # -------------------------------------------------------- fuselage chains
-    inserts: Dict[float, str] = {ct.x_f: "post-F", ct.x_r: "post-A"}
-    for x, _gids, _label in pending_body_ties:
-        if ct.x_f + _COINCIDENT_TOL < x < ct.x_r - _COINCIDENT_TOL:
-            continue          # inside the carry-through: ties to the nearer post
-        inserts.setdefault(x, "")
+    # Meshed like every other member (D-56.4): the cantilever's two ends, every
+    # station a tie lands on, and equally spaced grids between them. It used to
+    # be the fuselage **outline's** section stations, which is not the load mesh
+    # -- so this member was never the degenerate case note 56 SS1.4 is about --
+    # but it made the beam's discretisation a consequence of how finely someone
+    # drew the body, which is a different quantity from how finely they want it
+    # analysed.
     outline = geom.fuselage
     if outline is None:  # fuselage_centreline() above has already refused in this case
         raise LraRefusal("no fuselage outline -- the fuselage LRA needs its sections")
-    xs = sorted({round(s.x, 6) for s in outline.sections}
-                | {round(x, 6) for x in inserts})
-    fwd_xs = [x for x in xs if x < ct.x_f - _COINCIDENT_TOL] + [ct.x_f]
-    aft_xs = [ct.x_r] + [x for x in xs if x > ct.x_r + _COINCIDENT_TOL]
-    fus_fwd: List[LraNode] = []
-    fus_aft: List[LraNode] = []
-    n_fus = 0
-    for chain, chain_xs in ((fus_fwd, fwd_xs), (fus_aft, aft_xs)):
-        for x in chain_xs:
-            family, side = "", ""
-            if abs(x - ct.x_f) <= _COINCIDENT_TOL:
-                family, side = "lra-post", "F"
-            elif abs(x - ct.x_r) <= _COINCIDENT_TOL:
-                family, side = "lra-post", "A"
-            chain.append(LraNode(_FUSELAGE_BAND.allocate(n_fus),
-                                 (x, 0.0, lra.z_at(x)), family, side))
-            n_fus += 1
+    section_xs = [sec.x for sec in outline.sections]
+    nose_x, tail_x = min(section_xs), max(section_xs)
+    tie_xs = [x for x, _gids, _label in pending_body_ties
+              if not ct.x_f + _COINCIDENT_TOL < x < ct.x_r - _COINCIDENT_TOL]
+
+    def _body_point(x: float) -> Vec3:
+        return (x, 0.0, lra.z_at(x))
+
+    n_fus = mesh.count("fuselage")
+    fwd_owned = [_Owned(min(nose_x, ct.x_f), None, "", ""),
+                 _Owned(ct.x_f, None, "lra-post", "F")]
+    fwd_owned += [_Owned(x) for x in tie_xs if x < ct.x_f - _COINCIDENT_TOL]
+    aft_owned = [_Owned(ct.x_r, None, "lra-post", "A"),
+                 _Owned(max(tail_x, ct.x_r), None, "", "")]
+    aft_owned += [_Owned(x) for x in tie_xs if x > ct.x_r + _COINCIDENT_TOL]
+    fus_fwd = _mesh_chain(fwd_owned, n_fus, _FUSELAGE_BAND, _body_point)
+    fus_aft = _mesh_chain(aft_owned, n_fus, _FUSELAGE_BAND, _body_point,
+                          first_index=len(fus_fwd))
     model.nodes += fus_fwd + fus_aft
     model.add_chain(fus_fwd, "fuselage")
     model.add_chain(fus_aft, "fuselage")
@@ -838,7 +1015,7 @@ def build_lra_model(project: Project) -> LraModel:
         model.members["gear"] = gear_nodes
     if engine_nodes:
         model.members["engine"] = engine_nodes
-    _refuse_unsolvable_skeleton(model, {"htail": h_merge, "vtail": v_merge})
+    _refuse_unsolvable_skeleton(model, mesh)
     return model
 
 
