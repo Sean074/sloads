@@ -270,9 +270,26 @@ def test_wing_stick_deck_solves_and_recovers_the_root_loads(sbeam, example, syst
 #: fuselage outline -> the BM-1 half-width fallback): the flagship concept
 #: fixture, and the one wing that hangs concentrated masses -- so the SOB gate
 #: sees both a clean wing and one whose offset couples must carry lever arms
-#: across the cut. ``ga6_normal``/``concept_heavy`` have no body data and ship
-#: no SOB node, by design.
+#: across the cut. ``concept_heavy`` has no body data and ships no SOB node,
+#: by design.
 SOB_MATRIX = ("concept_regional_jet.project.json", "atr42_100.project.json")
+
+#: **Every fixture the CLI will export an LRA deck for** (design note 55
+#: D-55.4). The mission claim is that the exported deck *solves*; until this
+#: existed the solve gate ran on :data:`SOB_MATRIX` -- the two fixtures that
+#: passed -- so the claim was tested on the set selected for passing it.
+#: ``ga6_normal`` failed on a rigid chain (D-55.1) and ``cessna_210`` on a
+#: sliver element (D-55.2); ``baron_58`` carried the same sliver and was in no
+#: gate to say so. ``concept_heavy`` is absent because it *refuses* (no body
+#: data, the BM-1 posture), which is the honest other half of the claim.
+LRA_SOLVE_MATRIX = (
+    "ga6_normal.project.json",
+    "baron_58.project.json",
+    "cessna_210.project.json",
+    "atr42_100.project.json",
+    "dhc8_dash8.project.json",
+    "concept_regional_jet.project.json",
+)
 
 
 @pytest.mark.roundtrip
@@ -1290,7 +1307,7 @@ def _side_gids(cbars, rigid, cut_eid, start):
 
 
 @pytest.mark.roundtrip
-@pytest.mark.parametrize("example", SOB_MATRIX)
+@pytest.mark.parametrize("example", LRA_SOLVE_MATRIX)
 @pytest.mark.parametrize("system", SYSTEMS)
 def test_the_lra_model_solves_and_reacts_only_the_residual(sbeam, example, system):
     """The step-12 free-free proof, through real structure this time.
@@ -1302,17 +1319,27 @@ def test_the_lra_model_solves_and_reacts_only_the_residual(sbeam, example, syste
     resultant (the solver's own assembly of the transferred set), and that
     resultant is the case residual: ~0 against the applied scale.
 
-    Known sbeam limitation, pinned strict: the regional jet's SI (mm) deck is
-    refused by sbeam's dense-path 1e15 condition heuristic, which reads the
-    raw 1-norm estimate of a matrix whose translation/rotation spread is a
-    units artifact -- Jacobi-equilibrated the same matrix conditions at
-    ~1.3e9, and the Imperial twin of the identical model solves exactly.
-    The deck is valid bulk data; the day sbeam equilibrates before its
-    check, the strict xfail below goes green and gets removed.
+    Known sbeam limitation, pinned strict: some SI (mm) decks are refused by
+    sbeam's dense-path 1e15 condition heuristic, which reads the raw 1-norm
+    estimate of a matrix whose translation/rotation spread is a units artifact
+    -- Jacobi-equilibrated the same matrix conditions at ~1.3e9, and the
+    Imperial twin of the identical model solves exactly. The deck is valid bulk
+    data; the day sbeam equilibrates before its check, the strict xfails below
+    go green and get removed.
+
+    Two fixtures sit on that heuristic, for opposite reasons: the regional jet
+    because it is the largest airframe, and ``ga6_normal`` because it is the
+    smallest *and* has only two untied fuselage nodes (nose and tail), so
+    D-55.6 leaves the clamp far from the wing and the flexible paths long. Both
+    solve exactly in Imperial, which is what says the deck is sound and the
+    heuristic is the limit. ``ga6_normal`` is the one fixture whose LRA deck a
+    future support node beside the carry-through would move off this edge --
+    filed as note 55 §8's deferred item, not guessed at here.
     """
-    if system is UnitSystem.SI and example.startswith("concept_regional_jet"):
-        pytest.xfail("sbeam dense-path condition heuristic refuses the mm "
-                     "frame of the largest airframe (see docstring)")
+    if system is UnitSystem.SI and example.startswith(
+            ("concept_regional_jet", "ga6_normal")):
+        pytest.xfail("sbeam dense-path condition heuristic refuses this mm "
+                     "frame (see docstring)")
     _, text = _lra_deck(example, system)
     sols, grids = _solved(text)
     _, _, _, forces, moments = parse_cards(text)

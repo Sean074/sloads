@@ -126,8 +126,27 @@ from .sbeam_bridge import (
 Vec3 = Tuple[float, float, float]
 
 _TOL = 1e-9
-#: A station this close (in) to an inserted special point is *at* it.
+#: **Float equality on a coordinate** (in) -- two numbers that came from the same
+#: arithmetic and must compare equal despite association. This is *not* a
+#: geometric tolerance: it answers "is this the same number", never "is this the
+#: same station". The two questions shared this constant until design note 55
+#: D-55.3, and using the epsilon for the geometric one is what let a joint land
+#: 0.0769 in from a strip station and emit a sliver element (D-55.2).
 _COINCIDENT_TOL = 1e-6
+
+#: **Is this the same station?** -- the geometric question, as a fraction of the
+#: chain's own strip width ``ds`` (design note 55 D-55.2, owner 2026-09-10). A
+#: station within this of an inserted joint is absorbed *into* the joint: the
+#: merged node keeps the station's ``gid`` and the **joint's** owned position,
+#: so no element shorter than ``JOINT_MERGE_FRACTION * ds`` is ever emitted.
+#:
+#: 5 % separates the shipped data with a 25x margin either way: the two slivers
+#: it absorbs sat at 1.07 % (``cessna_210``) and 1.33 % (``baron_58``) of a
+#: strip, and the nearest legitimate neighbour it must *not* absorb is
+#: ``ga6_normal``'s at 33.66 %. The note records that anything from ~3 % to
+#: ~25 % would separate them, so this is a judgement inside a wide band, not a
+#: fitted threshold.
+JOINT_MERGE_FRACTION = 0.05
 
 _SOB_BAND = band("lra-sob")
 _WING_BAND = band("wing-stick")
@@ -254,9 +273,10 @@ def _nearest_station(nodes: Sequence["LraNode"], x: float) -> "LraNode":
 
 def _insert_on_chain(chain: List[LraNode], key_fn, key: float, gid: int,
                      family: str, side: str,
-                     pos: Optional[Vec3] = None) -> Tuple[List[LraNode], LraNode]:
-    """``chain`` with a node at coordinate ``key`` -- the coincident station
-    re-tagged, or a new node inserted in order. Returns ``(chain, the node)``.
+                     pos: Optional[Vec3] = None,
+                     merge_tol: float = _COINCIDENT_TOL) -> Tuple[List[LraNode], LraNode]:
+    """``chain`` with a node at coordinate ``key`` -- a near station **absorbed**
+    into the joint, or a new node inserted in order. Returns ``(chain, node)``.
 
     ``pos`` is the node's **owned** position, from the joint register: a joint
     is placed where its owner says, not where the chain's polyline happens to
@@ -265,9 +285,27 @@ def _insert_on_chain(chain: List[LraNode], key_fn, key: float, gid: int,
     on ``concept_regional_jet``, on a swept surface where the two differ.
     Omitted (``None``) for a node with no joint of its own, which interpolates
     onto the chain's own line as before.
+
+    ``merge_tol`` is how close an existing station has to be to count as **the
+    same station** (design note 55 D-55.2/D-55.3). It is a *geometric* question
+    and belongs on the scale of the chain's own strip width, which is why the
+    caller passes :data:`JOINT_MERGE_FRACTION` of ``ds`` rather than letting it
+    default to the float-equality epsilon. At the epsilon it never fires on a
+    real near-miss, and a 1 %-of-a-strip miss becomes a **sliver element**:
+    ``cessna_210``'s h-tail attachment landed 0.0769 in from a station (1.07 %
+    of ``ds``) for a 1638:1 element-length ratio, on a deck already running
+    within ~4x of sbeam's 1e15 singularity refusal -- that is the singular
+    matrix #172 reported. ``baron_58`` was next at 0.1266 in / 1.33 %.
+
+    **The station is absorbed into the joint, never the other way round.** The
+    merged node keeps the station's ``gid`` (so every load routed there still
+    lands on it, resultant-preserving under LM-1) and the **joint's** position.
+    Snapping the joint onto the station instead would place an owned location by
+    the mesh, which is note 54 D-54.5 inverted -- guarded by
+    ``tests/test_joints.py``'s walk, which must keep passing unchanged.
     """
     for i, node in enumerate(chain):
-        if abs(key_fn(node) - key) <= _COINCIDENT_TOL:
+        if abs(key_fn(node) - key) <= merge_tol:
             tagged = LraNode(node.gid, pos if pos is not None else node.pos,
                              family or node.family, side or node.side)
             chain[i] = tagged
@@ -278,6 +316,69 @@ def _insert_on_chain(chain: List[LraNode], key_fn, key: float, gid: int,
     chain.append(node)
     chain.sort(key=key_fn)
     return chain, node
+
+
+def _refuse_unsolvable_skeleton(model: LraModel,
+                                merge_tols: Dict[str, float]) -> None:
+    """Refuse a skeleton this exporter knows a solver will not factor (D-55.5).
+
+    The backstop, not the fix: D-55.1 and D-55.2 are what keep these conditions
+    from arising, and neither fires on any shipped fixture. It exists because
+    the mission claim is that *the exported deck solves* -- so the one thing the
+    exporter must never do is hand over a deck that dies in the user's solver
+    with a diagnostic about the matrix rather than about the airplane. LM-4's
+    contract: name the condition, because the fix is never a default.
+
+    Two conditions, both exact -- neither invents a threshold:
+
+    * **A chain of rigid elements.** A ``GRID`` that is an ``RBE2`` dependent
+      and also an ``RBE2`` independent (or a dependent twice over) states
+      ``a -> b -> c`` in rigid links, which sbeam refuses outright. This is
+      ``ga6_normal``'s pre-D-55.1 state: the rear-spar post hung on the hub and
+      carried both main-gear ties.
+    * **A sliver element on a chain that has a strip width.** Every ``CBAR`` of
+      the tail chains is at least that chain's own
+      :data:`JOINT_MERGE_FRACTION` of ``ds`` -- which D-55.2 guarantees by
+      absorbing near stations into the joint, so a violation here is an sloads
+      defect rather than a data one. The wing and fuselage chains are
+      deliberately **not** checked: the fuselage has no strip mesh at all (its
+      spacing is entered stations plus inserted tie points, legitimately down
+      to 0.087 of its own median on ``ga6_normal``), and the wing's SOB node is
+      placed by position rather than inserted. A threshold invented for those
+      would be a guess, and this function does not guess.
+    """
+    dependents: Dict[int, int] = {}
+    independents = set()
+    for gn, _cm, gms, _lbl in model.rbe2s:
+        independents.add(gn)
+        for g in gms:
+            dependents[g] = dependents.get(g, 0) + 1
+    for gid, count in sorted(dependents.items()):
+        if count > 1 or gid in independents:
+            node = model.node(gid)
+            where = f"{node.family} {node.side}".strip() or f"GRID {gid}"
+            raise LraRefusal(
+                f"the node {where} (GRID {gid}) is rigidly tied on both sides "
+                f"-- dependent in {count} RBE2(s) and independent in "
+                f"{sum(1 for gn, _c, _g, _l in model.rbe2s if gn == gid)} -- "
+                "which states a chain of rigid elements that sbeam refuses "
+                "(design note 55 D-55.1). This is an sloads defect, not a "
+                "data one: please report it with the project file")
+
+    pos = {n.gid: n.pos for n in model.nodes}
+    for (ga, gb), family in zip(model.cbars, model.cbar_families):
+        floor = merge_tols.get(family)
+        if not floor:
+            continue                        # no strip width -- see the docstring
+        length = _dist2(pos[ga], pos[gb]) ** 0.5
+        if length < floor:
+            raise LraRefusal(
+                f"the {family} chain carries a {length:.4f} in element between "
+                f"GRID {ga} and {gb}, below the {floor:.4f} in floor a joint "
+                "insertion may leave (design note 55 D-55.2). A sliver element "
+                "conditions the stiffness matrix to the point of a singular "
+                "solve. This is an sloads defect, not a data one: please "
+                "report it with the project file")
 
 
 def _refusal_reason(reg, name: JointName) -> str:
@@ -405,6 +506,10 @@ def build_lra_model(project: Project) -> LraModel:
         spans = {}
     vtail_chain: List[LraNode] = []
     vtail_tip: Optional[LraNode] = None
+    # The D-55.2 "same station" tolerances, bound before either chain branch:
+    # a project with no fin (or no h-tail) skips that branch entirely, and the
+    # control-node loop below reads both eagerly.
+    h_merge = v_merge = _COINCIDENT_TOL
     vt = spans.get(VTAIL) or []
     planform_v = resolve_tail_planform(project, VTAIL) if vt else None
     if vt and planform_v is not None:  # spans exist only where the planform resolved
@@ -415,6 +520,8 @@ def build_lra_model(project: Project) -> LraModel:
                        reg.one(JointName.VTAIL_ROOT).location,
                        "lra-fin-root", "C")
         vtail_chain = [root, *sorted(stations, key=lambda n: n.pos[2])]
+        v_merge = JOINT_MERGE_FRACTION * (
+            planform_v.span / max(2, planform_v.elements))
         # **The fin beam runs to the fin tip** (D-54.5). Until the register the
         # chain stopped at the outermost strip *midpoint*, half a strip below
         # the top of the surface, and the T-tail R-6 tie hung the horizontal
@@ -442,6 +549,10 @@ def build_lra_model(project: Project) -> LraModel:
                                tail_station_to_airplane(st.x, st.y, HTAIL, st.z))
                        for i, st in enumerate(ht[0].stations)]
         htail_chain.sort(key=lambda n: n.pos[1])
+        # The geometric "same station" tolerance for every joint inserted on
+        # this chain (D-55.2): a fraction of the h-tail's own strip width.
+        h_merge = JOINT_MERGE_FRACTION * (
+            planform_h.span / max(2, planform_h.elements))
         if att.y == [0.0]:
             if vtail_tip is None:
                 raise LraRefusal(
@@ -451,7 +562,8 @@ def build_lra_model(project: Project) -> LraModel:
             htail_chain, joint = _insert_on_chain(
                 htail_chain, lambda n: n.pos[1], 0.0,
                 _ATTACH_BAND.allocate(1), "lra-attach", "C",
-                pos=reg.one(JointName.VTAIL_TIP_HTAIL).counterpart)
+                pos=reg.one(JointName.VTAIL_TIP_HTAIL).counterpart,
+                merge_tol=h_merge)
             model.rbe2s.append((vtail_tip.gid, "123456", [joint.gid],
                                 "T-tail joint: h-tail centreline -> fin tip "
                                 "(R-6; the fin deck's T7 lumped transfer is "
@@ -468,10 +580,12 @@ def build_lra_model(project: Project) -> LraModel:
             j_l = reg.one(JointName.HTAIL_ATTACH, "L")
             htail_chain, att_r = _insert_on_chain(
                 htail_chain, lambda n: n.pos[1], y_att,
-                _ATTACH_BAND.allocate(1), "lra-attach", "R", pos=j_r.location)
+                _ATTACH_BAND.allocate(1), "lra-attach", "R", pos=j_r.location,
+                merge_tol=h_merge)
             htail_chain, att_l = _insert_on_chain(
                 htail_chain, lambda n: n.pos[1], -y_att,
-                _ATTACH_BAND.allocate(2), "lra-attach", "L", pos=j_l.location)
+                _ATTACH_BAND.allocate(2), "lra-attach", "L", pos=j_l.location,
+                merge_tol=h_merge)
             attach_x = j_r.counterpart[0]
             pending_body_ties.append((attach_x, [att_l.gid, att_r.gid],
                                       "h-tail attachments -> fuselage; the "
@@ -480,9 +594,13 @@ def build_lra_model(project: Project) -> LraModel:
 
     # ------------------------------------- control-surface nodes (T6 discrete)
     control_nodes: List[LraNode] = []
-    for comp, chain, key_fn in (
-            (HTAIL, htail_chain, lambda n: n.pos[1]),
-            (VTAIL, vtail_chain, lambda n: n.pos[2])):
+    # The same "is this the same station" tolerance the attachment joints use
+    # (D-55.2, swept per CLAUDE.md rule 4): a hinge or actuator fitting that
+    # lands a fraction of a strip from an existing station would insert the
+    # identical sliver element, on the identical chains.
+    for comp, chain, key_fn, merge in (
+            (HTAIL, htail_chain, lambda n: n.pos[1], h_merge),
+            (VTAIL, vtail_chain, lambda n: n.pos[2], v_merge)):
         rs = spans.get(comp) or []
         if not rs or not rs[0].control_loads or not chain:
             continue
@@ -497,7 +615,8 @@ def build_lra_model(project: Project) -> LraModel:
             span_key = node.pos[1] if comp == HTAIL else node.pos[2]
             chain, parent = _insert_on_chain(  # noqa: PLW2901  -- the chain grows by the inserted node
                 chain, key_fn, span_key,
-                _ATTACH_BAND.allocate(3 + len(control_nodes)), "", "")
+                _ATTACH_BAND.allocate(3 + len(control_nodes)), "", "",
+                merge_tol=merge)
             model.rbe2s.append((parent.gid, "123456", [node.gid],
                                 f"{comp} {cp.kind} node -> parent LRA (LM-6)"))
     # Chains are registered only now: a control node's parent may have been
@@ -630,8 +749,22 @@ def build_lra_model(project: Project) -> LraModel:
                         "rear-spar post (BM-2): the aft body + empennage "
                         "cantilever hangs here"))
     fus_all = fus_fwd + fus_aft
+    # **A body tie never parents on a node that is already a dependent**
+    # (design note 55 D-55.1). A GRID that is dependent in one RBE2 and
+    # independent in another states a chain of rigid elements, which sbeam
+    # refuses -- and `ga6_normal` had exactly one: the rear-spar post hangs on
+    # the centre-box hub (BM-2) *and* carried both main-gear ties, because the
+    # nearest body station to the trunnions is the post. The rule is not new;
+    # the support picker below has always read "a forward node that is in no
+    # RBE2", and the engine path folds its two ties into one for the same
+    # reason (R-9). This is that rule, applied to the tie parents too.
+    #
+    # The gear keeps its **entered** carrier: it re-parents to a neighbouring
+    # *fuselage* station, never to the wing centre-box hub, which would state a
+    # load path the project did not enter (D-55.1's rejected alternative).
     for x, gids, label in pending_body_ties:
-        parent = _nearest_station(fus_all, x)
+        free = [n for n in fus_all if n.gid not in model.dependent_gids]
+        parent = _nearest_station(free or fus_all, x)
         model.rbe2s.append((parent.gid, "123456", gids, label))
 
     # ------------------------------------------------------- support + members
@@ -641,11 +774,35 @@ def build_lra_model(project: Project) -> LraModel:
     # short, and the difference is not cosmetic -- clamped at the nose the SI
     # (mm) stiffness conditions at 1.6e15, over sbeam's 1e15 singularity
     # refusal; here it is 2.8e14. Measured on atr42_100, 2026-08-16.
-    dependents = model.dependent_gids
-    support = next((n for n in reversed(fus_fwd) if n.gid not in dependents),
-                   None)
+    # **The support node is in NO RBE2 -- neither end** (design note 55 D-55.6).
+    # ``roundtrip._supportable`` has always applied both exclusions and records
+    # why the second is load-bearing: sbeam's ``recover_reactions`` subtracts
+    # the raw applied vector at the constrained DOFs, so a load a rigid element
+    # transfers *onto* a constrained node is never subtracted and comes back out
+    # as reaction. This picker implemented only the first, and the rule's two
+    # halves lived in two files -- the same shape as D-55.1's tie-parent defect,
+    # one file down. Measured here: with the support on a gear-tie parent,
+    # ``ga6_normal`` recovered 569.49 lb of Fx against an applied set closing to
+    # 0.0002 lb, and ``baron_58`` the same through its nose-gear tie.
+    # Among the untied nodes, clamp the one **nearest the carry-through**. That
+    # is the intent the old `reversed(fus_fwd)` encoded positionally -- "clamped
+    # beside the wing keeps every flexible path short" -- and with D-55.6
+    # excluding more candidates the positional form walked the clamp toward the
+    # nose, which is the case that comment warns about: `ga6_normal`'s SI (mm)
+    # deck conditioned past sbeam's 1e15 refusal and went singular. Stated as
+    # the distance it was always a proxy for, the clamp stays beside the wing
+    # and both chains are eligible. Ties go through `extreme` (CR-B-1), so the
+    # deck's bytes cannot depend on the platform.
+    tied = model.dependent_gids | {gn for gn, _cm, _gms, _lbl in model.rbe2s}
+    support = next((n for n in reversed(fus_fwd) if n.gid not in tied), None)
     if support is None:
-        support = next(n for n in fus_aft if n.gid not in dependents)
+        support = next((n for n in fus_aft if n.gid not in tied), None)
+    if support is None:
+        raise LraRefusal(
+            "every fuselage node is tied into an RBE2, so there is nowhere to "
+            "put a support whose recovered reaction can be trusted (design "
+            "note 55 D-55.6). This is an sloads defect, not a data one: please "
+            "report it with the project file")
     model.support_gid = support.gid
 
     model.members = {
@@ -662,6 +819,7 @@ def build_lra_model(project: Project) -> LraModel:
         model.members["gear"] = gear_nodes
     if engine_nodes:
         model.members["engine"] = engine_nodes
+    _refuse_unsolvable_skeleton(model, {"htail": h_merge, "vtail": v_merge})
     return model
 
 
