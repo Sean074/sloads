@@ -7,7 +7,7 @@
 rulings in §2.2 are the owner's, taken in session on 2026-09-10 (7–9 on review,
 10–12 during implementation); the decisions D-56.1…D-56.9 follow from them.
 Raised as
-[#263](https://github.com/Sean074/sloads/issues/263), band B4 Pri 29 — the slot
+[#263](https://github.com/Sean074/sloads/issues/263), band B4 — the slot
 note 55 (#172) vacated at close, which is fitting: this note is its direct
 successor and closes the question note 55 could only mitigate.
 
