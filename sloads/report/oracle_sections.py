@@ -2382,11 +2382,11 @@ def applied_load_table(rows: Sequence[object], *, title: str,
     and the file are the same row.
 
     The moments come through
-    :func:`~sloads.export.sbeam_bridge.applied_body_moments` rather than off the
+    :func:`~sloads.report.applied.applied_body_moments` rather than off the
     record, because a beam stores its torsion about its own span axis and only
     that owner knows which airplane axis that is for the component in hand.
     """
-    from ..export.sbeam_bridge import applied_body_moments
+    from .applied import applied_body_moments
 
     if not rows:
         return None
@@ -2427,7 +2427,7 @@ def _applied_table(net: Sequence[WingLoadResult], system: UnitSystem,
     definition. The rows come from the export channel and the shape from
     :func:`applied_load_table`, so this function is now a title and a note.
     """
-    from ..export.sbeam_bridge import applied_loads
+    from .applied import applied_loads
 
     if not net:
         return None
@@ -3524,11 +3524,11 @@ def _body_station_appendix(project: Project, *, system: UnitSystem,
     rejected for the wing, for a reason that was never the wing's alone.
 
     A **view of the export owner**, not a second assembler: C.1's rows are
-    ``sbeam_bridge.applied_loads("fuselage", ...)``, the same list
+    ``applied.applied_loads("fuselage", ...)``, the same list
     ``fuselage_applied_loads.csv`` is written from, converted at this
     document's own boundary rather than the solver deck's.
     """
-    from ..export.sbeam_bridge import applied_loads, body_station_gids
+    from .applied import applied_loads, body_station_gids
 
     net = _body_net(project)
     body = [
@@ -4720,7 +4720,7 @@ def _tail_station_appendix(project: Project, component: str, *,
         return Section("", absent_reason=(
             f"the {names['surface']} spanwise loads were not produced for this "
             "project, so there are no stations to list."), page_break=True)
-    from ..export.sbeam_bridge import applied_loads
+    from .applied import applied_loads
 
     torsion = "My" if component == "htail" else "Mz"
     normal = "Fz" if component == "htail" else "Fy"
@@ -7527,7 +7527,7 @@ def _gear_appendix(project: Project, *, system: UnitSystem,
                    plan: Sequence[SectionPlan]) -> Section:
     """Appendix F -- the gear's applied load set, all 33 cases (OR-188)."""
     del plan
-    from ..export.sbeam_bridge import applied_loads
+    from .applied import applied_loads
 
     try:
         rows = applied_loads("landing_gear", None, project)

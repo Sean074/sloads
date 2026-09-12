@@ -175,7 +175,7 @@ PBAR_J = 1.0        # in^4
 # copies** -- ``sbeam_bridge``, ``balanced_deck``, ``roundtrip`` and
 # ``lra_model`` -- each re-deciding which unit set a deck may use.
 #
-# D-56.1 dissolves ``sbeam_bridge`` and sends its report half to ``report/``, so
+# D-56.1 dissolved ``sbeam_bridge`` and sent its report half to ``report/applied.py``, so
 # a helper both halves need must have one owner or it becomes a fifth copy.
 # The authority for *which* factor a case carries is still
 # :mod:`sloads.safety_factors` (M4-8 / G-11); these only render what it decides.
@@ -207,7 +207,7 @@ def load_label(label: str, table_sf: Optional[float] = None) -> str:
     **This used to be a guarded assumption and is now a computation.** The
     already-ultimate families -- ``engine_ultimate`` (23.367(a)(2)) and
     ``emergency`` (23.561(b)) -- reached no per-component CSV when this was
-    written, and ``test_sbeam_bridge.py`` asserted it rather than trusting it.
+    written, and ``test_applied.py`` asserted it rather than trusting it.
     Note 44 OR-172 admitted 23.367 to the fin's critical set, an
     ``engine_ultimate`` case went into the v-tail chordwise and spanwise files
     beside five LIMIT ones, and the guard fired on the first run -- which is

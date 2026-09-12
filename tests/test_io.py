@@ -494,7 +494,7 @@ def test_safety_factor_legal_band_loads_verbatim():
 
 def test_safety_factor_null_no_longer_crashes_the_export():
     """The exact M4-14 repro: `"safety_factor": null` then the body export."""
-    from sloads.export.sbeam_bridge import applied_load_csv
+    from sloads.report.applied import applied_load_csv
 
     d = _m4_14_project_dict()
     _set_all_safety_factors(d, None)

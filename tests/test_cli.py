@@ -15,7 +15,7 @@ each with its own gate:
 * **F-C2 / decision D-R5 — the wing axis.** Retired with the wing target
   (note 56 D-56.2): there is no headless per-component wing deck to state an
   axis. The transfer itself is unchanged and is gated at its owner
-  (``test_sbeam_bridge.test_project_export_transfers_to_loads_ref_axis``).
+  (``test_applied.test_project_export_transfers_to_loads_ref_axis``).
 * **F-D3 / L-8g — the stamp.** Every headless CSV and BDF carries the Step G8.3
   methods & limitations block, so a file forwarded on its own still states its
   ULTIMATE basis, its category and its approved corrections.
@@ -41,7 +41,7 @@ import pytest
 
 import cli
 from sloads import io as sloads_io
-from sloads.export import sbeam_bridge as sb
+from sloads.report import applied as ap
 from sloads.models import Project
 from sloads.modules.net_loads import build_net_loads, loads_ref_axis_results
 from sloads.report.methods import strip_comment_lines

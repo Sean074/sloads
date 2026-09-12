@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sloads import io
 from sloads.constants import CARRY_THROUGH_NODES
 from sloads.derived_geometry import CarryThrough, carry_through
-from sloads.export import sbeam_bridge
+from sloads.report import applied
 from sloads.models import FuselageMassInput, FuselageStation, TailLoadsInput
 from sloads.modules import body_loads
 
@@ -189,16 +189,16 @@ def test_body_gids_are_stable_when_the_spar_stations_move():
     station aft of the wing whenever a spar fraction changed."""
     p = _project()
     r = body_loads.build_body_loads(p)[0]
-    mass_gids = {s.x: g for s, g in zip(r.stations, sbeam_bridge.body_station_gids(r))
+    mass_gids = {s.x: g for s, g in zip(r.stations, applied.body_station_gids(r))
                  if s.source != "carry"}
     # A carry node lands between mass stations, so the interleaving is real.
-    gids = sbeam_bridge.body_station_gids(r)
+    gids = applied.body_station_gids(r)
     assert any(a > b for a, b in zip(gids, gids[1:]))
 
     wing = p.geometry.by_name("wing")
     wing.front_spar_x_in, wing.rear_spar_x_in = 65.0, 120.0
     r2 = body_loads.build_body_loads(p)[0]
-    moved = {s.x: g for s, g in zip(r2.stations, sbeam_bridge.body_station_gids(r2))
+    moved = {s.x: g for s, g in zip(r2.stations, applied.body_station_gids(r2))
              if s.source != "carry"}
     assert moved == mass_gids
     assert not r2.spars_assumed and r.spars_assumed
@@ -208,12 +208,12 @@ def test_body_gid_blocks_are_disjoint():
     """Mass/tail stations keep the historical 1001+ numbering; reaction nodes
     take their own 1501+ block, below the tail family's 2001."""
     r = body_loads.build_body_loads(_project())[0]
-    for s, gid in zip(r.stations, sbeam_bridge.body_station_gids(r)):
+    for s, gid in zip(r.stations, applied.body_station_gids(r)):
         if s.source in ("carry", "correction"):
             assert 1501 <= gid < 2001
         else:
             assert 1001 <= gid < 1501
-    assert len(set(sbeam_bridge.body_station_gids(r))) == len(r.stations)
+    assert len(set(applied.body_station_gids(r))) == len(r.stations)
 
 
 

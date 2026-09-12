@@ -43,7 +43,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sloads import io  # noqa: E402
 from sloads import registry  # noqa: E402
-from sloads.export.sbeam_bridge import applied_load_csv  # noqa: E402
+from sloads.report.applied import applied_load_csv  # noqa: E402
 from sloads.field_registry import reduce_to_oracle_inputs  # noqa: E402
 from sloads.models.report import ReportSpec  # noqa: E402
 from sloads.modules import body_loads  # noqa: E402

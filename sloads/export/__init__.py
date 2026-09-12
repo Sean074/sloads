@@ -14,12 +14,11 @@ them.
   without the safety factor (gate G-OR-72). :mod:`sloads.export.lra_import`
   reads a user-defined LRA definition back in, so an imported beam and a
   generated one are the same contract at different vintages.
-- **The applied load set** — :mod:`sloads.export.sbeam_bridge`:
-  :func:`applied_loads`, what is applied, where, for which case, at what factor,
-  in one row shape for all six components. The station numbering
-  (:func:`station_gid`, :func:`beam_station_gids`, :func:`tail_span_gid`, …)
-  stays with it: an applied-load row states which station it is at, and the LRA
-  model and the mass export tie to the same points, so they must agree.
+- **The applied load set** — **no longer here.** :func:`applied_loads`, its
+  five row builders, the side-of-body internal loads and the station numbering
+  that goes with them are report infrastructure, not a bridge to sbeam, and note
+  56 D-56.1 moved them to :mod:`sloads.report.applied`, which is where their
+  consumers already were. Import them from there, not from this package.
 - **Mass model** — :mod:`sloads.export.mass_cards`: :func:`conm2_fragment`,
   :func:`mass_check_deck` and :func:`inertia_only_cards`, the ``CONM2``/
   ``MASSSET`` export that gives sbeam an *independently parsed* mass model to
@@ -56,28 +55,12 @@ from .equilibrium import (
     ref_first_loaded,
     resultant,
 )
-from .sbeam_bridge import (
-    NodalLoad,
-    applied_load_csv,
-    applied_loads,
-    beam_station_gid,
-    body_station_gids,
-    station_gid,
-    wing_nodal_loads,
-    write_applied_load_csv,
-)
 from .workbook import build_workbook
 
 __all__ = [
     "SBEAM_CID",
     "CardTotals",
-    "NodalLoad",
     "Resultant",
-    # The applied load set (sloads.export.sbeam_bridge)
-    "applied_load_csv",
-    "applied_loads",
-    "beam_station_gid",
-    "body_station_gids",
     "build_workbook",
     # Export-boundary closure gate (sloads.export.equilibrium)
     "card_totals",
@@ -87,13 +70,8 @@ __all__ = [
     "ref_aftmost_loaded",
     "ref_first_loaded",
     "resultant",
-    # Station numbering -- one owner, because the applied set, the LRA model
-    # and the mass export all state which station they are at.
-    "station_gid",
     "to_force",
     "to_grid",
     "to_moment",
     "to_pressure",
-    "wing_nodal_loads",
-    "write_applied_load_csv",
 ]

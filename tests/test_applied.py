@@ -3,7 +3,7 @@
 Concept mode has no printed oracle, so the bridge is validated by *closure*: the
 exported FORCE set sums to the NETLOADS root shear, the MOMENT(My) set to the
 root torsion, and the FORCE moments about the root reproduce the root bending --
-all by the increment construction in ``sbeam_bridge``. The cards are re-parsed by
+all by the increment construction in ``report.applied``. The cards are re-parsed by
 a self-contained free-field reader (no sbeam dependency) and re-summed. Stick-deck
 structure (one root clamp, a CBAR chain, one load set per case) is checked too.
 
@@ -21,7 +21,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sloads import io
-from sloads.export import sbeam_bridge as sb
+from sloads.report import applied as ap
 from sloads.report import tables as rt
 from sloads.export.equilibrium import card_totals, closes, parse_cards
 from sloads.modules.flight_envelope import build_envelope
@@ -60,7 +60,7 @@ def _nodal_torsion_about_root(nodes):
 
 def test_nodal_loads_sum_to_root_totals():
     for r in _wing_net(_GA):
-        nodes = sb.wing_nodal_loads(r)
+        nodes = ap.wing_nodal_loads(r)
         root = r.stations[0]
         y0 = nodes[0].y
         assert math.isclose(sum(n.fz for n in nodes), root.sz, rel_tol=1e-9, abs_tol=1e-6)
@@ -76,7 +76,7 @@ def test_concept_closure():
     results = _wing_net(_CONCEPT)
     assert results
     for r in results:
-        nodes = sb.wing_nodal_loads(r)
+        nodes = ap.wing_nodal_loads(r)
         assert math.isclose(sum(n.fz for n in nodes), r.stations[0].sz, rel_tol=1e-9, abs_tol=1e-6)
         assert math.isclose(_nodal_torsion_about_root(nodes),
                             r.stations[0].myy, rel_tol=1e-9, abs_tol=1e-3)
@@ -98,19 +98,19 @@ def test_a_filtered_export_does_not_renumber_the_surviving_subcases():
     in two exports of the same project, with nothing in either deck saying so."""
     results = _wing_net(_GA)
     assert len(results) >= 3
-    full = {r.case_ref.case_id: sb._sid(1, i, r) for i, r in enumerate(results)}
+    full = {r.case_ref.case_id: ap._sid(1, i, r) for i, r in enumerate(results)}
 
     keep = [r for r in results if r.case_ref.case_id != results[0].case_ref.case_id]
     kept_ids = [r.case_ref.case_id for r in keep]
     assert rt.filter_by_selected_case_ids(results, kept_ids) == keep
-    filtered = {r.case_ref.case_id: sb._sid(1, i, r) for i, r in enumerate(keep)}
+    filtered = {r.case_ref.case_id: ap._sid(1, i, r) for i, r in enumerate(keep)}
     assert filtered == {cid: full[cid] for cid in kept_ids}
 
     # ... and the map block a deck carries names the surviving cases under those
     # same numbers. It read the wing stick deck's text until note 56 D-56.2
     # deleted it; `subcase_map_block` is the owner both it and every surviving
     # deck render from, so the property is asserted at the owner.
-    lines = "\n".join(sb.subcase_map_block(keep))
+    lines = "\n".join(ap.subcase_map_block(keep))
     for cid in kept_ids:
         assert f"$ SUBCASE {full[cid]} = {cid} -- " in lines
     dropped = results[0].case_ref.case_id
@@ -121,7 +121,7 @@ def test_subcase_map_names_the_governing_condition():
     """Decision 10: a deck consumer can trace a subcase back to its condition
     from the deck alone -- id, condition and FAR reference, on one line."""
     results = _wing_net(_GA)
-    lines = sb.subcase_map_block(results)
+    lines = ap.subcase_map_block(results)
     assert lines and lines[0].startswith("$ ")
     body = [ln for ln in lines if ln.startswith("$ SUBCASE ")]
     assert len(body) == len(results)
@@ -166,7 +166,7 @@ def test_the_applied_set_carries_every_strip_and_every_concentrated_mass():
     """One row per strip plus one per wing mass -- the whole applied set."""
     net = _lra_net(_BARON)
     one = net[0]
-    rows = sb.applied_load_rows([one])
+    rows = ap.applied_load_rows([one])
     assert len(rows) == len(one.stations) + len(one.point_loads)
     assert len(one.point_loads) == 4, "the Baron enters four concentrated wing masses"
     named = [r.label for r in rows if r.gid is None]
@@ -175,7 +175,7 @@ def test_the_applied_set_carries_every_strip_and_every_concentrated_mass():
 
 def test_a_concentrated_mass_has_no_grid_and_no_free_moment():
     """A point mass is a pure force: every moment it makes is force x arm."""
-    rows = sb.applied_load_rows(_lra_net(_BARON)[:1])
+    rows = ap.applied_load_rows(_lra_net(_BARON)[:1])
     masses = [r for r in rows if r.gid is None]
     assert masses, "the Baron has concentrated wing masses"
     for m in masses:
@@ -186,7 +186,7 @@ def test_a_concentrated_mass_has_no_grid_and_no_free_moment():
 def _resultant(rows, about, outboard_of):
     """The applied set's six-component resultant about ``about``, tip-inboard.
 
-    ``rows`` are :class:`~sloads.export.sbeam_bridge.AppliedLoad` records; only
+    ``rows`` are :class:`~sloads.report.applied.AppliedLoad` records; only
     those at or outboard of ``outboard_of`` (a span station, in) contribute --
     which is exactly the population the cumulative table at that station holds.
     Moments are right-handed ``r x F`` plus the record's own free moments,
@@ -197,7 +197,7 @@ def _resultant(rows, about, outboard_of):
         if r.y < outboard_of:
             continue
         dx, dy, dz = r.x - about[0], r.y - about[1], r.z - about[2]
-        bmx, bmy, bmz = sb.applied_body_moments(r)
+        bmx, bmy, bmz = ap.applied_body_moments(r)
         sx += r.fx
         sz += r.fz
         mx += dy * r.fz - dz * r.fy + bmx
@@ -222,7 +222,7 @@ def test_the_applied_set_reproduces_the_whole_vmt_at_every_station():
     """
     for path in (_GA, _BARON):
         for result in _lra_net(path):
-            rows = sb.applied_load_rows([result])
+            rows = ap.applied_load_rows([result])
             for station in result.stations:
                 about = (station.x, station.y, station.z)
                 got = _resultant(rows, about, station.y)
@@ -243,12 +243,12 @@ def test_the_applied_set_states_all_six_components():
     consumer building cards has to be able to tell that from an omission.
     """
     for path in (_GA, _BARON):
-        rows = sb.applied_load_rows(_lra_net(path))
+        rows = ap.applied_load_rows(_lra_net(path))
         assert rows
         for r in rows:
             assert r.fy == 0.0
-            assert sb.applied_body_moments(r)[0] == 0.0
-            assert sb.applied_body_moments(r)[2] == 0.0
+            assert ap.applied_body_moments(r)[0] == 0.0
+            assert ap.applied_body_moments(r)[2] == 0.0
         assert any(r.myy_free for r in rows), "My is not structurally zero"
 
 
@@ -263,7 +263,7 @@ def test_the_applied_moment_is_the_free_moment_not_the_increment():
     s = result.stations
     increments = [s[i].myy - (s[i + 1].myy if i + 1 < len(s) else 0.0)
                   for i in range(len(s))]
-    rows = [r for r in sb.applied_load_rows([result]) if r.gid is not None]
+    rows = [r for r in ap.applied_load_rows([result]) if r.gid is not None]
     opposed = [i for i, (r, d) in enumerate(zip(rows, increments)) if r.myy_free * d < 0]
     assert opposed, ("the two quantities no longer differ in sign anywhere -- if "
                      "the physics moved, restate the case; if the export was "
@@ -275,7 +275,7 @@ def test_the_applied_csv_states_its_units_axis_and_factor():
     net = _lra_net(_GA)
     from sloads.report.methods import strip_comment_lines
 
-    text = sb.applied_load_csv(net)
+    text = ap.applied_load_csv(net)
     header = strip_comment_lines(text).splitlines()[0]
     assert header.split(",") == [
         "Case", "Station", "GID", "X (in)", "Y (in)", "Z (in)",
@@ -290,7 +290,7 @@ def test_the_applied_csv_states_its_units_axis_and_factor():
 
 def test_the_applied_csv_leaves_a_point_masss_gid_blank():
     """No invented grid: the deck has no node at a concentrated mass (yet)."""
-    rows = _csv_rows(sb.applied_load_csv(_lra_net(_BARON)[:1]))
+    rows = _csv_rows(ap.applied_load_csv(_lra_net(_BARON)[:1]))
     blank = [r for r in rows if r["GID"] == ""]
     assert len(blank) == 4
     assert all(r["My (lb-in)"] == "0" for r in blank)
@@ -300,8 +300,8 @@ def test_the_applied_csv_leaves_a_point_masss_gid_blank():
 def test_the_applied_csv_is_ultimate():
     """LIMIT x the case's own SF, like every other deliverable in this channel."""
     net = _lra_net(_GA)[:1]
-    rows = sb.applied_load_rows(net)
-    csv_rows = _csv_rows(sb.applied_load_csv(net))
+    rows = ap.applied_load_rows(net)
+    csv_rows = _csv_rows(ap.applied_load_csv(net))
     for r, c in zip(rows, csv_rows):
         assert math.isclose(float(c["Fz (lb)"]), r.fz,
                             abs_tol=0.05)
@@ -312,7 +312,7 @@ def test_applied_load_writer(tmp_path=None):
 
     d = str(tmp_path) if tmp_path else tempfile.mkdtemp()
     path = os.path.join(d, "applied.csv")
-    sb.write_applied_load_csv(_lra_net(_GA), path, header_comment="# ULTIMATE\n")
+    ap.write_applied_load_csv(_lra_net(_GA), path, header_comment="# ULTIMATE\n")
     text = open(path, encoding="utf-8").read()
     assert text.startswith("# ULTIMATE")
     assert "My (lb-in)" in text
@@ -321,13 +321,13 @@ def test_applied_load_writer(tmp_path=None):
 def test_accepts_project_and_requires_loads():
     p = io.load_project(_GA)
     try:
-        sb.applied_load_csv(p)  # no Project.loads set yet
+        ap.applied_load_csv(p)  # no Project.loads set yet
     except ValueError:
         pass
     else:
         raise AssertionError("expected ValueError when Project.loads is missing")
     p.loads = build_net_loads(p)
-    rows = _csv_rows(sb.applied_load_csv(p))
+    rows = _csv_rows(ap.applied_load_csv(p))
     assert rows and "GID" in rows[0]
 
 
@@ -339,7 +339,7 @@ def test_project_export_transfers_to_loads_ref_axis():
     p.loads = build_net_loads(p)
     wing = p.geometry.by_name(p.wing_mass.surface)
     wing.ref_axis_pct = 0.40
-    rows = _csv_rows(sb.applied_load_csv(p))
+    rows = _csv_rows(ap.applied_load_csv(p))
     assert rows and all(r["MyyAxis"] == "LRA 40% chord" for r in rows)
     # The applied station X is the LRA point, not the 25% chord it was computed
     # about: the transfer moved the point the load is stated at.
@@ -356,7 +356,7 @@ def test_writers(tmp_path=None):
     results = _lra_net(_GA)
     d = tmp_path or tempfile.mkdtemp()
     csv_p = os.path.join(str(d), "w.applied_loads.csv")
-    sb.write_applied_load_csv(results, csv_p)
+    ap.write_applied_load_csv(results, csv_p)
     assert os.path.getsize(csv_p) > 0
 
 
@@ -389,29 +389,34 @@ def test_filter_by_selected_case_ids_empty_selection_drops_all_tagged():
     assert rt.filter_by_selected_case_ids(results, set()) == []
 
 
-def test_export_package_exposes_all_component_families():
-    """Step P1-4: the whole export surface is reachable from ``sloads.export``.
+def test_the_applied_load_set_has_one_address_and_the_export_package_is_not_it():
+    """Note 56 D-56.1: the applied-load model lives in ``report/``, and only there.
 
     Step P1-4 asserted that all four *component deck* families were reachable
-    from the package. **Note 56 D-56.2 deleted all of them**, so what this test
-    pins is the surface that replaced them: the applied load set and the
-    station numbering, which are what the decks were built from and what the
-    deliverable is now stated at.
+    from ``sloads.export``. D-56.2 deleted all of them, and D-56.1 then took the
+    surface that had replaced them -- the applied load set, the station
+    numbering and the side-of-body loads -- out of the package too, because none
+    of it is a bridge to sbeam: it is the record of what is applied and where,
+    which the report is built from.
 
-    The second half is the half that keeps its force. Names that left the
-    package must be **absent**, not re-exported: a compatibility alias would put
-    one name at two addresses, which is exactly the condition note 56 removes.
-    Both groups are listed -- the report tables that went to
-    :mod:`sloads.report.tables` at D-56.1, and the deck writers that went
-    nowhere at D-56.2.
+    So this pins one address per name, in both directions. Every name resolves
+    from :mod:`sloads.report.applied`; **none** of them is re-exported by
+    ``sloads.export``. A compatibility alias would put one name at two
+    addresses, which is the condition note 56 exists to remove -- and it is the
+    condition that let the deck writers keep a public surface after the decks
+    themselves stopped being deliverables. The deleted writers are listed beside
+    them so a name cannot come back without an artifact.
     """
     import sloads.export as export_pkg
-    from sloads.export import (  # noqa: F401
+    from sloads.report.applied import (  # noqa: F401
+        AppliedLoad,
         applied_load_csv,
         applied_loads,
         beam_station_gid,
         body_station_gids,
+        sob_internal_loads,
         station_gid,
+        wing_nodal_loads,
         write_applied_load_csv,
     )
     from sloads.report.tables import (  # noqa: F401
@@ -420,13 +425,14 @@ def test_export_package_exposes_all_component_families():
         write_case_index_csv,
     )
 
-    # Every re-exported name is advertised in __all__ and resolves to the
-    # sbeam_bridge implementation (no accidental shadowing).
     for name in ("applied_loads", "applied_load_csv", "write_applied_load_csv",
                  "station_gid", "beam_station_gid", "body_station_gids",
-                 "wing_nodal_loads"):
-        assert name in export_pkg.__all__, f"{name} missing from export __all__"
-        assert getattr(export_pkg, name) is getattr(sb, name)
+                 "wing_nodal_loads", "AppliedLoad", "sob_internal_loads"):
+        assert hasattr(ap, name), f"{name} missing from report.applied"
+        assert not hasattr(export_pkg, name), (
+            f"{name} is the applied-load model (note 56 D-56.1); it moved to "
+            "sloads.report.applied and the export package must not re-export it")
+        assert name not in export_pkg.__all__, f"{name} still in export __all__"
 
     for name in ("case_index_csv", "write_case_index_csv",
                  "filter_by_selected_case_ids", "safety_factors_csv",
@@ -445,7 +451,27 @@ def test_export_package_exposes_all_component_families():
             f"{name} is a per-component deck writer (note 56 D-56.2); it was "
             "deleted, and an alias here would resurrect the name without the "
             "artifact")
-        assert not hasattr(sb, name), f"{name} still exists in sbeam_bridge"
+        assert not hasattr(ap, name), f"{name} still exists in report.applied"
+
+
+def test_no_module_named_sbeam_bridge_survives_the_move():
+    """D-56.1's other half: the file is gone, not emptied or aliased.
+
+    ``sbeam_bridge`` named a bridge to sbeam that had not existed in the file
+    for two milestones. Leaving an importable shim would keep the name -- and
+    the misfiling it records -- alive in every citation that has not been
+    re-pointed yet.
+    """
+    import importlib
+
+    for name in ("sloads.export.sbeam_bridge", "sloads.report.sbeam_bridge"):
+        try:
+            importlib.import_module(name)
+        except ImportError:
+            continue
+        raise AssertionError(
+            f"{name} is importable; note 56 D-56.1 dissolved it into "
+            "sloads.report.applied and left no shim")
 
 
 # --------------------------------------------------------------------------- #
@@ -468,7 +494,7 @@ def test_wing_export_honours_per_case_safety_factor():
     """Closure holds against *that case's* factor -- SF=1.0 exports unscaled."""
     for sf in (1.0, 1.25, _SF):
         for r in _wing_net_with_sf(sf):
-            nodes = sb.wing_nodal_loads(r)
+            nodes = ap.wing_nodal_loads(r)
             root = r.stations[0]
             assert math.isclose(sum(n.fz for n in nodes), root.sz,
                                 rel_tol=1e-9, abs_tol=1e-6), sf
@@ -483,7 +509,7 @@ def test_wing_export_mixes_factors_across_cases():
     results[0].safety_factor = 1.0
     results[1].safety_factor = 1.5
     for r in results[:2]:
-        nodes = sb.wing_nodal_loads(r)
+        nodes = ap.wing_nodal_loads(r)
         assert math.isclose(sum(n.fz for n in nodes), r.stations[0].sz,
                             rel_tol=1e-9, abs_tol=1e-6), r.case
 
@@ -613,7 +639,7 @@ def test_sob_internal_loads_match_the_cumulative_table_at_a_cut():
         s, sf = r.stations, r.safety_factor
         for k in (0, 2, len(s) - 2):
             y_cut = 0.5 * (s[k].y + s[k + 1].y)
-            si = sb.sob_internal_loads(r, y_cut)
+            si = ap.sob_internal_loads(r, y_cut)
             nxt = s[k + 1]
             assert math.isclose(si.sz, nxt.sz, rel_tol=1e-9, abs_tol=1e-6)
             assert math.isclose(si.sx, nxt.sx, rel_tol=1e-9, abs_tol=1e-6)
@@ -641,9 +667,10 @@ def test_sob_internal_loads_match_the_cumulative_table_at_a_cut():
 
 
 
-def test_the_export_package_takes_no_silent_defaults():
+def test_the_deck_and_applied_load_surface_takes_no_silent_defaults():
     """CH-2 (code-standard review item 9): the error contract -- "flagged,
-    never silently defaulted" -- holds in the export namespace structurally.
+    never silently defaulted" -- holds structurally across the export package
+    and the applied-load model.
 
     ``getattr(obj, name, default)`` is the shape that hides a missing attribute
     behind a quiet fallback; every result the exporters read is a typed
@@ -655,15 +682,26 @@ def test_the_export_package_takes_no_silent_defaults():
     import ast
     from pathlib import Path
 
-    root = Path(sb.__file__).parent
+    # The export package, plus this module -- and *only* this module out of
+    # ``report/``. Note 56 D-56.1 moved the applied-load model here; the rule it
+    # was written under travels with the code, not with the directory. The rest
+    # of ``report/`` renders whatever a project happens to carry and reads
+    # optional slices with defaults by design, which is why the sweep is a named
+    # file set rather than a second package walk.
+    import sloads.export as export_pkg
+
+    paths = sorted(Path(export_pkg.__file__).parent.glob("*.py"))
+    paths.append(Path(ap.__file__))
     hits = []
-    for path in sorted(root.glob("*.py")):
+    for path in paths:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):
             if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
                     and node.func.id == "getattr" and len(node.args) >= 3):
                 hits.append(f"{path.name}:{node.lineno}")
-    assert not hits, f"getattr(..., default) in the export package: {hits}"
+    assert not hits, (
+        "getattr(..., default) in the export package or the applied-load "
+        f"model: {hits}")
 
 
 def test_tail_span_export_refuses_an_unknown_component():
@@ -675,8 +713,8 @@ def test_tail_span_export_refuses_an_unknown_component():
     better place to hold it.
     """
     project = io.load_project(_GA)
-    for entry in (lambda: sb.applied_loads("canard", project),
-                  lambda: sb._tail_span_results(project, "canard")):
+    for entry in (lambda: ap.applied_loads("canard", project),
+                  lambda: ap._tail_span_results(project, "canard")):
         try:
             entry()
         except ValueError as exc:
@@ -702,7 +740,7 @@ def test_card_components_snap_dust_and_negative_zero():
     # every FORCE/MOMENT triple in the exporters goes through it (rule 4 guard)
     import re
     from pathlib import Path
-    root = Path(sb.__file__).parent
+    root = Path(ap.__file__).parent
     triple = re.compile(r"\{fmt\(\w+\)\}, \{fmt\(\w+\)\}, \{fmt\(\w+\)\}")
     hits = [f"{f.name}: {ln.strip()}" for f in root.glob("*.py")
             for ln in f.read_text().splitlines()
@@ -755,7 +793,7 @@ def test_a_mixed_basis_csv_keeps_a_plain_header_and_an_all_ultimate_one_is_marke
     import glob
     import os
 
-    from sloads.export.sbeam_bridge import applied_load_csv
+    from sloads.report.applied import applied_load_csv
     from sloads.io import load_project
     from sloads.modules.tail_span import build_tail_span
     from sloads.safety_factors import shared_basis_factor
@@ -803,7 +841,7 @@ def test_the_shared_basis_owner_is_asked_by_both_deliverables():
     """One owner for OR-118a, read by the document and by the export (rule 3).
 
     The rule was written twice -- once in ``report.render._table_sf``, once as
-    an assumption in ``export.sbeam_bridge._load_label`` -- which is how a mixed
+    an assumption in ``report.applied._load_label`` -- which is how a mixed
     table became expressible in one deliverable and unthinkable in the other.
     """
     from sloads.report.render import _table_sf

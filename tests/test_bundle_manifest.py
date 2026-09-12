@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import sloads.modules  # noqa: F401  (module registration)
 from sloads import io
 from sloads.export import mass_cards as mc
-from sloads.export import sbeam_bridge as sb
+from sloads.report import applied as ap
 from sloads.report import tables as rt
 from sloads.export.balanced_deck import balanced_deck
 from sloads.export.lra_model import lra_model_bdf
@@ -58,17 +58,17 @@ def _try(fn, *args, **kwargs):
 def _sbeam_artifacts(project, comps, cases):
     art = {}
     if comps.wing:
-        art["wing_applied_loads.csv"] = _try(sb.applied_load_csv, comps.wing)
+        art["wing_applied_loads.csv"] = _try(ap.applied_load_csv, comps.wing)
     if comps.body:
         art["fuselage_applied_loads.csv"] = _try(
-            sb.applied_load_csv, comps.body, component="fuselage", project=project)
+            ap.applied_load_csv, comps.body, component="fuselage", project=project)
     if comps.tail:
         from sloads.modules.tail_span import build_tail_span
 
         spans = _try(build_tail_span, project) or {}
         for _surface in ("htail", "vtail"):
-            art[sb.APPLIED_CSV_NAMES[_surface]] = _try(
-                sb.applied_load_csv, spans.get(_surface) or [], component=_surface)
+            art[ap.APPLIED_CSV_NAMES[_surface]] = _try(
+                ap.applied_load_csv, spans.get(_surface) or [], component=_surface)
     if cases:
         art["balanced_airframe.bdf"] = _try(balanced_deck, project, cases=cases)
         art["lra_model.bdf"] = _try(lra_model_bdf, project, cases=cases)

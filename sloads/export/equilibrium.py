@@ -150,11 +150,13 @@ def parse_cards(text: str):
 class CardTotals:
     """Σ``FORCE`` and Σ``MOMENT`` of one load set, ignoring geometry entirely.
 
-    The half of the check that needs no ``GRID`` cards, for the two decks that
-    have none: the bare wing ``force_moment_cards`` deck (its geometry lives in
-    the stick model beside it) and the control-surface deck (whose chordwise
-    ``x`` is a fraction of chord, so it has no geometry to carry -- see
-    :func:`sloads.export.sbeam_bridge.control_surface_force_moment_cards`).
+    The half of the check that needs no ``GRID`` cards. Note 56 D-56.2 deleted
+    the two decks that had none -- the bare wing ``force_moment_cards`` set,
+    whose geometry lived in the stick model beside it, and the control-surface
+    set, whose chordwise ``x`` was a fraction of chord -- so every deck that
+    ships now carries its own grids. The geometry-free sum is kept because it
+    isolates a card-value error from a coordinate error, which is what makes a
+    :func:`resultant` mismatch diagnosable.
 
     Use :func:`resultant` wherever the deck *does* carry ``GRID`` cards: the
     lever arms are the half that catches a coordinate error, and a force-only

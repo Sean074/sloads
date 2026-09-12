@@ -173,7 +173,8 @@ an identity or closure per CLAUDE.md rule 2.
 ## 6. What this supersedes / corrects
 
 - **T-16** narrowed (roll zero *for symmetric pairings*) — `results.py`,
-  `coordinates.py` and `sbeam_bridge.py` comment blocks updated together.
+  `coordinates.py` and `report/applied.py` comment blocks updated together
+  (`sbeam_bridge.py` when this was written; note 56 D-56.1 dissolved it).
 - **Note 21 §5** — "(b)" → "(c)", stale backlog-step-9 pointer replaced.
 - `docs/30_future/21_power_effects_wing_note.md` G6-6 cites "(b)'s ratios" —
   verified **correct** (the split formula is (b)); no change.

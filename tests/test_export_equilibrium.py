@@ -41,7 +41,7 @@ import pytest
 from imperial_baseline import EXAMPLES, _try
 
 from sloads import io
-from sloads.export import sbeam_bridge as sb
+from sloads.report import applied as ap
 from sloads.export.bands import band
 from sloads.export.coordinates import (
     bending_moment_vector,
@@ -170,8 +170,8 @@ def test_wing_deck_reproduces_the_station_table_at_every_node(example, system):
     _skip_if_empty(wing, example, "wing")
     u = _units(system)
     for r in wing:
-        loads = sb.wing_nodal_loads(r)
-        gid_of = {sb.station_gid(i): i for i in range(len(r.stations))}
+        loads = ap.wing_nodal_loads(r)
+        gid_of = {ap.station_gid(i): i for i in range(len(r.stations))}
         for k, st in enumerate(r.stations):
             ref = (st.x, st.y, st.z)
             # Everything this station carries: its own applied load and every
@@ -230,7 +230,7 @@ def test_offset_couples_exist_only_where_a_concentrated_mass_does(example):
     _skip_if_empty(wing, example, "wing")
     expected = _has_concentrated_wing_mass(example)
     for r in wing:
-        loads = sb.wing_nodal_loads(r)
+        loads = ap.wing_nodal_loads(r)
         nodes = [i for i, nl in enumerate(loads)
                  if abs(nl.mx) > 1e-6 or abs(nl.mz) > 1e-6]
         where = f"{example} wing {r.case}"
@@ -269,8 +269,8 @@ def test_body_grids_match_station_geometry(example):
     project, body = _project(example), _cached(example)[1]
     _skip_if_empty(body, example, "body")
     want = {gid: s.x
-            for r in body for gid, s in zip(sb.body_station_gids(r), r.stations)}
-    rows = sb.applied_loads("fuselage", body, project=project)
+            for r in body for gid, s in zip(ap.body_station_gids(r), r.stations)}
+    rows = ap.applied_loads("fuselage", body, project=project)
     assert {ld.gid for ld in rows} == set(want)
     for ld in rows:
         assert math.isclose(ld.x, want[ld.gid], rel_tol=1e-6, abs_tol=1e-6)
@@ -318,20 +318,20 @@ def test_gid_blocks_are_disjoint(example):
     emitted = {}   # band name -> GIDs the applied load sets state
     if wing:
         emitted["wing-stick"] = {
-            sb.station_gid(i) for i in range(len(wing[0].stations))}
+            ap.station_gid(i) for i in range(len(wing[0].stations))}
     if body:
         mass, reaction = set(), set()
         for r in body:
-            for gid, s in zip(sb.body_station_gids(r), r.stations):
-                (reaction if s.source in sb._BODY_REACTION_SOURCES else mass).add(gid)
+            for gid, s in zip(ap.body_station_gids(r), r.stations):
+                (reaction if s.source in ap._BODY_REACTION_SOURCES else mass).add(gid)
         emitted["body-mass"] = mass
         emitted["body-reaction"] = reaction
     for component, results in (("htail", htail_span), ("vtail", vtail_span)):
         if results:
             emitted[f"tail-span-{component}"] = {
-                sb.tail_span_gid(component, i)
+                ap.tail_span_gid(component, i)
                 for r in results for i in range(len(r.stations))}
-            control = {sb.tail_control_gid(component, i)
+            control = {ap.tail_control_gid(component, i)
                        for r in results for i in range(len(r.control_loads))}
             if control:
                 emitted[f"tail-control-{component}"] = control
@@ -395,11 +395,11 @@ def test_body_gid_block_capacity_still_guarded():
     _, body, _, _, _, _ = _cached("ga6_normal.project.json")
     assert body
     r = copy.deepcopy(body[0])
-    proto = [s for s in r.stations if s.source not in sb._BODY_REACTION_SOURCES][0]
+    proto = [s for s in r.stations if s.source not in ap._BODY_REACTION_SOURCES][0]
     r.stations = [copy.deepcopy(proto)
                   for _ in range(band("body-mass").size + 1)]
     with pytest.raises(ValueError, match="exceed"):
-        sb.body_station_gids(r)
+        ap.body_station_gids(r)
 
 
 # --------------------------------------------------------------------------- #

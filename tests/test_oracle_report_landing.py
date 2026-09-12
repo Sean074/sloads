@@ -37,7 +37,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sloads import io
-from sloads.export import sbeam_bridge as sb
+from sloads.report import applied as ap
 from sloads.gear_loads import application_point_of
 from sloads.models.report import ReportSpec
 from sloads.modules.landing import (
@@ -116,7 +116,7 @@ def test_every_landload_case_reaches_the_section_and_the_appendix():
         reactions = _table(_section_12(doc).subsections[2], "Gear reactions")
         assert {int(row[0]) for row in reactions.rows} == set(_ALL_CASES), name
 
-        rows = sb.applied_loads("landing_gear", None, _project(name))
+        rows = ap.applied_loads("landing_gear", None, _project(name))
         in_appendix = {int(load.case_id.split("-")[1]) for load in rows}
         assert in_appendix == set(_ALL_CASES), (
             name, sorted(set(_ALL_CASES) - in_appendix))
@@ -209,9 +209,9 @@ def test_every_structural_element_has_an_applied_load_file_in_one_shape():
     component so that a new element cannot arrive in a shape of its own.
     """
     project = _project("baron_58")
-    assert set(sb.APPLIED_CSV_NAMES) == set(sb.APPLIED_COMPONENTS)
+    assert set(ap.APPLIED_CSV_NAMES) == set(ap.APPLIED_COMPONENTS)
     for component in ("landing_gear", "engine"):
-        text = sb.applied_load_csv(None, component=component, project=project)
+        text = ap.applied_load_csv(None, component=component, project=project)
         body = "\n".join(l for l in text.splitlines() if not l.startswith("#"))
         reader = csv.reader(_io.StringIO(body))
         header = next(reader)
@@ -229,8 +229,8 @@ def test_the_gear_appendix_and_the_gear_file_are_one_call():
     is exactly what that claim is not.
     """
     project = _project("ga6_normal")
-    rows = sb.applied_loads("landing_gear", None, project)
-    text = sb.applied_load_csv(None, component="landing_gear", project=project)
+    rows = ap.applied_loads("landing_gear", None, project)
+    text = ap.applied_load_csv(None, component="landing_gear", project=project)
     body = "\n".join(l for l in text.splitlines() if not l.startswith("#"))
     written = list(csv.DictReader(_io.StringIO(body)))
     assert len(written) == len(rows)
@@ -281,7 +281,7 @@ def test_every_appendix_row_acts_at_the_point_its_case_names():
     leaving the two to disagree quietly.
     """
     for name in _SHIPPED:
-        for load in sb.applied_loads("landing_gear", None, _project(name)):
+        for load in ap.applied_loads("landing_gear", None, _project(name)):
             case = int(load.case_id.split("-")[1])
             assert load.label.endswith(application_point_of(case)), (
                 name, load.case_id, load.label)
@@ -290,7 +290,7 @@ def test_every_appendix_row_acts_at_the_point_its_case_names():
 def test_a_wheel_reaction_is_a_pure_force_and_the_zeros_are_printed():
     """G-OR-127. Zero moments, printed rather than blanked (OR-140's rule)."""
     for name in _SHIPPED:
-        for load in sb.applied_loads("landing_gear", None, _project(name)):
+        for load in ap.applied_loads("landing_gear", None, _project(name)):
             assert (load.mxx_free, load.myy_free, load.mzz_free) == (0.0, 0.0, 0.0)
     table = _appendix_f(_doc("ga6_normal")).tables[0]
     for row in table.rows:
@@ -306,7 +306,7 @@ def test_the_supplementary_nose_family_is_carried_and_flagged():
     the two artifacts is owed the reason rather than left to find it.
     """
     for name in _SHIPPED:
-        rows = sb.applied_loads("landing_gear", None, _project(name))
+        rows = ap.applied_loads("landing_gear", None, _project(name))
         present = {int(load.case_id.split("-")[1]) for load in rows}
         assert set(_NO_EQUILIBRIUM) <= present, name
         # ...and they carry no unbalanced moment, so they are absent from that

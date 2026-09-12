@@ -37,12 +37,12 @@ from sloads import (
 )
 from sloads import io as sloads_io
 from sloads.derived_geometry import wing_plane
-from sloads.export import sbeam_bridge as sb
 from sloads.modules.airloads import run as airloads_run
 from sloads.modules.airloads import schrenk_distribution
 from sloads.modules.net_loads import build_net_loads, loads_ref_axis_results, wing_load_rows
 from sloads.modules.wing_inertia import resolve_wing_cases
 from sloads.report import LoadChannel, module_text_report
+from sloads.report import applied as ap
 
 project, system, U = page_header("wing_loads", title="Wing Loads — AIRLOADS + WINGINER + NETLOADS", banner=False)
 st.caption(
@@ -397,7 +397,7 @@ _dl[0].download_button("Download net wing loads — analysis table (CSV)",
                        wing_limit_csv(wing_load_rows(loads.wing_net), system),
                        file_name="net_wing_loads_LIMIT.csv", mime="text/csv")
 _dl[1].download_button("Download applied load set (CSV)",
-                       sb.applied_load_csv(_lra_net, system=system),
+                       ap.applied_load_csv(_lra_net, system=system),
                        file_name="wing_applied_loads_ULT.csv", mime="text/csv")
 st.caption(
     "All three files are **LIMIT**; each row states the 14 CFR 23.303 factor "

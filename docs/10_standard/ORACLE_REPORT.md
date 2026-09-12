@@ -467,10 +467,10 @@ and one appendix, built from the `wing_loads` step
 - **The map from the calc's moment convention to body axes SHALL have one owner
   (OR-66).** The calc stores `Mxx`/`Mzz` as positive-magnitude beam integrals,
   so against a right-handed `r × F` the second is negated; B.1 and the exported
-  CSV both take their moments through `export.sbeam_bridge.applied_body_moments`
+  CSV both take their moments through `report.applied.applied_body_moments`
   and neither restates the sign.
 - **B.1 SHALL be a view of the exported applied set, not a second assembler
-  of it (OR-64).** The rows come from `export.sbeam_bridge.applied_load_rows`,
+  of it (OR-64).** The rows come from `report.applied.applied_load_rows`,
   the same owner behind the `wing_applied_loads.csv` download on the Wing Loads
   page and in the Export bundle, so the appendix a stress analyst reads and the
   file they build the model from cannot disagree about what is applied. The
@@ -641,7 +641,7 @@ Design note 44 §13 (OR-94 … OR-102), §14/design note 50 (the carry-through) 
   reference axis, so `Y` is zero by construction and `Z` is that axis's
   waterline — the position of the structure, not of the mass it carries.
 - **Appendix C is a view of the export owner, not a second assembler.** Its rows
-  are the ones `sbeam_bridge.applied_loads("fuselage", ...)` produces, in the
+  are the ones `report.applied.applied_loads("fuselage", ...)` produces, in the
   same order with the same grid identifiers, converted at this document's own
   boundary rather than the solver deck's. (It read `body_span_load_csv` until
   note 56 D-56.2 deleted that deck companion; the underlying row set is the
@@ -1313,8 +1313,8 @@ without a guard is prose, not a gate).
 | 3.2 Notation and the cumulative-load derivation (OR-62) | 2026-09-03 | `test_oracle_report.py::test_section_three_defines_every_symbol_its_tables_use`, `::test_section_three_states_how_the_cumulative_loads_are_built`, `::test_the_point_mass_rule_is_stated_only_where_there_is_one` |
 | Appendix B: applied set and carried set (OR-59, OR-60) | 2026-09-03 | `test_oracle_report.py::test_the_appendix_separates_the_applied_loads_from_the_carried_ones`, `::test_the_applied_table_carries_the_point_every_load_acts_at`, `::test_the_appendix_subsections_are_lettered_from_their_parent` |
 | Appendix B: concentrated masses and closure (OR-59, G-OR-29) | 2026-09-03 | `test_oracle_report.py::test_every_concentrated_wing_mass_is_a_row_of_the_applied_table`, `test_net_loads.py::test_the_applied_strip_set_reproduces_the_cumulative_loads`, `::test_a_concentrated_wing_mass_is_published_as_its_own_applied_load`, `::test_the_axis_transfer_moves_the_free_moment_on_its_own_force` |
-| B.1 and the exported CSV are one load set (OR-64) | 2026-09-03 | `test_oracle_report.py::test_the_appendix_table_and_the_exported_csv_are_one_load_set`, `test_sbeam_bridge.py::test_the_applied_moment_is_the_free_moment_not_the_increment` |
-| B.1 states all six components and prints its structural zeros (OR-65, OR-66) | 2026-09-03 | `test_sbeam_bridge.py::test_the_applied_set_states_all_six_components`, `::test_the_applied_set_reproduces_the_whole_vmt_at_every_station`; note 46 G-OR-35/36 |
+| B.1 and the exported CSV are one load set (OR-64) | 2026-09-03 | `test_oracle_report.py::test_the_appendix_table_and_the_exported_csv_are_one_load_set`, `test_applied.py::test_the_applied_moment_is_the_free_moment_not_the_increment` |
+| B.1 states all six components and prints its structural zeros (OR-65, OR-66) | 2026-09-03 | `test_applied.py::test_the_applied_set_states_all_six_components`, `::test_the_applied_set_reproduces_the_whole_vmt_at_every_station`; note 46 G-OR-35/36 |
 | Appendix page breaks and landscape (OR-63) | 2026-09-03 | `test_oracle_report.py::test_the_appendix_is_landscape_and_starts_a_fresh_page` |
 | Carry-through entered as a station (note 50 OR-121…OR-127) | 2026-09-05 | `test_oracle_inputs.py::test_an_entered_spar_station_reaches_the_fuselage_fitting_loads`, `::test_the_spar_station_survives_the_oracle_projection`, `test_derived_geometry.py::test_carry_through_from_entered_spar_stations`, `::test_the_estimator_has_one_owner`, `test_migrations.py::test_the_v60_hop_converts_an_entered_carry_through` |
 | 4. Fuselage Loads (subsections, appendix lettering) | 2026-09-06 | `test_oracle_report_fuselage.py::test_the_fuselage_section_renders_its_five_subsections_numbered_by_the_owner`, `::test_fuselage_loads_is_appendix_c_behind_the_vn_register_and_the_wing` |
@@ -1445,10 +1445,10 @@ without a guard is prose, not a gate).
 - [x] The applied moment is the free moment; `Mx` and `Mz` are given no applied
       increment — `test_oracle_report.py`, `test_net_loads.py`
 - [x] B.1 states all six body-axis components and prints `Fy`, `Mx`, `Mz` as
-      zero with the reason stated (OR-65) — `test_sbeam_bridge.py`,
+      zero with the reason stated (OR-65) — `test_applied.py`,
       `test_oracle_report.py`
 - [x] Both views take their moments through `applied_body_moments`, the one
-      owner of the body-axis sign map (OR-66) — `test_sbeam_bridge.py`
+      owner of the body-axis sign map (OR-66) — `test_applied.py`
 - [x] Every concentrated wing mass is a row of B.1 at its own coordinates,
       carrying zero free moment — `test_oracle_report.py`
 - [x] The applied set summed tip inboard reproduces the published cumulative
@@ -1457,7 +1457,7 @@ without a guard is prose, not a gate).
 - [x] The published free moment and `balance`'s own recovery agree where both
       are valid — `test_net_loads.py`
 - [x] B.1's rows and the `wing_applied_loads.csv` download come from one owner
-      and agree row for row — `test_oracle_report.py`, `test_sbeam_bridge.py`
+      and agree row for row — `test_oracle_report.py`, `test_applied.py`
 - [x] Every symbol a section 3 or Appendix B heading uses is defined in 3.2's
       notation table with its sense — including 3.3's prose headings, checked
       through `LoadValue.symbol` rather than parsed out of the text, and

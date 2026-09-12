@@ -371,6 +371,7 @@ not only of what was intended.
 | 3 | **The five per-component decks are deleted** (D-56.2). `sbeam_bridge.py` 2,639 → 1,413; `EXPORT_TARGETS` 10 → 4; band registry retires four blocks; three standing limitations retire; sbeam digest channels 83 → 33. | 2026-09-11 |
 | 4 | **The LRA model owns every grid it writes** (D-56.3). One contiguous run, `20001-30999`, eleven 999-wide sub-bands on a 1000 stride so `gid // 1000 - 20` is the family index; `sob_gid` moves to `lra_model`; gates 3 and 4 land. Only `sbeam/lra_model` re-stamps. | 2026-09-11 |
 | 5 | **The LRA beam gets its own mesh** (D-56.4). Ends + owned points + equally spaced grids *between* them; counts settable per component (`Project.lra_mesh`, schema 65 -> 66) at wing 20/side, fuselage 12/cantilever, h-tail 12/side, fin 10; members run to their tips; `JOINT_MERGE_FRACTION` retires; gates 5, 10 and 11 land. Only `sbeam/lra_model` re-stamps. | 2026-09-11 |
+| 6a | **``sbeam_bridge.py`` ceases to exist** (D-56.1). The applied-load family, the station numbering and the side-of-body internal loads move whole to ``report/applied.py``; the export package stops re-exporting them and no shim is left. Two guards land: one address per name in both directions, and no importable ``sbeam_bridge``. Deliverables byte-identical. | 2026-09-11 |
 
 **Two departures from the note as written, both deliberate.**
 
@@ -477,6 +478,64 @@ them in the member node set; they are read here as nodes of the *model*, tied by
 `RBE2` as they already were, with only the hinge and actuator fittings owned by
 their chains (as they already were). Making a tie parent exact rather than
 nearest changes a load path and is left separable.
+
+---
+
+**Slice 6a: the split had already happened, so the move was a move.**
+
+The note describes D-56.1 as a three-way split. By the time it ran, two of the
+three ways were done -- slice 1 took the contract statements to
+``deck_format``, slice 2 took the report tables to ``report/tables.py``, and
+slice 3 deleted the decks -- so what was left in the file was exactly one group:
+the applied-load model, its station numbering and the side-of-body loads. The
+file's own docstring had said so since slice 3. It therefore moved whole, under
+its right name, rather than being split at a boundary that no longer existed.
+
+**Three decisions inside it.**
+
+1. **No shim, and a guard that says so.**
+   ``test_no_module_named_sbeam_bridge_survives_the_move`` refuses an importable
+   ``sbeam_bridge`` at either address. An alias would have been one name at two
+   addresses, which is the condition this note exists to remove, and it is what
+   let the deck writers keep a public surface for two milestones after the decks
+   stopped being deliverables. The companion guard,
+   ``test_the_applied_load_set_has_one_address_and_the_export_package_is_not_it``,
+   is the slice-2 guard inverted: every name resolves from
+   ``report.applied`` and **none** is reachable from ``sloads.export``.
+
+2. **Two sweeps followed the code, not the directory.** The registry's
+   base-constant sweep walked ``sloads.export`` only, so the day the numbering
+   moved it would have gone quiet on **seven of the registry's own bands** --
+   ``wing-stick``, the two body runs and the four tail runs -- which is precisely
+   the blind spot ``bands.py`` exists to close. It now walks the export package
+   plus ``report.applied``. The CH-2 no-silent-defaults sweep moved the same way,
+   and is deliberately a *named* file set rather than a second package walk: the
+   rest of ``report/`` renders whatever a project happens to carry and reads
+   optional slices with defaults by design, so extending the rule to the
+   directory would have been a different decision wearing this one's clothes.
+   ``CONVENTIONS.md`` §7's row is re-cut to state both halves.
+
+3. **One import points the wrong way, for one slice.** ``export/mass_cards.py``
+   reads ``beam_station_gid`` from ``report.applied`` at module level -- an
+   ``export -> report`` dependency, which is backwards. It is kept rather than
+   hidden behind a function-level import because **D-56.6 deletes it**: with each
+   ``CONM2`` on a ``GRID`` at its own item's CG, no mass card states a beam
+   station at all. A lazy import would have made a one-slice fact look like a
+   permanent arrangement. There is no cycle either way, and it is the only
+   import from ``report/`` in the export package.
+
+**Four stale addresses swept with it (rule 4).** The class is a citation that
+survived the code it named. ``equilibrium.CardTotals`` justified itself by two
+decks D-56.2 had deleted; ``mass_cards`` and ``balanced_deck`` both cited
+``sbeam_bridge.stamped``, which slice 1 had moved to ``deck_format``;
+``PROGRAM_SPEC.md`` cited ``gear_report_csv`` and ``filter_by_selected_case_ids``
+at their pre-slice-2 addresses, and ``CONVENTIONS.md`` cited ``LOAD_ID_COLUMN``
+at its. All five now name where the code is.
+
+**D-56.9 is not in this slice.** ``AppliedLoad.gid`` is still allocated from the
+applied-load model's own bands, so the ``wing-stick`` ``GID 1`` hole stays open
+and the registry has not collapsed. That is 6b, and it is the last thing between
+this note and its band count.
 
 ---
 

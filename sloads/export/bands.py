@@ -157,16 +157,16 @@ def _band(*args, **kwargs) -> Band:
 #: base constant (guarded by ``tests/test_bands.py``).
 BANDS: Tuple[Band, ...] = (
     # ----------------------------------------------------------------- GIDs
-    _band("wing-stick", IdKind.GID, 1, 1000, "sbeam_bridge.station_gid",
+    _band("wing-stick", IdKind.GID, 1, 1000, "applied.station_gid",
           "Station i takes 2 + i. GID 1 was the stick model's clamped root and "
           "is unallocated since note 56 D-56.2 deleted that deck. The hole "
           "stays: D-56.3 moved the LRA off this band but the applied-load "
           "model still allocates from it, and D-56.9 retires the band whole "
           "when that model re-states its gids at the LRA grids -- so closing "
           "the hole now would renumber every station twice for no gain."),
-    _band("body-mass", IdKind.GID, 1001, 500, "sbeam_bridge.beam_station_gid",
+    _band("body-mass", IdKind.GID, 1001, 500, "applied.beam_station_gid",
           "Fuselage mass stations and the tail air load, nose->tail."),
-    _band("body-reaction", IdKind.GID, 1501, 500, "sbeam_bridge.body_station_gids",
+    _band("body-reaction", IdKind.GID, 1501, 500, "applied.body_station_gids",
           "Wing carry-through / fallback correction nodes -- a separate band so "
           "inserting one never renumbers a mass station."),
     # 2001-2200 (tail chordwise) and 3001-4000 (control surface) were retired
@@ -178,16 +178,16 @@ BANDS: Tuple[Band, ...] = (
     # it moved the LRA out to 20001+ rather than backfilling here; the bands
     # still registered below this line belong to the applied-load model and go
     # with it at D-56.9.
-    _band("tail-span-htail", IdKind.GID, 4001, 500, "sbeam_bridge.tail_span_gid"),
-    _band("tail-span-vtail", IdKind.GID, 4501, 500, "sbeam_bridge.tail_span_gid"),
+    _band("tail-span-htail", IdKind.GID, 4001, 500, "applied.tail_span_gid"),
+    _band("tail-span-vtail", IdKind.GID, 4501, 500, "applied.tail_span_gid"),
     _band("tail-control-htail", IdKind.GID, 5001, 300,
-          "sbeam_bridge.tail_control_gid",
+          "applied.tail_control_gid",
           "Elevator hinge and actuator nodes (plan 09 T6). Their own band rather "
           "than a continuation of the spanwise one: a hinge station is not a "
           "strip midpoint, so it is a different point, and adding hinges must "
           "never renumber the strips beside them."),
     _band("tail-control-vtail", IdKind.GID, 5301, 300,
-          "sbeam_bridge.tail_control_gid", "Rudder hinge and actuator nodes."),
+          "applied.tail_control_gid", "Rudder hinge and actuator nodes."),
     _band("balanced-wing-right", IdKind.GID, 6001, 200, "balanced_deck.deck_nodes",
           "Left and right are separate runs so an antisymmetric case can load "
           "them differently without renumbering (plan 11 B7). The name records "

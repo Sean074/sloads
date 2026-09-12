@@ -8,7 +8,7 @@ Until 2026-09-05 a recipient could read the basis off the numbers: the deck said
 between the recipient and a 1.5x error — and a sentence is exactly the kind of
 thing that goes stale silently while every numeric gate stays green.
 
-It already had. Five blocks in ``sbeam_bridge`` (fuselage, chordwise tail,
+It already had. Five blocks in the old ``sbeam_bridge`` (fuselage, chordwise tail,
 spanwise tail, control surface, and the wing's card block) still read "Loads are
 ULTIMATE (limit x SF=1.5)" over LIMIT cards after the multiplies came out, and
 two of them printed a derivation — ``= 1.5 x (LT25 + LT50)`` — for a sum that no
@@ -33,7 +33,7 @@ cases plus ``test_no_deck_claims_a_factor_has_been_applied`` — while the rest 
 the suite stays green, which is the same blind spot G-OR-72 was written for.
 
 The two already-ultimate families (23.367(a)(2), 23.561(b)) are handled by the
-same code path: :func:`sloads.export.sbeam_bridge.basis_sentence` states
+same code path: :func:`sloads.export.deck_format.basis_sentence` states
 "ALREADY ULTIMATE (SF=1.0) -- apply no further factor" for them, and the parser
 below reads that as a stated 1.0. No shipped deck currently exports one, so the
 branch is exercised directly in :func:`test_the_already_ultimate_sentence_is_read_as_a_stated_factor`
@@ -52,7 +52,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import sloads.modules  # noqa: F401
 from sloads import io
-from sloads.export import sbeam_bridge as sb
+from sloads.report import applied as ap
 from sloads.export.balanced_deck import balanced_deck
 from sloads.export.lra_model import lra_model_bdf
 from sloads.export.deck_format import basis_sentence
@@ -216,14 +216,14 @@ def _documents(example: str):
         if csv_text and results:
             out.append((name, csv_text, list(results)))
 
-    add("wing_applied", _try(sb.applied_load_csv, wing), wing)
+    add("wing_applied", _try(ap.applied_load_csv, wing), wing)
     add("fuselage_applied",
-        _try(sb.applied_load_csv, body, component="fuselage", project=project),
+        _try(ap.applied_load_csv, body, component="fuselage", project=project),
         body)
     for component in ("htail", "vtail"):
         results = spans.get(component) or []
         add(f"{component}_applied",
-            _try(sb.applied_load_csv, results, component=component), results)
+            _try(ap.applied_load_csv, results, component=component), results)
     return out
 
 

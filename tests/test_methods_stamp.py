@@ -27,7 +27,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import sloads.modules  # noqa: F401
 from sloads import io
-from sloads.export import sbeam_bridge as sb
+from sloads.report import applied as ap
 from sloads.report import tables as rt
 from sloads.modules.flight_envelope import build_envelope
 from sloads.modules.net_loads import build_net_loads
@@ -480,8 +480,8 @@ def test_load_cases_csv_carries_the_stamp_and_still_parses():
 
 def test_applied_load_csv_carries_the_stamp_and_still_parses():
     project, wing = _wing_net(_GA)
-    plain = sb.applied_load_csv(wing)
-    stamped = sb.applied_load_csv(wing, header_comment=csv_comment_block(project))
+    plain = ap.applied_load_csv(wing)
+    stamped = ap.applied_load_csv(wing, header_comment=csv_comment_block(project))
     assert stamped.startswith("#") and "ULTIMATE" in stamped
     # The file carries comment lines of its own (the moment-convention block,
     # note 46 OR-69), so the invariant is that the stamp disturbs nothing --

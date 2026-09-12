@@ -139,8 +139,9 @@ is the shape that hides a missing attribute behind a quiet fallback; a value the
 exporters read is a declared field on a typed result and is read as one, an
 optional is `Optional` and tested for `None`, and a lookup by name is an explicit
 map that refuses an unknown key. Guard:
-`tests/test_sbeam_bridge.py::test_the_export_package_takes_no_silent_defaults`
-(AST, `sloads/export/`); a two-argument `getattr` — a dynamic attribute *name*, no
+`tests/test_applied.py::test_the_deck_and_applied_load_surface_takes_no_silent_defaults`
+(AST, `sloads/export/` plus `report/applied.py`, which carries the rule with it
+since note 56 D-56.1); a two-argument `getattr` — a dynamic attribute *name*, no
 default — is not this class.
 
 ---

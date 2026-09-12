@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import openpyxl
 
 from sloads import io, registry
-from sloads.export import sbeam_bridge as sb
+from sloads.report import applied as ap
 from sloads.report import tables as rt
 from sloads.export.workbook import build_workbook
 from sloads.modules.aileron import build_aileron
@@ -60,14 +60,14 @@ def _build(system=UnitSystem.IMPERIAL):
     )
     # Note 56 D-56.2: the span/chordwise deck companions are gone; the tabular
     # sbeam sheets are the per-component applied load sets.
-    span_csvs = {"Wing Applied Loads": sb.applied_load_csv(net.wing_net, system=system)}
+    span_csvs = {"Wing Applied Loads": ap.applied_load_csv(net.wing_net, system=system)}
     if body:
-        span_csvs["Fuselage Applied Loads"] = sb.applied_load_csv(
+        span_csvs["Fuselage Applied Loads"] = ap.applied_load_csv(
             body, system=system, component="fuselage", project=project)
     spans = _try(build_tail_span, project) or {}
     for _surface in ("htail", "vtail"):
         if spans.get(_surface):
-            span_csvs[f"{_surface.title()} Applied Loads"] = sb.applied_load_csv(
+            span_csvs[f"{_surface.title()} Applied Loads"] = ap.applied_load_csv(
                 spans[_surface], system=system, component=_surface)
     project_info = {"Name": project.name, "Engineer": project.engineer or "", "Date": project.date or ""}
 

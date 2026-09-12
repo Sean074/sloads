@@ -40,13 +40,13 @@ from sloads import Project, registry
 from sloads import io as sloads_io
 from sloads import workflow as wf
 from sloads.export import mass_cards as mc
-from sloads.export import sbeam_bridge as sb
 from sloads.export.balanced_deck import balanced_deck
 from sloads.export.pdf import ENGINE_ENV_VAR, compile_pdf, find_engine
 from sloads.export.workbook import build_workbook
 from sloads.modules.balance import build_balanced_cases
 from sloads.modules.net_loads import torsion_axis_label, wing_lra
 from sloads.report import LoadChannel, module_text_report
+from sloads.report import applied as ap
 from sloads.report import oracle_sections as sec
 from sloads.report import tables as rt
 from sloads.report.bundle import bundle_members, bundle_zip_bytes
@@ -269,10 +269,10 @@ if _wing:
     # rows the delivered cards are written from, which is what G-OR-90 holds
     # both to.
     _bdf_artifacts["wing_applied_loads.csv"] = _try(
-        sb.applied_load_csv, _wing, header_comment=_csv_stamp, system=_system) or ""
+        ap.applied_load_csv, _wing, header_comment=_csv_stamp, system=_system) or ""
 if _body:
     _bdf_artifacts["fuselage_applied_loads.csv"] = _try(
-        sb.applied_load_csv, _body, header_comment=_csv_stamp, system=_system,
+        ap.applied_load_csv, _body, header_comment=_csv_stamp, system=_system,
         component="fuselage", project=project) or ""
 if _tail:
     # The tails' applied sets come from the **spanwise** results, which are
@@ -284,8 +284,8 @@ if _tail:
 
     _spans = _try(build_tail_span, project) or {}
     for _surface in ("htail", "vtail"):
-        _bdf_artifacts[sb.APPLIED_CSV_NAMES[_surface]] = _try(
-            sb.applied_load_csv, _spans.get(_surface) or [],
+        _bdf_artifacts[ap.APPLIED_CSV_NAMES[_surface]] = _try(
+            ap.applied_load_csv, _spans.get(_surface) or [],
             header_comment=_csv_stamp, system=_system, component=_surface) or ""
 
 # The assembled full-span deliverable and the mass model that checks its inertia
