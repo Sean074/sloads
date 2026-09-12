@@ -99,7 +99,8 @@ GUI review that anchors the milestone), #78, #148 (ten `KNOWN_OPEN` silent Apply
 writes, including a turboprop's entered engine power erased by its own page on
 two shipped fixtures), #247 (M4-11b — six view functions at CC E/F, worst
 F(72)), #248 (tooltips, ~45 % coverage), #249 (L-8c), #250 (L-8d's mutation
-half), #251 (L-8e), #252 (L-8f); plus #255 in band B4 and the seven `app/views/`
+half), #251 (L-8e), #252 (L-8f); plus #255 (band B5 since the 2026-09-11 re-cut, closing
+superseded at #270) and the seven `app/views/`
 consumers note 56 D-56.2 must touch. Against that, the four capabilities worth
 keeping (§1.3) are roughly **S + M + S–M + S of new, clean work** on the smaller
 codebase.

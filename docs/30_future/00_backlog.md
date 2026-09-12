@@ -327,14 +327,29 @@ Figs 20.7–20.10).
 ## Open defects (index)
 
 - #18 — Review 2026-08-10 unscheduled findings [Minor/NIT].
-- #170 — Mean takeoff torque is factored: `is_load_unit` tests the unit alone (rowed, Pri 49).
 - #216 — Three examples enter a control-surface area they do not draw.
 
 - #217 — An entered thrust line does not steer the thrust in the balanced cases.
 
-- #209 — No engine-mount case reaches the LRA deck. *(Reworded 2026-09-10: note
-  56 D-56.2 deletes the per-component decks, so "the sbeam deck" names the LRA
-  model, which is the only load-carrying deck that survives.)*
+- **No engine-mount case reaches the LRA deck.** `export/lra_model.py` has
+  carried `lra-engine-mount` and `lra-engine-hub` nodes since note 24 R-9, and
+  nothing writes a `FORCE`/`MOMENT` at either for a 23.361, 23.363 or 23.371(b)
+  condition — the mount conditions are reported and not exported. Section 10
+  publishes all six components at a stated point with a stated factor
+  (note 44 §20), which is exactly the set a deck would need, so this is the
+  point at which the gap is worth stating: `coordinates.engine_applied_load` is
+  already the owner a writer would call. **Filed 2026-09-07.** Tier L, and it
+  would need a design note of its own — an engine-mount case is not a balanced
+  airplane case, and how it joins the case index is the question.
+  *(Reworded 2026-09-10: note 56 D-56.2 deletes the per-component decks, so
+  "the sbeam deck" names the LRA model, the only load-carrying deck that
+  survives. **Body restored and the number struck 2026-09-11**: the 2026-09-08
+  index tidy (07b24e2) collapsed this entry to a one-line stub and stapled
+  **#209** to it, which is a different, already-filed defect — the load-case
+  index's blank load columns. This finding is unfiled by choice, like the two
+  that follow it: re-verified live 2026-09-11 — the engine band still allocates
+  grids at `bands.py:274` and `transferred_case_loads` still takes a
+  `BalancedCaseResult`, so no mount condition reaches the deck.)*
 
 - **No control-surface hinge moment is computed anywhere — in sloads or in the
   suite it replicates.** Checked against the source 2026-09-07: `AILERON.BAS`,
@@ -366,19 +381,9 @@ Figs 20.7–20.10).
 
 - #218 — The fuselage applied set is `Fz` alone — is that the model, or the airplane?
 
-
-
 - #221 — The oracle reduction resets `weight.items[].consumable`, moving a load.
 
 - #222 — One fuselage quantity is published under two `LoadValue` keys.
-- #16 — Review 2026-09-04 small items
-- **Overtaken by note 49, close on GitHub:** **#182** (the G-OR-49/OR-93
-  contradiction — resolved *decided, not fixed* by **OR-119**: the gate is
-  satisfiable as written once OR-93 falls, and OR-93 fell) and **#181** (the
-  Subpart-D detail-factor statement — every basis statement now carries "the
-  special factors of Subpart D … are the sizing analysis's and are applied by
-  no part of sloads").
-
 Two long-standing entries left this list on 2026-08-18 at the issue #13 closure —
 **decided, not fixed**, which is why neither survives here under the removal
 rule. Both keep their pins; the decisions carry what the bodies used to:
