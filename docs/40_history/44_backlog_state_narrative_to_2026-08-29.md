@@ -373,3 +373,91 @@ are gone from this table under the removal rule; what shipped is in
 Review finding IDs still cited per row (m\*, CH-\*) resolve in their review
 document. Historic step numbers (steps 8–14) are kept inside item names for
 traceability with plans 09/11/12/13; the **Pri** column is ordinal only.
+
+
+## Superseded preambles, rolled at the 2026-09-11 re-cut
+
+The 2026-08-29 re-cut narrative and the three additions that stood on
+it (2026-09-04 review additions, the 2026-09-09 milestone-open
+addition, the 2026-09-11 milestone-created addition). Kept verbatim;
+their order is superseded by the 2026-09-11 re-cut in
+[`../30_future/00_backlog.md`](../30_future/00_backlog.md).
+
+**Re-cut 2026-08-29 (owner, in session; the second of the day — the first, the
+band B3 fold, is kept in
+[`../40_history/44_backlog_state_narrative_to_2026-08-29.md`](../40_history/44_backlog_state_narrative_to_2026-08-29.md)
+with the rest of the superseded preambles).** Two defects found the same day diagnosing the
+GA6 V-n failure — **#143** (the oracle GUI attaches a phantom zero-coefficient
+LANDING set on one stray touch, and saves it into the project file) and **#144**
+(the calc side launders a zero lift polynomial into a 400-trip `SolverFailure`
+instead of refusing it by name) — **enter band B1 ahead of the documentation
+rows**, and the table is renumbered densely (a re-cut owns the table). Nothing
+else moves. Two rulings:
+
+1. **They are one defect class in two fix sites, and both are fixed.** The
+   phantom set is the writer; the missing refusal is why it presents as an
+   opaque solver hang on a page the user never edited. This is the #121/#122
+   binding of the 2026-08-28 re-cut applied again — rule 4 does not permit
+   fixing the GUI that writes the set and leaving the guard that should have
+   named it, and #144's refusal belongs at the consumer for **every** writer,
+   not only this one. **#144 goes first:** it is the smaller, self-contained
+   half, and landing it makes #143's repro produce a named `MissingInputError`
+   to verify against instead of a 400-iteration failure.
+2. **They rank ahead of #141/#140/#142 on rule 6, not on their tag** — a defect
+   with first-order effect on shipped content outranks every non-defect row
+   regardless of mission trace. #143 is the inverse of the #51 data-loss class,
+   silent data *gain* that persists into a saved `.project.json` and takes
+   Flight Envelope and SELECT down with it: a released-artefact defect of
+   exactly the kind band B1 exists to correct. **The `app/views/` freeze is
+   untouched** — #143's fix site is `oracle_app/`, open since band A, and
+   #144's is `sloads/modules/flight_envelope.py`, which the frozen list admits
+   for defects. No calc-math change: the guard is a refusal, and the GA6 oracle
+   and twin closure suites are unmoved by it.
+
+
+**Cut 0.8.1 when band B1 is empty, then 0.9.0 when band B2 is** — unchanged.
+*(0.8.1 cut 2026-08-29; band **B3** worked ahead of B2 and retired at the
+**0.8.2 cut, 2026-09-08** — **band B4 (0.8.3) is the milestone in flight**,
+unblocked by that cut's OR-13 freeze lift; then B2/0.9.0 as ruled.)*
+
+
+**Review additions 2026-09-04 ([`../50_reviews/2026-09-04_project_review.md`](../50_reviews/2026-09-04_project_review.md);
+an addition, not a re-cut — the
+2026-08-29 order stands).** The full-project review filed #172–#191 and put the
+open defect set on milestones. New rows are appended to their bands (Pri 26+),
+and the old **band D** (maintenance, milestone-less) is dissolved: its rows now
+carry the milestones the review's triage assigned and sit in those bands,
+keeping their Pri numbers. Findings, evidence and the triage tables are in
+[`../50_reviews/2026-09-04_project_review.md`](../50_reviews/2026-09-04_project_review.md);
+the small tier-S defects are indexed under *Open defects* below.
+
+**Milestone-open addition 2026-09-09 (an addition, not a re-cut — the standing
+order holds; new rows append at Pri 46+).** The 0.8.3 plan review at milestone
+open found the GitHub milestone carrying 24 open issues where band B4 held 7
+rows — the 2026-09-08 review's filings (#239–#243), the note-44-era defects it
+milestoned per their own bodies (#216, #219, #220, #222, #223), and the
+2026-09-04 review's 0.8.3 assignments that never got rows (#161, #170, #175,
+#176, #179, #180, #188). All 24 now carry `band:B4` labels (12 had none, which
+is why `backlog_issues.py check`'s reverse leg never saw them) and every one has
+a row below. The appended rows are ordered by the review's working sequence:
+the cheap hygiene front, the safety-factor cluster (one session, one code
+region), the tail-geometry cluster (#223's rename first, before the files it
+renames are edited by the rest), then the baseline-regeneration wave (#164 →
+#222 → #241 → #242 → #161, landed adjacently so digests and report baselines
+regenerate in one wave, #161 last since it reformats what the others produce),
+then polish. The three L-tier decision processes (#156 note, #172
+refuse-vs-fix note, #164 measurement + case-set ruling) start first, in
+parallel with the hygiene front, so implementation never blocks on an
+unwritten note.
+
+**Milestone-created addition 2026-09-11 (an addition, not a re-cut — the
+standing order holds; new rows append at Pri 71+).** The owner created
+milestone **0.8.4** for design note 57 (the GUI convergence,
+[`57_gui_convergence_note.md`](57_gui_convergence_note.md), **AGREED
+2026-09-11** — the owner took rulings R-57.1…R-57.5 as proposed the same day,
+so the band's gate is the **0.8.3 cut** (band B4 in flight), not the note).
+Filed as #265–#270 in D-57.8's sequence and rowed in a new **band B5**
+between B4 and B2, because it re-shapes B2: at #270's close, per ruling R-57.4,
+#29/#148/#247–#252 close superseded and #78 re-scopes to #269 — each of those
+issues carries a planned-supersession comment dated today, and they stay open
+on their milestones until that close.

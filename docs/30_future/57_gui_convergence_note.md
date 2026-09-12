@@ -18,6 +18,21 @@ not started. **Milestone 0.8.4 created and the work filed 2026-09-11** as
 retirement), backlog band **B5**; the band is gated on the 0.8.3 cut, not on
 this note (AGREED same day).
 
+**Amended again 2026-09-11, at the milestone re-cut** (owner, in session).
+The band gains three issues and loses none. **#245** (the issue package's
+`data/` becomes the oracle GUI's CSV channel) moves **0.8.3 → 0.8.4**: §1.3
+of this note already names `data/` as `export_report`'s successor channel, so
+**D-57.6 cannot retire that page until #245 lands** — a dependency this note
+stated in prose and the milestones contradicted. **#241** (case identity on the
+applied-load CSVs) and **#242** (the axis stanza) follow it in, so `data/` is
+born corrected rather than corrected after shipping; the price is that the
+0.8.5 baseline wave regenerates digests twice, booked in the backlog's re-cut
+preamble. **#255** (the Tail Span Loads page's unconditional conventional-tail
+prose) joins the band to **close superseded at #270**, since D-57.1 deletes the
+page. D-57.8's sequence is otherwise unchanged: #265 → #266 →
+#267/#268/#269 → **#241 → #242 → #245** → #270. The band's gate is
+still the 0.8.3 cut, which the same re-cut narrowed to #263's remaining slices.
+
 **Amended 2026-09-11** (owner, in session): the **xlsx workbook retires
 with #270** — D-57.6's retirement of `export_report` takes `build_workbook`'s
 only consumer, the oracle GUI excludes the workbook by charter (note 32), and
