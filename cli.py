@@ -176,8 +176,9 @@ def _export_conm2(project, prefix: str,
         fh.write(fragment)
     written.append(path)
 
-    for name, build in (("mass_check", mc.mass_check_deck),
-                        ("inertia_only", mc.inertia_only_cards)):
+    # ``inertia_only`` retired with note 56 D-56.7: it cross-checked sloads'
+    # reduction of a mass to a beam station, and D-56.6 leaves no reduction.
+    for name, build in (("mass_check", mc.mass_check_deck),):
         try:
             text = build(project, header_comment=bdf_stamp, system=system)
         except ValueError as exc:
@@ -353,9 +354,9 @@ def main(argv=None) -> int:
     )
     parser.add_argument(
         "--export-conm2", metavar="PREFIX",
-        help="write the CONM2/MASSSET mass model: PREFIX_mass.bdf (fragment), "
-             "PREFIX_mass_check.bdf (runnable MASSSET+GRAV deck) and "
-             "PREFIX_inertia_only.bdf (sloads' inertia, for comparison only)",
+        help="write the CONM2/MASSSET mass model: PREFIX_mass.bdf (the model "
+             "entire -- GRID at each item's CG + CONM2 + MASSSET) and "
+             "PREFIX_mass_check.bdf (the same with case control and GRAV)",
     )
     parser.add_argument(
         "--units", choices=("imperial", "si"), default=None,

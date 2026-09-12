@@ -75,7 +75,6 @@ def _sbeam_artifacts(project, comps, cases):
     if project.weight is not None and project.weight.items:
         art["mass_model.bdf"] = _try(mc.conm2_fragment, project)
         art["mass_check.bdf"] = _try(mc.mass_check_deck, project)
-        art["inertia_only.bdf"] = _try(mc.inertia_only_cards, project)
     return art
 
 

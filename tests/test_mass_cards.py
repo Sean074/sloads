@@ -493,75 +493,66 @@ def test_the_grav_card_carries_g_in_deck_units(example, system):
     assert f"= {2.5 * u.gravity:.4f} {u.length.label}/s^2" in text
 
 
-@pytest.mark.parametrize("example", _fixtures_with_cards())
-def test_the_inertia_only_set_says_it_is_not_a_deliverable(example):
-    """It exists to be compared against, not applied — and says so in-band,
-    because a file forwarded on its own has only its header to go on."""
-    text = mc.inertia_only_cards(_project(example))
-    assert "COMPARISON ARTIFACT ONLY" in text
-    assert "counts the inertia twice" in text
-    _, _, _, forces, _ = parse_cards(text)
-    assert forces
-
-
-@pytest.mark.parametrize("system", _SYSTEMS)
-def test_the_inertia_only_set_sums_to_the_beam_weight(system):
-    """Σ Fz = −W_beam × nz: sloads' side of the comparison, in deck units."""
-    p = _project("ga6_normal.project.json")
-    u = deliverable_units(system, Channel.SOLVER)
-    beam = sum(s.weight_lb for s in md.fuselage_beam_stations(p))
-    _, _, _, forces, _ = parse_cards(
-        mc.inertia_only_cards(p, system=system, nz=2.5))
-    total = sum(sc * v[2] for cards in forces.values() for _, sc, v in cards)
-    assert total == pytest.approx(-beam * 2.5 * u.force.factor, rel=1e-6)
+# --------------------------------------------------------------------------- #
+# Note 56 D-56.6 / D-56.7 -- the CG grids, and what the retirement cost
+# --------------------------------------------------------------------------- #
+# Five tests were deleted here with the code they covered: the four
+# ``inertia_only_cards`` legs (gross set, per-case set, the two forms agreeing,
+# and the "not a deliverable" in-band statement) and
+# ``test_the_check_deck_beam_is_massless``. The first four went with D-56.7 --
+# ``inertia_only_cards`` cross-checked sloads' *reduction* of a mass to a beam
+# station, and with every mass on a grid at its own CG there is no reduction to
+# check. The fifth pinned ``RHO = 0.0`` on a placeholder beam that D-56.6
+# deleted: the CONM2 cards carry their own grids now, so the beam they used to
+# hang on has nothing to support. A massless-beam guard over a deck with no beam
+# would pass by vacuity, which is worse than not having it.
 
 
 @pytest.mark.parametrize("example", _fixtures_with_cards())
-@pytest.mark.parametrize("system", _SYSTEMS)
-def test_the_per_case_inertia_set_is_the_mass_the_masset_carries(example, system):
-    """``inertia_only_cards(loading=...)`` is that case's mass, node by node.
+def test_every_conm2_sits_on_its_own_grid_at_its_own_cg(example):
+    """D-56.6: one GRID per card, at the item's CG, with a zero offset.
 
-    The gross form of these cards is the Ch 15 beam table — every non-wing item,
-    no payload case — and the ``CONM2`` set is per case *and* carries the wing
-    items on the nearest beam node. Two different airplanes, so the round-trip
-    comparison had nothing exact to be equal to. This is the form that does:
-    Σ Fz is the loading's own weight (ballast included, wing included), and every
-    card sits on a node the mass model actually attaches to.
+    The three claims together are what make the mass model self-contained. Any
+    one alone is satisfiable by an accident: one grid each with a non-zero offset
+    is the old model renumbered, and a zero offset on a shared grid puts two
+    masses at one point.
     """
-    p = _project(example)
-    u = deliverable_units(system, Channel.SOLVER)
-    cards, _ = mc.mass_cards(p)
-    attached = {c.gid for c in cards}
-    for loading in [ld for ld in md.derive_case_loadings(p) if ld.derivable]:
-        text = mc.inertia_only_cards(p, system=system, nz=2.5, loading=loading)
-        _, _, _, forces, _ = parse_cards(text)
-        rows = [row for sid_rows in forces.values() for row in sid_rows]
-        total = sum(sc * v[2] for _, sc, v in rows)
-        assert total == pytest.approx(
-            -loading.weight_lb * 2.5 * u.force.factor, rel=1e-6), loading.name
-        assert {gid for gid, _, _ in rows} <= attached, loading.name
-        assert loading.name in text
+    project = _project(example)
+    cards, _ = mc.mass_cards(project)
+    text = mc.conm2_fragment(project)
+    grids = {int(ln.split(",")[1]): tuple(float(c) for c in ln.split(",")[3:6])
+             for ln in text.splitlines() if ln.startswith("GRID,")}
+
+    assert len(grids) == len(cards), "a card shares a grid with another card"
+    for card in cards:
+        assert card.gid in grids, f"card {card.eid} has no GRID of its own"
+        gx, gy, gz = grids[card.gid]
+        assert (gx, gy, gz) == pytest.approx(
+            (card.item.x, card.item.y, card.item.z), rel=1e-6, abs=1e-9), \
+            f"grid {card.gid} is not at {card.item.name}'s CG"
+
+    for ln in text.splitlines():
+        if ln.startswith("CONM2,"):
+            offset = [float(c) for c in ln.split(",")[5:8]]
+            assert offset == [0.0, 0.0, 0.0], f"non-zero offset: {ln}"
 
 
-def test_the_gross_inertia_set_is_unchanged_by_the_per_case_form():
-    """The default artifact is byte-identical — the CLI and the page still write
-    the gross beam table, and the per-case form is strictly an addition."""
-    p = _project("ga6_normal.project.json")
-    stations = md.fuselage_beam_stations(p)
-    _, _, _, forces, _ = parse_cards(mc.inertia_only_cards(p))
-    rows = [row for sid_rows in forces.values() for row in sid_rows]
-    assert [gid for gid, _, _ in rows] == [
-        ap.beam_station_gid(i) for i in range(len(stations))]
-    assert [round(-sc * v[2], 6) for _, sc, v in rows] == [
-        round(s.weight_lb, 6) for s in stations]
+@pytest.mark.parametrize("example", _fixtures_with_cards())
+def test_the_mass_model_carries_no_structure_and_says_a_solve_is_singular(example):
+    """Ruling 9: the grids are unconnected **by design**, and the deck says so.
 
-
-def test_the_check_deck_beam_is_massless():
-    """A CBAR with density would add mass to the MASSSET baseline and corrupt
-    the comparison the deck exists to make. RHO stays 0.0."""
-    text = mc.mass_check_deck(_project("ga6_normal.project.json"))
-    mat1 = [ln for ln in text.splitlines() if ln.startswith("MAT1")]
-    assert mat1 and float(mat1[0].split(",")[-1]) == 0.0
+    The statement is the gate, not a nicety. A deck carrying ``SOL 101`` over
+    unconnected grids invites a solve that dies "singular stiffness matrix" and
+    reads as a broken export -- which is exactly the #173 defect class, arriving
+    at a different file. The header has to name the condition and the reason.
+    """
+    project = _project(example)
+    deck = mc.mass_check_deck(project)
+    for card in ("CBAR", "PBAR", "MAT1", "SPC1", "SPC "):
+        assert card not in deck, f"{card} survives in a mass model with no beam"
+    assert "UNCONNECTED" in deck
+    assert "SINGULAR" in deck.upper()
+    assert "RBE2" in deck, "the header must say how to splice it into a model"
 
 
 def test_a_project_with_no_derivable_case_refuses_a_check_deck():

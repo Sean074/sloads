@@ -272,9 +272,12 @@ def test_every_consumer_agrees_with_the_owner_on_the_wing_share(example):
                           if md.component_of(pt, p) is MassComponent.WING)
     assert card_wing > math.fsum(c.item.weight_lb for c in cards
                                  if c.item.component is MassComponent.WING)
-    u = deliverable_units(UnitSystem.IMPERIAL, Channel.SOLVER)
-    header = "\n".join(mass_cards._header(p, u, cards))
-    assert f"$ Wing items ({card_wing:.0f} lb)" in header
+    # The CONM2 header's wing total was the third consumer this guard compared
+    # against, until note 56 D-56.6 retired the line: with every mass on a grid
+    # at its own CG, a wing item is at the wing item's position and there is no
+    # provisional attachment left to caption. The card-side reading of the split
+    # is still checked, two assertions up -- it is the *header sentence* that is
+    # gone, not the consumer.
 
 
 # --------------------------------------------------------------------------- #

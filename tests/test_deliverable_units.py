@@ -302,10 +302,12 @@ def test_the_export_page_applies_the_stamp_it_builds():
         source = fh.read()
 
     assignments = [ln for ln in source.splitlines() if '.bdf"] = ' in ln]
-    # The assembled free-free deck, the LRA beam model (step 12) and the three
-    # mass-model files (D-R2). It was ten until note 56 D-56.2 deleted the five
-    # per-component deck families.
-    assert len(assignments) == 5, assignments
+    # The assembled free-free deck, the LRA beam model (step 12) and the two
+    # mass-model files. It was ten until note 56 D-56.2 deleted the five
+    # per-component deck families, and five until D-56.7 retired
+    # ``inertia_only.bdf`` -- with each mass on a GRID at its own CG there is no
+    # reduction of a mass to a beam station left for it to cross-check.
+    assert len(assignments) == 4, assignments
     for line in assignments:
         # The call may wrap; take the whole statement up to the closing `or ""`.
         stmt = source.split(line, 1)[1].split('or ""', 1)[0]
@@ -387,9 +389,10 @@ def test_every_export_page_writer_call_takes_the_bundle_system():
         assert "system=_system" in window, f"{name} call defaults to Imperial:\n{window}"
         checked += 1
     # The three applied-load CSV calls (wing, fuselage, the tails' shared call)
-    # + the per-module load-case CSV + 3 mass-model files. It was 14 until note
-    # 56 D-56.2 deleted the per-component decks and their companions.
-    assert checked == 7, f"{checked} writer calls found, expected 7"
+    # + the per-module load-case CSV + 2 mass-model files. It was 14 until note
+    # 56 D-56.2 deleted the per-component decks and their companions, and 7
+    # until D-56.7 retired ``inertia_only_cards``.
+    assert checked == 6, f"{checked} writer calls found, expected 6"
     # The assembled deck is imported by name rather than through a module alias,
     # so it is matched on its own — it is the primary deliverable, and a bundle
     # that wrote it in the wrong system would be wrong about the whole airplane.

@@ -318,9 +318,6 @@ if project.weight is not None and project.weight.items:
     _bdf_artifacts["mass_check.bdf"] = _try(
         mc.mass_check_deck, project, header_comment=_bdf_stamp,
         system=_system) or ""
-    _bdf_artifacts["inertia_only.bdf"] = _try(
-        mc.inertia_only_cards, project, header_comment=_bdf_stamp,
-        system=_system) or ""
 
 # Case-index table (Step D1): ID -> full definition, from every module's own
 # ConditionResults (covers engine/landing/SELECT) plus the sbeam component
@@ -612,16 +609,16 @@ else:
         "**and** a payload loading the itemized weight database can produce. The "
         "summary report states the same absence rather than omitting it."
     )
-_bdf_row("Mass model (CONM2)", "mass_model.bdf", "mass_check.bdf",
-         "inertia_only.bdf")
+_bdf_row("Mass model (CONM2)", "mass_model.bdf", "mass_check.bdf")
 if _bdf_artifacts.get("mass_model.bdf"):
     st.caption(
         "**Do not apply the mass model together with the FORCE/MOMENT decks** — "
         "those cards are the *total* applied load and already contain inertia. "
-        "`mass_model.bdf` is the fragment (CONM2 + one MASSSET per payload case), "
-        "`mass_check.bdf` the self-contained runnable deck (MASSSET + GRAV, no "
-        "load cards), `inertia_only.bdf` sloads' own inertia set for comparison "
-        "only. Which payload case is which MASSSET is tabulated in the report."
+        "`mass_model.bdf` is the model entire (a GRID at each item's own CG, its "
+        "CONM2, and one MASSSET per payload case); `mass_check.bdf` is the same "
+        "with case control and GRAV. The grids are **unconnected by design**, so "
+        "read them with a grid-point weight recovery — a stiffness solve over "
+        "them is singular. Which payload case is which MASSSET is in the report."
     )
 
 # --------------------------------------------------------------------------- #

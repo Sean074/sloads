@@ -152,6 +152,21 @@ def artifacts(example: str) -> Dict[str, str]:
     if deck:
         out["sbeam/lra_model"] = deck
 
+    # The CONM2 mass model -- the second deliverable, and until note 56 D-56.6
+    # the one this baseline still did not cover. D-56.6 moved every CONM2 onto
+    # its own GRID at the item's CG and deleted the deck's placeholder beam,
+    # which rewrote the artifact end to end, and no digest channel moved --
+    # because none existed. Exactly the hole the balanced deck's channel was
+    # added to close, one artifact over. Both forms are rendered: the fragment
+    # is what a recipient splices, the check deck is what a GPWG reads.
+    from sloads.export.mass_cards import conm2_fragment, mass_check_deck
+
+    for name, build in (("mass_model", conm2_fragment),
+                        ("mass_check", mass_check_deck)):
+        deck = _try(build, project)
+        if deck:
+            out[f"sbeam/{name}"] = deck
+
     # The index's assembled deck-number column is filled from the assembled
     # deck's own cases (design note 17), so the baseline builds them here too --
     # a column no channel renders is a column no digest can protect.

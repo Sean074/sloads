@@ -842,8 +842,6 @@ def _tab_mass_export(project, system, U) -> None:
     for label, build, name, key in (
         ("Download runnable mass-check deck (BDF)", mass_cards.mass_check_deck,
          "mass_check.bdf", "dl_mass_check"),
-        ("Download sloads inertia set, for comparison only (BDF)",
-         mass_cards.inertia_only_cards, "inertia_only.bdf", "dl_inertia_only"),
     ):
         try:
             text = build(project, header_comment=stamp, system=system)

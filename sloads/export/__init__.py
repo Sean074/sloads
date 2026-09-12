@@ -19,12 +19,12 @@ them.
   that goes with them are report infrastructure, not a bridge to sbeam, and note
   56 D-56.1 moved them to :mod:`sloads.report.applied`, which is where their
   consumers already were. Import them from there, not from this package.
-- **Mass model** — :mod:`sloads.export.mass_cards`: :func:`conm2_fragment`,
-  :func:`mass_check_deck` and :func:`inertia_only_cards`, the ``CONM2``/
-  ``MASSSET`` export that gives sbeam an *independently parsed* mass model to
-  check sloads' inertia loads against. Deliberately **not** re-exported at
-  package level beyond these three: the inertia-only set is a comparison
-  artifact, never a deliverable, and reaching it stays an explicit import.
+- **Mass model** — :mod:`sloads.export.mass_cards`: :func:`conm2_fragment` and
+  :func:`mass_check_deck`, the ``CONM2``/``MASSSET`` export that gives sbeam an
+  *independently parsed* mass model. Self-contained since note 56 D-56.6: one
+  ``GRID`` per item at its own CG, zero offset, **unconnected by design** — read
+  by a grid-point weight recovery, not by a stiffness solve. Deliberately not
+  re-exported at package level: reaching them stays an explicit import.
 - **Closure gate** — :mod:`sloads.export.equilibrium`: :func:`parse_cards`,
   :func:`deck_resultants` and :func:`closes`, the single owner of "re-derive a
   deck's Σ force / Σ moment from its own card text and check the claim its

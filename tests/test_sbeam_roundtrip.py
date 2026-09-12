@@ -82,7 +82,6 @@ from sloads.export.equilibrium import (
 from sloads.export.roundtrip import (
     Support,
     Topology,
-    flatten_mass_case,
     solve_deck,
     total_reaction,
     wrap_as_stick_model,
@@ -177,6 +176,26 @@ def _units(system):
 def _solved(text):
     """``(solutions, grids)`` for a deck -- solve it and keep its geometry."""
     return solve_deck(text), parse_cards(text)[0]
+
+
+def _bulk_of(text):
+    """A deck's parsed ``BulkData`` -- sbeam's own reader, no solve.
+
+    The mass model's grids are unconnected by design (note 56 ruling 9), so it is
+    read rather than solved: ``compute_gpwg`` needs the parse and nothing else.
+    sbeam's reader takes a path, so the deck goes through a temp file -- the same
+    round trip through text a recipient makes, which is the point of the gate.
+    """
+    import tempfile
+
+    from sbeam.parser.bdf_reader import parse_bdf
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "deck.bdf")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        out = parse_bdf(path)
+    return out[-1] if isinstance(out, tuple) else out
 
 
 
@@ -483,189 +502,96 @@ def _nodal_inertia(sol, grids, support_gid):
 MASS_MATRIX = MATRIX + ("atr42_100.project.json",)
 
 
+# --------------------------------------------------------------------------- #
+# The mass model -- checked by GPWG, not by a solve (note 56 D-56.6, ruling 16)
+# --------------------------------------------------------------------------- #
+# **Five legs were deleted here and this is the account of what they did.**
+# D-56.6 puts every CONM2 on a GRID at its own item's CG, unconnected by design
+# (ruling 9), so a stiffness solve over the mass deck is singular and the legs
+# that reacted it against an SPC1 clamp through CBARs have no load path:
+#
+#   * ``test_mass_deck_recovers_the_inertia_cards_case_for_case`` (M-a total,
+#     M-b card-for-card, M-c the cases differ). M-b compared against
+#     ``inertia_only_cards``, which D-56.7 retires, so it goes by design; M-a and
+#     M-c are the real loss -- sbeam's own mass-matrix assembly and the GRAV
+#     acceleration path stop being exercised.
+#   * ``test_the_shipped_mass_deck_hits_the_sbeam_massset_gap``, the pin that
+#     SOL 101 ignores a subcase's MASSSET. It pinned a *solver* limitation on a
+#     deck no longer solved. GPWG does **not** have the gap (see below), so the
+#     workaround it justified is gone rather than merely unused.
+#   * the two ``flatten_mass_case`` legs and the C1 mutation. Flattening existed
+#     only to work around that MASSSET gap for these solves; with no solve and no
+#     gap it has no caller, so ``roundtrip.flatten_mass_case`` retires with them
+#     and §8's collapse has that much less to weigh.
+#
+# **The C1 defect class did not go with the mutation leg**, which is why the leg
+# could go. The 2026-08-10 defect was an SI GRAV magnitude 25.4x low, and it is
+# caught today by card text against an independently written constant, in both
+# systems, at rel=1e-12: ``test_mass_cards.test_the_grav_card_carries_g_in_deck_units``
+# and ``::test_deck_gravity_is_g_in_the_decks_own_length_unit``. A solve was
+# never the only thing that could see it -- it was only the thing that did.
+
+
 @pytest.mark.roundtrip
 @pytest.mark.parametrize("example", MASS_MATRIX)
 @pytest.mark.parametrize("system", SYSTEMS)
-def test_mass_deck_recovers_the_inertia_cards_case_for_case(sbeam, example, system):
-    """M-a...M-c: sbeam accelerates the ``CONM2`` set and reproduces sloads' inertia.
+def test_gpwg_recovers_each_payload_case_from_the_shipped_mass_deck(
+        sbeam, example, system):
+    """**Gate 6**: sbeam's own mass recovery agrees with sloads, case by case.
 
-    **The check the whole CONM2 export exists for** (plan 12 C6), and the one
-    family the harness never solved until now -- which is exactly why the SI
-    ``GRAV`` acceleration could ship 25.4x low and be caught by a reading rather
-    than by CI (2026-08-10 review, C1/F-G2).
+    The check the CONM2 export exists for, in the form D-56.6 leaves it. sbeam
+    parses the deck independently and computes total mass and CG from the CONM2
+    cards and the grid positions -- sloads never tells it either number.
 
-    Three statements, each with two independent producers:
+    Three things make this stronger than the solve it replaces, and one weaker;
+    all four are stated because a replaced gate should be argued, not asserted.
 
-    * **M-a** the total: sbeam's clamp reacts the case's own weight x Nz. sloads
-      never tells it that number -- it comes out of sbeam's mass matrix, built
-      from the ``CONM2`` cards and their offsets.
-    * **M-b** card for card: the nodal inertia sbeam recovers equals
-      ``inertia_only_cards(loading=...)`` at every node.
-    * **M-c** the cases differ. A leg that solved four cases of one airplane and
-      never noticed they were the same mass would be worth nothing, and that is
-      not hypothetical -- it is what the shipped deck does today (see
-      :func:`test_the_shipped_mass_deck_hits_the_sbeam_massset_gap`).
+    * It reads **the deck as shipped**. GPWG honours ``MASSSET`` where ``SOL 101``
+      does not, so there is no flattening transform between the artifact and the
+      claim -- the old legs had to fold each case into a baseline deck first, and
+      a gate that tests a transformed artifact is a gate with a caveat.
+    * It needs no connectivity, so it works on the unconnected CG grids that are
+      now the model, without sloads shipping a tie it does not believe in.
+    * It is per case *and* per unit system, as before.
+    * **Weaker:** the ``GRAV`` acceleration path and sbeam's mass-matrix assembly
+      are no longer exercised. See the block above for why that is affordable.
 
-    Run in **both** unit systems: Imperial cannot see a ``length.factor`` slip in
-    the acceleration at all, which is the whole lesson of C1.
+    **The tolerance is the deck's own print precision, and is measured.**
+    ``deck_format.fmt`` writes seven significant figures and GPWG reads the
+    printed cards, so agreement is bounded at ~1e-7 by the artifact itself --
+    worst observed over five fixtures x two systems x every case is 1.3e-7, on
+    ``concept_heavy`` (``46.62142525735088`` prints as ``4.662143E+01``). A
+    tighter tolerance would assert that a seven-figure field carries more than
+    seven figures.
     """
+    from sbeam.gpwg import compute_gpwg
+
     project, _, _, _ = _components(example)
-    u = _units(system)
     deck = mc.mass_check_deck(project, system=system, nz=NZ)
+    bulk = _bulk_of(deck)
+    loadings = _loadings(project)
     seen = []
 
-    for i, loading in enumerate(_loadings(project)):
-        sid = mc.MASSSET_SID_BASE + i
-        where = f"{example} {system.value} mass {loading.name}"
-        text = flatten_mass_case(deck, sid)
-        sols, grids = _solved(text)
-        (solved_sid, sol), = sols.items()
-        assert solved_sid == sid, where
-        (_, _, support_gids), = [s for s in parse_cards(text)[2]]
-        support = support_gids[0]
-
-        want_total = -loading.weight_lb * NZ * u.force.factor
-        assert closes(sol.reactions[support][2], -want_total,
-                      scale=abs(want_total)), f"{where} M-a"
-
-        _, _, _, want_cards, _ = parse_cards(
-            mc.inertia_only_cards(project, system=system, nz=NZ, loading=loading))
-        want = {gid: scale * n[2]
-                for gid, scale, n in want_cards[mc.GRAV_SID_BASE]}
-        got = _nodal_inertia(sol, grids, support)
-        assert set(want) <= set(got), f"{where}: nodes {sorted(set(want) - set(got))}"
-        for gid, value in got.items():
-            assert closes(value, want.get(gid, 0.0), scale=abs(want_total)), \
-                f"{where} M-b node {gid}: {value} vs {want.get(gid, 0.0)}"
-        seen.append(tuple(sorted((gid, round(v, 6)) for gid, v in got.items())))
-
-    assert seen, f"{example}: no derivable payload case reached the solver"
-    if len(seen) > 1:
-        # On the *distribution*, not on the total: the regional jet's two
-        # derivable cases weigh the same 33,000 lb and differ only in where the
-        # payload sits, so a total-only check would pass on it vacuously.
-        assert len(set(seen)) > 1, (
-            f"{example} M-c: every case recovered the same nodal inertia -- "
-            "the per-case mass model is not reaching the solver")
-
-
-@pytest.mark.roundtrip
-@pytest.mark.parametrize("system", SYSTEMS)
-def test_the_shipped_mass_deck_hits_the_sbeam_massset_gap(sbeam, system):
-    """**Pinned sbeam limitation**: SOL 101 ignores the subcase's ``MASSSET``.
-
-    ``solver/sol101.py`` assembles the ``GRAV`` load vector through
-    ``assemble_load_vector(bulk, load_sid)``, which calls
-    ``assemble_global_mass(bulk)`` with no ``massset_sid`` -- so the mass-case
-    resolver is never reached on the static path and every subcase accelerates
-    the **baseline** mass. On ``ga6_normal`` all four payload subcases recover
-    2063 lb against case weights of 3400 / 3400 / 2800 / 2063.
-
-    That is why the leg above flattens each case into a baseline deck rather than
-    solving the deck as shipped. The limitation is pinned here rather than left
-    unstated, and this test **is meant to fail** the day sbeam threads the mass
-    case through -- at which point the flattening becomes unnecessary and the
-    shipped deck can be solved directly. Bump the pin, then delete this.
-    """
-    project, _, _, _ = _components("ga6_normal.project.json")
-    u = _units(system)
-    loadings = _loadings(project)
-    assert len({round(ld.weight_lb, 6) for ld in loadings}) > 1, \
-        "this pin needs cases of differing weight to say anything"
-
-    text = mc.mass_check_deck(project, system=system, nz=NZ)
-    sols, _ = _solved(text)
-    baseline = sum(c.item.weight_lb for c in mc.mass_cards(project)[0]
-                   if not c.overlay)
-    want = baseline * NZ * u.force.factor
-
     for i, loading in enumerate(loadings):
-        sol = sols[mc.MASSSET_SID_BASE + i]
-        got = sum(v[2] for v in sol.reactions.values())
-        assert closes(got, want, scale=abs(want)), (
-            f"sbeam recovered {got} for {loading.name} against the baseline "
-            f"{want} -- the MASSSET gap this pin records may be fixed; if so, "
-            "solve the shipped deck directly and delete this test")
+        where = f"{example} {system.value} mass {loading.name}"
+        got = compute_gpwg(bulk, mc.MASSSET_SID_BASE + i)
+        want = mc.mass_properties(project, loading, system=system)
+        assert got.total_mass == pytest.approx(want["mass"], rel=1e-6), \
+            f"{where}: sbeam recovered {got.total_mass} against {want['mass']}"
+        for axis in ("cg_x", "cg_z"):
+            assert getattr(got, axis) == pytest.approx(want[axis], rel=1e-6), \
+                f"{where} {axis}: {getattr(got, axis)} vs {want[axis]}"
+        seen.append((round(got.total_mass, 6), round(got.cg_x, 6)))
 
-
-def test_flattening_keeps_the_shipped_cards_and_drops_the_other_overlays():
-    """The transform may re-select mass, and may not rewrite it (no solver needed).
-
-    What it is allowed to do is choose which ``CONM2`` cards are in the model and
-    which subcase survives. What it must never do is touch a card's numbers --
-    otherwise the leg above would be testing the transform rather than the deck.
-    """
-    project, _, _, _ = _components("ga6_normal.project.json")
-    deck = mc.mass_check_deck(project)
-    cards, loadings = mc.mass_cards(project)
-    lines = {ln.split(",")[1].strip(): ln
-             for ln in deck.splitlines() if ln.startswith("CONM2")}
-
-    flat = flatten_mass_case(deck, mc.MASSSET_SID_BASE)
-    kept = {ln.split(",")[1].strip(): ln
-            for ln in flat.splitlines() if ln.startswith("CONM2")}
-    assert kept and all(kept[eid] == lines[eid] for eid in kept), \
-        "a CONM2 card was rewritten, not merely selected"
-    cards_left = [ln for ln in flat.splitlines()
-                  if ln.startswith(("MASSSET", "+,")) or "MASSSET =" in ln]
-    assert not cards_left, cards_left
-    assert flat.count("SUBCASE") == 1
-    assert f"SUBCASE {mc.MASSSET_SID_BASE}" in flat
-
-    # The first loading's own items, and nothing another case adds.
-    want = {c.eid for c in cards if id(c.item) in {id(it) for it in loadings[0].items}}
-    assert {int(eid) for eid in kept} == want
-
-
-@pytest.mark.roundtrip
-def test_the_c1_defect_would_have_failed_this_leg(sbeam):
-    """**The leg's teeth**: rebuild the C1 defect and the solve must reject it.
-
-    The mutation is not invented -- it is the shipped SI ``GRAV`` magnitude
-    before 2026-08-10: ``force/(mass x length)`` instead of ``force/mass``, i.e.
-    the right number divided by ``length.factor`` = 25.4. Recovered inertia comes
-    back 25.4x low and M-a says so. This is the assertion whose absence let a
-    silently-wrong SI deck ship, so it is stated as a defect reproduction rather
-    than as a generic scale perturbation.
-    """
-    project, _, _, _ = _components("ga6_normal.project.json")
-    u = _units(UnitSystem.SI)
-    loading = _loadings(project)[0]
-    deck = mc.mass_check_deck(project, system=UnitSystem.SI, nz=NZ)
-    broken = _mutate(
-        flatten_mass_case(deck, mc.MASSSET_SID_BASE),
-        lambda ln: ln.startswith("GRAV,"),
-        lambda ln: ",".join(
-            f" {float(c) / u.length.factor:.6E}" if i == 3 else c
-            for i, c in enumerate(ln.split(","))))
-
-    sols, grids = _solved(broken)
-    (_, sol), = sols.items()
-    (_, _, support_gids), = parse_cards(broken)[2]
-    want = -loading.weight_lb * NZ * u.force.factor
-    got = sol.reactions[support_gids[0]][2]
-    assert not closes(got, -want, scale=abs(want)), (
-        f"a 25.4x-low GRAV still recovered {got} against {-want} -- this leg "
-        "cannot see the defect it was written for")
-    assert closes(got * u.length.factor, -want, scale=abs(want)), got
-
-
-def test_flattening_refuses_a_deck_it_cannot_fold():
-    """A SCALE or a REPLACE/DELETE row changes what the baseline means, and this
-    transform's whole claim is that it does not. sloads emits neither."""
-    project, _, _, _ = _components("ga6_normal.project.json")
-    deck = mc.mass_check_deck(project)
-    with pytest.raises(ValueError, match="MASSSET 12345"):
-        flatten_mass_case(deck, 12345)
-    scaled = deck.replace(f"MASSSET, {mc.MASSSET_SID_BASE}, CG1, 1.0",
-                          f"MASSSET, {mc.MASSSET_SID_BASE}, CG1, 0.5")
-    with pytest.raises(ValueError, match="SCALE"):
-        flatten_mass_case(scaled, mc.MASSSET_SID_BASE)
-    replaced = deck.replace("+, ADD,", "+, REPLACE,", 1)
-    with pytest.raises(ValueError, match="only ADD"):
-        flatten_mass_case(replaced, mc.MASSSET_SID_BASE)
-
-
+    assert seen, f"{example}: no derivable payload case reached the recovery"
+    if len(seen) > 1:
+        # On the *distribution*, not the total: the regional jet's two derivable
+        # cases weigh the same 33,000 lb and differ only in where the payload
+        # sits, so a total-only check would pass on it vacuously. This is M-c,
+        # kept in the form the new authority allows.
+        assert len(set(seen)) > 1, (
+            f"{example}: every case recovered the same mass and CG -- the "
+            "per-case mass model is not reaching sbeam")
 
 
 # --------------------------------------------------------------------------- #
