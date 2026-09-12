@@ -186,6 +186,53 @@ would not move:*
     reduced, because under ruling 10 this is the resolution of a *delivered*
     load set rather than of an internal check.
 
+**Rulings 13–15 (2026-09-12, owner, in session — taken at slice 6b's design
+fork).** Implementation reached D-56.9 and found that the decision as written
+could not be built: the LRA deck sums every source onto each node, so a card has
+no single station-level row to be matched against. The owner's answer went
+further than any of the three options put up, and these three rulings are it.
+
+13. **The LRA grids are the reporting grids, and the loads are summed to them.**
+    Aerodynamic and inertial forces are summed *onto* the LRA grid — several
+    aero stations and several mass items onto one grid where the sets do not
+    align, which they generally do not. The applied set is re-aggregated, not
+    relabelled.
+14. **The difference this produces is shown, not absorbed.** "As these grid sets
+    do not align that may mean multiple aerodynamic force grids are summed to an
+    LRA grid, likewise with the inertial loads. This will result in some
+    difference as they are different locations. In the report a VMT plot should
+    be added to show this difference."
+15. **Stated, not gated with a tolerance** — the resultant identity stays exact
+    and gated; the distribution difference is plotted and quantified. Four
+    figures (wing, fuselage, h-tail, fin) on **one shared critical case**, both
+    curves computed, no solver in the loop; the per-strip view stays in section 4
+    and the appendix follows the deck.
+
+**Ruling 16 (2026-09-12, owner, in session — taken at slice 7's verification.)**
+Verifying gate 6's precondition showed D-56.6 costs three solver legs, and the
+owner accepted the trade: **GPWG replaces the solve.**
+
+16. **The mass model is checked by GPWG, not by a stiffness solve.** Ruling 9
+    makes the CG grids unconnected by design, so `SOL 101` cannot run on the mass
+    deck at all — `test_the_mass_deck_accelerates_and_reproduces_sloads_inertia`'s
+    three legs (M-a total, M-b card-for-card, M-c the cases differ) lose their
+    load path. M-b goes by design, since it compares against `inertia_only_cards`
+    which D-56.7 retires. **M-a and M-c are a real loss and are recorded as one**:
+    sbeam's own mass-matrix assembly and the `GRAV` acceleration path stop being
+    exercised, in both unit systems — and the SI leg is what caught the 25.4×
+    `GRAV` slip in the 2026-08-10 review (C1/F-G2). Rejected alternative:
+    *ship an optional `RBE2` tie so the check can still solve.* It re-creates
+    exactly the coupling D-56.6 removes, and ruling 4 already rejected attaching
+    the mass model to the LRA grids; a deck that exists only to be solved by its
+    own test is the maintenance D-56.2 removed. **The compensation is real and
+    was measured, not assumed:** GPWG honours `MASSSET` where `SOL 101` does not
+    — on the shipped `ga6_normal` deck it returns each case's mass exactly
+    (CG1/CG4 = 1.648 = 3400/2063, CG3/CG4 = 1.357 = 2800/2063) — so gate 6 reads
+    **the deck as shipped**, per case, in both unit systems, where the solve legs
+    had to flatten each case into a baseline deck to work around the pinned
+    `MASSSET` gap. The SI channel is therefore still checked; it is checked
+    without the acceleration path.
+
 ### 2.3 Two facts that close sub-questions without a decision
 
 * **There is no "sbeam json".** sbeam's only input is NASTRAN bulk data
@@ -210,7 +257,8 @@ would not move:*
 | **D-56.6** | **CONM2 creates its own `GRID` at each mass item's CG**, with a zero-offset `CONM2` on it. `_attach_gid` and its CR-B-1 nearest-station tie rule, the offset arithmetic and the `beam_station_gid` import all go. `conm2_fragment` becomes self-contained and converges with `mass_check_deck`, which keeps only its case control and `GRAV`. The wing-item limitation `_attach_gid` documents **retires** — it was waiting on plan 11 B5, which shipped. The CG grids are **unconnected by design** (ruling 9): sloads ships no tie, and a CONM2 on an unconnected grid is singular in any stiffness solve — so the "spliced into a load deck" capability the `mass_cards.py` band comment documents retires with the offsets, and that prose is re-cut. The user RBEs the CG grids to whatever model they assess. | *Attach to the LRA model's grids.* Rejected by ruling 4: it re-creates the coupling this note removes, and ties the mass model's validity to a beam mesh that is explicitly a minimal default. *Keep a mass-only fuselage station line.* Rejected: it keeps the wing-item limitation alive permanently. |
 | **D-56.7** | **`inertia_only_cards` retires.** It exists to compare sloads' reduction of a mass to a beam station against sbeam's GPWG recovery. With each mass at its own CG there is no reduction left to check. | *Keep it as a regression check.* Rejected: it would compare two identities. |
 | **D-56.8** | **`balanced_deck` demotes to an internal producer.** Its cases feed the LRA transfer and the report's `balanced_case_rows`; no `.bdf` ships. A table is in the issue package **iff the document draws it** — the rule `data/<step_key>.csv` already states. Deck-companion CSVs nothing draws are deleted with their decks. | *Keep shipping it as the equilibrium proof.* Rejected: the proof is a CI gate, not a deliverable, and the LRA deck carries the same resultant. This also makes #173 moot rather than fixed. |
-| **D-56.9** *(added by amendment, ruling 10)* | **The applied load set is stated at the LRA grids, and `AppliedLoad.gid` is an LRA grid.** The component appendices and the `*_applied_loads.csv` files quote the node the deck actually carries the load at, so the appendix row and the FORCE/MOMENT card are **one object at one point** — which is what the row-for-card claim always meant and what the per-component decks happened to provide. A concentrated mass gets a grid like anything else, so `gid` stops being `Optional`. **G-OR-90 keeps its form and changes its authority**: it reads the LRA deck instead of `tail_span_force_moment_cards`, still card-first (every card is found, not merely every row is valid), still one case at a time. | *Let `gid` become `None` and gate on position.* Rejected: it drops the identity the tags (BM-5) exist to provide and makes the appendix describe no artifact. *Keep one per-component card writer alive as the gate's reference.* Rejected: a deck kept in the tree only to be compared against is exactly the maintenance D-56.2 removes — and it would gate the appendix against an artifact nobody receives, which is how the omission in note 44 OR-139 survived review in the first place. |
+| **D-56.9** *(added by amendment, ruling 10; **rewritten by amendment 2026-09-12, ruling 13** — the original text is quoted in §6)* | **The applied load set is re-aggregated onto the LRA grids.** Not relabelled: *summed*. A component's applied set stops being one row per load-integration station and becomes **one row per (case, LRA grid)**, with every aerodynamic and inertial contribution that routes to that grid summed into it through LM-1 (`coordinates.transfer_couple`, the existing owner — the same rule `lra_model.transferred_case_loads` already applies, so there is one routing rule and not a second one written for the report). Several aero stations and several mass items therefore land on one grid, which is the point: the appendix row, the `*_applied_loads.csv` row and the `FORCE`/`MOMENT` card are then **one object at one point**, which is what the row-for-card claim always meant and what the per-component decks happened to provide. `AppliedLoad.gid` is an LRA grid and stops being `Optional` — a concentrated mass gets a grid like anything else. The seven bands the applied model allocated from (`wing-stick`, `body-mass`, `body-reaction`, the two `tail-span` and the two `tail-control` runs) retire, and `wing-stick`'s `GID 1` hole closes with them. **G-OR-90 keeps its form and changes its authority**: it reads the LRA deck, still card-first, still one case at a time — and the form is now *true*, because with one aggregation rule a component's rows at a grid and the card at that grid cannot disagree. | *Relabel the rows with the nearest LRA grid and leave the station-level decomposition intact* (what this decision said before the rewrite). Rejected on measurement, not taste: the LRA deck emits one `SUBCASE` per **balanced** case and `transferred_case_loads` sums every source onto each node, so a card at a grid has contributions from several components and matches no single station-level row. Card-first row-matching cannot hold against a summing deck — the gate would have had to weaken to a resultant identity, and the appendix would have kept describing a decomposition the delivered artifact does not have. *Make the applied set the literal card writer, replacing `transferred_case_loads`.* Rejected as a different change: the component sets do not carry the balanced case's inertia relief, so this would move G-OR-72's `nz × W` closure onto new machinery in a slice that is about addressing, not about what the deck is. |
+| **D-56.10** *(added by amendment 2026-09-12, ruling 14)* | **The report states what the re-aggregation costs, as a VMT comparison.** LM-1 preserves each load's resultant about the node it lands on **exactly**, so the total resultant is unchanged and already gated. What moves is the **distribution**: a load that crosses a cut on its way to its assigned node takes its contribution to the internal V/M/T at that cut with it. That is a real discretization difference, it is a direct consequence of the mesh being load-blind by design (D-56.4), and the report states it rather than leaving a reader to discover it. A new section carries **four figures — wing, fuselage, h-tail, fin — for one shared critical case**, each plotting the calc's own distributed VMT against the VMT re-derived from the LRA-lumped applied set, with the worst deviation over **all** cases stated numerically beside them. One case for all four so the figures are read together. **No solver is in the loop**: both curves are computed, so the figure is a discretization comparison and not an idealisation comparison, and it is reproducible in CI. | *Compare against sbeam's solved internal loads.* Rejected: it puts the solver's own idealisation into the same plot as the lumping error and a reader cannot tell which they are looking at. *Gate the deviation with a hard tolerance.* Rejected **for now** (ruling 15, and see gate 12): the deviation is a legitimate function of a user-settable grid count, so a fixed tolerance would fail a coarse mesh that is behaving exactly as specified. The number would also have to come from a measurement nobody has taken. It is stated and plotted; the resultant identity beside it stays exact and gated. | 
 
 **`EXPORT_TARGETS`** (`cli.py:89`) goes from ten to **`("lra", "mass")`**, plus
 `--lra-import`.
@@ -237,9 +285,26 @@ the sentence is deleted.
 5. **No sliver is possible.** Every joint is a mesh point by construction; the
    note-55 sliver gate becomes vacuous and is replaced by the construction
    assertion. Mutation-tested.
-6. **CONM2 re-grid is mass-neutral**: GPWG total mass, CG and inertia unchanged
-   by the move to CG grids — the masses did not move, only the nodes they sit on.
-   *Precondition to verify first: sbeam's GPWG accepts unconnected grids.*
+6. **CONM2 re-grid is mass-neutral**: GPWG total mass and CG unchanged by the
+   move to CG grids — the masses did not move, only the nodes they sit on.
+   **Precondition verified 2026-09-12** (it was the note's one open unknown):
+   `sbeam.gpwg.compute_gpwg` walks `CONM2` cards and grid positions directly, with
+   no stiffness matrix and no connectivity, so a deck of grids and masses with
+   **no elements and no `SPC`** returns the hand-computed mass and CG exactly. It
+   applies a `CONM2` offset identically, so a mass at a beam station with an
+   offset and the same mass at its own CG grid with zero offset give the same
+   answer. **The tolerance is the deck's own print precision, measured not
+   guessed:** GPWG reads the *printed* cards, and `deck_format.fmt` writes seven
+   significant figures, so agreement is bounded at ~1e-7 by the artifact itself
+   (worst over five fixtures × two unit systems × every mass case: **1.3e-7**,
+   on `concept_heavy` — `46.62142525735088` prints as `4.662143E+01`). The gate
+   is `rel_tol=1e-6` with that reason stated; a tighter one would be asserting
+   that a seven-figure field carries more than seven figures.
+   **Amended the same day, ruling 16: the inertia clause is struck.**
+   `GpwgResult` is `total_mass, cg_x, cg_y, cg_z, massset_sid, massset_label` —
+   the pinned sbeam has no GPWG inertia producer, so that third of the gate named
+   an output that does not exist and had no authority to check against. Struck
+   with its reason rather than left standing as an unrunnable clause.
 7. **`EXPORT_TARGETS == ("lra", "mass")`**, and `tests/test_cli.py` proves no
    retired target is reachable.
 8. **The delivered loads do not move.** Module views, case index, both reports
@@ -259,6 +324,23 @@ the sentence is deleted.
     changes no delivered resultant — only how finely it is distributed. This is
     the gate that keeps D-56.4's equal-spacing argument true rather than
     asserted, and it is what makes the LM-1 transfer non-identity in CI.
+12. *(added by amendment 2026-09-12)* **Every applied row is at an LRA grid,
+    and every card is accounted for.** No `AppliedLoad` carries a gid outside the
+    LRA's own run; `gid` is not `Optional`; the seven retired bands are gone from
+    the registry and nothing allocates from them. Card-first against the LRA
+    deck, one case at a time: every `FORCE`/`MOMENT` card the deck writes is
+    found in the applied set at that grid, and the components agree. Mutation-
+    tested against the note 44 OR-139 omission class the gate was written for.
+13. *(added by amendment 2026-09-12)* **The re-aggregation moves no resultant,
+    and says how much it moves the distribution.** Per component and per case,
+    the summed applied set's resultant about any point equals the un-aggregated
+    set's — exactly, LM-1 being the only rule applied (this is the half that is
+    gated). The distribution difference is *stated*, not bounded: the report's
+    VMT comparison renders for every fixture and the worst deviation over all
+    cases is printed. A guard asserts the statement exists and is non-empty, so
+    the figure cannot silently stop being drawn — per ruling 15 it asserts no
+    tolerance on the deviation itself.
+
 11. *(added by amendment)* **The schema hop is complete.** `SCHEMA_VERSION` 65 →
     66; a project written at 65 loads and produces the D-56.4 default counts;
     `tests/test_schema_guards.py` and `tests/test_project_units.py` both pass,
@@ -323,6 +405,26 @@ anything finer.
   column-inventory pass; the two coordinate.
 * **#241 is not superseded** — the `AppliedLoad` model moves, it does not die, so
   the missing case identity still needs fixing at its new address.
+* **This note corrects itself at D-56.9** (2026-09-12, rulings 13–15). The
+  decision as first written read: *"The applied load set is stated at the LRA
+  grids, and `AppliedLoad.gid` is an LRA grid. The component appendices and the
+  `*_applied_loads.csv` files quote the node the deck actually carries the load
+  at."* Quoted rather than edited away, because the correction is the useful
+  part. "Quote the node" is ambiguous between **relabelling** a station-level row
+  with a nearby grid and **summing** the station-level rows onto that grid, and
+  only the second is buildable: the LRA deck emits one `SUBCASE` per *balanced*
+  case and sums every source onto each node, so a card at a grid corresponds to
+  no single station-level row and card-first matching has nothing to match. The
+  original wording also assumed the two grid sets could be put in correspondence
+  at all, which D-56.4 had already made false on purpose — a load-blind mesh does
+  not align with the load stations, and that is the property §1.4 wanted.
+  **D-56.10 exists because of the same correction**: once the sets are summed
+  rather than paired, there is a distribution difference to state, and the note
+  had no place to state it.
+* **#209 narrows again.** The case index's `LOAD/SUBCASE (component)` column
+  named per-component decks that D-56.2 deleted; after D-56.9 the applied rows
+  are addressed by LRA grid, so the column's remaining question — index or load
+  table — is asked against one deck rather than five.
 
 ---
 
@@ -356,6 +458,17 @@ anything finer.
   unclassified.
 * One **bulk digest re-stamp**, at the end, as a single wave with the claim in
   the fragment (`DEVELOPMENT_PROCESS.md` §231: a PR carries at most one).
+* *(added 2026-09-12, D-56.10)* `docs/10_standard/ORACLE_REPORT.md` — the VMT
+  comparison's section, its four figures and the deviation statement, with the
+  gates it carries; `docs/10_standard/PROGRAM_SPEC.md`'s report content list
+  gains the section. The figure is new *content*, so it is specified where the
+  report's content rules live and not only in this note.
+* *(added 2026-09-12, D-56.9 rewrite)* `docs/20_theory/00_theory_sources.md` —
+  **a citation after all**, reversing the "no citation" line above for this one
+  decision. Re-aggregating a distributed load onto a coarser node set is a
+  discretization choice with a stated consequence, so the lumping rule (LM-1, and
+  what it does and does not preserve) is cited where the method's basis lives.
+  Gate 13 is its closure gate; there is no printed oracle for it.
 
 ---
 
@@ -372,6 +485,7 @@ not only of what was intended.
 | 4 | **The LRA model owns every grid it writes** (D-56.3). One contiguous run, `20001-30999`, eleven 999-wide sub-bands on a 1000 stride so `gid // 1000 - 20` is the family index; `sob_gid` moves to `lra_model`; gates 3 and 4 land. Only `sbeam/lra_model` re-stamps. | 2026-09-11 |
 | 5 | **The LRA beam gets its own mesh** (D-56.4). Ends + owned points + equally spaced grids *between* them; counts settable per component (`Project.lra_mesh`, schema 65 -> 66) at wing 20/side, fuselage 12/cantilever, h-tail 12/side, fin 10; members run to their tips; `JOINT_MERGE_FRACTION` retires; gates 5, 10 and 11 land. Only `sbeam/lra_model` re-stamps. | 2026-09-11 |
 | 6a | **``sbeam_bridge.py`` ceases to exist** (D-56.1). The applied-load family, the station numbering and the side-of-body internal loads move whole to ``report/applied.py``; the export package stops re-exporting them and no shim is left. Two guards land: one address per name in both directions, and no importable ``sbeam_bridge``. Deliverables byte-identical. | 2026-09-11 |
+| 7 | **CONM2 gets its own CG grids and the mass model is checked by GPWG** (D-56.6 + D-56.7). One `GRID` per card at the item's own CG in the new `mass-cg` band (`13001+`), zero offset; `_attach_gid`, the offset arithmetic, the placeholder massless beam and its `SPC1` all go, and the wing-item limitation retires with the header sentence that stated it. `inertia_only_cards`, `case_station_weights` and `roundtrip.flatten_mass_case` retire. Gate 6 lands as GPWG. The mass model enters the digest baseline for the first time (234 → 244 channels). | 2026-09-12 |
 
 **Two departures from the note as written, both deliberate.**
 
@@ -532,10 +646,81 @@ decks D-56.2 had deleted; ``mass_cards`` and ``balanced_deck`` both cited
 at their pre-slice-2 addresses, and ``CONVENTIONS.md`` cited ``LOAD_ID_COLUMN``
 at its. All five now name where the code is.
 
+**Slice order changed 2026-09-12: D-56.6 goes before D-56.9.** The note calls
+D-56.6 orderable anywhere and it is, but 6a left `export/mass_cards.py` importing
+`beam_station_gid` from `report.applied`, and D-56.9 retires that band. Running
+D-56.6 first deletes the consumer, so D-56.9 retires the band once instead of
+keeping it alive for one slice and retiring it in the next. The remaining order is
+**7 (D-56.6/D-56.7) → 6b-i (the re-aggregation and the grids) → 6b-ii (D-56.10's
+figure) → 8 (D-56.8 + §8)**.
+
 **D-56.9 is not in this slice.** ``AppliedLoad.gid`` is still allocated from the
 applied-load model's own bands, so the ``wing-stick`` ``GID 1`` hole stays open
 and the registry has not collapsed. That is 6b, and it is the last thing between
 this note and its band count.
+
+---
+
+**Slice 7: the precondition held, and the band did not go where the note said.**
+
+Gate 6's one open unknown resolved cleanly — `compute_gpwg` walks `CONM2` cards
+and grid positions with no stiffness matrix, so a deck of grids and masses with
+no elements and no `SPC` returns the hand-computed mass and CG. Four things
+around it did not go to plan, and each is recorded rather than smoothed over.
+
+1. **The band is at `13001`, not the `11001` §D-56.6 proposed.** `11001-11999`
+   is the `lra-cbar` **EID** run. The `CONM2` EID bands declare `clear_of_gids`
+   precisely so a spliced deck's every id names one owner by inspection, and
+   that rule runs both ways — a GID band inside EID space breaks it from the
+   other side. The registry's own overlap guard caught it on the first run,
+   which is the guard working exactly as intended.
+
+2. **Gate 6's inertia clause was struck (ruling 16).** `GpwgResult` carries
+   `total_mass` and a CG and nothing else; the pinned sbeam has no GPWG inertia
+   producer, so a third of the gate named an output that does not exist.
+
+3. **The tolerance is the artifact's, and it is measured.** The note called this
+   an exact identity after a three-mass probe. Across five fixtures × two unit
+   systems × every payload case the worst disagreement is **1.3e-7**, and the
+   cause is not summation noise: GPWG reads the *printed* deck and
+   `deck_format.fmt` writes seven significant figures
+   (`46.62142525735088` prints `4.662143E+01`). `rel_tol=1e-6`, stated.
+
+4. **The mass model had no digest channel at all**, so the artifact could be
+   rewritten end to end — every grid new, every offset gone, the beam deleted —
+   and nothing would have moved. That is the hole `sbeam/balanced_deck` was added
+   to close in B8a-2, one artifact over, and it is closed the same way: both
+   forms are now rendered, 234 → **244** channels.
+
+**What the retirement cost, counted rather than asserted.** Five roundtrip legs
+went: the three-part M-a/M-b/M-c recovery, the `MASSSET`-gap pin, the two
+`flatten_mass_case` legs and the C1 mutation. M-b went by design with
+`inertia_only_cards`. **M-a and M-c are a real loss** — sbeam's mass-matrix
+assembly and the `GRAV` acceleration path are no longer exercised. Three things
+make it affordable and all three were checked, not assumed: GPWG honours
+`MASSSET` where `SOL 101` does not, so the gate reads the deck **as shipped**
+rather than a flattened transform of it; it still runs per case in both unit
+systems; and the **C1 defect class did not leave with its mutation leg** — a
+25.4× `GRAV` error is caught by card text against an independently written
+constant at `rel=1e-12`, in both systems, in `tests/test_mass_cards.py`. A solve
+was never the only thing that could see C1; it was only the thing that did.
+
+**One defect prevented, from #173's own lesson.** Ruling 9 leaves the deck
+carrying `SOL 101` over unconnected grids, which dies "singular stiffness
+matrix" — #173's defect class exactly, arriving at a different file the same
+week #173 was queued to close as superseded. The header names the condition, the
+reason and the remedy (`RBE2` per grid), and
+`test_the_mass_model_carries_no_structure_and_says_a_solve_is_singular` makes
+that statement a gate rather than a courtesy.
+
+**A guard that had to learn a new distinction.** Adding the mass channels to the
+digest baseline made the mass deck visible to `test_case_ids`' deck-number
+parser, which read `SUBCASE 9301 / LABEL = CG1` as a per-component load-case
+pairing and fired D-56.2's "a component deck came back" assertion. It is neither:
+a `MASSSET` subcase names a **payload** case, and `CG1` is not a case id and has
+no index row. The parser now skips the mass channels by name and says why —
+found only because the new digest channel put the artifact in front of it, which
+is the argument for the channel restated as an event.
 
 ---
 

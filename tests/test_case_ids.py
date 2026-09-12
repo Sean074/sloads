@@ -299,6 +299,15 @@ def _pairs_from_decks(artifacts):
     for channel, text in artifacts.items():
         if not channel.startswith("sbeam/"):
             continue
+        # The mass model's SUBCASEs name **payload** cases, not load cases: a
+        # MASSSET subcase labelled ``CG1`` selects a weight configuration, and
+        # ``CG1`` is not a case id and has no row in the index. Skipped by name
+        # rather than filtered out downstream, because a payload label reaching
+        # the component dict reads as "a component deck came back" and fires the
+        # assertion below with a misleading message -- which is exactly what it
+        # did the day these channels entered the digest baseline.
+        if channel.endswith(("mass_model", "mass_check")):
+            continue
         # The LRA beam-model deck expresses the assembled cases' load sets --
         # same ids and numbers as the balanced deck (note 25 LM-1).
         into = (assembled if channel.endswith(("balanced_deck", "lra_model"))

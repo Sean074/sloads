@@ -213,6 +213,19 @@ BANDS: Tuple[Band, ...] = (
           "a run with wing strips could only be found by matching coordinates. "
           "Numbered clear of 6001-7000 so that range keeps its published "
           "meaning as the balanced deck's wing and centreline nodes."),
+    _band("mass-cg", IdKind.GID, 13001, 500, "mass_cards.mass_cg_gid",
+          "One GRID per CONM2, at the mass item's own CG, zero offset "
+          "(note 56 D-56.6). Its own band and not a continuation of any beam "
+          "run: these grids are UNCONNECTED by design -- no element, no SPC, "
+          "no tie -- so they are not stations of anything and must never be "
+          "mistaken for one. sbeam's GPWG reads them without a stiffness "
+          "matrix; a SOL 101 over them is singular, which the deck header "
+          "states. Sized for 500 against a present maximum of 32 cards on the "
+          "largest fixture. Placed at 13001 and not at the 11001 the note "
+          "suggested: 11001-11999 is the lra-cbar EID run, and the CONM2 EID "
+          "bands declare clear_of_gids for exactly this reason -- a spliced "
+          "deck's every id should name one owner by inspection, and the rule "
+          "runs both ways. 13001 is clear of both id kinds."),
 
     # ------------------------------------------------- the LRA model's own run
     # Note 56 D-56.3. Every grid of the one shipped solver artifact comes from
@@ -340,7 +353,9 @@ BANDS: Tuple[Band, ...] = (
     _band("balanced-subcase-port", IdKind.SID, 8101, 599,
           "case_ids.balanced_subcase_id", "Minted, port twin."),
     _band("massset", IdKind.SID, 9301, 100, "mass_cards.mass_check_deck"),
-    _band("grav", IdKind.SID, 9401, 100, "mass_cards.inertia_only_cards"),
+    _band("grav", IdKind.SID, 9401, 100, "mass_cards.mass_check_deck",
+          "One GRAV per payload case. Owned by inertia_only_cards until note 56 "
+          "D-56.7 retired that function; the deck that writes GRAV is the owner."),
 )
 
 _BY_NAME: Dict[str, Band] = {b.name: b for b in BANDS}

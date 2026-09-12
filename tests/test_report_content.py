@@ -436,8 +436,7 @@ def test_the_manifest_lists_the_balanced_deck_and_the_mass_model():
     files = [row[0] for row in _report().section("Appendix A. Bundle manifest").table.rows]
     for name in ("sbeam/<project>_balanced_airframe.bdf",
                  "sbeam/<project>_mass_model.bdf",
-                 "sbeam/<project>_mass_check.bdf",
-                 "sbeam/<project>_inertia_only.bdf"):
+                 "sbeam/<project>_mass_check.bdf"):
         assert name in files, files
     # ...and every one of them points at the section that summarises it.
     for row in _report().section("Appendix A. Bundle manifest").table.rows:
@@ -478,8 +477,6 @@ MANIFEST_BASIS = {
     "sbeam/<project>_mass_model.bdf":
         "mass, NOT weight; do not apply with the load decks",
     "sbeam/<project>_mass_check.bdf": "no load cards, by construction",
-    "sbeam/<project>_inertia_only.bdf":
-        "LIMIT (no SF) \u2014 comparison only, never applied",
 }
 
 #: Rows whose basis cell names a **live** value (the wing's loads reference axis,
@@ -520,20 +517,17 @@ def test_every_manifest_row_states_the_basis_its_file_actually_carries():
     assert {r[0] for r in rows} == set(MANIFEST_BASIS) | set(MANIFEST_BASIS_CONTAINS)
 
 
-def test_the_inertia_check_is_declared_limit_because_that_is_what_it_is():
-    """The specific mislabel CR-C-3 found, held against the artifact itself: the
-    deck the manifest describes writes LIMIT in band, deliberately (the M-b
-    roundtrip leg compares it unfactored), so an ULTIMATE claim in the manifest
-    would be wrong by exactly the 1.5 factor."""
-    from sloads.export.mass_cards import inertia_only_cards
-
-    assert "LIMIT (no SF)" in inertia_only_cards(io.load_project(_GA))
-    row = [r for r in _report().section("Appendix A. Bundle manifest").table.rows
-           if r[0] == "sbeam/<project>_inertia_only.bdf"]
-    assert row, "the inertia check is no longer manifested"
-    assert "LIMIT (no SF)" in row[0][3]
-    assert "ULTIMATE" not in row[0][3]
-
+# ``test_the_inertia_check_is_declared_limit_because_that_is_what_it_is`` was
+# here. It pinned the CR-C-3 mislabel against ``inertia_only.bdf``'s own text,
+# which note 56 D-56.7 retired: the file existed so the M-b roundtrip leg could
+# compare an unfactored inertia set against sbeam's recovery, and with every
+# mass on a grid at its own CG there is no reduction left to recover. The
+# *class* it guarded -- a manifest cell claiming a basis its file does not carry
+# -- is not lost with it: ``test_every_manifest_row_states_the_basis_its_file``
+# ``_actually_carries`` above is exhaustive both ways over the surviving rows,
+# and ``tests/test_basis_statements.py`` (G-OR-74) reads the rendered document
+# for what the basis actually is, which is the leg that would have caught the
+# original mislabel.
 
 # --------------------------------------------------------------------------- #
 # Section numbering and cross-references (review F-R2)
@@ -564,7 +558,6 @@ SUMMARISED_IN = {
     "sbeam/<project>_lra_model.bdf": ("balanced", ""),
     "sbeam/<project>_mass_model.bdf": ("balanced", ""),
     "sbeam/<project>_mass_check.bdf": ("balanced", ""),
-    "sbeam/<project>_inertia_only.bdf": ("balanced", ""),
     "<project>_gear_loads.csv": ("gear", ""),
     "<project>_vn_conditions.csv": ("conditions", ""),
 }

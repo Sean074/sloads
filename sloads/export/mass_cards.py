@@ -28,11 +28,15 @@ C-6 is that this is made impossible rather than warned about, because it is the
 one error here that produces a *plausible* wrong answer (a heavier airplane, not
 a crash). So:
 
-* :func:`mass_check_deck` emits **no** ``FORCE``/``MOMENT`` cards at all. Its
-  subcases carry ``MASSSET`` + ``GRAV`` and nothing else.
-* :func:`inertia_only_cards` (C-4) emits sloads' own inertia contribution as a
-  separate, clearly-marked load set for comparison -- and its header says in
-  as many words that it must not be applied together with the total set.
+* :func:`conm2_fragment` is the mass model entire -- ``GRID`` + ``CONM2`` +
+  ``MASSSET``, self-contained since note 56 D-56.6, every mass on a grid at its
+  own CG with a zero offset. Its header says in as many words that it must not
+  be applied together with the total load set.
+* :func:`mass_check_deck` wraps that fragment in case control and a ``GRAV``
+  field, and emits **no** ``FORCE``/``MOMENT`` cards at all. It is read by a
+  grid-point weight recovery, **not** by a stiffness solve: the grids are
+  unconnected by design, so ``SOL 101`` over them is singular and the header
+  says so.
 
 Card syntax is sbeam's own (``sbeam/model/mass.py``,
 ``sbeam/parser/bdf_reader.py``): ``CONM2, EID, GID, CID, M, X1, X2, X3, I11,
@@ -57,26 +61,14 @@ satisfy ``force / (mass x length) == g``.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from ..mass_distribution import (
     CaseLoading,
-    MassComponent,
-    component_of,
     derive_case_loadings,
-    fuselage_beam_stations,
-    reacted_parts,
 )
 from ..models import MassItem, Project
-from ..picks import extreme
-
-# The fuselage station numbering, from the applied-load model that owns it
-# (note 56 D-56.1 moved it to ``report/applied.py``). This is the one import
-# from ``report/`` in this package, and it is temporary: **D-56.6** puts each
-# CONM2 on a GRID at its own item's CG, after which no mass card states a
-# beam station at all and this line goes with the offsets.
-from ..report.applied import beam_station_gid
 from ..units import DeliverableUnits, UnitSystem
 from .bands import band
 from .coordinates import SBEAM_CID, to_grid
@@ -93,6 +85,19 @@ _BALLAST_BAND = band("mass-ballast")
 _PART_FULL_BAND = band("mass-part-full")
 _MASSSET_BAND = band("massset")
 _GRAV_BAND = band("grav")
+_MASS_CG_BAND = band("mass-cg")
+
+
+def mass_cg_gid(index: int) -> int:
+    """GRID id of the ``index``-th ``CONM2``'s own CG node (note 56 D-56.6).
+
+    One grid per card, at the item's own centre of gravity, carrying a zero
+    offset. Its own band because these grids are **unconnected by design**
+    (ruling 9): they are not stations of any beam and nothing ties them to one,
+    so numbering them out of a beam run would assert a relationship that does
+    not exist.
+    """
+    return _MASS_CG_BAND.allocate(index)
 
 #: Always-aboard items (empty + minimum weight) -- the MASSSET **baseline**.
 MASS_EID_BASELINE = _BASELINE_BAND.start
@@ -131,52 +136,32 @@ def _checked_mass_units(units: DeliverableUnits) -> DeliverableUnits:
 # --------------------------------------------------------------------------- #
 @dataclass(frozen=True)
 class MassCard:
-    """One ``CONM2``: an item, the node it hangs on, and the offset to its CG.
+    """One ``CONM2``, on its **own** ``GRID`` at the item's own CG.
 
-    The offset is what makes the attachment node a *presentational* choice
-    (decision C-3): mass, CG and the inertia tensor are exact wherever the card
-    is attached, because ``x1/x2/x3`` carry the item's true position relative to
-    that node. What the node does decide is where sbeam reports the recovered
-    inertia *load*, which is why fuselage items hang on their own beam station.
+    **There is no offset** (note 56 D-56.6). The card used to hang on the
+    nearest fuselage beam station and carry ``x1/x2/x3`` back to the item's true
+    position -- exact in mass, CG and inertia, but it made the attachment node a
+    presentational choice (decision C-3) and it made the wing items' node a
+    stated limitation, since a wing item on a fuselage station is not where the
+    mass is. Each item now gets a grid at its own centre of gravity and the
+    offset is identically zero, so the model needs no explaining: a card is one
+    mass at one point.
+
+    These grids are **unconnected by design** (ruling 9). sloads ships no tie.
+    sbeam's GPWG reads mass and CG from the cards and the grid positions with no
+    stiffness matrix, so the check the export exists for is unaffected; a
+    stiffness solve over them is singular, and the deck header says so.
     """
 
     eid: int
     gid: int
     item: MassItem
-    offset: Tuple[float, float, float]
     overlay: bool
     #: Which loading this card belongs to, for the overlay cards that exist
     #: **per case** rather than per database row -- the solved/entered ballast and
     #: a consumable row carried part-full. ``None`` on a card that is shared, i.e.
     #: one whose item is a database row at its own weight.
     case_index: Optional[int] = None
-
-
-def _attach_gid(item: MassItem,
-                stations: Sequence) -> Tuple[int, Tuple[float, float, float]]:
-    """The beam node ``item`` hangs on, and the offset from it to the item's CG.
-
-    Fuselage and empennage items take the nearest fuselage beam station -- the
-    same ``1001+`` nodes the fuselage load deck applies its ``FORCE`` cards to,
-    so a recovered inertia load lands on the node its applied counterpart does.
-
-    **Wing items also hang on the nearest beam station, and that is a known
-    limitation, not a modelling claim.** A wing item belongs on the wing beam,
-    but today's wing deck is a single *half-span* (GIDs ``2..N+1``) with no
-    left/right bands -- those arrive with plan 11 **B5**, the assembled full-span
-    deck. Attaching to the beam keeps mass, CG and inertia exact (the offset does
-    that), and the deck says so in its header rather than implying the wing mass
-    is where it is drawn.
-    """
-    if not stations:
-        return beam_station_gid(0), (item.x, item.y, item.z)
-    # Tie rule: an item exactly between two beam stations must attach to the
-    # same one on every platform, or the CONM2's offset moves (CR-B-1).
-    index = extreme(range(len(stations)),
-                    lambda i: abs(stations[i].x - item.x), largest=False)
-    gid = beam_station_gid(index)
-    node = stations[index]
-    return gid, (item.x - node.x, item.y - 0.0, item.z - 0.0)
 
 
 def mass_cards(project: Project) -> Tuple[List[MassCard], List[CaseLoading]]:
@@ -191,7 +176,6 @@ def mass_cards(project: Project) -> Tuple[List[MassCard], List[CaseLoading]]:
     items = project.weight.items if project.weight is not None else []
     if not items:
         return [], []
-    stations = fuselage_beam_stations(project)
     loadings = [ld for ld in derive_case_loadings(project) if ld.derivable]
 
     from ..models import MassItemKind
@@ -221,9 +205,8 @@ def mass_cards(project: Project) -> Tuple[List[MassCard], List[CaseLoading]]:
     for eid_band, group, overlay in ((_BASELINE_BAND, baseline, False),
                                      (_DISCRETIONARY_BAND, discretionary, True)):
         for i, it in enumerate(group):
-            gid, offset = _attach_gid(it, stations)
-            cards.append(MassCard(eid=eid_band.allocate(i), gid=gid, item=it,
-                                  offset=offset, overlay=overlay))
+            cards.append(MassCard(eid=eid_band.allocate(i), gid=0, item=it,
+                                  overlay=overlay))
     # A loading may carry a consumable row **part-full** -- a D-25 entered
     # fraction, or the G-5 burn-down a GROUND target runs -- and that item is a
     # scaled copy, not the database row. It therefore cannot share the row's
@@ -246,18 +229,20 @@ def mass_cards(project: Project) -> Tuple[List[MassCard], List[CaseLoading]]:
                     "the MASSSET baseline, which every case shares. Expressing it "
                     "would need a REPLACE row; today only a discretionary row may "
                     "be part-full. Make the row discretionary, or carry it whole.")
-            gid, offset = _attach_gid(it, stations)
-            cards.append(MassCard(eid=_PART_FULL_BAND.allocate(part_full), gid=gid,
-                                  item=it, offset=offset, overlay=True,
-                                  case_index=i))
+            cards.append(MassCard(eid=_PART_FULL_BAND.allocate(part_full), gid=0,
+                                  item=it, overlay=True, case_index=i))
             part_full += 1
     for i, loading in enumerate(loadings):
         if loading.ballast is None:
             continue
-        gid, offset = _attach_gid(loading.ballast, stations)
-        cards.append(MassCard(eid=_BALLAST_BAND.allocate(i), gid=gid,
-                              item=loading.ballast, offset=offset, overlay=True,
-                              case_index=i))
+        cards.append(MassCard(eid=_BALLAST_BAND.allocate(i), gid=0,
+                              item=loading.ballast, overlay=True, case_index=i))
+    # Every card gets its own GRID at its own item's CG (note 56 D-56.6),
+    # numbered in the order the cards were built so a card's grid is stable for
+    # a given database. Assigned here, once, rather than at each construction
+    # site: one card is one mass at one point, and one counter is what makes
+    # that true by construction rather than by three sites agreeing.
+    cards = [replace(c, gid=mass_cg_gid(i)) for i, c in enumerate(cards)]
     return cards, loadings
 
 
@@ -302,14 +287,14 @@ def _overlay_eids(cards: Sequence[MassCard], loading: CaseLoading,
 # --------------------------------------------------------------------------- #
 def _conm2_line(card: MassCard, u: DeliverableUnits) -> str:
     m = card.item.weight_lb * u.mass.factor
-    ox, oy, oz = to_grid(*card.offset, units=u)
     k = u.mass_inertia.factor
     # i21/i31/i32 are the products of inertia. ``MassItem`` carries none, and a
     # laterally symmetric airplane has Ixy = Iyz = 0 exactly; Ixz is generally
     # non-zero but the database has no field for it. Emitted as 0 with the
     # header's note rather than silently -- see plan 12 risk R2.
+    # Zero offset, always: the grid IS the item's CG (note 56 D-56.6).
     return (f"CONM2, {card.eid}, {card.gid}, {SBEAM_CID}, {fmt(m)}, "
-            f"{fmt3(ox, oy, oz)}, "
+            f"{fmt3(0.0, 0.0, 0.0)}, "
             f"{fmt(card.item.ixx * k)}, 0.0, {fmt(card.item.iyy * k)}, "
             f"0.0, 0.0, {fmt(card.item.izz * k)}")
 
@@ -427,13 +412,10 @@ def _massset_block(cards: Sequence[MassCard], loadings: Sequence[CaseLoading],
 
 def _header(project: Project, u: DeliverableUnits, cards: Sequence[MassCard]) -> List[str]:
     total = math.fsum(c.item.weight_lb for c in cards if not c.overlay)
-    # Cards are one per database row (a row is one mass at one position; the
-    # beam that reacts it does not move the CONM2), so the wing share of a
-    # partly-wing-carried row is read through its reacted parts (design note 29).
-    wing = math.fsum(part.weight_lb
-               for c in cards
-               for part in reacted_parts([c.item], project)
-               if component_of(part, project) == MassComponent.WING)
+    # The wing share used to be totalled here, to caption the standing
+    # limitation that wing items hung on a fuselage node. Note 56 D-56.6 retired
+    # both: every item is on a grid at its own CG, so a wing mass is at the wing
+    # mass's position and there is nothing to caption.
     skipped = [ld for ld in derive_case_loadings(project) if not ld.derivable]
     lines = [
         "$ ==================================================== SLOADS MASS MODEL",
@@ -441,26 +423,26 @@ def _header(project: Project, u: DeliverableUnits, cards: Sequence[MassCard]) ->
         "$ MASSSET per derivable payload case (baseline = always-aboard items;",
         "$ each case ADDs the discretionary items and ballast it carries).",
         f"$ Mass in {u.mass.label}; inertia in {u.mass_inertia.label}; "
-        f"offsets in {u.length.label}.",
+        f"grid coordinates in {u.length.label}.",
         f"$ Baseline (empty + minimum flight weight): {total:.0f} lb.",
         "$",
         "$ DO NOT apply this set together with the FORCE/MOMENT load deck: those",
         "$ cards are the TOTAL applied load and already contain inertia. Using",
         "$ both counts the inertia twice.",
         "$",
+        "$ THESE GRIDS ARE UNCONNECTED, ON PURPOSE (note 56 D-56.6). One GRID per",
+        "$ item, at that item's own CG, with a zero CONM2 offset -- so the model",
+        "$ needs no beam to be read and states no attachment it does not have.",
+        "$ A grid-point weight recovery (GPWG) reads this as it stands: mass and",
+        "$ CG come from the cards and the grid positions, with no stiffness",
+        "$ matrix. A STIFFNESS SOLVE OVER IT IS SINGULAR and will report exactly",
+        "$ that -- it is not a failure of the deck, it is a mass model with no",
+        "$ structure. To splice it into one, RBE2 each grid to your own model.",
+        "$",
         "$ Products of inertia I21/I31/I32 are 0: the database carries none, and",
         "$ Ixy = Iyz = 0 exactly on a laterally symmetric airplane. Ixz is not",
         "$ generally zero and is not modelled.",
     ]
-    if wing:
-        lines += [
-            "$",
-            f"$ Wing items ({wing:.0f} lb) hang on the nearest fuselage beam node.",
-            "$ Mass, CG and inertia are exact there (the offsets carry the true",
-            "$ position), but the ATTACHMENT is provisional: the wing deck is a",
-            "$ single half-span today, and the left/right spanwise bands arrive",
-            "$ with the assembled full-span model.",
-        ]
     if skipped:
         lines += ["$", "$ Payload cases NOT exported (not loadings this database can produce):"]
         for ld in skipped:
@@ -472,11 +454,20 @@ def _header(project: Project, u: DeliverableUnits, cards: Sequence[MassCard]) ->
 def conm2_fragment(project: Project, *,
                    header_comment: str = "",
                    system: UnitSystem = UnitSystem.IMPERIAL) -> str:
-    """``CONM2`` + ``MASSSET`` bulk-data fragment, pasteable into any model.
+    """``GRID`` + ``CONM2`` + ``MASSSET`` bulk data -- the mass model, entire.
 
-    No ``GRID`` cards and no load cards: this is the mass model alone, attaching
-    to nodes the receiving deck already defines. For something that runs on its
-    own, see :func:`mass_check_deck`.
+    **Self-contained since note 56 D-56.6.** It used to emit no ``GRID`` cards
+    and hang each ``CONM2`` on a node the receiving deck already defined, which
+    made the mass model's validity depend on a beam it did not own. It now
+    carries one grid per card at that item's own CG, with a zero offset, so the
+    fragment *is* the mass model and nothing else has to be true for it to be
+    read.
+
+    The grids are **unconnected** -- no element, no ``SPC``, no tie -- which is
+    the design (ruling 9) and not an omission. sbeam's GPWG recovers mass and CG
+    from the cards and grid positions alone; a stiffness solve over them is
+    singular. Splice this into a stiffness model only after tying each grid to
+    that model with an ``RBE2`` of your own.
 
     ``header_comment`` is the ``$``-prefixed methods & units block
     (:func:`~sloads.report.bdf_comment_block`), applied through the same
@@ -492,6 +483,10 @@ def conm2_fragment(project: Project, *,
         raise ValueError(
             "Project has no 'weight.items' database to export as CONM2 cards")
     out = _header(project, u, cards)
+    out += ["$ ------------------------------------------------- GRIDS (one per item CG)"]
+    out += [f"GRID, {c.gid}, {SBEAM_CID}, "
+            f"{fmt3(*to_grid(c.item.x, c.item.y, c.item.z, units=u))}"
+            for c in cards]
     out += ["$ ------------------------------------------------ BASELINE (always aboard)"]
     out += [_conm2_line(c, u) for c in cards if not c.overlay]
     out += ["$ ------------------------------------------------------- OVERLAY (per case)"]
@@ -536,20 +531,29 @@ def mass_check_deck(project: Project, *,
                     header_comment: str = "",
                     system: UnitSystem = UnitSystem.IMPERIAL,
                     nz: float = 1.0) -> str:
-    """A self-contained deck that accelerates the mass model and nothing else.
+    """The mass model with case control and a ``GRAV`` field around it.
 
     One ``SUBCASE`` per derivable payload case, each selecting that case's
-    ``MASSSET`` and a ``GRAV`` carrying ``nz x g`` downward. sbeam recovers the
-    nodal inertia loads from its own parse of the mass model, which is the
-    independent check :func:`inertia_only_cards` is compared against.
+    ``MASSSET`` and a ``GRAV`` carrying ``nz x g`` downward.
 
-    **Scope of the check (verified 2026-08-08).** ``GRAV`` is a uniform
-    *translational* acceleration field and sbeam has no ``RFORCE``, so
-    rotational-acceleration inertia (pitch ``theta_ddot``, yaw ``psi_ddot``)
-    cannot be recovered from a ``CONM2`` set this way. The comparison is
-    therefore translational only; the rotational terms stay checked by
-    sloads-side closure. Stated here and in the deck header, not left to be
-    discovered.
+    **It is checked by a grid-point weight recovery, not by a solve** (note 56
+    D-56.6/D-56.7, ruling 16). The ``CONM2`` grids are unconnected by design, so
+    a stiffness solve over this deck is singular -- the header says so plainly
+    rather than letting a reader discover it by running one, which is the defect
+    class #173 was filed for. What replaced the solve is stronger where it
+    counts: ``sbeam.gpwg.compute_gpwg`` reads mass and CG off **this deck as
+    shipped**, per mass case, because GPWG honours ``MASSSET`` where ``SOL 101``
+    does not -- the three solver legs it replaces had to flatten each case into
+    a baseline deck to work around that gap.
+
+    **What the retired solve legs used to add**, recorded rather than dropped
+    silently: sbeam's own mass-matrix assembly and the ``GRAV`` acceleration
+    path stopped being exercised, in both unit systems, and the SI one is what
+    caught a 25.4x ``GRAV`` slip in the 2026-08-10 review. GPWG still runs in
+    both systems, so the SI channel is still checked -- without the acceleration
+    path. ``GRAV`` is also a uniform *translational* field and sbeam has no
+    ``RFORCE``, so rotational-acceleration inertia was never recoverable from a
+    ``CONM2`` set this way and stays checked by sloads-side closure.
 
     Carries **no** ``FORCE``/``MOMENT`` cards, by construction (C-6).
     """
@@ -560,7 +564,6 @@ def mass_check_deck(project: Project, *,
             "no payload case is derivable from this weight database -- nothing "
             "to build a mass-check deck from (see mass_distribution."
             "derive_case_loadings for why each case was rejected)")
-    stations = fuselage_beam_stations(project)
     g = u.gravity                       # g in deck units -- single owner, units.py
 
     head: List[str] = ["SOL 101", "$"]
@@ -571,41 +574,17 @@ def mass_check_deck(project: Project, *,
             f"  TITLE = mass check, Nz={nz:g} (SF={sf_str(1.0)}, no load cards)",
             f"  MASSSET = {_MASSSET_BAND.allocate(i)}",
             f"  LOAD = {_GRAV_BAND.allocate(i)}",
-            "  SPC = 1",
             "$",
         ]
     head.append("BEGIN BULK")
 
+    # No nodes, no elements, no constraints. Note 56 D-56.6 deleted the
+    # placeholder massless fuselage beam that used to be here: it existed only
+    # because the CONM2 cards had to hang on something, and they now carry their
+    # own grids. Nothing is left for it to support, and a beam with no purpose
+    # in a mass model is the sort of scaffold a reader mistakes for structure.
+    # The SPC1 went with it -- there is nothing to constrain.
     bulk: List[str] = [
-        "$ ------------------------------------------------------------ NODES",
-        f"$ Fuselage beam stations; y = z = 0. Lengths in {u.length.label}.",
-        "$ GRID, GID, CP, X1, X2, X3",
-    ]
-    for i, s in enumerate(stations):
-        gx, gy, gz = to_grid(s.x, 0.0, 0.0, u)
-        bulk.append(f"GRID, {beam_station_gid(i)}, , {fmt3(gx, gy, gz)}")
-    # A massless beam joining the stations. The deck would not assemble without
-    # elements, and every property here is a placeholder -- except RHO, which is
-    # 0.0 and must stay so: sbeam builds a MASSSET's baseline from "CBAR
-    # distributed mass + baseline CONM2s", so a beam with density would add mass
-    # this deck does not know about and quietly corrupt the very comparison it
-    # exists to make.
-    bulk += [
-        "$ --------------------------------------------------------- STRUCTURE",
-        "$ Placeholder massless beam -- the deck needs elements to assemble.",
-        "$ RHO = 0.0 is NOT a placeholder: a CBAR with density would add mass to",
-        "$ the MASSSET baseline and corrupt the comparison.",
-        f"MAT1, 1, {fmt(1.0e7 * u.pressure.factor)}, , 0.33, 0.0",
-        f"PBAR, 1, 1, {fmt(u.length.factor ** 2)}, {fmt(u.length.factor ** 4)}, "
-        f"{fmt(u.length.factor ** 4)}, {fmt(u.length.factor ** 4)}",
-    ]
-    for i in range(len(stations) - 1):
-        bulk.append(f"CBAR, {i + 1}, 1, {beam_station_gid(i)}, "
-                    f"{beam_station_gid(i + 1)}, 0.0, 0.0, 1.0")
-    bulk += [
-        "$ ------------------------------------------------------- CONSTRAINTS",
-        "$ Statically determinate: the recovered reactions ARE the residual.",
-        f"SPC1, 1, 123456, {beam_station_gid(0)}",
         "$ ------------------------------------------------------ ACCELERATION",
         f"$ GRAV carries Nz x g = {nz:g} x {g:.4f} = {nz * g:.4f} "
         f"{u.length.label}/s^2, down (-z).",
@@ -620,99 +599,21 @@ def mass_check_deck(project: Project, *,
 
 
 # --------------------------------------------------------------------------- #
-# sloads' own inertia contribution, as a comparable load set (C-2 / C4)
+# Retired by note 56 D-56.7: ``inertia_only_cards`` and ``case_station_weights``
 # --------------------------------------------------------------------------- #
-def case_station_weights(project: Project,
-                         loading: CaseLoading) -> List[Tuple[int, float]]:
-    """``[(GID, weight_lb)]`` -- one loading's mass, gathered onto its own nodes.
-
-    The weight behind each ``CONM2`` attachment node for **this payload case**,
-    in beam order. Built by walking ``loading.items`` through the very
-    :func:`_attach_gid` the cards are written with, so it is the same mapping by
-    construction rather than a second one kept in step by hand -- including the
-    wing items, which hang on the nearest fuselage node today (see
-    :func:`_attach_gid`) and are therefore part of what a ``GRAV`` field on this
-    mass set accelerates.
-
-    This is what makes the CONM2 round trip a *card-for-card* claim: the mass
-    model is per case and carries the wing, while the Ch 15 beam table
-    (:func:`sloads.mass_distribution.fuselage_beam_stations`) is gross and
-    carries neither, so comparing sbeam's recovery against that table would be
-    comparing two different airplanes.
-    """
-    stations = fuselage_beam_stations(project)
-    order = {beam_station_gid(i): i for i in range(max(len(stations), 1))}
-    totals: Dict[int, float] = {}
-    for item in loading.items:
-        gid, _ = _attach_gid(item, stations)
-        totals[gid] = totals.get(gid, 0.0) + item.weight_lb
-    return sorted(totals.items(), key=lambda pair: order.get(pair[0], 0))
-
-
-def inertia_only_cards(project: Project, *,
-                       header_comment: str = "",
-                       system: UnitSystem = UnitSystem.IMPERIAL,
-                       nz: float = 1.0,
-                       sid: int = GRAV_SID_BASE,
-                       loading: Optional[CaseLoading] = None) -> str:
-    """sloads' inertia load per node, as ``FORCE`` cards -- for comparison.
-
-    **Not a deliverable, and never to be applied with the total set** (C-6): the
-    ``FORCE``/``MOMENT`` deck already contains this. It exists so the numbers
-    sbeam recovers from the ``CONM2`` set can be compared against the numbers
-    sloads computes, card for card, at the same nodes.
-
-    Without ``loading`` the cards are the **gross** Ch 15 beam table -- every
-    non-wing item, no payload case -- which is the artifact the CLI and the
-    Weights page have always written and stays byte-identical.
-
-    With a ``loading`` (a :func:`sloads.mass_distribution.derive_case_loadings`
-    entry) the cards are **that payload case's** mass, node by node, including
-    the wing items the ``CONM2`` set hangs on the beam. That is the set a
-    ``GRAV`` field on the case's ``MASSSET`` accelerates, so it is the only form
-    of these cards that can be equal to sbeam's recovery rather than merely
-    similar to it (the round-trip leg, plan 12 C6).
-
-    LIMIT, not ultimate: this is the raw ``-w x nz`` inertia, and the comparison
-    is against a mass model that carries no safety factor either. Applying a
-    limit-to-ultimate factor to one side and not the other is the obvious way to
-    make this check pass while meaning nothing, so neither side has one.
-    """
-    u = _checked_mass_units(solver_units(system))
-    if loading is None:
-        stations = fuselage_beam_stations(project)
-        if not stations:
-            raise ValueError(
-                "Project has no fuselage beam to write inertia loads for")
-        weights = [(beam_station_gid(i), s.weight_lb)
-                   for i, s in enumerate(stations)]
-        basis = []          # the gross artifact's header is unchanged, byte for byte
-    else:
-        weights = case_station_weights(project, loading)
-        if not weights:
-            raise ValueError(
-                f"loading '{loading.name}' carries no mass to write inertia "
-                "loads for")
-        basis = [
-            f"$ Payload case {loading.name}: {loading.weight_lb:.0f} lb, the mass "
-            "the case's",
-            "$ MASSSET carries -- wing items included, on the node their CONM2",
-            "$ hangs on.",
-        ]
-    lines = [
-        "$ ============================================ SLOADS INERTIA CONTRIBUTION",
-        f"$ Per-node inertia load at Nz = {nz:g}, LIMIT (no SF), in "
-        f"{u.force.label}.",
-    ] + basis + [
-        "$ COMPARISON ARTIFACT ONLY. The FORCE/MOMENT deliverable already",
-        "$ contains this; applying both counts the inertia twice.",
-        f"$ Compare against what sbeam recovers from MASSSET + GRAV at Nz = {nz:g}.",
-    ]
-    for gid, weight_lb in weights:
-        fz = -weight_lb * nz * u.force.factor
-        lines.append(
-            f"FORCE, {sid}, {gid}, {SBEAM_CID}, 1.0, 0.0, 0.0, {fmt(fz)}")
-    return stamped(header_comment, "\n".join(lines) + "\n")
+# Both existed to cross-check sloads' *reduction* of a mass to a beam station
+# against sbeam's recovery of it: ``case_station_weights`` gathered a loading's
+# items onto their attachment nodes through the very ``_attach_gid`` the cards
+# used, and ``inertia_only_cards`` wrote the resulting ``-w x nz`` as FORCE cards
+# for the round-trip leg to compare against.
+#
+# D-56.6 puts every mass on a GRID at its own CG with a zero offset, so there is
+# no reduction left to check -- the comparison would be an identity against
+# itself. The three solver legs that consumed it retire with it (ruling 16);
+# gate 6 is now GPWG, which reads mass and CG off the shipped deck per mass case
+# without a stiffness solve, and needs no second card set to compare against.
+#
+# The ``grav`` SID band survives: ``mass_check_deck`` still writes GRAV.
 
 
 __all__ = [
@@ -722,9 +623,7 @@ __all__ = [
     "MASS_EID_BASELINE",
     "MASS_EID_DISCRETIONARY",
     "MassCard",
-    "case_station_weights",
     "conm2_fragment",
-    "inertia_only_cards",
     "mass_cards",
     "mass_case_rows",
     "mass_check_deck",

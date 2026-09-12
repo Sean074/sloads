@@ -1285,12 +1285,16 @@ the applied load set (`applied_loads("htail"|"vtail", ...)`), GID bands `4001+`
   that date.
 - **CONM2 mass export (step C1–C5, 2026-08-08).** `sloads/export/mass_cards.py`
   writes the itemized mass model as `CONM2` cards with one `MASSSET` per
-  *derivable* payload case, in three artifacts: a pasteable fragment, a
-  self-contained runnable mass-check deck (`MASSSET` + `GRAV`, massless beam,
-  **no load cards**), and sloads' inertia-only set for comparison. EID bands:
+  *derivable* payload case, in **two** artifacts: the model entire
+  (`conm2_fragment` — a `GRID` at each item's own CG, its `CONM2` with a **zero
+  offset**, and one `MASSSET` per case) and the same with case control and
+  `GRAV` around it (`mass_check_deck`, **no load cards**). GID band `13001+`
+  (note 56 D-56.6). EID bands:
   baseline `9001+`, discretionary overlay `9101+`, per-case ballast `9201+`,
   per-case **part-full** consumable rows `9501+`, `MASSSET` SIDs `9301+`,
-  `GRAV` SIDs `9401+` — disjoint from every GID band. The part-full band exists
+  `GRAV` SIDs `9401+` — disjoint from every GID band, and the CG grid band is
+  disjoint from every EID band, which is why it sits at `13001` and not at the
+  `11001` the note first proposed: `11001-11999` is the `lra-cbar` EID run. The part-full band exists
   because one card is one mass and the same tank at two fuel states is two
   masses: a row a case carries part-full (a D-25 `fractions` entry, or the G-5
   burn-down a GROUND target runs) is a scaled *copy* of the database row, so it
@@ -1327,20 +1331,33 @@ the applied load set (`applied_loads("htail"|"vtail", ...)`), GID bands `4001+`
   else. It is *not* the mass channel's dimensional identity
   `force/(mass × length)`, which is 386.0886 in **both** systems by
   construction; using that as the card value shipped an SI deck 25.4× low.
-  **Inertia-only artifact (2026-08-10).** `inertia_only_cards` writes the gross
-  Ch 15 beam table by default (unchanged), and *that payload case's* mass — wing
-  items included, on the node their `CONM2` hangs on — when given a `loading`.
-  The per-case form is what the CONM2 round-trip leg compares sbeam's recovery
-  against card for card; the gross form cannot be equal to it, because the
-  `MASSSET` model is per case and carries the wing.
-  **Solver gate (plan 12 C6, 2026-08-10).** The mass-check deck is the round-trip
-  harness's fourth deck family, solved in **both** unit systems: sbeam
-  accelerates the `CONM2` set and must reproduce the per-case inertia at every
-  node. Known sbeam limitation, pinned in `tests/test_sbeam_roundtrip.py`: SOL
-  101 builds its `GRAV` load vector from the **baseline** mass and never reaches
-  the `MASSSET` resolver, so the leg folds each case into a baseline deck
-  (`export/roundtrip.flatten_mass_case`, test-only) to get the case's own mass
-  accelerated.
+  **Each mass is on its own grid at its own CG (note 56 D-56.6, ruling 9).**
+  A card used to hang on the nearest fuselage beam station and carry
+  `x1/x2/x3` back to the item's true position — exact in mass, CG and inertia,
+  but it made the attachment a presentational choice and made *wing* items a
+  standing limitation, since a wing mass on a fuselage station is not where the
+  mass is. That limitation is retired, with the header sentence that stated it.
+  The CG grids are **unconnected by design**: sloads ships no tie, so a
+  stiffness solve over the model is singular, and the deck header says exactly
+  that plus how to splice it (an `RBE2` per grid) rather than letting a reader
+  discover it by running one — the defect class #173 was filed for. The
+  placeholder massless beam and its `SPC1` are deleted; there is nothing left
+  for them to support.
+  **Checked by GPWG, not by a solve (note 56 D-56.7, ruling 16).**
+  `inertia_only_cards` and `case_station_weights` are **retired**: they
+  cross-checked sloads' reduction of a mass to a beam station against sbeam's
+  recovery, and with each mass at its own CG there is no reduction left to
+  check. The round-trip harness's mass family is now one leg —
+  `sbeam.gpwg.compute_gpwg` against `mass_properties`, per payload case, in
+  **both** unit systems, at `rel_tol=1e-6`. The tolerance is the deck's own
+  print precision: GPWG reads the printed cards and `deck_format.fmt` writes
+  seven significant figures, so agreement is bounded at ~1e-7 (worst measured
+  1.3e-7). **GPWG honours `MASSSET` where SOL 101 does not**, so the gate reads
+  the deck *as shipped* and the `flatten_mass_case` workaround retires with the
+  solve it served. What the retired solve legs added and no longer do: sbeam's
+  own mass-matrix assembly and the `GRAV` acceleration path. The C1 defect class
+  above is unaffected — it is caught by card text against an independently
+  written constant, in both systems, at `rel=1e-12`.
 - **Fuselage beam mass (step B1, 2026-08-08).** `body_loads` integrates the station
   table from `mass_distribution.fuselage_beam_stations`, **derived** from the
   component-tagged `weight.items` database — not `fuselage_mass.stations`, which is

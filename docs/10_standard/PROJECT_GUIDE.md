@@ -244,7 +244,7 @@ FAR23LOADS/
 │   │   ├── bands.py              # THE GID/EID/SID band registry: one owner per id run, disjointness proved by test
 │   │   ├── coordinates.py        # SLOADS axes -> sbeam CID 0 map + the reflection operator (single edit-point)
 │   │   ├── deck_format.py        # THE deck-writing primitives: card number format, dust snapping, `$` comment wrapping, the `$`-block stamp, placeholder section properties (CH-4)
-│   │   ├── mass_cards.py         # CONM2/MASSSET mass model for sbeam (C1–C5)
+│   │   ├── mass_cards.py         # CONM2/MASSSET mass model for sbeam (C1–C5): a GRID at each item's own CG, unconnected by design, read by GPWG not by a solve (note 56 D-56.6)
 │   │   ├── balanced_deck.py      # the assembled full-span free-free deck — the primary deliverable (B5)
 │   │   ├── lra_model.py          # the LRA beam model — the third deliverable (step 12): skeleton + transferred balanced cases
 │   │   ├── lra_import.py         # loads onto an imported GRID/CBAR beam model, mapped by the $ SLOADS-NODE contract

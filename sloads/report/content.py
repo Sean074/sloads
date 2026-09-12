@@ -2435,21 +2435,11 @@ def _manifest_rows(comps: ComponentLoads, module_results, u: Units,
     if any(r["exported"] for r in mass_rows):
         rows += [
             ["sbeam/<project>_mass_check.bdf",
-             "Self-contained runnable deck: MASSSET + GRAV, and deliberately no "
-             "load cards.", deck, "no load cards, by construction",
-             section_ref("balanced")],
-            ["sbeam/<project>_inertia_only.bdf",
-             "sloads' own nodal inertia set, for comparison against what the "
-             "solver recovers.", deck,
-             # CR-C-3: the cell said ULTIMATE and the file said LIMIT, in
-             # band, by design -- factoring one side of a comparison and not the
-             # other is how you make a check pass while meaning nothing, and the
-             # manifest was out by 1.5x on the one artifact whose whole purpose
-             # is to be compared. Under note 49 OR-116 the whole bundle is LIMIT
-             # and this row is no longer the exception; the parenthetical stays
-             # because "no SF" here means the factor is not even *prescribed*,
-             # which is still narrower than the rest of the deck column.
-             "LIMIT (no SF) — comparison only, never applied",
+             "The mass model with case control and GRAV around it: MASSSET per "
+             "payload case, deliberately no load cards. Read by a grid-point "
+             "weight recovery -- the CONM2 grids are unconnected by design, so "
+             "a stiffness solve over it is singular.",
+             deck, "no load cards, by construction",
              section_ref("balanced")],
         ]
     if module_results:

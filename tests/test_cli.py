@@ -96,7 +96,7 @@ def test_the_export_menu_is_the_deliverable_menu():
     ("balanced", ["out.balanced_airframe.bdf"]),
     ("gear", ["out.gear_loads.csv"]),
     ("lra", ["out.lra_model.bdf"]),
-    ("mass", ["out_inertia_only.bdf", "out_mass.bdf", "out_mass_check.bdf"]),
+    ("mass", ["out_mass.bdf", "out_mass_check.bdf"]),
 ])
 def test_every_export_target_writes_its_artifacts(tmp_path, target, expected):
     """Each target writes its files, non-empty, on the Appendix A airplane."""
