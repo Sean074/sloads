@@ -1755,10 +1755,6 @@ def _reduce(obj: object, prefix: str, keep: Set[str], omitted: Set[str]) -> None
                     _reduce(item, path + LIST_MARKER + ".", keep, omitted)
 
 
-def paths_for_page(page: str) -> Set[str]:
-    return {e.path for e in REGISTRY if e.page == page}
-
-
 def quantities() -> Dict[str, List[FieldEntry]]:
     """Declared quantity -> every field holding it (owner first)."""
     grouped: Dict[str, List[FieldEntry]] = {}

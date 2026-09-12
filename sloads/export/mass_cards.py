@@ -709,23 +709,6 @@ def inertia_only_cards(project: Project, *,
     return stamped(header_comment, "\n".join(lines) + "\n")
 
 
-def write_conm2_fragment(project: Project, path: str, *,
-                         header_comment: str = "",
-                         system: UnitSystem = UnitSystem.IMPERIAL) -> None:
-    with open(path, "w", encoding="utf-8") as fh:
-        fh.write(conm2_fragment(project, header_comment=header_comment,
-                                system=system))
-
-
-def write_mass_check_deck(project: Project, path: str, *,
-                          header_comment: str = "",
-                          system: UnitSystem = UnitSystem.IMPERIAL,
-                          nz: float = 1.0) -> None:
-    with open(path, "w", encoding="utf-8") as fh:
-        fh.write(mass_check_deck(project, header_comment=header_comment,
-                                 system=system, nz=nz))
-
-
 __all__ = [
     "GRAV_SID_BASE",
     "MASSSET_SID_BASE",
@@ -743,6 +726,4 @@ __all__ = [
     "massset_identity",
     "massset_labels",
     "unreferenced_overlay_eids",
-    "write_conm2_fragment",
-    "write_mass_check_deck",
 ]

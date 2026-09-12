@@ -531,16 +531,6 @@ def balanced_deck(project: Project, *,
     return stamped(header_comment, "\n".join(head + bulk + ["ENDDATA"]) + "\n")
 
 
-def write_balanced_deck(project: Project, path: str, *,
-                        header_comment: str = "",
-                        system: UnitSystem = UnitSystem.IMPERIAL,
-                        cases: Sequence[BalancedCaseResult] = (),
-                        skipped: Optional[Sequence[SkippedCondition]] = None) -> None:
-    with open(path, "w", encoding="utf-8") as fh:
-        fh.write(balanced_deck(project, header_comment=header_comment,
-                               system=system, cases=cases, skipped=skipped))
-
-
 def balanced_case_rows(cases: Sequence[BalancedCaseResult]) -> List[Dict[str, str]]:
     """One row per balanced case: the numbers an engineer needs to trust it.
 
@@ -601,5 +591,4 @@ __all__ = [
     "balanced_deck",
     "case_sids",
     "deck_nodes",
-    "write_balanced_deck",
 ]
