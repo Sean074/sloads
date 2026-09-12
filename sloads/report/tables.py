@@ -223,12 +223,6 @@ def safety_factors_csv(project: Project, header_comment: str = "") -> str:
     return header_comment + buf.getvalue()
 
 
-def write_safety_factors_csv(project: Project, path: str,
-                             header_comment: str = "") -> None:
-    with open(path, "w", encoding="utf-8", newline="") as fh:
-        fh.write(safety_factors_csv(project, header_comment))
-
-
 # The row keys -- the stable programmatic vocabulary ``gear_report_rows``
 # returns and the tests read. The *file* header is built per unit set by
 # ``_gear_report_headers`` so the CSV states its own units (R6-C2); keeping the

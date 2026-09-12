@@ -970,17 +970,6 @@ def case_loading_checks(project: Project) -> List[MassCheck]:
     return out
 
 
-def all_checks(project: Project) -> List[MassCheck]:
-    """Every reconciliation this module owns, in report order."""
-    out = [partition_closes(project)]
-    for check in (wing_mass_tie(project), fuselage_reconciliation(project),
-                  tail_reconciliation(project, "htail"),
-                  tail_reconciliation(project, "vtail")):
-        if check is not None:
-            out.append(check)
-    return out
-
-
 # --------------------------------------------------------------------------- #
 # Reporting helper
 # --------------------------------------------------------------------------- #
@@ -1016,7 +1005,6 @@ __all__ = [
     "CaseLoading",
     "MassCheck",
     "MassDistribution",
-    "all_checks",
     "case_loading_checks",
     "component_of",
     "component_summary",
