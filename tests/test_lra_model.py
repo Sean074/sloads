@@ -33,7 +33,7 @@ from sloads.export.lra_model import (
     transferred_case_loads,
 )
 from sloads.export.mass_cards import mass_check_deck
-from sloads.export.sbeam_bridge import wing_nodal_loads
+from sloads.report.applied import wing_nodal_loads
 from sloads.models import LRA_DEFAULT_GRIDS, LraMeshInput
 from sloads.modules.balance import build_balanced_cases
 from sloads.modules.net_loads import build_net_loads, loads_ref_axis_results

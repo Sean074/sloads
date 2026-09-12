@@ -2299,7 +2299,7 @@ def test_no_load_the_wing_section_prints_is_marked_ultimate():
     what it was -- **no** load column carries ``-ULT`` -- which is what makes
     the section readable against Appendix A, itself a limit oracle. The marker
     survives only on a case computed already ultimate (OR-118), and no wing case
-    is one, which ``test_sbeam_bridge`` asserts from the export side.
+    is one, which ``test_applied`` asserts from the applied-load side.
     """
     doc = _doc()
     for table in _wing_tables(doc):
@@ -2623,12 +2623,12 @@ def test_the_appendix_table_and_the_exported_csv_are_one_load_set():
     The stress analyst reads the appendix and loads the CSV; if the two were
     built by separate row assemblers they could disagree about what is applied,
     and nothing would say which one the deck was solved from. Both go through
-    ``sbeam_bridge.applied_load_rows``, and this asserts they still do -- row
+    ``applied.applied_load_rows``, and this asserts they still do -- row
     for row, value for value.
     """
     import csv as _csv
 
-    from sloads.export.sbeam_bridge import applied_load_csv
+    from sloads.report.applied import applied_load_csv
 
     project = reduce_to_oracle_inputs(io.load_project(_TWIN))
     from sloads.modules.net_loads import build_net_loads, loads_ref_axis_results

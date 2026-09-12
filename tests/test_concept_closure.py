@@ -2,7 +2,7 @@
 
 Concept mode has **no printed oracle** above 12,500 lb (it extrapolates past the
 FAR23 calibration band), so physics-*closure* is its only validation. Step C4's
-``test_sbeam_bridge.py::test_concept_closure`` proved closure for the **wing
+``test_applied.py::test_concept_closure`` proved closure for the **wing
 only**; this module extends it to every component of a full concept airframe --
 wing, body, tail and the three control surfaces -- driven through the P1-1
 regional-jet fixture (``examples/concept_regional_jet.project.json``).
@@ -24,7 +24,7 @@ Two kinds of check appear here:
       (``run``) report load for the same surface.
 * **Export integrity** -- every component's nodal FORCE set (and its re-parsed
   ``FORCE`` cards) sums to that component's root/total at ULTIMATE, so the whole
-  concept airframe exports cleanly through ``sbeam_bridge``.
+  concept airframe exports cleanly through ``report.applied``.
 
 References: Ref 1 Ch 7 (wing airload), Ch 8/9 (tail balancing), Ch 15 (fuselage
 net loads); the closure strategy is Phase-C invariant 2 (``docs/30_future/
@@ -40,7 +40,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sloads import io
 from sloads.cg_cases import flight_cases
 from sloads.derived_geometry import require_wing_reference
-from sloads.export import sbeam_bridge as sb
+from sloads.report import applied as ap
 from sloads.export.coordinates import tail_force_to_airplane
 from sloads.export.equilibrium import (
     card_totals,
@@ -66,7 +66,7 @@ _EXAMPLE = os.path.join(
 
 # ``ULTIMATE_FACTOR`` (1.5) -- the suite default the export *states* and does not
 # apply (note 49 OR-116). Read from its owner since note 56 D-56.1 promoted it
-# out of ``sbeam_bridge``.
+# out of what is now ``report.applied``.
 from sloads.export.deck_format import SUITE_SF as _SF  # noqa: E402
 
 
@@ -97,7 +97,7 @@ def test_wing_nodal_loads_sum_to_root():
     results = build_net_loads(_concept_project()).wing_net
     assert results
     for r in results:
-        nodes = sb.wing_nodal_loads(r)
+        nodes = ap.wing_nodal_loads(r)
         root = r.stations[0]
         y0 = nodes[0].y
         assert math.isclose(sum(n.fz for n in nodes), root.sz, rel_tol=1e-9, abs_tol=1e-6)
@@ -170,7 +170,7 @@ def test_body_nodal_cards_sum_to_zero():
     project = _concept_project()
     results = build_body_loads(project)
     assert results
-    rows = sb.applied_loads("fuselage", results, project=project)
+    rows = ap.applied_loads("fuselage", results, project=project)
     assert rows
     by_case: dict = {}
     for ld in rows:
@@ -232,7 +232,7 @@ def test_full_airframe_exports_cleanly():
 
     # Wing: the applied Fz set re-sums to the NETLOADS root shear, per case.
     rows: dict = {}
-    for ld in sb.applied_loads("wing", wing):
+    for ld in ap.applied_loads("wing", wing):
         rows.setdefault(ld.case, []).append(ld)
     assert len(rows) == len(wing)
     for r in wing:
@@ -250,12 +250,12 @@ def test_full_airframe_exports_cleanly():
         if not results:
             continue
         per_case: dict = {}
-        for ld in sb.applied_loads(component, results):
+        for ld in ap.applied_loads(component, results):
             per_case.setdefault(ld.case, []).append(ld)
         assert len(per_case) == len(results), component
 
     # Body: the applied set exists for every case and closes (asserted above).
-    body_rows = sb.applied_loads("fuselage", body, project=p)
+    body_rows = ap.applied_loads("fuselage", body, project=p)
     assert len({ld.case for ld in body_rows}) == len(body)
 
 

@@ -163,7 +163,7 @@ def test_every_admitted_case_reaches_the_distributions_the_appendix_and_the_deck
     the exported model does not carry -- which is the defect OR-172 was fixing,
     one layer down.
     """
-    from sloads.export.sbeam_bridge import applied_load_csv, applied_loads
+    from sloads.report.applied import applied_load_csv, applied_loads
 
     for name in _TWINS:
         project = _project(name)

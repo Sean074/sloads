@@ -443,7 +443,7 @@ def wing_case_ref(project: Project, index: int, case: WingLoadCase,
     named this condition, its :class:`CaseRef`'s ``case_id`` is kept -- the
     spanwise distribution WINGINER/NETLOADS produce is another deliverable of the
     same case, not a second case, which is exactly what
-    ``sbeam_bridge.case_index_rows_from``'s dedupe-by-``case_id`` assumes. Failing
+    ``report.tables.case_index_rows_from``'s dedupe-by-``case_id`` assumes. Failing
     that (SELECT not run, or a case the engineer added by hand), the ID comes from
     the fixed ``case_ids.WING_SLOTS`` table by **name** -- so ``PHAA`` is ``W-01``
     either way -- and a name outside the table takes the next

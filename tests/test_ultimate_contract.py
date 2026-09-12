@@ -37,13 +37,13 @@ _VIEWS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))
 # ``load_cases_csv`` is deliberately NOT here any more -- since note 48 it is the
 # LIMIT channel on these pages, and it must say so at the call.
 #
-# ``rt.``/``report.tables`` joined ``sb.``/``sbeam_bridge`` when note 56 D-56.1
+# ``rt.``/``report.tables`` and ``ap.``/``report.applied`` are both here: note 56 D-56.1
 # moved the case index, the safety-factor table and the gear report out of the
 # export package. The alias is part of the pattern because that is how the call
 # is spelled at the download site, and this guard reads call text: a rename that
 # the pattern does not follow leaves it passing and toothless (the same way the
 # G-OR-71 scan nearly lost ``case_sf`` in the same note's first slice).
-_ULT_CHANNEL = re.compile(r"sb\.|sbeam_bridge|rt\.|report\.tables|case_index_csv")
+_ULT_CHANNEL = re.compile(r"ap\.|report\.applied|rt\.|report\.tables|case_index_csv")
 
 #: The report-layer renderers whose channel is a *caller* decision. Finding one
 #: of these in a download's context obliges the caller to state its channel.

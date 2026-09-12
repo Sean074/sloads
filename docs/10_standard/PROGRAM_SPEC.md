@@ -777,7 +777,7 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   ground angle and stroke, the reference point, the transfer couple, and the leg's
   own inertia. Plus `AppliedWheel` (`applied_wheels`), the per-wheel form an
   assembled ground case applies. The companion CSV channel
-  (`export/sbeam_bridge.gear_report_csv`, the bundle's `gear_report`) meets the
+  (`report/tables.gear_report_csv`, the bundle's `gear_report`) meets the
   load-output contract (R6-C2, 2026-08-15): every dimensional column header
   states its unit from the resolved unit set — `-ULT` on load columns, the
   plain force unit on the two weights, which are inputs and never factored —
@@ -957,11 +957,11 @@ These are **output renderers**, not registered calc modules: they read a results
 slice and emit a file for an external tool. They live in `sloads/export/`,
 return strings (with thin `write_*` file wrappers), and do no physics. They read
 result fields as the typed attributes they are — no `getattr(..., default)`
-anywhere in the package (CH-2; guard in `tests/test_sbeam_bridge.py`), so a
+anywhere in the package (CH-2; guard in `tests/test_applied.py`), so a
 result that lacks what a deck needs is a stated error, never an empty column.
 
 ### sbeam export bridge — net wing load → sbeam (Step C4)
-- **Source:** `sloads/export/sbeam_bridge.py`; card style mirrors
+- **Source:** `sloads/report/applied.py`; card style mirrors
   `sbeam/results/load_export.py`.
 - **Reads:** `Project.loads.wing_net` (NETLOADS) — accepts a `Project`, a list of
   `WingLoadResult`, or one result. The `Project` path first transfers the wing
@@ -991,7 +991,7 @@ result that lacks what a deck needs is a stated error, never an empty column.
   `$ SLOADS-NODE lra-sob <side>` identity tag (decision BM-5; GID band
   `lra-sob`, 25001+ — the LRA's own run since note 56 D-56.3), and the wing
   root design load is stated **two ways and
-  gated**: `sbeam_bridge.sob_internal_loads` (the closed-form sum of applied
+  gated**: `report/applied.py::sob_internal_loads` (the closed-form sum of applied
   nodal loads outboard of the cut, stated as the report's "Wing side-of-body
   internal loads" table) against the solver's CBAR end force in the first
   element outboard (round-trip CI,
@@ -1483,7 +1483,7 @@ the applied load set (`applied_loads("htail"|"vtail", ...)`), GID bands `4001+`
   a filtered export cannot renumber the cases that survive; wing/tail/body/gear
   sets stay disjoint in an assembled multi-component deck (L-1); and
   `LOAD = 103` inside `SUBCASE 103` reads as one thing. Each deck opens with a
-  `$` **subcase-map block** (`sbeam_bridge.subcase_map_block`) — one
+  `$` **subcase-map block** (`report/applied.py::subcase_map_block`) — one
   `$ SUBCASE 103 = W-03 -- PHAA -- FAR 23.333(b)` line per exported case — the
   assembled deck's own map block leads with the case id the same way — so a deck
   consumer can trace a solver result back to its governing condition from the
@@ -1634,7 +1634,7 @@ the applied load set (`applied_loads("htail"|"vtail", ...)`), GID bands `4001+`
   pointing outward (`SUMMARY_REPORT.md` §4.7).
 
 ### Export-scope filter (Step D8.3)
-- **Source:** `sloads/export/sbeam_bridge.py::filter_by_selected_case_ids`.
+- **Source:** `sloads/report/tables.py::filter_by_selected_case_ids`.
 - Filters any case-carrying result list to `envelope.critical.selected_case_ids`
   (the D5 Critical Loads page's opt-out selection); a result with no `case_ref`
   is kept, and `selected_ids is None` returns the input unchanged (no filter).

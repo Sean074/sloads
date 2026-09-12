@@ -40,7 +40,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sloads import io  # noqa: E402
-from sloads.export.sbeam_bridge import applied_load_csv  # noqa: E402
+from sloads.report.applied import applied_load_csv  # noqa: E402
 from sloads.models.report import ReportSpec  # noqa: E402
 from sloads.modules.select import default_critical  # noqa: E402
 from sloads.modules.taildist import build_tail_chordwise  # noqa: E402

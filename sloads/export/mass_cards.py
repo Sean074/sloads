@@ -70,11 +70,17 @@ from ..mass_distribution import (
 )
 from ..models import MassItem, Project
 from ..picks import extreme
+
+# The fuselage station numbering, from the applied-load model that owns it
+# (note 56 D-56.1 moved it to ``report/applied.py``). This is the one import
+# from ``report/`` in this package, and it is temporary: **D-56.6** puts each
+# CONM2 on a GRID at its own item's CG, after which no mass card states a
+# beam station at all and this line goes with the offsets.
+from ..report.applied import beam_station_gid
 from ..units import DeliverableUnits, UnitSystem
 from .bands import band
 from .coordinates import SBEAM_CID, to_grid
 from .deck_format import fmt, fmt3, sf_str, solver_units, stamped
-from .sbeam_bridge import beam_station_gid
 
 # --------------------------------------------------------------------------- #
 # EID / SID bands -- declared in :mod:`sloads.export.bands`, the single owner of
@@ -474,7 +480,7 @@ def conm2_fragment(project: Project, *,
 
     ``header_comment`` is the ``$``-prefixed methods & units block
     (:func:`~sloads.report.bdf_comment_block`), applied through the same
-    :func:`~sloads.export.sbeam_bridge.stamped` owner the load decks use, so a
+    :func:`~sloads.export.deck_format.stamped` owner the load decks use, so a
     mass model forwarded on its own states its own basis and unit set. A blank
     value leaves the fragment byte-identical -- which is what keeps
     :func:`mass_check_deck` (which embeds this fragment) from carrying two

@@ -32,7 +32,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import cli
 from sloads import io, registry
-from sloads.export import sbeam_bridge as sb
+from sloads.report import applied as ap
 from sloads.report import tables as rt
 from sloads.models import ConditionResult, LoadValue, Project
 from sloads.registry import run_all_modules
@@ -105,7 +105,8 @@ def test_only_deck_format_resolves_the_solver_channel_in_the_export_package():
     """One owner for *which unit set a deck may use* (note 56 D-56.1, rule 3).
 
     ``deliverable_units(system, Channel.SOLVER)`` was written out longhand in a
-    private ``_units`` helper in **four** export modules -- ``sbeam_bridge``,
+    private ``_units`` helper in **four** export modules -- ``sbeam_bridge``
+    (now ``report.applied``),
     ``balanced_deck``, ``roundtrip``, ``lra_model`` -- and inline in four more,
     each re-deciding the same thing. Four copies agreed only because nobody had
     edited one of them yet; ``deck_format.solver_units`` is now the single
@@ -253,7 +254,7 @@ def test_every_bundle_channel_carries_the_unit_statement():
         "load-case CSV": io.load_cases_csv(
             registry.get("engine")(project), header_comment=csv_stamp,
             system=UnitSystem.SI),
-        "applied CSV": sb.applied_load_csv(results, header_comment=csv_stamp,
+        "applied CSV": ap.applied_load_csv(results, header_comment=csv_stamp,
                                            system=UnitSystem.SI),
         "balanced deck": _balanced_deck(
             project, header_comment=bdf_stamp, system=UnitSystem.SI),
@@ -325,7 +326,7 @@ def test_the_stamp_still_round_trips_for_csv_readers():
     readers (``workbook._csv_to_df`` reads with ``comment="#"``) are the audited
     path, and a stamp they cannot skip is a header row of prose."""
     stamp = csv_comment_block(_ga_project(), system=UnitSystem.SI)
-    payload = sb.applied_load_csv(_ga_wing_net(), system=UnitSystem.SI)
+    payload = ap.applied_load_csv(_ga_wing_net(), system=UnitSystem.SI)
     # The payload carries comment lines of its own (note 46 OR-69), so what the
     # stamp must not disturb is the payload's *rows*, not its whole text.
     assert (strip_comment_lines(stamp + payload)
@@ -376,7 +377,7 @@ def test_every_export_page_writer_call_takes_the_bundle_system():
     # Calls wrap across lines, so match each writer reference and read the argument
     # list that follows it, rather than slicing statements out of the source.
     checked = 0
-    for match in re.finditer(r"\b(?:sb|sloads_io|mc)\.(\w+)", source):
+    for match in re.finditer(r"\b(?:ap|sloads_io|mc)\.(\w+)", source):
         name = match.group(1)
         # Suffix match: the body/tail/control card writers are
         # ``body_force_moment_cards`` etc., the same writer per component.
@@ -820,7 +821,7 @@ def test_si_deck_still_closes_on_the_root_shear_and_torsion():
     results = _ga_wing_net()
     for system in (UnitSystem.IMPERIAL, UnitSystem.SI):
         u = deliverable_units(system, Channel.SOLVER)
-        text = strip_comment_lines(sb.applied_load_csv(results, system=system))
+        text = strip_comment_lines(ap.applied_load_csv(results, system=system))
         rows = list(csv.DictReader(_io.StringIO(text)))
         assert rows, system
         fz_col = next(c for c in rows[0] if c.startswith("Fz "))
@@ -949,7 +950,7 @@ def test_every_sbeam_writer_takes_a_system():
     # dimensional number in a file takes the bundle's system, keyword-only,
     # defaulting to Imperial.
     writers = [
-        sb.applied_load_csv, sb.write_applied_load_csv,
+        ap.applied_load_csv, ap.write_applied_load_csv,
         balanced_deck, lra_model_bdf, write_lra_model_bdf,
     ]
     for fn in writers:
@@ -969,7 +970,7 @@ def test_sbeam_headers_state_their_units_in_both_systems():
         from sloads.report.methods import strip_comment_lines
 
         header = strip_comment_lines(
-            sb.applied_load_csv(results, system=system)).splitlines()[0]
+            ap.applied_load_csv(results, system=system)).splitlines()[0]
         cells = header.split(",")
         assert cells[3] == f"X {length}", header
         assert cells[6] == f"Fx {force}", header

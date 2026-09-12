@@ -347,7 +347,7 @@ class CriticalLoadSet:
     page displays, and (Step D8.3) an opt-in "governing set" toggle on the
     *Export* page that filters the fuselage/tail sbeam artifacts and the case
     index -- wing and control-surface exports are unaffected (their case ids
-    don't overlap this set; see ``sbeam_bridge.filter_by_selected_case_ids``).
+    don't overlap this set; see ``report.tables.filter_by_selected_case_ids``).
     """
     conditions: List[CriticalCondition] = field(default_factory=list)
     selected_case_ids: List[str] = field(default_factory=list)
@@ -919,7 +919,7 @@ class BodyStationLoad:
     ``"mass"`` (a fuselage mass item), ``"tail"`` (the balancing tail air load),
     ``"carry"`` (a wing carry-through reaction node) or ``"correction"`` (a
     whole-body fallback correction node) -- see
-    :func:`sloads.export.sbeam_bridge.body_station_gids`."""
+    :func:`sloads.report.applied.body_station_gids`."""
     x: float
     fx: float
     fy: float

@@ -1628,7 +1628,7 @@ def _wing_section(project: Project, comps: ComponentLoads, u: Units,
 
     sob = sob_station(project)
     if sob is not None and comps.wing:
-        from ..export.sbeam_bridge import sob_internal_loads
+        from .applied import sob_internal_loads
 
         sob_rows = []
         for r in comps.wing:

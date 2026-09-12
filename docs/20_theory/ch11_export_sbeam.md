@@ -87,7 +87,7 @@ Two findings recorded because they are the kind that get re-proposed:
    the claim is `m.y`. Closure gate: the six-component resultant of the applied
    set reproduces `Sx`/`Sz`/`Mxx`/`Myy`/`−Mzz` at every station of every case
    of both example airplanes to ~2.5e-15 relative
-   (`tests/test_sbeam_bridge.py::test_the_applied_set_reproduces_the_whole_vmt_at_every_station`;
+   (`tests/test_applied.py::test_the_applied_set_reproduces_the_whole_vmt_at_every_station`;
    from the deck's own text,
    `tests/test_export_equilibrium.py::test_wing_deck_reproduces_the_station_table_at_every_node`).
 

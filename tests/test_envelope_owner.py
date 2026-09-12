@@ -82,7 +82,7 @@ _ALLOWED = {
         "than the one that will be exported",
     "report/tables.py":
         "the case index lists the cases the project carries; it renders, it "
-        "never computes loads (moved here from export/sbeam_bridge.py by note "
+        "never computes loads (moved here from the export package by note "
         "56 D-56.1 -- the reason is the table's, not the bridge's)",
     "modules/body_loads.py":
         "_critical_fuselage: a documented narrow variant -- fuselage conditions "

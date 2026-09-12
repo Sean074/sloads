@@ -66,7 +66,7 @@ def _try(fn, *args, **kwargs):
 def artifacts(example: str) -> Dict[str, str]:
     """``{channel: text}`` for one example, rendered in Imperial with no stamp."""
     from sloads import io, registry
-    from sloads.export import sbeam_bridge as sb
+    from sloads.report import applied as ap
     from sloads.export.balanced_deck import balanced_deck
     from sloads.modules.aileron import build_aileron
     from sloads.modules.balance import build_balanced_cases
@@ -112,11 +112,11 @@ def artifacts(example: str) -> Dict[str, str]:
     # written from, so the *loads* under digest are unchanged even though the
     # channel names and the byte counts are not.
     if wing:
-        text = _try(sb.applied_load_csv, wing)
+        text = _try(ap.applied_load_csv, wing)
         if text:
             out["sbeam/wing_applied"] = text
     if body:
-        text = _try(sb.applied_load_csv, body, component="fuselage",
+        text = _try(ap.applied_load_csv, body, component="fuselage",
                     project=project)
         if text:
             out["sbeam/body_applied"] = text
@@ -128,7 +128,7 @@ def artifacts(example: str) -> Dict[str, str]:
         results = spans.get(component) or []
         if not results:
             continue
-        text = _try(sb.applied_load_csv, results, component=component)
+        text = _try(ap.applied_load_csv, results, component=component)
         if text:
             out[f"sbeam/{component}_applied"] = text
 

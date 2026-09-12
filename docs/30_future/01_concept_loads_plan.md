@@ -168,7 +168,9 @@ trapezoidal integration of the Schrenk distribution.
 ### Step C4 — sbeam export bridge (wing slice end-to-end)
 **Objective.** Turn the wing distributed load into an sbeam-consumable structural
 load set, proving the integration on the vertical slice.
-**Deliverables.** `sloads/export/sbeam_bridge.py`:
+**Deliverables.** `sloads/export/sbeam_bridge.py` as it stood at C4 — note 56
+later deleted the per-component decks (D-56.2) and moved what remained to
+`sloads/report/applied.py` (D-56.1):
 - span-load CSV in sbeam's format;
 - `FORCE`/`MOMENT` bulk-data cards at wing stations, matching sbeam's comma
   free-field card style (`sbeam/results/load_export.py`);

@@ -430,7 +430,7 @@ def balanced_deck(project: Project, *,
 
     ``header_comment`` is the ``$``-prefixed methods & units block
     (:func:`~sloads.report.bdf_comment_block`), applied through the same
-    :func:`~sloads.export.sbeam_bridge.stamped` owner every other deck uses:
+    :func:`~sloads.export.deck_format.stamped` owner every other deck uses:
     the mission's primary deliverable states its own basis when it travels
     alone. Blank leaves the deck byte-identical (the frozen Imperial baseline
     renders it unstamped).

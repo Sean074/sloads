@@ -31,7 +31,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import sloads.modules  # noqa: F401
 from sloads import io
 from sloads.constants import ULTIMATE_FACTOR
-from sloads.export import sbeam_bridge as sb
+from sloads.report import applied as ap
 from sloads.report import tables as rt
 from sloads.models import SafetyFactorOverride, SafetyFactorPolicyInput
 from sloads.registry import run_all_modules

@@ -12,7 +12,7 @@ interpreter's ``sum()``. Three owners, three guards:
   ``min(`` next to ``key=``) plus the same defect class in five other modules
   and in the exporters;
 * ``deck_format.fmt3`` -- vector-card components snap dust and ``-0`` to
-  ``0.000000E+00`` (``tests/test_sbeam_bridge.py``);
+  ``0.000000E+00`` (``tests/test_applied.py``);
 * **this file** -- every float summation in ``sloads/`` is ``math.fsum``, which
   is exactly rounded and therefore identical on every platform and Python
   version. Python 3.12 changed the built-in ``sum()`` of floats to compensated
@@ -244,7 +244,8 @@ def test_no_emitted_deck_value_hangs_on_the_last_ulp():
     # ``from .deck_format import fmt``, so each holds its own reference, and
     # patching the owner alone would silently shrink this sweep from the whole
     # emitted population to one module's cards -- the claim the docstring makes.
-    # (#15 moved the primitive out of ``sbeam_bridge``, where one patch sufficed.)
+    # (#15 moved the primitive out of what is now ``report.applied``, where one
+    # patch sufficed.)
     patched = [deck_format]
     for info in pkgutil.iter_modules(export_pkg.__path__):
         module = importlib.import_module(f"sloads.export.{info.name}")

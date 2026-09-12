@@ -39,7 +39,7 @@ from sloads.export import balanced_deck as bdk
 from sloads.export import bands as bd
 from sloads.export import mass_cards as mc
 from sloads.export import roundtrip as rt
-from sloads.export import sbeam_bridge as sb
+from sloads.report import applied as ap
 
 
 # --------------------------------------------------------------------------- #
@@ -113,15 +113,27 @@ _BASE_SUFFIXES = ("_GID_BASE", "_EID_BASE", "_SID_BASE", "_SID", "_GID",
 _NOT_AN_ID_BAND = {"SBEAM_CID"}
 
 
-def _export_modules():
+def _id_allocating_modules():
+    """Every module that may hold an id base -- the whole export package, plus
+    the applied-load model.
+
+    ``report.applied`` is here because note 56 D-56.1 moved the applied-load
+    model out of ``export/`` and its station numbering went with it: the
+    ``wing-stick``, ``body-mass``, ``body-reaction`` and four tail bands are
+    allocated from ``report/`` now. A sweep that walked only ``sloads.export``
+    would have gone quiet on seven of the registry's bands on the day they
+    moved, which is the blind spot this whole file exists to close. The list
+    below is the guard on the guard.
+    """
     for info in pkgutil.iter_modules(export_pkg.__path__):
         yield importlib.import_module(f"sloads.export.{info.name}")
+    yield importlib.import_module("sloads.report.applied")
 
 
-def test_export_modules_were_actually_swept():
+def test_id_allocating_modules_were_actually_swept():
     """The sweep below is only a guard if it sees the modules that hold bands."""
-    names = {m.__name__.rsplit(".", 1)[1] for m in _export_modules()}
-    assert {"sbeam_bridge", "balanced_deck", "mass_cards", "roundtrip"} <= names
+    names = {m.__name__.rsplit(".", 1)[1] for m in _id_allocating_modules()}
+    assert {"applied", "balanced_deck", "mass_cards", "roundtrip"} <= names
 
 
 def test_every_export_base_constant_is_a_registered_band():
@@ -134,7 +146,7 @@ def test_every_export_base_constant_is_a_registered_band():
     """
     starts = {b.start for b in bd.BANDS}
     stray = []
-    for module in _export_modules():
+    for module in _id_allocating_modules():
         for name, value in vars(module).items():
             if name in _NOT_AN_ID_BAND or not isinstance(value, int):
                 continue
@@ -194,10 +206,10 @@ def test_the_balanced_hand_blocks_and_the_registry_cannot_drift():
 # 56 D-56.2 deleted the decks that used them; their id ranges are unregistered
 # now, which `test_no_band_overlaps_another` covers as absence.
 @pytest.mark.parametrize("name,call", [
-    ("wing-stick", lambda i: sb.station_gid(i - 1)),   # index 0 is unallocated
-    ("body-mass", sb.beam_station_gid),
-    ("tail-span-htail", lambda i: sb.tail_span_gid("htail", i)),
-    ("tail-span-vtail", lambda i: sb.tail_span_gid("vtail", i)),
+    ("wing-stick", lambda i: ap.station_gid(i - 1)),   # index 0 is unallocated
+    ("body-mass", ap.beam_station_gid),
+    ("tail-span-htail", lambda i: ap.tail_span_gid("htail", i)),
+    ("tail-span-vtail", lambda i: ap.tail_span_gid("vtail", i)),
 ])
 def test_allocators_come_out_of_their_own_band(name, call):
     """First and last id of each allocator land on the band's own end points,
@@ -213,7 +225,7 @@ def test_the_public_base_constants_still_name_their_bands():
     """The per-module constants are aliases now, not sources. Callers still read
     them, so pin what they resolve to.
 
-    The ``sbeam_bridge`` half of this list went with note 56 D-56.2: those
+    The per-component deck half of this list went with note 56 D-56.2: those
     constants existed for the decks' ``$`` header lines, and there are no such
     decks. The allocators themselves are covered above, against the same bands.
     """

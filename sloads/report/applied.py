@@ -1,41 +1,44 @@
 """The applied load set: what a structures model has cards for, and where.
 
-Until note 56 this module was the *export bridge* -- it rendered the suite's
-loads as five families of per-component solver deck (wing stick BDF, body,
-tail chordwise, tail spanwise, control surface), each with its own CSV
-companion. **D-56.2 deleted all five.** They were parallel model concepts
-sharing one ID space with the deliverable, none of them the deliverable: the
-full-span balanced free-free airplane model is, and it is built in
-:mod:`sloads.export.lra_model`.
+**This is report infrastructure, and note 56 D-56.1 filed it where its
+consumers already were.** Until D-56.2 it lived in ``export/sbeam_bridge.py``
+and rendered the suite's loads as five families of per-component solver deck
+(wing stick BDF, body, tail chordwise, tail spanwise, control surface), each
+with its own CSV companion. Those are deleted -- they were parallel model
+concepts sharing one id space with the deliverable, none of them the
+deliverable, and the deliverable is the full-span balanced free-free airplane
+model in :mod:`sloads.export.lra_model`. What was left was never a bridge to
+sbeam: it is the record of *what is applied, where*, which the oracle report's
+applied appendices are built from directly and which the delivered cards are
+written from. The one remaining consumer outside ``report/`` is the CONM2 mass
+export's station numbering, and D-56.6 removes that.
 
-What stayed is what the decks were built *from*, and what has consumers that
-outlive them:
+Three things live here:
 
 * **The applied load set** (note 44 OR-141) -- :func:`applied_loads`, one row
-  shape for all six components of the airframe. This is the record of what is
-  applied, where, for which case, at what factor. The oracle report's applied
-  appendices are built from it directly, and under note 56 D-56.9 it is the
-  authority the delivered cards are written from.
+  shape for all six components of the airframe: what is applied, where, for
+  which case, at what factor. Under note 56 D-56.9 it is the authority the
+  delivered cards are written from.
 * **The station numbering** -- :func:`station_gid`, :func:`beam_station_gid`,
   :func:`body_station_gids`, :func:`tail_span_gid`, :func:`tail_control_gid`.
   Each is a thin view of a band in :mod:`sloads.export.bands`. The decks that
   consumed them are gone; the numbering is not, because an applied-load row
   states which station it is at. It numbers **nothing that ships** as of note
-  56 D-56.3 -- the LRA model now allocates every grid it writes from its own
-  run, rather than taking these -- so these five are the applied-load model's
-  own stations and retire with it at D-56.9, when a row's station becomes the
-  LRA grid the card is written at.
+  56 D-56.3 -- the LRA model allocates every grid it writes from its own run,
+  rather than taking these -- so these five are the applied-load model's own
+  stations and retire at D-56.9, when a row's station becomes the LRA grid the
+  card is written at.
 * **The side-of-body internal loads** (step 13, note 24 R-3) --
   :func:`sob_internal_loads`, the internal load at the wing-to-fuselage cut,
   which the oracle report states as the wing root design loads.
 
-**This module is a way-station.** Note 56 D-56.1 sends the applied-load family
-and the side-of-body loads to ``report/applied.py``; what is left after that is
-the numbering, which belongs to the LRA model once D-56.4's mesh lands. The
-name ``sbeam_bridge`` already describes something that no longer exists here --
-there is no bridge to sbeam in this file, only the load set a bridge would
-render -- and it is kept for one more step so the move is a move and not a move
-plus a rename.
+Everything here is **pure** in this package's sense -- no filesystem, no
+subprocess, no Streamlit. It imports three modules from :mod:`sloads.export`
+(:mod:`~sloads.export.bands`, :mod:`~sloads.export.coordinates`,
+:mod:`~sloads.export.deck_format`) for the same reason
+:mod:`sloads.report.tables` does: ids, the CID 0 mapping and the solver unit
+set have one owner each, and that owner is on the export side. Nothing in
+``export/`` imports this module at import time.
 
 Case identity (M4-2)
 --------------------
@@ -127,22 +130,8 @@ from dataclasses import dataclass
 from typing import List, Optional, Sequence, Tuple, Union
 
 from ..case_ids import subcase_id
-from ..models import (
-    BodyLoadResult,
-    ConcentratedLoad,
-    Project,
-    TailSpanResult,
-    WingLoadResult,
-    WingStationLoad,
-)
-
-# Single-sourced from the calc that owns the limitation (public symbol, no cycle:
-# nothing under sloads/modules imports the export bridge).
-from ..modules.net_loads import loads_ref_axis_results
-from ..safety_factors import shared_basis_factor
-from ..units import DeliverableUnits, UnitSystem
-from .bands import band
-from .coordinates import (
+from ..export.bands import band
+from ..export.coordinates import (
     Vec3,
     bending_moment_vector,
     tail_axial_to_airplane,
@@ -154,7 +143,7 @@ from .coordinates import (
     to_moment,
     ttail_transfer_to_airplane,
 )
-from .deck_format import (
+from ..export.deck_format import (
     CARD_TOL,
     case_sf,
     comment,
@@ -162,6 +151,20 @@ from .deck_format import (
     sf_str,
     solver_units,
 )
+from ..models import (
+    BodyLoadResult,
+    ConcentratedLoad,
+    Project,
+    TailSpanResult,
+    WingLoadResult,
+    WingStationLoad,
+)
+
+# Single-sourced from the calc that owns the limitation (public symbol, no cycle:
+# nothing under sloads/modules imports sloads/report).
+from ..modules.net_loads import loads_ref_axis_results
+from ..safety_factors import shared_basis_factor
+from ..units import DeliverableUnits, UnitSystem
 
 # --------------------------------------------------------------------------- #
 # Wing station GIDs
@@ -887,7 +890,7 @@ def engine_applied_load_rows(project: Project) -> List[AppliedLoad]:
     convention it does not have.
     """
     from ..registry import get
-    from ..report.render import point_load_records
+    from .render import point_load_records
 
     out: List[AppliedLoad] = []
     for rec in point_load_records(get("engine")(project).conditions):

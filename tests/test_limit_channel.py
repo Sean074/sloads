@@ -237,7 +237,8 @@ _NOT_A_SAFETY_FACTOR = {
 #: below found that gap; without it this scan would have shipped blind to the
 #: exact spelling it exists to catch.
 #: ``case_sf`` beside ``_sf``: note 56 D-56.1 promoted the per-case factor
-#: reader out of ``sbeam_bridge`` into ``deck_format`` under a public name, and
+#: reader out of what is now ``report.applied`` into ``deck_format`` under a
+#: public name, and
 #: ``\bsf\b`` does **not** match inside ``case_sf`` (``_`` is a word character,
 #: so there is no boundary before ``sf``). Without this alternative the rename
 #: alone would have blinded the scan to ``* case_sf(result)`` -- silently, since

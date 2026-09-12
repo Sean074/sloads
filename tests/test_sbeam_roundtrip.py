@@ -62,7 +62,7 @@ import pytest
 from sloads import io
 from sloads.derived_geometry import sob_station
 from sloads.export import mass_cards as mc
-from sloads.export import sbeam_bridge as sb
+from sloads.report import applied as ap
 from sloads.export.balanced_deck import (
     balanced_deck,
     case_sids,

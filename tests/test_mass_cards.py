@@ -37,7 +37,7 @@ from sloads import io
 from sloads import mass_distribution as md
 from sloads.cg_cases import flight_cases
 from sloads.export import mass_cards as mc
-from sloads.export import sbeam_bridge as sb
+from sloads.report import applied as ap
 from sloads.export.bands import IdKind, bands_of_kind
 from sloads.export.equilibrium import parse_cards
 from sloads.models import (
@@ -551,7 +551,7 @@ def test_the_gross_inertia_set_is_unchanged_by_the_per_case_form():
     _, _, _, forces, _ = parse_cards(mc.inertia_only_cards(p))
     rows = [row for sid_rows in forces.values() for row in sid_rows]
     assert [gid for gid, _, _ in rows] == [
-        sb.beam_station_gid(i) for i in range(len(stations))]
+        ap.beam_station_gid(i) for i in range(len(stations))]
     assert [round(-sc * v[2], 6) for _, sc, v in rows] == [
         round(s.weight_lb, 6) for s in stations]
 

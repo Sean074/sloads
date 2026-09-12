@@ -17,7 +17,7 @@ landing_gear            ``LG``    LANDLOAD
 IDs are ``f"{prefix}-{seq:02d}"``. **One ID per physical condition** (M4-2
 decision 1): where two modules deliver the same condition -- SELECT names the
 governing wing point, WINGINER/NETLOADS distribute it spanwise -- they carry the
-*same* ``CaseRef``, minted once, so ``sbeam_bridge.case_index_rows_from``'s
+*same* ``CaseRef``, minted once, so ``report.tables.case_index_rows_from``'s
 dedupe-by-``case_id`` collapses them to one row as it was written to.
 
 Wing sequence: fixed slots, not positions (M4-2 decision 4)
@@ -283,7 +283,7 @@ def deck_load_id(case_id: str, family: str = COMPONENT_DECK, hand: str = "") -> 
 
     The single owner of "which minter applies, and what a case without a number
     in this family shows" -- the report (``report/content``), the case index
-    (``export/sbeam_bridge``) and the GUI all read it here rather than each
+    (``report/applied``) and the GUI all read it here rather than each
     reaching into :func:`subcase_id` / :func:`balanced_subcase_id` with their own
     handedness rule. ``tests/test_case_ids.py`` pins the answers against the deck
     writers' own output.

@@ -51,7 +51,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pytest  # noqa: E402
 
 from sloads import io  # noqa: E402
-from sloads.export import sbeam_bridge as sb  # noqa: E402
+from sloads.report import applied as ap  # noqa: E402
 from sloads.field_registry import reduce_to_oracle_inputs  # noqa: E402
 from sloads.models.report import ReportSpec  # noqa: E402
 from sloads.report import oracle_content as oc  # noqa: E402
@@ -167,8 +167,8 @@ def test_the_tail_appendices_carry_the_torsion_the_deck_emits(name):
     for component in ("htail", "vtail"):
         if not spans.get(component):
             continue
-        rows = sb.applied_loads(component, spans[component])
-        torsion = math.fsum(abs(sb.applied_body_moments(r)[2 if component == "vtail" else 1])
+        rows = ap.applied_loads(component, spans[component])
+        torsion = math.fsum(abs(ap.applied_body_moments(r)[2 if component == "vtail" else 1])
                             for r in rows)
         assert torsion > 1.0, (name, component, torsion)
     # ...and the fin's span-axis axial, the other half of what was missing: a
@@ -176,7 +176,7 @@ def test_the_tail_appendices_carry_the_torsion_the_deck_emits(name):
     # axial column load, which Appendix E called absent by construction.
     if spans.get("vtail"):
         axial = math.fsum(abs(r.fz)
-                          for r in sb.applied_loads("vtail", spans["vtail"]))
+                          for r in ap.applied_loads("vtail", spans["vtail"]))
         assert axial > 1.0, (name, axial)
 
 
@@ -200,10 +200,10 @@ def test_the_fin_torsion_is_mz_and_the_htail_torsion_is_my(name):
             ("htail", (2, 1), +1), ("vtail", (1, 2), -1)):
         if not spans.get(component):
             continue
-        for row in sb.applied_loads(component, spans[component]):
+        for row in ap.applied_loads(component, spans[component]):
             if row.body_moments:
                 continue      # the T-tail transfer: the h-tail's axis, on the fin
-            moments = sb.applied_body_moments(row)
+            moments = ap.applied_body_moments(row)
             assert moments[0] == 0.0, (name, component, "Mx", moments)
             assert moments[zero] == 0.0, (name, component, "wrong axis", moments)
             assert math.isclose(moments[carries], sign * row.myy_free,

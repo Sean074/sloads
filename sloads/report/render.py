@@ -210,7 +210,7 @@ def _table_sf(results) -> Optional[float]:
 
     The basis a *shared* column header may state (OR-118a), read from its single
     owner: ``safety_factors.shared_basis_factor``. The rule used to be written
-    here and *assumed* in ``export.sbeam_bridge``, which is how a mixed table
+    here and *assumed* in ``report.applied``, which is how a mixed table
     became possible in one deliverable and unthinkable in the other (note 44
     OR-172 made it actual). One owner, both readers.
     """
@@ -838,7 +838,7 @@ def _moment_lb_in(v: Optional[LoadValue]) -> float:
     The engine module states its torques in **ft-lb** -- which is what the
     load-case index heads its column with, and correctly, because that is the
     unit the value carries. An applied-load record is raw ``lb-in`` throughout
-    (:class:`~sloads.export.sbeam_bridge.AppliedLoad`), so the conversion happens
+    (:class:`~sloads.report.applied.AppliedLoad`), so the conversion happens
     here, once, against the unit the producer wrote rather than against an
     assumption about which producer it was. A moment in neither unit raises: a
     silent pass-through would put a number twelve times too small on a card.
