@@ -71,8 +71,9 @@ The map
 The ``CONM2`` EID bands are additionally kept clear of **GID** space, which
 NASTRAN does not require: it makes every id in a spliced mass-plus-load deck
 traceable to one owner by inspection. Bands say so for themselves
-(:attr:`Band.clear_of_gids`); the stick model's ``CBAR`` chain declines, having
-numbered 1..n alongside its own GRIDs since the first deck.
+(:attr:`Band.clear_of_gids`); every registered EID band now says so. The one
+that declined was the wing stick model's ``CBAR`` chain, which numbered 1..n
+alongside its own GRIDs from the first deck until note 56 D-56.2 deleted it.
 
 One deliberate mirror: the per-component subcase blocks are **allocated** by
 :data:`sloads.case_ids.SUBCASE_BLOCK` -- and the balanced deck's per-hand blocks
@@ -116,9 +117,10 @@ class Band:
     #: EID bands only: also keep clear of every GID band. NASTRAN does not
     #: require it -- elements and grids are separate namespaces -- but a deck
     #: that splices a ``CONM2`` set into a load deck is much easier to read (and
-    #: to debug) when an id belongs to exactly one owner. The stick model's
-    #: ``CBAR`` chain deliberately declines: it numbers 1..n alongside the
-    #: GRIDs it connects, and always has.
+    #: to debug) when an id belongs to exactly one owner. The wing stick
+    #: model's ``CBAR`` chain deliberately declined -- it numbered 1..n
+    #: alongside the GRIDs it connected, and always had -- but note 56 D-56.2
+    #: deleted that deck, so every band still registered sets this.
     clear_of_gids: bool = False
 
     @property

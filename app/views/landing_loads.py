@@ -341,7 +341,7 @@ st.caption(
     "strut state and ground angle, and what arrives at the gear reference point. "
     "This is the boundary condition a gear analysis starts from, and it is the "
     "other side of the assembled ground cases — the reference-point reaction "
-    "below is the load the assembled deck applies at that node, sign-flipped."
+    "below is the load those cases apply at that node, sign-flipped."
 )
 try:
     _gear = gear_case_loads(project)

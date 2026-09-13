@@ -58,11 +58,20 @@ def filter_by_selected_case_ids(results: Sequence, selected_ids) -> List:
 # --------------------------------------------------------------------------- #
 #: The index's deck-number column per deck family. **Two** columns, not one
 #: (design note 17, user decision 2026-08-13): one case can hold a number in
-#: both -- ``W-05`` is ``105`` in the wing component deck and ``5105`` in the
+#: both -- ``W-05`` is ``105`` in the wing component family and ``5105`` in the
 #: assembled full-span one -- so a single unqualified column would be silently
 #: wrong for whichever family it was not quoting. Each header keeps the word
 #: ``SUBCASE`` a consumer greps for beside the ``LOAD`` the card set is selected
 #: by; they are one integer in the deck (``LOAD = 103`` inside ``SUBCASE 103``).
+#:
+#: **Both headers now outlive their decks.** Note 56 D-56.2 deleted the
+#: per-component decks and D-56.8 unshipped the assembled one, so neither number
+#: is greppable in a file the bundle carries: they are case identities the index
+#: joins on, and the only deck a consumer holds is the LRA model, whose SUBCASEs
+#: are minted from the assembled column. Renaming or collapsing the columns is
+#: **#209's** decision, not this sweep's -- it moves a shipped CSV header and
+#: three owners' text together -- so the headers are left as they are and stated
+#: here rather than left to be inferred.
 LOAD_ID_COLUMN = {
     COMPONENT_DECK: "LOAD/SUBCASE (component)",
     ASSEMBLED_DECK: "LOAD/SUBCASE (assembled)",
@@ -91,13 +100,14 @@ def case_index_rows_from(*groups: Sequence, assembled: Sequence = ()) -> List[di
     ``wing_inertia.wing_case_ref``). SELECT's own governing-loads row keeps its
     V-n point, which is what *its* numbers were computed at.
 
-    ``assembled`` is the assembled full-span deck's own cases
-    (``BalancedCaseResult``), passed separately because **which** deck column a
-    row fills is a property of where the case is exported, not of its id: an id
-    is quoted in a column only when it is actually in that deck. A handed id
-    (``W-05R``) therefore fills the assembled column alone; a symmetric case that
-    both stands as a component deck and assembles fills both, which is the point
-    of carrying two columns (design note 17).
+    ``assembled`` is the assembled full-span model's own cases
+    (``BalancedCaseResult``), passed separately because **which** column a row
+    fills is a property of which family the case belongs to, not of its id: an
+    id is quoted in a column only when it is actually in that family. A handed
+    id (``W-05R``) therefore fills the assembled column alone; a symmetric case
+    that both stands as a component view and assembles fills both, which is the
+    point of carrying two columns (design note 17). See
+    :data:`LOAD_ID_COLUMN` on why the headers still say "deck".
     """
     by_id: dict = {}
     rows: List[dict] = []
@@ -131,7 +141,7 @@ def case_index_rows_from(*groups: Sequence, assembled: Sequence = ()) -> List[di
             # assembled deck does not contain.
             row[column] = deck_load_id(ref.case_id, family, hand)
 
-    # A component-deck result has no hand: the per-component decks are the
+    # A component result has no hand: the per-component families are the
     # symmetric analysis views (CONVENTIONS §7.1), so the column takes the bare
     # id. Only the assembled ``BalancedCaseResult`` carries ``hand``, and it is
     # passed, not probed for (CH-2).

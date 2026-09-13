@@ -2399,8 +2399,9 @@ def applied_load_table(rows: Sequence[object], *, title: str,
     because there is only one place it is written.
 
     ``Station`` and ``GID`` are both printed and are not the same identity. A
-    concentrated wing mass has a name and no grid (the exported stick model
-    nodes the load stations only), so a table keyed on ``GID`` alone would
+    concentrated wing mass has a name and no grid (the exported LRA beam
+    model puts no node at a mass's own coordinates), so a table keyed on
+    ``GID`` alone would
     print a nameless blank row for every mass -- and a table keyed on
     ``Station`` alone could not be matched to the deck, which is the whole
     claim these appendices make. The columns are the applied CSV's, so the page

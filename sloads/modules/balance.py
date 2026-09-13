@@ -46,10 +46,13 @@ the residual runs 12-13 % rather than 1.9 %.
 
 What the assembled case carries, and what it must not
 -----------------------------------------------------
-The seam rule (plan 11 §4), stated once: **a load that a free-body cut
-introduces is never applied in the assembled model.** Each per-component deck
-takes a cut and carries the cut reaction as an applied load; in the assembled
-model the solver recovers it. Concretely the wing carry-through reaction
+The seam rule (plan 11 §4; owner ``CONVENTIONS.md`` §Seam, where note 56 D-56.2
+retired it as a *live* rule): **a load that a free-body cut introduces is never
+applied in the assembled model.** Each of the five per-component decks took a
+cut and carried the cut reaction as an applied load, and in the assembled model
+the solver recovers it instead. No cut model ships any more, so the rule now
+records why this module is shaped as it is. Concretely the wing carry-through
+reaction
 (``BodyStationLoad.source == "carry"``) is *excluded* -- :func:`assemble` never
 reads ``body_loads``, and :func:`carry_sources_absent` is the guard.
 
