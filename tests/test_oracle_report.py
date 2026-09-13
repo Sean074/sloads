@@ -2461,12 +2461,21 @@ def test_the_appendix_separates_the_applied_loads_from_the_carried_ones():
         assert column in carried.columns
         assert column not in applied.columns
 
-    station, result = net[0].stations[0], net[0]
-    row = applied.rows[0]
-    assert row[applied.columns.index("Fz (lb)")] == format_value(
-        station.fz)
+    # B.2 is the cumulative table and is still station-for-station: its first
+    # row is the root station's carried shear.
+    station = net[0].stations[0]
     assert carried.rows[0][carried.columns.index("Sz (lb)")] == format_value(
         station.sz)
+    # B.1 is the **delivered** applied set, which note 56 D-56.9 states at the
+    # beam's grids -- so its first row is a grid's summed load, not the root
+    # station's own. Checked against the owner rather than against a station,
+    # which is the point of the separation this test is named for: reading a
+    # B.1 row as a station quantity is the confusion it exists to prevent, and
+    # asserting one here would have re-introduced it from the test side.
+    from sloads.report import applied as ap
+
+    first = ap.applied_loads("wing", net, project)[0]
+    assert applied.rows[0][applied.columns.index("Fz (lb)")] == format_value(first.fz)
 
 
 def test_the_cumulative_table_carries_the_chord_bending():
@@ -2638,7 +2647,7 @@ def test_the_appendix_table_and_the_exported_csv_are_one_load_set():
     from sloads.report.methods import strip_comment_lines
 
     rows = list(_csv.DictReader(
-        strip_comment_lines(applied_load_csv(net)).splitlines()))
+        strip_comment_lines(applied_load_csv(net, project=project)).splitlines()))
     assert len(rows) == len(applied.rows)
     ci = {c: applied.columns.index(c) for c in applied.columns}
     for table_row, csv_row in zip(applied.rows, rows):
@@ -2646,37 +2655,66 @@ def test_the_appendix_table_and_the_exported_csv_are_one_load_set():
         for col in ("X (in)", "Fx (lb)", "Fy (lb)", "Fz (lb)",
                     "Mx (lb-in)", "My (lb-in)", "Mz (lb-in)"):
             key = col
+            # ``rel_tol`` as well as ``abs_tol``: the appendix cell is rendered
+            # by ``format_value`` at four significant figures and the CSV
+            # carries the full value, so a large component cannot agree to 1.0
+            # -- ``-14464`` prints as ``-1.446e+04``. Invisible until note 56
+            # D-56.9, because Mx was identically zero on every row before the
+            # set was summed onto the beam's grids; the lever-arm couples made
+            # it large enough for the display precision to show. The rendering
+            # itself is #161's row. Both sides are still one list -- that is
+            # what this gate is for, and 5e-4 cannot hide a second assembler.
             assert math.isclose(float(table_row[ci[col]].replace(",", "")),
-                                float(csv_row[key]), abs_tol=1.0), (
+                                float(csv_row[key]), rel_tol=5e-4, abs_tol=1.0), (
                 f"{col} disagrees on station {csv_row['Station']}")
 
 
-def test_every_concentrated_wing_mass_is_a_row_of_the_applied_table():
-    """The Baron's four wing masses, each at its own coordinates.
+def test_every_concentrated_wing_mass_reaches_the_applied_set():
+    """The Baron's four wing masses, in the set the deliverable states.
 
     Without them the applied set is short by most of the inertia relief -- the
-    defect the OR-15 admission of 2026-09-03 was granted to fix, #166 -- and a short
-    deck reads exactly like a complete one.
+    defect the OR-15 admission of 2026-09-03 was granted to fix, #166 -- and a
+    short deck reads exactly like a complete one. **That** is what this gate is
+    for, and it is unchanged.
+
+    **What changed is the labelling, and it is a real loss worth naming.** Until
+    note 56 D-56.9 each mass was its own appendix row, captioned with its own
+    name ("Engine+prop+nacelle"), because the appendix was the station-level
+    set. The delivered set is now summed onto the beam's grids, so a mass is
+    added into the row of the grid nearest it and its *name* is no longer a row
+    caption anywhere in the appendix. The mass's identity, position and weight
+    are in the weights input tables, which is where a reader looks for an item;
+    what the appendix promises is the load a model is given, and that is exactly
+    what a grid row now is.
+
+    So the gate is asserted where the claim lives: the masses are named in the
+    station-level set, and their force is present in the delivered one. A set
+    that dropped them fails the second assertion by their whole weight, which is
+    the failure #166 was about.
     """
     project = reduce_to_oracle_inputs(io.load_project(_TWIN))
     from sloads.modules.net_loads import build_net_loads, loads_ref_axis_results
+    from sloads.report import applied as ap
+
     net = loads_ref_axis_results(project, build_net_loads(project).wing_net)
     points = [pl for r in net for pl in r.point_loads]
     assert points, "the Baron enters concentrated wing masses"
 
-    applied, _carried = _appendix_tables(_doc(_TWIN))
-    station_column = applied.columns.index("Station")
-    named = [row[station_column] for row in applied.rows]
+    station = ap.station_applied_loads("wing", net, project)
+    named = {r.label for r in station}
     for pl in points:
-        assert pl.name in named
-    assert len(applied.rows) == sum(len(r.stations) for r in net) + len(points)
+        assert pl.name in named, pl.name
 
-    # A point mass carries no free moment -- its every moment is its force
-    # through an arm the coordinates state.
-    free = applied.columns.index("My (lb-in)")
-    for row in applied.rows:
-        if row[station_column] in {pl.name for pl in points}:
-            assert float(row[free].replace(",", "")) == 0.0
+    # The delivered set carries their force -- summed, not dropped. Compared
+    # against the station set's own total, so this cannot pass by both sides
+    # losing the masses together.
+    delivered = ap.applied_loads("wing", net, project)
+    assert math.isclose(math.fsum(r.fz for r in delivered),
+                        math.fsum(r.fz for r in station), rel_tol=1e-9)
+    without = math.fsum(r.fz for r in station if r.label not in {p.name for p in points})
+    assert not math.isclose(math.fsum(r.fz for r in delivered), without, rel_tol=1e-6), (
+        "the delivered set matches the station set with the masses removed -- "
+        "the concentrated masses are not reaching it (#166)")
 
 
 def test_the_appendix_is_landscape_and_starts_a_fresh_page():

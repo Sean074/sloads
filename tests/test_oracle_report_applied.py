@@ -163,11 +163,12 @@ def test_the_tail_appendices_carry_the_torsion_the_deck_emits(name):
     """
     from sloads.modules.tail_span import build_tail_span
 
-    spans = build_tail_span(_project(name))
+    project = _project(name)
+    spans = build_tail_span(project)
     for component in ("htail", "vtail"):
         if not spans.get(component):
             continue
-        rows = ap.applied_loads(component, spans[component])
+        rows = ap.applied_loads(component, spans[component], project)
         torsion = math.fsum(abs(ap.applied_body_moments(r)[2 if component == "vtail" else 1])
                             for r in rows)
         assert torsion > 1.0, (name, component, torsion)
@@ -176,7 +177,7 @@ def test_the_tail_appendices_carry_the_torsion_the_deck_emits(name):
     # axial column load, which Appendix E called absent by construction.
     if spans.get("vtail"):
         axial = math.fsum(abs(r.fz)
-                          for r in ap.applied_loads("vtail", spans["vtail"]))
+                          for r in ap.applied_loads("vtail", spans["vtail"], project))
         assert axial > 1.0, (name, axial)
 
 
@@ -192,15 +193,27 @@ def test_the_fin_torsion_is_mz_and_the_htail_torsion_is_my(name):
     The fin's ``My`` is not merely unused: a lateral load can make no moment
     about the y axis at all, so a non-zero one there is a wrong axis, never a
     small term.
+
+    **Read against the station-level set** (note 56 D-56.9). That is where the
+    claim is exactly true and where the defect would live: the axis map is a
+    property of the producer, and ``station_applied_loads`` is the set the map
+    is applied to. The delivered rows are summed onto the beam's grids, and the
+    lever-arm couple that moves a load there puts small real values in ``Mx``
+    and in the fin's ``My`` -- on ``baron_58``'s h-tail, up to 839 lb-in of Mx
+    against an identically-zero station set. Asserting exact zeros on the
+    delivered rows would therefore be asserting that no load ever moves, which
+    is the opposite of what D-56.4's load-blind mesh is for; the couples are
+    gated for what they are -- resultant-preserving -- by gate 13.
     """
     from sloads.modules.tail_span import build_tail_span
 
-    spans = build_tail_span(_project(name))
+    project = _project(name)
+    spans = build_tail_span(project)
     for component, (zero, carries), sign in (
             ("htail", (2, 1), +1), ("vtail", (1, 2), -1)):
         if not spans.get(component):
             continue
-        for row in ap.applied_loads(component, spans[component]):
+        for row in ap.station_applied_loads(component, spans[component], project):
             if row.body_moments:
                 continue      # the T-tail transfer: the h-tail's axis, on the fin
             moments = ap.applied_body_moments(row)

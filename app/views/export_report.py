@@ -269,7 +269,8 @@ if _wing:
     # rows the delivered cards are written from, which is what G-OR-90 holds
     # both to.
     _bdf_artifacts["wing_applied_loads.csv"] = _try(
-        ap.applied_load_csv, _wing, header_comment=_csv_stamp, system=_system) or ""
+        ap.applied_load_csv, _wing, header_comment=_csv_stamp, system=_system,
+        project=project) or ""
 if _body:
     _bdf_artifacts["fuselage_applied_loads.csv"] = _try(
         ap.applied_load_csv, _body, header_comment=_csv_stamp, system=_system,
@@ -286,7 +287,8 @@ if _tail:
     for _surface in ("htail", "vtail"):
         _bdf_artifacts[ap.APPLIED_CSV_NAMES[_surface]] = _try(
             ap.applied_load_csv, _spans.get(_surface) or [],
-            header_comment=_csv_stamp, system=_system, component=_surface) or ""
+            header_comment=_csv_stamp, system=_system, component=_surface,
+            project=project) or ""
 
 # The assembled full-span deliverable and the mass model that checks its inertia
 # half (decision D-R2). Both were page-only downloads until 2026-08-10: the

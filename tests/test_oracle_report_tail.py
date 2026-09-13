@@ -429,7 +429,7 @@ def test_appendix_d_and_the_applied_load_csv_are_one_load_set():
     from sloads.modules.tail_span import build_tail_span
     project = io.load_project(_GA)
     results = build_tail_span(project)["htail"]
-    _text = applied_load_csv(results, component="htail")
+    _text = applied_load_csv(results, component="htail", project=project)
     _rows = "\n".join(ln for ln in _text.splitlines() if not ln.startswith("#"))
     rows = list(csv.DictReader(_io.StringIO(_rows)))
     table = _appendix(_doc(), oc.HTAIL_LOAD_STATIONS).tables[0]
@@ -585,8 +585,8 @@ def test_appendix_d_places_every_load_on_the_airplane():
     In airplane axes, from the same mapper the exported deck uses, so a row here
     and a card in the deck place the same load at the same point.
     """
-    from sloads.export.coordinates import tail_station_to_airplane
     from sloads.modules.tail_span import build_tail_span
+    from sloads.report import applied as ap
 
     table = _appendix(_doc(), oc.HTAIL_LOAD_STATIONS).tables[0]
     assert [c.split(" ")[0] for c in table.columns] == [
@@ -599,13 +599,19 @@ def test_appendix_d_places_every_load_on_the_airplane():
     # Comparing against the raw file would be comparing two different airplanes.
     from sloads.field_registry import reduce_to_oracle_inputs
 
-    results = build_tail_span(reduce_to_oracle_inputs(io.load_project(_GA)))["htail"]
-    want = [tail_station_to_airplane(st.x, st.y, "htail", st.z)
-            for r in results for st in r.stations]
-    for row, (x, y, z) in zip(table.rows, want):
-        assert row[col["X"]] == format_value(x)
-        assert row[col["Y"]] == format_value(y)
-        assert row[col["Z"]] == format_value(z)
+    project = reduce_to_oracle_inputs(io.load_project(_GA))
+    results = build_tail_span(project)["htail"]
+    # The point is the **grid's** since note 56 D-56.9: the set is summed onto
+    # the h-tail's LRA chain, so a row is no longer one strip mapped through
+    # ``tail_station_to_airplane``. Compared against the owner the deck is
+    # written from, which is what "the same load at the same point" has always
+    # meant here -- the mapper is still underneath it, one step further back.
+    want = ap.applied_loads("htail", results, project)
+    assert len(table.rows) == len(want)
+    for row, load in zip(table.rows, want):
+        assert row[col["X"]] == format_value(load.x)
+        assert row[col["Y"]] == format_value(load.y)
+        assert row[col["Z"]] == format_value(load.z)
     # Both surfaces span in ``y`` and load in ``z`` here, so the appendix spans
     # the airplane rather than one side of it -- the check that this is the
     # full-span set and not a half read twice.

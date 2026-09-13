@@ -174,12 +174,12 @@ def test_every_admitted_case_reaches_the_distributions_the_appendix_and_the_deck
                      if r.component == "vtail"}
         spanwise = build_tail_span(project)["vtail"]
         span_cases = {r.case for r in spanwise}
-        appendix = {row.case for row in applied_loads("vtail", spanwise)}
+        appendix = {row.case for row in applied_loads("vtail", spanwise, project)}
         # The delivered file. It was ``tail_span_csv`` until note 56 D-56.2
         # deleted the spanwise deck and its companion; the applied-load CSV is
         # what a consumer downloads now, and the claim -- an admitted case
         # reaches the file, not just the calc -- is the same one.
-        deck = applied_load_csv(spanwise, component="vtail")
+        deck = applied_load_csv(spanwise, component="vtail", project=project)
 
         by_id = {c.case_ref.case_id: c.label for c in vtail_conditions(project)}
         for case_id in admitted:

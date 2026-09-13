@@ -60,7 +60,8 @@ def _build(system=UnitSystem.IMPERIAL):
     )
     # Note 56 D-56.2: the span/chordwise deck companions are gone; the tabular
     # sbeam sheets are the per-component applied load sets.
-    span_csvs = {"Wing Applied Loads": ap.applied_load_csv(net.wing_net, system=system)}
+    span_csvs = {"Wing Applied Loads": ap.applied_load_csv(net.wing_net, system=system,
+                                                     project=project)}
     if body:
         span_csvs["Fuselage Applied Loads"] = ap.applied_load_csv(
             body, system=system, component="fuselage", project=project)
@@ -68,7 +69,8 @@ def _build(system=UnitSystem.IMPERIAL):
     for _surface in ("htail", "vtail"):
         if spans.get(_surface):
             span_csvs[f"{_surface.title()} Applied Loads"] = ap.applied_load_csv(
-                spans[_surface], system=system, component=_surface)
+                spans[_surface], system=system, component=_surface,
+                project=project)
     project_info = {"Name": project.name, "Engineer": project.engineer or "", "Date": project.date or ""}
 
     xlsx_bytes = build_workbook(project_info, module_csvs, module_labels, case_index_csv,

@@ -499,7 +499,7 @@ def test_safety_factor_null_no_longer_crashes_the_export():
     d = _m4_14_project_dict()
     _set_all_safety_factors(d, None)
     p = io.project_from_dict(d)
-    csv_text = applied_load_csv(p.loads.body_net, component="fuselage")
+    csv_text = applied_load_csv(p.loads.body_net, component="fuselage", project=p)
     rows = [ln for ln in csv_text.splitlines() if not ln.startswith("#")]
     assert rows[1].endswith("1.5")
 

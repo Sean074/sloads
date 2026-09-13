@@ -18,14 +18,16 @@ import math
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sloads import io
-from sloads.report import applied as ap
-from sloads.report import tables as rt
-from sloads.export.equilibrium import card_totals, closes, parse_cards
+from sloads.export.equilibrium import closes
 from sloads.modules.flight_envelope import build_envelope
 from sloads.modules.net_loads import build_net_loads
+from sloads.report import applied as ap
+from sloads.report import tables as rt
 
 _EXAMPLES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")
 _GA = os.path.join(_EXAMPLES, "ga6_normal.project.json")
@@ -275,7 +277,7 @@ def test_the_applied_csv_states_its_units_axis_and_factor():
     net = _lra_net(_GA)
     from sloads.report.methods import strip_comment_lines
 
-    text = ap.applied_load_csv(net)
+    text = ap.applied_load_csv(net, project=io.load_project(_GA))
     header = strip_comment_lines(text).splitlines()[0]
     assert header.split(",") == [
         "Case", "Station", "GID", "X (in)", "Y (in)", "Z (in)",
@@ -288,23 +290,49 @@ def test_the_applied_csv_states_its_units_axis_and_factor():
 
 
 
-def test_the_applied_csv_leaves_a_point_masss_gid_blank():
-    """No invented grid: the deck has no node at a concentrated mass (yet)."""
-    rows = _csv_rows(ap.applied_load_csv(_lra_net(_BARON)[:1]))
-    blank = [r for r in rows if r["GID"] == ""]
-    assert len(blank) == 4
-    assert all(r["My (lb-in)"] == "0" for r in blank)
-    assert all(r["GID"].isdigit() for r in rows if r not in blank)
+def test_every_applied_row_states_a_grid_including_a_concentrated_mass():
+    """D-56.9 inverts this test, and the inversion is the decision.
+
+    It asserted the opposite until note 56: a concentrated wing mass carried a
+    **blank** GID, because the exported deck had no node at its coordinates --
+    the stick model numbered the load stations only. Now every row is summed
+    onto an LRA grid, and a mass is summed like anything else, so there is no
+    row the delivered set cannot name a point for. ``gid`` is no longer
+    ``Optional`` in practice on any component's set, which is what makes the
+    appendix row and the card one object.
+    """
+    rows = _csv_rows(ap.applied_load_csv(_lra_net(_BARON)[:1],
+                                         project=io.load_project(_BARON)))
+    assert rows
+    assert all(r["GID"].isdigit() for r in rows), \
+        [r["GID"] for r in rows if not r["GID"].isdigit()]
+    # ...and the masses did not vanish into the aggregation: the Baron's four
+    # concentrated wing masses are still in the set's resultant.
+    station = ap.station_applied_loads("wing", _lra_net(_BARON)[:1],
+                                       io.load_project(_BARON))
+    # Compared against the printed column, so the tolerance is the CSV's own
+    # rendering, not the arithmetic's: ``format_value`` gives four significant
+    # figures, and forty of them summed cannot agree more closely than that.
+    # The exact form of this identity is gate 13's, asserted on the rows.
+    assert math.isclose(math.fsum(float(r["Fz (lb)"]) for r in rows),
+                        math.fsum(r.fz for r in station), rel_tol=1e-3)
 
 
-def test_the_applied_csv_is_ultimate():
-    """LIMIT x the case's own SF, like every other deliverable in this channel."""
+def test_the_applied_csv_is_limit():
+    """LIMIT, like every other deliverable in this channel (note 49 OR-116).
+
+    Row-for-row against ``applied_loads`` since note 56 D-56.9: the CSV is a
+    view of the **delivered** set, which is the one at the LRA grids, so
+    comparing it against the station-level rows would compare two different
+    (both correct) quantities and pass only by accident of ordering.
+    """
     net = _lra_net(_GA)[:1]
-    rows = ap.applied_load_rows(net)
-    csv_rows = _csv_rows(ap.applied_load_csv(net))
+    project = io.load_project(_GA)
+    rows = ap.applied_loads("wing", net, project)
+    csv_rows = _csv_rows(ap.applied_load_csv(net, project=project))
+    assert len(rows) == len(csv_rows)
     for r, c in zip(rows, csv_rows):
-        assert math.isclose(float(c["Fz (lb)"]), r.fz,
-                            abs_tol=0.05)
+        assert math.isclose(float(c["Fz (lb)"]), r.fz, abs_tol=0.05)
 
 
 def test_applied_load_writer(tmp_path=None):
@@ -312,7 +340,8 @@ def test_applied_load_writer(tmp_path=None):
 
     d = str(tmp_path) if tmp_path else tempfile.mkdtemp()
     path = os.path.join(d, "applied.csv")
-    ap.write_applied_load_csv(_lra_net(_GA), path, header_comment="# ULTIMATE\n")
+    ap.write_applied_load_csv(_lra_net(_GA), path, header_comment="# ULTIMATE\n",
+                              project=io.load_project(_GA))
     text = open(path, encoding="utf-8").read()
     assert text.startswith("# ULTIMATE")
     assert "My (lb-in)" in text
@@ -341,13 +370,19 @@ def test_project_export_transfers_to_loads_ref_axis():
     wing.ref_axis_pct = 0.40
     rows = _csv_rows(ap.applied_load_csv(p))
     assert rows and all(r["MyyAxis"] == "LRA 40% chord" for r in rows)
-    # The applied station X is the LRA point, not the 25% chord it was computed
-    # about: the transfer moved the point the load is stated at.
+    # The transfer moved the point the load is *computed* about, and this is
+    # still what that means -- but the delivered row's X is now the **grid's**,
+    # because D-56.9 sums the set onto the beam. So the claim is asserted where
+    # it is still a statement about the transfer: on the station-level set, the
+    # aggregation's own input. The grid X is checked against the beam by
+    # ``test_lra_model``; what could go wrong *here* is the 25%-vs-LRA chord,
+    # and that is a property of the station.
+    station = ap.station_applied_loads("wing", p, p)
     raw = p.loads.wing_net[0].stations[0]
     x_le = interp_x(wing.leading_edge, raw.y)
     x_te = interp_x(wing.trailing_edge, raw.y)
     x_lra = x_le + 0.40 * (x_te - x_le)
-    assert math.isclose(float(rows[0]["X (in)"]), x_lra, rel_tol=1e-3, abs_tol=0.01)
+    assert math.isclose(station[0].x, x_lra, rel_tol=1e-3, abs_tol=0.01)
 
 
 def test_writers(tmp_path=None):
@@ -356,7 +391,7 @@ def test_writers(tmp_path=None):
     results = _lra_net(_GA)
     d = tmp_path or tempfile.mkdtemp()
     csv_p = os.path.join(str(d), "w.applied_loads.csv")
-    ap.write_applied_load_csv(results, csv_p)
+    ap.write_applied_load_csv(results, csv_p, project=io.load_project(_GA))
     assert os.path.getsize(csv_p) > 0
 
 
@@ -789,13 +824,12 @@ def test_a_mixed_basis_csv_keeps_a_plain_header_and_an_all_ultimate_one_is_marke
     :func:`sloads.safety_factors.shared_basis_factor`, which is the single owner
     both the document and the export read.
     """
-    import dataclasses
     import glob
     import os
 
-    from sloads.report.applied import applied_load_csv
     from sloads.io import load_project
     from sloads.modules.tail_span import build_tail_span
+    from sloads.report.applied import applied_load_csv
     from sloads.safety_factors import shared_basis_factor
 
     def _header_marked(text):
@@ -812,7 +846,7 @@ def test_a_mixed_basis_csv_keeps_a_plain_header_and_an_all_ultimate_one_is_marke
         if not results:
             continue
         factors = {r.safety_factor for r in results}
-        text = applied_load_csv(results, component="vtail")
+        text = applied_load_csv(results, component="vtail", project=project)
         if len(factors) > 1:
             saw_mixed = True
             assert not _header_marked(text), (
@@ -856,3 +890,134 @@ def test_the_shared_basis_owner_is_asked_by_both_deliverables():
     assert shared_basis_factor([_R(1.0), _R(1.0)]) == 1.0
     assert shared_basis_factor([_R(1.0), _R(1.5)]) is None
     assert shared_basis_factor([]) is None
+
+
+# --------------------------------------------------------------------------- #
+# Note 56 D-56.9, gates 12 and 13 -- the delivered set is at the LRA grids,
+# and the re-aggregation moves no resultant
+# --------------------------------------------------------------------------- #
+#: Every shipped fixture. The gates below are about a rule that must hold for
+#: any airplane, not about one airplane's numbers, so they run on the set.
+_EVERY_FIXTURE = ("ga6_normal.project.json", "baron_58.project.json",
+                  "atr42_100.project.json", "concept_regional_jet.project.json",
+                  "concept_heavy.project.json")
+
+
+def _sets(example):
+    """``{component: (station_rows, delivered_rows)}`` for one fixture."""
+    from sloads.modules.body_loads import build_body_loads
+    from sloads.modules.net_loads import build_net_loads
+    from sloads.modules.tail_span import build_tail_span
+
+    project = io.load_project(os.path.join(_EXAMPLES, example))
+    args = {}
+    try:
+        args["wing"] = build_net_loads(project).wing_net
+    except Exception:
+        pass
+    try:
+        args["fuselage"] = build_body_loads(project)
+    except Exception:
+        pass
+    try:
+        spans = build_tail_span(project)
+        for c in ("htail", "vtail"):
+            if spans.get(c):
+                args[c] = spans[c]
+    except Exception:
+        pass
+    return project, {c: (ap.station_applied_loads(c, a, project),
+                         ap.applied_loads(c, a, project))
+                     for c, a in args.items()}
+
+
+def _set_resultant(rows):
+    """``(F, M)`` of a row set about the airplane origin, in body axes."""
+    fx = math.fsum(r.fx for r in rows)
+    fy = math.fsum(r.fy for r in rows)
+    fz = math.fsum(r.fz for r in rows)
+    moments = [ap.applied_body_moments(r) for r in rows]
+    mx = math.fsum(m[0] + r.y * r.fz - r.z * r.fy for m, r in zip(moments, rows))
+    my = math.fsum(m[1] + r.z * r.fx - r.x * r.fz for m, r in zip(moments, rows))
+    mz = math.fsum(m[2] + r.x * r.fy - r.y * r.fx for m, r in zip(moments, rows))
+    return (fx, fy, fz), (mx, my, mz)
+
+
+@pytest.mark.parametrize("example", _EVERY_FIXTURE)
+def test_every_delivered_row_is_at_a_grid_of_its_own_member(example):
+    """**Gate 12.** No row states a point the beam does not define.
+
+    The whole of D-56.9 in one assertion: the delivered set is addressed at the
+    LRA grids, so a row's ``gid`` is a node of the member that carries it and a
+    row's coordinates *are* that node's. A row at a station number, or at a grid
+    whose card sits somewhere else, is the defect the decision removes -- it is
+    what let an appendix describe a point no artifact carried.
+    """
+    from sloads.export.lra_model import build_lra_model
+
+    project, sets = _sets(example)
+    try:
+        model = build_lra_model(project)
+    except ValueError as exc:
+        pytest.skip(f"{example}: the exporter refuses this airplane -- {exc}")
+    nodes = {n.gid: n.pos for n in model.nodes}
+    for component, (_station, delivered) in sets.items():
+        for row in delivered:
+            assert row.gid is not None, (example, component)
+            assert row.gid in nodes, (example, component, row.gid)
+            for got, want in zip((row.x, row.y, row.z), nodes[row.gid]):
+                assert math.isclose(got, want, rel_tol=1e-9, abs_tol=1e-9), (
+                    example, component, row.gid)
+
+
+@pytest.mark.parametrize("example", _EVERY_FIXTURE)
+def test_the_re_aggregation_moves_no_resultant(example):
+    """**Gate 13's gated half.** LM-1 is a change of description, not of load.
+
+    Per component and per case, the summed set's force and its moment about the
+    airplane origin equal the station-level set's. That is a property of the
+    construction rather than an approximation -- the couple ``(p - n) x F`` is
+    defined to make it so -- which is why the tolerance is 1e-9 and not a
+    physics tolerance.
+
+    Scaled against the *magnitude* of the set, never against the resultant
+    itself: a balanced component's resultant is near zero by construction, so a
+    relative test on it would divide by nothing and either pass vacuously or
+    fail on dust.
+    """
+    _project, sets = _sets(example)
+    for component, (station, delivered) in sets.items():
+        cases = {r.case_id or r.case for r in station}
+        for case in sorted(cases):
+            s = [r for r in station if (r.case_id or r.case) == case]
+            d = [r for r in delivered if (r.case_id or r.case) == case]
+            assert d, (example, component, case)
+            scale = max(
+                [abs(r.fz) for r in s] + [abs(r.fx) for r in s]
+                + [abs(v) for r in s for v in ap.applied_body_moments(r)] + [1.0])
+            fs, ms = _set_resultant(s)
+            fd, md = _set_resultant(d)
+            for i, (a, b) in enumerate(zip(fs + ms, fd + md)):
+                assert abs(a - b) <= 1e-9 * scale * max(
+                    1.0, max(abs(r.x) for r in s) if i >= 3 else 1.0), (
+                    example, component, case, i, a, b)
+
+
+@pytest.mark.parametrize("example", _EVERY_FIXTURE)
+def test_the_lumping_is_a_sum_and_loses_no_row(example):
+    """Every station row lands somewhere: the counts fall, the force does not.
+
+    The failure this rules out is a silent drop -- a row whose member has no
+    nodes, or a component whose key is missing from the routing map, quietly
+    contributing nothing. It is the shape of defect the ``all`` fallback exists
+    to prevent, asserted rather than trusted.
+    """
+    _project, sets = _sets(example)
+    for component, (station, delivered) in sets.items():
+        assert delivered, (example, component)
+        assert len(delivered) <= len(station), (example, component)
+        for axis in ("fx", "fy", "fz"):
+            assert math.isclose(
+                math.fsum(getattr(r, axis) for r in station),
+                math.fsum(getattr(r, axis) for r in delivered),
+                rel_tol=1e-9, abs_tol=1e-6), (example, component, axis)

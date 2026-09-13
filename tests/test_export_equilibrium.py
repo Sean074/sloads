@@ -262,19 +262,40 @@ def test_body_grids_match_station_geometry(example):
 
     The check above is only as good as the coordinates it integrates; before
     this step the body decks named GIDs that had no ``GRID`` card in any file.
-    Read off the applied load set since note 56 D-56.2 deleted the deck -- the
-    rows carry the same GID and the same point, which is what the deck was
-    writing.
+
+    **The station it names is the beam's, not the load integrator's** (note 56
+    D-56.9). The rows used to sit at the fuselage load stations under the
+    ``body-mass``/``body-reaction`` GIDs; they are now summed onto the LRA
+    fuselage chain, so the claim to check is that every row's grid is a node of
+    that chain and every row's point *is* that node's point. That is the version
+    of this gate that matches the artifact: a row whose coordinates disagreed
+    with the ``GRID`` card of the id it names is exactly the defect the original
+    was written for, and it is still what fails here.
     """
+    from sloads.export.lra_model import build_lra_model
+
     project, body = _project(example), _cached(example)[1]
     _skip_if_empty(body, example, "body")
-    want = {gid: s.x
-            for r in body for gid, s in zip(ap.body_station_gids(r), r.stations)}
+    try:
+        model = build_lra_model(project)
+    except ValueError as exc:
+        # ``concept_heavy`` has no body data and the exporter refuses it by
+        # design (BM-1). There is no beam, so the applied set falls back to the
+        # station-level rows and there are no LRA grids for this gate to check
+        # against. Skipped by the refusal itself rather than by name, so the day
+        # the fixture gains body data the gate covers it without an edit.
+        pytest.skip(f"{example}: no LRA beam to state the set at -- {exc}")
+    nodes = {n.gid: n.pos for n in model.members["fuselage"]}
     rows = ap.applied_loads("fuselage", body, project=project)
-    assert {ld.gid for ld in rows} == set(want)
+    assert rows
+    assert {ld.gid for ld in rows} <= set(nodes), (
+        f"{example}: fuselage rows at grids the beam does not define: "
+        f"{sorted({ld.gid for ld in rows} - set(nodes))}")
     for ld in rows:
-        assert math.isclose(ld.x, want[ld.gid], rel_tol=1e-6, abs_tol=1e-6)
-        assert ld.y == 0.0
+        want = nodes[ld.gid]
+        assert math.isclose(ld.x, want[0], rel_tol=1e-9, abs_tol=1e-9)
+        assert math.isclose(ld.y, want[1], rel_tol=1e-9, abs_tol=1e-9)
+        assert math.isclose(ld.z, want[2], rel_tol=1e-9, abs_tol=1e-9)
 
 
 

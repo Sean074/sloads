@@ -112,7 +112,7 @@ def artifacts(example: str) -> Dict[str, str]:
     # written from, so the *loads* under digest are unchanged even though the
     # channel names and the byte counts are not.
     if wing:
-        text = _try(ap.applied_load_csv, wing)
+        text = _try(ap.applied_load_csv, wing, project=project)
         if text:
             out["sbeam/wing_applied"] = text
     if body:
@@ -128,7 +128,8 @@ def artifacts(example: str) -> Dict[str, str]:
         results = spans.get(component) or []
         if not results:
             continue
-        text = _try(ap.applied_load_csv, results, component=component)
+        text = _try(ap.applied_load_csv, results, component=component,
+                    project=project)
         if text:
             out[f"sbeam/{component}_applied"] = text
 

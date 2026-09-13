@@ -457,10 +457,16 @@ and one appendix, built from the `wing_loads` step
   strip they are opposite in sign. By the same argument `Mx` and `Mz` have no
   applied increment and **SHALL NOT** be given one.
 - **B.1 SHALL state all six body-axis components, printing the structural zeros
-  (OR-65).** `Fy`, `Mx` and `Mz` are zero for every row of this load set — the
-  wing chain has no spanwise strip-load producer and no delivered wing condition
-  is lateral; a strip applies forces and a section moment and nothing else — and
-  each zero **SHALL** be printed with that reason stated in the table's note. A
+  (OR-65).** `Fy` is zero for every row of this load set — the wing chain has no
+  spanwise strip-load producer, no delivered wing condition is lateral, and no
+  couple can create a force. `Mx` and `Mz` are zero **at the load station**, a
+  strip applying forces and a section moment and nothing else. **Since note 56
+  D-56.9 that is not the same as zero in B.1**, and the note SHALL say so: the
+  set is summed onto the beam's grids, and moving a force across an offset makes
+  a couple about the axes transverse to it — up to 839 lb-in of `Mx` on
+  `baron_58`'s h-tail rows, against an identically zero station set. Each zero,
+  and each column that is zero only at the station, **SHALL** be printed with
+  that reason stated in the table's note. A
   reader building `FORCE`/`MOMENT` cards from a partial vector cannot tell a
   zero from an omission, and the earlier rule (omit `Fy` lest a zero read as a
   measured zero) traded one misreading for a worse one.
@@ -470,25 +476,38 @@ and one appendix, built from the `wing_loads` step
   CSV both take their moments through `report.applied.applied_body_moments`
   and neither restates the sign.
 - **B.1 SHALL be a view of the exported applied set, not a second assembler
-  of it (OR-64).** The rows come from `report.applied.applied_load_rows`,
+  of it (OR-64).** The rows come from `report.applied.applied_loads`,
   the same owner behind the `wing_applied_loads.csv` download on the Wing Loads
   page and in the Export bundle, so the appendix a stress analyst reads and the
   file they build the model from cannot disagree about what is applied. The
   report converts and marks at its own boundary, as it does for every other
   export-owned row shape.
-- **Every concentrated wing mass SHALL be a row of B.1** at its own
-  coordinates, carrying zero free moment. `WINGINER` steps the cumulative shear
-  at each mass and leaves the per-strip loads panel-only, so a deck built from
-  the strip table alone loses the whole of the point-mass inertia relief — on
-  `baron_58` PHAA, 4,821.5 lb of a 5,004.1 lb root shear. A point mass produces
-  no free moment: every moment it makes is its force through an arm its own
-  coordinates state.
+- **Every concentrated wing mass SHALL reach B.1's load set.** `WINGINER` steps
+  the cumulative shear at each mass and leaves the per-strip loads panel-only,
+  so a deck built from the strip table alone loses the whole of the point-mass
+  inertia relief — on `baron_58` PHAA, 4,821.5 lb of a 5,004.1 lb root shear. A
+  point mass produces no free moment: every moment it makes is its force through
+  an arm its own coordinates state.
+  **It is no longer a row of its own** (note 56 D-56.9), and the change is
+  stated rather than left for a reader to notice: the mass is summed into the
+  row of the grid nearest it, with the couple that moves it there, so its
+  *name* is no longer an appendix caption. The item's identity, position and
+  weight are in the weights input tables, which is where a reader looks for an
+  item; B.1 promises the load a model is given, and a grid row is exactly that.
+  The requirement the caption served — that the relief is not silently missing —
+  is unchanged and is where the number above is checked.
 - **The applied set SHALL close onto the cumulative one.** Summed tip inboard,
   with each point mass entering through its own arms, the six applied components
   reproduce the published `Sz`, `Sx`, `Mxx`, `Myy` and `Mzz` at every station of
   every case. This is the gate under the whole appendix: a model is given the
   applied loads and returns the internal ones, and if the two disagree here they
   disagree there, invisibly.
+  **The closure is on the resultant, and the distribution is stated** (note 56
+  D-56.9/D-56.10). Lumping onto the grids preserves each load's resultant about
+  every reference exactly, so the totals still close; what it moves is where the
+  set says the load is carried, and a load that crosses a cut on its way to its
+  grid takes its share of the internal V/M/T at that cut with it. The report
+  SHALL state the size of that with a VMT comparison rather than absorb it.
 - **B.2 SHALL state chord bending `Mzz` (OR-71, superseding OR-70).** It is
   computed for every case, oracle-locked at the root (Appendix A p222), printed
   by `wing_span_loads.csv`, printed at the root by 3.3, and named by the
@@ -1312,7 +1331,7 @@ without a guard is prose, not a gate).
 | Section 3 delivers LIMIT with the factor stated (OR-89/OR-116; was ULTIMATE) | 2026-09-05 | `test_oracle_report.py::test_no_load_the_wing_section_prints_is_marked_ultimate` |
 | 3.2 Notation and the cumulative-load derivation (OR-62) | 2026-09-03 | `test_oracle_report.py::test_section_three_defines_every_symbol_its_tables_use`, `::test_section_three_states_how_the_cumulative_loads_are_built`, `::test_the_point_mass_rule_is_stated_only_where_there_is_one` |
 | Appendix B: applied set and carried set (OR-59, OR-60) | 2026-09-03 | `test_oracle_report.py::test_the_appendix_separates_the_applied_loads_from_the_carried_ones`, `::test_the_applied_table_carries_the_point_every_load_acts_at`, `::test_the_appendix_subsections_are_lettered_from_their_parent` |
-| Appendix B: concentrated masses and closure (OR-59, G-OR-29) | 2026-09-03 | `test_oracle_report.py::test_every_concentrated_wing_mass_is_a_row_of_the_applied_table`, `test_net_loads.py::test_the_applied_strip_set_reproduces_the_cumulative_loads`, `::test_a_concentrated_wing_mass_is_published_as_its_own_applied_load`, `::test_the_axis_transfer_moves_the_free_moment_on_its_own_force` |
+| Appendix B: concentrated masses and closure (OR-59, G-OR-29) | 2026-09-03 | `test_oracle_report.py::test_every_concentrated_wing_mass_reaches_the_applied_set` (renamed with note 56 D-56.9: a mass is summed into its grid's row rather than captioned as its own, so the gate is that its force reaches the delivered set), `test_net_loads.py::test_the_applied_strip_set_reproduces_the_cumulative_loads`, `::test_a_concentrated_wing_mass_is_published_as_its_own_applied_load`, `::test_the_axis_transfer_moves_the_free_moment_on_its_own_force` |
 | B.1 and the exported CSV are one load set (OR-64) | 2026-09-03 | `test_oracle_report.py::test_the_appendix_table_and_the_exported_csv_are_one_load_set`, `test_applied.py::test_the_applied_moment_is_the_free_moment_not_the_increment` |
 | B.1 states all six components and prints its structural zeros (OR-65, OR-66) | 2026-09-03 | `test_applied.py::test_the_applied_set_states_all_six_components`, `::test_the_applied_set_reproduces_the_whole_vmt_at_every_station`; note 46 G-OR-35/36 |
 | Appendix page breaks and landscape (OR-63) | 2026-09-03 | `test_oracle_report.py::test_the_appendix_is_landscape_and_starts_a_fresh_page` |

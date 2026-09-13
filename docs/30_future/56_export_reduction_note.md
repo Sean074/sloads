@@ -486,6 +486,7 @@ not only of what was intended.
 | 5 | **The LRA beam gets its own mesh** (D-56.4). Ends + owned points + equally spaced grids *between* them; counts settable per component (`Project.lra_mesh`, schema 65 -> 66) at wing 20/side, fuselage 12/cantilever, h-tail 12/side, fin 10; members run to their tips; `JOINT_MERGE_FRACTION` retires; gates 5, 10 and 11 land. Only `sbeam/lra_model` re-stamps. | 2026-09-11 |
 | 6a | **``sbeam_bridge.py`` ceases to exist** (D-56.1). The applied-load family, the station numbering and the side-of-body internal loads move whole to ``report/applied.py``; the export package stops re-exporting them and no shim is left. Two guards land: one address per name in both directions, and no importable ``sbeam_bridge``. Deliverables byte-identical. | 2026-09-11 |
 | 7 | **CONM2 gets its own CG grids and the mass model is checked by GPWG** (D-56.6 + D-56.7). One `GRID` per card at the item's own CG in the new `mass-cg` band (`13001+`), zero offset; `_attach_gid`, the offset arithmetic, the placeholder massless beam and its `SPC1` all go, and the wing-item limitation retires with the header sentence that stated it. `inertia_only_cards`, `case_station_weights` and `roundtrip.flatten_mass_case` retire. Gate 6 lands as GPWG. The mass model enters the digest baseline for the first time (234 → 244 channels). | 2026-09-12 |
+| 6b-i | **The applied load set is re-aggregated onto the LRA grids** (D-56.9). `applied_loads` returns one row per (case, grid), every aero station and concentrated mass summed onto the nearest node of its member through LM-1; the station-level set stays public as `station_applied_loads`, the aggregation's input and D-56.10's reference curve. `project` becomes required. Gates 12 and 13 land. Four digest channels re-stamp -- the `*_applied` ones, gate 8's stated exception -- and 52 hold. | 2026-09-12 |
 
 **Two departures from the note as written, both deliberate.**
 
@@ -721,6 +722,73 @@ a `MASSSET` subcase names a **payload** case, and `CG1` is not a case id and has
 no index row. The parser now skips the mass channels by name and says why —
 found only because the new digest channel put the artifact in front of it, which
 is the argument for the channel restated as an event.
+
+---
+
+**Slice 6b-i: what summing the set actually cost, itemised.**
+
+The re-aggregation itself is small -- one function, one routing map, LM-1 from
+the existing owner. What it moved is not, and the note owes an account of it.
+
+1. **A cross-case defect, caught by an unrelated guard.** The first version
+   keyed the accumulator by ``gid``. ``applied_loads`` returns every case
+   concatenated, so `W-01`'s load at a grid was being summed into `W-02`'s --
+   one row per grid for the whole file, carrying an arbitrary case's label and
+   factor. Nothing in the new gates saw it; the *mixed-basis safety-factor*
+   guard did, on ``atr42_100``, because the merged row took one case's SF.
+   Keyed by ``(case, gid)`` now. Worth recording as the reason gate 13 is
+   asserted per case and not per component.
+
+2. **The structural zeros are gone, and that is physics.** Moving a force across
+   an offset makes a couple about the transverse axes -- which is exactly what
+   keeps the resultant exact. Measured: ``Mx`` goes from identically zero at the
+   stations to **839 lb-in** on ``baron_58``'s h-tail rows and 869 on its fin,
+   and the fin picks up a small real ``My`` (1.2-4.8 lb-in) from its axial
+   ``Fz`` moved fore-aft. G-OR-92 ("a component non-zero anywhere is not
+   describable as absent") failed, correctly, and the appendix notes are re-cut:
+   the zeros are properties of the **station-level** set and the notes now say
+   which is which. ``LUMPED_SET_NOTE`` is one wording for all four appendices,
+   because four paraphrases of one claim is how note 44 OR-139 happened.
+   ``ORACLE_REPORT.md``'s B.1 rules are re-cut to match.
+
+3. **A concentrated mass is no longer an appendix row of its own.** It is summed
+   into its grid's row, so "Engine+prop+nacelle" is no longer a caption anywhere
+   in B.1. That is a genuine loss of reader value and it is stated in the spec
+   rather than absorbed: the item's identity and weight are in the weights
+   tables, and B.1 promises the load a model is given. #166's actual
+   requirement -- that the point-mass inertia relief is not silently missing,
+   4,821.5 lb of a 5,004.1 lb root shear on ``baron_58`` -- is unchanged, and
+   its gate is re-aimed at exactly that rather than at the caption.
+
+4. **Two tests were comparing points, not values, and only now say so.** The SI
+   root-closure gate took moments about ``mine[0]``'s point, which used to be
+   the root station and is now the first grid; it is re-pointed at the root
+   station's own coordinates and closes exactly, through a full CSV round trip,
+   which is a stronger statement of LM-1 than the arithmetic test beside it. And
+   the B.1-vs-CSV gate began failing by 4 lb-in on a 14,464 lb-in ``Mx``: both
+   sides are one list, but the table renders four significant figures
+   (``-1.446e+04``) and the CSV carries the full value. Invisible while ``Mx``
+   was zero. The rendering is #161's row; the gate takes a relative tolerance
+   with the reason stated.
+
+5. **A refusal that was not a refusal.** ``build_lra_model`` raises
+   ``LraRefusal`` for a named missing datum -- but ``require_integrable_planform``
+   raises a plain ``ValueError``, and catching only the subclass turned
+   ``oracle_report_vtail``'s deliberately inconsistent fixture from a rendered
+   appendix into a crash. Every ``ValueError`` out of that builder means one
+   thing to this caller: no beam, so the station-level set, with ``gid`` a
+   station number as before D-56.9. ``concept_heavy`` is the shipped instance.
+
+6. **The digest baseline is the record that this went as intended.** Exactly
+   **four** channels moved -- ``sbeam/{wing,body,htail,vtail}_applied`` -- and
+   **52** held byte-identical. That is gate 8 and its one stated exception, read
+   off the artifact rather than argued.
+
+**D-56.10 is not in this slice.** The VMT comparison has its reference curve now
+(``station_applied_loads`` is public and gated) and nothing draws it yet, so the
+note's claim that the report states what the lumping costs is **not yet true**
+-- the appendix notes point at a comparison that does not exist. That is 6b-ii
+and it is the next thing, not a later one.
 
 ---
 

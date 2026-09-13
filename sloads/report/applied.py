@@ -126,8 +126,8 @@ from __future__ import annotations
 import csv
 import io as _io
 import math
-from dataclasses import dataclass
-from typing import List, Optional, Sequence, Tuple, Union
+from dataclasses import dataclass, replace
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 from ..case_ids import subcase_id
 from ..export.bands import band
@@ -907,14 +907,168 @@ def engine_applied_load_rows(project: Project) -> List[AppliedLoad]:
     return out
 
 
+# --------------------------------------------------------------------------- #
+# Re-aggregation onto the LRA grids (note 56 D-56.9, rulings 13-15)
+# --------------------------------------------------------------------------- #
+#: Which LRA member each component's load set routes to. A wing row picks its
+#: side from its own ``y``, because ``WingLoadResult`` is a half-span set and the
+#: beam is full-span. Gear and engine are not re-aggregated: their loads are
+#: already point loads at model nodes of their own (note 56 §7b, slice 5's
+#: "gear and engine nodes are model nodes"), so lumping them onto a chain would
+#: move a load path rather than describe one.
+_LRA_MEMBER = {"fuselage": "fuselage", "htail": "htail", "vtail": "vtail"}
+
+#: Components whose rows pass through untouched.
+_NOT_RE_AGGREGATED = ("landing_gear", "engine")
+
+
+def _lra_member_for(component: str, row: "AppliedLoad") -> str:
+    """The member key ``row`` lumps onto."""
+    if component == "wing":
+        return "wing-L" if row.y < 0.0 else "wing-R"
+    return _LRA_MEMBER[component]
+
+
+def aggregate_to_lra(rows: Sequence["AppliedLoad"], model,
+                     component: str) -> List["AppliedLoad"]:
+    """``rows`` summed onto the LRA grids -- **the** delivered applied set (D-56.9).
+
+    Ruling 13: the LRA grids are the reporting grids, and the loads are summed
+    to them. The two grid sets do not align and are not meant to -- D-56.4 makes
+    the beam mesh load-blind on purpose (note 56 §1.4) -- so several aero
+    stations and several concentrated masses generally land on one grid. Each
+    load moves to the nearest node of its member with the exact lever-arm couple
+    ``(p - n) x F`` (LM-1, owner
+    :func:`sloads.gear_loads.transfer_couple`), which is the same rule
+    :func:`sloads.export.lra_model.transferred_case_loads` applies to the
+    balanced set: one routing rule for the deck and the report, not a second one
+    written for the report and kept in step by hand.
+
+    **What this preserves and what it moves.** The transfer is exact about every
+    reference point, so the set's resultant is unchanged -- per case, per
+    component, to the last bit (gate 13's gated half). What moves is the
+    *distribution*: a load that crosses a cut on its way to its node takes its
+    contribution to the internal V/M/T at that cut with it. That is a real
+    discretization difference and the report states it rather than absorbing it
+    (D-56.10, ruling 14); it is not gated with a tolerance, because the size of
+    it is a legitimate function of a user-settable grid count (ruling 15).
+
+    The returned rows are in **body axes already** -- a couple is only definable
+    there -- so they carry ``body_moments=True`` and
+    :func:`applied_body_moments` passes them through. Row order is the member's
+    node order, which is stable for a given mesh, and the label is the grid.
+    """
+    from ..export.lra_model import nearest_node
+    from ..gear_loads import transfer_couple
+
+    if not rows:
+        return []
+    members = model.members
+    # Keyed by **(case, gid)**, never by gid alone: ``rows`` carries every case
+    # of the component concatenated, so a gid-only key would sum W-01's load at
+    # a grid into W-02's -- one aggregated row per grid for the whole file,
+    # carrying an arbitrary case's label and factor. The dict is
+    # insertion-ordered, so rows come out in first-touch order, which for a
+    # chain walked root to tip is the chain's own order, case by case.
+    acc: "Dict[Tuple[str, int], AppliedLoad]" = {}
+    for row in rows:
+        key = _lra_member_for(component, row)
+        member = members.get(key) or members["all"]
+        node = nearest_node(member, (row.x, row.y, row.z))
+        mx, my, mz = applied_body_moments(row)
+        cx, cy, cz = transfer_couple((row.x, row.y, row.z), node.pos,
+                                     (row.fx, row.fy, row.fz))
+        key_cg = (row.case_id or row.case, node.gid)
+        got = acc.get(key_cg)
+        if got is None:
+            acc[key_cg] = AppliedLoad(
+                case=row.case, case_id=row.case_id, label=str(node.gid),
+                gid=node.gid, x=node.pos[0], y=node.pos[1], z=node.pos[2],
+                fx=row.fx, fy=row.fy, fz=row.fz,
+                mxx_free=mx + cx, myy_free=my + cy, mzz_free=mz + cz,
+                safety_factor=row.safety_factor,
+                torsion_axis=row.torsion_axis, component=row.component,
+                body_moments=True)
+            continue
+        acc[key_cg] = replace(
+            got,
+            fx=got.fx + row.fx, fy=got.fy + row.fy, fz=got.fz + row.fz,
+            mxx_free=got.mxx_free + mx + cx,
+            myy_free=got.myy_free + my + cy,
+            mzz_free=got.mzz_free + mz + cz)
+    return list(acc.values())
+
+
 def applied_loads(component: str, arg,
                   project: Optional[Project] = None) -> List[AppliedLoad]:
     """The applied load set of ``component`` -- the one entry point (OR-141).
 
     Every applied appendix and every applied CSV is a view of this call, so a
     table a stress analyst reads, a file they load and the deck they solve
-    cannot disagree about what the applied set is. ``project`` is used by the
-    fuselage alone, for the beam's waterline.
+    cannot disagree about what the applied set is.
+
+    **The rows are at the LRA grids** (note 56 D-56.9, ruling 13): the
+    station-level set from :func:`station_applied_loads` is re-aggregated by
+    :func:`aggregate_to_lra` onto the beam the deck is written at, so the
+    appendix row and the ``FORCE``/``MOMENT`` card are one object at one point.
+    Several load stations generally sum onto one grid -- the two sets do not
+    align, by design (D-56.4).
+
+    ``project`` is **required** for every component: it is what the LRA model is
+    built from, and a caller without one cannot be given the delivered set. It
+    is not optional-with-a-fallback on purpose -- silently returning the
+    un-aggregated rows would hand back a set at grids no artifact carries, under
+    a name that promises the opposite. Ask for :func:`station_applied_loads` by
+    name when that is what you want, which is what the VMT comparison does.
+    """
+    if project is None and isinstance(arg, Project):
+        # The caller handed the project as the results argument, which every
+        # component's producer already accepts. That is not a fallback -- it is
+        # the project, under the other parameter name.
+        project = arg
+    if project is None:
+        raise ValueError(
+            f"applied_loads({component!r}) needs a project: the delivered set is "
+            "stated at the LRA grids (note 56 D-56.9) and the beam is built from "
+            "the project. For the calc's own station-level distribution -- the "
+            "set before it is lumped -- call station_applied_loads() instead")
+    rows = station_applied_loads(component, arg, project)
+    if component in _NOT_RE_AGGREGATED:
+        return rows
+    from ..export.lra_model import build_lra_model
+
+    try:
+        model = build_lra_model(project)
+    except ValueError:
+        # No beam can be built from this geometry, so there are no grids to
+        # state the set at, and the honest answer is the station-level set --
+        # not a crash in a report section that has nothing to do with the
+        # missing datum. ``gid`` is then a station number, as it was before
+        # D-56.9.
+        #
+        # ``ValueError`` and not ``LraRefusal``, deliberately: ``LraRefusal`` is
+        # the *named-datum* refusal (BM-3/LM-4), and it is not the only way the
+        # builder declines. ``require_integrable_planform`` raises a plain
+        # ValueError for a surface whose planform disagrees with its scalar
+        # geometry, which is `oracle_report_vtail`'s deliberately inconsistent
+        # fixture -- and catching only the subclass turned that fixture's
+        # applied appendix from a rendered table into a crash. Every ValueError
+        # out of this builder means the same thing to this caller: no beam.
+        return rows
+    return aggregate_to_lra(rows, model, component)
+
+
+def station_applied_loads(component: str, arg,
+                          project: Optional[Project] = None) -> List[AppliedLoad]:
+    """The applied set **before** it is lumped onto the beam -- one row per station.
+
+    The calc's own distribution, at the load-integration stations: 20 wing
+    strips, the fuselage's mass/reaction nodes, each tail's spanwise strips.
+    This was ``applied_loads`` until note 56 D-56.9 made the delivered set the
+    aggregated one; it stays public and named because it is a real quantity with
+    two consumers -- the aggregation's input, and the reference curve of the VMT
+    comparison D-56.10 adds, which is the whole point of stating what the
+    lumping costs.
     """
     if component == "wing":
         return applied_load_rows(arg)
