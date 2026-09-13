@@ -28,6 +28,17 @@ station. Tolerances are :mod:`sloads.export.equilibrium`'s, not this file's.
 
 Physics basis: Ref 1 Ch 14 (net wing loads), Ch 15 p103 (the free-free fuselage
 beam), Ch 10 (chordwise tail distribution).
+
+**The subject changed at note 56 D-56.2, the identities did not.** The five
+per-component decks this file was written against are deleted. What it sweeps
+now is the **applied load set** each of those decks used to render -- the
+station numbering and nodal loads in ``report/applied``, which is the one
+producer the shipped beam deck's cards are also a view of. So "deck" below
+means that component's load set and its reference point, not a file; the
+resultants, the reference conventions and the tolerances are unchanged, because
+they were never properties of the files. ``test_every_example_has_decks`` pins
+which component slices each fixture produces, for the same reason it always
+did: a skip must be a recorded fact about the fixture.
 """
 
 import math
@@ -220,8 +231,8 @@ def test_offset_couples_exist_only_where_a_concentrated_mass_does(example):
     mass, and identically zero on a wing that carries none.
 
     This is the drift guard behind the claim that the fix is a **no-op** on the
-    Appendix A fixture: ``ga6_normal``, ``cessna_210`` and
-    ``concept_regional_jet`` must export not merely small couples but zero ones,
+    Appendix A fixture: ``ga6_normal`` and ``concept_regional_jet`` must export
+    not merely small couples but zero ones,
     so their decks are byte-identical to what they were before the couples
     existed. It also pins the converse -- if a fixture ever gains a wing point
     mass, its couples appear and this test says so.
@@ -433,8 +444,7 @@ def test_every_example_has_decks():
     Order is ``(wing, body, tail, control, htail_span, vtail_span)``. The reference aircraft carry no
     ``aileron_loads`` / ``flap_loads`` / ``tab_loads`` input slices, so they have
     no control-surface deck; ``concept_heavy`` additionally has no tail slice.
-    ``ga6_normal``, ``cessna_210`` and ``concept_regional_jet`` export all four
-    families.
+    ``ga6_normal``, ``baron_58`` and ``concept_regional_jet`` produce all four.
 
     ``concept_heavy`` **gained a body deck at step B1**: it carries no
     ``fuselage_mass.stations`` at all, and was the one fixture with no fuselage

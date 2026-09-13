@@ -17,9 +17,11 @@ distributed **LIMIT** loads come out as `FORCE`/`MOMENT` bulk-data cards with th
 14 CFR 23.303 factor **stated per subcase and applied nowhere** — sloads delivers
 the loads, the sizing step applies the factor (note 49 OR-116/OR-117) — and the
 exported deck solves in sbeam with verified global equilibrium, continuously in CI.
-The primary deliverable is the **full-span balanced free-free airplane model** (aero +
-inertia together, left and right cases, CONM2 mass export) — per-component decks
-remain analysis views. The FAR23 replication core stays **oracle-locked** (Appendix A
+The primary deliverable is the **LRA beam model of the full-span free-free
+airplane** (aero + inertia together, left and right cases, CONM2 mass export).
+Design note 56 reduced the package to that one solver artifact plus the mass
+model: the five per-component decks are deleted and the elementless assembled
+deck is an internal producer that no longer ships. The FAR23 replication core stays **oracle-locked** (Appendix A
 ±0.1%; twin cases closure-locked); concept mode is a superset that reduces exactly to
 it on GA inputs. Plan of record: `docs/30_future/01_concept_loads_plan.md`; working
 backlog: `docs/30_future/00_backlog.md` (open items only; off-mission items in

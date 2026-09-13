@@ -513,7 +513,7 @@ So that every module is copy-of-the-pattern, these are fixed once:
   just diverge — see the wing-gap note in `PROGRAM_SPEC.md`) and `seed()` your
   allocator to it.
 
-- **Imperial output is frozen (M4-20, decision D-21).** `tests/imperial_baseline.py` renders every deliverable channel (load-case CSVs, text reports, all five sbeam CSVs, all five decks, the case index) for all six examples and digests each into `tests/fixtures_imperial/digests.json` — 256 channels. Any change to an Imperial byte fails `test_imperial_output_matches_the_frozen_baseline`, which names the drifted channel. Regenerate with `.venv/bin/python tests/imperial_baseline.py` **only** when the change to Imperial output is intended, and say so in `CHANGELOG.md`: a regeneration is a claim, not a cleanup.
+- **Imperial output is frozen (M4-20, decision D-21).** `tests/imperial_baseline.py` renders every deliverable channel — the load-case CSVs, the text reports, the four applied-load CSVs, the LRA beam deck, both CONM2 mass channels, the case index and the gear report — for every shipped example and digests each into `tests/fixtures_imperial/digests.json`, which is the only owner of what and how many. It renders one **non**-deliverable as well: the assembled deck, unshipped at note 56 D-56.8, whose resultant gate 13 checks the LRA's re-aggregated load set against — an anchor that can move unnoticed is not an anchor. The file states that at the channel. Any change to an Imperial byte fails `test_imperial_output_matches_the_frozen_baseline`, which names the drifted channel. Regenerate with `.venv/bin/python tests/imperial_baseline.py` **only** when the change to Imperial output is intended, and say so in `CHANGELOG.md`: a regeneration is a claim, not a cleanup.
 
 ---
 

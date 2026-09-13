@@ -1415,12 +1415,12 @@ the applied load set (`applied_loads("htail"|"vtail", ...)`), GID bands `4001+`
   F-C1/F-G3) — the single registry of every GID, EID and SID run in the suite,
   with the whole map in its module docstring. Every allocator goes through
   `Band.allocate`, which raises on overflow rather than walking into the next
-  family. GID blocks: wing `1–1000`, body mass `1001–1500`, body
-  carry-through/correction `1501–2000`, chordwise h-tail `2001–2100`, chordwise
-  v-tail `2101–2200`, control surface `3001–4000`, spanwise h-tail `4001–4500`,
-  spanwise v-tail `4501–5000`, balanced deck `6001–7000`. The h-tail and v-tail
-  chordwise split (step 1) is required because the two components have different
-  average chords, so their chord stations are different points. Disjointness is
+  family. The block map is `bands.py`'s own and is not
+  copied here; the two structural facts about it are that the shipped LRA beam
+  model takes **one contiguous run it owns** (note 56 D-56.3) rather than
+  borrowing from artifacts that are not deliverables, and that the h-tail and
+  v-tail chordwise split (step 1) is required because the two components have
+  different average chords, so their chord stations are different points. Disjointness is
   proved over the **whole registry** by `tests/test_bands.py`, which also
   requires every id-base constant in `sloads/export` to be a registered band —
   a hand-enumerated guard cannot do this, and the one that preceded it was
@@ -1498,16 +1498,19 @@ the applied load set (`applied_loads("htail"|"vtail", ...)`), GID bands `4001+`
   `cli.EXPORT_TARGETS` is the single list, handed to argparse and pinned against
   the CLI docstring by
   `tests/test_cli.py::test_the_export_menu_is_the_deliverable_menu`.
-- **CLI wing decks are stated about the loads reference axis** (decision **D-R5**,
-  review F-C2). The headless route transfers through
-  `net_loads.loads_ref_axis_results` exactly as the GUI/report route does, so the
-  two front-ends emit the same deck and the module contract ("an export built
-  from a `Project` first transfers to the LRA") holds on the route the sizing
-  loop scripts. The axis travels in-band (span-CSV `MyyAxis`, deck `$` header) and
-  is pinned by `test_the_cli_wing_deck_is_stated_about_the_loads_reference_axis`
-  on a project whose LRA is *not* the quarter chord — on every shipped fixture
-  `ref_axis_pct` is 0.25, so the transfer is a no-op and exported bytes are
-  unchanged.
+- **Every exported wing load is stated about the loads reference axis**
+  (decision **D-R5**, review F-C2; re-cut by note 56 D-56.1/D-56.2). The rule was
+  written when the headless wing deck was its own writer and could have skipped
+  the transfer: it said the CLI route must go through
+  `net_loads.loads_ref_axis_results` exactly as the GUI and report routes do, and
+  a per-route test pinned it. That deck is deleted and the transfer now has a
+  single producer — `report/applied.py` calls `loads_ref_axis_results` once, and
+  every consumer (the LRA deck's cards, the applied-load CSVs, the oracle
+  report's appendices) is a view of what it returns — so the rule holds by
+  construction rather than by a route-by-route check, and the guard that named
+  the wing deck went with the deck. The axis still travels in-band, in the deck's
+  `$` header. On every shipped fixture `ref_axis_pct` is 0.25, so the transfer is
+  a no-op and exported bytes do not move.
 - **Every headless CSV/BDF carries the Step G8.3 methods & limitations stamp**
   (L-8g / review F-D3), including `-o` module CSVs and the `--export-conm2`
   artifacts: one stamp per run, built from the resolved unit system and handed to
@@ -1569,15 +1572,19 @@ the applied load set (`applied_loads("htail"|"vtail", ...)`), GID bands `4001+`
   `docs/40_history/24_lra_beam_model_review_note.md` (target F1–F8, decisions
   BM-1…BM-5, agreed 2026-08-15) and
   `docs/40_history/27_lra_model_implementation_note.md` (LM-1…LM-7).
-- **The artifact statement (note 24 R-1, re-cut by note 56).** The
-  per-component decks are **deleted** (D-56.2). What ships is the **assembled
-  balanced deck** (the equilibrium proof — nodes at load positions, *no
-  elements*, determinate support, reactions ≈ 0) and the **LRA beam model** — a
-  structural idealization whose value is the *internal* loads a solver recovers
-  at its named nodes. The balanced deck stays element-free forever; the LRA
-  model is where structure lives, and since D-56.3 it allocates every grid it
-  writes from its own contiguous run (`20001–30999`) rather than borrowing from
-  artifacts that are not deliverables.
+- **The artifact statement (note 24 R-1, re-cut twice by note 56).** The
+  per-component decks are **deleted** (D-56.2) and the assembled balanced deck
+  stopped shipping (D-56.8). **One solver deck ships: the LRA beam model** — a
+  structural idealization of the whole free-free airplane, whose value is the
+  *internal* loads a solver recovers at its named nodes — beside the CONM2 mass
+  model, which is a mass statement rather than a solve. Since D-56.3 the beam
+  model allocates every grid it writes from its own contiguous run
+  (`20001–30999`) rather than borrowing from artifacts that are not
+  deliverables. The assembled deck survives **inside** the package as an
+  internal producer: element-free by construction, nodes at each load's own
+  position, it is the un-aggregated load set that D-56.9's re-aggregation is
+  checked against (gate 13) and that Appendix G measures the lumping error
+  from.
 - **The mesh is decided from geometry, never from the load stations**
   (note 56 D-56.4). Each member's node set is its own two **ends**, the joint
   register's owned locations on it, and `n` grids laid at equal spacing
