@@ -76,6 +76,7 @@ re-run after editing, never hand-edit the SVGs).
 | [`54_geometry_joint_model_note.md`](30_future/54_geometry_joint_model_note.md) | **The geometry model owns the joints** — boundary lines, per-surface LRA and the first-class joint register (D-54.1…D-54.8) |
 | [`57_gui_convergence_note.md`](30_future/57_gui_convergence_note.md) | **The two front-ends converge on one** — `oracle_app` re-chartered as the single GUI with a marked sloads-extension field tier, four capabilities ported, `app/views/` retired and the 0.9.0 band superseded (D-57.1…D-57.8) |
 | [`58_ultimate_basis_selection_note.md`](30_future/58_ultimate_basis_selection_note.md) | **Down-select on the ultimate basis; deliver LIMIT** — governing-case comparisons key on \|value\|×SF, the mixed-factor envelope refuses by name, and #193's delivery reversal closes decided-not-done (D-58.1…D-58.5) |
+| [`60_figures_and_one_report_note.md`](30_future/60_figures_and_one_report_note.md) | **The figures and the one report** — amends note 57: twenty figures port under one `PlotData` owner with two renderers, and the summary report's axes, coverage and manifest sections merge before `build_report` goes (D-60.1…D-60.12) |
 
 ## 40_history — Historic record
 
