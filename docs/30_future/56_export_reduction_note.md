@@ -2,8 +2,11 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: AGREED 2026-09-10** (owner, in chat, under the solo profile —
-`DEVELOPMENT_PROCESS.md` §0; rule 1's working-alone branch). The **twelve**
+**Status: SHIPPED 2026-09-12** — ten slices (1, 2, 3, 4, 5, 6a, 7, 6b-i,
+6b-ii, 8) and the tier-L §7 closure, all on `dev/v0.8.3`; §7b is the record of
+what landed and §7c of what the closure swept. **AGREED 2026-09-10** (owner, in
+chat, under the solo profile — `DEVELOPMENT_PROCESS.md` §0; rule 1's
+working-alone branch). The **twelve**
 rulings in §2.2 are the owner's, taken in session on 2026-09-10 (7–9 on review,
 10–12 during implementation); the decisions D-56.1…D-56.9 follow from them.
 Raised as
@@ -916,6 +919,104 @@ that does not exist. That is 6b-ii and it is the next thing, not a later one.*
    rather than left for §7's sweep, because leaving demonstrably false prose in
    a spec while editing the paragraph above it is worse than the scope
    discipline that would justify it.
+
+---
+
+## 7c. The closure sweep (tier L, 2026-09-12)
+
+What §7 asked for, and what each obligation turned out to be. Written because
+half of these were not the edit the checklist predicted.
+
+1. **`CONVENTIONS.md` §7 — three rows, and two rules retired outright.** The
+   skeleton-solvability row still named `JOINT_MERGE_FRACTION`, which retired at
+   D-56.4; it is `_MIN_ELEMENT_FRACTION` now, and the row says why the
+   *replacement guards a different thing* — note 55's sliver came from inserting
+   a joint into a load-fixed mesh, and nothing is inserted any more, so what the
+   floor catches is two genuinely close **owned** locations, a statement about
+   the airplane rather than an sloads defect. The joint-register row gains the
+   consequence that makes that true: since D-56.4 every owned location is a mesh
+   point by construction. A new row lands for D-56.3 — **whose grids a shipped
+   deck writes** — with gates 3 and 4 as its guard.
+
+   Two §1 rules were **retired rather than re-cut**, because D-56.2 removed
+   their subject: "a load that a free-body cut introduces is never applied in
+   the assembled model" (no cut model ships, so there is no cut reaction to
+   double-apply) and E-2, the per-component moment reference (it argued that no
+   single airplane-wide reference could serve *because* the decks were
+   per-component; one assembled airframe ships, so it has one reference). Both
+   are kept in place, struck and explained, rather than deleted: a convention
+   that retires because the code changed shape is exactly the thing a reader
+   needs to find when they propose it again.
+
+2. **`PROGRAM_SPEC.md` — the artifact statement and D-R5.** The artifact
+   statement said the assembled deck ships; it does not, and the re-cut states
+   both what ships and what the assembled deck now is *inside* the package. D-R5
+   ("CLI wing decks are stated about the loads reference axis") named a guard,
+   `test_the_cli_wing_deck_is_stated_about_the_loads_reference_axis`, that no
+   longer exists — it went with the wing deck at D-56.2. The rule survives in a
+   stronger form and the bullet now says so: `report/applied.py` calls
+   `loads_ref_axis_results` **once** and every consumer is a view of what it
+   returns, so the property holds by construction instead of route by route.
+   A spec bullet naming a deleted test is the failure mode this closure exists
+   to catch.
+
+3. **`PROJECT_GUIDE.md` — the frozen-baseline paragraph, and a decision it
+   forced.** The sentence promised "all five sbeam CSVs, all five decks … for
+   all six examples — 256 channels": four wrong facts in one clause. The re-cut
+   names the channels, drops the count (`digests.json` is its only owner, per
+   the documentation-currency rule) and states something the checklist did not
+   anticipate: **the baseline digests one non-deliverable.** The assembled deck
+   keeps its channel although it no longer ships, because gate 13 checks the
+   LRA's re-aggregated set against its resultant, and an anchor that can move
+   without anything noticing is not an anchor. That is the same argument that
+   added the channel at B8a-2 when the deck did ship. `imperial_baseline.py`
+   states it at the channel rather than leaving it to be discovered.
+
+4. **`docs/20_theory/ch11_export_sbeam.md` — swept under rule 4, not listed in
+   §7.** The export chapter described four deck families, the test-only wrapper
+   and a per-component cut model as current fact. Its two validation tables are
+   the *record* of gates written against artifacts that no longer exist, and
+   they are kept as that, each with a paragraph saying what it now applies to —
+   the identities were never properties of the files, so they survived the files.
+   The `roundtrip._supportable` sentence is re-pointed at `lra_model`'s support
+   picker, its sole owner since §8's collapse.
+
+5. **`ORACLE_REPORT.md` and `00_theory_sources.md` were already done**, by the
+   slices that owed them (6b-ii's Appendix G section and 6b-i's LM-1 lumping
+   section). §7's two "added 2026-09-12" bullets were written *as* those slices
+   landed and were satisfied on arrival, which is the closure-in-the-PR rule
+   working.
+
+6. **No digest re-stamp.** §7 budgeted one bulk wave at the end. There is
+   nothing to stamp: slices 4, 5, 6b-i and 7 each re-stamped narrowly and stated
+   what moved, and slice 8 moved no byte at all — `SPC_SID` is 1 either way.
+   The wave is stated as not-needed rather than silently skipped, because
+   "a regeneration is a claim" cuts both ways.
+
+7. **`CLAUDE.md`'s mission paragraph.** It said the primary deliverable is the
+   assembled balanced model and that "per-component decks remain analysis
+   views". Neither is true. Corrected here rather than left, because the file
+   that instructs every session is the worst place for a stale artifact list.
+
+8. **Two numbers this note promised and did not deliver, stated rather than
+   quietly dropped.** D-56.3's row says `bands.py` collapses "from 25+ bands to
+   ~8" and §5's effect table repeats it. Measured at closure: **42 registered
+   bands.** Slice 4's departure note already forecast half of this (the LRA's
+   own families each keep a registered owner, eleven where six were borrowed)
+   and said the fall would come at D-56.9, when the applied-load model stopped
+   carrying its own station numbering. It did not stop. D-56.9 was amended
+   during implementation to keep the station-level set **public**, as
+   `station_applied_loads`, because it is the aggregation's own input and
+   D-56.10's reference curve — so `wing-stick`, `body-mass`, `body-reaction` and
+   the four tail runs still number something real, in `report/applied.py`, and
+   an orphan band owned by deleted code is precisely what the registry exists to
+   prevent. The registry is larger than forecast because the package kept a
+   distinction the forecast assumed away. The same arithmetic applies to the
+   sbeam digest channels: "83 → ~11" against **37** measured, for the same
+   reason plus the mass model entering the baseline at D-56.7, which the
+   forecast predated. `export/` itself came in at **5,307 lines** against
+   ~5,400 forecast, and `EXPORT_TARGETS` at **three** against two, `gear` being
+   a document under D-56.1.
 
 ---
 

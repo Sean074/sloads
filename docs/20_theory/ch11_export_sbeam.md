@@ -6,10 +6,18 @@ the deck-format walk-through follows in a later step.)*
 ## Scope
 
 The delivery boundary: `FORCE`/`MOMENT`/`CONM2` bulk data for the sbeam
-solver (per-component decks and the assembled full-span deck), the span CSVs
-and workbook, the coordinate mapping, the consistent-unit solver channel, and
-the two gates that hold the deliverable itself — equilibrium re-derived from
-the emitted card text, and an independent solve of every deck.
+solver, the coordinate mapping, the consistent-unit solver channel, and the two
+gates that hold the deliverable itself — equilibrium re-derived from the emitted
+card text, and an independent solve of the deck as it ships.
+
+**What ships, since design note 56.** One solver deck, the **LRA beam model** of
+the whole free-free airplane, plus the **CONM2 mass model**, which is a mass
+statement rather than a solve. The five per-component decks are deleted (D-56.2)
+and the elementless assembled deck no longer leaves the tool (D-56.8); it
+survives inside the package as the un-aggregated load set at each load's own
+position, which is what the beam model's re-aggregated set is checked against.
+Much of the validation record below was written against the retired artifacts
+and is kept as the record — each part says what it now applies to.
 
 ## The contract in one place
 
@@ -21,9 +29,11 @@ the emitted card text, and an independent solve of every deck.
   its unit set in band (chapter 2 §2.6).
 - **Every load is LIMIT and every deck states, per subcase, the factor it
   did not apply** (chapter 2 §2.7). Closure is exact rather than scaled, and
-  the balanced deck's resultant is asserted against `nz × W` *without* the
-  factor — the one check the scale-invariant gates structurally could not
-  provide.
+  the assembled reference set's resultant is asserted against `nz × W`
+  *without* the factor — the one check the scale-invariant gates structurally
+  could not provide. It is asserted on the internal assembled deck (G-OR-72),
+  which is where that load set is written at full precision; the shipped beam
+  deck inherits the basis, because its cards are the same set re-aggregated.
 - **Subcase identity derives from the case id**, never from position in an
   export (chapter 2 §2.8).
 - **Beam torsion vs rigid-body moment:** the wing deck's `MOMENT` cards carry
@@ -33,10 +43,18 @@ the emitted card text, and an independent solve of every deck.
 
 ## Assumptions & limitations
 
-- **A per-component deck is a cut model**: it carries its cut reactions as
-  applied loads, states its moment closure about its own reference, and its
-  case set is disjoint from the other decks' by construction — no cross-deck
-  sum is meaningful (finding 1 below).
+- **No cut model ships any more** (note 56 D-56.2). Each per-component deck
+  used to be one: it carried its cut reactions as applied loads, stated its
+  moment closure about its own reference, and its case set was disjoint from the
+  other decks' by construction, so no cross-deck sum was meaningful (finding 1
+  below). The surviving deck is the whole airplane, so it has one reference and
+  no cut reaction to double-apply.
+- **The beam mesh is a discretisation, and it costs something** (D-56.4/D-56.9).
+  The beam's nodes are decided from geometry, not from the load stations, so the
+  distributed set is re-aggregated onto them by the LM-1 transfer. That moves no
+  resultant — a gate — but it does move the *internal* load at a cut. How much,
+  per surface and per channel, is published rather than assumed: oracle report
+  Appendix G, and `00_theory_sources.md` §"The lumping rule".
 - **The solver has no inertia relief in SOL 101**, so the free-free decks
   carry a statically determinate support; "reactions ≈ 0" is the free-free
   proof, computed from geometry sbeam derives itself (finding 2 in the
@@ -55,7 +73,15 @@ no printed oracle, the **deliverable itself** needs a stated closure gate too
 objects it was rendered from. `sloads/export/equilibrium.py` re-derives Σ`FORCE`
 and Σ`MOMENT` **from the emitted card text**, about the per-component reference
 of `CONVENTIONS.md` §1, and `tests/test_export_equilibrium.py` sweeps every
-shipped example × {Imperial, SI} × every deck family:
+shipped example × {Imperial, SI}.
+
+The table below is the gate **as written against the five per-component decks**,
+kept because it records what each component's resultant *is* and why. Those
+decks retired at note 56 D-56.2; the identities did not, because they were never
+properties of the files. They are now asserted on the applied load set the one
+surviving deck is built from — the same numbers, one artifact instead of five —
+and the assembled reference set keeps the moment closure it always had, about
+the airplane rather than about five separate cuts.
 
 | Deck | Force closure | Moment closure | Basis |
 |---|---|---|---|
@@ -71,8 +97,9 @@ Two findings recorded because they are the kind that get re-proposed:
    case ids are disjoint by construction so no case pairs a wing, body and tail
    block, and the wing deck is a root-clamped half-span whose root shear is not
    `n·W/2` (fuselage-carried lift plus inertia relief; and doubling is wrong for
-   the antisymmetric cases outright). The assembled-airframe `n·W` closure is a
-   separate item, pairing with the assembled stick model.
+   the antisymmetric cases outright). The assembled-airframe `n·W` closure was
+   left as a separate item at the time; it landed as G-OR-72, and with the
+   per-component decks gone it is the only form of the invariant left.
 2. **A beam torsion is not a rigid-body moment** — see `CONVENTIONS.md` §1 —
    **but the wing deck's torsion now is one** (design note 46 OR-67/OR-68,
    2026-09-03). While the `MOMENT` cards were increments of the cumulative
@@ -109,9 +136,21 @@ reproducing the numbers is the strongest substitute available (`CLAUDE.md`
 required practice 2), and it is the only form that covers whether the deliverable
 is solvable at all. `sloads/export/roundtrip.py` parses and solves each deck
 through sbeam's own `parse_bdf` / `run_sol101`, and
-`tests/test_sbeam_roundtrip.py` sweeps `ga6_normal` + `concept_regional_jet` ×
-{Imperial, SI} over four deck families. Design note:
+`tests/test_sbeam_roundtrip.py` sweeps the shipped deck over four fixtures ×
+{Imperial, SI}. Design note:
 `docs/40_history/17_sbeam_roundtrip_ci_harness_plan.md`.
+
+**The harness collapsed at note 56 D-56.8/§8.** Two thirds of `roundtrip.py` was
+`wrap_as_stick_model`, which invented `CBAR`s, a `MAT1`/`PBAR` section, a
+determinate support and a case control so that an *elementless* deck could be
+solved at all. Its own guard refused a deck that already carried elements — a
+wrapped copy is not the shipped artifact, and it said so. With the per-component
+decks deleted and the assembled one unshipped there is no elementless deck left
+to wrap: the beam model writes its own elements and supports and goes to the
+solver exactly as it ships. The four solver assertions the wrapper carried moved
+onto that deck rather than retiring. The table below is likewise the record of
+the wrapped-deck era; the "Assembled full-span" row is the one whose subject
+survives, now read on the beam model.
 
 | Deck | What the solver must reproduce | Independent of the cards? |
 |---|---|---|
@@ -151,9 +190,10 @@ element transfers onto a constrained node is never subtracted and reappears as
 reaction. Found here: `concept_regional_jet`'s fuselage carries the tail air load
 at exactly a mass lump's station, and the support at that node reported 1738.13 lb
 against an applied set closing to 0.007 lb — to the pound, the tied node's own
-load. The harness supports elsewhere (`roundtrip._supportable`), which costs
+load. The harness supported elsewhere, via `roundtrip._supportable`, which cost
 nothing since determinacy needs two distinct positions and not two particular
-ones. This is a finding *about sbeam*, filed for that repository, not a sloads
+ones; that rule now lives in `lra_model`'s support picker, which is its sole
+owner since D-56.8 retired the wrapper. This is a finding *about sbeam*, filed for that repository, not a sloads
 defect.
 
 These hold to machine precision on the concept fixture (wing/tail rel ≈ 1e-16, body

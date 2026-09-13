@@ -13,7 +13,7 @@ drift apart:
 * :func:`digests` reduces each to a SHA-256, and ``fixtures_imperial/digests.json``
   freezes them.
 
-Digests rather than full copies: the six examples across ~10 channels each are
+Digests rather than full copies: the examples across ~10 channels each are
 megabytes of near-identical CSV, and the question a guard has to answer is binary
 ("did any Imperial byte move?"). When one fails, regenerate locally and diff the
 two renders — the frozen file tells you *that* it moved, and ``git diff`` on the
@@ -133,13 +133,15 @@ def artifacts(example: str) -> Dict[str, str]:
         if text:
             out[f"sbeam/{component}_applied"] = text
 
-    # The assembled full-span deck -- the mission's aim-2 deliverable, and until
-    # B8a-2 the one deliverable this baseline did **not** cover. Found while
-    # changing the closure field: the 6-DOF rewrite moved every closure card in
-    # every assembled deck and no digest noticed, because the per-component
-    # channels above are all this file ever rendered. Plan 11 acceptance #5 ("if
-    # a digest moves, something leaked") can only mean something if the digest
-    # exists.
+    # The assembled full-span deck. It stopped being a shipped artifact at note
+    # 56 D-56.8, and it keeps its channel anyway -- the one non-deliverable this
+    # baseline renders, stated here rather than left to be discovered. It is the
+    # load set at each load's own true position, and gate 13
+    # (``test_the_transferred_set_has_the_balanced_decks_resultant``) checks the
+    # LRA's re-aggregated set against its resultant. An anchor that can move
+    # without anything noticing is not an anchor, which is the same argument
+    # that added this channel at B8a-2 when the deck did ship: the 6-DOF rewrite
+    # had moved every closure card in it and no digest noticed.
     deck = _try(balanced_deck, project)
     if deck:
         out["sbeam/balanced_deck"] = deck
@@ -181,8 +183,8 @@ def artifacts(example: str) -> Dict[str, str]:
                  assembled=balanced)
     if index:
         out["case_index"] = index
-    # The gear load report (G-12) -- five of six fixtures produce one, and the
-    # sixth has no gear geometry at all, so its absence here is the coverage
+    # The gear load report (G-12) -- four of the five examples produce one, and
+    # the fifth has no gear geometry at all, so its absence here is the coverage
     # statement rather than a gap.
     gear = _try(rt.gear_report_csv, project)
     if gear:
