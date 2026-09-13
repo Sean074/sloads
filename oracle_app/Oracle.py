@@ -20,14 +20,21 @@ bound to a step key, and what it shows comes from
 
 **What it deliberately does not have.** Plots, the sbeam decks, the workbook,
 ``app/``'s summary report, the concept-mode pages and every sloads-only field:
-all still fully available in ``app/``, none of them reachable from here.
+all still fully available in ``app/``, none of them reachable from here as a
+*form* (since D-57.3 the JSON editor is the escape hatch -- see below).
 **Amended for milestone 0.8.2 (design note 44, OR-3/OR-16):** this GUI now
 carries one page that is not a workflow step -- ``Report``, which generates a
 formal technical report of *this* front end's own analysis and writes it as an
 issue package. It is registered on ``st.navigation`` below and deliberately not
 in ``register_pages``: that mapping is the derived step set (gate G2) and stays
 exactly that, so the report page can never be mistaken for an analysis step or
-be reached by a cross-page step link. A project saved by
+be reached by a cross-page step link. **Amended for milestone 0.8.4 (design
+note 57, D-57.3):** a second such page joins it -- the ``Project JSON Editor``,
+owned in :mod:`app_shell.project_editor` and registered the same way. It is the
+escape hatch for the field delta above: a sloads-only field no form here renders
+is still enterable, as JSON, while D-57.2's two field tiers are built. The
+*forms* still ask only for the original suite's inputs; the editor edits the
+project, not a form. A project saved by
 either GUI opens in the other unchanged (OG-13, gate G6) — this front-end asks
 for less, it does not store anything different.
 """
@@ -37,6 +44,11 @@ from __future__ import annotations
 import streamlit as st
 
 from app_shell.nav import register_pages
+from app_shell.project_editor import (
+    EDITOR_TITLE,
+    EDITOR_URL_PATH,
+    render_project_editor,
+)
 from app_shell.project_state import ensure_project
 from app_shell.sidebar import render_shell_sidebar
 from oracle_app.form import render_step
@@ -77,10 +89,17 @@ _pages = {step.key: _page(step, default_key=_steps[0].key) for step in _steps}
 # carries rather than to app/'s directory layout (note 32, OG-F).
 register_pages(_pages)
 
-# The report page is appended to the navigation only -- ``register_pages``
-# above still receives exactly ``oracle_steps()``, in order (note 44, OR-16).
+# The editor and the report are appended to the navigation only --
+# ``register_pages`` above still receives exactly ``oracle_steps()``, in order
+# (note 44, OR-16). Neither is an oracle step: the report is a document *about*
+# the analysis, and the JSON editor edits the project every step reads, so
+# putting either in the derived mapping would make it reachable as a step and
+# as a cross-page step link (note 57, D-57.3).
+_editor_page = st.Page(render_project_editor, title=EDITOR_TITLE,
+                       url_path=EDITOR_URL_PATH)
 _report_page = st.Page(render_report_page, title=REPORT_TITLE, url_path="report")
-pg = st.navigation(list(_pages.values()) + [_report_page], expanded=True)
+pg = st.navigation(list(_pages.values()) + [_editor_page, _report_page],
+                   expanded=True)
 # The sidebar wraps the page: its project-file block renders *after* the page
 # has persisted this rerun's edit, so the download and the dirty flag are
 # never one keystroke stale (#64, PB-4).
