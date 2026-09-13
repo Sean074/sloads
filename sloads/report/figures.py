@@ -122,6 +122,8 @@ def _catalogue() -> Tuple[FigureFamily, ...]:
                 ("planform_vtail", "Vertical tail planform"))
     out += rows("weight_mass", osx.weight_cg_figures, pre,
                 ("weight_cg", "Weight and centre-of-gravity envelope"))
+    out += rows("weight_mass", osx.item_station_figures, pre,
+                ("item_station", "Item weight against fuselage station"))
     out += rows("structural_speeds", osx.speed_altitude_figures, pre,
                 ("speed_altitude", "Speed and altitude envelope"))
     out += rows("flight_envelope", osx.vn_figures, post,

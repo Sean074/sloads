@@ -73,6 +73,26 @@ _COLOURS: Tuple[str, ...] = (
 #: so both are grey and neither takes a colour out of the series sequence.
 _ANNOTATION = "#555555"
 
+#: How a pgfplots ``mark=`` token maps to a Plotly marker symbol. A producer
+#: states a shape when one figure carries more than one cloud of points, so the
+#: printed figure reads in greyscale (``SUMMARY_REPORT.md`` §4.3); the screen
+#: honours the shape as well as colouring the series, for the same reason the
+#: line styles are honoured beside the colours.
+_MARKS = {
+    "*": "circle", "o": "circle-open", "square*": "square",
+    "square": "square-open", "triangle*": "triangle-up",
+    "triangle": "triangle-up-open", "diamond*": "diamond",
+    "diamond": "diamond-open",
+}
+
+
+def _symbol(style: str) -> str:
+    """The marker symbol a series' style asks for; a filled circle by default."""
+    for token in (t.strip() for t in style.split(",")):
+        if token.startswith("mark="):
+            return _MARKS.get(token.split("=", 1)[1].strip(), "circle")
+    return "circle"
+
 
 def _line(style: str, colour: str) -> dict:
     """One series' line, from the pgfplots style string it was stated in."""
@@ -150,6 +170,7 @@ def plot(data: PlotData, *, height: int = 420) -> go.Figure:
                 x=x, y=y, name=series.name, mode="markers",
                 text=labels or None,
                 marker={"size": 9, "color": colour,
+                        "symbol": _symbol(series.style),
                         "line": {"width": 1, "color": colour}},
                 hovertemplate=(("%{text}<br>" if labels else f"{series.name}<br>")
                                + "%{x}, %{y}<extra></extra>")))

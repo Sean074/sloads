@@ -34,10 +34,10 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import sloads.modules  # noqa: F401  (module registration)
 from app_shell import plots
 from sloads import io
 from sloads import workflow as wf
-import sloads.modules  # noqa: F401  (module registration)
 from sloads.models.report import ReportSpec
 from sloads.report import figures as fx
 from sloads.report.content import Figure, PlotData, Series
@@ -317,6 +317,71 @@ def test_non_finite_coordinates_do_not_reach_the_screen_renderer():
         Series("gappy", [0.0, 1.0, 2.0], [0.0, math.nan, 2.0])])
     trace = plots.plot(data).data[0]
     assert len(trace.x) == 3
+
+
+# --------------------------------------------------------------------------- #
+# The weight data base, drawn (note 60 §1.1 figure 6, ported after #268)
+# --------------------------------------------------------------------------- #
+def test_the_item_figure_splits_the_data_base_by_when_it_is_aboard():
+    """A mass at an extreme station reads differently depending on whether it is
+    empty weight or a loading, so the kinds are separate series -- and they are
+    told apart by marker **shape**, because §4.3 requires a printed figure to
+    read in greyscale and three clouds of identical dots are one cloud."""
+    from sloads.report.content import Units, item_station_plot_data
+
+    project = io.load_project(os.path.join(_EXAMPLES, "ga6_normal.project.json"))
+    data = item_station_plot_data(project, Units(UnitSystem.IMPERIAL))
+    assert data is not None
+    names = [s.name for s in data.series]
+    assert names == ["Empty weight", "Minimum flight weight",
+                     "Discretionary useful load"]
+    marks = {s.style for s in data.series}
+    assert len(marks) == len(data.series), f"two kinds share a marker: {marks}"
+    for series in data.series:
+        assert series.marker and series.labels
+        assert len(series.labels) == len(series.x) == len(series.y)
+    # Every row of the data base is drawn exactly once.
+    drawn = sum(len(s.x) for s in data.series)
+    assert drawn == len(project.weight.items)
+
+
+def test_the_item_figure_is_entered_data_and_needs_no_results():
+    """It is the weight data base, so it is pre-run by construction: a page that
+    had to run its programs to draw what was typed into it would defeat the
+    reason the pre-run tier exists (D-60.4)."""
+    family = fx.stage_of("item_station")
+    assert family is fx.Stage.PRE_RUN
+    project = io.load_project(os.path.join(_EXAMPLES, "ga6_normal.project.json"))
+    built = fx.build_step_figures("weight_mass", project,
+                                  system=UnitSystem.IMPERIAL)
+    keys = [figure.key for _family, figure in built]
+    assert "item_station" in keys
+
+
+def test_an_empty_data_base_says_so_rather_than_drawing_an_empty_axis():
+    from sloads.models import Project
+    from sloads.report import oracle_sections as osx
+    from sloads.report.content import Units, item_station_plot_data
+
+    assert item_station_plot_data(Project(name=""), Units(UnitSystem.IMPERIAL)) is None
+    figures = osx.item_station_figures(Project(name=""),
+                                       system=UnitSystem.IMPERIAL)
+    assert figures[0].data is None and figures[0].absent_reason
+
+
+def test_a_marker_shape_survives_both_renderers():
+    """The producer states the shape once; neither renderer may drop it."""
+    from sloads.report.content import Units, item_station_plot_data
+    from sloads.report.plots_tex import plot_tex
+
+    project = io.load_project(os.path.join(_EXAMPLES, "ga6_normal.project.json"))
+    data = item_station_plot_data(project, Units(UnitSystem.IMPERIAL))
+    symbols = [t.marker.symbol for t in plots.plot(data).data]
+    assert len(set(symbols)) == len(data.series), symbols
+    tex = plot_tex(data)
+    assert "only marks" in tex
+    for series in data.series:
+        assert series.style in tex, series.style
 
 
 if __name__ == "__main__":                       # zero-dependency self-runner

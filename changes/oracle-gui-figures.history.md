@@ -73,3 +73,11 @@ pages; and *imported against computed* needs an external-CSV import channel the
 survivor has no page for and which #245 is still deciding. The *fleet
 comparison* is #268. Each is a figure the retiring GUI carries, so they are
 named here rather than left to be discovered when `app/views/` is deleted.
+**Ruled 2026-09-13, after #268** (owner, in session; note 60 §9 amended): *item
+weight against fuselage station* **ports** at the residue row — #268 gave
+`PlotData` the cloud of named points it had been missing, so the blocker was
+gone the moment the fleet scatters landed; the *snapshot* **retires superseded**
+by the two distributions now drawn on the pages that compute them; and *imported
+against computed* is **deferred with the inbound CSV channel it needs**
+(backlog band C), not retired, so #270 removes a page and not a capability nobody
+decided about.

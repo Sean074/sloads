@@ -352,7 +352,13 @@ def plot_tex(data: PlotData, *, width: str = "0.86\\textwidth",
         # different things on one axis -- a population and the design points
         # picked out of it -- and a reader has to be able to tell them apart in
         # greyscale, where only the shape is left to do it.
-        options = (f"only marks, mark=o, mark size=1.6pt, black, {s.style}"
+        # A marker series states its own mark where it carries more than one
+        # cloud (``mark=square*``); the default is the open circle, which is
+        # distinct from the filled diamond ``points`` uses. Shape, not colour,
+        # because §4.3 requires a printed figure to read in greyscale, and two
+        # clouds of identical dots are one cloud.
+        mark = "" if "mark=" in s.style else "mark=o, "
+        options = (f"only marks, {mark}mark size=1.6pt, black, {s.style}"
                    if s.marker else f"black, {s.style}, thick, mark=none")
         if not s.name:
             lines.append(f"\\addplot[{options}, forget plot] coordinates "

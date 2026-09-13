@@ -70,7 +70,17 @@ from ..models.results import (
 from ..modules.select import flaps_by_config_name
 from ..picks import extreme
 from ..units import UnitSystem, convert_results
-from .content import Figure, PlotData, Section, Series, Table, Units, speed_altitude_plot_data, weight_cg_plot_data
+from .content import (
+    Figure,
+    PlotData,
+    Section,
+    Series,
+    Table,
+    Units,
+    item_station_plot_data,
+    speed_altitude_plot_data,
+    weight_cg_plot_data,
+)
 from .oracle_content import (
     BODY_LOAD_STATIONS,
     GEAR_LOAD_CASES,
@@ -959,6 +969,28 @@ def _weight_cg_figure(project: Project, system: UnitSystem) -> Figure:
     )
 
 
+def _item_station_figure(project: Project, system: UnitSystem) -> Figure:
+    """Section 2.2's weight data base drawn: item weight against station."""
+    data = item_station_plot_data(project, Units(system))
+    if data is None:
+        return Figure(
+            "item_station", "Item weight against fuselage station",
+            absent_reason="this airplane has no itemized weight data base, so "
+                          "there are no items to place along the body",
+        )
+    kinds = len(data.series)
+    split = (" The loading kinds are drawn with their own marker shapes: when "
+             "an item is aboard is the first thing a mass at an extreme station "
+             "has to be read against." if kinds > 1 else "")
+    return Figure(
+        "item_station", "Item weight against fuselage station",
+        data=data,
+        caption="Every row of the weight data base at its entered station."
+                + split + " This is entered data, not a result: no load is "
+                "drawn here and no factor applies.",
+    )
+
+
 def _weights(project: Project,
              results: Mapping[str, Optional[ModuleResult]], *,
              system: UnitSystem,
@@ -1013,7 +1045,8 @@ def _weights(project: Project,
     if far:
         body.append(far)
     return Section("", body=body, tables=tables,
-                   figures=weight_cg_figures(project, system=system))
+                   figures=(weight_cg_figures(project, system=system)
+                            + item_station_figures(project, system=system)))
 
 
 # --------------------------------------------------------------------------- #
@@ -8251,6 +8284,13 @@ def weight_cg_figures(project: Project, *, system: UnitSystem,
                       ) -> List[Figure]:
     """2.2's weight and centre-of-gravity envelope."""
     return [_weight_cg_figure(project, system)]
+
+
+def item_station_figures(project: Project, *, system: UnitSystem,
+                         results: Optional[Mapping[str, Optional[ModuleResult]]] = None,  # noqa: ARG001
+                         ) -> List[Figure]:
+    """2.2's weight data base drawn along the body (note 60 §1.1 figure 6)."""
+    return [_item_station_figure(project, system)]
 
 
 def speed_altitude_figures(project: Project, *, system: UnitSystem,  # noqa: ARG001
