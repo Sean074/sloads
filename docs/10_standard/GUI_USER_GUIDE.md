@@ -175,6 +175,17 @@ estimate (seats, crew, power, hours, baggage), the itemized mass database
 (each item's weight and station), the structural CG-envelope limits (percent
 MAC), and the named weight/CG loading cases.
 
+The weight database can be **seeded** from the statistical estimate. The offer
+above the button says exactly what the click will do before you press it: it
+**adds** the components the database does not already name and leaves every row
+you entered exactly as it is — weight, station, component tag and inertias
+untouched — so nothing is ever replaced or deleted, and seeding a second time
+simply picks up whatever is still missing. The estimate supplies *weights only*,
+so each new row arrives at station 0 with no component tag; the page keeps
+warning you which rows those are until you give each one a station and a tag.
+Leave them unplaced and they ride the fuselage beam at zero moment arm, which
+moves both the CG and the body shear.
+
 **Aerodynamic Data.** The airplane-less-tail aero-coefficient polynomials
 (cruise and, optionally, flaps-down), the maximum lift coefficients, and the
 per-surface spanwise airload inputs (section lift slope, twist).

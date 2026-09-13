@@ -240,6 +240,97 @@ def estimate_to_mass_items(inp: WeightEstimationInput) -> List[MassItem]:
     return items
 
 
+#: What the seed button does, said **before** the click (note 57 D-57.7, #78).
+#:
+#: The button used to replace ``weight.items`` wholesale and say so in a caption
+#: written after the fact; a data base positioned and tagged over an afternoon
+#: was one click from gone. Of D-57.7's three permitted answers -- merge, refuse,
+#: or state the replacement -- this is **merge**, which is the only one that is
+#: also idempotent: seeding a second time after positioning half the rows adds
+#: the other half and disturbs nothing. Matching is by name, so the estimate's
+#: own component vocabulary is what decides "already there".
+SEED_CONTRACT = (
+    "Seeding **adds** the estimate's component weights as empty-weight rows. It "
+    "matches on name: a row already in the data base is left exactly as it is — "
+    "weight, station, component tag and inertias untouched — and no row is ever "
+    "deleted."
+)
+
+
+class SeedPlan(NamedTuple):
+    """What seeding the weight data base from the estimate *would* do.
+
+    Built before the click so the offer can state it: ``add`` are the estimate's
+    rows the data base does not already name, ``kept`` names every entered row
+    the seed will not touch, and ``reason`` is set only when there is nothing to
+    offer and says why. A plan with an empty :attr:`add` is never written.
+    """
+
+    add: Tuple[MassItem, ...] = ()
+    kept: Tuple[str, ...] = ()
+    reason: str = ""
+
+    @property
+    def offers(self) -> bool:
+        """True when there is something to write."""
+        return bool(self.add)
+
+    def caption(self) -> str:
+        """The sentence shown above the button -- one owner, so both GUIs agree."""
+        if not self.offers:
+            return self.reason
+        if not self.kept:
+            return (f"Adds {len(self.add)} component row(s) from the estimate. The data "
+                    f"base is empty, so nothing is overwritten. {SEED_CONTRACT}")
+        return (f"Adds {len(self.add)} component row(s) the data base does not already "
+                f"name; the {len(self.kept)} row(s) already entered are kept. "
+                f"{SEED_CONTRACT}")
+
+
+def _seed_key(name: str) -> str:
+    """A mass-item name reduced for matching: case and surrounding space do not count."""
+    return " ".join(name.split()).casefold()
+
+
+def seed_plan(project: Project) -> SeedPlan:
+    """What :func:`estimate_to_mass_items` would add to this project's data base.
+
+    The project-level entry point the GUIs call, so neither of them decides what
+    the button does (:data:`SEED_CONTRACT`) or re-derives the estimate's power
+    precedence. Seeded rows arrive at station 0, untagged and with zero
+    inertias -- WTESTIMA supplies weights and nothing else -- which is why the
+    page that writes them also says so until they are placed
+    (:func:`sloads.mass_distribution.unplaced_items`).
+    """
+    if project.weight is None or project.weight.estimation is None:
+        return SeedPlan(reason="The mission inputs above are not filled in yet, so "
+                               "there is no estimate to seed from.")
+    try:
+        candidates = estimate_to_mass_items(
+            replace(project.weight.estimation,
+                    max_continuous_hp=resolve_max_continuous_hp(project)))
+    except ValueError as exc:
+        return SeedPlan(reason=f"The estimate cannot be built yet — {exc}.")
+    entered = {_seed_key(it.name) for it in project.weight.items}
+    kept = tuple(it.name for it in project.weight.items)
+    add = tuple(it for it in candidates if _seed_key(it.name) not in entered)
+    if not add:
+        return SeedPlan(kept=kept, reason=(
+            "Every component the estimate names is already in the data base, so "
+            "seeding would add nothing."))
+    return SeedPlan(add=add, kept=kept)
+
+
+def seeded_items(project: Project) -> List[MassItem]:
+    """The data base as seeding would leave it: the entered rows, then the new ones.
+
+    Append-only and order-stable, so the row a user is editing does not move
+    under the click.
+    """
+    entered = list(project.weight.items) if project.weight is not None else []
+    return entered + list(seed_plan(project).add)
+
+
 # --------------------------------------------------------------------------- #
 # The estimate against the weight data base (C210-9, issue #78)
 # --------------------------------------------------------------------------- #

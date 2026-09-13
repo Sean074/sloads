@@ -766,6 +766,23 @@ RECORD_SEEDS: Dict[str, "typing.Callable[..., Dict[str, float]]"] = {
 }
 
 
+def _weight_items_seed(project: Project) -> object:
+    from sloads.modules.weight_estimate import seed_plan
+
+    return seed_plan(project)
+
+
+#: ``{list prefix: plan}`` -- list tables whose rows a program the project has
+#: already run can propose (note 57 D-57.7, #78). :data:`RECORD_SEEDS`' analogue
+#: for a ``…[]`` table: the plan is built *before* the click and states what the
+#: click will do, so the offer is never a button whose caption explains the
+#: damage afterwards. The plan owns the merge/refuse/replace answer
+#: (``weight_estimate.SEED_CONTRACT``), not the page rendering it.
+TABLE_SEEDS: Dict[str, "typing.Callable[[Project], typing.Any]"] = {
+    "weight.items[]": _weight_items_seed,
+}
+
+
 #: When a ``SLOADS`` field may be marked :attr:`FieldEntry.supplied` (G5).
 #:
 #: A judgement call here would quietly become "whatever made the gate pass", so

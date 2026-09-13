@@ -82,6 +82,7 @@ from sloads import workflow as wf
 from sloads.applicability import step_not_applicable
 from sloads.derived import refresh_derived
 from sloads.derived_geometry import tail_cp_suggestion
+from sloads.mass_distribution import unplaced_warning
 from sloads.models import Project, same_name
 from sloads.modules.landing import below_energy_caution, energy_load_factor_estimate
 from sloads.selectors import duplicate_selectors, seed_name
@@ -1443,6 +1444,57 @@ def _empty_table_note(label: str, paths: Sequence[str]) -> str:
             f"until a row is added: {names}.")
 
 
+def _offer_table_seed(project: Project, prefix: str, rows: List[Any]) -> None:
+    """The registry's table-seed button, saying what the click does before it (#269).
+
+    ``field_registry.TABLE_SEEDS`` (note 57 D-57.7): a list a program the project
+    has already run can propose rows for -- today the weight data base, from
+    WTESTIMA's component weights. The plan is built first and its own caption is
+    shown above the button, so *merge, refuse or replace* is answered before the
+    click rather than by a caption written after it; the rows land through the
+    project's own list, editable like anything typed. Offered with the table
+    empty too, which is the case that matters most and the one an early return
+    on ``not rows`` would have skipped.
+    """
+    seed = fr.TABLE_SEEDS.get(prefix)
+    if seed is None:
+        return
+    plan = seed(project)
+    st.caption(plan.caption())
+    if not plan.offers:
+        return
+    if st.button(f"Seed {len(plan.add)} row(s) from the estimate",
+                 key=widget_key(f"_seed.{prefix}")):
+        # Append to the project's own attached list: the seed adds, and the
+        # rows already there keep their stations, tags and inertias.
+        rows.extend(plan.add)
+        st.rerun()
+
+
+#: Per list table, what its rows still owe before a program can believe them.
+#: The sentence is the calc's (one owner, both GUIs), never spelled again here.
+_TABLE_DEBTS: Dict[str, Callable[[Project], str]] = {
+    "weight.items[]": unplaced_warning,
+}
+
+
+def _warn_unplaced(project: Project, prefix: str) -> None:
+    """Rows that carry weight and have not been positioned or tagged, said loudly.
+
+    The other half of D-57.7: a seeded row arrives with a weight and nothing
+    else, and until it is given a station and a component tag it sits at the
+    datum on the fuselage beam -- moving the CG and the body shear while looking
+    like data. ``st.warning``, not a caption, and it stays on the page until the
+    rows are placed rather than appearing once in the click's success message.
+    """
+    debt = _TABLE_DEBTS.get(prefix)
+    if debt is None:
+        return
+    owed = debt(project)
+    if owed:
+        st.warning(owed)
+
+
 def render_table(project: Project, prefix: str, paths: Sequence[str]) -> None:
     """One list record. Flat rows get a data editor; rows holding a composite get
     an expander each, because a table cell cannot hold a polyline."""
@@ -1484,6 +1536,7 @@ def render_table(project: Project, prefix: str, paths: Sequence[str]) -> None:
                      key=widget_key(f"{prefix}.delete_surplus")):
             del rows[count:]
             st.rerun()
+    _offer_table_seed(project, prefix, rows)
     if not rows:
         # An empty list used to be a bare rows counter with no trace of the
         # fields it hides -- for `aero.surfaces` that was the whole AIRLOADS
@@ -1500,9 +1553,9 @@ def render_table(project: Project, prefix: str, paths: Sequence[str]) -> None:
             with st.expander(f"{index + 1} · {title}", expanded=index == 0):
                 render_record_row(row, paths, f"{prefix}.{index}", project)
                 _delete_button(st, rows, index, prefix, title)
-        return
-
-    _render_flat_table(rows, paths, prefix)
+    else:
+        _render_flat_table(rows, paths, prefix)
+    _warn_unplaced(project, prefix)
 
 
 def render_record_row(row: Any, paths: Sequence[str], key_prefix: str,
