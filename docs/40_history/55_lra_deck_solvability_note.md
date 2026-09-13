@@ -2,7 +2,9 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: AGREED 2026-09-10 (owner); implementing on `dev/v0.8.3`.** Agreed in
+**Status: SHIPPED 2026-09-10** — all six decisions (D-55.1…D-55.6) landed with
+#172 on `dev/v0.8.3`; §7's closure obligations are discharged and the solve
+gate covers every CLI-exportable fixture. *(Agreed in
 chat under the solo profile (`DEVELOPMENT_PROCESS.md` §0; rule 1's working-alone
 branch), as drafted — **D-55.2's tolerance decided at 5 % of `ds`** and
 **D-55.5 decided as a hard refusal**, both the values this note proposed.
@@ -17,7 +19,7 @@ support node on two fixtures, and the owner agreed five decisions, not six.
 Raised by #172 (review R-1),
 band B4 Pri 29. Drafted after a diagnosis pass on all six shipped fixtures;
 the numbers in §1 are measured at `dev/v0.8.3` `c79ddf8`, i.e. with note 54's
-joint register (D-54.5) in place.
+joint register (D-54.5) in place.)*
 
 **Tier L** (the mission claim). The Phase-C mission says the exported deck
 *solves in sbeam with verified global equilibrium, continuously in CI*. Today

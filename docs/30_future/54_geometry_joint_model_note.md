@@ -2,7 +2,9 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: AGREED 2026-09-09 (owner); implementing on `dev/v0.8.3`.** Agreed in
+**Status: AGREED 2026-09-09 (owner); all but one decision shipped in 0.8.3.**
+The note stays open for **D-54.6** alone (#260), which rides the baseline wave
+in band B6 / 0.8.5; it rolls to `40_history/` when that lands. Agreed in
 chat under the solo profile (`DEVELOPMENT_PROCESS.md` §0; rule 1's
 working-alone branch). **D-54.3 decided (owner: clamp + straight axis)**;
 **D-54.4 decided (owner: mass-item branch)**. Drafted from the 2026-09-09
@@ -16,7 +18,7 @@ control-LE pair and waits for a consumer (stated in
 `sloads/joints.py` (the note's open home question, decided at implementation:
 it must import `tail_geometry`, `derived_geometry` *and* `modules/tail_span`,
 so it can live inside none of them, and calc may not import `export/`).
-Remaining: **D-54.6** (#260, rides the baseline wave).
+Remaining: **D-54.6** (#260, rides the baseline wave in band B6 / 0.8.5).
 
 **Tier L** (schema/contract change: the empennage boundary-line model of #25
 plus a joint register). It is the design note #25's tier-L step has waited for,
