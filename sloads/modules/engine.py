@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import itertools
 import math
-from typing import List, Optional, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 from ..basic import basic_int, basic_trunc3
 from ..case_ids import CaseIdAllocator
@@ -140,6 +140,39 @@ def resolved_engines(project: Project) -> List[EngineInput]:
     """
     return [effective_engine(project, eng, eng.engine_designation or f"engine {i}")
             for i, eng in enumerate(project.engines, start=1)]
+
+
+def engine_tags(engines: Sequence[EngineInput]) -> List[str]:
+    """One label per engine, distinct from every other (#241).
+
+    A multi-engine result prefixes each condition title with the engine it
+    belongs to, and a twin fits two of the same model: the Baron's two
+    ``CONTINENTAL IO-550-C`` mounts published three conditions each under three
+    *identical* titles, so the load-case index described ``EM-01`` and ``EM-04``
+    the same way and the applied file had no column that told them apart.
+
+    The designation is kept when it is already unique -- nothing renames on a
+    single-model-per-side installation, and no shipped title moves that did not
+    have to. When two engines share one, the **side** is added, read off the
+    engine's own butt line (``+y`` is the right-hand side, ``CONVENTIONS.md``
+    §Axes), because that is what a reader is actually trying to tell apart. Four
+    engines two-per-side still collide on the side alone, so the engine's
+    position in ``project.engines`` settles what remains.
+    """
+    names = [eng.engine_designation or f"engine {i}"
+             for i, eng in enumerate(engines, start=1)]
+    out: List[str] = []
+    for eng, name in zip(engines, names):
+        if names.count(name) == 1:
+            out.append(name)
+            continue
+        y = eng.engine_cg[1]
+        side = "left" if y < 0 else "right" if y > 0 else "centreline"
+        out.append(f"{name}, {side}")
+    for i, tag in enumerate(out, start=1):
+        if out.count(tag) > 1:
+            out[i - 1] = f"{tag}, engine {i}"
+    return out
 
 
 #: Quantity hint on the engine's **own** torque rating -- the input to a design
@@ -779,7 +812,11 @@ def run(project: Project) -> ModuleResult:
     single = len(project.engines) == 1
     allocator = CaseIdAllocator()
     conditions: List[ConditionResult] = []
-    for i, eng in enumerate(resolved_engines(project), start=1):
+    resolved = resolved_engines(project)
+    # Minted for the whole installation, not per engine: a tag is unique or it
+    # is not, and that is a property of the set (#241).
+    tags = engine_tags(resolved)
+    for i, eng in enumerate(resolved, start=1):
         for cond in run_all(eng, include_far25=project.include_far25):
             # The 23.371(b)/25.371 gyro condition packs 4 sign-combination
             # sub-cases into one ConditionResult (report.py's _gyro_subcases
@@ -787,17 +824,22 @@ def run(project: Project) -> ModuleResult:
             # 4 sub-case ids are derived from it (a/b/c/d suffix) at render
             # time, since the model has no way to carry 4 case_refs on one
             # ConditionResult (see docs/30_future/00_backlog.md Step D1).
+            # The tag goes on before the id is minted, so the ``condition`` the
+            # load-case index prints is the engine's own (#241). Minting first
+            # gave a twin's two mounts one condition string under two ids -- an
+            # index that cannot say which engine ``EM-04`` is, which is the same
+            # defect the applied file had and not a separate one.
+            title = cond.title if single else f"[{tags[i - 1]}] {cond.title}"
             ref = CaseRef(
                 case_id=allocator.next_id("engine_mount"),
                 component="engine_mount",
-                condition=cond.title,
+                condition=title,
                 far_reference=cond.far_reference,
             )
             cond.case_ref = ref
             if not single:
-                tag = eng.engine_designation or f"engine {i}"
                 cond = ConditionResult(  # noqa: PLW2901  -- the tagged copy replaces the per-engine result
-                    title=f"[{tag}] {cond.title}",
+                    title=title,
                     far_reference=cond.far_reference,
                     values=cond.values,
                     note=cond.note,

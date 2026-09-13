@@ -280,7 +280,9 @@ def test_the_applied_csv_states_its_units_axis_and_factor():
     text = ap.applied_load_csv(net, project=io.load_project(_GA))
     header = strip_comment_lines(text).splitlines()[0]
     assert header.split(",") == [
-        "Case", "Station", "GID", "X (in)", "Y (in)", "Z (in)",
+        # And its identity (#241): the id, the description, the loading.
+        "Case ID", "Case", "Loading", "Station", "GID",
+        "X (in)", "Y (in)", "Z (in)",
         "Fx (lb)", "Fy (lb)", "Fz (lb)",
         "Mx (lb-in)", "My (lb-in)", "Mz (lb-in)", "MyyAxis", "SF"]
     row = _csv_rows(text)[0]

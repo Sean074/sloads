@@ -198,6 +198,35 @@ def unhanded_case_id(case_id: str) -> str:
     return case_id[:-1] if case_id[-1:] in HANDS else case_id
 
 
+#: The sign-combination suffixes the 23.371(b) / 25.371 gyroscopic condition's
+#: four sub-cases carry (``EM-06a`` ... ``EM-06d``); order matches
+#: ``condition_371_b``'s ``itertools.product``. One owner for both ends of the
+#: suffix: :func:`~sloads.report.render._gyro_subcase_id` mints it and
+#: :func:`index_case_id` takes it off again.
+GYRO_SUBCASE_SUFFIXES = "abcd"
+
+
+def index_case_id(case_id: str) -> str:
+    """The id the **load-case index** names a delivered id under (#241).
+
+    A delivered row may carry an id the index does not list verbatim, because one
+    index row can stand for more than one delivered case: a handed twin
+    (``W-05R``) is the assembled deck's view of ``W-05``, and the gyro condition's
+    four sign combinations (``EM-06a``...``EM-06d``) are fanned out at render
+    time from one :class:`~sloads.models.results.CaseRef` the model cannot carry
+    four of (Step D1). Both are suffixes on an id that *is* listed, so the join
+    is a strip, and this is the one place that knows which suffixes are strippable.
+
+    Returns ``case_id`` unchanged when it carries neither, which is every id in
+    every other family.
+    """
+    bare = unhanded_case_id(case_id)
+    head, tail = bare[:-1], bare[-1:]
+    if tail in GYRO_SUBCASE_SUFFIXES and head[-1:].isdigit():
+        return head
+    return bare
+
+
 def subcase_id(case_id: str) -> int:
     """The deck ``SUBCASE`` / load-set ``SID`` integer for ``case_id``.
 

@@ -991,12 +991,15 @@ def test_sbeam_headers_state_their_units_in_both_systems():
             ap.applied_load_csv(results, system=system,
                                 project=_ga_project())).splitlines()[0]
         cells = header.split(",")
-        assert cells[3] == f"X {length}", header
-        assert cells[6] == f"Fx {force}", header
-        assert cells[10] == f"My {moment}", header
+        # Offsets moved by two when the identity columns led the row (#241);
+        # the units band itself is unchanged.
+        assert cells[5] == f"X {length}", header
+        assert cells[8] == f"Fx {force}", header
+        assert cells[12] == f"My {moment}", header
         # Only the non-dimensional columns are bare.
         bare = [c for c in cells if "(" not in c]
-        assert bare == ["Case", "Station", "GID", "MyyAxis", "SF"], bare
+        assert bare == ["Case ID", "Case", "Loading", "Station", "GID",
+                        "MyyAxis", "SF"], bare
 
 
 # --------------------------------------------------------------------------- #

@@ -2429,8 +2429,14 @@ def applied_load_table(rows: Sequence[object], *, title: str,
     ``GID`` alone would
     print a nameless blank row for every mass -- and a table keyed on
     ``Station`` alone could not be matched to the deck, which is the whole
-    claim these appendices make. The columns are the applied CSV's, so the page
-    and the file are the same row.
+    claim these appendices make.
+
+    The rows are the applied CSV's, and since #241 so is the identity: the
+    ``Case`` column prints the minted ``case_id`` where the case has one, which
+    is what the file's ``Case ID`` column carries. The file states the
+    description and the named loading in two further columns and this table does
+    not, because a page has a section around it -- Appendix F's own conditions
+    table names all 33 loadings -- and a file has nothing but its own columns.
 
     The moments come through
     :func:`~sloads.report.applied.applied_body_moments` rather than off the

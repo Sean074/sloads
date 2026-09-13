@@ -197,8 +197,10 @@ def test_both_gear_rows_reach_the_summary_table():
 # --------------------------------------------------------------------------- #
 # G-OR-125 -- one applied file per structural element
 # --------------------------------------------------------------------------- #
-_SPINE = ("Case", "Station", "GID", "X ", "Y ", "Z ", "Fx ", "Fy ", "Fz ",
-          "Mx ", "My ", "Mz ")
+# The identity leads it since #241: the id the case index is keyed by, the
+# description, and the named loading. "Case" alone was never an identity.
+_SPINE = ("Case ID", "Case", "Loading", "Station", "GID", "X ", "Y ", "Z ",
+          "Fx ", "Fy ", "Fz ", "Mx ", "My ", "Mz ")
 
 
 def test_every_structural_element_has_an_applied_load_file_in_one_shape():

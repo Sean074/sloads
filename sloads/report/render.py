@@ -17,7 +17,7 @@ import re
 from enum import Enum
 from typing import Callable, Dict, List, NamedTuple, Optional, Sequence
 
-from ..case_ids import NO_LOAD_ID, deck_load_id
+from ..case_ids import GYRO_SUBCASE_SUFFIXES, NO_LOAD_ID, deck_load_id
 from ..constants import IN_PER_FT
 from ..frames import is_report_only
 from ..load_keys import (
@@ -746,7 +746,9 @@ def _val(loadvalue: Optional[LoadValue]):
     return loadvalue.value if loadvalue is not None else ""
 
 
-_GYRO_SUBCASE_SUFFIX = "abcd"  # sign-combination order matches condition_371_b's itertools.product
+#: Read from the id vocabulary rather than respelt here, so the suffix this
+#: mints is the one :func:`~sloads.case_ids.index_case_id` knows how to strip.
+_GYRO_SUBCASE_SUFFIX = GYRO_SUBCASE_SUFFIXES
 
 
 def _gyro_subcase_id(r: ConditionResult, num: int) -> str:
