@@ -133,3 +133,22 @@ def apply_button(at, form_key: str):
 # way the tests do rather than reimplementing it. Re-exported here so no existing
 # test import moves.
 from sloads.export.equilibrium import parse_cards  # noqa: E402,F401
+
+
+# --------------------------------------------------------------------------- #
+# The GUI source trees, owned once (#239, design note 60 §3)
+# --------------------------------------------------------------------------- #
+#: Every tree a guard that sweeps "the GUI source" must read. Two tests owned a
+#: ``_GUI_TREES`` of their own and they disagreed: ``test_app_shell.py`` swept
+#: all three front-end trees, while ``test_basis_statements.py`` swept
+#: ``("app", "app_shell")`` and excluded ``oracle_app`` under note 44's OR-13
+#: freeze -- so G-OR-74's screen sweep did not cover the oracle GUI, and its
+#: results captions went on claiming ULTIMATE for the whole of note 49. That is
+#: #239. A prose rule would have missed it again; the cure is that there is now
+#: one tuple, and a guard cannot narrow its own scope without editing the owner
+#: every other guard reads (practice 3, and practice 4's sweep of the class).
+#:
+#: Whole trees, not sub-directories: ``app/Home.py`` is GUI source that
+#: ``("app", "views")`` never reached. The tuple shrinks to one entry when
+#: D-57.1 deletes ``app/``.
+GUI_TREES = ("app", "app_shell", "oracle_app")

@@ -28,6 +28,8 @@ import re
 
 import pytest
 
+from helpers import GUI_TREES
+
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _SHELL_DIR = os.path.join(_ROOT, "app_shell")
 
@@ -917,7 +919,12 @@ def test_the_station_field_re_seeds_on_a_unit_switch_instead_of_being_reread():
 # --------------------------------------------------------------------------- #
 # The class guard behind #126 (practice 4: generalize on first find)
 # --------------------------------------------------------------------------- #
-_GUI_TREES = ("app_shell", "oracle_app", os.path.join("app", "views"))
+#: The GUI trees this guard walks -- :data:`tests.helpers.GUI_TREES`, the one
+#: owner since #239 (note 60 §3). This file and
+#: ``test_basis_statements.py`` each kept a ``_GUI_TREES`` of their own and
+#: they disagreed about what "the GUI" is; the narrower one is why #239
+#: existed. The shared tuple walks ``app`` whole rather than ``app/views``,
+#: so ``app/Home.py`` is swept here too.
 #: What marks a number input as seeded with a *converted* value. ``to_display``
 #: is the conversion itself; ``dflt`` is engine_mount's one-line wrapper of it.
 _CONVERTED_SEED = ("to_display(", "dflt(")
@@ -954,7 +961,7 @@ def test_a_converted_number_input_is_always_keyed_with_the_unit_system():
     is the cure and the default; the two hand-rolled helpers that predate it are
     allowed only because their keys are checked below."""
     offenders = []
-    for tree in _GUI_TREES:
+    for tree in GUI_TREES:
         for root, _dirs, names in os.walk(os.path.join(_ROOT, tree)):
             if "__pycache__" in root:
                 continue

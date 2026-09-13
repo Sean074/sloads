@@ -45,6 +45,9 @@ import sys
 import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # tests/helpers
+
+from helpers import GUI_TREES  # noqa: E402
 
 import sloads.modules  # noqa: F401
 from sloads import io
@@ -295,15 +298,14 @@ _WITNESSES = (
     "echo to see what moved.",
 )
 
-#: The GUI trees this gate reads. ``oracle_app/`` is **excluded** as a tree: it
-#: is frozen under note 44 OR-13, and its three surviving claims are filed, not
-#: fixed (OR-14). Adding it here is the first step of that later ticket.
-_GUI_TREES = ("app", "app_shell")
-
-#: Files swept individually: this milestone's new pages, which are not under
-#: the OR-13 freeze and get no grace period (#237 -- the report page's
-#: selection caption stated the retired deselection behavior).
-_GUI_FILES = ("oracle_app/report.py",)
+#: The GUI trees this gate reads -- :data:`tests.helpers.GUI_TREES`, the one
+#: owner (#239, note 60 §3). This gate used to keep a narrower tuple of its own
+#: that excluded ``oracle_app/`` under note 44's OR-13 freeze, sweeping only
+#: ``oracle_app/report.py`` by name as a milestone-0.8.2 exception. The freeze
+#: lifted with 0.8.2 and the exclusion did not, so the oracle GUI's results
+#: captions still claimed ULTIMATE for the whole of note 49 while this gate ran
+#: green beside them. It no longer chooses its own scope: note 57's gates 4 and
+#: 5 are asserted through this sweep, and they are only as wide as it is.
 
 
 def _live_literals(path):
@@ -344,7 +346,7 @@ def test_no_gui_string_claims_ultimate():
     branch a journey test failed to enter.
     """
     seen = 0
-    for tree in _GUI_TREES:
+    for tree in GUI_TREES:
         assert os.path.isdir(os.path.join(_ROOT, tree)), tree
         for dirpath, _, filenames in os.walk(os.path.join(_ROOT, tree)):
             for filename in sorted(filenames):
@@ -355,12 +357,6 @@ def test_no_gui_string_claims_ultimate():
                 for lineno, text in _live_literals(path):
                     seen += 1
                     assert_states_limit(f"{rel}:{lineno}", text)
-    for rel in _GUI_FILES:
-        path = os.path.join(_ROOT, rel)
-        assert os.path.isfile(path), rel
-        for lineno, text in _live_literals(path):
-            seen += 1
-            assert_states_limit(f"{rel}:{lineno}", text)
     assert seen > 1000, (
         f"swept only {seen} literals -- this gate cannot pass by finding no "
         f"GUI source to read")

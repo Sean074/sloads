@@ -74,10 +74,15 @@ from sloads.report import (
     summary_rows,
 )
 
-#: What a page states about the loads in one block. The oracle GUI never applies
-#: a factor of its own -- these describe what the owner already produced.
-ULTIMATE = "ULTIMATE"
-LIMIT = "LIMIT"
+#: Which *shape* of table a block carries -- not which basis, because since
+#: note 49 OR-116 there is only one: every load sloads delivers is LIMIT, in
+#: this GUI as in every other artifact, and the oracle GUI never applied a
+#: factor of its own even when these constants said ULTIMATE. What still varies
+#: is where the table states that, so the discriminator is named for the thing
+#: that actually differs (#239). A block cannot claim ULTIMATE because there is
+#: no longer a value that says it.
+CASE_TABLE = "case"
+STATION_TABLE = "station"
 
 #: The error contract's two halves (``00_program_overview.md``): a module raises
 #: ``MissingInputError`` for an absent slice and ``ValueError`` for input that is
@@ -113,17 +118,26 @@ def _not_ready_traceback(exc: BaseException) -> str:
     return where + "".join(
         tb.format_exception(type(exc), exc, exc.__traceback__))
 
-_ULT_NOTE = ("ULTIMATE loads (= limit x the case safety factor); the factor is "
-             "in the SF column and the `-ULT` marker is part of the units.")
+# The load-case tables, whose basis is stated per row in the `SF` column. The
+# wording is the one `app/views/results_review.py` already carried over the same
+# data: the two front-ends stated the load-output contract differently for the
+# whole of note 49 because only one of them was swept (#239), and the cure for
+# that is to say the same sentence, not a second true one.
+_CASE_NOTE = ("Load columns are **LIMIT**; the `SF` column states the 14 CFR "
+              "23.303 factor this tool applies nowhere -- apply it in the "
+              "sizing analysis. The `-ULT` marker appears only on a load the "
+              "regulation already prescribes ultimate (23.367(a)(2), "
+              "23.561(b), `SF=1.0`). Dimensionless/speed columns (n, CL, V) "
+              "carry no factor and are unmarked.")
 # The basis is stated in the table itself, but *where* depends on the table: the
 # wing and fuselage station tables carry a `Basis` column, while the tail
 # chordwise table has none and marks every load header instead
 # (`app_shell/limit_csv.tail_limit_rows`). Saying only "the Basis column" was
 # wrong for a third of the tables this caption sits under (review CR-A-7).
-_LIMIT_NOTE = ("LIMIT station loads -- the oracle-traceable calc values "
-               "(CONVENTIONS.md §3). The basis travels with the table: in its "
-               "`Basis` column, or in each load's column header where the table "
-               "has no such column, and in the `_LIMIT.csv` filename.")
+_STATION_NOTE = ("LIMIT station loads -- the oracle-traceable calc values "
+                 "(CONVENTIONS.md §3). The basis travels with the table: in "
+                 "its `Basis` column, or in each load's column header where the "
+                 "table has no such column, and in the `_LIMIT.csv` filename.")
 
 
 class Artifact(NamedTuple):
@@ -145,7 +159,7 @@ class ResultBlock(NamedTuple):
 
     module: str
     title: str
-    basis: str = ULTIMATE
+    shape: str = CASE_TABLE
     rows: Tuple[Dict[str, Any], ...] = ()
     artifacts: Tuple[Artifact, ...] = ()
     note: str = ""
@@ -237,7 +251,7 @@ def _module_block(project: Project, name: str, system: UnitSystem) -> ResultBloc
                  module_text_report(title, display)),
     )
     advisory = MODULE_ADVISORIES.get(name)
-    return ResultBlock(name, title, ULTIMATE, tuple(rows), artifacts,
+    return ResultBlock(name, title, CASE_TABLE, tuple(rows), artifacts,
                        advisory=advisory(project, system) if advisory else "",
                        group_by=SUMMARY_GROUP_BY.get(name, ""))
 
@@ -249,17 +263,17 @@ def _station_block(project: Project, name: str, system: UnitSystem) -> ResultBlo
         built = spec.build(project)
     except _NOT_READY as exc:
         return ResultBlock(
-            name, spec.title, LIMIT,
+            name, spec.title, STATION_TABLE,
             note=f"{spec.title} cannot be built yet — {type(exc).__name__}: {exc}",
             traceback=_not_ready_traceback(exc))
     rows = spec.rows(built, system)
     if not rows:
-        return ResultBlock(name, spec.title, LIMIT,
+        return ResultBlock(name, spec.title, STATION_TABLE,
                            note=f"{spec.title} has no stations.")
     artifact = Artifact(f"{spec.title} (CSV, LIMIT)",
                         f"{spec.stem}_LIMIT.csv", "text/csv",
                         spec.csv(built, system))
-    return ResultBlock(name, spec.title, LIMIT, tuple(rows), (artifact,),
+    return ResultBlock(name, spec.title, STATION_TABLE, tuple(rows), (artifact,),
                        warnings=STATION_WARNINGS.get(name, lambda _p: ())(project))
 
 
@@ -516,7 +530,8 @@ def render_results(project: Project, key: str, system: UnitSystem) -> None:
             st.divider()
             continue
 
-        st.caption(_ULT_NOTE if block.basis == ULTIMATE else _LIMIT_NOTE)
+        st.caption(_STATION_NOTE if block.shape == STATION_TABLE
+                   else _CASE_NOTE)
         if block.advisory:
             st.caption(block.advisory)
         for warning in block.warnings:
@@ -541,7 +556,8 @@ def render_results(project: Project, key: str, system: UnitSystem) -> None:
 
 
 __all__ = [
-    "LIMIT", "MODULE_ADVISORIES", "STATION_TABLES", "STATION_WARNINGS", "ULTIMATE",
+    "CASE_TABLE", "MODULE_ADVISORIES", "STATION_TABLE", "STATION_TABLES",
+    "STATION_WARNINGS",
     "Artifact", "ResultBlock", "StationTable", "page_artifacts", "render_results",
     "select_inertia_advisory", "step_results", "taildist_spanwise_advisory",
     "weight_estimate_advisory",
