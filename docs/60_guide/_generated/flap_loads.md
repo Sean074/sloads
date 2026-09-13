@@ -7,12 +7,12 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 
 | Field | Type | Units / notes | Default | Origin | Provenance |
 | --- | --- | --- | --- | --- | --- |
-| `flap_loads.surface` | `str` |  | `'flap'` | sloads | surface selector (standing ruling) |
+| `flap_loads.surface` | `str` |  | `'flap'` | sloads | names which surface of sloads' multi-surface planform this step reads; the original suite had one wing and needed no selector (standing ruling) |
 | `flap_loads.gust_load_factor` | `float` | NG (flaps-extended gust limit factor) | `0.0` | original | FLAPLOAD NG; quantity: *flaps-extended gust load factor*; override of `external: the flight envelope's GUST VF corner factor (flight_envelope.gust_at_vf, bit-for-bit the envelope's own number; note 36 OV-6, C210-39 owner directive)` |
 | `flap_loads.nacelle_frontal_area_sqft` | `float` | AF (nacelle or fuselage frontal area) | `0.0` | original | FLAPLOAD AF (slipstream band; the slipstream needs an engine record's power + propeller diameter, entered on Engine Mount Loads) |
 | `flap_loads.engine_butt_line_in` | `float` | BLPROP (0 -> fuselage-mounted) | `0.0` | original | FLAPLOAD BLPROP (slipstream band; the slipstream needs an engine record's power + propeller diameter, entered on Engine Mount Loads) |
-| `flap_loads.inboard_y_in` | `Optional[float]` | surface inboard butt line, in | `None` | sloads | sbeam control-surface bridge station |
-| `flap_loads.outboard_y_in` | `Optional[float]` | surface outboard butt line, in | `None` | sloads | sbeam control-surface bridge station |
-| `flap_loads.hinges_span_in` | `List[float]` | hinge butt lines, in | `[] (factory)` | sloads | sbeam control-surface bridge station |
-| `flap_loads.actuator_span_in` | `float` | actuator butt line, in; 0 = not entered | `0.0` | sloads | sbeam control-surface bridge station |
+| `flap_loads.inboard_y_in` | `Optional[float]` | surface inboard butt line, in | `None` | sloads | control-surface geometry sloads needs to bridge hinge and actuator loads onto the sbeam beam model; the original suite printed loads and built no structural model (note 56) |
+| `flap_loads.outboard_y_in` | `Optional[float]` | surface outboard butt line, in | `None` | sloads | control-surface geometry sloads needs to bridge hinge and actuator loads onto the sbeam beam model; the original suite printed loads and built no structural model (note 56) |
+| `flap_loads.hinges_span_in` | `List[float]` | hinge butt lines, in | `[] (factory)` | sloads | control-surface geometry sloads needs to bridge hinge and actuator loads onto the sbeam beam model; the original suite printed loads and built no structural model (note 56) |
+| `flap_loads.actuator_span_in` | `float` | actuator butt line, in; 0 = not entered | `0.0` | sloads | control-surface geometry sloads needs to bridge hinge and actuator loads onto the sbeam beam model; the original suite printed loads and built no structural model (note 56) |
 

@@ -523,6 +523,76 @@ def test_the_fuselage_length_summary_is_display_only_once_an_outline_exists():
     assert fr.external_value("geometry.parametric.fuselage_length", project) is None
 
 
+# --- The two field tiers (#266, design note 57 D-57.2) ---------------------- #
+#: A basis this short is a citation and not a statement (see the guard below).
+#: Chosen as the length of the *shortest* extension basis that reads as a reason
+#: when #266 wrote them, less a margin -- a floor, not a target.
+_MIN_EXTENSION_BASIS = 60
+
+
+def test_the_three_tiers_partition_the_registry():
+    """Every path has exactly one tier, and together they are the whole table.
+
+    The arithmetic is asserted rather than trusted because the three sets are
+    what the GUI renders, what it marks, and what it refuses to render: a path
+    in none of them is a field that exists in the schema and appears nowhere,
+    which is the L-8e class #266 closed.
+    """
+    suite, extension, json_only = (fr.oracle_input_paths(), fr.extension_paths(),
+                                   fr.json_only_paths())
+    everything = {e.path for e in REGISTRY}
+    assert suite | extension | json_only == everything
+    assert not (suite & extension) and not (suite & json_only)
+    assert not (extension & json_only)
+    for path in everything:
+        tier = fr.tier_of(path)
+        assert tier is not None
+        assert path in {fr.Tier.SUITE: suite, fr.Tier.EXTENSION: extension,
+                        fr.Tier.JSON_ONLY: json_only}[tier]
+    assert fr.tier_of("no.such.field") is None
+
+
+def test_every_json_only_record_is_declared_with_a_reason():
+    """Note 57 gate 3's second clause: a field the GUI cannot offer a widget for
+    carries a *documented* classification, not a silent omission.
+
+    The keys must be real record prefixes -- a stale one would exempt nothing
+    while reading as though it did -- and each reason must say something. What
+    makes the classification true rather than merely declared is asserted in
+    ``tests/test_oracle_gui.py``, against the renderer's own addressing.
+    """
+    prefixes = {record_of(e.path) for e in REGISTRY}
+    for prefix, reason in fr.JSON_ONLY_RECORDS.items():
+        assert prefix in prefixes, (
+            f"{prefix!r} is declared JSON-only but no registry row sits on it")
+        assert len(reason) > 40, (
+            f"{prefix!r}'s JSON-only reason is too short to be one: {reason!r}")
+        assert any(r.path in fr.json_only_paths()
+                   for r in REGISTRY if record_of(r.path) == prefix)
+
+
+def test_an_extension_row_states_a_reason_not_a_bare_citation():
+    """Note 57 gate 4: an extension widget *states its basis*.
+
+    Every row already carried a ``basis``, so the letter of that gate was met
+    before #266 by strings like ``"loading model, decision D-25"`` -- which
+    tells a reader of this GUI which decision to go and read, and nothing about
+    why sloads is asking them for a field the original suite did not. The tier's
+    whole point is that the second question now has to be answered on the page.
+
+    A length floor is what a test can check; that it reads as a reason is what
+    review checks. The floor is here because it is the thing that silently
+    regresses -- a new extension field declared with a four-word citation, in
+    the house style of the 198 original-suite rows around it.
+    """
+    thin = sorted((len(BY_PATH[p].basis), p) for p in fr.extension_paths()
+                  if len(BY_PATH[p].basis) < _MIN_EXTENSION_BASIS)
+    assert not thin, (
+        "these extension-tier fields state a citation where the GUI needs a "
+        "reason -- say what sloads asks for and why, and keep the citation:\n"
+        + "\n".join(f"  {p} ({n} chars): {BY_PATH[p].basis!r}" for n, p in thin))
+
+
 if __name__ == "__main__":  # zero-dependency self-runner
     import sys
 
