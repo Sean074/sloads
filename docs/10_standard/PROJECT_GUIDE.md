@@ -284,13 +284,14 @@ FAR23LOADS/
 │   ├── components.py             # page scaffold, unit-input boundary, page links, applicability banner
 │   ├── project_state.py          # the project in session state + the unsaved-changes / discard guard
 │   ├── sidebar.py                # the global sidebar: units toggle, project Open/Save/upload, About
+│   ├── project_editor.py         # the Project JSON Editor page body, rendered by both front-ends (note 57, D-57.3)
 │   ├── nav.py                    # which page a step key is in the running GUI — links resolve to a page, not a path (OG-F)
 │   └── limit_csv.py              # the analysis pages' LIMIT tables + downloads (pure, no Streamlit)
 ├── app/                          # multi-page Streamlit UI (st.navigation, 6 sections — Phase D)
 │   ├── Home.py                   # entry point: set_page_config + its own nav from sloads.workflow
 │   ├── views/                    # one view per workflow step (clean names, no prefixes)
 │   │   ├── dashboard.py          #   Start    — load/save + completeness panel
-│   │   ├── project_editor.py     #   Start    — whole project as JSON, in the sidebar's Imperial/SI units
+│   │   ├── project_editor.py     #   Start    — renders app_shell/project_editor.py (D-57.3: both GUIs carry it)
 │   │   ├── configuration_layout.py … one_engine_out.py   # one per suite program
 │   │   ├── results_review.py     #   Export   — consolidated governing loads
 │   │   └── export_report.py      #   Export   — project JSON + CSVs + sbeam BDF + .xlsx workbook + summary report (.tex/.pdf) + export-scope toggle (D8, G8)

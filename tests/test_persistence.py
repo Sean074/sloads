@@ -186,7 +186,17 @@ def test_derived_allowlist_entries_are_real_fields():
 # --------------------------------------------------------------------------- #
 # 3. No input page holds input data outside st.session_state["project"]
 # --------------------------------------------------------------------------- #
-_APP = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app")
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_APP = os.path.join(_ROOT, "app")
+#: Page bodies that live in the shared shell rather than in a GUI tree, scanned
+#: with the pages. The Project Editor moved to ``app_shell/`` at design note 57
+#: D-57.3 because both front-ends render it; the scan follows the page, or a
+#: file this test has covered since G-3 would have left its coverage by moving
+#: house. The rest of ``app_shell/`` is out of scope here on purpose: it is the
+#: shared plumbing (``project_state``, ``sidebar``, ``widget_keys``, ``nav``)
+#: whose session-state slots are the ones this scan allow-lists, each with its
+#: own owner and guard.
+_SHELL_PAGES = [os.path.join(_ROOT, "app_shell", "project_editor.py")]
 
 # The only session_state keys the GUI may *write*. All are UI state, not airplane
 # input data (which lives on the single reloadable `project`):
@@ -217,7 +227,7 @@ def test_no_input_data_written_outside_project_session_state():
     reviewer must decide whether it is input data that belongs on `project` (G-3)."""
     offenders_literal = {}
     offenders_variable = {}
-    for path in glob.glob(os.path.join(_APP, "**", "*.py"), recursive=True):
+    for path in glob.glob(os.path.join(_APP, "**", "*.py"), recursive=True) + _SHELL_PAGES:
         src = open(path, encoding="utf-8").read()
         base = os.path.basename(path)
         for m in _LITERAL_WRITE.finditer(src):

@@ -801,8 +801,9 @@ this build reads (#93).
 
 Every load path is hardened (Phase E5): the three sidebar actions (Open saved,
 Load example, Upload) and the Project JSON Editor's **Apply**
-(`app/views/project_editor.py`, which round-trips the whole project as JSON in the
-selected units via `project_dict_to_display` / `project_dict_to_imperial`) all show
+(`app_shell/project_editor.py`, which round-trips the whole project as JSON in the
+selected units via `project_dict_to_display` / `project_dict_to_imperial`, and
+since note 57 D-57.3 is rendered by both front-ends) all show
 a graceful `st.error` on a malformed / wrong-shape file instead of a traceback.
 
 **A file at any version but the current one is one of those errors** (#93). The
