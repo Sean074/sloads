@@ -113,18 +113,21 @@ charter, and the tail is triaged once against one front-end.
 0.9.0 when B2 is** — superseding the 2026-08-29 "then 0.9.0 when band B2 is"
 clause, which knew of no milestone between.
 
-> **B4 emptied on 2026-09-12, re-opened the same day, and emptied again.** #263
-> (design note 56) closed with #173 and #176, which took the band's last three
+> **B4 is retired: 0.8.3 was cut on 2026-09-13** (tag `v0.8.3`; the release-cut
+> block in
+> [`../40_history/00_completed_development.md`](../40_history/00_completed_development.md)
+> is the record). The band emptied, re-opened the same day and emptied again:
+> #263 (design note 56) closed with #173 and #176, taking the band's last three
 > rows, and the issue-bookkeeping pass that followed found statements in shipped
-> content — in the oracle report, on two GUI pages, and inside the one deck that
-> ships — describing the export package the note deleted. A defect with
+> content — in the oracle report, on four GUI captions, and inside the one deck
+> that ships — describing the export package the note deleted. A defect with
 > first-order effect on shipped content is exactly what the ordering rules put
-> above every [V] item, and 0.8.3 cannot knowingly cut a report that names
-> artifacts it does not build, so the band took one row for #274 rather than
-> the release carrying the statement. That row closed the same day and the band
-> is empty again, which is the cut condition. The round trip is the cut rule working, not
+> above every [V] item, and 0.8.3 could not knowingly cut a report that names
+> artifacts it does not build, so the band took one row for #274 rather than the
+> release carrying the statement. The round trip is the cut rule working, not
 > drift: the band is the pre-cut queue, something entered it, and the queue
-> drained before the cut instead of after it.
+> drained before the cut instead of after it. **Band B5 (0.8.4 — the two
+> front-ends converge on one, design note 57) is the milestone in flight.**
 
 **System of record (design note 28 MD-5, 2026-08-16):** open work is **GitHub
 Issues** (labels `tier:*`, `tag:*`, `band:*`, `kind:*`; a milestone per release;
