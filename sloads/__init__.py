@@ -23,7 +23,14 @@ from .aero_curves import (
     operating_points,
 )
 from .applicability import Exceedance, far23_applicability
-from .fleet import FleetPoint, FleetStats, Subject, fleet_stats
+from .fleet import (
+    FleetPoint,
+    FleetStats,
+    Subject,
+    fleet_stats,
+    reference_fleet,
+    subject_from_project,
+)
 from .models import (
     CATEGORIES,
     GROUND_CASE_ROLE_ORDER,
@@ -216,11 +223,13 @@ __all__ = [
     "labels_for",
     "normalise_code",
     "operating_points",
+    "reference_fleet",
     "registry",
     "resolve_gust_inputs",
     "run_all",
     "same_name",
     "si_scalar_label",
+    "subject_from_project",
     "to_display",
     "to_imperial",
     "to_imperial_scalar",

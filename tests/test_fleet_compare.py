@@ -1,7 +1,7 @@
 """Unit tests for the pure fleet-comparison helper (``sloads.fleet``).
 
 The Aircraft Comparison page places one airplane against
-``app/data/reference_aircraft.csv`` via this helper (GUI_design §8.4). The numeric
+``sloads/data/reference_aircraft.csv`` via this helper (GUI_design §8.4). The numeric
 core is pure -- no pandas, no CSV, no Streamlit -- so these tests build a small
 in-memory fleet fixture and assert the nearest-N ordering, the percentile band and
 the outlier flags directly. The geometry fields (span / AR / seats, backlog F2) are

@@ -37,6 +37,15 @@ the generated [`DATA_DICTIONARY.md`](DATA_DICTIONARY.md).
 > renderers, and a test that fails if either front-end gains a figure the other
 > has not.
 >
+> **Aircraft Comparison** (#268, design note 57 D-57.5). One further page, also
+> marked **✦**: the airplane placed against a bundled reference fleet of
+> published types by wing loading, power loading, weight and geometry, with the nearest
+> comparators named and a flag when a loading falls outside the fleet's p10–p90
+> band. The original suite has no such program — this is sloads asking whether
+> the configuration is a sensible one before it computes loads for it. The
+> reference figures are nominal published specifications in Imperial units and
+> never enter a computation.
+>
 > A handful of fields have no widget in either front-end — the rotor set of an
 > engine, the loading and ballast of a CG case — because they live inside a
 > list row that no widget can name. They are entered on the **Project JSON

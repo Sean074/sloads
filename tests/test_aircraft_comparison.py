@@ -1,34 +1,24 @@
-"""Unit test for the Aircraft Comparison page's subject-assembly helper.
+"""Unit test for the comparison **subject**'s priority chain.
 
-The page (``app/views/aircraft_comparison.py``) builds its comparison
-:class:`~sloads.fleet.Subject` from whichever project slices are present, with a
-documented priority per metric (backlog F2 step 2). The GUI itself is smoke-tested
-by ``test_views_smoke.py``; this test pins the pure assembly logic: a populated
-project yields a fully-metricked subject, a bare project yields ``None`` (no MTOW).
+The Aircraft Comparison page builds its :class:`~sloads.fleet.Subject` from
+whichever project slices are present, with a documented priority per metric
+(backlog F2 step 2). The chain moved out of the page and into its owner at
+**#268** (note 57 D-57.5): it is not presentation, it has a defect history of
+its own, and D-57.5's *rewritten, not imported* would have rewritten the fix
+with it. These tests are unchanged in what they assert and now call the owner
+directly -- no Streamlit import, no view module executed in bare mode.
 
-The view module runs Streamlit in *bare* mode on import (no ``AppTest``), which is
-safe -- the page-level ``st.*`` calls are no-ops there -- so we load it directly and
-call the private helper.
+The figures and the pages that draw them are ``tests/test_fleet_figures.py``.
 """
 
-import importlib.util
-import logging
 import os
 
 import pytest
 
-logging.disable(logging.CRITICAL)  # silence Streamlit's bare-mode warnings
+from sloads.fleet import subject_from_project
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _EXAMPLE = os.path.join(_ROOT, "examples", "ga6_normal.project.json")
-
-
-def _load_view():
-    path = os.path.join(_ROOT, "app", "views", "aircraft_comparison.py")
-    spec = importlib.util.spec_from_file_location("aircraft_comparison", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
 
 
 def test_subject_from_example_project():
@@ -37,8 +27,7 @@ def test_subject_from_example_project():
     # geometric axes (area/AR/span) resolve from the surface fallback (M2-5), and the
     # subject is fully placed.
     from sloads import io
-    view = _load_view()
-    subject = view._subject_from_project(io.load_project(_EXAMPLE))
+    subject = subject_from_project(io.load_project(_EXAMPLE))
     assert subject is not None
     assert subject.mtow_lb > 0
     assert subject.power_hp and subject.power_hp > 0
@@ -52,8 +41,7 @@ def test_subject_geometric_axes_from_wing_surface():
     import math
 
     from sloads import io
-    view = _load_view()
-    subject = view._subject_from_project(io.load_project(_EXAMPLE))
+    subject = subject_from_project(io.load_project(_EXAMPLE))
     assert subject.wing_area_ft2 and subject.wing_area_ft2 > 0
     assert subject.w_s and subject.w_s > 0
     assert math.isclose(subject.aspect_ratio_effective, 6.095, rel_tol=1e-3)
@@ -65,20 +53,22 @@ def test_area_priority_surface_over_speeds():
     # WINGGEOM wing surface and a scalar speeds.wing_area_sqft (and no parametric),
     # the computed planform wins.
     from sloads import io
-    view = _load_view()
     project = io.load_project(os.path.join(_ROOT, "examples", "atr42_100.project.json"))
     assert project.speeds.wing_area_sqft  # the fixture carries a scalar area
-    surf = view._wing_surface_props(project)
-    assert surf.get("total_area")
-    subject = view._subject_from_project(project)
-    from sloads.constants import IN2_PER_FT2
+    # Since #268 the planform is read through ``derived_geometry``'s resolvers
+    # -- the single owner of *what area the analysis actually uses* (#70) --
+    # rather than off ``surface_properties`` here, so the comparison is against
+    # that owner and the page is no longer a fifth place holding a wing area.
+    from sloads.derived_geometry import planform_area_sqft
+    resolved = planform_area_sqft(project)
+    assert resolved
+    subject = subject_from_project(project)
     # ``approx``, not ``==``: the two reach the same area by different arithmetic
     # and closed-form planform integration (2026-08-30) put a last-ulp gap
     # between them. Exact float equality across two code paths was never the
     # property under test -- that the subject reads the planform and not the
     # scalar is, and the line below is what says so.
-    assert subject.wing_area_ft2 == pytest.approx(surf["total_area"] / IN2_PER_FT2,
-                                                  rel=1e-12)
+    assert subject.wing_area_ft2 == pytest.approx(resolved, rel=1e-12)
     assert subject.wing_area_ft2 != project.speeds.wing_area_sqft
 
 
@@ -92,14 +82,13 @@ def test_subject_geometric_axes_from_configuration():
         Project,
         StructuralSpeedsInput,
     )
-    view = _load_view()
     project = Project(
         name="Synthetic",
         geometry=GeometryInput(parametric=LayoutInput(wing_area_sqft=180.0, aspect_ratio=7.5)),
         speeds=StructuralSpeedsInput(weight_lb=2450.0),
         engines=[EngineInput(max_cont_hp=180.0)],
     )
-    subject = view._subject_from_project(project)
+    subject = subject_from_project(project)
     assert subject is not None
     assert subject.mtow_lb == 2450.0
     assert subject.wing_area_ft2 == 180.0
@@ -110,8 +99,7 @@ def test_subject_geometric_axes_from_configuration():
 
 def test_subject_is_none_without_mtow():
     from sloads import Project
-    view = _load_view()
-    assert view._subject_from_project(Project(name="")) is None
+    assert subject_from_project(Project(name="")) is None
 
 
 if __name__ == "__main__":

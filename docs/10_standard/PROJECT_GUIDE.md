@@ -221,12 +221,14 @@ FAR23LOADS/
 │   ├── frames.py                 # the two frames a ground load is stated in, their words, and the rotation between them (note 38 GF-6/GF-7)
 │   ├── applicability.py          # pure FAR 23 applicability detection (Exceedance list; Phase E1)
 │   ├── validation.py             # pure input-consistency predicates (ConsistencyWarning list; Phase E3)
-│   ├── fleet.py                  # pure fleet placement: nearest-N / percentile / outlier (FleetStats; Phase E4)
+│   ├── fleet.py                  # the fleet comparison's owner: the bundled reference fleet, the subject's priority chain, and the placement (FleetStats; Phase E4 + #268)
+│   ├── data/reference_aircraft.csv  # 29 nominal published specs — reference only, never a FAR input (moved out of app/ at #268)
 │   ├── report/                   # rendering + the controlled summary document (Step G8)
 │   │   ├── render.py             # shared text/CSV tables + the limit→ultimate boundary (was report.py)
 │   │   ├── methods.py            # the ONE methods & limitations statement (+ CSV `#` / BDF `$` wrappers)
 │   │   ├── coverage.py           # FAR 23 Subpart C coverage matrix (covered / n-a / not analysed / out of scope)
 │   │   ├── content.py            # Project + module results → ReportDocument (sections/tables/figures) — no LaTeX
+│   │   ├── fleet_figures.py      # the six fleet scatters as PlotData — beside the step catalogue, not in it (#268)
 │   │   ├── tables.py            # the deliverable tables that are not decks: case index, governing SF table, gear report, export-scope filter (note 56 D-56.1, moved out of export/)
 │   │   ├── applied.py            # THE applied load set (OR-141): one row shape for all six components, the station numbering, the side-of-body internal loads (note 56 D-56.1, moved out of export/sbeam_bridge.py, which ceased to exist)
 │   │   ├── lumping.py            # what summing the applied set onto the beam's grids costs the distribution: the two internal-load curves and their gap (note 56 D-56.10)
@@ -288,6 +290,7 @@ FAR23LOADS/
 │   ├── project_editor.py         # the Project JSON Editor page body, rendered by both front-ends (note 57, D-57.3)
 │   ├── nav.py                    # which page a step key is in the running GUI — links resolve to a page, not a path (OG-F)
 │   ├── limit_csv.py              # the analysis pages' LIMIT tables + downloads (pure, no Streamlit)
+│   ├── fleet_view.py             # the fleet comparison's readout, tabs and fleet table — one rendering, both front-ends (#268)
 │   └── plots.py                  # the SCREEN renderer of a PlotData: Plotly. Decides how a line looks and nothing else — no project, no calc (note 60, D-60.1)
 ├── app/                          # multi-page Streamlit UI (st.navigation, 6 sections — Phase D)
 │   ├── Home.py                   # entry point: set_page_config + its own nav from sloads.workflow
@@ -295,14 +298,15 @@ FAR23LOADS/
 │   │   ├── dashboard.py          #   Start    — load/save + completeness panel
 │   │   ├── project_editor.py     #   Start    — renders app_shell/project_editor.py (D-57.3: both GUIs carry it)
 │   │   ├── configuration_layout.py … one_engine_out.py   # one per suite program
+│   │   ├── aircraft_comparison.py  #   Export   — the fleet comparison, framing only since #268 (retires at #270)
 │   │   ├── results_review.py     #   Export   — consolidated governing loads
 │   │   └── export_report.py      #   Export   — project JSON + CSVs + sbeam BDF + .xlsx workbook + summary report (.tex/.pdf) + export-scope toggle (D8, G8)
-│   └── data/reference_aircraft.csv
 ├── oracle_app/                   # the ORACLE GUI — the original suite only (note 32, OG-D/OG-E)
 │   ├── Oracle.py                 # entry point: its one set_page_config + nav from workflow.oracle_steps()
 │   ├── form.py                   # ONE generic input renderer for all 14 pages, built from sloads.field_registry
 │   ├── results.py                # ONE generic results renderer: workflow.step_modules → the report/io owners (OG-E)
 │   ├── figures.py                # ONE generic figure block: sloads.report.figures → app_shell.plots, pre-run under the form, post-run under the results (#267)
+│   ├── fleet.py                  # ✦ Aircraft Comparison — a marked extension page, on the navigation only, never an oracle step (#268)
 │   └── labels.py                 # the spelling table both renderers head their blocks with
 ├── cli.py                        # `python cli.py engine project.json -o out.csv`; `--export-sbeam --export-target <t>` (every deliverable, incl. `balanced`/`mass`); `--report out.tex|out.pdf`
 ├── oracle.py                     # `sloads-oracle` — launches oracle_app/Oracle.py under Streamlit (OG-11)
