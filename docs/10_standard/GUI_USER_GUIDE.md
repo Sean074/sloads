@@ -29,8 +29,9 @@ the generated [`DATA_DICTIONARY.md`](DATA_DICTIONARY.md).
 >
 > **Figures** (#267, design note 60). Each page draws the figures the formal
 > report prints for it, in two blocks that say which they are: *what is
-> entered* — a planform, the weight and centre-of-gravity envelope, a flap on
-> the wing, drawn before anything is computed so the shape can be checked — and
+> entered* — a planform, the weight and centre-of-gravity envelope, every
+> mass item at its station, a flap on the wing, drawn before anything is
+> computed so the shape can be checked — and
 > *what was computed* — the V-n diagrams, the span loading, the shear and
 > bending distributions, the engine-out march. They are the report's own
 > figures, not a second drawing of the same numbers: one producer, two

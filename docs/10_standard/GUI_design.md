@@ -449,6 +449,20 @@ never entered twice.)
   (which is how note 57 D-57.4 came to name four of the twenty figures that were
   actually there).
 
+  **What the model can say, and what it gained saying it.** `PlotData` began as
+  polylines, labelled points and vertical reference lines. #268 added
+  `Series.marker` (a cloud of points, not a line), `Series.labels` (which point
+  is which, shown on hover and deliberately not printed) and
+  `PlotData.log_x`/`log_y` for the fleet scatters; the residue row after it added
+  a `mark=…` token in the existing `Series.style` for a figure carrying more than
+  one cloud. Each addition is stated by the producer and honoured by both
+  renderers — shape and dash rather than colour, because §4.3 requires the
+  printed figure to read in greyscale and the screen adds colour on top of that
+  encoding rather than in place of it. A figure the model cannot express is a
+  figure that does not port: note 60 §1.1's item-weight-against-station waited
+  for the first of these and its snapshot and CSV-overlay siblings did not port
+  at all (§9, amended 2026-09-13).
+
 - **Every input field renders, and its tier is stated on the widget** (#266,
   design note 57 **D-57.2**, amending note 32 OG-1/OG-2; gates 3 and 4).
   `sloads.field_registry.tier_of` is the one classifier and it has three

@@ -11,8 +11,9 @@
   producers in `sloads/report/fleet_figures.py`; and the readout, tabs and fleet
   table became `app_shell/fleet_view.py`, which the retiring page now calls
   unchanged — two pages, one implementation, for the milestone in which both
-  exist. D-57.5's *rewritten, not imported* was not followed, and is put to the
-  owner as an amendment: note 60 D-60.1 withdrew exactly that rule for figures
+  exist. D-57.5's *rewritten, not imported* was not followed; the amendment
+  was **ratified by the owner in session, 2026-09-13**: note 60 D-60.1
+  withdrew exactly that rule for figures
   on the ground that a second derivation is a second owner, the subject chain is
   the same class of thing, and it carries the 2026-08-15 fix that had stopped a
   regional jet being plotted 1,800 lb above any weight its loadings can reach —

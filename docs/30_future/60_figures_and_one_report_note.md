@@ -69,6 +69,8 @@ sixteen figures going.
 | 19 | Imported vs computed (external CSV) | loads_plots | **no** | yes |
 | 20 | Fleet comparison | aircraft_comparison | no | D-57.5 |
 
+*Where each row landed, 2026-09-13:* rows 1–2, 5, 7–17 ported at **#267**; rows 3–4 gained producers there (§7); row 20 at **#268**; row 6 at the residue row after it; row 18 **retires superseded** by rows 10 and 11 and row 19 is **deferred** on an inbound CSV channel — §9's amendment of the same day.
+
 `oracle_app/` is **5 modules, 3,031 lines** and contains **zero chart calls of
 any kind** — note 57 §1.3's measurement, still true.
 
@@ -298,6 +300,31 @@ it:
 
 ## 9. Deferred
 
+**Amended 2026-09-13 (owner, in session), after #267 and #268 shipped.** The
+three figures of §1.1 that #267 could not port were reported at its close and
+ruled on here. **Figure 6 — item weight against fuselage station — ports**, at
+the residue row after #268: it was blocked only because ``PlotData`` could not
+express a cloud of named points, and #268 added exactly that for the fleet
+scatters (`Series.marker` / `Series.labels`), so the figure is a labelled point
+per data-base row rather than the stem the retiring GUI drew. It is a **pre-run**
+family on ``weight_mass`` and the oracle report's section 2.2 prints it, so it
+meets gate 10 like every other. **Figure 18 — the wing + fuselage total-loads
+snapshot — retires superseded**: its two halves are figures 10 and 11, which
+#267 put on the pages that compute them, and a third axis carrying both adds a
+view rather than a fact. **Figure 19 — imported against computed — is deferred,
+not retired**: it is blocked on a capability the survivor does not have at all
+(an inbound CSV channel for an externally computed distribution), which is a
+design note's worth of questions — columns, stations, units, and what a
+disagreement means — and not figure plumbing. `sloads/report/lra_import.py`
+already reads an external GRID/CBAR *model*, so the appetite is real; the
+figure is its first consumer when the channel is designed. Recorded here rather
+than left for #270 to discover.
+
+* **An inbound CSV channel for an externally computed load distribution**, and
+  §1.1's figure 19 over it — deferred as above, and filed in the backlog's
+  band C (*additional analysis capability, design notes first*). #245 settles `data/` as the
+  single **outbound** tabular channel; this is the other direction and is not
+  in its scope.
 * **The trim & stability sweep** (note 57 §8) — the re-run of the balance
   across a CG range. Its two figures port (§7); the sweep does not.
 * **R-57.5's rename mechanics** — unchanged, still at the end of the milestone.
