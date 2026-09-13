@@ -234,8 +234,9 @@ def wing_nodal_loads(result: WingLoadResult) -> List[NodalLoad]:
     21 % to 190 % of the root torsion across the two example airplanes before
     this was fixed.
 
-    A concentrated wing mass has no grid of its own (the stick model nodes the
-    load stations only), so it is reduced to the node inboard of it as its force
+    A concentrated wing mass has no grid of its own (the LRA beam model's mesh
+    is joint-driven and puts no node at a mass's own coordinates), so it is
+    reduced to the node inboard of it as its force
     plus the **full** three-component offset couple ``r x F`` about that node --
     the exact static equivalent. ``mx``/``mz`` are that couple's bending
     members, stored in the calc's positive-magnitude convention like the
@@ -602,8 +603,8 @@ class AppliedLoad:
 
     A concentrated mass is a pure force: ``myy_free`` is zero and ``gid`` is
     ``None``, because the exported deck has no grid at its coordinates (the
-    stick model nodes the load stations only). Its ``label`` is the mass's
-    entered name.
+    LRA beam model's mesh is joint-driven and puts no node at a mass's own
+    coordinates). Its ``label`` is the mass's entered name.
 
     **All six components are carried, three of them structurally zero.** A
     consumer building FORCE/MOMENT cards needs the whole vector, and a set that
@@ -1174,11 +1175,13 @@ def applied_load_csv(arg: ResultsArg, header_comment: str = "", *,
 
     The rows are :func:`applied_loads`, which is also what the appendix prints,
     so the table and the file cannot disagree; **G-OR-90** holds both to the
-    cards the deck writes.
+    cards the LRA deck writes.
 
-    Written in the solver unit channel, like the deck and the span-load CSV
-    beside it -- a set of applied loads is a deck companion, not a
-    human-readable deliverable.
+    Written in the solver unit channel, like the LRA deck it states the input
+    to -- a set of applied loads is a solver companion, not a human-readable
+    deliverable. Since note 56 D-56.2 deleted the per-component decks and their
+    span-load companions, these six files are the only applied-load CSVs the
+    bundle carries.
     """
     u = solver_units(system)
     rows = list(applied_loads(component, arg, project))

@@ -49,8 +49,9 @@ st.caption(
     "Aero and inertia together, both wings: the wing distribution recomputed at "
     "the case's own V-n point, the balancing tail load, the fuselage inertia from "
     "the itemized weight database, and the fuselage's share of the trim pitching "
-    "moment. The assembled deck is the mission's primary loads deliverable; the "
-    "per-component decks are analysis views of it."
+    "moment. This assembled set is the mission's primary load output; it ships "
+    "on the LRA beam model, which carries the same load sets transferred onto "
+    "its beam nodes at identical resultant (note 56 D-56.8)."
 )
 
 project: Project = st.session_state.get("project", Project(name=""))

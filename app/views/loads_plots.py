@@ -127,8 +127,10 @@ def _case_label(r, condition: str = "") -> str:
     ``case_ids.case_label`` owns the wording (id, deck LOAD/SUBCASE, condition,
     FAR) so this page, the envelope selection, the Export page and the report
     cannot state a case three different ways. These are per-component results,
-    so the number quoted is the component deck's (design note 17). A result with
-    no ``CaseRef`` has no deck identity at all and shows its condition alone.
+    so the number quoted is the component-family one (design note 17) -- an
+    identity, not a file, since note 56 D-56.2 deleted those decks. A result
+    with no ``CaseRef`` has no deck identity at all and shows its condition
+    alone.
     """
     text = condition or r.case
     return case_label(r.case_ref, condition=text) if r.case_ref else text

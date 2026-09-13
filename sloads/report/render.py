@@ -376,10 +376,13 @@ def governing_loads_table(
         ref = getattr(c, "case_ref", None)
         row: Dict[str, object] = {
             # Case identity beside the numbers (design note 17): the id is also
-            # the deck's LABEL, and LOAD is the integer that deck uses for both
+            # the deck's LABEL, and LOAD is the integer a deck uses for both
             # its SUBCASE and its load-set SID. These are per-component
-            # conditions, so the number quoted is the component deck's; the case
-            # index is where the full definition lives.
+            # conditions, so the number quoted is the component-family one --
+            # the family whose decks note 56 D-56.2 deleted, so it is now an
+            # identity the case index joins on rather than a number in a file
+            # (the column's own future is #209's). The case index is where the
+            # full definition lives.
             "ID": ref.case_id if ref else "—",
             "LOAD": (deck_load_id(ref.case_id) or NO_LOAD_ID) if ref else NO_LOAD_ID,
             "Condition": c.label,

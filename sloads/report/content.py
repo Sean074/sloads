@@ -1658,10 +1658,10 @@ def _wing_section(project: Project, comps: ComponentLoads, u: Units,
                   "wing-to-fuselage joint, summed closed-form from the applied "
                   "loads outboard of the side of body. Distinct from the "
                   "half-span maxima above, which include the centre-box strip "
-                  "loads inboard of the joint. " + sob.note + ". The wing stick "
-                  "deck carries a tagged reporting node (SLOADS-NODE lra-sob); "
-                  "the same quantities are recoverable as the CBAR end force in "
-                  "the first element outboard."),
+                  "loads inboard of the joint. " + sob.note + ". The LRA beam "
+                  "model carries a tagged reporting node here (SLOADS-NODE "
+                  "lra-sob); the same quantities are recoverable as the CBAR "
+                  "end force in the first element outboard."),
         ))
 
     section.body.append(
@@ -2113,27 +2113,33 @@ def _mass_cases_table(mass_rows: Sequence[Dict[str, Any]], u: Units) -> Optional
 
 def _section_balanced(run: BalancedRun, mass_rows: Sequence[Dict[str, Any]],
                       u: Units) -> Section:
-    """§6 -- the assembled full-span model, per case.
+    """§7 -- the assembled full-span airplane, per case.
 
     The mission's primary loads deliverable had, until this section existed, no
     presence in the controlling document at all: it downloaded from a page, and
     the report described only the per-component views of it (review F-D2,
-    decision D-R2).
+    decision D-R2). Those views were deleted at note 56 D-56.2 and the assembled
+    deck was unshipped at D-56.8; the cases below are unchanged, and what the
+    bundle now carries them on is the LRA beam model.
     """
     cases = run.cases or []
     section = Section(
         section_heading("balanced"),
         body=[
-            "The assembled full-span model is this deliverable's primary load "
-            "output: wing tip to wing tip and nose to tail, aero and inertia "
-            "together, free-free. It needs no constraint because the applied "
-            "loads balance -- the deck carries one statically determinate "
-            "support whose recovered reaction IS the residual tabulated below, "
-            "so 'reactions ~ 0' is the equilibrium proof rather than a modelling "
-            "convenience. The per-component decks of "
-            + section_ref("results") + " are analysis views cut out of this "
-            "model; each carries its cut reaction as an applied load, which "
-            "the assembled model must never do.",
+            "The assembled full-span airplane is this deliverable's primary "
+            "load output: wing tip to wing tip and nose to tail, aero and "
+            "inertia together, free-free. It needs no constraint because the "
+            "applied loads balance -- the model carries one statically "
+            "determinate support whose recovered reaction IS the residual "
+            "tabulated below, so 'reactions ~ 0' is the equilibrium proof "
+            "rather than a modelling convenience. The solver artifact these "
+            "cases ship on is the LRA beam model (see the bundle manifest): it "
+            "carries the same load sets, at the same ids and factors, "
+            "transferred onto its beam nodes at identical resultant. The "
+            "per-component loads of " + section_ref("results") + " are views "
+            "of this same set, tabulated there and exported as applied-load "
+            "files; each states the cut reaction the assembled airplane must "
+            "never carry.",
         ],
     )
     # The mass model is a deliverable in its own right: it is tabulated whether
@@ -2188,7 +2194,7 @@ def _section_gear(project: Project, u: Units) -> Section:
             "the same reaction transferred to the gear reference point where "
             "the airframe receives it. Stating both ends of the leg is what "
             "makes it a free body: the reference-point reaction is the load the "
-            "assembled deck of " + section_ref("balanced") + " applies at that "
+            "assembled cases of " + section_ref("balanced") + " apply at that "
             "node, sign-flipped, case by case.",
             "The two frames are each artifact's own and neither is re-derived. "
             "The contact-patch components are **ground-line** (vertical, drag, "
@@ -2392,13 +2398,14 @@ def _manifest_rows(comps: ComponentLoads, module_results, u: Units,
              "node — as all six body-axis components, at the point each acts "
              "at. Nothing in it is a running total.", deck,
              f"free torsion is {_torsion}; LIMIT", _TAILS_REF])
-    # The assembled deliverable and its mass model. Listed here for the reason
-    # the manifest exists at all: an artifact the controlling document does not
-    # name travels without a basis, and these two are the mission's primary
-    # output and the independent check on its inertia half (review F-D2, D-R2).
-    # The LRA beam model (step 12, note 24 R-1) -- the third deliverable, and
-    # the one the F-D2 class re-opened on (CR-C-1): it shipped in the bundle from
-    # 0.6.0 with no row here. Gated on the model *building*, not merely on cases
+    # The solver deliverable and its mass model. Listed here for the reason the
+    # manifest exists at all: an artifact the controlling document does not name
+    # travels without a basis, and these two are the mission's primary output
+    # and the independent check on its inertia half (review F-D2, D-R2). The
+    # assembled deck used to hold the first of those rows; note 56 D-56.8
+    # unshipped it, and the LRA beam model (step 12, note 24 R-1) -- the one the
+    # F-D2 class re-opened on (CR-C-1), shipped in the bundle from 0.6.0 with no
+    # row here -- is the load-carrying deck that took its place. Gated on the model *building*, not merely on cases
     # existing: ``lra_model_bdf`` refuses a project missing a datum it must not
     # guess (no SOB, no ref axis, no outline, no spars, a strip-pair h-tail
     # attachment), and ``concept_heavy`` is such a project -- it assembles

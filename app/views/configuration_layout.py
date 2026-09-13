@@ -866,7 +866,7 @@ else:
                     help="The butt line where this surface structurally attaches "
                          "to the fuselage (decision BM-1). One quantity, two "
                          "consumers: the wing side-of-body reporting node in the "
-                         "stick deck, and the h-tail attachment pair. **Leave "
+                         "LRA beam model, and the h-tail attachment pair. **Leave "
                          "blank** to fall back to half the fuselage width, which "
                          "is reported as an ASSUMED joint on every deliverable "
                          "that uses it.")

@@ -547,10 +547,12 @@ else:
 # --------------------------------------------------------------------------- #
 st.header("sbeam BDF export")
 st.caption(
-    "FORCE/MOMENT cards (and the wing stick model) for the sbeam FE bridge. "
+    "The applied load set per component, and the two solver decks the bundle "
+    "carries: the LRA beam model and the CONM2 mass model. "
     f"Wing torsion My/Myy is stated about the **{torsion_axis_label(wing_lra(project))}** "
     "(the wing's loads reference axis, set on the Geometry page); the axis "
-    "travels in-band in the span-CSV `MyyAxis` column and the BDF `$` comments."
+    "travels in-band in the applied-load CSV's `MyyAxis` column and the BDF "
+    "`$` comments."
 )
 
 

@@ -113,16 +113,18 @@ charter, and the tail is triaged once against one front-end.
 0.9.0 when B2 is** — superseding the 2026-08-29 "then 0.9.0 when band B2 is"
 clause, which knew of no milestone between.
 
-> **B4 emptied on 2026-09-12 and was re-opened the same day.** #263 (design
-> note 56) closed with #173 and #176, which took the band's last three rows, and
-> the issue-bookkeeping pass that followed found three statements in shipped
-> content — two in the oracle report, one in the Balanced Cases page — that
-> describe the export package the note deleted. A defect with first-order effect
-> on shipped content is exactly what the ordering rules put above every [V] item,
-> and 0.8.3 cannot knowingly cut a report that names artifacts it does not build,
-> so the band carries one row rather than the release carrying the statement. The
-> re-open is the cut rule working, not drift: the band is the pre-cut queue, and
-> something entered it.
+> **B4 emptied on 2026-09-12, re-opened the same day, and emptied again.** #263
+> (design note 56) closed with #173 and #176, which took the band's last three
+> rows, and the issue-bookkeeping pass that followed found statements in shipped
+> content — in the oracle report, on two GUI pages, and inside the one deck that
+> ships — describing the export package the note deleted. A defect with
+> first-order effect on shipped content is exactly what the ordering rules put
+> above every [V] item, and 0.8.3 cannot knowingly cut a report that names
+> artifacts it does not build, so the band took one row for #274 rather than
+> the release carrying the statement. That row closed the same day and the band
+> is empty again, which is the cut condition. The round trip is the cut rule working, not
+> drift: the band is the pre-cut queue, something entered it, and the queue
+> drained before the cut instead of after it.
 
 **System of record (design note 28 MD-5, 2026-08-16):** open work is **GitHub
 Issues** (labels `tier:*`, `tag:*`, `band:*`, `kind:*`; a milestone per release;
@@ -164,8 +166,6 @@ keeps its body in *Open defects*, and the [E]/[V] detail sections hold the rest.
 
 | Pri | Item (detail below / in its plan) | What ships | Tag | Tier / effort | Depends on |
 |---|---|---|---|---|---|
-| **B4 — 0.8.3: the last pre-cut work (re-opened 2026-09-12 — note 56's §7 closure sweep found shipped content describing the package that note deleted)** ||||||
-| 1 | **Three shipped statements describe the export package note 56 deleted** — the oracle report's balanced-cases paragraph calls the assembled model *"this deliverable's primary load output"* and the per-component decks *"analysis views cut out of this model"* (`report/content.py`), and its wing-root note attributes the `lra-sob` tagged reporting node to *"the wing stick deck"* when the tag is written by `export/lra_model.py` (band `lra-sob`, GID 25001); the Balanced Cases page repeats both claims in its caption (`app/views/balanced_cases.py`). D-56.2 deleted the per-component decks and D-56.8 unshipped the assembled one, so all three are false in the actively-used deliverable — a defect with first-order effect on shipped content, which the ordering rules put above every [V] item *(found 2026-09-12 in the issue-bookkeeping pass that followed note 56's closure — that sweep reached the standard docs and stopped short of the rendered strings; practice 4)* (#274) | The three statements re-cut onto the LRA beam model as the primary deliverable and the assembled deck as the internal producer it became, the equilibrium argument (G-OR-72) kept; the same sweep over the docstrings still naming the deleted decks in the present tense (`export/lra_model.py`, `report/applied.py`'s *"the span-load CSV beside it"*, `report/tables.py`, `report/render.py`, `modules/balance.py`'s copy of the free-body-cut rule `CONVENTIONS.md` retired in place); report text digests re-pin | V | S / S | **before the 0.8.3 cut** — it is note 56's own residue, in shipped content |
 | **B5 — 0.8.4: the two front-ends converge on one (design note 57 AGREED 2026-09-11; starts after the 0.8.3 cut)** ||||||
 | 2 | **The JSON editor moves to `app_shell/`** and registers in the oracle GUI — the escape hatch that decouples every other port from the schedule *(note 57 D-57.3)* (#265) | The editor a page of the surviving GUI, registered on navigation per the OR-16 pattern; no re-charter needed (OG-13 already round-trips the JSON) | V | S / S | the 0.8.3 cut (first of the band, D-57.8) |
 | 3 | **The oracle GUI renders every input path in two marked field tiers** — original-suite fields with their `.BAS` provenance as today; the ~79 sloads-only fields in a marked extension section, each stating its basis; `oracle_input_paths` becomes the tier classifier *(note 57 D-57.2 — the re-charter step, amending note 32 OG-1/OG-2)* (#266) | Every registry input path enterable or documented JSON-only with a reason (a registry-walking guard, closing the L-8e class structurally); every extension widget marked with a basis | V | M / M | the 0.8.3 cut; after #265 |

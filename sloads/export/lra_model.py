@@ -1,4 +1,5 @@
-"""The LRA beam model -- the third deliverable (step 12, note 24 R-1).
+"""The LRA beam model -- the loads deliverable's solver artifact (step 12,
+note 24 R-1).
 
 Design notes: ``docs/40_history/24_lra_beam_model_review_note.md`` (the agreed
 target, decisions BM-1..BM-5) and
@@ -6,16 +7,20 @@ target, decisions BM-1..BM-5) and
 decisions LM-1..LM-7 this module encodes). Conventions:
 ``docs/10_standard/CONVENTIONS.md``.
 
-The suite's other two solver artifacts make different claims. The
-per-component decks are oracle-backing free-body **views**; the assembled
-balanced deck is the **equilibrium proof** -- nodes at load positions, no
-elements, a determinate support whose reaction is the residual. This one is a
-**structural idealization**: node lines on the load reference axes, ``CBAR``
-chains, rigid ties for the posts / attachments / gear / engine, and the same
-balanced cases' load sets **transferred onto the model's nodes** -- so its
-value is the *internal* loads a solver recovers at the named nodes (the wing
-side of body, the front/rear-spar posts, the fin root, the h-tail
-attachments), which neither of the other artifacts can state.
+Note 56 left this the one deck the bundle ships load cards on. The
+per-component decks it used to stand beside were oracle-backing free-body
+**views** and are deleted (D-56.2); the assembled balanced deck was the
+**equilibrium proof** -- nodes at load positions, no elements, a determinate
+support whose reaction is the residual -- and is now an internal producer
+only (D-56.8), the reference resultant this model's transfer is gated
+against. What ships is a **structural idealization**: node lines on the load
+reference axes, ``CBAR`` chains, rigid ties for the posts / attachments /
+gear / engine, and the assembled cases' load sets **transferred onto the
+model's nodes** -- so its value is the *internal* loads a solver recovers at
+the named nodes (the wing side of body, the front/rear-spar posts, the fin
+root, the h-tail attachments), which the applied-load set alone cannot state.
+It carries the equilibrium proof too: free-free, one determinate support,
+recovered reaction ~ 0.
 
 Topology (implementation note 25 §3)
 ------------------------------------
@@ -66,7 +71,7 @@ of the member its ``source`` names, carrying the exact lever-arm couple
 SOB node (R-3's collapse, by the same rule); the balanced strips sit on the
 calc's 25 %-chord line, so the chordwise part of the couple *is* the torsion
 transfer to the LRA. The transferred set has the identical resultant the
-balanced deck's set has, which is the plan-07 acceptance gate.
+assembled set has, which is the plan-07 acceptance gate.
 
 Refusals (BM-3 / LM-4)
 ----------------------
@@ -1109,7 +1114,7 @@ def _case_header(case: BalancedCaseResult, sid: int) -> List[str]:
         f"{('-' + case.hand) if case.hand else ''}, SID {sid}: the balanced "
         f"case's load set transferred onto the beam nodes. "
         f"{basis_sentence(case.safety_factor)} Identical resultant to the "
-        "assembled deck's set by the transfer rule (note 25 LM-1).")
+        "assembled set by the transfer rule (note 25 LM-1).")
 
 
 def lra_model_bdf(project: Project, *,
@@ -1139,9 +1144,11 @@ def lra_model_bdf(project: Project, *,
         "on the load reference axes, CBAR chains, rigid posts/attachments/"
         "gear/engine ties, and the assembled balanced cases' load sets "
         "transferred onto the nodes. Its value is the INTERNAL loads at the "
-        "$ SLOADS-NODE tagged nodes; the assembled balanced deck remains the "
-        "equilibrium proof and the per-component decks the oracle views "
-        "(note 24 R-1).")
+        "$ SLOADS-NODE tagged nodes, and it is the one solver deck these "
+        "cases ship on: it carries its own equilibrium proof below, and the "
+        "assembled set it is transferred from stays inside sloads as the "
+        "resultant that transfer is checked against (note 24 R-1, note 56 "
+        "D-56.8).")
     head += comment(
         "grid line = LRA = the assumed elastic axis at the entered ref_axis "
         "percent chord; torsion is about it (note 24 R-7d).")
@@ -1225,7 +1232,7 @@ def lra_model_bdf(project: Project, *,
             "Determinate, free-free proof: one node, six DOF, on the forward "
             "fuselage chain node nearest the front post (touched by no rigid "
             "element) -- the recovered reaction IS the case residual stated "
-            "by the balanced deck, ~0."),
+            "in the balanced-cases table, ~0."),
         f"SPC1, {SPC_SID}, 123456, {model.support_gid}",
         "$ ------------------------------------------------------------ LOADS",
     ]
