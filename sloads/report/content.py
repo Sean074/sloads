@@ -212,6 +212,28 @@ class Figure:
     data: Optional[PlotData] = None
     caption: str = ""
     absent_reason: str = ""
+    #: Which **figure family** this instance belongs to (note 60 D-60.2/D-60.4).
+    #:
+    #: A key identifies one drawing; a family identifies the *kind* of drawing,
+    #: and the two differ wherever a producer emits a run of instances -- ``vn_0
+    #: ... vn_14`` is one family at fifteen keys, and so are the per-tab
+    #: pressures, the per-case attitudes and the OEI histories. The figure
+    #: catalogue (:mod:`sloads.report.figures`) is keyed by family, because what
+    #: a GUI page offers is the kind of figure, not an instance number that
+    #: depends on how many CG cases a project happens to carry.
+    #:
+    #: Defaulted to :attr:`key` below, so a single-instance producer states
+    #: nothing and a multi-instance one must: the common case costs no edit and
+    #: the case that can drift is the one required to declare itself. Carried as
+    #: data rather than pattern-matched out of the key by the guard -- a guard
+    #: that parses ``vn_0`` into ``vn`` is guessing at a convention nothing
+    #: enforces, and it would be the guard, not the producer, that decided what
+    #: a family is.
+    family: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.family:
+            object.__setattr__(self, "family", self.key)
 
 
 @dataclass

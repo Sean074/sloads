@@ -1295,6 +1295,16 @@ def test_reported_load_factors_are_identified_as_limit():
     governs all four, and their captions are required to stay empty rather than
     the rule becoming "a caption states it if it has one". Every other figure
     states it in its own caption, and every table in its note.
+
+    **Or says it is not a load at all.** The static margin (#267, note 60 §7) is
+    the first figure in this subsection that reports no load: it is a geometric
+    relation between the neutral point and the centre of gravity, nothing is
+    sized to it and no safety factor applies to it. ``CONVENTIONS.md``'s rule is
+    that a quantity states *which* it is, and "not a load" is one of the
+    answers -- the same answer ``safety_factors.prescribes_factor`` gives for a
+    non-load condition (#154). What is forbidden is a load-bearing number that
+    leaves its basis to be inferred, so the assertion is the disjunction and not
+    a carve-out by key.
     """
     envelope = _envelope_section(_doc())
     vn = _vn_figures(envelope)
@@ -1304,7 +1314,8 @@ def test_reported_load_factors_are_identified_as_limit():
         if figure.key.startswith("vn_"):
             assert figure.caption == "", figure.key
         else:
-            assert "LIMIT" in figure.caption, figure.key
+            assert ("LIMIT" in figure.caption
+                    or "not a load" in figure.caption), figure.key
     for table in envelope.tables:
         assert "LIMIT" in (table.note or ""), table.title
 
@@ -1376,8 +1387,14 @@ def test_the_speed_altitude_envelope_opens_2_4_and_reaches_sea_level():
     section = _envelope_section(_doc())
     first = section.figures[0]
     assert first.key == "speed_altitude"
-    assert [f.key for f in section.figures[1:]] == [
+    # The envelope opens the subsection and its cuts follow it; the two trim
+    # figures (#267, note 60 §7) close it, because the balancing tail load
+    # against CG explains the sign the loads above it carry rather than
+    # delivering one of them.
+    assert [f.key for f in section.figures[1:-2]] == [
         f.key for f in _vn_figures(section)]
+    assert [f.key for f in section.figures[-2:]] == [
+        "trim_tail_load", "static_margin"]
 
     shoulder = project.speeds.shoulder_altitude_ft
     assert shoulder > 0

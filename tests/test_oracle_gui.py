@@ -1976,6 +1976,85 @@ def test_an_empty_list_table_says_what_it_hides():
     assert "Surface" in _empty_table_note("Tabs", tabs)
 
 
+# --------------------------------------------------------------------------- #
+# The figures on the page (#267, design note 60 Block A)
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize("key", sorted(wf.oracle_step_keys()))
+def test_a_page_draws_every_figure_the_catalogue_gives_it(key):
+    """The port is asserted where the reader sees it, not only in the catalogue.
+
+    ``sloads.report.figures`` says which families belong to this page and
+    ``tests/test_figures.py`` holds note 60's gates 9 and 10 over them; what is
+    checked here is the other half -- that the page actually renders them, in
+    the two blocks D-60.4 asks for, and that a page with no figure of a stage
+    grows no empty heading for it. Nine of the thirteen plot-carrying pages of
+    ``app/views/`` are shared analysis steps this GUI already rendered with no
+    figure at all (note 60 §1.1), so "the catalogue knows about them" was
+    exactly the state before this row.
+    """
+    from sloads.applicability import step_not_applicable
+    from sloads.report import figures as fx
+
+    at = _render(key)
+    assert not at.exception, [e.message for e in at.exception]
+    headings = [h.value for h in at.header]
+    project = _seeded()
+    if step_not_applicable(key, project):
+        # A condition this airplane cannot have collects nothing and draws
+        # nothing: the page returns before either block (#84, C210-43).
+        assert "Figures" not in " ".join(headings)
+        return
+    for stage, heading in ((fx.Stage.PRE_RUN, "Figures — what is entered"),
+                           (fx.Stage.POST_RUN, "Figures — what was computed")):
+        expected = any(f.stage is stage for f in fx.families_for_step(key))
+        assert (heading in headings) is expected, (
+            f"{key}: {heading!r} present={heading in headings}, "
+            f"catalogue says {expected}")
+
+
+def test_a_figure_block_says_whether_it_is_an_input_or_a_result():
+    """D-60.4: the distinction is the capability being ported, so it is named.
+
+    A reader who cannot tell an echo of what they typed from a computed load
+    has been given a worse page than one with no figure on it."""
+    from sloads.report import figures as fx
+
+    at = _render("tab_loads")
+    captions = [c.value for c in at.caption]
+    for stage in (fx.Stage.PRE_RUN, fx.Stage.POST_RUN):
+        assert fx.STAGE_NOTES[stage] in captions, stage
+
+
+def test_the_gui_renders_the_producers_figure_and_derives_none_of_its_own():
+    """D-60.1: one producer set, two renderers.
+
+    The renderer is handed a ``PlotData`` and may decide how a line looks; it
+    may not decide what is plotted. Walked structurally: no GUI module builds a
+    ``PlotData``, a ``Series`` or a ``Figure`` of its own -- which is the
+    property that makes the parity gate meaningful, because a GUI that could
+    construct figure data could satisfy the gate and still draw something the
+    report never prints."""
+    import ast
+
+    from helpers import GUI_TREES
+
+    offenders = []
+    for tree in GUI_TREES:
+        for root, _dirs, names in os.walk(tree):
+            for name in sorted(n for n in names if n.endswith(".py")):
+                path = os.path.join(root, name)
+                with open(path, encoding="utf-8") as fh:
+                    body = fh.read()
+                for node in ast.walk(ast.parse(body)):
+                    if (isinstance(node, ast.Call)
+                            and isinstance(node.func, ast.Name)
+                            and node.func.id in ("PlotData", "Series")):
+                        offenders.append(f"{path}:{node.lineno}")
+    assert not offenders, (
+        "these GUI modules construct figure data, which note 60 D-60.1 gives "
+        "to sloads.report: " + repr(offenders))
+
+
 if __name__ == "__main__":  # zero-dependency self-runner
     import sys
 

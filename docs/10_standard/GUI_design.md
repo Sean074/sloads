@@ -428,6 +428,27 @@ never entered twice.)
 
 ## 6. Page anatomy & conventions
 
+- **Every figure has one producer and two renderers** (#267, design note 60
+  **D-60.1…D-60.6**, amending note 57 D-57.4). `sloads.report.content.PlotData`
+  owns what a figure *is*; `sloads.report.plots_tex` emits it as TikZ for the
+  document and `app_shell.plots` emits it as Plotly for the screen, and **no GUI
+  module builds figure data of its own** — the guard walks the GUI trees for a
+  `PlotData` or `Series` constructor. `sloads/report/figures.py` is the
+  catalogue: one row per figure **family** (the *kind* of drawing, which is not
+  the key — `vn_0 … vn_14` is one family, because how many V-n diagrams a project
+  has is a fact about its loadings), naming the page that shows it and its
+  `Stage`. **`Stage.PRE_RUN` is entered data drawn** — a planform, a CG envelope,
+  a control surface on its host — and renders under the form, because the
+  capability being ported is *checking the inputs before running the whole
+  process*; **`Stage.POST_RUN` is a result** and renders under the results, every
+  load on it LIMIT. The page says which, above each block. Parity is structural
+  and both ways (`tests/test_figures.py`, note 60 gates 9/10): a figure the
+  oracle report emits with no catalogue row fails the suite, and so does a
+  catalogue row no document produces — checked against the **built** report, not
+  against a list, because a list in a test is a second catalogue free to drift
+  (which is how note 57 D-57.4 came to name four of the twenty figures that were
+  actually there).
+
 - **Every input field renders, and its tier is stated on the widget** (#266,
   design note 57 **D-57.2**, amending note 32 OG-1/OG-2; gates 3 and 4).
   `sloads.field_registry.tier_of` is the one classifier and it has three

@@ -18,9 +18,15 @@ no per-page view files either: every page is :func:`oracle_app.form.render_step`
 bound to a step key, and what it shows comes from
 :mod:`sloads.field_registry` — which is why fourteen pages cost one renderer.
 
-**What it deliberately does not have.** Plots, the sbeam decks, the workbook,
+**What it deliberately does not have.** The sbeam decks, the workbook,
 ``app/``'s summary report and the concept-mode pages: all still fully available
-in ``app/`` and none of them reachable from here. **The sloads-only fields are
+in ``app/`` and none of them reachable from here. **Plots left that list at #267
+(note 60 D-60.1):** every figure the oracle report carries is drawn on the page
+that produces it, in two marked stages -- what is entered, and what was computed
+-- from the report's own ``PlotData`` producers through
+:mod:`app_shell.plots`. This GUI derives no figure data of its own, which is why
+gaining twenty figures cost it no second owner of anything.
+**The sloads-only fields are
 no longer on that list (#266, note 57 D-57.2, amending OG-1/OG-2 above):** every
 registry input path renders here now, the ones the original programs never asked
 for marked and stating why sloads asks for them

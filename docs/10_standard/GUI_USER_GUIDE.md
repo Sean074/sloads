@@ -19,13 +19,23 @@ the generated [`DATA_DICTIONARY.md`](DATA_DICTIONARY.md).
 > **The two-tier interface.** A second front-end, the **oracle GUI**
 > (`streamlit run oracle_app/Oracle.py` / `sloads-oracle`), works over the same
 > project file and still leads with the original FAR 23 LOADS suite's own input
-> set — no concept mode, plots or exports. Since **#266** (design note 57
+> set — no concept mode and no exports. Since **#266** (design note 57
 > D-57.2) it no longer *stops* there: every input field sloads has renders,
 > the ones the original programs never asked for marked **✦** and each stating
 > why sloads asks for it. Leave them unfilled and the GUI asks exactly what the
 > original programs asked. It has its own page-by-page illustrated guide:
 > [`docs/60_guide/00_index.md`](../60_guide/00_index.md). Projects move between
 > the two front-ends unchanged.
+>
+> **Figures** (#267, design note 60). Each page draws the figures the formal
+> report prints for it, in two blocks that say which they are: *what is
+> entered* — a planform, the weight and centre-of-gravity envelope, a flap on
+> the wing, drawn before anything is computed so the shape can be checked — and
+> *what was computed* — the V-n diagrams, the span loading, the shear and
+> bending distributions, the engine-out march. They are the report's own
+> figures, not a second drawing of the same numbers: one producer, two
+> renderers, and a test that fails if either front-end gains a figure the other
+> has not.
 >
 > A handful of fields have no widget in either front-end — the rotor set of an
 > engine, the loading and ballast of a CG case — because they live inside a
