@@ -229,6 +229,7 @@ FAR23LOADS/
 │   │   ├── content.py            # Project + module results → ReportDocument (sections/tables/figures) — no LaTeX
 │   │   ├── tables.py            # the deliverable tables that are not decks: case index, governing SF table, gear report, export-scope filter (note 56 D-56.1, moved out of export/)
 │   │   ├── applied.py            # THE applied load set (OR-141): one row shape for all six components, the station numbering, the side-of-body internal loads (note 56 D-56.1, moved out of export/sbeam_bridge.py, which ceased to exist)
+│   │   ├── lumping.py            # what summing the applied set onto the beam's grids costs the distribution: the two internal-load curves and their gap (note 56 D-56.10)
 │   │   ├── bundle.py             # THE Export zip's member list: every file it carries, with the manifest row that names it (CR-C-1)
 │   │   ├── results_zip.py        # the sidebar's whole-project results zip: every module run, skip-and-manifest (C210-45)
 │   │   ├── conventions_tex.py    # the report's "Axes and sign conventions" section, from CONVENTIONS.md's owners

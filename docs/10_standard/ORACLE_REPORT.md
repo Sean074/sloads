@@ -1206,6 +1206,55 @@ result.*
   register** (OR-202) — a citation is a promise the register keeps, gated the
   same way OR-191 gates cross-section references.
 
+## 3.14 Appendix G: what the beam grids cost the distribution
+
+*Agreed 2026-09-12 (design note 56 D-56.10, ruling 14). The counterpart to
+D-56.9: the applied appendices state the delivered set at the beam's grids, and
+this states what stating it there moved.*
+
+- **The appendix exists because the mesh is load-blind on purpose.** The beam's
+  grids are decided from geometry alone (D-56.4), so several load stations and
+  several concentrated masses sum onto one grid. Each load moves with the exact
+  lever-arm couple, so the set's **resultant** is unchanged — per case, per
+  component, to the last bit, asserted in the suite and not a matter of
+  tolerance. What moves is the **distribution**, and a reader must not have to
+  discover that for themselves.
+- **One table, four figures.** The table gives the widest gap in each channel of
+  each member over **every** case, with the cut it occurs at, the peak the
+  member carries in that channel, and the gap as a share of it. The figures are
+  one per component — wing, fuselage, horizontal tail, fin — and plot the gap
+  along the span for that member's **critical** case.
+- **Both sides are computed; no solver is in the loop.** The internal load at a
+  cut is the static resultant of everything outboard of it transferred to the
+  cut — one rule, the same LM-1 transfer the aggregation uses — evaluated twice
+  about the same cuts, once from the load stations and once from the delivered
+  set. Comparing against a *solved* model would put that model's idealisation in
+  the same picture as the lumping with no way to tell them apart.
+- **Each figure names its own case, because there is no shared one.** The four
+  components' condition registers are disjoint by construction — `W-nn`, `F-nn`,
+  `HT-nn`, `VT-nn`, each surface's own FAR conditions — so no case is run by
+  more than one of them. The case drawn is the one that bends that member
+  hardest; the case where the *lumping* is worst is a different question and the
+  table answers it, per channel, over all cases.
+- **The figures plot the deviation, not the two curves.** Three channels in two
+  versions is six colourless lines carrying three different dimensions, which
+  no single y-axis can hold honestly and no greyscale reader can separate
+  (§4.3). Both sets are already printed in full — the station set in B.2 and
+  C.2, the delivered set in B.1, C.1, D and E — so the difference is the one
+  thing the report did not yet carry, and it is what the figure is. The y-axis
+  is the gap as a percentage of that channel's own peak along the member, so
+  the three share an axis honestly and a near-zero tip value cannot report a
+  large fraction of nothing.
+- **There is no acceptance criterion, and the appendix says so.** The size of
+  the difference is a function of the grid counts the project sets
+  (`Project.lra_mesh`): refine and it falls, coarsen and it rises, and both are
+  the tool doing what it was asked. A fixed tolerance would fail a coarse mesh
+  that is behaving exactly as specified. The identity beside it — the resultant
+  — stays exact and gated.
+- **A channel with no producer is omitted, not drawn flat.** The fuselage
+  carries no torsion in this analysis; a legend entry for it would send a reader
+  looking for a line hidden under the axis.
+
 ## 4. Identity, signatures and DRAFT
 
 The title block carries report number, revision, issue date, issuing
@@ -1382,6 +1431,7 @@ without a guard is prose, not a gate).
 | 11. One Engine Inoperative (OR-171…OR-182, G-OR-113…G-OR-122) | 2026-09-07 | `test_oracle_report_oei.py::test_the_engine_failure_cases_are_in_the_fins_critical_set`, `::test_every_admitted_case_reaches_the_distributions_the_appendix_and_the_deck`, `::test_a_case_that_does_not_recover_is_printed_and_reaches_no_envelope`, `::test_the_ultimate_case_states_its_factor_and_the_section_marks_no_load_ultimate`, `::test_a_single_engine_airplane_is_told_the_condition_does_not_apply` |
 | 12. Landing Gear Loads (OR-183…OR-193, G-OR-123…G-OR-130) | 2026-09-07 | `test_oracle_report_landing.py::test_every_landload_case_reaches_the_section_and_the_appendix`, `::test_each_family_is_ranked_once_per_gear_it_loads`, `::test_the_governing_load_factor_is_printed_beside_the_energy_estimate`, `::test_three_attitude_figures_partition_every_case`, `::test_the_conditions_the_fuselage_section_points_here_for_are_here`, `::test_the_analysis_body_is_complete` |
 | Appendix A: the V-n condition register (OR-193…OR-203, G-OR-131…G-OR-138) | 2026-09-07 | `test_oracle_report_vn.py::test_appendix_a_carries_every_balanced_point_and_no_others`, `::test_the_input_echo_is_retired_and_leaves_no_dangling_reference`, `::test_every_selected_case_id_appears_against_its_own_point`, `::test_every_printed_nx_is_the_inertia_drag_factor_of_its_own_row`, `::test_the_csv_carries_exactly_the_rows_the_appendix_prints`, `::test_every_or_id_cited_anywhere_is_defined_in_a_design_note` |
+| Appendix G: what the beam grids cost the distribution (note 56 D-56.10) | 2026-09-12 | `test_lumping.py::test_the_internal_load_at_a_cut_is_the_outboard_resultant_transferred`, `::test_a_chordwise_offset_becomes_torsion_and_not_bending`, `::test_the_station_curve_at_the_root_is_the_side_of_body_owner`, `::test_every_surface_states_what_its_lumping_cost`, `::test_the_worst_deviation_is_over_every_case_and_not_the_plotted_one`, `::test_the_four_components_share_no_case_which_is_why_each_names_its_own`, `::test_the_appendix_builds_and_states_that_it_has_no_pass_mark`, `::test_a_channel_with_no_producer_is_left_out_rather_than_drawn_flat`, `::test_the_applied_appendices_point_at_an_appendix_that_exists`, `::test_the_new_slot_did_not_move_a_letter` |
 
 ## 8. Conformance
 
