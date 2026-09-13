@@ -16,12 +16,22 @@ For the *why* behind the design, see
 unit-boundary input pattern). For every input field's type/units/default, see
 the generated [`DATA_DICTIONARY.md`](DATA_DICTIONARY.md).
 
-> **The original-suite-only interface.** A second front-end, the **oracle GUI**
-> (`streamlit run oracle_app/Oracle.py` / `sloads-oracle`), exposes exactly the
-> original FAR 23 LOADS suite's input set — no concept mode, plots or exports —
-> over the same project file. It has its own page-by-page illustrated guide:
+> **The two-tier interface.** A second front-end, the **oracle GUI**
+> (`streamlit run oracle_app/Oracle.py` / `sloads-oracle`), works over the same
+> project file and still leads with the original FAR 23 LOADS suite's own input
+> set — no concept mode, plots or exports. Since **#266** (design note 57
+> D-57.2) it no longer *stops* there: every input field sloads has renders,
+> the ones the original programs never asked for marked **✦** and each stating
+> why sloads asks for it. Leave them unfilled and the GUI asks exactly what the
+> original programs asked. It has its own page-by-page illustrated guide:
 > [`docs/60_guide/00_index.md`](../60_guide/00_index.md). Projects move between
 > the two front-ends unchanged.
+>
+> A handful of fields have no widget in either front-end — the rotor set of an
+> engine, the loading and ballast of a CG case — because they live inside a
+> list row that no widget can name. They are entered on the **Project JSON
+> Editor** page, and `sloads.field_registry.JSON_ONLY_RECORDS` is the list of
+> record, with the reason.
 
 ---
 

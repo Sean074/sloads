@@ -4,9 +4,8 @@ Design note 32, step **OG-D**. There are fourteen oracle pages and no fourteen
 page files: :func:`render_step` renders *any* of them from
 :mod:`sloads.field_registry`, which already says — per field — which page edits
 it, whether the original suite asked for it, and what settles that claim. A page
-is therefore the set of registry rows whose ``page`` is this step's key and whose
-path is in :func:`~sloads.field_registry.oracle_input_paths`, and the widget for
-each row is derived from three owners:
+is therefore the set of registry rows whose ``page`` is this step's key, and the
+widget for each row is derived from three owners:
 
 * **shape** — :func:`sloads.field_registry.field_type`, the resolved annotation,
   which decides number vs text vs checkbox vs select vs table;
@@ -15,7 +14,21 @@ each row is derived from three owners:
   :func:`~app_shell.components.unit_number_input` boundary so this module holds
   no factor of its own (gate G1);
 * **provenance** — the registry row's ``basis``, shown as the field's help, so
-  every widget in this GUI can name the ``.BAS`` program that asked for it.
+  every widget in this GUI can name the ``.BAS`` program that asked for it — or,
+  where none did, the sloads decision that added the field.
+
+**Two tiers, one renderer** (#266, design note 57 D-57.2, amending note 32
+OG-1/OG-2). Until #266 a page showed only
+:func:`~sloads.field_registry.oracle_input_paths`, and the sloads-only fields
+were unreachable here: the charter *"the original suite's inputs, and nothing
+this replication added"* was enforced by a page definition dropping them, so a
+concept field could be entered in no form at all. Every registry path now
+renders, and which tier it belongs to is stated on the widget itself
+(:data:`EXTENSION_MARK`, :func:`_help`) rather than by its absence. The one
+exception is declared rather than silent: a record whose path crosses a ``[]``
+hop cannot be addressed by any widget, and
+:data:`~sloads.field_registry.JSON_ONLY_RECORDS` says which records those are
+and why.
 
 Nothing here computes a load, and nothing here holds a second copy of a page
 list: adding a ``bas`` to a workflow step adds a page with no edit to this file
@@ -134,6 +147,31 @@ _UNIT_SUFFIXES: Tuple[Tuple[str, str], ...] = tuple(
     sorted(_UNIT_SUFFIX.items(), key=lambda item: -len(item[0])))
 
 
+#: The extension tier's mark, on the **label** of every widget that edits a
+#: sloads-only field (#266, design note 57 D-57.2).
+#:
+#: It is applied in :func:`_field_label` and :func:`_help`, the two functions
+#: every widget in this GUI passes through -- scalars, tuples, curves, enum sets
+#: and grid columns alike -- so a field is marked in every shape it can render
+#: in, and a new shape inherits the mark instead of forgetting it. Marking at
+#: the widget rather than in a section per page is D-57.2 amended (#266): a
+#: record can hold fields of both tiers, and a second section over that record
+#: emits its row counter, its seed and its remove control a second time under
+#: the same Streamlit key -- a duplicate-key exception for a grid, and two
+#: gestures over one record for a form. Marking travels with the field, which
+#: is the level the tier is actually a property of.
+EXTENSION_MARK = "\u2726"
+
+#: Said once per page that shows any, above the fields (:func:`render_step`).
+#: The mark alone is a symbol; this is what it means, in the GUI's own words.
+EXTENSION_NOTE = (
+    f"Fields marked **{EXTENSION_MARK}** are **sloads extensions** \u2014 capability this "
+    "replication added, not inputs of the original FAR 23 LOADS suite. Each "
+    "one's help states why sloads asks for it. Leaving them unfilled leaves "
+    "this GUI asking exactly what the original programs asked."
+)
+
+
 def _field_label(path: str) -> str:
     """A schema leaf as a widget label: the hand-declared name, else prettified.
 
@@ -148,8 +186,19 @@ def _field_label(path: str) -> str:
     for suffix, unit in _UNIT_SUFFIXES:
         if leaf.endswith(suffix) and len(leaf) > len(suffix):
             stem = declared if declared is not None else pretty(leaf[: -len(suffix)])
-            return f"{stem} ({unit})" if unit else stem
-    return declared if declared is not None else pretty(leaf)
+            return _marked(path, f"{stem} ({unit})" if unit else stem)
+    return _marked(path, declared if declared is not None else pretty(leaf))
+
+
+def _marked(path: str, label: str) -> str:
+    """``label``, carrying :data:`EXTENSION_MARK` if ``path`` is an extension field.
+
+    Every label this GUI renders goes through here, so the tier split shows on
+    the widget itself -- including a grid column header, which is the only place
+    a column can be marked at all.
+    """
+    return (f"{EXTENSION_MARK} {label}"
+            if fr.tier_of(path) is fr.Tier.EXTENSION else label)
 
 
 def _leaf(path: str) -> str:
@@ -157,9 +206,23 @@ def _leaf(path: str) -> str:
 
 
 def _help(path: str) -> Optional[str]:
-    """A field's provenance, from its registry row."""
+    """A field's provenance, from its registry row — and its tier, when that is
+    not the original suite's.
+
+    An original-suite field's ``basis`` names the ``.BAS`` program that asked
+    for it, so the provenance line says everything. An extension field's names
+    the sloads decision that added it, which answers a question the reader of
+    this GUI has not been told they are being asked -- so the tier is stated
+    before the basis rather than left to be inferred from the symbol on the
+    label (#266, note 57 gate 4).
+    """
     row = fr.entry(path)
-    return f"`{path}` — {row.basis}" if row else None
+    if row is None:
+        return None
+    if fr.tier_of(path) is fr.Tier.EXTENSION:
+        return (f"`{path}` — **sloads extension**, not an input of the original "
+                f"suite. {row.basis}")
+    return f"`{path}` — {row.basis}"
 
 
 def _owner_value(project: Any, owner_path: str) -> Any:
@@ -1594,11 +1657,23 @@ def page_groups(key: str) -> List[Tuple[str, List[str]]]:
 
     The whole page definition: no hand-written list of what a page shows, and no
     field on a page the registry does not put there.
+
+    **Both tiers** since #266 (note 57 D-57.2). The filter used to be
+    :func:`~sloads.field_registry.oracle_input_paths`, which made this one line
+    the whole of the charter barrier: 79 sloads-only fields were unreachable in
+    this GUI because a page definition dropped them, and the JSON editor was the
+    only way in. What is filtered out now is only what no widget can address --
+    :data:`~sloads.field_registry.JSON_ONLY_RECORDS`, a record inside a list row
+    -- and that exclusion is declared with its reason in the registry rather
+    than being a tier's worth of fields falling through a page definition.
+
+    The two tiers are not separated into sections here: they interleave by
+    record, each extension field carrying :data:`EXTENSION_MARK`. See that
+    constant for why the tier is marked on the widget and not on a section.
     """
-    keep = fr.oracle_input_paths()
     groups: Dict[Tuple[str, str], List[str]] = {}
     for row in fr.REGISTRY:
-        if row.page != key or row.path not in keep:
+        if row.page != key or fr.tier_of(row.path) is fr.Tier.JSON_ONLY:
             continue
         # Grouped by record prefix *and* display-group title (#95, C210-6):
         # a titled path renders in its own section even beside untitled
@@ -1656,6 +1731,13 @@ def render_step(key: str) -> None:
             f"({', '.join(step.requires) or 'nothing'})."
         )
     else:
+        # What the mark on a label means, said once above the fields rather
+        # than repeated on every widget (#266, note 57 gate 4). Rendered only
+        # where there is something marked: a page of original-suite inputs
+        # alone looks exactly as it did before the tiers existed.
+        if any(fr.tier_of(p) is fr.Tier.EXTENSION
+               for _prefix, paths in groups for p in paths):
+            st.caption(EXTENSION_NOTE)
         if _page_has_grid(groups):
             # Everything a grid on this page will do with a keystroke, said
             # once above the first one.
@@ -1752,6 +1834,7 @@ def _step_caption(step: wf.WorkflowStep) -> str:
 
 
 __all__ = [
+    "EXTENSION_MARK", "EXTENSION_NOTE",
     "GROUP_NOTES", "MEMBER_LABELS", "blank", "commit_pending", "is_composite",
     "optional_steps", "page_groups", "record_at",
     "render_field", "render_record", "render_scalar", "render_step",

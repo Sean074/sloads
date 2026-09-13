@@ -12,9 +12,9 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `weight.estimation.airplane` | `str` |  | `''` | original | WTESTIMA airplane class |
 | `weight.estimation.engines` | `int` | NOENGS | `1` | original | WTESTIMA NOENGS; quantity: *engine count*; override of `external: len(Project.engines) (review N1 instance 3: concept_heavy 2 vs 0)` |
 | `weight.estimation.max_continuous_hp` | `float` | HP -- combined total; override value (see class doc) | `0.0` | original | WTESTIMA HP; quantity: *max continuous power*; display-only copy of `external: sum of engines[].max_cont_hp (unless overridden -- see resolves)` |
-| `weight.estimation.override_max_continuous_hp` | `bool` | use the stored total instead of the engine sum | `False` | sloads | override switch for the engine-sum derivation |
+| `weight.estimation.override_max_continuous_hp` | `bool` | use the stored total instead of the engine sum | `False` | sloads | override switch: lets the horsepower entered here govern instead of the sum over the engine rows, a derivation sloads added and the original suite had no engine table for (#69) |
 | `weight.estimation.seats` | `int` | SEATS (170 lb each) -- total occupant seats | `1` | original | WTESTIMA SEATS |
-| `weight.estimation.crew` | `int` | flight crew (170 lb each); part of the operating | `1` | sloads | FAR 23 seat-limit check, Step E1 |
+| `weight.estimation.crew` | `int` | flight crew (170 lb each); part of the operating | `1` | sloads | crew aboard: sloads checks the FAR 23 seat limit against it and builds the loading from it; the original suite took a weight and asked nothing about who was in the airplane (Step E1) |
 | `weight.estimation.baggage_lb` | `float` | BAG | `0.0` | original | WTESTIMA BAG |
 | `weight.estimation.cruise_hours` | `float` | HOURS on full tanks at cruise power | `0.0` | original | WTESTIMA HOURS |
 | `weight.estimation.pressurized` | `bool` | P$ = "P" | `False` | original | WTESTIMA P$ = "P" |
@@ -29,7 +29,7 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `weight.items[].izz` | `float` |  | `0.0` | original | WTONECG item inertia; Appendix A p136 IZZ 3022.766 |
 | `weight.items[].kind` | `MassItemKind` |  | `MassItemKind.EMPTY` | original | 'Mirrors the data-base partition of WTONECG.BAS (empty / minimum-flight / discretionary)'; WTENV's discretionary envelope and Appendix A's 78 lb aft ballast need it |
 | `weight.items[].component` | `Optional[MassComponent]` |  | `None` | sloads (supplied) | component tag, plan 09 T-3. The original carried this by position -- BODYLOAD took its own fuselage item list -- so the tag is how the same question is asked here. Load-bearing (G5, review 2026-08-22 PB-2): untagged, the wing panel sits on the fuselage beam at 9 % of peak BODYLOAD shear |
-| `weight.items[].consumable` | `bool` |  | `False` | sloads | loading model, decision D-25 |
+| `weight.items[].consumable` | `bool` |  | `False` | sloads | marks the item consumable so sloads can build fuel-burn loading states from the weight database; the original suite took one weight statement and no loading model (decision D-25) |
 | `weight.items[].wing_fraction` | `float` |  | `0.0` | sloads (supplied) | wing/body split of one row (plan 11, note 29 WF-2): `component` at finer grain, the same which-beam question BODYLOAD asked by position. Load-bearing (G5, #62): the DHC-8 fuel row is 86 % wing, and dropped it rides the fuselage beam whole |
 | `weight.envelope.gross_weight` | `float` |  | `0.0` | original | WTENV gross weight; quantity: *max take-off weight*; override of `weight.max_takeoff_weight_lb (blank derives from the MTOW SSOT, note 36 OV-2; C210-13)` |
 | `weight.envelope.mac` | `Optional[float]` |  | `None` | original | WTENV MAC; quantity: *wing MAC*; override of `external: derived_geometry from the planform (Optional override here)` |
@@ -40,7 +40,7 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `weight.envelope.fwd_regardless_weight` | `float` |  | `0.0` | original | WTENV forward-regardless weight |
 | `weight.envelope.fuselage_nose_x` | `Optional[float]` |  | `None` | original | WTENV nose station; quantity: *fuselage nose station*; override of `external: the fuselage outline (all-or-nothing pair with tail_x, weight_envelope._fuselage_extent; note 36 / C210-13)` |
 | `weight.envelope.fuselage_tail_x` | `Optional[float]` |  | `None` | original | WTENV tail station; quantity: *fuselage tail station*; override of `external: the fuselage outline (all-or-nothing pair with nose_x, weight_envelope._fuselage_extent; note 36 / C210-13)` |
-| `weight.envelope.wing_surface` | `str` |  | `'wing'` | sloads | surface selector (standing ruling) |
+| `weight.envelope.wing_surface` | `str` |  | `'wing'` | sloads | names which surface of sloads' multi-surface planform this step reads; the original suite had one wing and needed no selector (standing ruling) |
 | `weight.cg_cases[].name` | `str` |  | `**required**` | sloads (supplied) | case selector, Step D5; structurally required |
 | `weight.cg_cases[].role` | `Optional[GroundCaseRole]` |  | `None` | sloads (supplied) | LANDLOAD's three loadings (UG fig 18.2), positional in the original, a column here (G-3a). Load-bearing (G5): without it LANDLOAD has no GROUND cases and does not run. The role only assigns the case to its slot -- nothing checks the numbers against the tag, so a heavy-aft case tagged fwd_light is consumed in the light-forward slot without complaint (#94, C210-14) |
 | `weight.cg_cases[].weight_lb` | `float` | lb | `**required**` | original | FLTLOADS.BAS prompts for four CG cases |
@@ -63,9 +63,9 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `weight.cg_cases[].loading.ballast.wing_fraction` | `float` |  | `0.0` | sloads | ballast item, decision D-25 |
 | `select_input.wing_weight_lb` | `float` | lb | `0.0` | original | SELECT wing weight, Ch 9; a weight quantity, edited with the weight data (#95, C210-22 -- the 0 -> 0.09*MTOW fallback was undisclosed on the page); override of `external: the Ch 9 statistical stand-in 0.09 x MTOW (select.select_fuselage; the items table's wing-component sum is the better number to type -- both-sides total wing group weight)` |
 | `tail_mass[].surface` | `str` | "htail" \| "vtail" | `'htail'` | sloads (supplied) | row selector -- which tail surface the row describes; load-bearing (G5, #98): an unmatched row is refused by name where it used to be silently inert |
-| `tail_mass[].panel_weight_lb` | `float` | whole surface (both sides for the h-tail) | `0.0` | sloads | empennage distributed inertia, plan 09 T-3 |
-| `tail_mass[].weight_is_override` | `bool` |  | `False` | sloads | empennage distributed inertia, plan 09 T-3 |
-| `tail_mass[].control_load_mode` | `str` |  | `'smeared'` | sloads | empennage distributed inertia, plan 09 T-3 |
-| `tail_mass[].hinges_span_in` | `List[float]` | in | `[] (factory)` | sloads | sbeam control-surface bridge station |
-| `tail_mass[].actuator_span_in` | `float` | in | `0.0` | sloads | sbeam control-surface bridge station |
+| `tail_mass[].panel_weight_lb` | `float` | whole surface (both sides for the h-tail) | `0.0` | sloads | empennage distributed inertia -- sloads spreads tail panel mass along the beam model, where the original suite took a single tail weight (plan 09 T-3) |
+| `tail_mass[].weight_is_override` | `bool` |  | `False` | sloads | empennage distributed inertia -- sloads spreads tail panel mass along the beam model, where the original suite took a single tail weight (plan 09 T-3) |
+| `tail_mass[].control_load_mode` | `str` |  | `'smeared'` | sloads | empennage distributed inertia -- sloads spreads tail panel mass along the beam model, where the original suite took a single tail weight (plan 09 T-3) |
+| `tail_mass[].hinges_span_in` | `List[float]` | in | `[] (factory)` | sloads | control-surface geometry sloads needs to bridge hinge and actuator loads onto the sbeam beam model; the original suite printed loads and built no structural model (note 56) |
+| `tail_mass[].actuator_span_in` | `float` | in | `0.0` | sloads | control-surface geometry sloads needs to bridge hinge and actuator loads onto the sbeam beam model; the original suite printed loads and built no structural model (note 56) |
 

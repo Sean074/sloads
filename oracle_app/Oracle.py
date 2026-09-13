@@ -19,9 +19,18 @@ bound to a step key, and what it shows comes from
 :mod:`sloads.field_registry` — which is why fourteen pages cost one renderer.
 
 **What it deliberately does not have.** Plots, the sbeam decks, the workbook,
-``app/``'s summary report, the concept-mode pages and every sloads-only field:
-all still fully available in ``app/``, none of them reachable from here as a
-*form* (since D-57.3 the JSON editor is the escape hatch -- see below).
+``app/``'s summary report and the concept-mode pages: all still fully available
+in ``app/`` and none of them reachable from here. **The sloads-only fields are
+no longer on that list (#266, note 57 D-57.2, amending OG-1/OG-2 above):** every
+registry input path renders here now, the ones the original programs never asked
+for marked and stating why sloads asks for them
+(:data:`oracle_app.form.EXTENSION_MARK`). The charter that survives is the one
+that was always the point -- *this front-end leads with the original suite's own
+inputs, and leaving the marked fields unfilled asks exactly what the original
+programs asked* -- rather than the one enforced by dropping fields out of a page
+definition, which made a concept field enterable in no form at all. What no
+widget can address is declared with its reason in
+:data:`sloads.field_registry.JSON_ONLY_RECORDS` and entered in the JSON editor.
 **Amended for milestone 0.8.2 (design note 44, OR-3/OR-16):** this GUI now
 carries one page that is not a workflow step -- ``Report``, which generates a
 formal technical report of *this* front end's own analysis and writes it as an
@@ -31,10 +40,11 @@ exactly that, so the report page can never be mistaken for an analysis step or
 be reached by a cross-page step link. **Amended for milestone 0.8.4 (design
 note 57, D-57.3):** a second such page joins it -- the ``Project JSON Editor``,
 owned in :mod:`app_shell.project_editor` and registered the same way. It is the
-escape hatch for the field delta above: a sloads-only field no form here renders
-is still enterable, as JSON, while D-57.2's two field tiers are built. The
-*forms* still ask only for the original suite's inputs; the editor edits the
-project, not a form. A project saved by
+escape hatch for the field delta above -- and since #266 built D-57.2's two
+tiers, for the far smaller delta that remains: the records
+:data:`sloads.field_registry.JSON_ONLY_RECORDS` names, which live inside a list
+row and which no widget can name. The editor edits the project, not a form. A
+project saved by
 either GUI opens in the other unchanged (OG-13, gate G6) — this front-end asks
 for less, it does not store anything different.
 """

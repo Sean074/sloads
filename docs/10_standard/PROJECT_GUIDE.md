@@ -198,7 +198,7 @@ FAR23LOADS/
 │   ├── registry.py               # module registry: name -> run(project) -> ModuleResult; run_all_modules
 │   ├── _version.py               # THE version literal: pyproject reads it via attr:, the report stamps it (guard: tests/test_version_owner.py)
 │   ├── spec_names.py             # registry name -> PROGRAM_SPEC heading (+ the non-module allowlist), guarded (R6-D6)
-│   ├── field_registry.py         # THE input-field registry: path │ slice │ page │ origin │ quantity │ owner │ supplied (note 32, OG-14/G5)
+│   ├── field_registry.py         # THE input-field registry: path │ slice │ page │ origin │ quantity │ owner │ supplied (note 32, OG-14/G5); tier_of() classifies every path suite/extension/JSON-only for the GUI (#266, note 57 D-57.2)
 │   ├── workflow.py               # THE nav SSOT: ordered Start→Develop V-n→Flight loads→Other loads→Landing→Load-case plotting→Export step graph (GUI nav + dashboard; Step G2)
 │   ├── load_keys.py              # canonical LoadValue.key constants for the load-case schema (M4-9)
 │   ├── case_ids.py               # structured load-case / subcase / deck LOAD id allocation (D1, M4-2)

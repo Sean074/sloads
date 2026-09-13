@@ -8,9 +8,9 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | Field | Type | Units / notes | Default | Origin | Provenance |
 | --- | --- | --- | --- | --- | --- |
 | `select_input.full_down_aileron_deg` | `float` | deg | `0.0` | original | SELECT full-down aileron, Ch 9; control geometry, edited with the aileron record (#95, C210-22); quantity: *full-down aileron deflection*; override of `aileron_loads.down_deflection_deg (blank derives from the AILERON travel; note 36 OV-2, C210-38 -- a typed disagreement warns, aileron_deflection_mismatch)` |
-| `aileron_loads.surface` | `str` |  | `'aileron'` | sloads | surface selector (standing ruling) |
-| `aileron_loads.inboard_y_in` | `Optional[float]` | surface inboard butt line, in | `None` | sloads | sbeam control-surface bridge station |
-| `aileron_loads.outboard_y_in` | `Optional[float]` | surface outboard butt line, in | `None` | sloads | sbeam control-surface bridge station |
-| `aileron_loads.hinges_span_in` | `List[float]` | hinge butt lines, in | `[] (factory)` | sloads | sbeam control-surface bridge station |
-| `aileron_loads.actuator_span_in` | `float` | actuator butt line, in; 0 = not entered | `0.0` | sloads | sbeam control-surface bridge station |
+| `aileron_loads.surface` | `str` |  | `'aileron'` | sloads | names which surface of sloads' multi-surface planform this step reads; the original suite had one wing and needed no selector (standing ruling) |
+| `aileron_loads.inboard_y_in` | `Optional[float]` | surface inboard butt line, in | `None` | sloads | control-surface geometry sloads needs to bridge hinge and actuator loads onto the sbeam beam model; the original suite printed loads and built no structural model (note 56) |
+| `aileron_loads.outboard_y_in` | `Optional[float]` | surface outboard butt line, in | `None` | sloads | control-surface geometry sloads needs to bridge hinge and actuator loads onto the sbeam beam model; the original suite printed loads and built no structural model (note 56) |
+| `aileron_loads.hinges_span_in` | `List[float]` | hinge butt lines, in | `[] (factory)` | sloads | control-surface geometry sloads needs to bridge hinge and actuator loads onto the sbeam beam model; the original suite printed loads and built no structural model (note 56) |
+| `aileron_loads.actuator_span_in` | `float` | actuator butt line, in; 0 = not entered | `0.0` | sloads | control-surface geometry sloads needs to bridge hinge and actuator loads onto the sbeam beam model; the original suite printed loads and built no structural model (note 56) |
 

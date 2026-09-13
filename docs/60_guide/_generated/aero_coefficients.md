@@ -29,10 +29,10 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `aero_coeffs.flaps_down.stall_cl` | `float` |  | `0.0` | original | FLTLOADS set stall CL; quantity: *flapped positive stall CL*; override of `aero_coeffs.clmax_flap (blank inherits via normalize(); note 36 OV-3, C210-15)` |
 | `aero_coeffs.flaps_down.neg_stall_cl` | `float` |  | `0.0` | original | FLTLOADS set negative stall CL |
 | `aero_coeffs.flaps_down.flaps_down` | `bool` |  | `False` | original | FLTLOADS configuration flag |
-| `aero_coeffs.fuselage_moment.enabled` | `bool` |  | `False` | sloads | Munk slender-body increment, Step G4 |
-| `aero_coeffs.fuselage_moment.d_cm_dalpha` | `float` | per degree; added to the airplane-less-tail M1 | `0.0` | sloads | Munk slender-body increment, Step G4 |
-| `aero_coeffs.lateral_body_aero.enabled` | `bool` |  | `False` | sloads | lumped lateral body aero, L-7 |
-| `aero_coeffs.lateral_body_aero.cy_beta` | `Optional[float]` | per degree; None -> DATCOM 5.2.1.1 | `None` | sloads | lumped lateral body aero, L-7 |
-| `aero_coeffs.lateral_body_aero.cn_beta` | `Optional[float]` | per degree about xw; None -> DATCOM 5.2.3.1 | `None` | sloads | lumped lateral body aero, L-7 |
+| `aero_coeffs.fuselage_moment.enabled` | `bool` |  | `False` | sloads | the Munk slender-body pitching-moment increment sloads adds when it balances the whole airplane; the suite's tail balance carried no body moment (Step G4) |
+| `aero_coeffs.fuselage_moment.d_cm_dalpha` | `float` | per degree; added to the airplane-less-tail M1 | `0.0` | sloads | the Munk slender-body pitching-moment increment sloads adds when it balances the whole airplane; the suite's tail balance carried no body moment (Step G4) |
+| `aero_coeffs.lateral_body_aero.enabled` | `bool` |  | `False` | sloads | lumped lateral body aerodynamics -- side force and yawing moment per sideslip -- for sloads' own lateral balance, which the original suite did not form (L-7) |
+| `aero_coeffs.lateral_body_aero.cy_beta` | `Optional[float]` | per degree; None -> DATCOM 5.2.1.1 | `None` | sloads | lumped lateral body aerodynamics -- side force and yawing moment per sideslip -- for sloads' own lateral balance, which the original suite did not form (L-7) |
+| `aero_coeffs.lateral_body_aero.cn_beta` | `Optional[float]` | per degree about xw; None -> DATCOM 5.2.3.1 | `None` | sloads | lumped lateral body aerodynamics -- side force and yawing moment per sideslip -- for sloads' own lateral balance, which the original suite did not form (L-7) |
 | `select_input.basic_airfoil_cm` | `float` |  | `0.0` | original | SELECT basic airfoil CM, Ch 9 (the bare section cm at zero aileron for the 23.349(b) roll torsion -- not the airplane-less-tail M0 beside it; #95, C210-22) |
 

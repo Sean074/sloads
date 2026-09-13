@@ -12,5 +12,5 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `fuselage_mass.stations[].weight_lb` | `float` | lb | `0.0` | original | Ch 15 station weight |
 | `fuselage_mass.stations[].y` | `float` |  | `0.0` | sloads | butt line the station's lumped mass acts at (v62) -- blank derives from the item database's own weight-weighted centroid; where the mass is, not where the beam is |
 | `fuselage_mass.stations[].z` | `float` |  | `0.0` | sloads | waterline the station's lumped mass acts at (v62) -- blank derives from the item database's own weight-weighted centroid; distinct from ref_waterline, which places the beam that carries it |
-| `fuselage_mass.stations_are_override` | `bool` |  | `False` | sloads | override switch for the weight-DB derivation |
+| `fuselage_mass.stations_are_override` | `bool` |  | `False` | sloads | override switch: lets the fuselage stations entered here govern instead of the weight database's own centroids, a derivation sloads added (v62) |
 

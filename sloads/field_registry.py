@@ -908,7 +908,9 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("geometry.surfaces[].ref_axis_pct", _GEO, _SLDS,
        "loads reference axis, R-7c; the axis every distributed tail and wing "
        "torsion is stated about (G5, 2026-09-07)", supplied=True),
-    _E("geometry.surfaces[].sob_y_in", _GEO, _SLDS, "side-of-body station, BM-1"),
+    _E("geometry.surfaces[].sob_y_in", _GEO, _SLDS,
+       "side-of-body station: where the carry-through ends and the beam model's cantilever begins, a station the "
+       "original suite never had to mesh (BM-1)"),
     _E("geometry.surfaces[].tip_cap_width_in", _GEO, _SLDS,
        "rounded tip-cap width, note 36 OV-4 (C210-31): the planform rounding the polylines "
        "cannot carry; aero.surfaces[].tip_ratio falsy-derives from it / semi-span"),
@@ -947,7 +949,9 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "it, and atr42_100's Appendix E printed 40 rows of loads OR-133 "
        "withholds -- the reduction moved a deliverable, not a sketch",
        supplied=True),
-    _E("geometry.parametric.body_drag_waterline_z", _GEO, _SLDS, "body-drag line, Step G4 balance work"),
+    _E("geometry.parametric.body_drag_waterline_z", _GEO, _SLDS,
+       "body-drag line: the waterline sloads applies fuselage drag at when it balances the airplane as a free body, "
+       "which the suite never formed (Step G4)"),
     # Candidate 19th duplicate, NOT declared: this and SELECT's LF
     # (geometry.empennage.airplane_length_in, one field since v55 / #52)
     # are plausibly one dimension, but nothing in the repo says so and the two
@@ -962,8 +966,12 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        resolves="With no fuselage outline entered yet, a typed length stands "
        "(and seeds the outline when an older file loads); once outline "
        "sections exist, the outline governs and this is its read-only summary."),
-    _E("geometry.parametric.fuselage_width", _GEO, _SLDS, "derived outline summary, Step M2-6"),
-    _E("geometry.parametric.fuselage_height", _GEO, _SLDS, "derived outline summary, Step M2-6"),
+    _E("geometry.parametric.fuselage_width", _GEO, _SLDS,
+       "overall fuselage outline summary, carried because sloads models the body as sections and the original suite "
+       "modelled no body at all (Step M2-6)"),
+    _E("geometry.parametric.fuselage_height", _GEO, _SLDS,
+       "overall fuselage outline summary, carried because sloads models the body as sections and the original suite "
+       "modelled no body at all (Step M2-6)"),
     # The outline itself is sloads (Step G1), but a section cannot be constructed
     # without all three, so a project that has one at all has these (G5 rule 1).
     _E("geometry.fuselage.sections[].x", _GEO, _SLDS,
@@ -972,7 +980,9 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "body outline model, Step G1; structurally required", supplied=True),
     _E("geometry.fuselage.sections[].height", _GEO, _SLDS,
        "body outline model, Step G1; structurally required", supplied=True),
-    _E("geometry.fuselage.sections[].z_centre", _GEO, _SLDS, "body outline model, Step G1"),
+    _E("geometry.fuselage.sections[].z_centre", _GEO, _SLDS,
+       "body outline model: the section's waterline centre, which sloads needs to place fuselage mass and drag in "
+       "three dimensions (Step G1)"),
 
     # geometry.empennage -- the whole-airplane length both tail inertias use
     # (one home since v55, #52; each tail carried a copy before)
@@ -1053,7 +1063,9 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        governs=True),
     _E("geometry.empennage.vtail.xv25", _GEO, _ORIG, "SELECT 25% v-tail MAC station"),
     _E("geometry.empennage.vtail.xv50", _GEO, _ORIG, "ONENGOUT camber-load station"),
-    _E("geometry.empennage.vtail.vtail_root_waterline_z", _GEO, _SLDS, "v-tail root waterline, plan 09 (tail_span)"),
+    _E("geometry.empennage.vtail.vtail_root_waterline_z", _GEO, _SLDS,
+       "v-tail root waterline: where the fin meets the body, needed to build the tail's beam span; the original suite "
+       "took tail loads with no tail geometry (plan 09, tail_span)"),
 
     # Aileron/flap planform geometry -- C210-37 (owner: "very similar
     # information" to the empennage forms). The rows keep their slices
@@ -1122,9 +1134,13 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        resolves="The estimate correlates against the engine list's combined "
                 "max-continuous power, not this field, unless the override "
                 "switch beside it is set (or no engine states a rating)."),
-    _E("weight.estimation.override_max_continuous_hp", _WT, _SLDS, "override switch for the engine-sum derivation"),
+    _E("weight.estimation.override_max_continuous_hp", _WT, _SLDS,
+       "override switch: lets the horsepower entered here govern instead of the sum over the engine rows, a derivation "
+       "sloads added and the original suite had no engine table for (#69)"),
     _E("weight.estimation.seats", _WT, _ORIG, "WTESTIMA SEATS"),
-    _E("weight.estimation.crew", _WT, _SLDS, "FAR 23 seat-limit check, Step E1"),
+    _E("weight.estimation.crew", _WT, _SLDS,
+       "crew aboard: sloads checks the FAR 23 seat limit against it and builds the loading from it; the original suite "
+       "took a weight and asked nothing about who was in the airplane (Step E1)"),
     _E("weight.estimation.baggage_lb", _WT, _ORIG, "WTESTIMA BAG"),
     _E("weight.estimation.cruise_hours", _WT, _ORIG, "WTESTIMA HOURS"),
     _E("weight.estimation.pressurized", _WT, _ORIG, 'WTESTIMA P$ = "P"'),
@@ -1153,7 +1169,9 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "took its own fuselage item list -- so the tag is how the same question is asked "
        "here. Load-bearing (G5, review 2026-08-22 PB-2): untagged, the wing panel sits "
        "on the fuselage beam at 9 % of peak BODYLOAD shear", supplied=True),
-    _E("weight.items[].consumable", _WT, _SLDS, "loading model, decision D-25"),
+    _E("weight.items[].consumable", _WT, _SLDS,
+       "marks the item consumable so sloads can build fuel-burn loading states from the weight database; the original "
+       "suite took one weight statement and no loading model (decision D-25)"),
     _E("weight.items[].wing_fraction", _WT, _SLDS,
        "wing/body split of one row (plan 11, note 29 WF-2): `component` at finer grain, the "
        "same which-beam question BODYLOAD asked by position. Load-bearing (G5, #62): the "
@@ -1181,7 +1199,9 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        EXTERNAL + "the fuselage outline (all-or-nothing pair with nose_x, weight_envelope."
        "_fuselage_extent; note 36 / C210-13)",
        governs=True),
-    _E("weight.envelope.wing_surface", _WT, _SLDS, "surface selector (standing ruling)"),
+    _E("weight.envelope.wing_surface", _WT, _SLDS,
+       "names which surface of sloads' multi-surface planform this step reads; the original suite had one wing and "
+       "needed no selector (standing ruling)"),
     # The *grid* is Step D5's consolidation, but the cases themselves are not:
     # "the four corners of the WTENV weight-cg envelope (FLTLOADS.BAS prompts for
     # four per configuration)". So the numbers are ORIGINAL and only the columns
@@ -1238,7 +1258,9 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        resolves="STRSPEED integrates that planform whenever the surface exists, "
                 "and reads this field only when it does not -- so it is disabled "
                 "while there is a planform, and live when there is none."),
-    _E("speeds.wing_surface", _SPD, _SLDS, "surface selector (standing ruling)"),
+    _E("speeds.wing_surface", _SPD, _SLDS,
+       "names which surface of sloads' multi-surface planform this step reads; the original suite had one wing and "
+       "needed no selector (standing ruling)"),
     _E("speeds.vh_kt", _SPD, _ORIG, "STRSPEED VH, max level speed"),
     _E("speeds.shoulder_altitude_ft", _SPD, _ORIG,
        "STRSPEED MC/MD altitude; MACHLIM first row (one home since v55, #52)"),
@@ -1263,17 +1285,38 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("speeds.chosen_nneg", _SPD, _ORIG, "STRSPEED chosen negative n, Appendix A p156"),
     _E("speeds.mach_limit.max_operating_altitude_ft", _SPD, _ORIG, "MACHLIM ceiling"),
     _E("speeds.mach_limit.increment_ft", _SPD, _ORIG, "MACHLIM altitude step"),
-    _E("speeds.occupants", _SPD, _SLDS, "FAR 23 applicability check, Step E1"),
-    _E("speeds.vd_basis", _SPD, _SLDS, "25.335(b) route selector, F25-2"),
-    _E("speeds.mach_margin_min", _SPD, _SLDS, "25.335(b)(2) Mach margin, F25-2"),
-    _E("speeds.mach_margin_basis", _SPD, _SLDS, "25.335(b)(2) rational analysis, F25-2"),
-    _E("speeds.vb_kt", _SPD, _SLDS, "25.335(d) rough-air speed, F25-2"),
-    _E("speeds.no_yellow_arc", _SPD, _SLDS, "Subpart G placard family, M2-10"),
-    _E("speeds.target_vne", _SPD, _SLDS, "operational target, advisory only, M2-10"),
-    _E("speeds.target_vno", _SPD, _SLDS, "operational target, advisory only, M2-10"),
-    _E("speeds.target_vmo", _SPD, _SLDS, "operational target, advisory only, M2-10"),
-    _E("speeds.target_mmo", _SPD, _SLDS, "operational target, advisory only, M2-10"),
-    _E("speeds.target_vfe", _SPD, _SLDS, "operational target, advisory only, M2-10"),
+    _E("speeds.occupants", _SPD, _SLDS,
+       "occupants: sloads checks FAR 23 applicability (the nine-seat limit) from it; the original suite assumed the "
+       "category and asked nothing (Step E1)"),
+    _E("speeds.vd_basis", _SPD, _SLDS,
+       "chooses which 25.335(b) route sets VD -- a Part 25 supplemental case sloads offers, for which the FAR 23 suite "
+       "has no rule (F25-2)"),
+    _E("speeds.mach_margin_min", _SPD, _SLDS,
+       "the minimum Mach margin 25.335(b)(2) requires: a Part 25 supplemental input, outside the FAR 23 suite's speed "
+       "rules entirely (F25-2)"),
+    _E("speeds.mach_margin_basis", _SPD, _SLDS,
+       "states which rational analysis the Mach margin rests on, as 25.335(b)(2) requires; Part 25 supplemental, "
+       "unknown to the FAR 23 suite (F25-2)"),
+    _E("speeds.vb_kt", _SPD, _SLDS,
+       "rough-air speed VB under 25.335(d) -- a Part 25 supplemental speed the FAR 23 suite does not define (F25-2)"),
+    _E("speeds.no_yellow_arc", _SPD, _SLDS,
+       "suppresses the yellow arc on the placard sloads generates; the original suite printed the speeds and no "
+       "placard to mark (M2-10)"),
+    _E("speeds.target_vne", _SPD, _SLDS,
+       "an operational target speed sloads compares the computed placard against and reports advisory only -- it sets "
+       "no load; the original suite printed the computed speeds alone (M2-10)"),
+    _E("speeds.target_vno", _SPD, _SLDS,
+       "an operational target speed sloads compares the computed placard against and reports advisory only -- it sets "
+       "no load; the original suite printed the computed speeds alone (M2-10)"),
+    _E("speeds.target_vmo", _SPD, _SLDS,
+       "an operational target speed sloads compares the computed placard against and reports advisory only -- it sets "
+       "no load; the original suite printed the computed speeds alone (M2-10)"),
+    _E("speeds.target_mmo", _SPD, _SLDS,
+       "an operational target speed sloads compares the computed placard against and reports advisory only -- it sets "
+       "no load; the original suite printed the computed speeds alone (M2-10)"),
+    _E("speeds.target_vfe", _SPD, _SLDS,
+       "an operational target speed sloads compares the computed placard against and reports advisory only -- it sets "
+       "no load; the original suite printed the computed speeds alone (M2-10)"),
 
     # ----------------------------------------------------------------- #
     # aero_coeffs -- FLTLOADS coefficient sets (aero_coefficients)
@@ -1316,11 +1359,21 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     # validation warns about rather than guessing.
     _E("aero_coeffs.flaps_down.neg_stall_cl", _AERO, _ORIG, "FLTLOADS set negative stall CL"),
     _E("aero_coeffs.flaps_down.flaps_down", _AERO, _ORIG, "FLTLOADS configuration flag"),
-    _E("aero_coeffs.fuselage_moment.enabled", _AERO, _SLDS, "Munk slender-body increment, Step G4"),
-    _E("aero_coeffs.fuselage_moment.d_cm_dalpha", _AERO, _SLDS, "Munk slender-body increment, Step G4"),
-    _E("aero_coeffs.lateral_body_aero.enabled", _AERO, _SLDS, "lumped lateral body aero, L-7"),
-    _E("aero_coeffs.lateral_body_aero.cy_beta", _AERO, _SLDS, "lumped lateral body aero, L-7"),
-    _E("aero_coeffs.lateral_body_aero.cn_beta", _AERO, _SLDS, "lumped lateral body aero, L-7"),
+    _E("aero_coeffs.fuselage_moment.enabled", _AERO, _SLDS,
+       "the Munk slender-body pitching-moment increment sloads adds when it balances the whole airplane; the suite's "
+       "tail balance carried no body moment (Step G4)"),
+    _E("aero_coeffs.fuselage_moment.d_cm_dalpha", _AERO, _SLDS,
+       "the Munk slender-body pitching-moment increment sloads adds when it balances the whole airplane; the suite's "
+       "tail balance carried no body moment (Step G4)"),
+    _E("aero_coeffs.lateral_body_aero.enabled", _AERO, _SLDS,
+       "lumped lateral body aerodynamics -- side force and yawing moment per sideslip -- for sloads' own lateral "
+       "balance, which the original suite did not form (L-7)"),
+    _E("aero_coeffs.lateral_body_aero.cy_beta", _AERO, _SLDS,
+       "lumped lateral body aerodynamics -- side force and yawing moment per sideslip -- for sloads' own lateral "
+       "balance, which the original suite did not form (L-7)"),
+    _E("aero_coeffs.lateral_body_aero.cn_beta", _AERO, _SLDS,
+       "lumped lateral body aerodynamics -- side force and yawing moment per sideslip -- for sloads' own lateral "
+       "balance, which the original suite did not form (L-7)"),
 
     # ----------------------------------------------------------------- #
     # flight_loads -- FLTLOADS (flight_envelope); the M2-6 derived copies
@@ -1397,7 +1450,9 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("aero.surfaces[].design_mach", _WING, _ORIG, "AIRLOAD4 high-Mach branch"),
 
     # wing_mass -- WINGINER (wing_loads)
-    _E("wing_mass.surface", _WING, _SLDS, "surface selector (standing ruling)"),
+    _E("wing_mass.surface", _WING, _SLDS,
+       "names which surface of sloads' multi-surface planform this step reads; the original suite had one wing and "
+       "needed no selector (standing ruling)"),
     _E("wing_mass.panel_weight_lb", _WING, _ORIG, "WINGINER panel weight"),
     _E("wing_mass.inboard_rib_y", _WING, _ORIG, "WINGINER inboard rib station"),
     _E("wing_mass.tip_root_density_ratio", _WING, _ORIG, "WINGINER tip/root density ratio"),
@@ -1436,19 +1491,33 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "waterline the station's lumped mass acts at (v62) -- blank derives from "
        "the item database's own weight-weighted centroid; distinct from "
        "ref_waterline, which places the beam that carries it"),
-    _E("fuselage_mass.stations_are_override", _FUS, _SLDS, "override switch for the weight-DB derivation"),
+    _E("fuselage_mass.stations_are_override", _FUS, _SLDS,
+       "override switch: lets the fuselage stations entered here govern instead of the weight database's own "
+       "centroids, a derivation sloads added (v62)"),
 
     # ----------------------------------------------------------------- #
     # Control-surface pages. The span-station fields are NOT .BAS inputs:
     # PROGRAM_SPEC says AILERON's only upstream input per UG Table 2.2 is the
     # deflections + areas; the stations feed the sbeam control-surface bridge.
     # ----------------------------------------------------------------- #
-    _E("aileron_loads.surface", _AIL, _SLDS, "surface selector (standing ruling)"),
-    _E("aileron_loads.inboard_y_in", _AIL, _SLDS, "sbeam control-surface bridge station"),
-    _E("aileron_loads.outboard_y_in", _AIL, _SLDS, "sbeam control-surface bridge station"),
-    _E("aileron_loads.hinges_span_in", _AIL, _SLDS, "sbeam control-surface bridge station"),
-    _E("aileron_loads.actuator_span_in", _AIL, _SLDS, "sbeam control-surface bridge station"),
-    _E("flap_loads.surface", _FLAP, _SLDS, "surface selector (standing ruling)"),
+    _E("aileron_loads.surface", _AIL, _SLDS,
+       "names which surface of sloads' multi-surface planform this step reads; the original suite had one wing and "
+       "needed no selector (standing ruling)"),
+    _E("aileron_loads.inboard_y_in", _AIL, _SLDS,
+       "control-surface geometry sloads needs to bridge hinge and actuator loads onto the sbeam beam model; the "
+       "original suite printed loads and built no structural model (note 56)"),
+    _E("aileron_loads.outboard_y_in", _AIL, _SLDS,
+       "control-surface geometry sloads needs to bridge hinge and actuator loads onto the sbeam beam model; the "
+       "original suite printed loads and built no structural model (note 56)"),
+    _E("aileron_loads.hinges_span_in", _AIL, _SLDS,
+       "control-surface geometry sloads needs to bridge hinge and actuator loads onto the sbeam beam model; the "
+       "original suite printed loads and built no structural model (note 56)"),
+    _E("aileron_loads.actuator_span_in", _AIL, _SLDS,
+       "control-surface geometry sloads needs to bridge hinge and actuator loads onto the sbeam beam model; the "
+       "original suite printed loads and built no structural model (note 56)"),
+    _E("flap_loads.surface", _FLAP, _SLDS,
+       "names which surface of sloads' multi-surface planform this step reads; the original suite had one wing and "
+       "needed no selector (standing ruling)"),
     _E("flap_loads.gust_load_factor", _FLAP, _ORIG, "FLAPLOAD NG",
        "flaps-extended gust load factor",
        EXTERNAL + "the flight envelope's GUST VF corner factor (flight_envelope.gust_at_vf, "
@@ -1462,10 +1531,18 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("flap_loads.engine_butt_line_in", _FLAP, _ORIG,
        "FLAPLOAD BLPROP (slipstream band; the slipstream needs an engine record's "
        "power + propeller diameter, entered on Engine Mount Loads)"),
-    _E("flap_loads.inboard_y_in", _FLAP, _SLDS, "sbeam control-surface bridge station"),
-    _E("flap_loads.outboard_y_in", _FLAP, _SLDS, "sbeam control-surface bridge station"),
-    _E("flap_loads.hinges_span_in", _FLAP, _SLDS, "sbeam control-surface bridge station"),
-    _E("flap_loads.actuator_span_in", _FLAP, _SLDS, "sbeam control-surface bridge station"),
+    _E("flap_loads.inboard_y_in", _FLAP, _SLDS,
+       "control-surface geometry sloads needs to bridge hinge and actuator loads onto the sbeam beam model; the "
+       "original suite printed loads and built no structural model (note 56)"),
+    _E("flap_loads.outboard_y_in", _FLAP, _SLDS,
+       "control-surface geometry sloads needs to bridge hinge and actuator loads onto the sbeam beam model; the "
+       "original suite printed loads and built no structural model (note 56)"),
+    _E("flap_loads.hinges_span_in", _FLAP, _SLDS,
+       "control-surface geometry sloads needs to bridge hinge and actuator loads onto the sbeam beam model; the "
+       "original suite printed loads and built no structural model (note 56)"),
+    _E("flap_loads.actuator_span_in", _FLAP, _SLDS,
+       "control-surface geometry sloads needs to bridge hinge and actuator loads onto the sbeam beam model; the "
+       "original suite printed loads and built no structural model (note 56)"),
     _E("tab_loads.tabs[].surface", _TAB, _SLDS,
        "row selector -- host surface; load-bearing (G5, #98, C210-46): picks the case-ID "
        "band, the exported component tag and the BL-vs-WL reading of station_in",
@@ -1483,7 +1560,9 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("engines[].engine_type", _ENG, _ORIG,
        "ENGLOADS reciprocating/turbine branch; every field of both branches (ENGTORQ, CRUZTORQ, "
        "DT, CYL) is ORIGINAL here, so the switch between them is -- corrected building G5"),
-    _E("engines[].mounted_on", _ENG, _SLDS, "fuselage/wing carrier, Step C5"),
+    _E("engines[].mounted_on", _ENG, _SLDS,
+       "which structure carries the engine, fuselage or wing, so sloads can route the mount loads into the right beam; "
+       "the suite took mount loads and carried them nowhere (Step C5)"),
     # All three are ``supplied``: without them the oracle projection strips the
     # fields, and OR-21 makes the report a function of that projection -- so a
     # thrust line the user entered would be invisible to the very section that
@@ -1524,7 +1603,9 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("engines[].prop_designation", _ENG, _ORIG, "ENGLOADS propeller designation"),
     _E("engines[].prop_diameter_in", _ENG, _ORIG, "ENGLOADS PROPDIA"),
     _E("engines[].prop_blades", _ENG, _ORIG, "ENGLOADS NOBLADES"),
-    _E("engines[].prop_inertia", _ENG, _SLDS, "measured polar inertia override"),
+    _E("engines[].prop_inertia", _ENG, _SLDS,
+       "measured propeller polar inertia, overriding the value sloads estimates from weight and diameter; the original "
+       "suite asked for neither (Step C5)"),
     _E("engines[].cylinders", _ENG, _ORIG, "ENGLOADS CYL"),
     _E("engines[].takeoff_hp", _ENG, _ORIG, "ENGLOADS TOHP"),
     _E("engines[].takeoff_rpm", _ENG, _ORIG, "ENGLOADS TORPM"),
@@ -1536,10 +1617,18 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("engines[].limit_load_factor", _ENG, _ORIG, "ENGLOADS LIMNZ", "limit manoeuvre load factor",
        EXTERNAL + "the FAR 23.337 limit computed from speeds (review N1 instance 4)",
        governs=True),
-    _E("engines[].max_accel_torque", _ENG, _SLDS, "FAR 25.361(a)(3)(ii), FAR 25 opt-in"),
-    _E("engines[].thrust_lb", _ENG, _SLDS, "hub thrust, note 21 carve-out"),
-    _E("engines[].design_pitch_rate_rad_s", _ENG, _SLDS, "concept real rate, 25.371"),
-    _E("engines[].design_yaw_rate_rad_s", _ENG, _SLDS, "concept real rate, 25.371"),
+    _E("engines[].max_accel_torque", _ENG, _SLDS,
+       "maximum accelerating torque for the 25.361(a)(3)(ii) engine-torque case, a Part 25 supplemental case sloads "
+       "offers and the FAR 23 suite does not carry (F25-2)"),
+    _E("engines[].thrust_lb", _ENG, _SLDS,
+       "hub thrust, carried so sloads can put a thrust line into the balanced free body; the original suite's mount "
+       "case took none (note 21 carve-out)"),
+    _E("engines[].design_pitch_rate_rad_s", _ENG, _SLDS,
+       "the real pitch or yaw rate a concept design is sized to, for the 25.371 gyroscopic case; the FAR 23 suite "
+       "prescribed a rate and asked for none"),
+    _E("engines[].design_yaw_rate_rad_s", _ENG, _SLDS,
+       "the real pitch or yaw rate a concept design is sized to, for the 25.371 gyroscopic case; the FAR 23 suite "
+       "prescribed a rate and asked for none"),
     _E("engines[].rotors[].rotor_type", _ENG, _SLDS, "turbine rotor model, Step C9"),
     _E("engines[].rotors[].weight_lb", _ENG, _SLDS, "turbine rotor model, Step C9"),
     _E("engines[].rotors[].diameter_in", _ENG, _SLDS, "turbine rotor model, Step C9"),
@@ -1555,10 +1644,14 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "multi-engine layout constraint, Step C5 -- the arrangement the entered engines already "
        "describe, where the original ran one program per fixed layout. Load-bearing (G5): "
        "omitting it moves the twins' nacelle geometry", supplied=True),
-    _E("include_far25", _ENG, _SLDS, "FAR 25 supplemental-case opt-in"),
+    _E("include_far25", _ENG, _SLDS,
+       "opts this project into sloads' FAR 25 supplemental cases, which sit outside the FAR 23 suite this GUI "
+       "replicates (F25-2)"),
 
     # one_engine_out -- ONENGOUT (one_engine_out)
-    _E("one_engine_out.failed_engine_index", _OEI, _SLDS, "multi-engine index; ONENGOUT had one"),
+    _E("one_engine_out.failed_engine_index", _OEI, _SLDS,
+       "which engine fails: sloads carries a multi-engine layout, where ONENGOUT assumed one critical engine and "
+       "needed no index (Step C5)"),
     _E("one_engine_out.thrust_decay_time_s", _OEI, _ORIG, "ONENGOUT TIME2DECAY"),
     _E("one_engine_out.windmill_drag_time_s", _OEI, _ORIG, "ONENGOUT TIME2DRAG"),
     _E("one_engine_out.rudder_travel_time_s", _OEI, _ORIG, "ONENGOUT INCTIMERUD"),
@@ -1598,11 +1691,21 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "row selector -- which tail surface the row describes; load-bearing (G5, #98): an "
        "unmatched row is refused by name where it used to be silently inert",
        supplied=True),
-    _E("tail_mass[].panel_weight_lb", _WT, _SLDS, "empennage distributed inertia, plan 09 T-3"),
-    _E("tail_mass[].weight_is_override", _WT, _SLDS, "empennage distributed inertia, plan 09 T-3"),
-    _E("tail_mass[].control_load_mode", _WT, _SLDS, "empennage distributed inertia, plan 09 T-3"),
-    _E("tail_mass[].hinges_span_in", _WT, _SLDS, "sbeam control-surface bridge station"),
-    _E("tail_mass[].actuator_span_in", _WT, _SLDS, "sbeam control-surface bridge station"),
+    _E("tail_mass[].panel_weight_lb", _WT, _SLDS,
+       "empennage distributed inertia -- sloads spreads tail panel mass along the beam model, where the original suite "
+       "took a single tail weight (plan 09 T-3)"),
+    _E("tail_mass[].weight_is_override", _WT, _SLDS,
+       "empennage distributed inertia -- sloads spreads tail panel mass along the beam model, where the original suite "
+       "took a single tail weight (plan 09 T-3)"),
+    _E("tail_mass[].control_load_mode", _WT, _SLDS,
+       "empennage distributed inertia -- sloads spreads tail panel mass along the beam model, where the original suite "
+       "took a single tail weight (plan 09 T-3)"),
+    _E("tail_mass[].hinges_span_in", _WT, _SLDS,
+       "control-surface geometry sloads needs to bridge hinge and actuator loads onto the sbeam beam model; the "
+       "original suite printed loads and built no structural model (note 56)"),
+    _E("tail_mass[].actuator_span_in", _WT, _SLDS,
+       "control-surface geometry sloads needs to bridge hinge and actuator loads onto the sbeam beam model; the "
+       "original suite printed loads and built no structural model (note 56)"),
 
     # --- The LRA beam mesh (note 56 D-56.4) -------------------------------- #
     # On the geometry page rather than the export page: the mesh is a
@@ -1648,8 +1751,93 @@ def display_only_paths() -> Set[str]:
 
 
 def oracle_input_paths() -> Set[str]:
-    """Everything a project made by the oracle GUI carries — what G5 runs against."""
+    """The **original-suite tier**: the fields the FAR 23 LOADS programs asked for.
+
+    Until #266 this was also a statement about the front-end -- *everything a
+    project made by the oracle GUI carries* -- because the GUI rendered this set
+    and nothing else. Design note 57 D-57.2 ends that: the GUI now renders every
+    registry path, in two marked tiers, so the set no longer bounds what the GUI
+    can write and a docstring saying it did would be false.
+
+    What it still bounds, and what gate G5 was always really testing, is the
+    **tier**: with only these fields populated, every oracle-page module still
+    runs and every Appendix A oracle still passes (:func:`reduce_to_oracle_inputs`,
+    ``tests/test_oracle_inputs.py``). That claim is a property of the original
+    suite's own input set, not of a Streamlit page, and it survives the merge
+    unchanged -- which is why the function keeps its name and its callers.
+    """
     return original_paths() | supplied_paths()
+
+
+class Tier(Enum):
+    """Which tier of the surviving GUI a registry path renders in (#266, D-57.2).
+
+    The one classifier: :mod:`oracle_app.form` marks a widget from it, and the
+    guards walk it. Three values, because "not an original-suite input" is not
+    one answer but two -- a field the GUI renders under a mark, and a field the
+    GUI cannot render at all and says so.
+    """
+
+    #: An input of the original suite, or a `SLOADS` field its input set needs
+    #: (:data:`SUPPLIED_RULE`). Renders exactly as it did before #266.
+    SUITE = "suite"
+    #: Capability sloads added. Renders, marked, with its ``basis`` stated.
+    EXTENSION = "extension"
+    #: Renders nowhere: its record lives inside a list row, which no widget can
+    #: address. Entered through the JSON editor; see :data:`JSON_ONLY_RECORDS`.
+    JSON_ONLY = "json_only"
+
+
+#: Records the GUI cannot build, each with the reason — note 57 gate 3's second
+#: clause, *"or carries a documented JSON-only classification with a reason"*.
+#:
+#: The reason is the same for all three and it is structural, not a preference:
+#: the record's path crosses a ``[]`` hop, so addressing it means naming *which
+#: row*, and :func:`oracle_app.form.record_at` has no way to say that -- it
+#: returns ``None``, and :func:`~oracle_app.form.rows_at` returns a list
+#: detached from the project. A widget there would take an edit and drop it.
+#: These are entered in the Project JSON Editor (D-57.3), which is why that row
+#: was sequenced first.
+#:
+#: Declared here rather than in the GUI because it is registry knowledge: *which
+#: fields this project can offer a widget for* is a property of the schema's
+#: shape, and the guard in ``tests/test_field_registry.py`` requires a new one
+#: to be declared with its reason rather than silently joining the class.
+JSON_ONLY_RECORDS: Dict[str, str] = {
+    "engines[].rotors[]":
+        "a list inside a list row -- the rotor set of one engine. Entered in "
+        "the Project JSON Editor until a nested-row shape exists.",
+    "weight.cg_cases[].loading":
+        "a record inside a list row -- the loading state of one CG case. "
+        "Entered in the Project JSON Editor.",
+    "weight.cg_cases[].loading.ballast":
+        "a list inside a record inside a list row -- the ballast items of one "
+        "CG case's loading. Entered in the Project JSON Editor.",
+}
+
+
+def json_only_paths() -> Set[str]:
+    """Field paths on a :data:`JSON_ONLY_RECORDS` record."""
+    return {e.path for e in REGISTRY if record_of(e.path) in JSON_ONLY_RECORDS}
+
+
+def extension_paths() -> Set[str]:
+    """The **extension tier**: capability sloads added, rendered under a mark.
+
+    The complement of :func:`oracle_input_paths` less the records no widget can
+    address. A field is in exactly one of the three tiers and the arithmetic is
+    here rather than in three places that must agree.
+    """
+    return ({e.path for e in REGISTRY} - oracle_input_paths()) - json_only_paths()
+
+
+def tier_of(path: str) -> Optional[Tier]:
+    """``path``'s tier, or ``None`` if the registry does not carry it."""
+    if path not in BY_PATH:
+        return None
+    if path in oracle_input_paths():
+        return Tier.SUITE
+    return Tier.JSON_ONLY if record_of(path) in JSON_ONLY_RECORDS else Tier.EXTENSION
 
 
 def structurally_required() -> Set[str]:

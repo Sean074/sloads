@@ -18,7 +18,7 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `aero.surfaces[].target_cl` | `float` | wing CL the combined distribution is evaluated at | `1.0` | original | AIRLOADS evaluation CL |
 | `aero.surfaces[].sweep_deg` | `float` | deg | `0.0` | original | AIRLOAD4 sweepback |
 | `aero.surfaces[].design_mach` | `float` |  | `0.0` | original | AIRLOAD4 high-Mach branch |
-| `wing_mass.surface` | `str` |  | `'wing'` | sloads | surface selector (standing ruling) |
+| `wing_mass.surface` | `str` |  | `'wing'` | sloads | names which surface of sloads' multi-surface planform this step reads; the original suite had one wing and needed no selector (standing ruling) |
 | `wing_mass.panel_weight_lb` | `float` | lb | `0.0` | original | WINGINER panel weight |
 | `wing_mass.inboard_rib_y` | `float` |  | `0.0` | original | WINGINER inboard rib station |
 | `wing_mass.tip_root_density_ratio` | `float` |  | `1.0` | original | WINGINER tip/root density ratio |

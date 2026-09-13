@@ -45,6 +45,7 @@ from sloads import (
 from sloads import field_registry as fr  # noqa: E402
 from sloads import workflow as wf  # noqa: E402
 from sloads.field_registry import reduce_to_oracle_inputs  # noqa: E402
+from sloads.models import Project  # noqa: E402
 from sloads.units import AVIATION_STANDARD, to_display  # noqa: E402
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -1058,15 +1059,24 @@ def test_no_oracle_page_can_reach_the_concept_switch():
 
 
 def test_every_page_shows_every_field_the_registry_gives_it():
-    """No field in the input set is dropped on the floor: the page groups
-    partition the registry's rows for that page exactly."""
+    """No registry field is dropped on the floor: the page groups partition the
+    registry's rows for that page exactly.
+
+    **Both tiers** since #266 (note 57 D-57.2). This used to compare against
+    ``oracle_input_paths()``, and that is exactly how the field delta stayed
+    invisible for a milestone: the 79 sloads-only fields were not *dropped* by
+    the page definition as far as this guard could see, because the guard
+    measured the page against the same narrowed set the page was built from.
+    A filter and its own test agreeing proves nothing; the registry is the
+    measure now, less only what no widget can address.
+    """
     from oracle_app.form import page_groups
 
-    keep = fr.oracle_input_paths()
     shown = {p for key in wf.oracle_step_keys()
              for _prefix, paths in page_groups(key) for p in paths}
     expected = {row.path for row in fr.REGISTRY
-                if row.path in keep and row.page in wf.oracle_step_keys()}
+                if row.page in wf.oracle_step_keys()
+                and fr.tier_of(row.path) is not fr.Tier.JSON_ONLY}
     assert shown == expected
 
 
@@ -1079,6 +1089,120 @@ def test_every_input_field_lands_on_an_oracle_page():
     assert not orphans, (
         "these fields are in the oracle GUI's input set but their editing page "
         f"is not an oracle page, so nothing can enter them: {orphans}")
+
+
+# --------------------------------------------------------------------------- #
+# The two field tiers (#266, design note 57 D-57.2; note 57 gates 3 and 4)
+# --------------------------------------------------------------------------- #
+def _addressable(prefix):
+    """Can the renderer reach the record at ``prefix`` on a fresh project?
+
+    Asked of the renderer's own addressing rather than of the schema, because
+    that is where the answer actually lives. ``record_at`` walks dotted
+    segments, so a prefix crossing a ``[]`` hop -- *which* engine's rotors? --
+    resolves to nothing and it returns ``None``. ``rows_at`` is quieter and
+    worse: it hands back a fresh ``[]`` detached from the project, so a widget
+    there would take an edit and drop it on the next rerun. A detached list is
+    caught by asking twice: an attached one is the same object both times.
+    """
+    from oracle_app import form
+
+    form._PENDING.clear()
+    project = Project(name="")
+    try:
+        if prefix.endswith(fr.LIST_MARKER):
+            return form.rows_at(project, prefix) is form.rows_at(project, prefix)
+        return form.record_at(project, prefix) is not None
+    finally:
+        # ``_PENDING`` is module state and these probes populate it with records
+        # of a throwaway project. ``render_step`` clears it on entry, so nothing
+        # downstream reads them -- but a guard that leaves a global holding
+        # other people's objects is the kind of thing that is true until it
+        # isn't.
+        form._PENDING.clear()
+
+
+def test_every_registry_path_is_enterable_or_declared_json_only():
+    """Note 57 gate 3, the registry-walking guard -- L-8e's class, closed.
+
+    Two directions, and the second is the one that matters. A path the GUI
+    renders must be one the renderer can actually address; a path it declines to
+    render must be declined in :data:`~sloads.field_registry.JSON_ONLY_RECORDS`,
+    with a reason, rather than by falling out of a filter. Before #266 the
+    filter was ``oracle_input_paths()`` and 79 fields fell out of it silently,
+    which is why "enterable, or documented" is a gate and not a convention.
+
+    The classification is not taken on trust: it is re-derived here from
+    :func:`_addressable` and must agree with the registry exactly, so declaring
+    a record JSON-only that the renderer can in fact reach fails just as loudly
+    as the omission it replaced.
+    """
+    wrong = []
+    for row in fr.REGISTRY:
+        prefix = fr.record_of(row.path)
+        if not prefix:
+            continue
+        declared_renderable = fr.tier_of(row.path) is not fr.Tier.JSON_ONLY
+        if _addressable(prefix) != declared_renderable:
+            wrong.append((row.path, prefix, declared_renderable))
+    assert not wrong, (
+        "the registry's tier and the renderer's reach disagree -- a field "
+        "declared JSON-only that a widget could take, or a field the GUI shows "
+        "on a record it cannot address:\n"
+        + "\n".join(f"  {p} (record {pre}, declared renderable={d})"
+                     for p, pre, d in wrong))
+
+
+def test_every_extension_field_is_marked_and_states_its_tier():
+    """Note 57 gate 4, asserted at the two functions every widget passes through.
+
+    Not at the rendered page: a page walk sees the widgets a given project
+    happens to produce -- an absent optional record offers an Add button and no
+    widget at all -- so it can only ever under-report. ``_field_label`` and
+    ``_help`` are the whole of the marking, in every shape a field renders in,
+    so asking them directly covers all 311 rows including the grid columns a
+    ``data_editor`` hides inside a canvas.
+    """
+    from oracle_app.form import EXTENSION_MARK, _field_label, _help
+
+    for path in sorted(fr.extension_paths()):
+        label, help_text = _field_label(path), _help(path)
+        assert label.startswith(EXTENSION_MARK), (
+            f"{path} is extension tier and its label is unmarked: {label!r}")
+        assert "sloads extension" in help_text, (
+            f"{path}'s help does not state its tier: {help_text!r}")
+        assert fr.BY_PATH[path].basis in help_text, (
+            f"{path}'s help drops its basis: {help_text!r}")
+
+    for path in sorted(fr.oracle_input_paths()):
+        assert EXTENSION_MARK not in _field_label(path), (
+            f"{path} is an input of the original suite and must render "
+            f"unmarked: {_field_label(path)!r}")
+        assert "sloads extension" not in (_help(path) or "")
+
+
+@pytest.mark.parametrize("key", sorted(wf.oracle_step_keys()))
+def test_a_page_that_marks_a_field_says_what_the_mark_means(key):
+    """The symbol is explained once per page, and only where there is one.
+
+    The other half of gate 4: a mark nobody defines is decoration. A page of
+    original-suite inputs alone must look exactly as it did before the tiers
+    existed, so the caption is conditional -- and both halves are asserted,
+    because a caption printed unconditionally would pass the first.
+    """
+    from oracle_app.form import EXTENSION_NOTE, page_groups
+
+    marks = any(fr.tier_of(p) is fr.Tier.EXTENSION
+                for _prefix, paths in page_groups(key) for p in paths)
+    at = _render(key)
+    assert not at.exception, [e.message for e in at.exception]
+    said = any(c.value == EXTENSION_NOTE for c in at.caption)
+    if not marks:
+        assert not said, f"{key} explains a mark it never renders"
+    elif not any(w.value for w in at.info):
+        # A page withheld for an inapplicable condition renders no fields at
+        # all (``step_not_applicable``), so it has no mark to explain either.
+        assert said, f"{key} marks a field and never says what the mark means"
 
 
 def test_every_composite_field_declares_its_member_labels():
@@ -1967,10 +2091,15 @@ def test_a_unit_suffix_is_matched_longest_first():
     """``design_pitch_rate_rad_s`` ends in both ``_s`` and ``_rad_s``, and the
     short match split the unit in half: *Design Pitch Rate Rad (s)*. Dict order
     is the author's; the matcher's order has to be stated (PB-22)."""
-    from oracle_app.form import _field_label
+    from oracle_app.form import EXTENSION_MARK, _field_label
 
-    assert _field_label("engines[].design_pitch_rate_rad_s") == "Design Pitch Rate (rad/s)"
-    assert _field_label("engines[].design_yaw_rate_rad_s") == "Design Yaw Rate (rad/s)"
+    # The mark is part of the label since #266 -- this field is extension tier
+    # -- and it is asserted here rather than stripped, because a label that
+    # lost its mark while keeping its unit would pass a stripped comparison.
+    assert (_field_label("engines[].design_pitch_rate_rad_s")
+            == f"{EXTENSION_MARK} Design Pitch Rate (rad/s)")
+    assert (_field_label("engines[].design_yaw_rate_rad_s")
+            == f"{EXTENSION_MARK} Design Yaw Rate (rad/s)")
     assert _field_label("engines[].stop_time_s") == "Stop Time (s)"
 
 

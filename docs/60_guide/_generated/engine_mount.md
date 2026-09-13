@@ -9,7 +9,7 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | --- | --- | --- | --- | --- | --- |
 | `engines[].engine_designation` | `str` | e.g. "CONTINENTAL IO-520-BB" | `''` | original | ENGLOADS engine designation |
 | `engines[].engine_type` | `EngineType` |  | `EngineType.RECIPROCATING` | original | ENGLOADS reciprocating/turbine branch; every field of both branches (ENGTORQ, CRUZTORQ, DT, CYL) is ORIGINAL here, so the switch between them is -- corrected building G5 |
-| `engines[].mounted_on` | `Optional[str]` | "fuselage" \| "wing" | `None` | sloads | fuselage/wing carrier, Step C5 |
+| `engines[].mounted_on` | `Optional[str]` | "fuselage" \| "wing" | `None` | sloads | which structure carries the engine, fuselage or wing, so sloads can route the mount loads into the right beam; the suite took mount loads and carried them nowhere (Step C5) |
 | `engines[].thrust_line_aft` | `Tuple[float, float, float]` |  | `(0.0, 0.0, 0.0)` | sloads (supplied) | thrust line, aft point (design note 53, D-53.1). G5: omitted, every engine-mount moment resolves about the assumed forward axis rather than the entered line |
 | `engines[].thrust_line_fwd` | `Tuple[float, float, float]` |  | `(0.0, 0.0, 0.0)` | sloads (supplied) | thrust line, forward point (design note 53, D-53.1). G5: omitted, every engine-mount moment resolves about the assumed forward axis rather than the entered line |
 | `engines[].prop_direction` | `RotorDirection` |  | `RotorDirection.CLOCKWISE` | sloads (supplied) | propeller rotation, pilot's view (design note 53, D-53.4). G5: omitted, a counter-clockwise engine's every torque is published with the wrong sign |
@@ -23,7 +23,7 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `engines[].prop_designation` | `str` | e.g. "HAM STD 1803" | `''` | original | ENGLOADS propeller designation |
 | `engines[].prop_diameter_in` | `float` | PROPDIA | `0.0` | original | ENGLOADS PROPDIA |
 | `engines[].prop_blades` | `int` | NOBLADES | `0` | original | ENGLOADS NOBLADES |
-| `engines[].prop_inertia` | `Optional[float]` | measured propeller polar inertia, slug-ft^2 (overrides geometry) | `None` | sloads | measured polar inertia override |
+| `engines[].prop_inertia` | `Optional[float]` | measured propeller polar inertia, slug-ft^2 (overrides geometry) | `None` | sloads | measured propeller polar inertia, overriding the value sloads estimates from weight and diameter; the original suite asked for neither (Step C5) |
 | `engines[].cylinders` | `Optional[int]` | CYL | `None` | original | ENGLOADS CYL |
 | `engines[].takeoff_hp` | `Optional[float]` | TOHP | `None` | original | ENGLOADS TOHP |
 | `engines[].takeoff_rpm` | `float` | TORPM | `0.0` | original | ENGLOADS TORPM |
@@ -33,15 +33,15 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `engines[].cruise_torque` | `Optional[float]` | CRUZTORQ, ft-lb | `None` | original | ENGLOADS CRUZTORQ |
 | `engines[].stop_time_s` | `Optional[float]` | DT, sudden-stoppage time | `None` | original | ENGLOADS DT (sudden stoppage) |
 | `engines[].limit_load_factor` | `float` | LIMNZ | `0.0` | original | ENGLOADS LIMNZ; quantity: *limit manoeuvre load factor*; override of `external: the FAR 23.337 limit computed from speeds (review N1 instance 4)` |
-| `engines[].max_accel_torque` | `Optional[float]` | FAR 25.361(a)(3)(ii) max accelerating torque, ft-lb | `None` | sloads | FAR 25.361(a)(3)(ii), FAR 25 opt-in |
-| `engines[].thrust_lb` | `Optional[float]` | lb | `None` | sloads | hub thrust, note 21 carve-out |
-| `engines[].design_pitch_rate_rad_s` | `Optional[float]` | concept real pitch rate (25.371) | `None` | sloads | concept real rate, 25.371 |
-| `engines[].design_yaw_rate_rad_s` | `Optional[float]` | concept real yaw rate (25.371) | `None` | sloads | concept real rate, 25.371 |
+| `engines[].max_accel_torque` | `Optional[float]` | FAR 25.361(a)(3)(ii) max accelerating torque, ft-lb | `None` | sloads | maximum accelerating torque for the 25.361(a)(3)(ii) engine-torque case, a Part 25 supplemental case sloads offers and the FAR 23 suite does not carry (F25-2) |
+| `engines[].thrust_lb` | `Optional[float]` | lb | `None` | sloads | hub thrust, carried so sloads can put a thrust line into the balanced free body; the original suite's mount case took none (note 21 carve-out) |
+| `engines[].design_pitch_rate_rad_s` | `Optional[float]` | concept real pitch rate (25.371) | `None` | sloads | the real pitch or yaw rate a concept design is sized to, for the 25.371 gyroscopic case; the FAR 23 suite prescribed a rate and asked for none |
+| `engines[].design_yaw_rate_rad_s` | `Optional[float]` | concept real yaw rate (25.371) | `None` | sloads | the real pitch or yaw rate a concept design is sized to, for the 25.371 gyroscopic case; the FAR 23 suite prescribed a rate and asked for none |
 | `engines[].rotors[].rotor_type` | `RotorType` |  | `RotorType.TURBINE` | sloads | turbine rotor model, Step C9 |
 | `engines[].rotors[].weight_lb` | `float` | rotor weight, lb | `**required**` | sloads | turbine rotor model, Step C9 |
 | `engines[].rotors[].diameter_in` | `float` | rotor diameter, inches | `**required**` | sloads | turbine rotor model, Step C9 |
 | `engines[].rotors[].inertia` | `Optional[float]` | measured polar inertia, slug-ft^2 (overrides geometry) | `None` | sloads | turbine rotor model, Step C9 |
 | `engines[].rotors[].max_rpm` | `float` | signed; clockwise (pilot's view) is positive | `**required**` | sloads | turbine rotor model, Step C9 |
 | `engines[].rotors[].direction` | `RotorDirection` |  | `RotorDirection.CLOCKWISE` | sloads | turbine rotor model, Step C9 |
-| `include_far25` | `bool` |  | `False` | sloads | FAR 25 supplemental-case opt-in |
+| `include_far25` | `bool` |  | `False` | sloads | opts this project into sloads' FAR 25 supplemental cases, which sit outside the FAR 23 suite this GUI replicates (F25-2) |
 

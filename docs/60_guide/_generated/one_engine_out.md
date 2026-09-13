@@ -7,7 +7,7 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 
 | Field | Type | Units / notes | Default | Origin | Provenance |
 | --- | --- | --- | --- | --- | --- |
-| `one_engine_out.failed_engine_index` | `int` | which Project.engines[] entry fails | `0` | sloads | multi-engine index; ONENGOUT had one |
+| `one_engine_out.failed_engine_index` | `int` | which Project.engines[] entry fails | `0` | sloads | which engine fails: sloads carries a multi-engine layout, where ONENGOUT assumed one critical engine and needed no index (Step C5) |
 | `one_engine_out.thrust_decay_time_s` | `float` | TIME2DECAY (thrust -> 0) | `0.0` | original | ONENGOUT TIME2DECAY |
 | `one_engine_out.windmill_drag_time_s` | `float` | TIME2DRAG (windmill drag -> max) | `0.0` | original | ONENGOUT TIME2DRAG |
 | `one_engine_out.rudder_travel_time_s` | `float` | INCTIMERUD (time to full rudder) | `0.0` | original | ONENGOUT INCTIMERUD |

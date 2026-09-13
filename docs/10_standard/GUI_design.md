@@ -428,6 +428,36 @@ never entered twice.)
 
 ## 6. Page anatomy & conventions
 
+- **Every input field renders, and its tier is stated on the widget** (#266,
+  design note 57 **D-57.2**, amending note 32 OG-1/OG-2; gates 3 and 4).
+  `sloads.field_registry.tier_of` is the one classifier and it has three
+  answers. `Tier.SUITE` is an input of the original FAR 23 LOADS suite (or a
+  `SLOADS` field its input set needs, `SUPPLIED_RULE`) and renders exactly as it
+  always did. `Tier.EXTENSION` is capability this replication added: it renders
+  too, carrying `oracle_app.form.EXTENSION_MARK` on its **label** and *"sloads
+  extension, not an input of the original suite"* before its `basis` in its
+  **help**, with `EXTENSION_NOTE` said once on any page that shows one.
+  `Tier.JSON_ONLY` is a field on a record whose path crosses a `[]` hop — *which*
+  engine's rotors? — which no widget can address, and
+  `field_registry.JSON_ONLY_RECORDS` names each such record with its reason;
+  they are entered in the Project JSON Editor.
+  **The marking is on the field, never on a section.** A record holds fields of
+  both tiers, and a second section over that record re-emits its row counter,
+  its seed and its remove control under the same Streamlit key — a duplicate-key
+  exception for a grid, two gestures over one record for a form. Marking travels
+  with the field because that is the level the tier is a property of, and it is
+  applied in `form._field_label` and `form._help` alone, so every shape a field
+  renders in — scalar, tuple, curve, enum set, grid column — inherits it.
+  Guards: `tests/test_field_registry.py` (the three tiers partition the
+  registry; an extension `basis` states a reason, not a bare citation) and
+  `tests/test_oracle_gui.py` (every path is enterable **or** declared JSON-only,
+  re-derived from the renderer's own addressing; every extension field is marked
+  and states its tier; a page that marks a field says what the mark means).
+  Before #266 the tier barrier was a page definition filtering on
+  `oracle_input_paths()`, and the 79 sloads-only fields it dropped were
+  unenterable in that GUI with nothing saying so — which is why "enterable, or
+  documented with a reason" is a gate and not a convention.
+
 The contract that makes pages copy-of-the-pattern (full list in
 [`05_phase_d_gui_workflow_plan.md §5`](../40_history/05_phase_d_gui_workflow_plan.md)):
 
