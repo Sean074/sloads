@@ -282,6 +282,38 @@ def _units_block(system: UnitSystem) -> List[str]:
     ]
 
 
+def _axes_block() -> List[str]:
+    """The bundle's AXES statement -- which way the coordinates point (#242).
+
+    The requirement these files exist to serve is that their contents are in
+    airplane global coordinates and are readable without the repository. The
+    2026-09-08 CSV review (C2) found the data met it and the self-description did
+    not: every per-file block said "right-handed about the airplane axes" and
+    named its torsion axes, and no delivered file anywhere said that ``x`` is the
+    fuselage station positive aft. A reader who has the sign convention but not
+    the frame it is about has nothing.
+
+    One stanza, in the stamp every channel already carries, so it lands on the
+    applied-load files, the case index, the gear report, the safety-factor table,
+    the per-module CSVs, the V-n conditions, ``METHODS.txt`` and the decks at
+    once -- rule 3's single owner, and the reason this is four lines rather than
+    a sentence repeated in nine header blocks.
+
+    Takes no project: the frame is the suite's, the same on every airplane, and
+    the words are
+    :data:`~sloads.export.coordinates.AIRPLANE_AXES`/:data:`~sloads.export.
+    coordinates.AXES_NOTES` -- read from the module that owns the map rather
+    than respelt here, so an axis that is ever flipped is flipped in one file and
+    this statement follows it.
+    """
+    from ..export.coordinates import AIRPLANE_AXES, AXES_NOTES
+
+    axes = "; ".join(f"{sym} = {name}, {sense}"
+                     for sym, name, sense in AIRPLANE_AXES)
+    return [f"AXES: Airplane coordinates -- {axes}."] + [
+        f"  {note}" for note in AXES_NOTES]
+
+
 def _safety_factor_block(project: Project) -> List[str]:
     """The governing-table override declaration (M4-8 / G-11), or nothing.
 
@@ -513,6 +545,14 @@ def methods_statement(
 
     # 1b. Units -------------------------------------------------------------- #
     L.extend(_units_block(system))
+    L.append("")
+
+    # 1c. Axes --------------------------------------------------------------- #
+    # Beside the units, because they answer the same question about the same
+    # numbers: a column of forces is unusable without both the size of the unit
+    # and the direction it acts in, and until #242 a forwarded file carried only
+    # the first.
+    L.extend(_axes_block())
     L.append("")
 
     # 2. Category ------------------------------------------------------------ #

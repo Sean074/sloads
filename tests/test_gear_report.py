@@ -1020,7 +1020,10 @@ def _parsed_csv(text):
     import csv as _csv
     import io as _io
 
-    reader = _csv.reader(_io.StringIO(text))
+    # The file leads with its own ``#`` block since #242 -- the one delivered
+    # file that states two frames, and now says which columns are in which.
+    body = "\n".join(ln for ln in text.splitlines() if not ln.startswith("#"))
+    reader = _csv.reader(_io.StringIO(body))
     header = next(reader)
     return header, [dict(zip(header, row)) for row in reader]
 

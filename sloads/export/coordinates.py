@@ -51,6 +51,41 @@ Vec3 = Tuple[float, float, float]
 # (global) frame; GRID/FORCE/MOMENT cards stamp this in their CP/CID field.
 SBEAM_CID = 0
 
+#: The airplane frame, in the words a delivered file has to say it in (#242).
+#:
+#: The docstring above states this for a reader of the source. A CSV forwarded
+#: to a stress engineer has no source beside it, and until #242 no delivered
+#: file said which way ``+x`` pointed -- the per-file blocks said "right-handed
+#: about the airplane axes" and named torsion axes, which presumes the frame
+#: rather than stating it. The words live **here**, beside the map they
+#: describe, because this module is the single editable point for the map: an
+#: axis that is ever flipped is flipped in this file, and the sentence that
+#: would then be wrong is in the reader's eye when it happens.
+#:
+#: ``(symbol, name, positive sense)`` -- rendered by
+#: ``report.methods._axes_block`` into every stamped channel, and by nothing
+#: else. Not a project property: the frame is the suite's, identical on every
+#: airplane, which is why it is a constant and not a computed block.
+AIRPLANE_AXES = (
+    ("x", "fuselage station", "positive AFT"),
+    ("y", "butt line", "positive RIGHT (out the starboard wing)"),
+    ("z", "waterline", "positive UP"),
+)
+
+#: What a reader still needs after the three axes: where they start, how a
+#: moment sign follows from them, and that the solver deck is the same frame
+#: rather than a transformed one (#242). Stated as sentences rather than folded
+#: into :data:`AIRPLANE_AXES` because none of them is a property of one axis.
+AXES_NOTES = (
+    "The origin is the project's own datum -- every station, butt line and "
+    "waterline in these files is the coordinate as entered, unshifted.",
+    "Moments are right-handed about those axes: positive Mx rolls right wing "
+    "down, positive My pitches nose up, positive Mz yaws nose right.",
+    f"The sbeam solver decks use the same frame (NASTRAN basic CID "
+    f"{SBEAM_CID}, right-handed), so the deck and these files state one "
+    f"geometry and the transform between them is the identity.",
+)
+
 #: The default unit set: the Imperial identity, so an un-parameterised call
 #: behaves exactly as it did before the unit scale existed.
 IMPERIAL = solver_units(UnitSystem.IMPERIAL)

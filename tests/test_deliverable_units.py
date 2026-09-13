@@ -999,7 +999,7 @@ def test_sbeam_headers_state_their_units_in_both_systems():
         # Only the non-dimensional columns are bare.
         bare = [c for c in cells if "(" not in c]
         assert bare == ["Case ID", "Case", "Loading", "Station", "GID",
-                        "MyyAxis", "SF"], bare
+                        "TorsionAxis", "SF"], bare
 
 
 # --------------------------------------------------------------------------- #

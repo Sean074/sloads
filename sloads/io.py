@@ -14,7 +14,6 @@ and wraps it into a Project.
 
 from __future__ import annotations
 
-import csv
 import json
 import os
 import re
@@ -34,6 +33,7 @@ from typing import (
     get_type_hints,
 )
 
+from . import csv_text
 from .constants import ULTIMATE_FACTOR
 from .migrations import SchemaVersionError, migrate
 from .models import (
@@ -1766,7 +1766,7 @@ def load_cases_csv(
     import io as _io
 
     buf = _io.StringIO()
-    writer = csv.DictWriter(buf, fieldnames=list(rows[0].keys()))
+    writer = csv_text.dict_writer(buf, list(rows[0].keys()))
     writer.writeheader()
     writer.writerows(rows)
     return header_comment + buf.getvalue()

@@ -433,7 +433,11 @@ def test_the_csv_carries_exactly_the_rows_the_appendix_prints():
         state = _table(appendix, "the flight state")
         loads = _table(appendix, "balancing loads")
 
-        rows = list(csv.reader(_io.StringIO(vn_conditions_csv(project))))
+        text = vn_conditions_csv(project)
+        # The file carries the two tables' own notes as a ``#`` block since
+        # #242: nineteen columns, five of them defined nowhere else.
+        body = "\n".join(ln for ln in text.splitlines() if not ln.startswith("#"))
+        rows = list(csv.reader(_io.StringIO(body)))
         assert rows[0] == list(state.columns) + list(loads.columns[3:]), name
         assert len(rows) - 1 == len(state.rows) == len(loads.rows), name
         for out, row_s, row_l in zip(rows[1:], state.rows, loads.rows):

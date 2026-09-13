@@ -202,6 +202,7 @@ FAR23LOADS/
 │   ├── workflow.py               # THE nav SSOT: ordered Start→Develop V-n→Flight loads→Other loads→Landing→Load-case plotting→Export step graph (GUI nav + dashboard; Step G2)
 │   ├── load_keys.py              # canonical LoadValue.key constants for the load-case schema (M4-9)
 │   ├── case_ids.py               # structured load-case / subcase / deck LOAD id allocation (D1, M4-2)
+│   ├── csv_text.py               # THE delivered CSV's line terminator and its two writer constructions (#242)
 │   ├── safety_factors.py         # THE governing safety-factor table: one row per condition family (M4-8 / G-11)
 │   ├── picks.py                  # THE platform-stable keyed pick (`extreme`): ties go first-in-order, no built-in keyed max/min in the package (CONVENTIONS §7)
 │   ├── cg_cases.py               # the one resolver for weight/CG cases and the two design weights (step 10 piece 2)

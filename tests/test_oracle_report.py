@@ -929,7 +929,11 @@ def test_the_limitations_prefill_drops_the_tool_blocks_but_the_owner_keeps_them(
 
     dropped = {"PROVENANCE", "UNITS", "CATEGORY", "VERIFICATION", "MATH",
                "APPROVED CORRECTIONS"}
-    assert labels(prefill) == {"STATUS", "BASIS", "KNOWN LIMITATIONS"}
+    # AXES is kept, unlike UNITS (#242): the units are already stated in the
+    # manifest's opening statement, and the axis directions are stated nowhere
+    # in this document -- the only axis-system section either front-end builds
+    # is the summary report's, which #278 has yet to merge in.
+    assert labels(prefill) == {"STATUS", "BASIS", "AXES", "KNOWN LIMITATIONS"}
     assert not (labels(prefill) & dropped)
     assert dropped <= labels(shared), (
         "a block was dropped from the shared statement instead of from the "
