@@ -376,14 +376,15 @@ st.subheader("Net load station table (LIMIT)")
 st.dataframe(pd.DataFrame(wing_limit_rows(wing_load_rows([net]), system)),
              hide_index=True, width="stretch")
 
-# Three downloads, named by *channel* (#192). Before note 49 the split was by
+# Two downloads, named by *channel* (#192). Before note 49 the split was by
 # basis -- LIMIT table vs ULTIMATE bridge -- but OR-116 made every one of them
 # LIMIT, so a basis marker no longer tells them apart and the labels name what
 # does differ: the analysis table (this page's converted, unit-suffixed rows,
-# L-8i -- ``limit_csv`` owns both) vs the sbeam bridge, the same content family
-# the Export page ships. The ``*_ULT.csv`` file names are stale and stay so
-# until OR-81 renames them in 0.8.3; a truthful label over a stale name beats
-# the reverse. The applied set is the structures deliverable and is stated about
+# L-8i -- ``limit_csv`` owns both) vs the applied load set, the same content
+# family the Export page ships. The ``*_ULT.csv`` name went with the marker
+# sweep note 49 OR-81 held for this milestone: the file is LIMIT like every
+# other, and a name that says otherwise is the one statement a reader cannot
+# check. The applied set is the structures deliverable and is stated about
 # the wing's loads reference axis, so it goes through ``loads_ref_axis_results``
 # -- the transfer the Export page's Project argument does for itself.
 _lra_net = loads_ref_axis_results(project, loads.wing_net)
@@ -398,12 +399,12 @@ _dl[0].download_button("Download net wing loads — analysis table (CSV)",
                        file_name="net_wing_loads_LIMIT.csv", mime="text/csv")
 _dl[1].download_button("Download applied load set (CSV)",
                        ap.applied_load_csv(_lra_net, system=system, project=project),
-                       file_name="wing_applied_loads_ULT.csv", mime="text/csv")
+                       file_name="wing_applied_loads_LIMIT.csv", mime="text/csv")
 st.caption(
-    "All three files are **LIMIT**; each row states the 14 CFR 23.303 factor "
+    "Both files are **LIMIT**; each row states the 14 CFR 23.303 factor "
     "it does not apply. The analysis table carries a `Basis` column and matches "
     "the table above; its torsion is about the 25% chord and it carries no "
-    "concentrated-mass row. The two sbeam files are the deck channel. "
+    "concentrated-mass row. "
     "**Applied load set** is the file a structures model is built from: one row "
     "per strip and one per concentrated wing mass, each at its own point, as "
     "all six body-axis components `Fx Fy Fz Mx My Mz` — nothing in it is a "
@@ -411,7 +412,8 @@ st.caption(
     "acting through an arm; `Fy`, `Mx` and `Mz` are zero throughout and are "
     "printed rather than omitted, so a zero cannot be read as a missing "
     "column. It is the oracle report's Appendix B.1, and its torsion is about "
-    "the **loads reference axis**. The span-load file carries the cumulative "
-    "distributions beside it and is also on the **Export** page; each file "
-    "states its own moment convention in its header comment."
+    "the **loads reference axis**; the file states that convention in its own "
+    "header comment. The cumulative distributions the span-load file used to "
+    "carry beside it are in the analysis table above -- note 56 D-56.2 deleted "
+    "the wing stick deck and that companion file with it."
 )

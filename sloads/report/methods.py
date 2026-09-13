@@ -274,7 +274,8 @@ def _units_block(system: UnitSystem) -> List[str]:
     return [
         f"UNITS: {system_name(system)}. Human-readable deliverables (report, "
         f"load-case CSVs, workbook) are in {listed(human)}; the sbeam "
-        f"solver decks and their span CSVs are in {listed(solver)} -- a "
+        f"solver decks -- the LRA beam model and the mass model -- are in "
+        f"{listed(solver)} -- a "
         "deck whose GRID coordinates are mm and whose FORCE cards are N is only "
         "correct when its MOMENT cards are N*mm and its stresses MPa. "
         + carve_out,

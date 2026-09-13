@@ -223,21 +223,19 @@ st.caption(
 st.dataframe(pd.DataFrame(body_limit_rows(body_load_rows([res]), system)),
              hide_index=True, width="stretch")
 
-# Two downloads, named by *channel* (#192): both are LIMIT since note 49
-# OR-116, so the labels name what differs -- the analysis table (this page's
-# converted, unit-suffixed rows, L-8i -- ``limit_csv`` owns both) vs the sbeam
-# bridge's body span CSV (per-case SF column), the same content family the
-# Export page ships. The ``*_ULT.csv`` name is stale until OR-81 (0.8.3).
-# One file, not two: note 56 D-56.2 deleted the per-component fuselage deck and
-# the span-load CSV beside it. The fuselage applied load set survives and is on
-# the **Export** page, which is where the deck channel now lives.
+# One download. It was two, named by *channel* (#192) -- the analysis table
+# (this page's converted, unit-suffixed rows, L-8i, ``limit_csv``'s) beside the
+# body span CSV -- until note 56 D-56.2 deleted the per-component fuselage deck
+# and that companion file with it. The fuselage applied load set survives and is
+# on the **Export** page, which is where the deck channel now lives. Both were
+# LIMIT since note 49 OR-116, and the surviving one says so in its name.
 _dl = st.columns(2)
 _dl[0].download_button("Download fuselage loads — analysis table (CSV)",
                        body_limit_csv(body_load_rows(results), system),
                        file_name="net_fuselage_loads_LIMIT.csv", mime="text/csv")
 st.caption(
-    "Both files are **LIMIT**; each row states the 14 CFR 23.303 factor it does "
-    "not apply. The analysis table carries a `Basis` column and matches the "
-    "table above; the sbeam bridge is the body span CSV also available on the "
-    "**Export** page."
+    "The file is **LIMIT**; each row states the 14 CFR 23.303 factor it does "
+    "not apply. It carries a `Basis` column and matches the table above. The "
+    "fuselage applied load set -- the file a structures model is built from -- "
+    "is on the **Export** page."
 )
