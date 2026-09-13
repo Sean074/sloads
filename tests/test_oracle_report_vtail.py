@@ -437,22 +437,39 @@ def test_an_undeclared_arrangement_reads_as_conventional():
 # Appendix E -- a view of the export owner, not a second assembler
 # --------------------------------------------------------------------------- #
 def test_appendix_e_places_every_load_where_the_deck_places_it():
-    """OR-64/OR-101/OR-136: the appendix and the deck are the same load."""
-    from sloads.export.coordinates import tail_station_to_airplane
+    """OR-64/OR-101/OR-136: the appendix and the deck are the same load.
+
+    **The point is the grid's, not the strip's** (note 56 D-56.9). This
+    compared each row against ``tail_station_to_airplane`` of the strip it came
+    from, which was the deck's point when the appendix was the station-level
+    set. The delivered set is summed onto the fin's LRA chain, so a row's point
+    is that node's, and there are fewer rows than strips -- forty against eighty
+    on the shipped fin. The claim is unchanged in substance and is asserted
+    against the same authority the deck is written from: every row sits exactly
+    on a node of the chain that carries it.
+    """
+    from sloads.report import applied as ap
+    from sloads.export.lra_model import build_lra_model
 
     project = _project()
     table = _appendix(_doc(project), oc.VTAIL_LOAD_STATIONS).tables[0]
     col = {c.split(" ")[0]: i for i, c in enumerate(table.columns)}
-    want = [tail_station_to_airplane(st.x, st.y, "vtail", st.z)
-            for r in build_tail_span(project).get("vtail", []) for st in r.stations]
-    # The strips come first and are the whole set on a conventional tail; a
-    # T-tail adds its transfer node after them, which is a load and not a
-    # station, so the strips are compared and the count is bounded, not equal.
-    assert len(table.rows) >= len(want)
-    for row, (x, y, z) in zip(table.rows, want):
-        assert row[col["X"]] == format_value(x)
-        assert row[col["Y"]] == format_value(y)
-        assert row[col["Z"]] == format_value(z)
+    rows = ap.applied_loads("vtail", build_tail_span(project).get("vtail", []),
+                            project)
+    assert len(table.rows) == len(rows)
+    for row, load in zip(table.rows, rows):
+        assert row[col["X"]] == format_value(load.x)
+        assert row[col["Y"]] == format_value(load.y)
+        assert row[col["Z"]] == format_value(load.z)
+    # ...and every one of those points is a node of the fin's own chain, which
+    # is what "where the deck places it" means now.
+    model = build_lra_model(project)
+    fin = {n.gid: n.pos for n in model.members["vtail"]}
+    fin.update({n.gid: n.pos for n in model.members["all"]})
+    for load in rows:
+        assert load.gid in fin, load.gid
+        for got, exp in zip((load.x, load.y, load.z), fin[load.gid]):
+            assert math.isclose(got, exp, rel_tol=1e-9, abs_tol=1e-9), load.gid
     # The fin spans in Z and loads in Y -- the column that makes this the
     # vertical tail's appendix and not a copy of the horizontal tail's.
     assert any(c.startswith("Fy") for c in table.columns)

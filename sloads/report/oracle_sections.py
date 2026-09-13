@@ -2345,6 +2345,29 @@ _CUMULATIVE_LOADS: Tuple[Tuple[str, str, str], ...] = (
 )
 
 #: The applied channels of B.1 -- what a structural model is given, not what it
+
+#: What the re-aggregation onto the beam's grids means for a reader of any
+#: applied appendix (note 56 D-56.9, ruling 13). One wording, because all four
+#: appendices make the same claim and a per-section paraphrase is how two of
+#: them came to describe different load sets (note 44 OR-139).
+#:
+#: The sentence a reader most needs is the second one: a moment column that is
+#: zero at a load station is **not** guaranteed zero here. Moving a force to a
+#: grid across an offset makes a couple about the axes transverse to it, which
+#: is exactly what keeps the resultant exact -- measured, it puts up to 839
+#: lb-in of Mx on ``baron_58``'s h-tail rows, where the station-level set has
+#: identically zero. G-OR-92 ("a component non-zero anywhere is not describable
+#: as absent") is what makes saying so obligatory rather than optional.
+LUMPED_SET_NOTE = (
+    "The rows are the load set at the beam's own grids (note 56 D-56.9): the "
+    "beam mesh is decided from geometry alone, so it does not align with the "
+    "load stations, and several stations generally sum onto one grid. Each "
+    "load moves to its grid with the exact lever-arm couple, so the set's "
+    "resultant is unchanged -- but a moment component that is zero at a "
+    "station need not be zero here, because moving a force across an offset "
+    "makes a couple about the axes transverse to it. What the lumping costs "
+    "the distribution is stated in the VMT comparison.")
+
 #: carries. All six body-axis components are stated, in vector order, three of
 #: them structurally zero: the wing chain has no producer for a spanwise strip
 #: load and no wing condition is lateral (``Fy``), and a strip applies forces
@@ -2418,7 +2441,7 @@ def _case_name(result: object) -> str:
 
 
 def _applied_table(net: Sequence[WingLoadResult], system: UnitSystem,
-                   assessed: str) -> Optional[Table]:
+                   assessed: str, project: Project) -> Optional[Table]:
     """B.1 -- the applied wing set: every strip, and every point mass.
 
     Deck-grade, which is why the point travels with the load: ``Fz`` applied at
@@ -2433,19 +2456,22 @@ def _applied_table(net: Sequence[WingLoadResult], system: UnitSystem,
         return None
     axis = _torsion_axis(net) or "loads reference axis"
     return applied_load_table(
-        applied_loads("wing", list(net)),
+        applied_loads("wing", list(net), project),
         title="Applied wing loads by station (LIMIT)", system=system,
         note=("The load applied at each station's own point: a strip row per "
               "load station, root to tip, and a row per concentrated wing mass "
-              "at its own coordinates. Together they are the whole applied "
-              "set, as the six body-axis components a model is given. Three of "
-              "them are zero for every row, and are printed so that a zero "
-              "cannot be read as an omission: Fy because the wing chain "
+              "at its own coordinates, summed onto the grids. Together they "
+              "are the whole applied set, as the six body-axis components a "
+              "model is given. All six are printed so that a zero cannot be "
+              "read as an omission. Fy is zero for every row: the wing chain "
               "produces no spanwise strip load and no wing condition is "
-              "lateral, Mx and Mz because a strip applies forces and a section "
+              "lateral, and no couple can create one. Mx and Mz are zero AT THE "
+              "STATION because a strip applies forces and a section "
               "moment and nothing else -- the whole of the cumulative Mxx and "
               "Mzz is those forces acting through the spanwise arms these "
-              f"coordinates state. My is the free torsion about the {axis}; a "
+              "coordinates state -- and carry here only what the transfer to "
+              "the grid put in them. " + LUMPED_SET_NOTE + " "
+              f"My is the free torsion about the {axis} plus that transfer; a "
               "point mass carries none, because every moment it produces is "
               "its force acting through an arm the coordinates already state. "
               "A concentrated mass has a name and no GID: the exported stick "
@@ -2502,7 +2528,7 @@ def _station_appendix(project: Project, *, system: UnitSystem,
     net = _wing_net(project)
     assessed = subsection_ref(plan, _WING_STEP, _WING_ASSESSED)
     notation = subsection_ref(plan, _WING_STEP, _WING_CASES)
-    applied = _applied_table(net, system, assessed)
+    applied = _applied_table(net, system, assessed, project)
     carried = _cumulative_table(net, system, notation)
     body = [
         # "Every case run", not "every selected case": the tables carry the
@@ -3562,11 +3588,12 @@ def _body_station_appendix(project: Project, *, system: UnitSystem,
               "of the structure, not of the mass it carries, which the beam "
               "table states separately. All six components are printed so that "
               "a zero cannot be read as an omission. Fz is the whole applied "
-              "set: Fx and Fy are zero for every row because the body beam has "
-              "no fore-aft or lateral producer, and Mx, My and Mz because a "
-              "station applies a force and no free moment -- every moment the "
-              "beam carries is those forces acting through the arms these "
-              "coordinates state. Moments are right-handed about the airplane "
+              "force set: Fx and Fy are zero for every row because the body "
+              "beam has no fore-aft or lateral producer, and no couple can "
+              "create a force. Mx, My and Mz are zero AT THE STATION -- a "
+              "station applies a force and no free moment -- and carry here "
+              "only the transfer to the grid. " + LUMPED_SET_NOTE + " "
+              "Moments are right-handed about the airplane "
               "axes. Every load is LIMIT and states in its own row the factor "
               "it does not apply; the station is geometry and is neither "
               "scaled nor marked."))
@@ -4733,30 +4760,37 @@ def _tail_station_appendix(project: Project, component: str, *,
         absent = (f"Fz is the normal load and {torsion} the strip torsion about "
                   "the surface's span axis, which for a horizontal tail is "
                   "airplane y. Fx and Fy are zero for every row: this analysis "
-                  "models no chordwise load on either tail surface, and no "
-                  "spanwise acceleration reaches a horizontal tail. Mx and Mz "
-                  "are zero because a strip applies forces and a torsion and "
-                  "nothing else -- the bending the structure carries is those "
-                  "forces acting through the arms these coordinates state.")
+                  "models no chordwise load on either tail surface, no "
+                  "spanwise acceleration reaches a horizontal tail, and no "
+                  "couple can create a force. Mx and Mz are zero AT THE "
+                  "STATION -- a strip applies forces and a torsion and "
+                  "nothing else -- and carry here only what the transfer to "
+                  "the grid put in them: the bending the structure carries is "
+                  "those forces acting through the arms these coordinates "
+                  "state.")
     else:
         absent = (f"{normal} is the normal load and {torsion} the strip torsion "
                   "about the surface's span axis, which for a fin is airplane "
-                  "z. My is zero for every row, and cannot be otherwise: a "
-                  "lateral load makes no moment about the y axis. Fz is not "
-                  "zero -- a fin's span is vertical, so vertical acceleration "
-                  "on its own mass is an axial column load, carried on the same "
-                  "card as the side load. Fx and Mx are zero: this analysis "
-                  "models no chordwise load on either tail surface, and the "
-                  "bending the structure carries is the normal load acting "
-                  "through the arms these coordinates state.")
+                  "z. Fx is zero for every row: this analysis models no "
+                  "chordwise load on either tail surface, and no couple can "
+                  "create a force. Fz is not zero -- a fin's span is vertical, "
+                  "so vertical acceleration on its own mass is an axial column "
+                  "load, carried on the same card as the side load. My and Mx "
+                  "are zero AT THE STATION: a side load makes no moment "
+                  "about y, and the bending the structure carries is the "
+                  "normal load acting through the arms these coordinates "
+                  "state. Both carry here what the transfer to the grid put in "
+                  "them -- the fin's axial Fz moved fore-aft makes a small My, "
+                  "which is the couple that keeps the resultant exact and not "
+                  "a lateral load acting about y.")
     table = applied_load_table(
-        applied_loads(component, results), system=system,
+        applied_loads(component, results, project), system=system,
         title=f"Applied {names['surface']} loads by station (LIMIT)",
         note=("Every load is LIMIT and states the factor 14 CFR 23.303 "
               "prescribes for its condition, which is applied to none of them. "
               "The station point is the loads reference axis of the surface, "
               "mapped to airplane axes, and the moments are right-handed about "
-              "those axes about that point."
+              "those axes about that point. " + LUMPED_SET_NOTE
               + (_htail_waterline_sentence(project, system)
                  if component == "htail" else "")
               + f" {absent}"))

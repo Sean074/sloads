@@ -232,7 +232,7 @@ def test_full_airframe_exports_cleanly():
 
     # Wing: the applied Fz set re-sums to the NETLOADS root shear, per case.
     rows: dict = {}
-    for ld in ap.applied_loads("wing", wing):
+    for ld in ap.applied_loads("wing", wing, p):
         rows.setdefault(ld.case, []).append(ld)
     assert len(rows) == len(wing)
     for r in wing:
@@ -250,7 +250,7 @@ def test_full_airframe_exports_cleanly():
         if not results:
             continue
         per_case: dict = {}
-        for ld in ap.applied_loads(component, results):
+        for ld in ap.applied_loads(component, results, p):
             per_case.setdefault(ld.case, []).append(ld)
         assert len(per_case) == len(results), component
 

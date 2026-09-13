@@ -255,7 +255,8 @@ def test_every_bundle_channel_carries_the_unit_statement():
             registry.get("engine")(project), header_comment=csv_stamp,
             system=UnitSystem.SI),
         "applied CSV": ap.applied_load_csv(results, header_comment=csv_stamp,
-                                           system=UnitSystem.SI),
+                                           system=UnitSystem.SI,
+                                           project=project),
         "balanced deck": _balanced_deck(
             project, header_comment=bdf_stamp, system=UnitSystem.SI),
         "METHODS.txt": methods_statement(project, **kw),
@@ -328,7 +329,8 @@ def test_the_stamp_still_round_trips_for_csv_readers():
     readers (``workbook._csv_to_df`` reads with ``comment="#"``) are the audited
     path, and a stamp they cannot skip is a header row of prose."""
     stamp = csv_comment_block(_ga_project(), system=UnitSystem.SI)
-    payload = ap.applied_load_csv(_ga_wing_net(), system=UnitSystem.SI)
+    payload = ap.applied_load_csv(_ga_wing_net(), system=UnitSystem.SI,
+                                  project=_ga_project())
     # The payload carries comment lines of its own (note 46 OR-69), so what the
     # stamp must not disturb is the payload's *rows*, not its whole text.
     assert (strip_comment_lines(stamp + payload)
@@ -824,7 +826,8 @@ def test_si_deck_still_closes_on_the_root_shear_and_torsion():
     results = _ga_wing_net()
     for system in (UnitSystem.IMPERIAL, UnitSystem.SI):
         u = deliverable_units(system, Channel.SOLVER)
-        text = strip_comment_lines(ap.applied_load_csv(results, system=system))
+        text = strip_comment_lines(
+            ap.applied_load_csv(results, system=system, project=_ga_project()))
         rows = list(csv.DictReader(_io.StringIO(text)))
         assert rows, system
         fz_col = next(c for c in rows[0] if c.startswith("Fz "))
@@ -843,8 +846,18 @@ def test_si_deck_still_closes_on_the_root_shear_and_torsion():
             # rounds to a fixed decimal, so the tolerance is the rendering's,
             # not the arithmetic's -- a scale error is a factor of 1000, which
             # no rounding hides.
+            # About the **root station's own point**, named explicitly. It used
+            # to be ``mine[0]``'s point and those were the same thing, because
+            # the first row was the root station. Note 56 D-56.9 sums the set
+            # onto the beam's grids, so the first row is now a grid -- and a
+            # cumulative ``myy`` about the root compared against a moment taken
+            # about some other point is a different quantity, which is what
+            # broke here rather than any scale. The closure itself is untouched:
+            # LM-1 preserves the resultant about every reference, so the set
+            # still closes on the root when the root is what it is taken about.
             fx_col = next(c for c in rows[0] if c.startswith("Fx "))
-            x0, z0 = float(mine[0][x_col]), float(mine[0][z_col])
+            x0 = r.stations[0].x * u.length.factor
+            z0 = r.stations[0].z * u.length.factor
             my = math.fsum(float(row[my_col]) for row in mine)
             transfer = math.fsum(
                 (float(row[z_col]) - z0) * float(row[fx_col])
@@ -973,7 +986,8 @@ def test_sbeam_headers_state_their_units_in_both_systems():
         from sloads.report.methods import strip_comment_lines
 
         header = strip_comment_lines(
-            ap.applied_load_csv(results, system=system)).splitlines()[0]
+            ap.applied_load_csv(results, system=system,
+                                project=_ga_project())).splitlines()[0]
         cells = header.split(",")
         assert cells[3] == f"X {length}", header
         assert cells[6] == f"Fx {force}", header

@@ -480,8 +480,9 @@ def test_load_cases_csv_carries_the_stamp_and_still_parses():
 
 def test_applied_load_csv_carries_the_stamp_and_still_parses():
     project, wing = _wing_net(_GA)
-    plain = ap.applied_load_csv(wing)
-    stamped = ap.applied_load_csv(wing, header_comment=csv_comment_block(project))
+    plain = ap.applied_load_csv(wing, project=project)
+    stamped = ap.applied_load_csv(wing, header_comment=csv_comment_block(project),
+                              project=project)
     assert stamped.startswith("#") and "ULTIMATE" in stamped
     # The file carries comment lines of its own (the moment-convention block,
     # note 46 OR-69), so the invariant is that the stamp disturbs nothing --

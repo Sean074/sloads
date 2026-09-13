@@ -58,7 +58,8 @@ def _try(fn, *args, **kwargs):
 def _sbeam_artifacts(project, comps, cases):
     art = {}
     if comps.wing:
-        art["wing_applied_loads.csv"] = _try(ap.applied_load_csv, comps.wing)
+        art["wing_applied_loads.csv"] = _try(
+            ap.applied_load_csv, comps.wing, project=project)
     if comps.body:
         art["fuselage_applied_loads.csv"] = _try(
             ap.applied_load_csv, comps.body, component="fuselage", project=project)
@@ -68,7 +69,8 @@ def _sbeam_artifacts(project, comps, cases):
         spans = _try(build_tail_span, project) or {}
         for _surface in ("htail", "vtail"):
             art[ap.APPLIED_CSV_NAMES[_surface]] = _try(
-                ap.applied_load_csv, spans.get(_surface) or [], component=_surface)
+                ap.applied_load_csv, spans.get(_surface) or [],
+                component=_surface, project=project)
     if cases:
         art["balanced_airframe.bdf"] = _try(balanced_deck, project, cases=cases)
         art["lra_model.bdf"] = _try(lra_model_bdf, project, cases=cases)
