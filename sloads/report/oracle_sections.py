@@ -75,6 +75,7 @@ from .oracle_content import (
     BODY_LOAD_STATIONS,
     GEAR_LOAD_CASES,
     HTAIL_LOAD_STATIONS,
+    LUMPING_COMPARISON,
     VN_CONDITIONS,
     VTAIL_LOAD_STATIONS,
     WING_LOAD_STATIONS,
@@ -89,6 +90,7 @@ if TYPE_CHECKING:
     # pragma: no cover - typing only, and a cycle if imported at runtime
     from ..models.results import EnvelopeResult, GearReactionCase
     from ..modules.one_engine_out import VtailCase
+    from .lumping import ComponentComparison
 
 
 # --------------------------------------------------------------------------- #
@@ -7603,6 +7605,209 @@ def _gear_appendix(project: Project, *, system: UnitSystem,
 
 
 # --------------------------------------------------------------------------- #
+# Appendix G -- what the beam mesh costs the distribution (note 56 D-56.10)
+# --------------------------------------------------------------------------- #
+#: The span coordinate each member's comparison is drawn against.
+_LUMPING_AXIS = {
+    "wing": ("Butt line, right wing", "length"),
+    "fuselage": ("Fuselage station", "length"),
+    "htail": ("Butt line, right horizontal tail", "length"),
+    "vtail": ("Waterline, fin", "length"),
+}
+
+#: The surface each comparison is titled by.
+_LUMPING_NAMES = {"wing": "wing", "fuselage": "fuselage",
+                  "htail": "horizontal tail", "vtail": "vertical tail"}
+
+#: One line style per channel, in :data:`~sloads.report.lumping.CHANNEL_NAMES`
+#: order. Three, not six: see :func:`_lumping_figure`.
+_LUMPING_STYLES = ("solid", "dashed", "dotted")
+
+
+def _lumping_comparisons(project: Project) -> List["ComponentComparison"]:
+    """The four comparisons this project can state, in the report's order."""
+    from . import lumping
+
+    results = {"wing": _wing_net(project), "fuselage": _body_net(project),
+               "htail": _tail_spanwise(project, "htail"),
+               "vtail": _tail_spanwise(project, "vtail")}
+    out: List["ComponentComparison"] = []
+    for component in lumping.COMPONENTS:
+        if component == "vtail" and _vtail_withheld(project, component):
+            # OR-133 withholds the fin's spanwise loads on a non-conventional
+            # layout, and a comparison of a set that is not published would
+            # publish it sideways.
+            continue
+        made = lumping.compare(project, component, results[component])
+        if made is not None:
+            out.append(made)
+    return out
+
+
+def _lumping_figure(comparison: "ComponentComparison",
+                    system: UnitSystem) -> Figure:
+    """One component's deviation figure: three channels, as a share of the peak.
+
+    **The deviation is plotted, not the two curves**, which amends D-56.10 as
+    first written, and the reason is the axis. Six curves -- shear, bending and
+    torsion, each in two versions -- carry three different dimensions and cannot
+    share one y-axis honestly; normalising them to share one turns six black
+    lines into a figure a greyscale reader cannot separate, and the report's
+    figures carry no colour by rule (ORACLE_REPORT §4.3). Nothing is lost by it:
+    **both sets are already printed in full**, the station set station by
+    station in the cumulative appendix (B.2, C.2) and the delivered set grid by
+    grid in the applied one (B.1, C.1, D, E). What was missing, and what this
+    figure is, is the difference between them.
+
+    The share is of each channel's **own peak along the member**, so the three
+    are comparable on one axis and a tip value near zero cannot report a large
+    fraction of nothing.
+    """
+    from . import lumping
+
+    component = comparison.component
+    name = _LUMPING_NAMES[component]
+    key = f"lumping_{component}"
+    title = f"{name.capitalize()} lumping deviation"
+    case = lumping.critical_case(comparison)
+    entry = comparison.case(case)
+    if entry is None:
+        return Figure(key=key, title=title, absent_reason=(
+            f"the {name} produced no case to compare."))
+    u = Units(system)
+    axis_label, axis_dim = _LUMPING_AXIS[component]
+    series = []
+    for (channel, letter), style in zip(lumping.CHANNEL_NAMES, _LUMPING_STYLES):
+        reference = max((abs(v) for v in entry.station.channel(channel)),
+                        default=0.0)
+        if reference == 0.0:
+            # A channel with no producer on this surface -- a fuselage carries
+            # no torsion in this analysis -- is a flat zero, and a legend entry
+            # for it invites the reader to look for a line that is under the
+            # axis.
+            continue
+        symbol = getattr(comparison.channels, f"{channel}_symbol")
+        series.append(Series(
+            f"{letter} ({symbol})",
+            [u.plain_value(s, axis_dim) for s in entry.station.s],
+            [100.0 * d / reference for d in entry.deviation(channel)],
+            style))
+    if not series:
+        return Figure(key=key, title=title, absent_reason=(
+            f"the {name} carries no internal load in any channel for {case}, "
+            "so there is nothing for the lumping to move."))
+    return Figure(
+        key=key, title=title,
+        data=PlotData(f"{axis_label} ({u.label(axis_dim)})",
+                      "Deviation (% of the channel's own peak)", series),
+        caption=(
+            f"What summing the applied {name} loads onto the beam's grids moves, "
+            f"for case {case} -- the case that bends this member hardest. Each "
+            "curve is the internal load computed from the delivered set at the "
+            "grids, minus the same quantity computed from the load stations, at "
+            "the same cuts, as a percentage of that channel's own largest value "
+            "along the member. Zero means the two sets say the same thing at "
+            "that cut. No solver is involved: both sides are computed here, so "
+            "the figure shows the lumping and nothing else. The worst deviation "
+            "over every case, not only this one, is given in this appendix's table."))
+
+
+def _lumping_table(comparisons: Sequence["ComponentComparison"],
+                   system: UnitSystem) -> Optional[Table]:
+    """The number beside the figures: the widest gap in each channel, all cases."""
+    from . import lumping
+
+    u = Units(system)
+    rows: List[List[str]] = []
+    for comparison in comparisons:
+        for channel, letter in lumping.CHANNEL_NAMES:
+            case, gap, s, reference = comparison.worst(channel)
+            if reference == 0.0 and gap == 0.0:
+                continue
+            dim = "force" if channel == "shear" else "moment"
+            entry = comparison.case(case)
+            sf = entry.safety_factor if entry is not None else 0.0
+            symbol = getattr(comparison.channels, f"{channel}_symbol")
+            share = "" if reference == 0.0 else format_value(
+                100.0 * abs(gap) / reference)
+            rows.append([
+                _LUMPING_NAMES[comparison.component].capitalize(),
+                f"{letter} ({symbol})", case,
+                u.plain(s, "length"),
+                u.load(reference, dim, sf), u.load(gap, dim, sf), share,
+                format_value(sf)])
+    if not rows:
+        return None
+    length = u.label("length")
+    return Table(
+        title="Worst effect of the lumping, over every case (LIMIT)",
+        columns=["Component", "Channel", "Case", f"Cut ({length})",
+                 f"Peak carried ({u.label('force')} / {u.label('moment')})",
+                 f"Deviation ({u.label('force')} / {u.label('moment')})",
+                 "% of peak", "SF"],
+        rows=rows, small=True,
+        note=("One row per member per channel: the cut where the delivered set "
+              "and the load stations disagree most, over every case the "
+              "component runs -- not only the case the figures are drawn for. "
+              "Peak carried is that case's largest internal load of that "
+              "channel anywhere along the member, which is what the percentage "
+              "is taken against. A shear is a force and a bending or torsion a "
+              "moment, so the two unit labels in a column heading each apply to "
+              "the rows of their own kind. Every value is LIMIT: a deviation is "
+              "the difference of two LIMIT loads, and the factor its condition "
+              "prescribes is stated here and applied to nothing. There is no "
+              "pass mark. The size of these numbers is a function of the grid "
+              "counts the project sets, so a fixed tolerance would fail a "
+              "coarse mesh that is doing exactly what it was asked to."))
+
+
+def _lumping_appendix(project: Project, *, system: UnitSystem,
+                      plan: Sequence[SectionPlan]) -> Section:
+    """Appendix G -- what the re-aggregation costs the distribution (D-56.10)."""
+    del plan
+    comparisons = _lumping_comparisons(project)
+    if not comparisons:
+        return Section("", absent_reason=(
+            "no distributed load set and beam model could both be built for "
+            "this project, so there is no re-aggregation to state the effect "
+            "of."), page_break=True)
+    table = _lumping_table(comparisons, system)
+    return Section(
+        "", page_break=True,
+        body=[
+            "Every applied load this report delivers is stated at a grid of the "
+            "beam model, and the beam's grids are not the load stations. The "
+            "mesh is decided from the geometry alone, so that the model sloads "
+            "generates is one instance of the contract a user's own imported "
+            "model obeys rather than a special case welded to the load "
+            "stations. Several stations, and several concentrated masses, "
+            "therefore sum onto one grid.",
+            "Each load moves to its grid with the exact lever-arm couple, so "
+            "the RESULTANT of the set is unchanged -- per case, per "
+            "component, to the last bit. That identity is asserted in the test "
+            "suite and is not a matter of tolerance. What the move does change "
+            "is the DISTRIBUTION: a load that crosses a cut on its way to "
+            "its grid takes its contribution to the internal shear, bending and "
+            "torsion at that cut with it. This appendix states how much.",
+            "Both sides are computed here and no solver is involved. The "
+            "internal load at a cut is the static resultant of everything "
+            "outboard of it, transferred to the cut; it is evaluated twice, "
+            "once from the load stations and once from the delivered set at the "
+            "grids, about the same cuts. A reader comparing against a solved "
+            "model would be looking at that model's idealisation as well as at "
+            "this, and could not tell the two apart.",
+            "There is no acceptance criterion here, and that is deliberate. The "
+            "size of the difference is a function of the grid counts the "
+            "project sets: refine the mesh and it falls, coarsen it and it "
+            "rises, and both are the tool doing what it was asked. An analyst "
+            "who needs it smaller than it is should raise the counts for the "
+            "member in question and rerun.",
+        ],
+        tables=[t for t in [table] if t is not None],
+        figures=[_lumping_figure(c, system) for c in comparisons])
+
+
+# --------------------------------------------------------------------------- #
 # Appendix A -- the balanced V-n conditions (note 44 §23, OR-194 ... OR-201)
 # --------------------------------------------------------------------------- #
 #: What the appendix says about thrust, once, in its own body (OR-198).
@@ -7929,6 +8134,7 @@ APPENDIX_BUILDERS = {
     HTAIL_LOAD_STATIONS: _htail_station_appendix,
     VTAIL_LOAD_STATIONS: _vtail_station_appendix,
     GEAR_LOAD_CASES: _gear_appendix,
+    LUMPING_COMPARISON: _lumping_appendix,
 }
 
 

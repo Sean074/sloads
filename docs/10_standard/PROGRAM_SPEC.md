@@ -1033,6 +1033,27 @@ result that lacks what a deck needs is a stated error, never an empty column.
   LIMIT with the factor stated per case, solver unit channel, offered on the
   Wing Loads page and in the Export bundle. The exported deck is built from this same set (see nodal loads
   below).
+- **The delivered set is stated at the beam's grids, and what that costs is
+  published (note 56 D-56.9/D-56.10, 2026-09-12).** `applied_loads` returns one
+  row per (case, LRA grid): every load station and every concentrated mass is
+  summed onto the nearest node of its member with the exact lever-arm couple, so
+  the appendix row and the `FORCE`/`MOMENT` card are one object at one point.
+  The station-level set stays published as `station_applied_loads`. The
+  transfer preserves the set's **resultant** exactly, per case and per
+  component; what it moves is the **distribution**, and the oracle report's
+  **Appendix G** states how much. Its owner is `sloads/report/lumping.py`: the
+  internal load at a cut is the static resultant of everything outboard of it
+  transferred to the cut — one rule for shear, bending and torsion on all four
+  members — evaluated twice about the same cuts, once from each set. Both sides
+  are computed and no solver is involved, so the figure is a discretization
+  comparison and not an idealisation one. There is **no acceptance tolerance**
+  and the appendix says so: the size of the difference is a function of the grid
+  counts the project sets (`Project.lra_mesh`), so a fixed limit would fail a
+  coarse mesh behaving exactly as specified. Each figure names its own case —
+  the four components' condition registers are disjoint by construction, so
+  there is no shared one — and the table beside them gives the widest gap per
+  channel over **every** case. Cross-checked against `sob_internal_loads`, the
+  single-cut owner it generalises, on four fixtures.
 - **Deck `$` comment width.** Every generated `$` sentence in the wing, body,
   tail and control decks is emitted through `deck_format.comment`, which wraps
   at the **72-column free-field card width** (`$ ` + 70) — a property of the

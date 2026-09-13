@@ -258,7 +258,7 @@ owner accepted the trade: **GPWG replaces the solve.**
 | **D-56.7** | **`inertia_only_cards` retires.** It exists to compare sloads' reduction of a mass to a beam station against sbeam's GPWG recovery. With each mass at its own CG there is no reduction left to check. | *Keep it as a regression check.* Rejected: it would compare two identities. |
 | **D-56.8** | **`balanced_deck` demotes to an internal producer.** Its cases feed the LRA transfer and the report's `balanced_case_rows`; no `.bdf` ships. A table is in the issue package **iff the document draws it** — the rule `data/<step_key>.csv` already states. Deck-companion CSVs nothing draws are deleted with their decks. | *Keep shipping it as the equilibrium proof.* Rejected: the proof is a CI gate, not a deliverable, and the LRA deck carries the same resultant. This also makes #173 moot rather than fixed. |
 | **D-56.9** *(added by amendment, ruling 10; **rewritten by amendment 2026-09-12, ruling 13** — the original text is quoted in §6)* | **The applied load set is re-aggregated onto the LRA grids.** Not relabelled: *summed*. A component's applied set stops being one row per load-integration station and becomes **one row per (case, LRA grid)**, with every aerodynamic and inertial contribution that routes to that grid summed into it through LM-1 (`coordinates.transfer_couple`, the existing owner — the same rule `lra_model.transferred_case_loads` already applies, so there is one routing rule and not a second one written for the report). Several aero stations and several mass items therefore land on one grid, which is the point: the appendix row, the `*_applied_loads.csv` row and the `FORCE`/`MOMENT` card are then **one object at one point**, which is what the row-for-card claim always meant and what the per-component decks happened to provide. `AppliedLoad.gid` is an LRA grid and stops being `Optional` — a concentrated mass gets a grid like anything else. The seven bands the applied model allocated from (`wing-stick`, `body-mass`, `body-reaction`, the two `tail-span` and the two `tail-control` runs) retire, and `wing-stick`'s `GID 1` hole closes with them. **G-OR-90 keeps its form and changes its authority**: it reads the LRA deck, still card-first, still one case at a time — and the form is now *true*, because with one aggregation rule a component's rows at a grid and the card at that grid cannot disagree. | *Relabel the rows with the nearest LRA grid and leave the station-level decomposition intact* (what this decision said before the rewrite). Rejected on measurement, not taste: the LRA deck emits one `SUBCASE` per **balanced** case and `transferred_case_loads` sums every source onto each node, so a card at a grid has contributions from several components and matches no single station-level row. Card-first row-matching cannot hold against a summing deck — the gate would have had to weaken to a resultant identity, and the appendix would have kept describing a decomposition the delivered artifact does not have. *Make the applied set the literal card writer, replacing `transferred_case_loads`.* Rejected as a different change: the component sets do not carry the balanced case's inertia relief, so this would move G-OR-72's `nz × W` closure onto new machinery in a slice that is about addressing, not about what the deck is. |
-| **D-56.10** *(added by amendment 2026-09-12, ruling 14)* | **The report states what the re-aggregation costs, as a VMT comparison.** LM-1 preserves each load's resultant about the node it lands on **exactly**, so the total resultant is unchanged and already gated. What moves is the **distribution**: a load that crosses a cut on its way to its assigned node takes its contribution to the internal V/M/T at that cut with it. That is a real discretization difference, it is a direct consequence of the mesh being load-blind by design (D-56.4), and the report states it rather than leaving a reader to discover it. A new section carries **four figures — wing, fuselage, h-tail, fin — for one shared critical case**, each plotting the calc's own distributed VMT against the VMT re-derived from the LRA-lumped applied set, with the worst deviation over **all** cases stated numerically beside them. One case for all four so the figures are read together. **No solver is in the loop**: both curves are computed, so the figure is a discretization comparison and not an idealisation comparison, and it is reproducible in CI. | *Compare against sbeam's solved internal loads.* Rejected: it puts the solver's own idealisation into the same plot as the lumping error and a reader cannot tell which they are looking at. *Gate the deviation with a hard tolerance.* Rejected **for now** (ruling 15, and see gate 12): the deviation is a legitimate function of a user-settable grid count, so a fixed tolerance would fail a coarse mesh that is behaving exactly as specified. The number would also have to come from a measurement nobody has taken. It is stated and plotted; the resultant identity beside it stays exact and gated. | 
+| **D-56.10** *(added by amendment 2026-09-12, ruling 14)* | **The report states what the re-aggregation costs, as a VMT comparison.** LM-1 preserves each load's resultant about the node it lands on **exactly**, so the total resultant is unchanged and already gated. What moves is the **distribution**: a load that crosses a cut on its way to its assigned node takes its contribution to the internal V/M/T at that cut with it. That is a real discretization difference, it is a direct consequence of the mesh being load-blind by design (D-56.4), and the report states it rather than leaving a reader to discover it. A new section carries **four figures — wing, fuselage, h-tail, fin — for one shared critical case**, each plotting the calc's own distributed VMT against the VMT re-derived from the LRA-lumped applied set, with the worst deviation over **all** cases stated numerically beside them. **Amended 2026-09-12, at implementation, on two points of the sentence before this one — the ruling is unchanged and both changes are recorded in §7b.** (i) *One shared case is not available.* The four components' condition registers are disjoint by construction — the wing runs `W-nn`, the fuselage `F-nn`, the h-tail `HT-nn`, the fin `VT-nn`, each surface's own FAR conditions — so no case is run by more than one of them and there is nothing to share. Each figure names its own case, and it is that member's **most heavily bent** one, which is what "critical" means to a reader; the worst *lumping* is a different question and the table answers it over every case. (ii) *The deviation is plotted, not the two curves.* Six curves — three channels in two versions — carry three dimensions and cannot share one y-axis, and normalising them to share one puts six colourless lines in a figure that must stay legible in greyscale (`ORACLE_REPORT.md` §4.3). Nothing is lost: **both sets are already printed in full**, the station set in the cumulative appendices (B.2, C.2) and the delivered set in the applied ones (B.1, C.1, D, E). The difference between them was the one thing missing, and it is what the figure now is. **No solver is in the loop**: both curves are computed, so the figure is a discretization comparison and not an idealisation comparison, and it is reproducible in CI. | *Compare against sbeam's solved internal loads.* Rejected: it puts the solver's own idealisation into the same plot as the lumping error and a reader cannot tell which they are looking at. *Gate the deviation with a hard tolerance.* Rejected **for now** (ruling 15, and see gate 12): the deviation is a legitimate function of a user-settable grid count, so a fixed tolerance would fail a coarse mesh that is behaving exactly as specified. The number would also have to come from a measurement nobody has taken. It is stated and plotted; the resultant identity beside it stays exact and gated. | 
 
 **`EXPORT_TARGETS`** (`cli.py:89`) goes from ten to **`("lra", "mass")`**, plus
 `--lra-import`.
@@ -487,6 +487,7 @@ not only of what was intended.
 | 6a | **``sbeam_bridge.py`` ceases to exist** (D-56.1). The applied-load family, the station numbering and the side-of-body internal loads move whole to ``report/applied.py``; the export package stops re-exporting them and no shim is left. Two guards land: one address per name in both directions, and no importable ``sbeam_bridge``. Deliverables byte-identical. | 2026-09-11 |
 | 7 | **CONM2 gets its own CG grids and the mass model is checked by GPWG** (D-56.6 + D-56.7). One `GRID` per card at the item's own CG in the new `mass-cg` band (`13001+`), zero offset; `_attach_gid`, the offset arithmetic, the placeholder massless beam and its `SPC1` all go, and the wing-item limitation retires with the header sentence that stated it. `inertia_only_cards`, `case_station_weights` and `roundtrip.flatten_mass_case` retire. Gate 6 lands as GPWG. The mass model enters the digest baseline for the first time (234 → 244 channels). | 2026-09-12 |
 | 6b-i | **The applied load set is re-aggregated onto the LRA grids** (D-56.9). `applied_loads` returns one row per (case, grid), every aero station and concentrated mass summed onto the nearest node of its member through LM-1; the station-level set stays public as `station_applied_loads`, the aggregation's input and D-56.10's reference curve. `project` becomes required. Gates 12 and 13 land. Four digest channels re-stamp -- the `*_applied` ones, gate 8's stated exception -- and 52 hold. | 2026-09-12 |
+| 6b-ii | **What the lumping costs is published** (D-56.10). New owner `report/lumping.py`: the internal load at a cut is the outboard resultant transferred to the cut, one rule for V/M/T on all four members, evaluated twice about the same cuts. New **Appendix G** -- one table of the widest gap per channel over every case, four deviation figures. Two amendments to D-56.10, both recorded in the row above it: no shared case exists, and the deviation is plotted rather than the two curves. | 2026-09-12 |
 
 **Two departures from the note as written, both deliberate.**
 
@@ -784,11 +785,70 @@ the existing owner. What it moved is not, and the note owes an account of it.
    **52** held byte-identical. That is gate 8 and its one stated exception, read
    off the artifact rather than argued.
 
-**D-56.10 is not in this slice.** The VMT comparison has its reference curve now
-(``station_applied_loads`` is public and gated) and nothing draws it yet, so the
-note's claim that the report states what the lumping costs is **not yet true**
--- the appendix notes point at a comparison that does not exist. That is 6b-ii
-and it is the next thing, not a later one.
+~~**D-56.10 is not in this slice.**~~ **Landed as 6b-ii the same day**; the
+sentence below is kept as the record of the gap it names. *The VMT comparison
+has its reference curve now (``station_applied_loads`` is public and gated) and
+nothing draws it yet, so the note's claim that the report states what the
+lumping costs is **not yet true** -- the appendix notes point at a comparison
+that does not exist. That is 6b-ii and it is the next thing, not a later one.*
+
+**Slice 6b-ii: what the measurement found.**
+
+1. **Two amendments to D-56.10 before code, per rule 1**, both recorded in the
+   decision row itself. *(i) There is no shared critical case to draw.* The
+   four components' condition registers are disjoint by construction --
+   ``W-nn``, ``F-nn``, ``HT-nn``, ``VT-nn`` -- so no case is run by more than
+   one of them, and "one case for all four" was a premise about the data that
+   the data does not hold. Each figure names its own, and it is the case that
+   bends that member hardest; the case where the *lumping* is worst is a
+   different question, and the table answers it over every case. A guard pins
+   the disjointness so the amendment cannot rot silently.
+   *(ii) The figures plot the gap, not the two curves.* Three channels in two
+   versions is six colourless lines carrying three dimensions; no y-axis holds
+   that honestly and no greyscale reader separates it. Both sets are already
+   printed in full -- the station set in B.2/C.2, the delivered set in
+   B.1/C.1/D/E -- so the difference was the one thing missing.
+2. **The generic computation is cross-checked against the owner it
+   generalises.** ``sob_internal_loads`` states the wing's internal load at one
+   cut and has been gated against the solver since step 13. The new
+   ``_curve`` reproduces it -- shear, bending **and** torsion -- at the wing
+   root of every case of four fixtures. That is what made it safe to write one
+   function for four members instead of four integrations: an internal load is
+   a resultant about a point, and the wing already had a trusted instance of
+   that sentence.
+3. **The numbers are larger than the note assumed, and the fuselage is the
+   outlier.** Worst deviation as a share of the channel's own peak, over every
+   case, on the four loaded fixtures: wing shear 19-35 %, wing bending 3-5 %,
+   wing torsion 17-77 %; h-tail and fin bending under 1.1 %, their shear
+   6-14 % and torsion 9-21 %; **fuselage shear 82-197 %** and fuselage bending
+   14-19 %. The fuselage number is real and not an artifact: on
+   ``concept_regional_jet`` a ~107,000 lb carry-through reaction lands on a
+   node one bay from where it acts, against a peak station shear of 54,588 lb.
+   It is stated, not gated (ruling 15) -- but it is also the strongest argument
+   yet that the **fuselage's owned points should include the spar carry-through
+   stations**, which D-56.4's mesh does not currently guarantee. **Not yet
+   filed as an issue** -- it needs one, and the owner runs `gh`; recorded here
+   so it cannot be lost. Not fixed here either: this slice's job is to measure,
+   and changing the mesh to improve its own measurement in the same change
+   would be marking its own paper.
+4. **Bending is the channel that survives lumping best, everywhere.** Under 5 %
+   on every member of every fixture, against tens of per cent in shear and
+   torsion. That is the expected shape -- bending is an integral of the shear,
+   so moving a load a short distance perturbs it by the load times that short
+   distance, while the shear at a crossed cut moves by the whole load -- and it
+   is worth a reader knowing, because bending is what most of the structure is
+   sized by.
+5. **Three guards outside this feature caught its defects**, which is the
+   argument for having them: the platform-stability sweep refused three keyed
+   ``min``/``max`` picks (routed through ``picks.extreme``), the rendered-LaTeX
+   sweep refused markdown emphasis in the new appendix prose, and the
+   package-layout guard refused the new module until ``PROJECT_GUIDE.md`` §4
+   listed it.
+6. **The fin's withheld case is honoured.** OR-133 withholds the fin's spanwise
+   loads on a non-conventional layout, so Appendix G omits the fin comparison
+   there rather than publishing sideways a set section 6 declined to publish.
+   ``atr42_100`` and ``concept_regional_jet`` are T-tails, so the guard is live
+   in both directions on the shipped fixture set.
 
 ---
 

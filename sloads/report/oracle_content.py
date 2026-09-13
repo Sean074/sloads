@@ -153,6 +153,20 @@ VTAIL_LOAD_STATIONS = "Vertical tail loads by station"
 #: distribution this appendix does not have.
 GEAR_LOAD_CASES = "Landing gear loads by case"
 
+#: The appendix stating what summing the applied set onto the beam's grids costs
+#: the distribution (note 56 D-56.10, ruling 14).
+#:
+#: Appended, never inserted: the letter is the slot's position, so a new
+#: appendix goes on the end or every letter after it moves and an issue signed
+#: last week disagrees with its own reissue (OR-50).
+#:
+#: It has no analysis step of its own -- it is a property of the export, and it
+#: is a property of four components at once. It follows ``wing_loads`` because
+#: the beam model cannot be built without a wing, so a project with no wing
+#: loads has no comparison to state, and the four figures degrade one at a time
+#: from there.
+LUMPING_COMPARISON = "Internal loads: the beam grids against the load stations"
+
 
 @dataclass(frozen=True)
 class SectionSplit:
@@ -436,6 +450,7 @@ APPENDICES: Tuple[Appendix, ...] = (
     Appendix(HTAIL_LOAD_STATIONS, step_key="htail_loads", built=True),
     Appendix(VTAIL_LOAD_STATIONS, step_key="vtail_loads", built=True),
     Appendix(GEAR_LOAD_CASES, step_key="landing_loads", built=True),
+    Appendix(LUMPING_COMPARISON, step_key="wing_loads", built=True),
 )
 
 
@@ -1044,6 +1059,7 @@ __all__ = [
     "GROUP_PROSE",
     "HTAIL_LOAD_STATIONS",
     "IMPLEMENTED",
+    "LUMPING_COMPARISON",
     "NOT_CARRIED",
     "SECTION_GROUPS",
     "SECTION_SPLITS",

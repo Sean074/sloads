@@ -369,6 +369,40 @@ and their sources (`tests/test_concept_closure.py`):
 | Control surfaces | each `build_*` critical load matches its `run` analysis report (`lb`-unit `LoadValue`) | AILERON/FLAPLOAD/TABLOADS build↔run |
 | All (export) | every component's nodal FORCE set — and its re-parsed cards — sums to that component's root/total, exactly, at **LIMIT** (note 49 OR-116; nothing is scaled, so the closure is `sum(dFz) == root` rather than `== sf × root`). **These gates are scale-invariant and therefore cannot see the basis at all** — they were green at either — which is why **G-OR-72** asserts the balanced deck's resultant against `nz × W` *without* the factor, as a check the existing set structurally could not provide | `report/applied` increment construction + `tests/test_export_equilibrium.py` (G-OR-72) |
 
+### The lumping rule: what LM-1 preserves, and what it does not (note 56 D-56.9/D-56.10)
+
+The delivered applied set is stated at the beam model's own grids, and the beam
+mesh is decided from geometry alone, so several load stations generally sum onto
+one grid. **This is a discretization choice with a stated consequence, and it is
+cited here rather than left in the export package's prose.**
+
+The rule is **LM-1**: a load `F` at point `p` moved to node `n` carries the free
+couple `M = (p − n) × F`. Its one owner is
+`sloads.gear_loads.transfer_couple`, and both the deck's routing
+(`export.lra_model.transferred_case_loads`) and the report's aggregation
+(`report.applied.aggregate_to_lra`) go through it.
+
+- **What it preserves, exactly.** The force-plus-couple at `n` has the identical
+  resultant about *every* reference point as the original force at `p`. So the
+  set's six-component resultant — per case, per component — is unchanged to the
+  last bit. This is a property of the construction and not an approximation; its
+  gate is exact (`test_applied.py::test_the_re_aggregation_moves_no_resultant`).
+- **What it does not preserve.** The internal load *distribution*. A load that
+  crosses a cut on its way to its node takes its contribution to the shear,
+  bending and torsion at that cut with it. Equivalently: a moment component that
+  is identically zero at a load station need not be zero at the grid, because
+  moving a force across an offset makes a couple about the axes transverse to
+  it. Measured on `baron_58`, the h-tail rows carry up to 839 lb-in of `Mx`
+  where the station-level set is identically zero.
+- **There is no printed oracle for this, and no tolerance either.** The size of
+  the difference is a function of the grid counts the project sets
+  (`Project.lra_mesh`), so it is **stated and plotted** rather than gated:
+  oracle report **Appendix G**, owner `sloads/report/lumping.py`. Its closure
+  gate is the resultant identity above, plus a cross-check of the generic
+  internal-load computation against `report.applied.sob_internal_loads` — the
+  single-cut, solver-gated instance of the same sentence — at the wing root of
+  every case of four fixtures (`tests/test_lumping.py`).
+
 ### Where each closure narrative now lives
 
 The step-by-step closure records were moved into the theory-manual chapters
