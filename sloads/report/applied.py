@@ -153,6 +153,7 @@ from ..export.deck_format import (
 )
 from ..models import (
     BodyLoadResult,
+    CaseRef,
     ConcentratedLoad,
     Project,
     TailSpanResult,
@@ -449,6 +450,20 @@ _APPLIED_CSV_CONVENTIONS = (
     "# structure carries is those forces acting through the arms stated here.\n"
 )
 
+#: What the identity columns are, said once for all six files (#241).
+#:
+#: Written here rather than into each component's note, because it is the same
+#: sentence for every file and a per-file copy is what drifts. ``Case ID`` is the
+#: join; ``Case`` is prose and is not unique; ``Loading`` names the CG case the
+#: numbers were computed at where the case names one.
+_APPLIED_CSV_IDENTITY = (
+    "# Case ID is the row's case identity and the key into the load-case index\n"
+    "# (<project>_case_index.csv), which states that case's condition, CG,\n"
+    "# speed, altitude and FAR paragraph. Case is its description and is NOT\n"
+    "# unique -- several cases can and do share one. Loading names the CG case\n"
+    "# the numbers were computed at, and is blank where the case names none.\n"
+)
+
 #: Per component, what the file is and which of its columns are structural
 #: zeros -- the same statement each appendix makes in prose (note 44 OR-140).
 #:
@@ -519,7 +534,8 @@ _APPLIED_CSV_NOTES = {
         "# The applied engine mount load set: six components at one point, one\n"
         "# row per case, at the combined engine and propeller CG. The 23.371(b)\n"
         "# gyroscopic condition appears as its four sign combinations, each its\n"
-        "# own row and its own case id.\n"
+        "# own row and its own case id -- the condition's id with an a/b/c/d\n"
+        "# suffix, which the case index lists as the one case it is.\n"
         "# Moments are right-handed about the airplane axes at the point stated\n"
         "# here; Mx is the mount reaction torque about the thrust axis.\n"
         "# MyyAxis is n/a: a point load has no torsion reference axis.\n"),
@@ -582,6 +598,26 @@ _POINT_LOAD_COMPONENTS = ("landing_gear", "engine")
 
 #: What a point-load row states instead of a torsion reference axis.
 _NO_TORSION_AXIS = "n/a (point load)"
+
+
+def case_identity(ref: Optional[CaseRef]) -> Tuple[str, str]:
+    """``(case_id, loading)`` -- what an applied row states about its case (#241).
+
+    One owner for the two identity strings every producer below copies onto its
+    rows, so a set cannot come to carry the minted id of one case and the loading
+    of another. Both are read off the :class:`~sloads.models.results.CaseRef` the
+    module that named the condition minted, never re-derived: the id is the one
+    the load-case index is keyed by (``LG-07``, ``EM-04``) and the loading is the
+    named CG the case was computed at (``fwd light``), which is what separates
+    LANDLOAD's 33 cases from the eight *descriptions* they share.
+
+    A result carrying no ``CaseRef`` yields two empty strings, which is what the
+    file then prints: a row whose case was never named states so, rather than
+    borrowing an identity from its neighbour.
+    """
+    if ref is None:
+        return ("", "")
+    return (ref.case_id, ref.cg)
 
 
 @dataclass(frozen=True)
@@ -648,6 +684,12 @@ class AppliedLoad:
     mzz_free: float
     safety_factor: float
     torsion_axis: str
+    #: The named loading (CG) this case was computed at, off its own ``CaseRef``
+    #: (:func:`case_identity`). Empty when the case names none -- an engine-mount
+    #: condition is not a weight-and-balance case -- and never guessed. It is the
+    #: whole of what separates LANDLOAD's cases 1, 2 and 3 from each other: one
+    #: description, three loadings, three sets of wheel reactions (#241).
+    loading: str = ""
     #: Which component's set this row belongs to. Defaulted to ``"wing"`` so the
     #: field is additive to every existing construction site, and read by
     #: :func:`applied_body_moments` -- the whole reason it is on the row.
@@ -682,25 +724,28 @@ def applied_load_rows(arg: ResultsArg) -> List[AppliedLoad]:
     for result in _as_results(arg):
         sf = case_sf(result)
         # The field is typed on the result (M4-16: no getattr default here).
-        case_id = result.case_ref.case_id if result.case_ref else ""
+        case_id, loading = case_identity(result.case_ref)
         for i, s in enumerate(result.stations):
             out.append(AppliedLoad(
-                case=result.case, case_id=case_id, label=str(i + 1),
+                case=result.case, case_id=case_id, loading=loading,
+                label=str(i + 1),
                 gid=station_gid(i), x=s.x, y=s.y, z=s.z,
                 fx=s.fx, fy=_NO_SPANWISE_STRIP_LOAD, fz=s.fz,
                 mxx_free=_NO_FREE_BENDING, myy_free=s.myy_free,
                 mzz_free=_NO_FREE_BENDING,
                 safety_factor=sf, torsion_axis=result.torsion_axis))
         for mass in result.point_loads:
-            out.append(_applied_point_load(result, mass, sf, case_id))
+            out.append(_applied_point_load(result, mass, sf, case_id, loading))
     return out
 
 
 def _applied_point_load(result: WingLoadResult, mass: ConcentratedLoad,
-                        sf: float, case_id: str) -> AppliedLoad:
+                        sf: float, case_id: str,
+                        loading: str) -> AppliedLoad:
     """One concentrated wing mass as its applied point load (zero free moment)."""
     return AppliedLoad(
-        case=result.case, case_id=case_id, label=mass.name or "point mass",
+        case=result.case, case_id=case_id, loading=loading,
+        label=mass.name or "point mass",
         gid=None, x=mass.x, y=mass.y, z=mass.z,
         fx=mass.fx, fy=_NO_SPANWISE_STRIP_LOAD, fz=mass.fz,
         mxx_free=_NO_FREE_BENDING, myy_free=0.0,
@@ -735,10 +780,11 @@ def fuselage_applied_load_rows(arg, project: Optional[Project] = None
     out: List[AppliedLoad] = []
     for result in _body_results(arg):
         sf = case_sf(result)
-        case_id = result.case_ref.case_id if result.case_ref else ""
+        case_id, loading = case_identity(result.case_ref)
         for gid, s in zip(body_station_gids(result), result.stations):
             out.append(AppliedLoad(
-                case=result.case, case_id=case_id, label=str(gid), gid=gid,
+                case=result.case, case_id=case_id, loading=loading,
+                label=str(gid), gid=gid,
                 x=s.x, y=0.0, z=(lra.z_at(s.x) if lra is not None else 0.0),
                 fx=_NO_BODY_AXIAL_LOAD, fy=_NO_BODY_LATERAL_LOAD, fz=s.fz,
                 mxx_free=_NO_FREE_BENDING, myy_free=_NO_BODY_FREE_TORSION,
@@ -772,7 +818,7 @@ def tail_applied_load_rows(arg, component: str) -> List[AppliedLoad]:
     out: List[AppliedLoad] = []
     for r in _tail_span_results(arg, component):
         sf = case_sf(r)
-        case_id = r.case_ref.case_id if r.case_ref else ""
+        case_id, loading = case_identity(r.case_ref)
         stations = list(r.stations)
         for i, st in enumerate(stations):
             x, y, z = tail_station_to_airplane(st.x, st.y, component, st.z)
@@ -781,7 +827,8 @@ def tail_applied_load_rows(arg, component: str) -> List[AppliedLoad]:
             nx, ny, nz = tail_force_to_airplane(st.fz, component)
             ax, ay, az = tail_axial_to_airplane(st.f_span, component)
             out.append(AppliedLoad(
-                case=r.case, case_id=case_id, label=str(i + 1),
+                case=r.case, case_id=case_id, loading=loading,
+                label=str(i + 1),
                 gid=tail_span_gid(component, i), x=x, y=y, z=z,
                 fx=nx + ax, fy=ny + ay, fz=nz + az,
                 mxx_free=_NO_FREE_BENDING, myy_free=st.myy_free,
@@ -792,7 +839,7 @@ def tail_applied_load_rows(arg, component: str) -> List[AppliedLoad]:
             x, y, z = tail_station_to_airplane(cp.x, cp.y, component, cp.z)
             fx, fy, fz = tail_force_to_airplane(cp.f_normal, component)
             out.append(AppliedLoad(
-                case=r.case, case_id=case_id,
+                case=r.case, case_id=case_id, loading=loading,
                 label=f"control {i + 1}", gid=tail_control_gid(component, i),
                 x=x, y=y, z=z, fx=fx, fy=fy, fz=fz,
                 mxx_free=_NO_FREE_BENDING, myy_free=cp.m_torsion,
@@ -805,7 +852,8 @@ def tail_applied_load_rows(arg, component: str) -> List[AppliedLoad]:
             x, y, z = tail_station_to_airplane(tip.x, tip.y, component, tip.z)
             fvec, mvec = ttail_transfer_to_airplane(transfer.fz, transfer.myy)
             out.append(AppliedLoad(
-                case=r.case, case_id=case_id, label="T-tail transfer",
+                case=r.case, case_id=case_id, loading=loading,
+                label="T-tail transfer",
                 gid=tail_span_gid(component, len(stations) - 1),
                 x=x, y=y, z=z, fx=fvec[0], fy=fvec[1], fz=fvec[2],
                 mxx_free=mvec[0], myy_free=mvec[1], mzz_free=mvec[2],
@@ -853,14 +901,14 @@ def gear_applied_load_rows(project: Project) -> List[AppliedLoad]:
     legs_by_case = delivered_gear_legs(cases)
     for case in cases:
         sf = table.required_factor_for(case)
-        case_id = case.case_ref.case_id if case.case_ref else ""
+        case_id, loading = case_identity(case.case_ref)
         for leg in legs_by_case.get(case.case, ()):
             if not leg.carries_load:
                 continue
             x, y, z = leg.point
             fx, fy, fz = leg.force
             out.append(AppliedLoad(
-                case=case.description, case_id=case_id,
+                case=case.description, case_id=case_id, loading=loading,
                 label=f"{leg.name} at {leg.point_name}",
                 # No grid: the exported ground deck applies the reaction at the
                 # gear reference node, not at the point it acts, so naming a
@@ -896,6 +944,11 @@ def engine_applied_load_rows(project: Project) -> List[AppliedLoad]:
     out: List[AppliedLoad] = []
     for rec in point_load_records(get("engine")(project).conditions):
         out.append(AppliedLoad(
+            # No loading: an engine-mount condition is not computed at a named
+            # CG, and :func:`case_identity`'s rule is that an absent identity is
+            # published empty rather than borrowed (#241). Which engine the row
+            # belongs to is in the case id and in the tag on the description --
+            # ``modules.engine.engine_tags`` keeps that tag unique.
             case=rec.description, case_id=rec.case_id, label=rec.label, gid=None,
             x=rec.x, y=rec.y, z=rec.z, fx=rec.fx, fy=rec.fy, fz=rec.fz,
             mxx_free=rec.mx, myy_free=rec.my, mzz_free=rec.mz,
@@ -983,7 +1036,8 @@ def aggregate_to_lra(rows: Sequence["AppliedLoad"], model,
         got = acc.get(key_cg)
         if got is None:
             acc[key_cg] = AppliedLoad(
-                case=row.case, case_id=row.case_id, label=str(node.gid),
+                case=row.case, case_id=row.case_id, loading=row.loading,
+                label=str(node.gid),
                 gid=node.gid, x=node.pos[0], y=node.pos[1], z=node.pos[2],
                 fx=row.fx, fy=row.fy, fz=row.fz,
                 mxx_free=mx + cx, myy_free=my + cy, mzz_free=mz + cz,
@@ -1132,7 +1186,14 @@ def _applied_csv_fields(u: DeliverableUnits,
     fo, mo = (load_label(u.force.label, table_sf),
               load_label(u.moment.label, table_sf))
     return [
-        "Case", "Station", "GID", f"X ({ln})", f"Y ({ln})", f"Z ({ln})",
+        # The identity first, and all of it (#241). ``Case`` alone is a
+        # description, and a description is not a case: LANDLOAD's 33 conditions
+        # share eight of them and a twin's two mounts share three. ``Case ID`` is
+        # the minted id the load-case index is keyed by, so a row in this file
+        # joins to the condition, CG, speed and FAR paragraph it was computed at
+        # instead of to every row that reads the same.
+        "Case ID", "Case", "Loading",
+        "Station", "GID", f"X ({ln})", f"Y ({ln})", f"Z ({ln})",
         # The whole applied vector, in body axes and in vector order, so a
         # consumer maps column to FORCE/MOMENT component without deciding
         # whether an absent column is a zero or an omission.
@@ -1186,7 +1247,7 @@ def applied_load_csv(arg: ResultsArg, header_comment: str = "", *,
     u = solver_units(system)
     rows = list(applied_loads(component, arg, project))
     fields = _applied_csv_fields(u, shared_basis_factor(rows))
-    x_h, y_h, z_h, fx_h, fy_h, fz_h, mx_h, my_h, mz_h = fields[3:12]
+    x_h, y_h, z_h, fx_h, fy_h, fz_h, mx_h, my_h, mz_h = fields[5:14]
     buf = _io.StringIO()
     writer = csv.DictWriter(buf, fieldnames=fields)
     writer.writeheader()
@@ -1199,7 +1260,8 @@ def applied_load_csv(arg: ResultsArg, header_comment: str = "", *,
         bmx, bmy, bmz = applied_body_moments(load)
         mx, my, mz = to_moment(bmx, bmy, bmz, u)
         writer.writerow({
-            "Case": load.case, "Station": load.label,
+            "Case ID": load.case_id, "Case": load.case,
+            "Loading": load.loading, "Station": load.label,
             # Blank, not a placeholder id: a concentrated mass has no grid in
             # the exported deck, and inventing one here would read as a node a
             # consumer could reference.
@@ -1210,7 +1272,8 @@ def applied_load_csv(arg: ResultsArg, header_comment: str = "", *,
             "MyyAxis": load.torsion_axis,
             "SF": sf_str(sf),
         })
-    return header_comment + _APPLIED_CSV_NOTES[component] + buf.getvalue()
+    return (header_comment + _APPLIED_CSV_NOTES[component]
+            + _APPLIED_CSV_IDENTITY + buf.getvalue())
 
 
 def write_applied_load_csv(arg: ResultsArg, path: str, *,

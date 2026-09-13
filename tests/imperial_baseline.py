@@ -133,6 +133,19 @@ def artifacts(example: str) -> Dict[str, str]:
         if text:
             out[f"sbeam/{component}_applied"] = text
 
+    # The gear and engine applied sets -- the two of the six this baseline never
+    # rendered. They are what Appendix F and the engine's applied appendix print
+    # and what #245 will pack into the package's ``data/``; until then they reach
+    # no bundle, which is exactly why nothing noticed their bytes moving. Four of
+    # six pinned is not a baseline of the applied channel, and the file with the
+    # most cases in it (all 33 of LANDLOAD's) was one of the two missing (#241).
+    # Neither takes a results argument: both are read off the project.
+    for component in ("landing_gear", "engine"):
+        text = _try(ap.applied_load_csv, None, component=component,
+                    project=project)
+        if text:
+            out[f"sbeam/{component}_applied"] = text
+
     # The assembled full-span deck. It stopped being a shipped artifact at note
     # 56 D-56.8, and it keeps its channel anyway -- the one non-deliverable this
     # baseline renders, stated here rather than left to be discovered. It is the
