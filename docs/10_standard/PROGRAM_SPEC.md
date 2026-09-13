@@ -106,7 +106,12 @@ prescribes no factor at all and its `SF` reads `N/A`
 switch and defaulted it to ULTIMATE so the frozen `oracle_app` needed no edit
 (OR-77); the default inverted underneath that file and the `ULTIMATE` member was
 removed, so a stale caller fails at import rather than silently receiving limit
-loads. The parameter itself goes at #29.
+loads. The parameter itself goes at #29. What the default inversion left behind
+was the *caption*: `oracle_app` went on telling the reader its load-case tables
+were ULTIMATE over bytes that had been LIMIT since note 48, and G-OR-74's screen
+sweep could not see it because that gate excluded the frozen tree. Closed at
+**#239** (design note 60 §5) — the caption now states the same LIMIT sentence
+`app/` already carried, and the GUI trees the sweep reads have one owner.
 
 **M4-15 — a download carries its basis in-band:** filename `*_LIMIT.csv` plus a
 `Basis` column (or LIMIT-marked column headers) — the canonical station-row
