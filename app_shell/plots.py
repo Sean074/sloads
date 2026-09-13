@@ -140,6 +140,20 @@ def plot(data: PlotData, *, height: int = 420) -> go.Figure:
         colour = next(colours)
         x, y = _xy(series)
         fill = _fill(series.style)
+        if series.marker:
+            # A scatter (#268). ``Series.labels`` is per-point identity and the
+            # only place it is shown is the hover, which is the question a
+            # scatter provokes -- which one is that? -- answered without
+            # printing a name over every point of the cloud.
+            labels = list(series.labels)
+            fig.add_trace(go.Scatter(
+                x=x, y=y, name=series.name, mode="markers",
+                text=labels or None,
+                marker={"size": 9, "color": colour,
+                        "line": {"width": 1, "color": colour}},
+                hovertemplate=(("%{text}<br>" if labels else f"{series.name}<br>")
+                               + "%{x}, %{y}<extra></extra>")))
+            continue
         fig.add_trace(go.Scatter(
             x=x, y=y, name=series.name, mode="lines",
             line=_line(series.style, colour),
@@ -170,6 +184,12 @@ def plot(data: PlotData, *, height: int = 420) -> go.Figure:
         legend={"orientation": "h", "yanchor": "bottom", "y": 1.02,
                 "xanchor": "left", "x": 0},
         hovermode="closest")
+    # The producer states the axis scale, so the screen figure and the printed
+    # one are the same picture (#268).
+    if data.log_x:
+        fig.update_xaxes(type="log")
+    if data.log_y:
+        fig.update_yaxes(type="log")
     if is_to_scale(data):
         fig.update_yaxes(scaleanchor="x", scaleratio=1)
     return fig

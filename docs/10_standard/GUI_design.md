@@ -755,10 +755,10 @@ what was typed. *(Implemented — Phase E3; safety-factor check M4-14.)*
 ### 8.4 Fleet comparison — the Aircraft Comparison page
 
 The airplane is placed against the reference fleet in
-`app/data/reference_aircraft.csv` (29 aircraft spanning GA singles to ~41,000-lb /
+`sloads/data/reference_aircraft.csv` (29 aircraft spanning GA singles to ~41,000-lb /
 50-seat regional turboprops, so a concept airplane has real comparators) on **one
-dedicated page** — **Aircraft Comparison**, in the Export phase before Results
-Review (`app/views/aircraft_comparison.py`, GUI-only `WorkflowStep`). The two input
+dedicated page** — **Aircraft Comparison**, carried by both front-ends
+(`oracle_app/fleet.py`; `app/views/aircraft_comparison.py` until #270). The two input
 pages (Configuration & Layout, Weight Estimate) **no longer** carry a fleet block —
 the comparison lives in exactly one place (Phase F, Step F2). The page carries a
 quantitative readout (nearest-3 similar aircraft, W/S & W/P percentile band, outlier
@@ -768,8 +768,7 @@ tabs**: W/S-vs-W/P, MTOW-vs-OEW, and four geometric scatters (wingspan / wing ar
 aspect ratio / seats vs. MTOW).
 
 The numeric core is the pure, unit-tested `sloads/fleet.py`
-(`fleet_stats(subject, fleet)` → `FleetStats`; no pandas / file access / Streamlit);
-the CSV load and rendering are owned by the page itself. Locked decisions
+(`fleet_stats(subject, fleet)` → `FleetStats`; no pandas, no Streamlit). Locked decisions
 (Step E4, 2026-07-15): **D-E4-1** pure core in `sloads/fleet.py`; **D-E4-2**
 nearest-N uses a normalized-Euclidean distance over whichever metrics the subject
 supplies (always log-MTOW; add W/S and W/P when known), and the outlier flag is the
@@ -794,6 +793,39 @@ GA-6 recovers AR 6.095 / span 33.5 ft). The page **stays in the Export phase** (
 single navigation-truth order in `workflow.py` is unchanged); a workflow-derived
 `page_link` on the **Weight & Mass Properties** page makes the fleet check reachable
 at definition time.
+
+**#268 (2026-09-13, note 57 D-57.5).** The page **ports to the surviving GUI**
+and, in porting, stops owning anything. Four owners now stand behind it and the
+two pages are one implementation:
+
+| What | Owner | Was |
+|------|-------|-----|
+| The reference fleet, and reading it | `sloads/fleet.py` (`REFERENCE_CSV`, `reference_fleet`) | a `pathlib` path and a `pandas.read_csv` in the page; the data itself lived in `app/data/`, so an installed `sloads` had no fleet at all |
+| Which slice each subject metric comes from | `sloads.fleet.subject_from_project` | `_subject_from_project` in the page |
+| The six scatters | `sloads/report/fleet_figures.py` (`PlotData`) | six `plotly.express` calls in the page |
+| The readout, the tabs and the fleet table | `app_shell/fleet_view.py` | the page |
+
+Each page supplies only its own framing: the oracle GUI marks it as an sloads
+extension (`EXTENSION_MARK`, #266) because the original suite has no fleet
+comparison, registers it on `st.navigation` and **not** in the derived step set
+(gate G2), and gives it the url path `fleet` — `aircraft_comparison` is a
+workflow step key, and a non-step reachable at a step's URL is the thing G2
+exists to prevent. D-57.5 asked for `_subject_from_project` to be *rewritten,
+not imported*; note 60 D-60.1 had already withdrawn that rule for figures on the
+ground that a second derivation is a second owner, and the chain is the same
+class of thing — it carries the 2026-08-15 MTOW-source fix, which a rewrite
+would have rewritten. Guards: `tests/test_fleet_figures.py` (the figures build
+for every bundled example, the CSV has exactly one reader, neither page derives
+anything, and both renderers honour the scatter).
+
+The figures are **not** in the step catalogue (`sloads/report/figures.py`) and
+deliberately not in the oracle report: that document is the McMaster
+replication's, every family in the catalogue is drawn on the page whose programs
+produce it, and the fleet comparison runs no program. The model gained
+`Series.marker`, `Series.labels` and `PlotData.log_x`/`log_y` for it — a scatter
+of named points on a logarithmic weight axis was not expressible before — and
+`plots_tex` honours all but `labels`, so the figure set can be printed the day a
+document wants it.
 
 ---
 

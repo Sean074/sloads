@@ -44,6 +44,13 @@ issue package. It is registered on ``st.navigation`` below and deliberately not
 in ``register_pages``: that mapping is the derived step set (gate G2) and stays
 exactly that, so the report page can never be mistaken for an analysis step or
 be reached by a cross-page step link. **Amended for milestone 0.8.4 (design
+note 57, D-57.5):** a third such page joins them -- ``Aircraft Comparison``,
+which places this airplane against a reference fleet by wing loading, power
+loading, weight and geometry. It is the Phase-C *assess against similar
+airplanes* requirement, so it is capability rather than decoration; it runs no
+``.BAS`` program, which is why it carries the extension mark, is registered on
+the navigation only, and reads nothing any FAR computation reads.
+**Amended for milestone 0.8.4 (design
 note 57, D-57.3):** a second such page joins it -- the ``Project JSON Editor``,
 owned in :mod:`app_shell.project_editor` and registered the same way. It is the
 escape hatch for the field delta above -- and since #266 built D-57.2's two
@@ -67,6 +74,8 @@ from app_shell.project_editor import (
 )
 from app_shell.project_state import ensure_project
 from app_shell.sidebar import render_shell_sidebar
+from oracle_app.fleet import PAGE_TITLE as FLEET_TITLE
+from oracle_app.fleet import render_fleet_page
 from oracle_app.form import render_step
 from oracle_app.report import PAGE_TITLE as REPORT_TITLE
 from oracle_app.report import render_report_page
@@ -114,8 +123,18 @@ register_pages(_pages)
 _editor_page = st.Page(render_project_editor, title=EDITOR_TITLE,
                        url_path=EDITOR_URL_PATH)
 _report_page = st.Page(render_report_page, title=REPORT_TITLE, url_path="report")
-pg = st.navigation(list(_pages.values()) + [_editor_page, _report_page],
-                   expanded=True)
+# The third such page (#268, note 57 D-57.5): the fleet comparison. It runs no
+# program of the original suite -- which is why its title carries the extension
+# mark and why it is registered here rather than in the derived step set.
+_fleet_page = st.Page(render_fleet_page, title=FLEET_TITLE,
+                      # ``fleet`` rather than ``aircraft_comparison``: the latter is a
+                      # workflow step key -- the app's GUI-only page -- and a
+                      # URL that collides with one would make a non-step
+                      # reachable as a step link (gate G2).
+                      url_path="fleet")
+pg = st.navigation(
+    list(_pages.values()) + [_fleet_page, _editor_page, _report_page],
+    expanded=True)
 # The sidebar wraps the page: its project-file block renders *after* the page
 # has persisted this rerun's edit, so the download and the dirty flag are
 # never one keystroke stale (#64, PB-4).

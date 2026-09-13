@@ -200,7 +200,7 @@ planned Configuration & Layout page plus an extended fleet set. (Supersedes the
 (MAC/XLEMAC, static margin via tail-volume neutral point, tip-back / overturn,
 clearances); `app/pages/00_Configuration_Layout.py` (three-view, CG/NP markers,
 W/S-vs-W/P and MTOW-vs-OEW **fleet comparison**); extend
-`app/data/reference_aircraft.csv` with a heavier/concept tier (commuters, bizjets,
+`sloads/data/reference_aircraft.csv` with a heavier/concept tier (commuters, bizjets,
 light transports) so concept designs have meaningful peers.
 **Test/Acceptance.** Derived MAC/XLEMAC match WINGGEOM on Appendix A (sanity); the
 fleet plot places the concept aircraft against peers.

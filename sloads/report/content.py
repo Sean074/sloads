@@ -170,6 +170,27 @@ class Series:
     y: List[float]
     style: str = "solid"
     closed: bool = False
+    #: The series is a **cloud of points**, not a polyline: an emitter draws a
+    #: mark at each vertex and no connecting line.
+    #:
+    #: Added at #268, when the fleet comparison became the first figure in the
+    #: model that is a scatter rather than a curve. Carried on the series rather
+    #: than inferred (from an unsorted ``x``, say) because whether a set of
+    #: points is a line is the producer's statement about its own data: an
+    #: airplane placed against thirty-eight others is a scatter even when the
+    #: points happen to arrive in order, and a load distribution is a line even
+    #: where two stations share a station value.
+    marker: bool = False
+    #: Per-vertex identity, parallel to :attr:`x` and :attr:`y`, or empty.
+    #:
+    #: What each point *is* -- an aircraft name on a fleet scatter -- as opposed
+    #: to what the series is called. A screen renderer shows it on demand
+    #: (hover), which is the whole use: the question a scatter provokes is
+    #: "which one is that?". A printed emitter ignores it, deliberately --
+    #: a node label on every point of a cloud is not a figure -- so this is the
+    #: one member of the model the two renderers do not both honour, and it is
+    #: allowed to be because it carries no data the figure's geometry needs.
+    labels: List[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -183,6 +204,13 @@ class PlotData:
     points: List[Tuple[str, float, float]] = field(default_factory=list)
     #: Labelled vertical reference lines (e.g. the fwd/aft CG limits).
     vlines: List[Tuple[str, float]] = field(default_factory=list)
+    #: Whether the axis is logarithmic. Stated by the producer, because it is a
+    #: property of the quantity and not of the renderer: a fleet spanning 1,300
+    #: to 41,000 lb has its whole general-aviation half in the first inch of a
+    #: linear axis, and both renderers must make the same choice about it or the
+    #: printed figure and the screen figure stop being the same picture.
+    log_x: bool = False
+    log_y: bool = False
     #: The legend entry :attr:`points` are drawn under.
     #:
     #: Defaulted to the weight/CG figure's wording, which was the only user when

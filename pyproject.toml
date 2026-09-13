@@ -130,6 +130,13 @@ include = ["sloads*", "app_shell*", "oracle_app*"]
 [tool.setuptools]
 py-modules = ["cli", "oracle"]
 
+# The reference fleet ships with the package (#268). It moved out of
+# ``app/data/`` when the fleet comparison ported to the surviving GUI: the
+# retiring front-end was carrying data the calc package owns, which is why a
+# ``pip install sloads`` could not place an airplane against a fleet at all.
+[tool.setuptools.package-data]
+sloads = ["data/*.csv"]
+
 [tool.setuptools.dynamic]
 version = {attr = "sloads._version.__version__"}
 

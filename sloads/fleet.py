@@ -4,10 +4,21 @@ against a reference fleet.
 A companion to the visual W/S-vs-W/P, MTOW-vs-empty-weight and geometric scatters on the
 Aircraft Comparison page: those show *where* the design sits; this module reports it
 numerically -- the nearest-N similar aircraft, the wing-loading / power-loading
-percentile band, and outlier flags. It is pure (no pandas, no file
-access, no Streamlit); the presentation wrapper that loads the reference CSV and
-renders the readout + scatters lives in the ``app/views/aircraft_comparison.py``
-page (GUI_design §8.4).
+percentile band, and outlier flags. It has no pandas and no Streamlit; the only
+file it touches is the bundled reference fleet it owns
+(:func:`reference_fleet`), and the readout and scatters are rendered by the GUI
+page over what this module and :mod:`sloads.report.fleet_figures` return
+(GUI_design §8.4).
+
+**Amended at #268** (note 57 D-57.5), when the comparison ported to the
+surviving GUI. Two things the retiring page owned move here, because neither was
+ever presentation: :func:`subject_from_project` -- the priority chain that says
+which slice each metric is read from -- and :func:`reference_fleet`, which reads
+the bundled CSV. The statistics were always pure and still are; what this module
+now also owns is *where the numbers come from*, which is the part that had a
+defect history (the MTOW chain, corrected 2026-08-15) and which D-57.5 would
+have had rewritten from scratch in the new front-end. The figures themselves are
+:mod:`sloads.report.fleet_figures`; no front-end derives either.
 
 The Aircraft Comparison page assembles the subject from whatever slices are
 present, so a subject may supply any subset of the metrics -- the nearest-N distance
@@ -19,9 +30,24 @@ and the W/P percentile only, never from the comparator pool.
 
 from __future__ import annotations
 
+import csv
 import math
+import os
 from dataclasses import dataclass
-from typing import List, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Tuple
+
+from .constants import IN_PER_FT
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from .models import Project
+
+#: The bundled reference fleet: nominal published specifications, never a FAR
+#: input. It lives beside the code that reads it (``sloads/data/``) rather than
+#: in a front-end's directory, which is where it sat until #268 -- an installed
+#: ``sloads`` could not place an airplane against a fleet at all, because the
+#: data shipped with a Streamlit app nothing imports.
+REFERENCE_CSV = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             "data", "reference_aircraft.csv")
 
 # Defaults (GUI_design §8.4, decisions D-E4-2 / D-E4-3, 2026-07-15).
 DEFAULT_NEAREST_N = 3
@@ -288,4 +314,193 @@ def fleet_stats(
         ws_band=ws_band,
         wp_band=wp_band,
         outliers=outliers,
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Where the numbers come from (#268, note 57 D-57.5)
+# --------------------------------------------------------------------------- #
+
+
+def reference_fleet(path: Optional[str] = None) -> List[FleetPoint]:
+    """The bundled reference aircraft as :class:`FleetPoint` records.
+
+    ``path`` defaults to :data:`REFERENCE_CSV`. The file carries a leading
+    ``#`` comment block stating what the data is and is not; the reader skips
+    it, and ``tests/test_reference_aircraft.py`` guards the shape of the rows.
+
+    Returns ``[]`` for a missing file rather than raising: the fleet comparison
+    is an assessment beside the analysis, and a caller that cannot find the
+    reference data should say so on its page, not fail the page it is on.
+    """
+    target = path or REFERENCE_CSV
+    if not os.path.exists(target):
+        return []
+
+    def _opt(row: Dict[str, str], key: str) -> Optional[float]:
+        raw = (row.get(key) or "").strip()
+        try:
+            return float(raw) if raw else None
+        except ValueError:
+            return None
+
+    def _req(row: Dict[str, str], key: str) -> float:
+        return _opt(row, key) or 0.0
+
+    with open(target, newline="", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(line for line in fh
+                                   if not line.startswith("#")))
+    points: List[FleetPoint] = []
+    for row in rows:
+        name = (row.get("aircraft") or "").strip()
+        if not name:
+            continue
+        seats = _opt(row, "seats")
+        points.append(FleetPoint(
+            name=name,
+            mtow_lb=_req(row, "mtow_lb"),
+            oew_lb=_req(row, "oew_lb"),
+            max_hp=_req(row, "max_hp"),
+            wing_area_ft2=_req(row, "wing_area_ft2"),
+            seats=int(seats) if seats else 0,
+            wingspan_ft=_opt(row, "wingspan_ft"),
+            aspect_ratio=_opt(row, "aspect_ratio"),
+        ))
+    return points
+
+
+def _wtestima_value(project: "Project", key: str) -> Optional[float]:
+    """One figure out of a live WTESTIMA estimate, by ``LoadValue.key``, or ``None``.
+
+    Runs the registered ``weight_estimate`` module (needs ``weight.estimation``);
+    any failure (missing slice, ValueError) yields ``None`` so the caller falls
+    back to a lower-priority source.
+    """
+    from . import registry
+
+    if not (project.weight and project.weight.estimation):
+        return None
+    try:
+        result = registry.get("weight_estimate")(project)
+    except Exception:
+        return None
+    for cond in result.conditions:
+        for value in cond.values:
+            if value.key == key:
+                return float(value.value)
+    return None
+
+
+def _planform(project: "Project") -> Dict[str, Optional[float]]:
+    """The wing planform's area (ft²), aspect ratio and full span (in), or ``{}``.
+
+    Read through ``derived_geometry``'s resolvers rather than off
+    ``wing_geometry.surface_properties`` directly: #70 made those the single
+    owner of *what area the analysis actually uses*, after four numbers for one
+    wing were found in the tree. A comparison page is the fifth place that could
+    have grown one, and it did not have to -- the resolvers answer exactly the
+    three quantities the subject needs.
+
+    ``planform_area_sqft`` raises on a half-entered planform, which its own
+    docstring leaves to callers that only want to display something. This is
+    one: a fleet scatter with no point on it beats a page that will not open.
+    """
+    from .derived_geometry import planform_area_sqft, wing_aspect_ratio, wing_span_in
+
+    if project.geometry is None or project.geometry.by_name("wing") is None:
+        return {}
+    try:
+        area = planform_area_sqft(project)
+    except (ValueError, ZeroDivisionError):
+        return {}
+    return {"area_sqft": area,
+            "aspect_ratio": wing_aspect_ratio(project),
+            "span_in": wing_span_in(project)}
+
+
+def subject_from_project(project: "Project") -> Optional[Subject]:
+    """Assemble the comparison :class:`Subject` from the best-available slices.
+
+    Priority per metric (backlog F2 step 2; surface fallback added in M2-5):
+      MTOW  -- cg_cases.max_takeoff_weight (G-14 SSOT + chain) -> WTESTIMA
+      Empty weight -- weight.database_totals()[1] (EMPTY rows; #94, C210-12) -> WTESTIMA
+      area  -- parametric.wing_area_sqft -> WINGGEOM planform -> speeds.wing_area_sqft
+      power -- Sum engines[].max_cont_hp -> weight.estimation.max_continuous_hp
+      AR    -- parametric.aspect_ratio -> WINGGEOM planform
+      span  -- WINGGEOM planform (else back-derived from AR*area by Subject.span)
+      seats -- speeds.occupants -> weight.estimation.seats
+
+    Returns ``None`` only when no MTOW can be found (the common comparison
+    axis); a missing secondary metric leaves its field ``None`` -- rendered
+    "--" -- rather than dropping the subject silently.
+
+    Moved here from ``app/views/aircraft_comparison.py`` at #268 (see the module
+    docstring). Behaviour is unchanged, deliberately: the chain is the part of
+    this page with a defect history, and a port that re-derived it would be
+    re-deriving the fix with it.
+    """
+    from . import cg_cases
+
+    speeds = project.speeds
+    weight = project.weight
+    config = project.geometry.parametric if project.geometry is not None else None
+    planform = _planform(project)
+
+    direct = weight.database_totals() if (weight and weight.items) else None
+
+    # MTOW from its single owner (decision G-14: the SSOT field, else the
+    # documented speeds/envelope/heaviest-case fallback chain), then WTESTIMA.
+    # The item-database total sat in this chain until 2026-08-15, which plotted
+    # this airplane against the reference fleet at a weight no loading can
+    # reach -- 1,800 lb high on a regional jet.
+    mtow: Optional[float] = cg_cases.max_takeoff_weight(project, required=False) or None
+    if not mtow:
+        mtow = _wtestima_value(project, "max_take_off_weight")
+    if not mtow:
+        return None
+
+    oew: Optional[float] = (float(direct[1]) if direct and direct[1]
+                            else _wtestima_value(project, "empty_weight"))
+
+    wing_area: Optional[float] = None
+    if config and config.wing_area_sqft:
+        wing_area = float(config.wing_area_sqft)
+    elif planform.get("area_sqft"):
+        wing_area = float(planform["area_sqft"] or 0.0)
+    elif speeds and speeds.wing_area_sqft:
+        wing_area = float(speeds.wing_area_sqft)
+
+    power: Optional[float] = None
+    if project.engines:
+        power = math.fsum(e.max_cont_hp or 0.0 for e in project.engines) or None
+    if power is None and weight and weight.estimation and weight.estimation.max_continuous_hp:
+        power = float(weight.estimation.max_continuous_hp)
+
+    aspect_ratio: Optional[float] = None
+    if config and config.aspect_ratio:
+        aspect_ratio = float(config.aspect_ratio)
+    elif planform.get("aspect_ratio"):
+        aspect_ratio = float(planform["aspect_ratio"] or 0.0)
+
+    # Span from the surface planform (full span, inches) when available;
+    # otherwise Subject.span back-derives it from sqrt(AR * area).
+    wingspan_ft: Optional[float] = None
+    if planform.get("span_in"):
+        wingspan_ft = float(planform["span_in"] or 0.0) / IN_PER_FT
+
+    seats = 0
+    if speeds and speeds.occupants:
+        seats = int(speeds.occupants)
+    elif weight and weight.estimation and weight.estimation.seats:
+        seats = int(weight.estimation.seats)
+
+    return Subject(
+        name=project.name or "This airplane",
+        mtow_lb=mtow,
+        oew_lb=oew,
+        wing_area_ft2=wing_area,
+        power_hp=power,
+        wingspan_ft=wingspan_ft,
+        aspect_ratio=aspect_ratio,
+        seats=seats,
     )

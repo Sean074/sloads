@@ -321,6 +321,10 @@ def plot_tex(data: PlotData, *, width: str = "0.86\\textwidth",
         f"  width={width}, height={height},",
         f"  xlabel={{{escape(data.x_label)}}}, ylabel={{{escape(data.y_label)}}},",
         r"  grid=both, grid style={gray!25}, axis lines=box,",
+        # A log axis is the producer's statement about the quantity (#268), and
+        # pgfplots wants it as an axis key rather than a per-plot option.
+        *([r"  xmode=log,"] if data.log_x else []),
+        *([r"  ymode=log,"] if data.log_y else []),
         r"  tick label style={font=\footnotesize}, label style={font=\small},",
         # An altitude axis was printing "0.5 1 1.5" under a "*10^4" multiplier
         # (owner's PDF review, 2026-09-01). A reviewer signing a report should
@@ -343,7 +347,13 @@ def plot_tex(data: PlotData, *, width: str = "0.86\\textwidth",
         # the numbering to stay in step; ``_region_series`` has documented this
         # behaviour since it was written and the emitter did not have it (found
         # 2026-09-07, while building Section 10's views).
-        options = f"black, {s.style}, thick, mark=none"
+        # A marker series draws its points and no line between them (#268).
+        # ``mark=o`` rather than the filled diamond ``points`` uses: the two are
+        # different things on one axis -- a population and the design points
+        # picked out of it -- and a reader has to be able to tell them apart in
+        # greyscale, where only the shape is left to do it.
+        options = (f"only marks, mark=o, mark size=1.6pt, black, {s.style}"
+                   if s.marker else f"black, {s.style}, thick, mark=none")
         if not s.name:
             lines.append(f"\\addplot[{options}, forget plot] coordinates "
                          f"{{{_coordinates(pts)}}};")

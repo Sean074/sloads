@@ -1,6 +1,6 @@
 """Sanity-check the bundled reference-aircraft data set.
 
-``app/data/reference_aircraft.csv`` feeds the fleet-comparison plots (the
+``sloads/data/reference_aircraft.csv`` feeds the fleet-comparison plots (the
 Aircraft Comparison page: MTOW-vs-empty-weight, W/S-vs-W/P, and the geometric span / area /
 AR scatters). It is reference data only (never enters a FAR computation), but a
 malformed row would break the chart, so this test guards its shape and basic
@@ -12,7 +12,9 @@ import math
 import os
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CSV_PATH = os.path.join(REPO_ROOT, "app", "data", "reference_aircraft.csv")
+# Moved out of ``app/data/`` at #268: the data is the calc package's, and
+# the front-end that carried it retires at #270.
+CSV_PATH = os.path.join(REPO_ROOT, "sloads", "data", "reference_aircraft.csv")
 
 _REQUIRED_COLUMNS = {
     "aircraft", "mtow_lb", "oew_lb", "max_hp", "engines",
