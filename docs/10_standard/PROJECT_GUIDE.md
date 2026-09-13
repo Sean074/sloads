@@ -234,7 +234,8 @@ FAR23LOADS/
 │   │   ├── results_zip.py        # the sidebar's whole-project results zip: every module run, skip-and-manifest (C210-45)
 │   │   ├── conventions_tex.py    # the report's "Axes and sign conventions" section, from CONVENTIONS.md's owners
 │   │   ├── latex.py              # ReportDocument → .tex (escaping, longtable, document control); THE table/figure/section emitters, shared by both reports
-│   │   ├── plots_tex.py          # pgfplots figures: V-n, weight/CG, speed–altitude
+│   │   ├── figures.py            # THE figure catalogue: one row per figure family — its page, its pre-run/post-run Stage, its producer (note 60, D-60.1/D-60.4)
+│   │   ├── plots_tex.py          # the LaTeX renderer of a PlotData: pgfplots/TikZ. Peer of app_shell/plots.py over one producer set (note 60, D-60.1)
 │   │   ├── planform_tex.py       # the oracle report's §2.1 planform figures: surface + control surfaces, TikZ on equal axes (note 44, OR-45)
 │   │   ├── fingerprint.py        # the oracle report's provenance: anchors + the versioned fingerprint over the oracle-consumed projection (note 44, OR-21)
 │   │   ├── oracle_content.py     # the oracle technical report's content model: the derived section set and its four states (note 44, OR-2/OR-32)
@@ -286,7 +287,8 @@ FAR23LOADS/
 │   ├── sidebar.py                # the global sidebar: units toggle, project Open/Save/upload, About
 │   ├── project_editor.py         # the Project JSON Editor page body, rendered by both front-ends (note 57, D-57.3)
 │   ├── nav.py                    # which page a step key is in the running GUI — links resolve to a page, not a path (OG-F)
-│   └── limit_csv.py              # the analysis pages' LIMIT tables + downloads (pure, no Streamlit)
+│   ├── limit_csv.py              # the analysis pages' LIMIT tables + downloads (pure, no Streamlit)
+│   └── plots.py                  # the SCREEN renderer of a PlotData: Plotly. Decides how a line looks and nothing else — no project, no calc (note 60, D-60.1)
 ├── app/                          # multi-page Streamlit UI (st.navigation, 6 sections — Phase D)
 │   ├── Home.py                   # entry point: set_page_config + its own nav from sloads.workflow
 │   ├── views/                    # one view per workflow step (clean names, no prefixes)
@@ -300,6 +302,7 @@ FAR23LOADS/
 │   ├── Oracle.py                 # entry point: its one set_page_config + nav from workflow.oracle_steps()
 │   ├── form.py                   # ONE generic input renderer for all 14 pages, built from sloads.field_registry
 │   ├── results.py                # ONE generic results renderer: workflow.step_modules → the report/io owners (OG-E)
+│   ├── figures.py                # ONE generic figure block: sloads.report.figures → app_shell.plots, pre-run under the form, post-run under the results (#267)
 │   └── labels.py                 # the spelling table both renderers head their blocks with
 ├── cli.py                        # `python cli.py engine project.json -o out.csv`; `--export-sbeam --export-target <t>` (every deliverable, incl. `balanced`/`mass`); `--report out.tex|out.pdf`
 ├── oracle.py                     # `sloads-oracle` — launches oracle_app/Oracle.py under Streamlit (OG-11)

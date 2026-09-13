@@ -729,10 +729,7 @@ def _geometry(project: Project,
     # figures ahead of its tables, so the three drawings open 2.1 and the tables
     # that state their numbers follow -- the reader sees the airplane before the
     # arithmetic, which is the order the section was asked for in.
-    areas = _region_areas(project, area, system)
-    figures = [_planform_figure(project, key, parent, figure_title, children,
-                                frame, areas, system)
-               for key, parent, figure_title, children, frame in _PLANFORM_FIGURES]
+    figures = geometry_figures(project, system=system, results=results)
     return Section("", body=body, figures=figures,
                    tables=[t for t in tables if t is not None])
 
@@ -1016,7 +1013,7 @@ def _weights(project: Project,
     if far:
         body.append(far)
     return Section("", body=body, tables=tables,
-                   figures=[_weight_cg_figure(project, system)])
+                   figures=weight_cg_figures(project, system=system))
 
 
 # --------------------------------------------------------------------------- #
@@ -1236,7 +1233,7 @@ def _envelope_figure(block: str, cases: Mapping[str, ConditionResult],
     # what distinguishes one figure from another and all the caption line needs
     # to carry (owner, 2026-08-31).
     return Figure(
-        key=f"vn_{index}",
+        key=f"vn_{index}", family="vn",
         title=f"Flight envelope -- {block}",
         data=PlotData("V (KEAS)", "Load factor n", series, points, list(vlines),
                       points_label="Gust design points"),
@@ -1357,16 +1354,15 @@ def _envelope(project: Project,
     conditions = _conditions(results.get("flight_envelope"), system)
     blocks = _blocks(conditions)
 
-    speeds = _by_key(_find(_conditions(results.get("structural_speeds"), system),
-                           "Structural design speeds"))
-    vlines = [(name, float(speeds[key].value))
-              for name, key in _ENVELOPE_VLINES if key in speeds]
-
     # The speed/altitude envelope opens the subsection: the V-n diagrams that
     # follow are slices of it, and a reader meets the envelope before its cuts.
-    figures = [_speed_altitude_figure(project)]
-    figures += [_envelope_figure(block, cases, vlines, index)
-                for index, (block, cases) in enumerate(blocks)]
+    figures = speed_altitude_figures(project, system=system)
+    figures += vn_figures(project, system=system, results=results)
+    # ...and the two trim figures note 60 §7 moved into the port list. They
+    # close the subsection rather than open it: the envelope and its cuts are
+    # what this section delivers loads from, and the balancing tail load
+    # against CG is the explanation of the sign those loads carry.
+    figures += trim_figures(project, system=system)
     table = _corner_table(blocks)
     mach = _mach_limit_table(results.get("mach_limit"), system)
 
@@ -1756,13 +1752,9 @@ def _wing_inputs(project: Project, *, system: UnitSystem,
                  plan: Sequence[SectionPlan]) -> Section:
     """3.1 -- the wing data the load cases were run from."""
     net = _wing_net(project)
-    curves, config = _aero_curves(project)
-    clmax = getattr(config, "stall_cl", None) or None
-    figures = [_lra_planform_figure(project, net, system),
-               _span_load_figure(project, clmax, system),
-               _flaps_down_span_load(project)]
-    figures += [_aero_curve_figure(curves, config, *spec)
-                for spec in _AERO_CURVE_FIGURES]
+    figures = wing_axis_figures(project, system=system)
+    figures += wing_span_load_figures(project, system=system)
+    figures += aero_curve_figures(project, system=system)
     table = _lra_station_table(net, system)
     body = [
         "This subsection states the wing data the load cases of this section "
@@ -2277,8 +2269,8 @@ def _wing_distributions(project: Project, *, system: UnitSystem,
     net = _wing_net(project)
     axis = _torsion_axis(net)
     assessed = subsection_ref(plan, _WING_STEP, _WING_ASSESSED)
-    figures = [_distribution_figure(net, key, attr, dim, title, system, assessed)
-               for key, attr, dim, title in _DISTRIBUTION_FIGURES]
+    figures = wing_distribution_figures(project, system=system,
+                                        assessed=assessed)
     body = [
         "The distributions below are the net wing loads: the air load and "
         "the inertia load of the same case summed station by station, which is "
@@ -2872,7 +2864,7 @@ def _body_beam(project: Project, *, system: UnitSystem,
                                       "stations, so there is no beam to "
                                       "state."))
     return Section("", body=body, tables=[table],
-                   figures=[_body_side_view(project, system)])
+                   figures=body_side_view_figures(project, system=system))
 
 
 #: How the report names the p198 quantities that SELECT publishes twice.
@@ -3503,9 +3495,8 @@ def _body_distributions(project: Project, *, system: UnitSystem,
             "distribution. Entering the wing front and rear spar stations "
             "gives the Chapter 15 carry-through reaction and this subsection "
             "its distributions."), absent_lead="Not published")
-    figures = [_body_distribution_figure(net, key, attr, dim, title, system,
-                                         critical)
-               for key, attr, dim, title in _BODY_DISTRIBUTION_FIGURES]
+    figures = body_distribution_figures(project, system=system,
+                                        critical=critical)
     return Section("", body=body, figures=figures)
 
 
@@ -5213,8 +5204,6 @@ def _aileron_loads(project: Project,
             "geometry or the design speeds they are computed at are not "
             "entered."))
     geometry_ref = section_ref(plan, "configuration_layout")
-    hinge = next((s.x for s in sorted(records[0].stations, key=lambda s: s.x)
-                  if s.x not in (0.0, 1.0)), None)
     entered_area = float(inputs.area_fwd_hinge_sqft or 0.0) + float(
         inputs.area_aft_hinge_sqft or 0.0)
     table = _control_case_table(
@@ -5252,15 +5241,7 @@ def _aileron_loads(project: Project,
     if discrepancy:
         body.append(discrepancy)
     body.append(_HINGE_MOMENT_ABSENCE)
-    figures = [
-        _control_chord_figure(records, key="chordwise_aileron",
-                              title="Aileron chordwise pressure (LIMIT)",
-                              surface="aileron", host="wing", system=system,
-                              hinge=hinge),
-        _control_locator_figure(project, key="locator_aileron",
-                                title="The aileron on the wing",
-                                surface="aileron", host="wing", system=system),
-    ]
+    figures = aileron_figures(project, system=system)
     return Section("", body=body,
                    tables=[t for t in (table,) if t is not None],
                    figures=figures)
@@ -5418,14 +5399,7 @@ def _flap_loads(project: Project,
     if discrepancy:
         body.append(discrepancy)
     body.append(_HINGE_MOMENT_ABSENCE)
-    figures = [
-        _control_chord_figure(records, key="chordwise_flap",
-                              title="Flap chordwise pressure (LIMIT)",
-                              surface="flap", host="wing", system=system),
-        _control_locator_figure(project, key="locator_flap",
-                                title="The flap on the wing",
-                                surface="flap", host="wing", system=system),
-    ]
+    figures = flap_figures(project, system=system)
     return Section("", body=body, tables=tables, figures=figures)
 
 
@@ -5586,18 +5560,26 @@ def _tab_loads(project: Project,
     for index, (record, spec) in enumerate(zip(records, specs)):
         host = _TAB_HOSTS.get((spec.surface or "").strip().lower(), "elevator")
         printed = _REGION_NAMES.get(host, host).lower()
-        figures.append(_control_chord_figure(
+        # The tab figures are the one control-surface pair that is a *run* --
+        # a project may carry several tabs -- so unlike the aileron's and the
+        # flap's their keys carry an index and their family has to be said
+        # (note 60 D-60.2). Stated at the call site rather than inside the two
+        # shared builders because it is this section, not the builder, that
+        # knows it is emitting a run: the same builder emits ``chordwise_flap``
+        # exactly once, where key and family coincide.
+        figures.append(replace(_control_chord_figure(
             [record], key=f"chordwise_tab_{index}",
             title=f"Tab chordwise pressure, {printed} (LIMIT)",
             surface=host, host=_CONTROL_HOSTS.get(host, ("htail", "butt", "z"))[0],
-            system=system, label="tab"))
+            system=system, label="tab"), family="chordwise_tab"))
         extra, note = _tab_rectangle(project, spec, host, scale)
-        figures.append(_control_locator_figure(
+        figures.append(replace(_control_locator_figure(
             project, key=f"locator_tab_{index}",
             title=f"The tab on the {printed}",
             surface=host,
             host=_CONTROL_HOSTS.get(host, ("htail", "butt", "z"))[0],
-            system=system, extra=extra, extra_note=note, label="tab"))
+            system=system, extra=extra, extra_note=note, label="tab"),
+            family="locator_tab"))
     return Section("", body=body,
                    tables=[t for t in (_tab_table(result, project, system),)
                            if t is not None],
@@ -6528,11 +6510,7 @@ def _engine_mount(project: Project, results: Mapping[str, Optional[ModuleResult]
             "the engine mount loads were not produced for this project: no "
             "engine is entered, or the powers and torques the conditions are "
             "computed from are missing."))
-    figures = [
-        _engine_view_figure(project, records, frame=frame, key=key, title=title,
-                            view=view, system=system)
-        for frame, key, title, view in _ENGINE_VIEWS
-    ]
+    figures = engine_view_figures(project, system=system, results=results)
     inputs = _engine_inputs(records, system=system, plan=plan)
     return Section("", body=[
         "This section states the engine mount loads: what they were computed "
@@ -6848,7 +6826,7 @@ def _oei_figures(cases: Sequence["VtailCase"], system: UnitSystem
         marks = [("23.367(b) delay", _OEI_DELAY_S),
                  ("Peak load", fc.peak.time)]
         out.append(Figure(
-            key=f"{key}-yaw",
+            key=f"{key}-yaw", family="oei_yaw",
             title=f"Yaw response — {tag} ({fc.case_id})",
             data=PlotData(
                 x_label="Time (s)", y_label="Yaw angle (deg), rate (deg/s), rudder (deg)",
@@ -6864,7 +6842,7 @@ def _oei_figures(cases: Sequence["VtailCase"], system: UnitSystem
                      "recover." if not fc.recovered else
                      f"Recovery is complete at {format_value(fc.summary.time_to_recovery_s)} s."))))
         out.append(Figure(
-            key=f"{key}-load",
+            key=f"{key}-load", family="oei_load",
             title=f"Fin load — {tag} ({fc.case_id})",
             data=PlotData(
                 x_label="Time (s)", y_label=f"Fin load ({u.label('force')}, LIMIT)",
@@ -7367,7 +7345,7 @@ def _attitude_figure(project: Project, index: int, *,
     numbers = _attitude_case_numbers(gra_index)
     inp = project.landing
     if inp is None:
-        return Figure(key=key, title=f"{title} attitude", absent_reason=(
+        return Figure(key=key, family="ground_attitude", title=f"{title} attitude", absent_reason=(
             "the project enters no landing inputs, so there is no attitude to "
             "draw."))
     try:
@@ -7376,7 +7354,7 @@ def _attitude_figure(project: Project, index: int, *,
         cgs = landing_role_cases(project)
         by_case = {case.case: case for case in gear_case_loads(project)}
     except (MissingInputError, ValueError) as exc:
-        return Figure(key=key, title=f"{title} attitude",
+        return Figure(key=key, family="ground_attitude", title=f"{title} attitude",
                       absent_reason=f"the attitude could not be drawn: {exc}")
 
     angle = angles[gra_index]
@@ -7391,7 +7369,7 @@ def _attitude_figure(project: Project, index: int, *,
     # ``test_gear_report`` exists to catch, and did.
     sample = by_case.get(numbers[0]) if numbers else None
     if sample is None:
-        return Figure(key=key, title=f"{title} attitude", absent_reason=(
+        return Figure(key=key, family="ground_attitude", title=f"{title} attitude", absent_reason=(
             "no ground case is computed in this attitude for this project."))
     legs = {"main": ("Main gear", gear.main_gear),
             "nose": ("Nose gear", gear.nose_gear)}
@@ -7454,7 +7432,8 @@ def _attitude_figure(project: Project, index: int, *,
         "about. Nothing in this figure is a load: no value is scaled and none "
         "carries a safety factor.")
     return Figure(
-        key=key, title=f"{title} attitude ({state} axle)",
+        key=key, family="ground_attitude",
+        title=f"{title} attitude ({state} axle)",
         data=PlotData(f"{x_label} ({length_units})",
                       f"{y_label} ({length_units})", series,
                       points=points, points_label="Landing CG loadings"),
@@ -7490,8 +7469,7 @@ def _landing_loads(project: Project,
     ], tables=[t for t in (_landing_free_body_table(project, system),
                            _landing_geometry_table(project, system))
                if t is not None],
-        figures=[_attitude_figure(project, index, system=system)
-                 for index in range(len(_GROUND_ATTITUDES))])
+        figures=attitude_figures(project, system=system))
 
     factor_body = [
         "The landing load factor is the drop-test work-energy balance of FAR "
@@ -7805,7 +7783,7 @@ def _lumping_appendix(project: Project, *, system: UnitSystem,
             "member in question and rerun.",
         ],
         tables=[t for t in [table] if t is not None],
-        figures=[_lumping_figure(c, system) for c in comparisons])
+        figures=lumping_figures(project, system=system))
 
 
 # --------------------------------------------------------------------------- #
@@ -8222,6 +8200,433 @@ def build_appendix(project: Project, entry: SectionPlan,
                    page_break=section.page_break,
                    landscape=section.landscape)
 
+
+
+# --------------------------------------------------------------------------- #
+# The figure catalogue's builders (design note 60, D-60.1 / D-60.3)
+# --------------------------------------------------------------------------- #
+# **One producer set, two renderers.** Everything below already existed: each
+# function here is the figure expression that was written inline in a section
+# builder, lifted out and given a name. The section builder now calls it, so
+# there is exactly one construction of each figure and the document and the GUI
+# cannot draw different pictures of the same quantity -- which is the whole of
+# D-60.1, and the reason note 60 withdrew D-57.4's "written fresh".
+#
+# **Signature.** ``(project, *, system, results=None)``. ``results`` is the
+# ``run_sections`` mapping and is accepted by every builder so the catalogue can
+# call them uniformly; a builder that does not need it says so by ignoring it,
+# which is also how ``sloads.report.figures`` states the pre-run tier. Where a
+# section builder passed a cross-reference into a caption (``assessed``,
+# ``critical``) the parameter is kept with an empty default: a GUI page has no
+# section plan and no section numbers to point at, and an empty reference
+# renders as no reference rather than as a dangling one.
+#
+# **Lists, not single figures.** A family is a kind of drawing and several of
+# these emit a run of them (the V-n diagrams, the ground attitudes, the OEI
+# marches), so every builder returns a list even where today it is always one.
+
+
+def geometry_figures(project: Project, *, system: UnitSystem,
+                     results: Optional[Mapping[str, Optional[ModuleResult]]] = None,
+                     ) -> List[Figure]:
+    """2.1's planforms -- one per main surface (OR-45).
+
+    ``results`` supplies nothing but the wing area printed in the legend, which
+    ``structural_speeds`` produces; without it the outline is drawn and the
+    legend entry carries the surface's name alone. That is what keeps this
+    figure in the pre-run tier: the drawing is the entered planform.
+    """
+    area = None
+    if results is not None:
+        speeds = _conditions(results.get("structural_speeds"), system)
+        area = _by_key(_find(speeds, "Structural design speeds")).get("wing_area_s")
+    areas = _region_areas(project, area, system)
+    return [_planform_figure(project, key, parent, figure_title, children,
+                             frame, areas, system)
+            for key, parent, figure_title, children, frame in _PLANFORM_FIGURES]
+
+
+def weight_cg_figures(project: Project, *, system: UnitSystem,
+                      results: Optional[Mapping[str, Optional[ModuleResult]]] = None,  # noqa: ARG001
+                      ) -> List[Figure]:
+    """2.2's weight and centre-of-gravity envelope."""
+    return [_weight_cg_figure(project, system)]
+
+
+def speed_altitude_figures(project: Project, *, system: UnitSystem,  # noqa: ARG001
+                           results: Optional[Mapping[str, Optional[ModuleResult]]] = None,  # noqa: ARG001
+                           ) -> List[Figure]:
+    """The speed and altitude envelope the V-n diagrams are slices of."""
+    return [_speed_altitude_figure(project)]
+
+
+def vn_figures(project: Project, *, system: UnitSystem,  # noqa: ARG001
+               results: Optional[Mapping[str, Optional[ModuleResult]]] = None,
+               ) -> List[Figure]:
+    """One V-n diagram per loading and altitude analysed.
+
+    The one family that genuinely needs the module results: the boundary is the
+    set of balanced conditions ``flight_envelope`` produced, and the speed lines
+    are ``structural_speeds``'. With no results it draws nothing and says so,
+    rather than drawing an envelope from a second derivation of its own.
+    """
+    if not results:
+        return [Figure(key="vn_0", family="vn", title="Flight envelope",
+                       absent_reason=("the flight envelope has not been run "
+                                      "for this project yet."))]
+    conditions = _conditions(results.get("flight_envelope"), system)
+    blocks = _blocks(conditions)
+    speeds = _by_key(_find(_conditions(results.get("structural_speeds"), system),
+                           "Structural design speeds"))
+    vlines = [(name, float(speeds[key].value))
+              for name, key in _ENVELOPE_VLINES if key in speeds]
+    return [_envelope_figure(block, cases, vlines, index)
+            for index, (block, cases) in enumerate(blocks)]
+
+
+#: How many CG stations the trim sweep is evaluated at.
+#:
+#: Fifteen, which is the retiring page's own default and is enough for the
+#: curvature the balance actually has. It is a **fixed** number here and not a
+#: control: note 60 §9 defers the interactive sweep -- the reference loading, the
+#: station range and the count as widgets -- and ports the two figures, so what
+#: this produces is one determined drawing that a document can print and a page
+#: can show, not a sweep a reader drives.
+_TRIM_STATIONS = 15
+
+#: The trim conditions plotted, in the order ``trim_sweep`` returns them.
+_TRIM_STYLES = ("solid", "dashed", "dotted")
+
+
+def _trim_reference(project: Project):
+    """The loading the sweep holds fixed: the heaviest FLIGHT case.
+
+    Chosen rather than offered, because a document cannot ask. The heaviest case
+    is the one whose balancing tail load is largest, so a reader comparing the
+    curve against the section's own balanced conditions is looking at the
+    governing one rather than at whichever case happened to be entered first.
+    """
+    cases = [c for c in flight_cases(project) if c.weight_lb]
+    # Through ``picks.extreme``: a keyed built-in max() lets two equally heavy
+    # loadings land either side of each other by an ulp on a different libm,
+    # and the figure would then be swept at a different case on a different
+    # machine (the platform-stability guard).
+    return extreme(cases, lambda c: c.weight_lb) if cases else None
+
+
+def _trim_stations(project: Project) -> List[float]:
+    """The CG stations swept: the entered range, widened if it is a point."""
+    stations = [c.xcg for c in flight_cases(project) if c.xcg is not None]
+    if not stations:
+        return []
+    lo, hi = min(stations), max(stations)
+    if hi - lo < 1e-6:
+        # A single distinct station is still worth a curve -- it is the CG the
+        # airplane is trimmed at -- so it is widened by +-5% MAC rather than
+        # collapsing the axis onto one point.
+        ref = mac_reference(project)
+        pad = 0.05 * ((ref.mac if ref is not None else 0.0) or 12.0)
+        lo, hi = lo - pad, hi + pad
+    step = (hi - lo) / (_TRIM_STATIONS - 1)
+    return [lo + i * step for i in range(_TRIM_STATIONS)]
+
+
+def _trim_tail_load_figure(project: Project, system: UnitSystem) -> Figure:
+    """Balancing tail load against CG station, for the three 1-g trim conditions.
+
+    Note 60 §1.1 figure 3. The balance is not re-derived here: ``trim_sweep``
+    re-runs FLTLOADS subroutine 3900 itself, which is why a station coinciding
+    with a project CG case reproduces that case's balanced load exactly -- and
+    why the project's own cases are overlaid as markers, so the identity is
+    visible rather than asserted.
+    """
+    from ..modules.flight_envelope import trim_sweep
+
+    key, title = "trim_tail_load", "Balancing tail load against CG"
+    reference = _trim_reference(project)
+    stations = _trim_stations(project)
+    if reference is None or not stations:
+        return Figure(key=key, title=title, absent_reason=(
+            "the project enters no weight and centre-of-gravity cases, so "
+            "there is no loading to sweep the trim of."))
+    try:
+        curves = trim_sweep(project, weight_lb=reference.weight_lb,
+                            zcg=reference.zcg, xcg_stations=stations)
+    except (MissingInputError, ValueError, ZeroDivisionError) as exc:
+        return Figure(key=key, title=title,
+                      absent_reason=f"the trim could not be swept: {exc}")
+    u = Units(system)
+    series = [Series(curve.condition,
+                     [u.plain_value(x, "length") for x in curve.xcg_in],
+                     [u.plain_value(lt, "force") for lt in curve.lt_lb],
+                     style=style)
+              for curve, style in zip(curves, _TRIM_STYLES * 4)]
+    points = [(case.name, u.plain_value(case.xcg, "length"),
+               u.plain_value(lt, "force"))
+              for case in flight_cases(project)
+              if case.xcg is not None
+              and math.isclose(case.weight_lb or 0.0, reference.weight_lb,
+                               rel_tol=1e-9)
+              for lt in (_trim_at(curves, case.xcg),) if lt is not None]
+    return Figure(
+        key=key, title=title,
+        data=PlotData(f"CG station Xcg ({u.label('length')})",
+                      f"Balancing tail load LT ({u.label('force')}, LIMIT)",
+                      series, points, points_label="Design CG cases"),
+        caption=(
+            f"Swept at {u.plain(reference.weight_lb, 'mass')} and waterline "
+            f"{u.plain(reference.zcg, 'length')} -- the heaviest loading -- with "
+            f"every other input held. Positive LT is up. A forward centre of "
+            f"gravity needs more tail download to trim, so LT falls as the "
+            f"centre of gravity moves forward. The marked cases are this "
+            f"project's own at that weight; they lie on the curve because the "
+            f"sweep re-runs the same balance, and the LIMIT loads delivered "
+            f"for them are in this section's own tables."))
+
+
+def _trim_at(curves: Sequence[object], station: float) -> Optional[float]:
+    """The first curve's load at ``station``, where the sweep evaluated it."""
+    for curve in curves:
+        for x, lt in zip(getattr(curve, "xcg_in", ()), getattr(curve, "lt_lb", ())):
+            if math.isclose(x, station, rel_tol=1e-9, abs_tol=1e-9):
+                return float(lt)
+    return None
+
+
+def _static_margin_figure(project: Project, system: UnitSystem) -> Figure:  # noqa: ARG001
+    """Static margin against CG, over the same stations the trim is swept at.
+
+    ``system`` is taken and not used: both axes are per cent of the mean
+    aerodynamic chord, which is the same number in either unit system. Kept in
+    the signature so the two trim figures are built the same way, and stated
+    here so the absence reads as a property of the figure rather than as an
+    omission.
+
+    Note 60 §1.1 figure 4. The neutral point is the Configuration module's
+    tail-volume estimate, read from the module rather than recomputed, and the
+    MAC reference is the planform's -- the same one the neutral point is stated
+    against, because a weight-envelope override would put the two curves in
+    different frames (#80).
+    """
+    key, title = "static_margin", "Static margin against CG"
+    stations = _trim_stations(project)
+    if not stations:
+        return Figure(key=key, title=title, absent_reason=(
+            "the project enters no weight and centre-of-gravity cases, so "
+            "there is no centre-of-gravity range to state a margin over."))
+    from ..modules.configuration import run as configuration_run
+
+    try:
+        conditions = configuration_run(project).conditions
+    except (MissingInputError, ValueError, ZeroDivisionError, KeyError) as exc:
+        return Figure(key=key, title=title, absent_reason=(
+            f"the tail-volume neutral point could not be computed: {exc}"))
+    values = {v.key: v.value for c in conditions for v in c.values}
+    np_pct = values.get("neutral_point_pct_mac")
+    xlemac = values.get("xle_mac_station_of_mac_le")
+    mac_in = values.get("mac")
+    if np_pct is None or xlemac is None or not mac_in:
+        return Figure(key=key, title=title, absent_reason=(
+            "this project carries no parametric layout with a horizontal-tail "
+            "area and arm, so the tail-volume neutral point the margin is "
+            "measured from is not available."))
+    ref = MacReference(xlemac, mac_in, "planform", "wing")
+    pct = [station_to_pct_mac(x, ref) for x in stations]
+    vlines = []
+    envelope = project.weight.envelope if project.weight is not None else None
+    for label, limit in (("Forward limit", getattr(envelope, "fwd_gross_pct_mac", None)),
+                         ("Aft limit", getattr(envelope, "aft_gross_pct_mac", None))):
+        if limit:
+            vlines.append((label, float(limit)))
+    return Figure(
+        key=key, title=title,
+        data=PlotData("Centre of gravity (%MAC)", "Static margin (%MAC)",
+                      [Series("Static margin", pct, [np_pct - p for p in pct])],
+                      vlines=vlines),
+        caption=(
+            f"Static margin is the neutral point less the centre of gravity, "
+            f"both in per cent of the mean aerodynamic chord; the neutral point "
+            f"is {format_value(np_pct)} %MAC from the tail-volume estimate. It "
+            f"is stated because it is what makes the balancing tail load above "
+            f"the sign it is, and it is not a load: nothing in this report is "
+            f"sized to it, no safety factor applies to it, and this analysis "
+            f"makes no stability finding."))
+
+
+def trim_figures(project: Project, *, system: UnitSystem,
+                 results: Optional[Mapping[str, Optional[ModuleResult]]] = None,  # noqa: ARG001
+                 ) -> List[Figure]:
+    """The two trim and stability figures note 60 §7 moved into the port list.
+
+    The *sweep* -- a reader choosing the loading, the range and the station
+    count -- stays deferred (§9). These are the two drawings it produced, built
+    once from what the project already states.
+    """
+    return [_trim_tail_load_figure(project, system),
+            _static_margin_figure(project, system)]
+
+
+def wing_axis_figures(project: Project, *, system: UnitSystem,
+                      results: Optional[Mapping[str, Optional[ModuleResult]]] = None,  # noqa: ARG001
+                      ) -> List[Figure]:
+    """3.1's loads reference axis drawn on the wing planform."""
+    return [_lra_planform_figure(project, _wing_net(project), system)]
+
+
+def wing_span_load_figures(project: Project, *, system: UnitSystem,
+                           results: Optional[Mapping[str, Optional[ModuleResult]]] = None,  # noqa: ARG001
+                           ) -> List[Figure]:
+    """3.1's span loading, clean and flaps down."""
+    _curves, config = _aero_curves(project)
+    clmax = getattr(config, "stall_cl", None) or None
+    return [_span_load_figure(project, clmax, system),
+            _flaps_down_span_load(project)]
+
+
+def aero_curve_figures(project: Project, *, system: UnitSystem,  # noqa: ARG001
+                       results: Optional[Mapping[str, Optional[ModuleResult]]] = None,  # noqa: ARG001
+                       ) -> List[Figure]:
+    """3.1's airplane-less-tail lift and pitching-moment curves."""
+    curves, config = _aero_curves(project)
+    return [_aero_curve_figure(curves, config, *spec)
+            for spec in _AERO_CURVE_FIGURES]
+
+
+def wing_distribution_figures(project: Project, *, system: UnitSystem,
+                              results: Optional[Mapping[str, Optional[ModuleResult]]] = None,  # noqa: ARG001
+                              assessed: str = "") -> List[Figure]:
+    """3.4's net wing distributions, every selected case on each axes."""
+    net = _wing_net(project)
+    return [_distribution_figure(net, key, attr, dim, title, system, assessed)
+            for key, attr, dim, title in _DISTRIBUTION_FIGURES]
+
+
+def body_side_view_figures(project: Project, *, system: UnitSystem,
+                           results: Optional[Mapping[str, Optional[ModuleResult]]] = None,  # noqa: ARG001
+                           ) -> List[Figure]:
+    """4's fuselage mass, beam and load-introduction side view."""
+    return [_body_side_view(project, system)]
+
+
+def body_distribution_figures(project: Project, *, system: UnitSystem,
+                              results: Optional[Mapping[str, Optional[ModuleResult]]] = None,  # noqa: ARG001
+                              critical: str = "") -> List[Figure]:
+    """4's net fuselage distributions."""
+    return [_body_distribution_figure(net, key, attr, dim, title, system,
+                                      critical)
+            for net in (_body_net(project),)
+            for key, attr, dim, title in _BODY_DISTRIBUTION_FIGURES]
+
+
+def tail_axis_figures(project: Project, *, system: UnitSystem,
+                      results: Optional[Mapping[str, Optional[ModuleResult]]] = None,  # noqa: ARG001
+                      ) -> List[Figure]:
+    """5.1 and 6.1's loads reference axes, one per tail surface."""
+    return [_tail_lra_planform_figure(project, component,
+                                      _tail_spanwise(project, component), system)
+            for component in _TAIL_SURFACES]
+
+
+def tail_chord_figures(project: Project, *, system: UnitSystem,
+                       results: Optional[Mapping[str, Optional[ModuleResult]]] = None,  # noqa: ARG001
+                       ) -> List[Figure]:
+    """5.3 and 6.3's chordwise net pressures, one per tail surface."""
+    return [_tail_chord_figure(_tail_chordwise(project, component), component,
+                               system)
+            for component in _TAIL_SURFACES]
+
+
+def aileron_figures(project: Project, *, system: UnitSystem,
+                    results: Optional[Mapping[str, Optional[ModuleResult]]] = None,  # noqa: ARG001
+                    ) -> List[Figure]:
+    """Section 7's aileron pressure profile and its place on the wing."""
+    records = _control_records(project, "aileron")
+    hinge = next((s.x for s in sorted(records[0].stations, key=lambda s: s.x)
+                  if s.x not in (0.0, 1.0)), None) if records else None
+    return [
+        _control_chord_figure(records, key="chordwise_aileron",
+                              title="Aileron chordwise pressure (LIMIT)",
+                              surface="aileron", host="wing", system=system,
+                              hinge=hinge),
+        _control_locator_figure(project, key="locator_aileron",
+                                title="The aileron on the wing",
+                                surface="aileron", host="wing", system=system),
+    ]
+
+
+def flap_figures(project: Project, *, system: UnitSystem,
+                 results: Optional[Mapping[str, Optional[ModuleResult]]] = None,  # noqa: ARG001
+                 ) -> List[Figure]:
+    """Section 8's flap pressure profile and its place on the wing."""
+    records = _control_records(project, "flap")
+    return [
+        _control_chord_figure(records, key="chordwise_flap",
+                              title="Flap chordwise pressure (LIMIT)",
+                              surface="flap", host="wing", system=system),
+        _control_locator_figure(project, key="locator_flap",
+                                title="The flap on the wing",
+                                surface="flap", host="wing", system=system),
+    ]
+
+
+def tab_figures(project: Project, *, system: UnitSystem,
+                results: Optional[Mapping[str, Optional[ModuleResult]]] = None,  # noqa: ARG001
+                ) -> List[Figure]:
+    """Section 9's tab pressure profiles and their places on their hosts."""
+    records = _control_records(project, "tab")
+    specs = list(getattr(project.tab_loads, "tabs", ()) or ())
+    scale, _units = _length_channel(system)
+    figures: List[Figure] = []
+    for index, (record, spec) in enumerate(zip(records, specs)):
+        host = _TAB_HOSTS.get((spec.surface or "").strip().lower(), "elevator")
+        printed = _REGION_NAMES.get(host, host).lower()
+        figures.append(replace(_control_chord_figure(
+            [record], key=f"chordwise_tab_{index}",
+            title=f"Tab chordwise pressure, {printed} (LIMIT)",
+            surface=host, host=_CONTROL_HOSTS.get(host, ("htail", "butt", "z"))[0],
+            system=system, label="tab"), family="chordwise_tab"))
+        extra, note = _tab_rectangle(project, spec, host, scale)
+        figures.append(replace(_control_locator_figure(
+            project, key=f"locator_tab_{index}",
+            title=f"The tab on the {printed}",
+            surface=host,
+            host=_CONTROL_HOSTS.get(host, ("htail", "butt", "z"))[0],
+            system=system, extra=extra, extra_note=note, label="tab"),
+            family="locator_tab"))
+    return figures
+
+
+def engine_view_figures(project: Project, *, system: UnitSystem,
+                        results: Optional[Mapping[str, Optional[ModuleResult]]] = None,
+                        ) -> List[Figure]:
+    """Section 10's three views of the engine installation."""
+    records = _engine_records(project, results or {})
+    return [_engine_view_figure(project, records, frame=frame, key=key,
+                                title=title, view=view, system=system)
+            for frame, key, title, view in _ENGINE_VIEWS]
+
+
+def oei_figures(project: Project, *, system: UnitSystem,
+                results: Optional[Mapping[str, Optional[ModuleResult]]] = None,  # noqa: ARG001
+                ) -> List[Figure]:
+    """Section 11's yaw response and fin load history, per plotted case."""
+    return _oei_figures(_oei_cases(project), system)[0]
+
+
+def attitude_figures(project: Project, *, system: UnitSystem,
+                     results: Optional[Mapping[str, Optional[ModuleResult]]] = None,  # noqa: ARG001
+                     ) -> List[Figure]:
+    """Section 12's three ground attitudes."""
+    return [_attitude_figure(project, index, system=system)
+            for index in range(len(_GROUND_ATTITUDES))]
+
+
+def lumping_figures(project: Project, *, system: UnitSystem,
+                    results: Optional[Mapping[str, Optional[ModuleResult]]] = None,  # noqa: ARG001
+                    ) -> List[Figure]:
+    """The lumping appendix's per-component deviation figures."""
+    return [_lumping_figure(comparison, system)
+            for comparison in _lumping_comparisons(project)]
 
 __all__ = [
     "APPENDIX_BUILDERS",

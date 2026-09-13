@@ -71,6 +71,10 @@ from app_shell.components import (
     unit_number_input,
 )
 from app_shell.widget_keys import widget_key
+from oracle_app.figures import (
+    render_input_figures,
+    render_result_figures,
+)
 from oracle_app.labels import FIELD_LABELS, pretty
 from oracle_app.results import render_results
 from sloads import field_registry as fr
@@ -1823,9 +1827,20 @@ def render_step(key: str) -> None:
         st.info("Results are withheld until the inputs above agree.")
         return
 
+    # The entered data, drawn (#267, note 60 D-60.4). Above the results
+    # deliberately: the pre-run tier exists so a planform, a CG envelope or a
+    # control surface on its host can be checked *before* the analysis is run,
+    # and a figure of what was typed belongs with the form it was typed into.
+    render_input_figures(ctx.project, key, ctx.system)
+
     # A page that takes no input still runs its programs -- Tail Loads reads
     # entirely upstream and is all output (OG-E).
     render_results(ctx.project, key, ctx.system)
+
+    # ...and what they produced, drawn. Below the tables rather than above
+    # them: the figure is how the numbers are read, not a substitute for them,
+    # and the oracle's own printout is what this GUI leads with.
+    render_result_figures(ctx.project, key, ctx.system)
 
 
 def _step_caption(step: wf.WorkflowStep) -> str:
