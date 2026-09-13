@@ -300,6 +300,43 @@ def distribution(project: Project) -> MassDistribution:
     return MassDistribution(by_component=by, inferred=tuple(inferred))
 
 
+def unplaced_items(project: Project) -> Tuple[str, ...]:
+    """Rows that carry weight but say neither where they sit nor what reacts them.
+
+    A row at the datum (``x == 0``) with no ``component`` tag has been *created*
+    and not *placed*: WTONECG takes its moment arm as zero and
+    :func:`infer_component` lumps it on the fuselage beam, so it moves the CG and
+    the body shear without anything on the page having claimed a station for it.
+    Two makers produce exactly this row -- the weight-estimate seed
+    (:func:`sloads.modules.weight_estimate.seed_plan`, which supplies weights and
+    nothing else) and the GUI's row counter -- and the defect #78 reported is
+    that neither said so. Named here rather than in either GUI so both say it
+    identically and the rule has one owner (``CLAUDE.md`` practice 3).
+
+    Zero-weight rows are excluded: they are blanks in progress, not weight in
+    the wrong place, and the row counter's own warning already covers them.
+    """
+    items = project.weight.items if project.weight is not None else []
+    return tuple(it.name or "(unnamed)" for it in items
+                 if it.weight_lb and it.x == 0.0 and it.component is None)
+
+
+def unplaced_warning(project: Project) -> str:
+    """What :func:`unplaced_items` costs, in one sentence; ``""`` when nothing is owed.
+
+    The sentence lives with the predicate so the two GUIs say it identically and
+    neither can drift from what the distribution actually does with such a row.
+    """
+    owed = unplaced_items(project)
+    if not owed:
+        return ""
+    shown = ", ".join(owed[:6]) + (" \u2026" if len(owed) > 6 else "")
+    return (f"{len(owed)} weight item(s) carry weight at station 0 with no component "
+            f"tag and are not positioned yet: {shown}. Until each is given an x "
+            "station and a component, WTONECG takes its moment arm as zero and the "
+            "mass distribution lumps it on the fuselage beam.")
+
+
 # --------------------------------------------------------------------------- #
 # The derived fuselage beam
 # --------------------------------------------------------------------------- #

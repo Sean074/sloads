@@ -424,6 +424,31 @@ into the Mach Limit page; as of Step E7 the **Speed–Altitude Envelope** page i
 *reads them through* read-only from `speeds` — not an editable seed — so they are
 never entered twice.)
 
+- **A seed offers; it never takes** (#269, note 57 **D-57.7**, closing #78's
+  destructive half). A seed that writes over data the user entered is a
+  data-loss path with a caption, and the weight-estimate seed was exactly that:
+  it replaced `weight.items` wholesale and the caption said so *after* the
+  click. The rule now: a seed builds its **plan first**, the plan states what
+  the click will do, and the click **merges** — it adds only what the target
+  does not already name, matching on the row's own identity, and never
+  overwrites or deletes. Seeding twice is therefore a no-op, which is the
+  property that makes a seed safe to offer beside half-finished work. The
+  answer lives with the calc (`weight_estimate.SEED_CONTRACT` / `SeedPlan`), not
+  in the page, so the two front-ends cannot give different answers; the oracle
+  form reaches it through `field_registry.TABLE_SEEDS`, the `…[]` analogue of
+  `RECORD_SEEDS`.
+
+- **And a seeded row says what it still owes, for as long as it owes it**
+  (#269). WTESTIMA supplies component *weights* and nothing else, so a seeded
+  mass item arrives at station 0, untagged, with zero inertias — and
+  `infer_component` then carries it on the fuselage beam at zero moment arm,
+  moving the CG and the body shear while looking like entered data. Both GUIs
+  render `mass_distribution.unplaced_warning` as a **warning**, not a caption,
+  and it persists until each row has an `x` station and a `component` tag
+  rather than appearing once in the click's success message. The predicate is
+  general, not seed-specific: a row counted into existence and left blank is
+  the same row.
+
 ---
 
 ## 6. Page anatomy & conventions

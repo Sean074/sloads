@@ -55,8 +55,8 @@ from sloads.modules.weight_envelope import loading_envelope_points
 from sloads.modules.weight_estimate import (
     engine_list_max_continuous_hp,
     estimate,
-    estimate_to_mass_items,
     resolve_max_continuous_hp_for,
+    seed_plan,
 )
 from sloads.modules.weight_onecg import refresh_mass, weights_and_inertia
 from sloads.report import LoadChannel, module_text_report
@@ -224,24 +224,21 @@ def _tab_estimate(project: Project, system: UnitSystem, U: dict) -> None:
             rows = [{"Quantity": v.label, "Value": v.value, "Units": v.units} for v in r.values]
             st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 
+    # The button merges and never replaces, and the plan says so before the click
+    # (#269, note 57 D-57.7, closing #78's destructive half). Both GUIs ask
+    # `weight_estimate.seed_plan` the same question, so neither page decides what
+    # the click does.
     st.subheader("Seed the weight data base")
-    st.caption(
-        "Copy the estimated component weights into the **Weight, CG & Inertia** tab's "
-        "data base as empty-weight items. Stations and per-item inertias start at zero "
-        "for you to fill in. This replaces any items already entered there."
-    )
-    if st.button("Seed Weight, CG & Inertia from this estimate", key="seed_weight_db"):
-        seed_items = estimate_to_mass_items(inp)
-        project.weight = WeightInput(
-            estimation=inp, items=seed_items, envelope=project.weight.envelope,
-            cg_cases=project.weight.cg_cases,
-            max_landing_weight_lb=project.weight.max_landing_weight_lb,
-            max_takeoff_weight_lb=project.weight.max_takeoff_weight_lb,
-        )
+    plan = seed_plan(project)
+    st.caption(plan.caption())
+    if plan.offers and st.button(f"Seed {len(plan.add)} row(s) from this estimate",
+                                 key="seed_weight_db"):
+        project.weight.items.extend(plan.add)
         st.session_state["project"] = project
         st.success(
-            f"Seeded {len(seed_items)} component(s) into the weight data base. "
-            "Open the Weight, CG & Inertia tab to set their stations."
+            f"Added {len(plan.add)} component(s) to the weight data base. They carry "
+            "a weight and nothing else — open the Weight, CG & Inertia tab to give "
+            "each one a station and a component tag."
         )
 
         # The CSV writer converts internally (M4-20 step 3), so it takes the *raw*
@@ -404,6 +401,13 @@ def _tab_cg_inertia(project: Project, system: UnitSystem, U: dict) -> None:
     if not project.weight or not project.weight.items:
         st.info("No weight items yet -- fill in the data base above and Apply weight items.")
         return
+
+    # Rows that carry weight and were never placed, said loudly and for as long
+    # as they stay unplaced (#269, note 57 D-57.7). The predicate is the calc's,
+    # so the oracle GUI's table says the same thing in the same words.
+    unplaced = mass_distribution.unplaced_warning(project)
+    if unplaced:
+        st.warning(unplaced)
 
     try:
         raw_result = weights_and_inertia(project.weight.items)
