@@ -29,7 +29,7 @@ from sloads import (
     labels_for,
     to_display,
 )
-from sloads.export.balanced_deck import balanced_case_rows, balanced_deck
+from sloads.export.balanced_deck import balanced_case_rows
 from sloads.models import MissingInputError
 from sloads.modules.balance import (
     FORCE_RESIDUAL_ACCEPTANCE,
@@ -43,7 +43,6 @@ from sloads.modules.balance import (
     residual_gate_family,
     skipped_condition_lines,
 )
-from sloads.report.methods import bdf_comment_block
 
 st.title("Balanced Cases — assembled full-span, free-free")
 st.caption(
@@ -263,28 +262,21 @@ fig.update_layout(
 st.plotly_chart(fig, width="stretch")
 
 # --------------------------------------------------------------------------- #
-# The deck
+# The deck: there isn't one to hand over any more
 # --------------------------------------------------------------------------- #
-st.subheader("Assembled deck")
-# Stamped like every other deck the suite writes (G8.3 / review F-D2): the
-# primary deliverable states its own ULTIMATE basis, category and unit system
-# in-band, because this button is a route out of the tool in its own right --
-# the file is often forwarded without the bundle that would otherwise carry the
-# statement. `scope` is the full case set: the Critical Loads opt-out never
-# reaches the balanced assembly.
-_stamp = bdf_comment_block(project, scope="full case set", system=system)
-try:
-    deck = balanced_deck(project, header_comment=_stamp, system=system,
-                         cases=cases, skipped=skipped)
-except ValueError as exc:
-    st.error(str(exc))
-else:
-    st.download_button(
-        "Download assembled full-span deck (BDF)", deck,
-        file_name="balanced_airframe.bdf", mime="text/plain", key="dl_balanced")
-    st.caption(
-        "One `SUBCASE` per balanced case, both wings, on a statically "
-        "determinate support — the recovered reaction *is* the residual above, "
-        "so 'reactions ≈ 0' is the free-free equilibrium proof rather than a "
-        "modelling convenience."
-    )
+# Note 56 D-56.8 stopped the assembled deck being a shipped artifact. It is
+# still built inside the package -- it is the reference resultant the LRA
+# transfer is gated against -- but nothing hands a reader the file, and a
+# download button here would be the one surviving route out of the tool for a
+# deck the note says is not delivered. The cases above are the deliverable's
+# content; the beam deck is what carries them out.
+st.subheader("Where these cases ship")
+st.caption(
+    "This page is the live view of the assembled set. The set itself leaves the "
+    "tool on the **LRA beam model** (Export & Report): the same aero and inertia, "
+    "transferred onto the beam's own grids, one `SUBCASE` per case, free-free — "
+    "the recovered reaction at its determinate support *is* the residual above, "
+    "so 'reactions ≈ 0' is the equilibrium proof rather than a modelling "
+    "convenience. The assembled deck is no longer written as a file of its own "
+    "(design note 56, D-56.8)."
+)

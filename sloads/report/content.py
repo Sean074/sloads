@@ -1377,8 +1377,9 @@ def _case_index_table(module_results, comps: ComponentLoads,
              "for both its SUBCASE and its load-set SID (LOAD = 103 inside "
              "SUBCASE 103), and the deck's LABEL is the case ID itself. They "
              "differ because a case is numbered once per deck family — the "
-             "per-component deck it is analysed in, and the assembled full-span "
-             "model — and a dash means the case is not in that deck at all. "
+             "per-component analysis it is computed in, and the assembled "
+             "full-span model the beam deck carries — and a dash means the case "
+             "is not in that family at all. "
              "Every other table in this report identifies its rows by case ID "
              "and joins to a solver result through this one. The flight "
              "condition stated is the one the cards under that ID were computed "
@@ -1446,8 +1447,9 @@ def _balanced_skips_table(run: "BalancedRun") -> Table:
         rows=rows,
         small=True,
         note="The assembled full-span balanced model is the primary loads "
-             "deliverable; the conditions listed here are covered by the "
-             "per-component analyses only. Horizontal-tail, fuselage, ground "
+             "deliverable, and the beam deck carries it; the conditions listed "
+             "here are covered by the per-component analyses only. "
+             "Horizontal-tail, fuselage, ground "
              "and one-engine-out conditions are a deliberate exclusion; the "
              "rest are gaps this project's inputs would close.",
     )
@@ -1921,8 +1923,9 @@ def _section_results(project: Project, module_results, comps: ComponentLoads,
 # --------------------------------------------------------------------------- #
 _BALANCED_ABSENT = (
     "No balanced free-free case could be assembled from these inputs, so the "
-    "assembled full-span deck is NOT part of this deliverable and the "
-    "per-component decks of " + section_ref("results") + " are the whole of "
+    "assembled full-span model is NOT part of this deliverable — no beam deck "
+    "is written without it — and the per-component load sets of "
+    + section_ref("results") + " are the whole of "
     "the load output. A condition assembles only when it has a V-n point and a "
     "payload loading the itemized weight database can actually produce; "
     + section_ref("conditions") + "'s table of conditions not assembled names "
@@ -2393,13 +2396,6 @@ def _manifest_rows(comps: ComponentLoads, module_results, u: Units,
     # the manifest exists at all: an artifact the controlling document does not
     # name travels without a basis, and these two are the mission's primary
     # output and the independent check on its inertia half (review F-D2, D-R2).
-    if run.cases:
-        rows.append([
-            "sbeam/<project>_balanced_airframe.bdf",
-            "The assembled full-span free-free deck: one SUBCASE per balanced "
-            "case, both wings, aero and inertia together.", deck,
-            "LIMIT; determinate support, its reaction is the residual",
-            section_ref("balanced")])
     # The LRA beam model (step 12, note 24 R-1) -- the third deliverable, and
     # the one the F-D2 class re-opened on (CR-C-1): it shipped in the bundle from
     # 0.6.0 with no row here. Gated on the model *building*, not merely on cases
@@ -2420,8 +2416,10 @@ def _manifest_rows(comps: ComponentLoads, module_results, u: Units,
     if project.weight is not None and project.weight.items:
         rows.append([
             "sbeam/<project>_mass_model.bdf",
-            "CONM2 mass model + one MASSSET per payload case, for splicing into "
-            "a model that already has nodes.", deck,
+            "CONM2 mass model + one MASSSET per payload case, each mass on its "
+            "own GRID at its own CG. Self-contained: it carries the grids, so "
+            "it needs an RBE2 per mass to splice into a structural model.",
+            deck,
             "mass, NOT weight; do not apply with the load decks",
             section_ref("balanced")])
     if _try(_gear_cases, project):

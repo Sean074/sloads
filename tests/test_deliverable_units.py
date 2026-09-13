@@ -303,12 +303,12 @@ def test_the_export_page_applies_the_stamp_it_builds():
         source = fh.read()
 
     assignments = [ln for ln in source.splitlines() if '.bdf"] = ' in ln]
-    # The assembled free-free deck, the LRA beam model (step 12) and the two
-    # mass-model files. It was ten until note 56 D-56.2 deleted the five
-    # per-component deck families, and five until D-56.7 retired
-    # ``inertia_only.bdf`` -- with each mass on a GRID at its own CG there is no
-    # reduction of a mass to a beam station left for it to cross-check.
-    assert len(assignments) == 4, assignments
+    # The LRA beam model (step 12) and the two mass-model files. It was ten until
+    # note 56 D-56.2 deleted the five per-component deck families, five until
+    # D-56.7 retired ``inertia_only.bdf`` -- with each mass on a GRID at its own
+    # CG there is no reduction of a mass to a beam station left for it to
+    # cross-check -- and four until D-56.8 unshipped the assembled deck.
+    assert len(assignments) == 3, assignments
     for line in assignments:
         # The call may wrap; take the whole statement up to the closing `or ""`.
         stmt = source.split(line, 1)[1].split('or ""', 1)[0]
@@ -395,12 +395,14 @@ def test_every_export_page_writer_call_takes_the_bundle_system():
     # 56 D-56.2 deleted the per-component decks and their companions, and 7
     # until D-56.7 retired ``inertia_only_cards``.
     assert checked == 6, f"{checked} writer calls found, expected 6"
-    # The assembled deck is imported by name rather than through a module alias,
+    # The LRA beam model is imported by name rather than through a module alias,
     # so it is matched on its own — it is the primary deliverable, and a bundle
     # that wrote it in the wrong system would be wrong about the whole airplane.
-    balanced = source.split("balanced_deck, project", 1)
-    assert len(balanced) == 2, "the balanced deck is no longer built on this page"
-    assert "system=_system" in balanced[1][:220]
+    # The assembled deck used to be checked here too; note 56 D-56.8 stopped it
+    # being written on this page at all, so the guard follows the artifact.
+    beam = source.split("_lra_model_bdf, project", 1)
+    assert len(beam) == 2, "the beam deck is no longer built on this page"
+    assert "system=_system" in beam[1][:220]
 
 
 def test_the_case_index_needs_no_system():
@@ -1217,8 +1219,9 @@ def test_cli_exports_an_si_sbeam_deck():
     and step 4 lifted the refusal; this is the end-to-end proof that the lift is
     real and reaches the files rather than only the writer signatures.
 
-    Run on the **balanced** target since note 56 D-56.2 deleted the wing one --
-    and there is no default target any more, so the target is named.
+    Run on the **lra** target: note 56 D-56.2 deleted the wing one and D-56.8
+    unshipped the balanced one, and there is no default target any more, so the
+    target is named.
     """
     import tempfile
 
@@ -1227,7 +1230,7 @@ def test_cli_exports_an_si_sbeam_deck():
     with tempfile.TemporaryDirectory() as d:
         prefix = os.path.join(d, "out")
         assert cli.main([example, "--export-sbeam", prefix, "--units", "si",
-                         "--export-target", "balanced"]) == 0
+                         "--export-target", "lra"]) == 0
         written = sorted(os.listdir(d))
         assert written, "export wrote nothing"
         deck = next(f for f in written if f.endswith(".bdf"))

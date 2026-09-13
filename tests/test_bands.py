@@ -37,8 +37,8 @@ import sloads.export as export_pkg
 from sloads.case_ids import BALANCED_HAND_BLOCK, SUBCASE_BLOCK, balanced_subcase_id, subcase_id
 from sloads.export import balanced_deck as bdk
 from sloads.export import bands as bd
+from sloads.export import deck_format as df
 from sloads.export import mass_cards as mc
-from sloads.export import roundtrip as rt
 from sloads.report import applied as ap
 
 
@@ -237,7 +237,11 @@ def test_the_public_base_constants_still_name_their_bands():
     assert mc.MASS_EID_BASELINE == bd.band("mass-baseline").start == 9001
     assert mc.MASSSET_SID_BASE == bd.band("massset").start == 9301
     assert mc.GRAV_SID_BASE == bd.band("grav").start == 9401
-    assert rt.SPC_SID == bd.band("spc").start == 1
+    # ``SPC_SID`` moved from ``roundtrip`` to ``deck_format`` at note 56 D-56.8,
+    # which is where it belonged: the harness held the constant while the two
+    # writers each spelled ``1`` into an f-string. Both read it now, so the
+    # registry's declared owner is the code that allocates the id.
+    assert df.SPC_SID == bd.band("spc").start == 1
 
 
 def test_the_balanced_deck_is_out_of_the_tail_span_range():

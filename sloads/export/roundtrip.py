@@ -18,19 +18,36 @@ of the design note is that this step changes no exported byte. It lives in
 ``sloads/`` rather than ``tests/`` because a later runtime "validate this deck"
 surface has to consume this authority instead of hand-rolling a second one.
 
-What has to be wrapped, and why
--------------------------------
-Since note 56 D-56.2 deleted the per-component decks, what this wrapper faces
-is the assembled balanced deck: it carries case control, ``GRID``s and a
-determinate ``SPC1`` but **no elements** -- a load set on a node cloud, which is
-all a load deliverable needs to be and is singular to a linear static solve.
-(The LRA model is the exception: it writes its own ``CBAR`` chains and needs no
-wrapping. This wrapper exists for the elementless artifact.)
+What this module stopped being (note 56 D-56.8, §8)
+---------------------------------------------------
+It was 529 lines, and roughly two-thirds of them were
+``wrap_as_stick_model``: a harness that read a deck's ``GRID`` cards and
+**invented** a tree of ``CBAR``s, a ``MAT1``/``PBAR`` placeholder section, a
+determinate support and a case control, so that an **elementless** deck -- a
+load set on a node cloud -- could be handed to a linear static solve at all.
 
-:func:`wrap_as_stick_model` supplies the missing structure from the deck's own
-``GRID`` cards (plan 07 decision E-5 put them there; without them this is
-unbuildable). It invents no geometry and it is **test-only**: it is never written
-by the CLI or the GUI, and L-1 supersedes it with a real assembled stick model.
+Every deck that needed it is gone. D-56.2 deleted the per-component decks;
+D-56.8 stopped the assembled balanced deck being a shipped artifact. What
+remains to solve is the **LRA beam model**, which writes its own ``CBAR``
+chains, its own properties and its own support, and so is handed to
+:func:`solve_deck` exactly as it ships. The wrapper's own guard said as much
+before it was deleted -- it *refused* a deck that already carried elements, on
+the grounds that a wrapped copy is not the shipped artifact.
+
+So the whole wrapping half retired with the last elementless deck, and with it
+``Support``, ``Topology``, ``SPC_SID``, the property/element/constraint/case-
+control builders and the coincident-node collapse. What is left is the part
+that was always the point: hand a deck to sbeam, and read back what it says.
+``_orientation`` moved to :func:`sloads.export.deck_format.orientation_vector`,
+because ``lra_model`` -- the one deck writer left -- was importing a private
+name out of a test harness to build its bars.
+
+**Four solver assertions moved rather than retired**, and that is the reason
+the collapse costs nothing: the free-free reaction, the gear reference-point
+reaction, the flipped-fin sensitivity and the displaced-grid sensitivity all
+now run against the LRA deck. They are stronger there. The assembled deck's
+version of each ran through elements the harness made up; the LRA deck's runs
+through the structure that ships.
 
 The support is the point, not a workaround
 ------------------------------------------
@@ -42,22 +59,8 @@ the recovered reaction is **zero**. That is a stronger statement than the card
 sum: it proves free-free equilibrium through the solver's own assembly, using the
 lever arms *it* computes from the deck's ``GRID`` cards rather than sloads' idea
 of them. A deck that closes on paper but reacts non-zero here has a geometry
-error no card sum can see.
-
-.. rubric:: The 3-2-1 scheme is degenerate on a beam line
-
-The design note proposed the body support as "``z`` at two stations plus ``x`` at
-one" -- the classical 3-2-1. That is three constraints, not six, and on a
-**collinear** node set it cannot be completed into a determinate one: the
-fuselage deck's nodes all lie on ``y = z = 0``, so no combination of translation
-constraints restrains rotation about the beam axis, and the solve is singular.
-Beam elements carry rotational stiffness at their nodes, so the collinear analog
-of 3-2-1 constrains that rotation directly: all three translations plus the
-rotation **about the beam's own axis** at one end, and the two perpendicular
-translations at the other -- six constraints, no redundancy, reactions still
-fixed by statics alone. Which DOFs those are depends on which way the beam runs
-(:func:`_determinate_components`); an x-only scheme is exactly singular on the
-h-tail's spanwise beam, which runs along ``y``. See :data:`Support`.
+error no card sum can see. The deck under test states that support itself; this
+module no longer has an opinion about where it goes.
 """
 
 from __future__ import annotations
@@ -65,29 +68,9 @@ from __future__ import annotations
 import os
 import tempfile
 from dataclasses import dataclass
-from enum import Enum
-from typing import Dict, List, Sequence, Tuple
-
-from ..units import DeliverableUnits, UnitSystem
-from .bands import band
-from .coordinates import to_pressure
-from .deck_format import (
-    MAT1_E,
-    MAT1_NU,
-    PBAR_A,
-    PBAR_I,
-    PBAR_J,
-    fmt,
-    solver_units,
-)
-from .equilibrium import parse_cards
+from typing import Dict, Sequence, Tuple
 
 Vec3 = Tuple[float, float, float]
-
-#: SID of the constraint set the wrapper emits, and that its synthesised case
-#: control selects. Matches ``balanced_deck``'s and ``lra_model``'s, so a
-#: wrapped deck and a shipped one name their constraints the same way.
-SPC_SID = band("spc").start
 
 
 class SbeamUnavailable(RuntimeError):
@@ -97,328 +80,6 @@ class SbeamUnavailable(RuntimeError):
     or a hard failure under ``SLOADS_REQUIRE_SBEAM=1`` -- decision S-7) from
     "the solver rejected the deck", which is the finding this gate exists for.
     """
-
-
-class Support(Enum):
-    """Which DOFs the wrapper constrains, and where.
-
-    ``CLAMPED_FIRST``
-        All six DOF at the first node. The tail deck's convention: its reaction
-        is then the deck's own resultant about the leading-edge chord station,
-        which is plan 07's E-2 tail reference recovered independently.
-    ``DETERMINATE``
-        Six constraints on a collinear beam line, no redundancy: all three
-        translations plus the rotation about the beam's own axis at one end, and
-        the two perpendicular translations at the other. Which DOFs those are
-        follows the beam's direction (:func:`_determinate_components`). The body
-        and spanwise-tail convention, where the claim under test is the reaction
-        itself.
-    ``DECK``
-        The deck already carries its own ``SPC1``; emit none. The assembled
-        balanced deck's convention -- its determinate six-DOF support *is* the
-        deliverable's own statement, so the harness must test that one, not a
-        support the harness chose.
-    """
-
-    CLAMPED_FIRST = "clamped_first"
-    DETERMINATE = "determinate"
-    DECK = "deck"
-
-
-class Topology(Enum):
-    """How the wrapper connects the deck's nodes into a solvable structure.
-
-    ``CHAIN``
-        One ``CBAR`` between consecutive nodes in ``x`` order -- the body and
-        tail decks, which *are* beam lines (``y = z = 0``). Keeps the recovered
-        element forces meaningful as internal loads, which ``STAR`` would not:
-        the aft-most element's shear closing to zero is the fuselage deck's
-        terminal-``Myy`` claim, verified downstream.
-    ``STAR``
-        One ``CBAR`` from the support node to every other node -- the assembled
-        full-span deck, whose nodes are a three-dimensional cloud (both wings,
-        the centreline, real waterlines) with no chain order to speak of. Still
-        a tree, so still determinate: the support reaction remains the applied
-        resultant and "reactions ~ 0" keeps its meaning. The element forces are
-        not internal loads of anything real, and nothing asserts them.
-    """
-
-    CHAIN = "chain"
-    STAR = "star"
-
-
-# --------------------------------------------------------------------------- #
-# Wrapping a cards-only (or element-less) deck into a solvable model
-# --------------------------------------------------------------------------- #
-def _orientation(a: Vec3, b: Vec3) -> Vec3:
-    """A ``CBAR`` orientation vector not parallel to the element axis.
-
-    Tried in ``z, y, x`` order so a beam line along ``x`` (body, tail) and a
-    wing-ward element both keep the ``(0, 0, 1)`` convention the shipped stick
-    model uses, and only a genuinely vertical element takes another.
-    """
-    ax, ay, az = b[0] - a[0], b[1] - a[1], b[2] - a[2]
-    norm = (ax * ax + ay * ay + az * az) ** 0.5
-    if norm == 0.0:
-        raise ValueError("zero-length element: two GRIDs share a location")
-    ux, uy, uz = ax / norm, ay / norm, az / norm
-    for v in ((0.0, 0.0, 1.0), (0.0, 1.0, 0.0), (1.0, 0.0, 0.0)):
-        cross = (uy * v[2] - uz * v[1], uz * v[0] - ux * v[2], ux * v[1] - uy * v[0])
-        if max(abs(c) for c in cross) > 1e-6:
-            return v
-    raise AssertionError("no orientation vector is independent of the axis")
-
-
-def _property_lines(u: DeliverableUnits) -> List[str]:
-    """``MAT1``/``PBAR`` placeholder section, converted to the deck's units.
-
-    Placeholder values: the wrapper's support is determinate, so the
-    recovered reactions do not depend on them. Stated here rather than shared
-    with a shipped deck, because this wrapper is test scaffolding and a real
-    model's properties are the stress analyst's (note 56 ruling 2).
-    """
-    return [
-        "$ ---------------------------------------------- WRAPPER PROPERTIES",
-        "$ Placeholder section (test-only wrapper); the support is determinate,",
-        "$ so the recovered reactions do not depend on these values.",
-        f"MAT1, 1, {fmt(to_pressure(MAT1_E, u))}, , {MAT1_NU}, 0.0",
-        f"PBAR, 1, 1, {fmt(PBAR_A * u.length.factor ** 2)}, "
-        f"{fmt(PBAR_I * u.length.factor ** 4)}, "
-        f"{fmt(PBAR_I * u.length.factor ** 4)}, "
-        f"{fmt(PBAR_J * u.length.factor ** 4)}",
-    ]
-
-
-#: First ``RBE2`` id. Rigid elements share NASTRAN's element-id space, so the
-#: ties are numbered well clear of the ``CBAR`` chain rather than interleaved.
-_RBE2_BAND = band("roundtrip-rbe2")
-_RBE2_EID_BASE = _RBE2_BAND.start
-
-
-def _collapse(grids: Dict[int, Vec3],
-              order: Sequence[int]) -> List[Tuple[int, List[int]]]:
-    """``[(representative GID, [coincident GIDs])]``, in the given order.
-
-    Two nodes at the same point are not a defect and not a duplicate: the
-    fuselage deck of ``concept_regional_jet`` carries the tail air load at
-    exactly the station of a mass lump, and both are real, separately-numbered
-    loads. They cannot be joined by an element (it would have zero length and no
-    axis), so the representative takes the chain and the rest are tied to it
-    rigidly -- which is what coincident nodes mean.
-    """
-    out: List[Tuple[int, List[int]]] = []
-    seen: Dict[Tuple[float, float, float], int] = {}
-    for gid in order:
-        key = (round(grids[gid][0], 6), round(grids[gid][1], 6),
-               round(grids[gid][2], 6))
-        if key in seen:
-            out[seen[key]][1].append(gid)
-        else:
-            seen[key] = len(out)
-            out.append((gid, []))
-    return out
-
-
-def _element_lines(grids: Dict[int, Vec3],
-                   runs: Sequence[Sequence[Tuple[int, List[int]]]],
-                   topology: Topology) -> List[str]:
-    lines = ["$ ------------------------------------------------ WRAPPER ELEMENTS"]
-    eid = 1
-    ties: List[str] = []
-    for collapsed in runs:
-        nodes = [rep for rep, _ in collapsed]
-        pairs = list(zip(nodes, nodes[1:])) if topology is Topology.CHAIN else [(nodes[0], gid) for gid in nodes[1:]]
-        for ga, gb in pairs:
-            vx, vy, vz = _orientation(grids[ga], grids[gb])
-            lines.append(f"CBAR, {eid}, 1, {ga}, {gb}, {vx}, {vy}, {vz}")
-            eid += 1
-        for rep, tied in collapsed:
-            if tied:
-                ties.append(f"RBE2, {_RBE2_BAND.allocate(len(ties))}, {rep}, 123456, "
-                            + ", ".join(str(g) for g in tied))
-    if ties:
-        lines += ["$ Coincident nodes, rigidly tied (see roundtrip._collapse).", *ties]
-    return lines
-
-
-def _supportable(run: Sequence[Tuple[int, List[int]]]) -> List[int]:
-    """The nodes of a collapsed run that may carry a constraint.
-
-    Representatives only -- a node tied by ``RBE2`` is a dependent DOF, and
-    constraining one is an error rather than a support -- and among those, only
-    the ones that tie nothing. **That second exclusion is a solver workaround,
-    and it is load-bearing:** sbeam's ``recover_reactions`` subtracts the raw
-    applied vector at the constrained DOFs, so a load that a rigid element
-    transfers *onto* a constrained node is never subtracted and comes back out
-    as reaction. Measured on ``concept_regional_jet``'s fuselage deck, whose tail
-    air load sits at exactly the station of a mass lump: the aft support reported
-    1738.13 lb against an applied set that closes to 0.007 lb -- to the pound,
-    the tied node's own load.
-
-    Supporting elsewhere sidesteps it entirely and costs nothing: determinacy
-    needs two distinct positions, not two particular ones.
-    """
-    return [rep for rep, tied in run if not tied]
-
-
-def _beam_axis(grids: Dict[int, Vec3], nodes: Sequence[int]) -> int:
-    """Which global axis a collinear run mostly lies along: ``0``/``1``/``2``."""
-    lo, hi = grids[nodes[0]], grids[nodes[-1]]
-    spread = [abs(hi[i] - lo[i]) for i in range(3)]
-    return spread.index(max(spread))
-
-
-def _determinate_components(axis: int) -> Tuple[str, str]:
-    """``(first-node DOFs, last-node DOFs)`` for a beam along ``axis``.
-
-    **The support scheme has to know which way the beam runs.** Six constraints
-    on a collinear set are: all three translations plus the rotation *about the
-    beam's own axis* at one end, and the two translations perpendicular to the
-    axis at the other (which is what restrains the remaining two rotations).
-
-    The axial-rotation DOF is the point. Constraining rotation about ``x`` on a
-    beam that runs along ``y`` leaves the model free to spin about its own axis
-    and the stiffness matrix is **exactly singular** -- which is how this was
-    found: the fuselage and tail-chord decks run along ``x``, so an x-only scheme
-    worked until the h-tail spanwise deck became the first beam in the suite to
-    run along ``y``.
-    """
-    axial_rotation = {0: "4", 1: "5", 2: "6"}[axis]
-    perpendicular = "".join(str(i + 1) for i in range(3) if i != axis)
-    return "123" + axial_rotation, perpendicular
-
-
-def _constraint_lines(support: Support, grids: Dict[int, Vec3],
-                      runs: Sequence[Sequence[Tuple[int, List[int]]]]) -> List[str]:
-    if support is Support.DECK:
-        return []
-    lines = ["$ --------------------------------------------- WRAPPER CONSTRAINTS"]
-    for run in runs:
-        free = _supportable(run)
-        if not free:
-            raise ValueError(
-                "every node in this run is tied to another -- there is nowhere "
-                "to put a support whose reaction can be trusted")
-        if support is Support.CLAMPED_FIRST or len(free) == 1:
-            # A one-node run has no beam to be determinate along; clamp it.
-            lines.append(f"SPC1, {SPC_SID}, 123456, {free[0]}")
-        else:
-            # Six constraints, no redundancy, on a collinear node set. See the
-            # module docstring on why the 3-2-1 translation scheme is degenerate
-            # here, and _determinate_components on why the DOFs depend on the
-            # beam's direction.
-            head, tail = _determinate_components(_beam_axis(grids, free))
-            lines.append(f"SPC1, {SPC_SID}, {head}, {free[0]}")
-            lines.append(f"SPC1, {SPC_SID}, {tail}, {free[-1]}")
-    return lines
-
-
-def _case_control(sids: Sequence[int], title: str) -> List[str]:
-    lines = ["SOL 101", "$",
-             f"$ Test-only stick wrapper -- {title}",
-             "$ NOT a sloads deliverable; see sloads/export/roundtrip.py.", "$"]
-    for sid in sids:
-        lines += [
-            f"SUBCASE {sid}",
-            f"  LABEL = wrapped SID {sid}",
-            f"  SPC = {SPC_SID}",
-            f"  LOAD = {sid}",
-            "  DISPLACEMENT = ALL",
-            "  SPCFORCE = ALL",
-            "  FORCE = ALL",
-            "$",
-        ]
-    lines.append("BEGIN BULK")
-    return lines
-
-
-def wrap_as_stick_model(deck_text: str, *, support: Support,
-                        system: UnitSystem = UnitSystem.IMPERIAL,
-                        topology: Topology = Topology.CHAIN,
-                        groups: Sequence[Sequence[int]] = (),
-                        title: str = "sloads deck") -> str:
-    """Make a load deck solvable, using only the geometry it already carries.
-
-    Consumes the deck's own ``GRID`` cards -- it invents no nodes and moves none.
-    A deck that already carries case control (the assembled balanced deck) keeps
-    it, and only the missing bulk is appended; a cards-only deck (body, tail)
-    additionally gets ``SOL 101`` and one ``SUBCASE`` per load set.
-
-    ``groups`` names the deck's **separate structures**, each getting its own
-    element run and its own support. It is not a refinement: the tail deck holds
-    two disjoint beams -- the h-tail and the v-tail, each a chord line stated
-    from its own leading edge -- so their stations are *coincident in space*
-    (both run from ``x = 0`` at ``y = z = 0``, the decks' "component in
-    isolation" convention). Chaining the deck's nodes as one run therefore
-    produces zero-length elements, which is what running this against
-    ``ga6_normal`` found. Default: every node in one group.
-
-    **Test-only.** This is not a sloads deliverable, it is never written by the
-    CLI or the GUI, and it does not pre-empt L-1.
-    """
-    grids, cbars, _, forces, moments = parse_cards(deck_text)
-    if not grids:
-        raise ValueError(
-            "deck carries no GRID cards -- there is no geometry to build a "
-            "stick model from (control-surface decks are out of scope, S-3)")
-    if cbars:
-        raise ValueError(
-            "deck already carries CBAR elements -- it is solvable as exported "
-            "and must be handed to solve_deck() unwrapped, so the harness tests "
-            "the shipped deck rather than a wrapped copy of it")
-
-    u = solver_units(system)
-
-    def _ordered(gids):
-        # Beam-line order for CHAIN; for STAR only the first node matters, and
-        # sorting keeps the support choice deterministic across runs and unit
-        # systems.
-        return sorted(gids, key=lambda gid: (grids[gid][0], grids[gid][1],
-                                             grids[gid][2], gid))
-
-    if groups:
-        named = {gid for group in groups for gid in group}
-        missing = set(grids) - named
-        if missing:
-            raise ValueError(
-                f"GRIDs {sorted(missing)} are in no group -- an unattached node "
-                "makes the stiffness matrix singular, so the omission must be "
-                "deliberate rather than silent")
-        runs = [_collapse(grids, _ordered(group)) for group in groups]
-    else:
-        runs = [_collapse(grids, _ordered(grids))]
-
-    if support is Support.DECK:
-        # The deck picked its own support before the wrapper existed, so the
-        # tie-vs-reaction trap in _supportable() has to be checked rather than
-        # avoided -- silently reporting a tied node's load as the residual of the
-        # airplane's balance is precisely the wrong failure here.
-        tied_owners = {rep for run in runs for rep, tied in run if tied}
-        _, _, deck_spc, _, _ = parse_cards(deck_text)
-        held = {gid for _, _, gids in deck_spc for gid in gids}
-        clash = sorted(held & tied_owners)
-        if clash:
-            raise ValueError(
-                f"the deck constrains GID(s) {clash}, which the wrapper must tie "
-                "coincident nodes to -- sbeam would report the tied node's load "
-                "as a reaction (see roundtrip._supportable)")
-
-    sids = sorted(set(forces) | set(moments))
-
-    bulk = (_property_lines(u)
-            + _element_lines(grids, runs, topology)
-            + _constraint_lines(support, grids, runs))
-
-    if "BEGIN BULK" in deck_text:
-        # The deck brought its own case control and constraints (the assembled
-        # full-span deck). Splice the wrapper's bulk in ahead of ENDDATA and
-        # change nothing else -- what is under test is that deck, as shipped.
-        head, sep, tail = deck_text.rpartition("ENDDATA")
-        if not sep:
-            raise ValueError("deck has BEGIN BULK but no ENDDATA")
-        return head + "\n".join(bulk) + "\nENDDATA" + tail
-
-    return "\n".join([*_case_control(sids, title), deck_text.rstrip("\n"), *bulk, "ENDDATA"]) + "\n"
 
 
 # --------------------------------------------------------------------------- #
@@ -518,12 +179,8 @@ def solve_deck(deck_text: str) -> Dict[int, "object"]:
 
 
 __all__ = [
-    "SPC_SID",
     "Reaction",
     "SbeamUnavailable",
-    "Support",
-    "Topology",
     "solve_deck",
     "total_reaction",
-    "wrap_as_stick_model",
 ]

@@ -5,10 +5,10 @@ write it" is not the same as "the deliverable exists". Three gaps closed here,
 each with its own gate:
 
 * **F-D1 — reachability.** ``--export-target`` is the whole deliverable menu:
-  the **LRA beam model**, the assembled **balanced free-free deck** (the
-  mission's primary artifact, which was writable only from a Streamlit page),
-  the **gear interface report** and the CONM2 **mass model**. It listed ten
-  targets until note 56 D-56.2 deleted the six that wrote per-component decks.
+  the **LRA beam model** (the mission's primary artifact, which carries the
+  assembled balanced cases), the **gear interface report** and the CONM2 **mass
+  model**. It listed ten targets until note 56 D-56.2 deleted the six that wrote
+  per-component decks, and three since D-56.8 unshipped the assembled deck.
   :func:`test_the_export_menu_is_the_deliverable_menu` pins the menu against
   ``cli.EXPORT_TARGETS`` and against argparse, so a target cannot be implemented
   without being offered or offered without being implemented.
@@ -76,7 +76,9 @@ def test_the_export_menu_is_the_deliverable_menu():
     """``EXPORT_TARGETS`` is what argparse offers -- no target only half-wired.
 
     F-D1 was exactly this drift: the balanced deck and the body deck existed and
-    the menu did not know about them.
+    the menu did not know about them. Both are gone now -- one deleted, one
+    unshipped -- which is why the gate is on the tuple rather than on a list of
+    names that would have had to be edited twice.
     """
     # argparse is handed the tuple itself, so an unlisted target is rejected
     # before any work happens.
@@ -93,7 +95,6 @@ def test_the_export_menu_is_the_deliverable_menu():
 
 
 @pytest.mark.parametrize("target,expected", [
-    ("balanced", ["out.balanced_airframe.bdf"]),
     ("gear", ["out.gear_loads.csv"]),
     ("lra", ["out.lra_model.bdf"]),
     ("mass", ["out_mass.bdf", "out_mass_check.bdf"]),
@@ -106,25 +107,28 @@ def test_every_export_target_writes_its_artifacts(tmp_path, target, expected):
         assert os.path.getsize(os.path.join(str(tmp_path), name)) > 0
 
 
-def test_the_balanced_deck_is_reachable_headless(tmp_path):
+def test_the_beam_deck_is_reachable_headless(tmp_path):
     """The mission's primary deliverable, from the CLI, byte-for-byte the page's.
 
-    F-D1's headline: ``balanced_airframe.bdf`` was downloadable only from the
-    Balanced Cases page, so the sizing loop could not script the one artifact it
-    is about.
+    F-D1's headline was that ``balanced_airframe.bdf`` was downloadable only
+    from a Streamlit page, so the sizing loop could not script the one artifact
+    it is about. Note 56 D-56.8 unshipped that deck -- the beam deck carries the
+    same assembled cases now -- so the reachability claim moves with the
+    deliverable rather than retiring with the file it was first written about.
     """
-    from sloads.export.balanced_deck import balanced_deck
+    from sloads.export.lra_model import lra_model_bdf
 
-    _export(tmp_path, "balanced")
-    with open(os.path.join(str(tmp_path), "out.balanced_airframe.bdf")) as fh:
+    _export(tmp_path, "lra")
+    with open(os.path.join(str(tmp_path), "out.lra_model.bdf")) as fh:
         written = fh.read()
 
     # The stamp rides on top; below it the deck is the page's, to the byte. (A
     # deck's own ``$`` lines are part of the deliverable, so "ends with the
     # unstamped build" is the honest form of this assertion -- see
-    # ``report.methods.strip_comment_lines``.)
-    project = sloads_io.load_project(GA6)
-    assert written.endswith(balanced_deck(project))
+    # ``report.methods.strip_comment_lines``.) ``_export`` routes this target to
+    # the body-carrying fixture, so the comparison build must load the same one.
+    project = sloads_io.load_project(ATR42)
+    assert written.endswith(lra_model_bdf(project))
     assert written.startswith("$ METHODS AND LIMITATIONS")
 
 
@@ -225,13 +229,13 @@ def test_a_stamped_headless_deck_still_parses_as_bulk_data(tmp_path):
     Asserted through the suite's own card parser (the closure gate's owner), so
     the claim is the same one the equilibrium tests rely on.
     """
-    from sloads.export.balanced_deck import balanced_deck
     from sloads.export.equilibrium import parse_cards
+    from sloads.export.lra_model import lra_model_bdf
 
-    project = sloads_io.load_project(GA6)
-    unstamped = balanced_deck(project)
-    _export(tmp_path, "balanced")
-    with open(os.path.join(str(tmp_path), "out.balanced_airframe.bdf")) as fh:
+    project = sloads_io.load_project(ATR42)
+    unstamped = lra_model_bdf(project)
+    _export(tmp_path, "lra")
+    with open(os.path.join(str(tmp_path), "out.lra_model.bdf")) as fh:
         stamped = fh.read()
     assert stamped != unstamped, "the fixture must actually be stamped"
     assert parse_cards(stamped) == parse_cards(unstamped)
@@ -247,7 +251,7 @@ def test_a_headless_export_is_byte_stable_across_runs(tmp_path):
     a.mkdir(), b.mkdir()
     for d in (a, b):
         assert cli.main([GA6, "--export-sbeam", str(d / "out"),
-                         "--export-target", "balanced"]) == 0
+                         "--export-target", "lra"]) == 0
     for name in sorted(os.listdir(str(a))):
         with open(str(a / name)) as fh_a, open(str(b / name)) as fh_b:
             assert fh_a.read() == fh_b.read(), name
@@ -255,9 +259,9 @@ def test_a_headless_export_is_byte_stable_across_runs(tmp_path):
     # ...and a supplied timestamp does reach the file, so the determinism above
     # is the default rather than the stamp being incapable of carrying one.
     assert cli.main([GA6, "--export-sbeam", str(b / "t"),
-                     "--export-target", "balanced",
+                     "--export-target", "lra",
                      "--generated", "2026-08-10 09:00"]) == 0
-    with open(str(b / "t.balanced_airframe.bdf")) as fh:
+    with open(str(b / "t.lra_model.bdf")) as fh:
         assert "2026-08-10 09:00" in fh.read()
 
 

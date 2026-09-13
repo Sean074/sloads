@@ -51,7 +51,6 @@ export gates can never disagree about what "equal" means.
 import math
 import os
 import re
-import subprocess
 import sys
 from dataclasses import replace
 
@@ -60,43 +59,33 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pytest
 
 from sloads import io
-from sloads.derived_geometry import sob_station
 from sloads.export import mass_cards as mc
-from sloads.report import applied as ap
 from sloads.export.balanced_deck import (
     balanced_deck,
     case_sids,
 )
 from sloads.export.coordinates import (
-    tail_force_to_airplane,
     to_force,
-    to_grid,
-    to_moment,
 )
 from sloads.export.equilibrium import (
     closes,
     parse_cards,
-    ref_first_loaded,
     resultant,
 )
 from sloads.export.roundtrip import (
-    Support,
-    Topology,
     solve_deck,
     total_reaction,
-    wrap_as_stick_model,
 )
 from sloads.mass_distribution import derive_case_loadings
 from sloads.modules.balance import (
     build_balanced_cases,
-    vtail_load,
     is_lateral,
+    vtail_load,
 )
 from sloads.modules.body_loads import build_body_loads
 from sloads.modules.flight_envelope import build_envelope
 from sloads.modules.net_loads import build_net_loads, loads_ref_axis_results
 from sloads.modules.select import build_critical
-from sloads.modules.tail_span import build_tail_span
 from sloads.modules.taildist import build_tail_chordwise
 from sloads.units import Channel, UnitSystem, deliverable_units
 
@@ -239,87 +228,67 @@ LRA_SOLVE_MATRIX = (
 
 
 # --------------------------------------------------------------------------- #
-# The assembled full-span deck -- the primary deliverable (plan 11 B-5)
+# The assembled full-span deck -- solved here until note 56 D-56.8
 # --------------------------------------------------------------------------- #
-def _assembled_deck(project, system):
-    """The shipped assembled deck plus the elements it does not carry.
-
-    The deliverable is a load set on a node cloud, which is all a load deck needs
-    to be; the wrapper adds a tree of bars so a linear static solve has a
-    stiffness matrix, and changes nothing else -- the deck's own determinate
-    six-DOF support is kept, because that support *is* what is under test.
-    """
-    return _assembled_deck_from(project, system, ())
-
-
-def _assembled_deck_from(project, system, cases):
-    """:func:`_assembled_deck` for a stated case list -- ``()`` means "all of
-    them", which is what the shipped deck writes."""
-    return wrap_as_stick_model(
-        balanced_deck(project, system=system, cases=cases),
-        support=Support.DECK, topology=Topology.STAR, system=system,
-        title="assembled full-span balanced deck")
+# **What was here, and where it went.** ``_assembled_deck`` wrapped the shipped
+# balanced deck in a star of invented ``CBAR``s -- the deck was a load set on a
+# node cloud, which is all a load deliverable needs to be and is singular to a
+# linear static solve -- and ``test_assembled_deck_reacts_to_zero`` solved it on
+# both fixtures in both unit systems, asserting six zero reactions per case.
+#
+# D-56.8 stopped that deck being a shipped artifact. What ships is the **LRA
+# beam model**, which writes its own chains, its own properties and its own
+# support, so it is solved exactly as it ships; the wrapper is retired
+# (``roundtrip``'s docstring is the account). The free-free claim did not
+# retire with it: ``test_the_lra_model_solves_and_reacts_only_the_residual``
+# makes it against the deck a reader is actually handed, over four fixtures
+# rather than two, through real structure rather than a star of bars the
+# harness made up. The load sets are the same ones -- the transfer preserves
+# each case's resultant exactly, and that identity is itself gated
+# (``test_lra_model.test_the_transferred_set_has_the_balanced_decks_resultant``).
+#
+# **Two narrowings, stated rather than absorbed.** (1) The LRA leg xfails on the
+# SI decks of ``ga6_normal`` and ``concept_regional_jet`` -- sbeam's dense-path
+# condition heuristic, see that test's docstring -- so those two fixtures lose
+# their SI free-free solve, which the wrapped assembled deck did carry. SI is
+# still solved on ``baron_58`` and ``atr42_100``. (2) "Every assembled case
+# reaches the deck, and the lateral ones carry real side load" was asserted
+# inside that solve; it is a property of the deck's text, so it is asserted on
+# the deck's text below, where no solver is needed and every fixture is covered.
 
 
 @pytest.mark.roundtrip
 @pytest.mark.parametrize("example", MATRIX)
-@pytest.mark.parametrize("system", SYSTEMS)
-def test_assembled_deck_reacts_to_zero(sbeam, example, system):
-    """The mission's primary deliverable, solved: reactions ~ 0 on every case.
+def test_every_assembled_case_reaches_the_beam_deck_carrying_its_lateral_load(
+        sbeam, example):
+    """The non-vacuity half of the retired assembled solve (plan 13 G3).
 
-    The assembled deck's ``$`` header claims its determinate support is doing
-    nothing -- that aero and inertia balance the airplane wing tip to wing tip
-    with no constraint needed. This is that claim checked by a solver which
-    reassembles the whole load set from the card text and the ``GRID``
-    coordinates: six recovered reaction components, all zero.
-
-    **Plan 13 G3**, from B8a-3 on: the lateral subcases are the first to put a
-    real ``fy``/``mx``/``mz`` through this leg, and they are where a sign or
-    frame error in the fin's span-to-waterline map would show up as a reaction
-    the paper closure cannot see. Two things guard against passing on that
-    vacuously -- every assembled case must appear as a subcase, and each lateral
-    one must actually carry side load into the solver. That the gate has teeth
-    on those DOF is shown separately, by
-    :func:`test_a_flipped_fin_load_breaks_the_assembled_solve`.
+    A zero-target gate says nothing if the load never arrived. Two ways it
+    could not: a case silently absent from the deck, or a lateral case present
+    with no side load in it. Both are properties of the card text -- so they are
+    checked there, on the shipped beam deck, rather than being carried along
+    inside a solve that would report them as a passing zero.
     """
-    project, _, _, _ = _components(example)
+    project = io.load_project(os.path.join(_ROOT, "examples", example))
     cases = build_balanced_cases(project)
-    text = _assembled_deck(project, system)
-    sols, grids = _solved(text)
-    _, _, spc1, forces, moments = parse_cards(text)
-    assert sols, "the assembled deck produced no subcases"
-    (_, comp, support_gids), = [s for s in spc1 if s[1] == "123456"][:1] or [(0, "", [])]
-    assert comp == "123456" and len(support_gids) == 1, \
-        "the assembled deck's support is meant to be one determinate node"
+    _, text = _lra_deck(example)
+    _, _, _, forces, _ = parse_cards(text)
 
-    # Every case reaches the solver, and the lateral family is among them --
-    # a deck that quietly stopped emitting them would otherwise pass here.
     by_sid = dict(zip(case_sids(cases), cases))
-    assert set(sols) == set(by_sid), (
-        f"{example}: solved {sorted(sols)} against {sorted(by_sid)}")
-    assert sum(1 for c in cases if is_lateral(c)) == 8, \
-        f"{example}: {sum(1 for c in cases if is_lateral(c))} lateral subcases"
+    assert set(forces) == set(by_sid), (
+        f"{example}: the deck loads {sorted(forces)} against {sorted(by_sid)}")
+    lateral = [c for c in cases if is_lateral(c)]
+    assert len(lateral) == 8, f"{example}: {len(lateral)} lateral subcases"
 
-    for sid, sol in sols.items():
-        case = by_sid[sid]
-        where = f"{example} {system.value} assembled SID {sid} {case.label}"
-        applied = resultant(forces, moments, grids, sid, grids[support_gids[0]])
-        got = total_reaction(sol.reactions, grids, ref=grids[support_gids[0]])
-        assert applied.n_force, f"{where}: no FORCE cards in this subcase"
-        if is_lateral(case):
-            # The cards sum to zero by construction; what must not be zero is
-            # the side load flowing through them, or "reaction ~ 0" would be the
-            # trivial statement that nothing lateral was applied at all.
-            side = sum(abs(scale * n[1]) for _, scale, n in forces[sid])
-            floor = 0.1 * abs(vtail_load(case))
-            _, floor, _ = to_force(0.0, floor, 0.0, _units(system))
-            assert side > abs(floor), (
-                f"{where}: only {side} of side load reached the solver")
-        for axis in range(3):
-            assert closes(got.force[axis], 0.0, scale=applied.force_scale), \
-                f"{where} force axis {axis}: {got.force[axis]}"
-            assert closes(got.moment[axis], 0.0, scale=applied.moment_scale), \
-                f"{where} moment axis {axis}: {got.moment[axis]}"
+    u = _units(UnitSystem.IMPERIAL)
+    for sid, case in by_sid.items():
+        if not is_lateral(case):
+            continue
+        side = sum(abs(scale * n[1]) for _, scale, n in forces[sid])
+        _, floor, _ = to_force(0.0, 0.1 * abs(vtail_load(case)), 0.0, u)
+        assert side > abs(floor), (
+            f"{example} SID {sid} {case.label}: only {side} of side load is in "
+            "the deck")
 
 
 @pytest.mark.roundtrip
@@ -328,24 +297,38 @@ def test_assembled_deck_reacts_to_zero(sbeam, example, system):
 def test_the_gear_node_carries_the_reports_reaction(sbeam, example, system):
     """**G-13's ground-specific solver assertion.**
 
-    The inherited leg above can pass *vacuously* for the ground family:
-    "reactions ~ 0" proves the assembled set balances, but a transfer that
-    dropped its lever-arm couple **consistently** would still sum to zero at the
-    determinate support. So this closes the loop between G-12's two artifacts
-    through a **third party** -- sbeam reassembles the load from the card text
-    and its own ``GRID`` coordinates, and the resultant it finds at each gear
-    reference point must be the gear report's reference-point reaction.
+    The free-free leg can pass *vacuously* for the ground family: "reactions ~ 0"
+    proves the assembled set balances, but a transfer that dropped its lever-arm
+    couple **consistently** would still sum to zero at the determinate support.
+    So this closes the loop between G-12's two artifacts through a **third
+    party** -- the deck is read back card by card, and the resultant found at
+    each gear reference point must be the gear report's reference-point
+    reaction.
 
     A transfer error, a frame error and a dropped couple all surface here, in one
-    assertion, because all three change what the solver reconstructs about that
-    node. Finding the node is by **GID band** rather than by coordinate, which is
-    what the gear band of decision G-2 exists for.
+    assertion, because all three change what is reconstructed about that node.
+    Finding the node is by **GID band** rather than by coordinate, which is what
+    the gear band of decision G-2 exists for.
+
+    **Why this leg stayed on the assembled set at note 56 D-56.8**, when the
+    free-free proof moved to the beam deck. It was tried on the beam deck first
+    and it does not belong there: the deck's gear trunnion carries the gear
+    reaction *plus whatever else D-56.9 summed onto the same grid* -- on
+    ``concept_regional_jet``'s nose leg, 3334.8 lb against the report's 3597.8.
+    That is the aggregation working as specified, not a defect, and Appendix G
+    is where its size is published. Asserting the report's number at that grid
+    would be asserting the lumping away. So the check stays where a gear
+    reference point is still a node of its own: the assembled set, which is an
+    internal producer now but is still the un-aggregated load set at its true
+    positions, and is still the reference resultant the beam deck is gated
+    against. No solver is in this leg and never was -- it reads card text -- so
+    nothing is lost by it not being the shipped artifact.
     """
     from sloads.export.balanced_deck import BALANCED_GEAR_BASE, deck_nodes
     from sloads.gear_loads import gear_case_loads
     from sloads.modules.balance import is_ground
 
-    project, _, _, _ = _components(example)
+    project = io.load_project(os.path.join(_ROOT, "examples", example))
     cases = build_balanced_cases(project)
     ground = [c for c in cases if is_ground(c)]
     assert ground, f"{example}: no assembled ground case to check"
@@ -353,9 +336,9 @@ def test_the_gear_node_carries_the_reports_reaction(sbeam, example, system):
     nodes = deck_nodes(cases, project)
     gear_gids = {gid for gid in nodes.values()
                  if BALANCED_GEAR_BASE <= gid < BALANCED_GEAR_BASE + 100}
-    assert gear_gids, f"{example}: the deck allocated no gear reference point"
+    assert gear_gids, f"{example}: the set allocated no gear reference point"
 
-    text = _assembled_deck(project, system)
+    text = balanced_deck(project, system=system)
     _, _, _, forces, _ = parse_cards(text)
     u = _units(system)
     report = {c.case: c for c in gear_case_loads(project)}
@@ -373,26 +356,25 @@ def test_the_gear_node_carries_the_reports_reaction(sbeam, example, system):
             gid = nodes[(load.side, round(load.x, 6), round(load.y, 6),
                          round(load.z, 6))]
             assert gid in gear_gids, (example, gid)
-            # What the solver reconstructs at this node, from the cards alone.
+            leg_name = load.source.split("-", 1)[1]
+            # What the cards alone put at this node.
             got = [0.0, 0.0, 0.0]
-            for eid, scale, n in forces[sid]:
-                if eid == gid:
+            for card_gid, scale, n in forces[sid]:
+                if card_gid == gid:
                     for i in range(3):
                         got[i] += scale * n[i]
-            leg = legs[load.source.split("-", 1)[1]]
-            # The report is LIMIT; the deck is ULTIMATE. Both halves of that
-            # contract are asserted by comparing across it rather than around it.
-            want = to_force(*(v for v in leg.airplane), u)
+            want = to_force(*(v for v in legs[leg_name].airplane), u)
             # **Vertical and drag are per leg and identical on both wheels**, so
             # they are the direct comparison G-13 asks for -- and they are also
             # where a transfer error, a frame error or a dropped couple would
-            # show, since all three change what the solver reconstructs here.
+            # show, since all three change what is reconstructed here.
             for i in (0, 2):
                 assert math.isclose(got[i], want[i], rel_tol=1e-6,
                                     abs_tol=1e-6 * max(1.0, abs(want[i]))), (
                     f"{example} {system.value} SID {sid} GID {gid} axis {i}: "
-                    f"solver {got[i]} against the gear report's {want[i]}")
-            if leg.leg == "main":
+                    f"the cards give {got[i]} against the gear report's "
+                    f"{want[i]}")
+            if leg_name == "main":
                 side_total += got[1]
             checked += 1
         # **Side load is the one component the report cannot state per wheel**,
@@ -408,12 +390,12 @@ def test_the_gear_node_carries_the_reports_reaction(sbeam, example, system):
                             abs_tol=1e-6 * max(1.0, abs(want_side))), (
             f"{example} {system.value} SID {sid}: main-wheel side load "
             f"{side_total} against NS*W {want_side}")
-    assert checked, f"{example}: no gear card reached the solver"
+    assert checked, f"{example}: no gear card reached the set"
 
 
 @pytest.mark.roundtrip
 @pytest.mark.parametrize("system", SYSTEMS)
-def test_a_flipped_fin_load_breaks_the_assembled_solve(sbeam, system):
+def test_a_flipped_fin_load_breaks_the_free_free_solve(sbeam, system):
     """**G3's teeth**: reverse the fin load alone and the solver reacts it.
 
     A zero-target gate is only worth what its sensitivity is, and "the reactions
@@ -424,24 +406,33 @@ def test_a_flipped_fin_load_breaks_the_assembled_solve(sbeam, system):
     balanced the *original* load -- left untouched. The airplane is then carrying
     twice the fin load with nothing to react it, and the support must say so.
 
-    Run on ``ga6_normal`` only: the mutation is a property of the assembly, not
-    of a fixture, and a second airplane would only add solve time.
+    Run against the **beam deck** since note 56 D-56.8, and on ``atr42_100``:
+    the mutation is a property of the assembly, not of a fixture, and this is
+    the fixture whose beam deck solves in both unit systems (``ga6_normal``, the
+    old subject, xfails in SI on sbeam's condition heuristic -- see the free-free
+    leg's docstring). Mutating the case *before* the transfer is deliberate: the
+    reversed load then travels the whole delivery path, so the gate calibrates
+    the transfer as well as the solve.
     """
-    project, _, _, _ = _components("ga6_normal.project.json")
+    example = "atr42_100.project.json"
+    project = io.load_project(os.path.join(_ROOT, "examples", example))
     cases = build_balanced_cases(project)
     case = next(c for c in cases if is_lateral(c) and c.hand == "R")
     flipped = replace(case, loads=[
         replace(ld, fy=-ld.fy, mz=-ld.mz) if ld.source == "vtail-air" else ld
         for ld in case.loads])
 
-    text = _assembled_deck_from(project, system, [flipped])
+    from sloads.export.lra_model import lra_model_bdf
+
+    text = lra_model_bdf(project, system=system, cases=[flipped])
     sols, grids = _solved(text)
     _, _, spc1, forces, moments = parse_cards(text)
-    (_, _, support_gids), = [s for s in spc1 if s[1] == "123456"]
+    (_, _, support_gids), = [c for c in spc1 if c[1] == "123456"]
     (sid, sol), = sols.items()
 
-    applied = resultant(forces, moments, grids, sid, grids[support_gids[0]])
-    got = total_reaction(sol.reactions, grids, ref=grids[support_gids[0]])
+    ref = grids[support_gids[0]]
+    applied = resultant(forces, moments, grids, sid, ref)
+    got = total_reaction(sol.reactions, grids, ref=ref)
     assert not closes(got.force[1], 0.0, scale=applied.force_scale), (
         f"a reversed fin load left the support reacting {got.force[1]} in y -- "
         "this gate cannot see a lateral sign error")
@@ -450,8 +441,7 @@ def test_a_flipped_fin_load_breaks_the_assembled_solve(sbeam, system):
     # carries -2*L_v and the support reacts +2*L_v. Asserting the number and not
     # merely "non-zero" is what makes this a calibration of the gate rather than
     # a smoke test -- it says how much of a sign error it would take to hide.
-    _, want, _ = to_force(0.0, 2.0 * vtail_load(case), 0.0,
-                          _units(system))
+    _, want, _ = to_force(0.0, 2.0 * vtail_load(case), 0.0, _units(system))
     assert closes(got.force[1], want, scale=applied.force_scale), got.force[1]
 
     # The roll and yaw reactions move with it -- the two moment DOF the lateral
@@ -621,15 +611,14 @@ def test_swapped_subcase_load_ids_break_the_per_case_assertions(sbeam):
     **This became a deck-text check at note 56 D-56.2, and that is a real
     narrowing worth stating.** It used to mutate the wing stick deck and watch
     a clamped reaction move, because that deck reacted each case's own non-zero
-    resultant. The assembled deck cannot host the same mutation: every balanced
-    free-free case has a zero resultant *by construction*, so swapping two
-    subcases' load sets leaves all six reactions at zero and no
-    reaction-based gate can see it. Rather than write a solve that proves
-    nothing, the property is asserted where it is observable -- a subcase
-    selects its own case's ``LOAD`` set, in the deck's own text.
+    resultant. No free-free deck can host the same mutation: every balanced
+    case has a zero resultant *by construction*, so swapping two subcases' load
+    sets leaves all six reactions at zero and no reaction-based gate can see it.
+    Rather than write a solve that proves nothing, the property is asserted
+    where it is observable -- a subcase selects its own case's ``LOAD`` set, in
+    the deck's own text. Read off the **shipped** deck since D-56.8.
     """
-    project, _, _, _ = _components("ga6_normal.project.json")
-    text = balanced_deck(project, system=UnitSystem.IMPERIAL)
+    _, text = _lra_deck("atr42_100.project.json")
     pairs = re.findall(r"SUBCASE (\d+)\n(?:.*\n)*?  LOAD = (\d+)", text)
     assert len(pairs) >= 2, "the deck must carry several subcases"
     for subcase, load in pairs:
@@ -649,21 +638,21 @@ def test_a_displaced_grid_breaks_the_free_free_reaction(sbeam):
     that assembles the model from those coordinates can see it. If this test
     ever stops failing, the free-free gate has stopped being a geometry check.
 
-    Run against the **assembled deck** since note 56 D-56.2 deleted the
-    per-component body deck it used to mutate. That is where it belongs: the
-    assembled deck is the deliverable whose header claims its support does
-    nothing, so it is the free-free claim that needs calibrating.
+    Run against the **beam deck** since note 56 D-56.8 unshipped the assembled
+    one. That is where it belongs, and it is stronger there: the deck a reader
+    is handed is the one whose header claims its support does nothing, and its
+    ``GRID`` cards are the coordinates a sizing run would build its own model
+    from. ``atr42_100`` is the subject because its deck solves in both unit
+    systems.
     """
-    project, _, _, _ = _components("ga6_normal.project.json")
-    cases = build_balanced_cases(project)
-    text = _assembled_deck_from(project, UnitSystem.IMPERIAL, [cases[0]])
-    grids = parse_cards(text)[0]
+    example = "atr42_100.project.json"
+    _, text = _lra_deck(example)
     # Displace a loaded node well away from the support: moving a support node
     # would change the support geometry rather than a load's lever arm.
     _, _, spc1, forces0, _ = parse_cards(text)
     (_, _, support_gids), = [c for c in spc1 if c[1] == "123456"]
-    (sid0, cards), = forces0.items()
-    loaded = sorted({g for g, _, _ in cards} - set(support_gids))
+    sid0 = sorted(forces0)[0]
+    loaded = sorted({g for g, _, _ in forces0[sid0]} - set(support_gids))
     target = loaded[len(loaded) // 2]
 
     def shift(line):
@@ -674,10 +663,10 @@ def test_a_displaced_grid_breaks_the_free_free_reaction(sbeam):
     broken = _mutate(text, lambda ln: ln.startswith(f"GRID, {target},"), shift)
     sols, broken_grids = _solved(broken)
     _, _, _, forces, moments = parse_cards(broken)
-    (sid, sol), = sols.items()
+    sol = sols[sid0]
 
     ref = broken_grids[support_gids[0]]
-    applied = resultant(forces, moments, broken_grids, sid, ref)
+    applied = resultant(forces, moments, broken_grids, sid0, ref)
     assert closes(applied.fz, 0.0, scale=applied.force_scale), \
         "the force sum must still close -- only geometry was mutated"
     got = total_reaction(sol.reactions, broken_grids, ref=ref)
@@ -685,64 +674,20 @@ def test_a_displaced_grid_breaks_the_free_free_reaction(sbeam):
 
 
 # --------------------------------------------------------------------------- #
-# The wrapper itself -- checked without a solver, so it is covered everywhere
+# The wrapper itself -- retired at note 56 D-56.8
 # --------------------------------------------------------------------------- #
-def test_the_wrapper_refuses_a_deck_with_no_geometry():
-    """A deck with no ``GRID`` cards cannot be wrapped (S-3).
-
-    It used to pass the control-surface deck, which carried loads and no
-    geometry; note 56 D-56.2 deleted that deck, so the input is written here
-    instead. Writing it out is if anything better: the refusal is a property of
-    the wrapper, and sourcing the input from a shipped artifact made it look
-    like a property of that artifact.
-    """
-    cards_only = "\n".join([
-        "$ a load set with no geometry",
-        "FORCE, 101, 7, 0, 1.0, 0.000000E+00, 0.000000E+00, 1.000000E+03",
-        "MOMENT, 101, 7, 0, 1.0, 0.000000E+00, 1.000000E+03, 0.000000E+00",
-    ])
-    with pytest.raises(ValueError, match="no GRID cards"):
-        wrap_as_stick_model(cards_only, support=Support.CLAMPED_FIRST)
-
-
-
-
-def test_the_wrapper_refuses_an_ungrouped_node():
-    """A node in no group is unattached, hence singular -- so it must be loud.
-
-    Run against the assembled deck with a deliberately short group list, since
-    note 56 D-56.2 deleted the chordwise tail deck this used to wrap. Same
-    refusal, same reason; the input is now the artifact the wrapper actually
-    exists for.
-    """
-    project, _, _, _ = _components("ga6_normal.project.json")
-    text = balanced_deck(project, system=UnitSystem.IMPERIAL)
-    grids = sorted(parse_cards(text)[0])
-    assert len(grids) > 2, "the deck must have nodes to leave out of a group"
-    with pytest.raises(ValueError, match="in no group"):
-        wrap_as_stick_model(text, support=Support.CLAMPED_FIRST,
-                            groups=[grids[:2]])
-
-
-
-
-
-
-def test_the_assembled_wrapper_keeps_the_decks_own_support():
-    """The wrapper adds structure to the primary deliverable and nothing else.
-
-    If it re-supported the deck, the leg would be testing the harness's idea of a
-    determinate support instead of the one the deliverable ships with.
-    """
-    project, _, _, _ = _components("ga6_normal.project.json")
-    shipped = balanced_deck(project)
-    wrapped = _assembled_deck(project, UnitSystem.IMPERIAL)
-    s_grids, s_cbars, s_spc1, s_f, s_m = parse_cards(shipped)
-    w_grids, w_cbars, w_spc1, w_f, w_m = parse_cards(wrapped)
-
-    assert (s_grids, s_spc1, s_f, s_m) == (w_grids, w_spc1, w_f, w_m)
-    assert not s_cbars and len(w_cbars) == len(s_grids) - 1
-    assert "SOL 101" in wrapped and wrapped.count("BEGIN BULK") == 1
+# Three legs stood here, all solver-free, all about ``wrap_as_stick_model``: it
+# refuses a deck with no ``GRID`` cards, it refuses a node left out of every
+# group, and wrapping the assembled deck keeps that deck's own support and adds
+# nothing but elements. They were good tests of a good harness, and they go with
+# it: there is no elementless deck left to wrap, so the refusals guard nothing
+# and the "adds only elements" property has no subject. Its own third guard --
+# it refuses a deck that already carries ``CBAR``s, because a wrapped copy is
+# not the shipped artifact -- is the one that says why the wrapper had to end
+# when the last elementless deck did.
+#
+# What replaced them is not another unit test but a change of subject: every
+# solve in this file now runs the deck as it ships.
 
 
 if __name__ == "__main__":

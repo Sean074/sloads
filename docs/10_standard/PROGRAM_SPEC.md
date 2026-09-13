@@ -1108,11 +1108,18 @@ result that lacks what a deck needs is a stated error, never an empty column.
   symmetric, `7101+` starboard, `8101+` port — see "Deck case identity" below).
   **No free-body cut reaction appears** (the seam rule). The residual before closure and the
   relief applied are stated on the result, in the UI and in the deck header.
-  **Surfaces (0.5.0 row 1, D-R2):** the Balanced Cases page (stamped download),
-  `cli.py --export-target balanced`, the Export page's own download row **and
-  its bundle `.zip`**, with report §6 and the manifest as the controlling
-  document's account of it — the deck was page-only, unstamped and unnamed by
-  the report until then (review F-D2).
+  **Surfaces (note 56 D-56.8): none — the deck is an internal producer.** It
+  had four (the Balanced Cases page's stamped download, `cli.py --export-target
+  balanced`, the Export page's download row and its bundle `.zip`), all added
+  by 0.5.0 row 1 / D-R2 against a review finding that the primary deliverable
+  was page-only. What ships now is the **LRA beam model**, which carries the
+  same assembled cases transferred onto the beam's own grids, so the assembled
+  deck stopped being a file anyone is handed. It is still built, and still
+  load-bearing: it is the un-aggregated load set at each load's true position,
+  and its resultant is what the transfer is gated against
+  (`test_lra_model::test_the_transferred_set_has_the_balanced_decks_resultant`).
+  Report §6 and `balanced_case_rows` are unchanged — the *cases* are the
+  deliverable's content and the report states them; only the file went.
   **The B-2 partition has an edge-case gate** (review F-C5, 2026-08-10): WING-tagged
   items are kept out of the fuselage inertia set precisely because the wing set
   spreads them, so a loading carrying WING item mass against a wing that
@@ -1464,29 +1471,32 @@ the applied load set (`applied_loads("htail"|"vtail", ...)`), GID bands `4001+`
   (post-coercion the built project can no longer show what was typed).
 - **Validation:** force/moment closure (cards re-summed = NETLOADS root totals);
   a self-contained free-field reader round-trips the cards in tests; and the
-  decks are **solved in the real sbeam by a standing CI gate** (step 2,
+  deck is **solved in the real sbeam by a standing CI gate** (step 2,
   `tests/test_sbeam_roundtrip.py`, job `sbeam-roundtrip`) — no longer a manual
-  verification step. The gate covers `ga6_normal` + `concept_regional_jet` ×
-  {Imperial, SI} and asserts, per case: the wing stick deck's reaction and its
-  element-1 end-B internal loads against the NETLOADS root quadrature; the
-  fuselage deck's whole Ch 15 cumulative shear/bending table, recovered by the
-  solver from the cards and `GRID`s alone, on a determinate support whose
-  reactions must be zero; the tail deck's total and chordwise first moment; and
-  the assembled full-span deck's six reaction components, all zero. Body and tail
-  are solved through a **test-only** stick wrapper (`sloads/export/roundtrip.py`)
-  that supplies elements from the deck's own `GRID` cards and is never written by
-  the CLI or the GUI; control-surface decks are permanently out of scope (their
-  chordwise `x` is a fraction of chord, so there is no geometry to solve). The
-  solver enters as a pinned optional extra, `pip install -e '.[solver]'`.
+  verification step. The subject is the **LRA beam model**, the one deck that
+  ships, over every fixture the CLI will export one for (`ga6_normal`,
+  `baron_58`, `atr42_100`, `concept_regional_jet`) × {Imperial, SI}: its
+  support's recovered reaction is minus the applied resultant and both are ~0
+  (free-free), and its named-node internal loads are the cut-side sums. Three
+  mutation legs calibrate it — a reversed fin load, a displaced `GRID` and a
+  mis-routed subcase — because a zero-target gate is worth what its sensitivity
+  is. **The test-only stick wrapper retired at note 56 D-56.8** with the last
+  elementless deck: `roundtrip.py` supplied invented elements so a deck that was
+  a load set on a node cloud could be solved at all, and the LRA model writes
+  its own, so it is handed to the solver exactly as it ships. The solver enters
+  as a pinned optional extra, `pip install -e '.[solver]'`.
 - **CLI — the whole deliverable menu is headless (0.5.0 row 1, review F-D1).**
-  `python cli.py --export-sbeam <prefix> <project.json> --export-target <t>
-  [--stick-model]`, where `<t>` is one of `wing` (default), `body`, `tail`,
-  `htail-span`, `vtail-span`, `control`, `balanced` (the assembled full-span
-  free-free deck — the mission's primary deliverable, previously writable only
-  from the Balanced Cases page) or `mass` (the CONM2/MASSSET model; the same
-  owner and the same file names as `--export-conm2`, which is kept because it
-  shipped first). `cli.EXPORT_TARGETS` is the single list, handed to argparse
-  and pinned against the CLI docstring by
+  `python cli.py --export-sbeam <prefix> <project.json> --export-target <t>`,
+  where `<t>` is one of `lra` (default — the LRA beam model, the mission's
+  primary deliverable, optionally onto an imported model with `--lra-import`),
+  `gear` (the landing gear interface load definition, a **document** since
+  D-56.1 and this its only headless route) or `mass` (the CONM2/MASSSET model;
+  the same owner and the same file names as `--export-conm2`, which is kept
+  because it shipped first). **Ten targets became three:** D-56.2 deleted the
+  six that wrote per-component decks (`wing`, `body`, `tail`, `htail-span`,
+  `vtail-span`, `control`) and D-56.8 unshipped `balanced`.
+  `cli.EXPORT_TARGETS` is the single list, handed to argparse and pinned against
+  the CLI docstring by
   `tests/test_cli.py::test_the_export_menu_is_the_deliverable_menu`.
 - **CLI wing decks are stated about the loads reference axis** (decision **D-R5**,
   review F-C2). The headless route transfers through
@@ -1723,8 +1733,10 @@ the applied load set (`applied_loads("htail"|"vtail", ...)`), GID bands `4001+`
   assembles **once** per document and is shared with §4's skipped-conditions
   table (F-C7), so the two cannot describe different runs. A project that
   assembles nothing keeps the section and states the absence (§3.4). The
-  manifest lists `balanced_airframe.bdf` and the three mass-model files, and
-  lists them only when the bundle will actually contain them.
+  manifest lists `lra_model.bdf` and the two mass-model files, and lists them
+  only when the bundle will actually contain them —
+  `balanced_airframe.bdf` came off the list when note 56 D-56.8 stopped it being
+  written.
 - **Section numbering has one owner (review F-R2, 2026-08-10).**
   `content.SECTIONS` is the ordered `(key, title)` list; headings come from
   `section_heading(key)` and **every** cross-reference — rendered prose and the

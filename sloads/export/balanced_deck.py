@@ -95,7 +95,7 @@ from ..rigid_body import radians_per_s2
 from ..units import DeliverableUnits, UnitSystem
 from .bands import band
 from .coordinates import SBEAM_CID, to_force, to_grid, to_moment
-from .deck_format import basis_sentence, fmt3, solver_units, stamped
+from .deck_format import SPC_SID, basis_sentence, fmt3, solver_units, stamped
 
 #: Node runs, from the band registry (:mod:`sloads.export.bands`) -- the single
 #: owner of every GID/EID/SID band in the suite. These three were 4001/4201/4401
@@ -522,7 +522,7 @@ def balanced_deck(project: Project, *,
         "$ ------------------------------------------------------- CONSTRAINTS",
         "$ Determinate: one node, six DOF. The recovered reaction IS the residual",
         "$ stated in each case header -- 'reactions ~ 0' is the free-free proof.",
-        f"SPC1, 1, 123456, {support}",
+        f"SPC1, {SPC_SID}, 123456, {support}",
         "$ ------------------------------------------------------------ LOADS",
     ]
     for sid, case in zip(sids, cases):

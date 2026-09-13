@@ -23,7 +23,7 @@ not (see their docstrings and ``tests/test_platform_stability.py``).
 from __future__ import annotations
 
 import textwrap
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 from ..constants import ULTIMATE_FACTOR
 from ..models import (
@@ -40,6 +40,7 @@ from ..units import (
     canonical,
     deliverable_units,
 )
+from .bands import band
 
 # --------------------------------------------------------------------------- #
 # Number formatting
@@ -179,6 +180,46 @@ PBAR_J = 1.0        # in^4
 # a helper both halves need must have one owner or it becomes a fifth copy.
 # The authority for *which* factor a case carries is still
 # :mod:`sloads.safety_factors` (M4-8 / G-11); these only render what it decides.
+
+
+#: SID of the constraint set every deck that carries one emits. A different
+#: NASTRAN namespace from ``LOAD``, so the collision is only apparent -- it is
+#: registered in :mod:`sloads.export.bands` so nothing quietly allocates a load
+#: set at 1.
+#:
+#: It lived in ``roundtrip`` until note 56 D-56.8, which is backwards: the
+#: harness held the constant and the two **writers** each spelled ``1`` into an
+#: f-string. With the wrapper retired the constant moved to the card-primitive
+#: owner and both writers read it, so the registry's declared owner is the code
+#: that actually allocates the id.
+SPC_SID = band("spc").start
+
+
+def orientation_vector(a: Tuple[float, float, float],
+                       b: Tuple[float, float, float]) -> Tuple[float, float, float]:
+    """A ``CBAR`` orientation vector not parallel to the element axis.
+
+    Tried in ``z, y, x`` order so a beam line along ``x`` (a fuselage, an
+    h-tail chord run) and a wing-ward element both keep the ``(0, 0, 1)``
+    convention, and only a genuinely vertical element -- a fin chain -- takes
+    another.
+
+    It lived in ``roundtrip`` until note 56 D-56.8, because the round-trip
+    wrapper was the first writer that needed one. The wrapper is gone and
+    :mod:`sloads.export.lra_model` is the only writer left, so the rule sits
+    with the other card primitives rather than being imported privately out of
+    a test harness.
+    """
+    ax, ay, az = b[0] - a[0], b[1] - a[1], b[2] - a[2]
+    norm = (ax * ax + ay * ay + az * az) ** 0.5
+    if norm == 0.0:
+        raise ValueError("zero-length element: two GRIDs share a location")
+    ux, uy, uz = ax / norm, ay / norm, az / norm
+    for v in ((0.0, 0.0, 1.0), (0.0, 1.0, 0.0), (1.0, 0.0, 0.0)):
+        cross = (uy * v[2] - uz * v[1], uz * v[0] - ux * v[2], ux * v[1] - uy * v[0])
+        if max(abs(c) for c in cross) > 1e-6:
+            return v
+    raise AssertionError("no orientation vector is independent of the axis")
 
 
 def solver_units(system: UnitSystem) -> DeliverableUnits:

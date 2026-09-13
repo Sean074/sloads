@@ -53,7 +53,6 @@ The map
           9501-9700  CONM2 per-case part-full consumable rows
          11001-11999  LRA model CBAR chains
          12001-12500  LRA model RBE2 ties (production, BM-5)
-        900001-901000  round-trip harness RBE2 ties (test scaffolding)
 
     SID          1  SPC set (constraints, not loads)
            101-199  wing subcases          (case_ids.SUBCASE_BLOCK)
@@ -321,14 +320,11 @@ BANDS: Tuple[Band, ...] = (
     _band("lra-rbe2", IdKind.EID, 12001, 500, "lra_model.lra_model_bdf",
           "PRODUCTION rigid ties (note 24 R-10): the centre-box/post hub, "
           "fin root, h-tail attachments, gear links, engine mounts. Promoted "
-          "from the round-trip wrapper's test-only 900001+ band, which stays "
-          "test scaffolding.", clear_of_gids=True),
-    _band("roundtrip-rbe2", IdKind.EID, 900001, 1000, "roundtrip.wrap_as_stick_model",
-          "Test scaffolding: numbered well clear of the CBAR chain so a wrapped "
-          "deck's ties are never mistaken for exported structure.",
-          clear_of_gids=True),
+          "from the round-trip wrapper's test-only 900001+ band, which was "
+          "retired with the wrapper at note 56 D-56.8 -- there is no "
+          "elementless deck left to wrap.", clear_of_gids=True),
     # ----------------------------------------------------------------- SIDs
-    _band("spc", IdKind.SID, 1, 1, "balanced_deck / lra_model / roundtrip",
+    _band("spc", IdKind.SID, 1, 1, "deck_format.SPC_SID",
           "The constraint set. A different NASTRAN namespace from LOAD, but "
           "registered so nothing quietly allocates a load set at 1."),
     _band("subcase-W", IdKind.SID, 101, 99, "case_ids.subcase_id"),
