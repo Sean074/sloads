@@ -430,17 +430,24 @@ def test_the_mass_model_is_tabulated_even_when_nothing_assembles():
         assert len(section.tables) == 2
 
 
-def test_the_manifest_lists_the_balanced_deck_and_the_mass_model():
+def test_the_manifest_lists_the_beam_deck_and_the_mass_model():
     """review F-D2: an artifact the controlling document does not name travels
-    without the basis statement the manifest exists to give it."""
+    without the basis statement the manifest exists to give it.
+
+    ``balanced_airframe.bdf`` was the third name here until note 56 D-56.8
+    unshipped it. A bundle no longer carries it, so a manifest row for it would
+    be the F-D2 defect pointing the other way -- the document naming a file the
+    reader was never given.
+    """
     files = [row[0] for row in _report().section("Appendix A. Bundle manifest").table.rows]
-    for name in ("sbeam/<project>_balanced_airframe.bdf",
+    for name in ("sbeam/<project>_lra_model.bdf",
                  "sbeam/<project>_mass_model.bdf",
                  "sbeam/<project>_mass_check.bdf"):
         assert name in files, files
-    # ...and every one of them points at the section that summarises it.
+    assert not any("balanced_airframe" in f for f in files), files
+    # ...and the mass model points at the section that summarises it.
     for row in _report().section("Appendix A. Bundle manifest").table.rows:
-        if "balanced_airframe" in row[0] or "mass_" in row[0] or "inertia_" in row[0]:
+        if "mass_" in row[0] or "inertia_" in row[0]:
             assert row[-1] == section_ref("balanced"), row
 
 
@@ -471,8 +478,6 @@ MANIFEST_BASIS = {
     "<project>_report.txt": "LIMIT",
     "<project>_gear_loads.csv":
         "LIMIT; contact patch ground-line, reference point airplane-datum",
-    "sbeam/<project>_balanced_airframe.bdf":
-        "LIMIT; determinate support, its reaction is the residual",
     "sbeam/<project>_lra_model.bdf": "LIMIT; torsion about each surface's LRA",
     "sbeam/<project>_mass_model.bdf":
         "mass, NOT weight; do not apply with the load decks",
@@ -554,7 +559,6 @@ SUMMARISED_IN = {
         ("results", "Horizontal tail / Vertical tail"),
     "<project>_summary_report.tex": ("inputs", ""),
     "<project>_summary_report.pdf": ("inputs", ""),
-    "sbeam/<project>_balanced_airframe.bdf": ("balanced", ""),
     "sbeam/<project>_lra_model.bdf": ("balanced", ""),
     "sbeam/<project>_mass_model.bdf": ("balanced", ""),
     "sbeam/<project>_mass_check.bdf": ("balanced", ""),

@@ -11,13 +11,16 @@ Or export the solver deliverables. ``--export-target`` is the whole menu --
 every artifact the Export & Report page writes is reachable headless, because
 the concept-loads -> sbeam sizing loop is meant to be scripted.
 
-**Note 56 D-56.2 cut this menu from ten targets to four.** The six that went
+**Note 56 cut this menu from ten targets to three.** The six that went with
+D-56.2
 (``wing``, ``body``, ``tail``, ``htail-span``, ``vtail-span``, ``control``)
 wrote *per-component* decks: each one a separate structural model of one piece
 of the airplane, sharing an ID space with the deliverable and borrowing GIDs
 from it. The deliverable is the whole airplane, balanced, with aero and inertia
 together -- so the per-component views were four extra model concepts to
-maintain and none of them was what ships.
+maintain and none of them was what ships. ``balanced`` went with **D-56.8**:
+the assembled deck stays inside the package as the reference resultant the LRA
+transfer is checked against, and stops being a file anyone is handed.
 
 ===============  ===========================================================
 target           what it writes
@@ -28,7 +31,6 @@ target           what it writes
                  the nodes. With ``--lra-import MODEL.bdf`` the loads are
                  instead transferred onto the imported model's own nodes,
                  under its GIDs (the named-node contract maps the families)
-``balanced``     the assembled full-span balanced free-free deck
 ``gear``         the landing gear interface load definition (decision G-12) --
                  per case and per leg, the reaction at the tyre contact patch
                  with its strut state and ground angle, and the same reaction
@@ -42,7 +44,6 @@ the first thing the bridge could write, and a menu whose default has been
 deleted should ask rather than guess.
 
     python cli.py --export-sbeam out --export-target lra examples/ga6_normal.project.json
-    python cli.py --export-sbeam out --export-target balanced examples/ga6_normal.project.json
     python cli.py --export-conm2 out examples/ga6_normal.project.json
 
 Or render the consolidated **summary report** (Step G8) -- the controlling
@@ -85,21 +86,21 @@ from sloads.units import UnitSystem, convert_results, unit_system_from
 #: deliverable set had diverged, so a test pins them together rather than a
 #: comment asking future readers to keep them in step.
 #:
-#: **Ten to four** (note 56 D-56.2). ``wing``, ``body``, ``tail``,
+#: **Ten to three** (note 56 D-56.2, then D-56.8). ``wing``, ``body``, ``tail``,
 #: ``htail-span``, ``vtail-span`` and ``control`` wrote the per-component solver
 #: decks, which are deleted: they were parallel model concepts sharing an ID
-#: space with the deliverable, and none of them was the deliverable.
+#: space with the deliverable, and none of them was the deliverable. ``balanced``
+#: went with D-56.8 -- the assembled deck stays as an internal producer and stops
+#: being a file anyone is handed.
 #:
-#: The note's own summary says this tuple goes to ``("lra", "mass")``. It does
-#: not, on two counts, and the difference is deliberate. ``gear`` survives
-#: because D-56.1 -- the same note -- reclassified the gear interface report as
-#: a **document**, not a deck, and moved it to ``report.tables``; it ships in
-#: the bundle and is the only headless route to it. ``balanced`` survives
-#: because demoting the balanced deck to an internal producer turns on whether
-#: ``roundtrip.py`` collapses to the single LRA solve gate, which is still open
-#: (note 56 §8). Dropping either on the strength of a count would remove a live
-#: deliverable ahead of its replacement.
-EXPORT_TARGETS = ("balanced", "gear", "mass", "lra")
+#: The note's own summary says this tuple goes to ``("lra", "mass")``. It goes to
+#: three, not two, and the difference is deliberate: ``gear`` survives because
+#: D-56.1 -- the same note -- reclassified the gear interface report as a
+#: **document**, not a deck, and moved it to ``report.tables``; it ships in the
+#: bundle and this is the only headless route to it. Dropping it on the strength
+#: of a count would remove a live deliverable ahead of its replacement, which is
+#: #245's channel and not this note's.
+EXPORT_TARGETS = ("gear", "mass", "lra")
 
 
 def resolve_units(project, flag=None) -> UnitSystem:
@@ -245,22 +246,6 @@ def _export_sbeam(project, prefix: str, target: str,
         print(f"Wrote the LRA beam model to: {bdf_path}")
         return 0
 
-    if target == "balanced":
-        from sloads.export.balanced_deck import balanced_deck
-        from sloads.modules.balance import build_balanced_cases
-
-        # Assembled once here rather than inside the writer, so the count printed
-        # is the deck's own case set and not a second pass that might differ.
-        skipped = []
-        cases = build_balanced_cases(project, skipped)
-        bdf_path = f"{prefix}.balanced_airframe.bdf"
-        with open(bdf_path, "w", encoding="utf-8") as fh:
-            fh.write(balanced_deck(project, header_comment=bdf_stamp, system=system,
-                                   cases=cases, skipped=skipped))
-        note = f"; {len(skipped)} condition(s) not assembled" if skipped else ""
-        print(f"Wrote {len(cases)} balanced case(s) to: {bdf_path}{note}")
-        return 0
-
     raise MissingInputError(
         f"unknown export target {target!r} -- expected one of "
         + ", ".join(EXPORT_TARGETS))
@@ -327,8 +312,7 @@ def main(argv=None) -> int:
         default="lra",
         help="with --export-sbeam, which deliverable to export (default: lra). "
              "'lra' is the LRA beam model (step 12) -- the primary deliverable; "
-             "'balanced' is the assembled full-span free-free deck; 'gear' is "
-             "the landing gear interface load definition; 'mass' is "
+             "'gear' is the landing gear interface load definition; 'mass' is "
              "the CONM2/MASSSET model, identical to --export-conm2",
     )
     parser.add_argument(

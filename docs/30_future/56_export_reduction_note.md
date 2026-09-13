@@ -488,6 +488,7 @@ not only of what was intended.
 | 7 | **CONM2 gets its own CG grids and the mass model is checked by GPWG** (D-56.6 + D-56.7). One `GRID` per card at the item's own CG in the new `mass-cg` band (`13001+`), zero offset; `_attach_gid`, the offset arithmetic, the placeholder massless beam and its `SPC1` all go, and the wing-item limitation retires with the header sentence that stated it. `inertia_only_cards`, `case_station_weights` and `roundtrip.flatten_mass_case` retire. Gate 6 lands as GPWG. The mass model enters the digest baseline for the first time (234 → 244 channels). | 2026-09-12 |
 | 6b-i | **The applied load set is re-aggregated onto the LRA grids** (D-56.9). `applied_loads` returns one row per (case, grid), every aero station and concentrated mass summed onto the nearest node of its member through LM-1; the station-level set stays public as `station_applied_loads`, the aggregation's input and D-56.10's reference curve. `project` becomes required. Gates 12 and 13 land. Four digest channels re-stamp -- the `*_applied` ones, gate 8's stated exception -- and 52 hold. | 2026-09-12 |
 | 6b-ii | **What the lumping costs is published** (D-56.10). New owner `report/lumping.py`: the internal load at a cut is the outboard resultant transferred to the cut, one rule for V/M/T on all four members, evaluated twice about the same cuts. New **Appendix G** -- one table of the widest gap per channel over every case, four deviation figures. Two amendments to D-56.10, both recorded in the row above it: no shared case exists, and the deviation is plotted rather than the two curves. | 2026-09-12 |
+| 8 | **The assembled deck stops shipping and the round-trip wrapper collapses** (D-56.8 + §8). Four surfaces retire (the Balanced Cases download, the Export page row, the bundle `.bdf`, the CLI target); `EXPORT_TARGETS` 4 -> 3; the report's manifest loses its row. `roundtrip.py` 529 -> 186: `wrap_as_stick_model` and its whole supporting cast go, and every solve in the file now runs the deck as it ships. #173 and #176 close as superseded. | 2026-09-12 |
 
 **Two departures from the note as written, both deliberate.**
 
@@ -852,11 +853,94 @@ that does not exist. That is 6b-ii and it is the next thing, not a later one.*
 
 ---
 
+**Slice 8: what unshipping a deck cost, and what it did not.**
+
+1. **Four surfaces, not one.** The assembled deck had a download on the
+   Balanced Cases page, a row on the Export page, a `.bdf` in the bundle zip
+   and a CLI target — all four added by 0.5.0 row 1 / D-R2 against a review
+   finding (F-D2) that the mission's primary deliverable was page-only. All
+   four go. The finding they answered has not been undone: the primary
+   deliverable is still reachable headless, stamped, bundled and named by the
+   controlling document — it is the **beam deck** now, and
+   `test_cli::test_the_beam_deck_is_reachable_headless` is F-D1's gate moved to
+   follow the artifact rather than retired with the file it was first written
+   about.
+2. **`balanced_deck` is a real internal producer, not a courtesy survival.**
+   D-56.8's own wording — "its cases feed the LRA transfer and the report's
+   `balanced_case_rows`" — describes `build_balanced_cases` and
+   `balanced_case_rows`, both of which live elsewhere, so on that reading the
+   deck writer had no consumer at all and should have been deleted like the
+   other five. It has one, and it is load-bearing: the deck text is the
+   **un-aggregated load set at each load's true position**, and its resultant is
+   what the transferred set is gated against
+   (`test_lra_model::test_the_transferred_set_has_the_balanced_decks_resultant`,
+   gate 13's anchor). Deleting it would have deleted the reference the
+   deliverable is checked against.
+3. **The gear leg would not move, and that is Appendix G's finding arriving
+   from the other side.** `test_the_gear_node_carries_the_reports_reaction`
+   (G-13) was pointed at the beam deck first and failed: the deck's nose-gear
+   trunnion carries 3,334.8 lb on `concept_regional_jet` against the gear
+   report's 3,597.8, because D-56.9 sums whatever else is nearest onto the same
+   grid. That is the aggregation working as specified — Appendix G is where its
+   size is published — and asserting the report's number at that grid would be
+   asserting the lumping away. The leg stays on the assembled set, where a gear
+   reference point is still a node of its own. It reads card text and never
+   solved anything, so nothing is lost by its subject not being the shipped
+   file.
+4. **Three legs moved and are stronger for it.** The reversed-fin mutation, the
+   displaced-`GRID` mutation and the subcase-routing check now run on the beam
+   deck. The first two used to run through elements the harness made up; they
+   now run through the structure that ships, and the fin mutation is applied to
+   the case *before* the transfer, so it calibrates the delivery path as well
+   as the solve. Their subject moved from `ga6_normal` to `atr42_100`, the
+   fixture whose beam deck solves in both unit systems.
+5. **Two narrowings, stated rather than absorbed.** (i) The free-free solve
+   xfails on the SI decks of `ga6_normal` and `concept_regional_jet` — sbeam's
+   dense-path condition heuristic, already pinned — so those two fixtures lose
+   an SI free-free solve the wrapped assembled deck did carry. SI is still
+   solved on `baron_58` and `atr42_100`, and both of those fixtures solve in
+   Imperial, which is what says the decks are sound. (ii) "Every assembled case
+   reaches the deck, and each lateral one carries real side load" was asserted
+   *inside* that solve; it is a property of the card text, so it is now
+   asserted on the card text, where no solver is needed.
+6. **Three wrapper unit tests retired with their subject** (it refuses a deck
+   with no `GRID`s, it refuses an ungrouped node, it keeps the deck's own
+   support). They were good tests of a good harness and they have no subject
+   left. What replaced them is not another unit test but a change of subject:
+   every solve in the file runs the deck as it ships.
+7. **`PROGRAM_SPEC.md`'s export prose was stale from D-56.2 and is re-cut
+   here** (rule 4). Its validation bullet still described solving a wing stick
+   deck and a fuselage deck through the test-only wrapper, and its CLI bullet
+   still listed ten targets with `wing` as the default. Both named artifacts
+   deleted a slice earlier. Fixed with the sentences this slice makes wrong
+   rather than left for §7's sweep, because leaving demonstrably false prose in
+   a spec while editing the paragraph above it is worse than the scope
+   discipline that would justify it.
+
+---
+
 ## 8. Deferred
 
-* **Whether `roundtrip.py` (595 lines) collapses to the single LRA solve gate.**
-  Decide during implementation once the gate set is known; it is test
-  scaffolding, so it carries no deliverable risk either way.
+* ~~**Whether `roundtrip.py` (595 lines) collapses to the single LRA solve
+  gate.**~~ **RESOLVED 2026-09-12, slice 8: it collapses.** 529 lines (the note
+  said 595; that was the pre-D-56.7 count, before `flatten_mass_case` went) to
+  **186**. The decision follows from D-56.8 rather than being a separate
+  judgement: roughly two-thirds of the module was `wrap_as_stick_model`, which
+  read a deck's `GRID` cards and **invented** a tree of `CBAR`s, a `MAT1`/`PBAR`
+  section, a determinate support and a case control, so that an **elementless**
+  deck could be handed to a linear static solve at all. D-56.2 deleted the
+  per-component decks and D-56.8 unshipped the assembled one, so no elementless
+  deck is left; the LRA model writes its own elements and its own support and is
+  solved exactly as it ships. The wrapper's own guard said this before it was
+  deleted — it *refused* a deck that already carried `CBAR`s, on the grounds that
+  a wrapped copy is not the shipped artifact. Retired with it: `Support`,
+  `Topology`, `SPC_SID`, the property/element/constraint/case-control builders
+  and the coincident-node collapse. `_orientation` moved to
+  `deck_format.orientation_vector`, because `lra_model` was importing a private
+  name out of a test harness to build its bars, and `SPC_SID` moved there too —
+  the harness held the constant while the two **writers** each spelled `1` into
+  an f-string, so the band registry's declared owner was not the code that
+  allocates the id.
 * **Retiring the generated LRA model entirely** in favour of import-only. Ruling
   5 makes it a minimal reference default explicitly so this stays cheap later.
   Promoting condition: the import path carrying the CI solve gate against a

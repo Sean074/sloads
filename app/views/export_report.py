@@ -5,11 +5,12 @@ Five kinds of hand-off, all recomputed live from the project inputs:
 * **Project file** — the canonical ``project.json`` (the save file / single source
   of truth).
 * **Load-case CSVs & text report** — per-module results for spreadsheets / records.
-* **sbeam BDF cards** — wing / fuselage / tail / control-surface ``FORCE``/``MOMENT``
-  cards (and the wing stick model) for the sbeam finite-element bridge, plus the
-  **assembled full-span free-free deck** — the mission's primary loads
-  deliverable, of which the per-component decks are analysis views — and the
-  **CONM2/MASSSET mass model** that checks its inertia half independently.
+* **sbeam BDF cards** — the **LRA beam model**, the mission's primary loads
+  deliverable: the balanced cases' aero and inertia transferred onto the beam's
+  own grids, free-free. Beside it the applied-load CSVs each component's set is
+  read from, and the **CONM2/MASSSET mass model** that checks the inertia half
+  independently. The per-component decks went at note 56 D-56.2 and the
+  assembled free-free deck stopped shipping at D-56.8.
 * **Summary report (Step G8)** — the controlling document of the deliverable: a
   LaTeX ``.tex`` always, compiled to PDF when a TeX engine is available.
 * **Combined bundle** — one ``.zip`` (or one multi-sheet ``.xlsx`` workbook, Step
@@ -40,7 +41,6 @@ from sloads import Project, registry
 from sloads import io as sloads_io
 from sloads import workflow as wf
 from sloads.export import mass_cards as mc
-from sloads.export.balanced_deck import balanced_deck
 from sloads.export.pdf import ENGINE_ENV_VAR, compile_pdf, find_engine
 from sloads.export.workbook import build_workbook
 from sloads.modules.balance import build_balanced_cases
@@ -296,12 +296,12 @@ if _tail:
 # controlling document that states its basis (review F-D2). They ride the same
 # `_bdf_stamp` and the same `_system` as every deck above, so a bundle still
 # states one basis and one unit system.
+# The assembled deck is **not** among them since note 56 D-56.8: it stays inside
+# the package as the reference resultant the LRA transfer is gated against, and
+# stops being a file anyone is handed. The cases it is assembled from are still
+# built here, because the LRA model below is written from them.
 _balanced_skipped: list = []
 _balanced_cases = _try(build_balanced_cases, project, _balanced_skipped) or []
-if _balanced_cases:
-    _bdf_artifacts["balanced_airframe.bdf"] = _try(
-        balanced_deck, project, header_comment=_bdf_stamp, system=_system,
-        cases=_balanced_cases, skipped=_balanced_skipped) or ""
 # The LRA beam model (step 12, note 24 R-1) -- the third deliverable. Its
 # refusals (LraRefusal: no entered ref_axis_pct, no SOB, no outline, no
 # spars, a strip-pair h-tail attachment) are stated absences, so _try's
@@ -592,16 +592,16 @@ if _body:
             "(default chord fractions)."
         )
 _bdf_row("Tail", "htail_applied_loads.csv", "vtail_applied_loads.csv")
-_bdf_row("Assembled airframe (free-free)", "balanced_airframe.bdf")
 _bdf_row("LRA beam model", "lra_model.bdf")
 if _balanced_cases:
     st.caption(
         f"The mission's primary loads deliverable: {len(_balanced_cases)} "
-        "`SUBCASE`s, both wings, aero and inertia together on a statically "
-        "determinate support — the recovered reaction *is* the residual, so "
-        "'reactions ≈ 0' is the free-free equilibrium proof. Per-case load "
-        "factors, residuals and handed twin pairs are tabulated in the summary "
-        "report; the **Balanced Cases** page shows the same numbers live."
+        "`SUBCASE`s, both wings, aero and inertia together, transferred onto "
+        "the beam's own grids — free-free, so the recovered reaction at its "
+        "determinate support *is* the residual and 'reactions ≈ 0' is the "
+        "equilibrium proof. Per-case load factors, residuals and handed twin "
+        "pairs are tabulated in the summary report; the **Balanced Cases** page "
+        "shows the same numbers live."
         + (f" {len(_balanced_skipped)} SELECT condition(s) did not assemble — the "
            "deck and the report both name them." if _balanced_skipped else "")
     )

@@ -26,7 +26,6 @@ from sloads import io
 from sloads.export import mass_cards as mc
 from sloads.report import applied as ap
 from sloads.report import tables as rt
-from sloads.export.balanced_deck import balanced_deck
 from sloads.export.lra_model import lra_model_bdf
 from sloads.modules.balance import build_balanced_cases
 from sloads.registry import run_all_modules
@@ -72,7 +71,9 @@ def _sbeam_artifacts(project, comps, cases):
                 ap.applied_load_csv, spans.get(_surface) or [],
                 component=_surface, project=project)
     if cases:
-        art["balanced_airframe.bdf"] = _try(balanced_deck, project, cases=cases)
+        # No ``balanced_airframe.bdf``: note 56 D-56.8 stopped the assembled deck
+        # being a shipped artifact, so the bundle carries the beam deck the cases
+        # are transferred onto and nothing else from the assembly.
         art["lra_model.bdf"] = _try(lra_model_bdf, project, cases=cases)
     if project.weight is not None and project.weight.items:
         art["mass_model.bdf"] = _try(mc.conm2_fragment, project)

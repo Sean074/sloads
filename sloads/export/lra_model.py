@@ -109,14 +109,15 @@ from .deck_format import (
     PBAR_A,
     PBAR_I,
     PBAR_J,
+    SPC_SID,
     basis_sentence,
     comment,
     fmt,
     fmt3,
+    orientation_vector,
     solver_units,
     stamped,
 )
-from .roundtrip import _orientation
 
 Vec3 = Tuple[float, float, float]
 
@@ -1210,7 +1211,7 @@ def lra_model_bdf(project: Project, *,
     ]
     positions = {n.gid: n.pos for n in model.nodes}
     for i, ((ga, gb), family) in enumerate(zip(model.cbars, model.cbar_families)):
-        vx, vy, vz = _orientation(positions[ga], positions[gb])
+        vx, vy, vz = orientation_vector(positions[ga], positions[gb])
         bulk.append(f"CBAR, {_CBAR_BAND.allocate(i)}, {section_id(family)}, "
                     f"{ga}, {gb}, {vx}, {vy}, {vz}")
     bulk.append("$ RBE2, EID, GN, CM, GM...  (rigid ties, production band)")
@@ -1225,7 +1226,7 @@ def lra_model_bdf(project: Project, *,
             "fuselage chain node nearest the front post (touched by no rigid "
             "element) -- the recovered reaction IS the case residual stated "
             "by the balanced deck, ~0."),
-        f"SPC1, 1, 123456, {model.support_gid}",
+        f"SPC1, {SPC_SID}, 123456, {model.support_gid}",
         "$ ------------------------------------------------------------ LOADS",
     ]
     for sid, case in zip(sids, cases):
