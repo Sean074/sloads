@@ -211,7 +211,7 @@ def test_the_identity_columns_lead_the_delivered_row():
 
     fields = ap._applied_csv_fields(solver_units(UnitSystem.IMPERIAL))
     assert fields[:5] == ["Case ID", "Case", "Loading", "Station", "GID"]
-    assert fields[-2:] == ["MyyAxis", "SF"]
+    assert fields[-2:] == ["TorsionAxis", "SF"]
     assert [f.split(" ")[0] for f in fields[5:14]] == [
         "X", "Y", "Z", "Fx", "Fy", "Fz", "Mx", "My", "Mz"]
 

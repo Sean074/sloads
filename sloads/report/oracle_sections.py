@@ -35,13 +35,13 @@ no section 2 table can inherit a claim that does not apply to it.
 
 from __future__ import annotations
 
-import csv
 import io as _io
 import math
 import re
 from dataclasses import replace
 from typing import TYPE_CHECKING, Dict, List, Mapping, NamedTuple, Optional, Sequence, Tuple
 
+from .. import csv_text
 from ..aero_curves import inertia_drag_factor
 from ..cg_cases import flight_case_ids, flight_cases
 from ..constants import IN2_PER_FT2, ULTIMATE_FACTOR
@@ -7975,9 +7975,13 @@ def _vn_state_table(project: Project, rows: Sequence[Tuple[List[str], List[str]]
         note=("One row per balanced point, in the order the envelope produces "
               "them. Config is the aerodynamic coefficient set the point was "
               f"balanced with; {flap_state}. CG is the positional id of the "
-              "mass case above. The balancing loads for these same points, and "
-              "the case ids they were selected as, are in the table below, "
-              "keyed by the same CG and case number. Load factors, angles and "
+              # No "above"/"below": these same words are the header block of
+              # ``vn_conditions_csv``, which joins the two tables into one row
+              # and has no page to point along (#242).
+              "mass case the balanced conditions are listed against. The "
+              "balancing loads for these same points, and the case ids they "
+              "were selected as, are given against the same CG and case "
+              "number. Load factors, angles and "
               "coefficients are dimensionless or in degrees and are not "
               "converted; airspeed is KEAS and altitude feet in both unit "
               "systems."),
@@ -8007,6 +8011,21 @@ def _vn_load_table(rows: Sequence[Tuple[List[str], List[str]]],
               "ids this point was selected as: blank is the common case, and a "
               "point selected for more than one condition lists all of them."),
     )
+
+
+def _csv_note(text: str) -> str:
+    """A table's prose note as ``#``-prefixed CSV header lines (#242).
+
+    Wrapped at the width the hand-written note blocks use, so a stamped file
+    reads as one document rather than as a block of prose after a block of
+    comment lines. Empty text yields nothing at all -- a bare ``#`` would be a
+    line the reader has to decide the meaning of.
+    """
+    if not text:
+        return ""
+    import textwrap
+
+    return "".join(f"# {ln}\n" for ln in textwrap.wrap(text, width=72))
 
 
 def vn_conditions_csv(project: Project, header_comment: str = "", *,
@@ -8052,11 +8071,18 @@ def vn_conditions_csv(project: Project, header_comment: str = "", *,
     # reads alone; joined back into one row here, they would be three duplicate
     # columns, so the first three are dropped rather than renamed.
     buf = _io.StringIO()
-    writer = csv.writer(buf)
+    writer = csv_text.writer(buf)
     writer.writerow(list(state.columns) + list(loads.columns[3:]))
     for s_row, l_row in zip(state.rows, loads.rows):
         writer.writerow(s_row + l_row[3:])
-    return header_comment + buf.getvalue()
+    # The two tables' own notes, in band (#242, 2026-09-08 review C4). They are
+    # what define M(W+F), LZW, LT, DX and NX and state that all five are LIMIT;
+    # on the page they sit under the tables, and a file forwarded on its own had
+    # nineteen columns and no definition of five of them. Read off the Table
+    # objects this function already built rather than restated here, so the file
+    # and the page cannot come to say different things about one column.
+    return (header_comment + _csv_note(state.note) + _csv_note(loads.note)
+            + buf.getvalue())
 
 
 def _vn_appendix(project: Project, *, system: UnitSystem,

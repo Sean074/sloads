@@ -24,10 +24,10 @@ and the deck beside it cannot state different units for one load.
 
 from __future__ import annotations
 
-import csv
 import io as _io
 from typing import List, Optional, Sequence
 
+from .. import csv_text
 from ..case_ids import ASSEMBLED_DECK, COMPONENT_DECK, deck_load_id
 from ..export.coordinates import to_force, to_grid, to_moment
 from ..export.deck_format import fmt, load_label, sf_str, solver_units
@@ -185,7 +185,7 @@ _CASE_INDEX_FIELDS = ["ID", LOAD_ID_COLUMN[COMPONENT_DECK],
 
 def _rows_to_csv(rows: List[dict], header_comment: str = "") -> str:
     buf = _io.StringIO()
-    writer = csv.DictWriter(buf, fieldnames=_CASE_INDEX_FIELDS)
+    writer = csv_text.dict_writer(buf, _CASE_INDEX_FIELDS)
     writer.writeheader()
     writer.writerows(rows)
     return header_comment + buf.getvalue()
@@ -223,7 +223,7 @@ def safety_factors_csv(project: Project, header_comment: str = "") -> str:
     from ..safety_factors import GoverningTable
 
     buf = _io.StringIO()
-    writer = csv.DictWriter(buf, fieldnames=_SAFETY_FACTOR_FIELDS)
+    writer = csv_text.dict_writer(buf, _SAFETY_FACTOR_FIELDS)
     writer.writeheader()
     for r in GoverningTable.for_project(project).rows:
         writer.writerow({"Family": r.label, "FAR": r.far_reference,
@@ -373,6 +373,34 @@ def gear_report_rows(project: Project, units: Optional[DeliverableUnits] = None,
     return rows
 
 
+#: The gear report's own header block -- **which of its columns are in which
+#: frame** (#242, 2026-09-08 review C3).
+#:
+#: This is the one delivered file that states two frames at once, and until #242
+#: it named neither: a reader met ``Ground-line V`` beside ``Datum Fz`` with
+#: nothing to say they are the same reaction resolved twice, and the AXES stanza
+#: the stamp now carries would have been read as covering every column on the
+#: row -- which on nine of them it does not. A frame stated once for a file that
+#: has two is worse than a frame stated nowhere, so the exception is stated here,
+#: beside the columns it applies to.
+_GEAR_REPORT_NOTES = (
+    "# The gear load report: one row per LANDLOAD case per loaded leg, stating\n"
+    "# each reaction where it is computed and where the airframe receives it.\n"
+    "# TWO FRAMES, and the columns say which is which:\n"
+    "#   Ground-line V, D, S are the manual's GROUND-LINE ('prime') frame at\n"
+    "#   the tyre contact patch -- vertical, drag and side relative to the\n"
+    "#   ground, NOT to the airplane. It is the airplane frame rotated by this\n"
+    "#   case's attitude; the Ground angle column states that attitude.\n"
+    "#   Every other coordinate and load column -- Patch X/Y/Z, Datum Fx/Fy/Fz,\n"
+    "#   Ref point X/Y/Z and Transfer Mx/My/Mz -- is in the airplane axes the\n"
+    "#   methods stamp's AXES stanza states. The side load is common to both\n"
+    "#   frames: it is normal to the rotation.\n"
+    "# Datum F and Ground-line V/D/S are ONE reaction, not two loads. Transfer\n"
+    "# M is the couple that carries it from the point it is applied at to the\n"
+    "# gear reference point, which is where the airframe receives it.\n"
+)
+
+
 def gear_report_csv(project: Project, header_comment: str = "",
                     system: UnitSystem = UnitSystem.IMPERIAL) -> str:
     """The gear load report as CSV text -- the G-12 companion file.
@@ -389,10 +417,10 @@ def gear_report_csv(project: Project, header_comment: str = "",
     buf = _io.StringIO()
     # The header states this bundle's units (R6-C2); the rows keep the bare
     # keys so their programmatic vocabulary is system-independent.
-    csv.writer(buf).writerow(_gear_report_headers(u))
-    writer = csv.DictWriter(buf, fieldnames=_GEAR_REPORT_FIELDS)
+    csv_text.writer(buf).writerow(_gear_report_headers(u))
+    writer = csv_text.dict_writer(buf, _GEAR_REPORT_FIELDS)
     writer.writerows(rows)
-    return header_comment + buf.getvalue()
+    return header_comment + _GEAR_REPORT_NOTES + buf.getvalue()
 
 
 def write_gear_report_csv(project: Project, path: str, header_comment: str = "",

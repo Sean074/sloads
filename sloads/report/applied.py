@@ -95,7 +95,7 @@ two-component couple this completes.
 
 Torsion reference axis
 ----------------------
-Every wing torsion states its chordwise reference axis in-band (the ``MyyAxis``
+Every wing torsion states its chordwise reference axis in-band (the ``TorsionAxis``
 column). The calc produces torsion about the **25% chord** (oracle-locked); when
 the set is built from a ``Project``, the wing results are first transferred to
 the surface's **loads reference axis** (LRA, ``SurfaceInput.ref_axis_pct`` --
@@ -123,12 +123,12 @@ Reference: Ref 1 Ch 14 (net loads); note 44 (the applied load set), note 56
 
 from __future__ import annotations
 
-import csv
 import io as _io
 import math
 from dataclasses import dataclass, replace
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 
+from .. import csv_text
 from ..case_ids import subcase_id
 from ..export.bands import band
 from ..export.coordinates import (
@@ -437,17 +437,152 @@ def subcase_map_block(results: Sequence) -> List[str]:
 
 
 
-#: Prepended to :func:`applied_load_csv`. States the structural zeros, so a
-#: consumer writing cards cannot read a printed zero as an omission (OR-65).
-_APPLIED_CSV_CONVENTIONS = (
-    "# The applied wing load set: one row per strip and one per concentrated\n"
-    "# wing mass, each at its own point. Nothing here is a running total.\n"
-    "# Moments are right-handed about the airplane axes, about the station's\n"
-    "# own point on the axis named in MyyAxis.\n"
-    "# Fy is zero throughout: the wing carries no spanwise strip load and no\n"
-    "# wing condition in this suite is lateral. Mx and Mz are zero throughout:\n"
-    "# a strip applies forces and a section moment, and every Mxx/Mzz the\n"
-    "# structure carries is those forces acting through the arms stated here.\n"
+# --------------------------------------------------------------------------- #
+# What each applied file says about itself
+#
+# Three blocks, in the order a reader needs them: what the file *is*, which of
+# its load columns are zero in every row and why, and what its identity columns
+# mean. The middle one is **derived from the rows being written** (#242).
+#
+# It used to be prose, per component, stating which columns were structurally
+# zero -- and note 56 D-56.9 then re-aggregated the delivered set onto the LRA
+# beam's grids, where each load's offset from the grid it lumps onto is carried
+# as an exact lever-arm couple. Moments appeared on three axes the notes had
+# declared zero "throughout", and four of the six files shipped for a milestone
+# stating a zero the data beside it contradicted -- the 2026-09-08 review's C3
+# defect class, arriving from the one direction prose cannot defend against: the
+# numbers moved and the sentence did not. So the *claim* is now read off the
+# rows and the prose supplies only the *reason*, which is what prose is for.
+# --------------------------------------------------------------------------- #
+#: What each file is: its row set, its point, and the rules particular to it.
+#: No zero claims here -- see :data:`_APPLIED_ZERO_REASONS`.
+_APPLIED_CSV_WHAT = {
+    "wing": (
+        "# The applied wing load set: one row per delivered grid, summing the\n"
+        "# strip loads and concentrated wing masses that lump onto it. Nothing\n"
+        "# here is a running total.\n"),
+    "fuselage": (
+        "# The applied fuselage load set: the body beam's applied loads at the\n"
+        "# points on the fuselage loads reference axis the structure is at.\n"
+        "# Nothing here is a running total.\n"),
+    "htail": (
+        "# The applied horizontal tail load set: the strip loads and any\n"
+        "# discrete control-surface node, at the grids they are delivered at.\n"
+        "# Nothing here is a running total.\n"
+        "# Fz is the normal load and My carries the strip torsion about the\n"
+        "# surface's span axis, which for this surface is airplane y. A\n"
+        "# 'control N' row is a discrete control-surface load, and its force is\n"
+        "# that surface's NORMAL load resolved onto the same airplane axis --\n"
+        "# Fz here, and Fy on the fin, where the normal is lateral.\n"
+        "# This analysis models no chordwise load on either tail surface and no\n"
+        "# spanwise acceleration reaches a horizontal tail.\n"),
+    "vtail": (
+        "# The applied vertical tail load set: the strip loads, any discrete\n"
+        "# control-surface node and the T-tail transfer, at the grids they are\n"
+        "# delivered at. Nothing here is a running total.\n"
+        "# Fy is the normal load and Mz carries the strip torsion about the\n"
+        "# surface's span axis, which for a fin is airplane z. TorsionAxis\n"
+        "# therefore names the reference of the Mz column on this file, not of\n"
+        "# the My column: a lateral load makes no torsion about y.\n"
+        "# A 'control N' row is a discrete control-surface load -- rudder or\n"
+        "# rudder tab -- and its force is the surface NORMAL load, which on a\n"
+        "# vertical surface is lateral and so is carried in Fy, not Fz.\n"
+        "# Fz is NOT zero: the fin's span is vertical, so vertical acceleration\n"
+        "# on its own mass is an axial column load carried in the same card.\n"
+        "# This analysis models no chordwise load on either tail surface.\n"),
+    "landing_gear": (
+        "# The applied landing gear load set: one row per LANDLOAD case per\n"
+        "# loaded leg, all 33 cases, at the point that case's reaction is\n"
+        "# applied at -- the axle or the ground contact point, per FAR 23\n"
+        "# Appendix C and the manual's own point-of-load column. The point is\n"
+        "# named in the Station column of every row, because it is not the same\n"
+        "# point for every case.\n"
+        "# NO CRITICAL-CASE DOWN-SELECT HAS BEEN APPLIED. A ground case sizes a\n"
+        "# gear member through a load path this analysis does not model, so\n"
+        "# every case is delivered and the ranking is the gear discipline's.\n"
+        "# Cases 25-33 are the 23.499 supplementary nose-wheel family: gear\n"
+        "# design conditions with no airplane in equilibrium, which is why the\n"
+        "# assembled ground deck carries cases 1-24 only.\n"
+        "# TorsionAxis is n/a: a point load has no torsion reference axis.\n"),
+    "engine": (
+        "# The applied engine mount load set: six components at one point, one\n"
+        "# row per case, at the combined engine and propeller CG. The 23.371(b)\n"
+        "# gyroscopic condition appears as its four sign combinations, each its\n"
+        "# own row and its own case id -- the condition's id with an a/b/c/d\n"
+        "# suffix, which the case index lists as the one case it is.\n"
+        "# Mx is the mount reaction torque about the thrust axis.\n"
+        "# TorsionAxis is n/a: a point load has no torsion reference axis.\n"),
+}
+
+#: Why a load column is zero, per component -- the *reason* half of OR-140.
+#:
+#: A zero column is published, never dropped, and the reason it is zero is
+#: published beside it: dropping the column leaves the reader to decide whether
+#: a missing column is a zero or an omission, and printing it bare leaves them
+#: reading a *measured* zero. The reason differs per component -- the wing has
+#: no lateral condition, the fin no chordwise one, the body beam no producer at
+#: all -- which is why this is a table and not a sentence.
+#:
+#: Whether a column *is* zero is not stated here. It is measured from the rows
+#: (:func:`_applied_zero_block`), and ``tests/test_delivered_frame_statement.py``
+#: holds the two halves together in both directions: a column that is zero in
+#: every row of every example must have a reason here, and a reason here must
+#: not name a column the data fills.
+_APPLIED_ZERO_REASONS = {
+    "wing": {
+        "Fy": "the wing carries no spanwise strip load, and no wing condition "
+              "in this suite is lateral",
+    },
+    "fuselage": {
+        "Fx": "the body beam has no fore-aft producer",
+        "Fy": "the body beam has no lateral producer",
+        "Mx": "a body station applies a force and no free roll moment",
+        "Mz": "a body station applies a force and no free yaw moment",
+    },
+    "htail": {
+        "Fx": "this analysis models no chordwise load on a tail surface",
+        "Fy": "no spanwise acceleration reaches a horizontal tail",
+        "Mz": "a strip applies forces and a torsion, and the fin-plane bending "
+              "the structure carries is those forces through the arms stated "
+              "here",
+    },
+    "vtail": {
+        "Fx": "this analysis models no chordwise load on a tail surface",
+    },
+    "landing_gear": {
+        "Mx": "a wheel reaction is a pure force at the point stated here",
+        "My": "a wheel reaction is a pure force at the point stated here",
+        "Mz": "a wheel reaction is a pure force at the point stated here",
+    },
+    "engine": {},
+}
+
+#: The gear file's second statement about its zeros -- where the couple went.
+#: Appended after the derived block, because it answers the question the block
+#: raises rather than restating it.
+_GEAR_COUPLE_NOTE = (
+    "# The couple that carries a wheel reaction to the gear reference point is\n"
+    "# in the gear load report (gear_loads.csv), which states both ends of the\n"
+    "# leg.\n"
+)
+
+#: Why the moment columns of a re-aggregated file are rarely zero (D-56.9).
+#:
+#: The one sentence that would have prevented this whole class of staleness, and
+#: the reason four files could state a zero that had stopped being true: the
+#: delivered row is at a beam grid, not at the load's own point, and the offset
+#: between them is carried as an exact couple on all three axes. A reader who is
+#: not told that reads a fin's Mx as a rolling moment on the fin.
+_APPLIED_CSV_GRIDS = (
+    "# The rows are at the LRA beam model's grids, not at the load stations:\n"
+    "# several stations generally lump onto one grid, and each load is moved\n"
+    "# there with the exact lever-arm couple (p - n) x F of its own offset. The\n"
+    "# transfer is exact about every reference point, so the set's resultant per\n"
+    "# case is unchanged; what it moves is the distribution. This is why the\n"
+    "# moment columns are generally non-zero on every axis even where the load\n"
+    "# that produced them is a pure force -- those components are lever arms,\n"
+    "# not free moments the calc computed. TorsionAxis names the chordwise\n"
+    "# reference of the strip torsion inside them.\n"
 )
 
 #: What the identity columns are, said once for all six files (#241).
@@ -464,82 +599,78 @@ _APPLIED_CSV_IDENTITY = (
     "# the numbers were computed at, and is blank where the case names none.\n"
 )
 
-#: Per component, what the file is and which of its columns are structural
-#: zeros -- the same statement each appendix makes in prose (note 44 OR-140).
-#:
-#: A zero column is published, never dropped, and the reason it is zero is
-#: published beside it. Dropping it leaves the reader to decide whether a
-#: missing column is a zero or an omission; printing it without the reason
-#: leaves them reading a *measured* zero. Both halves, per component, because
-#: the reason differs: the wing has no lateral condition, the fin has no
-#: chordwise one, and the body beam has no producer at all.
-_APPLIED_CSV_NOTES = {
-    "wing": _APPLIED_CSV_CONVENTIONS,
-    "fuselage": (
-        "# The applied fuselage load set: one row per station of the body beam,\n"
-        "# at the point on the fuselage loads reference axis where the structure\n"
-        "# is. Nothing here is a running total.\n"
-        "# Moments are right-handed about the airplane axes, about the station's\n"
-        "# own point on the axis named in MyyAxis.\n"
-        "# Fz is the whole applied set. Fx and Fy are zero throughout because\n"
-        "# the body beam has no fore-aft or lateral producer, and Mx, My and Mz\n"
-        "# because a station applies a force and no free moment: every moment\n"
-        "# the beam carries is those forces acting through the arms stated here.\n"),
-    "htail": (
-        "# The applied horizontal tail load set: one row per strip, plus any\n"
-        "# discrete control-surface node. Nothing here is a running total, and\n"
-        "# every row is a card the spanwise deck writes at the same GID.\n"
-        "# Moments are right-handed about the airplane axes, about the station's\n"
-        "# own point on the axis named in MyyAxis.\n"
-        "# Fz is the normal load and My the strip torsion about the surface's\n"
-        "# span axis, which for this surface is airplane y. Fx and Fy are zero\n"
-        "# throughout: this analysis models no chordwise load on either tail\n"
-        "# surface, and no spanwise acceleration reaches a horizontal tail.\n"
-        "# Mx and Mz are zero: a strip applies forces and a torsion, and the\n"
-        "# bending the structure carries is those forces through these arms.\n"),
-    "vtail": (
-        "# The applied vertical tail load set: one row per strip, plus any\n"
-        "# discrete control-surface node and the T-tail transfer. Nothing here\n"
-        "# is a running total, and every row is a card the spanwise deck writes\n"
-        "# at the same GID.\n"
-        "# Moments are right-handed about the airplane axes, about the station's\n"
-        "# own point on the axis named in MyyAxis.\n"
-        "# Fy is the normal load and Mz the strip torsion about the surface's\n"
-        "# span axis, which for a fin is airplane z -- NOT My, which is zero\n"
-        "# throughout: a lateral load can make no moment about the y axis.\n"
-        "# Fz is NOT zero: the fin's span is vertical, so vertical acceleration\n"
-        "# on its own mass is an axial column load carried in the same card.\n"
-        "# Fx and Mx are zero: this analysis models no chordwise load on either\n"
-        "# tail surface, and the bending the structure carries is the normal\n"
-        "# load acting through the arms stated here.\n"),
-    "landing_gear": (
-        "# The applied landing gear load set: one row per LANDLOAD case per\n"
-        "# loaded leg, all 33 cases, at the point that case's reaction is\n"
-        "# applied at -- the axle or the ground contact point, per FAR 23\n"
-        "# Appendix C and the manual's own point-of-load column. The point is\n"
-        "# named in the Station column of every row, because it is not the same\n"
-        "# point for every case.\n"
-        "# NO CRITICAL-CASE DOWN-SELECT HAS BEEN APPLIED. A ground case sizes a\n"
-        "# gear member through a load path this analysis does not model, so\n"
-        "# every case is delivered and the ranking is the gear discipline's.\n"
-        "# Cases 25-33 are the 23.499 supplementary nose-wheel family: gear\n"
-        "# design conditions with no airplane in equilibrium, which is why the\n"
-        "# assembled ground deck carries cases 1-24 only.\n"
-        "# Mx, My and Mz are zero throughout: a wheel reaction is a pure force\n"
-        "# at the point stated here. The couple that carries it to the gear\n"
-        "# reference point is in the gear load report (gear_loads.csv), which\n"
-        "# states both ends of the leg.\n"
-        "# MyyAxis is n/a: a point load has no torsion reference axis.\n"),
-    "engine": (
-        "# The applied engine mount load set: six components at one point, one\n"
-        "# row per case, at the combined engine and propeller CG. The 23.371(b)\n"
-        "# gyroscopic condition appears as its four sign combinations, each its\n"
-        "# own row and its own case id -- the condition's id with an a/b/c/d\n"
-        "# suffix, which the case index lists as the one case it is.\n"
-        "# Moments are right-handed about the airplane axes at the point stated\n"
-        "# here; Mx is the mount reaction torque about the thrust axis.\n"
-        "# MyyAxis is n/a: a point load has no torsion reference axis.\n"),
-}
+#: The load columns, in the order the header states them.
+_APPLIED_LOAD_COLUMNS = ("Fx", "Fy", "Fz", "Mx", "My", "Mz")
+
+
+def zero_columns(rows: Sequence["AppliedLoad"]) -> List[str]:
+    """Which load columns are zero in **every** row of ``rows`` (#242).
+
+    Measured, not declared. The six components are read the way the file writes
+    them -- forces as stored, moments through :func:`applied_body_moments` --
+    so this answers the question a reader of the file asks, not the question the
+    producer meant to answer.
+
+    An empty row set has no zero columns rather than all six: a file with no rows
+    states nothing about its columns.
+    """
+    if not rows:
+        return []
+    out: List[str] = []
+    for i, name in enumerate(_APPLIED_LOAD_COLUMNS):
+        values = ([(r.fx, r.fy, r.fz)[i] for r in rows] if i < 3
+                  else [applied_body_moments(r)[i - 3] for r in rows])
+        if not any(values):
+            out.append(name)
+    return out
+
+
+def _wrapped_comment(text: str, indent: str = "") -> str:
+    """``text`` as ``#``-prefixed lines at the width the hand-written blocks use."""
+    import textwrap
+
+    return "".join(f"# {indent}{ln}\n"
+                   for ln in textwrap.wrap(text, width=70 - len(indent)))
+
+
+def _applied_zero_block(component: str, rows: Sequence["AppliedLoad"]) -> str:
+    """The structural-zero paragraph for ``component``'s delivered ``rows``.
+
+    Two statements, and the difference between them is the whole point. A
+    **structural** zero is a column the model cannot fill -- the wing has no
+    lateral condition, a wheel reaction is a pure force -- and it is published
+    with its reason, per OR-140, so that a consumer writing cards cannot read a
+    printed zero as an omission. An **incidental** zero is a column this
+    project's configuration happens to leave empty: the ga6's single tractor
+    engine fills neither My nor Mz, and a twin's does. Printing the second with
+    the first's words would tell a reader that a column can never be filled when
+    the next airplane fills it.
+
+    Which columns are zero is measured (:func:`zero_columns`); which of them are
+    zero *structurally* is the component's entry in
+    :data:`_APPLIED_ZERO_REASONS`. A column named there that the rows fill is a
+    stale reason, and the guard fails on it rather than this function papering
+    over it -- that is the failure this whole block exists to make impossible.
+    """
+    reasons = _APPLIED_ZERO_REASONS[component]
+    zeros = zero_columns(rows)
+    out = ""
+    structural = [n for n in zeros if n in reasons]
+    if structural:
+        out += ("# STRUCTURAL ZEROS -- published, never dropped, so that a zero\n"
+                "# here is not read as an omission:\n")
+        for name in structural:
+            out += _wrapped_comment(
+                f"{name} is zero in every row: {reasons[name]}.", indent="  ")
+    incidental = [n for n in zeros if n not in reasons]
+    if incidental:
+        out += _wrapped_comment(
+            "ALSO ZERO, but not structurally -- this project's configuration "
+            "does not fill "
+            f"{'them' if len(incidental) > 1 else 'it'}, and another's may:")
+        for name in incidental:
+            out += _wrapped_comment(f"{name} is zero in every row.", indent="  ")
+    return out
 
 
 
@@ -706,6 +837,19 @@ class AppliedLoad:
     #: case (``coordinates.ttail_transfer_to_airplane``); this is the same
     #: exception, declared on the row rather than left to a reader to infer.
     body_moments: bool = False
+    #: Whether this row is stated at an **LRA beam grid** rather than at the
+    #: load's own point (note 56 D-56.9, #242).
+    #:
+    #: True only on what :func:`aggregate_to_lra` returns. It is the difference
+    #: between a row whose moments are the calc's free moments and a row whose
+    #: moments also carry the lever-arm couple of the offset to its grid, and the
+    #: delivered file has to say which it is holding -- a fin row's Mx is a
+    #: rolling moment in the first reading and an arm in the second. Carried on
+    #: the row because it is per-set and not per-component: the two components
+    #: that are never re-aggregated say so, and a project whose geometry builds
+    #: no beam falls back to the station-level rows, which are not at grids
+    #: either.
+    at_grid: bool = False
 
 
 def applied_load_rows(arg: ResultsArg) -> List[AppliedLoad]:
@@ -1043,7 +1187,7 @@ def aggregate_to_lra(rows: Sequence["AppliedLoad"], model,
                 mxx_free=mx + cx, myy_free=my + cy, mzz_free=mz + cz,
                 safety_factor=row.safety_factor,
                 torsion_axis=row.torsion_axis, component=row.component,
-                body_moments=True)
+                body_moments=True, at_grid=True)
             continue
         acc[key_cg] = replace(
             got,
@@ -1199,7 +1343,13 @@ def _applied_csv_fields(u: DeliverableUnits,
         # whether an absent column is a zero or an omission.
         f"Fx ({fo})", f"Fy ({fo})", f"Fz ({fo})",
         f"Mx ({mo})", f"My ({mo})", f"Mz ({mo})",
-        "MyyAxis",                 # torsion reference axis (in-band, like SF)
+        # The axis the row's torsion is taken about, in band like SF. Named
+        # ``TorsionAxis`` and not ``MyyAxis`` since #242: the fin's torsion is
+        # ``Mz`` -- ``applied_body_moments`` puts it there, because a lateral
+        # load can make no moment about ``y`` -- so a column called ``MyyAxis``
+        # made, on one of the six files, an axis claim the data beside it did
+        # not honour. One name, true on every file.
+        "TorsionAxis",
         "SF",                      # the case's limit -> ultimate factor
     ]
 
@@ -1249,7 +1399,7 @@ def applied_load_csv(arg: ResultsArg, header_comment: str = "", *,
     fields = _applied_csv_fields(u, shared_basis_factor(rows))
     x_h, y_h, z_h, fx_h, fy_h, fz_h, mx_h, my_h, mz_h = fields[5:14]
     buf = _io.StringIO()
-    writer = csv.DictWriter(buf, fieldnames=fields)
+    writer = csv_text.dict_writer(buf, fields)
     writer.writeheader()
     for load in rows:
         sf = load.safety_factor
@@ -1269,10 +1419,18 @@ def applied_load_csv(arg: ResultsArg, header_comment: str = "", *,
             x_h: f"{gx:.3f}", y_h: f"{gy:.3f}", z_h: f"{gz:.3f}",
             fx_h: f"{fx:.1f}", fy_h: f"{fy:.1f}", fz_h: f"{fz:.1f}",
             mx_h: f"{mx:.0f}", my_h: f"{my:.0f}", mz_h: f"{mz:.0f}",
-            "MyyAxis": load.torsion_axis,
+            "TorsionAxis": load.torsion_axis,
             "SF": sf_str(sf),
         })
-    return (header_comment + _APPLIED_CSV_NOTES[component]
+    # What the file is, which of its columns are zero *in the rows just
+    # written*, how to read it if the rows are at grids, and what the identity
+    # columns mean -- in that order, because that is the order a reader needs
+    # them and because only the second is allowed to be derived (#242).
+    zeros = _applied_zero_block(component, rows)
+    if component == "landing_gear" and zeros:
+        zeros += _GEAR_COUPLE_NOTE
+    grids = _APPLIED_CSV_GRIDS if rows and rows[0].at_grid else ""
+    return (header_comment + _APPLIED_CSV_WHAT[component] + zeros + grids
             + _APPLIED_CSV_IDENTITY + buf.getvalue())
 
 

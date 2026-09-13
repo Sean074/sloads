@@ -355,7 +355,7 @@ approved-corrections register [`../20_theory/02_approved_corrections.md`](../20_
 - **Writes:** the net spanwise shear, bending moment and torsion along the 25% chord → **`Project.loads.wing_net`** (+ the air/inertia distributions in `Project.loads`) + a one-row-per-station CSV (`net_loads.wing_load_rows`, with the in-band `MyyAxis` torsion-axis column and `Basis` LIMIT marker). Pure entry `net_loads.build_net_loads(project)`.
 - **Validation:** Appendix A "Net Loads, Case 22 PHAA" p222 (root Sz +5837, Mxx +455555, Myy -60940, Mzz -81483) — exact algebraic sum of the air (p206) and inertia distributions.
 - **Notes:** A primary structural deliverable (root shear/BM/torsion), wing only, full fidelity (all of Fx/Fz/Sx/Sz/Mxx/Myy/Mzz). SELECT selects the governing cases; NETLOADS also accepts them supplied directly as `WingLoadCase`s referencing the V-n matrix.
-- **Torsion reference axis (M4-18).** The calc accumulates torsion about the local **25% chord** (AIRLOADS/WINGINER convention, oracle-locked). The deliverables state it about the surface's **loads reference axis** (LRA, `SurfaceInput.ref_axis_pct` — the beam-model elastic axis, typically 40–50 % chord; default 0.25 = the original reporting): `net_loads.to_loads_ref_axis` applies the pure boundary transform `Myy_lra(y) = Myy_25(y) + Sz(y)·(x_lra(y) − x_25(y))` (shears/bending unchanged), stamps `WingLoadResult.torsion_axis`, and is invoked by the Loads-Plots page and the sbeam bridge (`loads_ref_axis_results`) — exactly the limit→ultimate boundary pattern. Every rendered/exported torsion **names its axis** (metric/plot labels, `MyyAxis` CSV column, BDF `$` comments); the Wing Loads analysis page stays at the labelled 25 % chord for manual cross-checks, and `net_loads.run` reports the root torsion at both axes (labelled) when the LRA differs.
+- **Torsion reference axis (M4-18).** The calc accumulates torsion about the local **25% chord** (AIRLOADS/WINGINER convention, oracle-locked). The deliverables state it about the surface's **loads reference axis** (LRA, `SurfaceInput.ref_axis_pct` — the beam-model elastic axis, typically 40–50 % chord; default 0.25 = the original reporting): `net_loads.to_loads_ref_axis` applies the pure boundary transform `Myy_lra(y) = Myy_25(y) + Sz(y)·(x_lra(y) − x_25(y))` (shears/bending unchanged), stamps `WingLoadResult.torsion_axis`, and is invoked by the Loads-Plots page and the sbeam bridge (`loads_ref_axis_results`) — exactly the limit→ultimate boundary pattern. Every rendered/exported torsion **names its axis** (metric/plot labels, `net_loads.wing_load_rows`' `MyyAxis` column, the applied files' `TorsionAxis` column — renamed at #242, the fin's torsion being `Mz` — BDF `$` comments); the Wing Loads analysis page stays at the labelled 25 % chord for manual cross-checks, and `net_loads.run` reports the root torsion at both axes (labelled) when the LRA differs.
 
 ### AILERON — Aileron loads (built, Step C8)
 - **FAR §:** 23.349 (rolling), 23.455 (aileron), CAM 3.222.
@@ -1054,6 +1054,48 @@ result that lacks what a deck needs is a stated error, never an empty column.
   knows which suffixes are strippable. Guards:
   `tests/test_applied_case_identity.py` (round trip into the index on every
   bundled example, all six components).
+- **Every delivered file states the frame its numbers are in (#242, 2026-09-13).**
+  The methods stamp carries an **AXES** stanza beside its UNITS one, so it lands
+  in band on every channel at once — the six applied CSVs, the case index, the
+  gear report, the safety-factor table, the per-module CSVs, the V-n conditions
+  file, `METHODS.txt` and the decks: `x` = fuselage station positive aft, `y` =
+  butt line positive right, `z` = waterline positive up, the origin the
+  project's own datum, moments right-handed about those axes, and the solver
+  deck the same frame (basic `CID 0`) rather than a transformed one. The words
+  are owned by `export/coordinates.AIRPLANE_AXES`/`AXES_NOTES` — beside the map
+  they describe, which `CONVENTIONS.md` §1 already names the single edit-point
+  for an axis flip — and rendered by `report/methods._axes_block` and by nothing
+  else. Two files state an exception to it: the **gear report**, whose
+  `Ground-line V/D/S` columns are the manual's ground-line frame at the contact
+  patch and whose every other coordinate and load column is airplane axes, says
+  so in its own header block; and the applied files' torsion-axis column, which
+  is named **`TorsionAxis`** and no longer `MyyAxis`, because the fin's torsion
+  is `Mz` and a column asserting `Myy` was, on one of the six files, an axis
+  claim the data beside it did not honour. A control-surface row's force is the
+  surface **normal** load resolved onto the airplane axis its own file names —
+  `Fz` on the h-tail, `Fy` on the fin — and both tail files say so.
+- **A file's structural zeros are measured, not asserted (#242, 2026-09-13).**
+  OR-140's rule — a zero column is published, never dropped, and the reason it
+  is zero is published beside it — was per-component prose, and note 56 D-56.9
+  then re-aggregated the delivered set onto the LRA grids, where each load
+  carries the lever-arm couple of its own offset. Moments appeared on three axes
+  four of the six files declared zero "throughout", and the prose did not move
+  with the numbers. The *claim* is now read off the rows being written
+  (`applied.zero_columns`) and the prose supplies only the *reason*
+  (`applied._APPLIED_ZERO_REASONS`); a column that is zero for this
+  configuration rather than by the model is stated as such and not as a
+  structural zero. A re-aggregated file also states that its rows are at grids
+  and that its moment columns therefore carry arms as well as free moments —
+  the sentence whose absence let the zeros go stale. Guards:
+  `tests/test_delivered_frame_statement.py` (no file claims a zero its own rows
+  fill; no reason outlives its column; every zero is accounted for; a file at
+  grids says so and one that is not does not).
+- **A delivered CSV has one line ending (#242, 2026-09-13).** Every stamped file
+  was LF in its comment block and CRLF in its rows, because the prose was joined
+  by hand and the data came from `csv`'s default. `sloads/csv_text.py` owns the
+  terminator and the two writer constructions the package makes; no call site
+  passes `lineterminator=`, because a writer added without it produces a file
+  that looks right in every viewer and is mixed on disk.
 - **The delivered set is stated at the beam's grids, and what that costs is
   published (note 56 D-56.9/D-56.10, 2026-09-12).** `applied_loads` returns one
   row per (case, LRA grid): every load station and every concentrated mass is

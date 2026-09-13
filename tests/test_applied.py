@@ -284,9 +284,11 @@ def test_the_applied_csv_states_its_units_axis_and_factor():
         "Case ID", "Case", "Loading", "Station", "GID",
         "X (in)", "Y (in)", "Z (in)",
         "Fx (lb)", "Fy (lb)", "Fz (lb)",
-        "Mx (lb-in)", "My (lb-in)", "Mz (lb-in)", "MyyAxis", "SF"]
+        # ``TorsionAxis`` since #242: the fin's torsion is Mz, so a column
+        # called MyyAxis named the wrong axis on one of the six files.
+        "Mx (lb-in)", "My (lb-in)", "Mz (lb-in)", "TorsionAxis", "SF"]
     row = _csv_rows(text)[0]
-    assert row["MyyAxis"] == net[0].torsion_axis
+    assert row["TorsionAxis"] == net[0].torsion_axis
     assert row["SF"] == "1.5"
 
 
@@ -371,7 +373,7 @@ def test_project_export_transfers_to_loads_ref_axis():
     wing = p.geometry.by_name(p.wing_mass.surface)
     wing.ref_axis_pct = 0.40
     rows = _csv_rows(ap.applied_load_csv(p))
-    assert rows and all(r["MyyAxis"] == "LRA 40% chord" for r in rows)
+    assert rows and all(r["TorsionAxis"] == "LRA 40% chord" for r in rows)
     # The transfer moved the point the load is *computed* about, and this is
     # still what that means -- but the delivered row's X is now the **grid's**,
     # because D-56.9 sums the set onto the beam. So the claim is asserted where
