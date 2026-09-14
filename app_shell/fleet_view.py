@@ -1,10 +1,10 @@
 """The fleet comparison's **shared rendering** -- readout, figures, fleet table.
 
-Design note 57 D-57.5 ports the Aircraft Comparison page to the surviving GUI.
-Both front-ends carry it until ``app/views/`` retires at #270, and this module
-is why that costs no duplication: everything the two pages show is rendered
-here, and each page supplies only its own framing -- the oracle GUI marks it as
-an sloads extension, the app does not, and that is the whole difference.
+Design note 57 D-57.5 ported the Aircraft Comparison page to the surviving GUI.
+It was written as shared rendering because both front-ends carried the page
+until ``app/views/`` retired at #270: everything a page shows is rendered here
+and the page supplies only its own framing, which is why the port cost no
+duplication. One page frames it now, marking it an sloads extension.
 
 It follows note 60 D-60.1 exactly as the step figures do: it is handed
 ``Figure`` objects by :mod:`sloads.report.fleet_figures` and ``FleetStats`` by

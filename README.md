@@ -12,16 +12,17 @@ mode is a superset of it. See
 [`docs/30_future/01_concept_loads_plan.md`](docs/30_future/01_concept_loads_plan.md).
 
 The codebase is a shared pure-calc package (`sloads`) plus a multi-page
-Streamlit UI (`app/`) and a CLI (`cli.py`). A single reloadable `project.json`
-carries every module's inputs; each module emits its own load-case CSV.
+Streamlit UI (`oracle_app/` over the shared `app_shell/`) and a CLI (`cli.py`).
+A single reloadable `project.json` carries every module's inputs; each module
+emits its own load-case CSV.
 
 **License:** MIT (see [LICENSE](LICENSE)) — free to use, modify, and
 redistribute, including commercially.
 
-> **Release state.** Core analysis developed per FAR 23 LOADS and the oracle GUI production-ready; additional features and the full sloads GUI in beta.
+> **Release state.** Core analysis developed per FAR 23 LOADS and the GUI production-ready; concept-mode features in beta.
 >
-> *(One owner: `app_shell.components.RELEASE_STATE`, which the About panel in
-> both GUIs and `CAPABILITIES.md` also carry, and which `pyproject.toml`'s
+> *(One owner: `app_shell.components.RELEASE_STATE`, which the GUI's About
+> panel and `CAPABILITIES.md` also carry, and which `pyproject.toml`'s
 > `Development Status :: 4 - Beta` classifier points at — a trove value cannot
 > express a mixed state. Guarded by `tests/test_doc_currency.py`.)*
 >
@@ -46,17 +47,18 @@ redistribute, including commercially.
 ```
 sloads/                 # shared, pure-calc package (no I/O in calc)
 ├── constants.py          # g, pi (math.pi), unit factors, atmosphere — centralized
-├── models.py             # Project + per-domain slices, ConditionResult, ModuleResult, SCHEMA_VERSION
+├── models/               # Project + per-domain slices, ConditionResult, ModuleResult, SCHEMA_VERSION
 ├── units.py              # Imperial<->SI conversion at the I/O boundary
 ├── io.py                 # load/save project JSON; load-case CSV writer
 ├── registry.py           # name -> run(project) -> ModuleResult
-├── report.py             # text/CSV rendering
+├── workflow.py           # the step graph and the GUI page set — the nav SSOT
+├── report/               # the oracle technical report: sections, figures, LaTeX, the issue package
 ├── export/               # output renderers (sbeam bridge); not registered modules
 └── modules/              # one file per program (engine, weight_*, wing_*, airloads,
                           #   flight_envelope, select, net_loads, body_loads, configuration, …)
-app/
-├── Home.py               # st.navigation entry point — sidebar phases from workflow.py (Start + six analysis-flow sections through Export)
-└── views/                # one page per workflow step + dashboard / results_review / export_report
+app_shell/               # the app-layer shell: project state, sidebar, page scaffold, unit boundary, JSON editor, figures
+oracle_app/
+└── Oracle.py             # st.navigation entry point — the page set from workflow.gui_pages() (the analysis steps, plus the JSON editor, fleet comparison and Report)
 cli.py                    # python cli.py engine project.json -o out.csv
 tests/                    # pytest; each module vs the manual's appendices
 examples/                 # ga6_normal (Appendix A) + baron_58 (normal-cat twin), atr42_100 + concept_regional_jet (concept) run the full workflow; concept_heavy is a minimal concept-core demo (V-n → Flight Envelope only)

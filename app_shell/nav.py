@@ -15,8 +15,7 @@ directly, so nothing has to be spelled as a path.
 
 Registration lives in session state rather than a module global because the
 pages belong to a *session's* running app, not to the imported module: two
-browser tabs on the two GUIs share this process and must not see each other's
-page set.
+browser tabs share this process and must not see each other's page set.
 
 A caller that has not registered (a view driven standalone under ``AppTest``,
 or a page rendered outside ``st.navigation``) gets ``None`` and the helper falls

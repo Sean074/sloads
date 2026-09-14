@@ -1,28 +1,27 @@
 """Widget identity across a project replacement — the *project generation*.
 
 Streamlit widget state, once registered under a key, wins over the ``value=``
-argument on every later rerun. Widget keys in both GUIs are stable across
-projects — a registry path in :mod:`oracle_app.form`, a hand-written name in
-``app/views/`` — so a page **visited before** a load kept re-rendering its own
-retained state, and, because those widgets persist what they return, wrote that
-stale state straight back over the project that had just been loaded. In the
-oracle GUI (which has no Apply step) that happened on the load's own rerun: the
-row-count widget of a table held ``0``, so all 21 ``weight.items`` and all 8
-``cg_cases`` of a loaded ATR-42 were popped, and saving from there put the
-emptied project on disk. It is not a display defect and re-seeding does not fix
+argument on every later rerun. Widget keys are stable across projects — a
+registry path in :mod:`oracle_app.form` — so a page **visited before** a load
+kept re-rendering its own retained state, and, because those widgets persist
+what they return, wrote that stale state straight back over the project that
+had just been loaded. This GUI has no Apply step, so it happened on the load's
+own rerun: the row-count widget of a table held ``0``, so all 21
+``weight.items`` and all 8 ``cg_cases`` of a loaded ATR-42 were popped, and
+saving from there put the emptied project on disk. It is not a display defect and re-seeding does not fix
 it: the widget has to be a **different widget**.
 
 This module is that difference. Every widget seeded from the project keys itself
 through :func:`widget_key`, which stamps the key with a counter bumped exactly
 once per *replacement* of the session's project — by
 :func:`app_shell.project_state.adopt` (a load), and by the JSON editor's Apply
-(``app/views/project_editor.py``), which replaces the project without saving it
+(:mod:`app_shell.project_editor`), which replaces the project without saving it
 and so bumps here without touching the dirty baseline. A mutation, a per-page
 Apply, a unit switch: not a replacement, and the widgets keep their state.
 
 The alternative — clearing widget state on adopt — needs a list of keys the
-shell would have to keep in step with the field registry and twenty-one view
-modules; it is wrong the first time a widget is added, and silent about it.
+shell would have to keep in step with the field registry and every page that
+renders one; it is wrong the first time a widget is added, and silent about it.
 The generation stamp is carried by the key itself, so a new widget is fresh by
 construction, and ``tests/test_widget_freshness.py`` fails on one that skips it.
 

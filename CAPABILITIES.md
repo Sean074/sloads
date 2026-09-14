@@ -13,7 +13,7 @@ and the balanced free-free airframe. The package is pure calculation with three
 interchangeable front-ends: a multi-page Streamlit GUI, a CLI, and the test
 suite; one reloadable `project.json` carries every input.
 
-**Release state.** Core analysis developed per FAR 23 LOADS and the oracle GUI production-ready; additional features and the full sloads GUI in beta.
+**Release state.** Core analysis developed per FAR 23 LOADS and the GUI production-ready; concept-mode features in beta.
 
 ---
 

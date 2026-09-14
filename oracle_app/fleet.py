@@ -1,9 +1,9 @@
 """The oracle GUI's **Aircraft Comparison** page -- this airplane against a fleet.
 
-Design note 57 D-57.5. The retiring front-end's fleet page answers the Phase-C
+Design note 57 D-57.5. The retired front-end's fleet page answered the Phase-C
 charter question -- *how does this configuration compare with similar
 airplanes?* (``01_concept_loads_plan.md`` §1) -- and that is a capability, not a
-page decoration, so it lands here rather than retiring with ``app/views/``.
+page decoration, so it landed here rather than retiring with ``app/views/``.
 
 **It is a marked sloads extension, and it is not an oracle step.** The original
 McMaster suite has no fleet comparison; #266's convention is that capability

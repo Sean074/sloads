@@ -863,10 +863,10 @@ def build_landing(project: Project) -> Tuple[LoadFactorResult, List[GearReaction
 def energy_load_factor_estimate(project: Project) -> Optional[LoadFactorResult]:
     """LGFACTOR's energy result from the stored inputs, or ``None`` -- never raises.
 
-    A display helper for both GUIs (note 37, LF-7): the seed for the governing-N
-    widget and the "entered N is below the computed N" caution both need the
-    energy value on a page that may not yet be computable. One owner here so the
-    two front-ends cannot restate the LGFACTOR call differently.
+    A display helper (note 37, LF-7): the seed for the governing-N widget and
+    the "entered N is below the computed N" caution both need the energy value
+    on a page that may not yet be computable. One owner here so no renderer can
+    restate the LGFACTOR call differently.
     """
     try:
         if project.landing is None:
@@ -886,7 +886,7 @@ def below_energy_caution(project: Project) -> Optional[str]:
 
     Not a refusal: a rounded-down design N is legal (the floors are the hard
     bound), but running the reactions below the drop-test energy value deserves a
-    stated warning. One owner for both GUIs; ``cessna_210`` trips it (3.1670
+    stated warning. One owner; ``cessna_210`` trips it (3.1670
     entered vs 3.3885 computed), ``ga6_normal`` does not (3.167 vs 3.0951).
     """
     inp = project.landing

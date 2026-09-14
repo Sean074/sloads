@@ -12,9 +12,11 @@ regardless of which view is active (Step D3, decision D-3). Two blocks:
   New-from-example, browser upload/download, Save to disk. Every load path goes
   through :mod:`app_shell.project_state`'s guard chain.
 
-Extracted from ``app/Home.py`` by design note 32 step OG-B: a second front-end
-must not grow a second units toggle or a second Save button that can disagree
-with this one about where a project lives or whether it is dirty.
+Extracted from ``app/Home.py`` by design note 32 step OG-B, so that the second
+front-end could not grow a second units toggle or a second Save button that
+disagreed with this one about where a project lives or whether it is dirty.
+That front-end retired at #270; the extraction stands, because what it really
+separated was the shell from the pages.
 
 **Order of rendering (#64, review 2026-08-22 PB-4).** Streamlit runs the
 script top to bottom on every rerun, and the rerun that carries a widget edit
@@ -153,7 +155,7 @@ def _render_project_file(project: Project, examples_dir: str) -> None:
     # The name is document metadata, not an oracle input, so no oracle page
     # renders it -- and a project built there was called "" for its whole life:
     # every Save was ``project.project.json`` over the last (#65, PB-6). One
-    # widget for both GUIs, here, beside the file it names.
+    # widget, here, beside the file it names.
     name = st.text_input("Project name", project.name, key=widget_key("_project_name"),
                          help="Names the saved / downloaded file: "
                               f"`{sloads_io.project_filename(project.name)}`.")
@@ -253,7 +255,7 @@ def _render_project_file(project: Project, examples_dir: str) -> None:
 
 
 # --------------------------------------------------------------------------- #
-# Tools (#80) -- display-only arithmetic, in the sidebar of both front-ends
+# Tools (#80) -- display-only arithmetic, in the sidebar
 # --------------------------------------------------------------------------- #
 #: The airspeed measures the converter offers, in the order a POH quotes them.
 _SPEED_UNITS = ("KCAS", "KEAS", "KTAS")
@@ -267,8 +269,8 @@ def _render_tools(project: Project) -> None:
     """The collapsed Tools expander: the two conversions done by hand in the
     C210 build (#80, owner feature request, build review 2026-08-23).
 
-    Rendered from the shared shell so both front-ends get one implementation.
-    It is **display-only** -- it reads the project and writes nothing back, so
+    Rendered from the shared shell rather than from a page, so it is on every
+    page and has one implementation. It is **display-only** -- it reads the project and writes nothing back, so
     no entry here can dirty a project or move a load -- which is the ground of
     the owner's refinement to the oracle GUI's capability cap (OG-1): the cap
     governs analysis and data capability, not inert display utilities.
@@ -345,7 +347,7 @@ def _render_mac_converter(project: Project, system: UnitSystem) -> None:
                   f"{to_display(station, 'length', system):.2f}")
     else:
         # A converted length goes through the one unit boundary like every other
-        # converted number in either GUI (#126). Seeded and keyed by hand, this
+        # converted number (#126). Seeded and keyed by hand, this
         # field kept its retained state across a unit switch -- Streamlit's state
         # outvotes ``value=`` -- and the same digits were read as inches and then
         # as millimetres: 63.641 answered 0.00 %MAC in Imperial and -88.29 %MAC

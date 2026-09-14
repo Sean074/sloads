@@ -2,13 +2,19 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6: the owner of what a note touches reviews it as a PR)*
 
-> **Status:** design/spec complete; the §6 feature scope is **closed**. The
-> step-by-step build is the **main-GUI development band anchored by #29
-> (milestone 0.9.0)** — `00_backlog.md` no longer carries a "Phase G" section
-> (issue #190, 2026-09-08). This
-> document is the narrative, the assessment vs. the current code, and the locked
-> decisions. (To avoid confusion: the six **analysis-flow phases** in §4 are the
-> GUI's *workflow sections*; "Phase G" is the *development phase* that builds them.)
+> **Status: SHIPPED / HISTORICAL — rolls to `40_history/` at the 0.8.4 cut**
+> (design note 57 §6). Its shipped steps G0–G6b stand as history; its unshipped
+> remainder was the 0.9.0 main-GUI band, and note 57 closed that band by
+> deleting the GUI it would have reworked (#270, D-57.1). What survives of the
+> rework is not in this document: the workflow-aligned page order is
+> `sloads/workflow.py`, the page set is `workflow.gui_pages()`, and the design
+> standard is [`../10_standard/GUI_design.md`](../10_standard/GUI_design.md).
+> Read it for why the pages are ordered as they are, not for what to build next.
+>
+> *(To avoid confusion: the six **analysis-flow phases** in §4 are the GUI's
+> workflow sections — four since #270, which retired the sections whose only
+> rows were the pages it deleted; "Phase G" is the development phase that built
+> them.)*
 >
 > **Related:** [`05_phase_d_gui_workflow_plan.md`](../40_history/05_phase_d_gui_workflow_plan.md) (Phase D — the
 > six-section restructure this reworks), [`../10_standard/GUI_design.md`](../10_standard/GUI_design.md)

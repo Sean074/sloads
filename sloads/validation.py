@@ -142,7 +142,7 @@ class ConsistencyWarning:
     ``code`` is a stable slug (for tests); ``message`` is the human-readable
     ``st.warning`` text; ``page`` is the **workflow step key** of the page that
     should render it -- a key from ``sloads.workflow.STEPS``, nothing else, so
-    both GUIs resolve it against the same nav SSOT (#82).
+    the page set and the finding resolve against the same nav SSOT (#82).
     """
     code: str
     message: str
@@ -1409,9 +1409,9 @@ def _check_derive_overrides(project: Project) -> List[ConsistencyWarning]:
 def consistency_warnings(project: Project) -> List[ConsistencyWarning]:
     """All input-consistency warnings for ``project`` (each tagged with its page).
 
-    Views do **not** filter this themselves: ``app_shell.components.page_header``
-    is the only consumer in either GUI and renders the subset tagged for the step
-    key it already holds (#82). The ``page`` tag is a ``sloads.workflow.STEPS``
+    Pages do **not** filter this themselves: ``app_shell.components.page_header``
+    is the only consumer and renders the subset tagged for the step key it
+    already holds (#82). The ``page`` tag is a ``sloads.workflow.STEPS``
     key -- ``weight_mass``, ``flap_loads`` -- guarded by
     ``tests/test_validation.py::test_every_warning_targets_a_real_page``.
     """

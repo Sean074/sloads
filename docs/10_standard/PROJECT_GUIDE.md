@@ -283,13 +283,13 @@ FAR23LOADS/
 │       ├── one_engine_out.py     # ONENGOUT
 │       ├── landing.py            # LGFACTOR + LANDLOAD
 │       └── balance.py            # balanced free-free airplane cases, flight + ground (modern; plans 11/13/18)
-├── app_shell/                    # the app-layer shell — ONE owner, shared by every GUI (note 32, OG-B)
+├── app_shell/                    # the app-layer shell — ONE owner, everything a GUI needs that is not a page (note 32, OG-B)
 │   ├── components.py             # page scaffold, unit-input boundary, page links, applicability banner
 │   ├── project_state.py          # the project in session state + the unsaved-changes / discard guard
 │   ├── sidebar.py                # the global sidebar: units toggle, project Open/Save/upload, About
 │   ├── project_editor.py         # the Project JSON Editor page body (note 57, D-57.3)
 │   ├── nav.py                    # which page a step key is in the running GUI — links resolve to a page, not a path (OG-F)
-│   ├── limit_csv.py              # the analysis pages' LIMIT tables + downloads (pure, no Streamlit)
+│   ├── limit_csv.py              # the analysis pages' LIMIT station tables (pure, no Streamlit)
 │   ├── fleet_view.py             # the fleet comparison's readout, tabs and fleet table — one rendering (#268)
 │   └── plots.py                  # the SCREEN renderer of a PlotData: Plotly. Decides how a line looks and nothing else — no project, no calc (note 60, D-60.1)
 ├── oracle_app/                   # THE GUI — the original suite's fields first, sloads' own marked (note 32 OG-D/OG-E, note 57 D-57.1/D-57.2)

@@ -1,32 +1,37 @@
-"""The analysis pages' LIMIT tables and CSV downloads, converted and unit-labelled.
+"""The analysis pages' LIMIT station tables, converted and unit-labelled.
 
 The Wing/Fuselage/Tail Loads pages show a **LIMIT** station table (the
-oracle-traceable numbers, the CLAUDE.md analysis-page carve-out) and offer it as
-a CSV download beside the sbeam-bridge file. Both are LIMIT since note 49
-OR-116; the buttons name the channel, not the basis (#192). Before L-8i each page built
-that CSV inline from the raw Imperial row dicts, so an SI session downloaded
-Imperial numbers under unit-less headers while the table above was converted --
-the units-defect class M4-20 already paid for. These builders are the single
-owner per page of (a) the column -> Imperial-unit map, (b) the display
-conversion, and (c) the unit-suffixed header, and feed **both** the on-screen
-table and the download so the two cannot disagree.
+oracle-traceable numbers, the CLAUDE.md analysis-page carve-out). They are LIMIT
+since note 49 OR-116 and the headers name the channel, not the basis (#192).
+Before L-8i each page built its table and its CSV download inline from the raw
+Imperial row dicts, so an SI session downloaded Imperial numbers under unit-less
+headers while the table above was converted -- the units-defect class M4-20
+already paid for. These builders are the single owner per page of (a) the
+column -> Imperial-unit map, (b) the display conversion and (c) the
+unit-suffixed header.
+
+**The download half retired at the end of 0.8.4** (note 57 §8, the ``app_shell/``
+slimming). ``wing_limit_csv``/``body_limit_csv``/``tail_limit_csv`` wrote those
+per-page files and their only callers were ``app/views/``; #245 made the issue
+package's ``data/`` the one tabular channel and #270 deleted the pages, so what
+survives is the on-screen half. The row builders are unchanged: a download
+channel that wants these numbers converts through the same owner rather than
+re-deriving the map.
 
 Decisions (L-8i review, 2026-08-16): the map stays per page (the sources,
 ``wing_load_rows``/``body_load_rows``, return pre-formatted strings with no
-quantity kind); the file states its units in the headers and its basis in the
-``Basis`` column / filename -- **no** ``units_statement`` line, because these
-are the LIMIT analysis-page channel, not a deliverable (``CONVENTIONS.md`` §3).
-The sbeam/export channel (``sloads.export``) is untouched: it never converts
-here and keeps its own writers.
+quantity kind); the table states its units in the headers and its basis in the
+``Basis`` column -- **no** ``units_statement`` line, because this is the LIMIT
+analysis-page channel, not a deliverable (``CONVENTIONS.md`` §3). The
+sbeam/export channel (``sloads.export``) is untouched: it never converts here and
+keeps its own writers.
 
 Pure functions, no Streamlit -- ``tests/test_limit_csv.py`` is the drift guard.
 """
 
 from __future__ import annotations
 
-import csv
-import io
-from typing import Dict, Iterable, List, Sequence, Tuple
+from typing import Dict, Iterable, List, Tuple
 
 from sloads import UnitSystem, si_scalar_label, to_si_scalar
 from sloads.models.results import TailChordResult
@@ -70,16 +75,6 @@ def _convert_rows(rows: Iterable[Dict[str, str]], units: _UnitMap,
     return out
 
 
-def _to_csv(rows: Sequence[Dict[str, object]]) -> str:
-    buf = io.StringIO()
-    if not rows:
-        return ""
-    writer = csv.DictWriter(buf, fieldnames=list(rows[0].keys()))
-    writer.writeheader()
-    writer.writerows(rows)
-    return buf.getvalue()
-
-
 # --------------------------------------------------------------------------- #
 # Wing (``wing_load_rows``) and fuselage (``body_load_rows``) station tables
 # --------------------------------------------------------------------------- #
@@ -88,19 +83,9 @@ def wing_limit_rows(rows: Iterable[Dict[str, str]], system: UnitSystem) -> List[
     return _convert_rows(rows, _WING_UNITS, system)
 
 
-def wing_limit_csv(rows: Iterable[Dict[str, str]], system: UnitSystem) -> str:
-    """The Wing Loads page's LIMIT download -- the same rows the table shows."""
-    return _to_csv(wing_limit_rows(rows, system))
-
-
 def body_limit_rows(rows: Iterable[Dict[str, str]], system: UnitSystem) -> List[Dict[str, object]]:
     """``body_load_rows`` output converted to ``system`` with unit-suffixed headers."""
     return _convert_rows(rows, _BODY_UNITS, system)
-
-
-def body_limit_csv(rows: Iterable[Dict[str, str]], system: UnitSystem) -> str:
-    """The Fuselage Loads page's LIMIT download -- the same rows the table shows."""
-    return _to_csv(body_limit_rows(rows, system))
 
 
 # --------------------------------------------------------------------------- #
@@ -122,8 +107,3 @@ def tail_limit_rows(results: Iterable[TailChordResult], system: UnitSystem) -> L
             for i, s in enumerate(r.stations, start=1)}}
         for r in results
     ]
-
-
-def tail_limit_csv(results: Iterable[TailChordResult], system: UnitSystem) -> str:
-    """The Tail Loads page's LIMIT download -- the same rows the table shows."""
-    return _to_csv(tail_limit_rows(results, system))

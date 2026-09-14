@@ -2371,11 +2371,33 @@ def test_the_select_advisory_states_the_search_scope():
 
 def test_the_taildist_advisory_points_at_the_spanwise_home():
     """C210-33: ``tail_span_loads`` is rightly not an oracle page (OG-2,
-    ``bas=None``); the Tail Loads page now says where the spanwise deliverable
-    lives instead of leaving the owner to search this GUI for it."""
+    ``bas=None``); the Tail Loads page says where the spanwise deliverable lives
+    instead of leaving the owner to search this GUI for it.
+
+    **Re-aimed at the end of 0.8.4.** It pinned the literal words *"Tail Span
+    Loads"*, which was the retired front-end's page for it -- so when #270
+    deleted that page the caption went on naming it and the guard went on
+    passing, which is the C210-33 defect exactly, pointed one level further
+    away. The assertion is now the rule rather than the wording: the caption
+    names a home that exists, and names no page this GUI does not have.
+    """
     from oracle_app.results import MODULE_ADVISORIES, taildist_spanwise_advisory
 
     assert MODULE_ADVISORIES["taildist"] is taildist_spanwise_advisory
     text = taildist_spanwise_advisory(io.load_project(_EXAMPLE), UnitSystem.IMPERIAL)
-    assert "Tail Span Loads" in text and "export" in text
+    assert "Spanwise loads" in text and "export" in text
     assert wf.BY_KEY["tail_span_loads"].bas is None
+    # The report section it names is real, and is where the module's results are.
+    from sloads.models.report import default_spec
+    from sloads.report.oracle_content import build_oracle_document
+
+    doc = build_oracle_document(io.load_project(_EXAMPLE), default_spec())
+    titles = [sub.title for section in doc.sections
+              for sub in section.subsections]
+    assert [t for t in titles if t.endswith("Spanwise loads")], titles
+    # No caption on this page may send a reader to a page the GUI does not have.
+    absent = [s.title for s in wf.STEPS if s.key not in wf.gui_pages()]
+    assert absent, "the guard is vacuous if every step has a page"
+    for title in absent:
+        assert title not in text, (
+            f"the advisory names {title!r}, which is not a page of this GUI")

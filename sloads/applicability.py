@@ -82,7 +82,7 @@ def design_weight_lb(project: Project) -> float:
 
 
 #: What the One Engine Out page and module say when 14 CFR 23.367 does not apply.
-#: The lead phrase is fixed so both GUIs and the module refusal read identically.
+#: The lead phrase is fixed so the page and the module refusal read identically.
 ENGINE_FAILURE_NA_LEAD = "FAR 23.367 does not apply"
 
 

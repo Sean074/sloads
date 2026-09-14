@@ -87,8 +87,9 @@ STATION_TABLE = "station"
 #: The error contract's two halves (``00_program_overview.md``): a module raises
 #: ``MissingInputError`` for an absent slice and ``ValueError`` for input that is
 #: present but unusable, and both mean *this page is not ready yet* rather than
-#: *this GUI is broken*. Caught here and shown as the block's note, exactly as
-#: ``app/views/one_engine_out.py`` does. Anything else still raises: a renderer
+#: *this GUI is broken*. Caught here and shown as the block's note, as
+#: ``app/views/one_engine_out.py`` did before it retired. Anything else still
+#: raises: a renderer
 #: bug must not be indistinguishable from a blank project.
 #:
 #: ``ZeroDivisionError`` was in this tuple until 2026-08-24 (#71/PB-18, narrow
@@ -119,10 +120,10 @@ def _not_ready_traceback(exc: BaseException) -> str:
         tb.format_exception(type(exc), exc, exc.__traceback__))
 
 # The load-case tables, whose basis is stated per row in the `SF` column. The
-# wording is the one `app/views/results_review.py` already carried over the same
-# data: the two front-ends stated the load-output contract differently for the
-# whole of note 49 because only one of them was swept (#239), and the cure for
-# that is to say the same sentence, not a second true one.
+# wording is the one `app/views/results_review.py` carried over the same data
+# before it retired: the two front-ends stated the load-output contract
+# differently for the whole of note 49 because only one of them was swept
+# (#239), and the cure was to say the same sentence, not a second true one.
 #: Where the numbers on this page can be had as files (#245).
 #:
 #: One sentence per page rather than a button per block: the tabular channel is
@@ -302,8 +303,8 @@ def weight_estimate_advisory(project: Project, system: UnitSystem) -> str:
     """WTESTIMA's block caption: what it feeds, and how it compares.
 
     The sentence is the module's own (:data:`sloads.modules.weight_estimate.ADVISORY`)
-    -- it is a fact about the program, not about this page, and the main GUI's
-    Weight & Mass tab states the same thing beside its seed button. The numbers
+    -- it is a fact about the program, not about this page, so the seed button
+    on the Weight & Mass page states the same sentence. The numbers
     come from :func:`~sloads.modules.weight_estimate.compare_with_itemized` and
     are converted through :func:`~sloads.convert_results`, the same boundary
     every other figure on the page crosses, so an SI page cannot show a pound.
@@ -398,8 +399,9 @@ def taildist_spanwise_advisory(_project: Project, _system: UnitSystem) -> str:
     """
     return ("Chordwise distributions only. The spanwise station table -- "
             "per-station shear, bending and torsion on the load reference "
-            "axis -- is the main GUI's **Tail Span Loads** page and the export "
-            "decks; it is not a McMaster program, so it has no oracle page.")
+            "axis -- is the **Spanwise loads** subsection of this surface's "
+            "report section, and the export decks; it is not a McMaster "
+            "program, so it has no page of its own.")
 
 
 def landing_frame_advisory(_project: Project, _system: UnitSystem) -> str:
@@ -410,8 +412,8 @@ def landing_frame_advisory(_project: Project, _system: UnitSystem) -> str:
     consumed the other one -- a reader moving between them had no stated bridge,
     and the two differ by a rotation of the ground angle. The words are the
     manual's own, from the one owner that has them
-    (:func:`sloads.frames.caption`), so the two GUIs cannot come to say it
-    differently.
+    (:func:`sloads.frames.caption`), so the page and the deck cannot come to
+    say it differently.
     """
     return (f"Every row names its frame. The **delivered** per-wheel forces and "
             f"their points of application, the NR/NV/ND load factors and the "

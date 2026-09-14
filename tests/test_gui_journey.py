@@ -257,30 +257,6 @@ def test_the_gate_carries_no_carve_outs():
         f"a no-op-Apply diff has been declared by-design: {BY_DESIGN}")
 
 
-# --------------------------------------------------------------------------- #
-# The rule the sweep applied, at its owner
-# --------------------------------------------------------------------------- #
-def test_an_apply_that_entered_nothing_creates_no_slice():
-    """``app_shell.optional_slice``, the single owner of the app-side #143 rule."""
-    from app_shell import optional_slice
-    from sloads.models import AileronLoadsInput
-
-    blank, filled = AileronLoadsInput(), AileronLoadsInput()
-    filled.area_fwd_hinge_sqft = 12.0
-
-    assert optional_slice.entered_nothing(blank)
-    assert not optional_slice.entered_nothing(filled)
-    # created out of nothing -> not created
-    assert optional_slice.store(blank, None) is None
-    # entered -> created
-    assert optional_slice.store(filled, None) is filled
-    # already there -> written back either way, so clearing a field still lands
-    assert optional_slice.store(blank, blank) is blank
-    # the seed form, for widgets that do not default to the dataclass defaults
-    assert optional_slice.store(filled, None, seed=filled) is None
-    assert optional_slice.store(filled, None, seed=blank) is filled
-
-
 def test_a_module_with_an_invalid_input_is_named_not_fatal_to_the_page():
     """M2R-8 keeps an invalid input from vanishing; it must not take a whole page
     with it. Three bundled examples carry an aileron or flap slice with no area,
@@ -304,6 +280,5 @@ def test_a_module_with_an_invalid_input_is_named_not_fatal_to_the_page():
 if __name__ == "__main__":  # needs streamlit; walks one example for speed
     test_the_journey(os.path.join(_ROOT, "examples", "ga6_normal.project.json"))
     test_the_gate_carries_no_carve_outs()
-    test_an_apply_that_entered_nothing_creates_no_slice()
     test_a_module_with_an_invalid_input_is_named_not_fatal_to_the_page()
     print("ok")

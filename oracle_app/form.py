@@ -1472,7 +1472,8 @@ def _offer_table_seed(project: Project, prefix: str, rows: List[Any]) -> None:
 
 
 #: Per list table, what its rows still owe before a program can believe them.
-#: The sentence is the calc's (one owner, both GUIs), never spelled again here.
+#: The sentence is the calc's (one owner, every renderer), never spelled again
+#: here.
 _TABLE_DEBTS: Dict[str, Callable[[Project], str]] = {
     "weight.items[]": unplaced_warning,
 }
@@ -1800,7 +1801,7 @@ def render_step(key: str) -> None:
             # once above the first one.
             #
             # How a cell commits is Streamlit's behaviour, not ours, and is
-            # owned by the shell so both GUIs can say it identically
+            # owned by the shell rather than by this page, so it cannot drift
             # (:data:`~app_shell.components.GRID_COMMIT_NOTE`, #77). It was
             # said here until 2026-08-23 and then withdrawn as fixed: Enter
             # dropping an entry was *also* a symptom of C210-4, the remount

@@ -5,8 +5,9 @@ their own. The FAR 23 applicability banner is the shared component here: the
 detection lives in :func:`sloads.far23_applicability` (pure, unit-tested) and
 this module only renders it and wires the "switch to Concept" action.
 
-The fleet comparison used to live here too, shared by two input pages; it now has
-its own dedicated home in ``app/views/aircraft_comparison.py`` (backlog F2).
+The fleet comparison used to live here too, shared by two input pages; it now
+has its own dedicated home in :mod:`app_shell.fleet_view` (backlog F2, and note
+57 D-57.5 at #268).
 
 Moved out of ``app/`` into :mod:`app_shell` by design note 32 step OG-B. The one
 front-end assumption that survived that move -- :func:`workflow_page_link`
@@ -373,19 +374,24 @@ def unit_number_input(
 #: no value to step from -- so a blank widget *looks* locked until the user
 #: types. The placeholder makes blank read as "awaiting entry", with the #35
 #: blank-render contract (an unfilled Optional renders empty, never a fake 0)
-#: unchanged. One string for both GUIs and every widget path.
+#: unchanged. One string for every widget path.
 EMPTY_NUMBER_PLACEHOLDER = "empty — type a value"
 
 #: **What this release is**, in one sentence — the owner of the maturity claim
 #: (owner ruling, 2026-08-28, production-release review §3.5 / §5.3).
 #:
-#: The claim is genuinely mixed: the FAR23 core is oracle-locked and the oracle
-#: GUI is the finished deliverable, while ``app/`` and the concept-mode features
-#: are not. A PyPI trove classifier cannot say that — ``Development Status``
-#: takes one value from a fixed vocabulary — so ``pyproject.toml`` carries
-#: ``4 - Beta``, the value a *fresh installer* is owed (the distribution ships
-#: both front-ends, and one of them is beta by this very sentence), and the
-#: nuance the classifier cannot hold lives here.
+#: The claim is genuinely mixed: the FAR23 core is oracle-locked and the GUI
+#: over it is the finished deliverable, while the concept-mode features are not.
+#: A PyPI trove classifier cannot say that — ``Development Status`` takes one
+#: value from a fixed vocabulary — so ``pyproject.toml`` carries ``4 - Beta``,
+#: the value a *fresh installer* is owed, and the nuance the classifier cannot
+#: hold lives here.
+#:
+#: **Re-cut at the 0.8.4 cut (#270).** It said *"the oracle GUI production-ready;
+#: additional features and the full sloads GUI in beta"* — half of which named a
+#: front-end that no longer exists, and the qualifier "oracle" no longer
+#: distinguishes anything. What is in beta is the concept mode, which is what
+#: the sentence now says.
 #:
 #: One owner because it is a cross-cutting claim and this project has paid for
 #: the alternative: four hand-written copies in ``README.md``,
@@ -399,14 +405,14 @@ EMPTY_NUMBER_PLACEHOLDER = "empty — type a value"
 #: **Update it at a cut, not between them** — and update the two documents in
 #: the same change, or the guard fails, which is the whole point.
 RELEASE_STATE = (
-    "Core analysis developed per FAR 23 LOADS and the oracle GUI production-ready; "
-    "additional features and the full sloads GUI in beta."
+    "Core analysis developed per FAR 23 LOADS and the GUI production-ready; "
+    "concept-mode features in beta."
 )
 
-#: The wing-lift-factor guidance both GUIs caption on the landing L widget
+#: The wing-lift-factor guidance captioned on the landing L widget
 #: (note 37, LF-4 / gate G-LF-6): L is a **free** input -- a hard cap cannot
 #: serve two certification bases -- and the regulations' values are stated as
-#: guidance. One string for both GUIs, drift-guarded in
+#: guidance. One string, drift-guarded in
 #: ``tests/test_landing.py`` (the guard enumerates the caption once, here).
 LANDING_L_FAR_CAPTION = (
     "Wing lift carried during the impact = L × W. FAR guidance, not a cap: "
@@ -473,13 +479,12 @@ class PageContext(NamedTuple):
 #: as "Enter loses my entry", so the Enter warning was withdrawn with the race
 #: it was blamed on and the surviving half went unsaid until #77.
 #:
-#: Owned here rather than in either GUI because both render grids: fourteen
-#: ``st.data_editor`` call sites live in ``app/views/`` and two in
-#: ``oracle_app/form.py``. Only the oracle GUI states it today -- ``app/views/``
-#: layout is frozen pending the main-GUI review (#29) -- so the string lives in
-#: the shell, ready for that page set to adopt without spelling it a second
-#: time. ``tests/test_oracle_gui.py`` fails if anyone spells it a second time
-#: anyway.
+#: Owned here rather than in the GUI because both front-ends rendered grids
+#: while both existed -- fourteen ``st.data_editor`` call sites in ``app/views/``
+#: against two in ``oracle_app/form.py``, and only the latter ever said it. The
+#: string stays in the shell now that one page set is left: a caption is not
+#: page decoration, and ``tests/test_oracle_gui.py`` fails if anyone spells it a
+#: second time.
 GRID_COMMIT_NOTE = (
     "**Commit a grid cell with Tab, not Enter** — Enter leaves the cell's "
     "editor open and the next keystroke discards what you typed."
@@ -494,9 +499,9 @@ def render_consistency_warnings(
 ) -> None:
     """Render the input-consistency warnings tagged for workflow step ``key``.
 
-    The **one** consumer of :func:`sloads.consistency_warnings` in either GUI
-    (practice 3: one source, so the two front-ends cannot diverge). Until #82 the
-    main GUI open-coded this loop in six views -- two of them against page names
+    The **one** consumer of :func:`sloads.consistency_warnings` in the GUI
+    (practice 3: one source, so no two pages can diverge). Until #82 the retired
+    front-end open-coded this loop in six views -- two of them against page names
     that no longer existed -- and ``oracle_app``/``app_shell`` had no consumer of
     ``ConsistencyWarning`` at all: a page-targeted entry-error channel that is
     part of the analysis contract was dark exactly where entries are made. A
@@ -584,8 +589,8 @@ def page_header(
     if banner:
         render_applicability_banner(project, switch_action=switch_action)
     # Every page that opens with this header gets the entry-error warnings tagged
-    # for it -- both GUIs, all fourteen oracle pages included, with nothing to
-    # remember per page (#82). It sits with the applicability banner because it is
+    # for it -- every page the header opens, with nothing to remember per
+    # page (#82). It sits with the applicability banner because it is
     # the same kind of thing: a page-targeted finding about the inputs, rendered
     # from the step key the header already has.
     render_consistency_warnings(project, key)

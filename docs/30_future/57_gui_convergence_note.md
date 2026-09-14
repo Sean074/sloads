@@ -280,6 +280,19 @@ and the L-8e uncovered-field class converted from a backlog item into a guard.
 
 * **R-57.5's rename mechanics** (entry-point names, `pyproject.toml` scripts,
   README) — decided with the ruling, executed at the end of the milestone.
+  **Executed 2026-09-13, as nothing.** The ruling took the first branch: the
+  name and the `sloads-oracle` entry point stand. What the milestone changed is
+  the *argument* for a rename, not the decision — "oracle" distinguished this
+  GUI from the other one, and there is no other one, so the qualifier now
+  distinguishes nothing. That is a reason to rename eventually and no reason to
+  rename in a docs-and-hygiene commit at a release cut: the name is on a console
+  script, a module path, an entry point every doc cites and every user's
+  shortcut. If it is taken up it is its own row with its own deprecation of the
+  old script name, and it touches none of this note's decisions — which is
+  exactly what the ruling said. The one thing that could not wait was the
+  *release-state sentence*, which named "the full sloads GUI" as beta beside
+  "the oracle GUI" as production-ready; it is re-cut at
+  `app_shell.components.RELEASE_STATE`.
 * **A view toggle hiding the extension tier** (a "replication only" display
   mode) — polish over D-57.2's marking; take up only if the mixed page proves
   noisy in use.
@@ -288,4 +301,15 @@ and the L-8e uncovered-field class converted from a backlog item into a guard.
   surface with no new physics.
 * **`app_shell/` slimming** — widgets that existed only for `app/views/`
   callers (if any survive the deletion unused) are #16-class dead code, swept
-  under rule 4 at the end of the milestone.
+  under rule 4 at the end of the milestone. **Swept 2026-09-13.** Measured by
+  reachability from the production trees rather than by reading: five public
+  names had no caller left outside the tests that pinned them. `limit_csv`'s
+  three `*_limit_csv` builders wrote the per-page CSV downloads and went (the
+  `*_limit_rows` half they wrapped feeds the on-screen tables and stays; #245's
+  `data/` is the tabular channel now), and `optional_slice` went whole — its
+  rule was *"an Apply may not create an `Optional` slice out of nothing"*, and
+  the surviving GUI has no Apply step, only #143's named add/remove gestures,
+  which is the stronger form of the same rule. `CONVENTIONS.md` §7's row for it
+  is re-pointed at those gestures rather than deleted: the convention outlived
+  its Apply-button owner. Nothing else in the shell was orphaned — the widgets
+  the retired pages used were the shared ones, which is what OG-B was for.

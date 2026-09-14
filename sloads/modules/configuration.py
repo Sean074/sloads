@@ -162,8 +162,8 @@ def parametric_wing_seed(project, _record: object = None) -> Dict[str, float]:
     governs whole and the seed offer is withdrawn. Empty when there is no
     usable ``wing`` surface either. Consumed by the oracle Geometry page
     through ``field_registry.RECORD_SEEDS`` (the same
-    :func:`wing_layout_from_surface` the main GUI's seed button calls), so
-    the two front-ends offer one behaviour (the C210-1 OG-4/G8 class).
+    :func:`wing_layout_from_surface` the retired front-end's seed button
+    called), so the behaviour has one owner (the C210-1 OG-4/G8 class).
     """
     geom = project.geometry
     layout = geom.parametric if geom is not None else None
