@@ -147,8 +147,8 @@ from .validation import safety_factor_valid
 # and every ``_filtered`` splat passed its list straight to the dataclass. The
 # file then loaded cleanly and died later, twice over -- ``TypeError: unsupported
 # operand type(s) for -: 'str' and 'str'`` in WINGGEOM, and the same in
-# ``to_display`` on the main GUI's layout page, which is the page that would
-# otherwise repair the corners.
+# ``to_display`` on the retired front-end's layout page, which was the page
+# that would otherwise have repaired the corners.
 #
 # The rule is stated once, for the whole class rather than for the corner that
 # found it: a field annotated as a container **of numbers** is loaded as numbers.
@@ -165,7 +165,7 @@ from .validation import safety_factor_valid
 # half of the same boundary, and the one thing about a scalar this module *can*
 # decide without reasoning about coercion: whether the field's own annotation
 # admits ``None``. It did not look, so ``"full_down_aileron_deg": null`` loaded
-# into a field declared ``float = 0.0`` and the main GUI died three modules away
+# into a field declared ``float = 0.0`` and the GUI died three modules away
 # on ``float(None)`` -- a raw ``TypeError`` out of a widget, on a file this
 # module had already accepted. ``None`` is not repairable the way text is (the
 # author's intent -- the default, or a value they meant to type -- is not
@@ -1664,7 +1664,8 @@ def default_projects_dir() -> str:
 
     Resolved from this file's location (repo root / ``projects``) rather than
     the process's current working directory, so it is stable no matter where
-    ``streamlit run app/Home.py`` is invoked from. Git-ignored; not created
+    ``streamlit run oracle_app/Oracle.py`` is invoked from. Git-ignored; not
+    created
     until the first save.
     """
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

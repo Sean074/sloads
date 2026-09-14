@@ -906,9 +906,9 @@ class AeroCoefficientsInput:
 
         The single owner of the M1-1b fill, called from **both** paths that can
         produce a live slice (#81, C210-23): ``__post_init__`` for a slice built
-        in one go (every file load, the main GUI's Apply, which rebuilds the
-        whole slice), and :mod:`sloads.derived` for a slice assembled field by
-        field -- which is how the oracle GUI builds one. That GUI creates the
+        in one go (every file load, and the retired front-end's Apply, which
+        rebuilt the whole slice), and :mod:`sloads.derived` for a slice assembled
+        field by field -- which is how the GUI builds one. It creates the
         coefficient sets blank and assigns the CLmax trio afterwards, so the
         fill never ran, the live sets kept ``stall_cl = 0.0``, and Flight
         Envelope and SELECT died on ``float division by zero`` in the stall

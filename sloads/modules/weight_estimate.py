@@ -276,7 +276,7 @@ class SeedPlan(NamedTuple):
         return bool(self.add)
 
     def caption(self) -> str:
-        """The sentence shown above the button -- one owner, so both GUIs agree."""
+        """The sentence shown above the button -- one owner, so it cannot drift."""
         if not self.offers:
             return self.reason
         if not self.kept:
@@ -339,7 +339,7 @@ def seeded_items(project: Project) -> List[MassItem]:
 #: **Nothing reads these figures.** WTONECG and WTENV are parallel siblings off
 #: WTESTIMA in the suite's data flow (UG Table 2.2), but that flow runs through
 #: the weight data base -- and here the data base is authored by the user, so the
-#: estimate reaches it only when the main GUI's seed button copies it there
+#: estimate reaches it only when the seed button copies it there
 #: (:func:`estimate_to_mass_items`). Absent that, the estimate is a statistical
 #: sanity figure standing beside the item total, which is the question the owner
 #: asked on reaching the block during the Cessna 210 build: "what does this feed,

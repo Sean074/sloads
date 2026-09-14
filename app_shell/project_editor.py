@@ -1,4 +1,4 @@
-"""The **Project JSON Editor**, owned once and rendered by either front-end.
+"""The **Project JSON Editor**, owned by the shell and registered by the GUI.
 
 Design note 57, **D-57.3** — the first row of band B5. The editor is the
 *escape hatch* that decouples every other port from the convergence schedule:
@@ -6,9 +6,10 @@ once the surviving GUI carries it, every sloads-only field is reachable there
 before D-57.2's two field tiers render a widget for any of them, so there is no
 capability window in which a concept field is unenterable.
 
-It lives here rather than in either GUI because it is now rendered by both
-(``app/views/project_editor.py`` is a two-line wrapper until D-57.1 deletes
-that tree) — and because the oracle GUI may not import ``json`` at all (note 32,
+It lives here rather than in the GUI because it was rendered by both while
+both existed (``app/views/project_editor.py`` was a two-line wrapper over it
+until D-57.1 deleted that tree) — and because the GUI may not import ``json``
+at all (note 32,
 gate G1: no second analysis path). The editor's ``json`` use is presentation —
 it serialises the project ``sloads.io`` already built and parses the text back
 for ``sloads.io`` to rebuild — and the gate is scoped to ``oracle_app/``, so

@@ -68,7 +68,7 @@ re-run after editing, never hand-edit the SVGs).
 | [`02_parked.md`](30_future/02_parked.md) | **Parked items** — real but off the mission path; each park states the rule-6 number or boundary that parks it |
 | [`04_far25_gap_analysis.md`](30_future/04_far25_gap_analysis.md) | **FAR 25 gap analysis** (Phase F25) — the FAR 23 → FAR 25 comparison table, per-condition disposition, and what stays out of scope; relocated from `20_theory/` (a plan, not theory) |
 | [`01_concept_loads_plan.md`](30_future/01_concept_loads_plan.md) | **Phase C plan** — the concept-loads → sbeam sizing loop narrative and decisions of record (phase complete 2026-09-08; open capability items live in the backlog) |
-| [`03_gui_rework_plan.md`](30_future/03_gui_rework_plan.md) | **Phase G plan** — workflow-aligned GUI rework design and locked decisions; the build is the #29/0.9.0 main-GUI band |
+| [`03_gui_rework_plan.md`](30_future/03_gui_rework_plan.md) | **Phase G plan** — workflow-aligned GUI rework design and locked decisions for the front-end note 57 retired |
 | [`21_power_effects_wing_note.md`](30_future/21_power_effects_wing_note.md) | **Power effects on the wing** — the seven-step propulsion-effects plan (P-0…P-12); see the note for what is parked and what was carved out |
 | [`49_stated_never_applied_note.md`](30_future/49_stated_never_applied_note.md) | **The factor is stated, never applied** — the LIMIT/SF delivery contract (OR-87…OR-93) and the 0.8.3 boundary half (OR-85/86) |
 | [`51_ttail_asymmetric_transfer_note.md`](30_future/51_ttail_asymmetric_transfer_note.md) | **The T-tail fin carries the horizontal tail's asymmetry** — the AC 23-9 transfer method and its rulings (D-51.x) |

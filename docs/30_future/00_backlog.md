@@ -151,9 +151,16 @@ clause, which knew of no milestone between.
 > and the `.xlsx` workbook, and **#255** closed superseded because its fix site
 > was one of the deleted files. The page set is now `workflow.gui_pages()`: the
 > derived analysis steps plus the three declared non-step pages. The band's
-> charter is met — there is one front-end — and what remains before the 0.8.4
-> cut is R-57.5's deferred rename mechanics and the Phase G plan's roll to
-> history, both of which note 57 §6/§8 puts **at the cut** rather than in a row.
+> charter is met — there is one front-end — and note 57 §6/§8's end-of-milestone
+> work is done (2026-09-13): the `app_shell/` slimming swept the five names the
+> deletion left unreachable, every statement in the code that still described two
+> front-ends is re-cut, and the release-state sentence stops naming a GUI that
+> does not exist. R-57.5's rename **executes as nothing** — the ruling took the
+> branch where the name and entry point stand, and the milestone changed the
+> argument for a rename, not the decision; if it is ever taken up it is its own
+> row with its own deprecation of the console script. What is left for the cut
+> itself is the Phase G plan's roll to `40_history/`, which is step 3 of
+> `RELEASE_PROCESS.md` §4 and not a row.
 > **Band B6 (0.8.5 — the defect and polish cleanup, on the converged surface)
 > is next.**
 

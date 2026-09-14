@@ -702,15 +702,15 @@ control that writes it, so the choice is visible at the point of export rather
 than only in the sidebar. Implemented in **M4-20 step 6**: the page resolves `active_system()`
 **once** into a local and hands that one value to every artifact call, and its
 caption is built from `deliverable_units` itself so it cannot drift from the
-files. Every other view's download buttons take their page's system the same way,
-including the per-page **LIMIT** CSVs: `app_shell/limit_csv.py` (L-8i, 2026-08-16) is
-the one owner of each page's column→unit map, conversion and unit-suffixed
-headers, feeding both the on-screen table and the download (`wing_loads`,
-`fuselage_loads`, `tail_loads`; `loads_plots` was already converted and labels
-its units in the `Field` cell). These state their units in the headers and
-their basis in the `Basis` column / filename, with **no** `units_statement`
-line — they are the LIMIT analysis-page channel, not a deliverable
-(`CONVENTIONS.md` §3). Guard: `tests/test_limit_csv.py`.
+files. The on-screen **LIMIT** station tables take their page's system the same way:
+`app_shell/limit_csv.py` (L-8i, 2026-08-16) is the one owner of each page's
+column→unit map, conversion and unit-suffixed headers (`wing_loads`,
+`fuselage_loads`, `tail_loads`). They state their units in the headers and their
+basis in the `Basis` column, with **no** `units_statement` line — they are the
+LIMIT analysis-page channel, not a deliverable (`CONVENTIONS.md` §3). Guard:
+`tests/test_limit_csv.py`. *(The per-page CSV downloads these builders also fed
+retired at the end of 0.8.4, note 57 §8: #245 made the issue package's `data/`
+the one tabular channel and #270 deleted the pages that offered them.)*
 
 **The report (Step G8.6).** The Report page follows the same one-system rule and
 adds one convention worth stating, because it is the app's only genuinely *slow*

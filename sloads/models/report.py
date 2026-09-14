@@ -3,9 +3,10 @@
 Design note 44, OR-17: a report is a *document instance*, not a property of the
 airplane. One project yields many issues — different customers, revisions and
 scope selections — so this is its own dataclass with its own schema version, and
-:class:`sloads.models.Project` is not touched. Note 32's OG-13/G6 promise (a
-project saved by either GUI opens in the other unchanged) is therefore untouched
-too, and no migration is owed.
+:class:`sloads.models.Project` is not touched. Note 32's OG-13/G6 promise is
+therefore untouched too, and no migration is owed — since #270 that gate reads
+forwards rather than sideways: a project the retired front-end saved still opens
+here unchanged.
 
 **Where it lives.** In the issue package directory, as ``report.json`` beside the
 ``report.tex`` it produced (OR-28, which supersedes OR-24's placement beside the

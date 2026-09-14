@@ -310,8 +310,9 @@ def unplaced_items(project: Project) -> Tuple[str, ...]:
     Two makers produce exactly this row -- the weight-estimate seed
     (:func:`sloads.modules.weight_estimate.seed_plan`, which supplies weights and
     nothing else) and the GUI's row counter -- and the defect #78 reported is
-    that neither said so. Named here rather than in either GUI so both say it
-    identically and the rule has one owner (``CLAUDE.md`` practice 3).
+    that neither said so. Named here rather than in the GUI so the seed and the
+    row counter say it identically and the rule has one owner (``CLAUDE.md``
+    practice 3).
 
     Zero-weight rows are excluded: they are blanks in progress, not weight in
     the wrong place, and the row counter's own warning already covers them.
@@ -324,8 +325,8 @@ def unplaced_items(project: Project) -> Tuple[str, ...]:
 def unplaced_warning(project: Project) -> str:
     """What :func:`unplaced_items` costs, in one sentence; ``""`` when nothing is owed.
 
-    The sentence lives with the predicate so the two GUIs say it identically and
-    neither can drift from what the distribution actually does with such a row.
+    The sentence lives with the predicate so every renderer says it identically
+    and none can drift from what the distribution actually does with such a row.
     """
     owed = unplaced_items(project)
     if not owed:

@@ -10,8 +10,8 @@ a different tool, and silently reshaping them into the current schema presents
 them as this build's.
 
 The gate lives here rather than in a front-end because
-:func:`sloads.io.project_from_dict` funnels every load — CLI, both GUIs, every
-test — through :func:`migrate`. One owner, one refusal, no GUI deciding
+:func:`sloads.io.project_from_dict` funnels every load — CLI, GUI, every
+test — through :func:`migrate`. One owner, one refusal, no front-end deciding
 compatibility for itself. The standing guard is
 ``tests/test_app_shell.py::test_no_gui_decides_whether_a_file_is_readable``.
 

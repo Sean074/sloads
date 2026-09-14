@@ -86,9 +86,9 @@ def adopt(new_project: Project, path: Optional[str] = None) -> None:
     the widgets that were seeded from the project it replaces. ``path`` is the
     ``projects/`` file it was opened from, if any (see :data:`SAVED_PATH_KEY`).
 
-    This and the JSON editor's Apply (``app/views/project_editor.py``, which
+    This and the JSON editor's Apply (:mod:`app_shell.project_editor`, which
     replaces the project *without* saving it, so it bumps the generation itself
-    and leaves the dirty baseline alone) are the only two places in either GUI
+    and leaves the dirty baseline alone) are the only two places in the GUI
     that mean "the project was replaced". The generation bump belongs at both:
     without it, a page visited before the load re-renders from its own retained
     widget state and writes that state back over what was just loaded
@@ -121,8 +121,8 @@ def safe_load(read_dict: Callable[[], Mapping[str, Any]], source: str) -> Option
     Returns ``None`` on failure so the caller skips the load.
 
     The argument is the **dict reader**, not a project builder, so every load
-    action in either GUI reaches ``project_from_dict`` -- and therefore the
-    schema gate -- through this one function. A file of any other version raises
+    action reaches ``project_from_dict`` -- and therefore the schema gate --
+    through this one function. A file of any other version raises
     ``SchemaVersionError``, a ``ValueError``, which the except below already
     catches: the user is told the file is not readable and by how much, and no
     project is adopted.

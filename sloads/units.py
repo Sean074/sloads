@@ -439,8 +439,8 @@ def convert_results(
 
 
 # --------------------------------------------------------------------------- #
-# Whole-project display conversion (Project JSON Editor page, app/views/
-# project_editor.py). Converts the *JSON dict* form of a Project (see
+# Whole-project display conversion (the Project JSON Editor page,
+# app_shell/project_editor.py). Converts the *JSON dict* form of a Project (see
 # sloads.io.project_to_dict) field-by-field, for display/hand-editing only.
 # The canonical project.json on disk is always Imperial (io.py never calls
 # this); the editor page converts SI -> Imperial before writing back via
@@ -493,7 +493,7 @@ _PROJECT_FIELD_KIND = {
     # The wing carry-through, entered as a fuselage station (note 50 OR-121).
     # A *length*, unlike the chord fractions it replaced, which were
     # dimensionless and matched the ``_pct$`` rule -- so the pair joins the
-    # converted set and the two GUIs show it in the display system's units.
+    # converted set and the GUI shows it in the display system's units.
     "front_spar_x_in": "length_in", "rear_spar_x_in": "length_in",
     "tip_cap_width_in": "length_in",
     # Bare ``[x, y, z]`` inch arrays rather than keyed dicts (io.py's
@@ -591,7 +591,7 @@ _PROJECT_PAIR_KIND: Dict[str, Tuple[Optional[str], Optional[str]]] = {
 #: The airspeed label, owned here because it is *also* a widget's ``fixed_unit``
 #: (``app_shell.components.KEAS`` re-exports this one rather than spelling it a
 #: second time). One word, not ``kt (EAS)``: a renderer that appends a unit as
-#: ``f"{label} ({unit})"`` -- which is what both GUIs do -- turned that into
+#: ``f"{label} ({unit})"`` -- which is what the GUI does -- turned that into
 #: *Chosen Vc (kt (EAS))*, parentheses inside parentheses (PB-22). **KEAS** is
 #: what `CONVENTIONS.md` calls the quantity and what every help string in the
 #: tool already says, so the fix is to stop spelling it two ways.

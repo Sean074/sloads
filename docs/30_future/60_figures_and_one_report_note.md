@@ -341,9 +341,11 @@ than left for #270 to discover.
   across a CG range. Its two figures port (§7); the sweep does not.
 * **R-57.5's rename mechanics** — unchanged, still at the end of the milestone.
 * **A view toggle hiding the extension tier** — unchanged.
-* **`app_shell/` slimming** — unchanged; `app_shell/limit_csv.py` and the
-  widgets that existed only for `app/views/` callers are swept under rule 4
-  once the deletion shows which survive unused.
+* **`app_shell/` slimming** — **done 2026-09-13** (note 57 §8 carries the
+  measurement). `limit_csv`'s three CSV builders and the whole of
+  `optional_slice` were what the deletion left unreachable; the module itself
+  stays, because its `*_limit_rows` half is what the analysis pages' station
+  tables are built from.
 
 ---
 
