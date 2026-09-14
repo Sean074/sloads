@@ -85,13 +85,6 @@ def _file_name_of(call):
         if isinstance(node, ast.Call) and getattr(node.func, "attr", "") == "project_filename":
             from sloads.io import PROJECT_SUFFIX
             return PROJECT_SUFFIX
-        # Likewise the results zip's one naming owner (C210-45): the call *is*
-        # the statement that the file is ``<stem>_results.zip``
-        # (``test_results_zip.py`` asserts the suffix on the real name).
-        if isinstance(node, ast.Call) and (
-                getattr(node.func, "id", "") or getattr(node.func, "attr", "")
-        ) in ("results_zip_name", "_results_zip_name"):
-            return "_results.zip"
     return None
 
 
@@ -1240,15 +1233,21 @@ def test_the_aviation_units_agree_with_the_shell():
 # scans ``app/views/*.py`` for a literal ``file_name="....csv"`` and matches the
 # call that built it; pointed at a derived GUI it would find no literal and pass
 # on an empty set -- a green gate over an unchecked front-end, which is the
-# failure OG-9 exists to prevent. So the subject here is
-# ``results.page_artifacts``: the bytes a user actually downloads. Completeness
-# comes from the call-site test below -- one ``download_button`` in the package,
-# fed from the same function this gate reads.
+# failure OG-9 exists to prevent.
+#
+# **Re-cut at #245.** Its subject was ``results.page_artifacts`` -- the bytes of
+# the per-page download buttons. Those buttons are gone and the issue package's
+# ``data/`` is the oracle GUI's only tabular channel, so the subject is now
+# ``package_data.data_files``: still the bytes a user actually receives, and now
+# all of them at once rather than one page's at a time. Completeness comes from
+# the call-site test below, which since #245 asserts that this GUI creates no
+# download at all beyond the project file it was given.
+#
+# The text half of the old gate retired with the artifacts it read. The
+# McMaster print-format ``.txt`` twin of every results block was a porting-era
+# verification artifact; the page-cited oracle tests carry that comparison, and
+# ``tests/test_cli.py`` still holds ``cli.py``'s own text output to its owner.
 _STAMP = "# BASIS: All loads reported here are LIMIT"
-_TEXT_HEADER = ("Loads are LIMIT: the safety factor of 14 CFR 23.303 is stated "
-                "per case and applied nowhere in sloads, including the exported "
-                "deck. Apply it in the sizing analysis. Load factors are limit. "
-                "A load marked -ULT is already ultimate; apply nothing further.")
 
 
 #: G7's fixtures. One airplane in one unit system was not a gate over the GUI's
@@ -1266,11 +1265,18 @@ def _fixture_project(example):
     return io.load_project(os.path.join(_EXAMPLES, f"{example}.project.json"))
 
 
-def _artifacts(key, example="ga6_normal", system=UnitSystem.IMPERIAL, project=None):
-    from oracle_app.results import page_artifacts
+def _data_files(example="ga6_normal", system=UnitSystem.IMPERIAL, project=None):
+    """Every file the oracle GUI's one tabular channel hands the user (#245)."""
+    from sloads.models.report import default_spec
+    from sloads.report.oracle_content import build_oracle_document
+    from sloads.report.package_data import data_files
 
-    return page_artifacts(
-        project if project is not None else _fixture_project(example), key, system)
+    import dataclasses
+
+    spec = dataclasses.replace(default_spec(), unit_system=system)
+    doc = build_oracle_document(
+        project if project is not None else _fixture_project(example), spec)
+    return data_files(doc)
 
 
 def test_the_output_gate_is_run_over_a_single_and_a_twin_in_both_systems():
@@ -1285,34 +1291,45 @@ def test_the_output_gate_is_run_over_a_single_and_a_twin_in_both_systems():
         f"G7 needs a single *and* a twin among its fixtures: {engines}")
 
 
-def test_every_oracle_page_that_runs_a_program_offers_a_file():
-    """The completeness half of G7: a page that runs a ``.BAS`` program must put
-    a file on the page for at least one of the fixtures.
+@pytest.mark.parametrize("example,system", _G7_FIXTURES, ids=_G7_IDS)
+def test_every_program_the_oracle_gui_runs_reaches_the_data_channel(example, system):
+    """The completeness half of G7, re-cut (#245).
 
-    Pages that run nothing (``aero_coefficients`` is input-only) are exempt by
-    the workflow's own answer, not by name. A page that runs a program and
-    produces nothing on *either* fixture is either broken or carries a condition
-    no fixture reaches -- and both of those were what the payload assertions
-    below quietly iterated past on an empty artifact list (review PB-13).
+    It used to say *a page that runs a program must put a file on the page*.
+    With the per-page buttons gone the same claim is made one level out and is
+    stronger for it: a module that produced a result must have its load cases in
+    ``data/``, for whichever fixture produced it. A module that runs and reaches
+    no file is a channel that silently lost a program in the consolidation --
+    which is the one failure mode retiring twenty buttons could have.
     """
-    running = [key for key in sorted(wf.oracle_step_keys()) if wf.step_modules(key)]
-    assert running, "no oracle page runs a program -- the gate is vacuous"
-    coverage = {
-        key: [ident for (example, system), ident in zip(_G7_FIXTURES, _G7_IDS)
-              if _artifacts(key, example, system)]
-        for key in running
-    }
-    missing = sorted(key for key, on in coverage.items() if not on)
+    from sloads.models.report import default_spec
+    from sloads.report.oracle_content import build_oracle_document
+    from sloads.report.package_data import LOAD_CASES_DIR, data_files
+
+    doc = build_oracle_document(_fixture_project(example), default_spec())
+    ran = {name for name, result in doc.results.items() if result is not None}
+    assert ran, "no module ran -- the gate is vacuous"
+    shipped = {os.path.basename(f.name)[: -len(".csv")]
+               for f in data_files(doc) if f"/{LOAD_CASES_DIR}/" in f.name}
+    missing = sorted(ran - shipped)
     assert not missing, (
-        "these pages run a program but offer no file on any G7 fixture "
-        f"({_G7_IDS}): {missing}")
+        "these modules produced a result the package's data/ never carries: "
+        f"{missing}")
 
 
-def test_the_gui_has_exactly_one_download_call_site():
-    """What makes the payload gate *complete*: every file the oracle GUI offers
-    is an ``Artifact`` from ``page_artifacts``, because there is nowhere else a
-    download can be created. A second call site would be an artifact G7 never
-    saw."""
+def test_the_gui_offers_no_download_but_the_project_it_was_given():
+    """What makes the payload gate *complete*, re-cut at #245.
+
+    The oracle GUI used to have exactly one download call site, and the gate was
+    that nothing else created a file. It now has **none**: every number it shows
+    leaves through the issue package the Report page writes to disk, so a
+    ``download_button`` anywhere in this front end is a channel ``data/`` does
+    not know about and the basis assertions below have never seen.
+
+    The shared shell's project-file download stays, and is outside the gate by
+    content and not by directory: a project is the GUI's *input*, not a load
+    deliverable, and it is the same file Save writes.
+    """
     sites = []
     for path in _DOWNLOAD_SOURCES:
         for node in ast.walk(_parse(path)):
@@ -1320,48 +1337,31 @@ def test_the_gui_has_exactly_one_download_call_site():
                 sites.append((os.path.relpath(path, _ROOT), node.lineno,
                               _file_name_of(node)))
 
-    renderer = [s for s in sites if s[0] == os.path.join("oracle_app", "results.py")]
-    assert len(renderer) == 1, (
-        "the oracle GUI offers a load download from somewhere other than the one "
-        "renderer -- gate G7 reads page_artifacts() and would not see it:\n"
-        + "\n".join(f"{f}:{n}" for f, n, _ in renderer))
-
-    # The shell's own downloads are allowed, and bounded: the project file is an
-    # input, not a load deliverable, so it is outside G7 by content rather than
-    # by which directory it lives in. Anything else the shell offers is a file a
-    # user gets from this GUI that page_artifacts() never saw.
-    # The results zip (C210-45) *is* a load deliverable, and its payload gate is
-    # ``tests/test_results_zip.py``, which reads the artifact bytes the way this
-    # file's G7 reads ``page_artifacts()``: the zip's members come from the same
-    # two owners the per-page artifacts do (``module_text_report`` and
-    # ``io.load_cases_csv`` + ``csv_comment_block``), so the ULT marker and the
-    # basis statement are asserted on the bytes a user receives, not assumed.
-    others = [s for s in sites if s not in renderer]
-    offenders = [f"{f}:{n} -> {name}" for f, n, name in others
-                 if name is None or not name.endswith((".project.json",
-                                                       "_results.zip"))]
+    offenders = [f"{f}:{n} -> {name}" for f, n, name in sites
+                 if name is None or not name.endswith(".project.json")]
     assert not offenders, (
-        "the shared shell offers a download the oracle GUI's output gate cannot "
-        "see -- route it through results.page_artifacts() or state why it is not "
+        "the oracle GUI or the shared shell offers a file the data/ channel "
+        "does not carry -- put it in the issue package, or state why it is not "
         "a load deliverable:\n" + "\n".join(offenders))
 
 
 @pytest.mark.parametrize("example,system", _G7_FIXTURES, ids=_G7_IDS)
-@pytest.mark.parametrize("key", sorted(wf.oracle_step_keys()))
-def test_every_csv_the_oracle_gui_offers_states_its_basis(key, example, system):
+def test_every_csv_the_oracle_gui_offers_states_its_basis(example, system):
     """Gate G7, the CSV half: **every** load CSV states the LIMIT basis in its
     comment block, and an ``SF`` column wherever a factor is stated.
 
     Inverted by note 49 OR-116: LIMIT is the project's only basis, so the rule
     is no longer "ULTIMATE-by-stamp or LIMIT-by-filename" -- there is one basis
-    and every file states it. The ``*_LIMIT.csv`` stem is now redundant rather
-    than a distinguisher (OR-90 retires it); a file carrying it must still
-    state the basis in-band like every other. A load CSV with no basis in its
-    comment block is the M4-15 defect class, unchanged."""
-    for art in _artifacts(key, example, system):
-        if not art.file_name.endswith(".csv"):
-            continue
-        body = [ln for ln in art.payload.splitlines() if not ln.startswith("#")]
+    and every file states it. A load CSV with no basis in its comment block is
+    the M4-15 defect class, unchanged.
+
+    Read off ``data/`` since #245. The set is wider than the buttons' was -- the
+    applied sets, the V-n conditions and every figure's own numbers are in it
+    now -- and each is checked the same way, because the rule was never about
+    which button a file came from.
+    """
+    for art in _data_files(example, system):
+        body = [ln for ln in art.content.splitlines() if not ln.startswith("#")]
         header = body[0] if body else ""
         # A file states its basis in one of three places, all acceptable: the
         # comment block, a per-row ``Basis`` column, or the column headers
@@ -1371,7 +1371,7 @@ def test_every_csv_the_oracle_gui_offers_states_its_basis(key, example, system):
         # not "state it in one particular place".
         if "Basis" in header.split(","):
             assert all("LIMIT" in ln or "ULT" in ln for ln in body[1:] if ln), (
-                f"{art.file_name} has a Basis column that does not state a basis")
+                f"{art.name} has a Basis column that does not state a basis")
         elif "LIMIT" in header or "-ULT" in header:
             pass        # stated per column, on every value in the file
         else:
@@ -1380,76 +1380,23 @@ def test_every_csv_the_oracle_gui_offers_states_its_basis(key, example, system):
             # satisfied by a data row that happens to contain the words, and a
             # consumer reads the head of the file, not a grep of it.
             head = list(takewhile(lambda ln: ln.startswith("#"),
-                                  art.payload.splitlines()))
+                                  art.content.splitlines()))
             assert any(ln.startswith(_STAMP) for ln in head), (
-                f"{art.file_name} leaves the oracle GUI with no basis statement "
+                f"{art.name} leaves the oracle GUI with no basis statement "
                 f"in its comment block -- pass report.csv_comment_block(project)")
-            # The SF column is required exactly where a load was scaled (M4-8:
-            # the factor is stated where it is applied). A pure property table
-            # (geometry, mass properties -- no ``-ULT`` column anywhere)
-            # carries no SF since #95/C210-8: the always-blank SF column on
-            # those tables was C210-27's own complaint, not a basis statement.
             if "-ULT" in header:
                 assert "SF" in header.split(","), (
-                    f"{art.file_name} carries ULTIMATE loads but no per-case "
+                    f"{art.name} carries ULTIMATE loads but no per-case "
                     "SF column")
-            else:
-                assert "-ULT" not in art.payload.split("\n", len(head) + 1)[-1] or \
-                    "SF" in header.split(","), (
-                    f"{art.file_name} has -ULT data beyond the header row but "
-                    "no SF column")
 
 
 @pytest.mark.parametrize("example,system", _G7_FIXTURES, ids=_G7_IDS)
-@pytest.mark.parametrize("key", sorted(wf.oracle_step_keys()))
-def test_every_text_report_says_what_the_cli_says(key, example, system):
-    """Gate G7, the text half: the same ULT marker and per-case SF statement as
-    ``cli.py``'s, which is guaranteed by being the same call -- so the assertion
-    is byte equality with the CLI's own output, title line aside."""
-    from sloads import convert_results, registry
-    from sloads.report import module_text_report, text_report
-
-    project = _fixture_project(example)
-    for art in _artifacts(key, project=project, system=system):
-        if not art.file_name.endswith(".txt"):
-            continue
-        assert _TEXT_HEADER in art.payload, f"{art.file_name} drops the ULT statement"
-        # The per-case basis marker. Note 49 OR-116/OR-118: a case is LIMIT with
-        # its factor stated, or -- for the two families computed already
-        # ultimate -- says so and asks for nothing further.
-        assert ("[LIMIT" in art.payload or "[already ultimate" in art.payload), (
-            f"{art.file_name} states no per-case basis marker")
-        module = art.file_name[: -len(".txt")]
-        result = registry.get(module)(project)
-        converted = convert_results(result.conditions, system)
-        # cli.py: module_text_report(result.module, convert_results(...)).
-        expected = module_text_report(module, converted)
-        assert art.payload.splitlines()[1:] == expected.splitlines()[1:], (
-            f"{art.file_name} differs from the CLI's report for {module}")
-        if module == "engine" and project.engine is not None:
-            # cli.py:541 takes a different branch for this one module: it prints
-            # ``text_report``, which heads the same body with the engine and
-            # propeller identification. "Byte equality with the CLI's output"
-            # was therefore not true here (review PB-13). The artifact keeps the
-            # module report -- what is pinned is that the *body* is one text, so
-            # the two cannot drift apart under one owner's edit.
-            richer = text_report(
-                project.engine, converted,
-                unit_system="Imperial" if system == UnitSystem.IMPERIAL else "SI")
-            basis = richer.splitlines().index(_TEXT_HEADER)
-            assert richer.splitlines()[basis:] == expected.splitlines()[
-                expected.splitlines().index(_TEXT_HEADER):], (
-                "cli.py's engine report and the GUI's engine.txt no longer share "
-                "a body -- one of the two owners changed alone")
-
-
-@pytest.mark.parametrize("example,system", _G7_FIXTURES, ids=_G7_IDS)
-def test_no_page_offers_two_files_with_the_same_name(example, system):
-    """The download widget's key is the filename, so a collision is both a
-    duplicate-key crash and two different files under one name."""
-    for key in sorted(wf.oracle_step_keys()):
-        names = [a.file_name for a in _artifacts(key, example, system)]
-        assert len(names) == len(set(names)), (key, names)
+def test_no_two_data_files_share_a_name(example, system):
+    """Two different files under one name is two different answers to one
+    question, and the one the reader opens is whichever was written last."""
+    names = [f.name for f in _data_files(example, system)]
+    assert len(names) == len(set(names)), sorted(
+        n for n in names if names.count(n) > 1)
 
 
 def test_the_station_tables_are_keyed_by_module_not_by_page():

@@ -234,7 +234,6 @@ FAR23LOADS/
 │   │   ├── applied.py            # THE applied load set (OR-141): one row shape for all six components, the station numbering, the side-of-body internal loads (note 56 D-56.1, moved out of export/sbeam_bridge.py, which ceased to exist)
 │   │   ├── lumping.py            # what summing the applied set onto the beam's grids costs the distribution: the two internal-load curves and their gap (note 56 D-56.10)
 │   │   ├── bundle.py             # THE Export zip's member list: every file it carries, with the manifest row that names it (CR-C-1)
-│   │   ├── results_zip.py        # the sidebar's whole-project results zip: every module run, skip-and-manifest (C210-45)
 │   │   ├── conventions_tex.py    # the report's "Axes and sign conventions" section, from CONVENTIONS.md's owners
 │   │   ├── latex.py              # ReportDocument → .tex (escaping, longtable, document control); THE table/figure/section emitters, shared by both reports
 │   │   ├── figures.py            # THE figure catalogue: one row per figure family — its page, its pre-run/post-run Stage, its producer (note 60, D-60.1/D-60.4)
@@ -244,6 +243,7 @@ FAR23LOADS/
 │   │   ├── oracle_content.py     # the oracle technical report's content model: the derived section set and its four states (note 44, OR-2/OR-32)
 │   │   ├── oracle_latex.py       # the oracle report's furniture — title page, classification footer, DRAFT overlay — borrowing latex.py's emitters
 │   │   ├── oracle_package.py     # THE issue package's member list + its SUMMARY_REPORT §4.7 manifest (note 44, OR-22/OR-35)
+│   │   ├── package_data.py       # THE issue package's `data/`: which files it carries, from which owner, with the header that makes each self-describing (#245)
 │   │   └── oracle_sections.py    # the oracle report's analysis sections: one builder per step key, reading ModuleResult values only (note 44, OR-8)
 │   ├── export/                   # output bridges to external tools (renderers, NOT registered modules)
 │   │   ├── bands.py              # THE GID/EID/SID band registry: one owner per id run, disjointness proved by test

@@ -40,7 +40,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 from app_shell.widget_keys import unstamped
-from oracle_app.results import page_artifacts, step_results
+from oracle_app.results import step_results
 from sloads import Project, UnitSystem
 from sloads import io as sloads_io
 from sloads import workflow as wf
@@ -167,9 +167,20 @@ def _blocks(project: Project, key: str) -> List[Tuple[str, str, int, Tuple[str, 
             for b in step_results(project, key, UnitSystem.IMPERIAL)]
 
 
-def _artifacts(project: Project, key: str) -> List[Tuple[str, Any]]:
-    return [(a.file_name, a.payload)
-            for a in page_artifacts(project, key, UnitSystem.IMPERIAL)]
+def _data_files(project: Project) -> List[Tuple[str, Any]]:
+    """Every file the issue package would carry for ``project`` (#245).
+
+    This replaced a per-page walk of ``results.page_artifacts`` when the
+    per-module download buttons retired. It is the same question asked of the
+    channel that now answers it -- and a wider one: the old walk compared the
+    files one page offers, this compares every file the analysis ships.
+    """
+    from sloads.models.report import default_spec
+    from sloads.report.oracle_content import build_oracle_document
+    from sloads.report.package_data import data_files
+
+    doc = build_oracle_document(project, default_spec())
+    return [(f.name, f.content) for f in data_files(doc)]
 
 
 def _first_diff(a: Any, b: Any) -> str:
@@ -237,10 +248,9 @@ def test_every_page_gives_the_reduced_keys_numbers(journey):
     answer, typed = journey
     for step in wf.oracle_steps():
         assert _blocks(typed, step.key) == _blocks(answer, step.key), step.key
-        for (name, payload), (_n, want) in zip(_artifacts(typed, step.key),
-                                               _artifacts(answer, step.key)):
-            assert payload == want, f"[{step.key}] {name}: {_first_diff(payload, want)}"
-        assert len(_artifacts(typed, step.key)) == len(_artifacts(answer, step.key)), step.key
+    for (name, content), (_n, want) in zip(_data_files(typed), _data_files(answer)):
+        assert content == want, f"{name}: {_first_diff(content, want)}"
+    assert len(_data_files(typed)) == len(_data_files(answer))
 
 
 def test_save_reload_rerun_is_a_fixed_point(journey):
@@ -248,8 +258,7 @@ def test_save_reload_rerun_is_a_fixed_point(journey):
     text = sloads_io.project_to_json(typed)
     reloaded = sloads_io.project_from_dict(json.loads(text))
     assert sloads_io.project_to_json(reloaded) == text
-    for step in wf.oracle_steps():
-        assert _artifacts(reloaded, step.key) == _artifacts(typed, step.key), step.key
+    assert _data_files(reloaded) == _data_files(typed)
 
 
 if __name__ == "__main__":  # zero-dependency self-runner

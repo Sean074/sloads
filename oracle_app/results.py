@@ -31,12 +31,18 @@ not one. Those tables are **LIMIT** -- the oracle-traceable calc values, the
 builder a program has is a fact about the program, and keying on the page would
 put a step key back in the GUI (gate G2).
 
-**One download call site.** :func:`step_results` returns the blocks and their
-:class:`Artifact` payloads as data, and :func:`render_results` is the only place
-that turns one into an ``st.download_button``. Gate **G7** reads the payloads
-directly, so what it checks is the bytes the user gets, not a source pattern
-that resembles them -- and a second call site would be an artifact the gate had
-never seen, which ``tests/test_oracle_gui.py`` fails on.
+**No downloads here since #245.** Every result block used to offer its own CSV
+and a McMaster print-format text twin -- twenty-odd blocks, forty-odd buttons,
+a third channel for numbers the report already carries. They retired into the
+issue package's ``data/``, which is built from these same two owners
+(:func:`sloads.io.load_cases_csv` and the report's own tables) and travels with
+the document that states their basis. The text twins were porting-era
+verification artifacts and did not move: the page-cited oracle tests carry that
+comparison now.
+
+Gate **G7** re-cut with them: it no longer reads payloads, because there are
+none to read. What it asserts instead is that this GUI offers **no** file but
+the project it was given -- see ``tests/test_oracle_gui.py``.
 """
 
 from __future__ import annotations
@@ -48,16 +54,12 @@ import pandas as pd
 import streamlit as st
 
 from app_shell.limit_csv import (
-    body_limit_csv,
     body_limit_rows,
-    tail_limit_csv,
     tail_limit_rows,
-    wing_limit_csv,
     wing_limit_rows,
 )
 from oracle_app.labels import pretty
 from sloads import UnitSystem, convert_results, mass_distribution, registry
-from sloads import io as sloads_io
 from sloads import workflow as wf
 from sloads.frames import AIRPLANE_DATUM, GROUND_LINE, caption
 from sloads.models import ConditionResult, LoadValue, Project
@@ -68,9 +70,7 @@ from sloads.modules.weight_estimate import ADVISORY as _ESTIMATE_ADVISORY
 from sloads.modules.weight_estimate import compare_with_itemized
 from sloads.report import (
     SUMMARY_GROUP_BY,
-    csv_comment_block,
     format_value,
-    module_text_report,
     summary_rows,
 )
 
@@ -123,6 +123,18 @@ def _not_ready_traceback(exc: BaseException) -> str:
 # data: the two front-ends stated the load-output contract differently for the
 # whole of note 49 because only one of them was swept (#239), and the cure for
 # that is to say the same sentence, not a second true one.
+#: Where the numbers on this page can be had as files (#245).
+#:
+#: One sentence per page rather than a button per block: the tabular channel is
+#: the issue package's, and a reader who wants the rows wants all of them, with
+#: the document that states their basis, not one module's at a time.
+_FILES_NOTE = (
+    "These results are downloadable as files from the **Report** page: build an "
+    "issue (a DRAFT needs no signatures) and its `data/` folder carries every "
+    "module's load cases, the applied load sets and the report's own tables, "
+    "each stating its units, its axes and the factor it does not apply."
+)
+
 _CASE_NOTE = ("Load columns are **LIMIT**; the `SF` column states the 14 CFR "
               "23.303 factor this tool applies nowhere -- apply it in the "
               "sizing analysis. The `-ULT` marker appears only on a load the "
@@ -140,28 +152,13 @@ _STATION_NOTE = ("LIMIT station loads -- the oracle-traceable calc values "
                  "table has no such column, and in the `_LIMIT.csv` filename.")
 
 
-class Artifact(NamedTuple):
-    """One downloadable file a page offers, payload included.
-
-    The payload is the string the user receives, so gate G7 can read it rather
-    than infer it from the call that would have produced it.
-    """
-
-    label: str
-    file_name: str
-    mime: str
-    payload: str
-
-
 class ResultBlock(NamedTuple):
-    """One heading, one table, its downloads -- or a note saying why there is
-    no table yet."""
+    """One heading and one table -- or a note saying why there is no table yet."""
 
     module: str
     title: str
     shape: str = CASE_TABLE
     rows: Tuple[Dict[str, Any], ...] = ()
-    artifacts: Tuple[Artifact, ...] = ()
     note: str = ""
     #: The traceback behind a not-ready ``note``, module:line first (C210-24 /
     #: the display half of #71): the friendly one-liner stays, but a from-blank
@@ -182,8 +179,8 @@ class ResultBlock(NamedTuple):
     #: Column to group the rows by on screen (#95, C210-27): a one-line-per-
     #: case shape renders one sub-table per value of this column (per
     #: component, the M2-4 Results Review layout), each dropping the quantity
-    #: columns that whole group leaves at "—". The artifacts keep the rows
-    #: flat -- same rows, same columns, one CSV.
+    #: columns that whole group leaves at "—". The package's own file keeps the
+    #: rows flat -- same rows, same columns, one CSV.
     group_by: str = ""
 
 
@@ -195,7 +192,6 @@ class StationTable(NamedTuple):
     stem: str
     build: Callable[[Project], Any]
     rows: Callable[[Any, UnitSystem], List[Dict[str, object]]]
-    csv: Callable[[Any, UnitSystem], str]
 
 
 #: The three programs that print a station table, keyed by module name. Their
@@ -206,15 +202,15 @@ STATION_TABLES: Dict[str, StationTable] = {
     "net_loads": StationTable(
         "Spanwise wing stations", "wing_stations",
         lambda p: wing_load_rows(build_net_loads(p).wing_net),
-        wing_limit_rows, wing_limit_csv),
+        wing_limit_rows),
     "body_loads": StationTable(
         "Fuselage stations", "fuselage_stations",
         lambda p: body_load_rows(build_body_loads(p)),
-        body_limit_rows, body_limit_csv),
+        body_limit_rows),
     "taildist": StationTable(
         "Chordwise tail distribution", "tail_chordwise",
         build_tail_chordwise,
-        tail_limit_rows, tail_limit_csv),
+        tail_limit_rows),
 }
 
 
@@ -222,7 +218,7 @@ STATION_TABLES: Dict[str, StationTable] = {
 # Building the blocks -- pure, no Streamlit
 # --------------------------------------------------------------------------- #
 def _module_block(project: Project, name: str, system: UnitSystem) -> ResultBlock:
-    """One program's load cases, as a table plus its CSV and text downloads."""
+    """One program's load cases, as a table. The files are the package's (#245)."""
     title = pretty(name)
     try:
         result = registry.get(name)(project)
@@ -242,16 +238,8 @@ def _module_block(project: Project, name: str, system: UnitSystem) -> ResultBloc
     # SF (the owner directive); WTENV one row per weight/station point;
     # everything else the data-shaped generic table.
     rows = summary_rows(name, display)
-    artifacts = (
-        Artifact(f"{title} (CSV)", f"{name}.csv", "text/csv",
-                 sloads_io.load_cases_csv(result,
-                                          header_comment=csv_comment_block(project),
-                                          system=system)),
-        Artifact(f"{title} (text)", f"{name}.txt", "text/plain",
-                 module_text_report(title, display)),
-    )
     advisory = MODULE_ADVISORIES.get(name)
-    return ResultBlock(name, title, CASE_TABLE, tuple(rows), artifacts,
+    return ResultBlock(name, title, CASE_TABLE, tuple(rows),
                        advisory=advisory(project, system) if advisory else "",
                        group_by=SUMMARY_GROUP_BY.get(name, ""))
 
@@ -270,10 +258,7 @@ def _station_block(project: Project, name: str, system: UnitSystem) -> ResultBlo
     if not rows:
         return ResultBlock(name, spec.title, STATION_TABLE,
                            note=f"{spec.title} has no stations.")
-    artifact = Artifact(f"{spec.title} (CSV, LIMIT)",
-                        f"{spec.stem}_LIMIT.csv", "text/csv",
-                        spec.csv(built, system))
-    return ResultBlock(name, spec.title, STATION_TABLE, tuple(rows), (artifact,),
+    return ResultBlock(name, spec.title, STATION_TABLE, tuple(rows),
                        warnings=STATION_WARNINGS.get(name, lambda _p: ())(project))
 
 
@@ -481,12 +466,6 @@ def step_results(project: Project, key: str, system: UnitSystem) -> List[ResultB
     return blocks
 
 
-def page_artifacts(project: Project, key: str,
-                   system: UnitSystem) -> List[Artifact]:
-    """Every file one oracle page offers for download. Gate G7's subject."""
-    return [a for b in step_results(project, key, system) for a in b.artifacts]
-
-
 # --------------------------------------------------------------------------- #
 # Rendering
 # --------------------------------------------------------------------------- #
@@ -512,12 +491,15 @@ def _block_frames(block: ResultBlock) -> List[Tuple[str, pd.DataFrame]]:
 
 
 def render_results(project: Project, key: str, system: UnitSystem) -> None:
-    """Render one oracle page's results, downloads included."""
+    """Render one oracle page's results. No downloads -- see the module docstring."""
     blocks = step_results(project, key, system)
     if not blocks:
         return
 
     st.header("Results")
+    # Said once per page, where the button used to be: a channel that is removed
+    # without saying where it went reads as a channel that was lost (#245).
+    st.caption(_FILES_NOTE)
     for block in blocks:
         st.subheader(block.title)
         if block.module:
@@ -540,25 +522,13 @@ def render_results(project: Project, key: str, system: UnitSystem) -> None:
             if subtitle:
                 st.markdown(f"**{subtitle}**")
             st.dataframe(frame, hide_index=True, width="stretch")
-        # ``st.columns(0)`` raises, so a block with rows and no download would
-        # take the whole page down with it -- a real mechanism with no live
-        # trigger today, every result block that reaches here happening to carry
-        # at least one artifact (code review 2026-08-24 §4.3, #89). Guarded
-        # rather than left to that coincidence.
-        if block.artifacts:
-            columns = st.columns(len(block.artifacts))
-            for column, artifact in zip(columns, block.artifacts):
-                column.download_button(
-                    f"Download {artifact.label}", artifact.payload,
-                    file_name=artifact.file_name, mime=artifact.mime,
-                    key=f"{key}.{artifact.file_name}", width="stretch")
         st.divider()
 
 
 __all__ = [
     "CASE_TABLE", "MODULE_ADVISORIES", "STATION_TABLE", "STATION_TABLES",
     "STATION_WARNINGS",
-    "Artifact", "ResultBlock", "StationTable", "page_artifacts", "render_results",
+    "ResultBlock", "StationTable", "render_results",
     "select_inertia_advisory", "step_results", "taildist_spanwise_advisory",
     "weight_estimate_advisory",
 ]

@@ -18,8 +18,13 @@ LR-0142_RevB/
 
 **Pure, like the rest of** :mod:`sloads.report`: this module returns the package's
 *contents*; :mod:`sloads.export.report_package` writes them. The split is what
-lets the determinism gate (G-OR-16) compare two builds without a filesystem, and
-it is the same shape :mod:`sloads.report.results_zip` already has.
+lets the determinism gate (G-OR-16) compare two builds without a filesystem.
+
+``data/`` is filled by :mod:`sloads.report.package_data` (#245), which is where
+the question "what does a package carry?" is answered; this module places what
+that one decides and names it in the manifest. Since #245 it is the **only**
+tabular channel either front end offers: the per-module download buttons and
+the sidebar's results zip retired into it.
 
 **Nothing here reads the clock.** The build timestamp arrives as an argument. A
 builder that stamped ``now()`` would make byte-identical rebuilds impossible to
@@ -30,12 +35,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import List, Optional, Sequence
 
 from ..models import Project
 from ..models.report import REPORT_SCHEMA_VERSION, ReportSpec
 from ..units import UnitSystem
+from . import package_data as _package_data
 from .oracle_content import OracleDocument, build_oracle_document, section_ref
 from .oracle_latex import render_oracle_document
 
@@ -44,7 +50,11 @@ PACKAGE_SPEC = "report.json"
 PACKAGE_BUILD = "build.json"
 PACKAGE_PROJECT = "project.json"
 PACKAGE_MANIFEST = "MANIFEST.txt"
-DATA_DIR = "data"
+#: Re-exported from its owner (#245) so a caller assembling or reading a package
+#: has one import for the package's shape. The directory's *contents* are
+#: :mod:`sloads.report.package_data`'s to decide, and this module only places
+#: them.
+DATA_DIR = _package_data.DATA_DIR
 
 #: What the manifest prints in place of its own hash.
 #:
@@ -196,6 +206,25 @@ def package_members(
         fingerprint=fingerprint, fingerprint_version=fingerprint_version)
 
     intro = section_ref(doc.plan, "") if doc.plan else "section 1"
+
+    # The data behind the document, decided before anything is rendered (#245).
+    #
+    # From ``doc`` and not from ``project``: the document was built from the
+    # oracle projection and from one run of the modules, and both travel on it,
+    # so a data file cannot come out of a different analysis from the page that
+    # summarises it.
+    data = _package_data.data_files(doc)
+    # The document then lists what travels with it -- the reader's half of
+    # G-OR-17, the manifest being the archivist's. Re-walking the document for
+    # data files after this would find nothing new: a front-matter table is not
+    # an appendix table and draws no figure.
+    if doc.sections:
+        doc = replace(doc, sections=[replace(
+            doc.sections[0],
+            subsections=list(doc.sections[0].subsections)
+            + [_package_data.data_reference_section(data)])]
+            + list(doc.sections[1:]))
+
     members = [
         PackageMember(
             name=PACKAGE_TEX,
@@ -235,6 +264,18 @@ def package_members(
             conventions="per docs/10_standard/CONVENTIONS.md",
             summarised_in=intro,
         ),
+    ]
+    # Placed after the four control files and before the manifest, which is the
+    # order a package is read in: what it *is*, then what it carries, then the
+    # list of both.
+    members += [
+        PackageMember(
+            name=member.name, content=member.content, contents=member.contents,
+            units=member.units,
+            conventions="axes, signs and safety factors per the methods "
+                        "statement in this file's own header",
+            summarised_in=member.summarised_in)
+        for member in data
     ]
     manifest = PackageMember(
         name=PACKAGE_MANIFEST,

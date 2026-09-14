@@ -2414,7 +2414,7 @@ _APPLIED_LOADS: Tuple[Tuple[str, str], ...] = (
 
 
 def applied_load_table(rows: Sequence[object], *, title: str,
-                       note: str, system: UnitSystem,
+                       note: str, system: UnitSystem, component: str,
                        small: bool = True) -> Optional[Table]:
     """The one applied-load appendix table, for every component (OR-139).
 
@@ -2443,7 +2443,7 @@ def applied_load_table(rows: Sequence[object], *, title: str,
     record, because a beam stores its torsion about its own span axis and only
     that owner knows which airplane axis that is for the component in hand.
     """
-    from .applied import applied_body_moments
+    from .applied import APPLIED_CSV_NAMES, applied_body_moments
 
     if not rows:
         return None
@@ -2465,7 +2465,8 @@ def applied_load_table(rows: Sequence[object], *, title: str,
             + [u.load(value, dim, sf)
                for value, (dim, _label) in zip(values, _APPLIED_LOADS)]
             + [format_value(sf)])
-    return Table(title=title, columns=columns, rows=out, small=small, note=note)
+    return Table(title=title, columns=columns, rows=out, small=small, note=note,
+                 data_file=APPLIED_CSV_NAMES[component])
 
 
 def _case_name(result: object) -> str:
@@ -2490,7 +2491,7 @@ def _applied_table(net: Sequence[WingLoadResult], system: UnitSystem,
         return None
     axis = _torsion_axis(net) or "loads reference axis"
     return applied_load_table(
-        applied_loads("wing", list(net), project),
+        applied_loads("wing", list(net), project), component="wing",
         title="Applied wing loads by station (LIMIT)", system=system,
         note=("The load applied at each station's own point: a strip row per "
               "load station, root to tip, and a row per concentrated wing mass "
@@ -3613,6 +3614,7 @@ def _body_station_appendix(project: Project, *, system: UnitSystem,
     lra = _fuselage_lra(project)
     applied = applied_load_table(
         applied_loads("fuselage", net, project), system=system,
+        component="fuselage",
         title="Applied fuselage loads by station (LIMIT)",
         note=("The load applied at each station of the body beam. X, Y and Z "
               "place the station on the airplane: the beam runs down the "
@@ -4818,6 +4820,7 @@ def _tail_station_appendix(project: Project, component: str, *,
                   "a lateral load acting about y.")
     table = applied_load_table(
         applied_loads(component, results, project), system=system,
+        component=component,
         title=f"Applied {names['surface']} loads by station (LIMIT)",
         note=("Every load is LIMIT and states the factor 14 CFR 23.303 "
               "prescribes for its condition, which is applied to none of them. "
@@ -7590,7 +7593,7 @@ def _gear_appendix(project: Project, *, system: UnitSystem,
             f"the ground load conditions were not produced for this project, so "
             f"there are no gear loads to list: {exc}"), page_break=True)
     table = applied_load_table(
-        rows, system=system,
+        rows, system=system, component="landing_gear",
         title="Applied landing gear loads by case (LIMIT)",
         note=("One row per case per loaded leg, all 33 conditions, at the point "
               "that case's reaction acts at — the axle or the ground contact "
@@ -7971,7 +7974,7 @@ def _vn_state_table(project: Project, rows: Sequence[Tuple[List[str], List[str]]
         title="Balanced flight conditions: the flight state",
         columns=list(_VN_STATE_COLUMNS),
         rows=[state for state, _loads in rows],
-        small=True,
+        small=True, data_file=VN_CONDITIONS_CSV,
         note=("One row per balanced point, in the order the envelope produces "
               "them. Config is the aerodynamic coefficient set the point was "
               f"balanced with; {flap_state}. CG is the positional id of the "
@@ -7995,6 +7998,7 @@ def _vn_load_table(rows: Sequence[Tuple[List[str], List[str]]],
         return None
     force, moment = u.label("force"), u.label("moment")
     return Table(
+        data_file=VN_CONDITIONS_CSV,
         title="Balanced flight conditions: balancing loads and selection (LIMIT)",
         columns=["CG", "Case", "Condition", f"M(W+F) ({moment})",
                  f"LZW ({force})", f"LT ({force})", f"DX ({force})", "NX"]
@@ -8026,6 +8030,37 @@ def _csv_note(text: str) -> str:
     import textwrap
 
     return "".join(f"# {ln}\n" for ln in textwrap.wrap(text, width=72))
+
+
+def applied_set_source(project: Project, component: str):
+    """The results one component's applied set is written from (#245).
+
+    The **document's own** producers, named in one place so the issue package's
+    ``data/`` builds its ``*_applied_loads.csv`` from exactly what the applied
+    appendix prints. Each is the pair the section builder above already calls --
+    ``_wing_net`` for B.1, ``_body_net`` for C.1, ``_tail_spanwise`` for D and E
+    -- and the gear and the engine take the project itself, their producers
+    reading the ground and engine slices directly.
+
+    Returns ``[]``, not a raise, for a component this project has no loads for:
+    the file is then absent from the package and its manifest, which is how an
+    unproduced artifact has always been stated. G-OR-7's rule, one level out.
+    """
+    if component == "wing":
+        return _wing_net(project)
+    if component == "fuselage":
+        return _body_net(project)
+    if component in ("htail", "vtail"):
+        return _tail_spanwise(project, component)
+    return project
+
+
+#: The name Appendix A's file carries in the issue package's ``data/`` (#245).
+#:
+#: Here rather than in the package's own emitter because the appendix's tables
+#: point at it (``Table.data_file``) and the function below *is* it: a name
+#: written in two modules is a name that can come to mean two files.
+VN_CONDITIONS_CSV = "vn_conditions.csv"
 
 
 def vn_conditions_csv(project: Project, header_comment: str = "", *,
