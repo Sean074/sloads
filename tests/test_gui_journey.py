@@ -1,10 +1,10 @@
-"""The main GUI walked end to end, as a user walks it (#145).
+"""The GUI walked end to end, as a user walks it (#145).
 
-Per-page coverage is extensive -- ``test_views_smoke`` renders every view,
-``test_dirty_flag`` pins OG-F on the three that persist -- and every one of those
+Per-page coverage is extensive -- ``test_dirty_flag`` pins OG-F on the pages
+that persist, ``test_oracle_gui`` renders each one -- and every one of those
 tests starts a *fresh* session with a *fresh* project on *one* page. The release
-gate above them (``scripts/smoke_test.sh``, RELEASE_PROCESS §3.5) boots both
-entry points and checks the root page answers 200. Neither shape can reach a
+gate above them (``scripts/smoke_test.sh``, RELEASE_PROCESS §3.5) boots the
+entry point and checks the root page answers 200. Neither shape can reach a
 defect that needs a **journey**: load an example, touch something on one page,
 and find the damage two pages later.
 
@@ -19,8 +19,8 @@ example through the workflow. This file is that walk, in CI:
 * one **no-op interaction** per editable block on each page: every value-bearing
   widget is set to the value it already has and every ``Apply`` is pressed,
 * the session -- widget state included -- is **carried from page to page**, which
-  is what makes the walk a journey rather than 22 renders (the stale-widget class
-  ``widget_keys`` exists for lives in exactly that carry-over),
+  is what makes the walk a journey rather than fourteen renders (the stale-widget
+  class ``widget_keys`` exists for lives in exactly that carry-over),
 * **every registered module** is run at the end, and must either run clean or
   refuse by name with :class:`MissingInputError`,
 * and the project is asserted **byte-identical** across the whole walk, because
@@ -30,7 +30,15 @@ That last assertion is the #143 catch: silent data *gain* -- a block attached by
 a touch, persisted into the saved ``.project.json`` -- shows up here as a diff
 against a walk that entered nothing. It is the #51 data-*loss* class from the
 other side at the same time; on the first run of this file it caught both, in
-one page (see :data:`KNOWN_OPEN` and the fixes in ``app/views/aero_coefficients``).
+one page.
+
+**Re-aimed at the surviving GUI at #270** (note 57, gate 7). It walked the
+retired front-end's 22 hand-written view files, and :data:`KNOWN_OPEN` held the
+five no-op-Apply diffs that #148 was filed for and the ``app/views/`` freeze
+forbade fixing. Those pages are gone and so are their diffs: the gate starts
+empty and is asserted empty, because the surviving GUI persists through one
+generic renderer rather than through a rebuild per page -- which is the class
+#148 was, stated structurally instead of listed.
 """
 
 import glob
@@ -43,8 +51,13 @@ import pytest
 logging.disable(logging.CRITICAL)  # silence Streamlit's bare-mode warnings
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_VIEWS_DIR = os.path.join(_ROOT, "app", "views")
 _EXAMPLES = sorted(glob.glob(os.path.join(_ROOT, "examples", "*.project.json")))
+
+#: One page of the GUI: the generic renderer bound to a step key, which is
+#: exactly what ``Oracle.py``'s navigation runs for that page. There are no view
+#: files to walk -- a file per page is the hand-maintained page list gate G2
+#: refuses -- so the journey builds each page the way the entry point does.
+_PAGE_SCRIPT = "from oracle_app.form import render_step\nrender_step({key!r})\n"
 
 # The __main__ self-runner has to put the repo root on the path itself, or every
 # view fails on ``import app_shell`` (conftest.py does it under pytest).
@@ -62,54 +75,26 @@ _TOUCHABLE = ("number_input", "checkbox", "selectbox", "text_input", "radio",
               "slider", "multiselect", "text_area", "toggle")
 
 
-#: Project paths a no-op Apply is **known** to change. All of them are #148,
-#: behind the ``app/views/`` freeze lift (#29). Not a tolerance and not a silence: every entry is asserted to still
-#: reproduce by :func:`test_the_known_open_diffs_still_reproduce` below, so a fix
-#: turns this list red and forces its own removal rather than passing unnoticed.
-#: They are the residue of #145's sweep: writes that are deliberate behaviour
-#: landing on an Apply that entered nothing, or a rebuild dropping a field its own
-#: form does not render, filed rather than fixed under the ``app/views/`` freeze.
-KNOWN_OPEN = {
-    # -- silent gain: a slice or value attached by an Apply that entered nothing
-    "speeds.occupants": "the WTESTIMA seat count seeds occupants on any Apply, "
-                        "not only on an edit to it",
-    "speeds.mach_limit": "the Mach-limit block is attached with its defaults by "
-                         "any Apply on a project that carries none",
-    "weight.envelope": "the WTENV block is attached with the form's defaults by "
-                       "any Apply on a project that carries none",
-    # -- silent loss: a value dropped by a rebuild that does not render it
-    "speeds.wing_area_sqft": "the D4.4 Geometry read-through clears the stored "
-                             "wing area on any Apply when a wing surface exists",
-    "speeds.chosen_va": "cleared by an Apply that does not render the chosen-speed "
-                        "overrides",
-    "speeds.chosen_vf": "cleared by an Apply that does not render the chosen-speed "
-                        "overrides",
-    "weight.items.wing_fraction": "the item table's Apply rebuilds each row from "
-                                  "its columns and wing_fraction is not one",
-    "engines.max_cont_hp": "the engine form renders the power fields for "
-                           "reciprocating engines only, and its Apply writes the "
-                           "unrendered field back as unset",
-    "engines.takeoff_hp": "as engines.max_cont_hp",
-    "engines.hub_weight_lb": "as engines.max_cont_hp, for the hub weight",
-}
-
-#: Between them these three walk every entry of :data:`KNOWN_OPEN`; see
-#: :func:`test_every_known_open_diff_still_reproduces`.
-_KNOWN_OPEN_WITNESSES = ("concept_heavy", "atr42_100", "concept_regional_jet")
+#: Project paths a no-op Apply is **known** to change -- **empty, and asserted
+#: empty** (note 57, gate 7).
+#:
+#: It held five entries until #270, all of them #148 and all of them behind the
+#: ``app/views/`` freeze: a slice attached with its defaults by an Apply that
+#: entered nothing, or a value dropped by a rebuild whose form did not render
+#: it. Both shapes are properties of a page that rebuilds its slice from its own
+#: widgets, which is what a hand-written view does and what one generic renderer
+#: over the field registry does not. The pages went at #270 and the diffs went
+#: with them. A new entry here is a regression, not a carve-out: nothing may be
+#: added without the backlog row that removes it again.
+KNOWN_OPEN: dict = {}
 
 #: Writes that are the **point** of the button pressed, not a defect. A form
 #: whose whole subject is one ``Optional`` block *is* that block's named gesture
-#: (#143's rule: created by a named click), so "Apply fuselage moment" storing a
-#: disabled fuselage moment is the page doing its job —
-#: ``tests/test_aero_coefficients_view.py`` pins that behaviour from the other
-#: side. The journey presses every Apply on the page, so it sees these; they are
-#: listed apart from :data:`KNOWN_OPEN` because they carry no backlog row and
-#: nothing is waiting to fix them.
-BY_DESIGN = {
-    "aero_coeffs.fuselage_moment": "\"Apply fuselage moment\" is that block's own "
-                                   "named gesture",
-    "aero_coeffs.lateral_body_aero": "\"Apply lateral body aero\" likewise",
-}
+#: (#143's rule: created by a named click). The journey presses every Apply on
+#: the page, so it would see these; they are listed apart from
+#: :data:`KNOWN_OPEN` because they carry no backlog row and nothing is waiting
+#: to fix them.
+BY_DESIGN: dict = {}
 
 
 def _ids(paths):
@@ -187,9 +172,9 @@ def _journey(example, touch=True):
     state = {"project": project}
     visited = []
 
-    for step in wf.STEPS:
-        view = os.path.join(_VIEWS_DIR, f"{step.key}.py")
-        at = AppTest.from_file(view, default_timeout=60)
+    for step in wf.oracle_steps():
+        at = AppTest.from_string(_PAGE_SCRIPT.format(key=step.key),
+                                 default_timeout=60)
         for key, value in state.items():
             at.session_state[key] = value
         at.run()
@@ -204,8 +189,8 @@ def _journey(example, touch=True):
                 f"{os.path.basename(example)}: "
                 f"{[e.message for e in at.exception]}")
         # Carry the whole session forward -- widget state included. Anything less
-        # is 22 fresh sessions, and the class this file exists for lives in what
-        # a widget remembers across a page change.
+        # is fourteen fresh sessions, and the class this file exists for lives in
+        # what a widget remembers across a page change.
         state = dict(at.session_state.filtered_state)
         visited.append(step.key)
 
@@ -223,7 +208,8 @@ def test_the_journey(example):
 
     1. no page raises, on arrival or on one no-op interaction;
     2. the project is unchanged by the walk, bar :data:`KNOWN_OPEN` (OG-F over
-       the journey -- the #143 silent-data-gain catch);
+       the journey -- the #143 silent-data-gain catch, and since #270 the whole
+       of it: :data:`KNOWN_OPEN` is empty);
     3. every registered module then runs clean or refuses by name (#144's
        class: never an opaque failure two pages downstream).
     """
@@ -233,8 +219,8 @@ def test_the_journey(example):
 
     project, before, visited = _journey(example)
 
-    assert visited == [s.key for s in wf.STEPS], (
-        "the journey did not visit every workflow step in order")
+    assert visited == [s.key for s in wf.oracle_steps()], (
+        "the journey did not visit every analysis page in workflow order")
 
     unexpected = _unexpected(_diffs(before, io.project_to_dict(project)))
     assert not unexpected, (
@@ -255,26 +241,20 @@ def test_the_journey(example):
 # --------------------------------------------------------------------------- #
 # The allowlist is asserted, not trusted
 # --------------------------------------------------------------------------- #
-def test_every_known_open_diff_still_reproduces():
-    """Every :data:`KNOWN_OPEN` entry must still happen, or leave the list.
+def test_the_gate_carries_no_carve_outs():
+    """The allowlists are empty, and that is asserted rather than assumed.
 
     A carve-out nobody re-measures is how a gate quietly stops testing what it
-    claims to (``CLAUDE.md``: no silent caps). The three witness projects between
-    them exercise all of them -- an entry that stops reproducing has been fixed,
-    and this fails until it is deleted from the list and from the backlog.
+    claims to (``CLAUDE.md``: no silent caps). It used to assert the reverse --
+    that every listed diff *still reproduced*, so a fix would turn the list red
+    and force its own removal. #270 removed the pages that produced them, and
+    with nothing left to list the honest assertion is that the list is empty:
+    a no-op walk of this GUI changes nothing at all.
     """
-    from sloads import io
-
-    seen = set()
-    for name in _KNOWN_OPEN_WITNESSES:
-        project, before, _ = _journey(
-            os.path.join(_ROOT, "examples", f"{name}.project.json"))
-        seen |= {_key(d) for d in _diffs(before, io.project_to_dict(project))}
-
-    stale = set(KNOWN_OPEN) - seen
-    assert not stale, (
-        f"KNOWN_OPEN lists diffs that no longer happen: {sorted(stale)} — fixed, "
-        "so delete the entry (and its #148 checklist line) instead of carrying it")
+    assert KNOWN_OPEN == {}, (
+        f"a no-op-Apply diff has been allowed rather than fixed: {KNOWN_OPEN}")
+    assert BY_DESIGN == {}, (
+        f"a no-op-Apply diff has been declared by-design: {BY_DESIGN}")
 
 
 # --------------------------------------------------------------------------- #
@@ -301,64 +281,6 @@ def test_an_apply_that_entered_nothing_creates_no_slice():
     assert optional_slice.store(filled, None, seed=blank) is filled
 
 
-# --------------------------------------------------------------------------- #
-# Two of the defects this file found on its first run (#145)
-# --------------------------------------------------------------------------- #
-def test_the_aero_apply_keeps_the_blocks_it_does_not_render():
-    """The main Aero Apply rebuilds the whole slice; it must carry every field
-    its form does not show. It dropped ``lateral_body_aero`` outright -- a
-    populated L-7 block destroyed by pressing Apply on an unrelated form."""
-    from streamlit.testing.v1 import AppTest
-
-    from sloads import io
-    from sloads.models.inputs import FuselageMomentInput, LateralBodyAeroInput
-
-    project = io.load_project(os.path.join(_ROOT, "examples", "ga6_normal.project.json"))
-    project.aero_coeffs.lateral_body_aero = LateralBodyAeroInput(
-        enabled=True, cy_beta=-0.5, cn_beta=0.09)
-    project.aero_coeffs.fuselage_moment = FuselageMomentInput(
-        enabled=True, d_cm_dalpha=0.004)
-
-    at = AppTest.from_file(os.path.join(_VIEWS_DIR, "aero_coefficients.py"),
-                           default_timeout=60)
-    at.session_state["project"] = project
-    at.run()
-    for button in at.button:
-        if getattr(button.proto, "form_id", "") == "aero_coefficients_form":
-            button.set_value(True)
-    at.run()
-
-    aero = at.session_state["project"].aero_coeffs
-    assert aero.lateral_body_aero is not None, "Apply destroyed the L-7 block"
-    assert aero.lateral_body_aero.cy_beta == -0.5
-    assert aero.lateral_body_aero.cn_beta == 0.09
-    assert aero.fuselage_moment is not None and aero.fuselage_moment.enabled
-
-
-def test_the_aero_apply_does_not_move_the_stall_clamp():
-    """``stall_cl`` is the FLTLOADS balance clamp and is not on this form.
-    Rebuilding without it left it at ``0.0``, which ``normalize()`` reads as
-    missing and refills from CLmax -- ga6 1.41 -> 1.4068, atr42_100 1.55 -> 2.009,
-    on an Apply that entered nothing."""
-    from streamlit.testing.v1 import AppTest
-
-    from sloads import io
-
-    for name, expected in (("ga6_normal", 1.41), ("atr42_100", 1.55)):
-        project = io.load_project(os.path.join(_ROOT, "examples", f"{name}.project.json"))
-        assert project.aero_coeffs.cruise.stall_cl == expected, "fixture moved"
-        at = AppTest.from_file(os.path.join(_VIEWS_DIR, "aero_coefficients.py"),
-                               default_timeout=60)
-        at.session_state["project"] = project
-        at.run()
-        for button in at.button:
-            if getattr(button.proto, "form_id", "") == "aero_coefficients_form":
-                button.set_value(True)
-        at.run()
-        assert at.session_state["project"].aero_coeffs.cruise.stall_cl == expected, (
-            f"{name}: a no-op Apply moved the stall clamp")
-
-
 def test_a_module_with_an_invalid_input_is_named_not_fatal_to_the_page():
     """M2R-8 keeps an invalid input from vanishing; it must not take a whole page
     with it. Three bundled examples carry an aileron or flap slice with no area,
@@ -381,9 +303,7 @@ def test_a_module_with_an_invalid_input_is_named_not_fatal_to_the_page():
 
 if __name__ == "__main__":  # needs streamlit; walks one example for speed
     test_the_journey(os.path.join(_ROOT, "examples", "ga6_normal.project.json"))
-    test_every_known_open_diff_still_reproduces()
+    test_the_gate_carries_no_carve_outs()
     test_an_apply_that_entered_nothing_creates_no_slice()
-    test_the_aero_apply_keeps_the_blocks_it_does_not_render()
-    test_the_aero_apply_does_not_move_the_stall_clamp()
     test_a_module_with_an_invalid_input_is_named_not_fatal_to_the_page()
     print("ok")

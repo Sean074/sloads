@@ -6,7 +6,7 @@ contract** (CLAUDE.md rule 3; CONVENTIONS.md §7 table):
 * the section exists in every report — conventions have no absent state;
 * its statements cannot drift from the frame's code owner
   (``export/coordinates.py``) or from the two preserved ENGLOADS sentences
-  SUMMARY_REPORT.md §3.3 mandates verbatim;
+  ORACLE_REPORT.md §3.3 mandates verbatim;
 * the three figures are static TikZ dispatched without ``PlotData``, greyscale,
   deterministic, and every one carries the labels a reader needs;
 * the table rows survive the LaTeX escaping path (Greek letters, ``±``, ``·``).
@@ -21,9 +21,11 @@ import sloads.export.coordinates as coordinates
 import sloads.modules  # noqa: F401  (module registration)
 from sloads import io
 from sloads.report import conventions_tex
-from sloads.report.content import Figure, build_report
-from sloads.report.latex import render_document
+from sloads.report import oracle_content as oc
+from sloads.report.content import Figure
+from sloads.report.oracle_latex import render_oracle_document
 from sloads.report.plots_tex import escape, figure_body_tex
+from sloads.models.report import default_spec
 
 _EXAMPLES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                          "examples")
@@ -31,8 +33,16 @@ _GA = os.path.join(_EXAMPLES, "ga6_normal.project.json")
 
 
 def _section(path=_GA):
-    doc = build_report(io.load_project(path), tool_version="test")
-    return doc, doc.section("Axes and sign conventions")
+    """The document and its conventions section.
+
+    The section printed in the summary report until #278 merged it into this
+    one and #270 deleted the other (note 60 D-60.8/D-60.11). It is front matter
+    here -- declared, not derived from the step set -- which is why it is found
+    by key through :func:`oracle_content.front_index` rather than by a title
+    carrying a number this test would then have to know.
+    """
+    doc = oc.build_oracle_document(io.load_project(path), default_spec())
+    return doc, doc.sections[oc.front_index("conventions")]
 
 
 # --------------------------------------------------------------------------- #
@@ -47,18 +57,24 @@ def test_the_section_exists_with_its_three_figures_and_table():
     assert len(section.table.rows) == len(conventions_tex.CONVENTION_ROWS)
 
 
-def test_the_section_sits_between_inputs_and_the_envelope_figures():
-    doc, _ = _section()
-    titles = [s.title for s in doc.sections]
-    assert titles.index("2. Axes and sign conventions") == \
-        titles.index("1. Input summary") + 1
-    # M4-8 / G-11 inserted "3. Governing safety factors" between them: the
-    # conventions and the factor of safety are both statements of record about
-    # how the numbers below are to be read.
-    assert titles.index("3. Governing safety factors") == \
-        titles.index("2. Axes and sign conventions") + 1
-    assert titles.index("4. Envelope figures") == \
-        titles.index("3. Governing safety factors") + 1
+def test_the_section_sits_between_the_introduction_and_the_factors():
+    """Its place in the front-matter group (note 60, D-60.9).
+
+    Asserted through ``FRONT_SECTIONS`` rather than against printed numbers: the
+    numbers are a function of position, so writing them here would be F-R2's
+    literal-reference defect in a test. The conventions and the factor of safety
+    are both statements of record about how the numbers below are to be read,
+    which is why they sit together and ahead of everything computed.
+    """
+    order = [f.key for f in oc.FRONT_SECTIONS]
+    assert order.index("conventions") == order.index("introduction") + 1
+    assert order.index("factors") == order.index("conventions") + 1
+
+    doc, section = _section()
+    assert doc.sections[oc.front_index("conventions")] is section
+    numbers = [s.title.split(".")[0] for s in doc.sections[:len(order)]]
+    assert numbers == [str(i + 1) for i in range(len(order))], (
+        "the front matter numbers straight through from the introduction")
 
 
 # --------------------------------------------------------------------------- #
@@ -83,7 +99,7 @@ def test_the_preserved_engloads_sentences_appear_verbatim():
     assert conventions_tex.ROTATION_SENTENCE in prose
     # And they survive into the rendered document.
     doc, _ = _section()
-    tex = render_document(doc)
+    tex = render_oracle_document(doc)
     assert "reported negative" in tex
     assert "clockwise from the pilot's view is positive" in tex
 

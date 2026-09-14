@@ -17,7 +17,11 @@ comments: they were the words on the deliverable. Among them —
 * the compiled PDF's page footer, on *every page*: *"ULTIMATE loads --- SF stated
   per case"*;
 * the oracle technical report's §1 basis paragraph and the issue package's README;
-* the workbook's units line on both sheet channels.
+* the ``.xlsx`` workbook's units line on both sheet channels.
+
+Two of those surfaces no longer exist: the summary report and the workbook were
+the retired front-end's, deleted at #270 (note 57 D-57.6, note 60 D-60.11). The
+gate is unchanged -- it reads the documents that ship, and there is one.
 
 Every numeric gate in the suite was green throughout. Nothing reads prose, so
 nothing could see it — the same blind spot recorded for G-OR-72 (scale-invariant
@@ -51,7 +55,6 @@ from helpers import GUI_TREES  # noqa: E402
 
 import sloads.modules  # noqa: F401
 from sloads import io
-from sloads.export.workbook import _unit_notes
 from sloads.models.report import ReportSpec
 from sloads.registry import run_all_modules
 from sloads.report import content as rc
@@ -184,23 +187,6 @@ def assert_states_limit(label: str, text: str, *, min_chars: int = 0) -> None:
 # G-OR-74, surface by surface
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize("example", EXAMPLES, ids=lambda e: e.split(".")[0])
-def test_the_summary_report_states_limit(example):
-    """The controlling document, rendered — title page, §3, §5 and Appendix A.
-
-    Rendered to LaTeX rather than inspected as a tree, because the page furniture
-    that carried the worst offender (the ``fancyfoot`` basis line, on every page
-    of the compiled PDF) exists only in the render.
-    """
-    project = io.load_project(os.path.join(_EXAMPLES, example))
-    results = run_all_modules(project)
-    doc = rc.build_report(project, module_results=results, tool_version="test")
-    tex = rl.render_document(doc)
-    assert_states_limit(f"{example}: summary report", tex, min_chars=20_000)
-    # ...and it does state the basis, rather than merely not stating the wrong one
-    assert "LIMIT" in tex
-
-
-@pytest.mark.parametrize("example", EXAMPLES, ids=lambda e: e.split(".")[0])
 def test_the_oracle_report_states_limit(example):
     """The oracle technical report — the surface note 48 OR-78 made ULTIMATE and
     note 49 OR-89/OR-116 brought back. Its §1 basis paragraph is the sentence a
@@ -229,14 +215,6 @@ def test_the_methods_statement_states_limit():
         assert "LIMIT" in text
 
 
-def test_the_workbook_sheet_notes_state_limit():
-    """Both channels: the human sheet and the solver sheet, which state different
-    unit sets and used to state the same wrong basis."""
-    for system in (UnitSystem.IMPERIAL, UnitSystem.SI):
-        for name, note in _unit_notes(system).items():
-            assert_states_limit(f"workbook {name} ({system.value})", str(note))
-
-
 def test_the_package_and_convention_lines_state_limit():
     """The oracle issue package's README line and the conventions table's note --
     two single sentences that each speak for a whole archive."""
@@ -257,10 +235,17 @@ def test_the_package_and_convention_lines_state_limit():
 def test_the_report_basis_statement_says_who_applies_the_factor():
     """Stating LIMIT is half the job; OR-117 requires the document to say whose
     job the factor is. A report that says only "loads are LIMIT" leaves the
-    recipient to guess whether sizing has already happened."""
-    assert "LIMIT" in rc.BASIS_STATEMENT
-    assert "applied nowhere" in rc.BASIS_STATEMENT
-    assert "sizing analysis" in rc.BASIS_STATEMENT
+    recipient to guess whether sizing has already happened.
+
+    Read from the surviving document's §1 basis paragraph. It was the summary
+    report's ``content.BASIS_STATEMENT`` -- the title-page one-liner -- until
+    #270 deleted that document; the claim is the same and the sentence that
+    carries it is now the introduction's.
+    """
+    basis = "\n".join(oc._INTRODUCTION)
+    assert "LIMIT" in basis
+    assert "applies it nowhere" in basis
+    assert "sizing analysis that applies it" in basis
 
 
 def test_the_provenance_mismatch_message_names_the_project_file():

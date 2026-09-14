@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 # GUI/CLI smoke test — RELEASE_PROCESS.md §3.5.
 #
-# 1. Starts the main GUI (app/Home.py) headless, waits for it to come up, and
-#    checks the root page answers 200 with no traceback in the server log.
-# 2. Does the same for the oracle GUI (oracle_app/Oracle.py) — launched through
-#    the `sloads-oracle` console script, so the packaging entry point is run and
-#    not merely resolved.
-# 3. Runs the CLI "engine" module against the ga6_normal example and checks
+# 1. Starts the GUI (oracle_app/Oracle.py) headless — launched through the
+#    `sloads-oracle` console script, so the packaging entry point is run and not
+#    merely resolved — waits for it to come up, and checks the root page answers
+#    200 with no traceback in the server log.
+# 2. Runs the CLI "engine" module against the ga6_normal example and checks
 #    the CSV it writes is non-empty with the expected header.
 #
-# **Both front-ends, because there are two** (#127). The release whose headline
-# deliverable is the oracle GUI had a hard §3.5 gate that booted only the other
-# one. In-process AppTest coverage coincidentally reaches Oracle.py's
-# set_page_config, st.navigation and sidebar context manager; what only a real
-# server reaches is the boot itself, and what only this reaches is the console
-# script a user actually types.
+# **One front-end, because there is one** (#270, note 57 D-57.1). It booted two
+# until then, and #127 is why it booted more than the first: the release whose
+# headline deliverable was the oracle GUI had a hard §3.5 gate that started
+# `app/Home.py` and nothing else. In-process AppTest coverage coincidentally
+# reaches Oracle.py's set_page_config, st.navigation and sidebar context
+# manager; what only a real server reaches is the boot itself, and what only
+# this reaches is the console script a user actually types.
 #
 # Usage: scripts/smoke_test.sh
 # Exit 0 on success; non-zero (with a message on stderr) on the first failure.
@@ -39,10 +39,10 @@ fi
 PROJECT="$ROOT_DIR/examples/ga6_normal.project.json"
 
 # The GUI entry points this gate boots, one per front-end. RELEASE_PROCESS.md
-# §3.5 names the same two, and tests/test_ci_conformance.py compares the lists:
-# a third front-end that never reaches this line is a front-end no release gate
+# §3.5 names the same list, and tests/test_ci_conformance.py compares the two:
+# a front-end that never reaches this line is a front-end no release gate
 # starts (the defect class that file exists for).
-GUI_ENTRY_POINTS=("app/Home.py" "oracle_app/Oracle.py")
+GUI_ENTRY_POINTS=("oracle_app/Oracle.py")
 
 if [[ -z "$PYTHON" || ! -x "$PYTHON" ]]; then
   echo "smoke_test: no usable Python interpreter (set \$PYTHON or install python3)" >&2
@@ -139,13 +139,10 @@ smoke_gui() {
   echo "smoke_test: $label started headless and rendered its root page (HTTP 200, no traceback)."
 }
 
-echo "smoke_test: [1/3] starting the main GUI (${GUI_ENTRY_POINTS[0]}) headless on port 8765 ..."
-smoke_gui "main GUI" 8765 "$PYTHON" -m streamlit run "$ROOT_DIR/${GUI_ENTRY_POINTS[0]}"
+echo "smoke_test: [1/2] starting the GUI (${GUI_ENTRY_POINTS[0]}) headless on port 8766 via $ORACLE_HOW ..."
+smoke_gui "GUI" 8766 "${ORACLE_LAUNCH[@]}"
 
-echo "smoke_test: [2/3] starting the oracle GUI (${GUI_ENTRY_POINTS[1]}) headless on port 8766 via $ORACLE_HOW ..."
-smoke_gui "oracle GUI" 8766 "${ORACLE_LAUNCH[@]}"
-
-echo "smoke_test: [3/3] running CLI export against $(basename "$PROJECT") ..."
+echo "smoke_test: [2/2] running CLI export against $(basename "$PROJECT") ..."
 "$PYTHON" cli.py engine "$PROJECT" -o "$OUT_CSV"
 
 if [[ ! -s "$OUT_CSV" ]]; then
@@ -155,8 +152,7 @@ fi
 
 # Since G8.3 every exported CSV carries the methods & limitations statement as
 # `#` lines above the header row, so a reader that takes line 1 as the header
-# reads prose. This script is a CSV reader like any other and skips them --
-# `workbook._csv_to_df` (comment="#") is the same contract in Python.
+# reads prose. This script is a CSV reader like any other and skips them.
 if ! grep -q "^# METHODS AND LIMITATIONS" "$OUT_CSV"; then
   echo "smoke_test: FAIL — CSV carries no G8.3 methods & limitations stamp" >&2
   exit 1

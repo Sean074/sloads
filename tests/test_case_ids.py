@@ -388,29 +388,65 @@ def test_a_handed_case_is_numbered_in_the_assembled_deck_only():
         assert deck_load_id(unhanded_case_id(case_id), COMPONENT_DECK) != ""
 
 
-def test_the_report_case_index_states_the_same_pairs_as_the_csv():
-    """One case identity, two renderings: the report's Case index table and the
-    CSV beside it must agree cell for cell on ID and both LOAD columns, or a
-    reader joining through the document lands somewhere else than one joining
-    through the file."""
-    from sloads.report.content import build_report
+def test_the_shipped_case_index_states_the_same_pairs_as_the_csv():
+    """One case identity, two renderings: the case index shipped in the issue
+    package and the deck CSVs beside it must agree cell for cell on ID and both
+    LOAD columns, or a reader joining through the package lands somewhere else
+    than one joining through the file.
+
+    It compared against the summary report's printed *Case index* table until
+    #270 deleted that document. Since #245 the case index ships as
+    ``data/case_index.csv`` -- the same rows from the same producer, a file
+    rather than a printed table -- so the claim is unchanged and the artifact it
+    is read from is the one that ships.
+    """
+    import csv as _csv
+
+    from sloads.models.report import default_spec
+    from sloads.report.oracle_content import build_oracle_document
+    from sloads.report.package_data import data_files
 
     path = os.path.join(_EXAMPLES, _LINKAGE_EXAMPLE)
     project = io.load_project(path)
-    doc = build_report(project)
-    tables = [t for section in doc.sections for t in section.tables
-              if t.title == "Case index"]
-    assert len(tables) == 1, [t.title for section in doc.sections for t in section.tables]
-    table = tables[0]
+    doc = build_oracle_document(project, default_spec())
+    index = next(f for f in data_files(doc) if f.name.endswith("case_index.csv"))
+    lines = [line for line in index.content.splitlines()
+             if line and not line.startswith("#")]
+    header = next(_csv.reader([lines[0]]))
+    rows = list(_csv.reader(lines[1:]))
 
     csv_rows = _index_rows(_linkage_artifacts())
-    cols = {name: i for i, name in enumerate(table.columns)}
-    assert [r[cols["ID"]] for r in table.rows] == list(csv_rows)
-    for row in table.rows:
+    cols = {name: i for i, name in enumerate(header)}
+
+    shipped = [r[cols["ID"]] for r in rows]
+    assert shipped, "the package ships no case index"
+    assert len(set(shipped)) == len(shipped), "the shipped index repeats a case id"
+    # The shipped index is the index *of what ships*, so it is a subset: the
+    # computed set includes cases no shipped artifact carries (ga6's up-aileron
+    # W-51, whose down-aileron sibling is the critical one the applied set
+    # writes). What it may not do is disagree.
+    assert set(shipped) <= set(csv_rows), (
+        f"the package indexes cases the analysis never produced: "
+        f"{sorted(set(shipped) - set(csv_rows))}")
+    # Both sides are the CSV rendering now, so an absent id is the empty cell on
+    # both; ``NO_LOAD_ID`` is the *printed* form and belonged to the table this
+    # replaced.
+    for row in rows:
         csv_row = csv_rows[row[cols["ID"]]]
-        for header, family in (("LOAD (comp.)", COMPONENT_DECK),
-                               ("LOAD (asm.)", ASSEMBLED_DECK)):
-            assert row[cols[header]] == (csv_row[LOAD_ID_COLUMN[family]] or NO_LOAD_ID)
+        for label, family in (("LOAD/SUBCASE (component)", COMPONENT_DECK),
+                              ("LOAD/SUBCASE (assembled)", ASSEMBLED_DECK)):
+            assert row[cols[label]] == csv_row[LOAD_ID_COLUMN[family]], (
+                row[cols["ID"]], label)
+
+    # And the assembled column is filled, which is the half that was empty.
+    # ``data/case_index.csv`` shipped from #245 without the assembled cases in
+    # its groups, so every row's assembled subcase was blank and a reader
+    # holding the LRA deck -- the primary deliverable -- could not trace a
+    # SUBCASE back through the package's own index. Invisible while the summary
+    # report printed a complete index beside it; #270 deleted that report.
+    assembled = [r for r in rows if r[cols["LOAD/SUBCASE (assembled)"]]]
+    assert assembled, ("no shipped index row names an assembled subcase, and "
+                       "this airplane assembles")
 
 
 def test_the_index_row_states_the_condition_its_cards_were_computed_at():

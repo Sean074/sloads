@@ -166,13 +166,20 @@ class LoadChannel(str, Enum):
     factor stated in the ``SF`` column. The ``ULTIMATE`` member is **gone**, and
     with it the two multiplies that were the last in ``sloads/`` (G-OR-71).
 
-    The type survives with a single member rather than being deleted outright
-    because every caller in the frozen ``app/views/`` names it explicitly
+    The type survived with a single member rather than being deleted outright
+    because every caller in the frozen ``app/views/`` named it explicitly
     (``channel=LoadChannel.LIMIT``, opted in by note 48 OR-77) and those files
-    cannot be edited until the #29 freeze lifts. Removing the member rather
+    could not be edited until the #29 freeze lifted. Removing the member rather
     than the type is what makes the change loud: any code still asking for the
     ultimate channel fails at import instead of silently getting limit loads.
-    The parameter itself goes at #29.
+
+    **Those callers are gone** -- ``app/views/`` retired at #270 and #29 closed
+    superseded with it (note 57, R-57.4) -- so the ``channel`` parameter now has
+    no caller that passes anything but its default, and the switch it was built
+    to be has one position and no hand on it. Removing the parameter is a
+    separate sweep across ``render.py``, ``io.py`` and ``methods.py`` with its
+    own guard test (``tests/test_limit_channel.py``); it is not #270's, and
+    re-files under rule 5.
     """
 
     LIMIT = "limit"
@@ -1023,8 +1030,9 @@ def module_text_report(title: str, results: List[ConditionResult], *,
 
     Module-agnostic (no engine-specific header), so the CLI can print results for
     modules whose inputs are not the engine slice. ``channel`` has one value
-    since note 49 OR-116 and survives only for the frozen ``app/views/`` callers
-    that name it; it goes at #29.
+    since note 49 OR-116 and survived for the frozen ``app/views/`` callers that
+    named it; those retired at #270 and no caller passes it now
+    (see :class:`LoadChannel`).
     """
     lines: List[str] = [title.upper(), "=" * 60]
     lines.append(_channel_header(channel))

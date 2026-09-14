@@ -207,7 +207,7 @@ def test_safety_factor_out_of_range_fires():
         warnings = [w for w in consistency_warnings(_project_with_sf(bad))
                     if w.code == "safety_factor_out_of_range"]
         assert len(warnings) == 2, bad          # the condition + the wing case
-        assert {w.page for w in warnings} == {"export_report"}
+        assert {w.page for w in warnings} == {"report"}
         assert any("balancing" in w.message for w in warnings)
         assert any("PHAA" in w.message for w in warnings)
 
@@ -573,9 +573,12 @@ def test_flap_slipstream_is_silent_when_the_band_was_never_entered():
 def test_every_warning_targets_a_real_page():
     """Rule-3 drift guard: every ``page`` tag is a ``workflow.STEPS`` key (#82).
 
-    ``workflow.py`` is the nav SSOT, so a tag naming anything else names a page
-    no GUI has, and the warning is dark wherever it is not propped up by a
-    hand-typed literal. Two tags were exactly that until #82 --
+    ``workflow.gui_pages()`` is the nav SSOT, so a tag naming anything else
+    names a page no GUI has, and the warning is dark wherever it is not propped
+    up by a hand-typed literal. It was step keys alone until #270, when
+    ``export_report`` retired with the front-end that carried it and its checks
+    re-pointed at the Report page -- which is a page the GUI has and not a step
+    of the analysis, so the set the tags are held to is the page set. Two tags were exactly that until #82 --
     ``weight_cg_inertia`` (the weights page has been ``weight_mass`` since Step
     G3) and ``wing_geometry`` (merged into ``configuration_layout`` at Step G1)
     -- covering 19 checks, 14 of them the weights group. This asserts against
@@ -585,7 +588,7 @@ def test_every_warning_targets_a_real_page():
     from sloads import validation
     from sloads import workflow as wf
 
-    keys = {s.key for s in wf.STEPS}
+    keys = set(wf.gui_pages())
     tagged = {name: value for name, value in vars(validation).items()
               if name.startswith("PAGE_") and isinstance(value, str)}
     assert tagged, "no PAGE_* tags found -- has the constant naming changed?"

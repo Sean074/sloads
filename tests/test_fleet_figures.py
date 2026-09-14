@@ -116,7 +116,8 @@ def test_the_whole_fleet_has_no_subject_of_its_own():
 # --------------------------------------------------------------------------- #
 # One owner (note 60 D-60.1, applied to D-57.5)
 # --------------------------------------------------------------------------- #
-_PAGES = ("oracle_app/fleet.py", "app/views/aircraft_comparison.py")
+#: One page since #270; it was two, and they carried the same one.
+_PAGES = ("oracle_app/fleet.py",)
 
 
 def _source(rel):
@@ -132,7 +133,7 @@ def test_the_reference_csv_has_exactly_one_reader():
     One reader, in ``sloads/fleet.py``; everything else asks it.
     """
     offenders = []
-    for tree in ("sloads", "app", "app_shell", "oracle_app"):
+    for tree in ("sloads", "app_shell", "oracle_app"):
         for root, _dirs, names in os.walk(os.path.join(_ROOT, tree)):
             if "__pycache__" in root:
                 continue
@@ -147,9 +148,14 @@ def test_the_reference_csv_has_exactly_one_reader():
 
 
 @pytest.mark.parametrize("rel", _PAGES)
-def test_neither_page_derives_the_subject_or_the_figures(rel):
-    """Both front-ends carry this page until ``app/views/`` retires, and they
-    carry the same one: each calls the owners and defines no chain of its own."""
+def test_the_page_derives_neither_the_subject_nor_the_figures(rel):
+    """The page calls the owners and defines no chain of its own.
+
+    It was parametrised over both front-ends' copies of this page, which is what
+    made "they carry the same one" a claim a test could hold. One retired at
+    #270; what survives is the claim that matters -- the page displays and
+    derives nothing, so there is no second chain to disagree with ``fleet.py``.
+    """
     body = _source(rel)
     for call in ("subject_from_project", "reference_fleet", "fleet_figures"):
         assert call in body, f"{rel} does not call {call}()"

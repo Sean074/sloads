@@ -5,10 +5,12 @@ each is agreed. Created under design note 44 OR-9 and grown with each OR-8
 iteration: chat is not a register, so every agreement lands here with the test
 that guards it.
 
-**Scope.** The report generated from the oracle GUI (`oracle_app`), covering the
+**Scope.** The report generated from the GUI (`oracle_app`), covering the
 analysis the original McMaster FAR 23 LOADS suite performs and nothing this
-replication added. It is not `app/`'s summary report (`SUMMARY_REPORT.md`) and
-not the user guide.
+replication added. It is not the user guide. It was one of two documents until
+**#270**, when the retired front-end's summary report was deleted and this
+became the one: `SUMMARY_REPORT.md` is kept as the record of that document's
+rules, which this one inherits under OR-5.
 
 **Inherited rules, by citation.** `SUMMARY_REPORT.md` §2 (document identity,
 self-containment, the *Data reference* clause, determinism) and §3 (content
@@ -204,14 +206,14 @@ contents.
 
 ## 3.2a The front matter after the introduction (#278)
 
-Agreed 2026-09-13 (design note 60, D-60.7 … D-60.11). The summary report's only
-production consumer is the page note 57 deletes, so the document goes with it;
-four cross-cutting assets moved here first, as numbered sections between the
-introduction and the analysis body:
+Agreed 2026-09-13 (design note 60, D-60.7 … D-60.11). The summary report's
+front-end consumer was the page note 57 deleted, so the document went with it at
+**#270**; four cross-cutting assets moved here first, at #278, as numbered
+sections between the introduction and the analysis body:
 
 | Front key | Section | Why it is here and not in the body |
 |---|---|---|
-| `conventions` | Axes and sign conventions | The only statement of the frame either front end makes: prose, the sign-conventions table and three static diagrams, all read from `conventions_tex.py`. |
+| `conventions` | Axes and sign conventions | The only statement of the frame either front end made: prose, the sign-conventions table and three static diagrams, all read from `conventions_tex.py`. |
 | `factors` | Governing safety factors | The authority every per-case SF is a view of (M4-8 / G-11); delivery is LIMIT and the statement replaces the multiply (note 49 OR-116). |
 | `coverage` | Conditions analysed and FAR coverage | What the run did **not** cover, classified — the gap list, from `coverage.py`. |
 | `package_files` | Files in this issue package | The bundle manifest, read by a reader rather than an archivist: every file the package carries, what it contains and where it is summarised. |
@@ -219,18 +221,26 @@ introduction and the analysis body:
 - **Front matter, not appendices.** An appendix is appended and never inserted
   (OR-50), and a section stating the frame every later number is in belongs
   **before** what it governs.
-- **One builder, two documents.** `sloads/report/front_sections.py` builds these
-  for both reports until the summary report is deleted, and takes its heading as
-  an argument: the merge **SHALL NOT** be implemented as a copy, which is the
-  drift the convergence exists to end (practice 3).
+- **One builder.** `sloads/report/front_sections.py` builds these and takes its
+  heading as an argument: the merge **SHALL NOT** be implemented as a copy,
+  which is the drift the convergence exists to end (practice 3). It built them
+  for *both* documents between #278 and #270, which is what made the copy
+  impossible rather than merely discouraged; the second document is gone and the
+  heading stays a parameter, because numbering is the document's and not the
+  builder's (F-R2).
 - **The file list is the document's, not the packager's.** `OracleDocument.data`
   is computed by `build_oracle_document`, so the section is an ordinary built
   section: a list that appeared only when a package was assembled would make a
   section INCLUDED in the plan and absent in the render.
-- **Nothing leaves unaccounted.** Every other `content.SECTIONS` key **SHALL**
-  be declared in `front_sections.SUMMARY_DISPOSITION` with its successor, the
-  front section it merged into, or the reason it retires; a key with none fails
-  the suite (`tests/test_front_sections.py`, note 60 gates 11 and 12).
+- **Nothing leaves unaccounted.** Every other section key of the retired
+  document **SHALL** be declared in `front_sections.SUMMARY_DISPOSITION` with
+  its successor, the front section it merged into, or the reason it retired; a
+  key with none fails the suite (`tests/test_front_sections.py`, note 60 gates
+  11 and 12). The key list moved from `content.SECTIONS` to
+  `front_sections.RETIRED_SUMMARY_SECTIONS` at #270 with the document's
+  deletion: an accounting whose subject has been deleted accounts for nothing,
+  and gate 12 would have stopped being enforced at the commit that made it
+  matter.
 
 ## 3.3 The Loads Configuration group
 
@@ -1503,7 +1513,7 @@ without a guard is prose, not a gate).
 | 8. The flap prints the set its pick came from (OR-156) | 2026-09-07 | `test_oracle_report_control.py::test_the_flap_prints_four_candidates_and_names_the_critical_one`, `::test_a_flap_with_no_engine_record_states_the_slipstream_absence` |
 | 9. One row per tab, naming its station (OR-157) | 2026-09-07 | `test_oracle_report_control.py::test_the_tab_table_has_a_row_per_tab_and_names_its_station` |
 | 7-9. The hinge-moment absence (OR-154) | 2026-09-07 | `test_oracle_report_control.py::test_every_control_section_says_why_there_is_no_hinge_moment` |
-| 10.1 The thrust line and the rotation as inputs (note 53 D-53.1…D-53.7) | 2026-09-07 | `test_engine_thrust_line.py::test_an_entered_line_is_the_axis`, `::test_an_unentered_line_is_the_airplanes_forward_axis_and_says_so`, `::test_the_axis_is_not_derived_from_the_mount_and_hub_stations`, `::test_half_a_thrust_line_is_refused_by_name`, `::test_a_pusher_resolves_to_the_same_torque_sign_as_a_tractor`, `::test_a_counter_clockwise_engine_reverses_every_torque`, `::test_the_gyroscopic_case_is_unchanged_by_the_rotation_direction`, `::test_the_engine_page_states_the_sign_convention_beside_the_control` |
+| 10.1 The thrust line and the rotation as inputs (note 53 D-53.1…D-53.7) | 2026-09-07 | `test_engine_thrust_line.py::test_an_entered_line_is_the_axis`, `::test_an_unentered_line_is_the_airplanes_forward_axis_and_says_so`, `::test_the_axis_is_not_derived_from_the_mount_and_hub_stations`, `::test_half_a_thrust_line_is_refused_by_name`, `::test_a_pusher_resolves_to_the_same_torque_sign_as_a_tractor`, `::test_a_counter_clockwise_engine_reverses_every_torque`, `::test_the_gyroscopic_case_is_unchanged_by_the_rotation_direction`, `::test_the_field_states_the_sign_convention_where_it_is_entered` |
 | 10.1 Inputs, stations and the thrust axis (OR-159, OR-161 superseded) | 2026-09-07 | `test_oracle_report_engine.py::test_the_application_point_is_the_combined_cg_and_no_other_station`, `::test_an_assumed_thrust_axis_is_marked_and_an_entered_one_is_not`, `::test_an_entered_thrust_line_is_the_axis_the_loads_resolve_about`, `::test_an_unentered_engine_input_is_not_printed_as_a_zero` |
 | 10.2 Six components resolved from two scalars (OR-162, OR-163) | 2026-09-07 | `test_oracle_report_engine.py::test_the_printed_components_are_the_resolution_of_the_printed_scalars`, `::test_the_document_and_the_csv_carry_opposite_torque_signs` |
 | 10.2 The applied sense, stated (OR-160) | 2026-09-07 | `test_oracle_report_engine.py::test_the_section_states_that_it_publishes_the_applied_load` |

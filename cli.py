@@ -46,9 +46,9 @@ deleted should ask rather than guess.
     python cli.py --export-sbeam out --export-target lra examples/ga6_normal.project.json
     python cli.py --export-conm2 out examples/ga6_normal.project.json
 
-Or render the consolidated **summary report** (Step G8) -- the controlling
-document of a loads deliverable. The ``.tex`` is always written; ask for a
-``.pdf`` path and it is compiled too, when a TeX engine is on ``PATH``:
+Or render the **technical report** (note 44) -- the controlling document of a
+loads deliverable. The ``.tex`` is always written; ask for a ``.pdf`` path and it
+is compiled too, when a TeX engine is on ``PATH``:
 
     python cli.py --report out.tex examples/ga6_normal.project.json
     python cli.py --report out.pdf examples/ga6_normal.project.json --units si
@@ -264,17 +264,35 @@ def _tool_version() -> str:
 
 
 def _write_report(project, path: str, system: UnitSystem, generated: str = "") -> int:
-    """Render the summary report to ``path`` (``.tex``, or ``.pdf`` to compile it).
+    """Render the report to ``path`` (``.tex``, or ``.pdf`` to compile it).
 
     The ``.tex`` is the primary artifact and is written in both cases (beside the
     PDF), per decision G8-1: a machine with no TeX engine still gets the complete
     document source. ``generated`` is passed through so the caller owns the
     timestamp -- the renderer never reads the clock.
-    """
-    from sloads.report.latex import render_report
 
-    tex = render_report(project, system=system, generated=generated,
-                        tool_version=_tool_version())
+    **It rendered the summary report until #270**, which deleted that document
+    with the front-end that downloaded it (note 57 D-57.6, note 60 D-60.11). This
+    flag is the headless half of the Report page and now renders what that page
+    renders: the document alone, not the issue package the page writes around it,
+    because a package is a directory the caller chose and this is a path they
+    named. The spec is the default one -- the controlled-document fields a
+    signatory fills in are the page's business, and an unsigned document says so
+    on its own cover.
+    """
+    import dataclasses
+
+    from sloads.models.report import default_spec
+    from sloads.report.oracle_content import build_oracle_document
+    from sloads.report.oracle_latex import render_oracle_document
+
+    # ``--units`` is the bundle's system and the document is part of the bundle,
+    # so it is the spec's too (OR-20 keeps the two fields distinct because the
+    # GUI's sidebar toggle governs the pages rather than the document; headless
+    # there is no sidebar, and one flag means one system).
+    spec = dataclasses.replace(default_spec(), unit_system=system,
+                               issue_date=generated)
+    tex = render_oracle_document(build_oracle_document(project, spec))
     tex_path = path[:-4] + ".tex" if path.lower().endswith(".pdf") else path
     with open(tex_path, "w", encoding="utf-8") as fh:
         fh.write(tex)
@@ -294,7 +312,38 @@ def _write_report(project, path: str, system: UnitSystem, generated: str = "") -
     return 0
 
 
+class _InputError(Exception):
+    """An input the CLI cannot read. Rendered by :func:`main` as ``error: …``."""
+
+
+def _load(path: str):
+    """``io.load_project`` under the CLI's one error contract (review m2).
+
+    Every route loaded the project *outside* its ``try``, so the contract held
+    for everything the analysis could refuse and not for the one thing every
+    route does first: a file that is missing, unreadable or not JSON came out as
+    a traceback. Found at #270, when ``--report`` gained the guard the other
+    routes already had and the malformed-project case failed on all four (rule
+    4: the fix sweeps the class it was found in).
+    """
+    try:
+        return io.load_project(path)
+    except (OSError, ValueError) as exc:
+        raise _InputError(str(exc)) from exc
+
+
 def main(argv=None) -> int:
+    """The one error contract, in one place (review m2): an input this CLI
+    cannot read is one ``error:`` line on stderr and status 1, on every
+    route, never a traceback."""
+    try:
+        return _run(argv)
+    except _InputError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+
+def _run(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Run a sloads module on a project.")
     parser.add_argument("module", nargs="?", help="module name, e.g. 'engine'")
     parser.add_argument("project", nargs="?", help="path to project.json")
@@ -326,7 +375,7 @@ def main(argv=None) -> int:
     )
     parser.add_argument(
         "--report", metavar="PATH",
-        help="render the consolidated summary report to PATH (.tex; a .pdf path "
+        help="render the technical report to PATH (.tex; a .pdf path "
              "also compiles it when a TeX engine is available). PROJECT is then "
              "the second positional argument",
     )
@@ -359,7 +408,7 @@ def main(argv=None) -> int:
         project_path = args.module or args.project
         if not project_path:
             parser.error("--export-sbeam requires a project.json path")
-        project = io.load_project(project_path)
+        project = _load(project_path)
         system = resolve_units(project, args.units)
         csv_stamp, bdf_stamp = _stamps(project, system, args.generated)
         # One error contract for every export route (review m2): an absent or
@@ -384,7 +433,7 @@ def main(argv=None) -> int:
         project_path = args.module or args.project
         if not project_path:
             parser.error("--export-conm2 requires a project.json path")
-        project = io.load_project(project_path)
+        project = _load(project_path)
         system = resolve_units(project, args.units)
         _, bdf_stamp = _stamps(project, system, args.generated)
         try:
@@ -399,7 +448,7 @@ def main(argv=None) -> int:
         project_path = args.module or args.project
         if not project_path:
             parser.error("--report requires a project.json path")
-        project = io.load_project(project_path)
+        project = _load(project_path)
         return _write_report(project, args.report,
                              resolve_units(project, args.units), args.generated)
 
@@ -412,7 +461,7 @@ def main(argv=None) -> int:
     except KeyError as exc:
         parser.error(str(exc))
 
-    project = io.load_project(args.project)
+    project = _load(args.project)
     try:
         result = run(project)
     except ValueError as exc:          # same one contract as the export routes

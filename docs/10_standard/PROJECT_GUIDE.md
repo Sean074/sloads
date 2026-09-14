@@ -224,19 +224,18 @@ FAR23LOADS/
 │   ├── validation.py             # pure input-consistency predicates (ConsistencyWarning list; Phase E3)
 │   ├── fleet.py                  # the fleet comparison's owner: the bundled reference fleet, the subject's priority chain, and the placement (FleetStats; Phase E4 + #268)
 │   ├── data/reference_aircraft.csv  # 29 nominal published specs — reference only, never a FAR input (moved out of app/ at #268)
-│   ├── report/                   # rendering + the controlled summary document (Step G8)
+│   ├── report/                   # rendering + the controlled issue document (Step G8)
 │   │   ├── render.py             # shared text/CSV tables + the limit→ultimate boundary (was report.py)
 │   │   ├── methods.py            # the ONE methods & limitations statement (+ CSV `#` / BDF `$` wrappers)
 │   │   ├── coverage.py           # FAR 23 Subpart C coverage matrix (covered / n-a / not analysed / out of scope)
-│   │   ├── content.py            # Project + module results → ReportDocument (sections/tables/figures) — no LaTeX; RETIRES with app/views/ at #270
-│   │   ├── front_sections.py     # THE cross-cutting sections both reports print (axes, SF table, FAR coverage, bundle manifest) + the audit of what the retiring one leaves (#278, note 60 D-60.8/D-60.10)
+│   │   ├── content.py            # THE content model: Section/Table/Figure/PlotData + the plot data the document and the GUI draw from — no LaTeX (the summary document it also built retired at #270)
+│   │   ├── front_sections.py     # THE cross-cutting sections the report prints as front matter (axes, SF table, FAR coverage, bundle manifest) + the audit of what the retired one left (#278, note 60 D-60.8/D-60.10)
 │   │   ├── fleet_figures.py      # the six fleet scatters as PlotData — beside the step catalogue, not in it (#268)
 │   │   ├── tables.py            # the deliverable tables that are not decks: case index, governing SF table, gear report, export-scope filter (note 56 D-56.1, moved out of export/)
 │   │   ├── applied.py            # THE applied load set (OR-141): one row shape for all six components, the station numbering, the side-of-body internal loads (note 56 D-56.1, moved out of export/sbeam_bridge.py, which ceased to exist)
 │   │   ├── lumping.py            # what summing the applied set onto the beam's grids costs the distribution: the two internal-load curves and their gap (note 56 D-56.10)
-│   │   ├── bundle.py             # THE Export zip's member list: every file it carries, with the manifest row that names it (CR-C-1)
 │   │   ├── conventions_tex.py    # the report's "Axes and sign conventions" section, from CONVENTIONS.md's owners
-│   │   ├── latex.py              # ReportDocument → .tex (escaping, longtable, document control); THE table/figure/section emitters, shared by both reports
+│   │   ├── latex.py              # THE table/figure/section emitters + the shared preamble; oracle_latex.py assembles the document around them
 │   │   ├── figures.py            # THE figure catalogue: one row per figure family — its page, its pre-run/post-run Stage, its producer (note 60, D-60.1/D-60.4)
 │   │   ├── plots_tex.py          # the LaTeX renderer of a PlotData: pgfplots/TikZ. Peer of app_shell/plots.py over one producer set (note 60, D-60.1)
 │   │   ├── planform_tex.py       # the oracle report's §2.1 planform figures: surface + control surfaces, TikZ on equal axes (note 44, OR-45)
@@ -255,7 +254,6 @@ FAR23LOADS/
 │   │   ├── lra_model.py          # the LRA beam model — the third deliverable (step 12): skeleton + transferred balanced cases
 │   │   ├── lra_import.py         # loads onto an imported GRID/CBAR beam model, mapped by the $ SLOADS-NODE contract
 │   │   ├── equilibrium.py        # deck-derived force/moment resultants: the export-boundary closure gate
-│   │   ├── workbook.py           # multi-sheet .xlsx workbook (Step D8.2): one tab per module/component + case index
 │   │   ├── roundtrip.py          # hand a deck to the real sbeam and read back what it says (step 2; test-only use). The stick-model wrapper retired with the last elementless deck (note 56 D-56.8)
 │   │   ├── report_package.py     # ⚠ impure: writes the oracle report's issue package to disk and discovers existing ones (note 44, OR-22/OR-29)
 │   │   ├── directory_dialog.py   # ⚠ impure: the OS folder chooser, by subprocess — where a report package is written (note 44, OR-29)
@@ -289,22 +287,13 @@ FAR23LOADS/
 │   ├── components.py             # page scaffold, unit-input boundary, page links, applicability banner
 │   ├── project_state.py          # the project in session state + the unsaved-changes / discard guard
 │   ├── sidebar.py                # the global sidebar: units toggle, project Open/Save/upload, About
-│   ├── project_editor.py         # the Project JSON Editor page body, rendered by both front-ends (note 57, D-57.3)
+│   ├── project_editor.py         # the Project JSON Editor page body (note 57, D-57.3)
 │   ├── nav.py                    # which page a step key is in the running GUI — links resolve to a page, not a path (OG-F)
 │   ├── limit_csv.py              # the analysis pages' LIMIT tables + downloads (pure, no Streamlit)
-│   ├── fleet_view.py             # the fleet comparison's readout, tabs and fleet table — one rendering, both front-ends (#268)
+│   ├── fleet_view.py             # the fleet comparison's readout, tabs and fleet table — one rendering (#268)
 │   └── plots.py                  # the SCREEN renderer of a PlotData: Plotly. Decides how a line looks and nothing else — no project, no calc (note 60, D-60.1)
-├── app/                          # multi-page Streamlit UI (st.navigation, 6 sections — Phase D)
-│   ├── Home.py                   # entry point: set_page_config + its own nav from sloads.workflow
-│   ├── views/                    # one view per workflow step (clean names, no prefixes)
-│   │   ├── dashboard.py          #   Start    — load/save + completeness panel
-│   │   ├── project_editor.py     #   Start    — renders app_shell/project_editor.py (D-57.3: both GUIs carry it)
-│   │   ├── configuration_layout.py … one_engine_out.py   # one per suite program
-│   │   ├── aircraft_comparison.py  #   Export   — the fleet comparison, framing only since #268 (retires at #270)
-│   │   ├── results_review.py     #   Export   — consolidated governing loads
-│   │   └── export_report.py      #   Export   — project JSON + CSVs + sbeam BDF + .xlsx workbook + summary report (.tex/.pdf) + export-scope toggle (D8, G8)
-├── oracle_app/                   # the ORACLE GUI — the original suite only (note 32, OG-D/OG-E)
-│   ├── Oracle.py                 # entry point: its one set_page_config + nav from workflow.oracle_steps()
+├── oracle_app/                   # THE GUI — the original suite's fields first, sloads' own marked (note 32 OG-D/OG-E, note 57 D-57.1/D-57.2)
+│   ├── Oracle.py                 # entry point: the ONE set_page_config + nav from workflow.gui_pages()
 │   ├── form.py                   # ONE generic input renderer for all 14 pages, built from sloads.field_registry
 │   ├── results.py                # ONE generic results renderer: workflow.step_modules → the report/io owners (OG-E)
 │   ├── figures.py                # ONE generic figure block: sloads.report.figures → app_shell.plots, pre-run under the form, post-run under the results (#267)
@@ -365,8 +354,10 @@ So that every module is copy-of-the-pattern, these are fixed once:
   **The writer owns the unit conversion, the renderer does not (M4-20 step 3).** `io.load_cases_csv(results, header_comment="", *, system=…)` calls `units.convert_results` **once** and hands the converted conditions to the unit-agnostic `load_cases_to_rows`/`results_to_rows`, which read each `LoadValue.units` string into the column header. So a new module needs no unit code to export correctly in either system — and callers pass **Imperial** results plus `system=`, never pre-converted results plus `system=` (that is a double conversion). `load_cases_csv` is the *only* `convert_results` call in `io.py`, and a test keeps it that way.
 - **Units at the boundary only.** Calc stays in one internal system; `units.py` converts JSON-in and display/CSV-out. (Already implemented.) **Deliverables render in the user-selected system** — report, load-case CSV, span CSVs and the sbeam BDF, one system per bundle, each stating it in-band; the selection is the GUI toggle, persisted in the project's unit-system field and overridable headless by CLI `--units imperial|si` (default Imperial). See `00_program_overview.md`, *Deliverable units follow the user's selection*, and `SUMMARY_REPORT.md` §3.5. The GUI's Imperial/SI choice is a single sidebar control (`app_shell/sidebar.py`, shared by every front-end); it is not a per-page setting. Since **M4-20 step 2** it writes **`Project.unit_system`** (schema v38), so changing units is a project edit and shows as an unsaved change (decision D-22), and **`app_shell.components.active_system()` is the one function in the whole app layer that reads it** (D-16) — every view follows automatically through `unit_number_input`/`page`, and `st.session_state["unit_system"]` survives only as the fallback for a render that has no project yet. The field is a **preference**: it says nothing about the units of the values stored beside it. Parse it with `units.unit_system_from`, which degrades any unrecognised value to Imperial rather than raising — a junk preference must never block the load of an otherwise-valid project. Airspeed (KEAS) and altitude (ft) are aviation-standard and are never converted by this toggle. `project.json` on disk stays Imperial-only regardless of the toggle — `units.project_dict_to_display`/`project_dict_to_imperial` convert the whole project dict for the **Project JSON Editor** page only (hand-edit in your chosen units, Apply converts back to Imperial before it re-enters the session); no unit tag is ever written to the file.
 - **A GUI is an entry point plus its pages, and the shell knows neither.** There
-  are two front-ends over one calc package (`app/`, `oracle_app/`), sharing
-  `app_shell/` and nothing else. Two rules hold the boundary, both guarded in
+  is one front-end over the calc package (`oracle_app/`), built on
+  `app_shell/` and nothing else; there were two until #270 (note 57, D-57.1),
+  and the rules below are what kept them apart and now keep the shell from
+  knowing the entry point at all. Both are guarded in
   `tests/test_app_shell.py`: **exactly one `st.set_page_config` per GUI entry
   point, and none anywhere else** — not in a view, not in the shell, which is
   imported by both (note 32, OG-10); and **a cross-page link names a step, never
@@ -444,26 +435,29 @@ So that every module is copy-of-the-pattern, these are fixed once:
   to `None` is annotated `Optional`, guarded rather than asserted
   (`tests/test_io_nulls.py`).
 - **Deliverables state their own basis.** Anything that leaves the tool as a file
-  (CSV, BDF, zip, workbook, report) carries the methods & limitations statement
+  (CSV, BDF, issue package, report) carries the methods & limitations statement
   in band — `report.csv_comment_block` (`#`) or `report.bdf_comment_block` (`$`),
   both built from the single source in `sloads/report/methods.py` (Step G8.3). An
   on-page caption does not travel with a downloaded file. A **new export channel
   is not complete until it is stamped**, and `tests/test_methods_stamp.py` is the
   guard. Any code that *reads* an exported CSV must skip the `#` block
   (`report.strip_comment_lines`, or `pandas.read_csv(..., comment="#")`).
-- **The oracle report is the one document (#278, note 60 D-60.7…D-60.11).** The
-  summary report's four cross-cutting sections — axes and sign conventions, the
-  governing safety-factor table, the FAR 23 Subpart C coverage matrix and the
-  bundle manifest — are built by `sloads/report/front_sections.py` and printed
-  as the oracle report's front matter; the same builders serve the summary
-  report until it is deleted with `app/views/` at #270, so the two cannot drift
-  apart in the meantime. What the retiring document leaves behind is declared
-  section by section in `front_sections.SUMMARY_DISPOSITION`, which a guard test
-  reads.
-- **The summary report is a render channel, not a calc (Step G8).**
-  `sloads/report/content.py` turns a `Project` plus its module results into a
-  `ReportDocument`; `latex.py` turns that into `.tex`; `plots_tex.py` emits the
-  three figures as pgfplots source. All three are **pure** — no filesystem, no
+- **The oracle report is the one document (#278/#270, note 60 D-60.7…D-60.11).**
+  The summary report's four cross-cutting sections — axes and sign conventions,
+  the governing safety-factor table, the FAR 23 Subpart C coverage matrix and
+  the bundle manifest — are built by `sloads/report/front_sections.py` and
+  printed as the oracle report's front matter. Both documents called those same
+  builders between #278 and #270, so neither could drift from the other while
+  both existed; #270 then deleted `content.build_report` and the document half
+  of `latex.py` with the front-end that downloaded them. What the retired
+  document left behind is declared section by section in
+  `front_sections.SUMMARY_DISPOSITION`, audited against
+  `front_sections.RETIRED_SUMMARY_SECTIONS` by a guard test.
+- **The report is a render channel, not a calc (Step G8).**
+  `sloads/report/oracle_content.py` turns a `Project` plus its module results
+  into an `OracleDocument` of `content.py`'s `Section`s; `oracle_latex.py` turns
+  that into `.tex` through `latex.py`'s emitters; `plots_tex.py` emits the
+  figures as pgfplots source. All three are **pure** — no filesystem, no
   subprocess, no clock (the generation timestamp is a caller argument, or two
   renders of one project would not be byte-identical). The report **recomputes
   nothing**: its governing tables are `report.governing_loads_table`'s output and
@@ -579,7 +573,7 @@ Strategy:
      silently rebinds when a view gains, loses or reorders a form and the test
      passes while asserting something else. Use `helpers.apply_button(at,
      "<form_key>")`, which asserts it found exactly one match. Every
-     `st.form(...)` in `app/views/` therefore carries a unique string key.
+     `st.form(...)` therefore carries a unique string key.
    - A view-driving self-runner must put the **repo root** on `sys.path` itself
      so the view's `app_shell` imports resolve; `conftest.py` only does that
      under pytest. (`app/` itself is not on the path: since note 32 step OG-B
@@ -641,7 +635,7 @@ actually took, and it is now complete.
    - **Supplemental FAR 25 cases (concept).** `Project.include_far25` (default off, optional `EngineInput.max_accel_torque`) appends only the **non-duplicative** 14 CFR 25.361/25.371 engine cases (turbopropeller only) on top of the oracle-locked FAR 23 set — additive by construction, FAR 23 output unchanged. The FAR 25 torque cases 25.361(a)(1)(i)/(ii)/(iii) were **removed** as exact duplicates of the corrected 23.361(a)(1)/(a)(2)/(a)(3) (post AC 23-19A); what remains is `(a)(3)(i)` stoppage @1g, `(a)(3)(ii)` max-accel torque (no FAR 23 analog), and 25.371 gyro on the A2 load factor. Kept opt-in (not unconditional) to preserve the Appendix B oracle (6 conditions, 2.5g gyro). Sourced from `reference/14CFR_Part25_engine_torque.md`, formula-closure tested; 25.371 uses the fixed FAR 23.371(b) rates as a conservative concept stand-in. See PROGRAM_SPEC § ENGLOADS.
 3. **Project JSON versioning.** Add a `schema_version` to `project.json` from day one so old saves migrate cleanly as the schema grows? Default: yes.
 4. **Standalone vs project-only inputs.** Hybrid allows a module to run from a partial JSON (just its own slice). Confirm we want to maintain per-module example JSONs in addition to the two full-airplane projects. Default: full projects are canonical; per-module slices are derived for tests.
-5. **CSV vs combined workbook.** ✅ **RESOLVED (Phase D, Step D8.2, 2026-07-09).** Both: the Export page offers the `.zip` of per-module CSVs *and* a single multi-sheet `.xlsx` workbook (`sloads/export/workbook.py`, `openpyxl` dependency) as a sibling alternative — one tab per module/component plus the case index, BDF card text excluded (not tabular).
+5. **CSV vs combined workbook.** ✅ **RESOLVED, then retired.** Phase D step D8.2 (2026-07-09) shipped both: a `.zip` of per-module CSVs and a multi-sheet `.xlsx` workbook as a sibling alternative. The workbook was deleted at **#270** with the Export page that was its only consumer — the owner having ruled it unused, and the issue package's `data/` (#245) being the single tabular channel. No `data/`-derived replacement is built.
 
 ---
 
@@ -649,10 +643,10 @@ actually took, and it is now complete.
 
 ```bash
 pip install -e '.[dev]'          # editable install + dev tools (pytest, ruff)
-streamlit run app/Home.py        # the multi-page UI
+streamlit run oracle_app/Oracle.py   # the GUI (or: sloads-oracle)
 python cli.py engine examples/ga6_normal.project.json -o engine_loads.csv
 pytest                           # the green-build gate
-ruff check sloads/ cli.py oracle.py app/ app_shell/ oracle_app/ scripts/  # lint
+ruff check sloads/ cli.py oracle.py app_shell/ oracle_app/ scripts/  # lint
 mypy                             # type check (sloads/)
 ```
 

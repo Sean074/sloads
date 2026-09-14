@@ -289,41 +289,6 @@ def test_the_deck_stamp_is_comment_only_and_optional():
     assert stamped.endswith(bare)
 
 
-def test_the_export_page_applies_the_stamp_it_builds():
-    """Source guard: every ``.bdf`` artifact gets ``header_comment=_bdf_stamp``.
-
-    The defect this pins was invisible for a whole phase — the page built
-    ``_bdf_stamp`` and then never used it, and because it is a module-level name
-    ruff's unused-variable rule (a *local* check) never fired. The decks shipped
-    unstamped. Reading the page's source is the only way to assert this without a
-    Streamlit runtime.
-    """
-    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    with open(os.path.join(here, "app", "views", "export_report.py")) as fh:
-        source = fh.read()
-
-    assignments = [ln for ln in source.splitlines() if '.bdf"] = ' in ln]
-    # The LRA beam model (step 12) and the two mass-model files. It was ten until
-    # note 56 D-56.2 deleted the five per-component deck families, five until
-    # D-56.7 retired ``inertia_only.bdf`` -- with each mass on a GRID at its own
-    # CG there is no reduction of a mass to a beam station left for it to
-    # cross-check -- and four until D-56.8 unshipped the assembled deck.
-    assert len(assignments) == 3, assignments
-    for line in assignments:
-        # The call may wrap; take the whole statement up to the closing `or ""`.
-        stmt = source.split(line, 1)[1].split('or ""', 1)[0]
-        assert "_bdf_stamp" in stmt, line
-
-    # ...and the workbook, which has no comment rows, states units in a cell --
-    # per sheet, from the same `_system` (review m14), which means the page hands
-    # `build_workbook` the system and states nothing itself. A page that went back
-    # to passing one pre-formatted statement would re-open the defect: one
-    # workbook carries both the human and the solver channel.
-    workbook_call = source.split("return build_workbook(", 1)[1].split(")", 1)[0]
-    assert "system=_system" in workbook_call
-    assert '"Units"' not in source
-
-
 def test_the_stamp_still_round_trips_for_csv_readers():
     """``strip_comment_lines`` must survive the extra UNITS line — the G8.3
     readers (``workbook._csv_to_df`` reads with ``comment="#"``) are the audited
@@ -335,74 +300,6 @@ def test_the_stamp_still_round_trips_for_csv_readers():
     # stamp must not disturb is the payload's *rows*, not its whole text.
     assert (strip_comment_lines(stamp + payload)
             == strip_comment_lines(payload))
-
-
-# --------------------------------------------------------------------------- #
-# Step 6 — the Export page resolves the system once and states it
-# --------------------------------------------------------------------------- #
-def _view_source(name: str) -> str:
-    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    with open(os.path.join(here, "app", "views", f"{name}.py")) as fh:
-        return fh.read()
-
-
-def test_the_export_page_resolves_the_system_exactly_once():
-    """One `active_system()` read, and every artifact call takes that local.
-
-    "One bundle, one system" is only structural if there is a single value to
-    disagree with. A second `active_system()` call would be harmless *today* and
-    a latent split the moment anything sits between them, so the count is pinned
-    rather than the behaviour.
-    """
-    source = _view_source("export_report")
-    calls = [ln for ln in source.splitlines()
-             if "active_system()" in ln and not ln.lstrip().startswith("#")]
-    assert calls == ["_system = active_system()"], calls
-
-
-def test_every_export_page_writer_call_takes_the_bundle_system():
-    """No artifact on the Export page may fall back to a writer's Imperial default.
-
-    A defaulted call is invisible: it produces a perfectly valid file, in the
-    wrong system, beside files in the right one — the exact failure "one bundle,
-    one system" exists to prevent. Every unit-taking writer call is checked here
-    because the page is a script, not an importable function.
-    """
-    import re
-
-    source = _view_source("export_report")
-    # The unit-taking writers, by name; case_index_* is deliberately absent —
-    # it carries only Speed (kt) and Altitude (ft), both aviation carve-outs.
-    writers = ("applied_load_csv", "load_cases_csv",
-               # The mass model (D-R2): the one family whose unit set is checked
-               # for dimensional consistency, because a CONM2 M read as weight is
-               # wrong by 386x in a file that parses cleanly.
-               "conm2_fragment", "mass_check_deck", "inertia_only_cards")
-    # Calls wrap across lines, so match each writer reference and read the argument
-    # list that follows it, rather than slicing statements out of the source.
-    checked = 0
-    for match in re.finditer(r"\b(?:ap|sloads_io|mc)\.(\w+)", source):
-        name = match.group(1)
-        # Suffix match: the body/tail/control card writers are
-        # ``body_force_moment_cards`` etc., the same writer per component.
-        if not any(name.endswith(w) for w in writers):
-            continue
-        window = source[match.end(): match.end() + 220]
-        assert "system=_system" in window, f"{name} call defaults to Imperial:\n{window}"
-        checked += 1
-    # The three applied-load CSV calls (wing, fuselage, the tails' shared call)
-    # + the per-module load-case CSV + 2 mass-model files. It was 14 until note
-    # 56 D-56.2 deleted the per-component decks and their companions, and 7
-    # until D-56.7 retired ``inertia_only_cards``.
-    assert checked == 6, f"{checked} writer calls found, expected 6"
-    # The LRA beam model is imported by name rather than through a module alias,
-    # so it is matched on its own — it is the primary deliverable, and a bundle
-    # that wrote it in the wrong system would be wrong about the whole airplane.
-    # The assembled deck used to be checked here too; note 56 D-56.8 stopped it
-    # being written on this page at all, so the guard follows the artifact.
-    beam = source.split("_lra_model_bdf, project", 1)
-    assert len(beam) == 2, "the beam deck is no longer built on this page"
-    assert "system=_system" in beam[1][:220]
 
 
 def test_the_case_index_needs_no_system():
@@ -417,60 +314,6 @@ def test_the_case_index_needs_no_system():
     deck_cols = set(rt.LOAD_ID_COLUMN.values())
     dimensional = [k for k in rt._CASE_INDEX_FIELDS if "(" in k and k not in deck_cols]
     assert dimensional == ["Speed (kt)", "Altitude (ft)"], dimensional
-
-
-def _export_page_captions(system: UnitSystem):
-    """Render the Export page headlessly in ``system`` and return its captions."""
-    import logging
-
-    import pytest
-
-    pytest.importorskip("streamlit.testing.v1")
-    from streamlit.testing.v1 import AppTest
-
-    logging.disable(logging.CRITICAL)  # silence Streamlit's bare-mode warnings
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    for path in (root,):
-        if path not in sys.path:
-            sys.path.insert(0, path)
-
-    project = _ga_project()
-    # The selection lives on the project (D-22) and active_system() reads it
-    # there; the session key is only the no-project-yet fallback.
-    project.unit_system = system.value
-    at = AppTest.from_file(
-        os.path.join(root, "app", "views", "export_report.py"), default_timeout=180)
-    at.session_state["project"] = project
-    at.session_state["unit_system"] = system
-    at.run()
-    assert not at.exception, [e.message for e in at.exception]
-    return [c.value for c in at.caption]
-
-
-def test_the_export_page_states_the_system_it_will_write():
-    """The plan's acceptance: the on-page caption matches what the files contain.
-
-    AppTest cannot read a download button's payload (Streamlit serves it by URL),
-    so the caption is compared against the *unit sets themselves* — the same
-    `deliverable_units` the writers resolve. That is the property that matters:
-    caption and files have one source, so they cannot drift.
-    """
-    for system in (UnitSystem.IMPERIAL, UnitSystem.SI):
-        caption = next(c for c in _export_page_captions(system) if "written in" in c)
-        for channel in (Channel.HUMAN, Channel.SOLVER):
-            u = deliverable_units(system, channel)
-            for dim in (u.force, u.length, u.moment, u.pressure):
-                assert dim.label in caption, (system, channel, dim.label, caption)
-        # LIMIT, not ULTIMATE: note 49 OR-116 inverted the basis and this
-        # assertion outlived it, pinning the false claim in place (#192).
-        assert "KEAS" in caption and "**LIMIT**" in caption
-
-    si = next(c for c in _export_page_captions(UnitSystem.SI) if "written in" in c)
-    assert "**SI**" in si and "N·mm" in si
-    imperial = next(
-        c for c in _export_page_captions(UnitSystem.IMPERIAL) if "written in" in c)
-    # Imperial's two channels are the same set, so the caption must not split.
-    assert "**Imperial**" in imperial and "sbeam decks" not in imperial
 
 
 # --------------------------------------------------------------------------- #
@@ -1248,15 +1091,16 @@ def test_cli_exports_an_si_sbeam_deck():
 # --------------------------------------------------------------------------- #
 # The display channel a view states a moment in (C210-51 / #86)
 # --------------------------------------------------------------------------- #
-#: The one view whose ``torque`` channel reads are correct: engine torque is
-#: genuinely ft-lb (``EngineInput.cruise_torque`` and friends are entered so).
-_TORQUE_VIEW = "engine_mount.py"
-
-#: Repo root, for the two source-scanning guards below.
+#: Repo root, for the source-scanning guard below.
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+#: The display trees a page's units are chosen in. ``app/views/`` was here until
+#: #270 and was where C210-51 happened; ``sloads/`` is deliberately absent --
+#: ``units.py`` *owns* the channel map and must name it.
+_DISPLAY_TREES = ("oracle_app", "app_shell")
 
-def test_only_the_engine_view_uses_the_ft_lb_torque_channel():
+
+def test_no_page_reaches_for_the_ft_lb_torque_channel():
     """A structural moment is **lb-in**; ``torque`` is ft-lb — a 12x gap.
 
     Rule 3's drift guard for C210-51 (#86): ``app/views/tail_span_loads.py``
@@ -1266,39 +1110,48 @@ def test_only_the_engine_view_uses_the_ft_lb_torque_channel():
     ``torque`` channel. Imperial figures read 12x their label; SI applied the
     ft-lb->N·m factor to an lb-in number, so both systems were wrong by the same
     12. The module was never wrong: ``tail_span``'s own ``LoadValue``s say
-    ``lb-in``, which is why the oracle GUI's report was correct and only this
+    ``lb-in``, which is why the oracle GUI's report was correct and only that
     view's table disagreed.
 
-    Wing, fuselage, landing and plots all reach for ``si_scalar_label("lb-in",
-    …)`` / ``to_si_scalar(…, "lb-in", …)``. This asserts no view outside the
-    engine page reads the ``torque`` channel at all, so the outlier cannot come
-    back under a different call site.
+    The view is gone (#270) and so is the shape: the surviving GUI chooses no
+    label per page. A field's channel is declared once in
+    ``units.py``'s field map and a value's channel is its own ``LoadValue.units``
+    string, so there is no call site left to pick the wrong one at. This scan
+    keeps it that way — a page that started naming a channel by hand would be
+    re-opening the class, not using an API.
     """
     offenders = []
-    for path in sorted(glob.glob(os.path.join(_REPO, "app", "views", "*.py"))):
-        if os.path.basename(path) == _TORQUE_VIEW:
-            continue
-        with open(path, encoding="utf-8") as fh:
-            for lineno, line in enumerate(fh, 1):
-                if line.lstrip().startswith("#") or line.lstrip().startswith("#:"):
-                    continue  # the C210-51 rationale names the channel it retired
-                if '"torque"' in line or "'torque'" in line or "U['torque']" in line:
-                    offenders.append(f"{os.path.relpath(path, _REPO)}:{lineno}")
+    for tree in _DISPLAY_TREES:
+        for base, _, names in os.walk(os.path.join(_REPO, tree)):
+            if "__pycache__" in base:
+                continue
+            for name in sorted(names):
+                if not name.endswith(".py"):
+                    continue
+                path = os.path.join(base, name)
+                with open(path, encoding="utf-8") as fh:
+                    for lineno, line in enumerate(fh, 1):
+                        if line.lstrip().startswith("#"):
+                            continue
+                        if '"torque"' in line or "'torque'" in line:
+                            offenders.append(
+                                f"{os.path.relpath(path, _REPO)}:{lineno}")
     assert not offenders, (
-        "a view states a quantity in the ft-lb 'torque' channel; structural "
-        "moments are lb-in (use si_scalar_label/to_si_scalar with 'lb-in') and "
-        "only the engine page's torque is genuinely ft-lb:\n" + "\n".join(offenders))
+        "a page names the ft-lb 'torque' channel by hand; the channel a field "
+        "is displayed in is declared in sloads/units.py and read from there:\n"
+        + "\n".join(offenders))
 
 
-def test_the_tail_span_view_states_the_unit_its_module_produces():
-    """The view's moment label is the module's own ``LoadValue`` unit.
+def test_the_tail_span_moments_are_published_in_the_channel_they_are_in():
+    """The value-level half of the guard, at the owner rather than at a page.
 
-    The value-level half of the guard: whatever channel the page uses, the
-    label a reader sees must be the unit the number is in. ``tail_span``
-    publishes its root bending and torsion as ``lb-in``; the page's moment
-    label is derived from that same string, in both systems.
+    Whatever channel a page uses, the label a reader sees is derived from the
+    unit the number is in — and that unit is the module's. ``tail_span``
+    publishes its root bending and torsion as ``lb-in``, and ``lb-in`` and
+    ``ft-lb`` are separate channels with separate factors, which is the 12x the
+    defect turned on.
     """
-    from sloads.units import si_scalar_label
+    from sloads.units import SI_PER_IMPERIAL, si_scalar_label
 
     project = _ga_project()
     result = registry.get("tail_span")(project)
@@ -1307,14 +1160,11 @@ def test_the_tail_span_view_states_the_unit_its_module_produces():
                           "ttail_transfer_myy")}
     assert units == {"lb-in"}, units
 
-    source = open(os.path.join(_REPO, "app", "views", "tail_span_loads.py"),
-                  encoding="utf-8").read()
-    assert '_MOM = si_scalar_label("lb-in", system)' in source, (
-        "the tail-span view must derive its moment label from the lb-in "
-        "channel its module produces")
-    for system in (UnitSystem.IMPERIAL, UnitSystem.SI):
-        assert si_scalar_label("lb-in", system) != si_scalar_label("ft-lb", system) \
-            or system is UnitSystem.SI, "the two channels must not share a label"
+    assert SI_PER_IMPERIAL["moment"] != SI_PER_IMPERIAL["torque"], (
+        "the two moment channels must not share a factor, or the defect is "
+        "undetectable")
+    assert si_scalar_label("lb-in", UnitSystem.IMPERIAL) \
+        != si_scalar_label("ft-lb", UnitSystem.IMPERIAL)
 
 
 if __name__ == "__main__":  # zero-dependency self-runner

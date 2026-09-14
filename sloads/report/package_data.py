@@ -322,7 +322,22 @@ def _named_files(doc: "OracleDocument") -> List[DataFile]:
             applied_set_source(project, c)
             for c in ("wing", "fuselage", "htail", "vtail")]
         groups += [r.conditions for r in doc.results.values() if r is not None]
-        return rt.case_index_csv_from(*groups, header_comment=header)
+        # The assembled cases, by the same route the deck writes them (design
+        # note 17). Without them the index names none of the handed L/R cases
+        # the LRA deck subcases are, and its "LOAD/SUBCASE (assembled)" column
+        # is empty on every row -- so a reader holding the primary deliverable
+        # cannot trace a SUBCASE back through the one tabular channel there is.
+        # It shipped that way from #245; the gap was invisible while the summary
+        # report printed a complete index beside it, and #270 deleted that
+        # report.
+        from ..export.balanced_deck import build_balanced_cases
+        try:
+            assembled = build_balanced_cases(project) or []
+        except Exception:      # the same rule as ``add`` below: a project that
+            assembled = []     # assembles nothing has no assembled column, not
+                               # no index.
+        return rt.case_index_csv_from(*groups, header_comment=header,
+                                      assembled=assembled)
 
     human = ("as stated in this manifest's Units section")
     solver = ("the solver channel the exported deck is written in "

@@ -238,110 +238,18 @@ def test_the_unit_radio_adopts_the_loaded_projects_system():
 
 
 # --------------------------------------------------------------------------- #
-# app/views: the Apply step defers the overwrite, it does not prevent it
-# --------------------------------------------------------------------------- #
-_VIEWS_DIR = os.path.join(_ROOT, "app", "views")
-
-#: The three view shapes the sweep has to cover: a form of scalars, a data
-#: editor of rows, and a view whose widgets are built per named record.
-_VIEWS = ["structural_speeds.py", "weight_mass.py", "engine_mount.py"]
-
-_VIEW_SCRIPT = """
-import streamlit as st
-
-from app_shell.project_state import adopt, ensure_project
-from sloads import io
-
-ensure_project()
-if st.session_state.pop("_load_now", False):
-    adopt(io.load_project({path!r}))
-exec(compile(open({view!r}).read(), {view!r}, "exec"))
-"""
-
-
-@pytest.mark.parametrize("view", _VIEWS)
-def test_a_view_open_before_a_load_re_seeds_from_what_was_loaded(view):
-    """``app/views/`` keys are hand-written and equally stable across projects.
-
-    Its Apply step means the stale values land on the user's click rather than
-    on the load's rerun — later, not never, and with the user believing they
-    just confirmed what they were shown. The widgets must therefore re-seed from
-    the loaded project here too.
-    """
-    from streamlit.testing.v1 import AppTest
-
-    path = os.path.join(_VIEWS_DIR, view)
-    at = AppTest.from_string(
-        _VIEW_SCRIPT.format(path=_ATR42, view=path), default_timeout=90)
-    from app_shell.widget_keys import unstamped
-
-    at.run()
-    assert not at.exception, [e.message for e in at.exception]
-    seeded = {w.key for w in at.number_input if w.key}
-
-    at.session_state["_load_now"] = True
-    at.run()
-    assert not at.exception, [e.message for e in at.exception]
-    loaded = {w.key: w.value for w in at.number_input if w.key}
-
-    assert seeded and loaded, f"{view} rendered no keyed inputs to check"
-    # The same fields (the page did not change shape) as different widgets (so
-    # none of them can still be holding the discarded project).
-    assert {unstamped(k) for k in seeded} & {unstamped(k) for k in loaded}, (
-        f"{view} rendered a different field set before and after the load; the "
-        "comparison below would be vacuous")
-    assert not (seeded & set(loaded)), (
-        f"{view} re-used widget keys across a project replacement: "
-        f"{sorted(seeded & set(loaded))[:5]} — those widgets keep the state of "
-        "the project that was discarded, and its Apply writes them back")
-    assert any(v for v in loaded.values()), (
-        f"{view} showed nothing after the load")
-
-
-def test_a_value_typed_before_the_load_does_not_survive_it():
-    """The reproduction from #51's reopen comment: type first, then load.
-
-    Before every input widget carried a stamped key, an unkeyed widget derived
-    its Streamlit identity from its arguments -- ``value=`` included -- so a
-    number typed into it was retained across the load whenever the loaded field
-    repeated the seed (the common case: the seed is ``Project(name="")``),
-    entered the project on the user's Apply, and reached disk. The stamp
-    retires the edited widget by renaming it, so after the load the field must
-    be a *new* widget showing the loaded value, not the typed one.
-    """
-    from streamlit.testing.v1 import AppTest
-
-    from app_shell.widget_keys import unstamped
-
-    path = os.path.join(_VIEWS_DIR, "structural_speeds.py")
-    at = AppTest.from_string(
-        _VIEW_SCRIPT.format(path=_ATR42, view=path), default_timeout=90)
-    at.run()
-    assert not at.exception, [e.message for e in at.exception]
-
-    sentinel = 123.25  # matches nothing in atr42_100 (vh_kt is 265)
-    vh = next(w for w in at.number_input if unstamped(w.key or "") == "ss_vh")
-    vh.set_value(sentinel).run()
-    assert not at.exception, [e.message for e in at.exception]
-    key_before = vh.key
-
-    at.session_state["_load_now"] = True
-    at.run()
-    assert not at.exception, [e.message for e in at.exception]
-
-    vh_after = next(w for w in at.number_input if unstamped(w.key or "") == "ss_vh")
-    assert vh_after.key != key_before, (
-        "the load did not retire the edited widget: it kept its key, so it "
-        "still holds the value typed against the discarded project")
-    expected = io.load_project(_ATR42).speeds.vh_kt
-    assert vh_after.value == pytest.approx(expected), (
-        f"VH shows {vh_after.value} after the load; the typed {sentinel} should "
-        f"have been replaced by the loaded {expected}")
-    after = io.project_to_dict(at.session_state["project"])
-    assert after == io.project_to_dict(io.load_project(_ATR42)), (
-        "the load's own rerun changed the loaded project")
-
-
+# The retired front-end's half of this contract
+#
+# ``app/views/`` carried hand-written widget keys and an Apply step, which meant
+# a stale value landed on the user's click rather than on the load's rerun --
+# later, not never, and with the user believing they had just confirmed what
+# they were shown. Two tests pinned it there: a view open before a load must
+# re-seed, and a value typed before a load must not survive it. Both retired
+# with the pages at #270. The claim did not: it is
+# ``test_a_loaded_project_survives_the_page_that_was_already_open`` above, over
+# every page and every example, asserting the whole serialised project rather
+# than a sampled field -- which is what one renderer makes possible and a file
+# per view did not.
 # --------------------------------------------------------------------------- #
 # The guard: no widget seeded from the project skips the stamp
 # --------------------------------------------------------------------------- #

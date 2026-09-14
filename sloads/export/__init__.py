@@ -55,13 +55,11 @@ from .equilibrium import (
     ref_first_loaded,
     resultant,
 )
-from .workbook import build_workbook
 
 __all__ = [
     "SBEAM_CID",
     "CardTotals",
     "Resultant",
-    "build_workbook",
     # Export-boundary closure gate (sloads.export.equilibrium)
     "card_totals",
     "closes",

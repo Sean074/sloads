@@ -4,11 +4,17 @@ This is the single source of truth for *what the suite does and in what order*:
 each :class:`WorkflowStep` names the calc module behind it (``module``), the
 project slice(s) it needs (``requires``) and the slice it produces (``produces``),
 grouped into the workflow sections the GUI presents. Since Step G2 (Phase G) the
-sections follow the FAR 23 analysis flow -- a **Start** app-shell group followed by
-the six analysis-flow phases **Develop V-n diagram → Flight loads → Other loads →
-Landing loads → Load-case plotting → Export** (see
-``docs/30_future/03_gui_rework_plan.md`` §4; this supersedes the Phase-D
-Start/Airplane/Envelopes/Analysis grouping in ``05_phase_d_gui_workflow_plan.md``).
+sections follow the FAR 23 analysis flow: **Develop V-n diagram → Flight loads →
+Other loads → Landing loads** (see ``docs/30_future/03_gui_rework_plan.md`` §4;
+this supersedes the Phase-D Start/Airplane/Envelopes/Analysis grouping in
+``05_phase_d_gui_workflow_plan.md``).
+
+**This is the analysis, not the page list** (note 57, D-57.1). Two of the steps
+here -- ``tail_span_loads`` and ``balanced_cases`` -- run a registered calc
+module and carry no page at all: their deliverables are the report's tail-span
+appendix and the balanced deck, and the front-end that gave them a form retired
+at #270. The GUI's page set is :func:`gui_pages`, which is these steps filtered
+by :func:`oracle_steps` plus the stated :data:`NON_STEP_PAGES`.
 
 It is pure metadata plus pure predicates over a :class:`~sloads.models.Project`
 (no Streamlit, no I/O), so the GUI navigation, the Home dashboard's completeness
@@ -31,17 +37,24 @@ from .models import Project
 # Phases (ordered) -- Start app-shell + the six analysis-flow sections (Step G2,
 # see docs/30_future/03_gui_rework_plan.md §4).
 # --------------------------------------------------------------------------- #
-START = "Start"
 DEVELOP_VN = "Develop V-n diagram"
 FLIGHT_LOADS = "Flight loads"
 OTHER_LOADS = "Other loads"
 LANDING = "Landing loads"
-LOADS_PLOTTING = "Load-case plotting"
-EXPORT = "Export"
 
 #: The workflow phases in presentation order.
+#:
+#: Four, not seven, since #270 (note 57 D-57.1). ``Start``, ``Load-case
+#: plotting`` and ``Export`` held the six GUI-only steps of the retired
+#: front-end and nothing else: with those rows gone they would be phases no step
+#: can ever be in, which is the drift ``test_every_phase_carries_a_step`` now
+#: refuses. What they named did not retire with them -- the project is carried
+#: by the shell, the figures are drawn on the page that produces them (#267,
+#: note 60 D-60.1) and the deliverables leave through the CLI and the Report
+#: page -- but none of those is a step of the analysis, which is what this
+#: tuple partitions.
 PHASES: Tuple[str, ...] = (
-    START, DEVELOP_VN, FLIGHT_LOADS, OTHER_LOADS, LANDING, LOADS_PLOTTING, EXPORT,
+    DEVELOP_VN, FLIGHT_LOADS, OTHER_LOADS, LANDING,
 )
 
 
@@ -53,7 +66,8 @@ class WorkflowStep:
     ``title``    human label shown in navigation and the dashboard.
     ``phase``    one of :data:`PHASES`.
     ``module``   the :mod:`sloads.registry` module name behind the step, or
-                 ``None`` for a GUI-only view (dashboard / results / export).
+                 ``None`` for a step that produces a slice without running a
+                 registered program (``aero_coefficients``).
     ``requires`` project-slice attribute names that must be present to run.
     ``produces`` dotted attribute path the step fills, or ``None`` for a
                  derived-only view (it shows results but persists no new slice).
@@ -89,18 +103,6 @@ class WorkflowStep:
 # The steps, in workflow order within each phase
 # --------------------------------------------------------------------------- #
 STEPS: Tuple[WorkflowStep, ...] = (
-    # ---- Start: app shell -- landing / project management -------------------- #
-    # Not part of the FAR 23 analysis flow; the two app-shell pages that carry the
-    # project itself (Step G2 keeps a dedicated Start group above the six
-    # analysis-flow phases -- see 03_gui_rework_plan.md §4).
-    WorkflowStep("dashboard", "Project Dashboard", START,
-                 module=None, produces=None, bas=None,
-                 summary="Load/save the project and see workflow progress at a glance."),
-    WorkflowStep("project_editor", "Project JSON Editor", START,
-                 module=None, produces=None, bas=None,
-                 summary="Review/hand-edit the whole project as JSON, in the "
-                         "sidebar's selected Imperial/SI units."),
-
     # ---- Develop V-n diagram: define the airplane & load environment --------- #
     # §4 Phase 1, consolidated to five sub-steps 1a–1e (Step G3). Each merged page
     # gathers several formerly-separate pages as st.tabs; the secondary calc modules
@@ -234,22 +236,6 @@ STEPS: Tuple[WorkflowStep, ...] = (
                  module="landing", requires=(), produces="landing",
                  bas="LGFACTOR+LANDLOAD", summary="Landing load factors + gear reactions."),
 
-    # ---- Load-case plotting: consolidated plots (Step D7, §4 Phase 5) -------- #
-    WorkflowStep("loads_plots", "Loads Plots", LOADS_PLOTTING,
-                 module=None, produces=None, bas=None,
-                 summary="Overlay shear/moment/torsion by case ID, envelope curves, "
-                         "whole-airframe view, and external-CSV comparison."),
-
-    # ---- Export: hand off to downstream tools (§4 Phase 6) ------------------- #
-    WorkflowStep("aircraft_comparison", "Aircraft Comparison", EXPORT,
-                 module=None, produces=None, bas=None,
-                 summary="Place the design against similar aircraft."),
-    WorkflowStep("results_review", "Results Review", EXPORT,
-                 module=None, produces=None, bas=None,
-                 summary="Consolidated governing loads across every component."),
-    WorkflowStep("export_report", "Export & Report", EXPORT,
-                 module=None, produces=None, bas=None,
-                 summary="Project JSON, per-module load CSVs, and sbeam BDF cards."),
 )
 
 #: Steps keyed by ``key`` for O(1) lookup.
@@ -405,7 +391,11 @@ def by_phase() -> Dict[str, List[WorkflowStep]]:
 
 
 def oracle_steps() -> List[WorkflowStep]:
-    """The oracle GUI's page set, derived (design note 32, OG-2 as amended).
+    """The GUI's derived analysis pages (design note 32, OG-2 as amended).
+
+    The derived half of :func:`gui_pages`. The name is the oracle GUI's, and
+    stands: R-57.5 took the branch that keeps the surviving front-end's name and
+    entry point, with the rename mechanics deferred to a later milestone.
 
     OG-2 originally said *the steps whose ``bas`` is not None*. Building the
     field registry (OG-C) showed that rule is not closed: ``aero_coefficients``
@@ -430,3 +420,72 @@ def oracle_steps() -> List[WorkflowStep]:
 def oracle_step_keys() -> Set[str]:
     """Step keys of :func:`oracle_steps`, for membership tests."""
     return {s.key for s in oracle_steps()}
+
+
+# --------------------------------------------------------------------------- #
+# The GUI's page set (note 57, D-57.1) -- the analysis steps plus the pages that
+# are not analysis steps, stated here rather than assembled in the entry point.
+# --------------------------------------------------------------------------- #
+@dataclass(frozen=True)
+class GuiPage:
+    """A page the GUI carries that is *not* a step of the analysis.
+
+    ``key``    stable identifier and URL path.
+    ``title``  the navigation label, owned here so it is typed once.
+    ``reason`` why it is not a step -- read by the guard, not only by a reader.
+
+    The Report page established this category (note 44, OR-16): a page outside
+    the derived step set, registered on navigation and deliberately absent from
+    the step mapping the cross-page links resolve against, so it can never be
+    reached as a step. #270 made the category a declaration instead of three
+    hand-appended blocks in ``Oracle.py``: with one front-end left, the page set
+    is *the* page set, and gate G2's "derived, not listed" has to cover all of
+    it. Derived stays derived -- adding a ``bas`` to a step still adds a page
+    with no edit here -- and what is listed is only the set that is not derivable
+    from the analysis at all, each row saying why.
+    """
+    key: str
+    title: str
+    reason: str
+
+
+#: The pages that are not analysis steps. Two are D-57.1's *ported pages* -- they
+#: were steps of the retired front-end and are carried by the survivor -- and one
+#: is OR-16's original exception.
+NON_STEP_PAGES: Tuple[GuiPage, ...] = (
+    GuiPage("project_editor", "Project JSON Editor",
+            "It edits the project every step reads, rather than entering one "
+            "step's slice: the escape hatch for the records "
+            "``field_registry.JSON_ONLY_RECORDS`` names, which live inside a "
+            "list row and which no widget can name (note 57, D-57.3)."),
+    GuiPage("fleet", "Aircraft Comparison",
+            "It places the airplane against a reference fleet and runs no "
+            "``.BAS`` program of the original suite -- Phase C's *assess "
+            "against similar airplanes* requirement, reading nothing any FAR "
+            "computation reads (note 57, D-57.5). Keyed ``fleet`` because "
+            "``aircraft_comparison`` was the retired front-end's step key and a "
+            "URL that collides with a step key makes a non-step reachable as a "
+            "step link."),
+    GuiPage("report", "Report",
+            "It is a document *about* the analysis, generated from the steps "
+            "rather than being one of them, and written as an issue package "
+            "(note 44, OR-16)."),
+)
+
+
+def gui_pages() -> List[str]:
+    """Every page key the GUI carries, in navigation order.
+
+    The stated set of D-57.1: the derived analysis pages first, then
+    :data:`NON_STEP_PAGES`. This is the owner gate 8 reads -- a page that is in
+    neither half is not reachable, and a retired page is in neither half.
+    """
+    return [s.key for s in oracle_steps()] + [p.key for p in NON_STEP_PAGES]
+
+
+def non_step_page(key: str) -> GuiPage:
+    """The :class:`GuiPage` for ``key``; raises ``KeyError`` if it is not one."""
+    for page in NON_STEP_PAGES:
+        if page.key == key:
+            return page
+    raise KeyError(key)

@@ -187,16 +187,20 @@ def test_derived_allowlist_entries_are_real_fields():
 # 3. No input page holds input data outside st.session_state["project"]
 # --------------------------------------------------------------------------- #
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_APP = os.path.join(_ROOT, "app")
-#: Page bodies that live in the shared shell rather than in a GUI tree, scanned
-#: with the pages. The Project Editor moved to ``app_shell/`` at design note 57
-#: D-57.3 because both front-ends render it; the scan follows the page, or a
-#: file this test has covered since G-3 would have left its coverage by moving
-#: house. The rest of ``app_shell/`` is out of scope here on purpose: it is the
-#: shared plumbing (``project_state``, ``sidebar``, ``widget_keys``, ``nav``)
-#: whose session-state slots are the ones this scan allow-lists, each with its
-#: own owner and guard.
+#: Page bodies that live in the shared shell rather than in the GUI tree,
+#: scanned with the pages. The Project Editor moved to ``app_shell/`` at design
+#: note 57 D-57.3 because both front-ends rendered it; the scan follows the
+#: page, or a file this test has covered since G-3 would have left its coverage
+#: by moving house. The rest of ``app_shell/`` is out of scope here on purpose:
+#: it is the shared plumbing (``project_state``, ``sidebar``, ``widget_keys``,
+#: ``nav``) whose session-state slots are the ones this scan allow-lists, each
+#: with its own owner and guard.
 _SHELL_PAGES = [os.path.join(_ROOT, "app_shell", "project_editor.py")]
+
+#: The GUI tree whose pages are scanned. It was ``app/`` -- and when #270
+#: deleted that directory this scan's ``glob`` quietly returned nothing and the
+#: test went green over an empty list, which is why the count is asserted below.
+_GUI = os.path.join(_ROOT, "oracle_app")
 
 # The only session_state keys the GUI may *write*. All are UI state, not airplane
 # input data (which lives on the single reloadable `project`):
@@ -206,16 +210,26 @@ _SHELL_PAGES = [os.path.join(_ROOT, "app_shell", "project_editor.py")]
 #   engine_sel               -- which engine the Engine Mount radio has selected
 _ALLOWED_SESSION_KEYS = {
     "project", "unit_system", "_saved_project_snapshot", "engine_sel",
-    # Step G8.6: the compiled summary-report PDF, the .tex it was compiled from
-    # (the freshness key) and the engine log. All three are *output* held between
-    # reruns so a compile survives the next widget interaction -- none is airplane
-    # input, and every one is rebuilt from `project` on demand.
-    "report_pdf_bytes", "report_pdf_key", "report_pdf_log",
 }
-# Files allowed to write session_state under a *variable* key (not a string literal).
-# The Project Editor stages the raw JSON text in a re-seeded scratchpad, committed to
-# `project` on Apply -- a text buffer, not un-persisted airplane input.
-_ALLOWED_VARIABLE_KEY_FILES = {"project_editor.py"}
+# Files allowed to write session_state under a *variable* key (not a string literal),
+# each because the key itself is computed and the value is not airplane input.
+#
+#   project_editor.py -- stages the raw JSON text in a re-seeded scratchpad,
+#                        committed to `project` on Apply: a text buffer.
+#   form.py           -- the generic renderer. Its keys ARE registry paths, stamped
+#                        by `widget_keys`; a literal key here would be the
+#                        hand-written page list gate G2 refuses. What it writes is
+#                        widget state, and that it never outlives the project it was
+#                        seeded from is `tests/test_widget_freshness.py`'s subject.
+#   report.py         -- the Report page's spec draft and the directory browser's
+#                        cursor, both document metadata rather than airplane input
+#                        (note 44, OR-18/OR-29).
+#
+# The last two entered scope at #270, when the scan followed the surviving GUI;
+# the retired front-end's three `report_pdf_*` keys left it at the same time --
+# they held a compiled summary-report PDF between reruns, and there is no
+# summary report.
+_ALLOWED_VARIABLE_KEY_FILES = {"project_editor.py", "form.py", "report.py"}
 
 _LITERAL_WRITE = re.compile(r"""st\.session_state\[\s*(["'])(?P<key>.+?)\1\s*\]\s*=""")
 _VARIABLE_WRITE = re.compile(r"""st\.session_state\[\s*(?!["'])[^\]]+\]\s*=""")
@@ -227,7 +241,12 @@ def test_no_input_data_written_outside_project_session_state():
     reviewer must decide whether it is input data that belongs on `project` (G-3)."""
     offenders_literal = {}
     offenders_variable = {}
-    for path in glob.glob(os.path.join(_APP, "**", "*.py"), recursive=True) + _SHELL_PAGES:
+    scanned = (sorted(glob.glob(os.path.join(_GUI, "**", "*.py"), recursive=True))
+               + _SHELL_PAGES)
+    assert len(scanned) > 3, (
+        f"the scan found {len(scanned)} files -- a guard over an empty list "
+        "passes without checking anything")
+    for path in scanned:
         src = open(path, encoding="utf-8").read()
         base = os.path.basename(path)
         for m in _LITERAL_WRITE.finditer(src):

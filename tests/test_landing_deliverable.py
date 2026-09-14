@@ -443,23 +443,36 @@ def test_the_frame_captions_are_the_manuals_own_words():
         raise AssertionError(f"caption({bad!r}) did not raise")
 
 
-def test_neither_gui_writes_the_frame_words_itself():
+def test_no_surface_writes_the_frame_words_itself():
     """G-GF-7: one caption owner, and a guard that says so.
 
-    Two prose copies of a frame label is how the main GUI came to say
+    Two prose copies of a frame label is how the retired front-end came to say
     "(ground line)" on a table while the Oracle said nothing at all and the deck
     consumed the other frame. The words live in ``sloads.frames`` and every
-    surface calls ``caption()``; this fails if either GUI spells them out again.
+    surface calls ``caption()``; this fails if any of them spells them out
+    again. It checked the two front-ends' landing surfaces until #270 left one,
+    so it now sweeps the whole display layer rather than naming files -- a
+    surface that is not on a list is a surface the guard does not reach, which
+    is the defect's own shape.
     """
-    surfaces = [os.path.join(os.path.dirname(_HERE), p) for p in (
-        "app/views/landing_loads.py", "oracle_app/results.py")]
-    for path in surfaces:
-        with open(path, encoding="utf-8") as fh:
-            source = fh.read()
-        assert "caption(" in source, path
-        for words in ("with respect to ground line",
-                      "with respect to airplane datum"):
-            assert words not in source, f"{path} spells out {words!r} itself"
+    root = os.path.dirname(_HERE)
+    called = []
+    for tree in ("oracle_app", "app_shell"):
+        for base, _dirs, names in os.walk(os.path.join(root, tree)):
+            if "__pycache__" in base:
+                continue
+            for name in sorted(n for n in names if n.endswith(".py")):
+                path = os.path.join(base, name)
+                with open(path, encoding="utf-8") as fh:
+                    source = fh.read()
+                for words in ("with respect to ground line",
+                              "with respect to airplane datum"):
+                    assert words not in source, (
+                        f"{os.path.relpath(path, root)} spells out {words!r} "
+                        "itself; call sloads.frames.caption()")
+                if "caption(" in source:
+                    called.append(os.path.relpath(path, root))
+    assert called, "no surface calls the caption owner -- has it been bypassed?"
 
 
 def test_the_case_note_states_the_point_and_the_attitude():

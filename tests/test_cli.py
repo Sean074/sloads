@@ -306,5 +306,78 @@ def test_a_module_run_reports_its_error_the_same_way(tmp_path, capsys):
     assert capsys.readouterr().err.startswith("error: ")
 
 
+# --------------------------------------------------------------------------- #
+# --report: the headless half of the Report page
+# --------------------------------------------------------------------------- #
+def test_the_report_flag_writes_the_document_that_exists(tmp_path):
+    """F-D1's rule applied to the document route.
+
+    This flag rendered the summary report and **nothing tested it**, so when
+    #270 deleted that document with the front-end that downloaded it, the only
+    headless path to a controlling document broke silently and the whole suite
+    stayed green. The reachability rule the export menu is held to is the same
+    rule here: a deliverable the CLI offers is a deliverable the CLI writes.
+    """
+    out = tmp_path / "report.tex"
+    assert cli.main([GA6, "--report", str(out)]) == 0
+    tex = out.read_text(encoding="utf-8")
+    assert tex.startswith(r"\documentclass")
+    assert tex.rstrip().endswith(r"\end{document}")
+    # It is the technical report, not some other document: its own front matter.
+    assert "Axes and sign conventions" in tex
+    assert len(tex) > 100_000, "implausibly short for the whole document"
+
+
+def test_the_report_follows_the_units_flag(tmp_path):
+    """One flag, one system -- the document is part of the bundle ``--units``
+    governs, not a second selection the headless route cannot reach (M4-20)."""
+    imperial = tmp_path / "i.tex"
+    si = tmp_path / "s.tex"
+    assert cli.main([GA6, "--report", str(imperial), "--units", "imperial"]) == 0
+    assert cli.main([GA6, "--report", str(si), "--units", "si"]) == 0
+    assert "Imperial units" in imperial.read_text(encoding="utf-8")
+    assert "SI units" in si.read_text(encoding="utf-8")
+
+
+def test_the_report_is_byte_stable_across_runs(tmp_path):
+    """Nothing in the document reads the clock: the timestamp is the caller's."""
+    first, second = tmp_path / "a.tex", tmp_path / "b.tex"
+    for path in (first, second):
+        assert cli.main([GA6, "--report", str(path),
+                         "--generated", "2026-09-13"]) == 0
+    assert first.read_bytes() == second.read_bytes()
+
+
+def test_an_unreadable_project_is_one_error_line_on_every_route(tmp_path, capsys):
+    """m2, widened at #270 (rule 4).
+
+    Every route called ``io.load_project`` *outside* its ``try``, so the one
+    error contract covered everything the analysis could refuse and not the one
+    thing every route does first. A file that is not JSON came out as a
+    traceback on all four; ``cli._load`` is now the single entry and
+    ``cli.main`` the single handler.
+    """
+    bad = tmp_path / "bad.json"
+    bad.write_text("{not json", encoding="utf-8")
+    routes = (
+        ["--report", str(tmp_path / "r.tex")],
+        ["--export-sbeam", str(tmp_path / "d"), "--export-target", "lra"],
+        ["--export-conm2", str(tmp_path / "m")],
+    )
+    for route in routes:
+        assert cli.main([str(bad)] + route) == 1, route
+        captured = capsys.readouterr()
+        assert captured.err.startswith("error: "), (route, captured.err)
+        assert "Traceback" not in captured.err, route
+    # ...and the module route, which takes the project as the second positional.
+    assert cli.main(["engine", str(bad)]) == 1
+    assert capsys.readouterr().err.startswith("error: ")
+
+    # A path that is not there at all is the same one line.
+    missing = str(tmp_path / "nope.json")
+    assert cli.main([missing, "--report", str(tmp_path / "r2.tex")]) == 1
+    assert capsys.readouterr().err.startswith("error: ")
+
+
 if __name__ == "__main__":  # zero-dependency self-runner
     sys.exit(pytest.main([__file__, "-q"]))

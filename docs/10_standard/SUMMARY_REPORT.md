@@ -7,19 +7,24 @@ The authoritative specification for the **consolidated loads summary report**
 this file is the standard the implementation is judged against and is the one to
 update when the report's content rules change.
 
-> **The document this governs is retiring (#278, design note 60 D-60.7…D-60.11,
-> 2026-09-13).** Its only production consumer is `app/views/export_report.py`,
-> which note 57 D-57.1 deletes; four of its cross-cutting sections — axes and
-> sign conventions, the governing safety-factor table, the FAR 23 Subpart C
-> coverage matrix and the bundle manifest — have merged into the **oracle
-> report**, whose standard is [`ORACLE_REPORT.md`](ORACLE_REPORT.md) (§3.2a for
-> the merged front matter). Every other section of this document is declared
-> merged or superseded, with its reason, in
-> `sloads/report/front_sections.SUMMARY_DISPOSITION`. The **rules** below still
-> govern: `ORACLE_REPORT.md` inherits this file verbatim under OR-5 except where
-> it records a deviation, so this remains the standard for self-containment, the
-> §3.1 statements, §3.4 absence-is-content, §3.5 units and the §4.7 manifest.
-> What retires at #270 is the implementation, not the standard.
+> **The document this governs has retired (#278 then #270, design note 60
+> D-60.7…D-60.11, 2026-09-13).** Its front-end consumer was
+> `app/views/export_report.py`, which note 57 D-57.1 deleted; four of its
+> cross-cutting sections — axes and sign conventions, the governing
+> safety-factor table, the FAR 23 Subpart C coverage matrix and the bundle
+> manifest — merged into the **technical report** first, whose standard is
+> [`ORACLE_REPORT.md`](ORACLE_REPORT.md) (§3.2a for the merged front matter).
+> Every other section is declared merged or superseded, with its reason, in
+> `sloads/report/front_sections.SUMMARY_DISPOSITION`, audited against
+> `RETIRED_SUMMARY_SECTIONS` by a guard test. `content.build_report` and the
+> document half of `latex.py` were deleted with the page.
+>
+> The **rules** below still govern: `ORACLE_REPORT.md` inherits this file
+> verbatim under OR-5 except where it records a deviation, so this remains the
+> standard for self-containment, the §3.1 statements, §3.4 absence-is-content,
+> §3.5 units and the §4.7 manifest. What retired at #270 is the implementation,
+> not the standard — which is why this file stays here rather than rolling to
+> history.
 
 Keyword convention (RFC 2119 sense, as used throughout `10_standard/`):
 **SHALL** = mandatory, a violation is a `[CRITICAL]` review finding;
@@ -500,66 +505,52 @@ reason is what a reviewer applies to a case not listed here.
 
 ## 6. Conformance
 
-A report conforms when all of the following hold. Each is held by a named test
-(Step G8 shipped 2026-08-05; see
-[`../40_history/00_completed_development.md`](../40_history/00_completed_development.md)):
+A report conformed when all of the following held.
 
-- [x] Every required section of §4 is present, or explicitly marked *not analysed*
-      with a reason — `test_report_content.py::test_every_required_section_is_present`,
-      `::test_every_component_subsection_is_present`,
-      `::test_sections_degrade_rather_than_raise_on_an_empty_project`.
+> **The tests that held these retired with the document at #270**, so their
+> names are removed here rather than left pointing at gates that are not there.
+> `tests/test_doc_currency.py` refuses a conformance row naming a deleted test,
+> and it is right to: a checklist whose citations do not resolve reads as
+> coverage. The **rules** stand — `ORACLE_REPORT.md` inherits them under OR-5
+> and its own conformance section names the tests that hold them now. Step G8
+> shipped 2026-08-05; see
+> [`../40_history/00_completed_development.md`](../40_history/00_completed_development.md).
+
+- [x] Every required section of §4 is present, or explicitly marked *not
+      analysed* with a reason, and a section degrades rather than raising on an
+      empty project.
 - [x] Every load is LIMIT with a stated `SF`, and no data cell carries `-ULT`
-      unless its case is already ultimate (§3.1, as inverted by note 49 OR-116) —
-      `test_report_content.py::test_no_load_column_is_ultimate_marked`,
-      `test_report_latex.py::test_the_sf_column_is_present_and_the_ult_marker_is_not_on_data`,
-      `test_basis_statements.py::test_the_summary_report_states_limit`.
-- [x] Every load traces to a case ID that exists in the companion case index —
-      `test_report_content.py::test_case_index_states_a_safety_factor_for_every_case`
-      (the report's index is built from the same `case_index_rows_from` the CSV is).
-- [x] Every condition cites a FAR reference —
-      `test_report_content.py::test_input_tables_carry_the_projects_values_and_name_their_owner`
-      and the coverage matrix's own `test_far_coverage.py`.
-- [x] Every torsion names its axis; every maximum names its station; envelopes are
-      two-sided — `test_report_content.py::test_wing_maxima_are_two_sided_and_name_their_station_and_axis`.
-- [x] The FAR coverage matrix classifies every listed regulation, with
-      "not analysed" rows visually distinct —
-      `test_far_coverage.py`, `test_report_latex.py::test_not_analysed_rows_are_visually_distinct_without_colour`.
-- [x] Axes print fixed ticks with thousands separators, never a shared multiplier —
-      `test_report_latex.py::test_the_axes_print_fixed_ticks_rather_than_a_shared_multiplier`.
+      unless its case is already ultimate (§3.1, as inverted by note 49 OR-116).
+- [x] Every load traces to a case ID that exists in the companion case index
+      (the report's index is built from the same `case_index_rows_from` the CSV
+      is).
+- [x] Every condition cites a FAR reference, and the coverage matrix classifies
+      every listed regulation with "not analysed" rows visually distinct.
+- [x] Every torsion names its axis; every maximum names its station; envelopes
+      are two-sided.
+- [x] Axes print fixed ticks with thousands separators, never a shared
+      multiplier.
 - [x] A marker label is placed clear of the figure's lines and of the other
       markers, scored over the whole label, and an uncrowded one keeps its
-      conventional position —
-      `test_report_latex.py::test_a_marker_label_is_placed_off_the_line_it_sits_on`,
-      `::test_a_long_label_is_scored_over_its_whole_length`,
-      `::test_an_uncrowded_marker_label_still_sits_above_its_point`.
+      conventional position.
 - [x] The methods statement is generated from the shared source and matches the
-      statement stamped into the CSV and BDF exports —
-      `test_methods_stamp.py::test_summary_report_carries_the_same_statement`.
+      statement stamped into the CSV and BDF exports.
 - [x] Concept-mode and closure-only caveats appear wherever the affected figures
-      are read, not only in the methods section —
-      `test_report_latex.py::test_concept_caveat_appears_only_in_concept_fixtures`;
-      the fuselage closure caveat is stated verbatim in §4's Fuselage subsection.
-- [x] The export scope (full vs governing set) is stated, with exclusions listed —
-      `test_report_content.py::test_deselected_cases_are_excluded_from_the_results_and_named_in_scope`.
+      are read, not only in the methods section; the fuselage closure caveat is
+      stated verbatim in §4's Fuselage subsection.
+- [x] The export scope (full vs governing set) is stated, with exclusions listed.
 - [x] The report and every companion file in the bundle are in the **selected**
-      unit system, each states that system in-band, and no figure is dual-displayed —
-      `test_report_content.py::test_manifest_states_one_system_for_the_whole_bundle`,
-      `test_deliverable_units.py` for the companions.
+      unit system, each states that system in-band, and no figure is
+      dual-displayed.
 - [x] Load markers match the system (`lbs-ULT`/`ft-lb-ULT` or `N-ULT`/`Nm-ULT`);
-      KEAS and altitude are unconverted and said to be —
-      `test_report_content.py::test_si_report_carries_si_markers_and_converts_the_loads`,
-      `::test_speeds_and_altitudes_are_not_converted_in_si`,
-      `::test_geometry_areas_and_lengths_convert_with_their_labels_in_si`.
+      KEAS and altitude are unconverted and said to be.
 - [x] A standalone `.tex` references no external file; a packaged report
-      references only manifest-listed, relative, in-package data files (§2 *Data
-      reference*) — `test_report_latex.py` for the standalone summary report,
-      the oracle report's package gates for the packaged case.
-- [x] Two renders of the same project at the same unit selection are byte-identical,
-      and an Imperial → SI → Imperial round trip is lossless to display precision —
-      `test_report_latex.py::test_two_renders_are_byte_identical`,
-      `test_deliverable_units.py` (the round trip).
-- [x] No excluded content from §5 appears —
-      `test_report_content.py::test_no_internal_development_artifacts_in_the_document`.
+      references only manifest-listed, relative, in-package data files
+      (§2 *Data reference*).
+- [x] Two renders of the same project at the same unit selection are
+      byte-identical, and an Imperial → SI → Imperial round trip is lossless to
+      display precision.
+- [x] No excluded content from §5 appears.
 
 ### 6.1 Implementation notes (recorded when the standard was first met)
 

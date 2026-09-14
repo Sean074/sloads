@@ -820,18 +820,20 @@ def test_below_energy_caution_fires_below_the_energy_value_not_above():
     assert caution is not None and "2.9000" in caution and "3.0970" in caution
 
 
-def test_lift_factor_caption_is_shared_by_both_guis():
+def test_the_lift_factor_caption_has_one_owner_and_the_page_consumes_it():
     """G-LF-6's caption half: the FAR-defaults guidance is enumerated once
-    (``app_shell.components.LANDING_L_FAR_CAPTION``) and both GUIs consume that
-    symbol -- the L widget carries no cap in either."""
+    (``app_shell.components.LANDING_L_FAR_CAPTION``) and the page consumes that
+    symbol -- the L widget carries no cap.
+
+    It checked two consumers until #270 left one, which is the point of stating
+    a caption once: there is nothing for a second page to disagree with.
+    """
     from app_shell.components import LANDING_L_FAR_CAPTION
     assert "0.667" in LANDING_L_FAR_CAPTION and "23.473" in LANDING_L_FAR_CAPTION
     assert "1.0" in LANDING_L_FAR_CAPTION and "25.473(a)(2)" in LANDING_L_FAR_CAPTION
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    for rel in (os.path.join("app", "views", "landing_loads.py"),
-                os.path.join("oracle_app", "form.py")):
-        with open(os.path.join(root, rel), encoding="utf-8") as fh:
-            assert "LANDING_L_FAR_CAPTION" in fh.read(), rel
+    with open(os.path.join(root, "oracle_app", "form.py"), encoding="utf-8") as fh:
+        assert "LANDING_L_FAR_CAPTION" in fh.read()
 
 
 # --------------------------------------------------------------------------- #
@@ -1063,42 +1065,37 @@ def test_a_missing_or_duplicated_role_raises_rather_than_padding():
         assert "fwd_light" in str(e)
 
 
-def test_the_page_refuses_to_compute_without_a_waterline():
-    """M4-17c, re-armed for G-3: a landing case with no waterline blocks the page.
+def test_a_landing_case_with_no_waterline_is_named_on_the_page():
+    """M4-17c, re-armed for G-3 and re-homed at #270.
 
-    The CG table moved to the Weight/CG page at decision G-3, so this no longer
-    tests a seed -- it tests the gate that survived it. The page must name the
-    incomplete case and refuse, rather than computing on a zero waterline, which
-    puts the CG on the ground line, inverts the nose-gear reaction and inflates
-    the braked-roll main loads ~2.6x.
+    A landing case with a zero waterline puts the CG on the ground line,
+    inverts the nose-gear reaction and inflates the braked-roll main loads
+    ~2.6x. The retired front-end's landing page refused to compute and named the
+    incomplete case; that refusal lived in the page, and the page is gone.
 
-    Driven through ``AppTest`` (the view is a page script, not an importable
-    module; same precedent as tests/test_dirty_flag.py).
+    It is not lost, and it was never the page's to own: ``validation``'s
+    ``landing_cg_below_axle`` states the same rule as a pure predicate over the
+    project (CLAUDE.md practice 3 -- a cross-cutting rule gets a code owner, not
+    a caption), and the GUI renders it through
+    ``components.render_consistency_warnings`` on the page the tag names. So the
+    assertion is at the owner, plus the tag that puts it in front of the user.
     """
-    try:   # the zero-dependency __main__ runner has neither pytest nor streamlit
-        from streamlit.testing.v1 import AppTest
-    except ImportError:  # pragma: no cover - exercised only by the fallback runner
-        print("SKIP test_the_page_refuses_to_compute_without_a_waterline (no streamlit)")
-        return
+    from sloads import validation
 
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    # conftest.py does this under pytest; repeat it so the __main__ runner can resolve
-    # the view's shared ``app_shell`` import too.
-    if root not in sys.path:
-        sys.path.insert(0, root)
-    view = os.path.join(root, "app", "views", "landing_loads.py")
     p = io.load_project(_GA)
     p.weight.cg_cases = [replace(c, zcg=0.0) if c.role is not None else c
                          for c in p.weight.cg_cases]
 
-    at = AppTest.from_file(view, default_timeout=60)
-    at.session_state["project"] = p
-    at.run()
-    assert not at.exception, [e.message for e in at.exception]
-    blocked = " ".join(i.value for i in at.info)
-    assert "Zcg waterline" in blocked, blocked
-    assert not any("Gear reaction loads" in s.value for s in at.subheader), \
-        "reactions computed without a waterline"
+    warnings = [w for w in validation.consistency_warnings(p)
+                if w.code == "landing_cg_below_axle"]
+    assert warnings, (
+        "a zero-waterline landing case raises nothing; the page would compute "
+        "an inverted nose reaction and say nothing about it")
+    warning = warnings[0]
+    assert warning.page == validation.PAGE_LANDING, warning.page
+    # It names the cases rather than stating that something is wrong.
+    for role_case in (c for c in p.weight.cg_cases if c.role is not None):
+        assert role_case.name in warning.message, role_case.name
 
 
 if __name__ == "__main__":

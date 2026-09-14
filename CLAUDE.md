@@ -99,7 +99,7 @@ Additional rules (rationale in `docs/50_reviews/`):
 - **Standard docs point at owners, never copy their values.** No schema number, test
   count, coverage %, or "currently N" in `README.md`/`CLAUDE.md`/`10_standard/`/`20_theory/`
   (`00_program_overview.md` §Documentation currency; guard `tests/test_doc_currency.py`).
-- **Keep the build green.** `ruff check sloads/ cli.py oracle.py app/ app_shell/ oracle_app/ scripts/` clean, `mypy` clean (zero
+- **Keep the build green.** `ruff check sloads/ cli.py oracle.py app_shell/ oracle_app/ scripts/` clean, `mypy` clean (zero
   errors on `sloads/`; strictness ratchets per package in `pyproject.toml`) and `pytest` passing
   are the merge gate. **CI is asymmetric — `ci.yml` is the authority** (guard
   `tests/test_ci_conformance.py`): PRs and `dev/**` pushes run the fast gate (3.12,
@@ -125,10 +125,9 @@ Local venv at `.venv/`; editable install (`pip install -e '.[dev]'`); no `sys.pa
 ```bash
 .venv/bin/python -m pytest                   # whole suite (testpaths=tests, parallel; coverage is CI-only)
 .venv/bin/python -m pytest tests/test_engine.py::test_361_a2   # one test
-.venv/bin/ruff check sloads/ cli.py oracle.py app/ app_shell/ oracle_app/ scripts/   # lint gate
+.venv/bin/ruff check sloads/ cli.py oracle.py app_shell/ oracle_app/ scripts/   # lint gate
 .venv/bin/mypy                               # type gate (sloads/ only)
-.venv/bin/streamlit run app/Home.py          # UI
-.venv/bin/streamlit run oracle_app/Oracle.py # the oracle GUI (or: .venv/bin/sloads-oracle)
+.venv/bin/streamlit run oracle_app/Oracle.py # the GUI (or: .venv/bin/sloads-oracle)
 .venv/bin/sloads engine examples/ga6_normal.project.json -o out.csv   # CLI
 .venv/bin/python cli.py --list               # registered modules
 ```
@@ -145,11 +144,12 @@ are interchangeable front-ends. Data flow: `project.json` → `io.load_project` 
   (the only dataclass↔JSON mapping), `units.py` (Imperial-internal; convert at the
   boundary), `report/` (limit→ultimate boundary), `export/` (sbeam bridge +
   `coordinates.py`), `constants.py`.
-- `app/Home.py` + `app/views/*.py` and `oracle_app/Oracle.py` — two Streamlit
-  front-ends built from `workflow.py` over the shared `app_shell/`; **exactly one
-  `st.set_page_config` per GUI entry point, none anywhere else** (guard:
-  `tests/test_app_shell.py`). `cli.py` — argparse; `tests/` — pytest, each file
-  with a zero-dependency `__main__` self-runner.
+- `oracle_app/Oracle.py` — **the** Streamlit front-end, its page set derived from
+  `workflow.gui_pages()` over the shared `app_shell/`; **exactly one
+  `st.set_page_config`, none anywhere else** (guard: `tests/test_app_shell.py`).
+  The second front-end (`app/Home.py` + 21 `app/views/*.py`) retired at #270,
+  note 57 D-57.1. `cli.py` — argparse; `tests/` — pytest, each file with a
+  zero-dependency `__main__` self-runner.
 
 **Module contract** (every suite and concept module):
 pure calc, no I/O; read upstream values from the `Project` slice — never recompute
