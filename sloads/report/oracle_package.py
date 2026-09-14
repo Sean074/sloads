@@ -35,14 +35,18 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import List, Optional, Sequence
 
 from ..models import Project
 from ..models.report import REPORT_SCHEMA_VERSION, ReportSpec
 from ..units import UnitSystem
 from . import package_data as _package_data
-from .oracle_content import OracleDocument, build_oracle_document, section_ref
+from .oracle_content import (
+    OracleDocument,
+    build_oracle_document,
+    front_ref,
+)
 from .oracle_latex import render_oracle_document
 
 PACKAGE_TEX = "report.tex"
@@ -87,8 +91,13 @@ class PackageMember:
         return hashlib.sha256(self.content.encode("utf-8")).hexdigest()
 
 
-def _units_sentence(system: UnitSystem) -> str:
+def units_sentence(system: UnitSystem) -> str:
     """§4.7's required opening: the package's unit system, stated once.
+
+    Public since #278: the document's own bundle-manifest section opens with
+    this same sentence, and a manifest and a document that state the package's
+    unit system in two different sets of words are two statements that can
+    disagree.
 
     A per-file units column that disagrees with this statement is a conformance
     failure, not a footnote -- so the statement comes first and the columns are
@@ -126,7 +135,7 @@ def manifest_text(members: Sequence[PackageMember], *, system: UnitSystem,
         "Units",
         "-----",
     ]
-    lines += ["  " + line for line in _wrap(_units_sentence(system), 70)]
+    lines += ["  " + line for line in _wrap(units_sentence(system), 70)]
     lines += ["", "Files", "-----",
               "  Every file this package contains is listed below, and this list",
               "  names nothing the package does not contain.", ""]
@@ -177,6 +186,78 @@ def build_stamp(*, fingerprint: str, fingerprint_version: int, built: str,
     }, indent=2, sort_keys=True) + "\n"
 
 
+@dataclass(frozen=True)
+class MemberInfo:
+    """What the package says *about* one file, apart from the file's content.
+
+    The manifest facts of ``SUMMARY_REPORT.md`` §4.7, split from the bytes so
+    that the document can state what it ships without the package having been
+    assembled yet, and so the two statements come from one table (#278, D-60.8).
+    :class:`PackageMember` is this plus the content.
+    """
+
+    name: str
+    contents: str
+    units: str = "--"
+    conventions: str = "--"
+    summarised_in: str = "--"
+
+
+#: What every ``data/`` file says in the manifest's conventions column.
+DATA_CONVENTIONS = ("axes, signs and safety factors per the methods statement "
+                    "in this file's own header")
+
+
+def control_members(intro: str) -> List[MemberInfo]:
+    """The package's non-data files, in write order, with the manifest last.
+
+    ``intro`` is the document's own reference to its introduction, passed in
+    rather than written as a literal so a section inserted above it moves the
+    citation with it (F-R2).
+    """
+    return [
+        MemberInfo(
+            name=PACKAGE_TEX,
+            contents="The report itself, as LaTeX source. Compile it from "
+                     "inside this directory so its relative references resolve.",
+            units="as stated in this manifest's Units section",
+            conventions="axes, signs and safety factors per "
+                        "docs/10_standard/CONVENTIONS.md",
+            summarised_in="the whole document",
+        ),
+        MemberInfo(
+            name=PACKAGE_SPEC,
+            contents="The report specification this issue was built from: "
+                     "identity, abstract, signatures, marking and section "
+                     "selection. Edited by the report page; never written by a "
+                     "build.",
+            summarised_in="the title page",
+        ),
+        MemberInfo(
+            name=PACKAGE_BUILD,
+            contents="The as-built stamp: what produced this package, when, and "
+                     "the fingerprint of the analysis inputs it read.",
+            summarised_in=f"{intro}, analysis basis",
+        ),
+        MemberInfo(
+            name=PACKAGE_PROJECT,
+            contents="The airplane definition this issue was built from, so the "
+                     "package can be rebuilt without hunting for the project "
+                     "file and the fingerprint has its subject present.",
+            units="canonical Imperial (a stored project is never converted)",
+            conventions="per docs/10_standard/CONVENTIONS.md",
+            summarised_in=intro,
+        ),
+        MemberInfo(
+            name=PACKAGE_MANIFEST,
+            contents="This file: every artifact the package carries, with its "
+                     "hash, units, conventions and the section that summarises "
+                     "it.",
+            summarised_in="itself",
+        ),
+    ]
+
+
 def package_members(
     project: Project,
     spec: ReportSpec,
@@ -205,65 +286,30 @@ def package_members(
         project, spec, anchors=anchor_rows(project, tool_version=tool_version),
         fingerprint=fingerprint, fingerprint_version=fingerprint_version)
 
-    intro = section_ref(doc.plan, "") if doc.plan else "section 1"
+    intro = front_ref(doc.plan, "introduction") if doc.plan else "section 1"
 
-    # The data behind the document, decided before anything is rendered (#245).
+    # The data behind the document, decided by the document (#245, #278).
     #
-    # From ``doc`` and not from ``project``: the document was built from the
-    # oracle projection and from one run of the modules, and both travel on it,
-    # so a data file cannot come out of a different analysis from the page that
-    # summarises it.
-    data = _package_data.data_files(doc)
-    # The document then lists what travels with it -- the reader's half of
-    # G-OR-17, the manifest being the archivist's. Re-walking the document for
-    # data files after this would find nothing new: a front-matter table is not
-    # an appendix table and draws no figure.
-    if doc.sections:
-        doc = replace(doc, sections=[replace(
-            doc.sections[0],
-            subsections=list(doc.sections[0].subsections)
-            + [_package_data.data_reference_section(data)])]
-            + list(doc.sections[1:]))
-
+    # Read off ``doc`` and not recomputed here: the document was built from the
+    # oracle projection and from one run of the modules, it lists these files in
+    # its own bundle-manifest section, and a second call would be a second
+    # decision about what the package carries.
+    data = list(doc.data)
+    infos = control_members(intro)
+    body = {
+        PACKAGE_TEX: render_oracle_document(doc),
+        PACKAGE_SPEC: io_.report_spec_to_json(spec),
+        PACKAGE_BUILD: build_stamp(fingerprint=doc.fingerprint,
+                                   fingerprint_version=doc.fingerprint_version,
+                                   built=built, tool_version=tool_version),
+        PACKAGE_PROJECT: io_.project_to_json(project),
+    }
     members = [
-        PackageMember(
-            name=PACKAGE_TEX,
-            content=render_oracle_document(doc),
-            contents="The report itself, as LaTeX source. Compile it from "
-                     "inside this directory so its relative references resolve.",
-            units="as stated in this manifest's Units section",
-            conventions="axes, signs and safety factors per "
-                        "docs/10_standard/CONVENTIONS.md",
-            summarised_in="the whole document",
-        ),
-        PackageMember(
-            name=PACKAGE_SPEC,
-            content=io_.report_spec_to_json(spec),
-            contents="The report specification this issue was built from: "
-                     "identity, abstract, signatures, marking and section "
-                     "selection. Edited by the report page; never written by a "
-                     "build.",
-            summarised_in="the title page",
-        ),
-        PackageMember(
-            name=PACKAGE_BUILD,
-            content=build_stamp(fingerprint=doc.fingerprint,
-                                fingerprint_version=doc.fingerprint_version,
-                                built=built, tool_version=tool_version),
-            contents="The as-built stamp: what produced this package, when, and "
-                     "the fingerprint of the analysis inputs it read.",
-            summarised_in=f"{intro}, analysis basis",
-        ),
-        PackageMember(
-            name=PACKAGE_PROJECT,
-            content=io_.project_to_json(project),
-            contents="The airplane definition this issue was built from, so the "
-                     "package can be rebuilt without hunting for the project "
-                     "file and the fingerprint has its subject present.",
-            units="canonical Imperial (a stored project is never converted)",
-            conventions="per docs/10_standard/CONVENTIONS.md",
-            summarised_in=intro,
-        ),
+        PackageMember(name=info.name, content=body[info.name],
+                      contents=info.contents, units=info.units,
+                      conventions=info.conventions,
+                      summarised_in=info.summarised_in)
+        for info in infos if info.name in body
     ]
     # Placed after the four control files and before the manifest, which is the
     # order a package is read in: what it *is*, then what it carries, then the
@@ -271,19 +317,14 @@ def package_members(
     members += [
         PackageMember(
             name=member.name, content=member.content, contents=member.contents,
-            units=member.units,
-            conventions="axes, signs and safety factors per the methods "
-                        "statement in this file's own header",
+            units=member.units, conventions=DATA_CONVENTIONS,
             summarised_in=member.summarised_in)
         for member in data
     ]
+    info = next(i for i in infos if i.name == PACKAGE_MANIFEST)
     manifest = PackageMember(
-        name=PACKAGE_MANIFEST,
-        content="",
-        contents="This file: every artifact the package carries, with its "
-                 "hash, units, conventions and the section that summarises it.",
-        summarised_in="itself",
-    )
+        name=info.name, content="", contents=info.contents, units=info.units,
+        conventions=info.conventions, summarised_in=info.summarised_in)
     listed = members + [manifest]
     rendered = manifest_text(listed, system=doc.system,
                              report_number=spec.report_number,
@@ -300,6 +341,7 @@ def manifest_names(members: Sequence[PackageMember]) -> List[str]:
 
 
 __all__ = [
+    "DATA_CONVENTIONS",
     "DATA_DIR",
     "PACKAGE_BUILD",
     "PACKAGE_MANIFEST",
@@ -307,9 +349,12 @@ __all__ = [
     "PACKAGE_SPEC",
     "PACKAGE_TEX",
     "SELF_HASH",
+    "MemberInfo",
     "PackageMember",
     "build_stamp",
+    "control_members",
     "manifest_names",
     "manifest_text",
     "package_members",
+    "units_sentence",
 ]

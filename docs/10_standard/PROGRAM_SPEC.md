@@ -1112,7 +1112,8 @@ result that lacks what a deck needs is a stated error, never an empty column.
   carries the reduced project and the one module run), so a file and the page
   that summarises it cannot describe different analyses. Every file states its
   own units, basis, axes, producing step and build fingerprint, and the document
-  lists them all in a front-matter **Data reference** table. Owner:
+  lists them all in its front-matter **Files in this issue package** section (the
+  bundle manifest, widened at #278 to the control files as well). Owner:
   `sloads/report/package_data.py`; rules `ORACLE_REPORT.md` §1a; gates G-OR-15,
   G-OR-17, G-OR-73 (widened from four hand-rebuilt CSVs to the shipped set) and
   `tests/test_package_data.py`, whose byte-for-byte comparison against
@@ -1800,7 +1801,24 @@ the applied load set (`applied_loads("htail"|"vtail", ...)`), GID bands `4001+`
 - **Used by** the Export page's "📊 Download workbook (.xlsx)" button, a
   sibling alternative to the `.zip` bundle (not nested inside it).
 
-### Summary report — the bundle's controlling document (Step G8)
+### Summary report — retiring, its cross-cutting sections merged (Step G8, #278)
+- **The two documents became one (design note 60 D-60.7…D-60.11, 2026-09-13).**
+  `app/views/export_report.py` is the **only** production consumer of
+  `content.build_report`, so note 57 D-57.1's deletion of `app/views/` retires
+  this document. Four cross-cutting assets merged into the oracle report ahead
+  of that, as front matter after the introduction
+  (`oracle_content.FRONT_SECTIONS`, so the section plan stays derived and
+  G-OR-2 survives the re-cut on the OR-16 pattern): **axes and sign
+  conventions** — the only statement of the frame either front end made —
+  the **governing safety-factor table**, the **FAR 23 Subpart C coverage
+  matrix**, and the **bundle manifest**. One builder serves both documents
+  until this one is deleted (`sloads/report/front_sections.py`; practice 3), so
+  the merge cannot drift from what it merged. Every other `content.SECTIONS`
+  key is declared superseded, in writing, in `front_sections.SUMMARY_DISPOSITION`
+  — a table `tests/test_front_sections.py` reads, so a section cannot leave
+  unaccounted (note 60 gates 11 and 12). `build_report`, the summary LaTeX path
+  and their test-only residue are deleted with the page at #270, after the
+  merge, never before it.
 - **Source:** `sloads/report/content.py` (`build_report`, `component_loads`),
   `latex.py` (`render_report`/`render_document`), `plots_tex.py` (the three
   figures), and `sloads/export/pdf.py` (`compile_pdf`, the only impure piece).

@@ -548,9 +548,18 @@ def test_a_table_is_turned_only_when_it_cannot_be_set_upright():
     #   at the same point as the case above it and the row has to say which
     #   (note 44 §22, OR-188). Its four sibling appendices fit because a strip
     #   station is a number.
+    # * the issue package's file list: its File column holds path names, which
+    #   are single unbreakable tokens, and the longest generated one
+    #   (``data/appendix_g_worst_effect_of_the_lumping_over_every_case_limit.csv``,
+    #   66 characters) asks for more than the upright block can give three
+    #   columns. It has been turned since #245 shipped the list; #278 moved it
+    #   into the document proper, where this guard can see it. Shortening the
+    #   name was the rejected alternative: G-OR-17 scans the .tex for the file
+    #   names verbatim, so the cell is the citation and cannot be abbreviated.
     assert {t for _n, t in turned} == {
         "Pull-up maneuver fuselage loads (LIMIT)",
         "Applied landing gear loads by case (LIMIT)",
+        "Files carried in this package",
     }
 
 

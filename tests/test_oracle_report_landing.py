@@ -35,6 +35,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # tests/helpers
 
 from sloads import io
 from sloads.report import applied as ap
@@ -48,6 +49,8 @@ from sloads.modules.landing import (
     governing_load_factors,
 )
 from sloads.report import oracle_content as oc
+
+from helpers import oracle_section  # noqa: E402
 
 _EXAMPLES = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")
@@ -74,7 +77,13 @@ def _doc(name):
 
 
 def _section_12(doc):
-    return next(s for s in doc.sections if s.title.startswith("12."))
+    """The Landing Gear Loads section, through the plan, not by its number.
+
+    Re-pointed at #278, when four merged front-matter sections renumbered the
+    analysis body (F-R2: a literal number does not move when one is inserted
+    above it).
+    """
+    return oracle_section(doc, "landing_loads")
 
 
 def _appendix_f(doc):
@@ -516,9 +525,11 @@ def test_section_12_renders_with_three_subsections_on_every_shipped_example():
         section = _section_12(_doc(name))
         assert not section.absent_reason, name
         titles = [sub.title for sub in section.subsections]
-        assert titles == ["12.1 Input data and gear geometry",
-                          "12.2 Landing load factor",
-                          "12.3 Ground load conditions"], (name, titles)
+        number = next(e.number for e in _doc(name).plan
+                      if e.step_key == "landing_loads" and e.number)
+        assert titles == [f"{number}.1 Input data and gear geometry",
+                          f"{number}.2 Landing load factor",
+                          f"{number}.3 Ground load conditions"], (name, titles)
 
 
 def test_a_project_with_no_landing_slice_is_absent_and_not_inapplicable():

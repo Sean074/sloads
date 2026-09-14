@@ -25,7 +25,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 from enum import Enum
-from typing import Dict, FrozenSet, List, Mapping, Optional, Sequence, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    FrozenSet,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+)
 
 from .. import workflow as wf
 from ..models import Project
@@ -34,6 +43,10 @@ from ..models.results import ModuleResult
 from ..safety_factors import ENGINE_FAILURE_NOUN
 from ..units import UnitSystem
 from .content import Section
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from .oracle_package import MemberInfo
+    from .package_data import DataFile
 
 #: Step keys whose analysis section the generator can actually build.
 #:
@@ -68,8 +81,65 @@ IMPLEMENTED: FrozenSet[str] = frozenset({
     "landing_loads",
 })
 
+@dataclass(frozen=True)
+class FrontSection:
+    """One numbered section of the document's fixed front matter.
+
+    ``key`` is how the rest of the code names it -- cross-references
+    (:func:`front_ref`) and the builder's own dispatch -- so no caller writes a
+    front-matter title as a literal and none writes its number at all.
+    """
+
+    key: str
+    title: str
+
+
 #: The document's fixed front matter, in order, ahead of the analysis body.
-FRONT_SECTIONS: Tuple[str, ...] = ("Introduction",)
+#:
+#: **The designed slot for a declared non-step section** (note 32 OG-2 / gate
+#: G-OR-2 as amended by note 60 D-60.9). The analysis sections stay derived from
+#: the workflow -- that is the rule G-OR-2 states and this table does not touch
+#: it; what lives here is the cross-cutting matter that belongs to no step, and
+#: numbering renumbers the body around it because :func:`section_number` is
+#: positional.
+#:
+#: The four after the introduction arrived with #278, when the summary report
+#: was merged into this one (design note 60 D-60.8): they are the only statement
+#: of the axis system either front end makes, the governing safety-factor table,
+#: the FAR 23 Subpart C coverage matrix and the bundle manifest. They are front
+#: matter and not appendices because an appendix is appended, never inserted
+#: (OR-50), and a section stating the frame every later number is in belongs
+#: **before** what it governs.
+FRONT_SECTIONS: Tuple[FrontSection, ...] = (
+    FrontSection("introduction", "Introduction"),
+    FrontSection("conventions", "Axes and sign conventions"),
+    FrontSection("factors", "Governing safety factors"),
+    FrontSection("coverage", "Conditions analysed and FAR coverage"),
+    FrontSection("package_files", "Files in this issue package"),
+)
+
+
+def front_index(key: str) -> int:
+    """The position of front section ``key`` in the document's section list."""
+    for index, front in enumerate(FRONT_SECTIONS):
+        if front.key == key:
+            return index
+    raise KeyError(key)
+
+
+def front_ref(plan: Sequence["SectionPlan"], key: str) -> str:
+    """``"section 3"`` -- a cross-reference to a front-matter section.
+
+    The front rows carry no step key, so :func:`section_ref` cannot find them by
+    one; they are looked up by position instead, which is where they always are.
+    Written as a function for the reason every other reference here is: a "3"
+    typed into prose is a reference that will not move when a section is
+    inserted above it (F-R2).
+    """
+    index = front_index(key)
+    if index < len(plan) and plan[index].number:
+        return f"section {plan[index].number}"
+    return NOT_CARRIED
 
 #: Step key -> the heading the **document** prints for it.
 #:
@@ -736,9 +806,9 @@ def section_plan(project: Project, spec: ReportSpec, *,
     mattering and ``ABSENT`` is the only one left.
     """
     plan: List[SectionPlan] = []
-    for offset, title in enumerate(FRONT_SECTIONS):
+    for offset, front in enumerate(FRONT_SECTIONS):
         plan.append(SectionPlan(step_key="", number=section_number(offset),
-                                title=title, state=SectionState.INCLUDED,
+                                title=front.title, state=SectionState.INCLUDED,
                                 reason=""))
     # The number is assigned from position among the sections that will
     # *render*, not from position in the workflow. A deselected section is
@@ -876,6 +946,17 @@ class OracleDocument:
     #: analyses, and a package whose files and document came from different ones
     #: is exactly what OR-6 forbids.
     results: Dict[str, Optional[ModuleResult]] = field(default_factory=dict)
+    #: The ``data/`` files this issue ships, in write order (#245, listed by the
+    #: bundle-manifest section since #278).
+    #:
+    #: Computed by :func:`build_oracle_document` and not by the packager, for
+    #: the reason the two fields above are carried: the document states what
+    #: travels with it, so the list and the pages must come from one build of
+    #: one analysis. It also keeps the section that prints them an ordinary
+    #: built section -- a document whose file list appeared only when packaged
+    #: would have a section that is INCLUDED in the plan and absent in the
+    #: render, which is the disagreement the plan exists to make impossible.
+    data: Tuple["DataFile", ...] = ()
 
 
 _INTRODUCTION = [
@@ -968,6 +1049,75 @@ def default_limitations(project: Project,
     return "\n\n".join(kept).strip()
 
 
+#: Where a reader of the oracle report finds the per-case safety factors.
+#:
+#: The summary report cited its own case-index section here; this document
+#: identifies cases in the sections that compute them and ships the index as a
+#: file of the package, so the reference names the file (#278).
+_CASE_INDEX_REF = "the case index shipped as data/case_index.csv"
+
+#: What the bundle-manifest section says when the document is rendered outside a
+#: package and the file list therefore does not exist yet.
+#:
+#: The same mechanism every other unbuildable section uses: it states why rather
+#: than printing an empty table, which would read as "this issue ships no data"
+#: -- the opposite of the truth. The packaged document, which is the only one
+#: delivered, always carries the list: :func:`sloads.report.oracle_package.
+#: package_members` decides the files and fills this section in before the
+#: ``.tex`` is rendered.
+FILES_OUTSIDE_PACKAGE = (
+    "This document was rendered on its own rather than assembled into an issue "
+    "package, so the files that travel with it have not been decided yet. A "
+    "packaged issue lists them here and again, with a SHA-256 for each, in its "
+    "MANIFEST.txt.")
+
+
+def package_control_files(plan: Sequence[SectionPlan]) -> List["MemberInfo"]:
+    """The package's non-data files, as the packager describes them.
+
+    Read from :mod:`.oracle_package`, which owns the package's shape, rather
+    than described a second time here: the document's file table and
+    ``MANIFEST.txt`` state the same facts about the same files, so they come
+    from one table (#278). Imported inside the function because that module
+    imports this one.
+    """
+    from .oracle_package import control_members
+
+    return list(control_members(front_ref(plan, "introduction")))
+
+
+def front_matter(project: Project, plan: Sequence[SectionPlan],
+                 results: Mapping[str, Optional[ModuleResult]]) -> List[Section]:
+    """The front-matter sections after the introduction (#278, D-60.8/D-60.9).
+
+    Built here rather than in :mod:`.oracle_sections` because these sections
+    belong to no analysis step: they state the frame every later number is in,
+    the factor every later number is not scaled by, what the run did and did not
+    cover, and what travels with the document. Each builder is
+    :mod:`.front_sections`', shared with the summary report until that document
+    retires at #270 -- one builder, two documents, so the merge cannot drift
+    from the thing it merged.
+    """
+    from . import front_sections as fs
+
+    def title(key: str) -> str:
+        index = front_index(key)
+        return heading(plan[index].number, FRONT_SECTIONS[index].title)
+
+    live = [r for r in results.values() if r is not None]
+    files = Section(title("package_files"))
+    files.absent_reason = FILES_OUTSIDE_PACKAGE
+    files.absent_lead = "Not packaged"
+    return [
+        fs.conventions_section(title("conventions")),
+        fs.governing_factors_section(
+            title("factors"), project, [r.conditions for r in live],
+            case_index_ref=_CASE_INDEX_REF),
+        fs.coverage_section(title("coverage"), project, live),
+        files,
+    ]
+
+
 def build_oracle_document(
     project: Project,
     spec: ReportSpec,
@@ -991,7 +1141,9 @@ def build_oracle_document(
     # Imported here, not at module scope: oracle_sections needs this module's
     # SectionPlan, and a top-level import in both directions is a cycle.
     from ..field_registry import reduce_to_oracle_inputs
+    from .front_sections import package_files_section
     from .oracle_sections import build_appendix, build_section
+    from .package_data import data_files
 
     # **The document is a function of the oracle projection, not of the file.**
     # The same reducer the fingerprint hashes through (OR-21, gate G-OR-13), so
@@ -1012,9 +1164,10 @@ def build_oracle_document(
 
     intro_text = spec.introduction.strip() or default_introduction()
     sections: List[Section] = [
-        Section(heading(plan[0].number, "Introduction"),
+        Section(heading(plan[0].number, FRONT_SECTIONS[0].title),
                 body=[p for p in intro_text.split("\n\n") if p.strip()]),
     ]
+    sections += front_matter(project, plan, results)
     #: The group currently open, so its members land in its ``subsections``
     #: rather than at the top level. A group row always precedes its members
     #: (:func:`section_plan`), so one slot is enough.
@@ -1051,7 +1204,7 @@ def build_oracle_document(
         ("Issuing organisation", spec.organisation or "not stated"),
         ("Customer / programme", spec.customer or "not stated"),
     ]
-    return OracleDocument(
+    doc = OracleDocument(
         title=spec.title or "FAR 23 structural design loads",
         spec=spec,
         draft=is_draft(spec),
@@ -1070,12 +1223,24 @@ def build_oracle_document(
         project=project,
         results=results,
     )
+    # The files the issue ships, and the section that lists them -- built last
+    # because the list is read off the document's own tables and figures, and
+    # placed into the slot the plan already numbered for it. Re-walking after
+    # this finds nothing new: a front-matter table is not an appendix table and
+    # draws no figure.
+    data = tuple(data_files(doc))
+    index = front_index("package_files")
+    sections[index] = package_files_section(
+        sections[index].title, system=system, files=data,
+        control=package_control_files(plan))
+    return replace(doc, sections=sections, data=data)
 
 
 __all__ = [
     "APPENDICES",
     "BODY_LOAD_STATIONS",
     "DOCUMENT_TITLES",
+    "FILES_OUTSIDE_PACKAGE",
     "FRONT_SECTIONS",
     "GEAR_LOAD_CASES",
     "GROUP_PROSE",
@@ -1091,6 +1256,7 @@ __all__ = [
     "VTAIL_LOAD_STATIONS",
     "WING_LOAD_STATIONS",
     "Appendix",
+    "FrontSection",
     "OracleDocument",
     "SectionGroup",
     "SectionPlan",
@@ -1105,6 +1271,9 @@ __all__ = [
     "default_introduction",
     "default_limitations",
     "document_title",
+    "front_index",
+    "front_matter",
+    "front_ref",
     "group_for",
     "group_prose",
     "heading",

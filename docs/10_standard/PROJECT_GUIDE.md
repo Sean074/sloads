@@ -228,7 +228,8 @@ FAR23LOADS/
 │   │   ├── render.py             # shared text/CSV tables + the limit→ultimate boundary (was report.py)
 │   │   ├── methods.py            # the ONE methods & limitations statement (+ CSV `#` / BDF `$` wrappers)
 │   │   ├── coverage.py           # FAR 23 Subpart C coverage matrix (covered / n-a / not analysed / out of scope)
-│   │   ├── content.py            # Project + module results → ReportDocument (sections/tables/figures) — no LaTeX
+│   │   ├── content.py            # Project + module results → ReportDocument (sections/tables/figures) — no LaTeX; RETIRES with app/views/ at #270
+│   │   ├── front_sections.py     # THE cross-cutting sections both reports print (axes, SF table, FAR coverage, bundle manifest) + the audit of what the retiring one leaves (#278, note 60 D-60.8/D-60.10)
 │   │   ├── fleet_figures.py      # the six fleet scatters as PlotData — beside the step catalogue, not in it (#268)
 │   │   ├── tables.py            # the deliverable tables that are not decks: case index, governing SF table, gear report, export-scope filter (note 56 D-56.1, moved out of export/)
 │   │   ├── applied.py            # THE applied load set (OR-141): one row shape for all six components, the station numbering, the side-of-body internal loads (note 56 D-56.1, moved out of export/sbeam_bridge.py, which ceased to exist)
@@ -450,6 +451,15 @@ So that every module is copy-of-the-pattern, these are fixed once:
   is not complete until it is stamped**, and `tests/test_methods_stamp.py` is the
   guard. Any code that *reads* an exported CSV must skip the `#` block
   (`report.strip_comment_lines`, or `pandas.read_csv(..., comment="#")`).
+- **The oracle report is the one document (#278, note 60 D-60.7…D-60.11).** The
+  summary report's four cross-cutting sections — axes and sign conventions, the
+  governing safety-factor table, the FAR 23 Subpart C coverage matrix and the
+  bundle manifest — are built by `sloads/report/front_sections.py` and printed
+  as the oracle report's front matter; the same builders serve the summary
+  report until it is deleted with `app/views/` at #270, so the two cannot drift
+  apart in the meantime. What the retiring document leaves behind is declared
+  section by section in `front_sections.SUMMARY_DISPOSITION`, which a guard test
+  reads.
 - **The summary report is a render channel, not a calc (Step G8).**
   `sloads/report/content.py` turns a `Project` plus its module results into a
   `ReportDocument`; `latex.py` turns that into `.tex`; `plots_tex.py` emits the

@@ -41,6 +41,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # tests/helpers
 
 from sloads import io  # noqa: E402
 from sloads.models import TailType  # noqa: E402
@@ -50,6 +51,8 @@ from sloads.modules.tail_span import build_tail_span  # noqa: E402
 from sloads.report import oracle_content as oc  # noqa: E402
 from sloads.report.render import format_value  # noqa: E402
 from sloads.tail_geometry import is_conventional_tail, tail_layout  # noqa: E402
+
+from helpers import oracle_section  # noqa: E402
 
 _EXAMPLES = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")
@@ -68,8 +71,14 @@ def _doc(project=None, path=_GA):
     return oc.build_oracle_document(project or _project(path), ReportSpec())
 
 
-def _section(doc, title_starts="6."):
-    return next(s for s in doc.sections if s.title.startswith(title_starts))
+def _section(doc, step_key="vtail_loads"):
+    """The section for a step, through the plan -- never by printed number.
+
+    Re-pointed at #278: the four merged front-matter sections renumbered the
+    analysis body, and a lookup keyed on "6." is the literal-reference defect
+    F-R2 names, written in a test instead of in prose.
+    """
+    return oracle_section(doc, step_key)
 
 
 def _appendix(doc, title):
@@ -119,10 +128,14 @@ def test_section_six_renders_five_subsections_mirroring_section_five():
     titles are asserted to differ only in the surface they name.
     """
     doc = _doc()
-    section = _section(doc, "6.")
-    assert section.title == "6. Vertical Tail and Rudder Loads"
+    section = _section(doc, "vtail_loads")
+    # Numbered from the plan, not typed: #278's merged front matter moved every
+    # body section down, which is what a derived number is for.
+    number = next(e.number for e in doc.plan
+                  if e.step_key == "vtail_loads" and e.number)
+    assert section.title == oc.heading(number, "Vertical Tail and Rudder Loads")
     assert [s.title for s in section.subsections] == [
-        oc.heading(oc.subsection_number("6", i), title)
+        oc.heading(oc.subsection_number(number, i), title)
         for i, title in enumerate(
             ["Vertical tail input data", "Design conditions",
              "Critical vertical tail loads", "Chordwise load distribution",
@@ -133,7 +146,7 @@ def test_neither_section_borrows_the_others_selection_method():
     """OR-131: the categories differ, and a reader carrying one section's list
     into the other reads a different airplane."""
     doc = _doc()
-    vtail = _prose(_section(doc, "6."))
+    vtail = _prose(_section(doc, "vtail_loads"))
     assert "23.441(a)(1)" in vtail and "23.443(b)" in vtail
     # The horizontal tail's own requirements are named in section 5 and are not
     # borrowed here as though they had been searched for this surface.
@@ -150,7 +163,7 @@ def test_the_printed_totals_are_selects_own_unscaled_values():
         project = _project(path)
         conditions = [c for c in default_critical(project).conditions
                       if c.component == "vtail"]
-        summary = _table(_section(_doc(project), "6."), "Critical")
+        summary = _table(_section(_doc(project), "vtail_loads"), "Critical")
         printed = dict(zip(_cells(summary, "Case"), _cells(summary, "Total load")))
         for condition in conditions:
             total = next((v for v in condition.loads
@@ -173,7 +186,7 @@ def test_every_appendix_a_vertical_tail_condition_is_present_and_named():
     ``far_reference`` rather than from a literal typed here.
     """
     project = _project()
-    register = _table(_section(_doc(project), "6."), "Design conditions analysed")
+    register = _table(_section(_doc(project), "vtail_loads"), "Design conditions analysed")
     assert set(_cells(register, "Condition")) == {
         "SUDDEN RUDDER", "YAW TO SIDESLIP", "YAW 15 NEUTRAL", "SIDE GUST"}
     want = {c.case_ref.case_id: (c.label, c.far_reference)
@@ -192,7 +205,7 @@ def test_every_vertical_tail_condition_states_a_rudder_load():
     """
     for path in (_GA, _TWIN):
         project = _project(path)
-        summary = _table(_section(_doc(path=path), "6."), "Critical")
+        summary = _table(_section(_doc(path=path), "vtail_loads"), "Critical")
         rudder = _cells(summary, "Rudder load")
         # The count is the fin's own condition count, not a literal: note 44
         # OR-172 admitted the 23.367 engine-failure cases to this set, so the
@@ -214,10 +227,10 @@ def test_the_side_gust_row_states_where_its_yaw_inertia_came_from():
     the number is stated with its basis or not at all.
     """
     doc = _doc()
-    state = _table(_section(doc, "6."), "Aerodynamic state")
+    state = _table(_section(doc, "vtail_loads"), "Aerodynamic state")
     izz = [c for c in _cells(state, "Inertia") if c and c != "--"]
     assert izz, "no condition states a yaw inertia"
-    text = _prose(_section(doc, "6."))
+    text = _prose(_section(doc, "vtail_loads"))
     assert "estimate" in text.lower() or "entered" in text.lower()
 
 
@@ -230,7 +243,7 @@ def test_a_conventional_tail_publishes_its_spanwise_loads():
         project = _project(path)
         assert is_conventional_tail(project), path
         doc = _doc(project)
-        span = _section(doc, "6.").subsections[-1]
+        span = _section(doc, "vtail_loads").subsections[-1]
         assert not span.absent_reason, path
         assert _appendix(doc, oc.VTAIL_LOAD_STATIONS).tables[0].rows, path
 
@@ -246,7 +259,7 @@ def test_every_arrangement_other_than_conventional_withholds_the_span_loads():
     for tail_type in TailType:
         project = _relaid(_GA, tail_type)
         doc = _doc(project)
-        span = _section(doc, "6.").subsections[-1]
+        span = _section(doc, "vtail_loads").subsections[-1]
         appendix = _appendix(doc, oc.VTAIL_LOAD_STATIONS)
         if tail_type is TailType.CONVENTIONAL:
             assert not span.absent_reason and not appendix.absent_reason
@@ -263,7 +276,7 @@ def test_the_shipped_t_tails_withhold_and_say_which_arrangement_they_are():
     project = _project(_T_TAIL)
     assert tail_layout(project) is TailType.T_TAIL
     doc = _doc(project)
-    span = _section(doc, "6.").subsections[-1]
+    span = _section(doc, "vtail_loads").subsections[-1]
     assert span.absent_reason and not span.tables
     assert "T-tail" in _prose(span)
 
@@ -293,19 +306,19 @@ def test_the_withholding_reaches_nothing_it_was_not_agreed_to_reach():
     plain = _doc(_relaid(_GA, TailType.CONVENTIONAL))
     other = _doc(_relaid(_GA, TailType.CRUCIFORM))
 
-    assert _shape(_section(plain, "5.")) == _shape(_section(other, "5."))
+    assert _shape(_section(plain, "htail_loads")) == _shape(_section(other, "htail_loads"))
     assert _shape(_appendix(plain, oc.HTAIL_LOAD_STATIONS)) == \
         _shape(_appendix(other, oc.HTAIL_LOAD_STATIONS))
-    chord_plain = _section(plain, "6.").subsections[3]
-    chord_other = _section(other, "6.").subsections[3]
+    chord_plain = _section(plain, "vtail_loads").subsections[3]
+    chord_other = _section(other, "vtail_loads").subsections[3]
     assert chord_plain.title.endswith("Chordwise load distribution")
     assert _shape(chord_plain) == _shape(chord_other)
     # ...and the vertical tail's own totals, which OR-133 leaves standing.
-    assert _shape(_section(plain, "6.").subsections[2]) != \
-        _shape(_section(other, "6.").subsections[2]), \
+    assert _shape(_section(plain, "vtail_loads").subsections[2]) != \
+        _shape(_section(other, "vtail_loads").subsections[2]), \
         "the summary must differ -- by the OR-133a note and nothing else"
-    assert _table(_section(plain, "6."), "Critical").rows == \
-        _table(_section(other, "6."), "Critical").rows
+    assert _table(_section(plain, "vtail_loads"), "Critical").rows == \
+        _table(_section(other, "vtail_loads"), "Critical").rows
 
 
 def test_a_t_tail_still_renders_everything_the_withholding_does_not_reach():
@@ -318,12 +331,12 @@ def test_a_t_tail_still_renders_everything_the_withholding_does_not_reach():
     render their content.
     """
     doc = _doc(_project(_T_TAIL))
-    five = _section(doc, "5.")
+    five = _section(doc, "htail_loads")
     assert not five.absent_reason
     for sub in five.subsections:
         assert not sub.absent_reason, sub.title
     assert _appendix(doc, oc.HTAIL_LOAD_STATIONS).tables[0].rows
-    chord = _section(doc, "6.").subsections[3]
+    chord = _section(doc, "vtail_loads").subsections[3]
     assert not chord.absent_reason and chord.tables
 
 
@@ -351,12 +364,12 @@ def test_section_five_points_at_the_restriction_without_stating_it():
     wordings that could drift apart.
     """
     doc = _doc(_relaid(_GA, TailType.T_TAIL))
-    five = _prose(_section(doc, "5."))
+    five = _prose(_section(doc, "htail_loads"))
     assert "conventional tail" in five
     assert "does not affect anything in this section" in five
     # The quantified statement belongs to section 6 alone.
     assert "27" not in five.split("conventional tail")[1][:400]
-    span = _section(doc, "6.").subsections[-1]
+    span = _section(doc, "vtail_loads").subsections[-1]
     assert "27" in _prose(span) and "73" in _prose(span)
 
 
@@ -374,7 +387,7 @@ def test_the_condition_set_names_the_case_it_is_short_on_a_non_conventional_tail
     hedged, because a named case is one a reader can check and one note 51's
     D-51.1 can delete.
     """
-    section = _section(_doc(_relaid(_GA, TailType.T_TAIL)), "6.")
+    section = _section(_doc(_relaid(_GA, TailType.T_TAIL)), "vtail_loads")
     for starts in ("Design conditions analysed", "Critical"):
         note = _table(section, starts).note or ""
         assert "short one condition" in note, starts
@@ -383,7 +396,7 @@ def test_the_condition_set_names_the_case_it_is_short_on_a_non_conventional_tail
 
 def test_a_conventional_tails_condition_set_claims_nothing_about_a_missing_case():
     """The other direction: the note is absent where nothing is missing."""
-    section = _section(_doc(), "6.")
+    section = _section(_doc(), "vtail_loads")
     for starts in ("Design conditions analysed", "Critical"):
         assert "short one condition" not in (_table(section, starts).note or "")
 
@@ -392,7 +405,7 @@ def test_the_loads_reference_axis_survives_the_withholding_and_says_why():
     """The owner's 2026-09-07 ruling: geometry is not withheld to document a
     load limitation, and a station list above a withheld subsection must not
     read as loads that merely failed to compute."""
-    section = _section(_doc(_relaid(_GA, TailType.T_TAIL)), "6.")
+    section = _section(_doc(_relaid(_GA, TailType.T_TAIL)), "vtail_loads")
     axis = _table(section, "Loads reference axis by station")
     assert axis.rows, "the stations are geometry and are printed"
     assert "withheld" in (axis.note or "")
@@ -576,7 +589,7 @@ def test_the_loads_reference_axis_runs_up_the_fin_not_along_its_root():
     from sloads.export.coordinates import tail_station_to_airplane
 
     project = _project()
-    section = _section(_doc(project), "6.")
+    section = _section(_doc(project), "vtail_loads")
     axis = _table(section, "Loads reference axis by station")
     assert axis.columns[1].startswith("Station X")
     assert axis.columns[2].startswith("Butt line Y")
@@ -599,7 +612,7 @@ def test_the_loads_reference_axis_runs_up_the_fin_not_along_its_root():
 
 def test_the_horizontal_tails_axis_still_spans_a_butt_line():
     """The other surface, so the fix cannot have swapped both frames."""
-    axis = _table(_section(_doc(), "5."), "Loads reference axis by station")
+    axis = _table(_section(_doc(), "htail_loads"), "Loads reference axis by station")
     ys = [float(r[2]) for r in axis.rows]
     zs = [float(r[3]) for r in axis.rows]
     assert min(ys) < 0 < max(ys), "the h-tail does not span the airplane"
@@ -617,9 +630,10 @@ def test_the_tail_axis_figure_is_drawn_in_the_surfaces_own_plane():
     # frame and on its vertical axis for a waterline one, so the axis the span
     # is asserted to run along differs by surface -- which is the whole reason
     # the two frames exist and must not be read off one index for both.
-    for number, component, spread, index in (("5.", "htail", "Butt line", 0),
-                                             ("6.", "vtail", "Waterline", 1)):
-        section = _section(doc, number)
+    for key, component, spread, index in (
+            ("htail_loads", "htail", "Butt line", 0),
+            ("vtail_loads", "vtail", "Waterline", 1)):
+        section = _section(doc, key)
         figure = next(f for sub in section.subsections for f in sub.figures
                       if f.key == f"planform_{component}_lra")
         assert not figure.absent_reason, component

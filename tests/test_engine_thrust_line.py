@@ -46,6 +46,8 @@ from sloads.modules.engine import run_all, torque_sense
 from sloads.report import load_cases_to_rows, text_report
 from sloads.report import oracle_content as oc
 
+from helpers import oracle_section  # noqa: E402
+
 _EXAMPLES = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")
 _ALL = ("ga6_normal", "baron_58", "concept_regional_jet")
@@ -240,7 +242,7 @@ def test_section_ten_states_the_gyroscopic_exemption_and_the_rotation():
     """G-53.6/G-53.7. Both statements are in the document, and the rotation is
     stated per engine so a counter-rotating twin can be described at all."""
     doc = oc.build_oracle_document(_project("concept_regional_jet"), ReportSpec())
-    section = next(s for s in doc.sections if s.title.startswith("10."))
+    section = oracle_section(doc, "engine_mount")
     text = " ".join(b for sub in section.subsections for b in sub.body)
     assert "sign combination" in text
     assert "Rotation is stated per engine" in text
@@ -255,7 +257,7 @@ def test_a_counter_rotating_twin_is_described_as_one():
     project.engines = [replace(left, prop_direction=RotorDirection.CLOCKWISE),
                        replace(right, prop_direction=RotorDirection.COUNTERCLOCKWISE)]
     doc = oc.build_oracle_document(project, ReportSpec())
-    section = next(s for s in doc.sections if s.title.startswith("10."))
+    section = oracle_section(doc, "engine_mount")
     text = " ".join(b for sub in section.subsections for b in sub.body)
     assert "counter-clockwise" in text
     assert "opposite ways" in text

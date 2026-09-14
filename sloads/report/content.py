@@ -48,14 +48,6 @@ from ..units import (
     system_name,
     units_statement,
 )
-from .coverage import (
-    COVERED,
-    NOT_ANALYSED,
-    NOT_APPLICABLE,
-    OUT_OF_SCOPE,
-    coverage_matrix,
-    coverage_summary,
-)
 from .methods import APPROVED_CORRECTIONS, TOOL_NAME, methods_statement
 from .render import format_value, governing_loads_table, ultimate_units
 
@@ -909,114 +901,36 @@ def _section_inputs(project: Project, u: Units) -> Section:
 # --------------------------------------------------------------------------- #
 # §2 Axes and sign conventions (SUMMARY_REPORT.md §4.2.1; design note 15)
 def _section_conventions() -> Section:
-    """The global sign-convention statement: prose, table and three figures.
+    """This document's copy of the shared sign-convention statement.
 
-    Everything here is read from :mod:`.conventions_tex`, the single source
-    (CLAUDE.md rule 3) — this function only arranges it. It takes no project:
-    the conventions are identical in every report, so the section can never be
-    absent (§3.4 has nothing to say about it).
+    The builder moved to :mod:`.front_sections` when the oracle report gained
+    the same section (#278, D-60.8): both documents print it, so it is built
+    once and given each document's own heading. This wrapper is what retires
+    with :func:`build_report` at #270.
     """
-    from .conventions_tex import CONVENTION_ROWS, CONVENTION_TABLE_NOTE, CONVENTIONS_PROSE
+    from . import front_sections
 
-    return Section(
-        section_heading("conventions"),
-        body=list(CONVENTIONS_PROSE),
-        figures=[
-            Figure(key="sign_axes", title="Reference frame and state signs",
-                   caption="x +aft, y +starboard, z +up (right-handed, identity "
-                           "to the solver CID 0); +α nose-up, +β wind from "
-                           "starboard; moment senses as drawn"),
-            Figure(key="sign_controls", title="Control and rotation signs",
-                   caption="elevator TE-down +, rudder TE-to-port + (left "
-                           "pedal), aileron hand per case; clockwise from the "
-                           "pilot's view + for rotation"),
-            Figure(key="sign_beams", title="Shear, moment and torsion diagram "
-                                           "conventions",
-                   caption="wing integrated tip to root, body nose to tail, "
-                           "fin loaded in fy; torsion axes named per figure"),
-        ],
-        tables=[Table(
-            title="Sign conventions of record",
-            columns=["Quantity", "Positive sense", "Charter"],
-            rows=[list(r) for r in CONVENTION_ROWS],
-            note=CONVENTION_TABLE_NOTE,
-        )],
-    )
+    return front_sections.conventions_section(section_heading("conventions"))
 
 
 # --------------------------------------------------------------------------- #
 # §3 Governing safety factors
 # --------------------------------------------------------------------------- #
-_FACTORS_PROSE = (
-    "Every load in this report and in the exported decks is a LIMIT value. The "
-    "row below that governs its condition gives the factor a sizing analysis "
-    "must apply to it; sloads states that factor and never applies it. "
-    "This table is the authority: the per-case SF stated in the case index "
-    "(§CASEREF), in the load-case CSVs and on each deck's SUBCASE header is a "
-    "derived view of it, so a report figure and its bulk-data card cannot state "
-    "different factors for the same case.",
-    "Rows are condition families, not cases, and the family boundaries are 14 CFR "
-    "Subpart C's own section groupings — so a case cannot be missed by omitting a "
-    "row. The factor is prescribed for load quantities only: load factors, "
-    "speeds, weights and geometry take none, and nothing here is scaled by it.",
-)
-
-_FACTORS_TABLE_NOTE = (
-    "Status 'derived' is the regulation's own value. 'override' is a project-"
-    "supplied replacement, which must state a basis and is repeated in the "
-    "methods & limitations statement so it reaches a reader who sees only one "
-    "file. 'defaulted' would mean a condition this table could not classify, "
-    "factored at the conservative 1.5 and flagged; no shipped configuration "
-    "produces one."
-)
-
-
 def _factors_section(project: Project, module_results, comps: ComponentLoads,
                      run: "BalancedRun") -> Section:
-    """The governing safety-factor table (M4-8 / decision G-11).
+    """The governing safety-factor table, over the cases this document carries.
 
-    The table is built from :mod:`sloads.safety_factors`, the single code owner,
-    and the *same* object is asked to classify every case the document carries —
-    so the "defaulted" line below is a live statement about this run rather than a
-    claim about the code.
+    The builder is :mod:`.front_sections`', shared with the oracle report since
+    #278; what stays here is the enumeration of *this* document's case groups,
+    which is what the table is asked to classify.
     """
-    from ..safety_factors import GoverningTable
+    from . import front_sections
 
-    table = GoverningTable.for_project(project)
-    for group in ([comps.wing, comps.body, comps.tail, comps.control, comps.critical]
-                  + [mr.conditions for mr in module_results] + [run.cases or []]):
-        for item in group:
-            table.factor_for(item)
-
-    body = [p.replace("§CASEREF", section_ref("conditions")) for p in _FACTORS_PROSE]
-    if table.has_overrides:
-        body.append(
-            "This project overrides " +
-            ", ".join(f"'{r.label}' to SF = {format_value(r.factor)} "
-                      f"(regulation: {format_value(r.derived_factor)})"
-                      for r in table.overrides) +
-            ". An override cannot move a number in this report or on a deck — "
-            "sloads applies no factor anywhere — but it does change the factor "
-            "stated under that row, and so the ultimate load a sizing analysis "
-            "will derive from it.")
-    if table.defaulted:
-        body.append(
-            "DEFAULTED: " + ", ".join(repr(r) for r in table.defaulted) +
-            " — condition(s) no row classified. They state "
-            f"{format_value(ULTIMATE_FACTOR)} and are flagged here; treat this as a "
-            "defect in the governing table, not a property of the airplane.")
-    return Section(
-        section_heading("factors"),
-        body=body,
-        tables=[Table(
-            title="Governing safety factors of record",
-            columns=["Family", "FAR", "Load class", "SF", "Status", "Basis"],
-            rows=[[r.label, r.far_reference, r.load_class, format_value(r.factor),
-                   r.status, r.basis] for r in table.rows],
-            small=True,
-            note=_FACTORS_TABLE_NOTE,
-        )],
-    )
+    groups = ([comps.wing, comps.body, comps.tail, comps.control, comps.critical]
+              + [mr.conditions for mr in module_results] + [run.cases or []])
+    return front_sections.governing_factors_section(
+        section_heading("factors"), project, groups,
+        case_index_ref=section_ref("conditions"))
 
 
 # --------------------------------------------------------------------------- #
@@ -1436,14 +1350,6 @@ def _section_envelopes(project: Project, u: Units) -> Section:
 # --------------------------------------------------------------------------- #
 # §4 Conditions analysed and FAR coverage
 # --------------------------------------------------------------------------- #
-_STATUS_LABEL = {
-    COVERED: "covered",
-    NOT_APPLICABLE: "not applicable",
-    NOT_ANALYSED: "NOT ANALYSED",
-    OUT_OF_SCOPE: "out of scope",
-}
-
-
 def _case_index_table(module_results, comps: ComponentLoads,
                       assembled: Sequence = (),
                       project: Optional[Project] = None) -> Table:
@@ -1509,27 +1415,10 @@ def _case_index_table(module_results, comps: ComponentLoads,
 
 
 def _coverage_table(project: Project, module_results) -> Tuple[Table, str]:
-    refs = [c.far_reference for mr in module_results for c in mr.conditions]
-    rows = coverage_matrix(project, refs)
-    summary = coverage_summary(rows)
-    headline = (
-        f"{summary[COVERED]} regulations covered, {summary[NOT_APPLICABLE]} not "
-        f"applicable to this airplane, {summary[NOT_ANALYSED]} NOT ANALYSED "
-        f"(inputs absent), {summary[OUT_OF_SCOPE]} out of scope for this tool."
-    )
-    table = Table(
-        title="FAR 23 Subpart C coverage",
-        columns=["FAR", "Title", "Module", "Status", "Cases", "Reason"],
-        rows=[[r.far, r.title, r.module, _STATUS_LABEL[r.status],
-               str(r.case_count) if r.case_count else "—", r.reason] for r in rows],
-        small=True,
-        status_column="Status",
-        note="'Not applicable' is an engineering conclusion about this airplane; "
-             "'NOT ANALYSED' is a gap in this run that supplying inputs would close; "
-             "'out of scope' is a permanent boundary of this tool that must be "
-             "covered by other means.",
-    )
-    return table, headline
+    """The FAR coverage matrix -- built by :mod:`.front_sections` since #278."""
+    from . import front_sections
+
+    return front_sections.coverage_table(project, module_results)
 
 
 def _balanced_skips_table(run: "BalancedRun") -> Table:

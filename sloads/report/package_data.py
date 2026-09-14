@@ -39,6 +39,11 @@ printed in the document the package carries, and the module file above is their
 superset. A per-printed-table file would put the same numbers in the package a
 third time under a name nothing cites.
 
+The document's own list of these files is the bundle-manifest front section
+(:func:`sloads.report.front_sections.package_files_section`), which #278 widened
+to every file the package carries -- the data half of it is still built from the
+list below, so a file cannot be added to the package without appearing there.
+
 **Pure**, like the rest of :mod:`sloads.report`: this module returns file
 *contents*; :mod:`sloads.export.report_package` writes them. Nothing here reads
 the clock or the filesystem.
@@ -487,45 +492,6 @@ def _document_files(doc: "OracleDocument") -> List[DataFile]:
     return out
 
 
-#: The heading the document gives its list of shipped data files.
-DATA_REFERENCE_TITLE = "Data reference"
-
-
-def data_reference_section(files: Sequence[DataFile]) -> "Section":
-    """The document's own list of the files shipped beside it (#245).
-
-    ``SUMMARY_REPORT.md`` §2's *Data reference* clause, and the half of
-    **G-OR-17** that says no file in ``data/`` is an orphan: a CSV the package
-    carries and the document never mentions is a file with no stated provenance,
-    which is the condition a signed issue must not be in. Listing them in the
-    document rather than only in ``MANIFEST.txt`` is deliberate -- the manifest
-    is the archivist's instrument and states hashes; this is the reader's, and
-    states what each file is for.
-
-    Built from the file list rather than from a second enumeration of the same
-    rules, so a file cannot be added to the package without appearing here.
-    """
-    from .content import Section, Table
-
-    if not files:
-        return Section(DATA_REFERENCE_TITLE, body=[
-            "This issue carries no data files: no section of it was built from "
-            "an analysis that produced any."])
-    rows = [[f.name, f.contents, f.summarised_in] for f in files]
-    return Section(DATA_REFERENCE_TITLE, body=[
-        "Every table and every curve in this report is drawn from a file that "
-        "travels with it. They are listed below and again, with their hashes, "
-        "in MANIFEST.txt. Each states its own units, the safety factor it does "
-        "not apply, the axes its coordinates are in, the analysis step that "
-        "produced it and the fingerprint of the build it came from, so a file "
-        "forwarded on its own remains readable without this document.",
-    ], tables=[Table(
-        title="Files carried in " + DATA_DIR + "/",
-        columns=["File", "What it contains", "Summarised in"],
-        rows=rows, small=True,
-        note="Paths are relative to this package's own directory.")])
-
-
 def data_files(doc: "OracleDocument") -> List[DataFile]:
     """Every file the issue package's ``data/`` carries, in write order.
 
@@ -538,14 +504,12 @@ def data_files(doc: "OracleDocument") -> List[DataFile]:
 
 __all__ = [
     "DATA_DIR",
-    "DATA_REFERENCE_TITLE",
     "FIGURES_DIR",
     "FIGURE_COLUMNS",
     "LOAD_CASES_DIR",
     "DataFile",
     "data_files",
     "data_header",
-    "data_reference_section",
     "figure_csv",
     "table_csv",
 ]

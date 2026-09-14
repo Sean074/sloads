@@ -35,6 +35,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # tests/helpers
 
 
 from dataclasses import replace
@@ -48,6 +49,8 @@ from sloads.report import load_cases_to_rows
 from sloads.report import oracle_content as oc
 from sloads.report import oracle_sections as osec
 from sloads.report.render import format_value
+
+from helpers import oracle_section  # noqa: E402
 
 _EXAMPLES = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")
@@ -85,7 +88,13 @@ def _doc(name="ga6_normal", project=None, **kw):
 
 
 def _section(doc):
-    return next(s for s in doc.sections if s.title.startswith("10."))
+    """The Engine Mount Loads section, through the plan (#278 -- see below).
+
+    Looked up by step key rather than by the printed "10.": the merge of the
+    summary report's cross-cutting sections renumbered the body, and a literal
+    number in a test is the same defect F-R2 names in prose.
+    """
+    return oracle_section(doc, "engine_mount")
 
 
 def _tables(section):

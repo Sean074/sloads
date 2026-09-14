@@ -32,7 +32,7 @@ section states the *shape* and links for the listing.
   `models/` schema, `io.py`/`migrations.py`, `registry.py`, `workflow.py` (the
   nav SSOT), the cross-cutting single-source owners (`safety_factors.py`,
   `cg_cases.py`, `mass_distribution.py`, `case_ids.py`, `rigid_body.py`,
-  `gear_loads.py`, …), `report/` (rendering + the summary document), `export/`
+  `gear_loads.py`, …), `report/` (rendering + the issue package's document), `export/`
   (bridges to external tools — renderers, **not** registered modules) and
   `modules/` (one file per suite program plus the modern additions, each
   self-registering on import).
@@ -214,7 +214,9 @@ in the calc's internal Imperial units:
   values.
 
 The standard for the summary report's application of this rule is
-[`SUMMARY_REPORT.md`](SUMMARY_REPORT.md) §3.5.
+[`SUMMARY_REPORT.md`](SUMMARY_REPORT.md) §3.5; the oracle report inherits it
+under OR-5, and since #278 that document carries the cross-cutting sections both
+used to state separately ([`ORACLE_REPORT.md`](ORACLE_REPORT.md) §3.2a).
 
 ### Loads are LIMIT, and every artifact says so (mandatory)
 
@@ -244,8 +246,8 @@ Every load case carries its **safety factor** (the `SF` column / an `SF=` marker
 default **1.5 per 14 CFR 23.303** (Part 25 equivalent: 25.303). That factor is not
 decided at the case: it is read from the **governing safety-factor table**
 (`sloads/safety_factors.py`, M4-8 / G-11), one row per condition family, which the
-report states as a numbered section and the bundle ships as
-`<project>_safety_factors.csv`. A quantity already
+report states as a numbered front-matter section (#278) and the issue package
+ships as `data/safety_factors.csv`. A quantity already
 at ultimate — 23.367(a)(2) sudden engine stoppage and 23.561(b) emergency-landing
 inertia, the only ultimate loads left in the project — is `ULT SF=1.0` and asks for
 nothing further. Non-load quantities (weights, lengths, inertias, areas, speeds,

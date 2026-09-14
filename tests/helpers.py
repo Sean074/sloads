@@ -152,3 +152,28 @@ from sloads.export.equilibrium import parse_cards  # noqa: E402,F401
 #: ``("app", "views")`` never reached. The tuple shrinks to one entry when
 #: D-57.1 deletes ``app/``.
 GUI_TREES = ("app", "app_shell", "oracle_app")
+
+
+def oracle_section(doc, step_key):
+    """The oracle report's section for one workflow step, found through the plan.
+
+    Consolidated here at #278 (rule 4). Six test files looked their sections up
+    by the **printed number** -- ``doc.sections`` first title starting ``"6."``
+    -- which is the same defect in a test that F-R2 names in prose: a literal
+    number does not move when a section is inserted above it, and the merge of
+    the summary report's cross-cutting sections inserted four. The plan is the
+    numbering owner, so the lookup goes through it and a later insertion moves
+    every call site with it.
+
+    Subsections are searched too: a step whose section renders as a group member
+    is still one plan row.
+    """
+    entry = next(e for e in doc.plan if e.step_key == step_key and e.number)
+
+    def walk(sections):
+        for section in sections:
+            yield section
+            yield from walk(section.subsections)
+
+    heading = f"{entry.number}. {entry.title}"
+    return next(s for s in walk(doc.sections) if s.title == heading)

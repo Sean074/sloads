@@ -861,12 +861,15 @@ def test_an_empty_front_matter_list_says_so():
     generate". The contents entry is asserted for the same reason the abstract
     has one: two kinds of front matter treated differently reads as an
     oversight.
+
+    The emptiness is now *constructed*: since #278 every built document carries
+    the sign-convention figures and the merged front-matter tables, so no
+    project produces an empty list any more. The mechanism still has to hold --
+    it is what a future document with a genuinely empty list depends on -- so
+    the document under test is stripped rather than chosen.
     """
-    # A document with no builder implemented: every section is a stated
-    # placeholder, so both lists are genuinely empty and must say so. Built this
-    # way rather than from an empty project, so the emptiness under test is the
-    # generator's and not the reader's missing inputs.
-    tex = ol.render_oracle_document(_doc(implemented=frozenset()))
+    tex = ol.render_oracle_document(
+        dataclasses.replace(_doc(implemented=frozenset()), sections=[]))
     for title, noun in (("List of Figures", "figures"), ("List of Tables", "tables")):
         assert f"This issue contains no {noun}." in tex
         assert r"\addcontentsline{toc}{section}{" + title + "}" in tex
@@ -878,10 +881,11 @@ def test_a_populated_front_matter_list_does_not_claim_to_be_empty():
     opposite of what the reader is looking at."""
     from sloads.report.content import Section, Table
 
-    doc = _doc(implemented=frozenset())
     nested = Section("Nested", tables=[Table(title="A table", columns=["x"],
                                              rows=[["1"]])])
-    doc.sections[0].subsections.append(nested)
+    doc = dataclasses.replace(
+        _doc(implemented=frozenset()),
+        sections=[Section("1. Introduction", subsections=[nested])])
     tex = ol.render_oracle_document(doc)
     assert "This issue contains no tables." not in tex
     assert "This issue contains no figures." in tex, (

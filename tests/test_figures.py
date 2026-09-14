@@ -134,10 +134,24 @@ def test_g_fig_3_an_empty_project_draws_no_traceback():
 # Gate 10 -- parity, both ways
 # --------------------------------------------------------------------------- #
 def _report_families():
+    """Every figure family the oracle report draws, less the static diagrams.
+
+    The three sign-convention diagrams (#278, note 60 D-60.8) are **authored
+    LaTeX**, not a rendering of a ``PlotData``: they carry no project data, have
+    no producer to share, and ``plots_tex.figure_body_tex`` dispatches them
+    ahead of its absence test for that reason. Parity is a statement about
+    figures that *have* numbers -- one producer, two renderers, so the screen
+    and the page cannot disagree -- and a diagram of the axis convention has no
+    number to disagree about. The exemption is read from
+    ``conventions_tex.STATIC_EMITTERS``, the owner of that set, so a fourth
+    diagram is exempt by being one and a data-carrying figure never is.
+    """
+    from sloads.report.conventions_tex import STATIC_EMITTERS
+
     seen = set()
     for name in _BUNDLED:
         seen |= {f.family for f in _report_figures(_project(name))}
-    return seen
+    return seen - set(STATIC_EMITTERS)
 
 
 def test_g_fig_4_every_report_figure_has_a_gui_renderer():
