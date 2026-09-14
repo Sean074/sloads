@@ -1463,12 +1463,26 @@ def _offer_table_seed(project: Project, prefix: str, rows: List[Any]) -> None:
     st.caption(plan.caption())
     if not plan.offers:
         return
-    if st.button(f"Seed {len(plan.add)} row(s) from the estimate",
-                 key=widget_key(f"_seed.{prefix}")):
-        # Append to the project's own attached list: the seed adds, and the
-        # rows already there keep their stations, tags and inertias.
-        rows.extend(plan.add)
-        st.rerun()
+    st.button(f"Seed {len(plan.add)} row(s) from the estimate",
+              key=widget_key(f"_seed.{prefix}"),
+              on_click=_seed_rows, args=(rows, list(plan.add), prefix))
+
+
+def _seed_rows(rows: List[Any], add: List[Any], prefix: str) -> None:
+    """Append the seeded rows and move the row counter with them.
+
+    An ``on_click`` callback for the same reason :func:`_delete_row` is one: the
+    counter's retained state outlives the click, and widget state may only be
+    written before the widget is instantiated. Seeding in the button's ``if``
+    body left the counter at the old count, so the very next render said *"the
+    row count says 24, but Items still holds 41"* and offered **"Delete the
+    last 17 row(s)"** -- exactly the rows just seeded, one click from gone,
+    under the seed contract's own *adds, never deletes* (the 0.8.4 closure
+    review). The rows land on the project's own attached list: the seed adds,
+    and the rows already there keep their stations, tags and inertias.
+    """
+    rows.extend(add)
+    st.session_state[widget_key(f"{prefix}.count")] = len(rows)
 
 
 #: Per list table, what its rows still owe before a program can believe them.

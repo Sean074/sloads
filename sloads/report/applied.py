@@ -166,6 +166,7 @@ from ..models import (
 from ..modules.net_loads import loads_ref_axis_results
 from ..safety_factors import shared_basis_factor
 from ..units import DeliverableUnits, UnitSystem
+from .tables import CASE_INDEX_FILENAME
 
 # --------------------------------------------------------------------------- #
 # Wing station GIDs
@@ -593,8 +594,9 @@ _APPLIED_CSV_GRIDS = (
 #: numbers were computed at where the case names one.
 _APPLIED_CSV_IDENTITY = (
     "# Case ID is the row's case identity and the key into the load-case index\n"
-    "# (<project>_case_index.csv), which states that case's condition, CG,\n"
-    "# speed, altitude and FAR paragraph. Case is its description and is NOT\n"
+    f"# (data/{CASE_INDEX_FILENAME} in the issue package), which states that\n"
+    "# case's condition, CG, speed, altitude and FAR paragraph. Case is its\n"
+    "# description and is NOT\n"
     "# unique -- several cases can and do share one. Loading names the CG case\n"
     "# the numbers were computed at, and is blank where the case names none.\n"
 )

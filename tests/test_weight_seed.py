@@ -190,6 +190,32 @@ def test_the_oracle_page_offers_the_seed_and_says_what_it_does_first():
     assert any(SEED_CONTRACT in c.value for c in at.caption)
 
 
+def test_seeding_moves_the_row_counter_and_offers_no_delete():
+    """The seed adds rows and the page does not then offer to remove them.
+
+    The 0.8.4 closure review: the click extended the list in the button body,
+    which cannot move the retained row counter, so the next render warned that
+    the count disagreed with the table and rendered *Delete the last N row(s)*
+    for exactly the N rows just seeded -- the seed contract's *never deletes*
+    undone by the page's own next sentence. The seed now runs as the button's
+    ``on_click`` and moves the counter, the way row deletion always has.
+    """
+    at = _page()
+    project = at.session_state["project"]
+    before = len(project.weight.items)
+    added = len(seed_plan(project).add)
+    assert added, "the fixture must have something left to seed"
+    next(b for b in at.button if "Seed" in b.label and "from the estimate" in b.label
+         ).click().run()
+    assert not at.exception, [e.message for e in at.exception]
+    items = at.session_state["project"].weight.items
+    assert len(items) == before + added
+    counter = next(w for w in at.number_input if w.label.endswith("rows"))
+    assert counter.value == len(items), (counter.label, counter.value, len(items))
+    assert not [b.label for b in at.button if "Delete the last" in b.label]
+    assert not [w.value for w in at.warning if "row count says" in w.value]
+
+
 def test_the_oracle_page_warns_loudly_about_rows_that_were_never_placed():
     """A warning, not a caption -- and it is on the page before anything is clicked."""
     project = _project()

@@ -62,11 +62,15 @@ EDITOR_STEP_KEY = "project_editor"
 EDITOR_TITLE = wf.non_step_page(EDITOR_STEP_KEY).title
 EDITOR_URL_PATH = EDITOR_STEP_KEY
 
-#: Stamped, like every widget seeded from the project: the text this page
-#: holds *is* the project, so it must not outlive the project it was read
-#: from (``app_shell.widget_keys``). The session-state writes below use the
-#: same stamped key, so the re-seed logic is unchanged.
-_TEXT_KEY = widget_key("_project_editor_text")
+#: The **unstamped** base of the text widget's key. It is stamped with the
+#: project generation at every use (``widget_key(_TEXT_KEY)``), never here:
+#: a module-level stamp is evaluated once per process, at generation 0, and
+#: every widget seeded from the project must not outlive the project it was
+#: read from (``app_shell.widget_keys``). Stamped at import until the 0.8.4
+#: closure review, which is why the editor showed an empty text area after the
+#: first load: the seed went to the frozen key and the widget read the live one.
+#: Guard: ``tests/test_widget_freshness.py::test_no_gui_module_stamps_a_key_at_import``.
+_TEXT_KEY = "_project_editor_text"
 _LOADED_SNAPSHOT_KEY = "_project_editor_loaded_for"
 
 
@@ -128,13 +132,13 @@ def render_project_editor() -> None:
     # applied yet.
     snapshot_id = (id(project), system.value, sloads_io.project_to_json(project))
     if st.session_state.get(_LOADED_SNAPSHOT_KEY) != snapshot_id:
-        st.session_state[_TEXT_KEY] = _current_display_text(project, system)
+        st.session_state[widget_key(_TEXT_KEY)] = _current_display_text(project, system)
         st.session_state[_LOADED_SNAPSHOT_KEY] = snapshot_id
 
     c1, _ = st.columns([1, 5])
     if c1.button("Reload",
                  help="Discard edits below and reload from the current project."):
-        st.session_state[_TEXT_KEY] = _current_display_text(project, system)
+        st.session_state[widget_key(_TEXT_KEY)] = _current_display_text(project, system)
         st.session_state[_LOADED_SNAPSHOT_KEY] = snapshot_id
         st.rerun()
 

@@ -12,9 +12,9 @@ and [`../../CHANGELOG.md`](../90_record/CHANGELOG.md); the pre-2026-08-16 runnin
 Narratives and plans: [`01_concept_loads_plan.md`](01_concept_loads_plan.md)
 (concept mode), [`03_gui_rework_plan.md`](03_gui_rework_plan.md) (GUI),
 design notes per step ([`../00_INDEX.md`](../00_INDEX.md) is the guarded index
-of the live set — no list is kept here; shipped notes roll to
-[`../40_history/`](../00_INDEX.md#40_history--historic-record) at each cut,
-keeping their numbers; the pre-2026-08-29 "where
+of the live set — no list is kept here; every note, whatever its status,
+lives in [`../25_notes/`](../00_INDEX.md) and keeps its number (note 61 CV-3;
+the status-driven move at each cut is retired); the pre-2026-08-29 "where
 things stand" narrative and superseded re-cut preambles are in
 [`../90_record/44_backlog_state_narrative_to_2026-08-29.md`](../90_record/44_backlog_state_narrative_to_2026-08-29.md)); architecture
 [`../10_standard/PROJECT_GUIDE.md §7`](../10_standard/PROJECT_GUIDE.md); per-module
@@ -159,8 +159,8 @@ clause, which knew of no milestone between.
 > branch where the name and entry point stand, and the milestone changed the
 > argument for a rename, not the decision; if it is ever taken up it is its own
 > row with its own deprecation of the console script. What is left for the cut
-> itself is the Phase G plan's roll to `40_history/`, which is step 3 of
-> `RELEASE_PROCESS.md` §4 and not a row.
+> itself is step 3 of `RELEASE_PROCESS.md` §4 (the record roll, note 61) and
+> not a row.
 > **Band B6 (0.8.5 — the defect and polish cleanup, on the converged surface)
 > is next.**
 
@@ -227,22 +227,14 @@ keeps its body in *Open defects*, and the [E]/[V] detail sections hold the rest.
 | 32 | **One field name means a count in one dataclass and a list in another** — `WeightEstimationInput.engines` is an engine **count** while `Project.engines` is the list of `EngineInput`, and the units walker reaches the list first, so the count has never been asked whether it is classified: it is invisible to a gate whose whole claim is totality. Harmless today only because a count is dimensionless and unconverted is right by accident, and pinned meanwhile in `tests/test_project_units.py::_KNOWN_AMBIGUOUS` as a decision on the record rather than a silence *(deferred out of note 56 as a schema change of its own, 2026-09-12)* (#276) | The field renamed `engine_count` with its lenient migration, the published field-registry path `weight.estimation.engines` moved with it, and `_KNOWN_AMBIGUOUS` emptied — removing the name is how the rename closes | V | M / S | a schema hop (the registry path is published) |
 | **B2 — 0.9.0: calc, report and process work (re-chartered 2026-09-11 — the “main-GUI development” it was named for retires with #270)** ||||||
 | 33 | **The summary report's v-tail governing table and its chordwise table disagree about the condition set** — `ComponentLoads.critical` builds from `build_critical` (no OEI rows) while the chordwise table renders `default_critical`'s set (with them, note 44 OR-172); on every shipped twin the omitted case is the governing one. The OR-172/OR-174 two-consumers class *(found by note 58's ranking-site sweep, 2026-09-11)* (#272) | One enumeration for the section: the critical route carries the admission so no consumer can get the unadmitted set; a guard that the two tables enumerate the same case ids. Check note 57's convergence first — it may retire the consumer surface | V | S / S | note 57's #270, if it lands first |
-| 34 | **GUI review resumption** — the five unswept sections (Flight, Other, Ground, Plotting, Export) against the 0.7.2 deliverables; findings filed at close (rule 5); re-cut follows (#29) | The review body completed; the UI freeze on `app/views/` re-opened to the extent the findings justify — a reviewed list, not a rework. **The anchor of 0.9.0**, and the re-cut that promotes the parked main-GUI rows: **L-8c** (Results Review omits the 8 folded modules' results), **L-8e** (uncovered input fields + UX nits), **L-8f** (display-only nits), **M4-11b** (the six F/E-complexity view functions) and the **mutation half of L-8d** — which the 2026-08-24 code review showed is a live mechanism, not a theoretical one (a retained widget beat a model grown underneath it; the row-counter fix closed that instance, the class stays open) | V | S (review) / M | 0.8.1 cut |
-| 36 | **A no-op Apply still writes to the project — the residue after #145's sweep** — the whole-GUI journey test (`tests/test_gui_journey.py`) walks every bundled example through every `workflow.py` page pressing every Apply with nothing entered, and asserts the project byte-identical. #145 closed the *attachment* half of what it found (an Apply creating an `Optional` slice out of nothing, which crashed Results Review and Export on three shipped examples). Ten writes remain, carried as the file's `KNOWN_OPEN` list, each still asserted to reproduce so none can lapse into silence. **Silent gain:** `speeds.occupants` seeded from the WTESTIMA seat count on any Apply; `speeds.mach_limit` and `weight.envelope` attached with the form's defaults. **Silent loss** — a rebuild dropping what its form does not render, the same class #145 fixed in three other places: `speeds.wing_area_sqft` (the D4.4 Geometry read-through), `speeds.chosen_va`/`chosen_vf`, `weight.items[].wing_fraction` (not a column of the item table), and `engines[].max_cont_hp`/`takeoff_hp`/`hub_weight_lb` (the power fields render for reciprocating engines only, so a turboprop's entered 2000 hp is erased by its own page's Apply) *(filed 2026-08-29 from #145's journey walk)* (#148) | Each write either happens only on an edit to the field it writes, or is carried through the rebuild that drops it; `KNOWN_OPEN` empties as they close, and the journey test fails on the last entry's removal until the list goes with it. The engine-power erasure is the sharpest: it silently changes a shipped input on two bundled examples | V | M / M | #29 (the `app/views/` freeze lift) |
+| 34 | **GUI review resumption, on the converged surface** — the review the 0.8.0 pass left unswept (Flight, Other, Ground, Plotting, Export), now against the one front-end left by #270: the fourteen pages of the generic renderer, the figure blocks of #267, the Report page and the JSON editor; findings filed at close (rule 5); re-cut follows. It inherits the one open class the #270 closures left standing — **L-8d's mutation half**, a widget that goes stale while the project is *mutated* underneath it (a seed chain, a cross-page write), which no generation bump covers and which the 2026-08-24 review and the 0.8.4 closure review (the seed button's row counter) both showed is a live mechanism *(re-scoped 2026-09-14 — the `app/views/` rows #148, #247–#252 and #259 closed with the tree they named)* (#29) | The review body completed against the surviving GUI; a reviewed list of findings, not a rework | V | S (review) / M | 0.8.4 cut |
 | 37 | **`solo_close.sh` verifies fragment existence, not tier content** — nothing checks a tier-M closure touched `PROGRAM_SPEC.md`, a tier-L closure cited `theory_sources.md`, or that a physics change had a note at AGREED; hand-git bypasses are degrading the commit-subject record. The checkable subset gets scripted; the rest is named as discipline in `DEVELOPMENT_PROCESS.md` *(review R-15)* (#185) | The preflight enforcing the checkable closure obligations and validating the subject it writes | V | M / M | — |
 | 38 | **Whole-pipeline-per-assertion tests, re-aimed at the coverage leg** — *moved from band D 2026-09-04* *(CR-D-6, filed from #46; hygiene; ruled 2026-08-26 (owner): option (b) — the trip figure was the coverage-instrumented run; the row is re-aimed at the run that pays for it)* (#92) | The repeated-pipeline shape gone from the coverage leg's `--durations`; the local command stays the clause's datum. **No `slow` marker** — `00_program_overview.md` §Testing states why | V | S / S–M | — |
 | 39 | **The oracle form reaches into a `field_registry` private** — `oracle_app/form.py:709` calls `fr._locate(paths[0])`, the only access to a `sloads` private from either shell package *(production-release review 2026-08-27 §3.7; moved from band D 2026-09-04 — the GUI milestone is when `field_registry` is next touched)* (#130) | `field_registry` exposes the lookup publicly and `row_class` calls it; the private stays private | V | S / S | when `field_registry` is next touched |
 | 40 | **The load-case index carries no loads for 344 of 347 rows** — its six load columns are the engine-mount shape (`render.load_cases_to_rows`' own docstring: *"the load components an engine mount must react"*, `load_keys.LOAD_CASE_KEYS`), and four of the five producers cannot express themselves in it: a landing case has three legs at three points, a wing case a distribution. Measured 2026-09-07: **344/347** rows on `ga6_normal`, **543/555** on `baron_58`, **587/617** on `concept_regional_jet` carry a blank load. Note 44 OR-186 answered the *deliverable* half — each structural element now has an applied-load CSV shaped for its own loads — and left the index itself, because removing or reshaping those columns touches every producer and every consumer of `load_cases_csv`. Either it is an index, in which case the load columns invite a reader to conclude a case carries nothing, or it is a load table, in which case most of it is missing *(note 44 §21 filed, §22 measured)* (#209) | A decision on what the file is, then the columns to match it — the candidate being that it becomes an index in name as well as in fact, with the per-element files carrying the loads. **Unchanged in substance by note 56**, but D-56.1 moved the case index out of the export bridge into `report/tables.py` (`case_index_rows`, `case_index_csv`) — arguably where a decision about what a *report* table is always belonged; its six load columns still come from `report/render.py`'s `load_cases_to_rows` and the file itself from `io.py`'s `load_cases_csv`, so the decision now touches three owners | V | M / M | note 44 §22 shipped; a decision on the file's purpose |
 | 41 | **Two engine-mount conditions per engine state no point of application** — the 23.361(b)(1) sudden-stoppage torque and the 23.371(b) gyroscopic condition carry no `loc_*` values while the four beside them for the same engine do. Until 2026-09-07 the index filled the gap with the *first* location in the set, publishing the right-hand engine's stoppage torque and its four gyroscopic sub-cases at the **left-hand** engine's butt line — ten rows on `atr42_100` and `dhc8_dash8`, fifteen on `concept_regional_jet`. Note 44 OR-193 carried the fix at the render boundary (a condition with no point takes the point of the condition it follows, which is that engine's, gated on every fixture); the **producer** stating the point on every condition it emits is the proper repair, and `modules/engine.py` is frozen for 0.8.2 *(note 44 §22, OR-193)* (#210) | `modules/engine.py` emitting `loc_x`/`loc_y`/`loc_z` on all six conditions, and `_running_locations` reduced to the identity it should be | V | S / S | the OR-13 freeze lifting |
 | 42 | **The fuselage mass reconcile is a GUI-only warning; the report and deck deliver the shortfall unstated** — the issued document rides a station mass model short of the airplane's own item table with no flag a reader can see *(2026-09-09 review A4)* (#257) | The entered-vs-derived totals (and the delta past a stated tolerance) in the report's fuselage input data and the `fuselage_loads.bdf` header, from the same source the GUI check reads | V | M / M | — |
-| 43 | **Dashboard 🟡 promises "open the page to compute" for modules whose own input slice does not exist** — the state actually means upstream-ready, own-inputs-missing *(2026-09-09 review A6)* (#259) | A fourth glyph or a legend rewording; display-only | V | S / S | — |
 | 44 | **The flight balance models no thrust** — `flight_envelope._balance` solves the normal force and the pitching moment about the CG and writes **no** longitudinal force equation, so every balanced V-n point is thrust-off. That is consistent rather than absent: the drag leaves the balance as `NX = -DX/W` (`aero_curves.inertia_drag_factor`) and WINGINER applies it to the mass distribution, so the airplane is in longitudinal equilibrium as a decelerating body, and note 44 OR-198 makes Appendix A state it. Modelling power would reduce NX and add a thrust-line pitching moment about the CG — design note 53's `thrust_line_fwd`/`thrust_line_aft` already carry the geometry — and would move **every** balanced point, hence every selected condition and every delivered load. **Parked without a rank under rule 6:** its effect on a delivered load is unmeasured, so the first piece of work is the measurement, not the implementation; a power-on balance whose effect is below the base method's own uncertainty is not worth a contract change to an oracle-locked module *(owner's question, 2026-09-07: "we don't have any cases defined as thrust on or off, are all assumed off?"; note 44 §23, OR-198)* (#226) | The measurement first — how far a power-on balance moves a delivered load on a shipped fixture — and then, only if it clears the base-method error bar, a design note for a thrust term in `_balance` | V | M / L | a measurement; then a design note (oracle-locked module) |
-| 45 | **M4-11b — Split the highest-complexity view functions** — six `app/views/` functions at CC E/F (worst `_tab_design_speeds` F(72)); split each into seed / form / render and finish `unit_number_input` adoption (body below) *(moved from `02_parked.md`, #190 — pre-assigned to the #29 band, so parked meant only "waiting for 0.9.0")* (#247) | The M4-11a scaffold adopted; no view function above CC D; `radon` re-measured before/after | V | M / M | #29 |
-| 46 | **L-8b — `help=` tooltip rollout completion** — app-wide coverage ~45 %; worst pages 0/6 and 0/7 (body below) *(moved from `02_parked.md`, #190)* (#248) | Tooltips page by page to full coverage | V | S / M | #29 |
-| 47 | **L-8c — Results/Export consolidation parity** — the 8 folded modules' results missing from "All results by section"; folded-module CSVs machine-labelled (body below) *(moved from `02_parked.md`, #190)* (#249) | Folded → host mapping in Results Review; descriptive CSV labels on Export | V | S / S | #29 |
-| 48 | **L-8d — Widget freshness audit, the mutation half** — a widget that goes stale while the project is *mutated* underneath it, which no generation bump covers; both data-loss halves shipped #51 (body below) *(moved from `02_parked.md`, #190)* (#250) | The `key=`+`value=` audit closed for project mutation, or proven impossible | V | M / M | #29 |
-| 49 | **L-8e — Uncovered input fields & UX nits** — remaining JSON-only fields, error-string de-jargonizing, sidebar anchoring, spinners (body below) *(moved from `02_parked.md`, #190)* (#251) | Every schema field entered somewhere or documented JSON-only; the listed UX nits closed | V | S / M | #29 |
-| 50 | **L-8f — Display-only and numerically-inert nits** — none changes a load (body below) *(moved from `02_parked.md`, #190)* (#252) | The listed display nits closed or individually declined with a reason | V | S / S | #29 |
 | 51 | **`backlog_issues.py rewrite` staples an unrelated issue number onto an unfiled defect, and has now done it twice** — `issue_set` folds a defect bullet into a table row on a fuzzy `_containment` score over a threshold, with no explicit pin required. *No engine-mount case reaches the LRA deck* (unfiled by choice) scores against *The load-case index carries no loads for 344 of 347 rows* on the shared words, so `rewrite` replaced its twenty-line body with `- #209 — …` — a different, already-filed defect. It happened first on 2026-09-08 (07b24e2), was restored and struck on 2026-09-11 with a note in the body, and reproduced exactly on 2026-09-13 running `rewrite` after `create`. The body is restorable only because someone noticed; the failure is silent *(found 2026-09-13, running the tool as documented)* (#280) | A fold that requires an explicit pin, or a threshold no unrelated pair can reach, plus a guard that a defect bullet with a body is never collapsed onto a row's issue; the two surviving unfiled defects re-verified | E | M / S | — |
 | **C — 1.0.0: additional analysis capability (consumer-gated; design notes first)** ||||||
 | 52 | The aileron's own lift increment is not distributed (#14) | `ACRL` wing cards gain the aero half of the couple (~70 % span); the schema fields shipped v52 and wait for data and a consumer | V | L / M | only if a consumer sizes to `ACRL` |
@@ -260,105 +252,15 @@ CONM2/MASSSET export; the sbeam round-trip harness; the ground/landing
 families + gear report; the governing safety-factor table (Layer 2 parked);
 distributed empennage loads, control surfaces, hinge moment, T-tail transfer;
 the **LRA beam model at its determinate paths**; the summary report, PDF,
-workbook, manifest and methods stamp; the **`app/views/` UI — pending the
-0.8.0 GUI review (#29)**, whose findings decide what re-opens
-(`oracle_app/` + `app_shell/` are open for exactly the band-A rows; the CLI is
-the delivery path — parked M4-11b and the L-8 UX rows stay parked until #29
-closes; parked **L-8d**'s keyed data-loss half shipped 2026-08-21 as #51 —
+workbook, manifest and methods stamp; the GUI — `oracle_app/` + `app_shell/`, the one front-end since #270 —
+pending the GUI review (#29), whose findings decide what re-opens (the CLI is
+the delivery path; the `app/views/`-only rows M4-11b and L-8b/c/e/f closed with
+that tree on 2026-09-14; parked **L-8d**'s keyed data-loss half shipped 2026-08-21 as #51 —
 `app_shell/widget_keys.py` — and its unkeyed half shipped 2026-08-22, closing
 #51's reopen as one pass with #44's unit-boundary rollout: that pass consumed
 **the one carve-out from this freeze** — `key=` plus the boundary helper at
 exactly those call sites, no layout/behaviour rework — so the freeze is whole
 again; L-8d's mutation case stays parked); F25-2.
-
----
-
-## 0.9.0 band item bodies (moved from `02_parked.md`, #190)
-
-Pre-assigned to the #29 main-GUI band by their own text, so keeping them in the
-parked file made "parked" mean two things; moved 2026-09-08 so `02_parked.md`
-returns to meaning **off-mission**. Bodies verbatim:
-
-### M4-11b — Split the highest-complexity view functions **[maintainability]**
-The scaffold helpers (`unit_number_input`, `page_header`/`page`) exist and are
-tested (M4-11a); the complexity-splitting half did not ship. CC re-measured with
-`radon` on 2026-08-04:
-
-| function | file | CC |
-|---|---|---|
-| `_tab_design_speeds` | `structural_speeds.py` | **F (72)** |
-| `_three_view` | `configuration_layout.py` | **F (63)** |
-| `_tab_vn` | `flight_envelope.py` | **F (44)** |
-| `_tab_cg_inertia` | `weight_mass.py` | **E (40)** |
-| `_subject_from_project` | `aircraft_comparison.py` | **E (34)** |
-| `_tab_trim` | `flight_envelope.py` | **E (33)** |
-
-Split each into seed / form / render (and `landing_reactions` per attitude), and
-finish adopting `unit_number_input` in the views that still hand-pair
-`to_display`/`to_imperial_scalar`. **Note `engine_mount` is already correct by a
-different route** — it converts the whole `EngineInput` at Apply via
-`units.to_imperial`, so per-field adoption there would double-convert; either
-leave it or migrate the whole page in one move. `radon` is in the `dev` extra
-(D-17, reporting only) — re-measure before and after.
-
-### L-8b — `help=` tooltip rollout completion
-App-wide tooltip coverage is ~45%. Worst pages: flap loads 0/6, one-engine-out
-0/7, wing loads 2/10 (structural speeds is complete at 21/21); the G6/G6b
-sections add ~30 untooltipped widgets. Finish the rollout page by page.
-
-### L-8c — Results/Export consolidation parity
-Results Review "All results by section" omits the 8 folded modules' results —
-map folded → host step so they appear. Human-label the folded-module CSVs on
-Export ("balloads (CSV)" → a descriptive name).
-
-### L-8d — Widget freshness audit (deferred from M2-7)
-Input widgets pass both `key=` and `value=`, so Streamlit's session_state can win
-over the project-seeded `value=` and show a stale field after the project changes
-underneath (cross-page Apply, programmatic load). **Not a data-loss bug** (Apply
-is required to persist, and per-page unit-suffixed keys limit the blast radius);
-audit the `key=`+`value=` widgets and re-seed on a project change, or prove it
-cannot occur. `tests/test_persistence.py` locks the data-persistence half.
-**The keyed half of the data-loss class shipped 2026-08-21 as #51** — a *project
-generation* stamped into every project-seeded widget key
-(`app_shell/widget_keys.py`), bumped once per project replacement (`adopt`, and
-the JSON editor's Apply) and guarded by `tests/test_widget_freshness.py`. That
-sweep also settled the rationale above: `app/views/`' Apply step defers the
-overwrite to the user's click rather than preventing it, so those views were
-stamped too. **The unkeyed half shipped 2026-08-22, closing #51's reopen:** the
-98 `app/views/` widgets that carried no `key=` at all — whose Streamlit identity
-derived from their *arguments*, stable whenever the seed value repeats, so a
-value typed before a load survived it (reproduced on `structural_speeds`' VB
-against `atr42_100`) — now all carry stamped keys, landed as one pass with
-#44's unit-boundary rollout (`unit_number_input` stamps for its callers). The
-guard's "no `key=` is per-render" premise was inverted to fail closed, with a
-type-then-load reproduction test and a per-key shell allowlist. What stays
-parked *here* is the rest of the audit — a widget that goes stale while the
-project is **mutated** underneath it (a cross-page Apply, a seed chain), which
-no generation bump covers because the project was never replaced.
-
-### L-8e — Uncovered input fields & UX nits
-Add widgets (or a documented JSON-only status) for the remaining uncovered
-fields: `speeds.chosen_va`/`chosen_vf`, `one_engine_out.speeds_kt`,
-`weight.envelope.fuselage_nose_x`/`fuselage_tail_x`. Plus: de-jargonize error
-strings (no internal slice names); move the Geometry parametric form and the
-Flight-Envelope altitude Apply out of the sidebar (or visually anchor them);
-first-run Loads Plots info should use the linked `gate()`; the OEO "define ≥2
-engines" warning needs a page link; save-filename sanitization; `st.spinner` on
-heavy recomputes. *(The `use_container_width` migration left this bullet on
-2026-08-28: its shared-`app_shell/` half is band-B row #129 by the 2026-08-24
-rule-2 fix-site placement — production-release review §3.7, owner ruling §5.4 —
-and #129 carries the whole migration, `app/views/` included, because a
-deprecated parameter removed upstream breaks both front-ends at once.)*
-
-### L-8f — Display-only and numerically-inert nits **[lowest priority]**
-None of these change a load. V-n plot negative closure should show −1.0 at VD for
-U/A categories (loads are right; display only); chosen VA is silently clamped to
-VC (BASIC only raises — warn instead); 190-lb occupant caption for U/A
-(23.25(a)(2)); MC-vs-MD Mach cap on cruise stall-line conditions (numerically
-inert — comment or match BASIC); ENGLOADS `prop_blades` captured but unused;
-AILERON positive-deflection coercion undocumented; WTONECG YBAR omitted;
-TAILDIST average-chord only (not the guide's N-station-chord variants,
-Figs 20.7–20.10).
 
 ---
 

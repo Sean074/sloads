@@ -115,6 +115,15 @@ def test_source_schema_version_reads_the_file_not_the_default():
     assert source_schema_version({"schema_version": "41"}) == -1
 
 
+def test_a_file_that_is_not_an_object_is_refused_under_the_error_contract():
+    """A JSON list or scalar at the top level is a ``ValueError``, not an
+    ``AttributeError`` on ``.get`` -- which reached the CLI as a traceback on
+    every route (the 0.8.4 closure review)."""
+    for not_a_project in ([], [1, 2], "text", 3):
+        with pytest.raises(ValueError):
+            source_schema_version(not_a_project)  # type: ignore[arg-type]
+
+
 # --------------------------------------------------------------------------- #
 # 2. The machinery, kept
 # --------------------------------------------------------------------------- #

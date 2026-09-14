@@ -59,15 +59,19 @@ def bump_generation() -> None:
 def widget_key(base: Optional[str]) -> Optional[str]:
     """``base`` stamped with the current project generation.
 
-    Idempotent: stamping an already-stamped key returns it unchanged, so a view
-    may stamp its own key and still hand it to a shell helper that stamps too.
-    ``None`` (a widget that asked Streamlit for positional identity) passes
-    through — there is no state to go stale.
+    Idempotent: stamping an already-stamped key returns it at the **current**
+    generation, so a view may stamp its own key and still hand it to a shell
+    helper that stamps too. A key carrying a *stale* stamp is re-stamped, never
+    nested: the JSON editor stamped its text key at import time, which froze it
+    at generation 0, and every later render wrapped that in the live stamp
+    (``g1::g0::…``) while the seed was written to the frozen key -- an empty
+    editor after the first load (the 0.8.4 closure review). ``None`` (a widget
+    that asked Streamlit for positional identity) passes through — there is no
+    state to go stale.
     """
     if not base:
         return base
-    prefix = f"g{project_generation()}{SEPARATOR}"
-    return base if base.startswith(prefix) else f"{prefix}{base}"
+    return f"g{project_generation()}{SEPARATOR}{unstamped(base)}"
 
 
 def unstamped(key: Optional[str]) -> str:

@@ -366,7 +366,7 @@ def _named_files(doc: "OracleDocument") -> List[DataFile]:
     # name a different set of cases from the document beside it. The order is
     # the export page's -- distributions first, because first-seen defines a
     # row's flight condition.
-    add("case_index.csv", "", "",
+    add(rt.CASE_INDEX_FILENAME, "", "",
         "Every load case the analysis produced, with its condition, its "
         "regulation and the factor it states and does not apply -- the index a "
         "reader traces a case id back through.",

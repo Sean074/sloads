@@ -532,7 +532,8 @@ conventions"** section (`SUMMARY_REPORT.md` §4.2.1), single-sourced in
   applied-load CSV therefore leads with `Case ID`, `Case` and `Loading` — the
   minted id, the description, and the named CG the case was computed at — copied
   off the case's own `CaseRef` by one owner, `report/applied.case_identity`. The
-  id is the key into `<project>_case_index.csv`, and a delivered id the index
+  id is the key into the package's `data/case_index.csv` (the name is
+  `report/tables.CASE_INDEX_FILENAME`, one owner), and a delivered id the index
   lists under a shorter name (a handed twin `W-05R`; the 23.371(b) gyro
   condition's `EM-06a…d`, four sign combinations one `ConditionResult` cannot
   carry four `CaseRef`s for) joins through `case_ids.index_case_id`, which owns
