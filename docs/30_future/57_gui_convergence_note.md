@@ -2,7 +2,14 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: AGREED 2026-09-11** (owner, in session, under the solo profile —
+**Status: SHIPPED 2026-09-13** — the sequence closed with
+[#270](https://github.com/Sean074/sloads/issues/270) (D-57.1/D-57.6): `app/`
+deleted, `oracle_app` the single front-end, the page set re-cut to
+`workflow.gui_pages()`. Deferred by this note and taken **at the 0.8.4 cut**, not
+here: R-57.5's rename mechanics and the Phase G plan's roll to history (§6/§8).
+The nine issues R-57.4 disposes of close superseded with #270.
+
+**AGREED 2026-09-11** (owner, in session, under the solo profile —
 `DEVELOPMENT_PROCESS.md` §0; rule 1's working-alone branch). Drafted 2026-09-10
 from the owner-commissioned scope-reduction review of that day, whose boundary
 answers are the governing basis in §2.1; the five rulings in §2.2 were **taken

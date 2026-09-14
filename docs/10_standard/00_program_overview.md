@@ -168,16 +168,16 @@ in the calc's internal Imperial units:
   (`st.session_state["unit_system"]`). Headless: the persisted `Project`
   unit-system field, overridden per-run by the CLI `--units imperial|si` flag.
   Default **Imperial**, so an unspecified run is byte-identical to today's output.
-- **What it governs.** The whole export bundle in one system — the summary report,
-  the load-case CSV, the span-load CSVs, and the sbeam `FORCE`/`MOMENT` bulk-data
-  cards. Two files of one bundle in different systems is a `[CRITICAL]` finding.
+- **What it governs.** The whole export bundle in one system — the technical
+  report and its issue package, the load-case CSV, the span-load CSVs, and the
+  sbeam `FORCE`/`MOMENT` bulk-data cards. Two files of one bundle in different systems is a `[CRITICAL]` finding.
 - **Two channels, one system (M4-20 D-19).** *Which* units a system means depends
   on the channel the file belongs to, because a solver deck is only correct in a
   **dimensionally consistent** set:
 
   | Channel | Files | Imperial | SI |
   |---|---|---|---|
-  | **Human** | report, load-case CSV, case index, text report, workbook | lb, in, lb-in, ft-lb, lb/in² | N, mm, **N·m**, **kPa** |
+  | **Human** | report, load-case CSV, case index, text report, the issue package's `data/` tables | lb, in, lb-in, ft-lb, lb/in² | N, mm, **N·m**, **kPa** |
   | **Solver** | sbeam span/chordwise CSVs, all `.bdf` | lb, in, lb-in, lb/in² | N, mm, **N·mm**, **MPa** |
 
   The solver set's derived units are its base units combined — `N·mm = N × mm`
@@ -197,8 +197,6 @@ in the calc's internal Imperial units:
   as `$ UNITS: …` from one place. The statement is *bundle*-wide, not per-file: one
   stamp lands on both the human-readable CSVs and the sbeam decks, so in SI it
   names **both** sets (`N·m, kPa` and `N·mm, MPa`) and says which files use which.
-  The `.xlsx` workbook has no comment rows and carries a `Units` row on its
-  *Project* sheet instead.
 - **Markers convert with the unit** — `N-ULT` / `Nm-ULT` / `kPa-ULT` in SI, exactly
   as `lbs-ULT` / `ft-lb-ULT` / `lb-in-ULT` / `lb/in²-ULT` in Imperial. No dual
   display (one system, no parenthetical conversions).
@@ -213,10 +211,12 @@ in the calc's internal Imperial units:
   unit-system field is a *preference*, never a claim about the units of the stored
   values.
 
-The standard for the summary report's application of this rule is
-[`SUMMARY_REPORT.md`](SUMMARY_REPORT.md) §3.5; the oracle report inherits it
-under OR-5, and since #278 that document carries the cross-cutting sections both
-used to state separately ([`ORACLE_REPORT.md`](ORACLE_REPORT.md) §3.2a).
+The standard for the report's application of this rule is
+[`ORACLE_REPORT.md`](ORACLE_REPORT.md) §3.5 (inherited under OR-5 from the
+retired summary report's, which is kept as history). Since #278 that document
+carries the cross-cutting sections the two used to state separately
+([`ORACLE_REPORT.md`](ORACLE_REPORT.md) §3.2a), and since #270 it is the only
+document there is.
 
 ### Loads are LIMIT, and every artifact says so (mandatory)
 
@@ -258,21 +258,26 @@ with no `-ULT` suffix.
 
 ## Entry points
 
-- **Streamlit UI (primary):** `streamlit run app/Home.py` — the six-section
-  workflow (Start → Airplane → Envelopes & Critical Conditions → Analysis →
-  Loads Plots → Export). The Start dashboard loads/saves the project and shows
-  per-step completeness; each section groups its pages in the sidebar; the
-  Results Review and Export & Report pages (both in Export) consolidate
-  governing loads and all exports.
+- **Streamlit UI (primary):** `streamlit run oracle_app/Oracle.py`, or the
+  `sloads-oracle` console script — the fourteen analysis pages in workflow
+  order, each built from one generic renderer over `sloads.field_registry`,
+  plus the three pages that are not analysis steps: the Project JSON Editor,
+  the Aircraft Comparison and the Report page, which writes the issue package.
+  The page set is `workflow.gui_pages()`, derived and not listed. The sidebar
+  carries the project (open, save, units) on every page. A second,
+  workflow-driven front-end (`app/Home.py`, 22 pages) shipped beside this one
+  until **#270** retired it (note 57, D-57.1).
 - **CLI (secondary, batch/automation):** the `sloads` console script (from the
   editable install) or `python cli.py <module> <project.json> [-o out.csv]`;
   `--list` shows registered modules. Text report to stdout, or `-o` writes the
   load-case CSV. `--export-sbeam PREFIX --export-target <t>` writes the sbeam
   deck set — **every** deliverable is reachable headless (`wing`, `body`, `tail`,
   `htail-span`, `vtail-span`, `control`, `balanced`, `mass`; see
-  `PROGRAM_SPEC.md` §sbeam bridge) — and `--report PATH` renders the Step-G8
-  summary report (`.tex` always; a `.pdf` path also compiles it when a TeX engine
-  is available, `--generated` supplies the title-page timestamp). Output units
+  `PROGRAM_SPEC.md` §sbeam bridge) — and `--report PATH` renders the technical
+  report (`.tex` always; a `.pdf` path also compiles it when a TeX engine
+  is available, `--generated` supplies the issue date). It is the headless half
+  of the Report page: the document, not the issue package the page writes
+  around it. Output units
   follow `--units imperial|si`. Every file written carries the G8.3 methods &
   limitations stamp; every failure is one `error:` line on stderr with status 1.
 - **Library:** `import sloads` — `registry.get(name)(project)` over a `Project`
@@ -304,7 +309,7 @@ that removes an API this code calls fails here before it reaches an installed
 user — which is why a pinned or constrained CI install is itself a guarded
 condition (`tests/test_ci_conformance.py`), and why a floor exists only where a
 named API needs it (`tests/test_app_shell.py` compares the declared Streamlit
-floor against the layout parameter both front-ends pass).
+floor against the layout parameter the front-end passes).
 
 ---
 
@@ -314,7 +319,7 @@ floor against the layout parameter both front-ends pass).
   against the Appendix A (6-place GA single, p131) and/or Appendix B (10-place
   twin turboprop, p251) figures within **±0.1%** (`rel_tol=1e-3`); exact equality
   only for integer/dimensionless quantities.
-- `ruff check sloads/ cli.py oracle.py app/ app_shell/ oracle_app/ scripts/` clean, `mypy` clean and `pytest` passing are the
+- `ruff check sloads/ cli.py oracle.py app_shell/ oracle_app/ scripts/` clean, `mypy` clean and `pytest` passing are the
   merge gate. **The CI matrix is asymmetric and `.github/workflows/ci.yml` is its
   authority** (guard: `tests/test_ci_conformance.py`): every pull request and every
   push to a `dev/**` milestone branch runs ruff + pytest on **3.12 only**, with `mypy`

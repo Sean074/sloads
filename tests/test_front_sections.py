@@ -1,21 +1,24 @@
-"""The summary report's cross-cutting sections, in the document that survives (#278).
+"""The summary report's cross-cutting sections, in the document that survives.
 
 Design note 60 D-60.7 … D-60.11, gates 11 and 12. ``app/views/export_report.py``
-was the only production consumer of ``content.build_report``, so note 57 D-57.1
-retires the summary report by deleting a page -- and with it the only statement
-of the axis system and sign conventions either front end makes, and the only
-FAR 23 Subpart C coverage matrix. Four assets merge into the oracle report as
-front matter; everything else is declared superseded in writing.
+was the front-end consumer of ``content.build_report``, so note 57 D-57.1
+retired the summary report by deleting a page -- and would have taken with it
+the only statement of the axis system and sign conventions either front end
+made, and the only FAR 23 Subpart C coverage matrix. Four assets merged into the
+oracle report as front matter at **#278**; everything else was declared
+superseded in writing, and **#270** then deleted the document.
 
 Two gates live here:
 
 * **11** -- the merged sections render, for every bundled example, and
   ``conventions_tex.py`` and ``coverage.py`` have a production consumer that is
-  not the retiring document, so the merge cannot quietly become dead code.
-* **12** -- no section of the retiring document leaves unaccounted: the audit
-  table is read against ``content.SECTIONS`` and a key that is neither merged
-  nor superseded-with-a-reason fails the suite. A design note cannot fail a
-  build; this can.
+  not the retired document, so the merge cannot quietly become dead code.
+* **12** -- no section of the retired document left unaccounted: the audit table
+  is read against :data:`front_sections.RETIRED_SUMMARY_SECTIONS` -- the section
+  list, kept beside the audit when ``content.py`` lost it, because an accounting
+  whose subject has been deleted accounts for nothing -- and a key that is
+  neither merged nor superseded-with-a-reason fails the suite. A design note
+  cannot fail a build; this can.
 """
 
 import ast
@@ -29,7 +32,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import sloads.modules  # noqa: F401
 from sloads import io as sloads_io
 from sloads.models.report import default_spec
-from sloads.report import content
 from sloads.report import front_sections as fs
 from sloads.report import oracle_content as oc
 from sloads.report.oracle_latex import render_oracle_document
@@ -112,23 +114,37 @@ def test_the_front_matter_comes_before_the_analysis_body():
     assert last_front < first_body
 
 
-def test_the_two_documents_print_one_builders_output():
-    """One builder, two documents (practice 3), until the second one retires.
+def test_the_front_matter_is_the_front_section_builders_output():
+    """One builder, and now one document (practice 3).
 
-    A merge implemented as a copy is the duplication the convergence exists to
-    end, so the summary report's sections are asserted to be *the same objects'*
-    content -- same table title, same rows -- as the oracle report's.
+    It asserted the two documents printed the *same objects'* content -- same
+    table title, same rows -- because a merge implemented as a copy is the
+    duplication the convergence exists to end. #270 deleted the second document,
+    so the copy it guarded against cannot exist; what is still worth pinning is
+    that the document's front matter is these builders' output and not a second
+    rendering grown inside ``oracle_content``.
     """
     project = sloads_io.load_project(
         os.path.join(_ROOT, "examples", "ga6_normal.project.json"))
-    summary = content.build_report(project)
     oracle = build(project)
-    by_title = {s.title.split(". ", 1)[-1]: s for s in summary.sections}
-    for key, title in (("conventions", "Axes and sign conventions"),
-                       ("factors", "Governing safety factors")):
-        mine, theirs = _section(oracle, key), by_title[title]
-        assert [t.title for t in mine.tables] == [t.title for t in theirs.tables]
-        assert mine.tables[0].rows == theirs.tables[0].rows
+    for key, builder in (("conventions", fs.conventions_section),
+                         ("factors", None)):
+        section = _section(oracle, key)
+        assert section.tables, key
+        if builder is not None:
+            mine = builder(section.title)
+            assert [t.title for t in mine.tables] == [t.title for t in section.tables]
+            assert mine.tables[0].rows == section.tables[0].rows
+            assert [f.key for f in mine.figures] == [f.key for f in section.figures]
+    # ...and nothing rebuilt them: ``oracle_content`` calls the owner.
+    with open(os.path.join(_ROOT, "sloads", "report", "oracle_content.py"),
+              encoding="utf-8") as fh:
+        source = fh.read()
+    for name in ("conventions_section", "governing_factors_section",
+                 "coverage_section", "package_files_section"):
+        assert name in source, (
+            f"the document's front matter no longer calls {name} -- a second "
+            "builder is a second owner")
 
 
 def test_the_merged_owners_keep_a_consumer_that_outlives_the_summary_report():
@@ -166,7 +182,7 @@ def test_every_retiring_section_is_declared_merged_or_superseded():
     The asset most at risk in a merge is the one nobody thought to look for, so
     the audit is a table a test reads rather than prose in a note.
     """
-    keys = [key for key, _ in content.SECTIONS]
+    keys = [key for key, _ in fs.RETIRED_SUMMARY_SECTIONS]
     assert not fs.undeclared_sections(keys), (
         "sections of the retiring summary report with no stated successor and "
         f"no stated reason: {fs.undeclared_sections(keys)}")
@@ -175,7 +191,7 @@ def test_every_retiring_section_is_declared_merged_or_superseded():
 def test_the_audit_names_no_section_the_document_does_not_have():
     """The other direction: a row for a key that no longer exists is a stale
     audit, and a stale audit is worse than none -- it reads as coverage."""
-    keys = {key for key, _ in content.SECTIONS}
+    keys = {key for key, _ in fs.RETIRED_SUMMARY_SECTIONS}
     strays = [d.key for d in fs.SUMMARY_DISPOSITION if d.key not in keys]
     assert not strays, strays
 

@@ -9,8 +9,7 @@ does not do. An on-page caption does not travel with a downloaded file.
 So the statement is built **once**, here, and wrapped for each channel
 (decision G8-3):
 
-* :func:`methods_statement` -- the full prose block (report §5, ``METHODS.txt``,
-  the workbook's *Methods* sheet).
+* :func:`methods_statement` -- the full prose block (report §5, ``METHODS.txt``).
 * :func:`csv_comment_block` -- the same, ``#``-prefixed, for a CSV header.
 * :func:`bdf_comment_block` -- the same, ``$``-prefixed, for a NASTRAN deck.
 
@@ -273,7 +272,8 @@ def _units_block(system: UnitSystem) -> List[str]:
 
     return [
         f"UNITS: {system_name(system)}. Human-readable deliverables (report, "
-        f"load-case CSVs, workbook) are in {listed(human)}; the sbeam "
+        f"load-case CSVs, the issue package's data/ tables) are in "
+        f"{listed(human)}; the sbeam "
         f"solver decks -- the LRA beam model and the mass model -- are in "
         f"{listed(solver)} -- a "
         "deck whose GRID coordinates are mm and whose FORCE cards are N is only "

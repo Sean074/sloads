@@ -116,8 +116,9 @@ def stop_page() -> NoReturn:
     renders *after* the page: ``st.stop()`` discards every element emitted after
     it, so a sidebar rendered behind the page would have lost Save / Download on
     exactly the pages that gate (#64, PB-4). Driven standalone (a view under
-    ``AppTest``, a script with no shell) it is ``st.stop()``. Guarded:
-    ``app/views`` call this and never ``st.stop()`` directly.
+    ``AppTest``, a script with no shell) it is ``st.stop()``. Guarded: every
+    page calls this and never ``st.stop()`` directly
+    (``tests/test_app_shell.py::test_no_page_calls_st_stop_directly``).
     """
     if st.session_state.get(IN_SHELL_KEY):
         raise StopPage()

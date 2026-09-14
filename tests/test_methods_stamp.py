@@ -89,17 +89,34 @@ def test_the_standing_disclaimer_travels_in_every_channel():
         assert STANDING_DISCLAIMER in wrapped
 
 
-def test_the_title_page_and_the_statement_use_one_disclaimer_wording():
-    """The cover quotes the constant instead of restating it: two wordings of the
-    same disclaimer is two disclaimers, and a reader who spots the difference
-    cannot tell which is current (the rule §4.6 applies to in-band caveats)."""
-    from sloads.report.latex import render_report
+def test_the_document_and_the_statement_use_one_disclaimer_wording():
+    """The document quotes the constant instead of restating it: two wordings of
+    the same disclaimer is two disclaimers, and a reader who spots the
+    difference cannot tell which is current (the rule §4.6 applies to in-band
+    caveats).
 
-    tex = render_report(_project(_GA))
-    assert "Status." in tex
+    It read the summary report's title-page *Status.* block until #270 deleted
+    that document. The surviving one carries the disclaimer where every other
+    channel carries it -- inside the methods statement, pre-filled into
+    *Limitations and scope* -- so the assertion is the same claim at the
+    surviving site: the constant's own sentence, and no second wording of it.
+    """
+    tex = _document_tex()
     # Escaped for LaTeX, so compare on the sentence that survives escaping intact.
     assert "not a certification document" in tex
-    assert "See the methods and limitations section" in tex
+    assert tex.count("not a certification document") == 1, (
+        "the disclaimer is stated twice -- two wordings of it is two disclaimers")
+    assert STANDING_DISCLAIMER.split(".")[0] in tex.replace("\\", "")
+
+
+def _document_tex(path=_GA):
+    """The rendered document. One document since #270 (note 57 D-57.6)."""
+    from sloads.models.report import default_spec
+    from sloads.report.oracle_content import build_oracle_document
+    from sloads.report.oracle_latex import render_oracle_document
+
+    return render_oracle_document(
+        build_oracle_document(_project(path), default_spec()))
 
 
 def test_statement_states_ultimate_and_the_default_factor():
@@ -513,53 +530,19 @@ def test_pandas_reads_a_stamped_csv_with_comment_marker():
     assert len(df) == len(plain_df)
 
 
-def test_workbook_reader_skips_the_stamp():
-    """``export/workbook._csv_to_df`` is an in-repo reader; G8.3 audited it."""
-    pytest.importorskip("pandas")
-    from sloads.export.workbook import _csv_to_df
+def test_the_report_carries_the_same_statement():
+    """Step G8: the report is a channel like the others. Its limitations block is
+    the shared statement, so the document and the CSV/BDF files stamped beside it
+    in the package cannot state different bases (ORACLE_REPORT.md §4.6).
 
-    project = _project(_GA)
-    results = run_all_modules(project)
-    module = next(r for r in results if r.conditions)
-    stamped = io.load_cases_csv(module, header_comment=csv_comment_block(project))
-    df = _csv_to_df(stamped)
-    plain = _csv_to_df(io.load_cases_csv(module))
-    assert df is not None and plain is not None
-    assert list(df.columns) == list(plain.columns)
-    assert len(df) == len(plain)
-
-
-def test_workbook_gains_a_methods_sheet():
-    pytest.importorskip("openpyxl")
-    pytest.importorskip("pandas")
-    from openpyxl import load_workbook
-
-    from sloads.export.workbook import build_workbook
-
-    project = _project(_GA)
-    data = build_workbook(
-        {"Project": project.name}, {}, {}, "", {},
-        methods=methods_statement(project),
-    )
-    wb = load_workbook(_io.BytesIO(data))
-    assert "Methods" in wb.sheetnames
-    text = "\n".join(str(c.value) for row in wb["Methods"].iter_rows() for c in row)
-    assert "ULTIMATE" in text
-
-
-def test_summary_report_carries_the_same_statement(tmp_path):
-    """Step G8: the report is a channel like the others. Its §5 is the shared
-    statement verbatim, so the document and the CSV/BDF files stamped beside it in
-    the bundle cannot state different bases (SUMMARY_REPORT.md §4.6)."""
-    from sloads.report.content import build_report
-    from sloads.report.latex import render_report
-
-    project = _project(_GA)
-    doc = build_report(project)
-    assert doc.methods == methods_statement(project)
-    assert "ULTIMATE" in doc.section("Methods and limitations").body[0]
-    # And it survives the trip through the renderer (escaped, not dropped).
-    assert "ULTIMATE" in render_report(project)
+    It read the summary report's §5 until #270 deleted that document. The
+    surviving one pre-fills its *Limitations and scope* from the same
+    ``methods_statement``, dropping four blocks that describe the tool rather
+    than the issue (owner's decision, 2026-08-30) -- which is why the assertion
+    is that the statement's own words reach the page, not that the two strings
+    are equal.
+    """
+    assert "ULTIMATE" in _document_tex()
 
 
 if __name__ == "__main__":

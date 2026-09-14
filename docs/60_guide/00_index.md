@@ -21,13 +21,13 @@ Launch it and work top to bottom: [Getting started](01_getting_started.md).
 
 ## What it is not
 
-It is not the full `sloads` application. Plots, the sbeam export decks, the
-workbook, the report and concept mode all live in the main GUI
-(`streamlit run app/Home.py`), documented in the task-oriented
-[GUI user guide](../10_standard/GUI_USER_GUIDE.md). A project saved by either
-front-end opens in the other unchanged — the oracle GUI asks for less, it does
-not store anything different. When you outgrow it, see
-[Where next](D_where_next.md).
+It is not the whole `sloads` application. The sbeam export decks, the report
+and its issue package, and concept mode are the same GUI's — this guide covers
+the fourteen analysis pages as the original suite's own input set, and the
+marked **✦** fields sloads adds to them are described rather than walked. The
+task-oriented guide to the whole application is the
+[GUI user guide](../10_standard/GUI_USER_GUIDE.md); for what is beyond these
+pages, see [Where next](D_where_next.md).
 
 It is also not a theory manual. Every statement of method here links the
 [theory sources](../20_theory/00_theory_sources.md) rather than re-deriving
@@ -84,4 +84,4 @@ Both ship with the tool: load them from the sidebar's **New from example**.
   LIMIT-vs-ULTIMATE statement.
 - [Appendix C — Troubleshooting](C_troubleshooting.md) — what the tool's
   messages mean.
-- [Appendix D — Where next](D_where_next.md) — the full application.
+- [Appendix D — Where next](D_where_next.md) — the rest of the application.

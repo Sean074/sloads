@@ -1,4 +1,4 @@
-"""``ReportDocument`` -> LaTeX source (Step G8.5).
+"""``Section`` -> LaTeX source (Step G8.5).
 
 The renderer is deliberately dumb: it makes no engineering decisions, converts no
 units and scales nothing. Every number and every unit marker was decided in
@@ -6,23 +6,32 @@ units and scales nothing. Every number and every unit marker was decided in
 That split is what makes the content testable without matching LaTeX strings, and
 this module testable without a TeX engine.
 
+**It renders sections, not documents, since #270.** It owned both halves while
+the summary report existed: the whole-document assembly (``render_document``, the
+title page, the running heads) and the section/table/figure typesetting the
+oracle report drives through :mod:`sloads.report.oracle_latex`. The summary
+report retired with the front-end that was its only consumer (note 57 D-57.6,
+note 60 D-60.11), so the document half went with it and this module is now what
+``oracle_latex`` builds on.
+
 What it *does* own, and why each matters:
 
 * **Escaping.** Every user-supplied string (project name, engineer, condition
   labels, unit strings) goes through :func:`~sloads.report.plots_tex.escape`. A
   project called ``"Model 100 & 100A"`` or a unit string ``lb/in^2-ULT`` would
   otherwise abort the compile or typeset silently wrong.
-* **Controlled-document furniture** (decision G8-1): a title page with the
-  document-control and signature block, a table of contents, ``fancyhdr`` running
-  heads carrying the project and revision, "page *n* of *m*" footers, and
-  ``longtable`` for tables that cross a page break.
+* **Controlled-document furniture** (decision G8-1): ``longtable`` for tables
+  that cross a page break, ``landscape`` for tables that cannot be set upright,
+  and the shared :data:`PREAMBLE` the document assembler starts from -- the title
+  page, the table of contents and the ``fancyhdr`` running heads are the
+  assembler's, which is :mod:`sloads.report.oracle_latex`.
 * **Absence.** A section with an ``absent_reason`` renders that sentence in place
   of its content -- never an empty table or an empty axis (SUMMARY_REPORT.md §3.4).
 
 Determinism: nothing here reads the clock or a hash-ordered container, so two
-renders of one :class:`~sloads.report.content.ReportDocument` are byte-identical
-(SUMMARY_REPORT.md §2). Pure: no filesystem, no subprocess. Compiling the result
-to PDF needs both and lives in :mod:`sloads.export.pdf`.
+renders of one document are byte-identical (ORACLE_REPORT.md §2). Pure: no
+filesystem, no subprocess. Compiling the result to PDF needs both and lives in
+:mod:`sloads.export.pdf`.
 """
 
 from __future__ import annotations
@@ -31,8 +40,7 @@ import math
 from typing import List, Tuple
 
 from ..units import IN_TO_MM
-from .content import Figure, ReportDocument, Section, Table
-from .methods import STANDING_DISCLAIMER
+from .content import Figure, Section, Table
 from .plots_tex import escape, figure_body_tex
 
 #: Packages the ``.tex`` needs. All are in a standard TeX distribution and in the
@@ -68,72 +76,6 @@ PREAMBLE = r"""\documentclass[11pt,a4paper]{article}
 #: The "not analysed" marker. Bold rather than coloured: §4.3/§4.4 require the
 #: document to stay legible in greyscale, so nothing may be encoded by colour.
 NOT_ANALYSED_MARKER = "NOT ANALYSED"
-
-
-def _headers(doc: ReportDocument) -> str:
-    control = dict(doc.control)
-    left = escape(doc.project_name)
-    revision = control.get("Revision", "")
-    right = escape(f"Rev {revision}") if revision else escape("Rev —")
-    return "\n".join([
-        r"\pagestyle{fancy}",
-        r"\fancyhf{}",
-        f"\\fancyhead[L]{{\\small {left}}}",
-        f"\\fancyhead[R]{{\\small {right}}}",
-        r"\fancyfoot[L]{\small LIMIT loads --- SF stated per case, applied nowhere}",
-        r"\fancyfoot[R]{\small Page \thepage\ of \pageref{LastPage}}",
-        r"\renewcommand{\headrulewidth}{0.4pt}",
-        r"\renewcommand{\footrulewidth}{0.4pt}",
-        # The running head is set in ``\small``, which is taller than the 12pt
-        # ``\headheight`` ``geometry`` leaves by default, and ``fancyhdr`` warned
-        # about it once per page -- 77 warnings on the report's own example, all
-        # of them the same warning, which is the noise a real one hides in.
-        # ``includeheadfoot`` is already set, so the text block moves with it and
-        # the margin stays 22mm.
-        r"\setlength{\headheight}{14pt}",
-    ])
-
-
-def _title_page(doc: ReportDocument) -> str:
-    """Title page + document control + signature block (SUMMARY_REPORT.md §4.1)."""
-    rows = []
-    for label, value in doc.control:
-        if not value and label in ("Checked by", "Approved by", "Revision", "Date"):
-            # The signature block SHALL exist even when unsigned: a ruled blank is
-            # a line to sign, whereas a dropped row reads as an oversight.
-            cell = r"\rule{0pt}{1.2em}\hrulefill"
-        else:
-            cell = escape(value) or r"\textit{(not set)}"
-        rows.append(f"{escape(label)} & {cell} \\\\")
-    return "\n".join([
-        r"\begin{titlepage}",
-        r"\thispagestyle{empty}",
-        r"\begin{center}",
-        r"{\Large\bfseries " + escape(doc.title) + r"}\\[0.6em]",
-        r"{\LARGE " + escape(doc.project_name) + r"}\\[0.4em]",
-        r"{\large\bfseries " + escape(doc.badge) + r"}",
-        r"\end{center}",
-        r"\vspace{1.6em}",
-        r"\begin{center}",
-        r"\begin{tabular}{@{}l L{0.6\textwidth}@{}}",
-        r"\toprule",
-        "\n".join(rows),
-        r"\bottomrule",
-        r"\end{tabular}",
-        r"\end{center}",
-        r"\vfill",
-        r"\begin{center}\begin{minipage}{0.86\textwidth}",
-        r"\textbf{Load basis.} " + escape(doc.basis) + r"\\[0.4em]",
-        r"\textbf{Units.} " + escape(doc.units_note) + r"\\[0.4em]",
-        # Quoted, never restated: the disclaimer is one wording (methods.py), and
-        # the title page adds only its pointer to the section that expands it.
-        r"\textbf{Status.} " + escape(
-            f"{STANDING_DISCLAIMER} See the methods and limitations section."
-        ),
-        r"\end{minipage}\end{center}",
-        r"\vspace{1.2em}",
-        r"\end{titlepage}",
-    ])
 
 
 def paragraphs_tex(text: str) -> str:
@@ -576,40 +518,11 @@ def section_tex(section: Section, level: int, *,
     return body
 
 
-def render_document(doc: ReportDocument) -> str:
-    """The whole ``.tex`` source for ``doc``."""
-    parts = [
-        PREAMBLE,
-        _headers(doc),
-        r"\begin{document}",
-        _title_page(doc),
-        r"\tableofcontents",
-        r"\newpage",
-    ]
-    parts += [section_tex(s, 0) for s in doc.sections]
-    parts.append(r"\end{document}")
-    return "\n\n".join(parts).rstrip() + "\n"
-
-
-def render_report(project, **kwargs) -> str:
-    """Build and render in one call: ``Project`` -> ``.tex`` source.
-
-    ``kwargs`` are :func:`sloads.report.content.build_report`'s -- ``system``,
-    ``generated``, ``tool_version``, ``scope``, ``deselected_case_ids`` and the
-    precomputed ``module_results``/``components``.
-    """
-    from .content import build_report
-
-    return render_document(build_report(project, **kwargs))
-
-
 __all__ = [
     "PREAMBLE",
     "escape",
     "figure_tex",
     "paragraphs_tex",
-    "render_document",
-    "render_report",
     "section_tex",
     "table_tex",
 ]

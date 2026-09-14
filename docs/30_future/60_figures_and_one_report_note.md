@@ -2,7 +2,19 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: AGREED 2026-09-13** (owner, in session, under the solo profile —
+**Status: SHIPPED 2026-09-13** — Block A landed with
+[#267](https://github.com/Sean074/sloads/issues/267) (twenty figures, one
+owner), Block B with [#278](https://github.com/Sean074/sloads/issues/278) (the
+cross-cutting merge) and [#270](https://github.com/Sean074/sloads/issues/270)
+(D-60.11: `build_report`, the summary LaTeX path and `report/bundle.py` deleted
+with the page, after the merge). One deviation from D-60.10, taken at #270 and
+recorded in its history entry: the audit table did **not** retire with
+`content.py` — the section list moved beside it as
+`front_sections.RETIRED_SUMMARY_SECTIONS`, because an accounting whose subject
+has been deleted accounts for nothing and gate 12 would otherwise have stopped
+being enforced at the commit that made it matter.
+
+**AGREED 2026-09-13** (owner, in session, under the solo profile —
 `DEVELOPMENT_PROCESS.md` §0; rule 1's working-alone branch). Drafted the same
 day on `dev/v0.8.4`, from the owner-commissioned critical review of band B5
 taken immediately after the 0.8.3 cut. It **amends design note 57** — which

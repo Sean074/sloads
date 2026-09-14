@@ -66,7 +66,11 @@ SPEC_HEADINGS: Dict[str, str] = {
 #: ``payload_cases`` and ``gear_loads`` are library modules
 #: (``sloads/cg_cases.py``, ``sloads/gear_loads.py``) consumed by others rather
 #: than run through the registry; the rest are export bridges / renderers, which
-#: the document says up front are not calc modules.
+#: the document says up front are not calc modules. Two of those --
+#: ``Workbook export bridge`` and ``Summary report`` -- describe channels that
+#: **retired at #270** with the front-end that consumed them; their spec
+#: sections stay, marked RETIRED and saying what succeeded them, so a reader
+#: finds out what happened rather than finding nothing.
 NON_MODULE_SECTIONS: FrozenSet[str] = frozenset({
     "LRA beam model",
     "TAU",

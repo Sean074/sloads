@@ -70,7 +70,7 @@ def _is_entrypoint(tree):
 #: and the back-import test at once, all four still green (review PB-11). Adding
 #: a third front-end is a one-line edit here, and until it is made the discovery
 #: test says so.
-_EXPECTED_GUIS = {"app", "oracle_app"}
+_EXPECTED_GUIS = {"oracle_app"}
 
 
 def _gui_dirs():
@@ -588,12 +588,29 @@ def test_stop_page_is_st_stop_outside_the_shell():
     assert "_after_stop" not in at.session_state
 
 
-def test_no_view_calls_st_stop_directly():
-    """Drift guard for the sweep: the page exit is the shell's ``stop_page``."""
-    views = os.path.join(_ROOT, "app", "views")
-    offenders = [f for f in sorted(os.listdir(views)) if f.endswith(".py")
-                 and re.search(r"^\s*st\.stop\(\)", open(os.path.join(views, f), encoding="utf-8").read(), re.M)]
-    assert offenders == [], f"st.stop() discards the shell's project-file block; call stop_page(): {offenders}"
+def test_no_page_calls_st_stop_directly():
+    """Drift guard for the sweep: the page exit is the shell's ``stop_page``.
+
+    It listed ``app/views/`` until #270. It now walks the trees
+    ``helpers.GUI_TREES`` names, which is the whole of what runs -- a guard that
+    names a directory stops covering the code the day the code moves, which is
+    how this one came to be pointed at a tree that no longer exists.
+    """
+    offenders = []
+    for tree in GUI_TREES:
+        for root, _dirs, names in os.walk(os.path.join(_ROOT, tree)):
+            if "__pycache__" in root:
+                continue
+            for name in sorted(n for n in names if n.endswith(".py")):
+                if name == "components.py":
+                    continue   # ``stop_page`` *is* the shell's st.stop()
+                path = os.path.join(root, name)
+                with open(path, encoding="utf-8") as fh:
+                    if re.search(r"^\s*st\.stop\(\)", fh.read(), re.M):
+                        offenders.append(os.path.relpath(path, _ROOT))
+    assert offenders == [], (
+        "st.stop() discards the shell's project-file block; call stop_page(): "
+        f"{offenders}")
 
 
 # --------------------------------------------------------------------------- #
@@ -658,17 +675,20 @@ def test_project_filename_is_one_sanitiser():
 
 
 def test_the_sidebar_names_the_project_and_its_file(tmp_path):
-    """The name widget is the shell's (both GUIs); Download and Save use the
-    sanitised name; the ``app/`` dashboard no longer carries a second widget."""
+    """The name widget is the shell's; Download and Save use the sanitised name.
+
+    It also asserted the retired front-end's dashboard carried no second widget
+    for ``project.name`` -- two widgets for one field flip-flop. That page went
+    at #270, and the shell being the only owner is now
+    ``test_a_converted_number_input_is_always_keyed_with_the_unit_system``'s
+    tree sweep to keep true.
+    """
     at = _named_app(tmp_path)
     assert at.session_state["_download_name"] == "project.project.json"
     _name_widget(at).set_value("GA-6 Normal / study").run()
     assert at.session_state["project"].name == "GA-6 Normal / study"
     assert at.session_state["_download_name"] == "GA-6_Normal_study.project.json"
     assert _dirty_caption(at) == "🟠 Unsaved changes"
-
-    dashboard = open(os.path.join(_ROOT, "app", "views", "dashboard.py"), encoding="utf-8").read()
-    assert '"Project name"' not in dashboard, "two widgets for project.name flip-flop"
 
 
 def test_save_writes_a_fresh_name_and_then_its_own_file_unasked(tmp_path):
@@ -932,7 +952,11 @@ _CONVERTED_SEED = ("to_display(", "dflt(")
 #: re-seeds the field instead of rereading its digits in the other unit. The
 #: two helper spellings are checked for real below -- an allowlist that lied
 #: would be worse than no guard.
-_SYSTEM_IN_KEY = ("number_input_name(", "system.value", "k(")
+#: ``k(`` was the retired engine page's own key helper, allowed because the
+#: test below checked it really did suffix the system. The page went at #270 and
+#: the entry with it: an allowlist entry nothing can vouch for is worse than no
+#: guard, and an entry nothing uses is a hole waiting for a new call site.
+_SYSTEM_IN_KEY = ("number_input_name(", "system.value")
 
 
 def _number_input_calls(source):
@@ -982,27 +1006,13 @@ def test_a_converted_number_input_is_always_keyed_with_the_unit_system():
     )
 
 
-def test_the_allowed_key_helper_really_does_carry_the_unit_system():
-    """The guard above trusts two helper names. ``number_input_name`` is checked
-    from the outside already (``test_oracle_gui.test_a_converted_field_clears_in_si_too``
-    depends on the suffix being there); the other one is checked here, because an
-    allowlist that lied would be worse than no guard at all."""
-    with open(os.path.join(_ROOT, "app", "views", "engine_mount.py"), encoding="utf-8") as fh:
-        body = fh.read()
-    signature = body.index("def k(")
-    assert "system.value" in body[signature:signature + 600], (
-        "engine_mount.k() no longer suffixes the system; the #126 guard's "
-        "allowlist would now be passing a converted field it cannot vouch for"
-    )
-
-
 def test_both_front_ends_get_the_tools_section():
     """Neither GUI may grow its own: the section is built by the shared shell
     both entry points wrap their pages in, and neither spells its widgets."""
     with open(os.path.join(_ROOT, "app_shell", "sidebar.py"), encoding="utf-8") as fh:
         shell = fh.read()
     assert "_render_tools(project)" in shell
-    for gui in ("app", "oracle_app"):
+    for gui in ("oracle_app",):
         for name in os.listdir(os.path.join(_ROOT, gui)):
             if not name.endswith(".py"):
                 continue

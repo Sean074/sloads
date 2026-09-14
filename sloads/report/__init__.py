@@ -1,4 +1,4 @@
-"""Rendering and reporting: tables, text, and the controlled summary document.
+"""Rendering and reporting: tables, text, and the controlled issue document.
 
 ``sloads/report.py`` became this package at **Step G8.1**, the same mechanical
 move ``models.py`` -> ``models/`` made at M3-1. Everything that existed before
@@ -13,14 +13,28 @@ Layout:
 * :mod:`~sloads.report.methods`  -- the single source of the methods &
   limitations statement, plus its CSV ``#`` / BDF ``$`` comment-block wrappers.
 * :mod:`~sloads.report.coverage` -- the FAR 23 Subpart C coverage matrix.
-* :mod:`~sloads.report.content`   -- ``Project`` + module results ->
-  :class:`~sloads.report.content.ReportDocument`: *what the report says*.
-* :mod:`~sloads.report.latex`     -- ``ReportDocument`` -> ``.tex``: *how it looks*.
-* :mod:`~sloads.report.plots_tex` -- the three figures as pgfplots source.
+* :mod:`~sloads.report.content`   -- the content model (:class:`Section`,
+  :class:`Table`, :class:`Figure`, :class:`PlotData`) and the plot data the
+  documents and the GUI draw from: *what a report says*.
+* :mod:`~sloads.report.front_sections` -- the cross-cutting sections: axes and
+  sign conventions, the governing factors, the FAR coverage matrix, the package
+  file list.
+* :mod:`~sloads.report.oracle_content` -- ``Project`` + module results ->
+  :class:`~sloads.report.oracle_content.OracleDocument`.
+* :mod:`~sloads.report.latex`     -- ``Section`` -> ``.tex``: *how it looks*;
+  :mod:`~sloads.report.oracle_latex` assembles the document around it.
+* :mod:`~sloads.report.plots_tex` -- the figures as pgfplots source.
 
 The content/renderer split is what lets a test assert
 ``doc.section("Design speeds").table.rows`` instead of matching LaTeX strings.
-The document's content rules are ``docs/10_standard/SUMMARY_REPORT.md``.
+The document's content rules are ``docs/10_standard/ORACLE_REPORT.md``.
+
+**One document, since #270.** There were two: this package built the oracle
+report *and* the summary report ``app/views/export_report.py`` downloaded. That
+front-end retired (note 57, D-57.6) and took its only consumer with it, so
+``content.build_report`` and the document half of :mod:`~sloads.report.latex`
+were deleted with it (note 60, D-60.11) -- after the four cross-cutting sections
+only the summary report had were merged into the surviving document at #278.
 
 Everything in this package is **pure**: no filesystem, no subprocess, no
 Streamlit. Compiling a ``.tex`` to PDF needs both, so that one impure piece lives
@@ -33,11 +47,9 @@ from .content import (
     ComponentLoads,
     Figure,
     PlotData,
-    ReportDocument,
     Section,
     Series,
     Table,
-    build_report,
     component_loads,
 )
 from .coverage import (
@@ -50,7 +62,6 @@ from .coverage import (
     coverage_matrix,
     coverage_summary,
 )
-from .latex import render_document, render_report
 from .methods import (
     bdf_comment_block,
     csv_comment_block,
@@ -88,13 +99,11 @@ __all__ = [
     "Figure",
     "LoadChannel",
     "PlotData",
-    "ReportDocument",
     "Section",
     "Series",
     "Table",
     "bdf_comment_block",
     # --- G8.4-G8.5: the summary report document ----------------------------- #
-    "build_report",
     "component_loads",
     # --- G8.4: FAR 23 Subpart C coverage ----------------------------------- #
     "coverage_matrix",
@@ -109,8 +118,6 @@ __all__ = [
     # --- G8.3: the methods & limitations statement ------------------------- #
     "methods_statement",
     "module_text_report",
-    "render_document",
-    "render_report",
     "results_to_rows",
     "strip_comment_lines",
     "summary_rows",

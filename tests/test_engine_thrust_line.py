@@ -273,19 +273,30 @@ def test_a_counter_rotating_twin_is_described_as_one():
 # --------------------------------------------------------------------------- #
 # G-53.7 -- stated where entered
 # --------------------------------------------------------------------------- #
-def test_the_engine_page_states_the_sign_convention_beside_the_control():
+def test_the_field_states_the_sign_convention_where_it_is_entered():
     """G-53.7. The owner's requirement in as many words: the one thing a user
     cannot check on a results page is which way round "clockwise" was meant, so
-    the page that takes the value says it."""
-    here = os.path.dirname(os.path.abspath(__file__))
-    page = os.path.join(os.path.dirname(here), "app", "views", "engine_mount.py")
-    with open(page, encoding="utf-8") as fh:
-        source = fh.read()
-    for phrase in ("clockwise seen from the pilot's seat",
-                   "counter-clockwise",
-                   "Enter both points or",
-                   "ASSUMED"):
-        assert phrase in source, phrase
+    the field that takes the value says it.
+
+    It was a caption written into the retired front-end's engine page, and
+    asserted by reading that page's source. #270 deleted the page; the
+    surviving GUI has no page source to write a caption into -- every field's
+    help is its :mod:`sloads.field_registry` row -- so the sentence moved to the
+    row and this reads it there. Same claim, one owner, and it now reaches the
+    GUI, the data dictionary and the report's field provenance together.
+    """
+    from sloads import field_registry as fr
+
+    rotation = fr.entry("engines[].prop_direction")
+    assert rotation is not None
+    for phrase in ("clockwise seen from the pilot's seat", "counter-clockwise"):
+        assert phrase in rotation.basis, phrase
+
+    for path in ("engines[].thrust_line_fwd", "engines[].thrust_line_aft"):
+        row = fr.entry(path)
+        assert row is not None, path
+        assert "Enter both points or" in row.basis, path
+        assert "ASSUMED" in row.basis, path
 
 
 # --------------------------------------------------------------------------- #

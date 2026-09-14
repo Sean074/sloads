@@ -25,11 +25,19 @@ from sloads.export.pdf import (
     compile_pdf,
     find_engine,
 )
-from sloads.report.latex import render_report
+from sloads.models.report import default_spec
+from sloads.report.oracle_content import build_oracle_document
+from sloads.report.oracle_latex import render_oracle_document
 
 _EXAMPLES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                          "examples")
 _GA = os.path.join(_EXAMPLES, "ga6_normal.project.json")
+
+
+def _tex(project):
+    """The document's ``.tex``. One document since #270: this file compiled the
+    summary report until the front-end that downloaded it retired."""
+    return render_oracle_document(build_oracle_document(project, default_spec()))
 
 needs_engine = pytest.mark.skipif(
     find_engine() is None,
@@ -62,8 +70,7 @@ def test_an_explicit_engine_overrides_the_search_order(monkeypatch):
 # --------------------------------------------------------------------------- #
 @needs_engine
 def test_ga_report_compiles_to_a_pdf():
-    tex = render_report(io.load_project(_GA), tool_version="test",
-                        generated="2026-08-05 09:00")
+    tex = _tex(io.load_project(_GA))
     result = compile_pdf(tex)
     assert result.ok, result.log
     assert result.pdf.startswith(b"%PDF-")
@@ -79,7 +86,7 @@ def test_ga_report_compiles_to_a_pdf():
 def test_an_empty_project_compiles_too():
     """The degraded document must be valid LaTeX as well — it is the one an
     engineer sees first, before any inputs exist."""
-    result = compile_pdf(render_report(Project(name="Bare & empty_100%")))
+    result = compile_pdf(_tex(Project(name="Bare & empty_100%")))
     assert result.ok, result.log
     assert result.pdf.startswith(b"%PDF-")
 
@@ -87,7 +94,7 @@ def test_an_empty_project_compiles_too():
 @needs_engine
 def test_compile_leaves_no_auxiliary_files_behind(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    result = compile_pdf(render_report(io.load_project(_GA), tool_version="test"))
+    result = compile_pdf(_tex(io.load_project(_GA)))
     assert result.ok, result.log
     assert list(tmp_path.iterdir()) == [], "compile must clean up its temp files"
 
@@ -96,7 +103,7 @@ if __name__ == "__main__":  # zero-dependency self-runner (see PROGRAM_SPEC)
     if find_engine() is None:
         print("skipped: no TeX engine on PATH")
         raise SystemExit(0)
-    tex = render_report(io.load_project(_GA), tool_version="test")
+    tex = _tex(io.load_project(_GA))
     outcome = compile_pdf(tex)
     print("ok" if outcome.ok else f"FAIL\n{outcome.log}")
     raise SystemExit(0 if outcome.ok else 1)

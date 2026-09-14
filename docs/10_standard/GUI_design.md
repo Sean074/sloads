@@ -47,26 +47,41 @@ project.json ──io.load_project──▶ Project ──▶ view widgets ─�
                                               (results, CSV, sbeam)
 ```
 
-`app/Home.py` is the entry point; `app/views/<key>.py` is one page each;
-`sloads/models.py` holds `Project` and its per-domain slices; `sloads/io.py`
-is the only dataclass⇔JSON mapper; `sloads/units.py` owns unit conversion.
+`oracle_app/Oracle.py` is the entry point and `oracle_app/form.py` is the one
+renderer every analysis page is; `sloads/models.py` holds `Project` and its
+per-domain slices; `sloads/io.py` is the only dataclass⇔JSON mapper;
+`sloads/units.py` owns unit conversion.
+
+**This chapter was written for the retired front-end** (`app/Home.py` plus one
+hand-written `app/views/<key>.py` per page), which is where most of the patterns
+below were found and paid for. That front-end retired at **#270** (design note
+57, D-57.1); the patterns did not, because they are the app layer's and live in
+`app_shell/`. Where a rule was about a per-page view file, it is recorded here as
+what it is — the reason the surviving GUI has no view files at all.
 
 ---
 
 ## 3. Navigation model
 
-The sidebar is built by `st.navigation` in `app/Home.py` from
+The sidebar is built by `st.navigation` in `oracle_app/Oracle.py` from
 `sloads/workflow.py` — **not** from a `pages/` directory — so page order and
 titles come from workflow metadata, not filename numbers. Since Step G2 the
-sections follow the FAR 23 analysis flow — an un-numbered **Start** app-shell group
-above the six numbered analysis-flow phases:
+sections follow the FAR 23 analysis flow; since #270 there are four phases,
+the other three having held the retired front-end's GUI-only pages and nothing
+else:
 
-    Start ─▶ 1 · Develop V-n diagram ─▶ 2 · Flight loads ─▶ 3 · Other loads ─▶
-    4 · Landing loads ─▶ 5 · Load-case plotting ─▶ 6 · Export
+    1 · Develop V-n diagram ─▶ 2 · Flight loads ─▶ 3 · Other loads ─▶
+    4 · Landing loads
+
+The pages that are not analysis steps — the Project JSON Editor, the Aircraft
+Comparison and the Report — are declared in `workflow.NON_STEP_PAGES`, each
+stating why it is not a step, and appended to the navigation after them. They
+are deliberately absent from the mapping cross-page links resolve against, so a
+non-step can never be reached as a step (note 44 OR-16, restated at D-57.1).
 
 Each `WorkflowStep` names its `key` (= the view file stem), `title`, `phase`, the
 calc `module` behind it, and the project slices it `requires`/`produces` — the
-seed of a dependency DAG that also drives the Dashboard completeness panel.
+seed of a dependency DAG that also drives each page's own readiness statement.
 A step whose *own form* enters a required slice declares it in `edits` (#45,
 CR-D-3, declared minimally — only where a `requires` has no producing step):
 `workflow.missing_upstream` / `missing_self_entered` split the missing slices by
@@ -77,8 +92,10 @@ to *some step's `produces` or some step's `edits`*, with a field-registry rot
 companion on the `edits` declarations. A fourth list, `reads` (#69), names the
 slices a step's numbers depend on that none of the three cover — read here,
 entered on a **later** page — declared so the page can say so; see *A page says
-which later page its numbers depend on* below. A page
-is exactly `app/views/<step.key>.py`. Since Step G3 the **Develop V-n diagram**
+which later page its numbers depend on* below. A page is
+`form.render_step(step.key)` — there is no view file, which is gate G2's whole
+point: a file per page is a hand-maintained page list wearing a different hat.
+Since Step G3 the **Develop V-n diagram**
 section — the definition pages this doc is chiefly about — is five consolidated
 pages, several using `st.tabs` to gather formerly-separate pages: **Geometry**;
 **Weight & Mass Properties** (tabs: Estimate · Weight, CG & Inertia · Payload
@@ -98,7 +115,7 @@ superseded Phase-D six-section grouping is in
 ## 4. Global sidebar (`Home.py`)
 
 `Home.py` owns the two controls that appear on every page, built once *around*
-`pg.run()` (`with render_shell_sidebar(project): pg.run()` — both GUIs):
+`pg.run()` (`with render_shell_sidebar(project): pg.run()`):
 
 - **Unit-system toggle** — an Imperial/SI radio writing
   `st.session_state["unit_system"]` (a `UnitSystem` enum). It changes how inputs
@@ -123,7 +140,7 @@ superseded Phase-D six-section grouping is in
   review 2026-08-22 PB-6). `project.name` is document metadata, not an oracle
   input, so no oracle page rendered it and a project built there saved as
   `project.project.json` over the last, every time. The **Project name** widget
-  is the sidebar's — one widget, both GUIs; the `app/` dashboard's copy is gone
+  is the sidebar's — one widget, every page; the retired dashboard's copy is gone
   (two widgets for one field write their retained state over each other). One
   sanitiser, `io.project_filename(name)` (`[^A-Za-z0-9._-]` → `_`, collapsed,
   trimmed, capped at `io.PROJECT_STEM_MAX`), names both the saved and the
@@ -178,7 +195,7 @@ consistent:
 - **A widget belongs to the project it was seeded from** (#51, 2026-08-21).
   Streamlit widget state, once registered under a key, beats the `value=`
   argument on every later rerun — and GUI widget keys are stable across projects
-  (a registry path in the oracle form, a hand-written name in `app/views/`). So a
+  (a registry path in the form; a hand-written name in the retired front-end). So a
   page **visited before** a load kept rendering its own retained state and, since
   these widgets persist what they return, wrote that state back over the project
   that had just been loaded: opening the oracle GUI on the seed project, visiting
@@ -340,7 +357,7 @@ consistent:
   counting as a touch. `by_name` matches through `models.same_name` (case and
   edge spaces forgiven), so `Wing` no longer blocks eight pages. The FAR 23
   category and the strut type are **codes**, not text (PB-8): `models.CATEGORIES`
-  / `STRUT_TYPES` are the one table both GUIs offer (`field_registry.CODED_FIELDS`
+  / `STRUT_TYPES` are the one table the GUI offers (`field_registry.CODED_FIELDS`
   says which `str` fields carry a code), the owners upper-case at construction,
   and every consumer goes through `normalise_code`, which refuses an unknown
   code by name rather than reading it as Normal (`"Utility"` used to give 3.8).
@@ -434,7 +451,7 @@ never entered twice.)
   overwrites or deletes. Seeding twice is therefore a no-op, which is the
   property that makes a seed safe to offer beside half-finished work. The
   answer lives with the calc (`weight_estimate.SEED_CONTRACT` / `SeedPlan`), not
-  in the page, so the two front-ends cannot give different answers; the oracle
+  in the page, so no two callers can give different answers; the oracle
   form reaches it through `field_registry.TABLE_SEEDS`, the `…[]` analogue of
   `RECORD_SEEDS`.
 
@@ -590,7 +607,7 @@ way, or forget to convert on the way home. **A view that writes
 idiom is what the helper replaces, and doing both double-converts (a 184 ft²
 wing stored as 1982 ft², silently, in SI only). The rollout completed
 2026-08-22 (#44, one pass with #51): every scalar `number_input` in
-`app/views/` now goes through the helper — the `data_editor` grids remain the
+Every call site goes through the helper — the `data_editor` grids remain the
 one hand-converted surface, converted per column at Apply.
 
 ```python
@@ -679,10 +696,10 @@ end-to-end through real views in both systems by
 **Exports follow the toggle too.** The toggle is not display-only: the export
 bundle (report, load-case CSV, span CSVs, sbeam BDF) is rendered in the selected
 system, one system per bundle, each file stating it in-band — see
-[`SUMMARY_REPORT.md`](SUMMARY_REPORT.md) §3.5 for the full rule. The Export page
-SHALL show which system the bundle will be written in, next to the download
-control, so the choice is visible at the point of export rather than only in the
-sidebar. Implemented in **M4-20 step 6**: the page resolves `active_system()`
+[`ORACLE_REPORT.md`](ORACLE_REPORT.md) §3.5 for the full rule. A page that
+writes a bundle SHALL show which system it will be written in, next to the
+control that writes it, so the choice is visible at the point of export rather
+than only in the sidebar. Implemented in **M4-20 step 6**: the page resolves `active_system()`
 **once** into a local and hands that one value to every artifact call, and its
 caption is built from `deliverable_units` itself so it cannot drift from the
 files. Every other view's download buttons take their page's system the same way,
@@ -695,9 +712,9 @@ their basis in the `Basis` column / filename, with **no** `units_statement`
 line — they are the LIMIT analysis-page channel, not a deliverable
 (`CONVENTIONS.md` §3). Guard: `tests/test_limit_csv.py`.
 
-**The Summary report section (Step G8.6).** The Export page's report section
-follows the same one-system rule and adds one convention worth stating, because
-it is the app's only genuinely *slow* action. The `.tex` renders on every page
+**The report (Step G8.6).** The Report page follows the same one-system rule and
+adds one convention worth stating, because it is the app's only genuinely *slow*
+action. The `.tex` renders on every page
 run and downloads unconditionally; the **PDF is compiled on demand**, behind a
 `Compile PDF` button, and the bytes are held in session state (`report_pdf_bytes`,
 keyed by `report_pdf_key` — the `.tex` they came from) so the result survives the
@@ -758,19 +775,19 @@ Pages surface explicit `st.warning`s on inconsistent input — taper ratio > 1,
 non-positive area, leading-/trailing-edge point ordering, a wing-area mismatch
 between Configuration & Layout and Wing/Surface Geometry, a CG outside the
 weight-CG envelope, or a per-case `safety_factor` outside the legal [1.0, 1.5]
-band (M4-14; rendered on the Export page, where the consequence lives). The
+band (M4-14; rendered on the Report page, where the consequence lives). The
 checks are pure predicates in `sloads/validation.py`
 (`consistency_warnings(project)`), each tagged with the page that renders it; the
 CG-envelope check compares the WTONECG CG against the WTENV structural envelope and
 is silently skipped when that envelope (or the wing geometry it needs) is absent.
 
-**One renderer, both GUIs, and the tag is a workflow key (#82, 2026-08-24).**
+**One renderer, and the tag is a page key (#82, 2026-08-24).**
 `app_shell.components.render_consistency_warnings(project, key)` is the **only**
 consumer of `consistency_warnings` in either front-end, and `page_header` calls
 it from the step key it already holds — so every page that opens with the shared
 header shows the warnings tagged for it, in `app/` and in `oracle_app/` alike,
 with no per-page call to forget. Two things were wrong before it, and they
-compounded: the main GUI open-coded the loop in six views, and
+compounded: the retired front-end open-coded the loop in six views, and
 `oracle_app`/`app_shell` had **no consumer of `ConsistencyWarning` at all** — so
 a page-targeted entry-error channel that is part of the analysis contract
 (C210-15) was dark exactly where entries are made, and a detected contradictory
@@ -798,8 +815,7 @@ what was typed. *(Implemented — Phase E3; safety-factor check M4-14.)*
 The airplane is placed against the reference fleet in
 `sloads/data/reference_aircraft.csv` (29 aircraft spanning GA singles to ~41,000-lb /
 50-seat regional turboprops, so a concept airplane has real comparators) on **one
-dedicated page** — **Aircraft Comparison**, carried by both front-ends
-(`oracle_app/fleet.py`; `app/views/aircraft_comparison.py` until #270). The two input
+dedicated page** — **Aircraft Comparison** (`oracle_app/fleet.py`). The two input
 pages (Configuration & Layout, Weight Estimate) **no longer** carry a fleet block —
 the comparison lives in exactly one place (Phase F, Step F2). The page carries a
 quantitative readout (nearest-3 similar aircraft, W/S & W/P percentile band, outlier
@@ -888,7 +904,7 @@ it is outside the certificated band — never blocking. The design:
   seat check compares `passenger seats = effective_occupants − effective_crew`
   against 9, where the crew is the user-set `WeightEstimationInput.crew`.
 - **A non-blocking banner** (`app_shell.components.render_applicability_banner`) on the
-  Dashboard and the definition pages when a non-concept airplane exceeds a limit —
+  the definition pages when a non-concept airplane exceeds a limit —
   "exceeds FAR 23 applicability; results are concept-mode extrapolation" — with a
   one-click **"Switch to Concept"** action that also seeds the concept load factors
   from the computed FAR 23.337 values so the flip never breaks the downstream calc.
@@ -927,7 +943,7 @@ Every load path is hardened (Phase E5): the three sidebar actions (Open saved,
 Load example, Upload) and the Project JSON Editor's **Apply**
 (`app_shell/project_editor.py`, which round-trips the whole project as JSON in the
 selected units via `project_dict_to_display` / `project_dict_to_imperial`, and
-since note 57 D-57.3 is rendered by both front-ends) all show
+since note 57 D-57.3 is one page body in `app_shell/`) all show
 a graceful `st.error` on a malformed / wrong-shape file instead of a traceback.
 
 **A file at any version but the current one is one of those errors** (#93). The

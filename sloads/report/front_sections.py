@@ -1,24 +1,27 @@
-"""The cross-cutting sections both reports print, and who succeeds what (#278).
+"""The cross-cutting sections the report prints, and who succeeded what (#278).
 
 Design note 60, D-60.7 … D-60.11. The summary report (``content.build_report``)
-had one production consumer, ``app/views/export_report.py``, which note 57 D-57.1
-deletes -- so retiring the page retires the document, and with it the **only**
-statement of the axis system either front end makes and the **only** FAR 23
-Subpart C coverage matrix. This module is where those assets live instead: four
-builders the oracle report prints as front matter, and the audit table that says
-what happens to every other section of the retiring document.
+was reached from the front-end page ``app/views/export_report.py``, which note 57
+D-57.1 retired -- so retiring the page retired the document, and with it would
+have gone the **only** statement of the axis system either front end made and the
+**only** FAR 23 Subpart C coverage matrix. (Note 60 called that page the document's
+only production consumer. It was not: ``cli.py --report`` rendered it headless and
+had no test, which is why the claim survived being wrong. #270 re-pointed that
+flag at the surviving document and gave it a guard.) This module is where those assets live instead:
+four builders the oracle report prints as front matter, and the audit table that
+says what happened to every other section of the document that retired.
 
-**One builder, two documents.** Until ``content.py`` is deleted at #270 both
-reports print these sections, and they print the *same* ones: ``content.py``
-calls the builders below rather than keeping a second copy that can drift. That
-is CLAUDE.md practice 3 applied to the merge itself -- a merge implemented as a
-copy is the duplication the convergence exists to end.
+**One builder, two documents** was how it landed at #278 -- ``content.py`` called
+the builders below rather than keeping a second copy that could drift, which is
+CLAUDE.md practice 3 applied to the merge itself: a merge implemented as a copy
+is the duplication the convergence exists to end. #270 then deleted the second
+document, leaving one builder and one document, which is the state this module
+was written to reach.
 
-The heading is a parameter because the two documents number differently: the
-summary report numbers from :data:`sloads.report.content.SECTIONS` and the
-oracle report from :func:`sloads.report.oracle_content.section_number`. Nothing
-here writes a section number of its own, and nothing here reads the clock or the
-filesystem.
+The heading is still a parameter, because it is the document's to number and not
+this module's: it comes from
+:func:`sloads.report.oracle_content.section_number`. Nothing here writes a
+section number of its own, and nothing here reads the clock or the filesystem.
 """
 
 from __future__ import annotations
@@ -44,6 +47,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from .package_data import DataFile
 
 __all__ = [
+    "RETIRED_SUMMARY_SECTIONS",
     "SUMMARY_DISPOSITION",
     "SectionDisposition",
     "conventions_section",
@@ -294,7 +298,7 @@ def package_files_section(heading: str, *, system: UnitSystem,
 # --------------------------------------------------------------------------- #
 @dataclass(frozen=True)
 class SectionDisposition:
-    """One section of the retiring summary report, and where it went.
+    """One section of the retired summary report, and where it went.
 
     ``merged_into`` names the front-matter section of
     :data:`sloads.report.oracle_content.FRONT_SECTIONS` that now carries it --
@@ -311,15 +315,33 @@ class SectionDisposition:
     reason: str = ""
 
 
-#: Every key of :data:`sloads.report.content.SECTIONS`, with its disposition.
+#: The retired summary report's section set, in the order it printed them.
+#:
+#: It lived in ``content.SECTIONS`` -- the single owner of that document's
+#: numbering -- until #270 deleted the document. It is kept here, as data rather
+#: than as a sentence in a changelog, because it is what
+#: :data:`SUMMARY_DISPOSITION` is audited against: an accounting whose subject
+#: has been deleted accounts for nothing, and gate 12 would have stopped being
+#: enforced at exactly the commit that made it matter. Nothing builds from it.
+RETIRED_SUMMARY_SECTIONS: Tuple[Tuple[str, str], ...] = (
+    ("inputs", "Input summary"),
+    ("conventions", "Axes and sign conventions"),
+    ("factors", "Governing safety factors"),
+    ("envelopes", "Envelope figures"),
+    ("conditions", "Conditions analysed and FAR coverage"),
+    ("results", "Results summary"),
+    ("balanced", "Balanced free-free airframe cases"),
+    ("gear", "Landing gear interface loads"),
+    ("methods", "Methods and limitations"),
+)
+
+
+#: Every key of :data:`RETIRED_SUMMARY_SECTIONS`, with its disposition.
 #:
 #: The written audit D-60.10 requires, and the subject of note 60's gate 12: a
-#: test reads this table against ``content.SECTIONS`` and fails if a key is
-#: neither merged nor declared superseded with a reason. It is deliberately a
-#: table and not prose in a design note -- the note cannot fail a build.
-#:
-#: It retires with ``content.py`` at #270, when the keys it audits no longer
-#: exist. Until then it is the record of what the merge decided.
+#: test reads this table against that key set and fails if a key is neither
+#: merged nor declared superseded with a reason. It is deliberately a table and
+#: not prose in a design note -- the note cannot fail a build.
 SUMMARY_DISPOSITION: Tuple[SectionDisposition, ...] = (
     SectionDisposition(
         key="inputs",

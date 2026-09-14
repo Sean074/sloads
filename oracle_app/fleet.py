@@ -31,10 +31,15 @@ import streamlit as st
 from app_shell.components import active_project
 from app_shell.fleet_view import render_figures, render_fleet_table, render_readout
 from oracle_app.form import EXTENSION_MARK
+from sloads import workflow as wf
 from sloads.fleet import reference_fleet, subject_from_project
 from sloads.report.fleet_figures import fleet_figures
 
-PAGE_TITLE = f"{EXTENSION_MARK} Aircraft Comparison"
+#: The label is ``workflow.NON_STEP_PAGES``' (note 57, D-57.1) -- typed once,
+#: where the page is declared and its reason for not being a step is stated. The
+#: extension mark is added here because it is this page's own claim about itself,
+#: not part of its name.
+PAGE_TITLE = f"{EXTENSION_MARK} {wf.non_step_page('fleet').title}"
 
 
 def render_fleet_page() -> None:

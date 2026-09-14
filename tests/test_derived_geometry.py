@@ -349,55 +349,59 @@ def _powerplant_total(at):
     raise AssertionError("the page rendered no 'Total powerplant' row")
 
 
-def test_the_weight_page_reads_the_hp_owner_rather_than_its_own_copy():
+def test_no_display_module_sums_the_engine_list_for_horsepower():
     """Drift guard for the second consumer (#124).
 
-    ``app/views/weight_mass.py`` spelled the Step M2-6 precedence again inline, over
-    its own ``sum(...)`` of the engine list. Two copies of one rule, agreeing on the
-    day they were written -- exactly what practice 3 forbids. The inline copy is gone
-    and the page calls :func:`resolve_max_continuous_hp_for`; this fails if a copy
-    comes back and answers differently, because the page's estimate is checked
-    against the owner's for the engine list, not against the stored total.
+    ``app/views/weight_mass.py`` spelled the Step M2-6 precedence again inline,
+    over its own ``sum(...)`` of the engine list. Two copies of one rule,
+    agreeing on the day they were written -- exactly what practice 3 forbids.
+    It was asserted by rendering the page and comparing its powerplant line
+    against the owner's; the page retired at #270, so the assertion is the one
+    that survives a front-end: no display module derives the number at all.
 
-    Powerplant weight is the HP-sensitive line: the installed-engine and propeller
-    correlations both take the resolved power (WTESTIMA Ch 3)."""
-    pytest.importorskip("streamlit.testing.v1")
+    Powerplant weight is the HP-sensitive line (the installed-engine and
+    propeller correlations both take the resolved power, WTESTIMA Ch 3), so a
+    second derivation of the power is a second answer for a shipped weight.
+    """
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    offenders = []
+    for tree in ("oracle_app", "app_shell"):
+        for base, _dirs, names in os.walk(os.path.join(root, tree)):
+            if "__pycache__" in base:
+                continue
+            for name in sorted(n for n in names if n.endswith(".py")):
+                path = os.path.join(base, name)
+                with open(path, encoding="utf-8") as fh:
+                    for lineno, line in enumerate(fh, 1):
+                        if line.lstrip().startswith("#"):
+                            continue
+                        if "max_cont_hp" in line or "max_continuous_hp" in line:
+                            offenders.append(
+                                f"{os.path.relpath(path, root)}:{lineno}")
+    assert not offenders, (
+        "a display module reads the horsepower fields directly; the precedence "
+        "is resolve_max_continuous_hp's and must be asked, not restated:\n"
+        + "\n".join(offenders))
+
+    # ...and the owner still answers both ways round, which is what makes the
+    # rule worth having one of.
     from dataclasses import replace as _replace
 
-    from streamlit.testing.v1 import AppTest
-
     from sloads.modules.weight_estimate import estimate
-
-    view = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                        "app", "views", "weight_mass.py")
-
-    def rendered(project):
-        at = AppTest.from_file(view, default_timeout=90)
-        at.session_state["project"] = project
-        at.run()
-        assert not at.exception, [e.message for e in at.exception]
-        return _powerplant_total(at)
 
     def owner_total(project):
         est = _replace(project.weight.estimation,
                        max_continuous_hp=resolve_max_continuous_hp(project))
         return _powerplant_total_of(estimate(est))
 
-    # The engine list disagrees with the stored estimation total, override off: the
-    # engine list governs. (ga6_normal ships 265 hp in both places -- agreement is
-    # what makes a duplicated rule invisible, so the fixture is pulled apart here.)
     p = io.load_project(_GA)
     p.engines[0].max_cont_hp = 400.0
-    engine_led = rendered(p)
-    assert math.isclose(engine_led, owner_total(p))
-
-    # Override on: the stored total governs, and the page follows the owner there too.
+    engine_led = owner_total(p)
     p.weight.estimation.override_max_continuous_hp = True
-    stored_led = rendered(p)
-    assert math.isclose(stored_led, owner_total(p))
+    stored_led = owner_total(p)
+    assert engine_led != stored_led, (
+        "the two precedence branches agree, so neither could be caught wrong")
 
-    # The two must differ, or neither assertion above could catch a wrong precedence.
-    assert engine_led != stored_led
 
 
 def _powerplant_total_of(conditions):
@@ -774,7 +778,7 @@ def test_the_report_column_and_wtenv_measure_the_same_wing():
     example carries an override, which is why this went unseen; the test makes
     one disagree on purpose."""
     from sloads.modules.weight_envelope import envelope
-    from sloads.report.content import Units, _weight_cg_figure
+    from sloads.report.content import Units, weight_cg_plot_data
 
     project = _ga6()
     wing = require_wing_reference(project)
@@ -789,22 +793,48 @@ def test_the_report_column_and_wtenv_measure_the_same_wing():
         station_to_pct_mac(stations["aft_gross_station"], ref),
         project.weight.envelope.aft_gross_pct_mac, abs_tol=1e-9)
 
-    figure, table = _weight_cg_figure(project, Units(UnitSystem.IMPERIAL))
+    # Asserted on the plot *data* -- the producer both the document and the page
+    # draw from -- rather than on the summary report's figure builder, which
+    # retired with that document at #270. Same numbers, one owner fewer.
+    plot = weight_cg_plot_data(project, Units(UnitSystem.IMPERIAL))
+    assert plot is not None
     # The chart's limit lines are the closed structural-limit polygon since note
     # 45 (they were three vertical rules before). Same invariant, new owner: its
     # corners must sit on the stations WTENV derived from the *override*, or the
     # chart and the % MAC column beside it describe two different wings again.
-    polygon = next(s for s in figure.data.series if s.name == "Structural limits")
+    polygon = next(s for s in plot.series if s.name == "Structural limits")
     assert math.isclose(max(polygon.x), stations["aft_gross_station"], abs_tol=1e-9)
     assert math.isclose(min(polygon.x), stations["forward_regardless_station"],
                         abs_tol=1e-9)
 
-    station_col = table.columns.index(next(c for c in table.columns if "station" in c))
+    # The printed column, in the document that prints one. It was the summary
+    # report's weight/CG table until #270; the surviving document states the
+    # same relation in its Weight and Mass Properties section, and the defect is
+    # the same one either way -- a station and a % MAC that were measured
+    # against different wings.
+    from sloads.models.report import default_spec
+    from sloads.report.oracle_content import build_oracle_document
+
+    def walk(sections):
+        for section in sections:
+            yield section
+            yield from walk(section.subsections)
+
+    doc = build_oracle_document(project, default_spec())
+    table = next(t for section in walk(doc.sections) for t in section.tables
+                 if any("% MAC" in c for c in t.columns))
+    station_col = table.columns.index(
+        next(c for c in table.columns if "Xcg (in)" in c))
     pct_col = table.columns.index(next(c for c in table.columns if "% MAC" in c))
+    checked = 0
     for row in table.rows:
+        if not row[station_col].strip() or not row[pct_col].strip():
+            continue
         assert math.isclose(
             float(row[pct_col]),
             station_to_pct_mac(float(row[station_col]), ref), abs_tol=0.02), row
+        checked += 1
+    assert checked, "the document printed no station/% MAC pair to check"
 
 
 def test_a_project_with_no_wing_and_no_override_has_no_reference():

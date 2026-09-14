@@ -35,7 +35,9 @@ from sloads.report import applied as ap
 from sloads.report import tables as rt
 from sloads.models import SafetyFactorOverride, SafetyFactorPolicyInput
 from sloads.registry import run_all_modules
-from sloads.report.content import build_report, component_loads
+from sloads.models.report import default_spec
+from sloads.report import oracle_content as oc
+from sloads.report.content import component_loads
 from sloads.report.methods import methods_statement
 from sloads.safety_factors import (
     DERIVED_FACTOR,
@@ -378,21 +380,41 @@ def test_an_override_above_the_regulation_is_declared_without_a_risk_flag():
 
 
 def test_the_report_carries_the_table_and_flags_the_override():
-    doc = build_report(_overridden())
-    section = doc.section("Governing safety factors")
-    assert section is not None
-    labels = [r[0] for r in section.table.rows]
+    """The governing table is front matter since #278 (note 60, D-60.8/D-60.9):
+    one row per condition family, ahead of everything computed from it."""
+    doc = oc.build_oracle_document(_overridden(), default_spec())
+    section = doc.sections[oc.front_index("factors")]
+    assert not section.absent_reason
+    table = section.tables[0]
+    labels = [r[0] for r in table.rows]
     assert [f.label for f in FAMILIES] == labels
-    assert any(RowStatus.OVERRIDE in r for r in section.table.rows)
+    assert any(RowStatus.OVERRIDE in r for r in table.rows)
     assert any("overrides" in p for p in section.body)
 
 
-def test_the_case_index_sf_column_is_a_view_of_the_table():
-    """Supersedes the silent ``getattr(item, "safety_factor", ULTIMATE_FACTOR)``."""
-    doc = build_report(_overridden("flight", 1.2))
-    index = doc.section("Conditions analysed and FAR coverage").table
-    sf_col = index.columns.index("SF")
-    assert any(row[sf_col] == "1.2" for row in index.rows)
+def test_every_printed_sf_column_is_a_view_of_the_table():
+    """Supersedes the silent ``getattr(item, "safety_factor", ULTIMATE_FACTOR)``.
+
+    The summary report showed the override in the one case-index table it
+    printed; that document retired at #270. This one states the factor against
+    the case, in the ``SF`` column of the governing table of every section that
+    reports a load -- so the assertion is that an override of the flight family
+    reaches those columns, which is the same claim over more surfaces.
+    """
+    doc = oc.build_oracle_document(_overridden("flight", 1.2), default_spec())
+
+    def walk(sections):
+        for section in sections:
+            yield section
+            yield from walk(section.subsections)
+
+    seen = [row[table.columns.index("SF")]
+            for section in walk(doc.sections)
+            for table in section.tables
+            if "SF" in table.columns
+            for row in table.rows]
+    assert seen, "no section prints an SF column"
+    assert "1.2" in seen, f"the flight override never reaches a printed SF: {set(seen)}"
 
 
 def test_the_companion_csv_states_the_derived_value_beside_the_override():

@@ -101,19 +101,24 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
 
 # Pages that render consistency warnings (the ``page`` tag on each warning).
 #
-# Every value here is a **workflow step key** -- ``sloads.workflow`` is the nav
-# SSOT, so a tag naming anything else names a page no GUI has. Two did until #82:
-# ``weight_cg_inertia`` (the weights page has been ``weight_mass`` since Step G3)
-# and ``wing_geometry`` (merged into ``configuration_layout`` at Step G1). They
-# survived because two views in ``app/`` compared against the old strings by
-# hand, so 19 checks -- 14 of them the weights ones, the largest group in this
-# module -- were reachable only through a hardcoded literal, and were dark
-# everywhere else. ``tests/test_validation.py`` now asserts the whole set against
-# ``workflow.STEPS``.
+# Every value here is a **page key the GUI carries** -- ``workflow.gui_pages()``
+# is the nav SSOT, so a tag naming anything else names a page no GUI has. Two did
+# until #82: ``weight_cg_inertia`` (the weights page has been ``weight_mass``
+# since Step G3) and ``wing_geometry`` (merged into ``configuration_layout`` at
+# Step G1). They survived because two views in the retired ``app/`` compared
+# against the old strings by hand, so 19 checks -- 14 of them the weights ones,
+# the largest group in this module -- were reachable only through a hardcoded
+# literal, and were dark everywhere else. ``tests/test_validation.py`` asserts
+# the whole set against ``workflow.gui_pages()``.
+#
+# The set was step keys alone until #270, when ``export_report`` retired with the
+# front-end that carried it (note 57, D-57.6). Its five checks are all statements
+# about what the *deliverable* carries, so they re-point at the page that writes
+# the deliverable -- the Report page, which is a page and not a step.
 PAGE_CONFIGURATION = "configuration_layout"
 PAGE_STRUCTURAL_SPEEDS = "structural_speeds"
 PAGE_WEIGHT_CG = "weight_mass"
-PAGE_EXPORT = "export_report"
+PAGE_REPORT = "report"
 PAGE_LANDING = "landing_loads"
 PAGE_AERO_COEFFS = "aero_coefficients"
 PAGE_FLAP = "flap_loads"
@@ -614,7 +619,7 @@ def _check_safety_factors(project: Project) -> List[ConsistencyWarning]:
                 "sizing analysis that applies it under-designs. A corrupt value "
                 f"in a saved project.json is reset to {ULTIMATE_FACTOR:g} on load; "
                 "re-run the producing module to restore the case's own factor.",
-                PAGE_EXPORT))
+                PAGE_REPORT))
     return out
 
 
@@ -648,7 +653,7 @@ def _check_safety_factor_overrides(project: Project) -> List[ConsistencyWarning]
                 f"Safety-factor override names family {ov.family!r}, which is not a "
                 f"row of the governing table ({', '.join(sorted(keys))}). The "
                 "override is ignored, so the deliverable is NOT carrying the factor "
-                "you intended.", PAGE_EXPORT))
+                "you intended.", PAGE_REPORT))
             continue
         if not str(ov.basis).strip():
             out.append(ConsistencyWarning(
@@ -656,13 +661,13 @@ def _check_safety_factor_overrides(project: Project) -> List[ConsistencyWarning]
                 f"Safety-factor override on '{ov.family}' has no basis. Every row of "
                 "the governing table is editable, and the condition of that is that "
                 "an override states why it exists — an undeclared deviation is "
-                "invisible to the analyst reading the deliverable.", PAGE_EXPORT))
+                "invisible to the analyst reading the deliverable.", PAGE_REPORT))
         if not safety_factor_valid(ov.factor):
             out.append(ConsistencyWarning(
                 "safety_factor_override_out_of_range",
                 f"Safety-factor override on '{ov.family}' is {ov.factor!r}, outside "
                 f"the legal [1.0, {ULTIMATE_FACTOR:g}] band (14 CFR 23.303).",
-                PAGE_EXPORT))
+                PAGE_REPORT))
     for row in GoverningTable.for_project(project).overrides:
         if row.below_regulation:
             out.append(ConsistencyWarning(
@@ -672,7 +677,7 @@ def _check_safety_factor_overrides(project: Project) -> List[ConsistencyWarning]
                 "the regulation derives for it. A sizing analysis applying the "
                 "stated factor to loads exported under this row will not reach "
                 "ultimate by 14 CFR 23.303/25.303. "
-                f"Declared basis: {row.basis or '(none)'}.", PAGE_EXPORT))
+                f"Declared basis: {row.basis or '(none)'}.", PAGE_REPORT))
     return out
 
 

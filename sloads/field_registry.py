@@ -1587,16 +1587,29 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     # would state the wrong rotation. The two points are also sentinel defaults
     # (registered above): absent means assumed-with-a-note, which is exactly the
     # class #98 refuses to filter off an oracle page.
+    # G-53.7 -- stated where entered. The one thing a reader cannot check on a
+    # results page is which way round "clockwise" was meant, and which axis a
+    # moment was resolved about, so the row the value is entered against says
+    # both. It was a caption on the retired front-end's engine page until #270;
+    # here the field's own provenance line carries it, which is the statement's
+    # one owner in the surviving GUI (the figure's ASSUMED marker is
+    # ``derived_geometry.thrust_line_label``'s, on the three-view).
     _E("engines[].thrust_line_aft", _ENG, _SLDS,
-       "thrust line, aft point (design note 53, D-53.1). G5: omitted, every "
-       "engine-mount moment resolves about the assumed forward axis rather "
-       "than the entered line", supplied=True),
+       "thrust line, aft point (design note 53, D-53.1). Enter both points or "
+       "neither -- one point does not define a line, and a half-entered pair is "
+       "read as no line at all. G5: omitted, every engine-mount moment resolves "
+       "about the ASSUMED forward axis rather than the entered line, and the "
+       "three-view marks the line it drew ASSUMED", supplied=True),
     _E("engines[].thrust_line_fwd", _ENG, _SLDS,
-       "thrust line, forward point (design note 53, D-53.1). G5: omitted, "
-       "every engine-mount moment resolves about the assumed forward axis "
-       "rather than the entered line", supplied=True),
+       "thrust line, forward point (design note 53, D-53.1). Enter both points "
+       "or neither -- one point does not define a line, and a half-entered pair "
+       "is read as no line at all. G5: omitted, every engine-mount moment "
+       "resolves about the ASSUMED forward axis rather than the entered line, "
+       "and the three-view marks the line it drew ASSUMED", supplied=True),
     _E("engines[].prop_direction", _ENG, _SLDS,
-       "propeller rotation, pilot's view (design note 53, D-53.4). G5: "
+       "propeller rotation: positive is clockwise seen from the pilot's seat "
+       "(design note 53, D-53.4). A propeller turning clockwise from the seat "
+       "delivers a counter-clockwise reaction torque to the airframe. G5: "
        "omitted, a counter-clockwise engine's every torque is published with "
        "the wrong sign", supplied=True),
     _E("engines[].engine_weight_lb", _ENG, _ORIG, "ENGLOADS ENGWT", "engine mass",

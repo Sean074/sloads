@@ -2,17 +2,19 @@
 
 Design note 48 built ``report.LoadChannel`` as a *switch* -- an ULTIMATE channel
 (case selection, the export deck, the case index, the oracle technical report)
-and a LIMIT channel (the CLI and the app's per-module analysis surfaces). Note 49
+and a LIMIT channel (the CLI and the GUI's per-module analysis surfaces). Note 49
 **OR-116** removes the choice: every load sloads delivers is LIMIT, on every
 surface, with its factor stated and applied nowhere. ``LoadChannel`` keeps a
 single member so that a stale caller asking for ULTIMATE fails at import instead
 of silently receiving limit loads; the parameter itself goes at #29, when the
-frozen ``app/views/`` can be edited.
+front-end that named it retired (#270, note 57 D-57.6) -- see
+``report.LoadChannel``, whose docstring carries what is left of the parameter's
+justification and what removing it would take.
 
 Gates here:
 
 * **G-OR-44** -- the default is the project's one basis, so a caller that passes
-  nothing gets it. This still keeps the frozen ``oracle_app`` correct *by
+  nothing gets it. This still keeps ``oracle_app`` correct *by
   construction* rather than by inspection (OR-77): the file names no channel,
   and the default inverted underneath it.
 * **G-OR-47** -- a LIMIT render applies no factor, emits no ``-ULT`` marker

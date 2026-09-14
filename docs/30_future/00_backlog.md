@@ -145,6 +145,18 @@ clause, which knew of no milestone between.
 > complete before anything is removed. The table is renumbered densely with
 > the re-cut, which owns it — **Pri 1–57**.
 
+> **B5 emptied 2026-09-13 with #270.** The band's last two rows closed together:
+> `app/views/` and `app/Home.py` were deleted — 22 pages, 8,461 lines — with
+> `content.build_report`, the summary report's LaTeX path, `report/bundle.py`
+> and the `.xlsx` workbook, and **#255** closed superseded because its fix site
+> was one of the deleted files. The page set is now `workflow.gui_pages()`: the
+> derived analysis steps plus the three declared non-step pages. The band's
+> charter is met — there is one front-end — and what remains before the 0.8.4
+> cut is R-57.5's deferred rename mechanics and the Phase G plan's roll to
+> history, both of which note 57 §6/§8 puts **at the cut** rather than in a row.
+> **Band B6 (0.8.5 — the defect and polish cleanup, on the converged surface)
+> is next.**
+
 **System of record (design note 28 MD-5, 2026-08-16):** open work is **GitHub
 Issues** (labels `tier:*`, `tag:*`, `band:*`, `kind:*`; a milestone per release;
 the Project board is the view). This file keeps the **plan** — mission,
@@ -185,9 +197,6 @@ keeps its body in *Open defects*, and the [E]/[V] detail sections hold the rest.
 
 | Pri | Item (detail below / in its plan) | What ships | Tag | Tier / effort | Depends on |
 |---|---|---|---|---|---|
-| **B5 — 0.8.4: the two front-ends converge on one (design note 57 AGREED 2026-09-11, amended by design note 60 AGREED 2026-09-13; in flight — the 0.8.3 cut landed 2026-09-13)** ||||||
-| 11 | **`app/views/` retires and the derived page set is re-cut** — 22 pages / ~8,800 lines deleted; five pages retire without port, each citing its successor; `workflow.py`'s derivation rule and gate G2 re-cut (still derived, not listed); at close #29/#148/#247–#252 close superseded (R-57.4), #259 with the dashboard, and the Phase G plan rolls to history *(note 57 D-57.1 + D-57.6)* (#270) | The single front-end: no load moves, old-GUI files round-trip (OG-13 widened), G-OR-74's `_GUI_TREES` covers the whole survivor, one `st.set_page_config`, the journey walk re-aimed with an empty `KNOWN_OPEN`, no retired page reachable; `content.build_report`, the summary LaTeX path and their test-only residue deleted with the page, the merge having landed first (note 60 D-60.11) | V | L / L | #265–#269 **and the report-merge row** landed first (D-57.8 as amended by note 60 D-60.11) |
-| 12 | **Tail Span Loads page: fixed prose states fuselage attachments under its own T-TAIL one-support bullet** — #235's class, a conventional-tail sentence rendered unconditionally *(2026-09-09 review A2)* (#255) | ~~The closing paragraph and marker label conditioned on the layout~~ — **moot under note 57 D-57.1**: `app/views/tail_span_loads.py` is deleted with the front-end, and the report's own tail-span appendix carries the T-tail wording correctly. Closes as **superseded**, not fixed, with #270 | V | S / S | #270 (closes with it) |
 | **B6 — 0.8.5: the defect and polish cleanup, on the converged surface** ||||||
 | 13 | **Two owners for `report.json` / `build.json`, and a G-12a note nothing renders** — `io.py`'s `REPORT_SPEC_FILENAME`/`BUILD_STAMP_FILENAME` and `report/oracle_package.py`'s `PACKAGE_SPEC`/`PACKAGE_BUILD` are two constant pairs naming the same two package files, which is the duplicated-owner class practice 3 exists to prevent; and `gear_loads.LEG_WEIGHT_UNSET_NOTE` is public, in `__all__` and read by nothing, so a leg with no entered weight shows an OPEN free body with the explanation written and unrendered *(the #16 sweep's residue, filed 2026-09-11)* (#273) | One owner per filename, cited from the other; the G-12a note either rendered where the open free body is shown, or retired with its rule | V | S / S | — (the hygiene front) |
 | 14 | **Benchmark-first gets its presence guard** — no test asserts that a registered module carries an oracle or closure test at all *(review R-16)* (#186) | A registry-walking guard plus a per-module gate manifest, which also becomes the coverage matrix's single source | V | S / S | — |

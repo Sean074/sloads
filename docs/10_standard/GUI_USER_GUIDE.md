@@ -16,16 +16,19 @@ For the *why* behind the design, see
 unit-boundary input pattern). For every input field's type/units/default, see
 the generated [`DATA_DICTIONARY.md`](DATA_DICTIONARY.md).
 
-> **The two-tier interface.** A second front-end, the **oracle GUI**
-> (`streamlit run oracle_app/Oracle.py` / `sloads-oracle`), works over the same
-> project file and still leads with the original FAR 23 LOADS suite's own input
-> set — no concept mode and no exports. Since **#266** (design note 57
-> D-57.2) it no longer *stops* there: every input field sloads has renders,
-> the ones the original programs never asked for marked **✦** and each stating
-> why sloads asks for it. Leave them unfilled and the GUI asks exactly what the
-> original programs asked. It has its own page-by-page illustrated guide:
-> [`docs/60_guide/00_index.md`](../60_guide/00_index.md). Projects move between
-> the two front-ends unchanged.
+> **The two-tier interface.** The GUI (`streamlit run oracle_app/Oracle.py` /
+> `sloads-oracle`) leads with the original FAR 23 LOADS suite's own input set.
+> Since **#266** (design note 57 D-57.2) it does not *stop* there: every input
+> field sloads has renders, the ones the original programs never asked for
+> marked **✦** and each stating why sloads asks for it. Leave them unfilled and
+> the GUI asks exactly what the original programs asked. It has its own
+> page-by-page illustrated guide:
+> [`docs/60_guide/00_index.md`](../60_guide/00_index.md).
+>
+> **There were two front-ends until #270** (design note 57, D-57.1): a
+> workflow-driven app of 22 hand-written pages beside this one. It retired, with
+> everything worth keeping ported across first, and a project saved by it opens
+> here unchanged.
 >
 > **Figures** (#267, design note 60). Each page draws the figures the formal
 > report prints for it, in two blocks that say which they are: *what is
@@ -35,11 +38,11 @@ the generated [`DATA_DICTIONARY.md`](DATA_DICTIONARY.md).
 > *what was computed* — the V-n diagrams, the span loading, the shear and
 > bending distributions, the engine-out march. They are the report's own
 > figures, not a second drawing of the same numbers: one producer, two
-> renderers, and a test that fails if either front-end gains a figure the other
-> has not.
+> renderers — the page's and the document's — and a test that fails if the
+> screen and the page disagree about what exists.
 >
-> **Getting the numbers as files** (#245). The oracle GUI has one tabular
-> channel and it is the **Report** page: build an issue — a DRAFT needs no
+> **Getting the numbers as files** (#245). There is one tabular channel and it
+> is the **Report** page: build an issue — a DRAFT needs no
 > signatures, so iterating costs nothing — and the package it writes carries a
 > `data/` folder holding every module's load cases, the six applied load sets,
 > the balanced V-n conditions, the case index, the governing safety-factor
@@ -88,7 +91,7 @@ project — so the whole airplane travels as a single reloadable file.
 
 **Every load sloads delivers is LIMIT, and it is your sizing analysis that
 applies the factor.** The load-case CSV, the exported sizing cards, the reports
-and the Review/Export pages all report limit loads with the factor **stated** —
+and every page report limit loads with the factor **stated** —
 in an `SF` column, or an `SF=` line on a deck's subcase — and applied nowhere.
 Multiply by the stated `SF` to size.
 
@@ -122,26 +125,29 @@ cannot mistake what they have been handed.
 
 ## 2. The workflow: phases and pages
 
-The left sidebar is built from the workflow graph, so page order is the analysis
-order. There are seven phases:
-
-This table is **derived from `sloads/workflow.py`** — the navigation SSOT — and
-held to it by `tests/test_page_links.py::test_the_gui_guide_phase_table_matches_the_workflow`.
-Edit the graph, not the table.
+The sidebar is built from the workflow graph, so page order is the analysis
+order. Fourteen analysis pages in four phases:
 
 | Phase | Pages | What happens |
 |---|---|---|
-| **Start** | Project Dashboard · Project JSON Editor | Load/save a project; see completeness. |
 | **Develop V-n diagram** | Geometry · Weight & Mass Properties · Aerodynamic Data · Structural Speeds · Flight Envelope (V-n) | Define the airplane and build its flight envelope. |
-| **Flight loads** | Wing Loads · Fuselage Loads · Tail Loads · Tail Span Loads · Balanced Cases | Distribute the balanced flight loads onto the structure — including the two pages that carry the primary distributed deliverable. |
+| **Flight loads** | Wing Loads · Fuselage Loads · Tail Loads | Distribute the balanced flight loads onto the structure. |
 | **Other loads** | Aileron Loads · Flap Loads · Tab Loads · Engine Mount Loads · One Engine Out | Control-surface and engine-mount loads. |
 | **Landing loads** | Landing Loads | Ground/landing gear loads. |
-| **Load-case plotting** | Loads Plots | Visualize the envelope and load cases. |
-| **Export** | Aircraft Comparison · Results Review · Export & Report | Compare configurations, consolidate and export the ultimate deliverables. |
 
-**The Dashboard is your map.** It shows which slices are present and which pages
-are ready to run (a page is "ready" once the slices it *requires* exist). Work
-top-to-bottom and the requirements fall into place.
+Then three pages that are not analysis steps, and say so: the **Project JSON
+Editor**, the **✦ Aircraft Comparison** and the **Report** page. The page set is
+`workflow.gui_pages()` — derived from the step graph, not a list anyone
+maintains — so a step that gains a `.BAS` gains a page with no edit to the GUI.
+
+Two analysis steps have no page of their own: the **tail span loads** and the
+**balanced free-free cases**. They run, and their deliverables are the report's
+tail-span appendix and the balanced deck; the front-end that gave them a form
+retired at #270, and neither was ever a place you entered anything.
+
+**A page states what it needs.** Each one names the slices it requires and says
+which are missing, so working top-to-bottom makes the requirements fall into
+place.
 
 ---
 
@@ -220,15 +226,15 @@ page takes the engine/propeller weights, CG, power/torque, and rotor data.
 **Landing Loads.** Gear geometry (axle positions, strut stroke, tire/hub sizes)
 and the landing load factor.
 
-**Export & Report.** Writes the ultimate load-case CSV and the structural-sizing
-cards, with a methods/limitations statement stamped in. Its **Summary report**
-section renders the controlling document of the whole deliverable — the airplane,
-its envelope figures, the FAR coverage matrix, and every governing ultimate load
-with the safety factor and station it acts at. The LaTeX `.tex` always downloads;
-press **Compile PDF** to typeset it here when a TeX engine (`tectonic`,
-`latexmk` or `pdflatex`) is installed. Both, plus `METHODS.txt` and every CSV/BDF,
-go in the bundle `.zip`. Headless, the same document comes from
-`python cli.py --report out.pdf project.json`.
+**Report.** Renders the controlling document of the whole deliverable — the
+airplane, its axes and sign conventions, the governing safety-factor table, the
+FAR coverage matrix, the envelope figures, and every governing limit load with
+the factor and station it acts at — and writes it as an **issue package**: the
+`.tex`, the `.pdf` when a TeX engine (`tectonic`, `latexmk` or `pdflatex`) is
+installed, `METHODS.txt`, the project file, a manifest, and the `data/` folder
+that is the tabular channel. Headless, the same document comes from
+`python cli.py --report out.pdf project.json`; the sizing cards come from
+`python cli.py --export-sbeam out --export-target lra project.json`.
 
 ---
 
@@ -264,7 +270,7 @@ for the full table and page citations).
 
 ```bash
 # GUI
-.venv/bin/streamlit run app/Home.py      # then Start → Project JSON Editor → load examples/ga6_normal.project.json
+.venv/bin/streamlit run oracle_app/Oracle.py   # then Project JSON Editor → load examples/ga6_normal.project.json
 
 # or one module from the CLI
 .venv/bin/python cli.py engine examples/ga6_normal.project.json

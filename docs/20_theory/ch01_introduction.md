@@ -102,27 +102,30 @@ Chapters not yet written in full carry the template with their assumptions,
 limitations and validation pointers populated first — those are the sections
 an engineer needs before trusting a number.
 
-## 1.5 The two front-ends (and the one calc package under them)
+## 1.5 The front-end (and the one calc package under it)
 
-sloads ships two Streamlit front-ends plus a CLI, and **no physics lives in
-any of them**: the calculation package is I/O-free, and the front-ends are
+sloads ships one Streamlit front-end plus a CLI, and **no physics lives in
+either of them**: the calculation package is I/O-free, and the front-ends are
 interchangeable shells over the same modules. Every equation, assumption and
 limitation in this manual therefore applies identically regardless of which
 surface produced the number.
 
-- **The main app** (`app/Home.py`) is the workflow-driven front-end for doing
-  loads work: project definition through balanced cases and export, ordered by
-  the step graph.
-- **The oracle GUI** (`oracle_app/Oracle.py`) is the replication and
-  verification workbench: it mirrors the original FAR 23 LOADS program
+- **The GUI** (`oracle_app/Oracle.py`, or `sloads-oracle`) is the replication
+  and verification workbench: it mirrors the original FAR 23 LOADS program
   sequence so a user can walk the Appendix A airplane against the printed
-  pages. Its fidelity target is the **analysis contract** — the consumed
-  values and computed results — not the original's prompt-by-prompt interface
-  (ruling C210-15, `docs/50_reviews/2026-08-23_c210_oracle_gui_build_review.md`).
+  pages, and carries the fields sloads asks for beyond that sequence in a
+  marked second tier. Its fidelity target is the **analysis contract** — the
+  consumed values and computed results — not the original's prompt-by-prompt
+  interface (ruling C210-15,
+  `docs/50_reviews/2026-08-23_c210_oracle_gui_build_review.md`).
+- **The CLI** (`sloads <module> <project.json>`) runs any registered module and
+  writes its results, with no page to open.
 
-A feature present in one front-end and not the other is a user-interface
-difference, documented with the front-ends (`../10_standard/GUI_USER_GUIDE.md`),
-never a difference in analysis.
+It shipped two until 0.8.4: a workflow-driven main app beside the oracle
+workbench. Design note 57 retired the first — 22 pages over the same analysis
+model was a drift class rather than a capability, and everything worth keeping
+was ported into the survivor before anything was removed. A project file saved
+by either opens in the one that remains (OG-13), so no saved work was stranded.
 
 ## 1.6 The validation vocabulary used throughout
 

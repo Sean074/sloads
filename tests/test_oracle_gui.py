@@ -1488,20 +1488,33 @@ def test_a_project_the_oracle_gui_would_save_reloads_identically(path):
     assert once == twice
 
 
-def test_a_project_the_oracle_gui_would_save_opens_in_the_full_app():
-    """Gate G6, the direction that matters to a user: hand the reduced project
-    to ``app/`` and it builds, pages and all."""
+@pytest.mark.parametrize("path", _examples(), ids=lambda p: os.path.basename(p))
+def test_a_project_the_retired_gui_saved_opens_here(path):
+    """Gate G6, the direction that matters to a user -- **reversed at #270**
+    (note 57, gate 2).
+
+    It handed the *reduced* project to ``app/`` and asked that it build: two
+    peers, so the question was whether either could read the other's file. One
+    peer retired, and the question a user actually has is the other way round --
+    *the project I saved in the old GUI, does it still open?* So the fixture is
+    the full, unreduced project, which is what the retired front-end wrote (it
+    carried every slice, concept fields included), and the surviving GUI must
+    open every page on it.
+
+    OG-13's promise from the outside: one schema, and retiring a front-end
+    strands no saved file.
+    """
     from streamlit.testing.v1 import AppTest
 
-    reduced = reduce_to_oracle_inputs(io.load_project(_EXAMPLE))
-    for view in ("Home.py", os.path.join("views", "configuration_layout.py"),
-                 os.path.join("views", "weight_mass.py"),
-                 os.path.join("views", "dashboard.py")):
-        at = AppTest.from_file(os.path.join(_ROOT, "app", view), default_timeout=60)
-        at.session_state["project"] = io.project_from_dict(
-            json.loads(io.project_to_json(reduced)))
+    from sloads import workflow as wf
+
+    saved = io.project_from_dict(json.loads(
+        io.project_to_json(io.load_project(path))))
+    for key in wf.oracle_step_keys():
+        at = AppTest.from_string(_PAGE_SCRIPT.format(key=key), default_timeout=60)
+        at.session_state["project"] = saved
         at.run()
-        assert not at.exception, (view, [e.message for e in at.exception])
+        assert not at.exception, (key, [e.message for e in at.exception])
 
 
 def test_the_oracle_entry_point_builds():

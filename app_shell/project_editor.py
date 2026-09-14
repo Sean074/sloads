@@ -47,17 +47,18 @@ from sloads import workflow as wf
 from sloads.units import project_dict_to_display, project_dict_to_imperial
 from sloads.validation import safety_factor_valid
 
-#: The workflow step this page *is*. The editor is a step of the full app's
-#: page set and not of ``oracle_steps()``, so the oracle GUI registers it on
-#: ``st.navigation`` only -- the OR-16 pattern the Report page established, and
-#: for the same reason: ``register_pages`` is the derived step set (gate G2) and
-#: stays exactly that. Title and path are read from ``workflow.py`` rather than
-#: typed again, so the nav label has one owner in either GUI. The names carry
-#: the ``EDITOR_`` prefix because a shell symbol is owned for the whole app:
-#: a bare ``PAGE_TITLE`` here would collide with the one the oracle Report page
-#: already owns (gate G8).
+#: The page this module *is*. The editor is not a step of the analysis -- it
+#: edits the project every step reads -- so it is registered on
+#: ``st.navigation`` only: the OR-16 pattern the Report page established, and for
+#: the same reason: ``register_pages`` is the derived step set (gate G2) and
+#: stays exactly that. It was a step of the retired front-end's page set until
+#: #270, and is now one of ``workflow.NON_STEP_PAGES`` (note 57, D-57.1), which
+#: is where the title and the reason are owned rather than typed again here. The
+#: names carry the ``EDITOR_`` prefix because a shell symbol is owned for the
+#: whole app: a bare ``PAGE_TITLE`` here would collide with the one the Report
+#: page already owns (gate G8).
 EDITOR_STEP_KEY = "project_editor"
-EDITOR_TITLE = wf.BY_KEY[EDITOR_STEP_KEY].title
+EDITOR_TITLE = wf.non_step_page(EDITOR_STEP_KEY).title
 EDITOR_URL_PATH = EDITOR_STEP_KEY
 
 #: Stamped, like every widget seeded from the project: the text this page

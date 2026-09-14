@@ -45,7 +45,9 @@ from sloads.report import fingerprint as fingerprint_owner
 from sloads.report import oracle_content as oc
 from sloads.units import UnitSystem
 
-PAGE_TITLE = "Report"
+#: Owned in ``workflow.NON_STEP_PAGES`` with the reason this page is
+#: not an analysis step (note 44 OR-16, restated at note 57 D-57.1).
+PAGE_TITLE = wf.non_step_page("report").title
 
 #: Session-state keys, page-local by OR-17: the report belongs to this page, and
 #: ``app_shell``'s sidebar is shared with ``app/``, which has no report.
