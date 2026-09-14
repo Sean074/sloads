@@ -57,6 +57,14 @@ _EXTERNAL = ("http://", "https://", "mailto:", "#")
 #: against, not to today's (see the module docstring).
 _EXEMPT_TREES = (os.path.join(_DOCS, "90_record"),)
 
+#: Trees that exist only on a developer's machine. ``reference/`` is gitignored
+#: whole -- McMaster's manuals and the FAA circulars are copyright material kept
+#: local (CLAUDE.md) -- so a link into it can be right and still resolve to
+#: nothing on CI, which is how note 61's own closure commit went red on the
+#: guard it shipped (2026-09-14). A link into a local-only tree is accepted, not
+#: checked; the tree's absence is not a broken link.
+_LOCAL_ONLY_TREES = (os.path.join(_ROOT, "reference"),)
+
 #: Links that are already dead for a reason this guard must not paper over, and
 #: must not guess a target for either. The `app/` Streamlit front end was
 #: retired wholesale (note 60 D-60.12, #270); these two citations in a shipped
@@ -113,6 +121,9 @@ def test_every_markdown_link_resolves():
             if (rel_file, clean) in _KNOWN_DEAD:
                 continue
             resolved = os.path.normpath(os.path.join(os.path.dirname(path), clean))
+            if any(resolved == tree or resolved.startswith(tree + os.sep)
+                   for tree in _LOCAL_ONLY_TREES):
+                continue
             if not os.path.exists(resolved):
                 dangling.append(f"{rel_file} -> {target}")
     assert not dangling, (
