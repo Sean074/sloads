@@ -342,6 +342,59 @@ def test_every_project_widget_key_is_stamped(relative, path):
         "project's values (app_shell/widget_keys.py):\n  " + "\n  ".join(unstamped))
 
 
+def test_a_stale_stamp_is_replaced_not_nested():
+    """``widget_key`` re-stamps a key carrying an older generation's stamp.
+
+    The 0.8.4 closure review: a key stamped at generation 0 and stamped again
+    at generation 1 came out ``g1::g0::…`` -- a third widget, seeded by nobody
+    -- while the seed went to the ``g0::`` key. Idempotence has to mean "at the
+    current generation", not "if already stamped, leave it".
+    """
+    import streamlit as st
+
+    from app_shell.widget_keys import unstamped, widget_key
+
+    st.session_state["_project_generation"] = 4
+    try:
+        assert widget_key("x") == "g4::x"
+        assert widget_key("g4::x") == "g4::x"
+        assert widget_key("g0::x") == "g4::x"
+        assert unstamped(widget_key("g2::a.b")) == "a.b"
+        assert widget_key(None) is None
+    finally:
+        del st.session_state["_project_generation"]
+
+
+def _module_level_stamps(path):
+    """``widget_key(...)`` calls evaluated at import: module-level assignments."""
+    with open(path, encoding="utf-8") as handle:
+        tree = ast.parse(handle.read(), filename=path)
+    for node in tree.body:
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        for sub in ast.walk(node):
+            if (isinstance(sub, ast.Call) and isinstance(sub.func, ast.Name)
+                    and sub.func.id == "widget_key"):
+                yield node.lineno
+
+
+@pytest.mark.parametrize("relative,path", list(_gui_sources()),
+                         ids=[r for r, _p in _gui_sources()])
+def test_no_gui_module_stamps_a_key_at_import(relative, path):
+    """A stamp taken at import is a stamp frozen at generation 0.
+
+    Python imports a module once per process, so a module-level
+    ``widget_key(...)`` never sees a bump; the JSON editor's text key was one
+    (``app_shell/project_editor.py``, the 0.8.4 closure review) and the editor
+    went blank after the first load. Stamp at the use site, always.
+    """
+    stamped = [f"{relative}:{line}" for line in _module_level_stamps(path)]
+    assert not stamped, (
+        "widget_key() is evaluated at import here and so is frozen at generation "
+        "0; stamp the key where the widget is rendered instead:\n  "
+        + "\n  ".join(stamped))
+
+
 def test_every_shell_owned_key_still_names_a_widget():
     """The companion (#43's lesson): an exemption that names nothing exempts
     everything it might one day match. Each allowlisted key must appear as the

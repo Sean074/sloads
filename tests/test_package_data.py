@@ -236,6 +236,28 @@ def test_every_file_states_what_it_is_for_in_the_manifest(example):
         assert f.units and f.units != "--", f.name
 
 
+@pytest.mark.parametrize("example", ["ga6_normal", "baron_58"])
+def test_the_applied_headers_name_the_index_file_the_package_writes(example):
+    """A file a header points at is a file the package carries.
+
+    The #245 defect class a second time (the 0.8.4 closure review): the six
+    applied files sent the reader to ``<project>_case_index.csv``, the retired
+    export bundle's name, which no production path wrote after #270. The name is
+    ``tables.CASE_INDEX_FILENAME`` now and both sides read it.
+    """
+    from sloads.report.applied import _APPLIED_CSV_IDENTITY
+    from sloads.report.tables import CASE_INDEX_FILENAME
+
+    files = {f.name for f in _files(example)}
+    assert f"data/{CASE_INDEX_FILENAME}" in files, sorted(files)
+    assert f"data/{CASE_INDEX_FILENAME}" in _APPLIED_CSV_IDENTITY
+    assert "<project>_case_index" not in _APPLIED_CSV_IDENTITY
+    applied = [f for f in _files(example) if f.name.endswith("_applied_loads.csv")]
+    assert applied
+    for f in applied:
+        assert f"data/{CASE_INDEX_FILENAME}" in f.content, f.name
+
+
 def test_the_data_directory_has_one_owner():
     """``oracle_package`` places the files; ``package_data`` decides them.
 

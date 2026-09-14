@@ -191,6 +191,15 @@ def _rows_to_csv(rows: List[dict], header_comment: str = "") -> str:
     return header_comment + buf.getvalue()
 
 
+#: The name the case index ships under, inside the issue package's ``data/``.
+#: One owner: the package writes it (``package_data``) and the six applied
+#: files point their ``Case ID`` column at it (``applied._APPLIED_CSV_IDENTITY``).
+#: Until the 0.8.4 closure review the applied headers named
+#: ``<project>_case_index.csv`` -- the retired export bundle's spelling, which no
+#: production path wrote after #270 -- the #245 defect class a second time.
+CASE_INDEX_FILENAME = "case_index.csv"
+
+
 def case_index_csv(project: Project, extra: Sequence = (), header_comment: str = "",
                    assembled: Sequence = ()) -> str:
     """The case-index table (ID -> full definition) as CSV text, from ``project``'s

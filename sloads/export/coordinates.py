@@ -76,11 +76,33 @@ AIRPLANE_AXES = (
 #: moment sign follows from them, and that the solver deck is the same frame
 #: rather than a transformed one (#242). Stated as sentences rather than folded
 #: into :data:`AIRPLANE_AXES` because none of them is a property of one axis.
+#: ``(symbol, what a positive moment does)`` -- the physical sense of each
+#: right-handed moment about :data:`AIRPLANE_AXES`. **Forced by the frame, not
+#: chosen** (``CONVENTIONS.md`` §7): with x aft, y starboard and z up, the
+#: right-hand rule gives +Mx = starboard wing up (roll to port), +My = nose up,
+#: +Mz = nose to port. The 0.8.4 closure review found the stamped stanza stating
+#: Mx and Mz the other way on every delivered file while the report's own
+#: conventions section had them right; the words now live here once, the report
+#: prose reads them, and ``tests/test_delivered_frame_statement.py`` derives the
+#: senses from the axes by the cross product rather than trusting the sentence.
+MOMENT_SENSES = (
+    ("Mx", "rolls the starboard wing up (roll to port)"),
+    ("My", "pitches the nose up"),
+    ("Mz", "yaws the nose to port"),
+)
+
+#: The moment-sense sentence, built from :data:`MOMENT_SENSES` so the stamp and
+#: the report cannot spell it differently.
+MOMENT_SENTENCE = (
+    "moments are right-handed about the same axes, so "
+    + ", ".join(f"+{sym} {sense}" for sym, sense in MOMENT_SENSES[:-1])
+    + f", and +{MOMENT_SENSES[-1][0]} {MOMENT_SENSES[-1][1]}."
+)
+
 AXES_NOTES = (
     "The origin is the project's own datum -- every station, butt line and "
     "waterline in these files is the coordinate as entered, unshifted.",
-    "Moments are right-handed about those axes: positive Mx rolls right wing "
-    "down, positive My pitches nose up, positive Mz yaws nose right.",
+    MOMENT_SENTENCE[0].upper() + MOMENT_SENTENCE[1:],
     f"The sbeam solver decks use the same frame (NASTRAN basic CID "
     f"{SBEAM_CID}, right-handed), so the deck and these files state one "
     f"geometry and the transform between them is the identity.",

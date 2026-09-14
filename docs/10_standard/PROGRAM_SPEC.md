@@ -1041,7 +1041,7 @@ result that lacks what a deck needs is a stated error, never an empty column.
 - **Every delivered row states which case it is (#241, 2026-09-13).** The file
   leads with `Case ID`, `Case` and `Loading`, in that order, on all six
   components. `Case ID` is the minted `CaseRef.case_id` and is the key into
-  `<project>_case_index.csv`, which states that case's condition, CG, speed,
+  the package's `data/case_index.csv`, which states that case's condition, CG, speed,
   altitude and FAR paragraph; `Case` is the description and is **not** unique —
   LANDLOAD's 33 ground conditions share eight of them — and `Loading` is the
   named CG the case was computed at, blank where the case names none. Both are

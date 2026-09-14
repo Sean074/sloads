@@ -311,6 +311,13 @@ def source_schema_version(d: Mapping[str, Any]) -> int:
     file, it is a dict nobody wrote as one (``project_to_dict`` has stamped the
     version since the versioned era began). The gate must be able to say so.
     """
+    if not isinstance(d, Mapping):
+        # A JSON file whose top level is a list (or a bare scalar) is not a
+        # project of any version. Said as the error contract's ``ValueError``
+        # rather than an ``AttributeError`` on ``.get`` -- which reached the
+        # CLI as a traceback on all four routes (the 0.8.4 closure review).
+        raise ValueError(
+            f"a project file must hold a JSON object, not {type(d).__name__}")
     version = d.get("schema_version")
     return version if isinstance(version, int) else -1
 

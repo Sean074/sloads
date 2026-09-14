@@ -378,6 +378,14 @@ def test_an_unreadable_project_is_one_error_line_on_every_route(tmp_path, capsys
     assert cli.main([missing, "--report", str(tmp_path / "r2.tex")]) == 1
     assert capsys.readouterr().err.startswith("error: ")
 
+    # Valid JSON that is not an object (the 0.8.4 closure review): the same
+    # one line, not an AttributeError out of the schema gate.
+    a_list = tmp_path / "list.json"
+    a_list.write_text("[]", encoding="utf-8")
+    assert cli.main([str(a_list), "--report", str(tmp_path / "r3.tex")]) == 1
+    captured = capsys.readouterr()
+    assert captured.err.startswith("error: ") and "Traceback" not in captured.err
+
 
 if __name__ == "__main__":  # zero-dependency self-runner
     sys.exit(pytest.main([__file__, "-q"]))

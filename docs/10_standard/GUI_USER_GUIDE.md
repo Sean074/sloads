@@ -270,7 +270,7 @@ for the full table and page citations).
 
 ```bash
 # GUI
-.venv/bin/streamlit run oracle_app/Oracle.py   # then Project JSON Editor → load examples/ga6_normal.project.json
+.venv/bin/streamlit run oracle_app/Oracle.py   # then sidebar: Project file → Open → New from example → ga6_normal
 
 # or one module from the CLI
 .venv/bin/python cli.py engine examples/ga6_normal.project.json
@@ -298,9 +298,10 @@ carried straight into the envelope corner, confirming the seed chain end-to-end.
 *(Appendix A p179–180.)*
 
 If those four match on your machine, the input path is wired correctly. The
-**Export** phase then applies the ×1.5 factor of safety at the boundary, so the
-same 3.80-g maneuver appears in the exported CSV as an **ultimate** case
-(`SF=1.5`, loads in `lbs-ULT` / `ft-lb-ULT`).
+same 3.80-g maneuver then appears in the Report page's `data/` files and in
+the decks as a **LIMIT** case with `SF=1.5` **stated and not applied** (§1
+above, note 49): the loads stay in plain `lbs` / `ft-lb`, and the sizing
+analysis multiplies by the stated factor.
 
 > Because the math is modernized (real `math.pi`, not the BASIC's `3.1416`), the
 > manual's printed figures are **±0.1% regression oracles**, not exact — the
@@ -352,11 +353,12 @@ out-of-band result.
 
 ## 8. Bundled examples
 
-Load any of these from **Start → Project JSON Editor** (or `New from example`):
+Load any of these from the sidebar's **Project file → Open → New from example**
+(or upload the file):
 
 | Example | Category | Runs |
 |---|---|---|
-| `ga6_normal` | FAR 23 Normal (Appendix A) | full workflow, all six phases |
+| `ga6_normal` | FAR 23 Normal (Appendix A) | full workflow, all four phases |
 | `baron_58` | FAR 23 Normal (light twin) | full workflow |
 | `concept_regional_jet` | concept jet (T-tail, Part 25 supplement on, **25.335(b) Mach-margin dive speed**) | full workflow |
 | `atr42_100` | concept twin-turboprop (one-engine-out) | full workflow |

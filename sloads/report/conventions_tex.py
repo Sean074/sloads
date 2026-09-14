@@ -23,6 +23,8 @@ from __future__ import annotations
 
 from typing import List
 
+from ..export.coordinates import MOMENT_SENTENCE
+
 #: SUMMARY_REPORT.md §3.3 requires these two preserved ENGLOADS sentences
 #: verbatim wherever they apply; the section states them once, globally.
 ENGINE_TORQUE_SENTENCE = "engine-mount reaction torque is reported negative"
@@ -38,9 +40,9 @@ CONVENTIONS_PROSE: List[str] = [
     "(starboard); z = waterline, positive up. The frame is right-handed and "
     "maps to the solver deck frame (NASTRAN basic CID 0) as the identity. "
     "Forces follow the axes (fz = lift, up; fx = drag, aft; fy = side force, "
-    "starboard); moments are right-handed about the same axes, so +Mx rolls "
-    "the starboard wing up (roll to port), +My pitches the nose up, and +Mz "
-    "yaws the nose to port.",
+    # The moment senses are the frame owner's words (export/coordinates), so
+    # this section and the stamp on every delivered file say one sentence.
+    "starboard); " + MOMENT_SENTENCE,
 
     "Handed (left/right) case twins are mirror images through the centreline "
     "plane: a force flips only its fy component; a moment flips Mx and Mz, "

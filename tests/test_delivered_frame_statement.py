@@ -111,6 +111,43 @@ def test_the_axis_words_have_exactly_one_home():
                         f"export/coordinates.py owns: {sense!r}")
 
 
+def test_the_moment_senses_follow_from_the_axes_by_the_right_hand_rule():
+    """The stanza's +Mx / +My / +Mz senses are derived, not trusted.
+
+    The 0.8.4 closure review found the stamped sentence stating +Mx *rolls the
+    right wing down* and +Mz *yaws nose right* on every delivered file, while the
+    report's conventions section and ``bending_moment_vector`` had them the
+    other way. Presence of the words is not correctness of the words: this
+    rotates a point on each axis by the right-hand rule about the other two and
+    checks the sentence against the motion that comes out.
+    """
+    from sloads.export.coordinates import MOMENT_SENSES, MOMENT_SENTENCE
+
+    unit = {"x": (1.0, 0.0, 0.0), "y": (0.0, 1.0, 0.0), "z": (0.0, 0.0, 1.0)}
+
+    def cross(a, b):
+        return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2],
+                a[0] * b[1] - a[1] * b[0])
+
+    senses = dict(MOMENT_SENSES)
+    # +Mx: the starboard wing tip (+y) moves omega x r = x^ x y^ = +z, i.e. UP.
+    assert cross(unit["x"], unit["y"])[2] > 0
+    assert "starboard wing up" in senses["Mx"] and "down" not in senses["Mx"]
+    # +My: the tail (+x, aft) moves y^ x x^ = -z, so the nose pitches UP.
+    assert cross(unit["y"], unit["x"])[2] < 0
+    assert "nose up" in senses["My"]
+    # +Mz: the tail (+x) moves z^ x x^ = +y (starboard), so the nose goes to PORT.
+    assert cross(unit["z"], unit["x"])[1] > 0
+    assert "port" in senses["Mz"] and "right" not in senses["Mz"]
+    # ...and the frame it is derived against is the declared one.
+    declared = {sym: sense for sym, _name, sense in AIRPLANE_AXES}
+    assert "AFT" in declared["x"] and "RIGHT" in declared["y"] and "UP" in declared["z"]
+    # The stamp and the report say the same sentence.
+    assert MOMENT_SENTENCE.lower() in " ".join(AXES_NOTES).lower()
+    from sloads.report.conventions_tex import CONVENTIONS_PROSE
+    assert MOMENT_SENTENCE in " ".join(CONVENTIONS_PROSE)
+
+
 def test_the_frame_statement_does_not_depend_on_the_airplane():
     """Two different projects get the same axis stanza, to the byte.
 
