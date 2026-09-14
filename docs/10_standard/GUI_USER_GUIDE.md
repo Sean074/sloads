@@ -263,7 +263,7 @@ through). Loading it and stepping the pages reproduces the manual's printed
 figures. Below are **four hand-checkable numbers** that trace the seed chain
 from weight through to the flight envelope; each is a currently-passing
 regression oracle (see
-[`../40_history/01_verification_baseline_0.2.0.md`](../40_history/01_verification_baseline_0.2.0.md)
+[`../90_record/01_verification_baseline_0.2.0.md`](../90_record/01_verification_baseline_0.2.0.md)
 for the full table and page citations).
 
 **Load it:**
@@ -376,4 +376,4 @@ pages. The other five are authored to run end-to-end without a red error.
   page conventions.
 - **What each module computes:** [`PROGRAM_SPEC.md`](PROGRAM_SPEC.md).
 - **Equation/oracle sources:** [`../20_theory/00_theory_sources.md`](../20_theory/00_theory_sources.md).
-- **The exact oracle figures:** [`../40_history/01_verification_baseline_0.2.0.md`](../40_history/01_verification_baseline_0.2.0.md).
+- **The exact oracle figures:** [`../90_record/01_verification_baseline_0.2.0.md`](../90_record/01_verification_baseline_0.2.0.md).

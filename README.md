@@ -62,7 +62,7 @@ oracle_app/
 cli.py                    # python cli.py engine project.json -o out.csv
 tests/                    # pytest; each module vs the manual's appendices
 examples/                 # ga6_normal (Appendix A) + baron_58 (normal-cat twin), atr42_100 + concept_regional_jet (concept) run the full workflow; concept_heavy is a minimal concept-core demo (V-n → Flight Envelope only)
-docs/                     # by type: 10_standard, 20_theory, 30_future, 40_history (see docs/00_INDEX.md)
+docs/                     # by type: 10_standard, 20_theory, 25_notes, 30_future, 90_record (see docs/00_INDEX.md)
 pyproject.toml            # build metadata, deps, ruff + pytest/coverage config
 cspell.json               # domain wordlist
 ```

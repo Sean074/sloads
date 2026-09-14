@@ -33,7 +33,7 @@ shape of that work is unchanged.
 from the Phase-0 ``engloads`` era) covered every shape change from v18 to v55.
 They are recorded, with the archaeology table that reconstructed which schema
 version each legacy path belonged to, in
-``docs/40_history/11_completed_development_to_0.5.0.md`` (M4-10) and in this
+``docs/90_record/11_completed_development_to_0.5.0.md`` (M4-10) and in this
 file's own git history. The six bundled examples were re-stamped through that
 chain at the cut, verified output-neutral: the ``Project`` loaded from each old
 file and from its re-stamped replacement are identical dicts, and

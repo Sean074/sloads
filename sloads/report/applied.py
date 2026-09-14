@@ -74,7 +74,7 @@ rigid-body transfer, the torsion was wrong by 151 % / 190 % / 120 % on
 ``ga6_normal`` (PHAA / TORS / ACRL) and 34 % / 21 % on ``baron_58``, while shear
 and both bending columns closed exactly. Rebuilt from the applied set the worst
 error over every station of every case of both airplanes is 2.5e-15. Design
-note: ``docs/40_history/46_applied_wing_load_set_note.md`` (OR-67).
+note: ``docs/25_notes/46_applied_wing_load_set_note.md`` (OR-67).
 
 Concentrated masses: the offset couples
 ---------------------------------------
@@ -90,7 +90,7 @@ cumulative shear, bending *and* torsion at every node. The bending members
 the ``my`` member is folded into the node's applied torsion, which is already
 body-axis. All three are zero on a wing with no concentrated masses, which is
 every fixture the printed oracle covers. Prior design note:
-``docs/40_history/19_concentrated_wing_mass_nodal_split_plan.md``, whose
+``docs/25_notes/19_concentrated_wing_mass_nodal_split_plan.md``, whose
 two-component couple this completes.
 
 Torsion reference axis

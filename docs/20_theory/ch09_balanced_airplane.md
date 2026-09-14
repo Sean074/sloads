@@ -13,11 +13,11 @@ and the ground/landing families of FAR 23.471–23.499.
   explains; it never overrides). Module spec:
   [`PROGRAM_SPEC.md`](../10_standard/PROGRAM_SPEC.md) "Balanced cases and the
   assembled deck". Decision records: plans
-  [11](../40_history/11_balanced_airframe_cases_plan.md) (B-1…B-8) and
-  [13](../40_history/18_b8a_lateral_closure_plan.md) (L-1…L-8) and
-  [18](../40_history/23_step10_ground_cases_plan.md) (G-1…G-13, the ground
+  [11](../25_notes/11_balanced_airframe_cases_plan.md) (B-1…B-8) and
+  [13](../25_notes/18_b8a_lateral_closure_plan.md) (L-1…L-8) and
+  [18](../25_notes/23_step10_ground_cases_plan.md) (G-1…G-13, the ground
   families, §9), and decision
-  **D-R8** in [`03_resolved_decisions.md`](../40_history/03_resolved_decisions.md)
+  **D-R8** in [`03_resolved_decisions.md`](../25_notes/03_resolved_decisions.md)
   (the 23.427(a) family, §8).
 - **Code:** `sloads/modules/balance.py` (assembly + closure),
   `sloads/rigid_body.py` (the relief field, single owner),
@@ -146,14 +146,14 @@ it is part of the record:
      `root_waterline_z` is the *wing* root. Absent an entered
      `body_drag_waterline_z` it is the wing reference plane, marked `assumed`,
      which is where the trim itself assumes the whole airplane's drag acts. Design
-     note [`20_body_drag_carrier_note.md`](../40_history/24_body_drag_carrier_note.md)
+     note [`20_body_drag_carrier_note.md`](../25_notes/24_body_drag_carrier_note.md)
      §8.1; the `ΔC_D` diagnostic is reported per case because carrying the load
      makes the applied axial resultant equal the trim's `dx` by construction.
 
 ### 2.1 Engine thrust — the one load nothing balances (#10)
 
 Carved out of design note
-[`21_power_effects_wing_note.md`](../30_future/21_power_effects_wing_note.md),
+[`21_power_effects_wing_note.md`](../25_notes/21_power_effects_wing_note.md),
 whose seven-step wake plan stays parked. The user enters one thrust per engine
 (`EngineInput.thrust_lb`) and it becomes a `FORCE` at that engine's hub — the
 node the LRA skeleton has carried since R-9 and, until this step, never had a
@@ -649,7 +649,7 @@ exact.
 ## 9. The ground families — FAR 23.471–23.499
 
 **Decisions G-1, G-6, G-7 (+G-7a), G-8** of plan
-[18](../40_history/23_step10_ground_cases_plan.md). The fourth family, and the
+[18](../25_notes/23_step10_ground_cases_plan.md). The fourth family, and the
 one that breaks the shape of every section above: it has **no V-n point**. The
 LANDLOAD conditions — level and tail-down landing, one-wheel landing, braked
 roll, side load — are assembled here rather than in a per-component view because
@@ -845,7 +845,7 @@ manual). MAC 69.246 in throughout.
 > `ρ = −GRA(2)` under the `BETA(2)` deviation (design note 38 GF-1/GF-2′;
 > register [`02_approved_corrections.md`](02_approved_corrections.md)), which the
 > level attitude is not subject to; `LG-04` is applied at the **axle** and not at
-> the tyre ([design note 39](../40_history/43_application_point_note.md), #139),
+> the tyre ([design note 39](../25_notes/43_application_point_note.md), #139),
 > which is where the landing families act. Only `My` and `q̈` are sensitive to
 > either — the forces are LANDLOAD's own and neither convention touches them,
 > which is why `n_z`, `n_x` and the rotated `NVP`/`NDP` agree with the printed
@@ -978,7 +978,7 @@ negative inside the window; the clamped set is pinned both ways with per-case
 residual ceilings. Its waterline is the single owner
 `derived_geometry.body_drag_waterline` — the only free parameter of the load, and
 stated rather than derived because the suite has no body-centreline datum (design
-note `../40_history/24_body_drag_carrier_note.md` §8.1).
+note `../25_notes/24_body_drag_carrier_note.md` §8.1).
 
 One term still has no distributed carrier and is stated as lumped rather than
 omitted: the fuselage's share of the airplane-less-tail `Cm` (the Munk moment,

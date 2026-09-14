@@ -49,7 +49,7 @@ lift's lever arm about the root station.
 Conventions: ``docs/10_standard/CONVENTIONS.md`` (axes, signs, units channels,
 ULT/SF contract). Deck contract: ``docs/10_standard/PROGRAM_SPEC.md``
 (sbeam-bridge section). Design note:
-``docs/40_history/15_export_equilibrium_invariant_plan.md``.
+``docs/25_notes/15_export_equilibrium_invariant_plan.md``.
 """
 
 from __future__ import annotations

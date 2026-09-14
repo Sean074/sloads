@@ -415,7 +415,8 @@ def create(items: Sequence[Item], milestone: Optional[str]) -> Dict[str, int]:
     return numbers
 
 
-CHANGELOG = os.path.join(ROOT, "CHANGELOG.md")
+#: The record corpus, out of the default search path (design note 61 CV-4).
+CHANGELOG = os.path.join(ROOT, "docs", "90_record", "CHANGELOG.md")
 #: `## [0.7.2] — 2026-08-25` — a released section. `[Unreleased]` is not one.
 CUT_SECTION = re.compile(r"^##\s*\[(\d+\.\d+\.\d+)\]", re.M)
 #: The release a band header names: `**B — 0.8.0: oracle-GUI development**`.

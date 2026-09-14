@@ -174,8 +174,8 @@ closure suite extended; V-n plot shows the Part 25 shape; identity test —
 category "T" with FAR 23 parameters reproduces the FAR 23 envelope.
 
 **F25-2 — Speeds & placards, Part 25 variant (S). ✅ SHIPPED 2026-08-08**
-(tier L; plan `../40_history/16_f25-2_speeds_placards_plan.md`, record in
-`../40_history/00_completed_development.md`). The 25.335(b) Mach-margin route as
+(tier L; plan `../25_notes/16_f25-2_speeds_placards_plan.md`, record in
+`../90_record/00_completed_development.md`). The 25.335(b) Mach-margin route as
 an explicit `speeds.vd_basis`, concept category "C" only; margin policy owned by
 `structural_speeds.resolve_mach_margin` (0.07 default / 0.05 floor /
 justification in between); the M2-10 ladder's hardcoded 0.05 replaced by the

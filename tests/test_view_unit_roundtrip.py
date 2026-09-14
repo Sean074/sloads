@@ -1,7 +1,7 @@
 """A number typed into a page reaches the project in Imperial — in both systems.
 
 This is the M4-11 acceptance test the plan calls "the real one"
-(``docs/40_history/07_m4_maintainability_sequence_plan.md`` §4 step 3). A
+(``docs/25_notes/07_m4_maintainability_sequence_plan.md`` §4 step 3). A
 ``unit_number_input`` that converted twice, or in the wrong direction, would
 render perfectly and silently corrupt every input on every page.
 ``test_app_components.py`` pins the helper in isolation; this file pins it

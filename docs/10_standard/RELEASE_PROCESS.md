@@ -55,7 +55,7 @@ Documentation consistency is enforced **per-change** by the tiered closure requi
 in `CLAUDE.md`, not re-audited at release time.
 
 - [ ] [`../30_future/00_backlog.md`](../30_future/00_backlog.md) — every item in this release is removed (**spot-check**, not an audit; closed items don't live in the backlog).
-- [ ] [`../40_history/00_completed_development.md`](../40_history/00_completed_development.md) — every tier-M/L step in this release is recorded at its closure-tier depth (tier S has no history entry — its `changes/` fragment is the record).
+- [ ] [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md) — every tier-M/L step in this release is recorded at its closure-tier depth (tier S has no history entry — its `changes/` fragment is the record).
 - [ ] `changes/` — every closed item has its fragment; `.venv/bin/python scripts/build_changelog.py --dry-run` runs clean and reads as the release note (`changes/README.md`).
 - [ ] **The band being cut is retired from the priority table** and the band that
       follows becomes the milestone in flight (§Where things stand says so). A band
@@ -119,11 +119,12 @@ already closed, each in its own commit, so the PR body carries **no**
 `Closes #N`.
 
 1. **Bump the version** in `sloads/_version.py` (`__version__`). `pyproject.toml` reads it and needs no edit. Commit: `Bump version to X.Y.Z`.
-2. **Build the changelog and roll the history fragments** — `.venv/bin/python scripts/build_changelog.py X.Y.Z --date YYYY-MM-DD` assembles the `changes/` fragments into `## [X.Y.Z] — YYYY-MM-DD` (Breaking / Added / Changed / Fixed / Removed), inserts every `changes/*.history.md` entry at the top of `docs/40_history/00_completed_development.md` (design note 28 MD-4), opens a fresh empty `[Unreleased]`, and deletes the consumed fragments. Then write the release-cut block in the history file by hand (the one entry that is not a fragment). Run `scripts/backlog_issues.py check` — every priority-table row names an open issue and vice versa (MD-5). Never hand-edit `[Unreleased]`; fix a fragment and re-run instead. Commit: `Changelog for X.Y.Z`.
-3. **Roll the history (mechanical, bounded — design note 26, 2026-08-16):**
-   - move every plan/design note in `docs/30_future/` whose status header reads *shipped* to `docs/40_history/` (next free number; update its `docs/00_INDEX.md` row);
-   - if [`../40_history/00_completed_development.md`](../40_history/00_completed_development.md) exceeds **1,500 lines** (`tests/test_changelog_fragments.py` warns), cut it at the *previous* release's "Release cut" block and move everything below that block verbatim into a new frozen `docs/40_history/NN_completed_development_to_<prev>.md` (header text: copy `11_completed_development_to_0.5.0.md`); the live file keeps this release's cycle plus its own release-cut block; add the INDEX row and the pointer line in the live file's header.
-   Nothing here is an audit: statuses and line counts are the only inputs.
+2. **Build the changelog and roll the history fragments** — `.venv/bin/python scripts/build_changelog.py X.Y.Z --date YYYY-MM-DD` assembles the `changes/` fragments into `## [X.Y.Z] — YYYY-MM-DD` (Breaking / Added / Changed / Fixed / Removed), inserts every `changes/*.history.md` entry at the top of `docs/90_record/00_completed_development.md` (design note 28 MD-4), opens a fresh empty `[Unreleased]`, and deletes the consumed fragments. Then write the release-cut block in the history file by hand (the one entry that is not a fragment). Run `scripts/backlog_issues.py check` — every priority-table row names an open issue and vice versa (MD-5). Never hand-edit `[Unreleased]`; fix a fragment and re-run instead. Commit: `Changelog for X.Y.Z`.
+3. **Roll the record (mechanical, bounded — design note 26, amended by note 61):**
+   - **no note moves.** Design note 61 CV-3 files every note in `docs/25_notes/` from the day it is written, whatever its status — the status-driven move this step used to carry is retired. A note's **Status** line is what changes when its work ships, and `tests/test_doc_currency.py` already guards that;
+   - if [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md) exceeds **1,500 lines** (`tests/test_changelog_fragments.py` warns), cut it at the *previous* release's "Release cut" block and move everything below that block verbatim into a new frozen `docs/90_record/NN_completed_development_to_<prev>.md` (header text: copy `11_completed_development_to_0.5.0.md`); the live file keeps this release's cycle plus its own release-cut block; add the INDEX row and the pointer line in the live file's header;
+   - if [`../90_record/CHANGELOG.md`](../90_record/CHANGELOG.md) exceeds the same **1,500 lines** (same guard, note 61 CV-5), roll it in the same pass: re-run step 2 with `--roll`, or `.venv/bin/python scripts/build_changelog.py X.Y.Z --date YYYY-MM-DD --roll`. Release blocks older than the previous one are frozen verbatim into `docs/90_record/CHANGELOG_to_<version>.md`; add its INDEX row.
+   Nothing here is an audit: line counts are the only inputs.
 4. **Tag — only on a green `main`.** The merge's push to `main` runs the full
    3.10/3.11 + coverage matrix, the gate of record for the whole milestone, and
    it runs only there — so the tag waits for it: run
@@ -133,13 +134,13 @@ already closed, each in its own commit, so the PR body carries **no**
    precondition is the tag-on-red half of that finding (#184). Then
    `git tag -a vX.Y.Z -m "Release vX.Y.Z"` and `git push origin vX.Y.Z`.
    Create a GitHub Release from the tag with the changelog entry as the body.
-5. **Archive verification** — record the numerical output (module figure vs. Appendix figure) for the modules in this release under `docs/40_history/` as a permanent regression baseline.
+5. **Archive verification** — record the numerical output (module figure vs. Appendix figure) for the modules in this release under `docs/90_record/` as a permanent regression baseline.
 
 ---
 
 ## 5. Post-release
 - [ ] `docs/30_future/00_backlog.md` — remove anything resolved by this release; add any new defects found in final testing.
-- [ ] Confirm the release tag/date are noted in `docs/40_history/00_completed_development.md` (a "Release cut" block, tier M depth — it is also the next history-roll's cut line).
+- [ ] Confirm the release tag/date are noted in `docs/90_record/00_completed_development.md` (a "Release cut" block, tier M depth — it is also the next history-roll's cut line).
 - [ ] Identify the next phase/module from the backlog.
 
 ---

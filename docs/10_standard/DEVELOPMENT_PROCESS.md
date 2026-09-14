@@ -32,7 +32,7 @@ conflicting with the next branch) is the evidence. While solo:
 | Closure tiers, fragments, design-note-before-physics, rules 1–6, release gate (§3, §5, §8, §10) | **Unchanged.** These are the quality mechanisms; none of them needs a second person. A tier-L design note is agreed in chat and merged with the work (`CLAUDE.md` rule 1); §9's "agreed in chat is retired" resumes with the second collaborator. |
 | Branch protection on `main` | **Stays fully on** (2026-08-22) — the milestone model needs no bypass, because the only thing that ever lands on `main` is the milestone PR. Owner-applied settings: PR required; required checks are the **fast gate** — `test (3.12)`, `typecheck`, `sbeam-roundtrip (3.12)`; **"Require linear history" ON**, so the milestone PR is **rebase-merged** and every per-item commit survives on `main` as its own linear commit. This row said the opposite until 2026-08-25 — "linear history off, merge commits allowed" — and the setting, not the doc, was the truth: the 0.7.2 PR was blocked with "This branch must not contain merge commits". Rebase satisfies both requirements at once, so no setting was changed to fit the doc. `dev/**` is deliberately **unprotected**: its CI is advisory. |
 | CI shape (`ci.yml`) | **Fast gate everywhere except the merge to `main`.** Every PR *and* every push to a `dev/**` milestone branch runs one interpreter (3.12 **uninstrumented**, mypy, solver round-trip on 3.12) — measured 7.3 min, of which pytest is 7.2 (2026-08-22: 4 xdist workers on the public-repo runner, ~1,700 CPU-seconds of tests spread broadly — the slowest-15 are only ~13 % of it, so no slow-test split moves this number; a suite-wide fixture reduction would, and is band B). The 3.10/3.11 compatibility legs **and the coverage-instrumented 3.12 leg** run on the push to `main` — i.e. on the milestone merge — and are fixed forward; coverage joined them 2026-08-22, when the instrumented PR leg passed 27 minutes. The instrumented leg measures line coverage under `COVERAGE_CORE=sysmon` (branch measurement under `sys.monitoring` needs Python 3.14; branch figures on demand locally with `--cov-branch`). The three matrix conditionals therefore key on **push-to-`main`**, never on "is this a PR" — keyed the old way a `dev/**` push would take the other arm and run the 27-minute leg (guard: `tests/test_solo_scripts.py`). A re-push cancels the run in flight (`concurrency`), so a burst of item commits leaves only the last one verified — working one item at a time, that is the intended trade. |
-| Local gate before merge/push | `ruff` · `mypy` (the pre-commit hook, ~10 s) and the suite **once**, on the whole tree, immediately before the push (the pre-push hook) — not after every edit. **This is now the gate that actually costs you time**, since CI on `dev/**` is advisory and runs behind you. **It scales to the change set:** a docs-only change set — every path either `*.md` or under `docs/` or `changes/` — runs `ruff` · `mypy` and the five guard files — `test_doc_currency`, `test_changelog_fragments`, `test_schema_guards`, `test_backlog_issues`, `test_workflow` — in ~3 s instead of the suite's ~150 s; `solo_close.sh` decides from the paths and `--full-gate` overrides. Any other change set takes the whole suite. Since 2026-08-22 that predicate sizes the gate and **nothing else** — where an item is closed no longer depends on what it touches, because every item closes the same way on the milestone branch. While iterating run **the module's own test file**, and `test_deliverable_units.py` once before closing rather than per edit — it is where a physics change shows first (the Imperial digest) *and* now the slowest file in the suite, so per-edit it costs more than the whole suite did when this row was written (timings and the ~43 s parallel floor: `.pre-commit-config.yaml`, re-measured 2026-08-19). |
+| Local gate before merge/push | `ruff` · `mypy` (the pre-commit hook, ~10 s) and the suite **once**, on the whole tree, immediately before the push (the pre-push hook) — not after every edit. **This is now the gate that actually costs you time**, since CI on `dev/**` is advisory and runs behind you. **It scales to the change set:** a docs-only change set — every path either `*.md` or under `docs/` or `changes/` — runs `ruff` · `mypy` and the six guard files — `test_doc_currency`, `test_doc_links`, `test_changelog_fragments`, `test_schema_guards`, `test_backlog_issues`, `test_workflow` — in ~3 s instead of the suite's ~150 s; `solo_close.sh` decides from the paths and `--full-gate` overrides. Any other change set takes the whole suite. Since 2026-08-22 that predicate sizes the gate and **nothing else** — where an item is closed no longer depends on what it touches, because every item closes the same way on the milestone branch. While iterating run **the module's own test file**, and `test_deliverable_units.py` once before closing rather than per edit — it is where a physics change shows first (the Imperial digest) *and* now the slowest file in the suite, so per-edit it costs more than the whole suite did when this row was written (timings and the ~43 s parallel floor: `.pre-commit-config.yaml`, re-measured 2026-08-19). |
 
 **The loop is scripted (issue #27, 2026-08-17; cycle-time revision 2026-08-19;
 milestone-branch revision 2026-08-22):**
@@ -164,7 +164,7 @@ its tier:
 | **L** | M + `theory_sources.md` citation + the design note flipped to *shipped* + `changes/<slug>.history.md` (full step format) |
 
 - **History entries are fragments** (`<slug>.history.md`), rolled to the top of
-  `docs/40_history/00_completed_development.md` at release cut by
+  `docs/90_record/00_completed_development.md` at release cut by
   `scripts/build_changelog.py`, so concurrent PRs never edit the same line
   there. Until the cut, `ls changes/` is the release's history. Only the
   release-cut block is written directly, by the release manager.
@@ -218,10 +218,13 @@ its tier:
   are fine; `docs/00_INDEX.md` is the index (guarded both ways by
   `tests/test_doc_currency.py`).
 - Every note carries `**Owner:** @handle` and `**Reviewers:** …` under its title.
-- `30_future/` holds only `00_backlog.md`, the live plan files
-  (`01_concept_loads_plan.md`, `03_gui_rework_plan.md`), `02_parked.md`, and the
-  live notes — nothing else. Shipped notes and completed plans move to
-  `40_history/` at release cut (note 26 DV-5).
+- `25_notes/` holds **every** design note and plan, whatever its status: a note
+  that has shipped is still the authority for what it decided (note 61 CV-3).
+  Note 26 DV-5's status-driven move to `40_history/` is retired — nothing moves
+  at release cut but the record itself.
+- `30_future/` holds only `00_backlog.md`, `02_parked.md` and the
+  plan-of-record documents (`01_concept_loads_plan.md`,
+  `03_gui_rework_plan.md`, `04_far25_gap_analysis.md`) — nothing else.
 
 ## 6. The three shared counters — rebase before you regenerate (MD-7)
 

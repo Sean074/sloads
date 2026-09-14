@@ -119,10 +119,20 @@ def test_every_index_row_points_at_a_file():
 # Note 44's row grew to ~600 words restating OR-13..OR-37 with its own copy of
 # the status, and the 46/47 rows mirrored the stale AGREED that #183 fixed in
 # the notes themselves -- a second hand-maintained statement per note, the
-# rule-3 drift class. A `30_future/` row is one sentence plus the pointer and
+# rule-3 drift class. A live row is one sentence plus the pointer and
 # carries **no status**: the note's own Status line is the single owner.
-# `40_history/` rows are exempt -- an archived note's status can never change
-# again, so those rows are frozen record, not a drift surface.
+# `90_record/` rows are exempt -- a frozen record's status can never change
+# again, so those rows are record, not a drift surface.
+#
+# Design note 61 CV-3 files every note in `25_notes/` whatever its status, so
+# a shipped note's row is a drift surface again and the **status** half of the
+# rule now covers both directories (20 rows were cleaned in that change). The
+# **length** half still covers `30_future/` only: 44 of the note rows exceed
+# the cap, and trimming a row to one sentence is a content edit per note, not
+# a consequence of re-filing them. Widening `_LEN_ROW_DIRS` to match
+# `_STATUS_ROW_DIRS` is the follow-up that finishes #187.
+_STATUS_ROW_DIRS = ("25_notes/", "30_future/")
+_LEN_ROW_DIRS = ("30_future/",)
 _LIVE_ROW_CAP = 320
 _STATUS_WORD = re.compile(r"\b(AGREED|SHIPPED|BUILT|PROPOSED)\b")
 
@@ -131,17 +141,18 @@ def test_a_live_note_index_row_is_one_line_and_states_no_status():
     offenders = []
     with open(_INDEX, encoding="utf-8") as fh:
         for line in fh:
-            if not line.startswith("| [`") or "](30_future/" not in line:
+            if not line.startswith("| [`"):
                 continue
             name = line.split("[`", 1)[1].split("`]", 1)[0]
-            if len(line.rstrip()) > _LIVE_ROW_CAP:
+            if any(f"]({d}" in line for d in _LEN_ROW_DIRS) and len(line.rstrip()) > _LIVE_ROW_CAP:
                 offenders.append(f"{name}: {len(line.rstrip())} chars (cap {_LIVE_ROW_CAP})")
-            claim = _STATUS_WORD.search(line)
-            if claim:
-                offenders.append(f"{name}: states a status ({claim.group(0)}) -- "
-                                 "the note's own Status line is the single owner")
+            if any(f"]({d}" in line for d in _STATUS_ROW_DIRS):
+                claim = _STATUS_WORD.search(line)
+                if claim:
+                    offenders.append(f"{name}: states a status ({claim.group(0)}) -- "
+                                     "the note's own Status line is the single owner")
     assert not offenders, (
-        "docs/00_INDEX.md rows for live 30_future/ files must be one sentence "
+        "docs/00_INDEX.md rows for live 25_notes/ and 30_future/ files must be one sentence "
         "plus the pointer, no status (#187):\n  " + "\n  ".join(offenders))
 
 
@@ -162,7 +173,7 @@ def test_the_standard_tree_holds_only_guardable_text_formats():
     )
     assert not binaries, (
         "docs/10_standard/ files no drift guard can read (#189) -- demote them "
-        f"to docs/40_history/ or convert to markdown: {binaries}")
+        f"to docs/90_record/ or convert to markdown: {binaries}")
 
 
 # --------------------------------------------------------------------------- #
@@ -243,9 +254,11 @@ def test_no_second_spelling_of_the_release_state():
 # --------------------------------------------------------------------------- #
 # A design note cannot claim work is unbuilt after it has shipped (#128)
 # --------------------------------------------------------------------------- #
-# It blocks a release rather than trailing it: `RELEASE_PROCESS.md` §4 step 3
-# rolls the notes into `docs/40_history/` at the cut, so an "unbuilt" claim
-# enters the permanent record of the release that built it. Two instances found
+# It blocks a release rather than trailing it. Design note 61 CV-3 retired the
+# status roll -- a note stays in `docs/25_notes/` whether or not it has shipped
+# -- which raises the stakes rather than lowering them: a stale "unbuilt" claim
+# no longer settles into an archive nobody greps, it stays in the note corpus
+# that CV-4 made the *default* search path. Two instances found
 # together (production-release review 2026-08-27 §3.3): note 32 said "everything
 # else is unbuilt" of the oracle GUI whose every step had shipped, note 35 said
 # "Nothing below is built yet" of work that shipped as #100.
@@ -256,7 +269,7 @@ def test_no_second_spelling_of_the_release_state():
 # `changes/` fragment behind by the tiered-closure rule, and that fragment cites
 # the note. So the fragment is the proxy, and it is a faithful one: it exists
 # because something closed.
-_NOTES_DIR = os.path.join("docs", "30_future")
+_NOTES_DIR = os.path.join("docs", "25_notes")
 _CHANGES = os.path.join(_ROOT, "changes")
 #: Claims that work in this note has not been done. Kept literal rather than
 #: clever -- a guard that guesses at prose fails on innocent sentences, and the
@@ -307,9 +320,9 @@ def test_a_design_note_does_not_claim_unbuilt_work_it_has_shipped(note):
     assert not evidence, (
         f"{note} still claims unbuilt work ({claims}) while {'; '.join(evidence)}. "
         "Restate the Status line for what shipped -- notes 36/37 (SHIPPED) and 34 "
-        "(AGREED …; BUILT …) are the model. RELEASE_PROCESS.md §4 step 3 rolls "
-        "this note into docs/40_history/ at the cut, so the claim would enter the "
-        "permanent record of the release that built it (#128)."
+        "(AGREED …; BUILT …) are the model. Design note 61 CV-3 keeps this note "
+        "in docs/25_notes/ for good, so the claim stays in the default search "
+        "path until someone corrects it (#128)."
     )
 
 
@@ -320,9 +333,10 @@ def test_a_design_note_does_not_claim_unbuilt_work_it_has_shipped(note):
 # left at plain AGREED after the work landed passes CI -- three of the last
 # four tier-L closures did exactly that (notes 46/47/48, review R-13), and the
 # 0.8.2 hygiene pass found two more the issue did not know about (50, 53). It
-# matters because `RELEASE_PROCESS.md` §4 step 3 rolls notes to
-# `docs/40_history/` BY STATUS HEADER: an unflipped note is skipped by the roll
-# and a wrong status enters the permanent record. The evidence is the same
+# matters because the Status line is now the *only* thing that says whether a
+# note describes built work: design note 61 CV-3 files notes by function rather
+# than by status, so the directory a note sits in no longer answers the
+# question and a wrong header has nothing to contradict it. The evidence is the same
 # in-repo proxy #128 uses, narrowed to where it is unambiguous: a
 # `changes/*.history.md` fragment's own `## Step` heading names the note it
 # ships (``(design note 53, tier L``); a prose mention in a fragment body

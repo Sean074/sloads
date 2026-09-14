@@ -1,6 +1,6 @@
 """The empennage planform the spanwise strip integrator runs on (plan 09 T1).
 
-Design note: ``docs/40_history/09_distributed_empennage_loads_plan.md`` decisions
+Design note: ``docs/25_notes/09_distributed_empennage_loads_plan.md`` decisions
 **T-1** (reuse ``SurfaceInput``) and **T-8** (full-span h-tail bookkeeping).
 Conventions: ``docs/10_standard/CONVENTIONS.md`` §1 (axes), §7 (single-source
 owners).
@@ -688,7 +688,7 @@ def vtail_root_waterline(layout: Optional["LayoutInput"], vtail_span_in: float =
                        entered_geometry: float = 0.0) -> VtailRoot:
     """Waterline of the vertical-tail root (in) -- **the single owner** (L-1).
 
-    Design note: ``docs/40_history/18_b8a_lateral_closure_plan.md`` §5.1, decision
+    Design note: ``docs/25_notes/18_b8a_lateral_closure_plan.md`` §5.1, decision
     L-1. Read by :func:`resolve_tail_planform` for the load path and by
     ``configuration.tail_planform`` for the three-view, so the sketch and the deck
     cannot put the same fin in two places (``CONVENTIONS.md`` §7 rule 2).

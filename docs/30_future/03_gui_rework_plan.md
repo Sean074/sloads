@@ -16,7 +16,7 @@
 > rows were the pages it deleted; "Phase G" is the development phase that built
 > them.)*
 >
-> **Related:** [`05_phase_d_gui_workflow_plan.md`](../40_history/05_phase_d_gui_workflow_plan.md) (Phase D — the
+> **Related:** [`05_phase_d_gui_workflow_plan.md`](../25_notes/05_phase_d_gui_workflow_plan.md) (Phase D — the
 > six-section restructure this reworks), [`../10_standard/GUI_design.md`](../10_standard/GUI_design.md)
 > (the GUI design standard this must keep satisfying), [`01_concept_loads_plan.md`](01_concept_loads_plan.md)
 > (Phase C — concept mode).
@@ -52,10 +52,10 @@ existing GUI (do not throw the baby out with the bathwater).
 
 | # | Decision | Resolution |
 |---|----------|------------|
-| **G-1** | **Units policy** | **One unit per dimension, app-wide.** Each quantity type has exactly one display unit per system. No page shows the same dimension two ways. The Imperial/SI toggle still switches the whole app. (Calc stays canonical Imperial internally per `GUI_design.md §7`.) **Canonical display units locked 2026-07-18:** length → **`in`** (SI **`mm`**), area → **`ft²`** (SI **`m²`**). This retires the redundant feet-length and square-inch area kinds in `units.py:UNIT_LABELS`. **Shipped 2026-07-18 (Step G0):** the offending stored fields (`*_ft` spans/lengths, the tab's square-inch area key) were *renamed* to canonical-unit names and stored in canonical units (`SCHEMA_VERSION` 23 → 24, older files migrate) rather than relabelled display-only — the display-only path would have mislabelled a stored feet value as inches. Calc results are held identical (ft/in² restored internally); see `docs/40_history/00_completed_development.md`. |
-| **G-2** | **Geometry ownership** | **One geometry page = the single source of truth.** Fuselage, wing, empennage, control surfaces, gear and engine locations are defined there once; every downstream page reads geometry read-only and never re-asks it. This also closes the doc's original *"Is geometry before weight?"* open decision — **geometry is defined first** (the weight DB and the aero both need it). **Shipped 2026-07-18 (Step G1):** the two geometry pages (Configuration & Layout + Wing / Surface Geometry) are merged into one **Geometry** page, and their two slices are **unified** onto `GeometryInput` (`.parametric` + `.surfaces` + a new `.fuselage` station-area outline); `SCHEMA_VERSION` 24 → 25, older files migrate. Downstream pages read the slice read-only; the fuselage is now a real geometry entity feeding the G4 estimator. Oracles unchanged. See `docs/40_history/00_completed_development.md`. |
+| **G-1** | **Units policy** | **One unit per dimension, app-wide.** Each quantity type has exactly one display unit per system. No page shows the same dimension two ways. The Imperial/SI toggle still switches the whole app. (Calc stays canonical Imperial internally per `GUI_design.md §7`.) **Canonical display units locked 2026-07-18:** length → **`in`** (SI **`mm`**), area → **`ft²`** (SI **`m²`**). This retires the redundant feet-length and square-inch area kinds in `units.py:UNIT_LABELS`. **Shipped 2026-07-18 (Step G0):** the offending stored fields (`*_ft` spans/lengths, the tab's square-inch area key) were *renamed* to canonical-unit names and stored in canonical units (`SCHEMA_VERSION` 23 → 24, older files migrate) rather than relabelled display-only — the display-only path would have mislabelled a stored feet value as inches. Calc results are held identical (ft/in² restored internally); see `docs/90_record/00_completed_development.md`. |
+| **G-2** | **Geometry ownership** | **One geometry page = the single source of truth.** Fuselage, wing, empennage, control surfaces, gear and engine locations are defined there once; every downstream page reads geometry read-only and never re-asks it. This also closes the doc's original *"Is geometry before weight?"* open decision — **geometry is defined first** (the weight DB and the aero both need it). **Shipped 2026-07-18 (Step G1):** the two geometry pages (Configuration & Layout + Wing / Surface Geometry) are merged into one **Geometry** page, and their two slices are **unified** onto `GeometryInput` (`.parametric` + `.surfaces` + a new `.fuselage` station-area outline); `SCHEMA_VERSION` 24 → 25, older files migrate. Downstream pages read the slice read-only; the fuselage is now a real geometry entity feeding the G4 estimator. Oracles unchanged. See `docs/90_record/00_completed_development.md`. |
 | **G-3** | **Persistence** | The perceived data loss is **re-entry, not true loss** — fixed by G-2's single-source-of-truth. Any genuine reload bug found during the work is fixed before restructuring. No autosave in scope. |
-| **G-4** | **Restructure depth** | **Genuinely re-sequence** `sloads/workflow.py` into the analysis-flow phases of §4 (not merely relabel). Pages are consolidated/reordered so the sequence matches how the analysis is really performed. **Shipped 2026-07-18 (Step G2 — the re-sequence):** `PHASES`/`STEPS` re-grouped into an un-numbered **Start** app-shell section + the six analysis-flow phases (**Develop V-n diagram → Flight loads → Other loads → Landing loads → Load-case plotting → Export**); the old Airplane/Envelopes/Analysis split dissolved (weight+speed pages interleave into their V-n sub-groups; Landing moved after Other loads). Grouping/labels only — no page bodies changed (that consolidation is Step G3). Nav-drift guard green; oracles untouched. See `docs/40_history/00_completed_development.md`. |
+| **G-4** | **Restructure depth** | **Genuinely re-sequence** `sloads/workflow.py` into the analysis-flow phases of §4 (not merely relabel). Pages are consolidated/reordered so the sequence matches how the analysis is really performed. **Shipped 2026-07-18 (Step G2 — the re-sequence):** `PHASES`/`STEPS` re-grouped into an un-numbered **Start** app-shell section + the six analysis-flow phases (**Develop V-n diagram → Flight loads → Other loads → Landing loads → Load-case plotting → Export**); the old Airplane/Envelopes/Analysis split dissolved (weight+speed pages interleave into their V-n sub-groups; Landing moved after Other loads). Grouping/labels only — no page bodies changed (that consolidation is Step G3). Nav-drift guard green; oracles untouched. See `docs/90_record/00_completed_development.md`. |
 
 Invariants carried from Phase C/D (unchanged): calc math untouched (Appendix A/B
 ±0.1% oracles pass throughout); ultimate-load output rules apply; pure calc / thin
@@ -101,7 +101,7 @@ lists the existing pages/modules it consolidates so the plan can reuse them.
 > Speeds · Speed–Altitude Envelope; 1e Flight Envelope (V-n) = V-n diagram ·
 > Critical Loads (SELECT)). The FLTLOADS balance-geometry/CG inputs stay on 1e (the
 > page that runs them). No calc change; oracles unchanged. See
-> `docs/40_history/00_completed_development.md` → Phase G, Step G3.
+> `docs/90_record/00_completed_development.md` → Phase G, Step G3.
 
 The primary user input: geometry, mass distribution, aerodynamic data, and the
 mass + speed/altitude envelopes. Output = the set of load cases to assess
@@ -190,12 +190,12 @@ These are the real capability gaps (everything else in §4 is reuse/reorder):
    geometry entity (Step G1) and the **Munk slender-body `dCm/dα` estimator**
    (`sloads/fuselage_moment.py`) landed as **Step G4 (2026-07-19)** — surfaced on
    the Aero page, off by default, added to M1 when enabled; Appendix A/B oracles
-   unchanged. See `docs/40_history/00_completed_development.md`.
+   unchanged. See `docs/90_record/00_completed_development.md`.
 2. **Longitudinal-stability / trim plots** in Phase 2 (CG-vs-balanced-tail-load,
    static-margin sweep). *(GUI over existing calc.)* **Shipped as Step G5
    (2026-07-19)** — the Flight Envelope **Trim & Stability** tab; `trim_sweep()`
    re-runs the balance across the CG range, static margin from the Configuration
-   neutral point. See `docs/40_history/00_completed_development.md`.
+   neutral point. See `docs/90_record/00_completed_development.md`.
 3. **Ground-case distributed fuselage (and wing) loads** in Phase 4.
    **Substantial calc work** (a new distribution path), not just GUI. *(Scope
    amended 2026-08-14, decision **D-24**: the pressurized no-down-select rule and
@@ -206,7 +206,7 @@ These are the real capability gaps (everything else in §4 is reuse/reorder):
    on the Geometry page (`GeometryInput.empennage`; `tail_loads`/`vtail_loads` become
    properties over it), the three-view draws the elevator/rudder, and the duplicated
    `LayoutInput` tail fields are retired (schema 26 → 27, oracles bit-for-bit). See
-   `docs/40_history/00_completed_development.md`. The landing-gear single-source
+   `docs/90_record/00_completed_development.md`. The landing-gear single-source
    follow-on **shipped as Step G6b (2026-07-19)** (`GeometryInput.landing_gear`; the
    coarse `LayoutInput` gear fields retired, LANDLOAD synced from it, gear drawn on the
    three-view); the wing/fuselage read-through cleanup remains backlog Step G6c.

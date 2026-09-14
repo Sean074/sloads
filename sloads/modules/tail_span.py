@@ -1,6 +1,6 @@
 """Spanwise empennage load distribution -- the tail's structural deliverable.
 
-Design note: ``docs/30_future/09_distributed_empennage_loads_plan.md``, step
+Design note: ``docs/25_notes/09_distributed_empennage_loads_plan.md``, step
 **T2**, decisions T-2/T-3/T-6/T-8/T-9/T-10. Planform resolution and the
 half/full bookkeeping: :mod:`sloads.tail_geometry`. Conventions:
 ``docs/10_standard/CONVENTIONS.md``.

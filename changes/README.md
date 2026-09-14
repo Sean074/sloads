@@ -13,11 +13,25 @@ File name: `<slug>.<type>.md`
   hyphens.
 - `type` — one of `breaking`, `added`, `changed`, `fixed`, `removed` (a
   changelog bullet; selects the `### Breaking` / `### Added` / … subsection at
-  build time) **or `history`** (design note 28 MD-4: the tier-M paragraph or
-  tier-L full-step entry for `docs/40_history/00_completed_development.md`,
-  rolled to the top of that file at release cut, newest first). A tier-M/L
-  closure therefore writes **two** fragments: `<slug>.<type>.md` and
-  `<slug>.history.md`; tier S writes one.
+  build time) **or `history`** / `history-<type>` (design note 28 MD-4: the
+  tier-M paragraph or tier-L full-step entry for
+  `docs/90_record/00_completed_development.md`, rolled to the top of that file
+  at release cut, newest first).
+
+**One telling per closure (design note 61 CV-2).** A tier-M/L closure writes
+**one** fragment — the history entry — and the builder *derives* its
+`CHANGELOG.md` bullet from the bold lead phrase the entry already opens with.
+Tier S writes one typed fragment as before. The pair used to be two hand-written
+narratives of the same change, ~780 words per item across both, and the second
+was a re-flowed compression of the first; deriving the bullet keeps every word
+that was ever written and stops writing it twice.
+
+- `<slug>.history.md` → the derived bullet lands in `### Changed`.
+- `<slug>.history-added.md` (or `-fixed`, `-removed`, `-breaking`) → names the
+  subsection instead.
+- Write a `<slug>.<type>.md` **as well** only when the consumer-facing bullet
+  genuinely differs from the lead phrase; a hand-written bullet suppresses the
+  derived one for that slug.
 
 File body (changelog types): one or more Markdown bullets, **exactly** as they should appear in
 `CHANGELOG.md` — start with `- `, bold lead phrase, tier and date in the lead,
@@ -33,6 +47,13 @@ Multi-paragraph bullets are fine (indent continuation lines two spaces).
 File body (`history`): a tier-M paragraph starting `- **Title (…, tier M, date)** —`
 or a tier-L step starting `## Step N — …` / `**Step N — …**` in the history
 file's step format (Objective / Deliverables / Test / Key decisions).
+
+The **bold lead phrase** — or the `## Step N — …` heading — is what becomes the
+changelog bullet, so write it as one: the change stated in a sentence, with the
+issue number, tier and date in the parenthetical. Everything after it is the
+history entry proper and stays out of the changelog. A history fragment with no
+lead phrase to derive from is refused by the guard, at write time rather than at
+release time.
 
 ## Building the changelog (release cut only — `RELEASE_PROCESS.md` §4)
 

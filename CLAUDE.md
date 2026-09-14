@@ -51,7 +51,18 @@ equations from memory; cite the page in the test):**
   `docs/20_theory/02_approved_corrections.md`
 - **Project data model:** `docs/10_standard/DATA_DICTIONARY.md` (generated — edit the
   generator, never the file)
+- **Design notes (the agreed rationale, and what the tests cite):**
+  `docs/25_notes/` — every note and plan, whatever its status.
 - `docs/00_INDEX.md` maps the whole tree.
+
+**Where to look, and where not to (note 61 CV-4).** Current truth is
+`10_standard/`, `20_theory/` and `25_notes/` — search those. **`docs/90_record/`
+is the record**: the completed-development narrative and its archives, the
+changelog and its archives, the per-release verification baselines. Nothing in
+it states what is true now; every line of it states what was true on a date.
+Read it only when the question is explicitly *when did this change* or *why did
+it change*, and never to answer *how does this work*. It is ~28k lines against
+the live corpus's ~12k, so treating it as searchable makes every search worse.
 
 ## Step Completion Requirement (tiered)
 
@@ -63,11 +74,19 @@ Never batch or defer closure.**
 | Tier | Applies to | Required closure |
 |------|-----------|------------------|
 | **S** | Small fix, hygiene, docs, display-only | one `changes/<slug>.<type>.md` fragment (see `changes/README.md`) + backlog removal. **No history entry.** |
-| **M** | Behavior change to an existing capability | Tier S + the affected `PROGRAM_SPEC.md` / standard-doc section(s) + a **one-paragraph** `changes/<slug>.history.md` fragment |
+| **M** | Behavior change to an existing capability | the affected `PROGRAM_SPEC.md` / standard-doc section(s) + **one** `changes/<slug>.history.md` fragment, one paragraph, backlog removal. The changelog bullet is **derived** from its lead phrase — do not write a second fragment (note 61 CV-2) |
 | **L** | New module, new load case, new physics, schema/contract change | Tier M + `theory_sources.md` citation + the history fragment in **full step format**; design note merged at AGREED first |
 
-`CHANGELOG.md` `[Unreleased]` and the top of the history file are never hand-edited:
-`scripts/build_changelog.py` assembles both at release cut (`RELEASE_PROCESS.md` §4).
+**Every tier asks one question first (note 61 CV-1): *does a reader of the code
+today need this, or only a reader asking what happened?*** Today-content goes to
+`10_standard`/`20_theory` in the present tense — that is what a new author reads
+and what the next session greps. Only the dated remainder goes to the record. A
+closure that puts durable understanding in the narrative has filed it where
+nobody looks.
+
+`docs/90_record/CHANGELOG.md` `[Unreleased]` and the top of the history file are
+never hand-edited: `scripts/build_changelog.py` assembles both at release cut
+(`RELEASE_PROCESS.md` §4).
 
 Additional rules (rationale in `docs/50_reviews/`):
 

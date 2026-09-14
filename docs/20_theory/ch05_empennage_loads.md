@@ -193,7 +193,7 @@ resultant about the origin equals the v-tail-only resultant plus the
 transferred set at its stated node — plus byte-level gating isolation: flip
 `tail_type` back to conventional and the deck returns exactly.
 `concept_regional_jet` is the suite's only T-tail fixture. The asymmetric
-T-tail transfer method of record is `docs/30_future/51_ttail_asymmetric_transfer_note.md`.
+T-tail transfer method of record is `docs/25_notes/51_ttail_asymmetric_transfer_note.md`.
 
 ### One engine out
 
@@ -208,5 +208,5 @@ item, recorded as such in the hub's provenance table.
 - Reference 1 Ch 9 (SELECT — tail criticals), Ch 10 (TAILDIST), Ch 11
   (ONENGOUT); Appendix A oracle pages per the hub's per-module rows.
 - FAR 23.367, 23.421–23.427, 23.441–23.445; AC 23-9 (T-tail method, note 51).
-- `docs/30_future/51_ttail_asymmetric_transfer_note.md` — the T-tail
+- `docs/25_notes/51_ttail_asymmetric_transfer_note.md` — the T-tail
   asymmetric transfer design note.

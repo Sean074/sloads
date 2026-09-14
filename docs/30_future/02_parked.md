@@ -328,7 +328,7 @@ about — the wake. The only power physics the suite models is FLAPLOAD's
 slipstream, which stops at the flap panel, and ENGLOADS' 23.361/23.371
 torque/gyro stop at the mount, although for a wing-mounted engine the rule
 names "the mount **and its supporting structure**". Design note
-[`21_power_effects_wing_note.md`](21_power_effects_wing_note.md) — **agreed
+[`21_power_effects_wing_note.md`](../25_notes/21_power_effects_wing_note.md) — **agreed
 2026-08-15, decisions P-0…P-12** — settles: DATCOM §4.6.1–4.6.3 as the default
 estimator (Digital DATCOM ex3 case 4 vs 3 is the printed oracle) with
 field-by-field user override and the momentum-theory band as the single
@@ -368,7 +368,7 @@ TAILDIST page asks for the angle form.
   `AeroCoeffSet`/span-load source). Deliberately unscoped; note that an aero
   import would also provide the natural cross-check whose absence D-3 accepted
   (revisit D-3's "closure proves insufficient" trigger when this lands — see the
-  [resolved-decision register](../40_history/03_resolved_decisions.md)).
+  [resolved-decision register](../25_notes/03_resolved_decisions.md)).
 - **Deeper sbeam integration** beyond L-1 (loads → sizing → updated
   weights/stiffness loop), and eventual **smodal** hand-off.
 - **Additional load-case families** beyond the current FAR23 + Part 25

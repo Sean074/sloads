@@ -15,7 +15,7 @@ consumes it:
   so the next unit added without one fails here rather than shipping a mixed-unit
   table.
 
-Plan: ``docs/40_history/14_m4-20_deliverable_units_plan.md`` §4 step 1.
+Plan: ``docs/25_notes/14_m4-20_deliverable_units_plan.md`` §4 step 1.
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 """The engine hub thrust ``FORCE`` -- gates G-1 … G-11 (backlog #10).
 
-Carved out of design note ``docs/30_future/21_power_effects_wing_note.md``,
+Carved out of design note ``docs/25_notes/21_power_effects_wing_note.md``,
 whose seven-step wake plan stays parked. What ships is one user-entered
 ``EngineInput.thrust_lb`` per engine, applied as an axial force at that
 engine's hub, and this file is its benchmark-first gate. There is no printed

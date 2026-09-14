@@ -93,6 +93,6 @@ exactly (chapter 9 §9).
 - Reference 1 Ch 20; Appendix A p231–233 (transcribed oracle pages).
 - 14 CFR 23.471–23.511, 23.473(b)/(c)/(g), 23.485(d).
 - [`02_approved_corrections.md`](02_approved_corrections.md) — the two sign
-  corrections; `docs/40_history/42_ground_frame_note.md` and
-  `docs/40_history/43_application_point_note.md` — the frame and
+  corrections; `docs/25_notes/42_ground_frame_note.md` and
+  `docs/25_notes/43_application_point_note.md` — the frame and
   application-point decisions.

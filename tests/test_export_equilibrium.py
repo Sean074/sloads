@@ -22,7 +22,7 @@ component's own stated resultant. What it adds over what existed:
   the concept fixture only.
 
 Reference points are the per-component convention (``CONVENTIONS.md``; design
-note ``docs/40_history/15_export_equilibrium_invariant_plan.md`` §3, E-2): wing ->
+note ``docs/25_notes/15_export_equilibrium_invariant_plan.md`` §3, E-2): wing ->
 its root station, body -> its aft-most station, tail -> its leading-edge chord
 station. Tolerances are :mod:`sloads.export.equilibrium`'s, not this file's.
 

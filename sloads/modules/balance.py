@@ -1,6 +1,6 @@
 """Balanced free-free airplane cases -- wing tip to wing tip, nose to tail.
 
-Plan 11 (``docs/30_future/11_balanced_airframe_cases_plan.md``) step **B2**,
+Plan 11 (``docs/25_notes/11_balanced_airframe_cases_plan.md``) step **B2**,
 decisions B-1…B-5. Conventions: ``docs/10_standard/CONVENTIONS.md``.
 
 The goal, in the user's words: *a full airplane balanced case with no need for a
@@ -122,7 +122,7 @@ standing in for the printed oracle concept mode does not have.
 
 The lateral cases (B8a)
 -----------------------
-Plan 13 (``docs/40_history/18_b8a_lateral_closure_plan.md``), decisions L-1…L-8.
+Plan 13 (``docs/25_notes/18_b8a_lateral_closure_plan.md``), decisions L-1…L-8.
 SELECT's four rational v-tail conditions -- sudden rudder, yaw to sideslip, yaw
 15 neutral, side gust -- assemble as balanced cases too, and they are the first
 lateral load factors this suite has ever produced. All four sit on V-n points at
@@ -955,7 +955,7 @@ def body_axial_set(loads: Sequence[BalancedLoad], project: Project,
                    ) -> Tuple[float, float, bool, List[BalancedLoad], List[str]]:
     """The airplane's **non-wing** drag: ``(applied, dCD, clamped, loads, notes)``.
 
-    Design note: ``docs/40_history/24_body_drag_carrier_note.md``.
+    Design note: ``docs/25_notes/24_body_drag_carrier_note.md``.
 
     The FLTLOADS trim balances the airplane-less-tail drag from the **polar**
     (``aero_curves.drag_cd``, the ``CD(CL)`` polynomial the project enters);
@@ -1125,7 +1125,7 @@ def hub_thrust_set(project: Project, cg: CgCase
                    ) -> Tuple[List[BalancedLoad], List[str]]:
     """The user-entered engine thrust: one hub force per engine, ``(loads, notes)``.
 
-    Carved out of design note 21 (``docs/30_future/21_power_effects_wing_note.md``),
+    Carved out of design note 21 (``docs/25_notes/21_power_effects_wing_note.md``),
     whose seven-step wake plan stays parked. What ships here is the one piece
     that needs no estimator: the user enters ``EngineInput.thrust_lb`` and it
     becomes a ``FORCE`` at that engine's hub -- the node the LRA skeleton has
