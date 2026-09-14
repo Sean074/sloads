@@ -456,11 +456,13 @@ def test_the_csv_is_empty_rather_than_a_bare_header_when_there_is_no_envelope():
 # G-OR-137 -- the register keeps its promises
 # --------------------------------------------------------------------------- #
 #: Where a decision or a gate may be *defined*. A citation anywhere in the tree
-#: must resolve to one of these files. Design notes keep defining their ids
-#: after they archive at a release cut (#190 rolled notes 45-48/50 with live
-#: OR/G-OR registers to 40_history), so both directories are the register.
-_NOTE_DIRS = (os.path.join(_ROOT, "docs", "30_future"),
-              os.path.join(_ROOT, "docs", "40_history"))
+#: must resolve to one of these files. Design note 61 CV-3 gathered every note
+#: into `25_notes/` whatever its status -- a note defines its ids for as long as
+#: they are cited, which is exactly why filing them by shipped-ness was wrong.
+#: `30_future/` stays in the tuple for the plan-of-record documents that also
+#: carry ids.
+_NOTE_DIRS = (os.path.join(_ROOT, "docs", "25_notes"),
+              os.path.join(_ROOT, "docs", "30_future"))
 _CITING = ("sloads", "tests", "app", "app_shell", "oracle_app", "scripts",
            "changes", "docs")
 _ID = re.compile(r"\b(G-OR-\d+|OR-\d+)\b")
@@ -501,7 +503,7 @@ def test_every_or_id_cited_anywhere_is_defined_in_a_design_note():
                         dangling.setdefault(cited, os.path.relpath(path, _ROOT))
     assert not dangling, (
         "these decision/gate ids are cited but defined in no design note "
-        "under docs/30_future/ or docs/40_history/: " + ", ".join(
+        "under docs/25_notes/ or docs/30_future/: " + ", ".join(
             f"{k} ({v})" for k, v in sorted(dangling.items())))
 
 

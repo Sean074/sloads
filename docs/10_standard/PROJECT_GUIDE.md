@@ -62,7 +62,7 @@ reproduction is ever required for certification traceability, it is a one-line
 constant change per module plus tightening the tolerances — so constants stay
 centralized in `constants.py` (§4) to preserve that escape hatch. (The Phase-0
 relaxation that switched `PI = 3.1416` → `math.pi` is recorded in
-[`../40_history/00_completed_development.md`](../40_history/00_completed_development.md).)
+[`../90_record/00_completed_development.md`](../90_record/00_completed_development.md).)
 
 ---
 
@@ -178,7 +178,7 @@ times — not recomputed per module.
 > restructure layout instead, under which some names landed differently
 > (`geometry.py` → `wing_geometry.py`, `speeds.py` → `structural_speeds.py` +
 > `mach_limit.py`); the restructure itself is recorded in
-> [`../40_history/00_completed_development.md`](../40_history/00_completed_development.md).
+> [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md).
 
 ```
 FAR23LOADS/
@@ -321,9 +321,10 @@ FAR23LOADS/
 │   ├── 00_INDEX.md
 │   ├── 10_standard/              # PROJECT_GUIDE.md (this file), PROGRAM_SPEC.md, process guides
 │   ├── 20_theory/               # equation sources (the reference/ PDFs) + per-module citations
+│   ├── 25_notes/                # every design note & plan, whatever its status
 │   ├── 30_future/               # 00_backlog.md — open modules / decisions
-│   ├── 40_history/              # 00_completed_development.md — what shipped
-│   └── 50_reviews/              # dated code / process reviews
+│   ├── 50_reviews/              # dated code / process reviews
+│   └── 90_record/               # the record: CHANGELOG.md, completed development, baselines
 ├── pyproject.toml                # build metadata, THE dependency source, ruff + pytest/coverage config
 ├── cspell.json                   # domain wordlist
 └── README.md
@@ -331,7 +332,7 @@ FAR23LOADS/
 
 > The `engloads` → `sloads` restructure (Phase 0) is complete; the migration
 > record is in
-> [`../40_history/00_completed_development.md`](../40_history/00_completed_development.md).
+> [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md).
 
 ---
 
@@ -401,7 +402,7 @@ So that every module is copy-of-the-pattern, these are fixed once:
   `tests/test_schema_guards.py` plus the comment above `SCHEMA_VERSION` in
   `sloads/models/project.py`. The twelve hops that covered v18–v55 and the v0
   bare-`EngineInput` branch retired with #93; they are recorded in
-  `docs/40_history/11_completed_development_to_0.5.0.md` (M4-10).
+  `docs/90_record/11_completed_development_to_0.5.0.md` (M4-10).
 - **Numbers in, numbers stored (the load boundary's typing contract, #76).** A
   field annotated as a container of numbers — `Vec3`/`XYPoint`, a list of
   numbers, a list of numeric tuples — is loaded as numbers. The shapes are
@@ -681,4 +682,4 @@ the bump is a deliberate act with a recorded result:
 
 A red drift run is a notification that the pin needs a look — never a merge
 block. Design note:
-[`../40_history/17_sbeam_roundtrip_ci_harness_plan.md`](../40_history/17_sbeam_roundtrip_ci_harness_plan.md).
+[`../25_notes/17_sbeam_roundtrip_ci_harness_plan.md`](../25_notes/17_sbeam_roundtrip_ci_harness_plan.md).

@@ -1,6 +1,6 @@
 """The joint register -- where two components meet, and on whose authority.
 
-Design note: ``docs/30_future/54_geometry_joint_model_note.md`` (D-54.5, with
+Design note: ``docs/25_notes/54_geometry_joint_model_note.md`` (D-54.5, with
 D-54.7's drift guard). Conventions: ``docs/10_standard/CONVENTIONS.md`` §7.
 
 Every inter-component transfer in the LRA beam model is an ``RBE2``, and a rigid

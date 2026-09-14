@@ -661,7 +661,7 @@ EOF
 gh issue create --milestone 0.8.3 --title "Note 49: gate G-OR-49 (no report/** multiply) is unsatisfiable while OR-93 keeps the summary report ULTIMATE via report/content.py" --body "$(cat <<'EOF'
 Tier S (note amendment, before any 0.8.3 implementation starts).
 
-`docs/30_future/49_stated_never_applied_note.md:356` gates "no `sloads/report/**` path multiplies by a safety factor, the export package being the only one that may" — but OR-93 (:303, :343) keeps the summary report ULTIMATE, and that report's multiplies live in `report/content.py` (`Units.load_value` :373-376, plus the inline sites at :1546, :1809), which the §5.1 change table does not list. As written, either the gate fails on day one or content.py's scaling must migrate under export/ — a refactor the plan doesn't budget. Amend the note (re-scope the gate, or add the content.py migration to §5.1 with its cost) while it is still AGREED-not-started.
+`docs/25_notes/49_stated_never_applied_note.md:356` gates "no `sloads/report/**` path multiplies by a safety factor, the export package being the only one that may" — but OR-93 (:303, :343) keeps the summary report ULTIMATE, and that report's multiplies live in `report/content.py` (`Units.load_value` :373-376, plus the inline sites at :1546, :1809), which the §5.1 change table does not list. As written, either the gate fails on day one or content.py's scaling must migrate under export/ — a refactor the plan doesn't budget. Amend the note (re-scope the gate, or add the content.py migration to §5.1 with its cost) while it is still AGREED-not-started.
 
 Found by the 2026-09-04 project review (review.md R-12).
 EOF

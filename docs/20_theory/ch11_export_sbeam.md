@@ -138,7 +138,7 @@ is solvable at all. `sloads/export/roundtrip.py` parses and solves each deck
 through sbeam's own `parse_bdf` / `run_sol101`, and
 `tests/test_sbeam_roundtrip.py` sweeps the shipped deck over four fixtures ×
 {Imperial, SI}. Design note:
-`docs/40_history/17_sbeam_roundtrip_ci_harness_plan.md`.
+`docs/25_notes/17_sbeam_roundtrip_ci_harness_plan.md`.
 
 **The harness collapsed at note 56 D-56.8/§8.** Two thirds of `roundtrip.py` was
 `wrap_as_stick_model`, which invented `CBAR`s, a `MAT1`/`PBAR` section, a
@@ -208,7 +208,7 @@ separate guard, Step P1-3.
 - `CONVENTIONS.md` §1–§4 — the frame, units, LIMIT and case-identity
   contracts the export honours.
 - Design note 46 (`docs/40_history/`, wing free-torsion cards) and
-  `docs/40_history/17_sbeam_roundtrip_ci_harness_plan.md` — the round-trip
+  `docs/25_notes/17_sbeam_roundtrip_ci_harness_plan.md` — the round-trip
   harness design.
 - [`00_theory_sources.md`](00_theory_sources.md) — the concept-closure
   identity table this boundary is the last row of.

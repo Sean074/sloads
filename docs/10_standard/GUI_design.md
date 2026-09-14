@@ -7,7 +7,7 @@ Read this before adding or changing a view.
 **See also:** [`PROJECT_GUIDE.md`](PROJECT_GUIDE.md) — architecture rationale and
 the shared pure-calc/thin-shell split; [`00_program_overview.md`](00_program_overview.md)
 — coding standards, the error-handling contract and the units convention;
-[`../40_history/05_phase_d_gui_workflow_plan.md`](../40_history/05_phase_d_gui_workflow_plan.md) —
+[`../25_notes/05_phase_d_gui_workflow_plan.md`](../25_notes/05_phase_d_gui_workflow_plan.md) —
 the Phase-D narrative (assessment, the six-section target, locked decisions
 D-1…D-7, page conventions §5) this doc references rather than repeats;
 [`../30_future/00_backlog.md`](../30_future/00_backlog.md) — **Phase E**, the open
@@ -108,7 +108,7 @@ margin).
 The analysis-flow phases and their per-page mapping are in
 [`../30_future/03_gui_rework_plan.md §4`](../30_future/03_gui_rework_plan.md); the
 superseded Phase-D six-section grouping is in
-[`../40_history/05_phase_d_gui_workflow_plan.md §2`](../40_history/05_phase_d_gui_workflow_plan.md).
+[`../25_notes/05_phase_d_gui_workflow_plan.md §2`](../25_notes/05_phase_d_gui_workflow_plan.md).
 
 ---
 
@@ -315,7 +315,7 @@ consistent:
   each step's modules by AST and fails on a slice read from a later page that
   the step has not declared, with the reverse test failing on a stale one.
   The durable fix for a copy that need not exist at all is to remove it —
-  [note 33](../40_history/34_derived_scalar_consolidation_note.md) did that for
+  [note 33](../25_notes/34_derived_scalar_consolidation_note.md) did that for
   ten of them, and this marking covers the remainder.
 - **A derived slice has one writer, and no Apply to miss** (#62, 2026-08-23).
   `Project.mass` is WTONECG over `weight.items` and nothing else; storing it is a
@@ -536,7 +536,7 @@ never entered twice.)
   documented with a reason" is a gate and not a convention.
 
 The contract that makes pages copy-of-the-pattern (full list in
-[`05_phase_d_gui_workflow_plan.md §5`](../40_history/05_phase_d_gui_workflow_plan.md)):
+[`05_phase_d_gui_workflow_plan.md §5`](../25_notes/05_phase_d_gui_workflow_plan.md)):
 
 - **A page opens with `components.page_header(key)`** — M4-11. It renders
   the title, the optional caption and the FAR 23 applicability banner, and
@@ -987,7 +987,7 @@ sidebar and the JSON Editor (§10, Phase E5).
 The schema field list is **single-sourced in
 [`DATA_DICTIONARY.md`](DATA_DICTIONARY.md)** (generated; it prints the current
 `SCHEMA_VERSION`, whose owner is `sloads/models/project.py`); the per-step migration history is recorded in
-[`../40_history/00_completed_development.md`](../40_history/00_completed_development.md)
+[`../90_record/00_completed_development.md`](../90_record/00_completed_development.md)
 (recent steps: v29 single-source CLmax
 stall; v30 M2-6 wing/fuselage derived geometry; v31 M2-10 operational placards;
 v32 M2R-2 `LandingInput.n` write-back removed; v33 M4-7 per-case
@@ -1090,7 +1090,7 @@ and absent *is* the documented value, "not stated", which the report prints as a
 blank inertia term with its reason rather than as a leg that weighs nothing;
 v49 the body drag carrier `LayoutInput.body_drag_waterline_z`, the waterline the
 airplane's **non-wing** drag is applied at in the assembled model (design note
-`../40_history/24_body_drag_carrier_note.md`, decision D-1). Additive with a `0.0`
+`../25_notes/24_body_drag_carrier_note.md`, decision D-1). Additive with a `0.0`
 default meaning "derive it" — the wing reference plane `zw`, marked assumed and
 stated in-band, exactly as v43's `vtail_root_waterline_z` handles the same class
 of question — so no hop, and a pre-v49 project takes the derived value. It exists
@@ -1099,19 +1099,19 @@ fuselage station reaches no gate), and the obvious geometric candidate,
 `root_waterline_z`, is the **wing** root: deriving from it puts `ga6_normal`'s
 `SIDE GUST` pitch residual over the 1 % gate;
 v50 the explicit loading definition `CgCase.loading` (decision **D-25**, design
-note `../40_history/25_d25_cgcase_loading_note.md`) — which discretionary items a
+note `../25_notes/25_d25_cgcase_loading_note.md`) — which discretionary items a
 payload case carries, the fraction of any consumable row that is aboard, and an
 optional entered ballast row. Additive and **optional**, so no hop: absent is the
 documented value, "derive the loading by searching the item database", which is
 what every pre-v50 project does bit-for-bit. Where it *is* entered the loading is
 authoritative and the case's `weight_lb`/`xcg`/`zcg` become a checked echo of it;
 v51 the entered side-of-body butt line `SurfaceInput.sob_y_in` (decision
-**BM-1**, note `../40_history/24_lra_beam_model_review_note.md`) — one quantity
+**BM-1**, note `../25_notes/24_lra_beam_model_review_note.md`) — one quantity
 read by the wing SOB reporting node and the h-tail attachment. Additive and
 optional, so no hop: absent falls back to half the fuselage width, marked
 assumed;
 v52 the LRA beam model's inputs (step 12, implementation note
-`../40_history/27_lra_model_implementation_note.md`) — `FuselageSection.z_centre`
+`../25_notes/27_lra_model_implementation_note.md`) — `FuselageSection.z_centre`
 (the section-centre waterline the fuselage LRA runs through, note 24 R-4),
 `EngineInput.mounted_on` ("fuselage" | "wing", decision BM-4),
 `AileronLoadsInput`/`FlapLoadsInput` butt-line + hinge/actuator fields, and
@@ -1132,4 +1132,4 @@ re-sequenced analysis-flow navigation, fuselage-moment/trim-plot/empennage
 features); its narrative and locked decisions G-1…G-4 are in
 [`../30_future/03_gui_rework_plan.md`](../30_future/03_gui_rework_plan.md). The
 Phase-D narrative is in
-[`../40_history/05_phase_d_gui_workflow_plan.md`](../40_history/05_phase_d_gui_workflow_plan.md).
+[`../25_notes/05_phase_d_gui_workflow_plan.md`](../25_notes/05_phase_d_gui_workflow_plan.md).

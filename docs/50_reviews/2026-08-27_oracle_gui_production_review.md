@@ -119,7 +119,7 @@ argument and is invoked twice), §3.5's checklist line names both, and the
 
 ### 3.3 Two design notes describe the shipped GUI as unbuilt (BLOCKS-CUT, tier S ×2)
 
-`docs/30_future/32_oracle_gui_note.md:5` — the design note of record for the surface
+`docs/25_notes/32_oracle_gui_note.md:5` — the design note of record for the surface
 this release ships:
 
 > **Status: AGREED 2026-08-19 … OG-A … shipped 2026-08-19 as an independent tier-S fix;

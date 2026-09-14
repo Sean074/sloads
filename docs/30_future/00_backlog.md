@@ -5,10 +5,10 @@ The authoritative list of **open** items, mission-tagged, in one order — the
 tiers, definition of done, the removal rule, naming) are in
 [`../../CLAUDE.md`](../../CLAUDE.md) and restated once above the table; they
 are not repeated here. Off-mission items live in [`02_parked.md`](02_parked.md);
-completed work in [`../40_history/00_completed_development.md`](../40_history/00_completed_development.md)
-and [`../../CHANGELOG.md`](../../CHANGELOG.md); the pre-2026-08-16 running
+completed work in [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md)
+and [`../../CHANGELOG.md`](../90_record/CHANGELOG.md); the pre-2026-08-16 running
 "current state" narrative is archived in
-[`../40_history/10_backlog_state_narrative_to_2026-08-16.md`](../40_history/10_backlog_state_narrative_to_2026-08-16.md).
+[`../90_record/10_backlog_state_narrative_to_2026-08-16.md`](../90_record/10_backlog_state_narrative_to_2026-08-16.md).
 Narratives and plans: [`01_concept_loads_plan.md`](01_concept_loads_plan.md)
 (concept mode), [`03_gui_rework_plan.md`](03_gui_rework_plan.md) (GUI),
 design notes per step ([`../00_INDEX.md`](../00_INDEX.md) is the guarded index
@@ -16,7 +16,7 @@ of the live set — no list is kept here; shipped notes roll to
 [`../40_history/`](../00_INDEX.md#40_history--historic-record) at each cut,
 keeping their numbers; the pre-2026-08-29 "where
 things stand" narrative and superseded re-cut preambles are in
-[`../40_history/44_backlog_state_narrative_to_2026-08-29.md`](../40_history/44_backlog_state_narrative_to_2026-08-29.md)); architecture
+[`../90_record/44_backlog_state_narrative_to_2026-08-29.md`](../90_record/44_backlog_state_narrative_to_2026-08-29.md)); architecture
 [`../10_standard/PROJECT_GUIDE.md §7`](../10_standard/PROJECT_GUIDE.md); per-module
 spec [`PROGRAM_SPEC.md`](../10_standard/PROGRAM_SPEC.md).
 
@@ -115,7 +115,7 @@ clause, which knew of no milestone between.
 
 > **B4 is retired: 0.8.3 was cut on 2026-09-13** (tag `v0.8.3`; the release-cut
 > block in
-> [`../40_history/00_completed_development.md`](../40_history/00_completed_development.md)
+> [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md)
 > is the record). The band emptied, re-opened the same day and emptied again:
 > #263 (design note 56) closed with #173 and #176, taking the band's last three
 > rows, and the issue-bookkeeping pass that followed found statements in shipped
@@ -454,4 +454,4 @@ rule. Both keep their pins; the decisions carry what the bodies used to:
   blocked. **(Reviewed 2026-07-20: keep blocked as-is.)**
 
 D-1 … D-18 (all but D-5) are answered and recorded in
-[`../40_history/03_resolved_decisions.md`](../40_history/03_resolved_decisions.md).
+[`../25_notes/03_resolved_decisions.md`](../25_notes/03_resolved_decisions.md).

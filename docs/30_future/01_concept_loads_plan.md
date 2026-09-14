@@ -20,7 +20,7 @@ original phase-by-phase suite roadmap). The authoritative open-item list is
 [`00_backlog.md`](00_backlog.md); per-module equation/IO detail is in
 [`PROGRAM_SPEC.md`](../10_standard/PROGRAM_SPEC.md). When a Phase-C step closes,
 follow the lifecycle rule: remove it from the backlog, add it to
-[`../40_history/00_completed_development.md`](../40_history/00_completed_development.md),
+[`../90_record/00_completed_development.md`](../90_record/00_completed_development.md),
 and add a `CHANGELOG.md` `[Unreleased]` entry — same session.
 
 ---
@@ -222,7 +222,7 @@ fuselage net satisfies inertia/balancing closure. **Deferred (recorded in the
 backlog):** the *printed* flaps-extended oracle (needs landing-config aero + CG5–7
 fixtures; R3/R4 are closure-validated), per-CG precise inertia in SELECT, and the
 v-tail `EFV` chart. See
-[`../40_history/00_completed_development.md`](../40_history/00_completed_development.md).
+[`../90_record/00_completed_development.md`](../90_record/00_completed_development.md).
 
 ### Step C7 — TAILDIST + AIRLOAD4 (tail distributed loads; swept-wing concepts) *(shipped)*
 **Objective.** Chordwise H/V-tail load distribution; high-Mach/swept spanwise
@@ -243,7 +243,7 @@ moments + distributed loads + CSV + sbeam bridge.
 
 *(ONENGOUT [C9], LGFACTOR + LANDLOAD [C10], and the off-pipeline BALLOADS
 verification utility [C11] have since shipped — all 22 Appendix-C programs are now
-ported. See [`../40_history/00_completed_development.md`](../40_history/00_completed_development.md).)*
+ported. See [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md).)*
 
 ---
 
@@ -272,13 +272,13 @@ ported. See [`../40_history/00_completed_development.md`](../40_history/00_compl
   full rename to `sloads`, shipped in M3-1 (2026-07-23).*** The package/CLI/GUI/docs
   are now `sloads`; the "FAR 23 LOADS" mark survives only as McMaster/DARcorporation
   attribution. (Recorded as decision D-6 in the
-  [resolved-decision register](../40_history/03_resolved_decisions.md).)
+  [resolved-decision register](../25_notes/03_resolved_decisions.md).)
 - **sbeam VLM cross-check.** *Resolved 2026-07-16 — **out of scope.*** No
   sbeam-VLM validation backend; concept aero stays validated by physics-closure +
   fleet plausibility (invariant C-2). Revisit only if closure proves insufficient.
   (Recorded as decision D-3 in the
-  [resolved-decision register](../40_history/03_resolved_decisions.md).)
+  [resolved-decision register](../25_notes/03_resolved_decisions.md).)
 - **Export granularity (C4).** *Resolved 2026-07-16 — **both**: load-cards-only is
   the default; the assembled-airframe stick model is opt-in behind an explicit
   flag.* (Recorded as decision D-7 in the
-  [resolved-decision register](../40_history/03_resolved_decisions.md).)
+  [resolved-decision register](../25_notes/03_resolved_decisions.md).)

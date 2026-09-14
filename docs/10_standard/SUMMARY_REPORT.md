@@ -3,7 +3,7 @@
 The authoritative specification for the **consolidated loads summary report**
 (Step G8, Export phase): what the document is, what it **shall** contain, what it
 **shall not** contain, and how its content is marked. The implementation plan is
-[`../40_history/13_step_g8_summary_report_plan.md`](../40_history/13_step_g8_summary_report_plan.md);
+[`../25_notes/13_step_g8_summary_report_plan.md`](../25_notes/13_step_g8_summary_report_plan.md);
 this file is the standard the implementation is judged against and is the one to
 update when the report's content rules change.
 
@@ -514,7 +514,7 @@ A report conformed when all of the following held.
 > coverage. The **rules** stand — `ORACLE_REPORT.md` inherits them under OR-5
 > and its own conformance section names the tests that hold them now. Step G8
 > shipped 2026-08-05; see
-> [`../40_history/00_completed_development.md`](../40_history/00_completed_development.md).
+> [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md).
 
 - [x] Every required section of §4 is present, or explicitly marked *not
       analysed* with a reason, and a section degrades rather than raising on an
@@ -573,7 +573,7 @@ Three readings this standard left open, resolved while building against it:
 
 ## 7. Related documents
 
-- [`../40_history/13_step_g8_summary_report_plan.md`](../40_history/13_step_g8_summary_report_plan.md) — the implementation plan for this standard.
+- [`../25_notes/13_step_g8_summary_report_plan.md`](../25_notes/13_step_g8_summary_report_plan.md) — the implementation plan for this standard.
 - [`../../CLAUDE.md`](../../CLAUDE.md) — the load-output rules this standard applies.
 - [`PROGRAM_SPEC.md`](PROGRAM_SPEC.md) — per-module inputs/outputs and FAR conditions feeding §4.4 and §4.5.
 - [`../20_theory/00_theory_sources.md`](../20_theory/00_theory_sources.md) — oracle status wording quoted by §4.6.

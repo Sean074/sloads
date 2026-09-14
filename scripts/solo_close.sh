@@ -34,7 +34,7 @@
 # a live view of what is still open mid-milestone.
 #
 # The gate still scales to the change set: a **docs-only** change set — every
-# path either *.md or under docs/ or changes/ — runs ruff, mypy and the five
+# path either *.md or under docs/ or changes/ — runs ruff, mypy and the six
 # guard test files §0 names, in a few seconds instead of the whole suite. Any
 # other path (.py, fixtures, config) takes the full suite. --full-gate forces
 # it. The push runs the fast gate on this branch, advisory; the gate of record
@@ -42,8 +42,11 @@
 #
 # Preflight (nothing mutates until every check passes):
 #   * on the milestone branch (dev/vX.Y.Z) — never on main
-#   * changes/<slug>.<added|changed|fixed|removed|breaking>.md exists and its
-#     lead names the tier; tier M/L also has changes/<slug>.history.md
+#   * a fragment exists and its lead names the tier: changes/<slug>.history.md
+#     (or .history-<type>.md) alone is a complete tier-M/L closure since design
+#     note 61 CV-2 — the changelog bullet is derived from its lead, not written
+#     a second time. Tier S writes changes/<slug>.<added|changed|fixed|removed|
+#     breaking>.md; tier M/L may add one when the user-facing bullet differs.
 #   * with an issue number only: `gh` authenticated; the issue is OPEN; and the
 #     item's row is gone from the priority table (no "(#N)" left in
 #     docs/30_future/00_backlog.md)
@@ -75,10 +78,11 @@ confirm() {
   [[ "$ans" == "y" || "$ans" == "Y" ]] || die "stopped at your request (nothing after this point ran)"
 }
 
-# The five sub-second guard files DEVELOPMENT_PROCESS.md §0 names as the ones
+# The six sub-second guard files DEVELOPMENT_PROCESS.md §0 names as the ones
 # worth running on every docs/closure edit — this list IS the docs-only gate.
 GUARD_TESTS=(
   tests/test_doc_currency.py
+  tests/test_doc_links.py
   tests/test_changelog_fragments.py
   tests/test_backlog_issues.py
   tests/test_schema_guards.py
@@ -128,8 +132,8 @@ if [[ $DRY_RUN -eq 1 ]]; then
   else
     echo "             (no issue number — gh is not called in preflight, step 6 or step 7)"
   fi
-  echo "             ls changes/$SLUG.{added,changed,fixed,removed,breaking}.md   (tier in the lead)"
-  echo "             ls changes/$SLUG.history.md                     (tier M/L)"
+  echo "             ls changes/$SLUG.history[-<type>].md             (tier M/L: the one fragment, note 61 CV-2)"
+  echo "             ls changes/$SLUG.{added,changed,fixed,removed,breaking}.md   (tier S; optional at M/L)"
   [[ -n "$ISSUE" ]] && echo "             grep -c \"(#$ISSUE)\" docs/30_future/00_backlog.md == 0"
   echo "             git fetch origin <branch>; git merge-base --is-ancestor origin/<branch> HEAD"
   echo "  step 3:    .venv/bin/ruff check sloads/ cli.py oracle.py app_shell/ oracle_app/ scripts/"
@@ -213,22 +217,33 @@ if [[ -n "$ISSUE" ]]; then
   [[ "$STATE" == "OPEN" ]] || die "issue #$ISSUE is already $STATE — wrong number, or already closed"
 fi
 
-# closure artefacts
+# closure artefacts.
+# Design note 61 CV-2: a tier-M/L closure writes ONE fragment — the history
+# entry — and build_changelog.py derives the changelog bullet from its lead.
+# So the history fragment alone is a complete closure, and a typed fragment is
+# what tier S writes (or what tier M/L adds when the user-facing bullet differs).
+HIST=""
+for h in history history-added history-changed history-fixed history-removed history-breaking; do
+  if [[ -f "changes/$SLUG.$h.md" ]]; then HIST="changes/$SLUG.$h.md"; break; fi
+done
+
 FRAG=""
 for t in added changed fixed removed breaking; do
   if [[ -f "changes/$SLUG.$t.md" ]]; then FRAG="changes/$SLUG.$t.md"; break; fi
 done
-[[ -n "$FRAG" ]] || die "no changes/$SLUG.<added|changed|fixed|removed|breaking>.md — write the fragment (changes/README.md), or check --slug"
 
-TIER="$(grep -o -m1 'tier [SML]' "$FRAG" | head -1 | cut -d' ' -f2 || true)"
-[[ -n "$TIER" ]] || die "$FRAG lead does not name the tier ('tier S|M|L' — see changes/README.md)"
-PRI="$(grep -o -m1 'Pri [0-9][0-9]*' "$FRAG" | head -1 | cut -d' ' -f2 || true)"
+LEAD="${FRAG:-$HIST}"
+#: what the preflight and the close comment name, with either fragment absent.
+FRAGS="${FRAG:-}${FRAG:+${HIST:+ + }}${HIST:-}"
+[[ -n "$LEAD" ]] || die "no changes/$SLUG.<added|changed|fixed|removed|breaking>.md and no changes/$SLUG.history[-<type>].md — write the fragment (changes/README.md), or check --slug"
+
+TIER="$(grep -o -m1 'tier [SML]' "$LEAD" | head -1 | cut -d' ' -f2 || true)"
+[[ -n "$TIER" ]] || die "$LEAD lead does not name the tier ('tier S|M|L' — see changes/README.md)"
+PRI="$(grep -o -m1 'Pri [0-9][0-9]*' "$LEAD" | head -1 | cut -d' ' -f2 || true)"
 [[ -n "$PRI" ]] || PRI="$SUFFIX_PRI"
 
-HIST=""
-if [[ "$TIER" != "S" ]]; then
-  HIST="changes/$SLUG.history.md"
-  [[ -f "$HIST" ]] || die "tier $TIER needs $HIST (changes/README.md; CLAUDE.md tier table)"
+if [[ "$TIER" != "S" && -z "$HIST" ]]; then
+  die "tier $TIER needs changes/$SLUG.history[-<type>].md (changes/README.md; CLAUDE.md tier table)"
 fi
 
 if [[ -n "$ISSUE" ]] && grep -q "(#$ISSUE)" docs/30_future/00_backlog.md; then
@@ -256,7 +271,7 @@ fi
 MSG="$SUBJECT ($SUFFIX)"
 
 echo "solo_close: ${ISSUE:+issue #$ISSUE · }milestone $BRANCH · slug $SLUG · tier $TIER${PRI:+ · Pri $PRI}"
-echo "            fragment $FRAG${HIST:+ + $HIST}"
+echo "            fragment $FRAGS"
 if [[ $DOCS_ONLY -eq 1 ]]; then
   echo "            gate     docs-only change set — ruff · mypy · the guard files"
 else
@@ -321,7 +336,7 @@ run git log --oneline -1
 # ---- step 6: close ----------------------------------------------------------
 if [[ -n "$ISSUE" ]]; then
   say "step 6 — close issue #$ISSUE"
-  COMMENT="Closed by $SHA on $BRANCH (tier $TIER: $FRAG${HIST:+ + $HIST}"
+  COMMENT="Closed by $SHA on $BRANCH (tier $TIER: $FRAGS"
   [[ -n "$PRI" ]] && COMMENT="$COMMENT; row $PRI removed from the priority table"
   COMMENT="$COMMENT). Reaches main with the $BRANCH milestone pull request."
   run gh issue close "$ISSUE" --reason completed --comment "$COMMENT"

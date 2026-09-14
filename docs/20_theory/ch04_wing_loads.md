@@ -65,7 +65,7 @@ after analysis (chapters 5 and 8 state the same contrast from their side).
   only) but omits the differential lift from `ACRL` wing bending. Stated
   in-band wherever the case is rendered; on the backlog. The roll-case design
   of record (semispan side, `UNB` from the condition's own root bending) is
-  `docs/30_future/52_wing_roll_cases_note.md`.
+  `docs/25_notes/52_wing_roll_cases_note.md`.
 - **The Mach threshold for the swept branch is Reference 1's 0.4** (the User's
   Guide says 0.5); kept conservative because no `.BAS` oracle exists for the
   selection itself (M1-8, `PROGRAM_SPEC.md` airloads row).
@@ -124,5 +124,5 @@ what confirms that sign is right rather than merely self-consistent.
   (WINGINER), Ch 14 (NETLOADS); Appendix A oracle pages per the hub's
   per-module rows.
 - FAR 23.333, 23.349; CAM 3.222 (aileron deflection schedule).
-- `docs/30_future/52_wing_roll_cases_note.md` — the roll-case design of
+- `docs/25_notes/52_wing_roll_cases_note.md` — the roll-case design of
   record.

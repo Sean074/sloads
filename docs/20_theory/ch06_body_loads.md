@@ -51,7 +51,7 @@ are therefore applied as the statically equivalent **linear distribution over
 collapses continuously onto the manual's two-point solve as `d → 0`. The
 reactions `R_f`/`R_r` are still reported as the fitting loads; they are *not*
 applied on top of the distribution, which already carries them. The options
-trade is `docs/40_history/04_m4-1_body_moment_closure.md`.
+trade is `docs/25_notes/04_m4-1_body_moment_closure.md`.
 
 ## Assumptions & limitations
 
@@ -97,7 +97,7 @@ why the mass-partition identities of chapter 10 exist alongside it.
 ## Sources
 
 - Reference 1 Ch 15 ("Net Fuselage Loads"), p103 — the two-pass procedure.
-- `docs/40_history/04_m4-1_body_moment_closure.md` — the carry-through
+- `docs/25_notes/04_m4-1_body_moment_closure.md` — the carry-through
   distribution decision.
 - [`00_theory_sources.md`](00_theory_sources.md) — the `body_loads` provenance
   row and the concept-closure identity table.

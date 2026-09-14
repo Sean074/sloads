@@ -9,7 +9,7 @@ cases share one, the same physical condition gets the *same* id from every
 module that delivers it, and re-running the same project yields byte-identical
 ids.
 
-Reference: docs/30_future/00_backlog.md M4-2 (decisions 1/4/5/8); docs/40_history/
+Reference: docs/30_future/00_backlog.md M4-2 (decisions 1/4/5/8); docs/25_notes/
 05_phase_d_gui_workflow_plan.md D-1.
 """
 

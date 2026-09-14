@@ -1,12 +1,17 @@
-"""The `changes/` fragment contract and the release-cut builder (design notes 26, 28).
+"""The `changes/` fragment contract and the release-cut builder (design notes 26, 28, 61).
 
 Closure writes a fragment, not an edit to `CHANGELOG.md` or the history file;
 the release cut assembles them (changelog subsections; history entries rolled
-to the top of `00_completed_development.md`, MD-4). Two things can rot: a
-fragment that the builder cannot place (bad name, wrong shape) and would be discovered only at release time, and
-the live history file growing back into the 9k-line record the split retired.
-The first is a failure here; the second is a warning — size is a release-roll
-trigger (`RELEASE_PROCESS.md` §4), not a defect in the change that crossed it.
+to the top of `00_completed_development.md`, MD-4). Design note 61 CV-2 made a
+tier-M/L closure write **one** fragment: the history entry also *derives* its
+changelog bullet, so the two files can no longer drift apart because there is
+no second file. Three things can rot: a fragment the builder cannot place (bad
+name, wrong shape, no derivable lead) and would be discovered only at release
+time; a derived bullet that stops matching the entry it came from; and either
+live record file growing back into the record the split retired. The first two
+are failures here; the third is a warning — size is a release-roll trigger
+(`RELEASE_PROCESS.md` §4, note 61 CV-5), not a defect in the change that
+crossed it.
 """
 
 from __future__ import annotations
@@ -22,12 +27,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _CHANGES = os.path.join(_ROOT, "changes")
-_CHANGELOG = os.path.join(_ROOT, "CHANGELOG.md")
-_HISTORY = os.path.join(_ROOT, "docs", "40_history", "00_completed_development.md")
+_RECORD = os.path.join(_ROOT, "docs", "90_record")
+_CHANGELOG = os.path.join(_RECORD, "CHANGELOG.md")
+_HISTORY = os.path.join(_RECORD, "00_completed_development.md")
 _SCRIPT = os.path.join(_ROOT, "scripts", "build_changelog.py")
 
-#: The live history file rolls into an archive at the next release cut once it
-#: passes this (design note 26 D-4). Warn, do not fail.
+#: A live record file rolls into an archive at the next release cut once it
+#: passes this (design note 26 D-4 for the history; note 61 CV-5 extended the
+#: same rule to the changelog). Warn, do not fail.
 HISTORY_LINE_THRESHOLD = 1500
 
 
@@ -142,19 +149,92 @@ def test_roll_history_without_a_rule_is_an_error(bc):
 
 def test_parse_separates_history_from_changelog_types(bc):
     out = bc.parse_fragments({"a.fixed.md": "- **f**\n", "b.history.md": "- **h** — p\n"})
-    assert set(out) == {"fixed", "history"}
+    # 'changed' is b's derived bullet: b wrote no changelog fragment of its own.
+    assert set(out) == {"fixed", "history", "changed"}
 
 
-# --- the history file size ---------------------------------------------
+# --- one telling: the derived changelog bullet (design note 61 CV-2) ------
 
 
-def test_live_history_size_is_within_the_roll_threshold_or_warns():
-    with open(_HISTORY, encoding="utf-8") as fh:
+def test_a_tier_m_history_entry_derives_its_changelog_bullet(bc):
+    body = "- **Thing lands (#245, tier M, 2026-09-13)** — a long paragraph that\nwraps and keeps going.\n"
+    out = bc.parse_fragments({"thing.history.md": body})
+    assert out["history"] == [body.strip("\n") + "\n"]
+    assert out["changed"] == ["- **Thing lands (#245, tier M, 2026-09-13)**\n"]
+
+
+def test_a_tier_l_step_derives_its_changelog_bullet(bc):
+    out = bc.parse_fragments({"x.history-added.md": "## Step 14 — the thing (note 61, tier L)\n\n**Objective.** …\n"})
+    assert out["added"] == ["- **Step 14 — the thing (note 61, tier L)**\n"]
+
+
+def test_a_hand_written_bullet_suppresses_the_derived_one(bc):
+    """The escape hatch: when the consumer-facing bullet differs, write it."""
+    out = bc.parse_fragments({
+        "x.history.md": "- **Internal framing (#1, tier M, 2026-09-13)** — why\n",
+        "x.changed.md": "- **What a user sees (#1).** the other wording\n",
+    })
+    assert out["changed"] == ["- **What a user sees (#1).** the other wording\n"]
+
+
+def test_a_history_fragment_with_no_lead_phrase_is_refused(bc):
+    with pytest.raises(bc.FragmentError, match="lead phrase"):
+        bc.validate_fragment("x.history.md", "## \n")
+
+
+def test_an_unknown_derived_subsection_is_refused(bc):
+    with pytest.raises(bc.FragmentError, match="derived type"):
+        bc.validate_fragment("x.history-sideways.md", "- **a** — b\n")
+
+
+def test_derived_bullets_flatten_a_wrapped_lead(bc):
+    out = bc.derive_bullet("x.history.md", "- **A lead that\n  wraps over lines (#9)** — body\n")
+    assert out == "- **A lead that wraps over lines (#9)**\n"
+
+
+# --- the changelog roll (design note 61 CV-5) -----------------------------
+
+
+def _fake_changelog():
+    return ("# Changelog\n\n## [Unreleased]\n\n"
+            "## [0.3.0] — c\n\nc body\n\n## [0.2.0] — b\n\nb body\n\n## [0.1.0] — a\n\na body\n")
+
+
+def test_roll_changelog_keeps_the_newest_blocks_and_freezes_the_rest(bc):
+    live, archived = bc.roll_changelog(_fake_changelog(), keep=2)
+    assert "## [0.3.0]" in live and "## [0.2.0]" in live
+    assert "## [0.1.0]" not in live
+    assert archived.startswith("## [0.1.0] — a\n")
+
+
+def test_roll_changelog_is_byte_preserving(bc):
+    text = _fake_changelog()
+    live, archived = bc.roll_changelog(text, keep=2)
+    assert live.rstrip("\n") + "\n\n" + archived == text
+
+
+def test_roll_changelog_is_a_no_op_when_there_is_nothing_to_archive(bc):
+    text = _fake_changelog()
+    assert bc.roll_changelog(text, keep=9) == (text, "")
+
+
+def test_a_rolled_archive_is_named_after_its_newest_release(bc):
+    assert bc.archive_name("## [0.1.0] — a\n\nbody\n") == "CHANGELOG_to_0.1.0.md"
+    assert "do not edit" in bc.archive_header("## [0.1.0] — a\n").lower()
+
+
+# --- the live record files' size ------------------------------------------
+
+
+@pytest.mark.parametrize("path", [_HISTORY, _CHANGELOG])
+def test_live_record_size_is_within_the_roll_threshold_or_warns(path):
+    with open(path, encoding="utf-8") as fh:
         n = sum(1 for _ in fh)
     if n > HISTORY_LINE_THRESHOLD:
         warnings.warn(
-            f"docs/40_history/00_completed_development.md is {n} lines (> {HISTORY_LINE_THRESHOLD}): "
-            "roll the previous release block into an archive at the next cut (RELEASE_PROCESS.md §4)",
+            f"{os.path.relpath(path, _ROOT)} is {n} lines (> {HISTORY_LINE_THRESHOLD}): "
+            "roll the older release blocks into an archive at the next cut "
+            "(RELEASE_PROCESS.md §4; `build_changelog.py --roll`)",
             stacklevel=1,
         )
 
