@@ -161,8 +161,13 @@ clause, which knew of no milestone between.
 > row with its own deprecation of the console script. What is left for the cut
 > itself is step 3 of `RELEASE_PROCESS.md` §4 (the record roll, note 61) and
 > not a row.
-> **Band B6 (0.8.5 — the defect and polish cleanup, on the converged surface)
-> is next.**
+> **B5 is retired: 0.8.4 was cut on 2026-09-14** (tag `v0.8.4`; the release-cut
+> block in
+> [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md)
+> is the record). The band emptied once and stayed empty — the pre-cut queue took
+> nothing back, which is what the 0.8.3 round trip was the exception to.
+> **Band B6 (0.8.5 — the defect and polish cleanup, on the converged surface) is
+> the milestone in flight.**
 
 **System of record (design note 28 MD-5, 2026-08-16):** open work is **GitHub
 Issues** (labels `tier:*`, `tag:*`, `band:*`, `kind:*`; a milestone per release;
