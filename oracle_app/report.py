@@ -478,6 +478,14 @@ def _build_block(project, fingerprint: str) -> None:
             st.caption("Compile report.tex from inside that directory so its "
                        "relative references resolve. Two passes are needed for "
                        "the contents list and the draft mark to settle.")
+            # Said here because this is where the tabular channel is since #245:
+            # a user who came looking for the CSV button needs to be told once,
+            # at the moment the files appear, that they already have them.
+            st.caption("`data/` inside that directory holds every table this "
+                       "analysis produced as CSV — each module's load cases, "
+                       "the applied load sets, the report's own tables and the "
+                       "numbers behind every figure. MANIFEST.txt lists them "
+                       "all with their hashes.")
     if _dirty():
         st.caption("The spec has unsaved edits. Building writes them into the "
                    "package as part of the issue.")

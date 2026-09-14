@@ -69,14 +69,17 @@ twin in Imperial to show the same loads.
 - **Download project.json** hands the same file to your browser, which
   chooses where it goes. A downloaded file dropped into `projects/` is listed
   by Open too. The caption under the buttons states both routes.
-- **Results zip** — builds every page's result tables against the current
-  project and downloads them as one archive, with a manifest naming any page
-  that refused to run and why.
+
+There is no results zip and no per-table download button: since **#245** the
+one place the numbers leave this GUI as files is the **Report** page. Build an
+issue there — a DRAFT needs no signatures — and the package it writes to disk
+carries a `data/` folder with every page's results in it, beside the document
+that states their basis. [Appendix D](D_where_next.md) covers what is in it.
 
 ## Working through the pages
 
 Each page is a form over one analysis step, with the step's results rendered
-below the form and offered as per-table downloads. The pages are ordered by
+below the form. The pages are ordered by
 data flow: a page that needs an upstream quantity says so in plain text until
 the earlier page has what it needs (the exact messages are decoded in
 [Appendix C](C_troubleshooting.md)). Three entry habits worth forming

@@ -1096,6 +1096,28 @@ result that lacks what a deck needs is a stated error, never an empty column.
   terminator and the two writer constructions the package makes; no call site
   passes `lineterminator=`, because a writer added without it produces a file
   that looks right in every viewer and is mixed on disk.
+- **The issue package's `data/` is the oracle GUI's only tabular channel (#245,
+  2026-09-13).** Three channels carried the same numbers: a CSV and a McMaster
+  print-format text twin on every results block (~20 blocks x 2), the sidebar's
+  whole-project results zip, and the applied sets — which shipped from `app/`'s
+  export page alone, so the surviving front end could not produce them at all
+  and Appendix F named `landing_gear_applied_loads.csv` while no production path
+  wrote it. They are consolidated into one: the per-module buttons and the zip
+  retired with no replacement download built, and every package build now ships
+  `data/` with the six applied sets, the V-n conditions, the case index, the
+  governing safety-factor table, the gear report, one load-case file per module
+  that produced a result, one file per appendix table no named file carries and
+  one file per figure the document draws. All of it is built from the owners the
+  document renders from and from the *same* built document (`OracleDocument`
+  carries the reduced project and the one module run), so a file and the page
+  that summarises it cannot describe different analyses. Every file states its
+  own units, basis, axes, producing step and build fingerprint, and the document
+  lists them all in a front-matter **Data reference** table. Owner:
+  `sloads/report/package_data.py`; rules `ORACLE_REPORT.md` §1a; gates G-OR-15,
+  G-OR-17, G-OR-73 (widened from four hand-rebuilt CSVs to the shipped set) and
+  `tests/test_package_data.py`, whose byte-for-byte comparison against
+  `io.load_cases_csv` is the column inventory the retirement was conditioned on,
+  made structural rather than done once.
 - **The delivered set is stated at the beam's grids, and what that costs is
   published (note 56 D-56.9/D-56.10, 2026-09-12).** `applied_loads` returns one
   row per (case, LRA grid): every load station and every concentrated mass is

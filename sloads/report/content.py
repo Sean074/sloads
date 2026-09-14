@@ -149,6 +149,21 @@ class Table:
     #: control tables inline, so "external" is a property of one table's data,
     #: never of the document.
     data_ref: str = ""
+    #: The ``data/`` file of the issue package that already carries this table's
+    #: numbers, or empty (#245).
+    #:
+    #: Set by the producer where a **named** deliverable covers the table --
+    #: ``wing_applied_loads.csv`` covers Appendix B.1, ``vn_conditions.csv``
+    #: covers Appendix A's two condition tables. The package's data emitter reads
+    #: it as "do not write this table again": a generically emitted copy of a
+    #: table a named file already carries would be a second file of the same
+    #: numbers under a name nothing cites, which is the duplication ``data/``
+    #: exists to end.
+    #:
+    #: Distinct from :attr:`data_ref`, which is a *typeset* ``.tex`` fragment the
+    #: document ``\input``s. This names a CSV the reader opens; the two answer
+    #: different questions and a table can set either, both, or neither.
+    data_file: str = ""
 
 
 @dataclass(frozen=True)

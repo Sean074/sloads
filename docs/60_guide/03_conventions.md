@@ -37,13 +37,14 @@ original suite works there in two frames and prints both:
 - **Ground line** — perpendicular and parallel to the runway through the
   wheels' contact patches, the frame a gear engineer reads a reaction in.
   LANDLOAD computes in it and the manual prints it as the "primed" set
-  (VMP, DMP, NVP…). It is an analysis view, and it rides in the **text**
-  report rather than the CSV.
+  (VMP, DMP, NVP…). It is an analysis view rather than a deliverable, and it
+  rides in the gear report's own `Ground-line V/D/S` columns.
 
 The two differ by a rotation of the attitude's ground angle, so the same
 reaction has different components in each and the frame is part of the
 number's meaning. Wherever a value names a frame, that name travels with it:
-on screen, in the text report, and as a `Frame` column in the CSV.
+on screen, as a `Frame` column in the module's file, and as a header block in
+`data/gear_loads.csv` naming the frame of every column it has.
 [Landing Loads](14_landing_loads.md) is where you will meet both.
 
 A delivered force also names **where it acts** — its point of application, in
@@ -115,15 +116,21 @@ A column that no row on the page fills is dropped rather than shown empty, so
 a page of properties renders as Condition / Quantity / Value / Units, and only
 the pages that work in two frames carry `Frame` and `Applied at`.
 
-## Reading a downloaded CSV
+## Reading a CSV out of the package
 
-Each result block offers its table as CSV (and formatted text). The files
-carry the same rows and columns as the screen — the two are written from the
-same data, so they cannot disagree — plus the in-band units statement. Open
-them in any spreadsheet; nothing in them is scaled, renamed, or rounded
-differently from what you saw on the page.
+The results on screen come as files from the **Report** page: build an issue
+and open its `data/` folder. `data/load_cases/<module>.csv` is the table the
+page shows, written from the same data, so the two cannot disagree — plus an
+in-band statement of the units, the axes and the factor that is stated and not
+applied. Open them in any spreadsheet; nothing in them is scaled, renamed, or
+rounded differently from what you saw on the page.
 
-The **text** download is the one place that can carry *more*: where a program
-states a quantity in a frame that is an analysis view rather than a
-deliverable, the text report keeps it beside the delivered set and the CSV
-does not. LANDLOAD's primed (ground-line) rows are the case in point.
+Where a program works in **two frames**, both are carried and the columns say
+which is which. LANDLOAD is the case in point: `data/gear_loads.csv` states
+each reaction twice — `Ground-line V/D/S` at the tyre contact patch, the
+manual's primed set, and `Datum Fx/Fy/Fz` in airplane axes — so the analysis
+view a gear engineer reads is in the package, not only on a page.
+
+Per-block CSV and text download buttons used to do this job, and a results zip
+in the sidebar did it a third time. All three retired into `data/` at #245: one
+channel, one set of names, one manifest.

@@ -6,10 +6,12 @@ truthfully*: the manifest names everything and nothing more, every hash matches,
 the spec the user edits is not rewritten by the build, and two builds of one
 recipe are the same bytes.
 
-Two gates below are **vacuously true in this iteration** and say so in place:
-G-OR-15 and G-OR-17 act on ``data/`` files, and the front-matter-only document
-ships none yet. They are written now so the assertion exists before the first
-table lands, not because they currently prove anything about shipped data.
+**G-OR-15 and G-OR-17 have bodies since #245.** They were written vacuous at
+design note 44 and stayed that way while OR-42 deferred the ``data/``
+externalisation: the package shipped five control files and no data at all. It
+now ships the applied load sets, the V-n conditions, every module's load cases,
+the appendix tables no named file carries and the numbers behind every figure --
+so the two gates assert what they were written to assert.
 """
 
 import hashlib
@@ -296,34 +298,93 @@ def test_reopening_a_package_returns_the_spec_that_was_saved():
 
 
 # --------------------------------------------------------------------------- #
-# G-OR-15 / G-OR-17 -- written now, vacuous until the first analysis section
+# G-OR-15 / G-OR-17 -- the data channel (#245)
 # --------------------------------------------------------------------------- #
-def test_every_shipped_data_file_is_self_describing():
-    """G-OR-15. **Vacuous in this iteration**: the front-matter-only document
-    draws no table or plot from shipped data, so there is nothing under ``data/``
-    to check. The assertion exists so it is in place before the first section
-    that does ship data -- it is not evidence that shipped data has been checked.
+def _data_names(root: str):
+    return [n for n in _tree(root) if n.startswith(op.DATA_DIR + "/")]
+
+
+@pytest.mark.parametrize("path", [_GA, _TWIN])
+def test_every_shipped_data_file_is_self_describing(path):
+    """G-OR-15: a ``data/`` file forwarded out of its package still reads.
+
+    ``SUMMARY_REPORT.md`` §3.1 applied to a detached file. Six statements, and
+    every one of them is a question an analyst holding an unexplained CSV asks:
+    what are these numbers in, is the factor applied, which way do the axes
+    point, what produced it, and from which build. A file that answers five of
+    the six is a file somebody will read the sixth into.
     """
     with tempfile.TemporaryDirectory() as tmp:
-        out = _build(tmp)
-        data = [n for n in _tree(out) if n.startswith(op.DATA_DIR + "/")]
-        assert not data, (
-            "data files now ship: give this test its real body -- units with the "
-            "-ULT marker, safety factor and basis, step key and fingerprint in "
-            "every header (OR-23)")
+        out = _build(tmp, path)
+        names = _data_names(out)
+        assert names, "the package shipped no data at all"
+        for name in names:
+            with open(os.path.join(out, name), encoding="utf-8") as fh:
+                head = "".join(line for line in fh if line.startswith("#"))
+            for wanted in ("DATA FILE:", "PRODUCED BY:", "SUMMARISED IN:",
+                           "ANALYSIS FINGERPRINT:", "UNITS:", "AXES:", "BASIS:"):
+                assert wanted in head, f"{name} states no {wanted}"
+            assert name in head, (
+                f"{name} names a different file in its own DATA FILE line")
 
 
-def test_no_orphan_data_files_in_either_direction():
-    """G-OR-17, **vacuous for the same reason** and kept for the same one."""
+@pytest.mark.parametrize("path", [_GA, _TWIN])
+def test_no_orphan_data_files_in_either_direction(path):
+    """G-OR-17: the document and ``data/`` name each other, both ways.
+
+    A file the document never mentions has no stated provenance inside the issue
+    that ships it, and a document that cites a file the package does not carry
+    is the defect #245 was filed for -- Appendix F named
+    ``landing_gear_applied_loads.csv`` for a fortnight while nothing wrote it.
+
+    The document's half is its **data reference** table, which is built from the
+    file list itself, so the two cannot drift; this asserts the rendered
+    ``.tex`` really carries it, escapes and all.
+    """
+    from sloads.report.plots_tex import escape
+
     with tempfile.TemporaryDirectory() as tmp:
-        out = _build(tmp)
+        out = _build(tmp, path)
         with open(os.path.join(out, op.PACKAGE_TEX), encoding="utf-8") as fh:
             tex = fh.read()
-        data = [n for n in _tree(out) if n.startswith(op.DATA_DIR + "/")]
-        for name in data:
-            assert name in tex, f"{name} ships but the document never reads it"
-        assert "\\input{" not in tex or data, (
-            "the document reads a fragment the package does not carry")
+        names = _data_names(out)
+        assert names, "the package shipped no data at all"
+        for name in names:
+            assert escape(name) in tex, (
+                f"{name} ships but the document never names it")
+        # Only tokens that name a file: the data-reference table's own heading
+        # says "Files carried in data/", and a bare prefix is prose, not a
+        # citation.
+        cited = {word.strip(".,;)")
+                 for word in tex.replace("\\_", "_").split()
+                 if word.startswith(op.DATA_DIR + "/") and word.endswith(".csv")}
+        missing = sorted(c for c in cited if c not in set(names))
+        assert not missing, (
+            "the document cites data files the package does not carry: "
+            f"{missing}")
+
+
+@pytest.mark.parametrize("path", [_GA, _TWIN])
+def test_the_package_carries_the_applied_set_of_every_component_it_has(path):
+    """#245's filing, asserted: the appendices' files exist and are the appendices'.
+
+    Appendix F says in printed prose that its table is "the same set as the file
+    ``landing_gear_applied_loads.csv``". Until this change that sentence pointed
+    at nothing the package contained -- the file shipped only from ``app/``'s
+    export page, which #270 deletes. The claim is now checked from the sentence's
+    own side: every applied-load name the report knows either ships or has no
+    rows to ship.
+    """
+    from sloads.report.applied import APPLIED_CSV_NAMES
+
+    with tempfile.TemporaryDirectory() as tmp:
+        out = _build(tmp, path)
+        names = set(_data_names(out))
+        shipped = {n for n in APPLIED_CSV_NAMES.values()
+                   if f"{op.DATA_DIR}/{n}" in names}
+        assert "landing_gear_applied_loads.csv" in shipped, (
+            "Appendix F names this file in its own prose")
+        assert len(shipped) >= 5, sorted(shipped)
 
 
 

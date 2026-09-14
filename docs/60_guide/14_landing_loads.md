@@ -90,10 +90,11 @@ is the estimated set anchored to the published 115-in tread.
 
 ## Results on this page
 
-One block — LANDLOAD's whole case set, 40 conditions — with its CSV and text
-downloads. Loads are ULTIMATE with the SF stated; the load factors, the
+One block — LANDLOAD's whole case set, 40 conditions. Loads are **LIMIT** with
+the SF stated and applied nowhere (note 49 OR-116); the load factors, the
 fuselage axis angle and every position are dimensionless, angular or
-geometric and are never scaled.
+geometric and are never scaled. The files are in the Report page's package:
+`data/load_cases/landing_loads.csv` and `data/gear_loads.csv`.
 
 **Two frames, and every row names its own.** LANDLOAD works each reaction out
 against the **ground line** — perpendicular and parallel to the runway
@@ -104,14 +105,17 @@ exactly that reason, and the two tables differ by a rotation of the ground
 angle, so a number without its frame is not a load. The split here:
 
 - **The airplane-datum set is the deliverable** — it is what the screen table
-  and the **CSV** carry, and what a beam model or an export deck applies. A
-  `Frame` column states it in-band, so a CSV forwarded on its own still says
-  which axes its numbers are in.
+  and `data/load_cases/landing_loads.csv` carry, and what a beam model or an
+  export deck applies. A `Frame` column states it in-band, so a file forwarded
+  on its own still says which axes its numbers are in.
 - **The ground-line ("primed") set is the manual's analysis view** — VMP/DMP/
   SMP and VNP/DNP/SNP per wheel, the resultants, NVP/NDP/NS, and the
-  unbalanced moments whose labels carry no "(datum)". It rides in the **text**
-  download, beside the datum set, and is deliberately not in the CSV. It is
-  also where you find the cells the book prints on p231 when you cross-check.
+  unbalanced moments whose labels carry no "(datum)". It is in
+  `data/gear_loads.csv`, whose `Ground-line V/D/S` columns are that frame at
+  the contact patch and whose `Datum Fx/Fy/Fz` columns are the same reaction in
+  airplane axes — one row, both frames, with a header block naming which is
+  which. It is also where you find the cells the book prints on p231 when you
+  cross-check.
 
 The blocks, in order:
 
@@ -167,9 +171,10 @@ must show a **forward** (negative `Fx`) body drag component, never an aft one.
 - **A waterline-free CG.** The ground moments need the CG height; a ground
   case without a credible waterline solves to nonsense lever arms, which
   the page's warnings call out.
-- **Reading one frame's numbers as the other's.** The CSV is airplane datum
-  throughout and says so in its `Frame` column; the primed set is ground line
-  and lives in the text download. Comparing a `Fz` against a printed VMP, or
+- **Reading one frame's numbers as the other's.** The module's own file is
+  airplane datum throughout and says so in its `Frame` column; the primed set
+  is ground line and lives in `data/gear_loads.csv`'s `Ground-line` columns.
+  Comparing a `Fz` against a printed VMP, or
   handing a ground-line resultant to a beam model, is comparing across a
   rotation of the ground angle.
 - **Taking a wheel's reference node as its point of application.** The `node

@@ -38,6 +38,17 @@ the generated [`DATA_DICTIONARY.md`](DATA_DICTIONARY.md).
 > renderers, and a test that fails if either front-end gains a figure the other
 > has not.
 >
+> **Getting the numbers as files** (#245). The oracle GUI has one tabular
+> channel and it is the **Report** page: build an issue — a DRAFT needs no
+> signatures, so iterating costs nothing — and the package it writes carries a
+> `data/` folder holding every module's load cases, the six applied load sets,
+> the balanced V-n conditions, the case index, the governing safety-factor
+> table, the gear report and the numbers behind every figure the report draws.
+> Each file states its own units, axes, and the factor it does not apply, so one
+> forwarded on its own still reads. The per-block CSV and text buttons and the
+> sidebar's results zip were three routes to the same numbers and retired into
+> this one.
+>
 > **Aircraft Comparison** (#268, design note 57 D-57.5). One further page, also
 > marked **✦**: the airplane placed against a bundled reference fleet of
 > published types by wing loading, power loading, weight and geometry, with the nearest

@@ -856,6 +856,26 @@ class OracleDocument:
     plan: List[SectionPlan] = field(default_factory=list)
     sections: List[Section] = field(default_factory=list)
     system: UnitSystem = UnitSystem.IMPERIAL
+    #: The project the document was built from -- the **oracle projection**, not
+    #: the file (#245).
+    #:
+    #: Carried so the issue package's ``data/`` files are built from the same
+    #: object the pages were. :func:`build_oracle_document` reduces the project
+    #: before it builds anything, and a data emitter handed the caller's
+    #: unreduced project would write files that disagree with the document they
+    #: are shipped inside -- which is the failure ``vn_conditions_csv`` already
+    #: had to guard against on its own (G-OR-136).
+    project: Optional[Project] = None
+    #: The module results the sections were built from, keyed as
+    #: :func:`run_sections` keys them: step key for a step's own module, module
+    #: name for a folded one (#245).
+    #:
+    #: Here for the same reason :attr:`project` is, and for one more: the
+    #: package's per-module load-case files must come from the run the document
+    #: describes, not from a second run of the same modules. Two runs are two
+    #: analyses, and a package whose files and document came from different ones
+    #: is exactly what OR-6 forbids.
+    results: Dict[str, Optional[ModuleResult]] = field(default_factory=dict)
 
 
 _INTRODUCTION = [
@@ -1047,6 +1067,8 @@ def build_oracle_document(
         plan=plan,
         sections=sections,
         system=system,
+        project=project,
+        results=results,
     )
 
 

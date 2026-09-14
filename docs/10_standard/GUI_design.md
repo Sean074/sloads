@@ -554,7 +554,9 @@ The contract that makes pages copy-of-the-pattern (full list in
 - **No airplane-shaped widget defaults** — a blank project opens with neutral
   defaults, not Appendix-A numbers baked into `value=`.
 - **LIMIT marking** — **every surface is LIMIT**, pages and deliverables alike:
-  the per-module pages, their download buttons, the sidebar's results zip, the
+  the per-module pages, the issue package's `data/` (which since #245 is the
+  oracle GUI's only tabular channel — the per-module download buttons and the
+  sidebar's results zip retired into it), the
   sbeam cards, the case index and both reports, with the factor stated in `SF`
   and applied nowhere (design note 48 OR-76, generalised to the whole project by
   note 49 **OR-116**). `LoadChannel` now has a single member, so a call that

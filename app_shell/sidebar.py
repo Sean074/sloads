@@ -59,9 +59,6 @@ from sloads.derived_geometry import (
     pct_mac_to_station,
     station_to_pct_mac,
 )
-from sloads.report import LoadChannel
-from sloads.report.results_zip import results_zip_bytes
-from sloads.report.results_zip import results_zip_name as _results_zip_name
 from sloads.units import (
     labels_for,
     to_display,
@@ -80,9 +77,7 @@ _UPLOAD_PROCESSED_KEY = "_uploader_processed"
 
 @contextmanager
 def render_shell_sidebar(project: Project, *,
-                         examples_dir: str = EXAMPLES_DIR,
-                         channel: LoadChannel = LoadChannel.LIMIT,
-                         ) -> Iterator[None]:
+                         examples_dir: str = EXAMPLES_DIR) -> Iterator[None]:
     """The units + project-file + About sidebar for ``project``, around the page.
 
     ``with render_shell_sidebar(project): pg.run()``. Units and About render on
@@ -90,13 +85,10 @@ def render_shell_sidebar(project: Project, *,
     persisted its edits, into the slot reserved for it between the two -- so
     the dirty caption and the download payload describe the project the user is
     looking at, not the one before the last keystroke (#64). A page leaves early
-    ``channel`` is the load basis of the results zip this sidebar builds. It
-    defaults to LIMIT, the project's one basis since note 49 OR-116; the
-    **frozen** ``oracle_app/Oracle.py`` — which
-    cannot be edited to pass an argument — keeps today's zip byte-for-byte;
-    ``app/Home.py`` passes ``LoadChannel.LIMIT`` so the zip matches the pages it
-    mirrors (design note 48, OR-77/OR-79). One sidebar serves both GUIs, which
-    is why the choice is a parameter rather than a constant.
+    It took a ``channel`` argument until #245, for the results zip alone. The
+    zip is gone and every load sloads delivers has been LIMIT since note 49
+    OR-116, so the parameter named a choice that no longer had two values and no
+    longer had a consumer.
 
     A page leaves early
     through :func:`app_shell.components.stop_page`, never ``st.stop()``: the
@@ -117,7 +109,7 @@ def render_shell_sidebar(project: Project, *,
     finally:
         st.session_state[IN_SHELL_KEY] = False
         with slot:
-            _render_project_file(project, examples_dir, channel)
+            _render_project_file(project, examples_dir)
 
 
 def _render_units(project: Project) -> None:
@@ -156,8 +148,7 @@ def _render_units(project: Project) -> None:
     st.session_state["unit_system"] = selected
 
 
-def _render_project_file(project: Project, examples_dir: str,
-                         channel: LoadChannel = LoadChannel.LIMIT) -> None:
+def _render_project_file(project: Project, examples_dir: str) -> None:
     st.header("Project file")
     # The name is document metadata, not an oracle input, so no oracle page
     # renders it -- and a project built there was called "" for its whole life:
@@ -251,42 +242,14 @@ def _render_project_file(project: Project, examples_dir: str,
         "location; dropped into that folder, it is listed by Open too."
     )
 
-    # The whole-project results zip (C210-45, backlog 19c): every registered
-    # module run against the current project, rendered by the same owners the
-    # CLI uses, with a skip-and-manifest for pages that refuse. Two-step
-    # (build, then download) because the build runs all 22 modules -- doing
-    # that on every sidebar rerun would tax every page for a button nobody
-    # pressed. The built bytes are keyed to the project's serialized identity,
-    # so an edit after Build invalidates the stale zip instead of serving it.
-    if st.button("📦 Build results zip", width="stretch",
-                 key="_results_zip_build"):
-        ident = sloads_io.project_to_json(project)  # identity of what was built
-        try:
-            data, manifest = results_zip_bytes(
-                project, system=unit_system_from(project.unit_system),
-                channel=channel)
-        except Exception as exc:  # a genuine defect: show it, don't swallow it
-            st.error(f"{type(exc).__name__}: {exc}")
-        else:
-            st.session_state["_results_zip"] = (ident, data, manifest)
-    _built = st.session_state.get("_results_zip")
-    if _built is not None:
-        _ident, _data, _manifest = _built
-        if _ident != sloads_io.project_to_json(project):
-            st.session_state.pop("_results_zip", None)
-            st.caption("Project changed since the zip was built — build again.")
-        else:
-            _ran = sum(1 for line in _manifest if line.endswith(": OK"))
-            st.download_button(
-                "⬇️ Download results (zip)", _data,
-                file_name=_results_zip_name(project),
-                mime="application/zip", width="stretch",
-                key="_results_zip_dl",
-            )
-            st.caption(
-                f"{_ran} of {len(_manifest)} modules ran — see MANIFEST.txt "
-                "inside; your browser chooses the location."
-            )
+    # **No results zip here since #245.** The whole-project zip was a fourth
+    # tabular channel doing the third one's job: the issue package's ``data/``
+    # now carries every module's load cases, the applied sets and the report's
+    # own tables, built from the same owners and travelling with the document
+    # that states their basis. A zip built beside it could only be the same
+    # numbers under a second set of names, with its own manifest to keep in
+    # step -- which is the duplication ``data/`` was consolidated to end.
+    # Build a DRAFT issue on the Report page and open its ``data/`` folder.
 
 
 # --------------------------------------------------------------------------- #

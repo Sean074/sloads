@@ -44,6 +44,52 @@ directory that can be archived, signed, and reopened years later.
   been excluded cannot survive as a stray.
 - Every member path **SHALL** be relative and stay inside the package root.
 
+## 1a. What `data/` carries — the only tabular channel
+
+*(#245, 2026-09-13. OR-23's `data/` externalisation, deferred by OR-42 and
+delivered here; the consolidation ruling is design note 57 §1.3 and note 60
+D-60.12. Owner: `sloads/report/package_data.py`. Gates: G-OR-15, G-OR-17,
+G-OR-73, `tests/test_package_data.py`.)*
+
+The issue package's `data/` **SHALL** be the only channel through which the
+oracle GUI hands a user a table. The per-module CSV and text download buttons
+and the sidebar's whole-project results zip retired into it; no per-module
+replacement download is built, and a `download_button` anywhere in `oracle_app/`
+or `app_shell/` other than the project file is a gate failure.
+
+It **SHALL** carry, all built from the owners the document itself renders from
+and from the *same* built document, so a file and the page that summarises it
+cannot describe different analyses:
+
+- `load_cases/<module>.csv` — one per module that produced a result, through
+  `io.load_cases_csv`, which is the call the retired button made and the call
+  `cli.py` makes. A module that ran and has no file here is a gate failure.
+- the **named** sets the report's own prose cites — the six
+  `*_applied_loads.csv`, `vn_conditions.csv`, `case_index.csv`,
+  `safety_factors.csv`, `gear_loads.csv`. A name a printed sentence uses
+  **SHALL NOT** be generated: Appendix F named
+  `landing_gear_applied_loads.csv` for a fortnight while no production path
+  wrote it, which is what #245 was filed for.
+- one file per **appendix table** no named file carries. A table a named file
+  *does* carry declares it in `Table.data_file` and **SHALL NOT** be written
+  again under a generated name.
+- one file per **figure** the document draws, long form, one row per plotted
+  point. A curve has no printed table, so its numbers exist nowhere else; the
+  one-engine-inoperative yaw march is the case the #245 column inventory found
+  and the emitter is generic so the next one needs no second finding.
+
+The body's own tables are **not** re-emitted one per table: they are printed in
+the document the package carries, and the module file is their superset.
+
+Every file **SHALL** be self-describing to `SUMMARY_REPORT.md` §3.1 read as a
+detached file (**G-OR-15**): its units, the factor it states and does not apply
+with the `-ULT` marker, which way its axes point, the step that produced it and
+the fingerprint of the build. The first four are the methods statement, one
+owner; the last two are the file's own header. And **G-OR-17** holds both
+directions against the document — every file is named in the `.tex`, through the
+front matter's *Data reference* table, and every name the `.tex` cites is a file
+the package carries.
+
 ## 2. The manifest
 
 `MANIFEST.txt` **SHALL** be a full `SUMMARY_REPORT.md` §4.7 manifest, not a list

@@ -1,4 +1,4 @@
-"""**G-OR-73** — every deck and every bundle document states, per subcase, the
+"""**G-OR-73** — every deck and every shipped document states, per subcase, the
 safety factor that was *not* applied, and the two agree.
 
 Design note 49 §8, OR-117. This is the obligation that **replaces the multiply**.
@@ -313,6 +313,71 @@ def test_every_document_states_the_factor_it_did_not_apply(example):
                 f"{case!r}; its governing factor is {result.safety_factor}")
 
 
+def _package_data_files(example: str):
+    """``[(name, text)]`` -- every file the issue package's ``data/`` carries.
+
+    G-OR-73 re-cut to the consolidated artifact set (#245). The document half
+    above pairs four applied CSVs with the result objects whose factors it
+    checks them against, and that pairing is what gives it its force -- but it
+    is also why it could only ever cover artifacts this file knows how to
+    rebuild. Since #245 the package ships every module's load cases, the gear
+    and engine applied sets, the V-n conditions and the gear report as well, and
+    none of those had a basis gate at all.
+
+    So the set is read from :func:`sloads.report.package_data.data_files`, the
+    owner that decides what ships, rather than from a list here: a file added to
+    the package is gated the day it is added, which a hand-maintained list is
+    exactly the wrong instrument for.
+    """
+    from sloads.models.report import default_spec
+    from sloads.report.oracle_content import build_oracle_document
+    from sloads.report.package_data import data_files
+
+    project = io.load_project(os.path.join(_ROOT, "examples", example))
+    doc = build_oracle_document(project, default_spec())
+    return [(f.name, f.content) for f in data_files(doc)]
+
+
+@pytest.mark.parametrize("example", EXAMPLES, ids=lambda e: e.split(".")[0])
+def test_every_shipped_data_file_states_the_basis_it_delivers_on(example):
+    """**G-OR-73**, widened to the package's whole ``data/`` set (#245).
+
+    Not the per-case factor -- that needs the result objects the document half
+    pairs, and most of these files are not distributions. What is asserted of
+    every file the package ships is the statement that replaces the multiply: it
+    says its loads are LIMIT and the factor is applied nowhere, and where it
+    carries an ``SF`` column no row leaves that column blank. A file that ships
+    with neither is a file a recipient can read a 1.5x error out of, which is
+    the whole of OR-117.
+    """
+    files = _package_data_files(example)
+    assert files, f"{example}: the package shipped no data -- the gate is vacuous"
+    for name, text in files:
+        head = "\n".join(ln for ln in text.splitlines() if ln.startswith("#"))
+        assert "All loads reported here are LIMIT" in head, (
+            f"{example}/{name}: ships with no basis statement in its header")
+        body = [ln for ln in text.splitlines() if ln and not ln.startswith("#")]
+        if not body:
+            continue
+        columns = next(csv.reader(body[:1]), [])
+        if "SF" not in columns:
+            continue
+        # A **data-shaped** module table is one row per *quantity*, not per case
+        # (#95, C210-8): a speed, an area and an elevator deflection sit beside
+        # the loads, and none of the three takes a factor. Their SF cell is
+        # blank because no factor applies to that row, which is #154's rule seen
+        # per quantity instead of per condition -- so the per-row assertion
+        # belongs to the files whose every row *is* a load.
+        if "Quantity" in columns and "Value" in columns:
+            continue
+        index = columns.index("SF")
+        for row in csv.reader(body[1:]):
+            if len(row) > index:
+                assert row[index].strip(), (
+                    f"{example}/{name}: a row leaves its SF column blank; the "
+                    "factor is stated per case or it is not stated at all")
+
+
 #: Every way a shipped artifact has actually claimed its own numbers are
 #: ultimate. Written as a list of spellings rather than a single phrase because
 #: the first version of this scan matched only "Loads are ULTIMATE" and
@@ -345,7 +410,11 @@ def test_no_deck_claims_a_factor_has_been_applied():
     """
     for example in EXAMPLES:
         artifacts = [(n, d) for n, d, _c, _r in _pairs(example)]
-        artifacts += [(f"{n} csv", c) for n, c, _r in _documents(example)]
+        # Every file the package ships, not the four this file can rebuild
+        # (#245): the scan is the half note 56 D-56.2 did not narrow, and the
+        # consolidated channel is exactly where an eighth false sentence would
+        # now appear.
+        artifacts += _package_data_files(example)
         for label, text in artifacts:
             if not text:
                 continue
