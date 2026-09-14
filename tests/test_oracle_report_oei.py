@@ -38,6 +38,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # tests/helpers
 
 from sloads import io, registry
 from sloads.applicability import _STEP_NOT_APPLICABLE, step_not_applicable
@@ -49,6 +50,8 @@ from sloads.modules.tail_span import build_tail_span
 from sloads.modules.taildist import build_tail_chordwise
 from sloads.report import load_cases_to_rows
 from sloads.report import oracle_content as oc
+
+from helpers import oracle_section  # noqa: E402
 
 _EXAMPLES = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")
@@ -72,7 +75,8 @@ def _doc(name):
 
 
 def _section_11(doc):
-    return next(s for s in doc.sections if s.title.startswith("11"))
+    """The One Engine Inoperative section, through the plan (see #278)."""
+    return oracle_section(doc, "one_engine_out")
 
 
 def _vtail(project):
@@ -526,15 +530,16 @@ def test_the_oei_input_table_states_the_signed_butt_line():
 
 
 def test_one_engine_answers_to_one_number_across_the_document():
-    """#231 defect 2. Section 10 numbers the engines 1-based; section 11 and
-    the case names must name the same physical engine by the same number, so
-    the 0-based position never reaches the page."""
+    """#231 defect 2. The engine-mount section numbers the engines 1-based; the
+    engine-failure section and the case names must name the same physical engine
+    by the same number, so the 0-based position never reaches the page."""
     project = _project("baron_58")
     doc = oc.build_oracle_document(project, ReportSpec())
-    section_10 = next(s for s in doc.sections if s.title.startswith("10"))
+    section_10 = oracle_section(doc, "engine_mount")
     section_11 = _section_11(doc)
 
-    # Section 10's columns are the numbering owner: Engine 1..N in entered order.
+    # The engine-mount section's columns are the numbering owner: Engine 1..N in
+    # entered order.
     entered = _table_named(section_10, "Engine and propeller data as entered")
     numbers = [c.removeprefix("Engine ") for c in entered.columns[1:]]
     assert numbers == [str(i + 1) for i in range(len(numbers))]

@@ -40,6 +40,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # tests/helpers
 
 from sloads import io
 from sloads.constants import IN2_PER_FT2
@@ -51,6 +52,8 @@ from sloads.modules.tab import build_tabs
 from sloads.report import oracle_content as oc
 from sloads.report import oracle_sections as os_
 from sloads.report.render import format_value
+
+from helpers import oracle_section  # noqa: E402
 
 _EXAMPLES = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")
@@ -66,7 +69,8 @@ _ALL = _SHIPPED
 
 #: Section number -> the module's own record builder, so a gate can compare the
 #: document against what it was built from without knowing which section it is.
-_BUILDERS = {"7.": build_aileron, "8.": build_flap, "9.": build_tabs}
+_BUILDERS = {"aileron_loads": build_aileron, "flap_loads": build_flap,
+             "tab_loads": build_tabs}
 
 
 def _path(name):
@@ -78,12 +82,19 @@ def _doc(name="ga6_normal", **kw):
                                     ReportSpec(), **kw)
 
 
-def _section(doc, starts):
-    return next(s for s in doc.sections if s.title.startswith(starts))
+def _section(doc, step_key):
+    """The section for a step, through the plan -- never by printed number.
+
+    Re-pointed at #278: the four merged front-matter sections renumbered the
+    analysis body, and a lookup keyed on "7." is the literal-reference defect
+    F-R2 names, written in a test instead of in prose.
+    """
+    return oracle_section(doc, step_key)
 
 
 def _control_sections(doc):
-    return [_section(doc, n) for n in ("7.", "8.", "9.")]
+    return [_section(doc, key) for key in
+            ("aileron_loads", "flap_loads", "tab_loads")]
 
 
 def _prose(section):
@@ -174,7 +185,7 @@ def test_no_pressure_is_computed_from_a_drawn_outline():
                + project.aileron_loads.area_aft_hinge_sqft)
     drawn = planform_area_sqft(project, "aileron")
     assert abs(drawn - entered) / entered > 0.4, "fixture no longer disagrees"
-    section = _section(_doc("concept_regional_jet"), "7.")
+    section = _section(_doc("concept_regional_jet"), "aileron_loads")
     printed = _cells(section.tables[0], "psi at 0.00c")
     module = build_aileron(project)
     assert printed[0] == format_value(module[0].stations[0].psi)
@@ -231,7 +242,7 @@ def test_a_disagreeing_pair_of_entered_areas_is_stated():
     """
     for name, sense in (("baron_58", "smaller"),
                         ("concept_regional_jet", "smaller")):
-        prose = _prose(_section(_doc(name), "7."))
+        prose = _prose(_section(_doc(name), "aileron_loads"))
         assert "The two entered areas of this aileron disagree" in prose, name
         assert sense in prose, name
 
@@ -243,7 +254,7 @@ def test_an_agreeing_pair_is_not_stated():
     inside the 2 % the owner set -- and its flap agrees to 0.2 % as well.
     """
     doc = _doc("ga6_normal")
-    for starts in ("7.", "8."):
+    for starts in ("aileron_loads", "flap_loads"):
         assert "disagree" not in _prose(_section(doc, starts)), starts
 
 
@@ -265,7 +276,7 @@ def test_every_control_section_states_the_sign_convention_in_the_same_words():
 def test_the_aileron_prints_both_throws_with_opposite_signs():
     """OR-150: the rule read from both throws, which is why both are printed."""
     for name in _ALL:
-        table = _section(_doc(name), "7.").tables[0]
+        table = _section(_doc(name), "aileron_loads").tables[0]
         pressures = [float(c) for c in _cells(table, "psi at 0.00c")]
         assert len(pressures) == 2, name
         assert pressures[0] > 0 > pressures[1], (name, pressures)
@@ -294,7 +305,7 @@ def test_the_chordwise_figure_is_built_wherever_the_module_runs():
     """OR-153: it is the module's own profile and needs no geometry."""
     for name in _ALL:
         doc = _doc(name)
-        for starts in ("7.", "8.", "9."):
+        for starts in ("aileron_loads", "flap_loads", "tab_loads"):
             figures = [f for f in _section(doc, starts).figures
                        if f.key.startswith("chordwise")]
             assert figures, (name, starts)
@@ -313,7 +324,7 @@ def test_the_locator_states_its_absence_rather_than_drawing_nothing():
     seen = set()
     for name in _ALL:
         doc = _doc(name)
-        for starts in ("7.", "8.", "9."):
+        for starts in ("aileron_loads", "flap_loads", "tab_loads"):
             for figure in _section(doc, starts).figures:
                 if not figure.key.startswith("locator"):
                     continue
@@ -326,7 +337,7 @@ def test_the_locator_states_its_absence_rather_than_drawing_nothing():
 def test_the_tab_rectangle_is_labelled_as_drawn():
     """OR-155: a shape a reader could mistake for entered geometry is not drawn
     silently. ``ga6_normal`` is the one shipped example that draws it."""
-    figure = next(f for f in _section(_doc(), "9.").figures
+    figure = next(f for f in _section(_doc(), "tab_loads").figures
                   if f.key.startswith("locator"))
     assert figure.data is not None
     assert "The tab planform is not entered" in figure.caption
@@ -350,7 +361,7 @@ def test_no_control_section_reprints_a_geometry_input():
               project.aileron_loads.area_aft_hinge_sqft,
               project.flap_loads.flap_deflection_deg,
               project.flap_loads.flap_chord_ratio]
-    for starts in ("7.", "8."):
+    for starts in ("aileron_loads", "flap_loads"):
         cells = {cell for table in _section(doc, starts).tables
                  for row in table.rows for cell in row}
         for value in echoed:
@@ -374,7 +385,7 @@ def test_every_control_section_points_at_the_geometry_section():
 def test_the_flap_prints_four_candidates_and_names_the_critical_one():
     """OR-156: a pick printed without its set is a number nobody can check."""
     for name in _ALL:
-        table = next(t for t in _section(_doc(name), "8.").tables
+        table = next(t for t in _section(_doc(name), "flap_loads").tables
                      if t.title.startswith("Flaps-extended conditions"))
         assert [r[0] for r in table.rows] == ["1G stall", "2G stall",
                                               "2G at VF", "Gust at VF"], name
@@ -383,10 +394,10 @@ def test_the_flap_prints_four_candidates_and_names_the_critical_one():
 
 def test_a_flap_with_no_engine_record_states_the_slipstream_absence():
     """OR-156: an absence with a stated consequence, not a smaller number."""
-    prose = _prose(_section(_doc("concept_regional_jet"), "8."))
+    prose = _prose(_section(_doc("concept_regional_jet"), "flap_loads"))
     assert "is not analysed for this airplane" in prose
     assert "an absence to close before the flap is sized" in prose
-    with_engine = _prose(_section(_doc("ga6_normal"), "8."))
+    with_engine = _prose(_section(_doc("ga6_normal"), "flap_loads"))
     assert "The propeller slipstream case of 23.457(b) applies" in with_engine
 
 
@@ -394,7 +405,7 @@ def test_the_tab_table_has_a_row_per_tab_and_names_its_station():
     """OR-157: never a bare station number, because BL and WL are not one axis."""
     for name in _ALL:
         project = io.load_project(_path(name))
-        table = _section(_doc(name), "9.").tables[0]
+        table = _section(_doc(name), "tab_loads").tables[0]
         assert len(table.rows) == len(project.tab_loads.tabs), name
         for cell in _cells(table, "Station"):
             assert cell.startswith(("Butt line", "Waterline")), (name, cell)

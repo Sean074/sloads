@@ -7,6 +7,20 @@ The authoritative specification for the **consolidated loads summary report**
 this file is the standard the implementation is judged against and is the one to
 update when the report's content rules change.
 
+> **The document this governs is retiring (#278, design note 60 D-60.7…D-60.11,
+> 2026-09-13).** Its only production consumer is `app/views/export_report.py`,
+> which note 57 D-57.1 deletes; four of its cross-cutting sections — axes and
+> sign conventions, the governing safety-factor table, the FAR 23 Subpart C
+> coverage matrix and the bundle manifest — have merged into the **oracle
+> report**, whose standard is [`ORACLE_REPORT.md`](ORACLE_REPORT.md) (§3.2a for
+> the merged front matter). Every other section of this document is declared
+> merged or superseded, with its reason, in
+> `sloads/report/front_sections.SUMMARY_DISPOSITION`. The **rules** below still
+> govern: `ORACLE_REPORT.md` inherits this file verbatim under OR-5 except where
+> it records a deviation, so this remains the standard for self-containment, the
+> §3.1 statements, §3.4 absence-is-content, §3.5 units and the §4.7 manifest.
+> What retires at #270 is the implementation, not the standard.
+
 Keyword convention (RFC 2119 sense, as used throughout `10_standard/`):
 **SHALL** = mandatory, a violation is a `[CRITICAL]` review finding;
 **SHOULD** = strongly expected, deviation requires a stated reason;

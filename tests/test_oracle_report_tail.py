@@ -38,6 +38,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # tests/helpers
 
 from sloads import io  # noqa: E402
 from sloads.report.applied import applied_load_csv  # noqa: E402
@@ -46,6 +47,8 @@ from sloads.modules.select import default_critical  # noqa: E402
 from sloads.modules.taildist import build_tail_chordwise  # noqa: E402
 from sloads.report import oracle_content as oc  # noqa: E402
 from sloads.report.render import format_value  # noqa: E402
+
+from helpers import oracle_section  # noqa: E402
 
 _EXAMPLES = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")
@@ -63,8 +66,19 @@ def _doc(path=_GA, **kw):
     return oc.build_oracle_document(io.load_project(path), _spec(), **kw)
 
 
-def _section(doc, title_starts="5."):
-    return next(s for s in doc.sections if s.title.startswith(title_starts))
+def _section(doc, step_key="htail_loads"):
+    """The section for a step, through the plan -- never by printed number.
+
+    Re-pointed at #278: the four merged front-matter sections renumbered the
+    analysis body, and a lookup keyed on "5." is the literal-reference defect
+    F-R2 names, written in a test instead of in prose.
+    """
+    return oracle_section(doc, step_key)
+
+
+def _number(doc, step_key):
+    """The printed number of a step's section, from the plan (the one owner)."""
+    return next(e.number for e in doc.plan if e.step_key == step_key and e.number)
 
 
 def _appendix(doc, title):
@@ -106,16 +120,24 @@ def test_the_tail_is_two_sections_and_five_renders_five_subsections():
     section is inserted above it.
     """
     doc = _doc()
-    section = _section(doc, "5.")
-    assert section.title == "5. Horizontal Tail and Elevator Loads"
+    section = _section(doc, "htail_loads")
+    # The number itself comes from the plan (#278 renumbered the body when the
+    # merged front matter went in): what this asserts is the *shape* -- one
+    # section per surface, five subsections each, numbered through the owner.
+    number = _number(doc, "htail_loads")
+    assert section.title == oc.heading(number, "Horizontal Tail and Elevator Loads")
     assert [s.title for s in section.subsections] == [
-        oc.heading(oc.subsection_number("5", i), title) for i, title in enumerate(
+        oc.heading(oc.subsection_number(number, i), title)
+        for i, title in enumerate(
             ["Horizontal tail input data", "Design conditions",
              "Critical horizontal tail loads", "Chordwise load distribution",
              "Spanwise loads"])]
-    # The vertical tail is section 6; its own shape is asserted in
+    # The vertical tail is the next section; its own shape is asserted in
     # ``test_oracle_report_vtail.py``, which owns the surface this file does not.
-    assert _section(doc, "6.").title == "6. Vertical Tail and Rudder Loads"
+    vtail = _number(doc, "vtail_loads")
+    assert _section(doc, "vtail_loads").title == oc.heading(
+        vtail, "Vertical Tail and Rudder Loads")
+    assert int(vtail) == int(number) + 1, "the two surfaces print side by side"
 
 
 def test_the_tail_appendices_are_d_and_e_behind_the_first_three():
@@ -165,13 +187,13 @@ def test_every_tail_condition_lands_in_exactly_one_section():
     # ...and each section prints exactly its own share, no more.
     doc = _doc()
     seen = set()
-    for number, component in (("5.", "htail"), ("6.", "vtail")):
-        summary = next(t for t in _tables(_section(doc, number))
+    for key, component in (("htail_loads", "htail"), ("vtail_loads", "vtail")):
+        summary = next(t for t in _tables(_section(doc, key))
                        if t.title.startswith("Critical"))
         printed = set(_cells(summary, "Case"))
         assert printed == {c.case_ref.case_id for c in published
-                           if c.component == component}, number
-        assert not printed & seen, f"{number} reprints another section's case"
+                           if c.component == component}, key
+        assert not printed & seen, f"{key} reprints another section's case"
         seen |= printed
     assert seen == {c.case_ref.case_id for c in published}
 
@@ -192,7 +214,7 @@ def test_each_tail_section_names_the_step_and_component_it_is_built_from():
 def test_no_load_the_tail_section_prints_is_marked_ultimate():
     """Every load is LIMIT (note 49 OR-116), so no column carries ``-ULT``."""
     doc = _doc()
-    for section in (_section(doc, "5."), _appendix(doc, oc.HTAIL_LOAD_STATIONS)):
+    for section in (_section(doc, "htail_loads"), _appendix(doc, oc.HTAIL_LOAD_STATIONS)):
         for table in _tables(section):
             assert not any("-ULT" in c for c in table.columns), table.title
             assert not any("-ULT" in cell for row in table.rows for cell in row)
@@ -215,7 +237,7 @@ def test_every_tail_load_table_states_the_factor_it_does_not_apply():
     # table that carries an ``SF`` column and no load column (OR-132's ruling
     # that the factor is stated wherever the case is named).
     geometry = {"Loads reference axis by station"}
-    for section in (_section(doc, "5."), _appendix(doc, oc.HTAIL_LOAD_STATIONS)):
+    for section in (_section(doc, "htail_loads"), _appendix(doc, oc.HTAIL_LOAD_STATIONS)):
         for table in _tables(section):
             if table.title in no_loads or any(
                     table.title.startswith(t) for t in geometry):
@@ -238,7 +260,7 @@ def test_the_printed_totals_are_the_modules_own_unscaled_values():
     project = io.load_project(_GA)
     conditions = [c for c in default_critical(project).conditions
                   if c.component == "htail"]
-    summary = next(t for t in _tables(_section(_doc(), "5."))
+    summary = next(t for t in _tables(_section(_doc(), "htail_loads"))
                    if t.title.startswith("Critical"))
     printed = dict(zip(_cells(summary, "Case"), _cells(summary, "Total load")))
     for condition in conditions:
@@ -267,7 +289,7 @@ def test_every_appendix_a_condition_is_present_and_named_as_the_oracle_names_it(
     present, under the name the oracle uses. Pinning the document to the printed
     numbers would mean pinning it to a fixture defect.
     """
-    register = next(t for t in _tables(_section(_doc(), "5."))
+    register = next(t for t in _tables(_section(_doc(), "htail_loads"))
                     if t.title == "Design conditions analysed")
     assert set(_cells(register, "Condition")) == {
         "BAL UP RETRACTED", "BAL DN RETRACTED",
@@ -277,7 +299,7 @@ def test_every_appendix_a_condition_is_present_and_named_as_the_oracle_names_it(
     # ...and each states the requirement it answers, from the analysis's own
     # ``far_reference`` rather than from a literal typed here.
     project = io.load_project(_GA)
-    register = next(t for t in _tables(_section(_doc(), "5."))
+    register = next(t for t in _tables(_section(_doc(), "htail_loads"))
                     if t.title == "Design conditions analysed")
     want = {c.case_ref.case_id: (c.label, c.far_reference)
             for c in default_critical(project).conditions if c.component == "htail"}
@@ -301,7 +323,7 @@ def test_the_printed_pressures_are_taildists_own():
     project = io.load_project(_GA)
     results = {r.case_ref.case_id: r for r in build_tail_chordwise(project)
                if r.component == "htail"}
-    table = next(t for t in _tables(_section(_doc(), "5."))
+    table = next(t for t in _tables(_section(_doc(), "htail_loads"))
                  if t.title.startswith("Net chordwise pressure"))
     for row in table.rows:
         result = results[row[0]]
@@ -316,7 +338,7 @@ def test_the_chord_stations_print_once_and_the_constants_are_reference_data():
     cannot exist. The aerodynamic constants carry no factor because nothing is
     sized to a lift-curve slope.
     """
-    tables = _tables(_section(_doc(), "5."))
+    tables = _tables(_section(_doc(), "htail_loads"))
     stations = next(t for t in tables
                     if t.title == "Chord stations of the pressure profile")
     assert len(stations.rows) == 5
@@ -328,7 +350,7 @@ def test_the_chord_stations_print_once_and_the_constants_are_reference_data():
 
 
 def test_the_chordwise_figure_plots_every_condition_once():
-    section = _section(_doc(), "5.")
+    section = _section(_doc(), "htail_loads")
     figure = next(f for sub in section.subsections for f in sub.figures
                   if f.key == "chordwise_htail")
     assert figure.data is not None and not figure.absent_reason
@@ -351,7 +373,7 @@ def test_every_condition_states_its_elevator_load():
     already carries.
     """
     for path in (_GA, _TWIN):
-        summary = next(t for t in _tables(_section(_doc(path), "5."))
+        summary = next(t for t in _tables(_section(_doc(path), "htail_loads"))
                        if t.title.startswith("Critical"))
         cells = _cells(summary, "Elevator load")
         assert cells and all(c and c != "--" for c in cells), path
@@ -365,7 +387,7 @@ def test_the_unsymmetrical_row_states_its_split_beside_its_elevator_load():
     load in another. Alone, an elevator load on an unsymmetrical case reads as
     one surface's load, when the case's whole content is that the sides differ.
     """
-    summary = next(t for t in _tables(_section(_doc(), "5."))
+    summary = next(t for t in _tables(_section(_doc(), "htail_loads"))
                    if t.title.startswith("Critical"))
     row = next(r for r in summary.rows if r[0] == "HT-09")
     sides = row[summary.columns.index("Sides RH / LH")]
@@ -387,7 +409,7 @@ def test_every_condition_states_its_aero_state_or_the_reason_there_is_none():
     which ones and why, rather than leaving the reader to guess whether a zero
     was measured.
     """
-    table = next(t for t in _tables(_section(_doc(), "5."))
+    table = next(t for t in _tables(_section(_doc(), "htail_loads"))
                  if t.title == "Aerodynamic state of each condition")
     assert len(table.rows) == 9
     # The trim angle of attack is published by every horizontal-tail condition.
@@ -404,7 +426,7 @@ def test_every_condition_states_its_aero_state_or_the_reason_there_is_none():
 
 def test_the_checked_pair_states_the_pitch_inertia_it_was_computed_with():
     """G-OR-88 -- OR-135's third quantity: provenance beside the number."""
-    table = next(t for t in _tables(_section(_doc(), "5."))
+    table = next(t for t in _tables(_section(_doc(), "htail_loads"))
                  if t.title == "Aerodynamic state of each condition")
     inertia = dict(zip(_cells(table, "Case"), _cells(table, "Inertia")))
     assert math.isclose(float(inertia["HT-05"]), 2242.8, rel_tol=2e-3)
@@ -451,12 +473,12 @@ def test_the_spanwise_notation_defines_every_symbol_a_column_uses():
     """Section 3.2's rule (OR-62) applied to the empennage: a column heading
     names a symbol from the notation table and nothing else."""
     doc = _doc()
-    notation = next(t for t in _tables(_section(doc, "5."))
+    notation = next(t for t in _tables(_section(doc, "htail_loads"))
                     if t.title == "Notation for the spanwise loads")
     defined = {r[0] for r in notation.rows}
     assert defined == {"Fn", "Sn", "Mxx", "Myy"}
     assert {r[3] for r in notation.rows} == {"applied", "cumulative"}
-    root = next(t for t in _tables(_section(doc, "5."))
+    root = next(t for t in _tables(_section(doc, "htail_loads"))
                 if t.title.endswith("at the root (LIMIT)"))
     for column in root.columns:
         symbol = column.replace("Root ", "").split(" ")[0]
@@ -469,7 +491,7 @@ def test_the_spanwise_subsection_states_it_has_no_printed_oracle():
     """The absence is content (OR-5): the reference gives the tail's totals and
     its chordwise profile and stops, so this deliverable is held to stated
     closures instead, and says so where it is delivered."""
-    span = _section(_doc(), "5.").subsections[4]
+    span = _section(_doc(), "htail_loads").subsections[4]
     assert "no counterpart in the original analysis" in " ".join(span.body)
     assert "closure" in " ".join(span.body)
 
@@ -485,7 +507,7 @@ def test_section_five_points_at_the_non_conventional_tail_limitation():
     who starts at the horizontal tail must not meet the restriction for the
     first time two sections later.
     """
-    prose = _prose(_section(_doc(), "5."))
+    prose = _prose(_section(_doc(), "htail_loads"))
     assert "conventional tail" in prose
     assert "does not affect anything in this section" in prose
 
@@ -494,7 +516,7 @@ def test_the_23_427_deviation_is_stated_where_the_case_is_introduced():
     """OR-137 -- OR-112's treatment one section over: an analyst comparing
     against the printed example finds the difference explained rather than
     discovering it."""
-    prose = _prose(_section(_doc(), "5.").subsections[1])
+    prose = _prose(_section(_doc(), "htail_loads").subsections[1])
     assert "23.427(a)" in prose
     assert "registered deviation" in prose and "methods statement" in prose
 
@@ -507,7 +529,7 @@ def test_a_project_with_no_tail_states_its_absence_and_still_builds():
     project = io.load_project(_GA)
     project.tail_loads = None
     doc = oc.build_oracle_document(project, _spec())
-    section = _section(doc, "5.")
+    section = _section(doc, "htail_loads")
     assert section.absent_reason or all(
         sub.absent_reason for sub in section.subsections)
     appendix = _appendix(doc, oc.HTAIL_LOAD_STATIONS)
@@ -530,7 +552,7 @@ def test_the_input_data_subsection_draws_the_surface_with_its_axis():
     """
     from sloads.modules.tail_span import build_tail_span
 
-    inputs = _section(_doc(), "5.").subsections[0]
+    inputs = _section(_doc(), "htail_loads").subsections[0]
     assert inputs.title.endswith("Horizontal tail input data")
     figure = next(f for f in inputs.figures if f.key == "planform_htail_lra")
     assert figure.data is not None and not figure.absent_reason
@@ -546,7 +568,7 @@ def test_the_input_data_subsection_states_the_axis_station_by_station():
     """The axis is a table as well as a line: a figure cannot be read off."""
     from sloads.modules.tail_span import build_tail_span
 
-    inputs = _section(_doc(), "5.").subsections[0]
+    inputs = _section(_doc(), "htail_loads").subsections[0]
     table = next(t for t in inputs.tables
                  if t.title.startswith("Loads reference axis by station"))
     stations = build_tail_span(io.load_project(_GA))["htail"][0].stations
@@ -556,7 +578,7 @@ def test_the_input_data_subsection_states_the_axis_station_by_station():
     # from the surface's geometry, not from the pressures they scale.
     assert any(t.title == "Aerodynamic constants of the surface"
                for t in inputs.tables)
-    chordwise = _section(_doc(), "5.").subsections[3]
+    chordwise = _section(_doc(), "htail_loads").subsections[3]
     assert not any(t.title == "Aerodynamic constants of the surface"
                    for t in chordwise.tables)
 
@@ -569,7 +591,7 @@ def test_the_spanwise_subsection_says_why_there_is_no_hinge_moment():
     not a missing calculation, and the subsection names the two inputs that
     would change it rather than leaving the reader to find them.
     """
-    span = _section(_doc(), "5.").subsections[4]
+    span = _section(_doc(), "htail_loads").subsections[4]
     prose = " ".join(span.body)
     assert "no hinge moment is stated" in prose
     assert "hinge line itself is known" in prose

@@ -60,7 +60,7 @@ from sloads.report import oracle_content as oc
 from sloads.report import oracle_latex as ol
 from sloads.report.conventions_tex import CONVENTION_TABLE_NOTE
 from sloads.report.methods import methods_statement
-from sloads.report.oracle_package import PACKAGE_SPEC, _units_sentence
+from sloads.report.oracle_package import PACKAGE_SPEC, units_sentence
 from sloads.units import UnitSystem
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -242,7 +242,7 @@ def test_the_package_and_convention_lines_state_limit():
     two single sentences that each speak for a whole archive."""
     for system in (UnitSystem.IMPERIAL, UnitSystem.SI):
         assert_states_limit(f"package basis ({system.value})",
-                            _units_sentence(system))
+                            units_sentence(system))
     # The package spec's own per-file prose -- the ``units`` and ``conventions``
     # cells the manifest prints under every member, which is the same claim the
     # summary report's Appendix A got wrong on fourteen rows.

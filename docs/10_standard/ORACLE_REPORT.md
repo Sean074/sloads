@@ -87,8 +87,8 @@ with the `-ULT` marker, which way its axes point, the step that produced it and
 the fingerprint of the build. The first four are the methods statement, one
 owner; the last two are the file's own header. And **G-OR-17** holds both
 directions against the document — every file is named in the `.tex`, through the
-front matter's *Data reference* table, and every name the `.tex` cites is a file
-the package carries.
+front matter's *Files in this issue package* section (§3.2a), and every name the
+`.tex` cites is a file the package carries.
 
 ## 2. The manifest
 
@@ -109,11 +109,20 @@ stopped (review CR-C-3).
 
 ## 3. Sections
 
-The section set is **derived, never listed**: the owner is
+The **analysis** section set is **derived, never listed**: the owner is
 `sloads.workflow.oracle_steps()`, and a step is an analysis section **iff it
 produces a result** (it has a `module`). An input-only step has nothing to report
 and belongs to the input sections. Adding a module-backed step to the workflow
 adds a section with no edit to the report code.
+
+Front matter is the declared exception and its table is
+`oracle_content.FRONT_SECTIONS` (§3.2a): a section that belongs to no step has no
+step to be derived from, and declaring it in a data table rather than in a branch
+of `section_plan` is what keeps the guard tests reading the same table the
+builder does. The body stays derived around it, and the numbering owner
+renumbers the body when front matter is added — which is why numbering is a
+function (note 32 OG-2 / **G-OR-2**, amended by note 60 D-60.9 on the OR-16
+pattern).
 
 Numbering has one owner, `oracle_content.section_number`, derived from position.
 Section references **SHALL** be built from it. A reference that does not move
@@ -193,7 +202,37 @@ contents.
   back to the same default, so a spec written before these fields existed still
   produces a complete document.
 
-## 3.3 Section 2: Loads Configuration
+## 3.2a The front matter after the introduction (#278)
+
+Agreed 2026-09-13 (design note 60, D-60.7 … D-60.11). The summary report's only
+production consumer is the page note 57 deletes, so the document goes with it;
+four cross-cutting assets moved here first, as numbered sections between the
+introduction and the analysis body:
+
+| Front key | Section | Why it is here and not in the body |
+|---|---|---|
+| `conventions` | Axes and sign conventions | The only statement of the frame either front end makes: prose, the sign-conventions table and three static diagrams, all read from `conventions_tex.py`. |
+| `factors` | Governing safety factors | The authority every per-case SF is a view of (M4-8 / G-11); delivery is LIMIT and the statement replaces the multiply (note 49 OR-116). |
+| `coverage` | Conditions analysed and FAR coverage | What the run did **not** cover, classified — the gap list, from `coverage.py`. |
+| `package_files` | Files in this issue package | The bundle manifest, read by a reader rather than an archivist: every file the package carries, what it contains and where it is summarised. |
+
+- **Front matter, not appendices.** An appendix is appended and never inserted
+  (OR-50), and a section stating the frame every later number is in belongs
+  **before** what it governs.
+- **One builder, two documents.** `sloads/report/front_sections.py` builds these
+  for both reports until the summary report is deleted, and takes its heading as
+  an argument: the merge **SHALL NOT** be implemented as a copy, which is the
+  drift the convergence exists to end (practice 3).
+- **The file list is the document's, not the packager's.** `OracleDocument.data`
+  is computed by `build_oracle_document`, so the section is an ordinary built
+  section: a list that appeared only when a package was assembled would make a
+  section INCLUDED in the plan and absent in the render.
+- **Nothing leaves unaccounted.** Every other `content.SECTIONS` key **SHALL**
+  be declared in `front_sections.SUMMARY_DISPOSITION` with its successor, the
+  front section it merged into, or the reason it retires; a key with none fails
+  the suite (`tests/test_front_sections.py`, note 60 gates 11 and 12).
+
+## 3.3 The Loads Configuration group
 
 Agreed 2026-08-30 (OR-8 iteration 2). Section 2 collects four analysis steps as
 subsections of one numbered section: 2.1 Geometry, 2.2 Weight and Mass
