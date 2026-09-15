@@ -46,6 +46,15 @@ register of record for oracle deviations.
 per-module "Oracle" column below and the READMEs/`PROGRAM_SPEC.md` defer to it —
 do not restate it elsewhere.**
 
+**Its machine-readable half is [`tests/module_gates.py`](../../tests/module_gates.py)**
+(#186, review R-16): one row per registered module naming that module's gate —
+`ORACLE` or `CLOSURE`, the gate test functions, and the printed source or the
+invariant. The reasoning stays here in prose; the mapping lives there, where
+`tests/test_module_gates.py` walks `registry.available()` and fails if a module
+registers without a gate, if a named gate test has been renamed away, or if an
+oracle's page citation leaves its test file. Before it, rule 2 was prose only and
+a module could ship with no gate at all while the suite stayed green.
+
 - **Appendix A (6-place GA single, p131) is the printed oracle and is *in hand*.**
   Modules whose GA-single figures appear there are **oracle-locked** — a
   `tests/test_<module>.py` asserts `run(project)` against the printed numbers within
