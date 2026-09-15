@@ -675,11 +675,20 @@ same posture `tests/imperial_baseline.py` takes about digest regeneration — so
 the bump is a deliberate act with a recorded result:
 
 1. run the weekly `sbeam drift` workflow on demand (`workflow_dispatch`) to see
-   what `main` does with the current gate, or install the candidate SHA locally;
+   what `main` does with the current gate, or install the candidate SHA locally
+   — a scheduled run that already found drift will have opened the pinned
+   **drift issue** described below, with its failing run linked;
 2. change the SHA in `pyproject.toml`, `pip install -e '.[dev,solver]'`;
 3. `pytest -m roundtrip` must be green **before** the bump is committed;
 4. record the bump in `CHANGELOG.md` with the sbeam commit subject.
 
 A red drift run is a notification that the pin needs a look — never a merge
-block. Design note:
+block, and it is delivered as an **issue** rather than as a square on the
+Actions page nobody is required to open (#188, review R-18):
+`.github/workflows/sbeam-drift.yml` opens one pinned drift issue on the first
+red weekly run, comments on it on every red run after that, and
+comments-then-closes it on the first run that is green again. An open drift
+issue therefore means *drifting now*; a gate that did not run at all (setup
+failed) leaves it untouched rather than reading as green. Guard:
+`tests/test_sbeam_drift_notification.py`. Design note:
 [`../25_notes/17_sbeam_roundtrip_ci_harness_plan.md`](../25_notes/17_sbeam_roundtrip_ci_harness_plan.md).
