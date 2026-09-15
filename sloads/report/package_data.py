@@ -166,14 +166,12 @@ def table_csv(table: "Table") -> str:
     columns is part of the table, and a file forwarded alone had the columns and
     not the definitions.
     """
-    from .oracle_sections import _csv_note
-
     buf = _io.StringIO()
     writer = csv_text.writer(buf)
     writer.writerow(list(table.columns))
     for row in table.rows:
         writer.writerow(list(row))
-    return _csv_note(table.note) + buf.getvalue()
+    return csv_text.note_block(table.note) + buf.getvalue()
 
 
 def figure_csv(figure: "Figure") -> str:

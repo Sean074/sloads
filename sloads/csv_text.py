@@ -41,3 +41,24 @@ def dict_writer(buf: TextIO, fieldnames: Sequence[str]) -> Any:
     """A :class:`csv.DictWriter` that ends its lines the way this package does."""
     return csv.DictWriter(buf, fieldnames=list(fieldnames),
                           lineterminator=CSV_LINE_TERMINATOR)
+
+
+def note_block(text: str) -> str:
+    """A table's prose note as ``#``-prefixed CSV header lines (#242, #273).
+
+    Wrapped at the width the hand-written note blocks use, so a stamped file
+    reads as one document rather than as a block of prose after a block of
+    comment lines. Empty text yields nothing at all -- a bare ``#`` would be a
+    line the reader has to decide the meaning of.
+
+    Lives beside the line ending and for the same reason: the shape of a
+    delivered CSV's text has one owner. It began private to
+    :mod:`sloads.report.oracle_sections` and was already being reached for
+    across modules by name; #273 moved it here rather than let a second
+    wrapper be written beside the second caller.
+    """
+    if not text:
+        return ""
+    import textwrap
+
+    return "".join(f"# {ln}\n" for ln in textwrap.wrap(text, width=72))

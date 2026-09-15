@@ -8017,21 +8017,6 @@ def _vn_load_table(rows: Sequence[Tuple[List[str], List[str]]],
     )
 
 
-def _csv_note(text: str) -> str:
-    """A table's prose note as ``#``-prefixed CSV header lines (#242).
-
-    Wrapped at the width the hand-written note blocks use, so a stamped file
-    reads as one document rather than as a block of prose after a block of
-    comment lines. Empty text yields nothing at all -- a bare ``#`` would be a
-    line the reader has to decide the meaning of.
-    """
-    if not text:
-        return ""
-    import textwrap
-
-    return "".join(f"# {ln}\n" for ln in textwrap.wrap(text, width=72))
-
-
 def applied_set_source(project: Project, component: str):
     """The results one component's applied set is written from (#245).
 
@@ -8116,7 +8101,7 @@ def vn_conditions_csv(project: Project, header_comment: str = "", *,
     # nineteen columns and no definition of five of them. Read off the Table
     # objects this function already built rather than restated here, so the file
     # and the page cannot come to say different things about one column.
-    return (header_comment + _csv_note(state.note) + _csv_note(loads.note)
+    return (header_comment + csv_text.note_block(state.note) + csv_text.note_block(loads.note)
             + buf.getvalue())
 
 

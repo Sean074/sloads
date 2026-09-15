@@ -368,6 +368,50 @@ def test_the_leg_inertia_is_stated_or_blank_and_never_guessed():
     assert all(r["Net Fz above trunnion"] == "" for r in rows)
 
 
+def test_the_g12_inertia_notes_reach_the_delivered_file():
+    """**#273: a limit written and not delivered is the limit not stated.**
+
+    ``UNSPRUNG_NOTE`` and ``LEG_WEIGHT_UNSET_NOTE`` were public, in
+    ``gear_loads.__all__`` and cited from three docstrings -- one of which says
+    the first is "stated in-band on every surface that renders it" -- and
+    neither reached a byte of any delivered file. The gear report is the only
+    surface that renders the inertia term, so it is the surface that owes them:
+    the unsprung limit unconditionally, because the number is in every row, and
+    an explanation for every blank cell -- which has two causes, kept apart.
+
+    Asserted on the *text*, not on the constant: the defect was that the
+    constant existed and the text did not.
+    """
+    from sloads.gear_loads import (
+        LEG_WEIGHT_UNSET_NOTE,
+        NO_AIRPLANE_INERTIA_NOTE,
+        UNSPRUNG_NOTE,
+    )
+    from sloads.report.tables import gear_report_csv
+
+    def _prose(text):
+        return " ".join(
+            ln.lstrip("# ") for ln in text.splitlines() if ln.startswith("#"))
+
+    project = _project("ga6_normal.project.json")
+    closed = _prose(gear_report_csv(project))
+    assert UNSPRUNG_NOTE in closed
+
+    # A blank inertia cell has two unrelated causes and the notes stay apart.
+    # ga6 weighs every leg, so the only blanks are cases 25-33 -- the 23.499
+    # family, whose ``NVP`` is zero. One note covering both causes would tell
+    # this reader a leg weight is missing when none is.
+    assert NO_AIRPLANE_INERTIA_NOTE in closed
+    assert LEG_WEIGHT_UNSET_NOTE not in closed
+
+    # Clear the nose leg's weight and G-12a's note is owed, naming the leg.
+    project.geometry.landing_gear.nose_gear.weight_lb = 0.0
+    open_body = _prose(gear_report_csv(project))
+    assert LEG_WEIGHT_UNSET_NOTE in open_body
+    assert "OPEN FREE BODIES (nose)" in open_body
+    assert UNSPRUNG_NOTE in open_body
+
+
 def test_the_entered_leg_weights_agree_with_the_item_database():
     """``2 x main + nose`` against the database's gear rows -- **pinned per fixture**.
 
