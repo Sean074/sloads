@@ -130,7 +130,7 @@ code and must be corrected whichever way this note goes.
 
 ## 5. Cost, measured
 
-* **Read sites:** ~40 across `balance.py`, `select.py`, `flight_envelope.py`,
+* **Read sites:** ~40 across `balance/`, `select.py`, `flight_envelope.py`,
   `body_loads.py`, `balloads.py`, `net_loads.py`, `wing_inertia.py`,
   `report/content.py`. Mechanical (`fl.xw` → the resolver's `xw`), but they sit on
   oracle-locked paths, which is what DG-1 is for.

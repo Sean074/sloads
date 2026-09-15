@@ -66,7 +66,7 @@ pp. 343/347 — the BETA/PHIM/PHIN assignments and the NV/ND datum-factor
 equations, quoted in §1.1/§1.5). Code: `sloads/modules/landing.py` (`_geometry`,
 `ground_angles`, `landing_reactions` PHIM/PHIN at :469–494, `_case_values`,
 `run`), `sloads/gear_loads.py` (`ground_rotation_deg`, `to_airplane_datum`,
-`_leg_load`), `sloads/modules/balance.py` (ground assembly, `GROUND_LIFT_CASES`),
+`_leg_load`), `sloads/modules/balance/ground.py` (ground assembly, `GROUND_LIFT_CASES`),
 `sloads/export/balanced_deck.py` (the NVP/NDP gate), `app/views/landing_loads.py`,
 `oracle_app/results.py` (generic rendering). Conventions: `CONVENTIONS.md` §1
 (frames), §Ground cases (G-1/G-6/G-7a).
@@ -223,7 +223,7 @@ Case 1 reproduces exactly: ND = 0.667·sin 4.057° + 2042/3230 = 0.047 + 0.632
 (§1.6): `+LF·SIN(GRA)` puts the lift's body drag component *aft*, where the
 nose-up convention — and sloads' own assembled deck, which applies the ground
 lift as `(L·sin ρ, 0, L·cos ρ)` with ρ = −GRA
-([balance.py:2282](../../sloads/modules/balance.py)) — puts it *forward*.
+([`balance/ground.py`](../../sloads/modules/balance/ground.py), `ground_lift_sets`) — puts it *forward*.
 
 ### 1.6 The second instance, and the corroboration (from the `.BAS` check)
 

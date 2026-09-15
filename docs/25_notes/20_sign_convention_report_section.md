@@ -35,7 +35,7 @@ All VERIFIED — `export/coordinates.py:6-16`, `CONVENTIONS.md` §1.
   (`x̂ × ŷ = ẑ`); identity map to NASTRAN basic CID 0 (`SBEAM_CID = 0`).
 - Forces: `fz` = lift (+up), `fx` = drag (+aft), `fy` = side force
   (+starboard). Moments are right-handed about the same axes:
-  `mx` roll, `my` pitch, `mz` yaw (`balance.py:535-543`).
+  `mx` roll, `my` pitch, `mz` yaw (`balance/closure.py`).
 - **Physical senses of positive moments (DERIVED — forced by the frame):**
   - `+mx` rolls the **starboard wing up** (roll to port),
   - `+my` pitches the **nose up** (consistent with the one stated instance:
@@ -59,9 +59,9 @@ All VERIFIED — `export/coordinates.py:6-16`, `CONVENTIONS.md` §1.
 | Tail incidence IT | Positive = tail chord **nose-up** relative to the waterline (adds to AT) | `inputs.py:833`, `select.py:246` |
 | Load factor `nz` | Positive up; inertia force on a station weight is `fz = −NZ·w` (down for +NZ) | `flight_envelope.py:167`, `body_loads.py:9-11, 188` |
 | Load factor `nx` | `nx = −DX/W` — the longitudinal **inertia** (deceleration) factor; negative for ordinary positive (aft) drag | `select.py:117, 169` |
-| Load factor `ny` | `n_y = L_v/W`, positive **starboard**; each `n` component takes the sign of the force residual in the +aft/+right/+up frame | `balance.py:632`, plan 13 §"lateral balance" |
+| Load factor `ny` | `n_y = L_v/W`, positive **starboard**; each `n` component takes the sign of the force residual in the +aft/+right/+up frame | `balance/skipped.py`, plan 13 §"lateral balance" |
 | Angular accelerations `ω̇ = (p̈, q̈, r̈)` | Right-handed about `(x, y, z)`; carried in **weight-space 1/in**; relief field `f = −m(a_cg + ω̇ × r)`, each axis producing **two** force components | `rigid_body.py:225-251`, `CONVENTIONS.md` §1 |
-| Handedness of state | `p_dot`, `r_dot`, `n_y` reverse between handed twins; `q_dot`, `n_z`, `n_x` do not | `results.py:499-501`, `balance.py:824-825` |
+| Handedness of state | `p_dot`, `r_dot`, `n_y` reverse between handed twins; `q_dot`, `n_z`, `n_x` do not | `results.py:499-501`, `balance/applied.py` |
 | Attitude angles φ/θ/ψ | **Do not exist as state variables anywhere in the suite** — only accelerations are carried; the report shall say so rather than invent them | extraction 2026-08-09 |
 | Vertical gust | `Ude` entered as a positive magnitude; `ng = +1` is the **up** gust (increases n), `−1` the down gust | `flight_envelope.py:227, 306-309` |
 | Lateral gust | Unsigned — always a positive (+`fy`) fin load; the −hand is minted by reflection | `select.py:603-616, 669` |
@@ -102,7 +102,7 @@ All VERIFIED — `export/coordinates.py:6-16`, `CONVENTIONS.md` §1.
 | H-tail | Maps like the wing: span `y`, load `fz`, torsion `myy`; beam is **full span tip-to-tip**, reacted at the fuselage attachments; down-load = negative `LT` | `coordinates.py:186-208`, `tail_span.py:43-51`, `select.py:310-311` |
 | V-tail | Spans `z`, load is **side force `fy`**, torsion is **`mzz` = the stored strip torsion negated** (`r×F` reverses for a side force); station `z` stores the root, span in `y`, composed once by `tail_station_to_airplane` | `coordinates.py:188-231`, `CONVENTIONS.md` §7.2 |
 | Tail inertia | d'Alembert, signed by the case's load factor **alone** — never "opposing the air load" — and built on the acceleration along the surface's **own normal axis** (2026-08-10, superseding L-8's per-condition half): h-tail `−n_z·W_ht` bending; fin `−n_y·W_vt` bending + `−n_z·W_vt` **axial**. The assembled case still applies each mass once: `balance.fin_sets` reads the air-only `fz − f_inertia` | `tail_span.py` (`distribute` `n_normal`/`n_axial`), `CONVENTIONS.md` §1 |
-| Fin waterline | A first-order **sign** quantity (`−Fy·(z − z_cg)`): never implicitly zero | `tail_geometry.py:249-252`, `balance.py:411-415` |
+| Fin waterline | A first-order **sign** quantity (`−Fy·(z − z_cg)`): never implicitly zero | `tail_geometry.py:249-252`, `balance/constants.py` |
 
 ### 2.6 Engine and rotation
 

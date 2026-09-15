@@ -188,7 +188,7 @@ flight path: it is a **ground-line vertical**, and it enters the airplane's own
 axes tilted by the same `ρ` every gear reaction is tilted by. With `ρ = −GRA`
 (the #133 entry above, approved the same day) its body drag component points
 **forward**, as sloads' own assembled deck has always applied it
-(`balance.py`, G-7a). `+LF·SIN(GRA)` puts it aft. The `RMOM`/`YMOM` transform is
+(`balance/ground.py`, G-7a). `+LF·SIN(GRA)` puts it aft. The `RMOM`/`YMOM` transform is
 the same statement about a moment vector: a clean rotation of **+GRA**, on every
 attitude, where the force rows rotate by −GRA. A moment vector and a force vector
 rotate identically under one change of frame, so the two cannot both be right.

@@ -454,7 +454,7 @@ def wing_case_ref(project: Project, index: int, case: WingLoadCase,
     computed at (``net_loads._air_cl_v``), so it is the speed the row states --
     even when SELECT named the same condition at a different V-n point. On
     ``atr42_100`` the fixture enters ``PHAA`` at 170 kt while SELECT's ``PHAA``
-    point is 185.85 kt (``balance.py`` records the same divergence), and before
+    point is 185.85 kt (``balance/applied.py`` records the same divergence), and before
     this the case-index row read 185.9 kt beside loads built at 170. CG, altitude
     and the FAR reference stay SELECT's: the case states none of them, and they
     are properties of the physical condition the shared ``case_id`` names.

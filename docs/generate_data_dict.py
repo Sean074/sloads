@@ -215,14 +215,24 @@ def _owning_page(slice_attr):
 
 
 def _consuming_modules(slice_attr):
-    """Module files whose source reads ``.<slice_attr>`` (word-bounded)."""
+    """Modules whose source reads ``.<slice_attr>`` (word-bounded).
+
+    A module is one source file **or a package of them** (``balance/``, #191),
+    and a read anywhere inside a package is a read by the module that package
+    names -- the dictionary's unit is the module, not the file.
+    """
     pat = re.compile(r"\.%s\b" % re.escape(slice_attr))
     hits = []
-    for path in sorted(MODULES_DIR.glob("*.py")):
+    for path in sorted(MODULES_DIR.iterdir()):
         if path.name == "__init__.py":
             continue
-        text = path.read_text(encoding="utf-8")
-        if pat.search(text):
+        if path.is_dir():
+            sources = sorted(path.glob("*.py"))
+        elif path.suffix == ".py":
+            sources = [path]
+        else:
+            continue
+        if any(pat.search(p.read_text(encoding="utf-8")) for p in sources):
             hits.append(path.stem)
     return hits
 

@@ -856,7 +856,8 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   rolling moment), **23.427(a)** (the unsymmetrical horizontal tail), 23.441–
   23.443 (the four rational v-tail conditions), and 23.479–23.493 for the ground
   families, with 23.471 as the family's general-sentence fallback (R6-C1).
-- **Source:** `sloads/modules/balance.py`. Theory of record:
+- **Source:** `sloads/modules/balance/` (the package of #191; its `__init__.py`
+  carries the subsystem docstring). Theory of record:
   [`../20_theory/ch09_balanced_airplane.md`](../20_theory/ch09_balanced_airplane.md). Design
   notes: plan 11
   ([`../25_notes/11_balanced_airframe_cases_plan.md`](../25_notes/11_balanced_airframe_cases_plan.md),
@@ -1192,7 +1193,7 @@ result that lacks what a deck needs is a stated error, never an empty column.
   restores the smeared (high) bending — stated in the deck `$` header. Sign map
   (`Mxx → +x`, `Mzz → −z`) is owned by `coordinates.bending_moment_vector`.
 - **Balanced cases and the assembled deck (step B2–B7, 2026-08-08).**
-  `modules/balance.py` assembles one full-span free-free case per wing condition
+  `modules/balance/` assembles one full-span free-free case per wing condition
   (`PHAA`/`PLAA`/`PMAA`/`NMAA`/`TORS`, plus `ACRL`) that has both a V-n point and
   a derivable payload loading: wing air + inertia **both sides** (recomputed at the
   V-n point's own condition), the balancing tail load, the fuselage/empennage

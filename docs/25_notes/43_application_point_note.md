@@ -32,7 +32,7 @@ throughout. Conventions:
 (LIMIT → ULTIMATE), §7 (single-source owners and their drift guards). Code:
 [`sloads/gear_loads.py`](../../sloads/gear_loads.py) (`contact_patch`,
 `transfer_couple`, `_leg_load`, `applied_wheels`),
-[`sloads/modules/balance.py`](../../sloads/modules/balance.py)
+[`sloads/modules/balance/ground.py`](../../sloads/modules/balance/ground.py)
 (`build_ground_cases`, `assemble_ground`). Related:
 [`38_ground_frame_note.md`](42_ground_frame_note.md) §1.7 (the application-point
 chain, audited 2026-08-28 and passed — see §3 below for why),

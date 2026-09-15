@@ -18,7 +18,7 @@ and no type checker ran at all, on a codebase whose whole error philosophy is
   141, **60 were `union-attr`** — an `Optional` dereferenced as if present, i.e.
   a latent `AttributeError` on a project that lacks the slice — plus `index`,
   `arg-type` and `assignment` findings in `safety_factors.py` and `workflow.py`,
-  the SSOT owners the rest of the code leans on. Heaviest files: `balance.py`
+  the SSOT owners the rest of the code leans on. Heaviest files: `balance.py` (now the `balance/` package, #191)
   (38), `engine.py` (29), `configuration.py` (15), `sbeam_bridge.py` (11).
 - 139 `Any`, 104 `Dict[str, Any]` signatures, 43 `getattr(..., default)` in
   `sloads/` — each a hole the checker cannot see through; CH-2 (silent export
@@ -56,7 +56,7 @@ test authored.
   reverted; ~30 hand fixes). Behaviour-affecting sites — all on inputs that were
   already refused earlier on the same path, so unreachable from `run()`; listed
   so the claim is checkable:
-  - `modules/balance.py`: new `_wing_slices()` / `_flight_loads()` helpers raise
+  - `modules/balance.py` (now `balance/applied.py`): new `_wing_slices()` / `_flight_loads()` helpers raise
     `MissingInputError` where a `None` slice would previously have raised
     `AttributeError` when a helper was called directly (`run()` refuses first);
     ground cases refuse a missing `landing` slice the same way (unreachable —
