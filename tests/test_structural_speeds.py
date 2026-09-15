@@ -9,6 +9,15 @@ rather than echoing inputs; VC is chosen and VD is its 1.25 floor.
 
 Per Decision 3 the figures are matched within ±0.1%; the wing area (read from the
 WINGGEOM geometry slice, 2*13257/144 = 184.1 ft^2) is g-independent.
+
+**Every assertion in this file holds at ``TOL`` unless its own line says why it
+cannot (#175, review R-4).** A tolerance loosened without a stated reason reads,
+to the next author, as the accuracy the method has -- and the reason is never
+recoverable afterwards, because a passing assertion records no margin. Where the
+manual prints fewer digits than ±0.1% resolves (MC/MD, 3 decimals => ±0.15%),
+the honest statement is agreement *to the printed precision*, asserted by
+rounding rather than by a wider band: it is both tighter than the band it
+replaces and self-explaining.
 """
 
 import math
@@ -52,7 +61,9 @@ def test_maneuver_load_factors():
     r = results()
     assert math.isclose(value_of(r, "limit_positive_load_factor"), 3.8, rel_tol=TOL)
     assert math.isclose(value_of(r, "limit_negative_load_factor"), -1.52, rel_tol=TOL)
-    assert math.isclose(value_of(r, "wing_loading_w_s"), 3400 / 184.125, rel_tol=2e-3)
+    # 184.125 is the manual's hand figure (2*13257/144); WINGGEOM's polygon area is
+    # 184.157, so the two targets differ by 1.7e-4 -- inside TOL, not outside it.
+    assert math.isclose(value_of(r, "wing_loading_w_s"), 3400 / 184.125, rel_tol=TOL)
 
 
 def test_design_speeds_match_manual():
@@ -79,14 +90,17 @@ def test_vd_floor_no_chosen_speeds():
 def test_minimum_cruise_speed():
     # K_c = 33 (W/S = 18.47 < 20); VC(min) = 33*sqrt(18.47) = 141.8 kt.
     r = results()
-    assert math.isclose(value_of(r, "minimum_cruise_vc_min"), 141.8, rel_tol=2e-3)
+    assert math.isclose(value_of(r, "minimum_cruise_vc_min"), 141.8, rel_tol=TOL)
 
 
 def test_cruise_and_dive_mach_at_shoulder():
-    # At 12000 ft: MC 0.323, MD 0.403.
+    # At 12000 ft: MC 0.323, MD 0.403 -- printed to three decimals, so the print
+    # resolves only +/-0.0005 (+/-0.15% at MC) and TOL is finer than the oracle.
+    # Asserted as agreement to that printed precision, which is the strongest
+    # statement the figures support: computed 0.322643 / 0.403303 (#175, R-4).
     r = results()
-    assert math.isclose(value_of(r, "cruise_mach_mc"), 0.323, rel_tol=3e-3)
-    assert math.isclose(value_of(r, "dive_mach_md"), 0.403, rel_tol=3e-3)
+    assert round(value_of(r, "cruise_mach_mc"), 3) == 0.323
+    assert round(value_of(r, "dive_mach_md"), 3) == 0.403
 
 
 def test_utility_and_acrobatic_caps():
@@ -281,7 +295,7 @@ def test_margin_route_honours_a_compliant_chosen_vd():
     ds = calc.design_speed_values(*(lambda p: (p, p.speeds))(_rj()))
     assert math.isclose(ds.vd, 350.0, rel_tol=TOL)
     assert math.isclose(ds.md, 0.85112, rel_tol=TOL)
-    assert math.isclose(ds.mach_margin, 0.09728, rel_tol=1e-2)
+    assert math.isclose(ds.mach_margin, 0.09728, rel_tol=TOL)
     assert ds.mach_margin_required == calc.MACH_MARGIN_DEFAULT
     assert not ds.mach_margin_reduced
     # And the route it did NOT take is still reported, so the difference is auditable.
@@ -390,10 +404,11 @@ def test_speed_ratio_route_reproduces_todays_numbers_on_every_example():
     precision, so this is a real before/after comparison rather than a restatement
     of what the code now does. (VA/VF re-pinned 2026-08-17 when the dynamic
     pressure went from ``V^2/295`` to the exact ``V^2/295.237`` -- issue #26,
-    register line in ``02_approved_corrections.md``; VD/VC do not depend on q.) VD/VC/VA/VF together cover every branch of the
-    speed resolution. (Until #264, ``cessna_210`` also exercised the branch
-    where the K_d*VCmin term governs VD (214.53) rather than the 1.25*VC floor
-    (208.75); no surviving fixture rides that branch, which the unit tests of
+    register line in ``02_approved_corrections.md``; VD/VC do not depend on q.)
+    VD/VC/VA/VF together cover every branch of the speed resolution. (Until
+    #264, ``cessna_210`` also exercised the branch where the K_d*VCmin term
+    governs VD (214.53) rather than the 1.25*VC floor (208.75); no surviving
+    fixture rides that branch, which the unit tests of
     ``design_speed_values`` still cover.)
     """
     import glob
