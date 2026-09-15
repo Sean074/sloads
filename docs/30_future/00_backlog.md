@@ -257,7 +257,6 @@ keeps its body in *Open defects*, and the [E]/[V] detail sections hold the rest.
 | Pri | Item (detail below / in its plan) | What ships | Tag | Tier / effort | Depends on |
 |---|---|---|---|---|---|
 | **B6 — 0.8.5: correctness and tooling on the converged surface** ||||||
-| 4 | **test_structural_speeds: four assertions at 2e-3…1e-2 in a file headed ±0.1 %, with no inline rounding-limited justification** *(review R-4)* (#175) | The one-line justification on each, or tightened where the printed precision allows | V | S / S | — |
 | 5 | **Package-split `balance.py` (2,842 lines)** — where every full-airplane change lands; pure moves along its existing section boundaries, guarded by the existing oracle/closure tests. **Re-scoped by note 56, landed 2026-09-12:** `sbeam_bridge.py` (3,091 lines at its death, not the 2,701 this row carried) was not split but **dissolved** by D-56.1, so half this row left with #263 and what remains is `balance.py` alone (**2,842**, unchanged). `report/content.py` is now the more pressing candidate at **2,625**, beside the new `report/applied.py` at **1,561** *(review R-23; moved from band C 2026-09-09 — note 49 §0's "stays 0.8.3" ruling honored over the banding drift; re-scoped 2026-09-10)* (#191) | `modules/balance/` as a package; `report/content.py` and `io.py` as later candidates; sequenced right after #15 at the hygiene front so the milestone's diffs land in the final layout | V | S / M | after #186 at the hygiene front (named by issue, not by row number, so a re-cut cannot strand it) — **#186 closed 2026-09-15, so this dependency is met**; the `sbeam_bridge` half went to #263 at slice 6a |
 | 6 | **`backlog_issues.py rewrite` staples an unrelated issue number onto an unfiled defect, and has now done it twice** — `issue_set` folds a defect bullet into a table row on a fuzzy `_containment` score over a threshold, with no explicit pin required. *No engine-mount case reaches the LRA deck* (unfiled by choice) scores against *The load-case index carries no loads for 344 of 347 rows* on the shared words, so `rewrite` replaced its twenty-line body with `- #209 — …` — a different, already-filed defect. It happened first on 2026-09-08 (07b24e2), was restored and struck on 2026-09-11 with a note in the body, and reproduced exactly on 2026-09-13 running `rewrite` after `create`. The body is restorable only because someone noticed; the failure is silent *(found 2026-09-13, running the tool as documented)* **Moved into B6 at the 2026-09-14 re-cut**: every closure runs `check` and any re-cut runs `rewrite`, so the tool the milestone runs all the way through must stop corrupting bodies first — at the hygiene front (#280) | A fold that requires an explicit pin, or a threshold no unrelated pair can reach, plus a guard that a defect bullet with a body is never collapsed onto a row's issue; the two surviving unfiled defects re-verified | E | M / S | — |
 | 7 | **`safety_factors.classify`: exact-match reference returns before the multi-reference agreement check** — the one hole where "flagged, never defaulted" degrades to silently-first-match; latent, no current producer emits the string *(review R-9)* (#179) | After an exact hit the remaining references are still classified and factor agreement demanded; guard case added | V | S / S | — (the SF cluster) |
@@ -378,6 +377,23 @@ again; L-8d's mutation case stays parked); F25-2.
 - #221 — The oracle reduction resets `weight.items[].consumable`, moving a load.
 
 - #222 — One fuselage quantity is published under two `LoadValue` keys.
+
+- **R-4's tolerance class is suite-wide, not `test_structural_speeds`'s alone.**
+  Closing #175 swept the file the review named; the same sweep, run across
+  `tests/`, finds **92** `rel_tol` values looser than the ±0.1 % of Decision 3,
+  of which **68 in 19 files** carry no justification within three lines — the
+  heuristic is crude (it accepts any nearby comment mentioning a percentage,
+  rounding or precision), so the true figure is the ceiling, not the count.
+  Concentration: `test_select.py` 24, `test_landing.py` 12, `test_flap.py` 8.
+  Each one is individually plausible — a printed three-figure oracle, a
+  curve-fit band, an accepted method difference — and that is exactly the
+  problem: nothing distinguishes the rounding-limited ones from a disagreement
+  nobody has looked at since, because a passing assertion records no margin.
+  The structural half (practice 3) is a guard that refuses a tolerance looser
+  than the file's own stated band without a reason on its line; it cannot land
+  until the 68 are read, which is the work. **Filed 2026-09-15, from the #175
+  closure.** Tier M, effort M — a read per site, not a `sed`; the fix for most
+  will be to tighten, as it was for three of #175's five.
 Two long-standing entries left this list on 2026-08-18 at the issue #13 closure —
 **decided, not fixed**, which is why neither survives here under the removal
 rule. Both keep their pins; the decisions carry what the bodies used to:
