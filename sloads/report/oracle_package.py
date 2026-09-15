@@ -38,6 +38,7 @@ import json
 from dataclasses import dataclass
 from typing import List, Optional, Sequence
 
+from .. import io as io_
 from ..models import Project
 from ..models.report import REPORT_SCHEMA_VERSION, ReportSpec
 from ..units import UnitSystem
@@ -50,8 +51,14 @@ from .oracle_content import (
 from .oracle_latex import render_oracle_document
 
 PACKAGE_TEX = "report.tex"
-PACKAGE_SPEC = "report.json"
-PACKAGE_BUILD = "build.json"
+#: The two package files :mod:`sloads.io` owns the names of, cited rather than
+#: respelled (#273). ``io.py`` is where every path the issue package needs is
+#: decided (OR-28/OR-30, and the G1 import gate rests on it); two constant pairs
+#: naming one file each is the duplicated-owner class practice 3 exists to
+#: prevent -- a rename in the owner that left this module spelling the old name
+#: would split the package in two without failing anything at the rename site.
+PACKAGE_SPEC = io_.REPORT_SPEC_FILENAME
+PACKAGE_BUILD = io_.BUILD_STAMP_FILENAME
 PACKAGE_PROJECT = "project.json"
 PACKAGE_MANIFEST = "MANIFEST.txt"
 #: Re-exported from its owner (#245) so a caller assembling or reading a package
@@ -275,7 +282,6 @@ def package_members(
     from the same object) so the document is never built twice and the preflight
     can never describe a different document than the one written.
     """
-    from .. import io as io_
     from .fingerprint import anchors as anchor_rows
 
     # The anchors are computed here rather than asked of the caller: OR-21 makes

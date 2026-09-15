@@ -1801,11 +1801,14 @@ def write_load_cases_csv(
 # --------------------------------------------------------------------------- #
 
 #: The user's editable spec, inside the issue package directory (OR-28).
+#: :data:`sloads.report.oracle_package.PACKAGE_SPEC` is this name, not a second
+#: spelling of it (#273).
 REPORT_SPEC_FILENAME = "report.json"
 
 #: The builder's as-built stamp -- fingerprint, timestamp, generator (OR-30).
 #: Separate from the spec so the build never writes the file the user edits, and
 #: G-OR-16's byte-identical rebuild needs no field-exclusion carve-out.
+#: :data:`sloads.report.oracle_package.PACKAGE_BUILD` is this name (#273).
 BUILD_STAMP_FILENAME = "build.json"
 
 #: Where issue packages live under a project's directory (OR-29).

@@ -352,7 +352,7 @@ def test_the_gear_report_names_the_frame_of_every_column_it_has():
     field list itself, so a column added later is a failure rather than a
     silently unclassified one.
     """
-    note = rt._GEAR_REPORT_NOTES
+    note = rt._GEAR_REPORT_FRAMES
     assert "GROUND-LINE" in note and "airplane axes" in note
     framed = [f for f in rt._GEAR_REPORT_FIELDS
               if f.startswith(("Patch ", "Ground-line ", "Datum ",
@@ -371,10 +371,15 @@ def test_the_gear_report_states_its_frames_with_no_stamp_above_it():
     One caller downloads this file without a methods stamp, so a note that said
     "the stanza above" would be pointing at nothing on the copy most likely to
     be read alone.
+
+    Checked on the **whole delivered header** and not on the frames block alone
+    (#273): the block gained G-12's inertia notes, and the rule that no line of
+    it may point upward out of the file applies to every line of it.
     """
     text = rt.gear_report_csv(_project())
-    assert "above" not in rt._GEAR_REPORT_NOTES
-    assert "GROUND-LINE" in text.split("ID,Case,")[0]
+    header = text.split("ID,Case,")[0]
+    assert "above" not in header
+    assert "GROUND-LINE" in header
 
 
 # --------------------------------------------------------------------------- #

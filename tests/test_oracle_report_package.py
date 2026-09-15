@@ -219,6 +219,23 @@ def test_the_build_does_not_rewrite_the_users_spec():
     assert "fingerprint" not in json.loads(written)
 
 
+def test_the_package_filenames_have_one_owner():
+    """**#273: one owner per filename, cited rather than respelled.**
+
+    ``io.py`` decides every path the issue package needs (OR-28/OR-30) -- the
+    oracle GUI may not import :mod:`os` at all, so that ownership is what the
+    G1 import gate rests on. Two constant pairs naming one file each is the
+    duplicated-owner class practice 3 exists to prevent, and the failure is
+    silent: a rename in the owner that left ``oracle_package`` spelling the old
+    name would split the package in two without failing at the rename site.
+
+    Identity, not equality, is the assertion -- two string literals that happen
+    to match today are exactly the state this closes.
+    """
+    assert op.PACKAGE_SPEC is io.REPORT_SPEC_FILENAME
+    assert op.PACKAGE_BUILD is io.BUILD_STAMP_FILENAME
+
+
 def test_the_build_stamp_carries_the_provenance():
     with tempfile.TemporaryDirectory() as tmp:
         out = _build(tmp)

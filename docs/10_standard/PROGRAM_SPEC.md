@@ -789,7 +789,16 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   `SF` is stated per row as the last column, and a `Wheel` column says which
   wheel a `main` row describes (the starboard one of the pair; the port twin is
   the mirror — R6-C4). The row dicts keep bare, system-independent keys; only
-  the file header carries units.
+  the file header carries units. **That header states every limit and caveat the
+  inertia column carries** (#273): the unsprung-mass limit unconditionally
+  (`gear_loads.UNSPRUNG_NOTE` — the leg's own weight at the airplane factor is
+  what closes the free body and is *not* a gear design load, so a real axle sees
+  more), and an explanation for each blank inertia cell, of which there are two
+  unrelated kinds, never merged — no leg weight entered, so the free body is
+  shown open (`LEG_WEIGHT_UNSET_NOTE`, G-12a), and the 23.499 family's zero
+  airplane load factor, which blanks the cell on a leg that *is* weighed
+  (`NO_AIRPLANE_INERTIA_NOTE`). Each conditional note is printed only when the
+  file contains the rows it explains.
 - **The two frames are each artifact's own and neither is re-derived.** The
   ground-line set is what the manual prints and a gear engineer reads; the
   airplane-datum set (`vm`/`dm`/`vn`/`dn`, LANDLOAD's own `PHIM`/`PHIN`

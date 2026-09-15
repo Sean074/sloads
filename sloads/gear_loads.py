@@ -113,6 +113,7 @@ __all__ = [
     "MAIN_LEFT",
     "MAIN_RIGHT",
     "NOSE",
+    "NO_AIRPLANE_INERTIA_NOTE",
     "POINTS",
     "UNSPRUNG_NOTE",
     "AppliedWheel",
@@ -150,6 +151,18 @@ UNSPRUNG_NOTE = (
     "is what actually sizes an axle, and sloads does not model it, so the real "
     "axle inertia is HIGHER than the number here by an amount this suite cannot "
     "quantify")
+
+#: The other reason an inertia cell is blank, stated so the two are not read as
+#: one (#273). ``NVP`` is zero on the 23.499 supplementary nose-wheel family
+#: (cases 25-33), which carries no airplane equilibrium at all, so those rows
+#: report no inertia rather than zero -- see :func:`_leg_load`'s comment, of
+#: which this is the delivered half.
+NO_AIRPLANE_INERTIA_NOTE = (
+    "cases 25-33 are the 23.499 supplementary nose-wheel family, which is a "
+    "local gear-design condition with no airplane in equilibrium: their "
+    "airplane vertical load factor is zero, so their inertia term is blank "
+    "because there is no airplane acceleration to apply to the leg -- NOT "
+    "because a leg weight is missing")
 
 #: What a leg with no entered weight reports instead of a guess (G-12a).
 LEG_WEIGHT_UNSET_NOTE = (

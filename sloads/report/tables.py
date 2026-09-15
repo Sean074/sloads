@@ -31,6 +31,13 @@ from .. import csv_text
 from ..case_ids import ASSEMBLED_DECK, COMPONENT_DECK, deck_load_id
 from ..export.coordinates import to_force, to_grid, to_moment
 from ..export.deck_format import fmt, load_label, sf_str, solver_units
+from ..gear_loads import (
+    LEG_WEIGHT_UNSET_NOTE,
+    MAIN,
+    NO_AIRPLANE_INERTIA_NOTE,
+    UNSPRUNG_NOTE,
+    gear_case_loads,
+)
 from ..models import Project
 from ..units import DeliverableUnits, UnitSystem
 
@@ -324,7 +331,6 @@ def gear_report_rows(project: Project, units: Optional[DeliverableUnits] = None,
     ``Wheel`` column says which wheel a ``main`` row describes: the starboard
     one of the pair, its port twin being the mirror (R6-C4).
     """
-    from ..gear_loads import MAIN, gear_case_loads
     from ..safety_factors import table_for
 
     u = units or solver_units(UnitSystem.IMPERIAL)
@@ -382,8 +388,9 @@ def gear_report_rows(project: Project, units: Optional[DeliverableUnits] = None,
     return rows
 
 
-#: The gear report's own header block -- **which of its columns are in which
-#: frame** (#242, 2026-09-08 review C3).
+#: The frames half of the gear report's header block -- **which of its columns
+#: are in which frame** (#242, 2026-09-08 review C3). :func:`_gear_report_notes`
+#: is the whole block; this is its fixed opening.
 #:
 #: This is the one delivered file that states two frames at once, and until #242
 #: it named neither: a reader met ``Ground-line V`` beside ``Datum Fz`` with
@@ -392,7 +399,7 @@ def gear_report_rows(project: Project, units: Optional[DeliverableUnits] = None,
 #: row -- which on nine of them it does not. A frame stated once for a file that
 #: has two is worse than a frame stated nowhere, so the exception is stated here,
 #: beside the columns it applies to.
-_GEAR_REPORT_NOTES = (
+_GEAR_REPORT_FRAMES = (
     "# The gear load report: one row per LANDLOAD case per loaded leg, stating\n"
     "# each reaction where it is computed and where the airframe receives it.\n"
     "# TWO FRAMES, and the columns say which is which:\n"
@@ -408,6 +415,38 @@ _GEAR_REPORT_NOTES = (
     "# M is the couple that carries it from the point it is applied at to the\n"
     "# gear reference point, which is where the airframe receives it.\n"
 )
+
+
+def _gear_report_notes(rows: Sequence[dict]) -> str:
+    """The gear report's header block, G-12's in-band notes included (#273).
+
+    ``UNSPRUNG_NOTE`` and ``LEG_WEIGHT_UNSET_NOTE`` had an owner in
+    :mod:`sloads.gear_loads`, were public, were cited from three docstrings --
+    one of which says the first is "stated in-band on every surface that renders
+    it" -- and reached no delivered file. This is the only surface that renders
+    the inertia term, so it is the one that owes them. A limit written and not
+    delivered is the limit not stated, so the unsprung one is printed
+    unconditionally: the number it qualifies is in every row.
+
+    The other two are conditional and are kept **apart**, because a blank
+    inertia cell has two unrelated causes and one note covering both would be
+    wrong on whichever rows it did not mean: no leg weight was entered (G-12a),
+    or the case has no airplane acceleration at all (the 23.499 family). Each
+    is printed only when the file actually contains the rows it explains --
+    otherwise it is a caveat about nothing -- and G-12a's names the legs.
+    """
+    out = _GEAR_REPORT_FRAMES
+    out += csv_text.note_block("LEG INERTIA -- " + UNSPRUNG_NOTE + ".")
+    open_legs = sorted({r["Leg"] for r in rows if not r["Leg weight"]})
+    if open_legs:
+        out += csv_text.note_block(
+            "OPEN FREE BODIES (" + ", ".join(open_legs) + ") -- "
+            + LEG_WEIGHT_UNSET_NOTE + ".")
+    if any(r["Leg weight"] and not r["Leg inertia Fz"] for r in rows):
+        out += csv_text.note_block(
+            "BLANK INERTIA WITH A WEIGHTED LEG -- " + NO_AIRPLANE_INERTIA_NOTE
+            + ".")
+    return out
 
 
 def gear_report_csv(project: Project, header_comment: str = "",
@@ -429,7 +468,7 @@ def gear_report_csv(project: Project, header_comment: str = "",
     csv_text.writer(buf).writerow(_gear_report_headers(u))
     writer = csv_text.dict_writer(buf, _GEAR_REPORT_FIELDS)
     writer.writerows(rows)
-    return header_comment + _GEAR_REPORT_NOTES + buf.getvalue()
+    return header_comment + _gear_report_notes(rows) + buf.getvalue()
 
 
 def write_gear_report_csv(project: Project, path: str, header_comment: str = "",
