@@ -155,7 +155,7 @@ Imperial-internal (`units.py`), pounds and inch-pounds.
 
 ## 5. Where it plugs in
 
-`balance.assemble` (`balance.py:1097`), beside the existing labelled lumped
+`balance.assemble` (`balance/air.py`), beside the existing labelled lumped
 terms and under the same rule stated at `balanced_cases.md` §2 item 5 — *a real
 load with no distributed carrier is lumped and labelled, never dropped*:
 

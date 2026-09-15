@@ -5,7 +5,7 @@
 **Status: SHIPPED 2026-08-17** (revision 3 agreed in chat the same day —
 decisions L-7.8…L-7.17 below). Implementation: `sloads/lateral_body_aero.py`,
 `sloads/atmosphere.py`, `select.py` (β and fin-derivative publication),
-`balance.py` (`lateral_aero_terms` / `body_aero_loads` / the two case
+`balance/lateral.py` (`lateral_aero_terms` / `body_aero_loads` / the two case
 sentences), schema v54; gates `tests/test_lateral_body_aero.py` (G1) and
 `tests/test_l7_lateral_balance.py` (G2–G12). **Three things the implementation
 settled differently from the text below, recorded rather than rewritten:**
@@ -56,7 +56,7 @@ still pairs with **M4-19**; §10 states the seam.
 
 ## 1. What is missing today, and one thing that is wrong
 
-`balance.assemble` (`sloads/modules/balance.py:1097`) applies the fin's
+`balance.assemble` (`sloads/modules/balance/air.py`) applies the fin's
 distributed side load (`fin_sets`, `:630`) and lets `_closure` (`:957`) absorb
 **the whole** pre-closure `Fy`/`Mz` as rigid-body `n_y` and `r_dot`. The fin is
 the only lateral aerodynamic load in the suite. That is stated in-band by

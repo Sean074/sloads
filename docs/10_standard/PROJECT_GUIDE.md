@@ -282,7 +282,15 @@ FAR23LOADS/
 │       ├── engine.py             # ENGLOADS
 │       ├── one_engine_out.py     # ONENGOUT
 │       ├── landing.py            # LGFACTOR + LANDLOAD
-│       └── balance.py            # balanced free-free airplane cases, flight + ground (modern; plans 11/13/18)
+│       └── balance/              # balanced free-free airplane cases, flight + ground (modern; plans 11/13/18)
+│           ├── constants.py      # which conditions assemble, the residual acceptances, the stated notes
+│           ├── lateral.py        # the wing-body sideslip terms a lateral case carries (L-7); owner of `body-aero`
+│           ├── skipped.py        # the F-C7 record: what the assembled deliverable does not cover
+│           ├── applied.py        # the applied sets — wing, body, axial, hub thrust, the two tail distributions
+│           ├── queries.py        # what a case IS: handedness, the residual-gate family, lateral/ground/powered
+│           ├── closure.py        # resultants, and the six-DOF closure that leaves the case free-free
+│           ├── air.py            # assembly of one flight case, its handed twin, and the case set
+│           └── ground.py         # the ground families (G-1, G-6, G-7/G-7a, G-8)
 ├── app_shell/                    # the app-layer shell — ONE owner, everything a GUI needs that is not a page (note 32, OG-B)
 │   ├── components.py             # page scaffold, unit-input boundary, page links, applicability banner
 │   ├── project_state.py          # the project in session state + the unsaved-changes / discard guard

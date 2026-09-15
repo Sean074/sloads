@@ -228,17 +228,28 @@ def _slice_reads(key):
     slices = {f.name for f in dataclasses.fields(Project)} - _NOT_A_SLICE
     found = set()
     for module in wf.step_modules(key):
-        path = os.path.join(os.path.dirname(_EXAMPLES), "sloads", "modules", module + ".py")
-        if not os.path.exists(path):
+        base = os.path.join(os.path.dirname(_EXAMPLES), "sloads", "modules", module)
+        # A module is one source file **or a package of them** (``balance/``,
+        # #191). Reading only ``<module>.py`` would leave a split module
+        # reading nothing at all, which this guard would report as every
+        # declared `reads` having gone stale -- the loudest possible way to be
+        # wrong about a change that moved no code.
+        if os.path.isfile(base + ".py"):
+            sources = [base + ".py"]
+        elif os.path.isdir(base):
+            sources = sorted(os.path.join(base, n) for n in os.listdir(base)
+                             if n.endswith(".py"))
+        else:
             continue
-        with open(path, encoding="utf-8") as fh:
-            tree = ast.parse(fh.read())
-        for node in ast.walk(tree):
-            if (isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)
-                    and node.value.id == "project"):
-                name = _SLICE_ALIASES.get(node.attr, node.attr)
-                if name in slices:
-                    found.add(name)
+        for path in sources:
+            with open(path, encoding="utf-8") as fh:
+                tree = ast.parse(fh.read())
+            for node in ast.walk(tree):
+                if (isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)
+                        and node.value.id == "project"):
+                    name = _SLICE_ALIASES.get(node.attr, node.attr)
+                    if name in slices:
+                        found.add(name)
     return found
 
 

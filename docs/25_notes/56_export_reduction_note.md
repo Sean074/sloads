@@ -392,7 +392,8 @@ anything finer.
   being a shipped artifact and the `balanced` export target goes. Closed as
   superseded, citing this note.
 * **#191** loses its `sbeam_bridge` half (D-56.1 replaces a split with a
-  dissolution) and reduces to `modules/balance.py`. Its line counts are stale:
+  dissolution) and reduces to `modules/balance.py` (split into the `balance/` package at #191).
+  Its line counts are stale:
   `sbeam_bridge` 2,701 → **3,091**, `balance.py` 2,832 → **2,842**. Its named
   future candidate `report/content.py` becomes *more* pressing — `report/` grows
   by ~970 lines here.
@@ -1049,5 +1050,6 @@ half of these were not the edit the checklist predicted.
 * **Making import the primary CI path** (running gate 2 against an imported
   model rather than a generated one), which would make the general routing case
   the *tested* case rather than merely a tested case.
-* **`modules/balance.py` (2,842 lines)** is untouched here. The mission chain's
+* **`modules/balance.py` (2,842 lines)** is untouched here (it became the
+  `balance/` package at #191). The mission chain's
   remaining complexity is in the calc, and #191 keeps it.

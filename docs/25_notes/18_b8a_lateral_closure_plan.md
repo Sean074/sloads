@@ -132,7 +132,7 @@ has to defend.
 In a 19.5° sideslip a real airplane carries side force on the fuselage, on the
 wing and on the h-tail; none of the three exists anywhere in this suite. So the
 whole of `n_y` and `ψ̈` above is the *fin's* load being reacted by inertia alone.
-This is the lateral counterpart of the lumped fuselage `Cm` (`balance.py`,
+This is the lateral counterpart of the lumped fuselage `Cm` (`balance/air.py`,
 `source="fuselage-cm"`) and of the un-distributed aileron lift increment — and
 unlike the first of those, there is **no scalar to lump**: nothing in the suite
 computes a body side force. Consequence: `n_y` and `ψ̈` are **over-stated**, so
@@ -543,7 +543,7 @@ so it goes on the backlog in its own right.
   `root_z` argument.
 * **`sloads/modules/tail_span.py`** — the v-tail's `z_offset` becomes the fin
   root waterline (L-1); the `inertia_modelled=False` note is re-worded (L-8).
-* **`sloads/modules/balance.py`** — `_closure` becomes a 6-DOF solve: three
+* **`sloads/modules/balance/closure.py`** — `_closure` becomes a 6-DOF solve: three
   translational ratios plus a 3×3 rotational solve on the assembled tensor
   (L-2/L-3); `assemble` gains the fin load set and the lateral resultants;
   `build_balanced_cases` iterates `vtail` conditions as well as `wing` ones,

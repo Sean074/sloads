@@ -176,7 +176,7 @@ The single owner that turns `weight.items` into per-component station inertia.
   the difference. **ga6 will fail this validator by 427 lb on day one** — that
   is the intended outcome, not a surprise; it is the fixture that is wrong.
 
-### 3.2 New — `sloads/modules/balance.py` and the `BalancedCase` result (B-1)
+### 3.2 New — `sloads/modules/balance/` and the `BalancedCase` result (B-1)
 
 For each distinct V-n point referenced by any component's `CriticalCondition`:
 
@@ -244,7 +244,7 @@ are all recovered by the solver, never re-applied.
 | Step | Scope | Tier | Effort |
 |---|---|---|---|
 | ~~**B1**~~ | ~~`mass_distribution.py` + item `component` tagging + the drift guards + `fuselage_mass` reconciliation validator. Schema bump + migration.~~ **SHIPPED 2026-08-08** (schema v41) | L | M (~1 session) |
-| ~~**B2**~~ ✅ | `BalancedCase` model, `balance.py`, the per-condition assembly and the 2-DOF residual closure. **Symmetric wing cases only.** | L | M–L (~1.5) |
+| ~~**B2**~~ ✅ | `BalancedCase` model, `balance/` (then one file), the per-condition assembly and the 2-DOF residual closure. **Symmetric wing cases only.** | L | M–L (~1.5) |
 | ~~**B3**~~ ✅ | The §4 seam rule made structural: an authority function the assembled path consumes, plus a guard test that the `carry` source never reaches an assembled deck. | M | S (~0.5) |
 | ~~**B4**~~ ✅ | CI gates: residual < 1 %, `Δn`/n < 1 %, per-component decks and Appendix A **bit-unchanged**. | M | S (~0.5) |
 | ~~**B5**~~ ✅ | Assembled deck export (**primary deliverable, B-5**) + left/right GID bands + determinate support; solves in sbeam with reactions ≈ 0 (rides on plan 10's harness, which gains an assembled-deck leg here). | L | M (~1) |

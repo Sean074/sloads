@@ -34,7 +34,7 @@ mechanism.
 **Sources reviewed (verified 2026-08-27, by running the fleet):**
 `sloads/modules/landing.py` (`landing_load_factor`, `_geometry`,
 `landing_reactions`, `build_landing`, `run`), `sloads/models/inputs.py`
-(`LandingInput`), `sloads/modules/balance.py` (`ground_lift_sets`,
+(`LandingInput`), `sloads/modules/balance/ground.py` (`ground_lift_sets`,
 `assemble_ground`, `GROUND_LIFT_CASES`), `sloads/export/balanced_deck.py`
 (the GROUND residual narrative), `sloads/field_registry.py`,
 `sloads/units.py`, `sloads/migrations.py`, `sloads/io.py`,
@@ -76,7 +76,7 @@ so it cannot.
 | **S3** | `0.0` encodes both "unset" and a legal value, so there is no way back to computed | The `or` at [landing.py:309](../../sloads/modules/landing.py); `oracle_app/form.py:542` had to build a "✕ clear" button naming this very field as the reason |
 
 S2 reaches the assembled deck as well: `assemble_ground` applies wing lift
-`L × W_case` on cases 1–12 ([balance.py:2367](../../sloads/modules/balance.py)),
+`L × W_case` on cases 1–12 ([`balance/ground.py`](../../sloads/modules/balance/ground.py), `assemble_ground`),
 so with an entered NLG the applied lift and the reactions come from unrelated
 `(N, L)` pairs. The NVP/NDP gate at
 [balanced_deck.py:326](../../sloads/export/balanced_deck.py) does not catch it,

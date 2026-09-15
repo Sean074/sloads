@@ -1,6 +1,6 @@
 # Chapter 9 — The Balanced Free-Free Airplane: the Balancing Method
 
-How `sloads/modules/balance.py` assembles a **full-span, free-free airplane load
+How `sloads/modules/balance/` assembles a **full-span, free-free airplane load
 case** — aero and inertia together, wing tip to wing tip, nose to tail — and
 closes it so the exported deck solves in sbeam with **no constraint doing any
 work**. With worked examples on the shipped fixtures: a symmetric wing case, an
@@ -19,7 +19,8 @@ and the ground/landing families of FAR 23.471–23.499.
   families, §9), and decision
   **D-R8** in [`03_resolved_decisions.md`](../25_notes/03_resolved_decisions.md)
   (the 23.427(a) family, §8).
-- **Code:** `sloads/modules/balance.py` (assembly + closure),
+- **Code:** `sloads/modules/balance/` (`air.py` + `ground.py` assembly,
+  `closure.py` the six-DOF closure, `applied.py` the applied sets),
   `sloads/rigid_body.py` (the relief field, single owner),
   `sloads/gear_loads.py` (the gear free body the ground families apply),
   `sloads/export/balanced_deck.py` (the deck),

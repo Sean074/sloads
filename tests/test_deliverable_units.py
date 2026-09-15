@@ -996,10 +996,17 @@ def test_no_calc_module_converts_units():
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     modules_dir = os.path.join(here, "sloads", "modules")
     offenders = []
-    for name in sorted(os.listdir(modules_dir)):
-        if not name.endswith(".py"):
+    # Walked rather than listed: a module is one file **or a package of them**
+    # (``balance/``, #191), and a flat listing would quietly stop covering the
+    # largest module in the tree while still passing (practice 4).
+    sources = []
+    for dirpath, _dirnames, filenames in os.walk(modules_dir):
+        if "__pycache__" in dirpath:
             continue
-        with open(os.path.join(modules_dir, name)) as fh:
+        sources += [os.path.join(dirpath, n) for n in filenames if n.endswith(".py")]
+    for path in sorted(sources):
+        name = os.path.relpath(path, modules_dir)
+        with open(path) as fh:
             source = fh.read()
         for banned in ("convert_results", "deliverable_units", "to_si_scalar"):
             if banned + "(" in source:

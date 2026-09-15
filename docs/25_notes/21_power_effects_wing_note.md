@@ -52,7 +52,7 @@ wing cases are zero-thrust · §6 empennage.
 
 - **Nothing power-dependent reaches a wing load.** AIRLOADS/NETLOADS, wing
   inertia, the aileron cases and the balanced free-free model
-  (`balance.assemble`) are all computed thrust-free; `balance.py:1158` states
+  (`balance.assemble`) are all computed thrust-free; `balance/applied.py`'s `hub_thrust_set` states
   "the suite has no distributed thrust" and closes the x-DOF on net drag alone
   (`n_x = -D/W`). Wing-mounted engines enter the wing model as **mass only**
   (concentrated masses in `wing_inertia`, CONM2 export).
@@ -198,7 +198,7 @@ and the tail immersion. The invariant that ties lumped to distributed:
 
 The balanced deck's wing families are `BALANCED_WING_CONDITIONS` =
 `PHAA, PLAA, PMAA, NMAA, TORS` (symmetric) + `ACRL` (handed)
-(`balance.py:255–264`), each SELECT's pick from the **clean-wing** V-n set
+(the `balance` package docstring), each SELECT's pick from the **clean-wing** V-n set
 (`select.py:86–91`: `STALL +N / MAN A` → PHAA; `MAN D / GUST D` → PLAA;
 `MAN C / GUST +C` → PMAA; negatives → NMAA; `AC ROLL` → ACRL; `ST ROL A/C/D` →
 TORS). **There is no flap-extended wing balanced case**: the landing-configuration
@@ -393,7 +393,7 @@ carries the power column; the sbeam deck's case names carry the `-P` suffix
   and the tail arm `xtc/xtf`, and writes `VnPoint.lt` (trim tail load) and
   `m_wf` (airplane-less-tail moment). SELECT picks the critical points; balance
   never re-trims.
-- **`balance.assemble`** (`balance.py:1245`) builds the applied set: R-side wing
+- **`balance.assemble`** (`balance/air.py`) builds the applied set: R-side wing
   air strips (`wing_sets`, AIRLOADS' Schrenk distribution scaled to the case) +
   their mirror; a lumped `tail-air` at `xtc` = `vn.lt`; body inertia at the case
   `n_z`; the `fuselage-cm` free moment (`m_wf` − wing-about-ac); the body drag
@@ -473,11 +473,11 @@ carries the power column; the sbeam deck's case names carry the `-P` suffix
      residual gate is exempted for those four cases exactly as it is for
      `UNSYMMETRICAL`, and the note says so.
    - **`n_x`:** with thrust in the set the x-closure becomes
-     `n_x = (ΣT_x − D)/W` — the missing carrier `balance.py:1158` names. A
+     `n_x = (ΣT_x − D)/W` — the missing carrier `balance/applied.py`'s `hub_thrust_set` names. A
      constructed check with `ΣT_x = D` must give `n_x = 0` (gate).
 5. **Handedness and twins** — see 4.4.
 6. **Export.** Cases append **after** the existing sequence (the ground-family
-   precedent, `balance.py:1559`), so every shipped deck's subcase numbers are
+   precedent, `balance/queries.py`), so every shipped deck's subcase numbers are
    untouched; `-P` and Kind I IDs from §2.4. Hub loads have no node: they are
    **transferred to the nearest LRA beam node with the rigid-offset moment**
    (`F` + `r × F`), the same rule CONM2 offsets follow — stated in the deck
@@ -570,7 +570,7 @@ section, neither is changed by this step.
   acceleration in every case, i.e. the airplane is decelerating (or, at low α /
   high speed, being pushed by the lift vector's forward tilt) under its own
   drag with **no thrust to balance it**. A trimmed powered airplane would close
-  at `n_x ≈ 0`. This is exactly `balance.py:1158`'s statement made numerical.
+  at `n_x ≈ 0`. This is exactly `balance/applied.py`'s `hub_thrust_set`'s statement made numerical.
 - **Trim is thrust-free.** `flight_envelope._balance` has no thrust or `N_p`
   term; `VnPoint.lt` is the power-off balancing load.
 - **The two places power *is* computed do not reach the wing:** the flap

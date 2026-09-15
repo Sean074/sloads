@@ -345,7 +345,7 @@ _NOSE_FAMILY = ("supplementary nose-wheel", "23.499")
 #: They live here because this module *is* the case numbering -- ``_family``,
 #: ``_loading_index`` and the reaction loops below draw exactly these lines, and
 #: the ``lf*WL`` term in ``nvp`` is applied to precisely
-#: :data:`GROUND_LIFT_CASES`. They used to be declared in ``modules/balance.py``,
+#: :data:`GROUND_LIFT_CASES`. They used to be declared in ``modules/balance``,
 #: beside the deck that consumes them and away from the code that draws them
 #: (design note 38 GF-6, #134: the datum load factors need the lift split, and a
 #: second copy of it in this file would have been the drift practice 3 forbids).
