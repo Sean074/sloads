@@ -99,6 +99,91 @@ def test_an_exact_row_beats_the_range_it_sits_inside():
     assert GoverningTable.for_project().factor_for(_Limit()).factor == 1.5
 
 
+def test_an_exact_row_classifies_one_reference_it_does_not_answer_for_the_string():
+    """The R-9 hole: an exact hit used to return before the agreement check (#179).
+
+    ``_EXACT`` exists so 23.367(a)(2) is not out-voted by the LIMIT flight range
+    it sits inside. It was implemented as "an exact row wins outright", which is
+    a different and larger claim: the function returned on the first containment
+    hit, so a reference naming a LIMIT section *beside* the exact ultimate one
+    resolved to SF 1.0 — the unconservative answer, decided by word order — while
+    the identical disagreement between two ranged sections was flagged. The exact
+    row now classifies the one reference it names; the agreement rule is the only
+    way out of :func:`classify`, for exact and ranged references alike.
+    """
+    class _Compound:
+        far_reference = "23.361(a)(1) / 23.367(a)(2)"
+    key, _ = classify(_Compound())
+    assert key is None, "a LIMIT section beside the exact ULTIMATE one is ambiguous"
+    resolution = GoverningTable.for_project().factor_for(_Compound())
+    assert resolution.is_defaulted
+    assert resolution.factor == 1.5, "flagged at the conservative default, not 1.0"
+
+    # Position, not containment: both are section 23.367 and only the second is
+    # the ultimate family, so a string holding both is ambiguous — where a
+    # containment test would have handed (a)(1) the exact row's 1.0.
+    class _SameSection:
+        far_reference = "23.367(a)(1)/23.367(a)(2)"
+    assert classify(_SameSection())[0] is None
+
+
+def test_a_four_digit_section_is_not_read_as_a_three_digit_one():
+    """``23.1505`` is not ``23.150`` (#179 sweep, CLAUDE.md practice 4).
+
+    The section regex took two or three digits with nothing after them, so a
+    Subpart G citation was silently chopped: ``"23.1505/23.1511"`` read as
+    sections **23.150 and 23.151**, which no range holds and no regulation
+    carries, and ``"23.1505/23.335(b)(4)"`` — a real flight-loads reference
+    beside an operating-limitation one — was reported unclassified because of the
+    half-section invented next to it. Both strings are STRSPEED's own, from
+    :func:`operational_implications`; nothing stamps that advisory today, which
+    is why the shipped-fixture gate never saw it.
+    """
+    from sloads.safety_factors import _family_of_reference, _references
+
+    assert _references("23.1505/23.1511") == [], "a Subpart G section is not a Subpart C one"
+    assert _references("23.1505/23.335(b)(4)") == ["23.335"]
+
+    class _Placards:
+        far_reference = "23.1505/23.1511"
+    assert classify(_Placards())[0] is None
+
+    class _Targets:
+        far_reference = "23.1505/23.335(b)(4)"
+    assert classify(_Targets())[0] == "flight"
+
+    # the invented sections are what the boundary removes: neither is placeable
+    for invented in ("23.150", "23.151"):
+        assert _family_of_reference(invented) is None
+
+
+@pytest.mark.parametrize("path", _EXAMPLES, ids=lambda p: os.path.basename(p))
+def test_every_section_the_classifier_reads_is_one_a_family_can_place(path):
+    """Extracting a number from a reference is not the same as reading it (#179).
+
+    The drift guard for the class above, and independent of any one regex: if a
+    producer emits a reference the classifier chops, or a Subpart C section
+    outside every range, the number it pulls out lands in no family and this
+    fails naming it. Wider than
+    :func:`test_no_shipped_fixture_produces_a_defaulted_case`, which sees only
+    the conditions that prescribe a factor — the two references that carried this
+    defect prescribe none.
+    """
+    from sloads.modules.structural_speeds import operational_implications
+    from sloads.safety_factors import _family_of_reference, _references
+
+    project = io.load_project(path)
+    items = list(_all_cases(project))
+    if project.speeds is not None:
+        items += operational_implications(project, project.speeds)
+    for item in items:
+        text = getattr(item, "far_reference", "") or ""
+        for ref in _references(text):
+            assert _family_of_reference(ref) is not None, (
+                f"{path}: {text!r} reads as section {ref}, which no family covers "
+                "— the reference is wrong, or the classifier is chopping it")
+
+
 def test_the_engine_failure_family_speaks_the_regulation_noun():
     """One noun for 23.367(a)(2), owned by the governing table (#233, #178).
 

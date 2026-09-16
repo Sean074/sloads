@@ -201,9 +201,14 @@ def family(key: str) -> Family:
 # --------------------------------------------------------------------------- #
 # Classification: a case -> its family
 # --------------------------------------------------------------------------- #
-#: Exact-reference rows matched **before** the section ranges, because they sit
-#: inside a range whose class they do not share (23.367(a)(2) is an ultimate case
-#: inside the limit flight-loads range).
+#: Exact-reference rows that override the section ranges **for the reference they
+#: name, and only there**, because they sit inside a range whose class they do not
+#: share (23.367(a)(2) is an ultimate case inside the limit flight-loads range).
+#: An exact hit used to return from :func:`classify` outright, which skipped the
+#: multi-reference agreement check below it: ``"23.361(a)(1) / 23.367(a)(2)"``
+#: resolved to SF 1.0 on word order, where the same disagreement between two
+#: *ranged* references is flagged (#179, review R-9). It now classifies one
+#: reference out of many, and the one agreement rule runs over all of them.
 _EXACT: Dict[str, str] = {
     "23.367(a)(2)": "engine_ultimate",
     "25.367(a)(2)": "engine_ultimate",
@@ -224,7 +229,20 @@ _RANGES: Tuple[Tuple[Tuple[int, int], str], ...] = (
 #: ``23.485``, ``25.361(a)(3)(i)`` -> part 23/25 and section 485/361. A reference
 #: may name several sections (``"23.333/23.337/23.341"``); every one of them is
 #: classified and they must agree on a factor (see :func:`classify`).
-_REF_RE = re.compile(r"\b(2[35])\.(\d{2,3})")
+#:
+#: The trailing ``(?!\d)`` is load-bearing. Subpart C sections are two or three
+#: digits, but a ``far_reference`` may name a section from elsewhere in the part:
+#: STRSPEED cites ``"23.1505/23.1511"`` on its placard advisory and
+#: ``"23.1505/23.335(b)(4)"`` on its target-feasibility check. Without the
+#: boundary those read as sections **23.150 and 23.151** -- numbers no range
+#: holds and no regulation carries -- so the second string named one section the
+#: table knows (23.335, flight) and one it had invented, and the pair was
+#: reported unclassified. Latent for the same reason R-9 is: those two conditions
+#: come from ``operational_implications``, which no shipped path stamps, so the
+#: "no defaulted case on a shipped fixture" gate never saw them. A four-digit
+#: Subpart G section is now simply not a Subpart C reference: it is not matched
+#: at all (#179 sweep, CLAUDE.md practice 4).
+_REF_RE = re.compile(r"\b(2[35])\.(\d{2,3})(?!\d)")
 
 
 def _references(text: str) -> List[str]:
@@ -240,6 +258,22 @@ def _family_of_reference(ref: str) -> Optional[str]:
     return None
 
 
+def _families_named(text: str) -> List[Optional[str]]:
+    """The family of every section ``text`` names, in written order.
+
+    An :data:`_EXACT` row classifies **the one reference it names**, matched by
+    where it sits in the string rather than by whether the string contains it
+    anywhere. Position is what keeps ``"23.367(a)(1) / 23.367(a)(2)"`` honest:
+    both are section 23.367, only the second is the ultimate family, and a
+    containment test would hand the first one the exact row's 1.0.
+    """
+    exact = {m.start(): key
+             for whole, key in _EXACT.items()
+             for m in re.finditer(re.escape(whole), text)}
+    return [exact.get(m.start(), _family_of_reference(f"{m.group(1)}.{m.group(2)}"))
+            for m in _REF_RE.finditer(text)]
+
+
 def classify(item: Any) -> Tuple[Optional[str], str]:
     """``(family_key, far_reference)`` for one case-carrying result.
 
@@ -253,27 +287,31 @@ def classify(item: Any) -> Tuple[Optional[str], str]:
     an ambiguity that would otherwise decide a deliverable's factor by word order.
     ``None`` means unclassified; the caller flags it as
     :data:`RowStatus.DEFAULTED`.
+
+    **There is one path through that rule, and an exact row does not skip it**
+    (#179, review R-9). An :data:`_EXACT` hit used to return before the agreement
+    check ran, so ``"23.361(a)(1) / 23.367(a)(2)"`` — a LIMIT section beside the
+    exact ultimate one — resolved to SF **1.0** on word order, the unconservative
+    answer, while the same disagreement between two ranged references was flagged.
+    An exact row now classifies its own reference (:func:`_families_named`) and
+    the agreement rule runs over every reference, exact or ranged. A case whose
+    references disagree is unclassified and flagged — which is the promise the
+    table makes: flagged, never silently defaulted.
     """
     text = (getattr(item, "far_reference", "") or "")
     if not _REF_RE.search(text):
         ref = getattr(item, "case_ref", None)
         text = getattr(ref, "far_reference", "") or text
-    for whole, key in _EXACT.items():
-        # An exact row wins outright: it exists precisely because it sits inside a
-        # range whose class it does not share, so the range must not out-vote it.
-        if whole in text:
-            return key, text
-    refs = _references(text)
-    if not refs:
+    keys = _families_named(text)
+    if not keys:
         # No FAR section named: a configuration/geometry/weights reference
         # condition. Anything else with prose but no section is unclassified.
         return ("reference_data"
                 if text.strip().lower() in ("", "configuration", "geometry")
                 else None), text
-    keys = [_family_of_reference(r) for r in refs]
-    found = [k for k in keys if k is not None]
-    if len(found) != len(keys):
+    if any(k is None for k in keys):
         return None, text
+    found = [k for k in keys if k is not None]
     if len({_BY_KEY[k].derived_factor for k in found}) > 1:
         return None, text
     return found[0], text
