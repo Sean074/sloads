@@ -1261,7 +1261,18 @@ def run(project: Project) -> ModuleResult:
             ]
         conditions.append(ConditionResult(
             title=f"{r.component} spanwise load -- {r.case}",
-            far_reference="23.427(a)" if r.rh_scale != r.lh_scale else "23.421",
+            # The case's own reference, not a label for the component (#177).
+            # This field is what ``safety_factors.classify`` reads, and a
+            # hardwired 23.421 said "control-surface load" for every derived
+            # condition -- right by coincidence for the fifteen the table also
+            # puts at 1.5, wrong for the two derived from the 23.367(a)(2)
+            # engine-failure case, which arrived here already ultimate and were
+            # then classified into a limit family. ``case_ref`` has carried the
+            # true reference all along; the unsymmetrical fallback stands for
+            # the rows that name no case of their own.
+            far_reference=((r.case_ref.far_reference if r.case_ref else "")
+                           or ("23.427(a)" if r.rh_scale != r.lh_scale
+                               else "23.421")),
             values=[
                 LoadValue("Air load total", air_total(r), "lb",
                           key="tail_span_air_total"),

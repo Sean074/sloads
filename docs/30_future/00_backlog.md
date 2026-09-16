@@ -86,7 +86,8 @@ Four rulings, and the costs they book:
    column *additions* to files the wave already rewrites, so the second pass
    is scripted regeneration, not rework — booked here rather than discovered
    later. The wave that stays in B6 is **#164 → #222 → #260 → #161**.
-3. **#179 and #180 were correctness, not polish, and both are now closed.**
+3. **The SF cluster — #179, #180, #177 — was correctness, not polish, and it is
+   closed.**
    Rule 6 puts a defect with first-order effect on shipped content ahead of
    everything; both were **latent** — #179's silently-first-match hole had no
    current producer emitting the string, #180's `getattr` fallbacks were dead
@@ -100,7 +101,16 @@ Four rulings, and the costs they book:
    turning "this condition prescribes no factor" into a printed 1.5. Twice
    in one day the deferred item's own neighbourhood held more than the item —
    which is the standing argument against letting a latent defect sit: the
-   deferral is lawful, the company it keeps is never inspected.
+   deferral is lawful, the company it keeps is never inspected. **#177 closed
+   2026-09-15** and made that three times: R-6 named one GUI surface, and the
+   sweep found five callers running modules unstamped — the oracle report's own
+   run point among them, so the shipped document printed the dataclass 1.5 on
+   every condition the governing table says prescribes no factor. The fix put
+   the stamp where the runner is handed out rather than at five call sites, and
+   the sweep turned up a producer whose stated reference and stated factor
+   contradicted each other on two shipped fixtures. The cluster's common shape,
+   across all three: the *policy* had an owner from M4-8 onward, and every
+   defect in it was a caller who never asked the owner.
 4. **Band B2 is re-chartered, not re-ordered.** It was named "main-GUI
    development and bug correction" for a front-end #270 deletes. Its rows keep
    their order; nine of them (#29, #148, #247–#252, and #78's re-scope) close
@@ -265,7 +275,6 @@ keeps its body in *Open defects*, and the [E]/[V] detail sections hold the rest.
 | Pri | Item (detail below / in its plan) | What ships | Tag | Tier / effort | Depends on |
 |---|---|---|---|---|---|
 | **B6 — 0.8.5: correctness and tooling on the converged surface** ||||||
-| 9 | **Unstamped single-module runs bypass the governing SF table** — `oracle_app/results.py` and the comparison view call `registry.get(name)(project)` with no `stamp()`. *Re-scoped by note 49: nothing can factor any more*, but the **stated** factor is wrong on that path — a project `safety_factors.overrides` entry is silently ignored, and factorless conditions state the dataclass 1.5 where the stamped path states `N/A` *(review R-6)* (#177) | Stamping made structural at the registry entry point so an unstamped render is impossible | V | M / S | — *(the OR-13 lift landed at the 0.8.2 cut)* |
 | 10 | **The GUI user guide still teaches the pre-OR-116 contract, and no gate covers `docs/60_guide/`** — `03_conventions.md` states *every deliverable load is ULTIMATE*, the rule note 49 OR-116 inverted; 22 `ULTIMATE` statements across 16 guide files, not all wrong (the prescribed-ultimate families and the not-a-load blocks must survive), so a read and not a `sed`; and no gate walks the guide — G-OR-74 covers rendered documents, `test_basis_statements.py` the GUI sources, G-OR-73 the decks — which is the #192 class: a channel with no owner asserting the contract *(found in the 0.8.4 pre-cut read, filed after the cut)* (#282) | The 22 statements swept against the code; `03_conventions.md` pointing at `CONVENTIONS.md` §3 instead of restating it; the `assert_states_limit` machinery extended over `docs/60_guide/` so the guide is a gated channel; `_generated/` chapters regenerated at the generator | V | S / S | — |
 | 11 | **OR-133's withholding statement claims the T-tail load path is not modelled; T7 models it** — the oracle report's Appendix E wording predates `tail_span`'s fin-tip transfer, so the two front-ends disagree about what the suite can do; owner decision: lift the withholding for T-tail projects or reword it as policy *(2026-09-09 review A1)* (#254) | The statement true again — Appendix E printed from the T7 set, or reworded with the gates re-cut deliberately (G-OR-87). **Narrowed by note 56, landed 2026-09-12**: the spanwise fin deck that carried T7's lumped transfer is gone, so the question survives against the LRA model's fin-tip joint alone | V | S / S–M | the note 51 implementation, if it lands this milestone; #263 shipped 2026-09-12 |
 | 12 | **The summary report's v-tail governing table and its chordwise table disagree about the condition set** — `ComponentLoads.critical` builds from `build_critical` (no OEI rows) while the chordwise table renders `default_critical`'s set (with them, note 44 OR-172); on every shipped twin the omitted case is the governing one. The OR-172/OR-174 two-consumers class *(found by note 58's ranking-site sweep, 2026-09-11)* (#272) | One enumeration for the section: the critical route carries the admission so no consumer can get the unadmitted set; a guard that the two tables enumerate the same case ids. **Checked at the 2026-09-14 re-cut: #270 did not retire it** — the summary report is gone, but the oracle report calls `build_critical` at one section and `default_critical` at another, so the class survives on the converged surface; moved into B6 under rule 6 (the omitted case is the governing one on every shipped twin) | V | S / S | — |

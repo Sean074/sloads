@@ -671,8 +671,13 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   already selected: 23.421 (balancing), 23.423 (checked/unchecked maneuver) and
   23.425 (gust) on the horizontal tail, 23.441/23.443 on the fin. The one
   condition with a hand is **23.427(a)**, the unsymmetrical horizontal tail,
-  carried as the per-side scales `rh_scale`/`lh_scale`; a `ConditionResult` cites
-  23.427(a) when the two sides differ and 23.421 otherwise.
+  carried as the per-side scales `rh_scale`/`lh_scale`. **Each condition cites
+  its own case**, copied from the source `CriticalCondition` through `case_ref`
+  — the same rule TAILDIST states, reached here at #177: the reference is what
+  `safety_factors.classify` reads, so a hardcoded `23.421` said
+  "control-surface load" for a fin distribution derived from the 23.367(a)(2)
+  engine-failure case, which is already ULTIMATE. The 23.427(a)/23.421 pair
+  survives as the fallback for a condition that names no case of its own.
 - **Source:** `sloads/modules/tail_span.py`; planform resolution and the
   half/full bookkeeping in `sloads/tail_geometry.py`. Design note:
   [`../25_notes/09_distributed_empennage_loads_plan.md`](../25_notes/09_distributed_empennage_loads_plan.md)

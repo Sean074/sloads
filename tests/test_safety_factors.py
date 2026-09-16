@@ -741,5 +741,118 @@ def test_a_condition_that_prescribes_no_factor_prints_na_not_a_number():
                    for row in table.rows for cell in row)
 
 
+# --------------------------------------------------------------------------- #
+# No module runner is reachable unstamped (#177, review R-6)
+# --------------------------------------------------------------------------- #
+def _direct_run_imports():
+    """Every ``from ...modules.<name> import run`` outside ``sloads/modules``.
+
+    A direct import is the one way back to an unstamped result now that
+    :func:`sloads.registry.register` wraps what it stores: the function object
+    it names was never handed out by the registry, so nothing has been past the
+    governing table. Parsed, not grepped, so a docstring naming the pattern --
+    this one does -- is not mistaken for code.
+    """
+    import ast
+
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    modules_dir = os.path.join(root, "sloads", "modules")
+    found = []
+    for path in glob.glob(os.path.join(root, "sloads", "**", "*.py"),
+                          recursive=True):
+        if path.startswith(modules_dir + os.sep):
+            continue                      # a module may use its neighbour's calc
+        tree = ast.parse(open(path, encoding="utf-8").read(), filename=path)
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.ImportFrom)
+                    and ".modules." in "." * (node.level or 0) + (node.module or "")
+                    and any(a.name == "run" for a in node.names)):
+                found.append(f"{os.path.relpath(path, root)}:{node.lineno}")
+    return found
+
+
+def test_no_module_runner_is_reachable_unstamped():
+    """The structural half of R-6 (CLAUDE.md practice 3).
+
+    Stamping used to live in ``run_all_modules`` and nowhere else, so every
+    caller that ran one module ran it unstamped -- the GUI's per-module blocks,
+    the oracle report's own run point, the step figures, the engine rows behind
+    the deck, the fleet view. Five call sites are five chances to forget, so the
+    factor is applied where the runner is handed out instead. This test says the
+    only door is still the only door.
+    """
+    from sloads import registry
+
+    assert _direct_run_imports() == [], (
+        "a module's run() is imported directly, bypassing the registry and the "
+        "governing safety-factor table; call sloads.registry.get(name) instead")
+    unwrapped = [name for name, fn in registry._REGISTRY.items()
+                 if getattr(fn, "__wrapped__", None) is None]
+    assert unwrapped == [], (
+        f"{unwrapped} were registered without the stamping wrapper -- a caller "
+        "holding one of these gets a result the governing table never saw")
+
+
+def test_a_runner_from_the_registry_honours_a_project_override():
+    """The one thing the G-11 mitigations promise never happens (R-6).
+
+    An override that reaches the case index and the deck but not the block the
+    analyst is reading is worse than no override: both surfaces state a factor,
+    and they disagree. Run **one** module, the way every bypassing caller did.
+    """
+    from sloads import registry
+
+    project = _overridden("ground", 1.25)
+    landed = registry.get("landing")(project).conditions
+    ground = [c for c in landed
+              if classify(c)[0] == "ground" and prescribes_factor(c)]
+    assert ground, "the landing module produced no ground case to override"
+    assert {c.safety_factor for c in ground} == {1.25}
+
+
+def test_a_runner_from_the_registry_states_none_where_no_factor_is_prescribed():
+    """#154 survived on every unstamped surface, one condition at a time.
+
+    ``ConditionResult.safety_factor`` defaults to ``ULTIMATE_FACTOR``, so a
+    condition that states no load -- a speed, a configuration, a Mach limit --
+    carried a printed 1.5 until something stamped it. On the shipped fixtures
+    that is dozens of conditions per project, and the oracle report ran its
+    modules through the bypassing path.
+    """
+    from sloads import registry
+
+    project = io.load_project(_GA)
+    for name in ("mach_limit", "structural_speeds", "configuration"):
+        for c in registry.get(name)(project).conditions:
+            if not prescribes_factor(c):
+                assert c.safety_factor is None, (
+                    f"{name}: {c.title!r} prescribes no factor but states "
+                    f"{c.safety_factor}")
+
+
+def test_a_derived_spanwise_condition_names_its_own_case_not_its_component():
+    """The producer and the table agreed by coincidence, not by reading (#177).
+
+    ``modules.tail_span`` hardwired ``far_reference='23.421'`` on every derived
+    condition while inheriting the parent case's factor. Fifteen of the
+    nineteen came out right because ``control_system`` is also 1.5; the two
+    derived from the 23.367(a)(2) engine-failure case arrived already ultimate
+    (SF 1.0) and were classified into a limit family, so the stamped and
+    unstamped surfaces stated different factors for one case.
+    """
+    from sloads import registry
+
+    project = io.load_project(
+        os.path.join(_ROOT, "examples", "baron_58.project.json"))
+    table = GoverningTable.for_project(project)
+    conditions = registry.get("tail_span")(project).conditions
+    ultimate = [c for c in conditions if "(ultimate)" in c.title]
+    assert ultimate, "baron_58 produces no ultimate v-tail spanwise case"
+    for c in ultimate:
+        assert c.far_reference == "23.367(a)(2)"
+        assert table.factor_for(c).factor == 1.0
+    assert {c.far_reference for c in conditions} != {"23.421"}
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

@@ -455,6 +455,21 @@ conventions"** section (`SUMMARY_REPORT.md` §4.2.1), single-sourced in
   SF cell is rendered by `report.render.sf_cell`, which prints it `N/A`.
   `tests/test_safety_factors.py::test_no_factor_is_read_through_a_getattr_fallback`
   parses the package and fails on the pattern's return.
+  **And no surface reads a module's own minting instead of the table** (#177,
+  review R-6): `sloads.registry.register` stores every runner *wrapped to
+  stamp*, so a result that has not been past the governing table is not
+  something a caller can obtain — `registry.get(name)` is the only door, and
+  importing a module's `run` directly fails
+  `tests/test_safety_factors.py::test_no_module_runner_is_reachable_unstamped`.
+  Stamping had lived in `run_all_modules` alone, so the five callers that ran
+  one module — the GUI's per-module blocks, the oracle report's own run point,
+  the step figures, the engine rows behind the deck, the fleet view — silently
+  ignored a project override and printed the dataclass 1.5 where the table
+  prescribes no factor. A producer's `far_reference` is what the table
+  classifies on, so it names the **case**, never the component: a derived
+  spanwise condition takes its parent's reference from `case_ref` rather than a
+  fixed control-surface section, or a 23.367(a)(2) load already ultimate is
+  classified into a limit family.
   The other way a case can miss the table is by having nowhere to put the answer:
   `stamp()` writes the factor onto each result's `safety_factor` carrier and used
   to pass over an item without one on a bare `hasattr` gate. That is recorded in
