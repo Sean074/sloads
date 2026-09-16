@@ -81,8 +81,8 @@ Two families of output:
 - **The envelope and balance matrix** — the V-n corner speeds and load
   factors (speeds and dimensionless factors: never factored, no `-ULT`),
   and one balanced condition per CG × altitude × envelope point with its
-  **balancing tail load**. Tail loads are deliverable loads: **ULTIMATE**,
-  units carrying the `-ULT` marker, each case stating its SF per
+  **balancing tail load**. Tail loads are deliverable loads: **LIMIT**, with
+  plain units, each case stating the SF it does not apply per
   [Conventions](03_conventions.md).
 - **SELECT's critical conditions** — one line per selected case with its
   per-case safety factor: the governing wing conditions (by load factor and

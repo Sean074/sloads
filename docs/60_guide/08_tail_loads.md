@@ -67,17 +67,22 @@ recorded says *re-run SELECT* — see
 
 ## Results on this page
 
-- **TAILDIST cases** (ULTIMATE, `-ULT` units, per-case SF): per condition —
+- **TAILDIST cases** (LIMIT, per-case SF): per condition —
   its aero state (angle of attack, control deflection, dynamic pressure,
   sideslip where defined), the quarter-chord and mid-chord load components,
   and the chord-station net pressures. The state block is not decoration:
   the published state reconstructs the loads through the method's own
   equations, so you can audit any case by hand.
-- **Chordwise tail distribution** (**LIMIT, marked**): the printed-table
-  form of the same distributions, kept LIMIT to read against the manual.
-- **BALLOADS** (ULTIMATE): the independent re-derivation of the balancing
+- **Chordwise tail distribution** (LIMIT): the printed-table form of the
+  same distributions, in the manual's own layout.
+- **BALLOADS** (LIMIT): the independent re-derivation of the balancing
   loads — its agreement with the envelope page's tail loads is the built-in
   cross-check.
+
+On a twin, two v-tail rows are the exception the contract names: the
+distributions derived from the 23.367(a)(2) engine-failure case are already
+ultimate, so they state `ULT SF=1.0` and carry `-ULT` units. Every other row
+on the page is limit.
 
 Sanity checks: the two chordwise components sum to the case's total tail
 load; balancing cases carry down-loads at forward CG; the printed dynamic
@@ -94,9 +99,10 @@ inside the throws you entered on Geometry.
   wrong (a deflection beyond the throw, a q that doesn't match the speed)
   is upstream data wrong — this page is where such errors first become
   visible.
-- **Comparing ULTIMATE case tables against the book.** The manual prints
-  LIMIT; use the LIMIT-marked chordwise table, or divide by the stated SF
-  ([Conventions](03_conventions.md)).
+- **Un-factoring a case table before comparing it with the book.** There is
+  nothing to undo — the manual prints limit loads and so does the page. The
+  only rows that are not limit are the twin's two 23.367(a)(2) v-tail rows,
+  which say so ([Conventions](03_conventions.md)).
 - **A stale critical set after upstream edits.** Changing speeds, weights
   or coefficients without revisiting the Flight Envelope page leaves this
   page distributing yesterday's selection.

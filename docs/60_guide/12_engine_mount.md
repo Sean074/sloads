@@ -77,7 +77,7 @@ pair the two sets mirror.
 
 ## Results on this page
 
-Per engine, the reciprocating set (all ULTIMATE, SF stated): the
+Per engine, the reciprocating set (all LIMIT, SF stated): the
 **23.361 torque cases** (takeoff and max-continuous, with their mean-torque
 factors) as mount torques combined with 1-g flight loads; the **23.363
 side load**; and the **23.371(b) gyroscopic case**, expanded over its

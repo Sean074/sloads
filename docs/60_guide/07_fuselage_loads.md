@@ -87,6 +87,7 @@ big down tail load bends the aft body accordingly.
   case and starves the wing of relief.
 - **A station list whose total is not the loading weight.** The lumps are
   the airplane's body weight, not a sampling of it.
-- **Reading the LIMIT table as ULTIMATE.** The basis column says LIMIT;
-  the deliverable factor lives downstream, per
+- **Reading the table as though the factor were already in it.** Every
+  value is limit; the `SF` column states the factor that was not applied,
+  and applying it is the sizing step's job, per
   [Conventions](03_conventions.md).

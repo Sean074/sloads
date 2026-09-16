@@ -12,8 +12,8 @@ printed record.
 Load it from the sidebar (**New from example → `ga6_normal`**), leave the
 units on **Imperial** — the whole point is digit-for-digit comparison with
 the book — and keep [Conventions](03_conventions.md) in mind: the book
-prints **LIMIT** loads, so compare against the LIMIT-marked station tables
-directly, and divide any ULTIMATE figure by its stated SF before comparing.
+prints **LIMIT** loads and so does the tool, so every figure compares as it
+stands; nothing has to be un-factored first.
 
 ## The pass
 

@@ -53,7 +53,7 @@ are on your desk; the analysis is per row.
 
 ## Results on this page
 
-One condition per tab (ULTIMATE, SF stated): the governing speed, the
+One condition per tab (LIMIT, SF stated): the governing speed, the
 tab chord ratio the method derived, the **tab load** and its leading-edge
 pressure. Sanity checks: the load scales with area, deflection and the
 square of speed; the chord ratio should be a sensible fraction (a tab is a

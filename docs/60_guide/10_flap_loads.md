@@ -65,7 +65,7 @@ discs, wing-mounted, directly ahead of the flaps.
 
 ## Results on this page
 
-Two conditions (both ULTIMATE, SF stated):
+Two conditions (both LIMIT, SF stated):
 
 - **Critical flap loads (23.345)** — the surface load at the flap design
   speed with the chordwise pressure (leading edge peak, trailing edge at

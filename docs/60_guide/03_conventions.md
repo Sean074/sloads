@@ -69,32 +69,40 @@ project or the computed loads changes. Two consequences worth trusting:
 Every downloaded file states its unit set in-band, so a CSV on its own says
 what its columns mean.
 
-## LIMIT and ULTIMATE
+## LIMIT loads, and the factor that is stated
 
 This is the guide's one statement of the contract; each chapter's *Results*
-section only says which of the two its blocks carry.
+section only says which of its blocks are loads and which are not.
 
 FAR 23 distinguishes **limit** loads (the largest expected in service) from
 **ultimate** loads (limit × the factor of safety, normally 1.5 per
-14 CFR 23.303). In this tool:
+14 CFR 23.303). Which of the two this tool hands you, and who applies the
+factor, is owned by
+[`CONVENTIONS.md` §3](../10_standard/CONVENTIONS.md#3-limit-load-contract--stated-never-applied)
+— what a user needs from it:
 
-- The calculation works in LIMIT internally.
-- **Every deliverable load is ULTIMATE.** The factor is applied exactly once,
-  at the render/export boundary, and to load quantities only — never to
-  speeds, angles, weights, geometry, or dimensionless load factors.
-- **The `-ULT` marker is part of the units string** (`lbs-ULT`,
-  `lb-in-ULT`), so a number's units always say what it is.
-- **Every case states its SF.** The factor comes from the governing
-  safety-factor table, one row per FAR condition family, each with a stated
-  basis. `SF=1.5` is the normal limit→ultimate factor; **`ULT SF=1.0` means
-  the case is already defined at ultimate** (some FAR conditions are), not
-  that the factor was skipped.
-- A page may show a LIMIT quantity only when it is explicitly marked LIMIT —
-  the One Engine Out time histories are the example you will meet.
+- **Every load the tool delivers is LIMIT**: on screen, in the case index, in
+  the report and in every exported file, including the solver deck. No step
+  multiplies a load by the factor.
+- **Every case states the factor it did not apply.** The `SF` column is that
+  factor, read from the governing safety-factor table — one row per FAR
+  condition family, each with a stated basis. Applying it belongs to the
+  sizing step downstream: size to `value × SF`.
+- A block that is **not loads** — speeds, load factors, weights, geometry,
+  diagnostics — prescribes no factor at all, and its `SF` cell reads **N/A**.
+  That is a statement, not a missing number.
+- **`ULT SF=1.0` means the case is already defined at ultimate**, not that the
+  factor was skipped: a few 14 CFR conditions are written that way and leave
+  nothing to apply. You meet them in
+  [One Engine Out](13_one_engine_out.md) and, on a twin, in the v-tail rows of
+  [Tail Loads](08_tail_loads.md) — both are 23.367(a)(2).
+- **The `-ULT` marker is part of the units string** (`lbs-ULT`, `lb-in-ULT`)
+  and appears on those cases and no others, which is what makes it worth
+  noticing. Plain units mean limit.
 
 When you cross-check the single against the manual's printed Appendix A
-figures, remember the book prints LIMIT loads: compare against the tool's
-values *before* the factor, i.e. divide the ULT figure by its stated SF.
+figures, nothing has to be undone in either direction: the book prints limit
+loads and so does the tool.
 
 ## Reading a results table
 
@@ -107,7 +115,7 @@ below the input form. The recurring columns:
 - **Condition** — the case in words, as the original program named it.
 - **Component / CG / Speed / Altitude** — the state the case is computed at.
 - **Quantity, Value, Units** — one row per reported quantity, units carrying
-  the `-ULT` marker where the ULTIMATE contract applies.
+  the `-ULT` marker on the already-ultimate cases above and nowhere else.
 - **SF** — the case's stated safety factor, as above.
 - **Frame / Applied at** — the frame the value is stated in and the named
   point the force acts at, per the section above.

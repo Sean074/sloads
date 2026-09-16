@@ -62,7 +62,7 @@ consumers of "full down" agree by construction.
 
 ## Results on this page
 
-One condition (ULTIMATE, SF stated): the **critical down-aileron and
+One condition (LIMIT, SF stated): the **critical down-aileron and
 up-aileron loads**, each with the speed it governs at, per 23.455's
 simplified method. On the single, the down load lands at a few hundred
 pounds at the cruise design speed. Sanity checks: the down load exceeds

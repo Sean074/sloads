@@ -82,8 +82,8 @@ remain in knots — the aviation carve-out of
 
 ## Results on this page
 
-Three blocks, all pre-load quantities — factors and speeds, so nothing is
-ULTIMATE and nothing carries an SF:
+Three blocks, all pre-load quantities — factors and speeds, so nothing here
+is a load and nothing carries an SF:
 
 - **Limit maneuver load factors** — n₁ positive and n_neg negative from
   23.337, with the wing loading they were computed at.
