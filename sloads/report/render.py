@@ -226,12 +226,16 @@ def _table_sf(results) -> Optional[float]:
     return shared_basis_factor(results)
 
 
-def _sf_cell(sf: Optional[float]) -> str:
+def sf_cell(sf: Optional[float]) -> str:
     """The ``SF`` cell for a case: the factor, or ``N/A`` where none is prescribed.
 
     ``None`` is not 1.0 (#154, note 48 OR-82): a geometry table prescribes no
     factor at all, and printing 1.0 would state that one applies and happens to
     be unity.
+
+    Public because it is the one place a factor becomes text for a reader
+    (#180): a section that renders its own cell is a section that can print a
+    number where the governing table prescribed none.
     """
     return "N/A" if sf is None else format_value(sf)
 
@@ -319,7 +323,7 @@ def results_to_rows(results: List[ConditionResult], *,
                     "Quantity": v.label,
                     "Value": format_value(value),
                     "Units": _chan_units(v.units, v.quantity, channel, r.safety_factor),
-                    "SF": _sf_cell(r.safety_factor) if is_load else "",
+                    "SF": sf_cell(r.safety_factor) if is_load else "",
                     "Frame": v.frame,
                     "Applied at": v.point,
                 }
@@ -395,7 +399,7 @@ def governing_loads_table(
             "Condition": c.label,
             "FAR": c.far_reference,
             "V-n case": _num(c.case) if c.case is not None else "—",
-            "SF": _sf_cell(sf),
+            "SF": sf_cell(sf),
         }
         for lv in _display_loads(c.loads, system):
             # LIMIT, with the factor stated in the ``SF`` cell above (note 49
@@ -463,7 +467,7 @@ def critical_rows(results: List[ConditionResult], *,
             "Component": ref.component if ref else "—",
             "Condition": r.title,
             "FAR": r.far_reference,
-            "SF": _sf_cell(r.safety_factor),
+            "SF": sf_cell(r.safety_factor),
         }
         for lv in r.values:
             u = _chan_units(lv.units, lv.quantity, channel, r.safety_factor)
@@ -963,7 +967,7 @@ def load_cases_to_rows(results: List[ConditionResult], *,
             "CG": case_ref.cg if case_ref else "",
             "Speed (kt)": _num(case_ref.speed_kt) if case_ref and case_ref.speed_kt is not None else "",
             "Altitude (ft)": _num(case_ref.altitude_ft) if case_ref and case_ref.altitude_ft is not None else "",
-            "SF": _sf_cell(sf),
+            "SF": sf_cell(sf),
             c_id[0]: _num(x),
             c_id[1]: _num(y),
             c_id[2]: _num(z),

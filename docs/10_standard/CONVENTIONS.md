@@ -446,6 +446,15 @@ conventions"** section (`SUMMARY_REPORT.md` §4.2.1), single-sourced in
   three-digit Subpart C one, and a produced reference that reads as a section no
   range holds fails
   `tests/test_safety_factors.py::test_every_section_the_classifier_reads_is_one_a_family_can_place`.
+  **No reader of a factor defaults one either** (#180, review R-10): a dedicated
+  load carrier's factor is read through `export.deck_format.case_sf` and a
+  condition's off the condition, never through a `getattr` fallback — the field
+  is minted by every producer, so a fallback is dead the day it is written and
+  would silently resurrect a flat 1.5 under a rename. A condition that
+  prescribes no factor carries `None`, which is neither 1.5 nor 1.0, and every
+  SF cell is rendered by `report.render.sf_cell`, which prints it `N/A`.
+  `tests/test_safety_factors.py::test_no_factor_is_read_through_a_getattr_fallback`
+  parses the package and fails on the pattern's return.
   The other way a case can miss the table is by having nowhere to put the answer:
   `stamp()` writes the factor onto each result's `safety_factor` carrier and used
   to pass over an item without one on a bare `hasattr` gate. That is recorded in

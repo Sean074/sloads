@@ -59,6 +59,7 @@ from ..picks import extreme
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from ..export.lra_model import LraModel
+    from .applied import AppliedLoad
 
 Vec3 = Tuple[float, float, float]
 
@@ -241,10 +242,10 @@ def _curve(rows: Sequence[object], cuts: Sequence[Cut], axis: int,
     return curve
 
 
-def _by_case(rows: Sequence[object]) -> Dict[str, List[object]]:
-    out: Dict[str, List[object]] = {}
+def _by_case(rows: Sequence["AppliedLoad"]) -> Dict[str, List["AppliedLoad"]]:
+    out: Dict[str, List["AppliedLoad"]] = {}
     for row in rows:
-        key = row.case_id or row.case   # type: ignore[attr-defined]
+        key = row.case_id or row.case
         out.setdefault(key, []).append(row)
     return out
 
@@ -295,8 +296,11 @@ def compare(project: Project, component: str,
                        station=_curve(rows, cuts, axis, channels),
                        lumped=_curve(lumped_cases.get(case, []), cuts, axis,
                                      channels),
-                       safety_factor=float(
-                           getattr(rows[0], "safety_factor", 0.0) or 0.0))
+                       # Read off the row, not defaulted: every AppliedLoad
+                       # mints the field (M4-13/M4-16), and a fallback here
+                       # would print SF 0 -- a factor no regulation prescribes
+                       # -- if the field were ever renamed (#180).
+                       safety_factor=rows[0].safety_factor)
         for case, rows in station_cases.items()]
     return ComponentComparison(component=component, member=_MEMBERS[component][0],
                                channels=channels, cases=cases)

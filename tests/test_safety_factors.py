@@ -673,5 +673,73 @@ def test_uniform_factor_names_the_shared_factor_or_refuses():
     assert uniform_factor([1.5, 1.0]) is None
 
 
+# --------------------------------------------------------------------------- #
+# Nothing on the delivery side defaults a factor (#180, review R-10)
+# --------------------------------------------------------------------------- #
+def _getattr_factor_fallbacks():
+    """Every ``getattr(x, "safety_factor", <default>)`` in the package, as
+    ``file:line``. Parsed rather than grepped so that prose quoting the banned
+    pattern -- :mod:`sloads.safety_factors` opens by recording its removal --
+    is not mistaken for code that still does it."""
+    import ast
+
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    found = []
+    for path in glob.glob(os.path.join(root, "sloads", "**", "*.py"),
+                          recursive=True):
+        tree = ast.parse(open(path, encoding="utf-8").read(), filename=path)
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Name)
+                    and node.func.id == "getattr"
+                    and len(node.args) == 3
+                    and isinstance(node.args[1], ast.Constant)
+                    and node.args[1].value == "safety_factor"):
+                found.append(f"{os.path.relpath(path, root)}:{node.lineno}")
+    return found
+
+
+def test_no_factor_is_read_through_a_getattr_fallback():
+    """M4-16's rule, made structural (#180).
+
+    A fallback is dead the day it is written -- every producer mints the field
+    -- which is exactly when it is dangerous: rename the field and the fallback
+    silently resurrects a flat 1.5 (or, in the lumping comparison, an SF of
+    zero) in a delivered document, with nothing raised and no test failing. The
+    owners are :func:`sloads.export.deck_format.case_sf` for the five dedicated
+    load carriers and the condition's own attribute for everything else; a
+    rename must break loudly at both.
+    """
+    assert _getattr_factor_fallbacks() == []
+
+
+def test_a_condition_that_prescribes_no_factor_prints_na_not_a_number():
+    """``None`` is not 1.5 and not 1.0 (#154, note 48 OR-83).
+
+    The flap table read its factor as ``getattr(..., ULTIMATE_FACTOR) or
+    ULTIMATE_FACTOR`` until #180, so a condition the governing table said
+    prescribes no factor would have printed ``1.5`` in the SF column of a
+    certification-facing document -- the false claim #154 was filed for,
+    surviving in the one module that renders its own cells.
+    """
+    from sloads.models.results import ConditionResult, LoadValue
+    from sloads.report.oracle_sections import _flap_candidate_table
+    from sloads.report.render import format_value, sf_cell
+    from sloads.units import UnitSystem
+
+    assert sf_cell(None) == "N/A"
+    condition = ConditionResult(
+        title="Flaps-extended", far_reference="23.345(a)",
+        values=[LoadValue("1G stall flap load", 1000.0, "lb", "force",
+                          "flap_load_1g_stall")],
+        safety_factor=None)
+    table = _flap_candidate_table(condition, UnitSystem.IMPERIAL)
+    assert table is not None
+    sf_column = table.columns.index("SF")
+    assert [row[sf_column] for row in table.rows] == ["N/A"]
+    assert not any(cell == format_value(ULTIMATE_FACTOR)
+                   for row in table.rows for cell in row)
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
