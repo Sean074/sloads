@@ -160,6 +160,34 @@ def _touch_everything(at):
     return touched
 
 
+def _carry(at):
+    """The session's user state and keyed widgets, as a plain dict.
+
+    This is the journey's carry-over: what page N leaves behind and page N+1
+    arrives holding. Streamlit exposes it two ways depending on the version,
+    and the unbounded pin (``pyproject.toml``, the ``streamlit>=1.51``
+    rationale) means CI runs whichever is current while a developer's venv may
+    be months behind -- so both are supported rather than one being chosen.
+
+    Up to 1.63 ``AppTest.session_state`` *was* the internal ``SafeSessionState``
+    and the only route to the filtered view was its private ``filtered_state``
+    property. 1.64 wrapped it in a documented tester-facing object with mapping
+    methods and moved the real state to ``_session_state``; the private property
+    no longer resolves through it, and the wrapper's ``__getattr__`` reports the
+    reach as a missing *key* (``filtered_state not found in session_state``),
+    which is why the break read as a state defect rather than an API change.
+
+    ``to_dict()`` is the public spelling and returns that same filtered view --
+    user state and keyed widgets, internal Streamlit keys excluded -- so the
+    walk carries exactly what it carried before.
+    """
+    state = at.session_state
+    to_dict = getattr(state, "to_dict", None)   # Streamlit >= 1.64
+    if callable(to_dict):
+        return dict(to_dict())
+    return dict(state.filtered_state)           # Streamlit <= 1.63
+
+
 def _journey(example, touch=True):
     """Walk every workflow step in order on one session. Returns the end state."""
     from streamlit.testing.v1 import AppTest
@@ -191,7 +219,7 @@ def _journey(example, touch=True):
         # Carry the whole session forward -- widget state included. Anything less
         # is fourteen fresh sessions, and the class this file exists for lives in
         # what a widget remembers across a page change.
-        state = dict(at.session_state.filtered_state)
+        state = _carry(at)
         visited.append(step.key)
 
     return state["project"], before, visited

@@ -433,6 +433,93 @@ def test_the_dependency_ceiling_policy_rests_on_an_unpinned_install():
         )
 
 
+#: Reaches past Streamlit's public surface that the suite is **allowed** to
+#: make, each with the reason it is not a defect. A reach not listed here is a
+#: reach nobody decided to take.
+#:
+#: The cost of an unwritten one is measured: `AppTest.session_state` was the
+#: internal `SafeSessionState` through 1.63, and one line of the GUI journey
+#: read its private `filtered_state`. 1.64 wrapped that object in a documented
+#: tester-facing one, and the reach began reporting as a missing *key*
+#: (`filtered_state not found in session_state`) on all five fixtures -- a
+#: state defect's error message for an API change, on a branch whose local
+#: gate was green because the developer's venv was six releases behind.
+_PRIVATE_STREAMLIT_REACHES = {
+    ("test_gui_journey.py", "filtered_state"):
+        "the <= 1.63 half of _carry()'s version straddle, reached only when the "
+        "public to_dict() introduced in 1.64 is absent -- the compatibility "
+        "fallback itself, not an unguarded reach; see that helper's docstring",
+}
+
+#: Spellings that leave the documented API. `session_state._foo` and
+#: `AppTest._session_state` are private by name; `streamlit.runtime` is the
+#: server internals, which a test driving `AppTest` has no business importing;
+#: `filtered_state` is named outright because it is private without looking it.
+_PRIVATE_SPELLINGS = (
+    r"\.filtered_state\b",
+    r"\bsession_state\._\w+",
+    r"\._session_state\b",
+    r"\bfrom streamlit\.runtime\b",
+    r"\bimport streamlit\.runtime\b",
+)
+
+
+def _private_streamlit_hits():
+    """Every private-Streamlit reach in `tests/`, as (file, spelling) pairs."""
+    hits = set()
+    tests_dir = os.path.join(_ROOT, "tests")
+    # This file is skipped, and must be: it is where the forbidden spellings
+    # are written down, so it matches every one of them by construction.
+    owner = os.path.basename(__file__)
+    for name in sorted(os.listdir(tests_dir)):
+        if not name.endswith(".py") or name == owner:
+            continue
+        body = _read(os.path.join(tests_dir, name))
+        for pattern in _PRIVATE_SPELLINGS:
+            for match in re.findall(pattern, body):
+                hits.add((name, match.lstrip(".").strip()))
+    return hits
+
+
+def test_the_gui_tests_reach_no_undeclared_streamlit_internal():
+    """The unbounded dependency ceiling (above) makes CI meet each new Streamlit
+    first **on purpose**. That early warning is only worth having if what it
+    catches is an upstream change to the API this suite actually agreed to use
+    -- a test reaching into internals turns the warning into noise, and worse,
+    into noise whose message describes the wrong thing entirely.
+
+    So every reach is declared with a reason, or it is a failure here. This is
+    the same shape as the ceiling policy it protects: the decision is written
+    down where the next author meets it, not left implicit in a line of code
+    that happens to work on the version installed today.
+
+    The claim is exactly *undeclared*, and no more: an entry admits a spelling
+    in a file, so it cannot tell a version straddle's guarded fallback from a
+    bare reach beside it. What keeps that honest is the reason string, which
+    names the shape it is admitting -- a second, different reach in the same
+    file would be a lie told in prose rather than an assertion evaded."""
+    for name, spelling in sorted(_private_streamlit_hits()):
+        assert (name, spelling) in _PRIVATE_STREAMLIT_REACHES, (
+            f"{name} reaches Streamlit's private {spelling!r} with no entry in "
+            "_PRIVATE_STREAMLIT_REACHES. Use the public API if one exists; if "
+            "none does, declare the reach and say why -- an undeclared one "
+            "fails on an upstream release with an error that names a key, not "
+            "an API"
+        )
+
+
+def test_the_declared_streamlit_reaches_are_not_stale():
+    """An exemption outlives its reason silently. When the floor rises past the
+    version a straddle was written for, the entry here is what says so."""
+    hits = _private_streamlit_hits()
+    for key, reason in _PRIVATE_STREAMLIT_REACHES.items():
+        assert key in hits, (
+            f"_PRIVATE_STREAMLIT_REACHES still exempts {key} -- {reason} -- but "
+            "no test makes that reach any more; delete the entry"
+        )
+
+
+
 # --------------------------------------------------------------------------- #
 # The tag precondition and its script cannot drift apart (#184)
 # --------------------------------------------------------------------------- #
