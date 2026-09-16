@@ -447,6 +447,27 @@ bold heading wrapping onto a second line.
   tolerance and the routing; the baron_58 number is a data question for the
   owner and may be neither.
 
+- **The unbounded dependency ceiling's early warning arrives after the push, and
+  nothing tells a developer their venv has drifted.** `pyproject.toml` states a
+  runtime floor with no upper bound and the decision is deliberate: CI installs
+  unpinned on every run, so an upstream removal fails the GUI tests here before
+  it reaches a user's fresh install (guard:
+  `tests/test_ci_conformance.py::test_the_dependency_ceiling_policy_rests_on_an_unpinned_install`).
+  What the policy does not say is where that failure lands. A developer's venv
+  holds whatever was current the day it was made — this one sat at Streamlit
+  **1.58.0 against CI's 1.64.0, six releases** — so `pytest` is green locally
+  and red on the branch, *after* the push, and on 2026-09-16 that meant two
+  consecutive red CI runs across two closures before anyone read the log. The
+  local gate cannot answer the question by itself: asking PyPI what is newest
+  needs a network the gate must not depend on. Options, cheapest first: the
+  fast gate reports the installed runtime versions in its log, so a red is read
+  against them without a second command; `solo_start.sh` refreshes the runtime
+  dependencies when it opens a milestone branch, which is the one moment the
+  cost is already being paid; or nothing changes and this entry is the note
+  that says the lag is known and priced. **Filed 2026-09-16, from the
+  1.64 `AppTest.session_state` break.** Tier S, effort S — but the choice is the
+  owner's, and "priced, not fixed" is a legitimate answer to it.
+
 Two long-standing entries left this list on 2026-08-18 at the issue #13 closure —
 **decided, not fixed**, which is why neither survives here under the removal
 rule. Both keep their pins; the decisions carry what the bodies used to:
