@@ -24,7 +24,10 @@ Gates covered:
   section 6 and pointed at from section 5, and **section 5, 6.4 and Appendix D
   are byte-identical** to the conventional build. Its companion: the calc is
   untouched -- ``build_tail_span`` still returns the vertical tail's results and
-  the balanced deck still assembles its lateral cases.
+  the balanced deck still assembles its lateral cases. **Re-cut at #254**: the
+  statement also has to be *true*, so it is read against the calc rather than
+  asserted on its own -- what it says about the fin-tip transfer must match what
+  ``tail_span`` actually put on the fin tip, per arrangement.
 * **G-OR-88** -- *(OR-135)* the ``SIDE GUST`` row states whether its yaw inertia
   was entered or estimated.
 
@@ -50,7 +53,7 @@ from sloads.modules.select import default_critical  # noqa: E402
 from sloads.modules.tail_span import build_tail_span  # noqa: E402
 from sloads.report import oracle_content as oc  # noqa: E402
 from sloads.report.render import format_value  # noqa: E402
-from sloads.tail_geometry import is_conventional_tail, tail_layout  # noqa: E402
+from sloads.tail_geometry import is_conventional_tail, is_t_tail, tail_layout  # noqa: E402
 
 from helpers import oracle_section  # noqa: E402
 
@@ -279,6 +282,67 @@ def test_the_shipped_t_tails_withhold_and_say_which_arrangement_they_are():
     span = _section(doc, "vtail_loads").subsections[-1]
     assert span.absent_reason and not span.tables
     assert "T-tail" in _prose(span)
+
+
+def test_the_withholdings_reason_matches_what_the_calc_modelled():
+    """G-OR-87 re-cut (#254): the statement is checked against the calc.
+
+    The wording agreed at note 44 OR-133 said flatly that the horizontal tail's
+    load path through the fin "is not modelled". Plan 09's T7 then put the
+    horizontal tail's concurrent set on the fin tip, and on a T-tail the report
+    went on saying the path was unmodelled while ``tail_span`` was modelling it
+    -- the two front-ends disagreeing about what the suite can do, which is the
+    whole of #254. A rewording alone would drift back the moment the next
+    arrangement acquires a transfer, so the claim is gated against its subject:
+    for every arrangement, whether ``build_tail_span`` produced a
+    ``tip_transfer`` decides which sentence 6.5 is allowed to print.
+
+    What is *not* re-cut is the withholding itself. It never rested on the tip
+    transfer: the fin's loads are withheld because the unsymmetrical case of
+    23.427(a) is absent and the asymmetry inside the four analysed cases is
+    worth 27-73 % of the governing case's own root bending -- both still true on
+    a T-tail, transfer or no transfer.
+    """
+    for tail_type in TailType:
+        if tail_type is TailType.CONVENTIONAL:
+            continue
+        project = _relaid(_GA, tail_type)
+        results = build_tail_span(project).get("vtail", [])
+        transferred = any(r.tip_transfer is not None for r in results)
+        assert transferred == is_t_tail(project), tail_type
+        prose = _prose(_section(_doc(project), "vtail_loads").subsections[-1])
+        if transferred:
+            assert "The fin-tip transfer itself is modelled" in prose, tail_type
+            assert "No part of that load path is modelled" not in prose, tail_type
+            # ...and what remains unmodelled is named, not left as "the path".
+            assert "unsymmetrical load 23.427(a) prescribes" in prose, tail_type
+        else:
+            assert "No part of that load path is modelled" in prose, tail_type
+            assert "carry no horizontal-tail set onto the fin at all" in prose, tail_type
+        # Either way the reason the loads are withheld is the quantified one.
+        assert "27" in prose and "73" in prose, tail_type
+
+
+def test_the_shipped_t_tails_say_the_transfer_they_actually_carry():
+    """The fixture half of the re-cut, on the two shipped T-tails.
+
+    ``_relaid`` gives ``ga6_normal`` a tail type it was not designed with; these
+    two are T-tails as entered, and they are the projects whose fin conditions
+    really do carry a tip set: the four that name a V-n point do (``atr42_100``
+    Fz +258 / -994 lb), and its four engine-out rows name none and carry none --
+    which is why neither the statement nor the body says *every* condition
+    transfers. A wording that did would be false on the twin T-tail alone.
+    """
+    for name in ("atr42_100", "concept_regional_jet"):
+        project = _project(os.path.join(_EXAMPLES, f"{name}.project.json"))
+        results = build_tail_span(project)["vtail"]
+        paired = [r for r in results if r.tip_transfer is not None]
+        assert paired and len(paired) == sum(
+            1 for r in results if r.case is not None
+            and "ENGINE OUT" not in r.case.upper()), name
+        prose = _prose(_section(_doc(project), "vtail_loads").subsections[-1])
+        assert "The fin-tip transfer itself is modelled" in prose, name
+        assert "only symmetrically" in prose, name
 
 
 def _shape(section):
