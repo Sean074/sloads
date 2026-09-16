@@ -1127,10 +1127,12 @@ the rudder's chordwise distributions — are the precedent these are written to.
   not a claim.
 - **The pressure has one owner, and a drawn outline is never a divisor.** The
   entered analysis area and the entered planform outline are two different
-  numbers and they disagree on three of the four examples, by 44 % on one. The
-  printed pressure is the module's; where the two areas differ by more than 2 %
-  the section **states the disagreement** rather than resolving it silently in
-  either direction.
+  numbers, and they disagreed on three of the four examples then shipped, by
+  44 % on one — until #216 reconciled each pair from its own airplane's data.
+  The printed pressure is the module's either way; where the two areas differ
+  by more than 2 % the section **states the disagreement** rather than
+  resolving it silently in either direction, and on the shipped examples it
+  now has nothing to state.
 - **A tab's locator rectangle is labelled as drawn.** No tab planform is entered
   anywhere in the schema, so the rectangle is the entered area at the entered
   station — chord `MACTAB`, span `STAB/MACTAB` — and the caption says so, because

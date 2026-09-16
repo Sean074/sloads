@@ -482,12 +482,17 @@ def resolved_control_surface(geometry, name: str) -> Optional[SurfaceInput]:
     require_integrable_planform(parent)
     if surf.trailing_edge:
         # The copies-agree guard is hard on the **tail groups** -- D-54.1's
-        # stated scope. The wing controls carry it too in principle, but three
-        # shipped fixtures' estimated aileron polylines sit 0.04-9.4 in off
-        # their wing TE (measured 2026-09-10), and reconciling that data moves
-        # delivered baselines -- which is the #260/D-54.6 fixture wave's
-        # deliberate work, not this step's. The hard guard extends to
-        # aileron/flap when that wave enters their geometry.
+        # stated scope. The wing controls carry it too in principle, and the
+        # data reason they were exempted is gone: three shipped fixtures'
+        # estimated aileron polylines sat 0.04-9.4 in off their wing TE
+        # (measured 2026-09-10), and #216 reconciled the two that were adrift,
+        # so every shipped wing control passes this check today -- the furthest
+        # is 0.04 in off (asserted in tests/test_oracle_report_control.py, which
+        # holds the reconciliation by area). Extending the refusal is therefore
+        # a one-line change, and it is left to the #260/D-54.6 fixture wave that
+        # owns the wing controls' geometry rather than taken as a rider here:
+        # what it changes is what a *user's* project is refused for, which is a
+        # contract decision and not a consequence of correcting two fixtures.
         if parent_name in TAIL_COMPONENTS:
             validate_control_trailing_edge(parent, surf)
         return surf

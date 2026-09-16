@@ -916,8 +916,10 @@ def test_an_entered_tail_control_te_off_the_parent_is_refused():
     """The copies-agree guard, hard on the tail groups (D-54.1): a control TE
     entered off its parent's line is one boundary described twice, differently
     -- exactly what #25 was filed on -- and is refused by name, not averaged.
-    The wing controls are exempt until the #260/D-54.6 fixture wave reconciles
-    their estimated polylines (three fixtures sit 0.04-9.4 in off today)."""
+    The wing controls are exempt until the #260/D-54.6 fixture wave takes their
+    geometry: the data reason closed at #216, which reconciled the two estimated
+    aileron polylines that were adrift, and every shipped wing control passes
+    this check now -- the furthest sits 0.04 in off, against 9.4 in before."""
     from dataclasses import replace
 
     from sloads.tail_geometry import resolved_control_surface

@@ -217,7 +217,10 @@ clause, which knew of no milestone between.
 > so the band is cut where the work changes kind, and each cut's baseline
 > regeneration is paid once. **B6 (0.8.5)** keeps the fourteen rows that need
 > no decision and move no delivered number: the hygiene front, the SF cluster,
-> the statement fixes and #216. **B7 (0.8.6)** is the baseline wave
+> the statement fixes and #216 — which cost the band's one exception, an
+> Imperial digest regeneration on 2026-09-16 for the two aileron planforms
+> WING_GEOMETRY publishes, no load or deck row among them. **B7 (0.8.6)** is
+> the baseline wave
 > (#164 → #222 → #260 → #161) with #210, the rows that move numbers and
 > regenerate digests, gated on the #164 decision alone. **B8 (0.8.7)** is the
 > polish tail (#243, #240, #256, #258, #276) — deferrable as a unit behind
@@ -275,7 +278,6 @@ keeps its body in *Open defects*, and the [E]/[V] detail sections hold the rest.
 | Pri | Item (detail below / in its plan) | What ships | Tag | Tier / effort | Depends on |
 |---|---|---|---|---|---|
 | **B6 — 0.8.5: correctness and tooling on the converged surface** ||||||
-| 14 | **Three examples enter a control-surface area they do not draw** — aileron entered-vs-outline disagreement 4 %/5 %/44 %; three fixtures carry `flap_loads` with no flap outline *(filed 2026-09-07; OR-152 states the disagreement meanwhile)* (#216) | Each pair reconciled from the airplane's data, per example | V | S / S | — |
 | **B7 — 0.8.6: the baseline wave** ||||||
 | 15 | **GA6 fixture: altitude identity + wing-case envelope, one package** — every delivered case states 0 ft where Appendix A names its critical wing conditions at 12,000 ft, and the wing export ships three cases with no negative-g, so the delivered distributions do not envelop the wing; each fix renumbers the V-n indices the other depends on, so this row is #164 **and #165 merged** — the renumber is paid once *(review R-26)* (#164) | Stated condition identities correct and the wing enveloped; the three oracle cases kept; oracle-locked fixtures renumbered in one pass | V | L / M | owner decision on the case-set shape |
 | 16 | **One fuselage quantity is published under two `LoadValue` keys** — `select_fuselage`'s down/up blocks split one quantity across two keys; the report's §4.3 fold is the workaround *(found 2026-09-06, OR-14)* (#222) | Keys converge, labels survive as display text; rides the baseline wave (CSV columns move) | V | M / S | the baseline wave (#164 first) |
@@ -336,8 +338,6 @@ existed, and what kept two of these unfiled was a regex that could not see a
 bold heading wrapping onto a second line.
 
 - #18 — Review 2026-08-10 unscheduled findings [Minor/NIT].
-- #216 — Three examples enter a control-surface area they do not draw.
-
 - #217 — An entered thrust line does not steer the thrust in the balanced cases.
 
 - **No engine-mount case reaches the LRA deck.** `export/lra_model.py` has

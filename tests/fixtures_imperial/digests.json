@@ -76,7 +76,7 @@
     "csv/weight_envelope": "0d0ef467472c05f6642b0da59ae3537444de1c0b7072f1ae9e8d1276bd8d6434",
     "csv/weight_estimate": "e86882961036ecadc704d3f545e5aee6c62d93c2cb00e0fb8321d82ca30e32c8",
     "csv/weight_onecg": "04f73962fc1fdc46647916a980b852ff3339533a1a5bcadc6249280bc418c312",
-    "csv/wing_geometry": "c1388be9548561e0e4cef5f7345e0580aaa402ab26d427cb53b0ba5e354522ff",
+    "csv/wing_geometry": "7b00b11a7ddfc586765a4b34432173e560eacf9eafe32ac97dfe62987d4092bf",
     "csv/wing_inertia": "6d9141fcafe502609d73c281c20247fbecc43767e62657126505f0981af9266d",
     "gear_report": "57a9679ee1cdbb8936ed756169e228f34b12d1294c5bc0ce94b0037dac3b4853",
     "sbeam/balanced_deck": "4b4e6b4750267c276daa265e4a02fb8ac26d69773bfa1a6da24a6f1809e7e00d",
@@ -110,7 +110,7 @@
     "txt/weight_envelope": "dbb248ec389dc8c80e11632fcf62ccf3e909363434f57c2660484c9f70f882a1",
     "txt/weight_estimate": "f30a086b9ff0f518698709bd0758ff38276da1bc239ce9f577881cfca6b42eb7",
     "txt/weight_onecg": "d00b83e4b47e782aba5d85c7f1e88551097756fe6bfe25078fb2a56683c74f57",
-    "txt/wing_geometry": "2660c327583cb64e7c5f9cd14a37a3b0945bc4a0ad3274ad3ca7014694771572",
+    "txt/wing_geometry": "b94362bbb313f436c7b7e8042cc517246a8b69cacc71f94bcddba5e718aa35e7",
     "txt/wing_inertia": "5738688c15c6dc497f3a6e8dd3924ae07fd5cef2c9f3d1bdaa5289f89b441cd9"
   },
   "concept_heavy.project.json": {
@@ -167,7 +167,7 @@
     "csv/weight_envelope": "2477a2073a7cdacff57571a421ebba02a3b30b24ed4ac7fd57e37b7ea102f7f9",
     "csv/weight_estimate": "bb74c4b36673c842764c6a0b61804554e05ee0ede4dbce58e3e26cf57c193d7a",
     "csv/weight_onecg": "cfd03c71f47933495e35640ad3421a4219d9aedb8e531b6bc19efbc36c7db7b5",
-    "csv/wing_geometry": "955b2f1fb3d05e85a1e6bb10d602f469d863647a5f09f484d2854e07f59d6ac6",
+    "csv/wing_geometry": "e09ade8b61df0b932489823db3044b28b39db4dde4f5d1196a81d9bd8da98f3a",
     "csv/wing_inertia": "a062829c439224191edb77a84d869b6f1779195fc14d71c96123201fab087684",
     "gear_report": "0b9f4047d16165f7ebede7b6047337ea990f869ed430f25b4926fb8d308ca8dd",
     "sbeam/balanced_deck": "64a86ae5668405236a034eb61ce353a13227b1f06293e189474609f46009d30d",
@@ -200,7 +200,7 @@
     "txt/weight_envelope": "3aff79f693c1fedfd1bfa784809f6fe1d98191f603225a84061a2eb6eb98ee92",
     "txt/weight_estimate": "1425df1c983ba44c2e476c2f5731dc638d2eb0bd6113d194859da654a1f9bb53",
     "txt/weight_onecg": "57d3e443f039aba74b1675c49a617f01b9cd6bc183cb165dc68fa1bb3534c893",
-    "txt/wing_geometry": "fefc329cd21360f749893a117b44f451bac3daaea1417429c4636ad714b42886",
+    "txt/wing_geometry": "315ff49b8c7d5a51098a14e6d080946de384822df217e1ece1d657842c6cdec3",
     "txt/wing_inertia": "5c6d964104410b47dda823d620f7416f871133739d6b9b3a27d3f743a9fcefbe"
   },
   "ga6_normal.project.json": {

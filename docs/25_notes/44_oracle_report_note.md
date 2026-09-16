@@ -1466,10 +1466,32 @@ tail into two. Nothing below changes that.
   document state the disagreement rather than hide it either way. The same check
   finds `baron_58` at +4.0 % and `cessna_210` at −4.5 %, which are plausible as
   outline-vs-analysis differences and are recorded for the same review.
+  **Closed #216, 2026-09-16, in favour of the entered areas on both surviving
+  airplanes** (`cessna_210` retired at #264 and took its +5 % with it). Which of
+  the two numbers is the airplane was decided per example, from that airplane's
+  own data: the entered area is what every pinned load and pressure is computed
+  from, while both outlines were the estimated polylines PROGRAM_SPEC already
+  named — the jet's trailing edge did not even lie on the wing's, sitting 9.4 in
+  off it. So the outlines were redrawn on the wing trailing edge, holding the
+  Baron's own drawn 25.0 %-chord hinge line and taking the jet's from the only
+  wing-control chord fraction it enters, its flap's 0.30, and solving the
+  inboard station for the entered area: `baron_58` BL 130 → **127.0** (7.608
+  against 7.600 sq ft, +0.1 %) and `concept_regional_jet` BL 300 → **257.2**
+  (14.99 against 15.0, −0.1 %). No load moved and no deck changed; what moved is
+  the aileron's own published planform in WING_GEOMETRY on those two airplanes.
 - **Three examples enter a flap they do not draw.** `baron_58`,
   `cessna_210` and `concept_regional_jet` carry a `flap_loads` slice and no
   `flap` surface, so their flap sections will carry a stated absence where
   `ga6_normal` carries a figure. Entering the outlines is fixture work.
+  **Reviewed at #216, 2026-09-16, and deliberately not done.** No flap outline
+  exists anywhere in either project, so drawing one is invention rather than
+  reconciliation — T-17's line — and OR-153 already renders the absence rather
+  than an empty axis. The jet gives the second reason: its entered 55 sq ft is
+  **1.3–1.4×** the ~38–42 sq ft a stowed 30 %-chord flap encloses over the span
+  its wing leaves between the fuselage and the reconciled aileron, which is what
+  a Fowler flap's extended area looks like and is not a defect — so a stowed
+  outline drawn beside it would print a permanent 2 %-rule disagreement that
+  nothing is wrong about.
 - **sloads publishes no control-surface hinge moment.** OR-154 states the sense
   and prints no number. Whether the hinge moment is a deliverable this suite
   should produce — it is what a control-surface attachment is sized to — is a
