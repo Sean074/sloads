@@ -86,14 +86,13 @@ TORS, at the twin's derived corner and dive speeds.
 
 Two blocks:
 
-- **Net wing loads per case** (ULTIMATE, `-ULT` units, SF stated): the root
-  values — net shear, bending and torsion at the side of body — one
-  condition per case.
-- **Spanwise wing stations** (**LIMIT, marked as such**): the full station
-  table — running air and inertia loads, integrated shears, bending and
-  torsion at every strip, with the torsion axis named (25 % chord unless
-  your reference axis says otherwise). This is the printed `NETLOADS` table,
-  kept LIMIT so it can be compared with the book directly.
+- **Net wing loads per case** (LIMIT, SF stated): the root values — net
+  shear, bending and torsion at the side of body — one condition per case.
+- **Spanwise wing stations** (LIMIT, SF stated): the full station table —
+  running air and inertia loads, integrated shears, bending and torsion at
+  every strip, with the torsion axis named (25 % chord unless your reference
+  axis says otherwise). This is the printed `NETLOADS` table, and it compares
+  with the book as it stands.
 
 Sanity checks: bending grows monotonically root-ward and is maximum at the
 side of body; a concentrated mass shows as a visible step in the shear
@@ -110,9 +109,10 @@ tolerance.
   missing relief — the page's mass tie warns, read it.
 - **Twist as a single number.** The polyline is the distribution; one point
   makes the wing untwisted from that station outward.
-- **Comparing the LIMIT station table against ULTIMATE summaries.** The two
-  blocks differ by exactly the safety factor; the basis column says which
-  you are reading.
+- **Expecting the two blocks to differ by the safety factor.** They do not:
+  both are limit, and the per-case root values are the station table's own
+  root strip. The `SF` column states the factor neither block applied — that
+  is the sizing step's ([Conventions](03_conventions.md)).
 - **Case signs.** The case table keeps the original program's sign
   convention — enter cases the way Appendix A prints them, or copy them
   from SELECT by name and do not retype.

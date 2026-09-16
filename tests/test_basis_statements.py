@@ -68,6 +68,7 @@ from sloads.units import UnitSystem
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _EXAMPLES = os.path.join(_ROOT, "examples")
+_GUIDE = os.path.join(_ROOT, "docs", "60_guide")
 _GA = os.path.join(_EXAMPLES, "ga6_normal.project.json")
 
 #: The examples a full report renders on. Two is the right number here: this
@@ -138,7 +139,20 @@ _CLAIMS = (
     r"\ball ULTIMATE\b",
     r",\s*ULTIMATE(?![-\w])",
     r"\breport(?:s|ed)? ULTIMATE(?![-\w])",
-    r"limit x (?:1\.5|SF|the per-case SF|safety factor)",
+    # The guide sweep (#282) added the last four. A chapter's *Results* section
+    # names its blocks' basis in a parenthetical or after a colon -- "(ULTIMATE,
+    # `-ULT` units, SF stated)" -- which is a claim with no verb in it, and the
+    # patterns above are all built around one. "ULTIMATE summaries" and the
+    # instruction to divide a delivered figure by its SF are the same claim seen
+    # from the reader's side: both tell them a multiply happened upstream.
+    r"\(\s*(?:both |all )?ULTIMATE(?![-\w])",
+    r":\s*ULTIMATE(?![-\w])",
+    r"\bULTIMATE (?:summaries|summary|case tables?|contract)\b",
+    r"\bdivide[^.]{0,60}by its stated SF\b",
+    # ``(?i:limit)`` because the guide wrote the multiply in the deliverable's
+    # own capitals -- "LIMIT x 1.5" -- and an ASCII-lowercase pattern read
+    # straight past it. The normaliser folds typography, not case.
+    r"(?i:limit) x (?:1\.5|SF|the per-case SF|safety factor)",
 )
 
 #: Claims retired with their subject (#237). OR-194 removed the input echo from
@@ -281,6 +295,14 @@ _WITNESSES = (
     # a retired claim, quoted from the sentence that shipped it (#237)
     "The document still builds, and states the mismatch; read the input "
     "echo to see what moved.",
+    # the user guide's four, quoted from the chapters they shipped in (#282)
+    "**Net wing loads per case** (ULTIMATE, `-ULT` units, SF stated)",
+    "Tail loads are deliverable loads: **ULTIMATE**, units carrying the "
+    "`-ULT` marker.",
+    "Comparing the LIMIT station table against ULTIMATE summaries.",
+    "compare against the tool's values *before* the factor, i.e. divide the "
+    "ULT figure by its stated SF.",
+    "the ones it defines as limit report **LIMIT \u00d7 1.5** as usual",
 )
 
 #: The GUI trees this gate reads -- :data:`tests.helpers.GUI_TREES`, the one
@@ -345,6 +367,44 @@ def test_no_gui_string_claims_ultimate():
     assert seen > 1000, (
         f"swept only {seen} literals -- this gate cannot pass by finding no "
         f"GUI source to read")
+
+
+def test_no_guide_page_claims_ultimate():
+    """G-OR-74 on its fourth surface: the user guide (#282).
+
+    ``docs/60_guide/`` is the document that *teaches* the contract, and it was
+    the last channel asserting it with no owner. G-OR-74 read the rendered
+    report and the GUI sources, G-OR-73 the decks; none of them walks prose
+    written in Markdown, so `03_conventions.md` went on stating *"Every
+    deliverable load is ULTIMATE. The factor is applied exactly once, at the
+    render/export boundary"* -- the exact rule note 49 OR-116 inverted -- for
+    the whole of the milestone that removed the multiply. Twenty-four uses of
+    the word across sixteen chapters; the sweep kept the eight that are true
+    (the two prescribed-ultimate families, and the blocks that are not loads at
+    all) and corrected the rest.
+
+    The guide is read once, early, by someone who has not yet learned the
+    contract anywhere else, so a false sentence here is worse than the same
+    sentence on a results page: it is what the reader will believe the results
+    page means. Gated for the same reason the screen is -- the words are static
+    and nothing else looks at them.
+    """
+    seen = files = 0
+    assert os.path.isdir(_GUIDE), _GUIDE
+    for dirpath, _, filenames in os.walk(_GUIDE):
+        for filename in sorted(filenames):
+            if not filename.endswith(".md"):
+                continue
+            path = os.path.join(dirpath, filename)
+            rel = os.path.relpath(path, _ROOT)
+            with open(path, encoding="utf-8") as fh:
+                text = fh.read()
+            files += 1
+            seen += len(text)
+            assert_states_limit(rel, text, min_chars=200)
+    assert files >= 20 and seen > 100_000, (
+        f"swept only {files} guide files / {seen} chars -- this gate cannot "
+        f"pass by finding no guide to read")
 
 
 def test_the_gate_would_catch_each_spelling():

@@ -50,8 +50,8 @@ covers one page and is the same eight sections, in the same order:
 5. **Worked example — single** — the values typed on this page for
    `ga6_normal`, and why.
 6. **Worked example — twin** — the same for `baron_58`.
-7. **Results on this page** — the blocks the page renders, whether they are
-   LIMIT or ULTIMATE, and how to sanity-check them.
+7. **Results on this page** — the blocks the page renders, which of them are
+   loads and what SF each case states, and how to sanity-check them.
 8. **Common mistakes** — the two or three ways the page is got wrong.
 
 Skim a chapter's first two sections to orient; return to sections 3–8 while
@@ -81,7 +81,7 @@ Both ship with the tool: load them from the sidebar's **New from example**.
 - [Getting started](01_getting_started.md) — install, launch, and the sidebar.
 - [Before you start](02_before_you_start.md) — the data to collect first.
 - [Conventions](03_conventions.md) — axes, stations, units, and the one
-  LIMIT-vs-ULTIMATE statement.
+  LIMIT-load statement.
 - [Appendix C — Troubleshooting](C_troubleshooting.md) — what the tool's
   messages mean.
 - [Appendix D — Where next](D_where_next.md) — the rest of the application.

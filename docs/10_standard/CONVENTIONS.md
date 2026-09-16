@@ -391,10 +391,23 @@ conventions"** section (`SUMMARY_REPORT.md` §4.2.1), single-sourced in
   That statement is the obligation which *replaces* the multiply, and it is
   gated: **G-OR-73** (`tests/test_deck_basis.py`) holds every deck and its
   companion document to it, and **G-OR-74** (`tests/test_basis_statements.py`)
-  holds every rendered document **and every string the GUI puts on screen** to
-  the same claim — captions, headers and download-button labels alike, swept
-  from the `app/` and `app_shell/` sources rather than driven through
-  Streamlit, so no page can escape by having an unvisited branch (#192).
+  holds every rendered document, **every string the GUI puts on screen** and
+  **every page of the user guide** to the same claim — captions, headers and
+  download-button labels alike, swept from the `tests.helpers.GUI_TREES`
+  sources rather than driven through Streamlit, so no page can escape by
+  having an unvisited branch (#192), and `docs/60_guide/` walked as Markdown
+  (#282). **The guide is the channel that teaches the contract**, and it was
+  the last one asserting it with no owner: `03_conventions.md` stated *"Every
+  deliverable load is ULTIMATE … applied exactly once, at the render/export
+  boundary"* — the rule OR-116 inverted — through the whole of the milestone
+  that removed the multiply, because no gate read prose written in Markdown.
+  The sweep kept the eight uses of the word that are true (the two
+  prescribed-ultimate families, and the blocks that are not loads) and
+  corrected the other sixteen. It also cost the checker four new claim shapes:
+  a chapter states a block's basis in a parenthetical with no verb in it —
+  *"(ULTIMATE, `-ULT` units, SF stated)"* — and every pattern until then was
+  built around one, while `LIMIT × 1.5` written in the deliverable's own
+  capitals read straight past an ASCII-lowercase pattern.
 - **No path in `sloads/` multiplies a load by a safety factor** — **G-OR-71**,
   a scan over the whole tree (`tests/test_limit_channel.py`). The structural form
   of the rule, because prose could not hold it: the multiply came out of 81 sites

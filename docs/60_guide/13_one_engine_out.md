@@ -77,10 +77,11 @@ yaw rate peaked and recovered.
 
 One condition per evaluated speed. Read the classifications carefully —
 this page mixes them deliberately, and each case's note states its basis:
-the failure cases the regulation defines at ultimate report **ULTIMATE
-with SF = 1.0**; the ones it defines as limit report **LIMIT × 1.5** as
-usual; the stall-floor case is a stated substitution (clean stall for
-minimum control speed) per the manual's method. Each case carries the
+the failure cases the regulation defines at ultimate are **already ultimate
+at SF = 1.0** and carry the `-ULT` marker; the ones it defines as limit are
+delivered **LIMIT, stating SF = 1.5**, like every other load in the tool;
+the stall-floor case is a stated substitution (clean stall for minimum
+control speed) per the manual's method. Each case carries the
 evaluated speed, the peak windmill drag and thrust asymmetry, the yaw-rate
 peak and the vertical-tail loads of the transient and recovery.
 
