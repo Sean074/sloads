@@ -377,10 +377,15 @@ class ComponentLoads:
     body: List[Any] = field(default_factory=list)
     tail: List[Any] = field(default_factory=list)
     control: List[Any] = field(default_factory=list)
-    #: SELECT's governing conditions, recomputed live (``build_critical``) exactly
-    #: as the Critical Loads and Results Review pages do -- not read off
-    #: ``Project.envelope.critical``, which is only as fresh as the last page
-    #: visit and is absent altogether on a project loaded from JSON.
+    #: SELECT's governing conditions, through the owner
+    #: (``select.default_critical``): the persisted ``Project.envelope.critical``
+    #: when the project carries one, else SELECT's own search run fresh -- which
+    #: covers the project loaded from JSON that carries no envelope at all.
+    #: Re-pointed at #272. It read ``build_critical`` directly until then, to
+    #: recompute live "exactly as the Critical Loads and Results Review pages
+    #: do"; those pages went with ``app/`` at #270, and the bypass outlived the
+    #: reason for it. The owner is what carries note 44 OR-172's admission, so
+    #: a consumer that skips it gets a fin set short its governing case.
     critical: List[Any] = field(default_factory=list)
 
 
@@ -402,12 +407,12 @@ def component_loads(project: Project) -> ComponentLoads:
     from ..modules.body_loads import build_body_loads
     from ..modules.flap import build_flap
     from ..modules.net_loads import build_net_loads, loads_ref_axis_results
-    from ..modules.select import build_critical
+    from ..modules.select import default_critical
     from ..modules.tab import build_tabs
     from ..modules.taildist import build_tail_chordwise
     from ..safety_factors import stamp
 
-    critical = _try(build_critical, project)
+    critical = _try(default_critical, project)
     net = _try(build_net_loads, project)
     wing = loads_ref_axis_results(project, net.wing_net) if net is not None else None
     control: List[Any] = []

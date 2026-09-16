@@ -25,6 +25,15 @@ a code owner **plus** a drift guard):
   until its author routes it through the owner or adds the file to the allowlist
   below with a reason. A fifth instance of this class should not need a code
   review to find.
+* :func:`test_no_calc_code_calls_build_critical_outside_the_owner` -- the same
+  guard for the *other* way past ``default_critical`` (#272). Reading
+  ``project.envelope`` is not the only bypass: calling ``build_critical``
+  directly also skips the owner, and skips something the persisted-vs-computed
+  choice does not cover -- note 44 OR-172's admission of the 23.367 fin
+  conditions, which lives in ``_with_engine_failure`` on the owner's side of the
+  call. A consumer that computes the set itself gets a fin set short its
+  governing case (1.6x / 2.6x / 3.3x the largest SELECT fin case on the three
+  twins), and the two consumers that did were found by reading, not by a gate.
 * the behaviour gates -- each of the four sites exercised on the path that was
   broken (no persisted envelope), plus the two edges the owner exists to get
   right: a persisted envelope must be *used* (``body_loads``), and a persisted
@@ -91,6 +100,15 @@ _ALLOWED = {
 }
 
 
+#: Files allowed to call ``build_critical`` directly, for a reason that is not
+#: "I want SELECT's critical set" -- that has one owner, ``default_critical``.
+_BUILD_CRITICAL_ALLOWED = {
+    "modules/select.py":
+        "the owner itself: default_critical calls it, and _select_summary "
+        "publishes the search it ran",
+}
+
+
 def _project_envelope_reads(path):
     """``[(line, source_segment)]`` for every ``project.envelope`` attribute read.
 
@@ -140,6 +158,77 @@ def test_the_allowlist_has_no_stale_entries():
         assert os.path.exists(path), f"_ALLOWED names a missing file: {rel}"
         assert _project_envelope_reads(path), (
             f"{rel} no longer reads project.envelope -- drop it from _ALLOWED")
+
+
+def _build_critical_uses(path):
+    """``[(line, what)]`` for every *use* of ``build_critical`` in ``path``.
+
+    An import of the name counts, and so does a call of it, because either one on
+    its own is the bypass: the import is where a reader learns which route the
+    file takes. Parsed rather than grepped, for the reason the sibling scan gives
+    -- this class is discussed in prose far more often than it is used, and the
+    module docstring above would trip a regex four times.
+    """
+    with open(path, encoding="utf-8") as fh:
+        tree = ast.parse(fh.read())
+    out = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                if alias.name == "build_critical":
+                    out.append((node.lineno, "import build_critical"))
+        elif (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                and node.func.id == "build_critical"):
+            out.append((node.lineno, "build_critical(...)"))
+        elif (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "build_critical"):
+            out.append((node.lineno, "select.build_critical(...)"))
+    return out
+
+
+def test_no_calc_code_calls_build_critical_outside_the_owner():
+    """#272: ``default_critical`` is the only route to SELECT's critical set.
+
+    The two sites this closed were both in the report package and both latent for
+    the same reason -- the conditions OR-172 admits are ``component="vtail"``, and
+    neither site read the fin. ``report/oracle_sections._wing_selection`` filtered
+    to the wing; ``report/content.component_loads`` handed its list to ``stamp``
+    and to nothing else once the summary report went at #270. Latent is not fixed:
+    3.2 tells the reader in as many words that its cases are "the same cases the
+    summary, the distributions and the station-by-station appendix state -- one
+    set, projected four ways", and a second enumeration is free to disagree with
+    the first the day anything is admitted to a component it does read.
+    """
+    scanned = 0
+    for dirpath, _dirs, files in os.walk(_PKG):
+        for fn in sorted(files):
+            if not fn.endswith(".py"):
+                continue
+            path = os.path.join(dirpath, fn)
+            rel = os.path.relpath(path, _PKG)
+            scanned += 1
+            uses = _build_critical_uses(path)
+            if not uses:
+                continue
+            assert rel in _BUILD_CRITICAL_ALLOWED, (
+                f"{rel}:{uses[0][0]} uses {uses[0][1]} directly. That skips "
+                "select.default_critical, and with it note 44 OR-172's admission "
+                "of the 23.367 fin conditions -- the governing v-tail case on "
+                "every shipped twin. Read the set through default_critical, or "
+                "add the file to _BUILD_CRITICAL_ALLOWED here with the reason it "
+                "needs the raw search rather than the critical set."
+            )
+    assert scanned >= 30, f"only {scanned} modules scanned under sloads/"
+
+
+def test_the_build_critical_allowlist_has_no_stale_entries():
+    """The same anti-blanket rule the ``project.envelope`` allowlist carries."""
+    for rel in sorted(_BUILD_CRITICAL_ALLOWED):
+        path = os.path.join(_PKG, rel)
+        assert os.path.exists(path), (
+            f"_BUILD_CRITICAL_ALLOWED names a missing file: {rel}")
+        assert _build_critical_uses(path), (
+            f"{rel} no longer uses build_critical -- drop it from the allowlist")
 
 
 # --------------------------------------------------------------------------- #
