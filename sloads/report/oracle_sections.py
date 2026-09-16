@@ -8509,10 +8509,14 @@ def _static_margin_figure(project: Project, system: UnitSystem) -> Figure:  # no
         return Figure(key=key, title=title, absent_reason=(
             "the project enters no weight and centre-of-gravity cases, so "
             "there is no centre-of-gravity range to state a margin over."))
-    from ..modules.configuration import run as configuration_run
+    # Through the registry, not imported directly: a runner handed out by
+    # :func:`sloads.registry.get` has been past the governing safety-factor
+    # table, and a direct import is the one way back to an unstamped result
+    # (#177).
+    from ..registry import get as get_module
 
     try:
-        conditions = configuration_run(project).conditions
+        conditions = get_module("configuration")(project).conditions
     except (MissingInputError, ValueError, ZeroDivisionError, KeyError) as exc:
         return Figure(key=key, title=title, absent_reason=(
             f"the tail-volume neutral point could not be computed: {exc}"))
