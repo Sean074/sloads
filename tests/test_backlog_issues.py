@@ -222,6 +222,109 @@ def test_a_defect_bullet_that_is_only_a_pointer_is_not_a_new_defect(bi):
     assert filed == ["A real unfiled defect."], filed
 
 
+# --- the bullet whose body the tool threw away (issue #280) ------------------
+
+#: The pair that did it, twice. A five-word defect heading and a long table row
+#: share ``{case, loads, index}``; ``_containment`` divides by the **smaller**
+#: title's word count, so the score clears the 0.5 threshold and the defect was
+#: folded into the row -- after which ``rewrite`` replaced its twenty-line body
+#: with ``- #209 — ...``, an unrelated, already-filed issue (2026-09-08 07b24e2;
+#: again 2026-09-13, running the tool exactly as documented).
+_COLLIDING_ROW = ("The load-case index carries no loads for 344 of 347 rows — its six load "
+                  "columns are the engine-mount shape")
+_COLLIDING_DEFECT = "No engine-mount case reaches the LRA deck."
+
+
+def test_a_defect_bullet_is_never_folded_into_a_row_on_word_overlap(bi):
+    """A defect folds on an explicit pin or not at all.
+
+    The score was written for detail sections -- a ``### [V]`` heading really is
+    a longer restatement of its row and carries nothing the row does not. A
+    defect bullet is an independent finding with a body of its own, and shared
+    words are not evidence that it is the same thing as a table row. The pair
+    below still scores over the threshold, which is the point: the fix is the
+    rule, not a number that happens to separate today's titles.
+    """
+    assert bi._containment(_COLLIDING_ROW, _COLLIDING_DEFECT) >= 0.5
+    text = ("| Pri | Item | What ships | Tag | Tier / effort | Depends on |\n|---|---|---|---|---|---|\n"
+            "| **A — x** ||||||\n"
+            f"| 1 | {_COLLIDING_ROW} | ships | V | M / M | — |\n"
+            "\n## Open defects (index)\n\n"
+            f"- **{_COLLIDING_DEFECT}** Twenty lines of body.\n"
+            "  More body that exists nowhere else.\n")
+    out = bi.issue_set(bi.parse_backlog(text))
+    row = next(it for it in out if it.kind == "row")
+    assert row.merged == [], row.merged
+    assert any(it.kind == "defect" and it.title == _COLLIDING_DEFECT for it in out)
+
+    # A detail section with the same overlap still folds -- the rule is about
+    # what kind of thing a bullet is, not about tightening the matcher.
+    detail = text.replace("## Open defects (index)", "### [V] " + _COLLIDING_DEFECT + "\n\nbody\n\n## Open defects (index)")
+    out = bi.issue_set(bi.parse_backlog(detail))
+    assert next(it for it in out if it.kind == "row").merged == [_COLLIDING_DEFECT]
+
+
+def test_rewrite_never_collapses_a_body_bearing_bullet_onto_another_items_issue(bi):
+    """The second line of defence, independent of the matcher.
+
+    ``issue_set`` decides what to fold; :func:`uncollapsible` decides what may be
+    destroyed, and a body survives unless both agree. This map is the one the
+    fold left behind -- two titles on #209 -- and it is also the shape a stale
+    key in ``backlog_issue_map.json`` takes, which is the other way a number has
+    reached the wrong line (the truncated-title drift that opened 19 duplicates
+    on 2026-09-07).
+    """
+    text = ("## Open defects (index)\n\n"
+            f"- **{_COLLIDING_DEFECT}** Twenty lines of body.\n"
+            "  More body that exists nowhere else.\n")
+    numbers = {_COLLIDING_ROW: 209, _COLLIDING_DEFECT: 209}
+    assert bi.rewrite_backlog(text, numbers) == text
+    assert _COLLIDING_DEFECT in bi.uncollapsible(bi.parse_backlog(text), numbers)
+
+    # Its own issue, shared with nothing: the pointer is what ``rewrite`` is for.
+    assert "- #300 — " in bi.rewrite_backlog(text, {_COLLIDING_DEFECT: 300})
+
+
+def test_a_defect_heading_that_wraps_is_still_read(bi):
+    """A bold heading closing on the second line was invisible to every command.
+
+    ``plan`` did not list it, ``create`` could not file it and ``rewrite`` walked
+    past it -- two open defects with twenty-line bodies sat in that blind spot,
+    and the only thing keeping them unfiled was the wrap.
+    """
+    text = ("## Open defects (index)\n\n"
+            "- **A heading long enough that its bold run closes\n"
+            "  on the second line.** And then a body.\n")
+    items = [it for it in bi.parse_backlog(text) if it.kind in ("defect", "unfiled")]
+    assert [it.title for it in items] == [
+        "A heading long enough that its bold run closes on the second line."]
+
+
+def test_unfiled_by_choice_is_listed_never_filed_and_never_collapsed(bi, backlog_text, monkeypatch):
+    """The state the backlog states and the tool now holds.
+
+    A finding stated on purpose without being scheduled is its own kind: ``plan``
+    lists it, ``create`` skips it, ``rewrite`` leaves it whole. Before #280 the
+    state lived in the prose alone and was enforced by an accident of the
+    heading regex.
+    """
+    unfiled = [it for it in bi.parse_backlog(backlog_text) if it.kind == "unfiled"]
+    assert unfiled, "the live backlog states at least one finding it does not schedule"
+    for it in unfiled:
+        assert it.labels == [], it.title
+        assert bi.UNFILED_MARKER.search(bi._flat(it.body)), it.title
+
+    # ``create`` files nothing and never reaches gh.
+    monkeypatch.setattr(bi, "ensure_labels", lambda labels: None)
+    monkeypatch.setattr(bi, "_gh", lambda *a: pytest.fail(f"create shelled out for an unfiled defect: {a}"))
+    monkeypatch.setattr(bi, "MAP", os.path.join(os.path.dirname(_SCRIPT), "no-such-map.json"))
+    assert bi.create(unfiled, None) == {}
+
+    # ``rewrite`` leaves the bullet whole even when a number is offered for it.
+    numbers = {it.title: 999 for it in unfiled}
+    assert bi.rewrite_backlog(backlog_text, numbers) == backlog_text
+
+
 def test_the_issue_map_agrees_with_the_numbers_the_backlog_states(bi, backlog_text):
     """No persisted key may point somewhere other than the line's own ``(#N)``.
 

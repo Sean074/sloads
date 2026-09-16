@@ -257,7 +257,6 @@ keeps its body in *Open defects*, and the [E]/[V] detail sections hold the rest.
 | Pri | Item (detail below / in its plan) | What ships | Tag | Tier / effort | Depends on |
 |---|---|---|---|---|---|
 | **B6 — 0.8.5: correctness and tooling on the converged surface** ||||||
-| 6 | **`backlog_issues.py rewrite` staples an unrelated issue number onto an unfiled defect, and has now done it twice** — `issue_set` folds a defect bullet into a table row on a fuzzy `_containment` score over a threshold, with no explicit pin required. *No engine-mount case reaches the LRA deck* (unfiled by choice) scores against *The load-case index carries no loads for 344 of 347 rows* on the shared words, so `rewrite` replaced its twenty-line body with `- #209 — …` — a different, already-filed defect. It happened first on 2026-09-08 (07b24e2), was restored and struck on 2026-09-11 with a note in the body, and reproduced exactly on 2026-09-13 running `rewrite` after `create`. The body is restorable only because someone noticed; the failure is silent *(found 2026-09-13, running the tool as documented)* **Moved into B6 at the 2026-09-14 re-cut**: every closure runs `check` and any re-cut runs `rewrite`, so the tool the milestone runs all the way through must stop corrupting bodies first — at the hygiene front (#280) | A fold that requires an explicit pin, or a threshold no unrelated pair can reach, plus a guard that a defect bullet with a body is never collapsed onto a row's issue; the two surviving unfiled defects re-verified | E | M / S | — |
 | 7 | **`safety_factors.classify`: exact-match reference returns before the multi-reference agreement check** — the one hole where "flagged, never defaulted" degrades to silently-first-match; latent, no current producer emits the string *(review R-9)* (#179) | After an exact hit the remaining references are still classified and factor agreement demanded; guard case added | V | S / S | — (the SF cluster) |
 | 8 | **Report side keeps two `getattr(..., ULTIMATE_FACTOR)` fallbacks the M4-16 rule banned from export** — dead defaults that would silently resurrect a flat 1.5 on an attribute rename *(review R-10)* (#180) | Direct attribute access at the three sites, per the rule `report/applied.py`'s `_sf` already states | V | S / S | — (the SF cluster) |
 | 9 | **Unstamped single-module runs bypass the governing SF table** — `oracle_app/results.py` and the comparison view call `registry.get(name)(project)` with no `stamp()`. *Re-scoped by note 49: nothing can factor any more*, but the **stated** factor is wrong on that path — a project `safety_factors.overrides` entry is silently ignored, and factorless conditions state the dataclass 1.5 where the stamped path states `N/A` *(review R-6)* (#177) | Stamping made structural at the registry entry point so an unstamped render is impossible | V | M / S | — *(the OR-13 lift landed at the 0.8.2 cut)* |
@@ -318,6 +317,13 @@ again; L-8d's mutation case stays parked); F25-2.
 
 ## Open defects (index)
 
+A bullet whose body says **unfiled by choice** is a finding stated here on
+purpose and not scheduled: `scripts/backlog_issues.py` lists it under `plan`,
+never files it under `create` and never collapses it under `rewrite`. The phrase
+is the marker the tool reads — before #280 nothing in the tool knew the state
+existed, and what kept two of these unfiled was a regex that could not see a
+bold heading wrapping onto a second line.
+
 - #18 — Review 2026-08-10 unscheduled findings [Minor/NIT].
 - #216 — Three examples enter a control-surface area they do not draw.
 
@@ -341,7 +347,9 @@ again; L-8d's mutation case stays parked); F25-2.
   index's blank load columns. This finding is unfiled by choice, like the two
   that follow it: re-verified live 2026-09-11 — the engine band still allocates
   grids at `bands.py:274` and `transferred_case_loads` still takes a
-  `BalancedCaseResult`, so no mount condition reaches the deck.)*
+  `BalancedCaseResult`, so no mount condition reaches the deck. Re-verified
+  again 2026-09-15 at the #280 closure — unchanged: `engine_applied_load` is
+  reached only from `report/oracle_sections.py`, never from a deck writer.)*
 
 - **No control-surface hinge moment is computed anywhere — in sloads or in the
   suite it replicates.** Checked against the source 2026-09-07: `AILERON.BAS`,
@@ -360,6 +368,12 @@ again; L-8d's mutation case stays parked); F25-2.
   oracle cannot supply (a chordwise centre of pressure per throw, and a hinge
   line the schema does not carry as geometry). **Filed 2026-09-07.** Tier L if
   taken, and it would reach `modules/aileron.py`, frozen for 0.8.2 under OR-13.
+  **Unfiled by choice**: the scope question is the work, and it is not this
+  milestone's. *(Re-verified 2026-09-15 at the #280 closure: no hinge moment is
+  computed for an aileron, elevator or rudder — `tail_span`'s `hinge_moment` is
+  the tail attachment chain's actuator couple — and
+  `AileronLoadsInput.hinges_span_in` and `actuator_span_in` are still read by
+  `io`, `units` and `field_registry` and by no calc.)*
 
 - **The oracle prints an aileron deflection schedule the module does not
   publish.** Appendix A p200 prints the deflections at VA, VC and VD (15.00 /
@@ -369,7 +383,10 @@ again; L-8d's mutation case stays parked); F25-2.
   words and prints no numbers for it — the report may not re-derive what a
   module did not return (OR-6). Publishing them is additive, one `LoadValue`
   each. **Filed 2026-09-07.** Tier M, and it touches frozen `modules/aileron.py`
-  (OR-13).
+  (OR-13). **Unfiled by choice** while that freeze stands. *(Re-verified
+  2026-09-15 at the #280 closure: `aileron_loads` still computes `cdeg`/`ddeg`
+  and their up throws internally, and `AileronResult` still returns no
+  deflection field.)*
 
 - #218 — The fuselage applied set is `Fz` alone — is that the model, or the airplane?
 
