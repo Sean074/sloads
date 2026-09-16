@@ -4420,9 +4420,9 @@ _NON_CONVENTIONAL_POINTER = (
     "This analysis treats the empennage as a conventional tail, with the "
     "horizontal and the vertical surface each carried by the fuselage and each "
     "loaded independently. For any other arrangement the vertical tail also "
-    "carries the horizontal tail, and the loads that creates are not modelled; "
-    "the limitation is stated in full with the vertical tail's loads, and it "
-    "does not affect anything in this section.")
+    "carries the horizontal tail, and this analysis models that path in part "
+    "at most; the limitation is stated in full with the vertical tail's loads, "
+    "and it does not affect anything in this section.")
 
 #: What the reader is told a non-conventional layout is, in the report's words.
 #:
@@ -4459,29 +4459,89 @@ def _vtail_withheld(project: Project, component: str) -> bool:
     return component == "vtail" and not is_conventional_tail(project)
 
 
+def _models_the_tip_transfer(project: Project) -> bool:
+    """Whether the fin's conditions actually carry a horizontal-tail set (#254).
+
+    The same predicate ``modules/tail_span.py`` gates ``ttail_transfer`` on, read
+    here rather than restated, so the document cannot describe a load path the
+    calc resolved differently. Until #254 the statement below said flatly that
+    the path "is not modelled" -- wording agreed at note 44 OR-133, before plan
+    09's T7 put the horizontal tail's concurrent set on the fin tip -- and on a
+    T-tail that claim had been false since T7 landed, while the withholding it
+    was offered as the reason for is a policy the quantified omission below
+    justifies on its own.
+    """
+    from ..tail_geometry import is_t_tail
+
+    return is_t_tail(project)
+
+
 def _non_conventional_statement(project: Project) -> str:
     """The lead sentence 6.5 renders in place of the loads it withholds."""
+    if _models_the_tip_transfer(project):
+        path = (
+            "The fin-tip transfer itself is modelled: a fin condition that "
+            "names a flight condition carries the horizontal tail's concurrent "
+            "balancing load and that surface's own inertia at the tip. What is "
+            "not modelled is the "
+            "unsymmetrical load 23.427(a) prescribes, which is never reacted "
+            "through the fin at all -- and the transfer that is modelled is "
+            "symmetric, in the conditions that are not. The vertical tail's "
+            "spanwise loads are withheld rather than printed for that reason: "
+            "it is a stated policy, quantified below, and not a gap in the "
+            "data.")
+    else:
+        path = (
+            "No part of that load path is modelled -- the tip transfer this "
+            "suite computes belongs to a T-tail, and this arrangement is not "
+            "one -- so the vertical tail's spanwise loads are withheld rather "
+            "than printed.")
     return (
         f"This analysis models the empennage as a conventional tail: a "
         f"horizontal and a vertical surface each carried by the fuselage and "
         f"each loaded independently. This airplane is entered as "
         f"{_layout_phrase(project)}, and in that arrangement the vertical tail "
         f"is additionally the supporting structure of the horizontal tail in "
-        f"the sense of 14 CFR 23.427(a). That load path is not modelled, so the "
-        f"vertical tail's spanwise loads are withheld rather than printed.")
+        f"the sense of 14 CFR 23.427(a). {path}")
 
 
-#: The paragraphs 6.5 carries under the statement above: what is missing, what
-#: is not affected, and what the withholding does *not* reach (OR-133).
+#: The first paragraph of 6.5's body, per arrangement (#254). The omitted case
+#: is the same in both; what the four analysed conditions do with the surface
+#: above them is not, and until #254 the T-tail's answer was printed for every
+#: arrangement -- including the two that carry no transfer at all.
+_SECOND_PATH = {
+    True:
+        " Separately, the conditions that name a V-n point do transfer a "
+        "horizontal-tail set onto the fin, but a symmetric one: the concurrent "
+        "balancing load and the surface's own inertia, paired at that point, "
+        "with roll and yaw identically zero. That is the right set for a "
+        "symmetric condition and the wrong one here, in precisely the cases "
+        "where sideslip and rudder deflection load the horizontal surface "
+        "asymmetrically. An engine-out condition names no V-n point, so it "
+        "pairs with no concurrent horizontal-tail load and carries no transfer "
+        "at all.",
+    False:
+        " Separately, the four conditions that are analysed carry no "
+        "horizontal-tail set onto the fin at all: the tip transfer this suite "
+        "computes belongs to a T-tail, so on this arrangement the reaction the "
+        "fin takes from the surface above it is simply absent -- in precisely "
+        "the cases where sideslip and rudder deflection load the horizontal "
+        "surface asymmetrically.",
+}
+
+#: The lead of that paragraph, which the arrangement also decides: on a T-tail
+#: the second path is modelled and symmetric where the conditions are not;
+#: elsewhere it is absent. How the two fail is not the same claim, and until
+#: #254 only the T-tail's answer was ever printed -- on every arrangement.
+_FIRST_PATH_LEAD = {
+    True: "One load path is unmodelled and one is modelled only symmetrically, "
+          "and they fail differently.",
+    False: "Two load paths are unmodelled, and they fail differently.",
+}
+
+#: The remaining paragraphs 6.5 carries under the statement above: what the
+#: omission is worth, and what the withholding does *not* reach (OR-133).
 _NON_CONVENTIONAL_BODY = (
-    "Two load paths are unmodelled, and they fail differently. The horizontal "
-    "tail's unsymmetrical condition of 23.427(a) is never reacted through the "
-    "vertical tail, so the vertical tail's design conditions omit a case "
-    "rather than understate one -- there is no row in this section that is too "
-    "small; there is a row that is not there. Separately, the four conditions "
-    "that are analysed transfer a symmetric horizontal-tail set onto the fin, "
-    "in precisely the cases where sideslip and rudder deflection load the "
-    "horizontal surface asymmetrically.",
     "The second of these is quantified: the induced rolling moment reaches 27 "
     "to 73 per cent of the governing vertical-tail case's own root bending on "
     "the configurations it has been measured on. A distribution carrying an "
@@ -4499,6 +4559,18 @@ _NON_CONVENTIONAL_BODY = (
     "would be applied, and it is stated so that what is withheld is legible "
     "as a withholding rather than as a gap in the data.",
 )
+
+
+def _non_conventional_body(project: Project) -> List[str]:
+    """6.5's paragraphs, with the second load path described as it is (#254)."""
+    modelled = _models_the_tip_transfer(project)
+    first = (
+        f"{_FIRST_PATH_LEAD[modelled]} The horizontal tail's unsymmetrical "
+        f"condition of 23.427(a) is never reacted through the vertical tail, "
+        f"so the vertical tail's design conditions omit a case rather than "
+        f"understate one -- there is no row in this section that is too small; "
+        f"there is a row that is not there.{_SECOND_PATH[modelled]}")
+    return [first, *_NON_CONVENTIONAL_BODY]
 
 #: The note OR-133a attaches to the condition register and the summary table on
 #: a non-conventional layout: the set is short a case, and the case is named.
@@ -4655,7 +4727,7 @@ def _tail_span_section(project: Project, component: str, *,
     # which is what keeps the balanced deck's lateral cases assembling -- and a
     # reader must not be told "not produced" about loads that were.
     if _vtail_withheld(project, component):
-        return Section("", body=list(_NON_CONVENTIONAL_BODY),
+        return Section("", body=_non_conventional_body(project),
                        absent_reason=_non_conventional_statement(project),
                        absent_lead="Not supported")
     results = _tail_spanwise(project, component)

@@ -133,7 +133,10 @@ class TailType(str, Enum):
       value other than ``CONVENTIONAL`` (OR-133, ``is_conventional_tail``),
       because in every other arrangement the vertical tail is additionally the
       supporting structure of the horizontal tail in the sense of 14 CFR
-      23.427(a) and that load path is not modelled.
+      23.427(a), and that load path is modelled in part at most (#254): a
+      ``T_TAIL`` transfers the horizontal tail's *symmetric* concurrent set at
+      the fin tip and the other arrangements transfer nothing, while 23.427(a)'s
+      unsymmetrical case is reacted through the fin in none of them.
 
     SSOT row: ``CONVENTIONS.md`` section 7."""
     CONVENTIONAL = "conventional"

@@ -924,11 +924,33 @@ What follows is what is true of the vertical tail and of nothing else.
     returns the results and the withholding is a statement about the airplane's
     arrangement, so the state is decided ahead of the results test and cannot
     become a claim that the analysis failed.
-  - 6.5 **SHALL** state both unmodelled paths and how they differ — the
-    horizontal tail's 23.427(a) unsymmetrical case never reacted through the
-    fin (an **omitted** condition, not an understated one) and the symmetric
-    h-tail set transferred in precisely the cases that load it asymmetrically —
-    and **SHALL** state positively what is unaffected.
+  - 6.5 **SHALL** state both paths and how they differ — the horizontal tail's
+    23.427(a) unsymmetrical case never reacted through the fin (an **omitted**
+    condition, not an understated one) and the symmetric h-tail set carried in
+    precisely the cases that load it asymmetrically — and **SHALL** state
+    positively what is unaffected.
+  - **What it says about the second path SHALL be what the calc did** *(#254,
+    G-OR-87 re-cut)*. The wording agreed here in 2026-09-07 said flatly that
+    the path "is not modelled"; plan 09's T7 then put the horizontal tail's
+    concurrent set on the fin tip, and on a T-tail the report went on saying
+    the path was unmodelled while `tail_span` was modelling it — the two
+    front-ends disagreeing about what the suite can do. Both the statement and
+    6.5's first paragraph are therefore **per arrangement**, read off the same
+    `is_t_tail` the module gates the transfer on: a T-tail says the tip
+    transfer is modelled and symmetric where these conditions are not, and a
+    V-tail or cruciform says no part of the path is carried. A fin condition
+    that names no V-n point (the engine-out rows on a twin) pairs with no
+    concurrent horizontal-tail load and transfers nothing, so neither wording
+    claims *every* condition transfers. Gated against its subject rather than
+    against itself:
+    `tests/test_oracle_report_vtail.py::test_the_withholdings_reason_matches_what_the_calc_modelled`
+    asks `build_tail_span` for the transfer and decides which sentence 6.5 is
+    allowed to print.
+  - **The withholding itself is unchanged, and never rested on the transfer.**
+    The fin's spanwise loads are withheld because 23.427(a)'s case is absent
+    and the asymmetry inside the analysed cases is worth 27–73 % of the
+    governing case's own root bending — both still true on a T-tail. It is a
+    stated policy, and 6.5 says so.
   - **6.1's loads-reference-axis stations SHALL still print** *(owner,
     2026-09-07, question (a))*. They are entered geometry resolved through a
     planform, the same numbers §2.1's three-view is drawn from, and withholding
