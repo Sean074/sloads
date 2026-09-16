@@ -10,6 +10,13 @@ This script does the one-off migration and the standing both-ways check:
              ``title -> #N`` in .github/backlog_issue_map.json
     rewrite  add ``(#N)`` to every priority-table row and replace each detail
              section / defect bullet with a one-line pointer to its issue
+
+A defect bullet whose body says **unfiled by choice** is read, listed by ``plan``
+and then left alone by every command: not filed by ``create``, not collapsed by
+``rewrite``. The backlog states such a finding on purpose without scheduling it,
+and until #280 nothing in this file knew that state existed -- what kept two of
+them unfiled was a regex that could not see a bold heading wrapping onto a second
+line, which is not a decision anyone made.
     check    every priority-table row names an open issue, every open issue
              labelled ``band:*`` appears in the table, and every row's issue sits
              on the milestone its **band header** names — never on one already
@@ -38,7 +45,7 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import AbstractSet, Dict, List, Optional, Sequence, Tuple
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BACKLOG = os.path.join(ROOT, "docs", "30_future", "00_backlog.md")
@@ -52,7 +59,14 @@ MAP = os.path.join(ROOT, ".github", "backlog_issue_map.json")
 BAND_ROW = re.compile(r"^\|\s*\*\*([A-Z]\d?)\s+[—-]\s*(.*?)\*\*\s*\|")
 ITEM_ROW = re.compile(r"^\|\s*(\d+)\s*\|")
 DETAIL_HEADING = re.compile(r"^### \[([EVM])\]\s+(.*)$")
-DEFECT_BULLET = re.compile(r"^- \*\*(.+?)\*\*")
+#: A bullet in the open-defects index. The heading is read across the wrap by
+#: :func:`_bullet_heading`, not by this: matching ``^- \*\*(.+?)\*\*`` on the
+#: first physical line alone made a bullet whose bold heading closed on the
+#: *second* line invisible to ``plan``, ``create`` and ``rewrite`` together, and
+#: two open defects with twenty-line bodies sat in that blind spot (#280).
+BULLET_START = re.compile(r"^- \*\*")
+#: The backlog's own words for a finding it states without scheduling.
+UNFILED_MARKER = re.compile(r"unfiled by choice", re.I)
 ISSUE_REF = re.compile(r"\(#(\d+)\)")
 _WORD = re.compile(r"[a-z0-9]{4,}")
 
@@ -77,14 +91,31 @@ class Item:
     #: written; this is the same rule on the other half of the bridge.
     existing: Optional[int] = None
     merged: List[str] = field(default_factory=list)  # titles folded into this issue
+    #: The subset of :attr:`merged` folded on an explicit :data:`PINNED_PAIRS`
+    #: entry rather than on the word score -- the only folds ``rewrite`` will
+    #: let stand between a body-bearing bullet and another item's issue number.
+    folded_by_pin: List[str] = field(default_factory=list)
+
+
+def _flat(md: str) -> str:
+    """``md`` with links, emphasis and line breaks removed -- and **not** cut to
+    length, so a marker may be searched for across a wrap."""
+    t = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", md)
+    t = re.sub(r"[`*]", "", t)
+    return re.sub(r"\s+", " ", t).strip()
 
 
 def _plain(md: str) -> str:
     """A GitHub issue title: markdown stripped, one line, <= 120 chars."""
-    t = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", md)
-    t = re.sub(r"[`*]", "", t)
-    t = re.sub(r"\s+", " ", t).strip()
+    t = _flat(md)
     return t[:117] + "…" if len(t) > 120 else t
+
+
+def _bullet_heading(buf: Sequence[str]) -> Optional[str]:
+    """The bold heading of the bullet ``buf``, read across its wrap, or ``None``
+    when the bullet opens a bold run it never closes."""
+    m = re.match(r"^- \*\*(.+?)\*\*", " ".join(ln.strip() for ln in buf), re.S)
+    return m.group(1) if m else None
 
 
 def _words(s: str) -> set:
@@ -138,13 +169,16 @@ def parse_backlog(text: str) -> List[Item]:
             items.append(Item("detail", _plain(heading), body, labels, line=i + 1))
             i = j
             continue
-        if section.startswith("Open defects") and DEFECT_BULLET.match(line):
+        if section.startswith("Open defects") and BULLET_START.match(line):
             j = i + 1
             buf = [line]
             while j < len(lines) and lines[j].startswith("  "):
                 buf.append(lines[j])
                 j += 1
-            head = DEFECT_BULLET.match(line).group(1)
+            head = _bullet_heading(buf)
+            if head is None:
+                i = j
+                continue
             # A defect bullet whose *heading* is only a reference -- "- #170 -- ..."
             # -- is a pointer to an issue that already exists, not a new defect.
             # Filing it opened issues literally titled "#170" and "#171"
@@ -161,8 +195,15 @@ def parse_backlog(text: str) -> List[Item]:
             if _plain(head).rstrip().endswith(":"):
                 i = j
                 continue
-            items.append(Item("defect", _plain(head), "\n".join(buf),
-                              ["kind:defect", "tag:V"], line=i + 1,
+            # A finding the backlog states on purpose without scheduling it is
+            # its own kind: listed, never filed, never collapsed. Before #280 the
+            # state was real in the prose and nowhere in the tool, and the two
+            # bullets carrying it stayed unfiled only because their headings
+            # happened to wrap past the line the old regex read.
+            unfiled = UNFILED_MARKER.search(_flat("\n".join(buf))) is not None
+            items.append(Item("unfiled" if unfiled else "defect", _plain(head),
+                              "\n".join(buf),
+                              [] if unfiled else ["kind:defect", "tag:V"], line=i + 1,
                               existing=int(refs[0]) if refs else None))
             i = j
             continue
@@ -211,10 +252,23 @@ def issue_set(items: Sequence[Item], threshold: float = 0.5) -> List[Item]:
     out: List[Item] = []
     for row in rows:
         picks = [k for k, d in enumerate(others) if k not in used and _pinned(row.title, d.title)]
+        pinned = set(picks)
         if not picks:
             best, score = None, 0.0
             for k, d in enumerate(others):
-                if k in used:
+                # **A defect bullet folds only on a pin.** The word score was
+                # written for detail sections, which really are longer
+                # restatements of their row and carry nothing the row does not.
+                # A defect bullet is an independent finding with a body of its
+                # own, and shared words are not evidence that it is the same
+                # thing as a table row: "No engine-mount case reaches the LRA
+                # deck" scores 0.60 -- over the threshold -- against "The
+                # load-case index carries no loads for 344 of 347 rows" on
+                # {case, loads, index} alone, because the denominator is the
+                # *smaller* title. That fold ran twice, and each time ``rewrite``
+                # replaced the defect's twenty-line body with a pointer to an
+                # unrelated issue (2026-09-08 07b24e2, again 2026-09-13; #280).
+                if k in used or d.kind != "detail":
                     continue
                 sc = _containment(row.title, d.title)
                 if sc > score:
@@ -224,6 +278,8 @@ def issue_set(items: Sequence[Item], threshold: float = 0.5) -> List[Item]:
         for k in picks:
             used.add(k)
             d = others[k]
+            if k in pinned:
+                row.folded_by_pin.append(d.title)
             row.body += f"\n---\n\n**Detail (from `{d.title}`)**\n\n{d.body}\n"
             row.merged.append(d.title)
             # A folded defect makes a *step* row a defect; a hygiene batch stays hygiene.
@@ -231,13 +287,54 @@ def issue_set(items: Sequence[Item], threshold: float = 0.5) -> List[Item]:
                 row.labels = [lb for lb in row.labels if not lb.startswith("kind:")] + ["kind:defect"]
         out.append(row)
     out += [d for k, d in enumerate(others) if k not in used]
-    out += [it for it in items if it.kind == "decision"]
+    out += [it for it in items if it.kind in ("unfiled", "decision")]
     return out
 
 
-def rewrite_backlog(text: str, numbers: Dict[str, int]) -> str:
+def uncollapsible(items: Sequence[Item], numbers: Dict[str, int],
+                  folded: AbstractSet[str] = frozenset()) -> Dict[str, str]:
+    """``{title: why}`` for every defect bullet ``rewrite`` must leave standing.
+
+    Collapsing a bullet to ``- #N — head`` throws its body away, so the ``#N``
+    had better be that bullet's own issue. Two ways it is not, both of them
+    seen in this file:
+
+    * the bullet is **unfiled by choice** -- there is no issue, and the body is
+      the only statement of the finding there is;
+    * the number is shared with another item's title. That is what a fold looks
+      like from here, and a fold this run did not make on an explicit pin
+      (``folded``) is either the word score reaching across unrelated findings
+      or a stale key in the persisted map -- a map keyed on a *truncated* title
+      that a reworded row silently misses (the same key drift that opened 19
+      duplicate issues on 2026-09-07).
+
+    Independent of the matcher on purpose: :func:`issue_set` decides what to
+    fold, this decides what may be destroyed, and a body survives unless both
+    agree (#280).
+    """
+    shared: Dict[int, List[str]] = {}
+    for title, n in numbers.items():
+        shared.setdefault(n, []).append(title)
+    out: Dict[str, str] = {}
+    for it in items:
+        if it.kind == "unfiled":
+            out[it.title] = "unfiled by choice -- there is no issue to point at"
+            continue
+        if it.kind != "defect" or "\n" not in it.body or it.title in folded:
+            continue
+        n = numbers.get(it.title)
+        others = [t for t in shared.get(n, ()) if t != it.title] if n else []
+        if others:
+            out[it.title] = f"#{n} is also {others[0]!r} -- an unpinned fold, not this bullet's issue"
+    return out
+
+
+def rewrite_backlog(text: str, numbers: Dict[str, int],
+                    folded: AbstractSet[str] = frozenset()) -> str:
     """``(#N)`` after each table row's title; detail sections and defect
-    bullets replaced by one-line pointers. Rows already carrying ``(#N)`` are left."""
+    bullets replaced by one-line pointers. Rows already carrying ``(#N)`` are left,
+    and so is every bullet :func:`uncollapsible` names."""
+    refused = uncollapsible(parse_backlog(text), numbers, folded)
     lines = text.splitlines()
     out: List[str] = []
     i = 0
@@ -271,14 +368,16 @@ def rewrite_backlog(text: str, numbers: Dict[str, int]) -> str:
                 out.append("")
                 i = j
                 continue
-        m = DEFECT_BULLET.match(line)
-        if m and numbers.get(_plain(m.group(1))) is not None:
-            n = numbers[_plain(m.group(1))]
-            out.append(f"- #{n} — {m.group(1)}")
-            i += 1
-            while i < len(lines) and lines[i].startswith("  "):
-                i += 1
-            continue
+        if BULLET_START.match(line):
+            j = i + 1
+            while j < len(lines) and lines[j].startswith("  "):
+                j += 1
+            head = _bullet_heading(lines[i:j])
+            title = _plain(head) if head else ""
+            if head and title not in refused and numbers.get(title) is not None:
+                out.append(f"- #{numbers[title]} — {head}")
+                i = j
+                continue
         out.append(line)
         i += 1
     return "\n".join(out) + "\n"
@@ -393,7 +492,9 @@ def create(items: Sequence[Item], milestone: Optional[str]) -> Dict[str, int]:
         with open(MAP, encoding="utf-8") as fh:
             numbers = json.load(fh)
     for it in items:
-        if it.title in numbers:
+        # Listed by ``plan``, filed by nobody: the backlog states this finding
+        # without scheduling it, and that is now a state the tool holds (#280).
+        if it.kind == "unfiled" or it.title in numbers:
             continue
         # The line already names its issue: adopt that number rather than filing
         # a second one. The persisted map is keyed on a truncated title and a
@@ -522,11 +623,13 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if args.command == "plan":
         for it in items:
-            print(f"[{it.kind:8}] {' '.join(it.labels):32} {it.title}")
-        print(f"\n{len(items)} issue(s) — {sum(it.kind == 'row' for it in items)} table rows, "
+            print(f"[{it.kind:8}] {' '.join(it.labels) or '--':32} {it.title}")
+        n_unfiled = sum(it.kind == "unfiled" for it in items)
+        print(f"\n{len(items) - n_unfiled} issue(s) — {sum(it.kind == 'row' for it in items)} table rows, "
               f"{sum(it.kind == 'detail' for it in items)} unmatched detail sections, "
               f"{sum(it.kind == 'defect' for it in items)} defects, "
-              f"{sum(it.kind == 'decision' for it in items)} decisions")
+              f"{sum(it.kind == 'decision' for it in items)} decisions"
+              f"; {n_unfiled} unfiled by choice (listed, never filed)")
         return 0
     if args.command == "create":
         create(items, args.milestone)
@@ -539,9 +642,13 @@ def main(argv: Optional[List[str]] = None) -> int:
             if it.title in numbers:
                 for t in it.merged:
                     numbers.setdefault(t, numbers[it.title])
+        folded = {t for it in items for t in it.folded_by_pin}
+        refused = uncollapsible(parse_backlog(text), numbers, folded)
         with open(BACKLOG, "w", encoding="utf-8") as fh:
-            fh.write(rewrite_backlog(text, numbers))
+            fh.write(rewrite_backlog(text, numbers, folded))
         print(f"rewrote {os.path.relpath(BACKLOG, ROOT)} with {len(numbers)} issue references")
+        for title, why in refused.items():
+            print(f"kept whole: {title} — {why}")
         return 0
     if args.command == "render":
         rendered = render_backlog(text, fetch_issues())

@@ -206,6 +206,22 @@ its tier:
 - Migration from the single-file backlog: `scripts/backlog_issues.py plan`
   (prints the issue set), `create` (opens them via `gh`, records `title → #N`),
   `rewrite` (adds `#N` to the table rows). Owner-run, once.
+- **What the tool may not destroy (#280).** `rewrite` replaces a defect bullet
+  with a one-line pointer to its issue, so the number had better be that
+  bullet's own. Two rules keep it so, and they are independent on purpose —
+  `issue_set` decides what is folded, `uncollapsible` decides what may be
+  destroyed, and a body survives unless both agree. A **defect bullet folds
+  into a table row only on an explicit `PINNED_PAIRS` entry**: the word score is
+  for detail sections, which are longer restatements of their row, and shared
+  words are not evidence that an independent finding is the same thing as a row.
+  And a **bullet with a body is never collapsed onto a number another item's
+  title also holds** — that is what an unpinned fold looks like from the
+  rewriter, and also what a stale key in `backlog_issue_map.json` looks like.
+- **Unfiled by choice.** A defect bullet whose body carries that phrase is a
+  finding the backlog states without scheduling: `plan` lists it, `create` never
+  files it, `rewrite` never collapses it. It is a state the tool holds, not a
+  convention in prose — before #280 two such findings stayed unfiled only
+  because their bold headings wrapped past the line the parser read.
 
 ## 5. Design notes and the shape of `30_future/` (MD-6)
 
