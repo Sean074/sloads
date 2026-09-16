@@ -1196,6 +1196,18 @@ iteration under rule 6.
   distribution, Appendix E and the exported v-tail deck. A document that prints
   a governing load in Section 11 while Section 6 calls a smaller one critical
   has published a contradiction.
+- **Every section reads the critical set through its one owner** *(#272)*.
+  `select.default_critical` is the route; `build_critical` is the search that
+  runs underneath it, and OR-172's admission lives between the two, so a section
+  that calls the search has enumerated the set without the governing case. Two
+  sections did — §3.2's wing selection register and `report/content`'s
+  `component_loads` — and both were latent only because the admitted conditions
+  are `component="vtail"` and neither read the fin. Gated twice, by name and by
+  effect: `tests/test_envelope_owner.py::test_no_calc_code_calls_build_critical_outside_the_owner`
+  parses `sloads/` for the bypass, and
+  `tests/test_oracle_report_vtail.py::test_every_case_keyed_table_in_the_section_names_the_same_conditions`
+  asks the finished document whether its case-keyed tables agree, which catches
+  a second enumeration however it is spelled.
 - **One case per entered engine, and no mirror asserted** (OR-173). A mirrored
   case is the report minting a case the analysis did not run (OR-6); OR-166 is
   the precedent one section back.
@@ -1594,6 +1606,10 @@ without a guard is prose, not a gate).
       distributions, Appendix E and the exported v-tail deck; Sections 6 and 11
       name the same critical fin case (OR-172, G-OR-113/G-OR-114) —
       `test_oracle_report_oei.py`
+- [x] Every case-keyed table in Sections 5 and 6 and their appendices names the
+      same condition set, and the 23.367 rows are in all of them on both twins
+      (#272) — `test_oracle_report_vtail.py`, with the structural half in
+      `test_envelope_owner.py`
 - [x] Every entered engine is failed as its own case, an uncontrollable case is
       printed with its referral and reaches no envelope, and the SF-1.0 case
       states its factor wherever tabulated or plotted, with no `-ULT` in the

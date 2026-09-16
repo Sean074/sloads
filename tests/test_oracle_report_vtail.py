@@ -31,6 +31,11 @@ Gates covered:
 * **G-OR-88** -- *(OR-135)* the ``SIDE GUST`` row states whether its yaw inertia
   was entered or estimated.
 
+* **The section's tables enumerate one condition set** *(#272)* -- every table
+  in section 6 that is keyed by case, and Appendix E beside them, names the same
+  case ids, because they are one set projected five ways and a reader who counts
+  the rows of two of them is entitled to the same answer twice.
+
 Also here: OR-133a (the condition register and the summary table name the case
 the set is short, rather than looking complete), and the owner's 2026-09-07
 ruling that 6.1's loads-reference-axis stations survive the withholding because
@@ -111,6 +116,12 @@ def _prose(section):
     for sub in section.subsections:
         text += " " + _prose(sub)
     return text
+
+
+def _case_keyed_tables(section):
+    """``{table title: {case id}}`` for every table in ``section`` keyed by case."""
+    return {t.title: {r[0] for r in t.rows}
+            for t in _tables(section) if t.columns and t.columns[0] == "Case"}
 
 
 def _relaid(path, tail_type):
@@ -728,3 +739,60 @@ if __name__ == "__main__":                                    # pragma: no cover
                 print(f"  FAIL {name}: {exc}")
     print(f"\n{failed} failed")
     _sys.exit(1 if failed else 0)
+
+
+# --------------------------------------------------------------------------- #
+# #272 -- one condition set, projected as many ways as the section has tables
+# --------------------------------------------------------------------------- #
+def test_every_case_keyed_table_in_the_section_names_the_same_conditions():
+    """The behavioural half of #272's one-owner rule, read off the document.
+
+    The defect this closes was two consumers of SELECT's critical set in one
+    report: ``default_critical``, which carries note 44 OR-172's admission of the
+    23.367 fin conditions, and ``build_critical``, which is the search that runs
+    underneath it and does not. On the twins the admitted cases are the
+    *governing* ones -- 1.6x ``baron_58``'s largest SELECT fin case, 2.6x
+    ``atr42_100``'s -- so a table built from the wrong route does not merely
+    disagree, it omits the row the reader came for.
+
+    Asserted across the tables rather than at the call sites on purpose. The
+    sibling gate in ``test_envelope_owner.py`` forbids the bypass structurally,
+    by parsing for it; this one asks the finished document the question a reader
+    would ask, so a future route that is not spelled ``build_critical`` -- a
+    persisted set filtered somewhere, a cached list, a second search -- is caught
+    by its effect rather than by its name.
+    """
+    for name in ("ga6_normal", "baron_58", "atr42_100", "concept_regional_jet"):
+        doc = _doc(_project(os.path.join(_EXAMPLES, f"{name}.project.json")))
+        for step, appendix in (("htail_loads", oc.HTAIL_LOAD_STATIONS),
+                               ("vtail_loads", oc.VTAIL_LOAD_STATIONS)):
+            tables = _case_keyed_tables(_section(doc, step))
+            tables.update(_case_keyed_tables(_appendix(doc, appendix)))
+            # Five in section 6 plus the appendix on a conventional tail; the
+            # spanwise pair is withheld on a T-tail (OR-133), which removes
+            # tables from the comparison and must not empty it.
+            assert len(tables) >= 4, (name, step, sorted(tables))
+            sets = list(tables.values())
+            assert all(ids == sets[0] for ids in sets), (
+                name, step, {t: sorted(ids) for t, ids in tables.items()})
+            assert sets[0], (name, step)
+
+
+def test_the_engine_failure_conditions_reach_every_table_on_the_twins():
+    """OR-172's admission, asserted where it is delivered rather than where it
+    is made -- the 23.367 rows are the whole reason the two routes differ, so a
+    set-agreement gate that ran only on single-engine fixtures would pass while
+    agreeing on the wrong set.
+    """
+    for name, expected in (("baron_58", 6), ("atr42_100", 4)):
+        project = _project(os.path.join(_EXAMPLES, f"{name}.project.json"))
+        admitted = {c.case_ref.case_id
+                    for c in default_critical(project).conditions
+                    if c.component == "vtail"
+                    and c.label.startswith("ONE ENGINE OUT")}
+        assert len(admitted) == expected, (name, sorted(admitted))
+        doc = _doc(project)
+        tables = _case_keyed_tables(_section(doc, "vtail_loads"))
+        tables.update(_case_keyed_tables(_appendix(doc, oc.VTAIL_LOAD_STATIONS)))
+        for title, ids in tables.items():
+            assert admitted <= ids, (name, title, sorted(admitted - ids))

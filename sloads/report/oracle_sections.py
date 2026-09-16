@@ -1890,12 +1890,23 @@ def _wing_selection(project: Project):
     overridden* is a fact the register has to state (OR-57): a section that
     presents three entered cases as the outcome of a search is describing an
     analysis nobody ran.
+
+    Read through :func:`sloads.modules.select.default_critical`, the same owner
+    every other section of this document comes through (#272). Until then this
+    was the report's one call to ``build_critical``, and 3.2's own claim -- that
+    these are "the same cases the summary, the distributions and the
+    station-by-station appendix state, one set projected four ways" -- was the
+    thing that made the bypass a defect rather than a style question: a second
+    enumeration is free to disagree with the first, and the set is exactly what
+    note 44 OR-172's admission changes. It changes nothing on the wing today,
+    because the conditions OR-172 admits are ``component="vtail"``; that is the
+    reason this was latent, not a reason to keep two routes.
     """
     from ..modules.flight_envelope import build_envelope
-    from ..modules.select import build_critical
+    from ..modules.select import default_critical
 
     try:
-        conditions = [c for c in build_critical(project).conditions
+        conditions = [c for c in default_critical(project).conditions
                       if getattr(c, "component", "") == "wing"]
     except Exception:
         conditions = []
