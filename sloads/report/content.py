@@ -324,10 +324,13 @@ class Units:
         label = getattr(self.d, dim).label
         return ultimate_units(label) if sf == 1.0 else label
 
-    def load(self, value: Any, dim: str, sf: float) -> str:
+    def load(self, value: Any, dim: str, sf: Optional[float]) -> str:
         """A LIMIT load, converted only -- ``sf`` is stated, not applied (OR-116).
 
-        Same loose typing as :meth:`plain`, for the same reason.
+        Same loose typing as :meth:`plain`, for the same reason. ``sf`` is
+        ``Optional`` for a plainer one: the factor is never applied here, so a
+        condition that prescribes none (``None``, #154) is a legal caller and
+        need not invent a number to get through the boundary (#180).
         """
         if value is None or value == "":
             return ""
@@ -338,7 +341,7 @@ class Units:
     # A plotted load goes through the boundary exactly as a tabulated one does:
     # the figure and the table beside it are then the same number drawn two
     # ways, and neither can be the one that forgot to scale.
-    def load_value(self, value: float, dim: str, sf: float) -> float:
+    def load_value(self, value: float, dim: str, sf: Optional[float]) -> float:
         """A LIMIT load in the document's units.
 
         ``sf`` is retained in the signature because every caller has it and the

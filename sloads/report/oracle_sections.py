@@ -24,13 +24,16 @@ geometry, mass and speeds beside them. The tables are still routed through that
 boundary rather than formatted by hand, because a section that formats its own
 numbers is one that will eventually format a load it should have marked.
 
-**Known upstream oddity, filed not yet fixed** (note 44 §10): a
-``ConditionResult`` holding no load value still carries ``safety_factor = 1.5``,
-because that is the dataclass default. No value is affected -- the boundary
-scales by units and quantity, not by the stamp -- but a wing span has no safety
-factor, and the owner has ruled that such a condition shall carry ``None``,
-rendered "N/A". Until that lands, this module never prints a condition's SF, so
-no section 2 table can inherit a claim that does not apply to it.
+**Where the factors in this module come from** (#180). Nothing here defaults
+one. A dedicated load carrier's factor is read through
+:func:`sloads.export.deck_format.case_sf`, the owner that states the rule --
+every producer mints the field, so it is read directly and never through a
+``getattr`` fallback that would mask a rename (M4-16). A ``ConditionResult``'s
+is read off the condition and may be ``None``, which is not 1.5 and not 1.0: it
+is the governing table saying the condition prescribes no factor at all (#154,
+note 48 OR-83). Every SF cell this module prints goes through
+:func:`sloads.report.render.sf_cell`, which renders that ``None`` as "N/A"
+rather than inventing a number for it.
 """
 
 from __future__ import annotations
@@ -44,7 +47,7 @@ from typing import TYPE_CHECKING, Dict, List, Mapping, NamedTuple, Optional, Seq
 from .. import csv_text
 from ..aero_curves import inertia_drag_factor
 from ..cg_cases import flight_case_ids, flight_cases
-from ..constants import IN2_PER_FT2, ULTIMATE_FACTOR
+from ..constants import IN2_PER_FT2
 from ..derived_geometry import (
     MacReference,
     mac_reference,
@@ -52,6 +55,7 @@ from ..derived_geometry import (
     station_to_pct_mac,
     wing_reference,
 )
+from ..export.deck_format import case_sf
 from ..models import MissingInputError, Project
 from ..models.enums import AnalysisKind
 from ..models.inputs import EngineInput, FuselageStation
@@ -94,7 +98,7 @@ from .oracle_content import (
     section_ref,
     subsection_ref,
 )
-from .render import format_value, ultimate_units
+from .render import format_value, sf_cell, ultimate_units
 
 if TYPE_CHECKING:
     # pragma: no cover - typing only, and a cycle if imported at runtime
@@ -2258,7 +2262,7 @@ _DISTRIBUTION_FIGURES: Tuple[Tuple[str, str, str, str], ...] = (
 _CASE_STYLES = ("solid", "dashed", "dotted", "dashdotted", "densely dashed")
 
 
-def _distribution_figure(net: Sequence[object], key: str, attr: str, dim: str,
+def _distribution_figure(net: Sequence[WingLoadResult], key: str, attr: str, dim: str,
                          title: str, system: UnitSystem, assessed: str) -> Figure:
     """One quantity along the span, every selected case on one axes."""
     axis = _torsion_axis(net)
@@ -2273,7 +2277,7 @@ def _distribution_figure(net: Sequence[object], key: str, attr: str, dim: str,
         stations = list(getattr(result, "stations", ()))
         if not stations:
             continue
-        sf = float(getattr(result, "safety_factor", ULTIMATE_FACTOR))
+        sf = case_sf(result)
         ref = getattr(result, "case_ref", None)
         name = getattr(ref, "case_id", "") or getattr(result, "case", "")
         series.append(Series(
@@ -2518,7 +2522,7 @@ def _applied_table(net: Sequence[WingLoadResult], system: UnitSystem,
               "are geometry and are neither scaled nor marked."))
 
 
-def _cumulative_table(net: Sequence[object], system: UnitSystem,
+def _cumulative_table(net: Sequence[WingLoadResult], system: UnitSystem,
                       notation: str) -> Optional[Table]:
     """B.2 -- what the structure carries at each station."""
     if not net:
@@ -2532,7 +2536,7 @@ def _cumulative_table(net: Sequence[object], system: UnitSystem,
     rows: List[List[str]] = []
     for result in net:
         name = _case_name(result)
-        sf = float(getattr(result, "safety_factor", ULTIMATE_FACTOR))
+        sf = case_sf(result)
         for index, station in enumerate(getattr(result, "stations", ()), start=1):
             rows.append([name, str(index), u.plain(station.y, "length")]
                         + [u.load(getattr(station, attr), dim, sf)
@@ -3356,7 +3360,7 @@ def _fitting_table(project: Project, system: UnitSystem) -> Optional[Table]:
     for result in net:
         if result.r_front is None or result.r_rear is None:
             continue
-        sf = float(getattr(result, "safety_factor", ULTIMATE_FACTOR))
+        sf = case_sf(result)
         ref = getattr(result, "case_ref", None)
         rows.append([
             getattr(ref, "case_id", "") or "--",
@@ -3480,7 +3484,7 @@ def _body_distribution_figure(net: Sequence[BodyLoadResult], key: str, attr: str
         stations = list(getattr(result, "stations", ()))
         if not stations:
             continue
-        sf = float(getattr(result, "safety_factor", ULTIMATE_FACTOR))
+        sf = case_sf(result)
         ref = getattr(result, "case_ref", None)
         name = getattr(ref, "case_id", "") or getattr(result, "case", "")
         series.append(Series(
@@ -3636,7 +3640,7 @@ def _body_station_appendix(project: Project, *, system: UnitSystem,
     for result in net:
         ref = getattr(result, "case_ref", None)
         name = getattr(ref, "case_id", "") or getattr(result, "case", "")
-        sf = float(getattr(result, "safety_factor", ULTIMATE_FACTOR))
+        sf = case_sf(result)
         for gid, station in zip(body_station_gids(result), result.stations):
             rows.append([
                 name, str(gid), u.plain(station.x, "length"),
@@ -4307,7 +4311,7 @@ def _tail_pressure_table(results: Sequence[TailChordResult],
         f"psi(X{i}) ({pressure[1]})" for i in range(1, 6)] + ["SF"]
     rows = []
     for result in results:
-        sf = float(getattr(result, "safety_factor", ULTIMATE_FACTOR) or ULTIMATE_FACTOR)
+        sf = case_sf(result)
         row = [_tail_case_id(result),
                u.load(getattr(result, "lt25", None), "force", sf),
                u.load(getattr(result, "lt50", None), "force", sf)]
@@ -4579,7 +4583,7 @@ def _tail_span_root_table(results: Sequence[TailSpanResult], component: str,
                f"Root {torsion} ({moment})", f"Applied air load ({force})", "SF"]
     rows = []
     for result in results:
-        sf = float(getattr(result, "safety_factor", ULTIMATE_FACTOR) or ULTIMATE_FACTOR)
+        sf = case_sf(result)
         stations = list(getattr(result, "stations", ()))
         if not stations:
             continue
@@ -5211,7 +5215,7 @@ def _control_case_table(records: Sequence[ControlSurfaceLoadResult],
     stations = sorted({round(s.x, 6) for r in records for s in r.stations})
     rows = []
     for record in records:
-        sf = float(record.safety_factor or ULTIMATE_FACTOR)
+        sf = case_sf(record)
         by_x = {round(s.x, 6): s.psi for s in record.stations}
         rows.append([
             str(record.case),
@@ -5308,11 +5312,10 @@ def _flap_candidate_table(condition: Optional[ConditionResult],
                           system: UnitSystem) -> Optional[Table]:
     """The four conditions and the pick, as ``flap.run`` published them."""
     values = _by_key(condition)
-    if not values:
+    if condition is None or not values:
         return None
     u = Units(system)
-    sf = float(getattr(condition, "safety_factor", ULTIMATE_FACTOR)
-               or ULTIMATE_FACTOR)
+    sf = condition.safety_factor
     loads = [values.get(load_key) for load_key, _cl, _name in _FLAP_CANDIDATES]
     governing = max(
         (v.value for v in loads if v is not None), default=None)
@@ -5326,7 +5329,7 @@ def _flap_candidate_table(condition: Optional[ConditionResult],
         rows.append([name,
                      format_value(cl.value) if cl is not None else "--",
                      u.load(load.value, "force", sf),
-                     format_value(sf),
+                     sf_cell(sf),
                      "critical" if critical else ""])
     if not rows:
         return None
@@ -5355,8 +5358,7 @@ def _flap_slipstream_table(result: Optional[ModuleResult],
     if condition is None:
         return None
     u = Units(system)
-    sf = float(getattr(condition, "safety_factor", ULTIMATE_FACTOR)
-               or ULTIMATE_FACTOR)
+    sf = condition.safety_factor
     rows = []
     for value in convert_results([condition], system)[0].values:
         is_load = value.units.startswith("lb") or value.units.startswith("N")
@@ -5364,7 +5366,7 @@ def _flap_slipstream_table(result: Optional[ModuleResult],
                      u.load(value.value, "force", sf) if is_load
                      else format_value(value.value),
                      (u.ult_label("force") if is_load else value.units),
-                     format_value(sf) if is_load else ""])
+                     sf_cell(sf) if is_load else ""])
     return Table(
         title="Flap loads in the propeller slipstream (LIMIT)",
         columns=["Quantity", "Value", "Units", "SF"], rows=rows,
@@ -5521,6 +5523,7 @@ def _tab_table(result: Optional[ModuleResult], project: Project,
     rows = []
     for condition, spec in zip(conditions, specs + [None] * len(conditions)):
         values = _by_key(condition)
+        sf = condition.safety_factor
         host = (getattr(spec, "surface", "") or "").strip().lower()
         station = _TAB_STATION_NAMES.get(host, "Station")
         rows.append([
@@ -5533,16 +5536,13 @@ def _tab_table(result: Optional[ModuleResult], project: Project,
             if spec is not None else "--",
             format_value(values["tab_chord_ratio_e"].value)
             if "tab_chord_ratio_e" in values else "--",
-            u.load(values["tab_load"].value, "force",
-                   float(getattr(condition, "safety_factor", ULTIMATE_FACTOR)
-                         or ULTIMATE_FACTOR))
+            u.load(values["tab_load"].value, "force", sf)
             if "tab_load" in values else "--",
             _scalar_cell(values["tab_le_pressure"].value, p_scale)
             if "tab_le_pressure" in values else "--",
             _scalar_cell(values["tab_te_pressure"].value, p_scale)
             if "tab_te_pressure" in values else "--",
-            format_value(float(getattr(condition, "safety_factor",
-                                       ULTIMATE_FACTOR) or ULTIMATE_FACTOR)),
+            sf_cell(sf),
         ])
     return Table(
         title="Tab loads at full deflection at VC (LIMIT)",
@@ -5697,7 +5697,10 @@ class _EngineCase(NamedTuple):
     case_id: str
     far: str
     condition: str
-    sf: float
+    #: The factor the condition states, or ``None`` where it prescribes none
+    #: (#154). Optional because it is stated and applied nowhere (OR-116), so
+    #: there is no arithmetic here to protect with a fabricated 1.5 (#180).
+    sf: Optional[float]
     point: Tuple[float, float, float]
     force: Tuple[float, float, float]
     moment: Tuple[float, float, float]
@@ -5756,7 +5759,7 @@ def _engine_cases(number: int, eng: EngineInput, axis: Tuple[float, float, float
     point = combined_cg(eng)
     out: List[_EngineCase] = []
     for condition in conditions:
-        sf = float(condition.safety_factor or ULTIMATE_FACTOR)
+        sf = condition.safety_factor
         base = condition.case_ref.case_id if condition.case_ref else ""
         if _has_gyro_subcases(condition):
             for desc, myy, mzz, thrust, vertical, case_id in _gyro_subcases(condition):
@@ -6016,7 +6019,7 @@ def _gyro_cases_present(records: Sequence[_EngineRecord]) -> bool:
 def _engine_case_list_table(records: Sequence[_EngineRecord]) -> Optional[Table]:
     """Every case the module ran, by regulation, with the factor it prescribes."""
     rows = [[str(case.engine), case.case_id or "--", case.far, case.condition,
-             format_value(case.sf)]
+             sf_cell(case.sf)]
             for record in records for case in record.cases]
     if not rows:
         return None
@@ -6211,7 +6214,7 @@ def _engine_components_table(records: Sequence[_EngineRecord],
                  _engine_short_name(case.far, case.condition)]
                 + [u.load(component, "force", case.sf) for component in case.force]
                 + [format_value(component * scale) for component in case.moment]
-                + [format_value(case.sf)])
+                + [sf_cell(case.sf)])
     force_label = u.ult_label("force", 1.0 if {c.sf for r in records
                                               for c in r.cases} == {1.0} else 0.0)
     return Table(
@@ -6243,7 +6246,7 @@ def _engine_thrust_line_table(records: Sequence[_EngineRecord],
              _engine_short_name(case.far, case.condition),
              format_value(case.torque * scale),
              u.load(case.thrust, "force", case.sf),
-             format_value(case.sf)]
+             sf_cell(case.sf)]
             for record in records for case in record.cases]
     return Table(
         title="Engine torque and thrust about the thrust line (LIMIT)",

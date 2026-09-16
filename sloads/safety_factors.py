@@ -341,7 +341,12 @@ def shared_basis_factor(results: Sequence[Any]) -> Optional[float]:
     guard that assumption was carrying fired on the first run, which is what it
     was for; this function is where the rule lives now (CLAUDE.md rule 3).
     """
-    factors = [getattr(r, "safety_factor", None) for r in results]
+    # Read directly, never through a ``getattr`` default (M4-16, #180). The
+    # sequence is heterogeneous -- conditions here, applied rows there -- but
+    # every element type mints the field, and a default of ``None`` would make
+    # a renamed field look exactly like a table with no shared basis: the
+    # ``-ULT`` header would simply stop appearing, with nothing raised.
+    factors = [r.safety_factor for r in results]
     return 1.0 if factors and all(f == 1.0 for f in factors) else None
 
 
