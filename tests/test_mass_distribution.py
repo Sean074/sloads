@@ -21,6 +21,16 @@ The three fixtures where the wing tie did **not** hold (wing-tank fuel inside an
 undivided fuel row) were pinned open to the pound until design note 29 gave
 ``MassItem`` a ``wing_fraction``; the pin survives as the reduction gate
 :func:`test_stripping_the_fraction_reopens_exactly_the_wing_tank_fuel`.
+
+Since **#257** the file also gates *who states a check*. A reconciliation
+between the two mass models is only worth computing where a reader of the
+issued document can see it, and three of the four reached the Weight & Mass
+screen and no document at all —
+:func:`test_every_mass_reconciliation_is_read_by_the_issued_document` forbids
+that by name, and
+:func:`test_the_issued_document_states_every_mass_gap_it_ships_with` asks the
+rendered document for the numbers, so a check routed through a function nobody
+renders still fails.
 """
 
 import math
@@ -38,6 +48,7 @@ from sloads.models import MassComponent
 from sloads.modules.body_loads import build_body_loads
 from sloads.modules.flight_envelope import build_envelope
 from sloads.modules.select import build_critical
+from sloads.report.render import format_value
 from sloads.units import Channel, UnitSystem, deliverable_units
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -381,6 +392,157 @@ def test_component_summary_covers_the_whole_airplane(example):
     assert rows
     total = sum(float(r["Weight (lb)"]) for r in rows)
     assert total == pytest.approx(md.distribution(_project(example)).weight(), rel=1e-6)
+
+
+# --------------------------------------------------------------------------- #
+# #257 -- a mass check the document does not state is a check nobody reads
+# --------------------------------------------------------------------------- #
+#: Functions in ``mass_distribution`` that compare the two mass models and are
+#: **not** read by any section of the oracle report, with the reason. Empty on
+#: purpose: every reconciliation this module computes is stated on the page that
+#: ships. An entry here is a deliberate exemption and must say why the reader of
+#: a certification document does not need the number.
+_UNSTATED_CHECKS = {
+    "case_loading_checks":
+        "not the two mass models: it compares a derived loading against the "
+        "flight case's own weight/CG echo, and its derived branch holds that "
+        "to 1e-9 where its owner documents the match as _CG_MATCH_TOL (0.5 in) "
+        "for a zero-ballast loading -- so it reports a failure on four of the "
+        "five shipped fixtures that is not one. Routing it to the document "
+        "today would print those false alarms. Filed with a body in the "
+        "backlog's Open defects index (2026-09-16), with the one real "
+        "disagreement underneath it: baron_58's `aft gross` loading sits "
+        "4.12 in below the zcg the case states, past that same 0.5 in.",
+}
+
+
+def _check_producers():
+    """``{name: return annotation}`` for every public ``MassCheck`` producer.
+
+    Parsed from the source rather than imported and introspected, for the reason
+    ``tests/test_envelope_owner.py`` gives about the sibling scans: the module
+    docstring names ``MassCheck`` several times in prose, and a text search would
+    find those before it found a signature.
+    """
+    import ast
+
+    with open(os.path.join(_ROOT, "sloads", "mass_distribution.py"),
+              encoding="utf-8") as fh:
+        tree = ast.parse(fh.read())
+    out = {}
+    for node in tree.body:
+        if not isinstance(node, ast.FunctionDef) or node.name.startswith("_"):
+            continue
+        if node.returns is None:
+            continue
+        annotation = ast.unparse(node.returns)
+        if "MassCheck" in annotation:
+            out[node.name] = annotation
+    return out
+
+
+def _report_imports():
+    """Every name ``sloads/report/`` imports from ``mass_distribution``."""
+    import ast
+
+    names = set()
+    root = os.path.join(_ROOT, "sloads", "report")
+    for dirpath, _dirs, files in os.walk(root):
+        for filename in files:
+            if not filename.endswith(".py"):
+                continue
+            with open(os.path.join(dirpath, filename), encoding="utf-8") as fh:
+                tree = ast.parse(fh.read())
+            for node in ast.walk(tree):
+                if (isinstance(node, ast.ImportFrom) and node.module
+                        and node.module.endswith("mass_distribution")):
+                    names.update(alias.name for alias in node.names)
+    return names
+
+
+def test_every_mass_reconciliation_is_read_by_the_issued_document():
+    """#257: a check the GUI states and the document does not is half-routed.
+
+    ``fuselage_reconciliation`` was exactly that for a milestone -- one consumer,
+    the Weight & Mass screen -- while the entered station table it flags sits
+    13-41 % under the beam on every shipped fixture, and ``tail_reconciliation``
+    had no consumer at all. The rule is the routing, not those two functions: a
+    fifth check added later is stated or exempted, never silently unread.
+    """
+    producers = _check_producers()
+    # Proof the scan found the signatures rather than nothing: the module owns
+    # at least the partition, the wing tie and the two reconciliations.
+    assert len(producers) >= 4, sorted(producers)
+    imported = _report_imports()
+    for name in sorted(producers):
+        if name in _UNSTATED_CHECKS:
+            continue
+        assert name in imported, (
+            f"{name} compares the two mass models and no section of the oracle "
+            f"report reads it; state it, or add it to _UNSTATED_CHECKS with the "
+            f"reason. Imported by report/: {sorted(imported)}")
+
+
+def test_the_unstated_check_exemptions_are_not_stale():
+    """The anti-blanket rule the sibling allowlists carry."""
+    producers = _check_producers()
+    for name, reason in _UNSTATED_CHECKS.items():
+        assert name in producers, f"_UNSTATED_CHECKS names {name}, which is not a check"
+        assert reason, name
+
+
+@pytest.mark.parametrize("example", EXAMPLES)
+def test_the_issued_document_states_every_mass_gap_it_ships_with(example):
+    """The same rule asked of the rendered document, by effect rather than name.
+
+    The name gate above passes on an import; this one fails unless the number
+    reaches the page. Three statements, each on the fixtures that have the
+    condition to state: the entered-vs-derived fuselage gap, a surface no item
+    is tagged to, and the surface weight the spanwise distribution applied.
+    """
+    from sloads.field_registry import reduce_to_oracle_inputs
+    from sloads.models.report import ReportSpec
+    from sloads.report import oracle_content as oc
+    from sloads.report import oracle_sections as osx
+
+    project = reduce_to_oracle_inputs(_project(example))
+    doc = oc.build_oracle_document(project, ReportSpec(
+        title="FAR 23 Structural Design Loads", report_number="LR-0142",
+        revision="B", abstract="An abstract."))
+
+    def prose(section):
+        out = list(section.body) + [section.absent_reason or ""]
+        for sub in section.subsections:
+            out += prose(sub)
+        return out
+
+    text = " ".join(p for s in doc.sections for p in prose(s))
+
+    check = md.fuselage_reconciliation(project)
+    if check is not None and not check.ok:
+        assert "not the same airplane" in text, example
+        for value in (check.got, check.want):
+            assert format_value(value) in text, (example, value)
+    untagged = md.untagged_tail_surfaces(project)
+    if untagged and project.weight is not None and project.weight.items:
+        assert "not separately accounted" in text, example
+    # The spanwise subsection is where the surface weight is applied, so the
+    # statement is asked of the fixtures that render one: the fin's spanwise
+    # loads are withheld on every arrangement (OR-133/#254), and a surface with
+    # no distribution states the absence. Neither renders a weight, because
+    # neither applied one -- the statement belongs to the loads, not the page.
+    for component in ("htail", "vtail"):
+        if (osx._vtail_withheld(project, component)
+                or not osx._tail_spanwise(project, component)):
+            continue
+        weight = md.tail_surface_weight(project, component)
+        if weight:
+            assert format_value(weight) in text, (example, component, weight)
+        else:
+            assert "absent inertia relief" in text, (example, component)
+    # The wing tie is stated on every fixture, holding or not.
+    if md.wing_mass_tie(project) is not None:
+        assert "two models of the wing's mass" in text, example
 
 
 if __name__ == "__main__":

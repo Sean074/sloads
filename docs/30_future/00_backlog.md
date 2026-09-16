@@ -275,7 +275,6 @@ keeps its body in *Open defects*, and the [E]/[V] detail sections hold the rest.
 | Pri | Item (detail below / in its plan) | What ships | Tag | Tier / effort | Depends on |
 |---|---|---|---|---|---|
 | **B6 — 0.8.5: correctness and tooling on the converged surface** ||||||
-| 13 | **The fuselage mass reconcile is a GUI-only warning; the report and deck deliver the shortfall unstated** — the issued document rides a station mass model short of the airplane's own item table with no flag a reader can see *(2026-09-09 review A4)* **Moved into B6 at the 2026-09-14 re-cut**: the same statement-honesty class as #258 and #254, and it lands in the deck header #275 reworks later, in B9 — the statement ships first (#257) | The entered-vs-derived totals (and the delta past a stated tolerance) in the report's fuselage input data and the `fuselage_loads.bdf` header, from the same source the GUI check reads | V | M / M | — |
 | 14 | **Three examples enter a control-surface area they do not draw** — aileron entered-vs-outline disagreement 4 %/5 %/44 %; three fixtures carry `flap_loads` with no flap outline *(filed 2026-09-07; OR-152 states the disagreement meanwhile)* (#216) | Each pair reconciled from the airplane's data, per example | V | S / S | — |
 | **B7 — 0.8.6: the baseline wave** ||||||
 | 15 | **GA6 fixture: altitude identity + wing-case envelope, one package** — every delivered case states 0 ft where Appendix A names its critical wing conditions at 12,000 ft, and the wing export ships three cases with no negative-g, so the delivered distributions do not envelop the wing; each fix renumbers the V-n indices the other depends on, so this row is #164 **and #165 merged** — the renumber is paid once *(review R-26)* (#164) | Stated condition identities correct and the wing enveloped; the three oracle cases kept; oracle-locked fixtures renumbered in one pass | V | L / M | owner decision on the case-set shape |
@@ -422,6 +421,32 @@ bold heading wrapping onto a second line.
   until the 68 are read, which is the work. **Filed 2026-09-15, from the #175
   closure.** Tier M, effort M — a read per site, not a `sed`; the fix for most
   will be to tighten, as it was for three of #175's five.
+- **`case_loading_checks` holds a zero-ballast loading to 1e-9 where its own
+  owner documents 0.5 in, and reaches no consumer at all.** Found by the #257
+  sweep, which routed every *other* mass reconciliation to the issued document.
+  `mass_distribution.case_loading_checks` compares each derived payload loading
+  against the flight case's entered weight/CG echo. A **derived** loading takes
+  the `_close(got, want, 1e-9)` branch — exact by construction, because the
+  ballast row is *solved* from the target — but the same module's `CaseLoading`
+  docstring states that a loading which already weighs the case weight has no
+  ballast to move it and matches "only within `_CG_MATCH_TOL`" (0.5 in), and
+  names ga6's CG4 as the precedent. The check does not use that tolerance, so it
+  reports a failure on **four of the five shipped fixtures** that is not one
+  (ga6 CG4 0.0024 in, atr42 0.0034 in, the RJ 0.0040 in, concept_heavy
+  0.0044 in). Underneath the noise is **one real disagreement**: `baron_58`'s
+  `aft gross` loading sits at zcg 95.884 in against the 100.0 the case states —
+  **4.12 in, past the 0.5 in tolerance** — and xcg 85.652 against 86.0. That is a
+  closure-locked twin, and its balanced cases run on the loading, not the echo.
+  Both halves were invisible for the same reason: the function has **no caller**
+  outside its own tests, so nothing ever printed what it found. The fix is two
+  things in order — the derived branch takes `_CG_MATCH_TOL` when the loading
+  carries no ballast (so the check means what its owner says it means), and then
+  the check joins the four §2.2 already states, which is what
+  `tests/test_mass_distribution.py::_UNSTATED_CHECKS` exempts it from until
+  then. **Filed 2026-09-16, from the #257 closure.** Tier M, effort S for the
+  tolerance and the routing; the baron_58 number is a data question for the
+  owner and may be neither.
+
 Two long-standing entries left this list on 2026-08-18 at the issue #13 closure —
 **decided, not fixed**, which is why neither survives here under the removal
 rule. Both keep their pins; the decisions carry what the bodies used to:

@@ -2156,6 +2156,46 @@ def _point_load_note(net: Sequence[object]) -> str:
         "already states.")
 
 
+def _wing_mass_tie_sentence(project: Project, system: UnitSystem) -> str:
+    """Whether the two models of the wing's mass describe one wing (#257).
+
+    WINGINER distributes a tapered panel plus its concentrated masses, both per
+    side; the item data base carries the rows tagged to the wing. They are two
+    models of the same physical thing, and
+    :func:`sloads.mass_distribution.wing_mass_tie` is what compares them --
+    reaching the CLI and the screen as ``wing_mass_tie_open`` (design note 29,
+    WF-4) and, until #257, no issued document. The inertia in every wing load
+    below is the first model's; a reader has no way to see that the second
+    agrees unless the page says so.
+
+    ``""`` when there is no wing mass input to tie against.
+    """
+    from ..mass_distribution import wing_mass_tie
+
+    try:
+        check = wing_mass_tie(project)
+    except Exception:
+        return ""
+    if check is None:
+        return ""
+    u = Units(system)
+    mass = u.label("mass")
+    if check.ok:
+        return (f"The two models of the wing's mass agree: the items this data "
+                f"base tags to the wing sum to {u.plain(check.got, 'mass')} "
+                f"{mass}, which is what the distributed panel and its "
+                f"concentrated masses weigh, both sides together. The inertia "
+                f"in every case below is that mass at the case's own load "
+                f"factor.")
+    return (f"The two models of the wing's mass do not agree: the items this "
+            f"data base tags to the wing sum to {u.plain(check.got, 'mass')} "
+            f"{mass} against the {u.plain(check.want, 'mass')} {mass} the "
+            f"distributed panel and its concentrated masses weigh, both sides "
+            f"together -- {u.plain(abs(check.gap), 'mass')} {mass} apart. The "
+            f"inertia below is the distributed model's; the difference rides "
+            f"the fuselage beam in the other.")
+
+
 def _wing_cases(project: Project, *, system: UnitSystem,
                 plan: Sequence[SectionPlan]) -> Section:
     """3.2 -- what was run, at what condition, under which rule."""
@@ -2175,6 +2215,7 @@ def _wing_cases(project: Project, *, system: UnitSystem,
         _matrix_sentence(envelope),
         _provenance_sentence(entered, named, run, missing),
         _negative_case_sentence(net),
+        _wing_mass_tie_sentence(project, system),
         _sign_note(plan),
         _derivation_note(net),
         _point_load_note(net),
@@ -2746,8 +2787,87 @@ def _beam_table(project: Project, system: UnitSystem) -> Optional[Table]:
                 "the side view above."))
 
 
+def _beam_reconciliation(project: Project, system: UnitSystem) -> str:
+    """How far the **entered** station table is from the beam actually run (#257).
+
+    The gap between the two mass models, stated on the page that ships rather
+    than only on the Weight & Mass screen. 4.1 already says which table the beam
+    is and how many stations each holds (OR-96); what it never said is *by how
+    much they disagree*, and on every shipped example that is 13-41 % of the
+    beam -- the entered table is the one a reader of the project file knows, and
+    a station count does not tell them they are reading a different airplane.
+
+    Read through :func:`sloads.mass_distribution.fuselage_reconciliation`, the
+    same check the GUI states, so the document and the screen cannot disagree
+    about a number that is the whole point of the check. ``""`` when there is
+    nothing entered to compare, which is not a finding: it is a project whose
+    fuselage mass is the item data base and nothing else.
+    """
+    from ..mass_distribution import FUSELAGE_GAP_WARN_FRACTION, fuselage_reconciliation
+
+    try:
+        check = fuselage_reconciliation(project)
+    except Exception:
+        return ""
+    if check is None or not check.want:
+        return ""
+    u = Units(system)
+    mass = u.label("mass")
+    account = (f"those {len(list(getattr(project.fuselage_mass, 'stations', ()) or []))} "
+               f"entered stations total {u.plain(check.got, 'mass')} {mass} "
+               f"against the beam's {u.plain(check.want, 'mass')} {mass}")
+    if check.ok:
+        return (f"The two tables are the same airplane: {account}, inside the "
+                f"{FUSELAGE_GAP_WARN_FRACTION * 100:g} % of the beam at which "
+                "they would be describing different ones.")
+    share = abs(check.gap) / abs(check.want) * 100.0
+    lighter = "lighter" if check.gap < 0.0 else "heavier"
+    return (f"The two tables are not the same airplane: {account} -- "
+            f"{u.plain(abs(check.gap), 'mass')} {mass} {lighter}, "
+            f"{share:.0f} % of the beam, past the "
+            f"{FUSELAGE_GAP_WARN_FRACTION * 100:g} % at which an entered table "
+            "is a rounding of the item data base rather than a disagreement "
+            "with it. " + ("Every load in this section is the beam's, not the "
+                           "entered table's." if _beam_is_derived(project) else
+                           "Every load in this section is the entered table's, "
+                           "which this project marks an override, and not the "
+                           "item data base's."))
+
+
+def _untagged_surface_statement(project: Project) -> str:
+    """The empennage surfaces no weight item claims, which this beam carries (#257).
+
+    The same question as :func:`_beam_reconciliation` from the other side, and
+    stated in the same paragraph because the answer is a fact about *this* beam:
+    an item the data base never tagged to a surface is carried here, at its own
+    station, by :func:`sloads.mass_distribution.infer_component`'s deliberate
+    refusal to guess anything else. ``""`` when every modelled surface is
+    claimed, or when there is no item data base to ask.
+    """
+    from ..mass_distribution import untagged_tail_surfaces
+
+    try:
+        untagged = untagged_tail_surfaces(project)
+    except Exception:
+        return ""
+    if not untagged or project.weight is None or not project.weight.items:
+        return ""
+    names = {"htail": "horizontal tail", "vtail": "vertical tail"}
+    which = " or ".join(names.get(c, c) for c in untagged)
+    verb = "is" if len(untagged) == 1 else "are"
+    return (f"No weight item in this data base is tagged to the {which}, so "
+            f"that surface's own mass {verb} not separately accounted: whatever "
+            "of it the data base holds is inside a fuselage-carried item and "
+            "rides this beam at that item's station.")
+
+
 def _beam_provenance(project: Project, system: UnitSystem) -> str:
-    """Where the beam's mass came from, and whether the beam is whole (OR-96)."""
+    """Where the beam's mass came from, and whether the beam is whole (OR-96).
+
+    Since #257 it also states how far the entered table is from the derived one
+    and which surfaces no item claims -- the two mass checks that reached the
+    Weight & Mass screen and no issued document.
+    """
     from ..mass_distribution import partition_closes
 
     beam = _beam_stations(project)
@@ -2761,12 +2881,18 @@ def _beam_provenance(project: Project, system: UnitSystem) -> str:
         sentence = (
             f"The beam is derived from the weight item data base, not entered: "
             f"{len(beam)} stations, lumped from the items this airplane is "
-            f"weighed from. The project also carries {len(entered)} entered "
-            "fuselage stations, which are an override and are not taken here.")
+            "weighed from. "
+            + (f"The project also carries {len(entered)} entered fuselage "
+               "stations, which are an override and are not taken here."
+               if entered else
+               "The project enters no fuselage stations of its own, so there "
+               "is no second table to take or to reconcile against."))
+    extra = " ".join(part for part in (_beam_reconciliation(project, system),
+                                       _untagged_surface_statement(project)) if part)
     try:
         check = partition_closes(project)
     except Exception:
-        return sentence
+        return (sentence + " " + extra).strip()
     # The check's own ``detail`` is an Imperial diagnostic sentence; the
     # document restates the account from the check's parts through the units
     # owner, so the SI issue does not read "5990.0 lb" beside a kg table (#232).
@@ -2776,13 +2902,16 @@ def _beam_provenance(project: Project, system: UnitSystem) -> str:
                           for name, value in check.parts)
                + f" = {u.plain(check.got, 'mass')} {mass} against "
                + f"{u.plain(check.want, 'mass')} {mass} of items")
-    return sentence + " " + (
+    partition = (
         "The beam and the wing together account for the whole airplane: "
         f"{account}."
         if check.ok else
         "The beam and the wing do not account for the whole airplane: "
         f"{account}. The distributions below integrate the beam as it "
         "stands.")
+    return " ".join(part for part in (
+        sentence, _beam_reconciliation(project, system),
+        _untagged_surface_statement(project), partition) if part)
 
 
 def _carry_through(project: Project):
@@ -4725,6 +4854,72 @@ def _control_load_mode_sentence(project: Project, component: str) -> str:
         f"reported with it.")
 
 
+def _tail_mass_provenance(project: Project, component: str,
+                          system: UnitSystem) -> str:
+    """Where the surface weight the spanwise distribution applies came from (#257).
+
+    5.4/6.4 state that "the surface's own weight is applied against it at the
+    condition's load factor" and, until #257, said nothing about *which* weight
+    that is. It is the mass SSOT's derived sum unless the project marks an
+    explicit override (:func:`sloads.mass_distribution.tail_surface_weight`),
+    and the two can disagree -- which is exactly what
+    :func:`sloads.mass_distribution.tail_reconciliation` reports, to no
+    consumer at all before this. Same obligation as 4.1's beam provenance and
+    ``_inertia_basis``'s entered-or-estimated sentence (OR-135): a quantity the
+    analysis chose between two sources for says which it took.
+
+    A surface carrying no mass at all is stated, never rendered as a silent
+    zero: an air-only empennage distribution is the defect step B1 was made to
+    end, and it must not be able to ship unremarked.
+    """
+    from ..mass_distribution import (
+        TAIL_GAP_WARN_FRACTION,
+        derived_tail_surface_weight,
+        tail_reconciliation,
+        tail_surface_weight,
+    )
+
+    names = _TAIL_SURFACES[component]
+    try:
+        used = tail_surface_weight(project, component)
+        derived = derived_tail_surface_weight(project, component)
+        check = tail_reconciliation(project, component)
+    except Exception:
+        return ""
+    u = Units(system)
+    mass = u.label("mass")
+    if not used:
+        return (f"No weight is applied against the air load: no item in this "
+                f"data base is tagged to the {names['surface']} and the "
+                f"project enters no panel weight for it, so the distribution "
+                f"below is air alone. That is an absent inertia relief, not a "
+                f"weightless surface.")
+    entered = next((tm for tm in project.tail_mass or []
+                    if tm.surface == component), None)
+    override = bool(entered is not None and entered.weight_is_override)
+    lead = (f"The weight applied against it is "
+            f"{u.plain(used, 'mass')} {mass}: "
+            + ("the panel weight entered for this surface, which the project "
+               "marks an explicit override."
+               if override else
+               f"the sum of the items this data base tags to the "
+               f"{names['surface']}, derived rather than entered."))
+    if check is None:
+        return lead
+    share = (abs(check.gap) / abs(derived) * 100.0) if derived else 0.0
+    if check.ok:
+        return (lead + f" The entered panel weight and the tagged items agree "
+                       f"to within {TAIL_GAP_WARN_FRACTION * 100:g} % of each "
+                       f"other, so which was taken changes nothing.")
+    return (lead + f" The project's other figure for the same surface -- "
+                   f"{u.plain(check.got if override else check.want, 'mass')} "
+                   f"{mass}, the "
+            + ("tagged items" if override else "entered panel weight")
+            + f" -- differs by {share:.0f} %, so the two are not the same "
+              "surface and the one stated above is what the loads below were "
+              "computed with.")
+
+
 def _tail_span_section(project: Project, component: str, *,
                        system: UnitSystem,
                        plan: Sequence[SectionPlan]) -> Section:  # noqa: ARG001
@@ -4763,8 +4958,10 @@ def _tail_span_section(project: Project, component: str, *,
         f"station. The per-station numbers are in "
         f"{appendix_ref(appendix)}; the values below are the root, where each "
         f"carried quantity is greatest.",
+        _tail_mass_provenance(project, component, system),
         _control_load_mode_sentence(project, component),
     ]
+    body = [paragraph for paragraph in body if paragraph]
     tables = [_tail_span_notation_table(system, component)]
     if table is not None:
         tables.append(table)
