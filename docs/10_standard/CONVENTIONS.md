@@ -436,6 +436,16 @@ conventions"** section (`SUMMARY_REPORT.md` §4.2.1), single-sourced in
   its FAR reference, so a case cannot be missed by omitting a row; an unclassified
   case takes 1.5 and is **flagged**, never silently accepted, and
   `tests/test_safety_factors.py` fails on a defaulted case in any shipped fixture.
+  **The flag is reached by one path and nothing short-circuits it** (#179, review
+  R-9): a reference naming several sections is classified by *all* of them and
+  must agree on a factor, and the exact-reference rows — 23.367(a)(2), an ultimate
+  case inside the limit flight range — classify the one reference they name rather
+  than returning outright, so a LIMIT section beside the exact ultimate one is
+  flagged instead of silently taking 1.0. A section number the classifier reads
+  must be one a family can place: a four-digit Subpart G citation is not a
+  three-digit Subpart C one, and a produced reference that reads as a section no
+  range holds fails
+  `tests/test_safety_factors.py::test_every_section_the_classifier_reads_is_one_a_family_can_place`.
   The other way a case can miss the table is by having nowhere to put the answer:
   `stamp()` writes the factor onto each result's `safety_factor` carrier and used
   to pass over an item without one on a bare `hasattr` gate. That is recorded in
