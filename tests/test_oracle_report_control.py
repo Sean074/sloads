@@ -16,10 +16,11 @@ Gates covered:
 * **G-OR-97** -- *(OR-151)* the printed pressure profile integrates back to the
   printed load over the entered area, on every case of every shipped example.
 * **G-OR-98** -- *(OR-152)* no pressure in these sections is computed from a
-  drawn outline; asserted on ``concept_regional_jet``, whose outline and entered
-  area differ by 44 %.
+  drawn outline; asserted against an outline put 44 % under the entered area on
+  a shipped airplane whose analysis is left untouched.
 * **G-OR-99** -- *(OR-152)* a disagreeing pair of entered areas is stated and an
-  agreeing pair is not. Asserted in both directions.
+  agreeing pair is not. Asserted in both directions, and, since #216, on every
+  shipped airplane for the agreeing half.
 * **G-OR-100** -- *(OR-150)* the sign convention is stated in every section in
   the same words, names the airplane axis, and the aileron prints both throws
   with opposite signs.
@@ -61,9 +62,10 @@ _EXAMPLES = os.path.join(
 #: The airplanes these sections are asserted on. Between them they cover every
 #: state the sections have: an outline entered for all three surfaces
 #: (``ga6_normal``), an aileron outline alone with a slipstream case
-#: (``baron_58``), the same without one (``concept_regional_jet``), and the
-#: under sense of the area disagreement (``baron_58``; the over sense lost its
-#: shipped exerciser when ``cessna_210`` retired, #264).
+#: (``baron_58``) and the same without one (``concept_regional_jet``). Neither
+#: sense of the area disagreement is shipped any more -- ``cessna_210`` took the
+#: over sense with it (#264) and #216 reconciled the under one -- so both are
+#: built from a shipped airplane by :func:`_outline_scaled`.
 _SHIPPED = ("ga6_normal", "baron_58", "concept_regional_jet")
 _ALL = _SHIPPED
 
@@ -109,6 +111,40 @@ def _prose(section):
 def _cells(table, column):
     index = next(i for i, c in enumerate(table.columns) if c.startswith(column))
     return [row[index] for row in table.rows]
+
+
+#: Chord factors that put a drawn outline under and over the area its loads were
+#: run on. Applied to ``concept_regional_jet``'s aileron, 0.56 recreates the
+#: -44 % that airplane carried until #216 reconciled its estimated polyline with
+#: the entered area, and 1.30 gives the over sense, which has had no shipped
+#: exerciser since ``cessna_210`` retired (#264).
+_OUTLINE_UNDER = 0.56
+_OUTLINE_OVER = 1.30
+
+
+def _outline_scaled(name, factor, surface="aileron"):
+    """``name``'s project with one drawn outline's chord scaled about its TE.
+
+    The disagreement OR-152 exists to state is no longer on any shipped airplane
+    -- #216 reconciled all three pairs -- and a gate that waits for a fixture to
+    go wrong again has stopped testing. So the disagreeing airplane is
+    *constructed*, from a shipped one, by moving the drawn leading edge and
+    nothing else. That is precisely the right knife: the entered area, the load
+    and the pressure are all still the shipped airplane's own, so what the gate
+    reads is the document's response to a contradicting outline and not to a
+    different analysis.
+    """
+    from dataclasses import replace
+
+    project = io.load_project(_path(name))
+    geometry = project.geometry
+    drawn = geometry.by_name(surface)
+    trailing = {station: x for x, station in drawn.trailing_edge}
+    leading = [(trailing[station] - factor * (trailing[station] - x), station)
+               for x, station in drawn.leading_edge]
+    surfaces = [replace(s, leading_edge=leading) if s.name == surface else s
+                for s in geometry.surfaces]
+    return replace(project, geometry=replace(geometry, surfaces=surfaces))
 
 
 # --------------------------------------------------------------------------- #
@@ -173,19 +209,21 @@ def test_the_printed_loads_and_pressures_are_the_modules_own():
 
 
 def test_no_pressure_is_computed_from_a_drawn_outline():
-    """G-OR-98: the regional jet's outline is 44 % under its analysis area.
+    """G-OR-98: an outline 44 % under the analysis area changes no pressure.
 
     A figure that shaded the outline and divided the load by it would print
-    1.364 * 15.0 / 8.458 psi. That the printed value is the module's, on the one
-    airplane where the two are far apart, is what makes the single-owner rule
-    checkable rather than a claim.
+    ``psi * 15.0 / 8.4`` -- 78 % high for a load nothing had changed. The
+    airplane carrying that outline used to be ``concept_regional_jet`` itself;
+    since #216 reconciled it the outline is contradicted here instead, which
+    tests the same rule against an airplane whose analysis is untouched.
     """
-    project = io.load_project(_path("concept_regional_jet"))
+    project = _outline_scaled("concept_regional_jet", _OUTLINE_UNDER)
     entered = (project.aileron_loads.area_fwd_hinge_sqft
                + project.aileron_loads.area_aft_hinge_sqft)
     drawn = planform_area_sqft(project, "aileron")
-    assert abs(drawn - entered) / entered > 0.4, "fixture no longer disagrees"
-    section = _section(_doc("concept_regional_jet"), "aileron_loads")
+    assert abs(drawn - entered) / entered > 0.4, "the outline no longer disagrees"
+    section = _section(oc.build_oracle_document(project, ReportSpec()),
+                       "aileron_loads")
     printed = _cells(section.tables[0], "psi at 0.00c")
     module = build_aileron(project)
     assert printed[0] == format_value(module[0].stations[0].psi)
@@ -236,26 +274,54 @@ def test_the_printed_profile_integrates_back_to_the_printed_load():
 def test_a_disagreeing_pair_of_entered_areas_is_stated():
     """OR-152: stated, not resolved silently in either direction.
 
-    Both shipped exercisers now disagree in the same direction -- the
-    "larger" sense lost its fixture with ``cessna_210`` (#264); the wording
-    branch itself is direction-symmetric.
+    Both senses are exercised again since #216. They had stopped being: the
+    over sense lost its airplane when ``cessna_210`` retired (#264) and the
+    under sense lost its two when the estimated polylines were reconciled, so
+    the outline is contradicted here and the sense read back out of the prose.
     """
-    for name, sense in (("baron_58", "smaller"),
-                        ("concept_regional_jet", "smaller")):
-        prose = _prose(_section(_doc(name), "aileron_loads"))
-        assert "The two entered areas of this aileron disagree" in prose, name
-        assert sense in prose, name
+    for factor, sense in ((_OUTLINE_UNDER, "smaller"), (_OUTLINE_OVER, "larger")):
+        project = _outline_scaled("concept_regional_jet", factor)
+        section = _section(oc.build_oracle_document(project, ReportSpec()),
+                           "aileron_loads")
+        prose = _prose(section)
+        assert "The two entered areas of this aileron disagree" in prose, factor
+        assert sense in prose, factor
 
 
 def test_an_agreeing_pair_is_not_stated():
     """The other direction: a statement that always fires says nothing.
 
-    ``ga6_normal`` enters 6.488 sq ft of aileron and draws 6.474 -- 0.2 % apart,
-    inside the 2 % the owner set -- and its flap agrees to 0.2 % as well.
+    Every shipped airplane agrees since #216 -- ``ga6_normal`` 6.488 sq ft of
+    aileron against 6.474 drawn, ``baron_58`` 7.600 against 7.608 and
+    ``concept_regional_jet`` 15.0 against 14.99, all inside the 2 % the owner
+    set -- so none of them prints the sentence, and the flap that is drawn
+    agrees to 0.2 % as well.
     """
-    doc = _doc("ga6_normal")
-    for starts in ("aileron_loads", "flap_loads"):
-        assert "disagree" not in _prose(_section(doc, starts)), starts
+    for name in _SHIPPED:
+        doc = _doc(name)
+        for starts in ("aileron_loads", "flap_loads"):
+            assert "disagree" not in _prose(_section(doc, starts)), (name, starts)
+
+
+def test_every_shipped_outline_encloses_the_area_its_loads_were_run_on():
+    """#216: the reconciliation itself, held.
+
+    The pair OR-152 compares is two *entered* numbers, and until #216 two
+    airplanes' estimated polylines sat 4 % and 44 % away from the area their
+    pressures were divided by. Reconciling them is only worth doing if it
+    stays done, so the agreement is asserted rather than left to the report's
+    own statement -- which would go on printing, correctly, that the airplane
+    disagrees with itself.
+    """
+    for name in _SHIPPED:
+        project = io.load_project(_path(name))
+        for kind, surface in (("aileron", "aileron"), ("flap", "flap")):
+            entered = _entered_area_sqft(project, kind)
+            drawn = planform_area_sqft(project, surface)
+            if not entered or not drawn:
+                continue   # no outline entered: OR-153's stated absence
+            assert abs(drawn - entered) / entered <= os_._AREA_TOLERANCE, (
+                name, kind, entered, drawn)
 
 
 # --------------------------------------------------------------------------- #
