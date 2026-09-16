@@ -11,7 +11,10 @@ Gates covered:
 * **G-OR-54** -- every load section 4 and Appendix C print is LIMIT, states its
   case's factor, and carries no ``-ULT`` marker; asserted in both directions.
 * **G-OR-55** -- 4.1 states the provenance of its beam and prints its total; a
-  project with no beam stations says so and still builds.
+  project with no beam stations says so and still builds. *(#257)* It also
+  states **how far the entered table is from the derived one** and which
+  empennage surfaces no weight item claims -- the two mass checks that reached
+  the Weight & Mass screen and no issued document.
 * **G-OR-56** -- the fitting-load table states ``assumed`` against ``entered``
   spar stations, asserted on a project of each.
 * **G-OR-57** -- a ``closure_artifact`` result renders its stated state and no
@@ -218,6 +221,42 @@ def test_the_beam_states_its_provenance_and_prints_its_total():
     weight = table.columns.index(next(c for c in table.columns
                                       if c.startswith("Weight")))
     assert table.rows[-1][weight] == format_value(3070.0)
+
+
+def test_the_beam_states_how_far_the_entered_table_is_from_it():
+    """#257: a station count is not a measure of disagreement.
+
+    4.1 already said the beam is derived and the project also carries N entered
+    stations. On ``ga6_normal`` those five stations weigh 2,578 lb against the
+    beam's 3,070 -- 16 % of it -- and a reader who knows this project by the
+    table they typed had nothing on the page telling them they are reading a
+    different airplane. The numbers come from
+    ``mass_distribution.fuselage_reconciliation``, the same check the Weight &
+    Mass screen states, so the page and the screen cannot disagree about the
+    one number the check exists to produce.
+    """
+    body = _prose(_section_four(_doc()))
+    assert "not the same airplane" in body
+    assert format_value(2578.0) in body and format_value(3070.0) in body
+    assert format_value(492.0) in body and "16 %" in body
+    # And it is the gate that decides which sentence, not the sign of the gap.
+    assert "1 %" in body
+
+
+def test_a_surface_no_weight_item_claims_is_stated_on_the_beam_that_carries_it():
+    """#257: ``untagged_tail_surfaces`` reached the screen and nothing else.
+
+    ``concept_heavy`` tags no item to the fin, so whatever of the fin's mass the
+    data base holds is inside a fuselage-carried item and rides this beam --
+    which is a fact about this beam, and is why it is stated in 4.1 beside the
+    reconciliation rather than in section 6.
+    """
+    path = os.path.join(_EXAMPLES, "concept_heavy.project.json")
+    body = _prose(_section_four(_doc(path)))
+    assert "not separately accounted" in body
+    assert "vertical tail" in body
+    # The fixtures that claim every surface say nothing, rather than saying none.
+    assert "not separately accounted" not in _prose(_section_four(_doc()))
 
 
 def test_a_project_with_no_beam_states_the_absence_and_still_builds():

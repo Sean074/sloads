@@ -664,6 +664,24 @@ Design note 44 §13 (OR-94 … OR-102), §14/design note 50 (the carry-through) 
   the override switch is `Origin.SLOADS` and the oracle projection strips it, but
   a section that asserted a derivation the analysis had not made would be
   OR-57's defect in a second place.
+- **Every mass reconciliation the analysis computes is stated on the page that
+  ships** *(#257)*. `mass_distribution` compares the suite's two mass models at
+  four points — the partition, the wing tie, the entered-against-derived
+  fuselage stations, and an empennage surface weight — and a check whose answer
+  reaches only the Weight & Mass screen is a check the reader of a
+  certification document cannot see. So: 4.1 **SHALL** state how far the
+  entered station table is from the beam actually integrated, as a weight and a
+  share of the beam, and **SHALL** name any modelled empennage surface no
+  weight item is tagged to, whose mass therefore rides that beam. 3.2 **SHALL**
+  state whether the itemized wing rows and the mass WINGINER distributes are
+  one wing. 5.4/6.4 **SHALL** state the surface weight applied against the air
+  load and whether it was derived or entered as an override — and **SHALL**
+  state an air-only distribution as an absent inertia relief, never as a
+  weightless surface, which is the defect step B1 was made to end. A subsection
+  that renders no distribution states no weight, because none was applied.
+  Gated by name (every `MassCheck` producer is read by `report/`, or carries a
+  written exemption) and by effect (the rendered document carries the numbers),
+  `tests/test_mass_distribution.py`.
 - **4.1 and 4.4 state the carry-through, and state whether its spar stations
   were entered.** The wing-attach fitting loads are sizing loads, and on every
   example this report ships they are computed against stations nobody entered.
@@ -1516,6 +1534,7 @@ without a guard is prose, not a gate).
 | Carry-through entered as a station (note 50 OR-121…OR-127) | 2026-09-05 | `test_oracle_inputs.py::test_an_entered_spar_station_reaches_the_fuselage_fitting_loads`, `::test_the_spar_station_survives_the_oracle_projection`, `test_derived_geometry.py::test_carry_through_from_entered_spar_stations`, `::test_the_estimator_has_one_owner`, `test_migrations.py::test_the_v60_hop_converts_an_entered_carry_through` |
 | 4. Fuselage Loads (subsections, appendix lettering) | 2026-09-06 | `test_oracle_report_fuselage.py::test_the_fuselage_section_renders_its_five_subsections_numbered_by_the_owner`, `::test_fuselage_loads_is_appendix_c_behind_the_vn_register_and_the_wing` |
 | 4.1 The beam and its provenance (OR-96) | 2026-09-06 | `test_oracle_report_fuselage.py::test_the_beam_states_its_provenance_and_prints_its_total`, `::test_a_project_with_no_beam_states_the_absence_and_still_builds` |
+| Every mass reconciliation reaches the document (#257) | 2026-09-16 | `test_mass_distribution.py::test_every_mass_reconciliation_is_read_by_the_issued_document`, `::test_the_unstated_check_exemptions_are_not_stale`, `::test_the_issued_document_states_every_mass_gap_it_ships_with`, `test_oracle_report_fuselage.py::test_the_beam_states_how_far_the_entered_table_is_from_it`, `::test_a_surface_no_weight_item_claims_is_stated_on_the_beam_that_carries_it` |
 | 4.1/4.4 Assumed against entered spar stations (OR-97) | 2026-09-06 | `test_oracle_report_fuselage.py::test_the_fitting_loads_state_whether_their_spar_stations_were_assumed` |
 | 4.2 Case-list provenance, load-factor sign, envelope coverage (OR-99) | 2026-09-06 | `test_oracle_report_fuselage.py::test_the_register_states_which_path_its_case_list_came_from`, `::test_the_register_states_what_the_sign_of_its_load_factors_means`, `::test_the_register_names_its_negative_load_factor_condition` |
 | 4.2 Notation and the stated absences (OR-100) | 2026-09-06 | `test_oracle_report_fuselage.py::test_the_notation_states_the_three_symbols_and_tabulates_no_zeros` |
