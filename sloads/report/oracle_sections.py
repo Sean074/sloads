@@ -2887,12 +2887,13 @@ def _beam_provenance(project: Project, system: UnitSystem) -> str:
                if entered else
                "The project enters no fuselage stations of its own, so there "
                "is no second table to take or to reconcile against."))
-    extra = " ".join(part for part in (_beam_reconciliation(project, system),
-                                       _untagged_surface_statement(project)) if part)
+    reconciliation = _beam_reconciliation(project, system)
+    untagged = _untagged_surface_statement(project)
     try:
         check = partition_closes(project)
     except Exception:
-        return (sentence + " " + extra).strip()
+        return " ".join(part for part in (sentence, reconciliation, untagged)
+                        if part)
     # The check's own ``detail`` is an Imperial diagnostic sentence; the
     # document restates the account from the check's parts through the units
     # owner, so the SI issue does not read "5990.0 lb" beside a kg table (#232).
@@ -2909,9 +2910,8 @@ def _beam_provenance(project: Project, system: UnitSystem) -> str:
         "The beam and the wing do not account for the whole airplane: "
         f"{account}. The distributions below integrate the beam as it "
         "stands.")
-    return " ".join(part for part in (
-        sentence, _beam_reconciliation(project, system),
-        _untagged_surface_statement(project), partition) if part)
+    return " ".join(part for part in (sentence, reconciliation, untagged,
+                                      partition) if part)
 
 
 def _carry_through(project: Project):
