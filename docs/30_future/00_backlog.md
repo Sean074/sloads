@@ -259,6 +259,15 @@ clause, which knew of no milestone between.
 > **Pri 1–29**: B6 0 rows, B7 7 (1 L, 4 M, 2 S), B8 5, B9 1, B2 8, C 8.
 > Cut clause unchanged.
 
+> **B6 is retired: 0.8.5 was cut on 2026-09-16** (tag `v0.8.5`; the release-cut
+> block in
+> [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md)
+> is the record). The band emptied on 2026-09-16 with #216 and stayed empty:
+> the pre-cut review that followed found three tier-S residues and closed them
+> in one commit rather than re-opening a row, and the B7 re-cut landed on the
+> same branch before the cut. **Band B7 (0.8.6 — the baseline wave) is the
+> milestone in flight**; B8 and B9 (0.8.7, 0.8.8) follow it in order.
+
 **System of record (design note 28 MD-5, 2026-08-16):** open work is **GitHub
 Issues** (labels `tier:*`, `tag:*`, `band:*`, `kind:*`; a milestone per release;
 the Project board is the view). This file keeps the **plan** — mission,
@@ -299,7 +308,6 @@ keeps its body in *Open defects*, and the [E]/[V] detail sections hold the rest.
 
 | Pri | Item (detail below / in its plan) | What ships | Tag | Tier / effort | Depends on |
 |---|---|---|---|---|---|
-| **B6 — 0.8.5: correctness and tooling on the converged surface** ||||||
 | **B7 — 0.8.6: the baseline wave** ||||||
 | 1 | **GA6 fixture: altitude identity + wing-case envelope, one package** — every delivered case states 0 ft where Appendix A names its critical wing conditions at 12,000 ft, and the wing export ships three cases with no negative-g, so the delivered distributions do not envelop the wing; each fix renumbers the V-n indices the other depends on, so this row is #164 **and #165 merged** — the renumber is paid once *(review R-26)* (#164) | Stated condition identities correct and the wing enveloped; the three oracle cases kept; oracle-locked fixtures renumbered in one pass | V | L / M | owner decision on the case-set shape |
 | 2 | **The LRA deck states nothing about the SELECT conditions it does not assemble, and the `out-of-family` reason names decks note 56 deleted** — the assembler records every skip through one owner, but the block that rendered it lived in the assembled deck D-56.8 stopped shipping, and `write_lra_model_bdf` writes none; the reason for the largest class still says the fuselage and one-engine-out conditions are "covered by the per-component analyses", which D-56.2 deleted. A sizing loop reading the one deck that ships is not told that a quarter of SELECT's set is absent, and on a wing-mounted twin the absent quarter holds the primary fin/aft-fuselage case *(measured 2026-09-16: ATR deck 43 SUBCASEs, 28 unassembled, 0 stated; GA6 44 / 24 / 0)* (#284) | The skip record rendered in the LRA deck header from `skipped_conditions(project)`, the reason text reworded to name surviving artifacts, every reason that names a deleted artifact swept, and a G-OR-73-class guard holding deck ↔ record equal on every fixture | V | S / S | — |
