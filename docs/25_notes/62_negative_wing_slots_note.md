@@ -247,7 +247,7 @@ fidelity item).
   side. #164's own work (GA6 `altitudes_ft` and the V-n renumber it costs)
   is unchanged in scope and follows this issue in the wave, since its
   renumber moves the case numbers the §4 table names.
-- **Leaves to the next note:** wing mass states in the Wing Loads step —
+- **Leaves to the next note (note 63, #289):** wing mass states in the Wing Loads step —
   named disposable-mass states on `WingMassInput`, WINGINER/NETLOADS run
   per selected case per state, the base model when none is entered. The
   air-load pick per slot stays the one balanced at SELECT's CG case; that
