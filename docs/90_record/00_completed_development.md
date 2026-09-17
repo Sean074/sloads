@@ -93,6 +93,16 @@ tooling this milestone runs at every closure repaired first.
   crossed 1,500 with it, so it rolled in the same pass: the 0.8.3 block froze
   into [`CHANGELOG_to_0.8.3.md`](CHANGELOG_to_0.8.3.md). This file stood at
   720 lines and did not roll.
+- **Verification baseline** (§4 step 5): unchanged from
+  [`36_verification_baseline_0.7.0.md`](36_verification_baseline_0.7.0.md).
+  No calc math moved on the FAR 23 path: the Appendix A assertions are the same
+  tests passing on the same figures. The Imperial digest moved on three
+  delivered files only — `tail_span` (every case now stamped by the governing
+  table, #177), `gear_report` (G-12's inertia notes reach the file, #273) and
+  `wing_geometry` on the two fixtures whose estimated aileron polylines were
+  reconciled to their entered areas (#216) — each a statement or a drawn
+  outline, not a load. A new baseline document would restate 0.7.0's numbers
+  verbatim, which the §4.5 rule exists to avoid.
 - **Gates at cut:** `pytest` **3,591 passed / 7 skipped / 2 xfailed / 0 failed**
   (3,539 at the 0.8.4 cut), `ruff` clean, `mypy` clean (`sloads/`, 108 source
   files), `scripts/smoke_test.sh` **PASS**, `scripts/backlog_issues.py check`
