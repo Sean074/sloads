@@ -151,8 +151,10 @@ class CaseComparison:
     #: The factor 14 CFR 23.303 prescribes for this case -- **stated, applied to
     #: nothing** (OR-116), exactly as every other row of every other table
     #: states it. A deviation is a difference of two LIMIT loads and is
-    #: therefore LIMIT itself.
-    safety_factor: float = 0.0
+    #: therefore LIMIT itself. No default: the one caller reads it off the
+    #: applied rows, and a default of 0.0 would print an SF no regulation
+    #: prescribes if that read were ever skipped (#180 residue, 0.8.5 review).
+    safety_factor: float
 
     def deviation(self, channel: str) -> List[float]:
         """``lumped - station``, cut by cut, in the raw Imperial channel."""
