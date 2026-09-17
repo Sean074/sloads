@@ -32,6 +32,242 @@ written directly, by the release manager.
 
 ---
 
+## Release cut: **sloads 0.8.5** (correctness and tooling on the converged surface), tag `v0.8.5`, 2026-09-16
+
+**Objective.** Close band **B6** — the first milestone worked on the one
+front-end 0.8.4 left, and deliberately a *correctness* milestone rather than a
+feature one: fourteen rows, no owner decision among them, chosen on 2026-09-14
+when the twenty-five-row band was split four ways so that the two decisions
+still owed (#164's case-set shape, #222's baseline wave) gate only the
+milestone that consumes them. Its charter was the safety-factor contract's
+last mile and the shipped statements that were wrong or missing, with the
+tooling this milestone runs at every closure repaired first.
+
+**Deliverables** (the `[0.8.5]` changelog section is the release note):
+- **The safety-factor cluster closes (#179, #180, #177, tier M each).** The
+  governing table has had an owner since M4-8; every defect in the cluster was a
+  caller who never asked it. The classifier now classifies the one reference an
+  exact-reference row names instead of returning outright, and a section number
+  it reads must be one a family can place. **Fifteen** defaulting reads on the
+  delivery side, not the two the finding named — one able to print an SF of
+  zero, four turning "no factor prescribed" into a printed 1.5 — now read through
+  `export.deck_format.case_sf` and render through `report.render.sf_cell`, which
+  prints `N/A` where the table prescribes nothing. And `registry.register`
+  stores every module's `run` wrapped in the table, so a result that has not
+  been past it is not something a caller can obtain — the sweep found **five**
+  surfaces running modules unstamped, the oracle report's own run point among
+  them.
+- **The issued document says what the calc did (#282, #254, #272, #257, #216,
+  tier M each).** The user guide is a gated channel (G-OR-74 walks
+  `docs/60_guide/` as prose) and its sixteen pre-OR-116 sentences are corrected;
+  the non-conventional-tail withholding states what was computed, per
+  arrangement; every section reads SELECT's critical set through its one owner
+  (the v-tail set was enumerated twice and the governing case omitted on every
+  shipped twin); all **four** reconciliations between the suite's two mass
+  models are stated on the page, one of which had reached nothing at all; and
+  the two estimated aileron polylines are reconciled to their entered areas so
+  the report's disagreement statement has nothing to say on any shipped
+  airplane.
+- **The tooling this milestone ran at every closure (#280, #273, tier M; #186,
+  #188, #175, #191, tier S).** The backlog tool stops destroying a defect's
+  body on a word-score fold (it had done so three times); one owner per
+  issue-package filename; a presence guard that every registered module has an
+  oracle or closure gate (`tests/module_gates.py`, 23 rows); a red sbeam-drift
+  run files a pinned issue; every `test_structural_speeds` assertion holds at
+  ±0.1 % or says why it cannot; and `modules/balance.py` becomes the
+  `modules/balance/` package with no import line elsewhere changed.
+- **Found at the cut and fixed pre-cut (the §3 review, tier S):** the lumping
+  comparison's dataclass still carried the `0.0` SF default #180 had made
+  unreachable; 4.1 built #257's two reconciliation sentences twice; four tier-M
+  history fragments were written as bare paragraphs rather than the bullet
+  form `changes/README.md` states. Also the GUI journey's reach into a private
+  Streamlit attribute, which 1.64 renamed — failed on CI, green locally — is
+  replaced by the public tester API with every remaining private reach declared.
+- **Version** `0.8.4` → **`0.8.5`**. Schema **v66 unchanged** — the milestone
+  corrected statements and readers, not the input model.
+- **Changelog cut** — `scripts/build_changelog.py 0.8.5 --date 2026-09-16 --roll`:
+  **9 fragments** consumed into `## [0.8.5]`, **10 history entries** rolled to
+  the top of this file, a fresh empty `[Unreleased]` opened.
+- **Record roll** (`RELEASE_PROCESS.md` §4 step 3): no note moves (note 61
+  CV-3). The changelog stood at 1,477 lines before the cut and would have
+  crossed 1,500 with it, so it rolled in the same pass: the 0.8.3 block froze
+  into [`CHANGELOG_to_0.8.3.md`](CHANGELOG_to_0.8.3.md). This file stood at
+  720 lines and did not roll.
+- **Gates at cut:** `pytest` **3,591 passed / 7 skipped / 2 xfailed / 0 failed**
+  (3,539 at the 0.8.4 cut), `ruff` clean, `mypy` clean (`sloads/`, 108 source
+  files), `scripts/smoke_test.sh` **PASS**, `scripts/backlog_issues.py check`
+  clean, `scripts/branch_protection_snapshot.py --check` matches on 7 tracked
+  keys, the §3.5 by-hand walk done by the owner, no open CRITICAL/MAJOR review
+  findings. The **7 skips and 2 xfails are the same set as at 0.8.4**
+  (§3.3): the skips are fixture-conditional — a parametrized check that a
+  bundled example carries no input for states so and skips rather than
+  asserting on an absent slice — and the two xfails are the SI-frame LRA
+  round trips on `concept_regional_jet` and `ga6_normal`, refused by sbeam's
+  dense-path condition heuristic and solving exactly in Imperial (note 55 §8's
+  deferred support-node item; the test docstring states it).
+
+**Key decisions.** *The policy had an owner all along; the defects were the
+callers.* Three times in one day the deferred latent item's neighbourhood held
+more than the item — #179's sweep found a second misreading in the same
+classifier, #180's found fifteen defaulting reads where two were named, #177's
+found five unstamped surfaces where one was — which is the standing argument
+against letting a latent defect sit: the deferral is lawful, the company it
+keeps is never inspected. The milestone's other decision was made at its
+opening: a defect with first-order effect on shipped content outranks every
+[V] row, and four rows moved from 0.9.0 into the band on that rule alone.
+
+---
+
+- **The backlog tool stops throwing away a defect's body: a defect folds into a table row only on an explicit pin, and no bullet with a body is collapsed onto another item's issue number (#280, tier M, 2026-09-15)** — the tool every closure in this milestone runs, corrupting the record it is supposed to keep.
+
+  `issue_set` folded a defect bullet into a priority-table row on `_containment`, which divides shared significant words by the **smaller** title's word count. *No engine-mount case reaches the LRA deck* shares `{case, loads, index}` with *The load-case index carries no loads for 344 of 347 rows* and scores **0.60**, over the 0.5 threshold. `main` then aliased the folded title into the persisted map, and `rewrite_backlog` replaced the defect's twenty-line body with `- #209 — …`, an unrelated, already-filed issue. It happened on 2026-09-08 (`07b24e2`), was restored and struck on 2026-09-11, reproduced exactly on 2026-09-13, and — measured on the live backlog at the start of this closure — would have happened a third time on the next `rewrite`. Nothing in the path ever asked whether the fold was right, and the loss is silent: the body is restorable only because someone noticed.
+
+  The fix is two rules that do not depend on each other. A **defect bullet folds only on an explicit `PINNED_PAIRS` entry**; the word score keeps working for detail sections, which really are longer restatements of their row and carry nothing the row does not, while a defect bullet is an independent finding with a body of its own. And `uncollapsible` — consulted by `rewrite_backlog`, not by the matcher — **refuses to collapse a bullet with a body onto a number another item's title also holds**, which is what an unpinned fold looks like from the rewriter and also what a stale key in `backlog_issue_map.json` looks like (the truncated-title drift that opened 19 duplicate issues on 2026-09-07). `issue_set` decides what is folded, `uncollapsible` decides what may be destroyed, and a body survives unless both agree. `tests/test_backlog_issues.py` asserts both against the historical pair by name, including that it still scores over the threshold: the fix is the rule, not a number that happens to separate today's titles.
+
+  Generalising the class (practice 4) found the parser's other silent loss. `DEFECT_BULLET` matched `^- \*\*(.+?)\*\*` on one physical line, so a bullet whose bold heading wrapped onto a second line was invisible to `plan`, `create` and `rewrite` together — and two open defects with twenty-line bodies sat in that blind spot. Reading the heading across the wrap makes them visible, which raised the question of what had been keeping them unfiled: nothing but the wrap. **Unfiled by choice** is now a state the tool holds — a defect bullet whose body carries that phrase is listed by `plan`, never filed by `create`, never collapsed by `rewrite` — and the three findings the backlog states on purpose without scheduling them say so, each re-verified live at this closure: no mount condition reaches the deck (`transferred_case_loads` still takes a `BalancedCaseResult`, and `engine_applied_load` is reached only from `report/oracle_sections.py`); no hinge moment is computed for an aileron, elevator or rudder, and `AileronLoadsInput.hinges_span_in`/`actuator_span_in` are still read by `io`, `units` and `field_registry` and by no calc; and `aileron_loads` still computes the VA/VC/VD deflection schedule internally while `AileronResult` returns no deflection field.
+
+- **The governing safety-factor table reaches its "flagged, never defaulted" promise by one path: an exact-reference row classifies the one reference it names instead of returning outright, and a section number the classifier reads must be one a family can place (#179, tier M, 2026-09-15)** — the two ways a case's FAR reference could be read as something it is not.
+
+  `classify` carries `_EXACT`, two rows that override the section ranges because 23.367(a)(2) is an ULTIMATE case sitting inside the LIMIT flight-loads range 23.321–23.371. It was implemented as *an exact row wins outright*: a containment test that returned before the multi-reference agreement check below it. That is a larger claim than the one the rows exist to make. A reference naming a LIMIT section beside the exact ultimate one — `"23.361(a)(1) / 23.367(a)(2)"` — resolved to `engine_ultimate`, **SF 1.0**, the unconservative answer, decided by word order; the identical disagreement between two *ranged* sections was flagged and stated at 1.5. It is the one hole where the table's promise degrades to silently-first-match, and it is latent: no producer emits such a string, re-checked at this closure against every `far_reference` literal in the package. An exact row now classifies its own reference and nothing else, matched by position rather than containment — `"23.367(a)(1)/23.367(a)(2)"` names section 23.367 twice and only the second is the ultimate family, so the pair is ambiguous where a containment test would have handed (a)(1) the exact row's 1.0 — and the agreement rule is the only way out of the function, for exact and ranged references alike.
+
+  Generalising the class (practice 4) found the classifier's other misreading, in the regex rather than the control flow. `_REF_RE` took two or three digits with nothing required after them, so a four-digit Subpart G citation was chopped: STRSPEED's `"23.1505/23.1511"` read as sections **23.150 and 23.151**, numbers no range holds and no regulation carries, and `"23.1505/23.335(b)(4)"` was reported unclassified because of the half-section invented beside its real flight-loads reference. Both strings come from `operational_implications`, the advisory placard path, which nothing stamps today — which is exactly why the shipped-fixture defaulted-case gate never saw either. A four-digit section is now simply not a Subpart C reference and is not matched at all.
+
+  The guard for the class is independent of both regexes: `test_every_section_the_classifier_reads_is_one_a_family_can_place` walks every reference every shipped fixture produces, plus the advisory conditions the case gates do not reach, and fails naming the string if a number the classifier extracts lands in no family. `CONVENTIONS.md` §7 states both rules where it already states the flag.
+
+- **Every reconciliation between the suite's two mass models is stated in the issued document, gated by name and by effect (#257, tier M, 2026-09-16)** — three of the four reached the Weight & Mass screen and no certification-facing page, while the entered fuselage station table they compare against sits 13–41 % under the beam the analysis actually integrates on every shipped fixture.
+
+  The row was filed by review A4 on 2026-09-09 as "the issued document rides a station mass model short of the airplane's own item table", and asked for the entered-versus-derived totals in the report's fuselage input data and in the `fuselage_loads.bdf` header. Half of that was already history and half was still true. Plan 11 step B1 had made the item database authoritative on 2026-08-08: `fuselage_beam_stations` returns the derived table unless the project marks its entered stations an explicit override, no shipped fixture does, and the oracle projection strips the override switch anyway — so no document has ridden a short beam since. And there is no `fuselage_loads.bdf`: note 56 D-56.2 deleted the five per-component decks, and the two decks that survive, the LRA beam model and the CONM2 mass cards, are built from the item database itself through `derive_case_loadings`, so neither carries a shortfall to state. That half of the deliverable resolved to nothing to do, and is recorded here rather than left as a row somebody re-reads next milestone.
+
+  What was still true is what the document did *not* say. 4.1 stated that the beam is derived, that the project also carries N entered stations, and that the beam and the wing account for the whole airplane. It never stated how far apart the two tables are, and a station count is not a measure of disagreement: on `ga6_normal` those five entered stations weigh 2,578 lb against the beam's 3,070, on `concept_regional_jet` nine of them weigh 18,000 lb against 30,600 — 41 % of the beam. A reader who knows the project by the table they typed had nothing on the page telling them they are reading a different airplane. 4.1 now states the gap as a weight and a share of the beam, through `mass_distribution.fuselage_reconciliation` — the same check the screen states, restated through the units owner rather than by quoting the check's Imperial diagnostic sentence beside a table in kilograms.
+
+  The class, swept (practice 4), is *a reconciliation between the two mass models that no issued document states*, and it had four members, not one. `untagged_tail_surfaces` is stated in the same paragraph, because what it reports is a fact about that beam: `concept_heavy` tags no weight item to the fin, so whatever of the fin's mass the database holds rides the fuselage beam inside a fuselage-carried item. `wing_mass_tie` reached the CLI and the screen as the `wing_mass_tie_open` validator (design note 29 WF-4) and no document; 3.2 now states whether the itemized wing rows and the mass WINGINER distributes are one wing, which they are on all five fixtures. `tail_reconciliation` reached **nothing at all** — not the screen, not the report, only its own tests — so 5.4/6.4, which had always said "the surface's own weight is applied against it at the condition's load factor", now say which weight that is and whether it was derived or entered as an override. That sentence made one silent answer audible: `concept_heavy`'s fin has no tagged item and no entered panel weight, so its distribution is air alone — stated now as an absent inertia relief, which is the defect step B1 was made to end, rather than rendered as a weightless surface. A subsection that renders no distribution states no weight, because none was applied; the fin's spanwise loads are withheld on every arrangement (OR-133) and a withheld section states the withholding.
+
+  Gated twice, because the two gates fail on different things. `test_every_mass_reconciliation_is_read_by_the_issued_document` parses `mass_distribution.py` for every public function whose return annotation names a `MassCheck` and requires `sloads/report/` to import it — AST-parsed, for the reason the sibling scans are: the module's own docstring names `MassCheck` in prose more often than the signatures use it. It found a fifth producer the sweep had not, which is the gate earning its place on the day it was written. `test_the_issued_document_states_every_mass_gap_it_ships_with` builds the oracle document on each of the five fixtures and requires the numbers on the page, so a check routed through a function nobody renders still fails; proved to have teeth by removing the four statements and watching all five fixtures fail.
+
+  The fifth producer is exempted in writing rather than swept in. `case_loading_checks` compares a derived payload loading against its flight case's entered weight and CG echo — a different pair from the two mass models — and its derived branch holds the match to 1e-9 where the same module's own `CaseLoading` docstring states that a zero-ballast loading matches only within `_CG_MATCH_TOL`, 0.5 in. It therefore reports a failure on four of the five shipped fixtures that is not one, between 0.0024 and 0.0044 in, and routing it to the document today would print those false alarms on four certification documents. Underneath the noise sits one real disagreement: `baron_58`'s `aft gross` loading is at zcg 95.884 in against the 100.0 its case states, 4.12 in past that same tolerance, on a closure-locked twin whose balanced cases run on the loading and not on the echo. Both halves were invisible for one reason — the function has no caller outside its own tests, so nothing ever printed what it found. Filed with a body in the backlog's open-defects index, named in the exemption, and the exemption itself is guarded against going stale.
+
+- **No reader on the delivery side defaults a safety factor: the five dedicated load carriers read theirs through `export.deck_format.case_sf`, a condition's is read off the condition and may be `None`, and every SF cell is rendered by `report.render.sf_cell`, which prints `N/A` where the governing table prescribed nothing (#180, tier M, 2026-09-15)** — the last place the factor policy was decided by a default rather than read from its owner.
+
+  Review R-10 named two `getattr(item, "safety_factor", ULTIMATE_FACTOR)` fallbacks, the pattern `export.deck_format.case_sf` forbids in its own docstring ("no `getattr` fallback that would mask an attribute rename", M4-16) and `safety_factors` opens by recording the removal of. The sweep found fifteen defaulting reads, all on the delivery side: eight on dedicated load carriers in `report/oracle_sections.py`, four on `ConditionResult`s, one in `report/lumping.py`, one in `safety_factors.shared_basis_factor` itself, and one on a tail-pressure record. Two of the three sites the finding named no longer existed — `report/content.py`'s went with the front-end convergence — which is the ordinary fate of a defect filed by line number and left for five weeks; the class it belonged to had meanwhile grown.
+
+  They are dead today, and that is the argument for removing them rather than against it: every producer mints the field, so no fallback fires, and the day one does is the day a rename has already happened and a delivered document is quietly stating a flat 1.5 — or, in the lumping comparison, an `SF` of **0.0**, a factor no regulation prescribes. The four `ConditionResult` reads were worse than dead. `float(condition.safety_factor or ULTIMATE_FACTOR)` turns `None` — the governing table's statement that a condition **prescribes no factor at all** (#154, note 48 OR-83) — into a printed `1.5`, which is exactly the false claim #154 was filed for, surviving in the one module that renders its own SF cells instead of going through `render.sf_cell`. Reproduced before the change and pinned after it: a flap condition carrying `None` printed `1.5`, and now prints `N/A`.
+
+  Two signatures were widened to say what was already true rather than to admit a new case. `Units.load`/`load_value` take `Optional[float]`, because the factor reaching them is stated and applied nowhere (OR-116, `del sf`) — a condition that prescribes none need not invent a number to get through the unit boundary — and `_EngineCase.sf` likewise. `render._sf_cell` became public `sf_cell`: it is the one place a factor becomes text, and a section that renders its own cell is a section that can print a number where the table prescribed none. Nothing in any shipped document moves: no condition on either airframe carries `None` today, which is what made the whole class latent.
+
+  The guard is structural and does not depend on the reviewer finding the next one (practice 3): `tests/test_safety_factors.py::test_no_factor_is_read_through_a_getattr_fallback` parses every module under `sloads/` with `ast` and fails on a three-argument `getattr` naming `safety_factor` — parsed rather than grepped, so the prose in `safety_factors` quoting the banned pattern is not mistaken for code that still does it. `CONVENTIONS.md` §7 states the rule beside the classifier's. The module docstring of `report/oracle_sections.py` was carrying a stale "known upstream oddity, filed not yet fixed" paragraph claiming #154 had not landed and that the module never prints a condition's SF; it does, in two tables, which is how the defect lived there.
+
+- **Every runner the registry hands out stamps: `register` stores the module's `run` wrapped in the project's governing safety-factor table, so a result that has not been past the table is not something a caller can obtain (#177, tier M, 2026-09-15)** — the factor policy had an owner from M4-8 onward, and every defect left in it was a caller who never asked the owner.
+
+  Review R-6 named one surface, the oracle GUI's per-module blocks, and one file that has since been deleted with `app/`. The sweep found that stamping lived in `registry.run_all_modules` and its reporting twin and **nowhere else**, and that five callers ran a module without them: the GUI's per-module blocks, `report/oracle_content.run_sections` — the oracle report's own single run point — `report/figures.py`'s step figures, `report/applied.py`'s engine rows behind the deck, and the fleet view's weight estimate. A sixth bypass was an import rather than a call: `report/oracle_sections.py` imported `modules.configuration.run` directly for the static-margin figure.
+
+  What that cost was measured on all five fixtures before anything changed. Every one of them produces **thirty to fifty** conditions that state no load — a Mach limit, a structural speed, a configuration summary, a weight envelope point — and `ConditionResult.safety_factor` defaults to `ULTIMATE_FACTOR`, so on the unstamped surfaces each of them printed a flat `1.5` where the stamped path states `N/A`. That is #154's false claim, the one #180 had just finished removing from the render side, surviving on the document the certification reader actually receives. The override half stayed latent only because no shipped fixture carries an override — but "an override is silently not honoured" is the one thing the G-11 mitigations promise never happens, and it was happening on every surface but two.
+
+  The fix is not five stamps. `registry.register` stores `_stamping(fn)`, so `get(name)`, `run_all_modules` and a direct `_REGISTRY` read all yield a runner that has applied the table; the two run-everything helpers dropped the trailing `stamp()` they used to be the sole custodians of, and the static-margin figure goes through `get("configuration")` like everything else. Stamping is idempotent — the table is a pure function of the project — so `report.content`, which stamps its own assembled groups, is not fighting it.
+
+  Making it structural forced a disagreement the two surfaces had been keeping apart. `modules/tail_span.py` hardwired `far_reference="23.421"` on every derived spanwise condition while inheriting the parent case's factor, and that field is what `safety_factors.classify` reads. Fifteen of the nineteen conditions came out right by coincidence, `control_system` being 1.5 as well; the two derived from the **23.367(a)(2)** engine-failure case arrived already ULTIMATE at SF 1.0 and were classified into a limit family, so on `baron_58` and `atr42_100` the case index and the deck stated 1.5 for a case the oracle report stated 1.0 for. `case_ref` has carried the true reference all along — TAILDIST's spec has stated that rule since its own hardcoded `23.421` was removed — so the condition now names its case, the producer and the table agree everywhere, and the two cases state SF 1.0 with the `-ULT` marker the regulation prescribes them (owner's call, 2026-09-15). Fifteen references stop claiming to be control-surface loads they are not. The Imperial baseline was regenerated for that and only that: on both twins the `tail_span` CSV and text now state `23.367(a)(2)`, `SF 1`, and the `-ULT` marker on the two cases, and no other channel of any fixture moved a byte.
+
+  Four guards, in `tests/test_safety_factors.py`. `test_no_module_runner_is_reachable_unstamped` asserts both halves of the rule — that every entry in the registry carries the wrapper, and, by an `ast` walk of `sloads/`, that no module's `run` is imported directly outside `sloads/modules/`, which is the one way back to an unstamped result. The other three pin the behaviour the structure is for: a single runner honours a project override, states `None` where the table prescribes no factor, and a derived spanwise condition names its own case. `CONVENTIONS.md` §7 and the TAILSPAN section of `PROGRAM_SPEC.md` state the rules beside the classifier's.
+
+- **Every section of the oracle report reads SELECT's critical set through its one owner, gated by name and by effect (#272, tier M, 2026-09-16)** — two consumers still called `build_critical` directly, and note 44 OR-172's admission of the 23.367 fin conditions lives between that search and `default_critical`, so either of them could enumerate the set without its governing case.
+
+  The row was filed from note 58's ranking-site sweep on 2026-09-11 against the summary report, whose v-tail governing table and chordwise table disagreed about the condition set in one section. That report was deleted with `app/` at #270. The 2026-09-14 re-cut checked whether the class had gone with it, found the oracle report still calling `build_critical` at one section and `default_critical` at another, and moved the row into 0.8.5 under rule 6. That was the right call for the wrong pair: the surviving `build_critical` site is §3.2's wing selection register, and the conditions OR-172 admits are `component="vtail"`, so the two routes cannot disagree there today. Measured before anything was changed — on all five shipped fixtures the h-tail and v-tail condition register, aerodynamic state, critical-loads, chordwise and spanwise tables and Appendix E already name one set each, and `build_critical` and `default_critical` differ in the fin's rows and nowhere else.
+
+  Latent is not fixed, and §3.2 is the reason. It tells the reader in as many words that its cases are "the same cases the summary, the distributions and the station-by-station appendix state — one set, projected four ways", which is a claim about every section of the document and is asserted by a route free to disagree with the one the other sections take. The second consumer, `report/content.component_loads`, carried the bypass with a docstring explaining that it recomputes live "exactly as the Critical Loads and Results Review pages do" — pages that went with `app/` at #270. The comment outlived the reason for it by a milestone, and the function now has no caller outside the test suite at all.
+
+  Both read `select.default_critical` now: the persisted set when the project carries one, else the search run fresh, which is the same route §4, §5, §6, `taildist` and `tail_span` have always taken. No shipped byte moves — the oracle document is content-identical on all five fixtures — and no baseline was regenerated.
+
+  Gated twice, deliberately, because the two gates fail on different things. `test_no_calc_code_calls_build_critical_outside_the_owner` parses `sloads/` for an import or a call of the search and allows one file, the owner, with its reason stated; it is a sibling of the `project.envelope` scan already in that file, which covers the other way past the same owner, and it is AST-based for the same reason — this class is discussed in prose far more often than it is used, and the module docstring alone would trip a regex four times. Proved backwards on the retired shape: two hits on the code that was there, none on a file that only names it in prose. `test_every_case_keyed_table_in_the_section_names_the_same_conditions` asks the finished document instead, requiring every case-keyed table in Sections 5 and 6 and their appendices to name the same case ids, so a second enumeration that is not spelled `build_critical` — a cached list, a filtered persisted set, a second search — is caught by its effect. Its companion asserts the 23.367 rows reach all of those tables on both twins, because a set-agreement gate that ran only on single-engine fixtures would pass while agreeing on the wrong set. Both were shown to have teeth by re-introducing the bypass on the tail route: the condition register drops to four rows while the chordwise table beside it keeps ten, which is the two-tables-disagree shape the row was filed for, printed.
+
+  The withheld half of the row's own deliverable is worth stating: `report/tables.py` and `modules/body_loads.py` still read `project.envelope.critical` directly, and both keep their existing exemptions — the case index renders what the project carries rather than computing loads, and `_critical_fuselage` is a documented narrow variant that takes fuselage conditions through `select_fuselage` so a body deck does not require well-formed tail inputs. Neither is a persisted-else-compute decision, which is the rule the owner owns.
+
+- **One owner per issue-package filename, and G-12's inertia notes reach the delivered file (#273, tier M, 2026-09-14)** — the #16 sweep's residue, closed as two slices of one defect class: a thing written in the code and not delivered where it was meant to be.
+
+  `io.py` owns every path the issue package needs (OR-28/OR-30), and `report/oracle_package.py` was respelling two of them as its own string literals — `PACKAGE_SPEC`/`PACKAGE_BUILD` beside `REPORT_SPEC_FILENAME`/`BUILD_STAMP_FILENAME`, two constant pairs naming one file each. That is the duplicated-owner class practice 3 exists to prevent, and its failure is silent: a rename in the owner that left the second spelling alone would split the package in two without failing anything at the rename site. The two now *are* the owner's names, cited in both directions, and `tests/test_oracle_report_package.py::test_the_package_filenames_have_one_owner` asserts identity rather than equality — two literals that happen to match today are exactly the state this closes.
+
+  `gear_loads.LEG_WEIGHT_UNSET_NOTE` and `UNSPRUNG_NOTE` were public, in `__all__`, cited from three docstrings — one of which says the first is "stated in-band on every surface that renders it" — and neither reached a byte of any delivered file. The gear load report is the only surface that renders the inertia term, so it is the surface that owed them. Its header block now states the unsprung limit unconditionally, because the number is in every row, and explains every blank inertia cell. Writing that explanation found the second half: a blank cell has **two** unrelated causes, and the note as filed would have been wrong on whichever rows it did not mean. No leg weight was entered, so the free body is shown open (G-12a) — or the case is the 23.499 supplementary nose-wheel family, whose airplane vertical load factor is zero, which blanks the cell on a leg that *is* weighed. On the shipped `ga6_normal` fixture every leg is weighed and nine rows are blank for the second reason, so a single merged note would have told that reader a weight is missing where none is. `NO_AIRPLANE_INERTIA_NOTE` is the second cause's delivered half — the code comment that carried it is now the note's citation — and each conditional note prints only when the file contains the rows it explains. `tests/test_gear_report.py::test_the_g12_inertia_notes_reach_the_delivered_file` asserts on the rendered text and not on the constants: the defect was that the constants existed and the text did not.
+
+  `_GEAR_REPORT_NOTES` became `_GEAR_REPORT_FRAMES`, the fixed opening of a block `_gear_report_notes` now assembles (`CONVENTIONS.md` §7's two-frames row follows the rename). The `#`-wrapper that builds a note block moved from `report/oracle_sections._csv_note` — private, and already being reached for across modules by name — to `csv_text.note_block`, beside the line ending and for the same reason: the shape of a delivered CSV's text has one owner. Four Imperial baseline digests regenerate, all of them the `gear_report` channel.
+
+- **Every shipped control surface is drawn over the area its loads were run on: the two estimated aileron polylines are reconciled to their entered areas, and the report's disagreement statement now has nothing to say on any shipped airplane (#216, tier M, 2026-09-16)** — two entered numbers had described one surface, 4 % and 44 % apart, and the wider of the two was not even drawn on the wing it was cut into.
+
+  OR-152 settled in September that the pressure has one owner — the module — and that a drawn outline is a locator, never a divisor: where the entered analysis area and the entered planform outline disagree by more than 2 %, the section states the discrepancy rather than resolving it silently. That ruling deliberately left the data question open, and this is it. Three of the four examples then shipped disagreed; `cessna_210` retired at #264 with its +5 %, and what was left was `baron_58` at −3.9 % and `concept_regional_jet` at −43.6 % against entered areas of 7.600 and 15.0 sq ft. `ga6_normal`, whose aileron and flap both come from Appendix A's own figures, agrees to 0.2 % and is untouched.
+
+  Which of the two numbers is the airplane was decided per example, from that airplane's own data, and it came out the same way on both. The entered area is what every pinned load and pressure divides by, and is as old as the fixture; the outlines are the estimated polylines `PROGRAM_SPEC` already named as awaiting the #260/D-54.6 wave — and the jet's was estimated badly enough to fail the physical fact D-54.1 rests on, its trailing edge sitting **9.4 in** off the wing trailing edge it is supposed to *be*. So both outlines were redrawn on the wing's own trailing edge with their inboard station solved for the entered area: `baron_58` from BL 130 to **BL 127.0**, holding the 25.0 %-chord hinge line its own polyline already traced, enclosing 7.608 against 7.600 sq ft; `concept_regional_jet` from BL 300 to **BL 257.2** at 0.30 chord — the only wing-control chord fraction that project enters, its flap's — enclosing 14.99 against 15.0. Both are now inside 0.2 %, and the furthest any shipped wing control sits off its parent's trailing edge is 0.04 in, so `validate_control_trailing_edge` would pass all four today; extending the hard refusal from the tail groups to the wing controls is left as the one-line change it now is, for the wave that owns their geometry.
+
+  No load moved, no pressure moved, no deck row and no case-index row moved. What moved is the aileron's own published planform, in WING_GEOMETRY on those two airplanes and nowhere else: `baron_58` 1052 → 1096 in² with its span 80 → 83 in, `concept_regional_jet` 1218 → 2159 in² with its span 84 → 126.8 in, plus each MAC and MAC station. Two channels on two of five examples — the Imperial digests were regenerated for exactly that, which is the milestone's one baseline movement before the wave in 0.8.6.
+
+  The flap half of the row is closed the other way, deliberately. `baron_58` and `concept_regional_jet` carry a `flap_loads` slice and draw no flap, and no flap outline exists anywhere in either project — so drawing one is invention rather than reconciliation, which is the line T-17 holds and which OR-153 already answered by rendering the stated absence instead of an empty axis. The jet supplies the second reason: its entered 55 sq ft is 1.3–1.4× the 38–42 sq ft a stowed 30 %-chord flap encloses over the span its wing leaves between the fuselage and the reconciled aileron, which is what a Fowler flap's extended area looks like rather than a defect — so a stowed outline drawn beside it would print a permanent 2 %-rule disagreement about nothing.
+
+  Fixing the fixtures removed both of G-OR-98's and G-OR-99's exercisers, which is the ordinary hazard of a gate pinned to a fixture being wrong: the under sense of the disagreement had just lost its two airplanes the way the over sense lost `cessna_210`, and the gates would have gone on passing while asserting nothing. Both now contradict a shipped outline in memory — `_outline_scaled` scales one drawn chord about its trailing edge and touches nothing the analysis reads — so the entered area, the load and the pressure stay the shipped airplane's and what is tested is the document's response to an outline that disagrees. That restores the over sense as well, and `test_every_shipped_outline_encloses_the_area_its_loads_were_run_on` holds the reconciliation itself, since the report would otherwise go on stating, correctly, that an airplane disagrees with itself.
+
+- **The user guide is a gated channel: G-OR-74 walks `docs/60_guide/` as prose, and the sixteen sentences that still taught the pre-OR-116 contract are corrected (#282, tier M, 2026-09-15)** — the guide is the document that teaches the contract, and it was the last channel asserting it with no owner.
+
+  `03_conventions.md` §"LIMIT and ULTIMATE" stated *"Every deliverable load is ULTIMATE. The factor is applied exactly once, at the render/export boundary"* — the rule note 49 OR-116 inverted — and it stated it for the whole of the milestone that removed the multiply. Twelve chapters repeated it in their *Results* sections, each naming its blocks' basis as `(ULTIMATE, -ULT units, SF stated)`; two *Common mistakes* entries told the reader to divide a figure by its SF before comparing with the book, and one told them the two wing blocks "differ by exactly the safety factor". They do not differ at all. Every numeric gate was green throughout, for the reason G-OR-73 and G-OR-74 were each written down: nothing read the prose.
+
+  The sweep is a read, not a `sed`. Twenty-four uses of the word across sixteen files went in and eight came out, and the eight that survive are the true ones: the two families 14 CFR defines at ultimate, and the blocks that are not loads at all (geometry, mass properties, speeds and load factors, which prescribe no factor and print `N/A`). What each chapter may claim was checked against the code rather than against the neighbouring chapter — every module run on both worked examples, its conditions' stamped factors and unit markers tabulated — which is how the guide now says that the only `-ULT` a reader will ever meet is 23.367(a)(2), in One Engine Out and, on a twin, in the two v-tail rows Tail Loads acquired at #177. 23.561(b) is the contract's other prescribed-ultimate family and no module in the suite produces it.
+
+  `03_conventions.md` no longer restates the contract: it points at `CONVENTIONS.md` §3, its owner, and keeps only what a user needs — that every delivered load is limit, that the `SF` column states the factor the sizing step applies, that `N/A` is a statement and not a missing number, and where the two already-ultimate cases live.
+
+  The gate is the point. `assert_states_limit` now walks every Markdown file under `docs/60_guide/`, on the same terms as the GUI sweep: static text, read at the source, so no chapter escapes by being one nobody opens. Extending it cost four new claim shapes, and the two that matter say something about the checker. A chapter states a block's basis in a **parenthetical with no verb in it** — `(ULTIMATE, -ULT units, SF stated)` — and every pattern written until now was built around a verb, so the gate read past the guide's most common assertion fifteen times over. And `LIMIT × 1.5`, written in the deliverable's own capitals, read straight past an ASCII-lowercase `limit x` pattern: the normaliser folds typography but not case. Both were checked backwards — each of the fifteen retired sentences is asserted to fail the gate — because a pattern that catches nothing is a gate that passes for the wrong reason.
+
+  Nothing was regenerated: `docs/60_guide/_generated/` is field tables from `field_registry.py` and carries no basis prose, so the generator needed no edit and G-UG-2 stayed green.
+
+- **The oracle report's non-conventional-tail withholding says what the calc
+  actually did, per arrangement, and is gated against it (#254, tier M,
+  2026-09-16)** — the statement had claimed the horizontal tail's load path
+  through the fin "is not modelled" since note 44 OR-133 agreed that wording on
+  2026-09-07. Plan 09's T7 then put the horizontal tail's concurrent set on a
+  T-tail's fin tip, and the sentence was never re-read: on every T-tail the
+  report went on saying the path was unmodelled while `tail_span` was modelling
+  it, so the document and the calc disagreed about what the suite can do. The
+  2026-09-09 review caught it as review item A1; note 56 narrowed it on
+  2026-09-12, when the spanwise fin deck that carried the lumped transfer was
+  deleted and the question survived against the LRA model's fin-tip joint alone.
+
+  What the calc does was measured rather than inferred. On both shipped T-tails
+  the four fin conditions that name a V-n point carry a tip set — `atr42_100`
+  Fz +258 lb / Myy +21,820 lb-in on three of them and −994 lb / −38,502 lb-in on
+  the fourth — and `atr42_100`'s four engine-out rows name no V-n point, so they
+  pair with no concurrent horizontal-tail load and carry nothing. A cruciform or
+  V-tail transfers nothing at all: `ttail_transfer` is gated on `is_t_tail`, not
+  on "non-conventional". Three different answers were being printed as one.
+
+  So the wording is now three statements read off one owner. A T-tail says the
+  fin-tip transfer *is* modelled, that what it carries is the surface's symmetric
+  concurrent set, and that the conditions it is carried in are the ones sideslip
+  and rudder deflection load asymmetrically; a V-tail or cruciform says no part
+  of the path is carried; and neither claims every condition transfers, because
+  the engine-out rows do not. The predicate is `is_t_tail` — the same owner
+  `modules/tail_span.py` gates the transfer on — rather than a second reading of
+  the field, so the document cannot describe a load path the calc resolved
+  differently. Section 5's pointer, which restated the claim in miniature, drops
+  it and points.
+
+  **The withholding itself does not move, and never rested on the transfer.** The
+  fin's spanwise loads are withheld because 23.427(a)'s unsymmetrical case is
+  absent from the set entirely — an omitted condition, not an understated one —
+  and because the asymmetry inside the four conditions that are analysed is worth
+  27 to 73 per cent of the governing fin case's own root bending (note 51). Both
+  are as true on a T-tail with a symmetric tip transfer as they were without one.
+  What changes is that 6.5 now says it is a policy, quantified, rather than
+  offering a false statement about the model as the reason.
+
+  G-OR-87 is re-cut around the drift rather than around the wording: the new
+  `test_the_withholdings_reason_matches_what_the_calc_modelled` asks
+  `build_tail_span` for the transfer on every `TailType` and decides from that
+  which sentence 6.5 is allowed to print, so the next arrangement to acquire a
+  transfer moves the prose or fails. A rewording alone would have drifted back
+  the same way this one did. The existing G-OR-87 diff is untouched: it still
+  runs `CONVENTIONAL` against `CRUCIFORM`, the arrangement the report reads and
+  nothing else does.
+
+  The three standing restatements of the retired claim went with it —
+  `CONVENTIONS.md` §7's tail-arrangement row, which contradicted itself inside
+  one sentence by naming the T7 transfer and then calling the path unmodelled;
+  `TailType`'s docstring; and `theory_sources.md`'s `taildist` row — and
+  `ORACLE_REPORT.md` carries the per-arrangement rule and the re-cut gate. No
+  delivered number moved: this closure is prose, one predicate and one test.
+
 ## Release cut: **sloads 0.8.4** (the two front-ends converge on one), tag `v0.8.4`, 2026-09-14
 
 **Objective.** Close band **B5**. The suite had grown **two** Streamlit
