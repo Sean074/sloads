@@ -2,8 +2,11 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: PROPOSED 2026-09-17** (owner, in session, under the solo profile —
-`DEVELOPMENT_PROCESS.md` §0; rule 1's working-alone branch). The rulings in
+**Status: AGREED 2026-09-17** (owner, in session, under the solo profile —
+`DEVELOPMENT_PROCESS.md` §0; rule 1's working-alone branch; PROPOSED and
+reviewed the same day — the critical-advocate review's findings and the
+owner's rulings on them are §2 rulings 4–5, D-62.8 and the amended D-62.2,
+D-62.4, G-62.3). The rulings in
 §2 are the owner's, taken in chat on 2026-09-17; they are the **case-set
 shape decision** the backlog's B7 row 1 (#164) has waited on since 2026-09-14.
 Filed as **#288** (band B7, 0.8.6). This note is scoped to **SELECT's wing search alone**. The companion change
@@ -11,10 +14,11 @@ the same discussion agreed — wing mass states in the Wing Loads step, so
 each selected case runs at every disposable-mass state (inertia relief) — is
 **the next note**, not this one (§6).
 
-**Tier L.** A new load-case family on the wing: two SELECT slots the
-`.BAS` does not have, two fixed case ids, and a deck that gains two
-subcases. No oracle moves (§4 gate 1); the six Appendix A picks are the
-same points on the same figures.
+**Tier L.** A new load-case family on the wing: **four** SELECT slots the
+`.BAS` does not have — the negative angle-of-attack pair NHAA/NLAA (D-62.1)
+and the load-factor-extreme pair PNZ/NNZ (D-62.8) — four fixed case ids,
+and a deck that gains up to four subcases. No oracle moves (§4 gate 1); the
+six Appendix A picks are the same points on the same figures.
 
 ---
 
@@ -101,6 +105,48 @@ meets this because a stall-line or VC point always out-resultants them, but
 a VD-only slot would deliver a positive-lift "negative" case unless
 eligibility is stated (D-62.2).
 
+The +0.35 g point is the visible case of a wider set. A balanced point can
+carry a **negative airplane load factor with positive wing lift** when the
+tail down-load exceeds the small negative `nz·W` — the 0 g "MAN −D" points
+of the normal and commuter categories (nz = −0.0, LZW a few hundred pounds
+up) are the same thing. Measured in the VD family alone, the points
+`LZW < 0` excludes and how many of those have `nz < 0`:
+
+| Fixture | Excluded by `LZW < 0` | of which `nz < 0`, wing lift up |
+|---|---|---|
+| atr42_100 | 26 | 15 |
+| concept_regional_jet | 13 | 2 |
+| baron_58 | 9 | 0 |
+| ga6_normal | 4 | 1 |
+| concept_heavy | 1 | 0 |
+
+None of them changes a pick in §4 G-62.2; the table exists so a reader who
+expects the negative slots to mean "negative g" sees why the gate tests the
+wing's own lift instead (D-62.2).
+
+### 1.4a The extreme load-factor points are not delivered, on either sign
+
+Every slot picks on air load, so the heavy case wins, and the point with the
+largest |nz| in the matrix — at minimum weight, where the 23.341 gust factor
+is highest — reaches no deliverable. With the negative triad of D-62.1 in
+place (measured 2026-09-17):
+
+| Fixture | Most negative nz, wing lift down | Delivered by a slot? | Largest positive nz | Delivered? |
+|---|---|---|---|---|
+| ga6_normal | GUST −C −3.25 g, CG4 | no (NMAA −2.43 g at CG3) | GUST +C 5.25 g, CG4 | no (PMAA 3.96 g at CG2) |
+| atr42_100 | GUST −C −1.44 g, min weight | no (NMAA −1.00 g fwd gross) | GUST +C 3.44 g, min weight | no (all three 2.50 g) |
+| baron_58 | GUST −C −2.35 g, fwd regardless | yes (NMAA) | GUST +C 4.34 g, fwd regardless | no (all three 3.65 g) |
+| concept_regional_jet | GUST −C −1.80 g, min weight | yes (NMAA) | GUST +C 3.80 g, min weight | no (2.50–2.87 g) |
+| concept_heavy | MAN −C −2.00 g | yes (NMAA) | MAN C 4.00 g | yes (PMAA) |
+
+On the GA6 the undelivered points are 5.25 g and −3.25 g against delivered
+3.96 g and −2.43 g. That is the case that sizes everything hung on the wing
+by its own mass — engine mounts, tank attachments, wing-mounted gear,
+stores, the tip region where inertia is a large share of the net load —
+and it is a defect on the six shipped slots today, not only on the new
+ones. Root bending is normally the heavy case, which is why the `.BAS`
+criterion never met it (D-62.8).
+
 ### 1.5 Where a new slot reaches
 
 Every consumer of the wing slot list, found by `WING_SLOTS` and the label
@@ -117,6 +163,12 @@ tuples:
   PHAA/TORS/ACRL; concept_heavy PHAA), so on no fixture does a new slot reach
   WINGINER, AIRLOADS or NETLOADS. The Appendix A net-loads oracles (cases
   22/160/138) are unreachable by construction.
+* `sloads/modules/balance/air.py` `build_balanced_cases` — carries a
+  condition only when its V-n point's CG case has a **derivable** loading
+  (plan 12 C-1), else records a `loading-not-derivable` skip. Measured: every
+  FLIGHT case derives on ga6_normal, atr42_100, concept_regional_jet and
+  concept_heavy; on baron_58 "fwd gross" and "fwd regardless" do **not**, and
+  NLAA's Baron pick (§4 G-62.2) is at "fwd regardless".
 * `sloads/modules/balance/constants.py` `SYMMETRIC_WING_CONDITIONS` — the
   wing conditions the balanced producer assembles, hence the **LRA deck's
   wing subcases** (note 56 D-56.8/D-56.9). A slot not in this tuple is a
@@ -140,6 +192,13 @@ tuples:
    (WINGINER/NETLOADS) by the next note. Nothing in this note selects on
    net load or on weight case.
 3. This is one issue — **#288** — tier L, in band B7 (0.8.6, the baseline wave), ahead of #164.
+4. **(review finding 1)** A new slot whose CG case has no derivable loading
+   is a `loading-not-derivable` skip like any of the six, stated by #284;
+   #288 does not enter or repair loadings (D-62.4, G-62.3).
+5. **(review finding 2a)** SELECT gains the load-factor-extreme pair
+   **PNZ/NNZ** (D-62.8), in the same issue, on the same gate shape. The
+   negative slots select on the **wing's** lift sign, and the note says
+   why (§1.4, D-62.2).
 
 ## 3. Decisions
 
@@ -162,15 +221,28 @@ tuples:
   because it is PHAA). §1.4 is why: without the rule NLAA delivers a
   +0.35 g point on the ATR as a "negative low angle of attack" case. The
   rule is applied to all three negative slots, so NMAA cannot regress into
-  it either.
-- **D-62.3 — Fixed ids: NHAA is W-07, NLAA is W-08.** Appended to
-  `WING_SLOTS` after TORS; W-01…W-06 do not move and no persisted
-  `selected_case_ids` or exported deck re-reads.
-- **D-62.4 — The deck carries them.** NHAA and NLAA join
-  `SYMMETRIC_WING_CONDITIONS` (a negative point has no unbalanced rolling
-  moment, exactly as NMAA), so the LRA deck gains **two symmetric wing
-  subcases** and the assembled producer balances them under G-OR-72 like
-  the rest. They are not skips for #284 to state.
+  it either. **The sign tested is the wing's lift, not the airplane's load
+  factor**, because the slot is a wing selector: a point with `nz < 0` and
+  `LZW > 0` (§1.4's table — 15 on the ATR) loads the wing *upward* and
+  belongs to no down-load slot, while a point with `LZW < 0` at small
+  positive nz (none on any fixture, but a large up-tail-load could make
+  one) is a genuine wing down-load. `LZW < 0` alone is therefore the rule;
+  `nz < 0` is neither necessary nor sufficient. The same rule mirrored —
+  `LZW > 0` — is PNZ's eligibility (D-62.8).
+- **D-62.3 — Fixed ids: NHAA is W-07, NLAA is W-08, PNZ is W-09, NNZ is
+  W-10.** Appended to `WING_SLOTS` after TORS in that order; W-01…W-06 do
+  not move and no persisted `selected_case_ids` or exported deck re-reads.
+- **D-62.4 — The deck carries them.** NHAA, NLAA, PNZ and NNZ join
+  `SYMMETRIC_WING_CONDITIONS` (none is a roll point, so no unbalanced
+  rolling moment, exactly as NMAA), so the LRA deck gains **up to four
+  symmetric wing subcases** and the assembled producer balances them under
+  G-OR-72 like the rest. An **empty** slot (D-62.2) is a gap in the W- band, not a skip
+  for #284 to state; a slot whose winning CG case has no derivable loading
+  is a `loading-not-derivable` skip **exactly as the six slots before it**
+  (review 2026-09-17, finding 1: on `baron_58` NLAA's pick sits at "fwd
+  regardless", which the search cannot derive today, so W-08 is skipped
+  there until that loading is entered -- #290 -- or the fixture's item
+  database is corrected in the baseline wave).
 - **D-62.5 — The six Appendix A picks are locked, the two new slots are
   closure-gated.** The manual prints no NHAA/NLAA figure (it has no such
   slot), so rule 2's second branch applies: a stated invariant in CI (§4
@@ -182,6 +254,29 @@ tuples:
   (`CLAUDE.md` Mission). Nothing enters `02_approved_corrections.md`;
   `theory_sources.md`'s SELECT row cites this note for the two slots and
   `ch04_wing_loads.md`'s table gains two rows.
+- **D-62.8 — The load-factor-extreme pair, PNZ and NNZ (owner, review
+  finding 2a).** Two further slots on the pattern of D-62.1, selecting on
+  **load factor** rather than air load, so the point that sizes the
+  wing-mounted masses is delivered whatever weight it occurs at (§1.4a):
+
+  | Slot | Candidates | Eligible | Picks | Tie-break | FAR basis |
+  |---|---|---|---|---|---|
+  | **PNZ** | every positive-family label (STALL +N, MAN A, MAN D, GUST D, GUST +D, MAN C, GUST +C) | `LZW > 0` | largest `nz` | largest resultant | 23.337(a), 23.341 |
+  | **NNZ** | every negative-family label (STALL −N, STALL −1G, MAN −C, GUST −C, MAN −D, GUST −D) | `LZW < 0` | most negative `nz` | largest resultant | 23.337(b), 23.341 |
+
+  The roll families (AC ROLL, ST ROL) are not candidates: their load factor
+  is two-thirds of the manoeuvre value by construction (23.349) and they have
+  their own slots. **Coincidence rule:** a PNZ/NNZ point that is already
+  another slot's pick is **not delivered a second time** — the slot is
+  empty and its id is a gap in the band, so one physical condition never
+  carries two ids (`case_ids` M4-2 decision 1). Measured: NNZ coincides
+  with NMAA on baron_58, concept_regional_jet and concept_heavy, PNZ with
+  PMAA on concept_heavy; on ga6_normal and atr42_100 both are new points
+  (§4 G-62.2). These two slots are also an extension above the `.BAS`
+  (D-62.6), gated like NHAA/NLAA (D-62.5), and they are what makes note
+  63's D-63.7 a question of *mass state* only: the nz extremes are already
+  in the slot set, so the variant expansion never has to recover them.
+
 - **D-62.7 — Fixtures' explicit wing-case tables are not touched here.**
   §1.5: every fixture enters `wing_mass.cases` by hand, so WINGINER/
   NETLOADS/AIRLOADS output does not move on any fixture in this issue. Which
@@ -201,7 +296,12 @@ tuples:
    negative slot: the delivered point is a member of the slot's candidate
    labels, has `LZW < 0`, and no other V-n point with those labels and
    `LZW < 0` has a larger resultant; and a slot with no eligible candidate
-   is absent from the critical set rather than filled.
+   is absent from the critical set rather than filled. **And the
+   load-factor invariant (D-62.8):** PNZ's point has the largest `nz` of
+   every eligible positive-family point and NNZ's the most negative of
+   every eligible negative-family point; a PNZ/NNZ point that equals
+   another slot's pick is absent, and a critical set never carries one V-n
+   case number under two wing ids.
 3. **G-62.2 — The frozen picks.** The regression baseline for the new slots
    is the table below, held by the Imperial digest and by name in the test:
 
@@ -213,28 +313,48 @@ tuples:
    | concept_regional_jet | STALL −N case 128, −1.00 g, 150.5 kt, fwd gross, 20,000 ft, R 34,454 | GUST −C case 173, −1.80 g, 310 kt, min weight, 20,000 ft, R 35,650 | GUST −D case 172, −0.80 g, 350 kt, min weight, 20,000 ft, R 14,457 |
    | concept_heavy | STALL −N case 8, −2.00 g, 195.3 kt, CGmax, 0 ft, R 32,463 | MAN −C case 7, −2.00 g, 250 kt, CGmax, 0 ft, R 32,367 | GUST −D case 12, −0.02 g, 312.5 kt, CGmax, 0 ft, R 2,335 |
 
-   Resultants in lb, LIMIT, before any inertia. The ATR's NMAA moves from
+   And the load-factor pair (D-62.8), with the coincidence rule applied:
+
+   | Fixture | PNZ (W-09) | NNZ (W-10) |
+   |---|---|---|
+   | ga6_normal | GUST +C case 70, +5.25 g, 170 kt, CG4, 0 ft, R 11,335 | GUST −C case 73, −3.25 g, 170 kt, CG4, 0 ft, R 6,644 |
+   | baron_58 | GUST +C case 110, +4.34 g, 195 kt, fwd regardless, 10,000 ft, R 18,961 | **empty** — coincides with NMAA (case 113) |
+   | atr42_100 | GUST +C case 170, +3.44 g, 240 kt, min weight, 12,000 ft, R 67,231 | GUST −C case 173, −1.44 g, 240 kt, min weight, 12,000 ft, R 27,272 |
+   | concept_regional_jet | GUST +C case 170, +3.80 g, 310 kt, min weight, 20,000 ft, R 82,102 | **empty** — coincides with NMAA (case 173) |
+   | concept_heavy | **empty** — coincides with PMAA (case 4) | **empty** — coincides with NMAA (case 7) |
+
+   Resultants in lb, LIMIT, before any inertia. The Baron's PNZ sits at
+   "fwd regardless", which is not derivable (§1.5), so the deck skips W-09
+   there under G-62.3. The ATR's NMAA moves from
    case 128 to case 227 under the narrowing (128 belongs to NHAA now); every
    other fixture's NMAA is the same point as today. V-n case numbers are the
    matrix's own and **renumber when #164 adds 12,000 ft to the GA6**; the
    gate names the point by label, load factor, speed, CG and altitude, not by
    number, so it survives that.
 4. **G-62.3 — The deck.** On every CLI-exportable fixture the LRA deck's
-   SUBCASE set gains exactly W-07 and W-08 (where the slot is non-empty),
-   each closing G-OR-72 and G-OR-73 like the six before it; #284's skip
-   record does not list them.
-5. **G-62.4 — Case ids.** `tests/test_case_ids.py`: W-07/W-08 are minted for
-   NHAA/NLAA and for nothing else; a critical set that omits either leaves
-   the gap; the hand-authored band W-20+ is unaffected.
-6. **Report.** §3.2's run register prints both rows on every fixture with
-   `run = no` (D-62.7: no fixture derives its wing-case table), and
-   `test_oracle_report.py`'s per-label run assertion is extended to them.
+   SUBCASE set gains W-07 and W-08 wherever the slot is non-empty **and**
+   its CG case resolves to a derivable loading, each closing G-OR-72 and
+   G-OR-73 like the six before it. Where the CG case is not derivable the
+   slot appears in #284's skip record as `loading-not-derivable`, and the
+   test asserts that record names it (`baron_58` W-08 at "fwd regardless",
+   D-62.4). Neither slot is ever silently absent.
+5. **G-62.4 — Case ids.** `tests/test_case_ids.py`: W-07…W-10 are minted
+   for NHAA/NLAA/PNZ/NNZ and for nothing else; a critical set that omits
+   any of them leaves the gap; the hand-authored band W-20+ is unaffected.
+6. **Report.** §3.2's run register prints every non-empty new row on every
+   fixture with `run = no` (D-62.7: no fixture derives its wing-case
+   table), and `test_oracle_report.py`'s per-label run assertion — today an
+   exact six-key dict — is extended to the slots the GA6 delivers (all
+   four). `safety_factors.prescribes_factor`'s docstring counts and any
+   other "six wing conditions" prose are swept in the same change.
 
 ## 5. Effect vs error bar (rule 6)
 
 Not a fidelity item: it is a **coverage** defect on shipped content. A
 down-load case for one spar is absent from every deliverable, and on the
-ATR the absent case is a −1.44 g gust at the lightest wing. Rule 6's second
+ATR the absent case is a −1.44 g gust at the lightest wing; on the GA6 the
+5.25 g and −3.25 g points, the largest load factors in the matrix, are
+absent against delivered 3.96 g and −2.43 g (§1.4a). Rule 6's second
 sentence applies (a first-order gap on shipped content outranks every
 fidelity item).
 
@@ -248,6 +368,7 @@ fidelity item).
   is unchanged in scope and follows this issue in the wave, since its
   renumber moves the case numbers the §4 table names.
 - **Leaves to the next note (note 63, #289):** wing mass states in the Wing Loads step —
+  over the **ten** slots this note delivers (six `.BAS` + NHAA/NLAA + PNZ/NNZ) —
   named disposable-mass states on `WingMassInput`, WINGINER/NETLOADS run
   per selected case per state, the base model when none is entered. The
   air-load pick per slot stays the one balanced at SELECT's CG case; that
@@ -259,7 +380,8 @@ fidelity item).
 
 ## 7. Closure obligations (tier L)
 
-`PROGRAM_SPEC.md` SELECT section + case-id rule; `ch04_wing_loads.md` table;
+`PROGRAM_SPEC.md` SELECT section + case-id rule (four slots);
+`ch04_wing_loads.md` table (four rows);
 `theory_sources.md` SELECT row; `CONVENTIONS.md` §case identity unchanged
 (the id rule already admits gaps); one `changes/<slug>.history.md` fragment
 in full step format; one Imperial digest wave (`select`, the deck, the
