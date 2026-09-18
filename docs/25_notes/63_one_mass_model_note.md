@@ -2,14 +2,15 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: AGREED 2026-09-17** (owner, in session, under the solo profile —
-`DEVELOPMENT_PROCESS.md` §0; rule 1's working-alone branch; PROPOSED,
-reviewed and flipped the same day — the critical-advocate review's three
-findings are **ruled** in §9 and their rulings are written into D-63.2,
-D-63.7, D-63.8, D-63.10, D-63.11, gate 1, G-63.3a and G-63.4; R-63.4's
-scope split is **ruled** in §9: #289 is the one-model step and **#292**
-the variants step. **#289 shipped 2026-09-17** — §10 records what moved;
-the note goes to SHIPPED at #292). This is the
+**Status: SHIPPED 2026-09-18** (AGREED 2026-09-17 — owner, in session,
+under the solo profile, `DEVELOPMENT_PROCESS.md` §0; rule 1's working-alone
+branch; PROPOSED, reviewed and flipped the same day — the critical-advocate
+review's three findings are **ruled** in §9 and their rulings are written
+into D-63.2, D-63.7, D-63.8, D-63.10, D-63.11, gate 1, G-63.3a and G-63.4;
+R-63.4's scope split is **ruled** in §9: #289 is the one-model step and
+**#292** the variants step. **#289 shipped 2026-09-18** (`113c9cd`) — §10
+records what moved; **#292 shipped 2026-09-18** — §11 records the variants
+step, its three in-code amendments and the measured re-points). This is the
 note design note 62 §6 promised: the wing mass states in the Wing Loads
 step. The discussion that shaped it (2026-09-17) widened it from "a state
 list on `WingMassInput`" to the ruling in §2: **the suite keeps one mass
@@ -417,7 +418,7 @@ before its decision is coded, and the ruling amends the decision above.
   D-63.4, D-63.6 and D-63.8 as the one-model step; D-63.5 and D-63.7 as the
   variants step with its own gates.
 
-## 10. Shipped: the one-model step (#289, 2026-09-17)
+## 10. Shipped: the one-model step (#289, 2026-09-18)
 
 What #289 delivered against §4, measured at closure (the full account is
 `changes/one-mass-model.history.md`):
@@ -454,3 +455,92 @@ What #289 delivered against §4, measured at closure (the full account is
 - **Left for #292:** D-63.5's seeds and search objective, D-63.7's variant
   table and re-pointed slot, G-63.2, G-63.3, the rest of G-63.3a, the
   25.321 row to A, this note to SHIPPED.
+
+## 11. Shipped: the variants step (#292, 2026-09-18)
+
+What #292 delivered against §4 (the full account is
+`changes/wing-variants.history.md`):
+
+- **D-63.5 as designed, with the search made concrete.**
+  `cg_cases.max_zero_fuel_weight` is the owner (`0` = not entered, the
+  estimate `max_zero_fuel_weight_estimate` = OEW + max payload offered,
+  never written; the ordering chain reads it). `seed_flight_cases` appends
+  `mzfw aft`, `mzfw fwd`, `full fuel aft` (`MZFW_CASE_NAMES`) **with their
+  loadings** from `mass_distribution.seed_loading_search`, the third search
+  objective beside the exact-subset search and the ground burn-down: over
+  the payload subsets (consumables off, or all on at 1.0), a whole-row
+  loading inside the limits is taken as it is and one outside is
+  **clipped** — one payload row scaled by the largest fraction that brings
+  it inside (the cap is MZFW / MTOW, the aft line, the weight-dependent
+  forward line) — never a trim of a loading already inside, never a second
+  row, never a solved ballast. The aft seeds take the heaviest such loading
+  (ties aft-most), the forward seed the one nearest the forward line (in
+  0.5 in bands, ties heavier). A seed coinciding with a case already seeded
+  (D-25a's weight band, the search's 0.5 in) is not written. Two things
+  the sample of §8.1 did not have: a payload row may carry a `fraction`
+  (`LoadingDefinition.fractions` was consumable-only; a part-filled hold is
+  a loading), and the database's own ballast row is payload to the seed —
+  which is how `full fuel aft` on the GA6 *is* CG1 and is skipped, as §8.1
+  said.
+- **The seeds on the fixtures.** MZFW entered on `atr42_100` (33,510 lb,
+  the type's), `baron_58` (5,270 lb, the estimate) and
+  `concept_regional_jet` (29,500 lb); `ga6_normal` keeps its four Appendix A
+  cases so the oracle's V-n numbering does not move (the seed on the GA6 is
+  asserted in memory: `mzfw aft` 2,901 lb at 85.09 in, six people and the
+  ballast row with the 5th person clipped to 0.47; `mzfw fwd` coincides
+  with CG4 and `full fuel aft` with CG1, both skipped — §8.1's copilot-only
+  `mzfw fwd` was a hand reading). ATR: `mzfw aft` 28,410 lb at 35.0 % MAC
+  with the aft hold clipped to 853 lb — §8.3's row exactly; `mzfw fwd`
+  22,225 lb at the forward line, the forward cabin clipped to 0.73;
+  `full fuel aft` 36,817 lb at 34.7 %, the aft cabin clipped to 0.80. Baron:
+  `mzfw aft` 5,270 lb at 83.45 in (all four payload rows, no fuel); `mzfw
+  fwd` 4,590 lb at 76.04 in (front seats and nose baggage); `full fuel aft`
+  coincides with `aft gross`. Jet: `mzfw aft` 29,500 at 592.4 in (forward
+  cabin clipped to 0.54); `full fuel aft` 33,000 at 593.1 in; `mzfw fwd`
+  coincides with `fwd regardless`.
+- **D-63.7 as designed, with three in-code amendments.**
+  `wing_variants.wing_variant_table` assesses every slot at every FLIGHT
+  case (`select.wing_slot_picks` within the case's points, the case's
+  `wing_mass_state`, one `fold_units` per case, air + inertia root `Mxx`)
+  and `select_wing` delivers the governing run under the slot's W id; the
+  air pick stays `select.air_picks`, and the report's §3.2 prints the full
+  table with the governing row marked. (a) **The torsion and load-factor
+  slots keep their air pick** (`select.AIR_PICK_SLOTS`: TORS, PNZ, NNZ): on
+  every fixture a root-`Mxx` re-point of TORS moved it to a heavier case
+  (the GA6's Appendix A case 18 to case 38, +5.7 %) and a PNZ re-point to a
+  point that was not the load-factor extreme at all — the criterion of
+  those slots is not the bending, and a re-pointed slot would no longer be
+  the condition its id names. (b) **A tie band of 0.5 %**
+  (`wing_variants.GOVERNING_TIE_REL`): the FLTLOADS balance converges `NZ`
+  to ±0.005 and every point's CL carries that noise, so a variant within
+  it of the air pick is not a finding; without the band the GA6's NLAA
+  moved CG4 → CG3 on 0.44 %. (c) **The coincidence rule is applied to the
+  delivered set, not within each case** — applied per case it emptied the
+  PNZ/NNZ rows and left the table without the air pick.
+- **G-63.3a's GA6 clause holds as written**: with (a) and (b) every slot's
+  governing run on `ga6_normal` is its air pick — 40 variants assessed,
+  10 delivered, the six Appendix A points among them unchanged.
+- **The measured re-points.** `atr42_100`: none — §8.4's finding stands,
+  the MTOW forward pick governs every slot with the MZFW cases in the
+  matrix (PMAA 5,850 against `mzfw aft`'s 5,750 ×10³ in-lb). `baron_58`,
+  the wing-fuel airplane where it bites: PHAA, PLAA, PMAA, ACRL and NHAA
+  move from `fwd gross` to **`mzfw aft`** (PHAA root Mxx 504 → 564 ×10³
+  in-lb, +12 %, the 720 lb of wing fuel's relief gone), NMAA and NLAA from
+  `fwd regardless` to **`mzfw fwd`** (−229 → −310, +36 %; −145 → −183,
+  +26 %). `concept_regional_jet`: NMAA from `min weight` to `fwd regardless`
+  (+1.2 %; its fuel is a fuselage tank). `concept_heavy`: one case, nothing
+  to move.
+- **The entered `wing_mass.cases` are filters** (`resolve_wing_cases`): the
+  fixtures' hand-entered nz/nx/CL/V are gone from every wing case (the
+  ACRL couples and the slot names stay), and the Baron's `cg: "aft gross"`
+  pins of §10 are gone with them — its PHAA now runs at `mzfw aft`, the
+  seeded loading, which is the point of the step. Explicit values are
+  still honoured for a project with no flight-loads inputs (the
+  C3-before-SELECT bridge).
+- **G-63.2, G-63.3 and the rest of G-63.3a** are `tests/test_one_mass_model.py`;
+  the note 62 and Appendix A pick tests read `select.air_picks`
+  (`tests/test_select.py`). The SELECT page's sub-tables and the `select`
+  CSV gain **CG case** and **Run** (the 2026-09-18 amendment), the deck's
+  subcase mass set follows the delivered run's CG case by construction
+  (`balance/air.py` looks the loading up by the point's case). One Imperial
+  digest wave; `04_far25_gap_analysis.md` 25.321 to **A**.

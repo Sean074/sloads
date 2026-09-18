@@ -1154,8 +1154,9 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("weight.max_landing_weight_lb", _WT, _ORIG, "MLW, LANDLOAD design landing weight"),
     _E("weight.max_zero_fuel_weight_lb", _WT, _SLDS,
        "MZFW, the Part 25 zero-fuel design weight (25.321; design note 63 D-63.5): stored "
-       "since v67, 0 = not entered; seeds the zero-fuel cases at #292. The original suite "
-       "had no zero-fuel design weight"),
+       "since v67, 0 = not entered; when entered the flight-case seed adds mzfw aft / "
+       "mzfw fwd / full fuel aft with their loadings (#292). The original suite had no "
+       "zero-fuel design weight"),
     _E("weight.estimation.airplane", _WT, _ORIG, "WTESTIMA airplane class"),
     _E("weight.estimation.engines", _WT, _ORIG, "WTESTIMA NOENGS", "engine count",
        EXTERNAL + "len(Project.engines) (review N1 instance 3: concept_heavy 2 vs 0)",

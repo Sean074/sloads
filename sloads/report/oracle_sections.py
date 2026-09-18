@@ -2044,12 +2044,13 @@ def _provenance_sentence(entered: bool, named: Sequence[str],
                 "the governing condition of each FAR family, taken from the "
                 "matrix without further choice.")
     sentence = (
-        "The cases below are the wing case list entered in this project, not "
-        "the selection's own result. An entered list is used exactly as "
-        "entered, and it is what the loads were computed from. It exists "
-        "because a condition can carry data the selection does not name -- an "
-        "accelerated-roll case needs an unbalanced rolling moment, which comes "
-        "from the aileron analysis and not from the V-n matrix.")
+        "The cases below are the wing case list entered in this project: a "
+        "filter on the selection's slots, not a second source of points "
+        "(design note 63 D-63.7). An entered case that names a slot runs at "
+        "the slot's delivered point -- the net-governing run -- and carries "
+        "what the selection cannot name: an accelerated-roll case's "
+        "unbalanced rolling moment, which comes from the aileron analysis and "
+        "not from the V-n matrix, or an explicit mass state.")
     if missing:
         sentence += (
             " The selection names "
@@ -2228,6 +2229,58 @@ def _wing_mass_tie_sentence(project: Project, system: UnitSystem,
     return " ".join(parts)
 
 
+def _variant_table(project: Project, envelope: object,
+                   system: UnitSystem) -> Optional[Table]:
+    """3.2's variant register (design note 63 D-63.7, #292): every wing slot
+    at every FLIGHT mass state, the governing run marked.
+
+    Read from ``wing_variants.wing_variant_table`` on the same matrix the
+    selection searched; ``None`` when the wing analysis cannot run (the
+    table's own stated reason) or there is no matrix.
+    """
+    if envelope is None:
+        return None
+    from ..modules.wing_variants import wing_variant_table
+
+    try:
+        table = wing_variant_table(project, envelope)  # type: ignore[arg-type]
+    except Exception:
+        return None
+    if not table.variants:
+        return None
+    u = Units(system)
+    rows = []
+    for v in table.variants:
+        mark = "governing" if v.governing else ("air pick" if v.air_pick else "")
+        rows.append([
+            v.slot, v.cg, v.run, format_value(v.altitude_ft), v.config or "--",
+            u.plain(v.weight_lb, "mass"), format_value(v.v_eas_kt), format_value(v.nz),
+            u.plain(v.air_root_mxx, "moment"), u.plain(v.inertia_root_mxx, "moment"),
+            u.plain(v.root_mxx, "moment"), mark or "--",
+        ])
+    return Table(
+        title="Wing slot variants: every slot at every flight mass state",
+        columns=["Slot", "CG case", "Run", "Altitude (ft)", "Config",
+                 f"Weight ({u.label('mass')})", "V (KEAS)", "Nz",
+                 f"Air root Mxx ({u.label('moment')})",
+                 f"Inertia root Mxx ({u.label('moment')})",
+                 f"Net root Mxx ({u.label('moment')})", "Marked"],
+        rows=rows,
+        note=("Each slot of the wing search is assessed at every FLIGHT "
+              "weight/CG case: the air load is that family's own governing "
+              "point among the points balanced at the case, the inertia is "
+              "the case's loading (design note 63 D-63.7). The governing "
+              "variant -- the extreme signed root bending, largest for the "
+              "positive-lift slots and most negative for the negative ones -- "
+              "is the run the slot is delivered as, under the slot's W id; the "
+              "selection's air pick over the whole matrix is marked where it "
+              "is not also the governing run. The steady-roll torsion slot and "
+              "the load-factor extremes are delivered at their air pick, "
+              "because their criterion is not the bending. Root bending is "
+              "the same about the 25 % chord and the loads reference axis; "
+              "Nz is WINGINER's, the negated flight load factor."))
+
+
 def _wing_cases(project: Project, *, system: UnitSystem,
                 plan: Sequence[SectionPlan]) -> Section:
     """3.2 -- what was run, at what condition, under which rule."""
@@ -2254,6 +2307,7 @@ def _wing_cases(project: Project, *, system: UnitSystem,
     ]
     body = [paragraph for paragraph in body if paragraph]
     tables = [t for t in (table, _selection_table(conditions, run),
+                          _variant_table(project, envelope, system),
                           _nomenclature_table(net, system))
               if t is not None]
     if table is None:

@@ -1073,7 +1073,7 @@
         "nx": -0.1318,
         "unbal_moment": 0,
         "cl": 0.47,
-        "v_eas_kt": 170,
+        "v_eas_kt": 170.0,
         "cg": null
       },
       {
@@ -1083,7 +1083,7 @@
         "nx": 0.4009,
         "unbal_moment": -149043,
         "cl": 1.55,
-        "v_eas_kt": 116,
+        "v_eas_kt": 116.0,
         "cg": null
       }
     ]

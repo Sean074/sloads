@@ -81,7 +81,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional
 
 from . import cg_cases, mass_distribution
 from .constants import ULTIMATE_FACTOR
@@ -299,6 +299,46 @@ def wtenv_cg_limits(project: Project) -> Optional["tuple[float, float]"]:
     return min(fwd_candidates), aft
 
 
+def wtenv_fwd_cg_limit_line(project: Project) -> Optional[Callable[[float], Optional[float]]]:
+    """The WTENV forward-limit line as **one callable**, ``weight_lb -> station``.
+
+    :func:`wtenv_fwd_cg_limit_at_weight` reads WTENV once per call; a search
+    that asks the limit at thousands of weights (``cg_cases.seed_flight_cases``'
+    zero-fuel and full-fuel seeds, design note 63 D-63.5) resolves the line
+    here once and evaluates it. Same anchors, same clamp, same ``None`` cases;
+    the callable returns ``None`` for a non-positive weight.
+    """
+    limits = _wtenv_stations(project)
+    if limits is None:
+        return None
+    fwd_s = limits.get("Forward gross station")
+    reg_s = limits.get("Forward regardless station")
+    if fwd_s is None or reg_s is None:
+        return None
+    env = project.weight.envelope if project.weight is not None else None
+    if env is None:  # _wtenv_stations has already returned None in this case
+        return None
+    w_gross, w_reg = env.gross_weight, env.fwd_regardless_weight
+    if not w_gross or not w_reg or w_gross <= 0 or w_reg <= 0:
+        return None
+    if w_gross == w_reg:
+        return lambda w: fwd_s if w > 0 else None
+    # Anchor by weight, not by name, so a swapped envelope clamps instead of running away.
+    (w_lo, s_lo), (w_hi, s_hi) = (
+        ((w_reg, reg_s), (w_gross, fwd_s)) if w_reg < w_gross
+        else ((w_gross, fwd_s), (w_reg, reg_s)))
+
+    def at(weight_lb: float) -> Optional[float]:
+        if weight_lb <= 0:
+            return None
+        if weight_lb <= w_lo:
+            return s_lo
+        if weight_lb >= w_hi:
+            return s_hi
+        return s_lo + (weight_lb - w_lo) / (w_hi - w_lo) * (s_hi - s_lo)
+    return at
+
+
 def wtenv_fwd_cg_limit_at_weight(project: Project, weight_lb: float) -> Optional[float]:
     """The WTENV **forward** structural CG limit (fuselage station, in) at ``weight_lb``.
 
@@ -324,32 +364,8 @@ def wtenv_fwd_cg_limit_at_weight(project: Project, weight_lb: float) -> Optional
     Public (M4-17c): the Landing Loads CG-case seed imports it, and ``app/`` must not
     import ``sloads`` underscore symbols (M4-12).
     """
-    if weight_lb <= 0:
-        return None
-    limits = _wtenv_stations(project)
-    if limits is None:
-        return None
-    fwd_s = limits.get("Forward gross station")
-    reg_s = limits.get("Forward regardless station")
-    if fwd_s is None or reg_s is None:
-        return None
-    env = project.weight.envelope if project.weight is not None else None
-    if env is None:  # _wtenv_stations has already returned None in this case
-        return None
-    w_gross, w_reg = env.gross_weight, env.fwd_regardless_weight
-    if not w_gross or not w_reg or w_gross <= 0 or w_reg <= 0:
-        return None
-    if w_gross == w_reg:
-        return fwd_s
-    # Anchor by weight, not by name, so a swapped envelope clamps instead of running away.
-    (w_lo, s_lo), (w_hi, s_hi) = (
-        ((w_reg, reg_s), (w_gross, fwd_s)) if w_reg < w_gross
-        else ((w_gross, fwd_s), (w_reg, reg_s)))
-    if weight_lb <= w_lo:
-        return s_lo
-    if weight_lb >= w_hi:
-        return s_hi
-    return s_lo + (weight_lb - w_lo) / (w_hi - w_lo) * (s_hi - s_lo)
+    line = wtenv_fwd_cg_limit_line(project)
+    return line(weight_lb) if line is not None else None
 
 
 def _check_cg_envelope(project: Project) -> List[ConsistencyWarning]:
@@ -1041,7 +1057,9 @@ def _check_weight_case_model(project: Project) -> List[ConsistencyWarning]:
     # manufacturer's *empty weight*, not OEW, which adds the MINIMUM crew
     # (#94, C210-12): the chain says what the figure is.
     total, empty, _ = weight.database_totals()
-    chain = [("empty weight", empty), ("max landing weight", mlw),
+    mzfw = cg_cases.max_zero_fuel_weight(project, required=False)
+    chain = [("empty weight", empty), ("max zero-fuel weight", mzfw),
+             ("max landing weight", mlw),
              ("max take-off weight", mtow), ("the item database total", total)]
     stated = [(label, value) for label, value in chain if value > 0]
     breaks = [(stated[i], stated[i + 1]) for i in range(len(stated) - 1)
@@ -1050,9 +1068,9 @@ def _check_weight_case_model(project: Project) -> List[ConsistencyWarning]:
         out.append(ConsistencyWarning(
             "weight_order_chain",
             f"{lo_label} {lo:,.0f} lb exceeds {hi_label} {hi:,.0f} lb. The design "
-            "weights must satisfy empty weight <= MLW <= MTOW <= math.fsum(items) -- you must be "
-            "able to land with reserves, and you cannot weigh more than everything "
-            "you have (decisions G-4 / G-14).",
+            "weights must satisfy empty weight <= MZFW <= MLW <= MTOW <= the item total -- "
+            "you must be able to land with reserves, and you cannot weigh more than "
+            "everything you have (decisions G-4 / G-14; MZFW note 63 D-63.5).",
             PAGE_WEIGHT_CG))
 
     floor = cg_cases.max_landing_weight_estimate(project)

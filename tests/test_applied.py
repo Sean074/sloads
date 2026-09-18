@@ -170,7 +170,9 @@ def test_the_applied_set_carries_every_strip_and_every_concentrated_mass():
     one = net[0]
     rows = ap.applied_load_rows([one])
     assert len(rows) == len(one.stations) + len(one.point_loads)
-    assert len(one.point_loads) == 9, "the Baron's nine starboard POINT wing rows (note 63)"
+    # Nine at #289; eight since #292 -- PHAA is delivered at the seeded zero-fuel
+    # `mzfw aft` loading (note 63 D-63.7), so the tank row is not aboard.
+    assert len(one.point_loads) == 8, "the Baron's eight starboard POINT wing rows at zero fuel (note 63)"
     named = [r.label for r in rows if r.gid is None]
     assert named == [m.name for m in one.point_loads]
 

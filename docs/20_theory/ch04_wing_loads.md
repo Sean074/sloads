@@ -44,6 +44,27 @@ down-load slot (D-62.2). A slot with no eligible point is **empty**, and a
 are the concept-mode superset rule: the six Appendix A picks are the same
 points on the same figures.
 
+**Each slot is then assessed at every flight mass state** (design note 63
+D-63.7, #292). The criterion above, applied within the points balanced at
+one weight/CG case, names that family's point at that case; run at the
+case's own loading (chapter 13's inertia relief is the case's wing fuel and
+wing-mounted masses, not a fixed list) it gives one net root bending per
+slot per case, and the slot is **delivered at the variant whose signed root
+`Mxx` is the extreme** — largest for the positive-lift slots, most negative
+for the negative ones. On a wing-fuel airplane the zero-fuel loading at the
+aft limit removes the relief and takes the up-bending slots from the MTOW
+point (`baron_58`: seven of nine slots move to `mzfw aft`); on the Appendix A
+airplane, whose fuel is in the fuselage, every slot's governing run is its
+air pick, which is the oracle lock. The air pick over the whole matrix stays
+queryable as `select.air_picks`; the report's §3.2 prints the full variant
+table with the governing row marked. Two slots keep their air pick by
+definition: `TORS`, whose criterion is torsion, and `PNZ`/`NNZ`, whose
+criterion is the load factor — re-pointing them by bending would deliver a
+condition their id does not name. A variant within the V-n balance's own
+noise of the air pick (0.5 %) is a tie the air pick keeps. The FLIGHT cases a
+max zero-fuel weight seeds (D-63.5: `mzfw aft`, `mzfw fwd`, `full fuel aft`,
+each with its loading) are what puts the zero-fuel state in the matrix.
+
 The selected set becomes the wing's case list — the conditions AIRLOADS
 re-evaluates for distributed airloads and WINGINER/NETLOADS combine with
 inertia. Every wing case id traces to one of these criteria; contrast the

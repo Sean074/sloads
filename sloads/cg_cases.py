@@ -41,6 +41,8 @@ from .models import (
 )
 
 __all__ = [
+    "FLIGHT_CASE_NAMES",
+    "MZFW_CASE_NAMES",
     "cases_for",
     "database_total",
     "flight_cases",
@@ -49,6 +51,8 @@ __all__ = [
     "max_landing_weight",
     "max_landing_weight_estimate",
     "max_takeoff_weight",
+    "max_zero_fuel_weight",
+    "max_zero_fuel_weight_estimate",
     "seed_flight_cases",
     "seed_landing_cases",
 ]
@@ -58,7 +62,15 @@ __all__ = [
 #: gross-weight loading for the balanced-airplane deliverable. Names are the
 #: seed's own; :func:`seed_flight_cases` is their one writer.
 FLIGHT_CASE_NAMES = ("aft gross", "fwd gross", "fwd regardless", "min weight",
-                     "mid gross")
+                     "mid gross", "mzfw aft", "mzfw fwd", "full fuel aft")
+
+#: The three of :data:`FLIGHT_CASE_NAMES` that a max zero-fuel weight adds
+#: (design note 63, D-63.5): the heaviest zero-fuel loading toward each edge
+#: of the envelope, and the full-fuel loading at the aft edge -- the mass
+#: states a wing-fuel airplane's up-bending and down-bending slots are governed
+#: at. Seeded **with** their loadings, and only when they do not coincide
+#: with a case already seeded.
+MZFW_CASE_NAMES = ("mzfw aft", "mzfw fwd", "full fuel aft")
 
 
 # --------------------------------------------------------------------------- #
@@ -175,6 +187,40 @@ def max_landing_weight(project: Project, *, required: bool = True) -> float:
             "The Weight/CG page offers OEW + max payload + reserve fuel as a "
             "starting estimate.")
     return mlw
+
+
+def max_zero_fuel_weight(project: Project, *, required: bool = True) -> float:
+    """MZFW -- ``weight.max_zero_fuel_weight_lb``, the single owner (note 63, D-63.5).
+
+    The Part 25 zero-fuel design weight (25.321), the third design weight
+    beside MTOW and MLW in the G-4 / G-14 shape: ``0`` means not entered and
+    nothing derives it silently -- the seed that needs it
+    (:func:`seed_flight_cases`' three MZFW cases) simply does not run, and the
+    GUI offers :func:`max_zero_fuel_weight_estimate` for acceptance. ``required``
+    raises instead of returning ``0.0``.
+    """
+    w = _weight_slice(project)
+    mzfw = w.max_zero_fuel_weight_lb if w is not None else 0.0
+    if mzfw <= 0.0 and required:
+        raise MissingInputError(
+            "no max zero-fuel weight: set weight.max_zero_fuel_weight_lb (design "
+            "note 63 D-63.5 made it the single owner of the zero-fuel design "
+            "weight). The Weight/CG page offers OEW + max payload as a starting "
+            "estimate.")
+    return mzfw
+
+
+def max_zero_fuel_weight_estimate(project: Project) -> Optional[float]:
+    """``OEW + max payload`` -- the zero-fuel loading the database can hold.
+
+    The same sum as :func:`max_landing_weight_estimate`, stated under its own
+    name because it is a different question: every ``EMPTY`` and ``MINIMUM``
+    row (the reserve stays aboard by definition, which is also what the
+    zero-fuel seed keeps) plus every discretionary row that is neither
+    consumable mission fuel nor a ballast row. Offered by the GUI, never
+    written by the calc.
+    """
+    return max_landing_weight_estimate(project)
 
 
 #: Where :func:`max_takeoff_weight` looks when the SSOT is unset, in order. These
@@ -338,12 +384,24 @@ def seed_flight_cases(project: Project) -> Tuple[List[CgCase], List[str]]:
     and the case still seeds -- the derivability pin, not the seed, is what
     reports an unreachable limit.
 
+    **Three more when a max zero-fuel weight is entered** (design note 63,
+    D-63.5; :data:`MZFW_CASE_NAMES`): ``mzfw aft`` and ``mzfw fwd``, the
+    heaviest zero-fuel loading inside the envelope toward each edge under
+    MZFW, and ``full fuel aft``, every consumable row full and the payload
+    trimmed to MTOW at the aft edge. Each is written **with** its loading
+    (:func:`sloads.mass_distribution.seed_loading_search`; one payload row may
+    be trimmed onto the limit), so the case is an entered loading from birth.
+    A seed that coincides with a case already in the list -- weight within the
+    D-25a echo band and CG within the search's own match tolerance, note 63
+    §8.1's ``full fuel aft`` = CG1 on the Appendix A airplane -- is not
+    written. Without MZFW the list is the five above, unchanged.
+
     Returns ``(cases, missing)`` exactly as :func:`seed_landing_cases` does: an
     empty list and the named missing sources when it cannot seed. Never
     zero-filled.
     """
-    from .mass_distribution import derive_case_loadings
-    from .validation import _wtenv_stations
+    from .mass_distribution import derive_case_loadings, seed_loading_search
+    from .validation import _wtenv_stations, wtenv_fwd_cg_limit_line
 
     missing = []
     weight = project.weight
@@ -375,7 +433,7 @@ def seed_flight_cases(project: Project) -> Tuple[List[CgCase], List[str]]:
         ("min weight", w_min, x_min),
         ("mid gross", env.gross_weight, 0.5 * (fwd_g + aft)),
     )
-    assert tuple(n for n, _, _ in seeds) == FLIGHT_CASE_NAMES
+    assert tuple(n for n, _, _ in seeds) == FLIGHT_CASE_NAMES[:len(seeds)]
     cases = [CgCase(name=name, weight_lb=round(w, 2), xcg=round(x, 2),
                     zcg=round(z_all, 2), analyses={AnalysisKind.FLIGHT})
              for name, w, x in seeds]
@@ -386,4 +444,33 @@ def seed_flight_cases(project: Project) -> Tuple[List[CgCase], List[str]]:
         w = math.fsum(it.weight_lb for it in real)
         if loading.derivable and w > 0:
             case.zcg = round(math.fsum(it.weight_lb * it.z for it in real) / w, 2)
+
+    # The zero-fuel and full-fuel seeds (D-63.5), each with its loading.
+    mzfw = max_zero_fuel_weight(project, required=False)
+    fwd_line = wtenv_fwd_cg_limit_line(project) if mzfw > 0.0 else None
+    if mzfw > 0.0 and fwd_line is not None:
+        mtow = max_takeoff_weight(project, required=False) or env.gross_weight
+        searches = (
+            ("mzfw aft", dict(fuel="none", cap_lb=mzfw, edge="aft")),
+            ("mzfw fwd", dict(fuel="none", cap_lb=mzfw, edge="fwd")),
+            ("full fuel aft", dict(fuel="full", cap_lb=mtow, edge="aft")),
+        )
+        assert tuple(n for n, _ in searches) == MZFW_CASE_NAMES
+        for name, spec in searches:
+            found = seed_loading_search(project, aft_limit=aft, fwd_limit_at=fwd_line,
+                                        **spec)   # type: ignore[arg-type]
+            if found is None or any(_coincident(c, found.weight_lb, found.cg_x)
+                                    for c in cases):
+                continue
+            cases.append(CgCase(name=name, weight_lb=round(found.weight_lb, 2),
+                                xcg=round(found.cg_x, 2), zcg=round(found.cg_z, 2),
+                                analyses={AnalysisKind.FLIGHT}, loading=found.loading))
     return cases, []
+
+
+def _coincident(case: CgCase, weight_lb: float, xcg: float) -> bool:
+    """Is a seed the same point as ``case`` -- weight within the D-25a echo band
+    and CG within the loading search's match tolerance (D-63.5's skip rule)?"""
+    from .mass_distribution import cg_match_tolerance, echo_weight_tolerance
+    return (abs(case.weight_lb - weight_lb) <= echo_weight_tolerance(case.weight_lb)
+            and abs(case.xcg - xcg) <= cg_match_tolerance())

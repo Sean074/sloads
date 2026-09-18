@@ -278,3 +278,251 @@ def test_the_barons_fwd_light_beam_integrates_the_loadings_body_weight():
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+# --------------------------------------------------------------------------- #
+# #292 -- the variants step (design note 63 D-63.5 / D-63.7; G-63.2, G-63.3,
+# the rest of G-63.3a)
+# --------------------------------------------------------------------------- #
+def _variants(p):
+    from sloads.modules.wing_variants import wing_variant_table
+    envelope = default_envelope(p)
+    return envelope, wing_variant_table(p, envelope)
+
+
+@pytest.mark.parametrize("example", ["atr42_100.project.json", "baron_58.project.json"])
+def test_zero_fuel_removes_the_relief_and_the_sign_is_right(example):
+    """**G-63.2.** On the two wing-fuel fixtures, for the PHAA slot, net root
+    bending at the zero-fuel state exceeds net root bending at the full-fuel
+    state **at equal air load**; on NHAA the inequality reverses. Read off
+    the variant table's inertia half, so the comparison is the relief alone."""
+    p = _project(example)
+    _, table = _variants(p)
+    full = "full fuel aft" if example.startswith("atr42") else "aft gross"
+    for slot, sign in (("PHAA", +1.0), ("NHAA", -1.0)):
+        rows = {v.cg: v for v in table.by_slot(slot)}
+        zero, fuel = rows["mzfw aft"], rows[full]
+        assert zero.mass_state_case == "mzfw aft" and fuel.mass_state_case == full
+        # The relief: at the same nz the zero-fuel inertia moment is smaller in
+        # magnitude, so air + inertia is larger in the slot's own sign.
+        net_zero = zero.air_root_mxx + zero.inertia_root_mxx * (fuel.nz / zero.nz)
+        assert sign * (zero.air_root_mxx + zero.inertia_root_mxx * (fuel.nz / zero.nz)) > 0
+        assert sign * (net_zero - (zero.air_root_mxx + fuel.inertia_root_mxx)) > 0, (
+            example, slot, zero.inertia_root_mxx, fuel.inertia_root_mxx)
+        assert abs(zero.inertia_root_mxx) < abs(fuel.inertia_root_mxx), (example, slot)
+
+
+@pytest.mark.parametrize("example", EXAMPLES)
+def test_the_variant_table_is_complete_and_the_slot_is_delivered_at_its_governing_run(example):
+    """**G-63.3.** Slots × FLIGHT cases rows -- every slot the family criterion
+    can fill within a case has a row at that case; exactly one governing
+    per slot; SELECT's delivered condition for the slot *is* the governing
+    run; the balanced deck's ``$`` header names that run key and its case is
+    that CG case (the subcase's mass set is the governing run's loading)."""
+    from sloads.modules.balance import build_balanced_cases
+    from sloads.modules.select import AIR_PICK_SLOTS, wing_slot_picks
+
+    p = _project(example)
+    envelope, table = _variants(p)
+    assert table.variants, table.reason
+    by_case = {pt.case: pt for pt in envelope.vn}
+    # Completeness: the family pick within each case is a row.
+    expected = set()
+    for k in flight_cases(p):
+        vn_k = [pt for pt in envelope.vn if pt.cg == k.name]
+        for label, _, pt in wing_slot_picks(p, vn_k, coincide=False):
+            if pt is not None:
+                expected.add((label, k.name, pt.case))
+    assert {(v.slot, v.cg, v.case) for v in table.variants} == expected
+    # Exactly one governing per slot, on a row of that slot; the air-pick
+    # slots keep their air pick.
+    governing = table.governing()
+    assert set(governing) == set(table.slots)
+    delivered_labels = {c.label for c in build_critical(p, envelope).conditions
+                        if c.component == "wing"}
+    for slot, g in governing.items():
+        assert sum(1 for v in table.by_slot(slot) if v.governing) == 1, slot
+        if slot in AIR_PICK_SLOTS:
+            # Its air pick, or -- when the whole-matrix pick is empty (D-62.8's
+            # coincidence rule) -- the slot is assessed and not delivered.
+            assert g.air_pick or slot not in delivered_labels, slot
+    # The delivered condition is the governing run.
+    delivered = {c.label: c for c in build_critical(p, envelope).conditions
+                 if c.component == "wing"}
+    for slot, c in delivered.items():
+        g = governing[slot]
+        assert c.case == g.case, (slot, c.case, g.case)
+        assert c.case_ref is not None and c.case_ref.cg == g.cg
+        assert c.case_ref.run_key == g.run_key, slot
+        assert by_case[c.case].cg == g.cg
+    # The deck: header run key and case both the governing run's.
+    for case in build_balanced_cases(p):
+        if case.label in delivered and not case.hand:
+            g = governing[case.label]
+            assert case.case_ref.run_key == g.run_key, case.label
+            assert case.cg == g.cg, (case.label, case.cg, g.cg)
+            assert case.vn_case == g.case
+
+
+@pytest.mark.parametrize("example", EXAMPLES)
+def test_no_w_id_is_carried_by_two_runs_and_the_ga6_delivers_its_air_picks(example):
+    """**G-63.3a, the rest.** Across a full run no two ``CaseRef``s share a
+    run key with different loads and no W id is carried by more than one
+    run; on ``ga6_normal`` the governing run of every slot has the run key of
+    SELECT's air pick (the Appendix A set reproduced), and ``select.air_picks``
+    asserts the six Appendix A points unchanged."""
+    from sloads import registry
+    from sloads.modules.select import air_picks
+
+    p = _project(example)
+    envelope, table = _variants(p)
+    seen_key = {}
+    seen_id = {}
+    for result in registry.run_all_modules(p):
+        for cond in result.conditions:
+            ref = cond.case_ref
+            if ref is None or ref.component != "wing" or not ref.run:
+                continue
+            if not ref.case_id.startswith("W-"):
+                continue
+            key = ref.run_key
+            loads = tuple((lv.key, round(lv.value, 6)) for lv in cond.values)
+            # One run key, one W id -- and the W id names one run key.
+            assert seen_key.setdefault(key, ref.case_id) == ref.case_id, (key, ref.case_id)
+            assert seen_id.setdefault(ref.case_id, key) == key, (ref.case_id, key)
+    picks = {c.label: c for c in air_picks(p, envelope)}
+    if example == "ga6_normal.project.json":
+        for slot, g in table.governing().items():
+            assert g.air_pick and g.case == picks[slot].case, (slot, g.run_key)
+        # The six Appendix A runs by name and CG case; their CL/V are
+        # ``tests/test_select.py``'s, on the three-altitude project.
+        expect = {"PHAA": ("STALL +N", "CG2"), "PLAA": ("MAN D", "CG2"),
+                  "PMAA": ("GUST +C", "CG2"), "NMAA": ("GUST -C", "CG3"),
+                  "ACRL": ("AC ROLL", "CG2"), "TORS": ("ST ROL C", "CG1")}
+        vn = {pt.case: pt for pt in envelope.vn}
+        for slot, (run, cg) in expect.items():
+            c = picks[slot]
+            assert (vn[c.case].condition, vn[c.case].cg) == (run, cg), slot
+
+
+def test_a_repointed_slot_says_so_and_a_project_without_a_wing_keeps_its_air_picks():
+    """A delivered condition that moved names both runs in its ``note``; a
+    project the wing analysis cannot run on (no ``wing_mass``) delivers the
+    air picks unchanged with an empty table stating why."""
+    from dataclasses import replace
+    from sloads.modules.select import air_picks
+    from sloads.modules.wing_variants import wing_variant_table
+
+    p = _project("baron_58.project.json")
+    envelope = default_envelope(p)
+    picks = {c.label: c.case for c in air_picks(p, envelope)}
+    moved = [c for c in build_critical(p, envelope).conditions
+             if c.component == "wing" and c.case != picks[c.label]]
+    assert moved, "the Baron re-points seven slots at #292"
+    for c in moved:
+        assert "net-governing run" in c.note and f"V-n case {picks[c.label]}" in c.note, c.label
+    bare = replace(p, wing_mass=None)
+    table = wing_variant_table(bare, envelope)
+    assert not table.variants and "wing_mass" in table.reason
+    delivered = {c.label: c.case for c in build_critical(bare, envelope).conditions
+                 if c.component == "wing"}
+    assert delivered == picks
+
+
+# --------------------------------------------------------------------------- #
+# D-63.5 -- the MZFW seeds
+# --------------------------------------------------------------------------- #
+def test_the_mzfw_seeds_on_the_appendix_a_airplane():
+    """Seeded in memory (the fixture carries no MZFW so its V-n numbering does
+    not move): ``mzfw aft`` is the six people and the ballast row clipped
+    onto the aft line; ``mzfw fwd`` coincides with CG4 and ``full fuel aft``
+    with CG1 (note 63 §8.1's skip rule), so neither is written."""
+    from sloads.cg_cases import (MZFW_CASE_NAMES, max_zero_fuel_weight_estimate,
+                                 seed_flight_cases)
+
+    p = _project("ga6_normal.project.json")
+    p.weight.max_zero_fuel_weight_lb = max_zero_fuel_weight_estimate(p)
+    assert p.weight.max_zero_fuel_weight_lb == pytest.approx(2913.0)
+    seeded, missing = seed_flight_cases(p)
+    assert not missing
+    by_name = {c.name: c for c in seeded}
+    assert [c.name for c in seeded if c.name in MZFW_CASE_NAMES] == ["mzfw aft"]
+    aft = by_name["mzfw aft"]
+    assert aft.weight_lb == pytest.approx(2900.84, abs=0.01)
+    assert aft.xcg == pytest.approx(85.09, abs=0.01)
+    assert aft.loading is not None
+    assert set(aft.loading.aboard) == {"Copilot", "3rd person", "4th person",
+                                       "5th person", "6th person", "Ballast"}
+    assert list(aft.loading.fractions) == ["5th person"]
+    assert 0.46 < aft.loading.fractions["5th person"] < 0.48
+
+
+def test_the_atr_mzfw_aft_seed_is_note_63s_row_and_is_entered_from_birth():
+    """Note 63 §8.3: ``mzfw aft`` 28,410 lb at 35.0 % MAC with the aft hold
+    trimmed to 853 lb -- the search's answer to the pound; and the seeded
+    case is an entered loading, so D-25a's echo reads it."""
+    from sloads.cg_cases import seed_flight_cases
+    from sloads.mass_distribution import derive_case_loadings
+
+    p = _project("atr42_100.project.json")
+    seeded, missing = seed_flight_cases(p)
+    assert not missing
+    aft = next(c for c in seeded if c.name == "mzfw aft")
+    assert aft.weight_lb == pytest.approx(28409.6, abs=0.05)
+    assert aft.loading.fractions["Cargo, aft hold"] * 1050.0 == pytest.approx(853.0, abs=0.5)
+    assert aft.xcg == pytest.approx(402.06, abs=0.01)          # the aft line
+    ld = derive_case_loadings(p, [aft])[0]
+    assert ld.entered and ld.derivable and ld.weight_lb == pytest.approx(aft.weight_lb, abs=0.05)
+    # The fixture carries exactly the seed (its own drift guard is test_cg_cases).
+    assert [c.name for c in flight_cases(p)][-3:] == ["mzfw aft", "mzfw fwd", "full fuel aft"]
+
+
+def test_the_seed_search_clips_and_never_trims_a_loading_that_is_inside():
+    """The search's contract: a whole-row loading inside the limits is taken
+    as it is; only a loading outside is clipped, by one row, by the least it
+    takes; the cap is honoured exactly; nothing is found under a cap the
+    fixed rows alone exceed."""
+    from sloads.mass_distribution import seed_loading_search
+
+    p = _project("ga6_normal.project.json")
+    aft, fwd = 85.09396, (lambda w: 72.62436)
+    # A cap below the base + reserve rows: nothing.
+    assert seed_loading_search(p, fuel="none", cap_lb=2000.0, edge="aft",
+                               aft_limit=aft, fwd_limit_at=fwd) is None
+    # Cap binds: the heaviest zero-fuel loading is clipped onto the cap exactly.
+    found = seed_loading_search(p, fuel="none", cap_lb=2500.0, edge="aft",
+                                aft_limit=aft, fwd_limit_at=fwd)
+    assert found is not None and found.weight_lb == pytest.approx(2500.0, abs=1e-6)
+    assert len(found.loading.fractions) == 1 and found.trimmed
+    # Aft line binds: one row clipped, the CG on the line to the search's step.
+    found = seed_loading_search(p, fuel="none", cap_lb=10000.0, edge="aft",
+                                aft_limit=aft, fwd_limit_at=fwd)
+    assert found.cg_x <= aft + 1e-6 and found.cg_x > aft - 0.05
+    assert len(found.loading.fractions) == 1
+    # Forward edge on a loading already inside: whole rows, no fraction.
+    found = seed_loading_search(p, fuel="none", cap_lb=10000.0, edge="fwd",
+                                aft_limit=aft, fwd_limit_at=fwd)
+    assert found.loading.fractions == {} and found.weight_lb == pytest.approx(2063.0)
+    # Full fuel: every consumable row aboard at 1.0.
+    found = seed_loading_search(p, fuel="full", cap_lb=3400.0, edge="aft",
+                                aft_limit=aft, fwd_limit_at=fwd)
+    assert "Fuel to gross wt" in found.loading.aboard
+    assert found.weight_lb == pytest.approx(3400.0, abs=1e-6)
+
+
+def test_mzfw_is_a_design_weight_in_the_mlw_shape():
+    """``0`` = not entered and refuses when required; the ordering chain
+    names it; the estimate is OEW + max payload and is never written."""
+    from sloads import validation
+    from sloads.cg_cases import max_zero_fuel_weight, max_zero_fuel_weight_estimate
+    from sloads.models import MissingInputError
+
+    p = _project("ga6_normal.project.json")
+    assert max_zero_fuel_weight(p, required=False) == 0.0
+    with pytest.raises(MissingInputError, match="max_zero_fuel_weight_lb"):
+        max_zero_fuel_weight(p)
+    assert max_zero_fuel_weight_estimate(p) == pytest.approx(2913.0)
+    assert p.weight.max_zero_fuel_weight_lb == 0.0
+    p.weight.max_zero_fuel_weight_lb = 3500.0          # above MTOW: the chain says so
+    codes = [w.code for w in validation.consistency_warnings(p)]
+    assert "weight_order_chain" in codes

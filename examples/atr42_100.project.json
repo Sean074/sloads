@@ -569,6 +569,64 @@
         ]
       },
       {
+        "name": "mzfw aft",
+        "weight_lb": 28409.6,
+        "xcg": 402.06,
+        "zcg": 128.12,
+        "analyses": [
+          "flight"
+        ],
+        "loading": {
+          "aboard": [
+            "Passengers, fwd cabin (24)",
+            "Passengers, aft cabin (24)",
+            "Cargo, fwd hold",
+            "Cargo, aft hold"
+          ],
+          "fractions": {
+            "Cargo, aft hold": 0.811997185846668
+          }
+        }
+      },
+      {
+        "name": "mzfw fwd",
+        "weight_lb": 22225.4,
+        "xcg": 383.55,
+        "zcg": 129.89,
+        "analyses": [
+          "flight"
+        ],
+        "loading": {
+          "aboard": [
+            "Passengers, fwd cabin (24)"
+          ],
+          "fractions": {
+            "Passengers, fwd cabin (24)": 0.73
+          }
+        }
+      },
+      {
+        "name": "full fuel aft",
+        "weight_lb": 36817.0,
+        "xcg": 400.13,
+        "zcg": 136.1,
+        "analyses": [
+          "flight"
+        ],
+        "loading": {
+          "aboard": [
+            "Passengers, fwd cabin (24)",
+            "Passengers, aft cabin (24)",
+            "Cargo, aft hold",
+            "Wing fuel, left",
+            "Wing fuel, right"
+          ],
+          "fractions": {
+            "Passengers, aft cabin (24)": 0.8004901960784314
+          }
+        }
+      },
+      {
         "name": "aft max landing",
         "weight_lb": 35000.0,
         "xcg": 402.06,
@@ -600,7 +658,8 @@
       }
     ],
     "max_landing_weight_lb": 35000.0,
-    "max_takeoff_weight_lb": 36817.0
+    "max_takeoff_weight_lb": 36817.0,
+    "max_zero_fuel_weight_lb": 33510.0
   },
   "geometry": {
     "surfaces": [
@@ -962,11 +1021,11 @@
       {
         "name": "PHAA",
         "case": null,
-        "nz": -2.5,
-        "nx": 0.4,
+        "nz": null,
+        "nx": null,
         "unbal_moment": 0,
-        "cl": 1.55,
-        "v_eas_kt": 170.0,
+        "cl": null,
+        "v_eas_kt": null,
         "cg": null
       }
     ]

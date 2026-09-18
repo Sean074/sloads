@@ -419,6 +419,46 @@
         ]
       },
       {
+        "name": "mzfw aft",
+        "weight_lb": 29500.0,
+        "xcg": 592.4,
+        "zcg": 64.25,
+        "analyses": [
+          "flight"
+        ],
+        "loading": {
+          "aboard": [
+            "Passengers, fwd cabin (24)",
+            "Passengers, aft cabin (24)",
+            "Cargo, fwd hold",
+            "Cargo, aft hold"
+          ],
+          "fractions": {
+            "Passengers, fwd cabin (24)": 0.5441176470588236
+          }
+        }
+      },
+      {
+        "name": "full fuel aft",
+        "weight_lb": 33000.0,
+        "xcg": 593.08,
+        "zcg": 62.63,
+        "analyses": [
+          "flight"
+        ],
+        "loading": {
+          "aboard": [
+            "Passengers, fwd cabin (24)",
+            "Passengers, aft cabin (24)",
+            "Cargo, aft hold",
+            "Mission fuel"
+          ],
+          "fractions": {
+            "Passengers, fwd cabin (24)": 0.6813725490196079
+          }
+        }
+      },
+      {
         "name": "aft max landing",
         "weight_lb": 31000.0,
         "xcg": 593.79,
@@ -450,7 +490,8 @@
       }
     ],
     "max_landing_weight_lb": 31000.0,
-    "max_takeoff_weight_lb": 33000.0
+    "max_takeoff_weight_lb": 33000.0,
+    "max_zero_fuel_weight_lb": 29500.0
   },
   "geometry": {
     "surfaces": [
@@ -842,31 +883,31 @@
       {
         "name": "PHAA",
         "case": null,
-        "nz": -2.5,
-        "nx": 0.3,
+        "nz": null,
+        "nx": null,
         "unbal_moment": 0,
-        "cl": 1.4,
-        "v_eas_kt": 187.0,
+        "cl": null,
+        "v_eas_kt": null,
         "cg": null
       },
       {
         "name": "TORS",
         "case": null,
-        "nz": -1.65,
-        "nx": -0.08,
+        "nz": null,
+        "nx": null,
         "unbal_moment": 0,
-        "cl": 0.45,
-        "v_eas_kt": 310.0,
+        "cl": null,
+        "v_eas_kt": null,
         "cg": null
       },
       {
         "name": "ACRL",
         "case": null,
-        "nz": -2.1,
-        "nx": 0.22,
+        "nz": null,
+        "nx": null,
         "unbal_moment": -600000,
-        "cl": 1.35,
-        "v_eas_kt": 185.0,
+        "cl": null,
+        "v_eas_kt": null,
         "cg": null
       }
     ]

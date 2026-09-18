@@ -173,6 +173,10 @@ def test_the_negative_triad_and_load_factor_invariants(name):
             assert slot in by_label and by_label[slot].case == best.case, (name, slot)
     cases = [c.case for c in by_label.values()]
     assert len(cases) == len(set(cases)), f"{name}: one V-n case under two wing ids"
+    # The same invariant on the delivered set: re-pointing (D-63.7) may move a
+    # slot onto another run, never onto a run another slot already carries.
+    delivered = [c.case for c in _delivered_by_label(project).values()]
+    assert len(delivered) == len(set(delivered)), f"{name}: one V-n case under two wing ids (delivered)"
 
 
 @pytest.mark.parametrize("name", sorted(_FROZEN_PICKS))
@@ -199,11 +203,22 @@ def test_the_frozen_picks_of_note_62(name):
 
 
 def _by_label(project: Project):
-    # The wing-condition view (used by the wing-focused tests).
-    cls = select.build_critical(project)
-    by_label = {c.label: c for c in cls.conditions if c.component == "wing"}
-    vn = {v.case: v for v in build_envelope(project).vn}
+    """SELECT's **air picks** by slot -- the per-family search over the whole
+    matrix, SELECT.BAS 3000's own result and the queryable intermediate of
+    design note 63 D-63.7 (``select.air_picks``). The *delivered* set
+    (``build_critical``) is each slot's net-governing run since #292 and is
+    what ``tests/test_one_mass_model.py`` asserts; the Appendix A and note 62
+    pick oracles below are statements about the air search."""
+    env = build_envelope(project)
+    by_label = {c.label: c for c in select.air_picks(project, env)}
+    vn = {v.case: v for v in env.vn}
     return by_label, vn
+
+
+def _delivered_by_label(project: Project):
+    """The delivered wing set (``build_critical``), by slot."""
+    cls = select.build_critical(project)
+    return {c.label: c for c in cls.conditions if c.component == "wing"}
 
 
 def _vals(cond):

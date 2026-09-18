@@ -203,7 +203,9 @@ def test_the_atr42_stall_exceedance_is_the_documented_mach_capped_one():
         pos, neg = stall_limits(cfg, p.g_corr, fl.mn)
         if max(rec - pos, neg - rec) > STALL_CLOSURE_TOL:
             exceeding.append(p)
-    assert len(exceeding) == 9
+    # Nine at #288; twelve since #292 (note 63 D-63.5): the seeded `full fuel
+    # aft` case is a fourth MTOW case, with the same three capped points.
+    assert len(exceeding) == 12
     assert {p.altitude_ft for p in exceeding} == {25000.0}
 
 

@@ -338,8 +338,8 @@ from .results import EnvelopeResult, LoadsResult, MassResult
 # item database, ``panel_weight_override_lb`` the OV-1 override) and
 # ``concentrated[]`` (the POINT-carriage WING rows of the case's loading are the
 # concentrated masses); ``MassItem`` gains ``carriage`` (PANEL | POINT);
-# ``WeightInput`` gains ``max_zero_fuel_weight_lb`` (stored, seeds nothing until
-# #292); ``WingLoadCase`` gains ``cg`` (the mass state); ``CaseRef`` gains
+# ``WeightInput`` gains ``max_zero_fuel_weight_lb`` (stored at #289; seeds the
+# zero-fuel and full-fuel cases since #292); ``WingLoadCase`` gains ``cg`` (the mass state); ``CaseRef`` gains
 # ``run``/``config`` (the run key beside the slot id, D-63.11); the wing and
 # body results gain ``mass_state``. **Not an identity hop** (``_hop_66``): it
 # drops ``concentrated`` where the wing tie closes and converts it to per-side

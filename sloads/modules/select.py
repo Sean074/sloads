@@ -421,10 +421,40 @@ def _condition(component: str, label: str, far: str, p: VnPoint, weights: Dict[s
     )
 
 
-def select_wing(project: Project, envelope: Optional[EnvelopeResult] = None) -> List[CriticalCondition]:
-    """Search the V-n matrix for the critical wing conditions (SELECT.BAS 3000)."""
-    vn = _resolve_envelope(project, envelope).vn
-    weights = _cg_weights(project)
+#: The lift sign of each wing slot (design note 63, D-63.7): the governing
+#: variant of a positive slot is the **largest** signed root ``Mxx``, of a
+#: negative one the **most negative**. The roll slots load the wing upward
+#: (their points are positive-lift manoeuvres), as do the load-factor
+#: extremes of the positive families.
+SLOT_LIFT_SIGN: Dict[str, float] = {
+    "PHAA": +1.0, "PLAA": +1.0, "PMAA": +1.0, "ACRL": +1.0, "TORS": +1.0, "PNZ": +1.0,
+    "NHAA": -1.0, "NMAA": -1.0, "NLAA": -1.0, "NNZ": -1.0,
+}
+
+
+#: The slots delivered at their **air pick** whatever the mass state (design
+#: note 63 D-63.7, in-code amendment at #292): their criterion is not the
+#: wing bending. TORS is the most negative aileron-induced torsion, PNZ/NNZ
+#: the load-factor extremes (23.337/23.341) -- a slot re-pointed by root
+#: ``Mxx`` would no longer be the condition its id names. Their variants are
+#: still assessed and listed; the governing mark stays on the air pick.
+AIR_PICK_SLOTS = ("TORS", "PNZ", "NNZ")
+
+
+def wing_slot_picks(project: Project, vn: List[VnPoint], *, coincide: bool = True
+                    ) -> List[Tuple[str, str, Optional[VnPoint]]]:
+    """The ten wing slots' picks over ``vn`` -- SELECT.BAS 3000's search plus
+    the note 62 slots, in ``WING_SLOTS`` order, each ``(label, 14 CFR, point)``.
+
+    ``vn`` is whatever matrix the caller hands in: the whole envelope for the
+    per-family **air pick** (:func:`air_picks`), or the points balanced at one
+    CG case for that case's variant (``wing_variants``, D-63.7) -- the same
+    criterion applied within the case. A slot with no eligible point is
+    ``None``. With ``coincide`` (the delivered set) D-62.8's coincidence rule
+    is applied: a load-factor-extreme point that is already another slot's
+    pick empties the PNZ/NNZ slot; the variant table asks without it, so
+    every slot is assessed at every case.
+    """
     si = project.select_input
     aileron_deg = resolved_full_down_aileron_deg(project)   # OV-2: blank derives
     cm = si.basic_airfoil_cm if si else 0.0
@@ -445,13 +475,87 @@ def select_wing(project: Project, envelope: Optional[EnvelopeResult] = None) -> 
         ("NNZ", "23.337(b)/23.341",
          _pick_load_factor(vn, _NEGATIVE_FAMILIES, _wing_lift_negative, largest=False)),
     ]
-    # D-62.8's coincidence rule: a load-factor-extreme point that is already
-    # another slot's pick is one physical condition, delivered under one id
-    # (case_ids M4-2 decision 1) -- the PNZ/NNZ slot is then empty.
+    return _coincidence_rule(picks) if coincide else picks
+
+
+def _coincidence_rule(picks: List[Tuple[str, str, Optional[VnPoint]]]
+                      ) -> List[Tuple[str, str, Optional[VnPoint]]]:
+    """D-62.8's coincidence rule: a load-factor-extreme point that is already
+    another slot's pick is one physical condition, delivered under one id
+    (case_ids M4-2 decision 1) -- the PNZ/NNZ slot is then empty."""
     taken = {p.case for label, _, p in picks if p is not None and label not in _NZ_SLOTS}
-    picks = [(label, far, None if (label in _NZ_SLOTS and p is not None and p.case in taken) else p)
-             for label, far, p in picks]
-    return [_condition("wing", label, far, p, weights) for label, far, p in picks if p is not None]
+    return [(label, far, None if (label in _NZ_SLOTS and p is not None and p.case in taken) else p)
+            for label, far, p in picks]
+
+
+def air_picks(project: Project, envelope: Optional[EnvelopeResult] = None
+              ) -> List[CriticalCondition]:
+    """SELECT's per-family **air picks** over the whole V-n matrix -- the
+    conditions SELECT.BAS 3000 delivered, kept as the queryable intermediate
+    of design note 63 D-63.7 (what the Appendix A test asserts).
+
+    Not stamped with a :class:`CaseRef`: the slot id belongs to the delivered
+    condition (:func:`select_wing`), which is the net-governing run and may be
+    another point of the same family at another mass state.
+    """
+    vn = _resolve_envelope(project, envelope).vn
+    weights = _cg_weights(project)
+    return [_condition("wing", label, far, p, weights)
+            for label, far, p in wing_slot_picks(project, vn) if p is not None]
+
+
+def select_wing(project: Project, envelope: Optional[EnvelopeResult] = None) -> List[CriticalCondition]:
+    """The delivered critical wing conditions: each slot's **net-governing
+    run** (design note 63, D-63.7).
+
+    SELECT.BAS 3000 picked each family's point on the air load alone; the
+    slot is delivered at the variant -- the family's own pick within each
+    FLIGHT case, run at that case's loading -- whose signed root ``Mxx`` is
+    the extreme (``wing_variants``). On the Appendix A airplane every slot's
+    governing run *is* its air pick (note 63 §8.2; gate G-63.3a); on a
+    wing-fuel airplane a zero-fuel case can take an up-bending slot from the
+    MTOW pick. A project the wing analysis cannot run on (no ``wing_mass``,
+    geometry or aero) delivers the air picks unchanged. A re-pointed
+    condition says so in its ``note``, naming both runs.
+    """
+    env = _resolve_envelope(project, envelope)
+    weights = _cg_weights(project)
+    picks = wing_slot_picks(project, env.vn)
+    air = [_condition("wing", label, far, p, weights) for label, far, p in picks if p is not None]
+    from .wing_variants import wing_variant_table  # lazy: see that module
+
+    table = wing_variant_table(project, env, air)
+    if not table.variants:
+        return air
+    by_case = {p.case: p for p in env.vn}
+    governing = table.governing()
+    repointed: List[Tuple[str, str, Optional[VnPoint]]] = []
+    for label, far, p in picks:
+        g = governing.get(label)
+        if p is None or g is None or g.case == p.case:
+            repointed.append((label, far, p))
+        else:
+            repointed.append((label, far, by_case[g.case]))
+    out: List[CriticalCondition] = []
+    for (label, far, p), (_, _, a) in zip(_coincidence_rule(repointed), picks):
+        if p is None:
+            continue
+        c = _condition("wing", label, far, p, weights)
+        if a is not None and a.case != p.case:
+            c.note = (f"net-governing run (design note 63 D-63.7): root Mxx "
+                      f"{governing[label].root_mxx:,.0f} lb-in at '{p.cg}' against "
+                      f"{_air_mxx(table, label, a.case):,.0f} lb-in at SELECT's air "
+                      f"pick, V-n case {a.case} ({a.condition}, {a.cg}, "
+                      f"{a.altitude_ft:.0f} ft, {a.config})")
+        out.append(c)
+    return out
+
+
+def _air_mxx(table, label: str, case: int) -> float:
+    for v in table.by_slot(label):
+        if v.case == case:
+            return v.root_mxx
+    return float("nan")
 
 
 # --------------------------------------------------------------------------- #

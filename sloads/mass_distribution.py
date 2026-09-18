@@ -89,13 +89,14 @@ from __future__ import annotations
 import dataclasses
 import math
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from .cg_cases import flight_cases
 from .models import (
     AnalysisKind,
     CgCase,
     FuselageStation,
+    LoadingDefinition,
     MassComponent,
     MassItem,
     MassItemKind,
@@ -909,8 +910,10 @@ def entered_loading(items: Sequence[MassItem], case: CgCase) -> CaseLoading:
     """Assemble the loading a case **states** (D-25), instead of searching for one.
 
     ``EMPTY`` and ``MINIMUM`` rows are aboard by definition; ``aboard`` selects
-    from the ``DISCRETIONARY`` ones; ``fractions`` scales the ``consumable`` rows
-    to a partial value. No ballast is ever *solved* -- solving is what the derived
+    from the ``DISCRETIONARY`` ones; ``fractions`` scales a ``consumable`` row or
+    a discretionary one to a partial value (a part-full tank, a part-filled hold
+    -- design note 63 D-63.5's seeds trim one payload row onto the envelope
+    edge or the design weight). No ballast is ever *solved* -- solving is what the derived
     route does, and an entered loading that needs ballast says so with a ballast
     row of its own.
 
@@ -938,9 +941,11 @@ def entered_loading(items: Sequence[MassItem], case: CgCase) -> CaseLoading:
     if len(set(ld.aboard)) != len(ld.aboard):
         _fail("an item is listed twice in 'aboard'")
     for name, frac in ld.fractions.items():
-        if not by_name[name].consumable:
-            _fail(f"a fraction is given for '{name}', which is not consumable -- "
-                  "only a consumable row can be part-full")
+        if kinds[name] != MassItemKind.DISCRETIONARY and not by_name[name].consumable:
+            _fail(f"a fraction is given for '{name}', which is a "
+                  f"{kinds[name].value} row and not consumable -- only a "
+                  "discretionary row (a part-filled hold) or a consumable one "
+                  "(a part-full tank) can be partial")
         if not 0.0 < frac <= 1.0:
             _fail(f"fraction {frac} for '{name}' is outside (0, 1]; omit the item "
                   "from 'aboard' to leave it off")
@@ -1170,6 +1175,160 @@ def _burn_down(items: List[MassItem], target_lb: float) -> Optional[List[MassIte
     return out
 
 
+@dataclass(frozen=True)
+class SeedLoading:
+    """A loading the design-weight seed found (design note 63, D-63.5).
+
+    ``loading`` is the :class:`LoadingDefinition` the seeded case carries --
+    the searched answer written down, so the case is an *entered* loading
+    (D-25) from the moment it exists and D-25a's echo check reads it.
+    ``weight_lb``/``cg_x``/``cg_z`` are what that loading produces;
+    ``trimmed`` names the one payload row scaled onto the envelope edge or
+    the design weight, ``""`` when none was.
+    """
+    loading: LoadingDefinition
+    weight_lb: float
+    cg_x: float
+    cg_z: float
+    trimmed: str = ""
+
+
+#: The scan of one trimmed row's fraction: 400 steps of 0.0025. The cap and the
+#: aft limit are solved exactly on top of it (both are linear in the fraction);
+#: the weight-dependent forward limit is met on the grid, which puts a
+#: forward seed within ``0.0025 x`` the row's weight of the line.
+_TRIM_STEPS = 400
+
+
+def seed_loading_search(project: Project, *, fuel: str, cap_lb: float, edge: str,
+                        aft_limit: float,
+                        fwd_limit_at: Callable[[float], Optional[float]],
+                        ) -> Optional[SeedLoading]:
+    """The heaviest loading of one kind inside the CG envelope (D-63.5).
+
+    The third search objective beside the exact-subset search
+    (:func:`derive_case_loadings`) and the ground burn-down (:func:`_burn_down`):
+    those two reproduce an *entered* weight and CG, this one has no target
+    point -- it finds the loading a design weight and an envelope edge define.
+
+    * ``fuel="none"`` leaves every consumable ``DISCRETIONARY`` row off (the
+      ``MINIMUM`` reserve stays aboard by definition); ``fuel="full"`` puts
+      every consumable discretionary row aboard at ``1.0``.
+    * ``cap_lb`` bounds the weight -- MZFW for the zero-fuel seeds, MTOW for
+      the full-fuel one.
+    * ``edge="aft"`` asks for the **heaviest** loading inside the limits, ties
+      toward the aft limit; ``edge="fwd"`` asks for the loading **nearest the
+      forward limit** (in ``_CG_MATCH_TOL`` bands), ties toward the heavier.
+
+    Over the ``2^n`` payload subsets (the discretionary rows that are not
+    consumable -- a ballast row the database itself carries is payload here,
+    which is how the Appendix A airplane's full-fuel seed *is* CG1), each
+    laterally symmetric on the wing (D-63.3). A whole-row loading inside the
+    limits is taken as it is. One that misses the cap or an edge is
+    **clipped**: one payload row is scaled by the largest fraction that
+    brings it inside -- the aft hold scaled until the CG sits on the aft line,
+    the forward cabin scaled until the weight is the take-off weight (note 63
+    §8.3's ATR sample) -- never a second row, never a solved ballast, and never
+    a trim of a loading that was already inside: a seed is a loading an
+    operator could fly, clipped to the limit it is named for, not a point the
+    database is bent to.
+
+    Returns ``None`` when nothing is inside the envelope under the cap -- the
+    fixed rows alone already exceed it, or no subset reaches the limits.
+    """
+    if fuel not in ("none", "full") or edge not in ("aft", "fwd"):
+        raise ValueError(f"seed_loading_search: fuel={fuel!r}, edge={edge!r}")
+    items = project.weight.items if project.weight is not None else []
+    if not items or cap_lb <= 0.0:
+        return None
+    from .modules.weight_envelope import _item_buckets
+
+    empty, minimum, _ = _item_buckets(items)
+    discretionary = [it for it in items if it.kind == MassItemKind.DISCRETIONARY]
+    consumables = [it for it in discretionary if it.consumable]
+    payload = [it for it in discretionary if not it.consumable]
+    fixed = empty + minimum + (consumables if fuel == "full" else [])
+    if fuel == "full" and not _wing_points_symmetric(consumables, project):
+        return None                                 # one tank of a pair (D-63.3)
+    w_fixed = math.fsum(it.weight_lb for it in fixed)
+    mx_fixed = math.fsum(it.weight_lb * it.x for it in fixed)
+    if w_fixed > cap_lb + _BALLAST_EPS or w_fixed <= 0.0:
+        return None
+
+    def feasible(w: float, x: float) -> bool:
+        if w > cap_lb + _BALLAST_EPS or x > aft_limit + _BALLAST_EPS:
+            return False
+        fwd = fwd_limit_at(w)
+        return fwd is None or x >= fwd - _BALLAST_EPS
+
+    def key(w: float, x: float) -> Tuple[float, float]:
+        if edge == "aft":
+            return (-round(w, 6), -x)
+        fwd = fwd_limit_at(w)
+        band = 0.0 if fwd is None else math.floor((x - fwd) / _CG_MATCH_TOL)
+        return (band, -round(w, 6))
+
+    best: Optional[Tuple[Tuple[float, float], List[MassItem], Optional[MassItem], float]] = None
+
+    def consider(sub: List[MassItem], row: Optional[MassItem], fraction: float) -> bool:
+        """Weigh one candidate; ``True`` when it is inside the limits."""
+        nonlocal best
+        w = w_fixed + math.fsum(it.weight_lb for it in sub)
+        mx = mx_fixed + math.fsum(it.weight_lb * it.x for it in sub)
+        if row is not None:
+            w -= (1.0 - fraction) * row.weight_lb
+            mx -= (1.0 - fraction) * row.weight_lb * row.x
+        if w <= 0.0:
+            return False
+        x = mx / w
+        if not feasible(w, x):
+            return False
+        cand = (key(w, x), sub, row, fraction)
+        if best is None or cand[0] < best[0]:
+            best = cand
+        return True
+
+    for mask in range(1 << len(payload)):
+        sub = [it for i, it in enumerate(payload) if mask >> i & 1]
+        if not _wing_points_symmetric(sub, project):
+            continue
+        if consider(sub, None, 1.0):
+            continue                      # inside as it is: never trimmed
+        w0 = w_fixed + math.fsum(it.weight_lb for it in sub)
+        mx0 = mx_fixed + math.fsum(it.weight_lb * it.x for it in sub)
+        for row in sub:
+            fractions = {k / _TRIM_STEPS for k in range(1, _TRIM_STEPS)}
+            # The two linear constraints solved exactly: the fraction that puts
+            # the weight on the cap, and the one that puts the CG on the aft line.
+            over = w0 - cap_lb
+            if 0.0 < over < row.weight_lb:
+                fractions.add(1.0 - over / row.weight_lb)
+            if row.x != aft_limit:
+                t = (mx0 - aft_limit * w0) / (row.weight_lb * (row.x - aft_limit))
+                if 0.0 < t < 1.0:
+                    fractions.add(1.0 - t)
+            # The clip: the largest fraction of this row that is inside.
+            for f in sorted(fractions, reverse=True):
+                if consider(sub, row, f):
+                    break
+
+    if best is None:
+        return None
+    _, sub, best_row, fraction = best
+    aboard = [it.name for it in sub] + ([it.name for it in consumables] if fuel == "full" else [])
+    fractions_out: Dict[str, float] = {}
+    trimmed = ""
+    if best_row is not None:
+        fractions_out[best_row.name] = fraction
+        trimmed = f"{best_row.name} to {best_row.weight_lb * fraction:.0f} lb ({fraction:.3f})"
+    loading = list(fixed) + [
+        dataclasses.replace(it, weight_lb=it.weight_lb * fraction) if it is best_row else it
+        for it in sub]
+    w, cx, cz = _wx(loading)
+    return SeedLoading(loading=LoadingDefinition(aboard=aboard, fractions=fractions_out),
+                       weight_lb=w, cg_x=cx, cg_z=cz, trimmed=trimmed)
+
+
 #: Weight below which a residual is "no ballast needed" rather than a mass.
 _BALLAST_EPS = 1e-6
 #: How near a zero-ballast loading's CG must be to the case's to count as it.
@@ -1184,6 +1343,18 @@ _CG_MATCH_TOL = 0.5   # in
 #: loading at station 73.0924 against a case entered as 73.09.
 _ECHO_WEIGHT_ABS = 0.5    # lb
 _ECHO_WEIGHT_REL = 1e-3
+
+
+def echo_weight_tolerance(weight_lb: float) -> float:
+    """The D-25a weight band at ``weight_lb``: the greater of half a pound and
+    0.1 % -- the one rule ``case_loading_checks``, ``validation`` and the seed's
+    coincidence test share."""
+    return max(_ECHO_WEIGHT_ABS, _ECHO_WEIGHT_REL * abs(weight_lb))
+
+
+def cg_match_tolerance() -> float:
+    """The search's CG match tolerance (``_CG_MATCH_TOL``), read by name."""
+    return _CG_MATCH_TOL
 
 
 def case_loading_checks(project: Project) -> List[MassCheck]:
@@ -1258,8 +1429,10 @@ __all__ = [
     "CaseLoading",
     "MassCheck",
     "MassDistribution",
+    "SeedLoading",
     "WingMassState",
     "case_loading_checks",
+    "cg_match_tolerance",
     "component_of",
     "component_summary",
     "database_mass_state",
@@ -1268,6 +1441,7 @@ __all__ = [
     "derived_panel_weight",
     "derived_tail_surface_weight",
     "distribution",
+    "echo_weight_tolerance",
     "entered_loading",
     "fuselage_beam_stations",
     "fuselage_reconciliation",
@@ -1275,6 +1449,7 @@ __all__ = [
     "loading_mass_state",
     "panel_weight",
     "partition_closes",
+    "seed_loading_search",
     "tail_reconciliation",
     "tail_surface_weight",
     "untagged_tail_surfaces",

@@ -518,6 +518,10 @@ def test_a_table_is_turned_only_when_it_cannot_be_set_upright():
         "Applied landing gear loads by case (LIMIT)",
         "Files carried in this package",
         "Wing load cases run",
+        # The slot x mass-state variant table (design note 63 D-63.7, #292):
+        # twelve columns -- the run key's four names, the point's weight, speed
+        # and load factor, and the three root bendings -- cannot be set upright.
+        "Wing slot variants: every slot at every flight mass state",
     }
 
 

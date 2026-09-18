@@ -9,7 +9,7 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | --- | --- | --- | --- | --- | --- |
 | `weight.max_takeoff_weight_lb` | `float` | MTOW -- SSOT (G-14); a single CG-independent | `0.0` | original | MTOW, every module's design weight; quantity: *max take-off weight* |
 | `weight.max_landing_weight_lb` | `float` | MLW -- SSOT (G-4); moved off LandingInput | `0.0` | original | MLW, LANDLOAD design landing weight |
-| `weight.max_zero_fuel_weight_lb` | `float` | MZFW -- SSOT (note 63 D-63.5); 0 = not entered. | `0.0` | sloads | MZFW, the Part 25 zero-fuel design weight (25.321; design note 63 D-63.5): stored since v67, 0 = not entered; seeds the zero-fuel cases at #292. The original suite had no zero-fuel design weight |
+| `weight.max_zero_fuel_weight_lb` | `float` | MZFW -- SSOT (note 63 D-63.5); 0 = not entered. | `0.0` | sloads | MZFW, the Part 25 zero-fuel design weight (25.321; design note 63 D-63.5): stored since v67, 0 = not entered; when entered the flight-case seed adds mzfw aft / mzfw fwd / full fuel aft with their loadings (#292). The original suite had no zero-fuel design weight |
 | `weight.estimation.airplane` | `str` |  | `''` | original | WTESTIMA airplane class |
 | `weight.estimation.engines` | `int` | NOENGS | `1` | original | WTESTIMA NOENGS; quantity: *engine count*; override of `external: len(Project.engines) (review N1 instance 3: concept_heavy 2 vs 0)` |
 | `weight.estimation.max_continuous_hp` | `float` | HP -- combined total; override value (see class doc) | `0.0` | original | WTESTIMA HP; quantity: *max continuous power*; display-only copy of `external: sum of engines[].max_cont_hp (unless overridden -- see resolves)` |

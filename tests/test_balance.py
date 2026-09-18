@@ -167,7 +167,10 @@ _WING_CASES = [("PHAA", ""), ("PLAA", ""), ("PMAA", ""), ("NMAA", "")]
 _NOTE_62_CASES = {
     "ga6_normal.project.json": [("NHAA", ""), ("NLAA", ""), ("PNZ", ""), ("NNZ", "")],
     "atr42_100.project.json": [("NHAA", ""), ("NLAA", ""), ("PNZ", ""), ("NNZ", "")],
-    "baron_58.project.json": [],
+    # baron_58 since #292 (note 63 D-63.7, 2026-09-18): NHAA and NLAA are
+    # delivered at the seeded `mzfw aft` / `mzfw fwd` loadings and assemble;
+    # PNZ stays on the non-derivable `fwd regardless` and is the record's.
+    "baron_58.project.json": [("NHAA", ""), ("NLAA", "")],
     "concept_heavy.project.json": [("NHAA", ""), ("NLAA", "")],
     "concept_regional_jet.project.json": [("NHAA", ""), ("NLAA", ""), ("PNZ", "")],
 }
@@ -195,7 +198,10 @@ _EXPECTED_CASES = {
     # one derivable loading ("aft gross"), so the wing families and the
     # unsymmetrical pair drop for want of a loading and are recorded (F-C7);
     # TORS and the full lateral set assemble on it.
-    "baron_58.project.json": [("TORS", "")] + [
+    # baron_58 since #292: the wing slots re-pointed to the seeded MZFW
+    # loadings (design note 63 D-63.7) assemble; TORS stays at `aft gross`.
+    "baron_58.project.json": _WING_CASES + [("ACRL", ""), ("TORS", "")]
+      + _NOTE_62_CASES["baron_58.project.json"] + [
         (label, hand) for label, hand in _LATERAL_CASES
         if label != "SIDE GUST"     # non-derivable loading; dropped, recorded
     ],
@@ -282,7 +288,9 @@ _PITCH_RESIDUAL_RATCHET = {
                               "unsymmetrical": 0.0005},
     "concept_heavy.project.json": {"symmetric": 0.0090, "lateral": 0.0010,
                                    "unsymmetrical": 0.0010},
-    "concept_regional_jet.project.json": {"symmetric": 0.0005, "lateral": 0.0005,
+    # RJ symmetric re-pinned 2026-09-18 (#292): NMAA delivered at `fwd
+    # regardless` (note 63 D-63.7), 0.087 %.
+    "concept_regional_jet.project.json": {"symmetric": 0.0010, "lateral": 0.0005,
                                           "unsymmetrical": 0.0010},
 }
 
@@ -343,7 +351,10 @@ _FORCE_RESIDUAL_RATCHET = {
     "atr42_100.project.json": {"symmetric": 0.0240, "lateral": 0.0065,
                                "unsymmetrical": 0.0140},
     # baron_58 measured 2026-09-11 (#271): symmetric 0.191 %, lateral 0.117 %.
-    "baron_58.project.json": {"symmetric": 0.0025, "lateral": 0.0015,
+    # Re-measured 2026-09-18 (#292): the eight wing slots now assemble at the
+    # seeded MZFW loadings; symmetric 1.289 % (NLAA at `mzfw fwd`, the
+    # fixture-data pattern of #271 on a case that never assembled before).
+    "baron_58.project.json": {"symmetric": 0.0135, "lateral": 0.0015,
                               "unsymmetrical": 0.0005},
     "concept_heavy.project.json": {"symmetric": 0.0200, "lateral": 0.0030,
                                    "unsymmetrical": 0.0030},
@@ -384,9 +395,12 @@ FORCE_RESIDUAL_CEILING = FORCE_RESIDUAL_ACCEPTANCE
 #: (alpha −12.8 / −14.3 deg) is now **NHAA**'s, with the same ceilings; the
 #: ATR's new NMAA (MAN −C at 25,000 ft) still clamps, at 0.03 % / 0.79 %; the
 #: regional jet's NHAA (STALL −N, alpha −18.7 deg) clamps at 1.60 % / 0.68 %.
+#: Re-measured 2026-09-18 (#292): the Baron's NHAA first assembles, at the
+#: seeded `mzfw aft` loading (alpha outside the window), 0.15 % / 0.002 %.
 _CLAMPED_BODY_AXIAL = {
     "atr42_100.project.json": {"NHAA": (0.0030, 0.0165),
                                "NMAA": (0.0005, 0.0085)},
+    "baron_58.project.json": {"NHAA": (0.0020, 0.0005)},
     "concept_heavy.project.json": {"NHAA": (0.0060, 0.0220)},
     "concept_regional_jet.project.json": {"PHAA": (0.0110, 0.0065),
                                           "ACRL": (0.0020, 0.0020),
@@ -682,8 +696,9 @@ def test_the_note_62_slots_reach_the_deck_or_the_record(example):
     the six before it -- or is in the skip record as ``loading-not-derivable``
     (D-62.4); neither slot is ever silently absent. On ``baron_58`` every new
     pick sits on a CG case the item database cannot derive ("fwd gross", "fwd
-    regardless"), so W-07, W-08 and W-09 are the record's, until #290 enters
-    those loadings.
+    regardless") -- until #292 (note 63 D-63.7) re-pointed NHAA and NLAA to
+    the seeded ``mzfw aft`` / ``mzfw fwd`` loadings; W-09 (PNZ, on ``fwd
+    regardless``) is still the record's, until #290 enters that loading.
     """
     project = _project(example)
     skipped = []
@@ -701,7 +716,7 @@ def test_the_note_62_slots_reach_the_deck_or_the_record(example):
         if case.label in named:
             assert case.hand == "" and case.unbal_moment == 0.0, case.label
     if example == "baron_58.project.json":
-        assert set(recorded) == {"NHAA", "NLAA", "PNZ"}, recorded
+        assert set(recorded) == {"PNZ"}, recorded
 
 
 @pytest.mark.parametrize("example", _with_cases())
@@ -1077,7 +1092,11 @@ _DELTA_CD_BAND = {
     'ga6_normal.project.json': (-0.0208, -0.0164),
     'cessna_210.project.json': (-0.0822, -0.0030),
     'atr42_100.project.json': (-0.1519, +0.0221),
-    'baron_58.project.json': (-0.0398, -0.0299),
+    # baron_58 re-pinned 2026-09-18 (#292): the eight wing slots assemble at
+    # the seeded MZFW loadings (PHAA -0.0726 at `mzfw aft`, NMAA -0.0086 at
+    # `mzfw fwd`; the clamped NHAA -0.0002); before, only TORS and the
+    # lateral cases at `aft gross`.
+    'baron_58.project.json': (-0.0727, -0.0001),
     'dhc8_dash8.project.json': (-0.1061, -0.0018),
     'concept_heavy.project.json': (-0.1385, +0.0398),
     'concept_regional_jet.project.json': (-0.0372, +0.0726),
@@ -1264,7 +1283,12 @@ def test_a_forward_non_wing_force_outside_the_window_is_not_applied(example):
             clamped.add(case.label)
             assert not polar_alpha_trusted(alpha), (
                 f"{where}: clamped INSIDE the trusted window at alpha {alpha:+.1f}")
-            assert case.delta_cd > 0.0, f"{where}: clamped but dCD {case.delta_cd:+.5f}"
+            # The clamp is decided on the body-axis force (``total < 0``,
+            # D-4); ``delta_cd`` is the wind-axis increment and differs by the
+            # ``sin(alpha)`` term -- the Baron's NHAA at `mzfw aft` (#292) is
+            # forward with dCD -0.00015. The note states the forward force.
+            assert any("FORWARD" in n and "NOT applied" in n for n in case.notes), (
+                f"{where}: clamped but dCD {case.delta_cd:+.5f} and no forward note")
             assert case.body_axial == 0.0, where
             assert not [ld for ld in case.loads if ld.source == "body-axial"], where
             assert any("NOT applied" in n and "trusted window" in n
@@ -1858,13 +1882,16 @@ _CLOSURE_IZZ = {
     # says it is.
     'atr42_100.project.json': {'fwd gross': 181423.5, 'aft gross': 188533.5,
                                'min weight': 107130.2},
-    'baron_58.project.json': {'aft gross': 7369.3},
+    # The Baron's two MZFW loadings first assemble at #292 (note 63 D-63.5/
+    # D-63.7), measured 2026-09-18; the RJ's `fwd regardless` likewise (NMAA).
+    'baron_58.project.json': {'aft gross': 7369.3, 'mzfw aft': 6129.2, 'mzfw fwd': 5667.1},
     'dhc8_dash8.project.json': {'fwd gross': 276188.3, 'min weight': 184928.0, 'aft gross': 269576.3, 'fwd regardless': 261441.6},
     'concept_heavy.project.json': {'CGmax': 42104.0},
 #: The RJ's three moved on 2026-08-30: its CG cases were re-seeded to the
 #: WTENV limits the closed-form planform integral now gives (the stations
 #: shifted ~0.05 in), and Izz follows the CG.
-    'concept_regional_jet.project.json': {'fwd gross': 254256.5, 'min weight': 196104.9, 'aft gross': 255823.4},
+    'concept_regional_jet.project.json': {'fwd gross': 254256.5, 'min weight': 196104.9, 'aft gross': 255823.4,
+                                          'fwd regardless': 298344.4},
 }
 
 
@@ -1943,7 +1970,12 @@ def test_a_symmetric_case_reduces_to_three_dof(example):
         # ...which is strictly larger than the Sum w*dx^2 the 3-DOF closure used.
         old_j = sum(ld.weight_lb * (ld.x - cg.xcg) ** 2 for ld in masses)
         assert case.closure_inertia.iyy > old_j, where
-        assert abs(case.q_dot) < abs(case.residual_my / old_j), where
+        # The same moment on both sides (about the centroid): the inequality is
+        # then the ``iyy > old_j`` line above, exactly. Compared against the
+        # entered-CG residual it failed on the Baron's `mzfw aft` PHAA (#292),
+        # whose pitch residual is 34 lb-in -- the transfer term is the whole
+        # number there, not a correction to it.
+        assert abs(case.q_dot) < abs(my_c / old_j), where
 
 
 #: What ``ACRL`` gained at B8a-2, per fixture: the peak nodal companion side
