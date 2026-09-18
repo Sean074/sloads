@@ -1423,6 +1423,11 @@ def _stamp_case_refs(project: Project, conditions: List[CriticalCondition],
             speed_kt=p.v_eas_kt if p else None,
             altitude_ft=p.altitude_ft if p else None,
             far_reference=c.far_reference,
+            # The run key beside the slot id (note 63 D-63.11): the point's
+            # manoeuvre label and configuration name the balanced point the
+            # condition was taken from, independent of its matrix position.
+            run=p.condition if p else "",
+            config=p.config if p else "",
         )
         c.case_ref = ref
         if p is not None:

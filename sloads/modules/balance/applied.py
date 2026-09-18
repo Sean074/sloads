@@ -26,7 +26,14 @@ from ...export.coordinates import (
     tail_station_to_airplane,
     tail_torsion_to_airplane,
 )
-from ...mass_distribution import CaseLoading, MassComponent, assembly_distributes_mass, component_of, reacted_parts
+from ...mass_distribution import (
+    CaseLoading,
+    assembly_distributes_mass,
+    component_of,
+    panel_weight,
+    reacted_parts,
+    wing_parts,
+)
 from ...models import (
     AeroInput,
     BalancedLoad,
@@ -37,6 +44,7 @@ from ...models import (
     Project,
     TailSpanResult,
     VnPoint,
+    WingCarriage,
     WingLoadResult,
     WingMassInput,
 )
@@ -171,12 +179,18 @@ def wing_inertia_strips(project: Project,
     A strip carries ``weight_lb`` whatever ``nz`` is, which is what lets a ground
     case work: at ``nz = 0`` the strips apply no force and the closure field
     accelerates them, so the wing's mass is in the model exactly once either way.
+
+    The shape is WINGINER's at the **project** panel weight
+    (:func:`~sloads.mass_distribution.panel_weight`, note 63): the strips carry
+    the panel's own shape only, and :func:`place_wing_inertia` scales them to the
+    loading's ``PANEL`` parts and adds its ``POINT`` parts at their own stations.
     """
     wm, geometry, _ = _wing_slices(project)
     geom = geometry.by_name(wm.surface)
     if geom is None:
         raise MissingInputError(f"balance: wing surface {wm.surface!r} is not in 'geometry'")
-    u = inertia_units(geom, wm, *wing_plane(project, wm.surface))
+    u = inertia_units(geom, wm, *wing_plane(project, wm.surface),
+                      panel_weight_lb=panel_weight(project))
     panel = math.fsum(u.w)
     strips = [(i, w) for i, w in enumerate(u.w) if w]
     if strips and panel:
@@ -190,8 +204,8 @@ def wing_inertia_strips(project: Project,
 
 
 def place_wing_inertia(loads: Sequence[BalancedLoad], loading: CaseLoading,
-                       project: Project,
-                       panel_both: float) -> Tuple[List[BalancedLoad], List[str]]:
+                       project: Project, panel_both: float,
+                       nz: float = 0.0) -> Tuple[List[BalancedLoad], List[str]]:
     """Scale ``loads``' wing inertia onto the loading's WING items and place it.
 
     The other half of :func:`wing_inertia_strips`: WINGINER supplies the spanwise
@@ -200,56 +214,80 @@ def place_wing_inertia(loads: Sequence[BalancedLoad], loading: CaseLoading,
     every ``wing-inertia`` strip scaled and shifted, plus the notes the scale owes
     the reader -- a scale that is not 1.0 means the two mass models disagree, and
     the case says by how much rather than absorbing it.
+
+    **Carriage (design note 63, D-63.3).** The strips are scaled to the loading's
+    ``PANEL`` parts and shifted onto *their* centroid; the loading's ``POINT``
+    parts are appended as their own ``wing-inertia`` loads at their own
+    ``x``/``y``/``z`` -- the starboard ones, since the caller mirrors the set;
+    a centreline POINT part enters at half its weight and mirrors to the whole.
+    ``nz`` scales the point forces exactly as the strips were scaled (0 for a
+    ground case, whose closure field accelerates the mass instead). On a
+    loading with no POINT part this is bit-for-bit the pre-v67 placement.
     """
     notes: List[str] = []
     scale = _wing_inertia_scale(loading, project, panel_both)
     if scale == 0.0:
-        notes.append("the loading carries no WING-tagged item mass -- "
-                     "wing inertia not modelled")
+        notes.append("the loading carries no WING-tagged PANEL item mass -- "
+                     "no distributed wing inertia")
     elif abs(scale - 1.0) > 1e-6:
         notes.append(
-            f"wing inertia scaled x{scale:.4f} onto the loading's WING items "
+            f"wing inertia scaled x{scale:.4f} onto the loading's WING PANEL items "
             f"({scale * panel_both:.0f} lb); WINGINER's integrated panel mass is "
             f"{panel_both:.0f} lb")
-    wing_items = [it for it in reacted_parts(loading.items, project)
-                  if component_of(it, project) == MassComponent.WING]
-    w_wing = math.fsum(it.weight_lb for it in wing_items)
-    x_wing = (math.fsum(it.weight_lb * it.x for it in wing_items) / w_wing) if w_wing else 0.0
-    z_wing = (math.fsum(it.weight_lb * it.z for it in wing_items) / w_wing) if w_wing else 0.0
-    return ([replace(ld, fz=ld.fz * scale, weight_lb=ld.weight_lb * scale,
-                     x=ld.x + x_wing, z=ld.z + z_wing)
-             if ld.source == "wing-inertia" else ld
-             for ld in loads], notes)
+    panel_items = wing_parts(loading.items, project, WingCarriage.PANEL)
+    w_wing = math.fsum(it.weight_lb for it in panel_items)
+    x_wing = (math.fsum(it.weight_lb * it.x for it in panel_items) / w_wing) if w_wing else 0.0
+    z_wing = (math.fsum(it.weight_lb * it.z for it in panel_items) / w_wing) if w_wing else 0.0
+    placed = [replace(ld, fz=ld.fz * scale, weight_lb=ld.weight_lb * scale,
+                      x=ld.x + x_wing, z=ld.z + z_wing)
+              if ld.source == "wing-inertia" else ld
+              for ld in loads]
+    points: List[BalancedLoad] = []
+    for it in wing_parts(loading.items, project, WingCarriage.POINT):
+        if it.y < 0.0:
+            continue                     # the port image is the caller's mirror
+        w = it.weight_lb if it.y > 0.0 else 0.5 * it.weight_lb
+        points.append(BalancedLoad(x=it.x, y=it.y, z=it.z, fz=-w * nz, weight_lb=w,
+                                   source="wing-inertia", side="R"))
+    if points:
+        notes.append(
+            f"{len(points)} wing POINT mass(es) applied at their own stations, "
+            f"{2.0 * math.fsum(p.weight_lb for p in points):,.0f} lb both sides "
+            "(design note 63 D-63.3)")
+    return placed + points, notes
 
 
 def _wing_inertia_scale(loading: CaseLoading, project: Project,
                         panel_both_sides: float) -> float:
-    """Factor bringing WINGINER's panel mass onto the loading's WING item weight.
+    """Factor bringing WINGINER's panel mass onto the loading's WING PANEL weight.
 
     Decision B-2: the items are the mass SSOT, and WINGINER supplies the *shape*.
     Where the two models already agree the factor is exactly 1.0 (``ga6_normal``
     330 = 2 x 165); where they do not it is what stops the disagreement becoming
-    a load.
+    a load. Since note 63 the scale reads the loading's ``PANEL`` parts alone
+    -- its ``POINT`` parts are placed, not spread -- so on a project with no
+    override the factor is the loading's share of the database's panel rows.
 
     **The partition gate (review F-C5).** WING-tagged items are excluded from
     :func:`body_inertia` precisely because the wing set carries them, so a wing
     set scaled to zero would delete their whole weight from the model and let
-    the closure absorb it silently. When the loading has WING items and WINGINER
-    integrates no panel at all there is no spanwise shape to put them on, and
-    that is an inconsistent input rather than a load case: it raises. Only a
-    loading with **no** WING item mass scales to 0.0, and then nothing is lost
-    -- :func:`assemble` notes that case.
+    the closure absorb it silently. When the loading has WING PANEL items and
+    WINGINER integrates no panel at all there is no spanwise shape to put them
+    on, and that is an inconsistent input rather than a load case: it raises.
+    Only a loading with **no** PANEL item mass scales to 0.0, and then nothing is
+    lost -- :func:`assemble` notes that case.
     """
-    wing_items = math.fsum(it.weight_lb for it in reacted_parts(loading.items, project)
-                     if component_of(it, project) == MassComponent.WING)
+    wing_items = math.fsum(it.weight_lb for it in
+                           wing_parts(loading.items, project, WingCarriage.PANEL))
     if panel_both_sides <= 0.0:
         if wing_items:
             raise MissingInputError(
-                f"the loading carries {wing_items:.0f} lb of WING-tagged items but "
-                "the wing mass model integrates no panel mass "
-                "(wing_mass.panel_weight_lb = 0): there is no spanwise shape to "
-                "distribute them over. Enter a panel weight, or retag the items "
-                "onto a component the fuselage beam carries")
+                f"the loading carries {wing_items:.0f} lb of WING-tagged PANEL items "
+                "but the wing mass model integrates no panel mass "
+                "(wing_mass.panel_weight_override_lb = 0): there is no spanwise "
+                "shape to distribute them over. Clear the override to derive the "
+                "panel from the items, or retag them POINT or onto a component "
+                "the fuselage beam carries")
         return 0.0
     return wing_items / panel_both_sides
 

@@ -41,7 +41,7 @@ from sloads.models.enums import RotorDirection
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _FIXTURES = os.path.join(_HERE, "fixtures_schema")
 _EXAMPLES = os.path.join(os.path.dirname(_HERE), "examples")
-_CURRENT = "v66_current.json"
+_CURRENT = "v67_current.json"
 
 
 def _load(name=_CURRENT):
@@ -340,6 +340,115 @@ def test_a_v64_file_loads_through_the_identity_hop_unchanged():
     assert applied_hops(64) == list(range(64, SCHEMA_VERSION))
     assert io.project_to_dict(io.project_from_dict(v64)) == \
            io.project_to_dict(io.project_from_dict(_load()))
+
+
+def test_a_v65_file_loads_through_the_identity_hop_unchanged():
+    """Design note 56 D-56.4 (#263): the 65->66 hop is an identity -- ``lra_mesh``
+    absent is exactly the v65 meaning."""
+    v65 = _load("v65_current.json")
+    assert v65["schema_version"] == 65
+    hopped = MIGRATIONS[65](copy.deepcopy(v65))
+    assert hopped == v65, "the 65->66 identity hop moved something"
+
+
+def test_the_v66_hop_moves_the_wing_mass_into_the_item_database():
+    """Design note 63 D-63.2 (#289, G-63.4): the 66->67 hop is **not** an identity.
+
+    On a file whose wing tie closes (the frozen v66 fixture, the Appendix A
+    airplane: 330 lb of WING items against 2 x 165) ``concentrated`` is dropped
+    and ``panel_weight_lb`` leaves without an override -- the derived panel is
+    the entered one to the pound -- so the loaded airplane equals the current
+    fixture's and no delivered number moves. Every row gains a ``carriage``:
+    POINT at a non-zero butt line on a WING row, PANEL everywhere else.
+    """
+    v66 = _load("v66_current.json")
+    assert v66["schema_version"] == 66
+    assert v66["wing_mass"]["panel_weight_lb"] == 165
+    hopped = MIGRATIONS[66](copy.deepcopy(v66))
+    assert "panel_weight_lb" not in hopped["wing_mass"]
+    assert "concentrated" not in hopped["wing_mass"]
+    assert "panel_weight_override_lb" not in hopped["wing_mass"], "165 = 330 / 2: no override"
+    assert "migration_notes" not in hopped, "nothing dropped, nothing to say"
+    for row in hopped["weight"]["items"]:
+        want = "point" if row.get("component") == "wing" and row.get("y") else "panel"
+        assert row["carriage"] == want, row["name"]
+    assert applied_hops(66) == [66]
+    assert io.project_to_dict(io.project_from_dict(v66)) == \
+           io.project_to_dict(io.project_from_dict(_load()))
+
+
+def _v66_with_wing_masses(panel=165.0, concentrated=(), items=None):
+    """A v66 dict built from the frozen fixture with the wing mass edited."""
+    d = copy.deepcopy(_load("v66_current.json"))
+    d["wing_mass"]["panel_weight_lb"] = panel
+    d["wing_mass"]["concentrated"] = [dict(c) for c in concentrated]
+    if items is not None:
+        d["weight"]["items"] = items
+    return d
+
+
+def test_the_v66_hop_drops_a_concentrated_list_the_items_already_carry():
+    """R-63.3: where the tie closes the entries are dropped and named once.
+
+    The items carry a 100 lb wing row at butt line 40 and the ``concentrated``
+    list carries the same 50 lb per side: converting it would double-count.
+    The hop drops it, stamps the row POINT, and the note names what went; the
+    loaded ``Project`` states it on ``migration_notes`` and ``validation``
+    on the Weight & CG page, and a save has nothing left to say.
+    """
+    d = _v66_with_wing_masses(
+        concentrated=[{"name": "store", "weight_lb": 50.0, "x": 83.0, "y": 40.0, "z": 87.0}])
+    d["weight"]["items"].append({
+        "name": "Store, right", "weight_lb": 50.0, "x": 83.0, "y": 40.0, "z": 87.0,
+        "ixx": 0.0, "iyy": 0.0, "izz": 0.0, "kind": "empty", "component": "wing",
+        "consumable": False, "wing_fraction": 0.0})
+    d["weight"]["items"].append({
+        "name": "Store, left", "weight_lb": 50.0, "x": 83.0, "y": -40.0, "z": 87.0,
+        "ixx": 0.0, "iyy": 0.0, "izz": 0.0, "kind": "empty", "component": "wing",
+        "consumable": False, "wing_fraction": 0.0})
+    hopped = MIGRATIONS[66](copy.deepcopy(d))
+    names = [r["name"] for r in hopped["weight"]["items"]]
+    assert names.count("Store, right") == 1 and "store, right" not in names
+    assert [r["carriage"] for r in hopped["weight"]["items"] if r["name"].startswith("Store")] == ["point", "point"]
+    (note,) = hopped["migration_notes"]
+    assert "dropped" in note and "store 50 lb/side" in note
+    from sloads.validation import consistency_warnings
+    project = io.project_from_dict(d)
+    assert project.migration_notes == [note]
+    assert [w.code for w in consistency_warnings(project) if w.code == "migration_note"] == ["migration_note"]
+    assert "migration_notes" not in io.project_to_dict(project)
+    assert io.project_from_dict(io.project_to_dict(project)).migration_notes == []
+
+
+def test_the_v66_hop_converts_a_concentrated_list_the_items_never_had():
+    """R-63.3's other branch: an open tie means the mass really is missing, so
+    each entry becomes two EMPTY WING rows, carriage POINT, at +-y -- and the
+    tie closes on the migrated file (G-63.4's synthetic case)."""
+    d = _v66_with_wing_masses(
+        concentrated=[{"name": "tip tank", "weight_lb": 40.0, "x": 90.0, "y": 200.0, "z": 88.0}])
+    hopped = MIGRATIONS[66](copy.deepcopy(d))
+    added = [r for r in hopped["weight"]["items"] if r["name"].startswith("tip tank")]
+    assert [(r["name"], r["weight_lb"], r["y"], r["carriage"], r["component"], r["kind"])
+            for r in added] == [("tip tank, left", 40.0, -200.0, "point", "wing", "empty"),
+                                ("tip tank, right", 40.0, 200.0, "point", "wing", "empty")]
+    assert "converted" in hopped["migration_notes"][0]
+    project = io.project_from_dict(d)
+    from sloads import mass_distribution as md
+    state = md.database_mass_state(project)
+    assert md.wing_state_tie(state).ok
+    assert [m.name for m in state.point_masses] == ["tip tank, right"]
+    assert project.wing_mass.panel_weight_override_lb is None
+
+
+def test_the_v66_hop_keeps_an_entered_panel_that_differs_as_the_override():
+    """D-63.2: ``panel_weight_lb`` survives only where the derived value differs."""
+    d = _v66_with_wing_masses(panel=150.0)
+    hopped = MIGRATIONS[66](copy.deepcopy(d))
+    assert hopped["wing_mass"]["panel_weight_override_lb"] == 150.0
+    assert any("panel_weight_override_lb" in n for n in hopped["migration_notes"])
+    project = io.project_from_dict(d)
+    from sloads import mass_distribution as md
+    assert md.panel_weight(project) == 150.0 and md.derived_panel_weight(project) == 165.0
 
 
 def test_a_v63_vn_point_reads_its_single_case_ref_into_the_list():

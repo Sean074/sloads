@@ -100,6 +100,7 @@ from .models import (
     MassItem,
     MassItemKind,
     Project,
+    WingCarriage,
 )
 from .models.inputs import TAIL_SURFACES, require_surface
 
@@ -348,12 +349,24 @@ def unplaced_warning(project: Project) -> str:
 BEAM_COMPONENTS = (MassComponent.FUSELAGE, MassComponent.HTAIL, MassComponent.VTAIL)
 
 
-def derived_fuselage_stations(project: Project) -> List[FuselageStation]:
+def derived_fuselage_stations(project: Project,
+                              items: Optional[Sequence[MassItem]] = None
+                              ) -> List[FuselageStation]:
     """The Ch 15 beam station table, derived from the item data base.
 
     Each non-wing item lumps at its own ``x``; items within
     :data:`STATION_MERGE_TOL` of each other become one node. Nose->tail. Empty
     when the project has no item data base.
+
+    ``items`` (design note 63, D-63.8) is the **mass state** to derive from --
+    a case's loading, :attr:`CaseLoading.items` -- and defaults to the whole
+    data base, every row aboard. The whole-database read is what every
+    fuselage condition integrated until v67: on ``ga6_normal`` 3,070 lb of body
+    mass at a condition whose airplane weighed 2,063 lb. It is kept as the
+    reading for a project-level question (the reconciliation against an
+    entered table, the partition gate) and as the stated fallback for a case
+    whose loading cannot be derived; a condition's beam takes the condition's
+    own loading through :func:`fuselage_beam_stations`.
 
     Node count is a property of the data base, not a modelling choice: ga6 goes
     from 5 hand-entered lumps to 14 derived stations. ``body_loads``' closure is
@@ -370,10 +383,14 @@ def derived_fuselage_stations(project: Project) -> List[FuselageStation]:
     contributes nothing to the centroid and cannot divide by zero: the station
     keeps ``0.0``, which reads as *not stated* exactly as an unentered one does.
     """
-    dist = distribution(project)
+    if items is None:
+        dist = distribution(project)
+        body = [it for c in BEAM_COMPONENTS for it in dist.by_component.get(c, [])]
+    else:
+        body = [it for it in reacted_parts(items, project)
+                if component_of(it, project) in BEAM_COMPONENTS]
     lumps: List[Tuple[float, float, float, float]] = sorted(
-        ((it.x, it.weight_lb, it.y, it.z) for c in BEAM_COMPONENTS
-         for it in dist.by_component.get(c, [])),
+        ((it.x, it.weight_lb, it.y, it.z) for it in body),
         key=lambda p: p[0],
     )
     merged: List[List[float]] = []
@@ -389,7 +406,9 @@ def derived_fuselage_stations(project: Project) -> List[FuselageStation]:
             for x, w, my, mz in merged]
 
 
-def fuselage_beam_stations(project: Project) -> List[FuselageStation]:
+def fuselage_beam_stations(project: Project,
+                           loading: Optional["CaseLoading"] = None
+                           ) -> List[FuselageStation]:
     """The station table the Ch 15 beam should integrate — **the entry point**.
 
     The derived table (:func:`derived_fuselage_stations`) by default; the
@@ -397,12 +416,22 @@ def fuselage_beam_stations(project: Project) -> List[FuselageStation]:
     override, or when the item data base cannot produce a table at all. Returns
     ``[]`` when neither source has anything, which is the caller's
     ``MissingInputError`` to raise.
+
+    ``loading`` (design note 63, D-63.8) is the condition's mass state: given,
+    the derived table lumps **that loading's** body parts, so a 2,063 lb
+    airplane's beam carries 1,733 lb of body mass and not the data base's
+    3,070. The override table stays one per project -- an override is one
+    table, not one per state -- and ``validation`` warns
+    (``fuselage_override_varies_by_case``) when the FLIGHT loadings' body mass
+    differ by more than the tie tolerance under one. ``None`` keeps the
+    whole-database read.
     """
     fm = project.fuselage_mass
     entered = list(fm.stations) if fm is not None else []
     if fm is not None and fm.stations_are_override:
         return entered
-    derived = derived_fuselage_stations(project)
+    derived = derived_fuselage_stations(
+        project, loading.items if loading is not None else None)
     return derived if derived else entered
 
 
@@ -461,65 +490,225 @@ def partition_closes(project: Project) -> MassCheck:
     )
 
 
-def wing_mass_tie(project: Project) -> Optional[MassCheck]:
-    """Σ(items tagged WING) == 2 × (``panel_weight_lb`` + Σ ``concentrated``).
+# --------------------------------------------------------------------------- #
+# The wing's mass state (design note 63: one mass model)
+# --------------------------------------------------------------------------- #
+def wing_parts(items: Sequence[MassItem], project: Project,
+               carriage: Optional[WingCarriage] = None) -> List[MassItem]:
+    """The ``WING``-reacted parts of ``items``, optionally of one ``carriage``.
 
-    The tie between the two models of the same physical thing: the itemized wing
-    rows, and the wing mass WINGINER actually distributes. Both of WINGINER's
-    terms are **per side** — the tapered panel and each concentrated item — so
-    the airplane carries twice their sum, and that is what the item database must
-    show if the two models describe one airplane.
+    Through :func:`reacted_parts`, so a fuel row the wing carries a fraction of
+    contributes its wing share here at the row's own ``carriage``. The one
+    place the carriage tag is read (rule 3): WINGINER's panel and point lists,
+    the balanced deck's wing set and the tie below all ask it.
+    """
+    out = [it for it in reacted_parts(items, project)
+           if component_of(it, project) == MassComponent.WING]
+    if carriage is not None:
+        out = [it for it in out if it.carriage == carriage]
+    return out
 
-    Exact on the fixtures whose data is consistent (ga6 330 = 2 × 165;
-    ``concept_regional_jet`` 4200 = 2 × 2100). Where it fails it names the gap to
-    the pound, and the gap has a single cause on every fixture that has one — see
-    :func:`unmodelled_wing_mass`. ``None`` when there is no wing mass input.
+
+def derived_panel_weight(project: Project,
+                         items: Optional[Sequence[MassItem]] = None) -> float:
+    """Half the ``WING``-carried ``PANEL`` parts of ``items`` (lb, **per side**).
+
+    The wing's analogue of :func:`derived_fuselage_stations` (design note 63,
+    D-63.2): the panel WINGINER integrates is what the item database says the
+    outboard structure weighs, not a second entry of it. ``items`` defaults to
+    the whole database -- the project-level panel, which is the shape's target;
+    a case's loading gives that case's own panel.
+    """
+    src = items if items is not None else (
+        project.weight.items if project.weight is not None else [])
+    return 0.5 * math.fsum(it.weight_lb for it in wing_parts(src, project, WingCarriage.PANEL))
+
+
+def panel_weight(project: Project) -> float:
+    """The per-side panel weight WINGINER integrates -- **the entry point**.
+
+    The derived value (:func:`derived_panel_weight`) unless
+    ``wing_mass.panel_weight_override_lb`` is set, exactly the
+    :func:`fuselage_beam_stations` / :func:`tail_surface_weight` rule. ``0.0``
+    when there is no wing mass input at all.
     """
     wm = project.wing_mass
-    if wm is None or not (wm.panel_weight_lb or wm.concentrated):
+    if wm is None:
+        return 0.0
+    if wm.panel_weight_override_lb is not None:
+        return wm.panel_weight_override_lb
+    return derived_panel_weight(project)
+
+
+@dataclass(frozen=True)
+class WingMassState:
+    """What WINGINER distributes for one case: the mass state, resolved.
+
+    ``panel_weight_lb`` is the **per-side** panel for this state and
+    ``point_masses`` the per-side concentrated masses (the starboard ``POINT``
+    parts at their own stations; a centreline POINT part at half its weight),
+    both built from ``items`` -- the loading's rows, or the database's.
+    ``wing_weight_lb`` is Σ WING parts of the state, both sides, which is what
+    :func:`wing_state_tie` holds ``2 x (panel + Σ points)`` to. ``label`` is
+    the sentence a result states (``WingLoadResult.mass_state``); ``case`` is
+    the CG case name, ``""`` for the database; ``source`` is ``"entered"``,
+    ``"searched"`` or ``"database"``.
+    """
+
+    case: str
+    source: str
+    items: List[MassItem]
+    panel_weight_lb: float
+    point_masses: List[MassItem]
+    wing_weight_lb: float
+    label: str
+    #: Σ of the port-side POINT parts, both for the symmetry check the half-span
+    #: model owes (``validation`` ``wing_mass_asymmetric``) and for the tie.
+    port_point_weight_lb: float = 0.0
+    #: The loading behind the state, when one was derived (``None`` for the
+    #: database), so a consumer can read the body parts of the same state.
+    loading: Optional["CaseLoading"] = None
+    #: Why a database state is the database when a case asked for its loading:
+    #: the search's own note, pounds and all. Kept off ``label`` so the result
+    #: string a report prints in either unit system carries no Imperial figure;
+    #: ``validation`` (``wing_case_loading_not_derivable``) prints it.
+    reason: str = ""
+
+
+def _state_panel(project: Project, items: Sequence[MassItem]) -> float:
+    """The per-side panel for a state: the project panel, scaled by the state's
+    PANEL parts against the database's -- so an override scales with the
+    loading and ``None`` reduces exactly to half the state's PANEL parts."""
+    base = derived_panel_weight(project)
+    state = derived_panel_weight(project, items)
+    if base <= 0.0:
+        return panel_weight(project)
+    return panel_weight(project) * state / base
+
+
+def _state_points(project: Project, items: Sequence[MassItem]
+                  ) -> Tuple[List[MassItem], float]:
+    """``(per-side point masses, port-side weight)`` of a state's POINT parts.
+
+    WINGINER is a half-span model of a laterally symmetric wing (WINGINER.BAS
+    carries every concentrated weight at a positive butt line), so the
+    starboard parts are the list, a centreline part enters at half its weight
+    (it steps no strip but keeps its mass in the model), and the port parts
+    are counted for the symmetry check rather than mirrored onto the list --
+    mirroring would double a symmetric pair.
+    """
+    points: List[MassItem] = []
+    port = 0.0
+    for it in wing_parts(items, project, WingCarriage.POINT):
+        if it.y > 0.0:
+            points.append(it)
+        elif it.y < 0.0:
+            port += it.weight_lb
+        else:
+            points.append(dataclasses.replace(it, weight_lb=0.5 * it.weight_lb))
+    return points, port
+
+
+def database_mass_state(project: Project, reason: str = "",
+                        detail: str = "") -> WingMassState:
+    """The mass state with **every row aboard** -- the whole item database.
+
+    The reading every consumer had before v67, kept as the stated fallback: a
+    wing case that names no CG case, or one whose loading cannot be derived.
+    ``reason`` is written into the label so the result says why; ``detail``
+    (the search's note, with its pounds) goes on ``WingMassState.reason`` for
+    the validator, never into the label.
+    """
+    items = list(project.weight.items) if project.weight is not None else []
+    points, port = _state_points(project, items)
+    label = "item database (every row aboard)" + (f"; {reason}" if reason else "")
+    return WingMassState(
+        case="", source="database", items=items,
+        panel_weight_lb=_state_panel(project, items), point_masses=points,
+        wing_weight_lb=math.fsum(it.weight_lb for it in wing_parts(items, project)),
+        label=label, port_point_weight_lb=port, reason=detail)
+
+
+def loading_mass_state(project: Project, loading: "CaseLoading") -> WingMassState:
+    """The mass state of one derived :class:`CaseLoading` (D-63.1)."""
+    items = list(loading.items)
+    points, port = _state_points(project, items)
+    return WingMassState(
+        case=loading.name, source="entered" if loading.entered else "searched",
+        items=items, panel_weight_lb=_state_panel(project, items),
+        point_masses=points,
+        wing_weight_lb=math.fsum(it.weight_lb for it in wing_parts(items, project)),
+        label=f"loading '{loading.name}' ({'entered' if loading.entered else 'searched'})",
+        port_point_weight_lb=port, loading=loading)
+
+
+def wing_mass_state(project: Project, cg_name: Optional[str]) -> WingMassState:
+    """The mass state a case runs at, by CG case name (D-63.1 / D-63.6).
+
+    ``None`` is the database. A named FLIGHT case resolves to its loading --
+    entered (D-25) or searched (:func:`derive_case_loadings`, bit-for-bit the
+    pre-v67 fallback for a case without one). A name the project does not
+    carry, or a loading the search cannot produce, falls back to the database
+    **with the reason in the label**, never silently: the result states what it
+    ran on, and ``validation`` names the case.
+    """
+    if cg_name is None:
+        return database_mass_state(project)
+    case = next((c for c in flight_cases(project) if c.name == cg_name), None)
+    if case is None:
+        return database_mass_state(
+            project, f"'{cg_name}' is not a FLIGHT weight/CG case of this project")
+    loadings = derive_case_loadings(project, [case])
+    if not loadings or not loadings[0].derivable:
+        note = loadings[0].note if loadings else "no item data base"
+        return database_mass_state(
+            project, f"the loading for '{cg_name}' is not derivable", note)
+    return loading_mass_state(project, loadings[0])
+
+
+def wing_mass_tie(project: Project) -> Optional[MassCheck]:
+    """The entered panel override against the derived panel weight (D-63.2).
+
+    What is left of the pre-v67 tie once the wing has one mass model: the item
+    database *is* WINGINER's mass, so the only second opinion a project can
+    still hold is ``panel_weight_override_lb``. Reported the way
+    :func:`fuselage_reconciliation` reports an entered station table -- the
+    override is what the distribution uses, the derived value is what the items
+    say, and the gap is the user's to judge. ``None`` when no override is set.
+    """
+    wm = project.wing_mass
+    if wm is None or wm.panel_weight_override_lb is None:
         return None
-    got = distribution(project).weight(MassComponent.WING)
-    want = 2.0 * (wm.panel_weight_lb + math.fsum(c.weight_lb for c in wm.concentrated))
+    got, want = wm.panel_weight_override_lb, derived_panel_weight(project)
     return MassCheck(
-        code="mass_wing_tie", ok=_close(got, want), got=got, want=want,
-        detail=(f"items tagged wing sum to {got:.0f} lb against 2 x (panel "
-                f"{wm.panel_weight_lb:.0f} + concentrated "
-                f"{math.fsum(c.weight_lb for c in wm.concentrated):.0f}) = {want:.0f} lb"),
+        code="mass_wing_tie",
+        ok=abs(got - want) <= FUSELAGE_GAP_WARN_FRACTION * max(abs(want), 1.0),
+        got=got, want=want,
+        detail=(f"entered wing panel override {got:.1f} lb per side against "
+                f"{want:.1f} lb derived from the WING-tagged PANEL items "
+                f"({got - want:+.1f} lb); the override is what WINGINER integrates"),
     )
 
 
-def unmodelled_wing_mass(project: Project) -> float:
-    """How much of ``wing_mass.concentrated`` the item database does not show as wing.
+def wing_state_tie(state: WingMassState) -> MassCheck:
+    """Σ WING parts of the state == 2 × (panel used + Σ point masses used) (G-63.1).
 
-    ``2 × Σ concentrated − (Σ WING items − 2 × panel_weight_lb)``, in lb: the part
-    of the wing's concentrated mass that is carried on the **fuselage** beam in
-    the item model while WINGINER also hangs it on the wing. Positive means
-    double-counted across the two models; zero means they agree.
-
-    Measured 2026-08-08 on the shipped fixtures, each gap has exactly one cause:
-
-    * ``atr42_100`` **3800 lb** — ``concentrated`` "wing fuel" 1900 lb/side. The
-      engine+nacelle half *does* reconcile exactly (``Engines (2)`` 1780 +
-      ``Nacelles (2)`` 600 = 2 × 1190), so this is the fuel alone.
-    * ``dhc8_dash8`` **4000 lb** — likewise, "wing fuel" 2000 lb/side
-      (``Engines (2)`` 2100 + ``Nacelles (2)`` 700 = 2 × 1400 reconciles, as does
-      ``Main gear`` 1200 = 2 × 600 since the nacelle-mounted leg was re-tagged
-      onto the wing in both mass models, 2026-08-15).
-    * ``concept_heavy`` **1200 lb** — ``concentrated`` "fuel" 600 lb/side.
-
-    In every case the wing-tank fuel lived inside an undivided ``"Fuel to gross"``
-    row. Closed by design note 29 (``MassItem.wing_fraction``, WF-5): each row now
-    states the fraction WINGINER's own ``concentrated`` entry implies, and the tie
-    holds on every shipped fixture. Kept as the reporter behind the
-    ``wing_mass_tie_open`` validator (WF-4): positive means the item model shows
-    less wing mass than WINGINER hangs, negative more.
+    The one-model gate, per case: what the case's loading tags to the wing is
+    what WINGINER distributes for it, both sides together. Exact by
+    construction on a laterally symmetric loading with no panel override; open
+    by the override's gap, or by the port/starboard difference of an asymmetric
+    loading the half-span model cannot carry -- both named in ``detail``.
     """
-    wm = project.wing_mass
-    if wm is None or not wm.concentrated:
-        return 0.0
-    accounted = (distribution(project).weight(MassComponent.WING)
-                 - 2.0 * (wm.panel_weight_lb or 0.0))
-    return 2.0 * math.fsum(c.weight_lb for c in wm.concentrated) - accounted
+    points = math.fsum(it.weight_lb for it in state.point_masses)
+    want = 2.0 * (state.panel_weight_lb + points)
+    got = state.wing_weight_lb
+    return MassCheck(
+        code="mass_wing_tie_case", ok=_close(got, want), got=got, want=want,
+        detail=(f"{state.label}: WING parts sum to {got:.1f} lb against 2 x "
+                f"(panel {state.panel_weight_lb:.1f} + points {points:.1f}) = "
+                f"{want:.1f} lb distributed"),
+        parts=(("panel per side", state.panel_weight_lb), ("points per side", points)),
+    )
 
 
 #: The mass component each empennage surface's distributed inertia is built from.
@@ -814,6 +1003,14 @@ def derive_case_loadings(project: Project,
     needing the **least ballast**; ties break toward the larger payload. Least
     ballast is the loading closest to something an operator could actually fly.
 
+    **A searched loading is laterally symmetric on the wing** (design note 63,
+    D-63.3): a subset whose ``WING``-carried ``POINT`` parts weigh differently
+    port and starboard -- one tank of a pair -- is not a candidate. WINGINER
+    and the balanced deck are half-span models of a symmetric wing, so the
+    search may not hand them a state they cannot carry; an asymmetric state is
+    an entered loading's to state, and ``validation`` names it
+    (``wing_mass_asymmetric``).
+
     The ballast row's ``x`` **and** ``z`` are both solved (weight from the
     residual, station from the x-moment, waterline from the z-moment), so the
     derived loading matches the case in all three. Its inertias are zero -- a
@@ -855,6 +1052,8 @@ def derive_case_loadings(project: Project,
         best: Optional[Tuple[float, int, List[MassItem], Optional[MassItem]]] = None
         for mask in range(1 << len(discretionary)):
             sub = [it for i, it in enumerate(discretionary) if mask >> i & 1]
+            if not _wing_points_symmetric(sub, project):
+                continue                       # one tank of a pair (D-63.3)
             # G-5: for a GROUND target, burn the consumables in this subset down
             # to a continuous partial value -- proportionally, so a tank layout is
             # preserved -- *before* considering the subset a loading. A design
@@ -918,6 +1117,22 @@ def derive_case_loadings(project: Project,
             ballast=best_ballast, derivable=credible, note=note,
         ))
     return out
+
+
+def _wing_points_symmetric(items: Sequence[MassItem], project: Project) -> bool:
+    """Do ``items``' WING POINT parts weigh the same port and starboard?
+
+    The predicate the subset search (:func:`derive_case_loadings`) and the
+    ``wing_mass_asymmetric`` validator share, so the two cannot disagree about
+    what the half-span models can carry. Centreline parts are neither side.
+    """
+    port = starboard = 0.0
+    for it in wing_parts(items, project, WingCarriage.POINT):
+        if it.y > 0.0:
+            starboard += it.weight_lb
+        elif it.y < 0.0:
+            port += it.weight_lb
+    return abs(port - starboard) <= RECONCILE_REL_TOL * max(port, starboard, 1.0)
 
 
 def _burn_down(items: List[MassItem], target_lb: float) -> Optional[List[MassItem]]:
@@ -1043,21 +1258,28 @@ __all__ = [
     "CaseLoading",
     "MassCheck",
     "MassDistribution",
+    "WingMassState",
     "case_loading_checks",
     "component_of",
     "component_summary",
+    "database_mass_state",
     "derive_case_loadings",
     "derived_fuselage_stations",
+    "derived_panel_weight",
     "derived_tail_surface_weight",
     "distribution",
     "entered_loading",
     "fuselage_beam_stations",
     "fuselage_reconciliation",
     "infer_component",
+    "loading_mass_state",
+    "panel_weight",
     "partition_closes",
     "tail_reconciliation",
     "tail_surface_weight",
-    "unmodelled_wing_mass",
     "untagged_tail_surfaces",
+    "wing_mass_state",
     "wing_mass_tie",
+    "wing_parts",
+    "wing_state_tie",
 ]

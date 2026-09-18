@@ -372,9 +372,16 @@ def test_the_supplied_set_stays_small_against_the_asked_set():
     — an entered thrust line would be invisible to the section that exists to
     resolve loads about it, and a counter-rotating engine's report would state
     the wrong rotation while the analysis used the right one. Each is
-    demonstrated below. The dial has moved twice in the project's life, both
-    times with a class of field behind it and never to close a failure."""
-    assert len(supplied_paths()) < 0.16 * len(original_paths())
+    demonstrated below.
+
+    **17 % since design note 63** (2026-09-17), for one field: ``carriage``
+    is the tag that makes a WING row a WINGINER concentrated mass instead of
+    panel mass (D-63.3), and the reduction dropping it would smear the Baron's
+    engines, gear and fuel along the span -- the closure-locked twin's wing
+    loads would not reproduce. The dial has moved three times in the project's
+    life, each time with a class of field behind it and never to close a
+    failure."""
+    assert len(supplied_paths()) < 0.17 * len(original_paths())
 
 
 def test_every_shipped_example_is_classified():

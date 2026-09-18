@@ -66,7 +66,7 @@ from ..derived_geometry import (
     require_wing_reference,
     sync_geometry_derived,
 )
-from ..mass_distribution import fuselage_beam_stations
+from ..mass_distribution import WingMassState, fuselage_beam_stations, wing_mass_state
 from ..models import (
     BodyLoadResult,
     BodyStationLoad,
@@ -274,6 +274,11 @@ def build_body_loads(project: Project) -> List[BodyLoadResult]:
     # unless the project explicitly overrides it. Before B1 this read
     # ``fuselage_mass.stations`` directly, and every fixture's beam carried less
     # mass than the airplane weighed -- see :mod:`sloads.mass_distribution`.
+    # Since design note 63 (D-63.8) the table is **per condition**: the
+    # condition's own CG case resolves to its loading, and the beam lumps that
+    # loading's body parts -- on ``ga6_normal`` 1,733 lb at GREATEST NZ (CG4,
+    # a 2,063 lb airplane), not the data base's 3,070. The project-level read
+    # below is the refusal check and the fallback for a case without a loading.
     beam = fuselage_beam_stations(project)
     if not beam or fl is None:
         raise MissingInputError("body_loads needs 'fuselage_mass' stations and 'flight_loads'")
@@ -285,20 +290,29 @@ def build_body_loads(project: Project) -> List[BodyLoadResult]:
     # raising read, not the tolerant one: a body deck with no V-n matrix behind it
     # is an input error, not a deck with no cases.
     vn: Dict[int, VnPoint] = {p.case: p for p in default_envelope(project).vn}
-    stations = [(s.x, s.weight_lb) for s in beam]
     wing_x = require_wing_reference(project).xw
     tail_x = _tail_station(project, max(s.x for s in beam))
     carry = carry_through(project)                  # None -> flagged fallback
 
     results: List[BodyLoadResult] = []
+    states: Dict[str, WingMassState] = {}
     for cond in _critical_fuselage(project):
         p = vn.get(cond.case) if cond.case is not None else None
         if p is None:
             continue
+        # One resolution per CG case: the same loading the balanced deck and
+        # WINGINER read for it (D-63.1), so the body and the wing describe one
+        # state. A loading the search cannot produce falls back to the data
+        # base with the reason in the result's ``mass_state``.
+        state = states.get(p.cg)
+        if state is None:
+            state = states[p.cg] = wing_mass_state(project, p.cg or None)
+        case_beam = fuselage_beam_stations(project, state.loading) or beam
+        stations = [(s.x, s.weight_lb) for s in case_beam]
         rows, info = body_distribution(stations, p.nz, p.lt, tail_x, wing_x, carry)
         results.append(BodyLoadResult(
             case=cond.label, stations=rows, case_ref=cond.case_ref,
-            safety_factor=cond.safety_factor,
+            safety_factor=cond.safety_factor, mass_state=state.label,
             m_unbalanced=info["m_unbalanced"],
             r_front=info.get("r_front"), r_rear=info.get("r_rear"),
             x_front=info.get("x_front"), x_rear=info.get("x_rear"),

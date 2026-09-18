@@ -57,9 +57,10 @@ after analysis (chapters 5 and 8 state the same contrast from their side).
    distribution, split into additional and basic (twist) lift; the swept /
    high-Mach branch (AIRLOAD4, Ch 12) is auto-selected above 15° quarter-chord
    sweep or design Mach 0.4.
-2. **Spanwise inertia** — WINGINER's strip masses (panel weight plus
-   concentrated items, per side) under the case's load factor, plus the
-   unit-roll recurrence for the accelerated-roll case.
+2. **Spanwise inertia** — WINGINER's strip masses (the panel derived from the
+   `WING`-tagged `PANEL` items plus the `POINT` rows of the case's own loading,
+   per side — one mass model, design note 63) under the case's load factor,
+   plus the unit-roll recurrence for the accelerated-roll case.
 3. **Net loads** — NETLOADS integrates air minus inertia to the running shear,
    bending and LRA torsion tables per station (the station-table conventions
    of chapter 2 §2.3).

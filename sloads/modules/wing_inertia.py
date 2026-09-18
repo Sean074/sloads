@@ -8,6 +8,16 @@ integrated panel mass equals the entered panel weight (WINGINER.BAS lines
 690-880). Concentrated wing masses (gear, engine, fuel, stores) are added as
 spanwise steps.
 
+**One mass model (design note 63, v67).** The panel weight and the concentrated
+masses are not entered here: the panel is half the ``WING``-carried ``PANEL``
+parts of the item database (:func:`sloads.mass_distribution.panel_weight`,
+override allowed) and the concentrated masses are the ``POINT``-carriage WING
+rows of **the case's own loading** (:func:`sloads.mass_distribution.wing_mass_state`).
+The panel *shape* -- the root-density iteration -- is built once per run at the
+project panel weight; each case folds its own panel scale and point list onto
+it (:func:`fold_units`), so a zero-fuel case carries no wing-fuel relief and a
+full-fuel case carries all of it. Every result names the mass state it ran at.
+
 Three unit distributions are formed along the quarter chord (airplane axes):
 
 * **1g vertical** -- ``Fz = W``; ``Sz`` cumulative; ``Mxx = Σ Sz·dy``; torsion
@@ -33,7 +43,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field, replace
-from typing import Dict, List, NamedTuple, Optional
+from typing import Dict, List, NamedTuple, Optional, Sequence
 
 from ..aero_curves import inertia_drag_factor
 from ..basic import basic_trunc3
@@ -42,12 +52,14 @@ from ..cg_cases import flight_cases
 from ..constants import DEG_PER_RAD, IN2_PER_FT2
 from ..convergence import solver_failure
 from ..derived_geometry import require_integrable_planform, sync_geometry_derived, wing_plane
+from ..mass_distribution import WingMassState, panel_weight, wing_mass_state
 from ..models import (
     CaseRef,
     ConcentratedLoad,
     ConditionResult,
     CriticalCondition,
     LoadValue,
+    MassItem,
     MissingInputError,
     ModuleResult,
     Project,
@@ -113,8 +125,9 @@ class _InertiaUnits:
     density_tip: float = 0.0
 
 
-def _root_density(dA, ye, c, dy, ytip, wm: WingMassInput, ii: int):
-    """Iterate the root area density until the panel mass equals the entered weight.
+def _root_density(dA, ye, c, dy, ytip, wm: WingMassInput, ii: int,
+                  target: float):
+    """Iterate the root area density until the panel mass equals ``target``.
 
     Mirrors WINGINER.BAS lines 730-880 (a partial first-strip correction at the
     inboard rib, ±1% tolerance, 1e-5 density steps).
@@ -132,7 +145,6 @@ def _root_density(dA, ye, c, dy, ytip, wm: WingMassInput, ii: int):
     through, not the answer."""
     dr = wm.tip_root_density_ratio
     rsta = wm.inboard_rib_y
-    target = wm.panel_weight_lb
     if target <= 0.0:
         return [0.0] * len(ye), 0.0
     span_out = ytip - rsta
@@ -165,14 +177,39 @@ def _root_density(dA, ye, c, dy, ytip, wm: WingMassInput, ii: int):
     return w, densr
 
 
-def inertia_units(geom: SurfaceInput, wm: WingMassInput,
-                  wrp_waterline: float, dihedral_deg: float) -> _InertiaUnits:
-    """Build the wing-panel mass distribution and the three unit inertia cases.
+@dataclass
+class _PanelShape:
+    """The tapered panel, integrated once: strips root->tip at one target weight.
+
+    Design note 63 D-63.6: the *shape* is built once per run, at the project's
+    panel weight, and every case scales it (``fold_units``). ``target`` is the
+    weight the iteration was aimed at, so a case whose panel equals it scales by
+    exactly 1.0 -- which is what keeps Appendix A bit-for-bit -- and a case with
+    less or more panel mass (a PANEL-carriage row not aboard) scales by the
+    ratio rather than re-running the ±1 % iteration to a different band.
+    """
+    ye: List[float]
+    c25x: List[float]
+    c50x: List[float]
+    z: List[float]
+    w: List[float]
+    dy: float
+    target: float
+    density_root: float
+    density_tip: float
+
+
+def panel_shape(geom: SurfaceInput, wm: WingMassInput,
+                wrp_waterline: float, dihedral_deg: float,
+                panel_weight_lb: float) -> _PanelShape:
+    """The wing-panel mass distribution at ``panel_weight_lb`` per side.
 
     ``wrp_waterline``/``dihedral_deg`` describe the wing plane and are passed in
     (note 33, DS-4): they belong to the *parametric* wing, which ``geom`` — a
     single ``SurfaceInput`` — does not carry. Resolve them once per run with
-    :func:`sloads.derived_geometry.wing_plane`.
+    :func:`sloads.derived_geometry.wing_plane`. ``panel_weight_lb`` is passed
+    in for the same reason (note 63): it belongs to the item database, read
+    through :func:`sloads.mass_distribution.panel_weight`, not to this slice.
 
     This is the second entry into the WINGGEOM strip sweep, and it had none of
     the precondition ``surface_properties`` enforces: a mid-entry planform
@@ -192,14 +229,34 @@ def inertia_units(geom: SurfaceInput, wm: WingMassInput,
     z = [wrp_waterline + math.tan(dihedral_deg / DEG_PER_RAD) * y for y in ye]
 
     ii = next((i for i, y in enumerate(ye) if y >= wm.inboard_rib_y), 0)
-    w, densr = _root_density(dA, ye, c, dy, ytip, wm, ii)
+    w, densr = _root_density(dA, ye, c, dy, ytip, wm, ii, panel_weight_lb)
+    return _PanelShape(ye=ye, c25x=c25x, c50x=c50x, z=z, w=w, dy=dy, target=panel_weight_lb,
+                       density_root=basic_trunc3(IN2_PER_FT2 * densr),
+                       density_tip=basic_trunc3(IN2_PER_FT2 * wm.tip_root_density_ratio * densr))
 
-    u = _InertiaUnits(ye=ye, c25x=c25x, c50x=c50x, z=z, w=w,
-                      density_root=basic_trunc3(IN2_PER_FT2 * densr),
-                      density_tip=basic_trunc3(IN2_PER_FT2 * wm.tip_root_density_ratio * densr))
+
+def fold_units(shape: _PanelShape, panel_weight_lb: float,
+               point_masses: Sequence[MassItem] = ()) -> _InertiaUnits:
+    """The three unit inertia distributions for one mass state.
+
+    The panel strips are ``shape`` scaled to ``panel_weight_lb`` (exactly 1.0
+    when it is the shape's own target); ``point_masses`` are this state's
+    per-side concentrated masses, each at its own ``x``/``y``/``z`` (a
+    :class:`~sloads.models.MassItem` part, note 63 D-63.3). The roll inertia
+    ``Iwxx`` and the unit-roll forces are built from both, per WINGINER.BAS
+    1350-1610, so a case with a different point list has its own roll
+    distribution as the ``.BAS`` would give it.
+    """
+    ye, c25x, c50x, z, dy = shape.ye, shape.c25x, shape.c50x, shape.z, shape.dy
+    h = len(ye)
+    scale = (panel_weight_lb / shape.target) if shape.target > 0.0 else 0.0
+    w = [wi * scale for wi in shape.w] if scale != 1.0 else list(shape.w)
+
+    u = _InertiaUnits(ye=list(ye), c25x=list(c25x), c50x=list(c50x), z=list(z), w=w,
+                      density_root=shape.density_root, density_tip=shape.density_tip)
 
     iwxx = 2.0 * (math.fsum(w[i] * ye[i] ** 2 for i in range(h))
-                  + math.fsum(cw.weight_lb * cw.y ** 2 for cw in wm.concentrated)) or 1.0
+                  + math.fsum(cw.weight_lb * cw.y ** 2 for cw in point_masses)) or 1.0
     fz_r = [w[i] * ye[i] * 100000.0 / iwxx for i in range(h)]
     u.fz_r = fz_r
 
@@ -233,7 +290,7 @@ def inertia_units(geom: SurfaceInput, wm: WingMassInput,
     # the shears/moments/torsion of every strip inboard of the weight (WINGINER.BAS
     # lines 1180-1270, 1570-1610). The per-strip Fz/Fx stay panel-only; the weight
     # is a point load carried in the cumulative shear.
-    for cw in wm.concentrated:
+    for cw in point_masses:
         fzcwt = cw.weight_lb * cw.y * 100000.0 / iwxx
         u.point_masses.append(_UnitPointMass(
             name=getattr(cw, "name", ""), x=cw.x, y=cw.y, z=cw.z,
@@ -254,6 +311,21 @@ def inertia_units(geom: SurfaceInput, wm: WingMassInput,
     u.sx_d, u.mzz_d, u.tvyy_d = sx_d, mzz_d, tvyy_d
     u.sz_r, u.mxx_r, u.tyy_r = sz_r, mxx_r, tyy_r
     return u
+
+
+def inertia_units(geom: SurfaceInput, wm: WingMassInput,
+                  wrp_waterline: float, dihedral_deg: float, *,
+                  panel_weight_lb: float,
+                  point_masses: Sequence[MassItem] = ()) -> _InertiaUnits:
+    """Build the panel distribution and the three unit inertia cases in one call.
+
+    :func:`panel_shape` at ``panel_weight_lb`` folded with ``point_masses``
+    (:func:`fold_units`) -- the form a single-state caller wants: a test against
+    Appendix A (panel 165 lb, no points), or the balanced deck's shape read.
+    Per-case runs build the shape once and fold per case.
+    """
+    shape = panel_shape(geom, wm, wrp_waterline, dihedral_deg, panel_weight_lb)
+    return fold_units(shape, panel_weight_lb, point_masses)
 
 
 def wing_inertia_distribution(case: WingLoadCase, units: _InertiaUnits
@@ -489,7 +561,55 @@ def wing_case_ref(project: Project, index: int, case: WingLoadCase,
         speed_kt=_stated_speed(case, vp),
         altitude_ft=vp.altitude_ft if vp else None,
         far_reference="23.301(b)",
+        run=vp.condition if vp else "",
+        config=vp.config if vp else "",
     )
+
+
+def resolve_mass_case(project: Project, case: WingLoadCase,
+                      sources: Optional[WingCaseSources] = None) -> Optional[str]:
+    """The FLIGHT CG case whose loading is ``case``'s mass state (note 63, D-63.6).
+
+    In order: the case's own ``cg``; the CG case of the V-n point it references;
+    the CG case of SELECT's wing condition of the same label (a hand-entered
+    case that restates a selected condition, ``atr42_100``'s ``PHAA``); else
+    ``None`` -- the item database with every row aboard, which
+    :func:`sloads.mass_distribution.wing_mass_state` labels as such and
+    ``validation`` names (``wing_case_mass_state_unnamed``).
+    """
+    if case.cg:
+        return case.cg
+    src = _sources(project, sources)
+    if case.case is not None:
+        vp = src.vn.get(case.case)
+        if vp is not None and vp.cg:
+            return vp.cg
+    for c in src.wing_conditions:
+        if c.label == case.name and c.case is not None:
+            vp = src.vn.get(c.case)
+            if vp is not None and vp.cg:
+                return vp.cg
+    return None
+
+
+def case_mass_state(project: Project, case: WingLoadCase,
+                    sources: Optional[WingCaseSources] = None) -> WingMassState:
+    """The resolved :class:`~sloads.mass_distribution.WingMassState` of ``case``."""
+    return wing_mass_state(project, resolve_mass_case(project, case, sources))
+
+
+def _with_mass_state(ref: CaseRef, state: WingMassState) -> CaseRef:
+    """The case ref naming the mass state it ran at: ``cg`` is the state's case.
+
+    A wing case may restate a selected condition at a different mass state
+    (an explicit ``cg``), and the row that names the loads must name the
+    loading they were built from -- the same rule ``wing_case_ref`` applies to
+    the speed. Left as it was when the state is the database (``cg`` then
+    keeps the V-n point's name, which is where the *air* load came from).
+    """
+    if state.case and ref.cg != state.case:
+        return replace(ref, cg=state.case)
+    return ref
 
 
 def _case_weight(project: Project, cg_name: str) -> float:
@@ -521,11 +641,16 @@ def build_wing_inertia(project: Project) -> List[WingLoadResult]:
     geom = project.geometry.by_name(wm.surface)
     if geom is None:  # already refused above; narrows for the calls below
         raise MissingInputError(f"wing_inertia needs a '{wm.surface}' geometry surface")
-    units = inertia_units(geom, wm, *wing_plane(project, wm.surface))
+    # The shape once, at the project panel; each case folds its own state
+    # (note 63 D-63.6) -- the panel it carries and the POINT rows aboard.
+    shape = panel_shape(geom, wm, *wing_plane(project, wm.surface), panel_weight(project))
     results = []
     for i, c in enumerate(cases):
+        state = case_mass_state(project, c, src)
+        units = fold_units(shape, state.panel_weight_lb, state.point_masses)
         r = wing_inertia_distribution(_resolve_case(project, c, src), units)
-        r.case_ref = wing_case_ref(project, i, c, src)
+        r.case_ref = _with_mass_state(wing_case_ref(project, i, c, src), state)
+        r.mass_state = state.label
         results.append(r)
     return results
 

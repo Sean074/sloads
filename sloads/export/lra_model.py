@@ -1157,10 +1157,12 @@ def lra_model_bdf(project: Project, *,
         head += comment("ASSUMED: " + note)
     head.append("$ ------------------------------------------------- CASE MAP")
     for sid, case in zip(sids, cases):
+        run_key = case.case_ref.run_key if case.case_ref else ""
         entry = (f"SUBCASE {sid} = "
                  f"{case.case_ref.case_id if case.case_ref else '(no id)'}"
                  f" -- {case.label}{('-' + case.hand) if case.hand else ''}"
-                 f" -- {case.cg} -- Nz {case.nz:g}")
+                 f" -- {case.cg} -- Nz {case.nz:g}"
+                 f"{' -- run ' + run_key if run_key else ''}")
         head += [f"$ {ln}" for ln in textwrap.wrap(entry, width=70,
                                                    subsequent_indent="    ")]
     head.append("$")

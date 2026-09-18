@@ -1119,32 +1119,162 @@ def _check_wing_fraction(project: Project) -> List[ConsistencyWarning]:
 
 
 def _check_wing_mass_tie(project: Project) -> List[ConsistencyWarning]:
-    """The wing tie as a validator (design note 29, WF-4).
+    """What is left of the wing tie once the wing has one mass model (note 63).
 
-    ``Σ(WING-carried item mass) == 2 x (WINGINER panel + Σ concentrated)`` -- the
-    two models of the same physical wing agreeing. Before this it was a test and
-    one caption on the fuselage page; a user's own file with the defect the three
-    twin/concept fixtures carried (wing-tank fuel inside an undivided fuel row,
-    so the same pounds rode both beams) got no signal in the CLI or the report.
-    ``wing_mass_tie_open`` states the pounds and the remedy.
+    Design note 29's WF-4 tie compared two entries of the wing's mass; since
+    D-63.2 there is one, the item database, and the only second opinion a
+    project can hold is ``wing_mass.panel_weight_override_lb``.
+    ``wing_panel_override_open`` states the gap the way the fuselage's entered
+    station table is reported: the override is what WINGINER integrates, the
+    derived value is what the items say, and which is wrong is the user's call.
     """
     check = mass_distribution.wing_mass_tie(project)
     if check is None or check.ok:
         return []
-    gap = mass_distribution.unmodelled_wing_mass(project)
-    if gap > 0.0:
-        which = (f"WINGINER hangs {gap:,.0f} lb more on the wing than the item "
-                 "database carries there -- those pounds ride the fuselage beam "
-                 "as well. Set wing_fraction on the row(s) the wing carries part "
-                 "of (a fuel row, typically), or re-tag them")
-    else:
-        which = (f"the item database carries {-gap:,.0f} lb more on the wing than "
-                 "WINGINER hangs there. Add the mass to wing_mass.concentrated "
-                 "(per side), or correct the tags/fractions")
     return [ConsistencyWarning(
-        "wing_mass_tie_open",
-        f"Wing mass tie open: {check.detail}. {which} (design note 29).",
+        "wing_panel_override_open",
+        f"Wing panel override differs from the item database: {check.detail}. "
+        "Clear the override to run on the WING-tagged PANEL items, or correct "
+        "the items (design note 63 D-63.2).",
         PAGE_WEIGHT_CG)]
+
+
+def _check_wing_mass_states(project: Project) -> List[ConsistencyWarning]:
+    """The per-case mass state every inertia load reads (design note 63, D-63.1).
+
+    * ``wing_mass_asymmetric`` -- a FLIGHT case's loading carries a different
+      POINT weight on the port wing than on the starboard. WINGINER and the
+      balanced deck are half-span models of a symmetric wing (WINGINER.BAS
+      hangs every concentrated weight at a positive butt line and the deck
+      mirrors the starboard set), so the port rows are checked, not run, and
+      an asymmetric state would be delivered as its starboard half doubled.
+    * ``wing_case_loading_not_derivable`` -- a FLIGHT case a wing or fuselage
+      condition runs at has no entered loading and the search cannot produce
+      one, so WINGINER and the body beam fell back to the item database with
+      every row aboard, stated in the result's ``mass_state``. Enter the
+      loading (#290's editor; the JSON until then) or correct the case.
+    * ``wing_case_mass_state_unnamed`` -- a hand-entered ``wing_mass.cases[]``
+      row names no ``cg`` and references no V-n point, and no selected
+      condition shares its label, so its inertia is built from the whole
+      database. Name the mass state.
+
+    None of the three fires on a shipped fixture; the Baron's two
+    non-derivable FLIGHT cases are reached by no delivered wing case (its
+    hand-entered rows name ``cg``) and by its fuselage conditions, which the
+    second warning names.
+    """
+    out: List[ConsistencyWarning] = []
+    weight = project.weight
+    if weight is None or not weight.items:
+        return out
+    from .modules.wing_inertia import resolve_mass_case
+
+    wm = project.wing_mass
+    if wm is not None and mass_distribution.panel_weight(project) <= 0.0:
+        out.append(ConsistencyWarning(
+            "wing_panel_empty",
+            "No weight item is tagged `wing` with carriage PANEL, and no panel "
+            "override is entered, so WINGINER integrates no panel mass: every "
+            "wing inertia load is the POINT rows alone, or nothing. Tag the "
+            "outboard structure `wing` (design note 63 D-63.2).",
+            PAGE_WEIGHT_CG))
+    for case in cg_cases.flight_cases(project):
+        try:
+            state = mass_distribution.wing_mass_state(project, case.name)
+        except ValueError:
+            continue                  # a malformed entered loading: named above
+        if state.source == "database":
+            out.append(ConsistencyWarning(
+                "wing_case_loading_not_derivable",
+                f"Weight/CG case '{case.name}' has no derivable loading "
+                f"({state.label}{': ' + state.reason if state.reason else ''}), "
+                "so every inertia load run at it -- the wing "
+                "distributions, the fuselage beam -- integrates the whole item "
+                "database instead of the case's own mass. Enter the case's "
+                "loading, or correct its weight and CG (design note 63 D-63.1).",
+                PAGE_WEIGHT_CG))
+            continue
+        starboard = math.fsum(it.weight_lb for it in state.point_masses if it.y > 0.0)
+        port = state.port_point_weight_lb
+        if not mass_distribution._wing_points_symmetric(state.items, project):
+            out.append(ConsistencyWarning(
+                "wing_mass_asymmetric",
+                f"Weight/CG case '{case.name}' carries {starboard:,.0f} lb of "
+                f"POINT wing mass on the starboard wing and {port:,.0f} lb on the "
+                "port. The wing inertia and the balanced deck are half-span models "
+                "of a symmetric wing: the starboard set is what is run and "
+                "mirrored. Enter a symmetric loading, or model the asymmetry as "
+                "its own case (design note 63 D-63.3).",
+                PAGE_WEIGHT_CG))
+    if wm is not None and wm.cases:
+        try:
+            unnamed = [c.name for c in wm.cases
+                       if resolve_mass_case(project, c) is None]
+        except Exception:      # a half-entered project: the module's own refusal
+            unnamed = []
+        if unnamed:
+            out.append(ConsistencyWarning(
+                "wing_case_mass_state_unnamed",
+                "These entered wing load cases name no mass state -- no `cg`, "
+                "no V-n case reference and no selected condition of the same "
+                "label -- so their inertia is built from the whole item database: "
+                + ", ".join(f"'{n}'" for n in unnamed)
+                + ". Set `cg` to the weight/CG case the condition is flown at "
+                "(design note 63 D-63.6).",
+                PAGE_WEIGHT_CG))
+    return out
+
+
+def _check_fuselage_override_per_case(project: Project) -> List[ConsistencyWarning]:
+    """An entered station table is one table for every mass state (D-63.8).
+
+    ``fuselage_override_varies_by_case``: the project overrides the derived
+    fuselage stations, and its FLIGHT loadings differ in body mass by more than
+    the reconciliation gate -- so the one entered table is integrated at every
+    condition while the loadings say the body carries different pounds. The
+    derived table follows the case; an override cannot.
+    """
+    fm = project.fuselage_mass
+    if fm is None or not fm.stations_are_override or project.weight is None:
+        return []
+    totals = []
+    try:
+        loadings = mass_distribution.derive_case_loadings(project)
+    except ValueError:
+        return []                     # a malformed entered loading: named elsewhere
+    for ld in loadings:
+        if not ld.derivable:
+            continue
+        beam = mass_distribution.derived_fuselage_stations(project, ld.items)
+        totals.append((ld.name, math.fsum(st.weight_lb for st in beam)))
+    if len(totals) < 2:
+        return []
+    lo = extreme(totals, key=lambda t: t[1], largest=False)
+    hi = extreme(totals, key=lambda t: t[1])
+    if hi[1] - lo[1] <= mass_distribution.FUSELAGE_GAP_WARN_FRACTION * max(hi[1], 1.0):
+        return []
+    return [ConsistencyWarning(
+        "fuselage_override_varies_by_case",
+        f"The fuselage stations are an entered override, one table for every "
+        f"condition, but the FLIGHT loadings' body mass runs from {lo[1]:,.0f} lb "
+        f"('{lo[0]}') to {hi[1]:,.0f} lb ('{hi[0]}'). The derived table follows "
+        "each case's loading; the override cannot. Clear "
+        "`stations_are_override` to integrate each condition at its own mass "
+        "(design note 63 D-63.8).",
+        PAGE_WEIGHT_CG)]
+
+
+def _check_migration_notes(project: Project) -> List[ConsistencyWarning]:
+    """What the schema hop chain had to say about this file, stated once.
+
+    ``migration_dropped_wing_masses`` etc. are one warning per note on
+    ``Project.migration_notes`` (never persisted): a v66 file's
+    ``wing_mass.concentrated`` dropped or converted by ``_hop_66``, the panel
+    override it kept. Saving writes the file at the current version and the
+    note is gone, which is what "named once" means.
+    """
+    return [ConsistencyWarning("migration_note", note, PAGE_WEIGHT_CG)
+            for note in project.migration_notes]
 
 
 def _check_gear_carrier(project: Project) -> List[ConsistencyWarning]:
@@ -1158,8 +1288,8 @@ def _check_gear_carrier(project: Project) -> List[ConsistencyWarning]:
       carrying the load but not the weight. It was written for ``dhc8_dash8``,
       whose main gear sits in wing-mounted nacelles with its mass tagged
       ``fuselage``; that fixture was corrected on 2026-08-15 (item re-tagged
-      ``wing``, and the 600 lb/side leg added to WINGINER's ``concentrated``), so
-      no shipped fixture fires it now and the guard holds the line.
+      ``wing``, per side at carriage POINT since note 63), so no shipped
+      fixture fires it now and the guard holds the line.
     * ``gear_attach_missing`` -- ``carrier`` stated but ``attach`` left at the
       origin. ``(0, 0, 0)`` is not a trunnion; it is the default nobody replaced.
     * ``gear_attach_off_the_wing`` -- a ``WING``-carried leg whose ``attach`` is
@@ -1433,6 +1563,9 @@ def consistency_warnings(project: Project) -> List[ConsistencyWarning]:
     out += _check_gear_carrier(project)
     out += _check_wing_fraction(project)
     out += _check_wing_mass_tie(project)
+    out += _check_wing_mass_states(project)
+    out += _check_fuselage_override_per_case(project)
+    out += _check_migration_notes(project)
     out += _check_aero_coefficients(project)
     out += _check_flap_slipstream(project)
     out += _check_derive_overrides(project)

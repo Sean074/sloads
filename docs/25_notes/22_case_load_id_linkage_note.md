@@ -45,6 +45,21 @@ artefact (the CSV) and nowhere a human reads.
 | **5** | Column headers name **both** solver words — `LOAD/SUBCASE (component)` and `LOAD/SUBCASE (assembled)` — since the deck uses one integer for both `SUBCASE n` and `LOAD = n`, and consumers grep for either | Pick one word. Rejected: renaming the CSV's existing `SUBCASE` column outright breaks any consumer keyed to it; keeping the word inside the new header does not |
 | **6** | A case with **no** `CaseRef` states an explicit blank in both columns, never the positional fallback number | Print `_sid`'s positional fallback (`sid_base + index`). Rejected: that number is exactly the unstable, position-dependent id M4-2 decision 8 removed — publishing it in a document invites a reader to key on it |
 
+## 2a. The run key beside the slot id (design note 63 D-63.11, #289, 2026-09-17)
+
+The case id is the deliverable's **number**; the **run key** is the condition's
+**name**: the balanced V-n point's manoeuvre label (`CaseRef.run`, e.g.
+`"GUST +C"`), its configuration (`CaseRef.config`), its CG case and its
+altitude — the composite that names a point without reference to its position
+in the matrix, which the #164 renumber cannot move. `CaseRef.run_key` prints
+it (`"GUST +C, CG2, 0 ft, CRUISE"`), every deck's `$` case map states it after
+the id, and the case index carries `Run` and `Config` columns beside `CG` and
+`Altitude`. `subcase_id` / `balanced_subcase_id` stay pure functions of the id,
+so nothing in this note's linkage moves; the V-n `case` integer stays a
+convenience and is never identity. The distinction exists for #292, where each
+wing slot is assessed at every mass state: those are runs with their own keys,
+and the slot is the role the down-select assigns to one of them.
+
 ## 3. What the linkage reads as
 
 Deck (unchanged, stated here as the target of the join):

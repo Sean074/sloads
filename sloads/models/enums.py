@@ -94,6 +94,25 @@ class MassComponent(str, Enum):
     VTAIL = "vtail"        # vertical tail
 
 
+class WingCarriage(str, Enum):
+    """How the wing reacts a ``WING``-carried mass part (design note 63, D-63.3).
+
+    ``PANEL`` mass is spread along the span by WINGINER's tapered area density
+    -- the outboard structure itself. ``POINT`` mass is a WINGINER concentrated
+    mass at the part's own ``x``/``y``/``z`` (Ref 1 Ch 13, WINGINER.BAS
+    1180-1270): an engine, a nacelle, a gear leg, a tank. Read on WING-reacted
+    parts only; a row the fuselage carries ignores it.
+
+    A typed tag rather than a butt-line heuristic: the taper cannot tell an
+    engine from a spar by inspection (``atr42_100`` carried "Engines (2)" as
+    one row at the centreline). The v67 migration stamped every off-centreline
+    WING row ``POINT`` once, for rows that already existed; every row since is
+    typed on entry.
+    """
+    PANEL = "panel"
+    POINT = "point"
+
+
 class VdBasis(str, Enum):
     """Which regulatory route sets the design dive speed VD (F25-2).
 
@@ -209,4 +228,5 @@ __all__ = [
     "RotorType",
     "TailType",
     "VdBasis",
+    "WingCarriage",
 ]

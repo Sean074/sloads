@@ -1,5 +1,5 @@
 {
-  "schema_version": 66,
+  "schema_version": 67,
   "name": "Concept commuter twin (>12,500 lb, category C)",
   "weight": {
     "estimation": {
@@ -27,7 +27,8 @@
         "kind": "empty",
         "component": "wing",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
         "name": "Fuselage structure",
@@ -41,7 +42,8 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
         "name": "Tail",
@@ -55,7 +57,8 @@
         "kind": "empty",
         "component": "htail",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
         "name": "Landing gear",
@@ -69,7 +72,8 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
         "name": "Engines (2)",
@@ -83,7 +87,8 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
         "name": "Systems",
@@ -97,7 +102,8 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
         "name": "Furnishings",
@@ -111,7 +117,8 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
         "name": "Pilot",
@@ -125,7 +132,8 @@
         "kind": "minimum",
         "component": "fuselage",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
         "name": "Copilot",
@@ -139,7 +147,8 @@
         "kind": "minimum",
         "component": "fuselage",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
         "name": "Reserve fuel",
@@ -153,7 +162,8 @@
         "kind": "minimum",
         "component": "fuselage",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
         "name": "Passengers",
@@ -167,7 +177,8 @@
         "kind": "discretionary",
         "component": "fuselage",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
         "name": "Baggage",
@@ -181,21 +192,38 @@
         "kind": "discretionary",
         "component": "fuselage",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
-        "name": "Fuel to gross",
-        "weight_lb": 5500.0,
+        "name": "Wing fuel, left",
+        "weight_lb": 2750.0,
         "x": 250.0,
-        "y": 0.0,
+        "y": -120.0,
         "z": 65.0,
         "ixx": 0.0,
         "iyy": 0.0,
         "izz": 0.0,
         "kind": "discretionary",
-        "component": "fuselage",
-        "consumable": false,
-        "wing_fraction": 0.2181818182
+        "component": "wing",
+        "consumable": true,
+        "wing_fraction": 0.0,
+        "carriage": "point"
+      },
+      {
+        "name": "Wing fuel, right",
+        "weight_lb": 2750.0,
+        "x": 250.0,
+        "y": 120.0,
+        "z": 65.0,
+        "ixx": 0.0,
+        "iyy": 0.0,
+        "izz": 0.0,
+        "kind": "discretionary",
+        "component": "wing",
+        "consumable": true,
+        "wing_fraction": 0.0,
+        "carriage": "point"
       }
     ],
     "cg_cases": [
@@ -211,7 +239,8 @@
           "aboard": [
             "Passengers",
             "Baggage",
-            "Fuel to gross"
+            "Wing fuel, left",
+            "Wing fuel, right"
           ]
         }
       }
@@ -376,28 +405,18 @@
         "cg_x": 264.77777777777777,
         "cg_y": 0.0,
         "cg_z": 69.05555555555556,
-        "ixx": 2068944.4444444445,
+        "ixx": 81268944.44444445,
         "iyy": 67258055.55555555,
-        "izz": 65189111.11111111,
+        "izz": 144389111.1111111,
         "ixz": 2931222.222222222,
         "gear_down": true
       }
     ]
   },
   "wing_mass": {
-    "panel_weight_lb": 900,
     "tip_root_density_ratio": 0.9,
     "inboard_rib_y": 30,
     "surface": "wing",
-    "concentrated": [
-      {
-        "name": "fuel",
-        "weight_lb": 600,
-        "x": 210,
-        "y": 120,
-        "z": 100
-      }
-    ],
     "cases": [
       {
         "name": "PHAA",
@@ -406,7 +425,8 @@
         "nx": null,
         "unbal_moment": 0,
         "cl": null,
-        "v_eas_kt": null
+        "v_eas_kt": null,
+        "cg": null
       }
     ]
   }

@@ -192,7 +192,7 @@ def assemble_ground(project: Project, gear: "GearCaseLoads", wheels: Sequence,
     notes: List[str] = [GROUND_CLOSURE_NOTE]
 
     inertia, panel_both = wing_inertia_strips(project, 0.0)
-    wing_r, scale_notes = place_wing_inertia(inertia, loading, project, panel_both)
+    wing_r, scale_notes = place_wing_inertia(inertia, loading, project, panel_both, 0.0)
     notes += scale_notes
 
     lift_lb = lift_factor * gear.weight_lb if gear.case in GROUND_LIFT_CASES else 0.0

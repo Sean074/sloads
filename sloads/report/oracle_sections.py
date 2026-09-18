@@ -1997,6 +1997,7 @@ def _wing_case_table(project: Project, net: Sequence[object],
         rows.append([
             getattr(ref, "case_id", "") or "--",
             getattr(result, "case", "") or "--",
+            getattr(ref, "run", "") or "--",
             getattr(ref, "far_reference", "") or "--",
             cg or "--",
             u.plain(weight, "mass") if weight is not None else "--",
@@ -2007,15 +2008,21 @@ def _wing_case_table(project: Project, net: Sequence[object],
         ])
     return Table(
         title="Wing load cases run",
-        columns=["Case", "Condition", "14 CFR", "CG case",
+        columns=["Case", "Condition", "Run", "14 CFR", "CG case",
                  f"Weight ({u.label('mass')})", "V (KEAS)", "Altitude (ft)",
                  "Nz", "Nx"],
         rows=rows,
         note=("The cases carried into the wing analysis, each with the loading "
               "it was run at and the paragraph of 14 CFR Part 23 it is required "
-              "by. Speed is equivalent airspeed and altitude is feet: both are "
-              "aviation standard in either unit system and are never converted. "
-              "The weight is the CG case as entered. "
+              "by. Run is the manoeuvre label of the balanced V-n point the "
+              "case was taken from -- with the CG case, altitude and "
+              "configuration, the name of that point independent of its "
+              "position in the matrix (design note 63 D-63.11); the case id is "
+              "the deliverable's number. Speed is equivalent airspeed and "
+              "altitude is feet: both are aviation standard in either unit "
+              "system and are never converted. The weight is the CG case as "
+              "entered, and the CG case is the mass state the inertia was "
+              "built from. "
               + _LOAD_FACTOR_SIGN
               + " Nz and Nx are LIMIT and dimensionless, and the loads they "
               "produce are delivered LIMIT below."))
@@ -2156,44 +2163,69 @@ def _point_load_note(net: Sequence[object]) -> str:
         "already states.")
 
 
-def _wing_mass_tie_sentence(project: Project, system: UnitSystem) -> str:
-    """Whether the two models of the wing's mass describe one wing (#257).
+def _wing_mass_tie_sentence(project: Project, system: UnitSystem,
+                            net: Sequence[object] = ()) -> str:
+    """The wing's mass model, and that each case's inertia is its own loading's (#257).
 
-    WINGINER distributes a tapered panel plus its concentrated masses, both per
-    side; the item data base carries the rows tagged to the wing. They are two
-    models of the same physical thing, and
-    :func:`sloads.mass_distribution.wing_mass_tie` is what compares them --
-    reaching the CLI and the screen as ``wing_mass_tie_open`` (design note 29,
-    WF-4) and, until #257, no issued document. The inertia in every wing load
-    below is the first model's; a reader has no way to see that the second
-    agrees unless the page says so.
+    Until design note 63 the suite carried two models of the wing's mass --
+    WINGINER's entered panel and concentrated list, and the item data base's
+    WING rows -- and this sentence reported whether they agreed. Since v67
+    there is one: the panel is derived from the WING-tagged PANEL items and
+    the concentrated masses are the POINT rows of **each case's own loading**
+    (D-63.1, D-63.6), so the sentence now states that, names the mass state
+    each case ran at, and reports the per-case tie
+    (:func:`sloads.mass_distribution.wing_state_tie`) -- ``0 lb`` apart on
+    every case, or the gap and its cause. An entered panel override is the
+    one second opinion left, and is named when set.
 
-    ``""`` when there is no wing mass input to tie against.
+    ``""`` when there is no wing mass input.
     """
-    from ..mass_distribution import wing_mass_tie
+    from ..mass_distribution import wing_mass_state, wing_mass_tie, wing_state_tie
 
-    try:
-        check = wing_mass_tie(project)
-    except Exception:
-        return ""
-    if check is None:
+    if project.wing_mass is None or project.weight is None:
         return ""
     u = Units(system)
     mass = u.label("mass")
-    if check.ok:
-        return (f"The two models of the wing's mass agree: the items this data "
-                f"base tags to the wing sum to {u.plain(check.got, 'mass')} "
-                f"{mass}, which is what the distributed panel and its "
-                f"concentrated masses weigh, both sides together. The inertia "
-                f"in every case below is that mass at the case's own load "
-                f"factor.")
-    return (f"The two models of the wing's mass do not agree: the items this "
-            f"data base tags to the wing sum to {u.plain(check.got, 'mass')} "
-            f"{mass} against the {u.plain(check.want, 'mass')} {mass} the "
-            f"distributed panel and its concentrated masses weigh, both sides "
-            f"together -- {u.plain(abs(check.gap), 'mass')} {mass} apart. The "
-            f"inertia below is the distributed model's; the difference rides "
-            f"the fuselage beam in the other.")
+    states = []
+    for r in net:
+        ref = getattr(r, "case_ref", None)
+        label = getattr(r, "mass_state", "") or ""
+        cg = (getattr(ref, "cg", "") or "") if label and "loading" in label else ""
+        states.append((getattr(r, "case", "") or "--", label or "(not stated)", cg))
+    try:
+        ties = {cg: wing_state_tie(wing_mass_state(project, cg or None))
+                for _, _, cg in states}
+        override = wing_mass_tie(project)
+    except Exception:
+        return ""
+    gaps = [t for t in ties.values() if not t.ok]
+    parts = [
+        "The wing's mass is the item data base, read once per case: the "
+        "distributed panel is the WING-tagged PANEL items and each concentrated "
+        "mass is a POINT row of the case's own loading, so a case flown without "
+        "wing fuel carries no wing-fuel relief and one flown with it carries all "
+        "of it (design note 63). "
+        + ("Each case below names the loading it ran at: "
+           + "; ".join(f"{case} at {label}" for case, label, _ in states) + ". "
+           if states else ""),
+    ]
+    if not gaps:
+        parts.append(
+            "On every case the loading's WING rows and the inertia distributed "
+            "for it are the same pounds, both sides together -- the two are "
+            f"{u.plain(0.0, 'mass')} {mass} apart.")
+    else:
+        parts.append(
+            "The loading's WING rows and the inertia distributed for it differ "
+            "on: " + "; ".join(
+                f"{t.detail} ({u.plain(abs(t.gap), 'mass')} {mass} apart)"
+                for t in gaps) + ".")
+    if override is not None:
+        parts.append(
+            f"The panel weight is an entered override, {u.plain(override.got, 'mass')} "
+            f"{mass} per side against {u.plain(override.want, 'mass')} {mass} "
+            "derived from the items; the override is what WINGINER integrates.")
+    return " ".join(parts)
 
 
 def _wing_cases(project: Project, *, system: UnitSystem,
@@ -2215,7 +2247,7 @@ def _wing_cases(project: Project, *, system: UnitSystem,
         _matrix_sentence(envelope),
         _provenance_sentence(entered, named, run, missing),
         _negative_case_sentence(net),
-        _wing_mass_tie_sentence(project, system),
+        _wing_mass_tie_sentence(project, system, net),
         _sign_note(plan),
         _derivation_note(net),
         _point_load_note(net),

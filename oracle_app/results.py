@@ -282,6 +282,9 @@ def fuselage_mass_warnings(project: Project) -> Tuple[str, ...]:
         out.append(f"{len(inferred)} weight item(s) carry no component tag and are lumped "
                    f"on the fuselage beam by inference: {shown}. Tag the wing and "
                    "empennage items on the Weight & Mass page (`component`).")
+    # The wing panel override against the items (note 63: the one second
+    # opinion left on the wing's mass) and the entered fuselage table against
+    # the derived one -- both stated here, holding or not.
     for check in (mass_distribution.wing_mass_tie(project),
                   mass_distribution.fuselage_reconciliation(project)):
         if check is not None and not check.ok:

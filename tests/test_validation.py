@@ -426,46 +426,119 @@ def test_the_gear_carrier_mass_guard_still_fires_on_a_mistagged_leg():
 # --------------------------------------------------------------------------- #
 # Wing-tank fuel separability (design note 29): the tie as a validator
 # --------------------------------------------------------------------------- #
-def test_the_wing_mass_tie_is_closed_on_every_shipped_fixture():
-    """WF-4: ``wing_mass_tie_open`` fires on none of the six -- since the three
-    fuel-in-wing fixtures carry ``wing_fraction`` on their fuel row (WF-5)."""
+def test_no_one_model_warning_fires_on_a_shipped_fixture_but_the_barons_two():
+    """Design note 63: the wing has one mass model on every shipped fixture.
+
+    ``wing_panel_override_open`` (no fixture overrides the derived panel),
+    ``wing_mass_asymmetric`` (every searched loading is symmetric by
+    construction, every entered one by entry) and
+    ``wing_case_mass_state_unnamed`` (every hand-entered wing case resolves a
+    state) fire nowhere. ``wing_case_loading_not_derivable`` fires on exactly
+    the Baron's ``fwd gross`` and ``fwd regardless`` -- the two FLIGHT cases no
+    loading reaches, which #290's editor is for -- and on no other fixture.
+    """
     import glob
 
-    fired = set()
+    quiet = {"wing_panel_override_open", "wing_mass_asymmetric",
+             "wing_case_mass_state_unnamed", "wing_panel_empty", "migration_note",
+             "fuselage_override_varies_by_case"}
+    fired = {}
     for path in sorted(glob.glob(os.path.join(_EXAMPLES, "*.project.json"))):
-        if "wing_mass_tie_open" in _codes(sloads_io.load_project(path)):
-            fired.add(os.path.basename(path))
-    assert fired == set(), fired
+        warnings = consistency_warnings(sloads_io.load_project(path))
+        codes = {w.code for w in warnings}
+        assert not (codes & quiet), (os.path.basename(path), codes & quiet)
+        fired[os.path.basename(path)] = sorted(
+            w.message.split("'")[1] for w in warnings
+            if w.code == "wing_case_loading_not_derivable")
+    assert fired == {
+        "atr42_100.project.json": [],
+        "baron_58.project.json": ["fwd gross", "fwd regardless"],
+        "concept_heavy.project.json": [],
+        "concept_regional_jet.project.json": [],
+        "ga6_normal.project.json": [],
+    }
 
 
-def test_the_wing_mass_tie_validator_names_the_pounds_and_the_remedy():
-    """Strip the ATR's fraction: 3,800 lb of wing fuel ride the fuselage beam
-    again, and the warning says so on the Weight & CG page."""
+def test_the_panel_override_validator_names_the_gap_and_the_remedy():
+    """D-63.2: an entered panel override that disagrees with the WING-tagged
+    PANEL items is reported the way the fuselage's entered table is -- the
+    override governs, the derived value is stated, the gap is the user's."""
+    project = sloads_io.load_project(_GA)
+    project.wing_mass.panel_weight_override_lb = 150.0
+    (w,) = [w for w in consistency_warnings(project) if w.code == "wing_panel_override_open"]
+    assert w.page == "weight_mass"
+    assert "150.0 lb" in w.message and "165.0 lb" in w.message
+    assert "Clear the override" in w.message
+    project.wing_mass.panel_weight_override_lb = 165.5     # inside the 1 % gate
+    assert "wing_panel_override_open" not in _codes(project)
+
+
+def test_an_asymmetric_entered_loading_is_named():
+    """D-63.3: the half-span models run the starboard POINT set and mirror it,
+    so a loading with one tank of a pair aboard is named, never run as its
+    starboard half doubled."""
+    project = sloads_io.load_project(os.path.join(_EXAMPLES, "baron_58.project.json"))
+    from sloads.models import LoadingDefinition
+    case = next(c for c in project.weight.cg_cases if c.name == "aft gross")
+    case.loading = LoadingDefinition(aboard=["Mid passengers", "Aft passengers", "Fuel, right wing"])
+    (w,) = [w for w in consistency_warnings(project) if w.code == "wing_mass_asymmetric"]
+    # The Baron's POINT set per side is the engine, nacelle and fuel rows: one
+    # tank aboard leaves the starboard wing 360 lb heavier than the port.
+    assert "'aft gross'" in w.message
+    assert "1,190 lb" in w.message and "830 lb" in w.message
+
+
+def test_a_searched_loading_never_takes_one_tank_of_a_pair():
+    """The same rule inside the search (D-63.3): a subset whose WING POINT
+    parts are asymmetric is not a candidate, so the ATR's ground cases burn
+    both tanks down together instead of leaving one behind."""
+    from sloads import mass_distribution as md
+    from sloads.cg_cases import ground_cases
     project = sloads_io.load_project(os.path.join(_EXAMPLES, "atr42_100.project.json"))
-    fuel = next(it for it in project.weight.items if it.name == "Fuel to gross")
-    fuel.wing_fraction = 0.0
-    warnings = [w for w in consistency_warnings(project) if w.code == "wing_mass_tie_open"]
-    assert len(warnings) == 1
-    assert warnings[0].page == "weight_mass"
-    assert "3,800 lb" in warnings[0].message
-    assert "wing_fraction" in warnings[0].message
+    for ld in md.derive_case_loadings(project, ground_cases(project)):
+        assert ld.derivable, ld.name
+        assert md._wing_points_symmetric(ld.items, project), ld.name
+        tanks = {it.name: it.weight_lb for it in ld.items if it.name.startswith("Wing fuel")}
+        assert tanks["Wing fuel, left"] == tanks["Wing fuel, right"], ld.name
 
 
-def test_the_wing_mass_tie_validator_reads_the_other_sign_too():
-    """The item database showing *more* wing than WINGINER hangs is the other
-    entry error, and it is named as such rather than as missing fuel."""
-    project = sloads_io.load_project(os.path.join(_EXAMPLES, "atr42_100.project.json"))
-    fuel = next(it for it in project.weight.items if it.name == "Fuel to gross")
-    fuel.wing_fraction = 1.0
-    (w,) = [w for w in consistency_warnings(project) if w.code == "wing_mass_tie_open"]
-    assert "more on the wing than WINGINER" in w.message
+def test_a_hand_entered_wing_case_with_no_mass_state_is_named():
+    """D-63.6: a ``wing_mass.cases[]`` row with no ``cg``, no V-n reference and
+    no selected condition of its label runs on the whole database and says so."""
+    from sloads.models import WingLoadCase
+    project = sloads_io.load_project(_GA)
+    project.wing_mass.cases.append(WingLoadCase("STORE DROP", nz=-2.0, nx=0.1, cl=1.0, v_eas_kt=120.0))
+    (w,) = [w for w in consistency_warnings(project) if w.code == "wing_case_mass_state_unnamed"]
+    assert "'STORE DROP'" in w.message and "cg" in w.message
+    project.wing_mass.cases[-1].cg = "CG2"
+    assert "wing_case_mass_state_unnamed" not in _codes(project)
+
+
+def test_an_empty_panel_is_named():
+    """A project whose items tag nothing `wing` integrates no panel (F-C5's
+    empty-panel short circuit) and the page says so, so an untagged file
+    cannot pass as a wing with no inertia."""
+    project = sloads_io.load_project(_GA)
+    for it in project.weight.items:
+        it.component = None
+    assert "wing_panel_empty" in _codes(project, page="weight_mass")
+
+
+def test_a_fuselage_override_is_named_when_the_loadings_differ_in_body_mass():
+    """D-63.8: one entered station table cannot follow the case; the GA6's
+    FLIGHT loadings run from 1,733 to 3,070 lb of body mass."""
+    project = sloads_io.load_project(_GA)
+    assert "fuselage_override_varies_by_case" not in _codes(project)
+    project.fuselage_mass.stations_are_override = True
+    (w,) = [w for w in consistency_warnings(project) if w.code == "fuselage_override_varies_by_case"]
+    assert "1,733 lb" in w.message and "3,070 lb" in w.message
 
 
 def test_wing_fraction_entry_rules():
     """WF-2: outside [0, 1] and non-zero on a WING row are both named."""
-    project = sloads_io.load_project(os.path.join(_EXAMPLES, "atr42_100.project.json"))
-    fuel = next(it for it in project.weight.items if it.name == "Fuel to gross")
-    wing = next(it for it in project.weight.items if it.name == "Wing")
+    project = sloads_io.load_project(_RJ)
+    fuel = next(it for it in project.weight.items if it.name == "Mission fuel")
+    wing = next(it for it in project.weight.items if it.name == "Wing structure")
     fuel.wing_fraction = 1.2
     wing.wing_fraction = 0.3
     codes = _codes(project, page="weight_mass")

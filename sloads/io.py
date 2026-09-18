@@ -49,7 +49,6 @@ from .models import (
     CaseRef,
     CgCase,
     ConcentratedLoad,
-    ConcentratedWeight,
     ConditionResult,
     ControlSurfaceLoadResult,
     ControlSurfaceStation,
@@ -112,6 +111,7 @@ from .models import (
     WeightEnvelopeInput,
     WeightEstimationInput,
     WeightInput,
+    WingCarriage,
     WingLoadCase,
     WingLoadResult,
     WingMassInput,
@@ -468,7 +468,8 @@ def _loading_to_dict(ld: LoadingDefinition) -> Dict[str, Any]:
 def _mass_item_to_dict(it: MassItem) -> Dict[str, Any]:
     """Serialize one :class:`MassItem` row (the item list and D-25 ballast share it)."""
     return {**asdict(it), "kind": it.kind.value,
-            "component": it.component.value if it.component else None}
+            "component": it.component.value if it.component else None,
+            "carriage": it.carriage.value}
 
 
 def _mass_item_from_dict(d: Dict[str, Any]) -> MassItem:
@@ -479,7 +480,15 @@ def _mass_item_from_dict(d: Dict[str, Any]) -> MassItem:
     # component, and it is what routes the item through
     # ``mass_distribution.infer_component`` rather than silently taking a default.
     component = MassComponent(raw) if raw else None
-    return MassItem(kind=kind, component=component, **_filtered(MassItem, d))
+    # Absent is PANEL -- the v66 meaning of every row (note 63 D-63.3); the v67
+    # hop is what stamps POINT, so a dict without the key is a row the hop has
+    # not seen or a hand-built one, and PANEL is the honest default for both.
+    # ``null`` is left in place for ``_filtered`` to refuse by name (#121): the
+    # field is not Optional, so a null is not a value and never the default.
+    carriage = (WingCarriage(d.pop("carriage")) if d.get("carriage") is not None
+                else WingCarriage.PANEL)
+    return MassItem(kind=kind, component=component, carriage=carriage,
+                    **_filtered(MassItem, d))
 
 
 def weight_from_dict(d: Dict[str, Any]) -> WeightInput:
@@ -501,6 +510,7 @@ def weight_from_dict(d: Dict[str, Any]) -> WeightInput:
         estimation=estimation, items=items, envelope=envelope, cg_cases=cg_cases,
         max_landing_weight_lb=float(d.get("max_landing_weight_lb", 0.0) or 0.0),
         max_takeoff_weight_lb=float(d.get("max_takeoff_weight_lb", 0.0) or 0.0),
+        max_zero_fuel_weight_lb=float(d.get("max_zero_fuel_weight_lb", 0.0) or 0.0),
     )
 
 
@@ -523,6 +533,8 @@ def weight_to_dict(inp: WeightInput) -> Dict[str, Any]:
         out["max_landing_weight_lb"] = inp.max_landing_weight_lb
     if inp.max_takeoff_weight_lb:
         out["max_takeoff_weight_lb"] = inp.max_takeoff_weight_lb
+    if inp.max_zero_fuel_weight_lb:
+        out["max_zero_fuel_weight_lb"] = inp.max_zero_fuel_weight_lb
     return out
 
 
@@ -1236,14 +1248,19 @@ def tab_loads_to_dict(inp: TabLoadsInput) -> Dict[str, Any]:
 # Wing-mass slice <-> dict (WINGINER input)
 # --------------------------------------------------------------------------- #
 def wing_mass_from_dict(d: Dict[str, Any]) -> WingMassInput:
-    """Build a :class:`WingMassInput` from a plain dict."""
+    """Build a :class:`WingMassInput` from a plain dict.
+
+    ``panel_weight_lb`` and ``concentrated`` are not fields since v67 (note 63
+    D-63.2): the mass lives in the item database, and a dict that still carries
+    them is a file the ``_hop_66`` migration has not seen -- the gate refuses
+    it before this reader runs, so the keys are simply ignored here.
+    """
+    raw = d.get("panel_weight_override_lb")
     return WingMassInput(
-        panel_weight_lb=d.get("panel_weight_lb", 0.0),
         tip_root_density_ratio=d.get("tip_root_density_ratio", 1.0),
         inboard_rib_y=d.get("inboard_rib_y", 0.0),
         surface=d.get("surface", "wing"),
-        concentrated=[ConcentratedWeight(**_filtered(ConcentratedWeight, c))
-                      for c in d.get("concentrated", []) or []],
+        panel_weight_override_lb=_opt_float(raw),
         cases=[WingLoadCase(**_filtered(WingLoadCase, c)) for c in d.get("cases", []) or []],
     )
 
@@ -1255,8 +1272,13 @@ def wing_mass_to_dict(inp: WingMassInput) -> Dict[str, Any]:
     — the wing plane is resolved at its point of use from the parametric wing
     (:func:`sloads.derived_geometry.wing_plane`). They were never written, so a
     legacy file carrying them still loads unchanged: the keys are simply ignored,
-    as they already were."""
-    return asdict(inp)
+    as they already were. ``panel_weight_override_lb`` is written only when set
+    (``None`` = derive, the OV-1 shape), so a project that never overrode keeps
+    its bytes."""
+    out = asdict(inp)
+    if inp.panel_weight_override_lb is None:
+        out.pop("panel_weight_override_lb", None)
+    return out
 
 
 # --------------------------------------------------------------------------- #
@@ -1277,6 +1299,9 @@ def _wing_load_result_from_dict(d: Dict[str, Any]) -> WingLoadResult:
         # a project that enters no concentrated mass has none.
         point_loads=[ConcentratedLoad(**_filtered(ConcentratedLoad, c))
                      for c in d.get("point_loads", []) or []],
+        # The mass state the distribution was built from (note 63 D-63.6);
+        # "" on a result written before v67, which is what the field means.
+        mass_state=str(d.get("mass_state", "") or ""),
     )
 
 
@@ -1287,6 +1312,7 @@ def _body_load_result_from_dict(d: Dict[str, Any]) -> BodyLoadResult:
                   for s in d.get("stations", []) or []],
         case_ref=_case_ref_from_dict(d.get("case_ref")),
         safety_factor=_safety_factor(d),
+        mass_state=str(d.get("mass_state", "") or ""),
         # Moment-closure fields (M4-1). An older file lacks them: m_unbalanced
         # defaults to 0.0 and the fitting loads to None, exactly as a
         # closure-artifact result serializes.
@@ -1475,6 +1501,8 @@ def project_from_dict(d: Dict[str, Any]) -> Project:
             # v38: absent (every pre-v38 file) reads as Imperial, so an older
             # project's deliverables render exactly as they do today.
             unit_system=unit_system_from(d.get("unit_system")).value,
+            # Transient: what the hop chain had to say (never written back).
+            migration_notes=[str(n) for n in d.get("migration_notes", []) or []],
             engines=engines,
             engine_layout=layout,
             weight=weight_slice,

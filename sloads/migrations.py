@@ -25,7 +25,11 @@ The chain holds one live hop today — the v55→v56 identity of note 36's addit
 fields (OV-10, #97) — so :data:`SUPPORTED_FLOOR` is 55. The hops since have been
 identities over additive fields; :func:`_hop_60` is the first that **converts a
 value**, because dropping a field whose replacement is computable from the same
-file would lose an entered carry-through (note 50 OR-127). At production the floor
+file would lose an entered carry-through (note 50 OR-127), and :func:`_hop_66`
+the second, moving the wing's mass into the item database (note 63). A hop that
+has something to tell the user writes it to the transient ``migration_notes``
+list, which ``io.project_from_dict`` carries onto ``Project.migration_notes``
+(never persisted) for ``validation`` to state once. At production the floor
 drops to whatever version ships and hops register from there forward — the
 shape of that work is unchanged.
 
@@ -49,6 +53,7 @@ Pure: dicts in, dicts out, no I/O.
 from __future__ import annotations
 
 import copy
+import math
 from typing import Any, Callable, Dict, List, Mapping
 
 from .models import SCHEMA_VERSION
@@ -281,6 +286,126 @@ def _hop_65(d: Dict[str, Any]) -> Dict[str, Any]:
     return d
 
 
+#: Relative tolerance the v67 hop calls the wing tie closed at -- the mass
+#: owner's own :data:`sloads.mass_distribution.RECONCILE_REL_TOL`, restated
+#: here because a migration is pure over dicts and imports no calc.
+_V67_TIE_REL_TOL = 1e-6
+
+
+def _v67_wing_share(item: Dict[str, Any]) -> float:
+    """The pounds of one item row the wing reacts, both sides (note 29 WF-3)."""
+    w = float(item.get("weight_lb", 0.0) or 0.0)
+    if item.get("component") == "wing":
+        return w
+    return w * min(max(float(item.get("wing_fraction", 0.0) or 0.0), 0.0), 1.0)
+
+
+def _hop_66(d: Dict[str, Any]) -> Dict[str, Any]:
+    """v66 -> v67 (design note 63, #289): **one mass model** -- not an identity.
+
+    The wing's mass leaves ``wing_mass`` for the item database (D-63.2, as
+    amended by R-63.3), in four moves, each reasoned from what the file holds:
+
+    1. **The wing tie decides ``concentrated``.** ``Σ WING-reacted pounds of the
+       items`` against ``2 x (panel_weight_lb + Σ concentrated)``. Where it
+       **closes** (every shipped fixture) the items already carry every
+       concentrated mass in some form -- per-side rows, or ``wing_fraction``
+       slices of a fuselage row -- and converting the entries to new rows would
+       double-count them (2,381 lb on ``baron_58``, 3,800 on ``atr42_100``), so
+       they are **dropped** and named once in ``migration_notes``, which
+       ``validation`` states on the Weight & CG page until the file is saved.
+       Where the tie is **open** the entries are mass the items never had, so
+       each becomes two ``EMPTY`` WING rows, carriage ``POINT``, at ``±y``.
+    2. **Every WING row at a non-zero butt line is stamped ``POINT``**, every
+       centreline row ``PANEL`` -- a one-time default for rows that exist,
+       after which every row is typed (this is not the classification
+       heuristic D-63.3 rejects). Rows the fuselage carries take ``PANEL``, the
+       value the tag has no reading for.
+    3. **``panel_weight_lb`` becomes derived.** Half the WING-carried PANEL
+       pounds is what WINGINER integrates from now on; the entered value
+       survives as ``panel_weight_override_lb`` **only** where it differs by
+       more than the tie tolerance, so ``ga6_normal`` (165 = 330 / 2) carries
+       no override and reproduces Appendix A bit-for-bit.
+    4. ``weight.max_zero_fuel_weight_lb``, ``WingLoadCase.cg`` and
+       ``CaseRef.run``/``config`` are additive with not-entered defaults and
+       need no write.
+    """
+    weight = d.get("weight")
+    items: List[Dict[str, Any]] = list(weight.get("items", []) or []) if isinstance(weight, dict) else []
+    wm = d.get("wing_mass")
+    notes: List[str] = list(d.get("migration_notes", []) or [])
+
+    if isinstance(wm, dict):
+        panel = float(wm.pop("panel_weight_lb", 0.0) or 0.0)
+        concentrated = list(wm.pop("concentrated", []) or [])
+        conc_total = math.fsum(float(c.get("weight_lb", 0.0) or 0.0) for c in concentrated)
+        wing_items = math.fsum(_v67_wing_share(it) for it in items)
+        want = 2.0 * (panel + conc_total)
+        closes = abs(wing_items - want) <= _V67_TIE_REL_TOL * max(abs(want), 1.0)
+        if concentrated and closes:
+            named = ", ".join(
+                f"{c.get('name', '(unnamed)')} {float(c.get('weight_lb', 0.0) or 0.0):g} lb/side"
+                for c in concentrated)
+            notes.append(
+                f"v67 migration: wing_mass.concentrated dropped ({named}) -- the "
+                f"wing tie closed ({wing_items:.1f} lb of WING-reacted items against "
+                f"2 x ({panel:g} + {conc_total:g}) = {want:.1f} lb), so the item "
+                "database already carries these masses; WINGINER now reads them "
+                "from the WING rows tagged carriage POINT (design note 63 D-63.2)")
+        elif concentrated:
+            for c in concentrated:
+                w = float(c.get("weight_lb", 0.0) or 0.0)
+                y = abs(float(c.get("y", 0.0) or 0.0))
+                base = {"x": float(c.get("x", 0.0) or 0.0), "z": float(c.get("z", 0.0) or 0.0),
+                        "ixx": 0.0, "iyy": 0.0, "izz": 0.0, "kind": "empty",
+                        "component": "wing", "consumable": False,
+                        "wing_fraction": 0.0, "carriage": "point"}
+                name = str(c.get("name", "wing mass"))
+                if y == 0.0:
+                    items.append({"name": name, "weight_lb": 2.0 * w, "y": 0.0, **base})
+                else:
+                    items.append({"name": f"{name}, left", "weight_lb": w, "y": -y, **base})
+                    items.append({"name": f"{name}, right", "weight_lb": w, "y": y, **base})
+            notes.append(
+                f"v67 migration: wing_mass.concentrated converted to per-side WING "
+                f"item rows, carriage POINT ({len(concentrated)} entries, "
+                f"{2.0 * conc_total:g} lb both sides) -- the wing tie was open by "
+                f"that amount ({wing_items:.1f} lb of WING-reacted items against "
+                f"2 x ({panel:g} + {conc_total:g}) = {want:.1f} lb), so the item "
+                "database did not carry these masses (design note 63 D-63.2)")
+
+    # 2. the carriage stamp, on every row (and on an entered ballast row)
+    def _stamp(row: Dict[str, Any]) -> None:
+        y = float(row.get("y", 0.0) or 0.0)
+        row["carriage"] = "point" if (row.get("component") == "wing" and y != 0.0) else "panel"
+
+    for it in items:
+        _stamp(it)
+    if isinstance(weight, dict):
+        weight["items"] = items
+        for case in weight.get("cg_cases", []) or []:
+            loading = case.get("loading") if isinstance(case, dict) else None
+            ballast = loading.get("ballast") if isinstance(loading, dict) else None
+            if isinstance(ballast, dict):
+                _stamp(ballast)
+
+    # 3. the derived panel, and the override only where the entered one differs
+    if isinstance(wm, dict):
+        derived = 0.5 * math.fsum(_v67_wing_share(it) for it in items
+                            if it.get("carriage") == "panel")
+        if abs(panel - derived) > _V67_TIE_REL_TOL * max(abs(derived), 1.0):
+            wm["panel_weight_override_lb"] = panel
+            notes.append(
+                f"v67 migration: the entered wing panel weight {panel:g} lb/side "
+                f"differs from the {derived:.1f} lb/side derived from the "
+                "WING-tagged PANEL items and is kept as panel_weight_override_lb; "
+                "clear the override to run on the item database (note 50's OV-1 "
+                "shape, design note 63 D-63.2)")
+    if notes:
+        d["migration_notes"] = notes
+    return d
+
+
 #: hop here; :data:`SUPPORTED_FLOOR` names the oldest version the chain starts
 #: from.
 MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
@@ -295,6 +420,7 @@ MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     63: _hop_63,
     64: _hop_64,
     65: _hop_65,
+    66: _hop_66,
 }
 
 #: The oldest project version this build reads. It sat at ``SCHEMA_VERSION``
