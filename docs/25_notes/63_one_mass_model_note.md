@@ -7,7 +7,8 @@
 reviewed and flipped the same day — the critical-advocate review's three
 findings are **ruled** in §9 and their rulings are written into D-63.2,
 D-63.7, D-63.8, D-63.10, D-63.11, gate 1, G-63.3a and G-63.4; R-63.4's
-scope split is left to the owner at implementation). This is the
+scope split is **ruled** in §9: #289 is the one-model step and **#292**
+the variants step). This is the
 note design note 62 §6 promised: the wing mass states in the Wing Loads
 step. The discussion that shaped it (2026-09-17) widened it from "a state
 list on `WingMassInput`" to the ruling in §2: **the suite keeps one mass
@@ -392,7 +393,20 @@ before its decision is coded, and the ruling amends the decision above.
   validation note), stamps `carriage = POINT` on every WING row at
   non-zero butt line, and the PR hand-corrects the ATR and concept_heavy
   fuel rows per D-63.4; twin movements measured and stated (D-63.10).
-- **R-63.4 (minor).** D-63.5 adds a third search objective (heaviest
+- **R-63.4 — RULED 2026-09-17 (split as recommended, with the schema in
+  one place).** **#289** ships the one-model step: D-63.1 to D-63.4,
+  D-63.6, D-63.8, D-63.10 and D-63.11, with every v67 field in the one
+  migration — `carriage`, the panel override, `max_zero_fuel_weight_lb`
+  as a stored design weight that seeds nothing yet, and `CaseRef.run`/
+  `config` — under gate 1, G-63.1, G-63.3a's identity half, G-63.4,
+  G-63.5 and the dictionary half of G-63.6. **#292** ships the variants
+  step: D-63.5's seeds and search objective and D-63.7's variant table
+  with the re-pointed slot, under G-63.2, G-63.3 and the rest of G-63.3a;
+  it lands directly after #289 and before #290, so the physics closes
+  before the editor and the digest movers of each step have one cause
+  (the twin/fuel re-slicing movements of D-63.10 in #289, the
+  delivered-case changes in #292). This note goes to SHIPPED at #292.
+  Original finding: D-63.5 adds a third search objective (heaviest
   zero-fuel loading inside the envelope) beside the exact-subset search and
   the ground burn-down; `cg_cases.FLIGHT_CASE_NAMES` pins the five seed
   names and its guard test moves. Five orthogonal tags now sit on one
