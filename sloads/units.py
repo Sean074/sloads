@@ -472,8 +472,9 @@ _PROJECT_FIELD_KIND = {
     # mass (lb -> kg)
     "baggage_lb": "mass", "engine_weight_lb": "mass", "gross_weight_lb": "mass",
     "hub_weight_lb": "mass", "max_landing_weight_lb": "mass", "panel_weight_lb": "mass",
+    "panel_weight_override_lb": "mass",
     "prop_weight_lb": "mass", "weight_lb": "mass", "wing_weight_lb": "mass",
-    "max_takeoff_weight_lb": "mass",
+    "max_takeoff_weight_lb": "mass", "max_zero_fuel_weight_lb": "mass",
     # force (lb -> N)
     "load_lb": "force", "tail_load_lb": "force", "thrust_lb": "force",
     "fx": "force", "fy": "force", "fz": "force", "sx": "force", "sy": "force", "sz": "force",

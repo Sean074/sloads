@@ -479,11 +479,15 @@ def balanced_deck(project: Project, *,
         # (design note 17). Before it was added this block named the condition
         # only, so the assembled deck was the one family whose comment block
         # could not be joined without reading its case control.
+        # The slot id leads and the run key follows (note 63 D-63.11): the id
+        # is the join key, the run key names the balanced point behind it.
+        run_key = case.case_ref.run_key if case.case_ref else ""
         entry = (f"SUBCASE {sid} = {case.case_ref.case_id if case.case_ref else '(no case id)'}"
                  f" -- {case.label}"
                  f"{'-' + case.hand if case.hand else ''} -- "
                  f"{case_source_name(case, short=True)}"
-                 f" -- {case.cg} -- Nz {case.nz:g}")
+                 f" -- {case.cg} -- Nz {case.nz:g}"
+                 f"{' -- run ' + run_key if run_key else ''}")
         head += [f"$ {ln}" for ln in textwrap.wrap(entry, width=70,
                                                    subsequent_indent="    ")]
     head += _skipped_block(skipped)

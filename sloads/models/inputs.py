@@ -23,6 +23,7 @@ from .enums import (
     RotorType,
     TailType,
     VdBasis,
+    WingCarriage,
 )
 
 Vec3 = Tuple[float, float, float]
@@ -236,6 +237,17 @@ class MassItem:
     #: Written for the three fixtures whose wing-tank fuel sat inside an
     #: undivided ``"Fuel to gross"`` row and so rode both beams.
     wing_fraction: float = 0.0
+    #: How the **wing** reacts this row's wing-carried part (design note 63,
+    #: D-63.3): ``PANEL`` mass is spread along the span by WINGINER's tapered
+    #: density, ``POINT`` mass is a WINGINER concentrated mass at the row's own
+    #: ``x``/``y``/``z``. Read on WING-reacted parts only. The fifth orthogonal
+    #: tag on a row -- ``kind`` (when aboard), ``component`` (which beam),
+    #: ``consumable`` (burnable), ``wing_fraction`` (the wing's share) and this
+    #: (how the wing carries that share) -- the price of OV-1's typed tags over
+    #: heuristics. ``PANEL`` reproduces the balanced deck's scaling on every
+    #: row that predates the field; the v67 hop stamped ``POINT`` once on every
+    #: off-centreline WING row, so a row hung on the wing is typed as one.
+    carriage: WingCarriage = WingCarriage.PANEL
 
 
 @dataclass
@@ -321,8 +333,11 @@ class WeightInput:
     ``max_landing_weight_lb`` (G-4) and ``max_takeoff_weight_lb`` (G-14) are the
     **single owners** of those two airplane-level limits -- certified numbers,
     not properties of a loading, so they sit beside ``items`` and ``envelope``
-    where the estimate's own inputs live (and where MZFW will go). Read them
-    through :func:`sloads.cg_cases.max_landing_weight` /
+    where the estimate's own inputs live. ``max_zero_fuel_weight_lb`` (design
+    note 63 D-63.5, v67) is the third: Part 25's zero-fuel design weight
+    (25.321), ``0`` = not entered, nothing derives it silently -- stored by #289
+    and read by nothing until #292 seeds the zero-fuel cases from it. Read the
+    first two through :func:`sloads.cg_cases.max_landing_weight` /
     :func:`sloads.cg_cases.max_takeoff_weight`, never off a case list: the
     fallback that field replaced took ``max(landing cg_cases)``, which yields
     **MLW, not MTOW**. The ordering chain ``empty weight <= MLW <= MTOW <= sum(items)``
@@ -339,6 +354,9 @@ class WeightInput:
     max_landing_weight_lb: float = 0.0   # MLW -- SSOT (G-4); moved off LandingInput
     max_takeoff_weight_lb: float = 0.0   # MTOW -- SSOT (G-14); a single CG-independent
                                          # scalar, constant between the fwd/aft CG limits
+    max_zero_fuel_weight_lb: float = 0.0  # MZFW -- SSOT (note 63 D-63.5); 0 = not entered.
+                                          # Stored since v67 (#289); the seeds it drives
+                                          # ("mzfw aft"/"mzfw fwd"/"full fuel aft") are #292
 
     def database_totals(self) -> Tuple[float, float, float]:
         """``(database total, empty weight, useful)`` summed directly from ``items``.
@@ -1098,20 +1116,6 @@ class FlightLoadsInput:
 # Wing inertia loads (WINGINER) -- the Project.wing_mass slice
 # --------------------------------------------------------------------------- #
 @dataclass
-class ConcentratedWeight:
-    """A concentrated wing mass item (gear, engine, fuel tank, store).
-
-    ``weight_lb`` at fuselage station ``x``, butt line ``y`` and waterline ``z``
-    (inches). WINGINER adds it as a spanwise step in shear/moment/torsion
-    (WINGINER.BAS lines 580-593, 1180-1610)."""
-    name: str
-    weight_lb: float
-    x: float = 0.0
-    y: float = 0.0
-    z: float = 0.0
-
-
-@dataclass
 class WingLoadCase:
     """One critical wing condition WINGINER/NETLOADS evaluate (WINGINER.BAS 1660-1710).
 
@@ -1121,6 +1125,15 @@ class WingLoadCase:
     rolling moment (in-lb) for an accelerated-roll case (FAR 23.349; zero
     otherwise). This is the C3-before-SELECT bridge: the critical conditions come
     straight from the FLTLOADS V-n matrix (C2) since SELECT (C6) is not built yet.
+
+    ``cg`` (design note 63, D-63.6, v67) names the **mass state** the case's
+    inertia is built from: a FLIGHT weight/CG case whose loading (entered, D-25,
+    or searched) supplies WINGINER's panel and point masses. Resolution, owned
+    by :func:`sloads.modules.wing_inertia.resolve_mass_case`: an explicit
+    ``cg`` wins; else the referenced V-n point's own CG case; else the CG case
+    of SELECT's condition of the same label; else the item database with every
+    row aboard, stated in-band. Before v67 the case weight reached the label and
+    nothing else -- the same project-wide list was distributed at every case.
     """
     name: str                              # "PHAA" / "ACRL" / "TORS" / ...
     case: Optional[int] = None
@@ -1129,21 +1142,34 @@ class WingLoadCase:
     unbal_moment: float = 0.0
     cl: Optional[float] = None
     v_eas_kt: Optional[float] = None
+    cg: Optional[str] = None               # mass state: a FLIGHT CG case name (D-63.6)
 
 
 @dataclass
 class WingMassInput:
-    """Inputs for WINGINER (the spanwise wing-mass distribution + load cases).
+    """Inputs for WINGINER (the spanwise wing-mass *shape* + load cases).
 
     The outboard wing panel mass is modelled as an area density that tapers
     linearly from root to tip: WINGINER iterates the root density until the
-    integrated panel mass equals ``panel_weight_lb`` (WINGINER.BAS lines 690-880).
+    integrated panel mass equals the panel weight (WINGINER.BAS lines 690-880).
     ``tip_root_density_ratio`` (DR) is the tip/root area-density ratio;
     ``inboard_rib_y`` (RSTA) the butt line where the panel begins.
-    ``concentrated`` carries discrete wing masses.
     ``cases`` is the set of critical conditions to combine (vertical + drag +
     rolling inertia). The planform is read from the matching ``Project.geometry``
     surface (``surface``).
+
+    **This slice holds no mass** (design note 63, D-63.2, v67). The panel weight
+    is **derived**: half the ``WING``-carried ``PANEL`` parts of the item
+    database (:func:`sloads.mass_distribution.panel_weight`), the fuselage
+    precedent of note 50 applied to the wing; ``panel_weight_override_lb`` is
+    the OV-1 override, ``None`` = derive. The concentrated masses are the
+    ``POINT``-carriage WING rows of the case's own loading
+    (:class:`~sloads.models.enums.WingCarriage`), so WINGINER, NETLOADS and the
+    balanced deck read one mass model per case and no second list can disagree
+    with it. The v67 hop dropped ``concentrated[]`` where the wing tie closed
+    (every shipped fixture) and converted it to per-side POINT rows where it
+    did not; ``panel_weight_lb`` became the override, written only where the
+    derived value differed.
 
     **The wing plane is not held here** (note 33, DS-1). ``wrp_waterline`` and
     ``dihedral_deg`` were fields on this class, filled from the parametric wing by
@@ -1155,11 +1181,13 @@ class WingMassInput:
     with no parametric wing degrades to the centreline plane ``(0.0, 0.0)``,
     which is what the removed fields defaulted to.
     """
-    panel_weight_lb: float = 0.0
     tip_root_density_ratio: float = 1.0
     inboard_rib_y: float = 0.0
     surface: str = "wing"
-    concentrated: List[ConcentratedWeight] = field(default_factory=list)
+    #: OV-1 override of the derived per-side panel weight (lb); ``None`` derives
+    #: from the item database. Written by the v67 hop only where the entered
+    #: ``panel_weight_lb`` differed from the derived value.
+    panel_weight_override_lb: Optional[float] = None
     cases: List[WingLoadCase] = field(default_factory=list)
 
 
@@ -2090,7 +2118,6 @@ __all__ = [
     "AeroSurfaceInput",
     "AileronLoadsInput",
     "CgCase",
-    "ConcentratedWeight",
     "EmpennageInput",
     "EngineInput",
     "FlapLoadsInput",

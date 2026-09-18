@@ -1012,20 +1012,21 @@ def test_the_inertia_set_weighs_the_case(example):
 def test_wing_items_with_no_panel_model_raise_rather_than_vanish():
     """The B-2 partition's edge-case gate (review **F-C5**).
 
-    ``panel_weight_lb = 0`` makes WINGINER integrate no panel, so the wing
+    A panel override of ``0`` makes WINGINER integrate no panel, so the wing
     inertia scale has nothing to scale onto -- while ``assembly_distributes_mass``
     goes on excluding the same WING items from ``body_inertia`` because the wing
     set is meant to carry them. The whole WING item weight used to leave the
     model there, absorbed silently by the closure. No shipped fixture reaches it,
     which is why it needs its own case: ``ga6_normal``'s 330 lb of wing items
-    against an emptied panel model.
+    against an emptied panel model. (Since note 63 the panel is derived from
+    those same items, so the only way to empty it is the override.)
     """
     p = _project("ga6_normal.project.json")
     wing = sum(it.weight_lb for it in p.weight.items
                if md.component_of(it, p) is MassComponent.WING)
     assert wing, "fixture must carry WING-tagged item mass for this to gate"
 
-    p.wing_mass = replace(p.wing_mass, panel_weight_lb=0.0)
+    p.wing_mass = replace(p.wing_mass, panel_weight_override_lb=0.0)
     with pytest.raises(MissingInputError) as exc:
         build_balanced_cases(p)
     assert f"{wing:.0f} lb" in str(exc.value)
@@ -1042,7 +1043,7 @@ def test_no_wing_items_and_no_panel_still_weighs_the_case():
     p.weight.items = [replace(it, component=MassComponent.FUSELAGE)
                       if md.component_of(it, p) is MassComponent.WING else it
                       for it in p.weight.items]
-    p.wing_mass = replace(p.wing_mass, panel_weight_lb=0.0)
+    assert md.panel_weight(p) == 0.0, "no WING item: the derived panel is empty"
 
     cases = build_balanced_cases(p)
     assert cases
@@ -1711,7 +1712,8 @@ def test_roll_closure_reproduces_winginer(example):
     project = _project(example)
     wm = project.wing_mass
     geom = project.geometry.by_name(wm.surface)
-    u = inertia_units(geom, wm, *wing_plane(project, wm.surface))
+    u = inertia_units(geom, wm, *wing_plane(project, wm.surface),
+                      panel_weight_lb=md.panel_weight(project))
     winginer = {round(y, 6): f for y, f in zip(u.ye, u.fz_r) if f}
 
     # ``hand == "R"`` no longer means "rolling": from B8a-3 the lateral family is
@@ -1843,11 +1845,22 @@ _CLOSURE_IZZ = {
     # Izz gained its Sum w*y^2 -- +33 % / +31 % / +29 %. Physics, not drift.
     # The ATR's 'min weight' case first assembles at #288 (note 62's NLAA, PNZ
     # and NNZ all sit on it), measured 2026-09-17.
-    'atr42_100.project.json': {'fwd gross': 197124.6, 'aft gross': 204234.6,
-                               'min weight': 125427.7},
-    'baron_58.project.json': {'aft gross': 12195.4},
+    # Design note 63 (#289, 2026-09-17) moved the three again, each by a
+    # stated cause. The ATR: -8 % / -8 % / -15 % -- its 9,874 lb of fuel is
+    # per-side POINT rows at BL 175 and its engines and nacelles at BL 161,
+    # placed where they are instead of spread over the panel shape to the
+    # tip, and the searched loadings changed with the tank rows (the min
+    # weight case lost the 1,900 lb/side the old fixed list hung at every
+    # state). The Baron: -40 % -- 2,381 lb of engines, gear, fuel and systems
+    # per side were smeared over the 560 lb panel's shape and now sit at
+    # BL 57-95. The heavy: +30 % -- the whole 5,500 lb fuel row is at BL 120
+    # where 1,200 lb of it was. Physics, not drift: the mass is where the row
+    # says it is.
+    'atr42_100.project.json': {'fwd gross': 181423.5, 'aft gross': 188533.5,
+                               'min weight': 107130.2},
+    'baron_58.project.json': {'aft gross': 7369.3},
     'dhc8_dash8.project.json': {'fwd gross': 276188.3, 'min weight': 184928.0, 'aft gross': 269576.3, 'fwd regardless': 261441.6},
-    'concept_heavy.project.json': {'CGmax': 32302.1},
+    'concept_heavy.project.json': {'CGmax': 42104.0},
 #: The RJ's three moved on 2026-08-30: its CG cases were re-seeded to the
 #: WTENV limits the closed-form planform integral now gives (the stations
 #: shifted ~0.05 in), and Izz follows the CG.
@@ -2104,10 +2117,15 @@ _LATERAL_CASE_NUMBERS = {
     # baron_58 entered the walk 2026-09-11 (#271). Its SIDE GUST sits on a
     # non-derivable loading and drops, recorded (F-C7), so three of the four
     # lateral conditions are pinned here.
+    # Note 63 (#289, 2026-09-17): the fin loads and Ny are untouched; the
+    # yaw and roll accelerations move with the closure inertia (see
+    # _CLOSURE_IZZ) -- the Baron's engines, gear and fuel sit at BL 57-95 as
+    # POINT rows instead of spread to the tip, so Izz fell 40 % and r_dot
+    # rose by the reciprocal.
     'baron_58.project.json': {
-        'SUDDEN RUDDER': (1287.5019, +0.234091, +114.210539, -25.415381),
-        'YAW 15 NEUTRAL': (-1357.1866, -0.246761, -113.210638, +26.891483),
-        'YAW TO SIDESLIP': (-476.8407, -0.086698, -32.963291, +9.543547),
+        'SUDDEN RUDDER': (1287.5019, +0.234091, +188.790473, -50.516764),
+        'YAW 15 NEUTRAL': (-1357.1866, -0.246761, -187.122729, +53.493268),
+        'YAW TO SIDESLIP': (-476.8407, -0.086698, -54.469075, +19.024485),
     },
     # The three fixtures with a published fuselage outline (T-8a). Backlog Pri 1
     # gave the "fuselage-top" branch of vtail_root_waterline its body datum --
@@ -2143,11 +2161,14 @@ _LATERAL_CASE_NUMBERS = {
     # wing-tank fuel now spreads along the span, so Izz and Ixx grew (+33 % /
     # +31 % Izz) and the same fin load turns the airplane more slowly. Fin load
     # and Ny are untouched -- the check that this moved inertia, not aero.
+    # Note 63 (#289, 2026-09-17): fin loads and Ny untouched; r_dot and p_dot
+    # move with the closure inertia (the ATR's fuel, engines and nacelles are
+    # per-side POINT rows at BL 161-175 now, not spread to the tip).
     'atr42_100.project.json': {
-        'SIDE GUST': (4139.6916, +0.112440, +43.075983, -13.978065),
-        'SUDDEN RUDDER': (4288.1132, +0.116471, +43.674975, -14.509333),
-        'YAW 15 NEUTRAL': (-4878.1324, -0.132497, -47.300315, +16.581358),
-        'YAW TO SIDESLIP': (-2053.4588, -0.055775, -17.815435, +7.046432),
+        'SIDE GUST': (4139.6916, +0.112440, +46.760631, -15.595115),
+        'SUDDEN RUDDER': (4288.1132, +0.116471, +47.268762, -16.196495),
+        'YAW 15 NEUTRAL': (-4878.1324, -0.132497, -51.189606, +18.518107),
+        'YAW TO SIDESLIP': (-2053.4588, -0.055775, -19.277726, +7.877044),
     },
     'dhc8_dash8.project.json': {
         'SIDE GUST': (4527.1258, +0.131221, +32.818008, -12.523604),

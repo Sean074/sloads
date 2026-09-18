@@ -82,7 +82,10 @@ def test_an_untagged_file_gets_a_complete_beam_and_a_loud_wing_tie():
     never lighter, never mis-attributed to a surface). What must **not** happen
     is an untagged file passing as tagged, so the wing tie fails loudly: nothing
     is claimed for the wing, and the tie reads 0 against 2 x panel_weight_lb.
-    That failure is the instruction to tag the items.
+    That failure is the instruction to tag the items. Since design note 63 the
+    signal is the derived panel itself: nothing tagged ``wing`` means WINGINER
+    integrates **no** panel, the state's tie holds trivially at zero, and the
+    ``wing_panel_empty`` validator is what says so (``tests/test_validation.py``).
     """
     p = _project("ga6_normal.project.json")
     for it in p.weight.items:
@@ -94,9 +97,8 @@ def test_an_untagged_file_gets_a_complete_beam_and_a_loud_wing_tie():
     assert dist.weight(MassComponent.FUSELAGE) == sum(it.weight_lb for it in p.weight.items)
     assert md.partition_closes(p).ok, "the partition still closes"
 
-    tie = md.wing_mass_tie(p)
-    assert tie is not None and not tie.ok
-    assert tie.got == 0.0 and tie.want == 330.0
+    assert md.derived_panel_weight(p) == 0.0 and md.panel_weight(p) == 0.0
+    assert md.wing_mass_tie(p) is None, "no override, nothing to tie against"
 
 
 def test_an_explicit_tag_beats_the_fallback():
@@ -165,63 +167,67 @@ def test_stations_at_the_same_x_merge_into_one_node():
 
 
 # --------------------------------------------------------------------------- #
-# The wing tie -- and the row->parts split that closes it (design note 29)
+# The wing's one mass model (design note 63), and the row->parts split (note 29)
 # --------------------------------------------------------------------------- #
-#: The three fixtures whose wing-tank fuel sat inside an undivided ``"Fuel to
-#: gross"`` row and rode both beams until design note 29 -- and the pounds that
-#: did (WINGINER's own ``concentrated`` "wing fuel", both sides). Since WF-5 the
-#: row carries ``wing_fraction = pounds / row``, derived from that entry rather
-#: than invented, and the tie holds on every fixture. Kept as the reduction
-#: gate: strip the fraction and exactly these pounds reappear.
-_WING_TANK_FUEL = {
-    "atr42_100.project.json": 3800.0,     # "wing fuel" 1900 lb/side of 9174
-    "concept_heavy.project.json": 1200.0,  # "fuel" 600 lb/side of 5500
+#: The per-side panel weight each fixture derives from its WING-tagged PANEL
+#: items (D-63.2) -- the value ``wing_mass.panel_weight_lb`` entered before v67,
+#: to the pound, so no fixture carries an override (G-63.4).
+_DERIVED_PANEL = {
+    "atr42_100.project.json": 1325.0,
+    "baron_58.project.json": 280.0,
+    "concept_heavy.project.json": 900.0,
+    "concept_regional_jet.project.json": 2100.0,
+    "ga6_normal.project.json": 165.0,
 }
 
 
 @pytest.mark.parametrize("example", EXAMPLES)
-def test_the_wing_tie_holds_on_every_shipped_fixture(example):
-    """``Σ(WING-carried parts) == 2 × (panel_weight_lb + Σ concentrated)``.
-
-    Both of WINGINER's terms are **per side**, so the airplane carries twice
-    their sum -- and that is what the item database must show if the two models
-    describe one wing. Exact on all six fixtures since design note 29; before it
-    the three fuel-in-wing fixtures were pinned open by 3800 / 4000 / 1200 lb.
-    """
+def test_the_panel_is_derived_and_no_fixture_overrides_it(example):
+    """D-63.2 / G-63.4: half the WING PANEL items is the panel WINGINER
+    integrates, the entered value of every fixture before v67; the override is
+    ``None`` on all five, so ``wing_mass_tie`` -- the override against the
+    derived value, all that is left of the note 29 tie -- has nothing to say."""
     p = _project(example)
-    check = md.wing_mass_tie(p)
-    if check is None:
-        pytest.skip(f"{example}: no wing mass input")
-    assert check.ok, f"{example}: {check.detail}"
-    assert md.unmodelled_wing_mass(p) == pytest.approx(0.0, abs=0.01)
-
-
-@pytest.mark.parametrize("example", sorted(_WING_TANK_FUEL))
-def test_stripping_the_fraction_reopens_exactly_the_wing_tank_fuel(example):
-    """The reduction gate on WF-5: ``wing_fraction`` carries exactly the pounds
-    the pre-note pin held, no more -- and the partition closes either way."""
-    p = _project(example)
-    fuel = [it for it in p.weight.items if it.wing_fraction]
-    assert [it.name for it in fuel] == ["Fuel to gross"]
-    assert md.partition_closes(p).ok
-    for it in fuel:
-        it.wing_fraction = 0.0
+    assert p.wing_mass.panel_weight_override_lb is None
+    assert md.derived_panel_weight(p) == pytest.approx(_DERIVED_PANEL[example])
+    assert md.panel_weight(p) == md.derived_panel_weight(p)
+    assert md.wing_mass_tie(p) is None
+    p.wing_mass.panel_weight_override_lb = _DERIVED_PANEL[example] * 1.1
     check = md.wing_mass_tie(p)
     assert check is not None and not check.ok
-    assert md.unmodelled_wing_mass(p) == pytest.approx(_WING_TANK_FUEL[example])
+    assert check.gap == pytest.approx(0.1 * _DERIVED_PANEL[example])
+    assert md.panel_weight(p) == _DERIVED_PANEL[example] * 1.1, "the override governs"
+
+
+def test_a_fraction_row_still_splits_and_the_split_reaches_the_wing_state():
+    """WF-5's mechanism survives the fixtures no longer needing it: a fuselage
+    row with ``wing_fraction`` puts its wing share in the state's PANEL parts
+    at the row's carriage, and strips out when the fraction is cleared."""
+    p = _project("concept_regional_jet.project.json")
+    fuel = next(it for it in p.weight.items if it.name == "Mission fuel")
+    before = md.derived_panel_weight(p)
+    fuel.wing_fraction = 0.5
+    assert md.derived_panel_weight(p) == pytest.approx(before + 0.25 * fuel.weight_lb)
     assert md.partition_closes(p).ok
+    state = md.database_mass_state(p)
+    assert md.wing_state_tie(state).ok
+    fuel.wing_fraction = 0.0
+    assert md.derived_panel_weight(p) == pytest.approx(before)
 
 
 def test_reacted_parts_splits_a_row_by_weight_and_inertia_at_one_position():
     """WF-2/WF-3: two parts, the row's position, weight and own inertias in the
     fraction; every part ``wing_fraction == 0`` so ``component_of`` is exact;
     a zero-fraction row is returned as the very same object (identity keys the
-    CONM2 overlay matching)."""
-    p = _project("atr42_100.project.json")
-    row = next(it for it in p.weight.items if it.name == "Fuel to gross")
+    CONM2 overlay matching). On the RJ's fuselage fuel row with a fraction set
+    here -- no shipped fixture carries one since note 63 moved the wing-tank
+    fuel to per-side WING rows."""
+    p = _project("concept_regional_jet.project.json")
+    row = next(it for it in p.weight.items if it.name == "Mission fuel")
+    row.wing_fraction = 0.4142140833
     row.ixx, row.iyy, row.izz = 1000.0, 2000.0, 3000.0
     parts = md.reacted_parts([row], p)
-    assert [pt.name for pt in parts] == ["Fuel to gross [fuselage]", "Fuel to gross [wing]"]
+    assert [pt.name for pt in parts] == ["Mission fuel [fuselage]", "Mission fuel [wing]"]
     body, wing = parts
     f = row.wing_fraction
     assert wing.component is MassComponent.WING and body.component is MassComponent.FUSELAGE
@@ -233,7 +239,7 @@ def test_reacted_parts_splits_a_row_by_weight_and_inertia_at_one_position():
         assert (pt.x, pt.y, pt.z) == (row.x, row.y, row.z)
         assert pt.wing_fraction == 0.0
         assert pt.kind is row.kind and pt.consumable is row.consumable
-    plain = next(it for it in p.weight.items if it.name == "Wing")
+    plain = next(it for it in p.weight.items if it.name == "Wing structure")
     assert md.reacted_parts([plain], p)[0] is plain
     row.wing_fraction = 1.0
     (only,) = md.reacted_parts([row], p)
@@ -255,14 +261,17 @@ def test_the_mass_properties_path_reads_rows_not_parts(example):
         pytest.approx(math.fsum(it.weight_lb for it in rows), rel=1e-12)
 
 
-@pytest.mark.parametrize("example", sorted(_WING_TANK_FUEL))
+@pytest.mark.parametrize("example", ["ga6_normal.project.json"])
 def test_every_consumer_agrees_with_the_owner_on_the_wing_share(example):
     """The WF-3 drift guard: ``balance``'s wing/body split, the CONM2 header's
     wing total and ``distribution()`` all read the same parts. Measured on the
-    gross-weight loading, where the whole fuel row is aboard."""
+    gross-weight loading, where the whole fuel row is aboard -- with a fraction
+    put on the GA6's fuselage fuel row here, since note 63 left no fixture with
+    one (the wing-tank fuel is per-side WING rows now)."""
     from sloads.export import mass_cards
     from sloads.modules import balance
     p = _project(example)
+    next(it for it in p.weight.items if it.name == "Fuel to gross wt").wing_fraction = 0.3
     loading = max(md.derive_case_loadings(p), key=lambda ld: ld.weight_lb)
     parts = md.reacted_parts(loading.items, p)
     w_all = math.fsum(pt.weight_lb for pt in parts)
@@ -335,9 +344,17 @@ def test_the_entered_tables_are_all_short_of_the_item_model(example):
     check = md.fuselage_reconciliation(p)
     if check is None:
         pytest.skip(f"{example}: no entered station table to compare")
-    assert check.gap < 0, f"{example}: entered table now exceeds the item model"
-    # (dhc8_dash8 was the one entered table whose gap ran the other way --
-    # pinned here until #264 retired the fixture.)
+    if example == "atr42_100.project.json":
+        # The one entered table that now exceeds the beam: note 63 moved the
+        # ATR's fuel (to gross + reserve; 6,074 lb of body share) off the
+        # fuselage row and into per-side wing tank rows (D-63.4), so the
+        # derived body beam fell from 28,951 to 22,877 lb and the stale hand
+        # table -- never used, always reconciled -- reads 2,333 lb over it.
+        # Pinned rather than the table edited: the table is the fixture's
+        # history, the beam is the item model's truth.
+        assert check.gap == pytest.approx(25210.0 - 22877.0, abs=1.0), check.detail
+    else:
+        assert check.gap < 0, f"{example}: entered table now exceeds the item model"
     assert not check.ok, f"{example}: gap closed — update this test"
 
 
@@ -349,7 +366,10 @@ def test_body_loads_integrates_the_ssot_beam(example):
     """``body_loads`` reads the SSOT, not ``fuselage_mass.stations``.
 
     The point of the whole step: the module that computes fuselage shear and
-    bending now integrates every pound the airplane weighs outside the wing.
+    bending now integrates every pound the airplane weighs outside the wing --
+    and since design note 63 (D-63.8) every pound **the condition's own
+    loading** carries there: each result's mass stations are the beam derived
+    from its mass state, not the whole database's.
     """
     p = _project(example)
     if p.envelope is None:
@@ -358,9 +378,11 @@ def test_body_loads_integrates_the_ssot_beam(example):
         p.envelope.critical = build_critical(p)
     results = build_body_loads(p)
     assert results
-    beam = md.fuselage_beam_stations(p)
-    mass_x = {round(s.x, 6) for s in beam}
     for r in results:
+        state = md.wing_mass_state(p, r.case_ref.cg or None)
+        assert r.mass_state == state.label
+        beam = md.fuselage_beam_stations(p, state.loading)
+        mass_x = {round(s.x, 6) for s in beam}
         got = {round(s.x, 6) for s in r.stations if s.source == "mass"}
         assert mass_x <= got | {round(s.x, 6) for s in r.stations}, example
         # ...and the beam still closes free-free, which is the Ch 15 invariant.
@@ -373,14 +395,15 @@ def test_concept_heavy_gained_a_fuselage_it_never_had():
 
     It was the one example with no body deck, purely because the only input the
     Ch 15 module read was a table nobody had entered. 16,200 lb of airplane had
-    no fuselage loads; it does now -- 15,000 lb of it since design note 29 moved
-    the 1,200 lb of wing-tank fuel onto the wing.
+    no fuselage loads; it does now -- 15,000 lb of it after design note 29 moved
+    1,200 lb of wing-tank fuel onto the wing, and 10,700 lb since design note
+    63 moved the whole 5,500 lb fuel row into per-side wing tank rows (D-63.4).
     """
     p = _project("concept_heavy.project.json")
     assert not (p.fuselage_mass and p.fuselage_mass.stations)
     beam = md.fuselage_beam_stations(p)
     assert beam
-    assert sum(s.weight_lb for s in beam) == pytest.approx(15000.0)
+    assert sum(s.weight_lb for s in beam) == pytest.approx(10700.0)
 
 
 # --------------------------------------------------------------------------- #

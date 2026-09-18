@@ -248,17 +248,22 @@ def test_the_applied_strip_set_reproduces_the_cumulative_loads():
 
 
 def test_a_concentrated_wing_mass_is_published_as_its_own_applied_load():
-    """The Baron carries four; without them the applied set is short by all of them.
+    """The Baron carries nine per side; without them the applied set is short by all.
 
     ``WINGINER`` steps the cumulative shear at each concentrated mass and leaves
     the per-strip fz panel-only, so the strip table alone misses -4821.5 lb of
     the -5004.1 lb PHAA root shear -- most of the inertia relief, and
-    unconservative in exactly the direction that matters.
+    unconservative in exactly the direction that matters. Since design note 63
+    the masses are the starboard POINT rows of the case's loading -- the
+    gear, engine, propeller, nacelle, accessories, exhaust, unusable fuel, fuel
+    and fuel-system rows, 1,190.5 lb per side, where the four lumped
+    ``concentrated`` entries used to sum to the same pounds.
     """
     p = io.load_project(_BARON)
     net = build_net_loads(p)
     phaa = next(r for r in net.wing_net if r.case == "PHAA")
-    assert len(phaa.point_loads) == 4, "the four entered wing masses"
+    assert len(phaa.point_loads) == 9, "the nine starboard POINT rows"
+    assert math.isclose(sum(pl.fz for pl in phaa.point_loads) / phaa.nz, 1190.5, rel_tol=1e-9)
     _assert_closes(phaa)
 
     strips_only = sum(s.fz for s in phaa.stations)
@@ -325,9 +330,13 @@ def test_point_loads_survive_the_io_round_trip():
     rebuilt = io.project_from_dict(io.project_to_dict(p))
     before = p.loads.wing_net[0].point_loads
     after = rebuilt.loads.wing_net[0].point_loads
-    assert len(after) == len(before) == 4
+    assert len(after) == len(before) == 9
     assert [c.name for c in after] == [c.name for c in before]
     assert math.isclose(after[0].fz, before[0].fz)
+    # The mass state the distribution was built from rides the same round trip
+    # (note 63 D-63.6), so a reloaded result still says what it ran on.
+    assert rebuilt.loads.wing_net[0].mass_state == p.loads.wing_net[0].mass_state
+    assert rebuilt.loads.wing_net[0].mass_state.startswith("loading 'aft gross'")
 
 
 if __name__ == "__main__":

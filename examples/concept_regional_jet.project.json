@@ -1,5 +1,5 @@
 {
-  "schema_version": 66,
+  "schema_version": 67,
   "name": "RJ-50 concept \u2014 50-seat regional jet (concept mode, Part 25)",
   "engines": [
     {
@@ -146,7 +146,8 @@
         "kind": "empty",
         "component": "wing",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
         "name": "Fuselage structure",
@@ -160,7 +161,8 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
         "name": "Horiz tail",
@@ -174,7 +176,8 @@
         "kind": "empty",
         "component": "htail",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
         "name": "Vert tail",
@@ -188,7 +191,8 @@
         "kind": "empty",
         "component": "vtail",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
         "name": "Main gear",
@@ -202,7 +206,8 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
         "name": "Nose gear",
@@ -216,7 +221,8 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
         "name": "Engines installed (2)",
@@ -230,7 +236,8 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
         "name": "Systems + furnishings",
@@ -244,7 +251,8 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
         "name": "Crew (2)",
@@ -258,7 +266,8 @@
         "kind": "minimum",
         "component": "fuselage",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
         "name": "Reserve fuel",
@@ -272,7 +281,8 @@
         "kind": "minimum",
         "component": "fuselage",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
         "name": "Passengers, fwd cabin (24)",
@@ -286,7 +296,8 @@
         "kind": "discretionary",
         "component": "fuselage",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
         "name": "Passengers, aft cabin (24)",
@@ -300,7 +311,8 @@
         "kind": "discretionary",
         "component": "fuselage",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
         "name": "Cargo, fwd hold",
@@ -314,7 +326,8 @@
         "kind": "discretionary",
         "component": "fuselage",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
         "name": "Cargo, aft hold",
@@ -328,7 +341,8 @@
         "kind": "discretionary",
         "component": "fuselage",
         "consumable": false,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       },
       {
         "name": "Mission fuel",
@@ -342,7 +356,8 @@
         "kind": "discretionary",
         "component": "fuselage",
         "consumable": true,
-        "wing_fraction": 0.0
+        "wing_fraction": 0.0,
+        "carriage": "panel"
       }
     ],
     "envelope": {
@@ -820,11 +835,9 @@
     ]
   },
   "wing_mass": {
-    "panel_weight_lb": 2100.0,
     "tip_root_density_ratio": 0.35,
     "inboard_rib_y": 40.0,
     "surface": "wing",
-    "concentrated": [],
     "cases": [
       {
         "name": "PHAA",
@@ -833,7 +846,8 @@
         "nx": 0.3,
         "unbal_moment": 0,
         "cl": 1.4,
-        "v_eas_kt": 187.0
+        "v_eas_kt": 187.0,
+        "cg": null
       },
       {
         "name": "TORS",
@@ -842,7 +856,8 @@
         "nx": -0.08,
         "unbal_moment": 0,
         "cl": 0.45,
-        "v_eas_kt": 310.0
+        "v_eas_kt": 310.0,
+        "cg": null
       },
       {
         "name": "ACRL",
@@ -851,7 +866,8 @@
         "nx": 0.22,
         "unbal_moment": -600000,
         "cl": 1.35,
-        "v_eas_kt": 185.0
+        "v_eas_kt": 185.0,
+        "cg": null
       }
     ]
   },

@@ -108,7 +108,7 @@ def assemble(project: Project, condition: str, vn: VnPoint,
     notes: List[str] = []
 
     wing_r, panel_both, _cm_free = wing_sets(project, vn)
-    wing_r, scale_notes = place_wing_inertia(wing_r, loading, project, panel_both)
+    wing_r, scale_notes = place_wing_inertia(wing_r, loading, project, panel_both, vn.nz)
     notes += scale_notes
 
     loads: List[BalancedLoad] = list(wing_r) + _mirror(wing_r)

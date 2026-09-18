@@ -133,6 +133,11 @@ def case_index_rows_from(*groups: Sequence, assembled: Sequence = ()) -> List[di
                 LOAD_ID_COLUMN[ASSEMBLED_DECK]: "",
                 "Component": ref.component,
                 "Condition": ref.condition,
+                # The run key beside the slot id (note 63 D-63.11): the V-n
+                # point's manoeuvre label and configuration, which with CG and
+                # altitude name the balanced point whatever its matrix position.
+                "Run": ref.run,
+                "Config": ref.config,
                 "CG": ref.cg,
                 "Speed (kt)": f"{ref.speed_kt:.2f}" if ref.speed_kt is not None else "",
                 "Altitude (ft)": f"{ref.altitude_ft:.0f}" if ref.altitude_ft is not None else "",
@@ -185,9 +190,12 @@ def case_index_rows(project: Project, extra: Sequence = (),
     return case_index_rows_from(*groups, assembled=assembled)
 
 
+#: The run key (``Run``, ``Config`` with ``CG`` and ``Altitude``) sits beside
+#: the slot id since design note 63 D-63.11: the id is the deliverable's
+#: number, the run key the condition's name.
 _CASE_INDEX_FIELDS = ["ID", LOAD_ID_COLUMN[COMPONENT_DECK],
                       LOAD_ID_COLUMN[ASSEMBLED_DECK], "Component", "Condition",
-                      "CG", "Speed (kt)", "Altitude (ft)", "FAR"]
+                      "Run", "Config", "CG", "Speed (kt)", "Altitude (ft)", "FAR"]
 
 
 def _rows_to_csv(rows: List[dict], header_comment: str = "") -> str:

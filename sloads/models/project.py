@@ -332,7 +332,23 @@ from .results import EnvelopeResult, LoadsResult, MassResult
 # step 1 deferred to this bump. All additive with empty/0.0 defaults meaning
 # exactly the v64 state, and JSON stores fields by name, so the 64->65 hop is
 # an identity and no delivered load or GRID moves.
-SCHEMA_VERSION = 66
+# v67 (design note 63, #289, owner 2026-09-17): **one mass model** -- the case's
+# D-25 loading is the mass state of every inertia load. ``WingMassInput`` loses
+# ``panel_weight_lb`` (now derived: half the WING-carried PANEL parts of the
+# item database, ``panel_weight_override_lb`` the OV-1 override) and
+# ``concentrated[]`` (the POINT-carriage WING rows of the case's loading are the
+# concentrated masses); ``MassItem`` gains ``carriage`` (PANEL | POINT);
+# ``WeightInput`` gains ``max_zero_fuel_weight_lb`` (stored, seeds nothing until
+# #292); ``WingLoadCase`` gains ``cg`` (the mass state); ``CaseRef`` gains
+# ``run``/``config`` (the run key beside the slot id, D-63.11); the wing and
+# body results gain ``mass_state``. **Not an identity hop** (``_hop_66``): it
+# drops ``concentrated`` where the wing tie closes and converts it to per-side
+# POINT rows where it does not, stamps POINT on every off-centreline WING row,
+# and writes the override only where the derived panel differs. On
+# ``ga6_normal`` WINGINER, NETLOADS, the deck's wing sets and CONM2 are
+# byte-identical; ``body_loads`` moves by the stated per-case correction
+# (D-63.8) and the twin/concept fixtures by the fuel re-slicing (D-63.10).
+SCHEMA_VERSION = 67
 
 
 @dataclass
@@ -375,6 +391,12 @@ class Project:
     # from ``sloads.models``, so the enum cannot come the other way without a
     # cycle. Parse it with ``units.unit_system_from``.
     unit_system: str = "imperial"
+    #: What the schema migration had to say about this file, one sentence per
+    #: finding (``migrations._hop_66``: the wing masses it dropped or converted,
+    #: the panel override it kept). **Never persisted** -- a note is stated once,
+    #: by ``validation`` on the page it concerns, and a save writes the file at
+    #: the current version with nothing left to say.
+    migration_notes: List[str] = field(default_factory=list)
     engines: List["EngineInput"] = field(default_factory=list)
     engine_layout: Optional[EngineLayout] = None
     weight: Optional[WeightInput] = None

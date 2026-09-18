@@ -2,7 +2,7 @@
 
 > **Generated file — do not edit by hand.** Produced by [`docs/generate_data_dict.py`](../generate_data_dict.py) from `sloads/models.py`. Regenerate after any schema change: `.venv/bin/python docs/generate_data_dict.py`.
 
-Schema version: **66**.
+Schema version: **67**.
 
 This dictionary covers the **input** slices of `Project` (`sloads/models.py`) — the fields that make up a `project.json`. The result slices (`envelope`, `mass`, `loads`) are computed outputs and are out of scope.
 
@@ -104,4 +104,5 @@ Geometry/aero inputs for SELECT's rational vertical-tail loads (Ch 9).
 - **`RotorType`** — `COMPRESSOR` = `'C'`, `TURBINE` = `'T'`.
 - **`TailType`** — `CONVENTIONAL` = `'conventional'`, `T_TAIL` = `'t_tail'`, `V_TAIL` = `'v_tail'`, `CRUCIFORM` = `'cruciform'`. Empennage arrangement -- a **structural** classification (note 44 OR-134).
 - **`VdBasis`** — `SPEED_RATIO` = `'speed_ratio'`, `MACH_MARGIN` = `'mach_margin'`. Which regulatory route sets the design dive speed VD (F25-2).
+- **`WingCarriage`** — `PANEL` = `'panel'`, `POINT` = `'point'`. How the wing reacts a ``WING``-carried mass part (design note 63, D-63.3).
 

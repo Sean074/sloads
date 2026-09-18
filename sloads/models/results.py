@@ -28,6 +28,20 @@ class CaseRef:
     the wing (``select_wing`` vs. ``WingMassInput.cases``) and vertical-tail
     (``select_vtail`` vs. ``one_engine_out``) pipelines mint two independent
     sequences that share a prefix but are not the same case object.
+
+    **The slot id is the deliverable's number; the run key is the condition's
+    name** (design note 63, D-63.11, v67). ``run`` is the manoeuvre label of the
+    balanced V-n point the case was taken from (``"GUST +C"``, ``"STALL +N"``)
+    and ``config`` its configuration (``"CRUISE"``, ``"LANDING"``); with ``cg``
+    and ``altitude_ft`` they are the composite that names a balanced point
+    without reference to its position in the matrix -- the tuple G-62.2 already
+    froze picks by, and the one #164's V-n renumber cannot move. The V-n
+    ``case`` integer stays a convenience on the condition and is never identity.
+    ``subcase_id``/``balanced_subcase_id`` stay pure functions of ``case_id``,
+    so persisted selections and exported decks do not move; the deck's ``$``
+    case map and the case index state both. Blank on a case that has no V-n
+    point behind it (a hand-entered wing case, a ground case), which is what the
+    empty string has always meant for ``cg``.
     """
     case_id: str
     component: str          # "wing" | "htail" | "vtail" | "fuselage" | "engine_mount" | "landing_gear"
@@ -36,6 +50,22 @@ class CaseRef:
     speed_kt: Optional[float] = None
     altitude_ft: Optional[float] = None
     far_reference: str = ""
+    run: str = ""           # the V-n point's manoeuvre label (D-63.11), "" = no point
+    config: str = ""        # the V-n point's configuration (D-63.11), "" = no point
+
+    @property
+    def run_key(self) -> str:
+        """The run key as one string: ``"GUST +C, CG2, 0 ft, CRUISE"``.
+
+        The composite of D-63.11 in the order a reader scans it -- manoeuvre,
+        mass state, altitude, configuration -- and ``""`` when the case has no
+        V-n point behind it, so a deck header or an index cell can print it
+        unconditionally.
+        """
+        if not self.run:
+            return ""
+        alt = f"{self.altitude_ft:.0f} ft" if self.altitude_ft is not None else "-- ft"
+        return f"{self.run}, {self.cg or '--'}, {alt}, {self.config or '--'}"
 
 
 @dataclass
@@ -522,6 +552,13 @@ class WingLoadResult:
     #: :class:`ConcentratedLoad` for why the strip table alone is not the
     #: applied set.
     point_loads: List[ConcentratedLoad] = field(default_factory=list)
+    #: The mass state this distribution was built from (design note 63,
+    #: D-63.6, v67): ``"loading 'CG2' (searched)"``, ``"loading 'CGmax'
+    #: (entered)"`` or ``"item database (every row aboard)"`` with the reason.
+    #: One sentence, stated on the result rather than inferred from the case
+    #: name, because before v67 the case weight reached the label and nothing
+    #: else. ``""`` on a result written before the field existed.
+    mass_state: str = ""
 
 
 @dataclass
@@ -972,6 +1009,9 @@ class BodyLoadResult:
     stations: List[BodyStationLoad] = field(default_factory=list)
     case_ref: Optional[CaseRef] = None
     safety_factor: float = ULTIMATE_FACTOR   # limit -> ultimate factor for this case
+    #: The mass state the beam integrated (design note 63, D-63.8, v67): the
+    #: condition's own loading, named as :attr:`WingLoadResult.mass_state` is.
+    mass_state: str = ""
     m_unbalanced: float = 0.0                # lb-in, LIMIT (pass-1 terminal Myy)
     r_front: Optional[float] = None          # lb, LIMIT -- front spar fitting load
     r_rear: Optional[float] = None           # lb, LIMIT -- rear spar fitting load

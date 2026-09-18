@@ -19,14 +19,9 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `aero.surfaces[].sweep_deg` | `float` | deg | `0.0` | original | AIRLOAD4 sweepback |
 | `aero.surfaces[].design_mach` | `float` |  | `0.0` | original | AIRLOAD4 high-Mach branch |
 | `wing_mass.surface` | `str` |  | `'wing'` | sloads | names which surface of sloads' multi-surface planform this step reads; the original suite had one wing and needed no selector (standing ruling) |
-| `wing_mass.panel_weight_lb` | `float` | lb | `0.0` | original | WINGINER panel weight |
+| `wing_mass.panel_weight_override_lb` | `Optional[float]` | lb | `None` | original | WINGINER panel weight; quantity: *wing panel weight*; override of `external: half the WING-tagged PANEL items of weight.items (mass_distribution.derived_panel_weight; design note 63 D-63.2 -- the original entered the panel weight, sloads derives it from the one mass model)` |
 | `wing_mass.inboard_rib_y` | `float` |  | `0.0` | original | WINGINER inboard rib station |
 | `wing_mass.tip_root_density_ratio` | `float` |  | `1.0` | original | WINGINER tip/root density ratio |
-| `wing_mass.concentrated[].name` | `str` |  | `**required**` | original | WINGINER concentrated item |
-| `wing_mass.concentrated[].weight_lb` | `float` | lb | `**required**` | original | WINGINER concentrated item |
-| `wing_mass.concentrated[].x` | `float` |  | `0.0` | original | WINGINER concentrated item |
-| `wing_mass.concentrated[].y` | `float` |  | `0.0` | original | WINGINER concentrated item |
-| `wing_mass.concentrated[].z` | `float` |  | `0.0` | original | WINGINER concentrated item |
 | `wing_mass.cases[].name` | `str` | "PHAA" / "ACRL" / "TORS" / ... | `**required**` | original | WINGINER.BAS 1660-1710 case name. 0 rows = the SELECT governing set; typed rows REPLACE that set entirely (#94, C210-30) |
 | `wing_mass.cases[].case` | `Optional[int]` |  | `None` | original | WINGINER.BAS 1660-1710 case id |
 | `wing_mass.cases[].nz` | `Optional[float]` |  | `None` | original | WINGINER.BAS 1660-1710 nz |
@@ -34,4 +29,5 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `wing_mass.cases[].cl` | `Optional[float]` |  | `None` | original | WINGINER.BAS 1660-1710 CL |
 | `wing_mass.cases[].v_eas_kt` | `Optional[float]` | KEAS | `None` | original | WINGINER.BAS 1660-1710 speed |
 | `wing_mass.cases[].unbal_moment` | `float` |  | `0.0` | original | WINGINER.BAS 1660-1710 unbalanced moment |
+| `wing_mass.cases[].cg` | `Optional[str]` | mass state: a FLIGHT CG case name (D-63.6) | `None` | sloads | the mass state the case's inertia is built from -- a FLIGHT weight/CG case whose loading supplies WINGINER's panel and point masses (design note 63 D-63.6); blank resolves to the referenced V-n point's CG case, then to the selected condition of the same label. The original distributed one project-wide mass list at every case |
 

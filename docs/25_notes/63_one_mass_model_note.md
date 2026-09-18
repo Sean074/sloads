@@ -8,7 +8,8 @@ reviewed and flipped the same day — the critical-advocate review's three
 findings are **ruled** in §9 and their rulings are written into D-63.2,
 D-63.7, D-63.8, D-63.10, D-63.11, gate 1, G-63.3a and G-63.4; R-63.4's
 scope split is **ruled** in §9: #289 is the one-model step and **#292**
-the variants step). This is the
+the variants step. **#289 shipped 2026-09-17** — §10 records what moved;
+the note goes to SHIPPED at #292). This is the
 note design note 62 §6 promised: the wing mass states in the Wing Loads
 step. The discussion that shaped it (2026-09-17) widened it from "a state
 list on `WingMassInput`" to the ruling in §2: **the suite keeps one mass
@@ -415,3 +416,41 @@ before its decision is coded, and the ruling amends the decision above.
   dictionary. *Scope:* the reviewer recommends splitting #289 — D-63.1 to
   D-63.4, D-63.6 and D-63.8 as the one-model step; D-63.5 and D-63.7 as the
   variants step with its own gates.
+
+## 10. Shipped: the one-model step (#289, 2026-09-17)
+
+What #289 delivered against §4, measured at closure (the full account is
+`changes/one-mass-model.history.md`):
+
+- **Gate 1 held as amended.** `ga6_normal`'s `wing_inertia`, `net_loads`,
+  `wing_applied`, `mass_model` and `mass_check` digests are byte-identical:
+  the derived panel is 165 lb (330 / 2), no row is POINT, every wing case's
+  state is a searched loading. The body applied set moved by the stated
+  correction — CG1 3,070 lb unchanged; CG2 3,070 redistributed; CG3 2,470
+  and CG4 1,733 lb against 3,070 before.
+- **G-63.1, G-63.3a (identity half), G-63.4, G-63.5** are
+  `tests/test_one_mass_model.py`; the migration's three branches are
+  `tests/test_migrations.py`. `panel_weight_override_lb` is `None` on all
+  five fixtures after the hand corrections (Baron fuel-system row per side;
+  ATR engines, nacelles, fuel-to-gross and reserve per side; heavy fuel
+  per side).
+- **Twin and concept movements (D-63.10).** ATR PHAA relief per side
+  1,900 → 6,127 lb; closure `Izz` fwd gross 197,125 → 181,424, aft gross
+  204,235 → 188,534, min weight 125,428 → 107,130 slug·ft². Baron: the
+  2,381 lb per side at BL 57–95 as POINT rows, closure `Izz` 12,195 →
+  7,369, SUDDEN RUDDER yaw acceleration +114 → +189 deg/s², the lumped
+  engine at x 48 now the item rows at x 30/50/55. Heavy: fuel 600 → 2,750
+  lb per side, closure `Izz` 32,302 → 42,104, body beam 15,000 → 10,700
+  lb. Fin loads and `Ny` unchanged everywhere.
+- **Two amendments found in the code.** (a) A searched loading is
+  laterally symmetric by construction: the subset search refuses a
+  candidate whose WING POINT parts differ port and starboard (the ATR's
+  "fwd light" ground case would otherwise have taken one tank). (b) A wing
+  case with no resolvable state, or a state whose loading the search cannot
+  produce, runs on the whole database **with the reason in the result** and
+  a validation warning — the Baron's hand-entered cases now name
+  `cg: "aft gross"`, and its fuselage conditions at the two non-derivable
+  FLIGHT cases fall back with the reason until #290.
+- **Left for #292:** D-63.5's seeds and search objective, D-63.7's variant
+  table and re-pointed slot, G-63.2, G-63.3, the rest of G-63.3a, the
+  25.321 row to A, this note to SHIPPED.

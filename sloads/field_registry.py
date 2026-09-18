@@ -80,6 +80,7 @@ NON_INPUT: Dict[str, str] = {
     "loads": "result slice (per-module load cases)",
     "schema_version": "set by io.py, never by a user",
     "unit_system": "display preference, not airplane data (D-22)",
+    "migration_notes": "transient: what the schema hop chain had to say, never persisted",
     "safety_factors": "governing SF table view, owned by sloads/safety_factors.py",
     "name": "document metadata",
     "engineer": "document metadata",
@@ -631,6 +632,12 @@ def _side_gust_izz(project: Project, _record: object = None) -> Optional[float]:
     return default_side_gust_izz(project)
 
 
+def _derived_panel_weight(project: Project, _record: object = None) -> Optional[float]:
+    from sloads.mass_distribution import derived_panel_weight
+
+    return derived_panel_weight(project) or None
+
+
 def _select_wing_weight(project: Project, _record: object = None) -> Optional[float]:
     from sloads.cg_cases import max_takeoff_weight
 
@@ -684,6 +691,9 @@ EXTERNAL_VALUES: Dict[str, "typing.Callable[..., object]"] = {
     # The #95 additions (C210-2/3/5/22/25): the SELECT copies and derivable
     # geometry the C210 build was asked to type by hand.
     "geometry.parametric.fuselage_length": _fuselage_length,
+    # The wing panel weight (note 63 D-63.2): the derived value a blank
+    # override runs on, so the page shows the number WINGINER integrates.
+    "wing_mass.panel_weight_override_lb": _derived_panel_weight,
     "geometry.empennage.htail.elevator_area_sqft": _elevator_area,
     "geometry.empennage.vtail.rudder_area_sqft": _rudder_area,
     "geometry.empennage.vtail.wing_span_in": _wing_span,
@@ -1142,6 +1152,10 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     # ----------------------------------------------------------------- #
     _E("weight.max_takeoff_weight_lb", _WT, _ORIG, "MTOW, every module's design weight", "max take-off weight"),
     _E("weight.max_landing_weight_lb", _WT, _ORIG, "MLW, LANDLOAD design landing weight"),
+    _E("weight.max_zero_fuel_weight_lb", _WT, _SLDS,
+       "MZFW, the Part 25 zero-fuel design weight (25.321; design note 63 D-63.5): stored "
+       "since v67, 0 = not entered; seeds the zero-fuel cases at #292. The original suite "
+       "had no zero-fuel design weight"),
     _E("weight.estimation.airplane", _WT, _ORIG, "WTESTIMA airplane class"),
     _E("weight.estimation.engines", _WT, _ORIG, "WTESTIMA NOENGS", "engine count",
        EXTERNAL + "len(Project.engines) (review N1 instance 3: concept_heavy 2 vs 0)",
@@ -1193,6 +1207,13 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "wing/body split of one row (plan 11, note 29 WF-2): `component` at finer grain, the "
        "same which-beam question BODYLOAD asked by position. Load-bearing (G5, #62): the "
        "DHC-8 fuel row is 86 % wing, and dropped it rides the fuselage beam whole",
+       supplied=True),
+    _E("weight.items[].carriage", _WT, _SLDS,
+       "how the wing reacts the row's wing-carried part (design note 63 D-63.3): PANEL is "
+       "spread by WINGINER's taper, POINT is a WINGINER concentrated mass at the row's own "
+       "station -- the WINGINER `concentrated[]` entry the original asked for, now a tag on "
+       "the one mass row instead of a second list. Load-bearing (G5): the Baron's engines, "
+       "gear and fuel are POINT rows, and as PANEL they would be smeared along the span",
        supplied=True),
     _E("weight.envelope.gross_weight", _WT, _ORIG, "WTENV gross weight", "max take-off weight",
        "weight.max_takeoff_weight_lb (blank derives from the MTOW SSOT, note 36 OV-2; C210-13)",
@@ -1252,6 +1273,7 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("weight.cg_cases[].loading.ballast.component", _WT, _SLDS, "ballast item, decision D-25"),
     _E("weight.cg_cases[].loading.ballast.consumable", _WT, _SLDS, "ballast item, decision D-25"),
     _E("weight.cg_cases[].loading.ballast.wing_fraction", _WT, _SLDS, "ballast item, decision D-25"),
+    _E("weight.cg_cases[].loading.ballast.carriage", _WT, _SLDS, "ballast item, decision D-25"),
 
     # ----------------------------------------------------------------- #
     # speeds -- STRSPEED + MACHLIM (structural_speeds)
@@ -1470,14 +1492,17 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("wing_mass.surface", _WING, _SLDS,
        "names which surface of sloads' multi-surface planform this step reads; the original suite had one wing and "
        "needed no selector (standing ruling)"),
-    _E("wing_mass.panel_weight_lb", _WING, _ORIG, "WINGINER panel weight"),
+    _E("wing_mass.panel_weight_override_lb", _WING, _ORIG, "WINGINER panel weight",
+       "wing panel weight",
+       EXTERNAL + "half the WING-tagged PANEL items of weight.items "
+       "(mass_distribution.derived_panel_weight; design note 63 D-63.2 -- the original "
+       "entered the panel weight, sloads derives it from the one mass model)",
+       governs=True,
+       resolves="WINGINER integrates the derived value whenever this is blank, and "
+                "this field verbatim when it is set -- note 50's OV-1 override shape, "
+                "so it stays live and is never disabled."),
     _E("wing_mass.inboard_rib_y", _WING, _ORIG, "WINGINER inboard rib station"),
     _E("wing_mass.tip_root_density_ratio", _WING, _ORIG, "WINGINER tip/root density ratio"),
-    _E("wing_mass.concentrated[].name", _WING, _ORIG, "WINGINER concentrated item"),
-    _E("wing_mass.concentrated[].weight_lb", _WING, _ORIG, "WINGINER concentrated item"),
-    _E("wing_mass.concentrated[].x", _WING, _ORIG, "WINGINER concentrated item"),
-    _E("wing_mass.concentrated[].y", _WING, _ORIG, "WINGINER concentrated item"),
-    _E("wing_mass.concentrated[].z", _WING, _ORIG, "WINGINER concentrated item"),
     _E("wing_mass.cases[].name", _WING, _ORIG,
        "WINGINER.BAS 1660-1710 case name. 0 rows = the SELECT governing set; "
        "typed rows REPLACE that set entirely (#94, C210-30)"),
@@ -1487,6 +1512,11 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("wing_mass.cases[].cl", _WING, _ORIG, "WINGINER.BAS 1660-1710 CL"),
     _E("wing_mass.cases[].v_eas_kt", _WING, _ORIG, "WINGINER.BAS 1660-1710 speed"),
     _E("wing_mass.cases[].unbal_moment", _WING, _ORIG, "WINGINER.BAS 1660-1710 unbalanced moment"),
+    _E("wing_mass.cases[].cg", _WING, _SLDS,
+       "the mass state the case's inertia is built from -- a FLIGHT weight/CG case whose "
+       "loading supplies WINGINER's panel and point masses (design note 63 D-63.6); blank "
+       "resolves to the referenced V-n point's CG case, then to the selected condition of "
+       "the same label. The original distributed one project-wide mass list at every case"),
 
     # fuselage_mass -- NETLOADS / Ch 15 (fuselage_loads)
     _E("fuselage_mass.ref_waterline", _FUS, _ORIG,

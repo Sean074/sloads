@@ -150,9 +150,12 @@ _COUPLE_NODES = {
 def _has_concentrated_wing_mass(example: str) -> bool:
     """True if the fixture hangs point masses (engine, gear, fuel, store) on the
     wing -- ``atr42_100``, ``baron_58`` and ``concept_heavy`` do; the rest
-    do not."""
-    wm = _project(example).wing_mass
-    return bool(wm and wm.concentrated)
+    do not. Since design note 63 a point mass is a WING item row of carriage
+    POINT (D-63.3), read off the database rather than a second list."""
+    from sloads import mass_distribution as md
+    from sloads.models import WingCarriage
+    p = _project(example)
+    return bool(md.wing_parts(p.weight.items, p, WingCarriage.POINT))
 
 
 

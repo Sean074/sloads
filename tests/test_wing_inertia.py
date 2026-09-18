@@ -15,7 +15,9 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sloads import Project, WingLoadCase, io
+from sloads import mass_distribution as md
 from sloads.derived_geometry import wing_plane
+from sloads.models import MassComponent, MassItem, WingCarriage
 from sloads.modules import wing_inertia as wi
 from sloads.modules.wing_inertia import inertia_units, wing_inertia_distribution
 
@@ -32,8 +34,11 @@ def _units():
     """
     p = io.load_project(_GA)
     geom = p.geometry.by_name("wing")
+    # The panel weight is the item database's since design note 63 (half the
+    # WING-tagged PANEL items: 330 / 2 = 165 lb, Appendix A's entered value).
     return (geom, p.wing_mass,
-            inertia_units(geom, p.wing_mass, *wing_plane(p, p.wing_mass.surface)))
+            inertia_units(geom, p.wing_mass, *wing_plane(p, p.wing_mass.surface),
+                          panel_weight_lb=md.panel_weight(p)))
 
 
 def _ga6_plane():
@@ -98,9 +103,8 @@ def test_an_empty_panel_weight_gives_an_empty_panel():
     fixture): a sign-flipped wing, which then scaled into the balanced case as a
     sign-flipped inertia set. Zero in, zero out.
     """
-    from dataclasses import replace
     geom, wm, _ = _units()
-    u = inertia_units(geom, replace(wm, panel_weight_lb=0.0), *_ga6_plane())
+    u = inertia_units(geom, wm, *_ga6_plane(), panel_weight_lb=0.0)
     assert u.w == [0.0] * len(u.w)
     assert u.density_root == 0.0 and u.density_tip == 0.0
 
@@ -114,22 +118,39 @@ def test_inboard_strips_carry_no_panel_mass():
 
 
 def test_concentrated_weight_adds_inboard_shear():
-    # A concentrated weight adds its full load to the shear at every inboard station.
+    # A concentrated weight adds its full load to the shear at every inboard
+    # station. Since design note 63 a concentrated mass is a WING item row of
+    # carriage POINT (D-63.3), handed to the fold as the case's point list.
     from sloads import WingMassInput
     geom, _, _ = _units()
     plane = _ga6_plane()
-    plain = WingMassInput(panel_weight_lb=165, tip_root_density_ratio=0.95, inboard_rib_y=23)
+    wm = WingMassInput(tip_root_density_ratio=0.95, inboard_rib_y=23)
     base = wing_inertia_distribution(
-        WingLoadCase("v", nz=1.0), inertia_units(geom, plain, *plane))
-    from sloads import ConcentratedWeight
-    loaded = WingMassInput(
-        panel_weight_lb=165, tip_root_density_ratio=0.95, inboard_rib_y=23,
-        concentrated=[ConcentratedWeight("store", 100.0, x=83.0, y=100.0, z=87.0)])
+        WingLoadCase("v", nz=1.0), inertia_units(geom, wm, *plane, panel_weight_lb=165))
+    store = MassItem("store", 100.0, x=83.0, y=100.0, z=87.0,
+                     component=MassComponent.WING, carriage=WingCarriage.POINT)
     withcw = wing_inertia_distribution(
-        WingLoadCase("v", nz=1.0), inertia_units(geom, loaded, *plane))
+        WingLoadCase("v", nz=1.0),
+        inertia_units(geom, wm, *plane, panel_weight_lb=165, point_masses=[store]))
     # Root shear rises by the full 100 lb; a station outboard of the weight is unchanged.
     assert math.isclose(withcw.stations[0].sz - base.stations[0].sz, 100.0, abs_tol=1e-6)
     assert math.isclose(withcw.stations[-1].sz, base.stations[-1].sz, abs_tol=1e-6)
+    assert [pl.name for pl in withcw.point_loads] == ["store"]
+
+
+def test_the_fold_scales_the_shape_rather_than_re_iterating_it():
+    """D-63.6: the panel shape is built once at the project panel and each case
+    scales it. At the shape's own target the scale is exactly 1.0 -- the strips
+    are the same objects' values, which is what keeps Appendix A bit-for-bit --
+    and at half the target every strip is exactly half, not the +-1 % band the
+    iteration would land in on its own."""
+    geom, wm, u = _units()
+    shape = wi.panel_shape(geom, wm, *_ga6_plane(), 165.0)
+    same = wi.fold_units(shape, 165.0)
+    assert same.w == u.w
+    half = wi.fold_units(shape, 82.5)
+    assert half.w == [w * 0.5 for w in u.w]
+    assert half.density_root == u.density_root, "the densities are the shape's"
 
 
 def test_run_requires_wing_mass_slice():

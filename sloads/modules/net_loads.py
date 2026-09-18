@@ -24,6 +24,7 @@ from typing import Dict, List, Optional
 
 from ..constants import ULTIMATE_FACTOR
 from ..derived_geometry import require_integrable_planform, sync_geometry_derived, wing_plane
+from ..mass_distribution import panel_weight
 from ..models import (
     ConditionResult,
     LoadsResult,
@@ -42,8 +43,11 @@ from .wing_geometry import chord_fraction_x
 from .wing_inertia import (
     WingCaseSources,
     _resolve_case,
+    _with_mass_state,
     build_wing_inertia,
-    inertia_units,
+    case_mass_state,
+    fold_units,
+    panel_shape,
     resolve_wing_cases,
     wing_case_ref,
     wing_case_sources,
@@ -142,7 +146,7 @@ def to_loads_ref_axis(results: List[WingLoadResult],
         out.append(WingLoadResult(case=r.case, nz=r.nz, nx=r.nx, stations=stations,
                                   point_loads=list(r.point_loads),
                                   case_ref=r.case_ref, safety_factor=r.safety_factor,
-                                  torsion_axis=axis))
+                                  torsion_axis=axis, mass_state=r.mass_state))
     return out
 
 
@@ -198,13 +202,18 @@ def build_net_loads(project: Project) -> LoadsResult:
     if geom is None or aero is None:  # already refused above; narrows for the calls below
         raise MissingInputError(f"net_loads needs the '{wm.surface}' geometry and aero surfaces")
     plane = wing_plane(project, wm.surface)
-    units = inertia_units(geom, wm, *plane)
+    # The panel shape once; each case folds its own mass state (note 63
+    # D-63.6), exactly as ``build_wing_inertia`` does, so the two modules'
+    # inertia for one case list is one number.
+    shape = panel_shape(geom, wm, *plane, panel_weight(project))
 
     air_results: List[WingLoadResult] = []
     inertia_results: List[WingLoadResult] = []
     net_results: List[WingLoadResult] = []
     for i, case in enumerate(cases):
-        ref = wing_case_ref(project, i, case, src)
+        state = case_mass_state(project, case, src)
+        units = fold_units(shape, state.panel_weight_lb, state.point_masses)
+        ref = _with_mass_state(wing_case_ref(project, i, case, src), state)
         # The wing case's limit->ultimate factor, minted once here (net_loads owns
         # the wing conditions -- no upstream CriticalCondition exists for them) and
         # copied onto all three families and the rendered ConditionResult so report
@@ -218,6 +227,7 @@ def build_net_loads(project: Project) -> LoadsResult:
         inertia = wing_inertia_distribution(_resolve_case(project, case, src), units)
         inertia.case_ref = ref
         inertia.safety_factor = sf
+        inertia.mass_state = state.label
         net = WingLoadResult(case=case.name, nz=inertia.nz, nx=inertia.nx,
                              stations=[_sum_stations(a, i) for a, i in zip(air.stations, inertia.stations)],
                              case_ref=ref, safety_factor=sf,
@@ -225,7 +235,8 @@ def build_net_loads(project: Project) -> LoadsResult:
                              # wing masses are the inertia's, and they are the
                              # part of the applied set the strip table does not
                              # carry (``ConcentratedLoad``).
-                             point_loads=list(inertia.point_loads))
+                             point_loads=list(inertia.point_loads),
+                             mass_state=state.label)
         air_results.append(air)
         inertia_results.append(inertia)
         net_results.append(net)

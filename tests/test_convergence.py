@@ -17,7 +17,6 @@ Run standalone: ``python tests/test_convergence.py``.
 from __future__ import annotations
 
 import ast
-import dataclasses
 import math
 import os
 import sys
@@ -268,10 +267,10 @@ def test_the_wing_panel_density_refuses_rather_than_returning_its_last_step(monk
     without the integrated mass entering the ±1 % band."""
     monkeypatch.setattr("sloads.modules.wing_inertia._DENSITY_TRIPS", 500)
     project = _project("ga6_normal.project.json")
-    wm = dataclasses.replace(project.wing_mass, panel_weight_lb=1.0e9)
+    wm = project.wing_mass
     ye = [10.0, 20.0, 30.0]
     with pytest.raises(SolverFailure) as excinfo:
-        _root_density([100.0] * 3, ye, [50.0] * 3, 10.0, 30.0, wm, 0)
+        _root_density([100.0] * 3, ye, [50.0] * 3, 10.0, 30.0, wm, 0, 1.0e9)
     assert "root-density iteration" in str(excinfo.value)
     assert "500 iterations" in str(excinfo.value)
 

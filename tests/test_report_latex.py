@@ -507,10 +507,17 @@ def test_a_table_is_turned_only_when_it_cannot_be_set_upright():
     #   into the document proper, where this guard can see it. Shortening the
     #   name was the rejected alternative: G-OR-17 scans the .tex for the file
     #   names verbatim, so the cell is the citation and cannot be abbreviated.
+    # * the wing case table: ten columns once design note 63 D-63.11 added the
+    #   Run column (the V-n point's manoeuvre label) beside the condition. On
+    #   the GA6 it asks 4 pt more than the upright block gives at footnotesize;
+    #   the two widest asks are the "Condition" header and the 23.349(a)(2)
+    #   citation, and the "Altitude (ft)" header is shared with eight other
+    #   tables and the case index, so it was not shortened for this one.
     assert {t for _n, t in turned} == {
         "Pull-up maneuver fuselage loads (LIMIT)",
         "Applied landing gear loads by case (LIMIT)",
         "Files carried in this package",
+        "Wing load cases run",
     }
 
 
