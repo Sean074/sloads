@@ -105,6 +105,13 @@ WING_SLOTS: Dict[str, int] = {
     "NMAA": 4,
     "ACRL": 5,
     "TORS": 6,
+    # Above SELECT.BAS (design note 62 D-62.3, #288): appended after TORS so
+    # W-01..W-06 do not move and no persisted ``selected_case_ids`` or exported
+    # deck re-reads. A slot with no eligible point is a gap, as ever.
+    "NHAA": 7,
+    "NLAA": 8,
+    "PNZ": 9,
+    "NNZ": 10,
 }
 
 # Reserved starting sequence numbers for each band (see the module docstring).

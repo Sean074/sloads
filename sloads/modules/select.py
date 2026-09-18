@@ -12,13 +12,34 @@ iteration and WINGINER/NETLOADS:
         (positive low angle of attack; FAR 23.333(b))
   PMAA  largest LZW among MAN C / GUST +C
         (positive medium angle of attack; FAR 23.333(c) or (b))
-  NMAA  largest resultant among the negative maneuver/gust points
-        (STALL -N, MAN -C, MAN -D, GUST -C, GUST -D; FAR 23.333(c) or (b))
+  NMAA  largest resultant among the negative VC points MAN -C / GUST -C
+        (negative medium angle of attack; FAR 23.333(c) or (b)) -- narrowed
+        from the .BAS's five negative labels by design note 62 D-62.1
   ACRL  largest LZW among the accelerated-roll points (FAR 23.349(a))
   TORS  steady-roll condition with the most negative aileron-induced torsion proxy
         (CM - 0.01*aileron_deg)*G*V^2 among ST ROL A/C/D, with the aileron
         deflection per CAM 3.222 (DA at VA, DC = (VA/VC)*DA at VC,
         DD = 0.5*(VA/VD)*DA at VD; FAR 23.349(b))
+
+and four slots **above** SELECT.BAS (design note 62, #288 -- the concept-mode
+superset; the six picks above reproduce unchanged on GA inputs):
+
+  NHAA  largest resultant among STALL -N / STALL -1G
+        (negative high angle of attack; FAR 23.333(b)/(c), 23.337(b))
+  NLAA  largest resultant among MAN -D / GUST -D
+        (negative low angle of attack; FAR 23.333(b)/(c))
+  PNZ   the largest load factor over every positive-family label, tie-break
+        largest resultant (FAR 23.337(a), 23.341)
+  NNZ   the most negative load factor over every negative-family label,
+        tie-break largest resultant (FAR 23.337(b), 23.341)
+
+A **negative** slot (NHAA, NMAA, NLAA, NNZ) admits a candidate only when the
+wing's lift is negative (``LZW < 0``), and PNZ only when it is positive: the
+slot is a wing selector, and the sign tested is the wing's, not the airplane's
+load factor (D-62.2 -- a point with nz < 0 and LZW > 0 loads the wing upward).
+A slot with no eligible candidate is **empty**, a gap in the W- band. A PNZ/NNZ
+point that is already another slot's pick is not delivered twice -- the slot is
+empty (D-62.8's coincidence rule; ``case_ids`` M4-2 decision 1).
 
 The selected conditions become ``Project.envelope.critical`` -- the set AIRLOADS
 re-evaluates for distributed airloads and WINGINER/NETLOADS combine with inertia.
@@ -54,7 +75,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import replace
-from typing import Dict, List, NamedTuple, Optional, Tuple
+from typing import Callable, Dict, List, NamedTuple, Optional, Tuple
 
 from ..aero_curves import inertia_drag_factor
 from ..case_ids import WING_BAND_EXTRA, WING_SLOTS, CaseIdAllocator, wing_case_id
@@ -91,7 +112,7 @@ from ..models import (
     VnPoint,
     VTailLoadsInput,
 )
-from ..picks import extreme
+from ..picks import TIE_REL, extreme
 from ..registry import register
 from ..selectors import keyed
 from ._vtail import large_deflection_factor, lift_curve_slope, rudder_effectiveness
@@ -104,9 +125,23 @@ MODULE_NAME = "select"
 _PHAA = ("STALL +N", "MAN A")
 _PLAA = ("MAN D", "GUST D", "GUST +D")
 _PMAA = ("MAN C", "GUST +C")
-_NMAA = ("STALL -N", "MAN -C", "MAN -D", "GUST -C", "GUST -D")
+# The negative triad (design note 62 D-62.1). NMAA is narrowed to the VC pair;
+# STALL -N and the VD pair have slots of their own. STALL -1G is in NHAA so the
+# slot is well-defined on a category whose n_neg is -1.0 (the two labels then
+# coincide) and on one whose negative envelope is a -1 g floor.
+_NHAA = ("STALL -N", "STALL -1G")
+_NMAA = ("MAN -C", "GUST -C")
+_NLAA = ("MAN -D", "GUST -D")
 _ACRL = ("AC ROLL", "ACC ROLL")
 _STROLL = ("ST ROL A", "ST ROL C", "ST ROL D")
+# The load-factor-extreme pair's candidate pools (D-62.8): every positive- /
+# negative-family label. The roll families are excluded -- their load factor
+# is two-thirds of the manoeuvre value by construction (23.349) and they have
+# slots of their own.
+_POSITIVE_FAMILIES = _PHAA + _PLAA + _PMAA
+_NEGATIVE_FAMILIES = _NHAA + _NMAA + _NLAA
+#: The two slots D-62.8's coincidence rule applies to.
+_NZ_SLOTS = ("PNZ", "NNZ")
 
 
 def _check_envelope_cg_cases(project: Project, env: EnvelopeResult) -> None:
@@ -264,9 +299,41 @@ def _resultant(p: VnPoint) -> float:
     return math.hypot(p.lzw, p.dx)
 
 
-def _pick(vn: List[VnPoint], labels, key) -> Optional[VnPoint]:
-    cands = [p for p in vn if p.condition in labels]
+def _wing_lift_positive(p: VnPoint) -> bool:
+    return p.lzw > 0.0
+
+
+def _wing_lift_negative(p: VnPoint) -> bool:
+    return p.lzw < 0.0
+
+
+def _pick(vn: List[VnPoint], labels, key,
+          eligible: Optional[Callable[[VnPoint], bool]] = None) -> Optional[VnPoint]:
+    """The point with the largest ``key`` among ``labels`` (SELECT.BAS's search).
+
+    ``eligible`` narrows the candidates further -- the wing-lift sign a negative
+    slot demands (D-62.2). No candidate at all is ``None``: an **empty** slot.
+    """
+    cands = [p for p in vn if p.condition in labels
+             and (eligible is None or eligible(p))]
     return extreme(cands, key) if cands else None
+
+
+def _pick_load_factor(vn: List[VnPoint], labels, eligible: Callable[[VnPoint], bool],
+                      largest: bool) -> Optional[VnPoint]:
+    """The eligible point with the extreme ``nz`` among ``labels`` (D-62.8).
+
+    Largest ``nz`` for PNZ, most negative for NNZ; among points whose ``nz``
+    ties (to ``picks.TIE_REL``), the largest resultant -- the D-62.1 criterion
+    -- so the point delivered is the one that also loads the wing hardest.
+    """
+    cands = [p for p in vn if p.condition in labels and eligible(p)]
+    if not cands:
+        return None
+    best = extreme(cands, lambda p: p.nz, largest=largest)
+    band = TIE_REL * abs(best.nz)
+    tied = [p for p in cands if abs(p.nz - best.nz) <= band]
+    return extreme(tied, _resultant)
 
 
 def _steady_roll_torsion(vn: List[VnPoint], aileron_deg: float, cm: float) -> Optional[VnPoint]:
@@ -362,14 +429,28 @@ def select_wing(project: Project, envelope: Optional[EnvelopeResult] = None) -> 
     aileron_deg = resolved_full_down_aileron_deg(project)   # OV-2: blank derives
     cm = si.basic_airfoil_cm if si else 0.0
 
-    picks = [
+    picks: List[Tuple[str, str, Optional[VnPoint]]] = [
         ("PHAA", "23.333(b)", _pick(vn, _PHAA, _resultant)),
         ("PLAA", "23.333(b)", _pick(vn, _PLAA, _resultant)),
         ("PMAA", "23.333(c)or(b)", _pick(vn, _PMAA, lambda p: p.lzw)),
-        ("NMAA", "23.333(c)or(b)", _pick(vn, _NMAA, _resultant)),
+        ("NMAA", "23.333(c)or(b)", _pick(vn, _NMAA, _resultant, _wing_lift_negative)),
         ("ACRL", "23.349(a)(2)", _pick(vn, _ACRL, lambda p: p.lzw)),
         ("TORS", "23.349(b)", _steady_roll_torsion(vn, aileron_deg, cm)),
+        # Above the .BAS (note 62): the negative triad's other two members and
+        # the load-factor-extreme pair, in WING_SLOTS order (D-62.3).
+        ("NHAA", "23.333(b)/23.337(b)", _pick(vn, _NHAA, _resultant, _wing_lift_negative)),
+        ("NLAA", "23.333(c)or(b)", _pick(vn, _NLAA, _resultant, _wing_lift_negative)),
+        ("PNZ", "23.337(a)/23.341",
+         _pick_load_factor(vn, _POSITIVE_FAMILIES, _wing_lift_positive, largest=True)),
+        ("NNZ", "23.337(b)/23.341",
+         _pick_load_factor(vn, _NEGATIVE_FAMILIES, _wing_lift_negative, largest=False)),
     ]
+    # D-62.8's coincidence rule: a load-factor-extreme point that is already
+    # another slot's pick is one physical condition, delivered under one id
+    # (case_ids M4-2 decision 1) -- the PNZ/NNZ slot is then empty.
+    taken = {p.case for label, _, p in picks if p is not None and label not in _NZ_SLOTS}
+    picks = [(label, far, None if (label in _NZ_SLOTS and p is not None and p.case in taken) else p)
+             for label, far, p in picks]
     return [_condition("wing", label, far, p, weights) for label, far, p in picks if p is not None]
 
 

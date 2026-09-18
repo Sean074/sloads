@@ -160,6 +160,31 @@ def test_a_missing_pick_leaves_a_gap_rather_than_renumbering():
     assert ids == {"PHAA": "W-01", "TORS": "W-06", "ACRL": "W-05"}
 
 
+def test_note_62s_slots_hold_w07_to_w10_and_leave_gaps():
+    """**G-62.4** (design note 62 D-62.3, #288): NHAA, NLAA, PNZ and NNZ are
+    W-07..W-10, minted for those names and for nothing else; a critical set
+    that omits any of them leaves the gap (the heavy's PNZ/NNZ are empty by
+    D-62.8's coincidence rule, so its wing ids stop at W-08); and the
+    hand-authored band W-20+ is unaffected.
+    """
+    assert [wing_case_id(n) for n in ("NHAA", "NLAA", "PNZ", "NNZ")] == [
+        "W-07", "W-08", "W-09", "W-10"]
+    assert [n for n, seq in WING_SLOTS.items() if seq in (7, 8, 9, 10)] == [
+        "NHAA", "NLAA", "PNZ", "NNZ"]
+    assert max(WING_SLOTS.values()) < WING_BAND_EXTRA
+    project = io.load_project(os.path.join(_EXAMPLES, "concept_heavy.project.json"))
+    ids = {c.label: c.case_ref.case_id for c in build_critical(project).conditions
+           if c.component == "wing"}
+    assert ids["NHAA"] == "W-07" and ids["NLAA"] == "W-08"
+    assert "PNZ" not in ids and "NNZ" not in ids
+    assert {"W-09", "W-10"}.isdisjoint(ids.values())
+    project = io.load_project(os.path.join(_EXAMPLES, "ga6_normal.project.json"))
+    ids = {c.label: c.case_ref.case_id for c in build_critical(project).conditions
+           if c.component == "wing"}
+    assert [ids[n] for n in ("NHAA", "NLAA", "PNZ", "NNZ")] == [
+        "W-07", "W-08", "W-09", "W-10"]
+
+
 def test_one_engine_out_does_not_collide_with_select_vtail():
     """M4-2 decision 5: ONENGOUT's 23.367 dynamic case is a different case object
     from SELECT's v-tail picks, so it mints from its own band. Before M4-2 both

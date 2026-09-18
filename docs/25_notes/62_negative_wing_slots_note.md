@@ -2,7 +2,8 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: AGREED 2026-09-17** (owner, in session, under the solo profile —
+**Status: SHIPPED 2026-09-17** (#288; the shipping measurements that differ
+from the gates as written are §8). Previously **AGREED 2026-09-17** (owner, in session, under the solo profile —
 `DEVELOPMENT_PROCESS.md` §0; rule 1's working-alone branch; PROPOSED and
 reviewed the same day — the critical-advocate review's findings and the
 owner's rulings on them are §2 rulings 4–5, D-62.8 and the amended D-62.2,
@@ -290,8 +291,11 @@ tuples:
    (PHAA 22, PLAA, PMAA, NMAA GUST −C −0.433 at 170 kt CG3, ACRL, TORS)
    passes unchanged, and every existing Imperial digest under `select`,
    `net_loads`, `wing_inertia`, `airloads` for the six slots is byte-identical.
-   NMAA's narrowing to the VC pair returns the same point on every fixture
-   (§1.3 GA6 case 53; measured on all five).
+   NMAA's narrowing to the VC pair returns the same point on the GA6 (§1.3
+   case 53), the Baron and the RJ; on the ATR and the heavy the `.BAS`'s
+   NMAA was the STALL −N point, which is NHAA's now, and NMAA moves to the
+   VC point (G-62.2's table; §8 corrects the AGREED text, which said the
+   ATR alone moves).
 2. **G-62.1 — The negative-triad invariant.** For every fixture and every
    negative slot: the delivered point is a member of the slot's candidate
    labels, has `LZW < 0`, and no other V-n point with those labels and
@@ -321,13 +325,14 @@ tuples:
    | baron_58 | GUST +C case 110, +4.34 g, 195 kt, fwd regardless, 10,000 ft, R 18,961 | **empty** — coincides with NMAA (case 113) |
    | atr42_100 | GUST +C case 170, +3.44 g, 240 kt, min weight, 12,000 ft, R 67,231 | GUST −C case 173, −1.44 g, 240 kt, min weight, 12,000 ft, R 27,272 |
    | concept_regional_jet | GUST +C case 170, +3.80 g, 310 kt, min weight, 20,000 ft, R 82,102 | **empty** — coincides with NMAA (case 173) |
-   | concept_heavy | **empty** — coincides with PMAA (case 4) | **empty** — coincides with NMAA (case 7) |
+   | concept_heavy | **empty** — coincides with PHAA (case 3; the three 4.0 g manoeuvre points tie on `nz` and MAN A has the largest resultant) | **empty** — coincides with NMAA (case 7) |
 
    Resultants in lb, LIMIT, before any inertia. The Baron's PNZ sits at
    "fwd regardless", which is not derivable (§1.5), so the deck skips W-09
    there under G-62.3. The ATR's NMAA moves from
-   case 128 to case 227 under the narrowing (128 belongs to NHAA now); every
-   other fixture's NMAA is the same point as today. V-n case numbers are the
+   case 128 to case 227 under the narrowing (128 belongs to NHAA now), and the
+   heavy's from case 8 to case 7 for the same reason (§8); every other
+   fixture's NMAA is the same point as today. V-n case numbers are the
    matrix's own and **renumber when #164 adds 12,000 ft to the GA6**; the
    gate names the point by label, load factor, speed, CG and altitude, not by
    number, so it survives that.
@@ -387,3 +392,40 @@ fidelity item).
 in full step format; one Imperial digest wave (`select`, the deck, the
 report register; **not** `net_loads`/`wing_inertia`/`airloads`); this note
 flipped to `shipped <date>`; #164's dependency column updated.
+
+## 8. Shipping measurements (2026-09-17, #288)
+
+What the implementation found that the AGREED text did not say, and where
+each landed. Every pick in §4's tables reproduced by name on every fixture
+(G-62.1, G-62.2); the digests that moved are exactly §7's list (`select`,
+`balance`, the two decks, the case index) and `net_loads`, `wing_inertia`
+and `airloads` did not move on any fixture.
+
+1. **NMAA moves on the heavy as well as the ATR.** The `.BAS`'s NMAA on
+   `concept_heavy` was STALL −N (case 8, R 32,463), which is NHAA's; NMAA
+   is MAN −C (case 7, R 32,367). Gate 1's "every other fixture" is corrected
+   above. The heavy's PNZ coincides with PHAA, not PMAA (G-62.2's cell
+   corrected).
+2. **The residual gate's scale floors at 1 g** (`BalancedCaseResult.gate_load_factor`,
+   `CONVENTIONS.md` §residual). The heavy's NLAA is a −0.024 g VD gust: its
+   pre-closure residual against `n·W` read 31 % force / 13 % pitch, and
+   0.75 % / 0.32 % against the airplane's weight — the loads the case
+   actually carries. No case above 1 g moves. Owner's ruling at shipping.
+3. **A forward non-wing axial force inside the trusted window, on the
+   heavy's new NMAA** (alpha −9.8°, 0.2° inside the window's edge, dCD
+   +0.0169). The previous NMAA point sat outside the window and clamped;
+   the VC point does not, and the sign gate of
+   `test_the_non_wing_drag_is_a_consistent_parasite_offset` calls it what it
+   is — a fixture aero-data defect in the heavy's crude polar. Recorded with
+   its number in `tests/test_balance.py::_DELTA_CD_FORWARD_INSIDE_WINDOW`,
+   asserted both ways so it cannot outlive the defect; the fix is the
+   fixture's polar, filed as **#291**.
+4. **Ratchets and clamps re-pinned with the cause stated** (in
+   `test_balance.py`): NHAA clamps on the ATR, the RJ and the heavy (stall-line
+   alpha −12.8 / −18.7 / −14.3°, the point that clamped under NMAA's name
+   before); the ATR's new NMAA at 25,000 ft still clamps; NLAA's force
+   residual is the largest symmetric one on the GA6 (1.15 %) and the RJ
+   (1.16 %) — a VD gust at small negative load factor, where the tail load is
+   a larger share of the balance — inside the 2.5 % acceptance with pitch at
+   a tenth of its gate; the ATR's "min weight" case assembles for the first
+   time (NLAA, PNZ, NNZ all sit on it) and its closure Izz is pinned.

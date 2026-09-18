@@ -409,13 +409,13 @@ def prescribes_factor(item: Any) -> bool:
     * it carries no ``case_ref``.
 
     The second clause protects the group a content-only test gets wrong.
-    SELECT's six *Critical wing load* conditions publish only CL, V, Nz, Nx and
+    SELECT's *Critical wing load* conditions (ten slots since note 62) publish only CL, V, Nz, Nx and
     altitude — their loads live on ``WingLoadResult`` — but they are load cases,
     they carry a ``CaseRef``, and their bulk-data cards state a factor. Blanking
     them would print ``N/A`` in the case index against a case that has one, which is
     worse than the banner #154 was filed for. Measured over both shipped
     airframes: 38 conditions prescribe no factor on GA6 and 38 on the Baron 58,
-    with those 6 protected in each.
+    with the wing slots protected in each.
 
     Anything that is not a ``ConditionResult``-shaped item — every dedicated load
     carrier — prescribes a factor: those types exist only to carry loads.
