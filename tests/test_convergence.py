@@ -58,6 +58,12 @@ _NO_REFUSAL_NEEDED = {
         "WTESTIMA's 1 % take-off-weight inflation has no trip bound to exhaust -- "
         "options/misc grows without limit while the structural fractions sum to "
         "less than one, so the loop ends or the fraction table is degenerate",
+    "mass_distribution.py:seed_loading_search":
+        "an exhaustive scan of the payload subsets and of one row's fraction for "
+        "the best loading inside the envelope, not an iteration toward a target: "
+        "exhausting the scan is how it finishes, and 'no loading is inside' is a "
+        "stated answer (``None``) the seed skips, not a silent fall-out (design "
+        "note 63 D-63.5, #292)",
     "export/report_package.py:browse_start":
         "a walk up the filesystem to the nearest directory that exists, not a "
         "numerical search: the loop is bounded by the path's own depth and "
@@ -145,6 +151,10 @@ _CLAMPED = {
         ("AC ROLL", "fwd gross", 25000.0),
         ("MAN A", "mid gross", 25000.0), ("MAN C", "mid gross", 25000.0),
         ("AC ROLL", "mid gross", 25000.0),
+        # The seeded `full fuel aft` case (#292, note 63 D-63.5) is a fourth
+        # MTOW case and caps at the same three points.
+        ("MAN A", "full fuel aft", 25000.0), ("MAN C", "full fuel aft", 25000.0),
+        ("AC ROLL", "full fuel aft", 25000.0),
     },
 }
 
@@ -163,8 +173,8 @@ def test_the_clamped_rows_are_the_mach_capped_corner_and_nothing_else():
     is a physics change, not a rounding difference, and #32's marker will publish
     exactly this set."""
     env = fe.build_envelope(_project("atr42_100.project.json"))
-    assert len(env.vn) == 300
-    assert len(env.clamped_cases) == 9
+    assert len(env.vn) == 480          # eight FLIGHT cases since #292
+    assert len(env.clamped_cases) == 12
     assert all(env.is_clamped(p) == (p.case in env.clamped_cases) for p in env.vn)
 
 
@@ -235,7 +245,7 @@ def test_a_clamped_row_carries_its_state_no_further_than_memory():
     assert project.envelope.clamped_cases
     reloaded = io.project_from_dict(io.project_to_dict(project))
     assert reloaded.envelope is not None
-    assert len(reloaded.envelope.vn) == 300
+    assert len(reloaded.envelope.vn) == 480
     assert reloaded.envelope.clamped_cases == []
 
 

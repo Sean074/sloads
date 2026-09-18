@@ -996,12 +996,14 @@ class LoadingDefinition:
       minimum-flight-weight rows (pilot, reserve fuel) are optional. Naming one
       is rejected as an entry error, on the reasoning that made G-3c reject an
       empty ``analyses`` set.
-    * ``fractions`` scales a row tagged ``consumable`` (G-5) to a partial value --
-      a part-full tank -- keyed by item name, in ``(0, 1]``. It applies to a
-      consumable of any kind, named in ``aboard`` or implicitly aboard; the
-      station and inertias are unchanged, so the tank layout is preserved exactly
-      as the derived burn-down preserves it. ``0`` is rejected: "not aboard" is
-      said by omitting the name, not by a zero.
+    * ``fractions`` scales a row to a partial value, keyed by item name, in
+      ``(0, 1]``: a row tagged ``consumable`` (G-5) of any kind -- a part-full
+      tank, named in ``aboard`` or implicitly aboard -- or, since #292, any
+      discretionary row -- a part-filled hold, which is how a seeded case
+      (design note 63 D-63.5) is clipped onto the envelope edge or the design
+      weight. The station and inertias are unchanged, so the tank layout is
+      preserved exactly as the derived burn-down preserves it. ``0`` is
+      rejected: "not aboard" is said by omitting the name, not by a zero.
     * ``ballast`` is an explicit ballast row, entered when the loading needs one.
       Its waterline is **required, not defaulted** -- ``zcg`` is checked against
       it. Where the data base already carries a ballast row (``ga6_normal`` has

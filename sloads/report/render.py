@@ -455,7 +455,7 @@ def critical_rows(results: List[ConditionResult], *,
     conditions on ~150 rows with the per-case SF invisible wherever a wing
     case's quantities were all non-loads.
     """
-    base_cols = ["ID", "LOAD", "Component", "Condition", "FAR"]
+    base_cols = ["ID", "LOAD", "Component", "Condition", "FAR", "CG case", "Run"]
     load_cols: List[str] = []
     seen = set()
     partial: List[Dict[str, object]] = []
@@ -467,6 +467,12 @@ def critical_rows(results: List[ConditionResult], *,
             "Component": ref.component if ref else "—",
             "Condition": r.title,
             "FAR": r.far_reference,
+            # The run key's other two names (design note 63 D-63.11; #292):
+            # with Altitude among the quantities they name the balanced point
+            # the row was taken from, which is what tells a slot delivered at
+            # its net-governing run apart from the same slot's air pick.
+            "CG case": (ref.cg or "—") if ref else "—",
+            "Run": (ref.run or "—") if ref else "—",
             "SF": sf_cell(r.safety_factor),
         }
         for lv in r.values:

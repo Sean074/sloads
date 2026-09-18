@@ -420,7 +420,7 @@
     "cases": [
       {
         "name": "PHAA",
-        "case": 3,
+        "case": null,
         "nz": null,
         "nx": null,
         "unbal_moment": 0,

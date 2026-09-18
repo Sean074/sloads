@@ -32,7 +32,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sloads import io
-from sloads.models import WingMassInput
+from sloads.models import WingLoadCase, WingMassInput
 from sloads.modules.flight_envelope import build_envelope
 from sloads.modules.net_loads import _air_cl_v
 from sloads.modules.select import build_critical
@@ -80,11 +80,25 @@ def test_an_empty_case_list_derives_from_select():
         assert any(p.case == c.case for p in project.envelope.vn)
 
 
-def test_explicit_cases_always_win():
-    """Decision 2: a non-empty list is returned untouched, so every existing
-    project -- and every Appendix A oracle -- takes the path it always did."""
+def test_an_entered_list_is_a_filter_on_the_slots():
+    """Decision 2 as narrowed by design note 63 D-63.7 (#292): a non-empty list
+    decides *which* slots run and keeps every value it enters (the Appendix A
+    nz/nx/CL/V on the GA6, an ACRL couple), and an entry naming a slot with no
+    ``case`` of its own takes the slot's delivered V-n point -- never a second
+    source of points. An entry that names no slot is returned untouched."""
+    from dataclasses import replace
+
     project = _selected_project()
-    assert resolve_wing_cases(project, project.wing_mass) == project.wing_mass.cases
+    slots = {c.label: c.case for c in project.envelope.critical.conditions
+             if c.component == "wing"}
+    got = resolve_wing_cases(project, project.wing_mass)
+    assert [replace(c, case=None) for c in got] == project.wing_mass.cases
+    assert [c.case for c in got] == [slots[c.name] for c in project.wing_mass.cases]
+    # An explicit case reference, or a name outside the slots, is left alone.
+    wm = replace(project.wing_mass, cases=[
+        replace(project.wing_mass.cases[0], case=5),
+        WingLoadCase(name="HAND", nz=-2.0, nx=0.1, cl=1.0, v_eas_kt=100.0)])
+    assert resolve_wing_cases(project, wm) == wm.cases
 
 
 def test_derived_load_factors_match_the_worked_example():
@@ -146,10 +160,17 @@ def test_the_acrl_divergence_is_the_documented_one():
 # The row states the condition its numbers were computed at (user decision
 # 2026-08-13, backlog priority 1)
 # --------------------------------------------------------------------------- #
-def _atr42_project():
-    """ATR-42 with a persisted envelope + critical set -- the fixture whose entered
-    wing conditions genuinely differ from SELECT's V-n picks."""
+def _atr42_project(phaa_speed_kt=None):
+    """ATR-42 with a persisted envelope + critical set. ``phaa_speed_kt`` restates
+    the speed the shipped fixture entered on PHAA until #292 made its list a
+    filter (170 kt against SELECT's pick), for the tests of that ruling."""
+    from dataclasses import replace
+
     project = io.load_project(os.path.join(_EXAMPLES, "atr42_100.project.json"))
+    if phaa_speed_kt is not None:
+        project.wing_mass.cases = [
+            replace(c, v_eas_kt=phaa_speed_kt) if c.name == "PHAA" else c
+            for c in project.wing_mass.cases]
     project.envelope = build_envelope(project)
     project.envelope.critical = build_critical(project)
     return project
@@ -180,7 +201,7 @@ def test_the_case_id_stays_selects_when_the_speed_is_the_cases_own():
     ``case_id`` remains SELECT's (M4-2 decision 1 -- one ID per physical
     condition, which the case-index dedupe assumes), and CG / altitude / FAR stay
     SELECT's too, since the case states none of them."""
-    project = _atr42_project()
+    project = _atr42_project(phaa_speed_kt=170.0)
     select_refs = {c.label: c.case_ref for c in project.envelope.critical.conditions
                    if c.component == "wing" and c.case_ref is not None}
     cases = resolve_wing_cases(project, project.wing_mass)
@@ -198,9 +219,7 @@ def test_the_case_id_stays_selects_when_the_speed_is_the_cases_own():
             diverged += 1
         # SELECT's own CaseRef is never mutated -- the wing row takes a copy.
         assert want.speed_kt == select_refs[case.name].speed_kt
-    assert diverged, (
-        "atr42_100 no longer enters a wing condition at a different speed from "
-        "SELECT's V-n pick -- this fixture is the reason the decision exists")
+    assert diverged, "the entered 170 kt PHAA did not diverge from SELECT's pick"
 
 
 def test_the_atr42_phaa_divergence_is_pinned():
@@ -213,10 +232,12 @@ def test_the_atr42_phaa_divergence_is_pinned():
     them. **And back to 185.36 kt with D-27 (2026-08-17):** the flight cases are
     the WTENV limit points now, PHAA is flown at ``fwd gross`` (MTOW at the
     forward-gross limit), and the balanced point moved with the case once more.
-    The divergence the decision exists for is unchanged in kind and in sign --
-    the fixture still enters a speed SELECT did not pick.
+    The divergence the decision exists for is unchanged in kind and in sign.
+    **Since #292 the shipped fixture enters a filter** (note 63 D-63.7: its
+    PHAA carries no speed of its own), so the 170 kt entry is restated here in
+    memory -- the mechanism is the fixture's to use, and this pins it.
     """
-    project = _atr42_project()
+    project = _atr42_project(phaa_speed_kt=170.0)
     cases = resolve_wing_cases(project, project.wing_mass)
     phaa = next(((i, c) for i, c in enumerate(cases) if c.name == "PHAA"), None)
     assert phaa is not None, "atr42_100 no longer enters a PHAA wing case"

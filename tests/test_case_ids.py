@@ -475,8 +475,9 @@ def test_the_shipped_case_index_states_the_same_pairs_as_the_csv():
 
 
 def test_the_index_row_states_the_condition_its_cards_were_computed_at():
-    """User decision 2026-08-13. ``atr42_100`` enters ``PHAA`` at 170 kt while
-    SELECT's ``PHAA`` V-n point is 185.85 kt, and both deliverables share one
+    """User decision 2026-08-13. ``ga6_normal`` enters ``PHAA`` at Appendix A's
+    printed 117.4 kt (and TORS/ACRL likewise) while SELECT's point carries the
+    balance's own value, and both deliverables share one
     ``case_id`` (M4-2 decision 1). The index is what a consumer joins
     ``SUBCASE 101`` to, so it states the condition the **cards** were built at --
     which is the entered case's, since that is what ``net_loads`` computed from.
@@ -488,9 +489,9 @@ def test_the_index_row_states_the_condition_its_cards_were_computed_at():
     """
     from sloads.modules.wing_inertia import resolve_wing_cases
 
-    project = io.load_project(os.path.join(_EXAMPLES, "atr42_100.project.json"))
+    project = io.load_project(os.path.join(_EXAMPLES, "ga6_normal.project.json"))
     entered = {c.name: c for c in resolve_wing_cases(project, project.wing_mass)}
-    rows = _index_rows(_linkage_artifacts("atr42_100.project.json"))
+    rows = _index_rows(_linkage_artifacts("ga6_normal.project.json"))
 
     checked = 0
     for name, case in entered.items():

@@ -206,20 +206,41 @@ def test_swept_deliverable_recovers_case_cl():
     each case's root vertical shear (Sz_root = Σ strip lift; lift = kcl·c·dy·q/144, so
     Σ kcl·c·dy ≈ 144·Sz_root/q, and CL = that / (S/2)). The small angle-of-attack rotation
     folded into Sz keeps this within a percent of the exact renormalized CL."""
+    from sloads.modules.wing_inertia import resolve_wing_cases, wing_case_sources
+
     project = io.load_project(_REGIONAL)
     result = build_net_loads(project)
     geom = project.geometry.by_name("wing")
     aero = project.aero.by_name("wing")
     t = schrenk_distribution(geom, aero)
     area_side = t.area_total / 2.0
-    cases = {c.name: c for c in project.wing_mass.cases}
+    # The entered list is a filter since #292 (note 63 D-63.7): each case's CL
+    # and speed are its delivered V-n point's, read the way net_loads reads them.
+    src = wing_case_sources(project)
+    cases = {}
+    for c in resolve_wing_cases(project, project.wing_mass, src):
+        vp = src.vn[c.case]
+        cases[c.name] = (c.cl if c.cl is not None else vp.cl,
+                         c.v_eas_kt if c.v_eas_kt is not None else vp.v_eas_kt,
+                         vp.alpha_deg)
     assert result.wing_air, "expected per-case wing air loads"
+    from sloads.modules.balance import polar_alpha_trusted
+
+    checked = 0
     for air in result.wing_air:
-        case = cases[air.case]
-        q = case.v_eas_kt ** 2 / 295.0
+        cl, v, alpha_deg = cases[air.case]
+        if not polar_alpha_trusted(alpha_deg):
+            # PHAA is delivered at a 25 deg stall point since #292: the strip
+            # lift's vertical component is no small rotation of CL there, and
+            # the recovery this guards is the swept re-normalisation, not the
+            # rotation. The in-window cases (TORS, ACRL) carry the check.
+            continue
+        checked += 1
+        q = v ** 2 / 295.0
         sz_root = air.stations[0].sz                         # root cumulative vertical shear
         implied_cl = (sz_root * 144.0 / q) / area_side
-        assert math.isclose(implied_cl, case.cl, rel_tol=2e-2), (air.case, implied_cl, case.cl)
+        assert math.isclose(implied_cl, cl, rel_tol=2e-2), (air.case, implied_cl, cl, alpha_deg)
+    assert checked >= 1, "an in-window case must carry the check"
 
 
 if __name__ == "__main__":

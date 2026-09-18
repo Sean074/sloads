@@ -163,13 +163,22 @@ def test_imperial_mass_is_deliberately_not_the_identity():
 #: ballast under D-25d's 10 % gate; the item stations were reconciled to the
 #: wing datum so that every limit is reachable (0-8.5 % ballast). Every case
 #: still derives -- that is the pin -- but by the search route again.
+#:
+#: **#292 (design note 63 D-63.5, 2026-09-18):** a max zero-fuel weight on the
+#: ATR, the Baron and the jet seeds ``mzfw aft`` / ``mzfw fwd`` / ``full fuel
+#: aft`` **with** their loadings (entered from birth, so derivable by
+#: construction); a seed coinciding with an earlier case is not written (the
+#: Baron's and the jet's third).
 _WTENV_FLIGHT = ["aft gross", "fwd gross", "fwd regardless", "min weight", "mid gross"]
+_MZFW_ATR = ["mzfw aft", "mzfw fwd", "full fuel aft"]
+_MZFW_BARON = ["mzfw aft", "mzfw fwd"]
+_MZFW_JET = ["mzfw aft", "full fuel aft"]
 _DERIVABLE = {
     "ga6_normal.project.json": ["CG1", "CG2", "CG3", "CG4"],
-    "atr42_100.project.json": _WTENV_FLIGHT,
-    "baron_58.project.json": ["aft gross"],
+    "atr42_100.project.json": _WTENV_FLIGHT + _MZFW_ATR,
+    "baron_58.project.json": ["aft gross"] + _MZFW_BARON,
     "concept_heavy.project.json": ["CGmax"],
-    "concept_regional_jet.project.json": _WTENV_FLIGHT,
+    "concept_regional_jet.project.json": _WTENV_FLIGHT + _MZFW_JET,
 }
 #: Cases whose loading is **entered** on the case (D-25) rather than searched
 #: for. Since D-27 only ``concept_heavy`` (one case, one loading) enters one;
@@ -178,6 +187,9 @@ _DERIVABLE = {
 #: points are derived by construction (see ``_DERIVABLE``).
 _ENTERED = {
     "concept_heavy.project.json": ["CGmax"],
+    "atr42_100.project.json": _MZFW_ATR,
+    "baron_58.project.json": _MZFW_BARON,
+    "concept_regional_jet.project.json": _MZFW_JET,
 }
 
 
@@ -338,8 +350,9 @@ def test_an_entered_ballast_is_not_gated_by_the_credibility_fraction():
     (LoadingDefinition(aboard=["No such row"]), "not a row of weight.items"),
     (LoadingDefinition(aboard=["Pilot"]), "aboard by definition"),
     (LoadingDefinition(aboard=["Copilot", "Copilot"]), "listed twice"),
-    (LoadingDefinition(aboard=["Copilot"], fractions={"Copilot": 0.5}),
-     "not consumable"),
+    # A fraction on a discretionary row is a part-filled hold (#292); on a
+    # MINIMUM row that is not consumable it is still an entry error.
+    (LoadingDefinition(fractions={"Pilot": 0.5}), "not consumable"),
     (LoadingDefinition(aboard=["Fuel to gross wt"],
                        fractions={"Fuel to gross wt": 0.0}), "outside"),
     (LoadingDefinition(fractions={"Fuel to gross wt": 0.5}), "not aboard"),

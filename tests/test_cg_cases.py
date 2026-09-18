@@ -276,7 +276,12 @@ def test_the_fixture_flight_cases_are_the_wtenv_seed(name):
     assert not missing, missing
     got = [(c.name, c.weight_lb, c.xcg, c.zcg) for c in flight_cases(project)]
     want = [(c.name, round(c.weight_lb, 2), round(c.xcg, 2), round(c.zcg, 2)) for c in seeded]
-    assert [n for n, *_ in want] == list(FLIGHT_CASE_NAMES)
+    names = [n for n, *_ in want]
+    # The five WTENV points first, then whichever of the three MZFW seeds
+    # (D-63.5) were written -- a seed coinciding with an earlier case is not.
+    assert names[:5] == list(FLIGHT_CASE_NAMES[:5])
+    assert all(n in FLIGHT_CASE_NAMES[5:] for n in names[5:]) and len(set(names)) == len(names)
+    assert len(got) == len(want), (name, [g[0] for g in got], names)
     for g, w in zip(got, want):
         assert g[0] == w[0]
         assert g[1:] == pytest.approx(w[1:], abs=0.011), (name, g, w)

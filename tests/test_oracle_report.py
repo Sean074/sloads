@@ -2907,15 +2907,16 @@ def test_the_register_states_the_matrix_the_selection_actually_searched():
 def test_an_entered_wing_case_list_is_not_reported_as_the_selections_result():
     """OR-57 -- the register says where its cases came from.
 
-    ``ga6_normal`` enters three wing cases, which override the ten the selection
-    finds; a section that presented those three as the outcome of a search would
-    be describing an analysis nobody ran. Both the sentence and the table that
+    ``ga6_normal`` enters three wing cases, which filter the ten slots the
+    selection finds (design note 63 D-63.7, #292); a section that presented
+    those three as the outcome of a search would be describing an analysis
+    nobody ran. Both the sentence and the table that
     marks each named condition run or not are asserted, because the case a
     section does *not* carry is the one a reader has no other way of finding.
     """
     doc = _doc()
     body = " ".join(_case_section(doc).body)
-    assert "entered in this project, not the selection's own result" in body
+    assert "entered in this project: a filter on the selection's slots" in body
     for name in ("PLAA", "PMAA", "NMAA"):
         assert name in body
     table = next(t for t in _case_section(doc).tables

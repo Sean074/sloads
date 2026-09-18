@@ -742,10 +742,43 @@
             "Pilot & front passenger"
           ]
         }
+      },
+      {
+        "name": "mzfw aft",
+        "weight_lb": 5270.0,
+        "xcg": 83.45,
+        "zcg": 96.66,
+        "analyses": [
+          "flight"
+        ],
+        "loading": {
+          "aboard": [
+            "Pilot & front passenger",
+            "Mid passengers",
+            "Aft passengers",
+            "Nose baggage"
+          ]
+        }
+      },
+      {
+        "name": "mzfw fwd",
+        "weight_lb": 4590.0,
+        "xcg": 76.04,
+        "zcg": 96.16,
+        "analyses": [
+          "flight"
+        ],
+        "loading": {
+          "aboard": [
+            "Pilot & front passenger",
+            "Nose baggage"
+          ]
+        }
       }
     ],
     "max_landing_weight_lb": 5400.0,
-    "max_takeoff_weight_lb": 5500.0
+    "max_takeoff_weight_lb": 5500.0,
+    "max_zero_fuel_weight_lb": 5270.0
   },
   "geometry": {
     "surfaces": [
@@ -1138,22 +1171,22 @@
       {
         "name": "PHAA",
         "case": null,
-        "nz": -4.05,
-        "nx": 0.6,
+        "nz": null,
+        "nx": null,
         "unbal_moment": 0,
-        "cl": 1.15,
-        "v_eas_kt": 169.0,
-        "cg": "aft gross"
+        "cl": null,
+        "v_eas_kt": null,
+        "cg": null
       },
       {
         "name": "TORS",
         "case": null,
-        "nz": -2.7,
-        "nx": -0.13,
+        "nz": null,
+        "nx": null,
         "unbal_moment": 0,
-        "cl": 0.45,
-        "v_eas_kt": 195.0,
-        "cg": "aft gross"
+        "cl": null,
+        "v_eas_kt": null,
+        "cg": null
       }
     ]
   },

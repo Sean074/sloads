@@ -473,21 +473,31 @@ def resolve_wing_cases(project: Project, wm: WingMassInput,
     ``net_loads._air_cl_v`` fill Nz/Nx/CL/V from that point exactly as they do
     for a hand-authored case that gives only a ``case`` reference.
 
-    **Explicit entries always win** -- a non-empty ``wm.cases`` is returned
-    untouched, so every existing project (and every Appendix A oracle) takes the
-    path it always did. Derivation is the fallback for a project that never
-    filled the table, and the *Wing Loads* page's "pull from SELECT" button
-    materialises the same list into the editable table so the engineer can see
-    and override it.
+    **An entered list is a filter on the slot list, never a second source of
+    points** (design note 63, D-63.7, narrowing M4-2 decision 2's "explicit
+    entries always win"): an entered case that names a SELECT wing slot and
+    gives no ``case`` of its own takes the slot's delivered V-n point -- the
+    net-governing run since #292 -- so its mass state, run key and CG follow
+    the selection while the entry decides *which* slots run and carries what
+    the selection cannot name (an ACRL case's ``unbal_moment``, an explicit
+    ``cg`` mass state per D-63.6, an explicit speed per the 2026-08-13 ruling
+    in :func:`wing_case_ref`). An entry with explicit ``nz``/``nx`` and no
+    matching slot -- a project with no flight-loads inputs, the
+    C3-before-SELECT bridge -- runs as entered. Derivation is the fallback for
+    a project that never filled the table, and the *Wing Loads* page's "pull
+    from SELECT" button materialises the same list into the editable table.
 
     **Limitation:** a derived ACRL case carries ``unbal_moment = 0`` -- SELECT's
     condition does not name an unbalanced rolling moment (it comes from AILERON,
     Ref 1 Ch 13). Enter the case explicitly to give one.
     """
+    conditions = _critical_wing_conditions(project, sources)
     if wm.cases:
-        return list(wm.cases)
-    return [WingLoadCase(name=c.label, case=c.case)
-            for c in _critical_wing_conditions(project, sources)]
+        by_label = {c.label: c for c in conditions if c.case is not None}
+        return [replace(c, case=by_label[c.name].case)
+                if c.case is None and c.name in by_label else c
+                for c in wm.cases]
+    return [WingLoadCase(name=c.label, case=c.case) for c in conditions]
 
 
 def _stated_speed(case: WingLoadCase, vp: Optional[VnPoint],

@@ -248,7 +248,7 @@ def test_the_applied_strip_set_reproduces_the_cumulative_loads():
 
 
 def test_a_concentrated_wing_mass_is_published_as_its_own_applied_load():
-    """The Baron carries nine per side; without them the applied set is short by all.
+    """The Baron carries eight per side at zero fuel; without them the applied set is short by all.
 
     ``WINGINER`` steps the cumulative shear at each concentrated mass and leaves
     the per-strip fz panel-only, so the strip table alone misses -4821.5 lb of
@@ -257,19 +257,23 @@ def test_a_concentrated_wing_mass_is_published_as_its_own_applied_load():
     the masses are the starboard POINT rows of the case's loading -- the
     gear, engine, propeller, nacelle, accessories, exhaust, unusable fuel, fuel
     and fuel-system rows, 1,190.5 lb per side, where the four lumped
-    ``concentrated`` entries used to sum to the same pounds.
+    ``concentrated`` entries used to sum to the same pounds. Since #292 (note
+    63 D-63.7) PHAA is delivered at the seeded ``mzfw aft`` loading, the
+    zero-fuel state: eight rows, 830.5 lb per side -- the 360 lb tank is the
+    relief the step removes.
     """
     p = io.load_project(_BARON)
     net = build_net_loads(p)
     phaa = next(r for r in net.wing_net if r.case == "PHAA")
-    assert len(phaa.point_loads) == 9, "the nine starboard POINT rows"
-    assert math.isclose(sum(pl.fz for pl in phaa.point_loads) / phaa.nz, 1190.5, rel_tol=1e-9)
+    assert phaa.case_ref.cg == "mzfw aft", phaa.mass_state
+    assert len(phaa.point_loads) == 8, "the eight starboard POINT rows of the zero-fuel state"
+    assert math.isclose(sum(pl.fz for pl in phaa.point_loads) / phaa.nz, 830.5, rel_tol=1e-9)
     _assert_closes(phaa)
 
     strips_only = sum(s.fz for s in phaa.stations)
     with_points = strips_only + sum(pl.fz for pl in phaa.point_loads)
     assert math.isclose(with_points, phaa.stations[0].sz, rel_tol=1e-9)
-    assert abs(strips_only - phaa.stations[0].sz) > 4000.0, (
+    assert abs(strips_only - phaa.stations[0].sz) > 0.5 * abs(phaa.stations[0].sz), (
         "the strip set alone must be visibly short, or this guards nothing")
 
 
@@ -330,13 +334,13 @@ def test_point_loads_survive_the_io_round_trip():
     rebuilt = io.project_from_dict(io.project_to_dict(p))
     before = p.loads.wing_net[0].point_loads
     after = rebuilt.loads.wing_net[0].point_loads
-    assert len(after) == len(before) == 9
+    assert len(after) == len(before) == 8
     assert [c.name for c in after] == [c.name for c in before]
     assert math.isclose(after[0].fz, before[0].fz)
     # The mass state the distribution was built from rides the same round trip
     # (note 63 D-63.6), so a reloaded result still says what it ran on.
     assert rebuilt.loads.wing_net[0].mass_state == p.loads.wing_net[0].mass_state
-    assert rebuilt.loads.wing_net[0].mass_state.startswith("loading 'aft gross'")
+    assert rebuilt.loads.wing_net[0].mass_state.startswith("loading 'mzfw aft'")
 
 
 if __name__ == "__main__":
