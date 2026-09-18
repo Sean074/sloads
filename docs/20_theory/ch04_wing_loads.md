@@ -26,9 +26,23 @@ it for the governing condition per criterion (SELECT.BAS subroutine 3000):
 | `PHAA` | largest resultant `√(LZW² + DX²)` among the positive stall-line / VA maneuver points | 23.333(b) |
 | `PLAA` | largest resultant among the VD maneuver / VD gust points | 23.333(b) |
 | `PMAA` | largest `LZW` among the VC maneuver / +VC gust points | 23.333(b)/(c) |
-| `NMAA` | largest resultant among the negative maneuver/gust points | 23.333(b)/(c) |
+| `NMAA` | largest resultant among the negative VC maneuver / −VC gust points (narrowed from the `.BAS`'s five negative labels, design note 62 D-62.1) | 23.333(b)/(c) |
 | `ACRL` | largest `LZW` among the accelerated-roll points | 23.349(a) |
 | `TORS` | steady-roll condition with the most negative aileron-induced torsion proxy, aileron deflection per CAM 3.222 | 23.349(b) |
+| `NHAA` | largest resultant among the negative stall-line points (STALL −N, STALL −1G) — above the `.BAS`, design note 62 | 23.333(b)/(c), 23.337(b) |
+| `NLAA` | largest resultant among the negative VD maneuver / −VD gust points — above the `.BAS`, design note 62 | 23.333(b)/(c) |
+| `PNZ` | the largest load factor over every positive-family point, tie-break largest resultant — the point that sizes the wing-mounted masses, whatever weight it occurs at (design note 62 D-62.8) | 23.337(a), 23.341 |
+| `NNZ` | the most negative load factor over every negative-family point, tie-break largest resultant (design note 62 D-62.8) | 23.337(b), 23.341 |
+
+A negative slot (`NHAA`/`NMAA`/`NLAA`/`NNZ`) admits a point only when the
+**wing's** lift is negative (`LZW < 0`), and `PNZ` only when it is positive:
+the slot is a wing selector, and a point with `nz < 0` but `LZW > 0` (the
+tail-heavy corner of a negative gust) loads the wing upward and belongs to no
+down-load slot (D-62.2). A slot with no eligible point is **empty**, and a
+`PNZ`/`NNZ` point another slot already delivers is not delivered twice
+(D-62.8) — one physical condition, one id. The four slots above the `.BAS`
+are the concept-mode superset rule: the six Appendix A picks are the same
+points on the same figures.
 
 The selected set becomes the wing's case list — the conditions AIRLOADS
 re-evaluates for distributed airloads and WINGINER/NETLOADS combine with

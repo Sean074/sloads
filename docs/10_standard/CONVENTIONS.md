@@ -129,6 +129,12 @@ file + symbol is the anchor.
 - **The residual is part of the deliverable.** A balanced case states its
   pre-closure residual and the relief applied, in the result, the UI and the deck
   header — the gate is on the physics, not on the correction.
+  - **The scale is `n·W` with `n` floored at 1 g** (`BalancedCaseResult.gate_load_factor`,
+    #288, 2026-09-17). A case near 0 g still balances a weight of lift against a
+    weight of inertia; the *net* is what is near zero, and a residual stated
+    against the net reads 31 % where it is 0.75 % of the loads the case carries
+    (`concept_heavy`'s NLAA, a −0.024 g VD gust). Every case above 1 g is
+    unchanged by the floor; the relief fraction reads the same owner.
 - **A residual the airplane is not meant to balance is reported, never gated**
   (plan 11 §10, extended by plan 13 decision L-5, 2026-08-09). Two of the six DOF
   can carry an *applied* load by design: `residual_mx` on a rolling case is the

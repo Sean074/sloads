@@ -2907,7 +2907,7 @@ def test_the_register_states_the_matrix_the_selection_actually_searched():
 def test_an_entered_wing_case_list_is_not_reported_as_the_selections_result():
     """OR-57 -- the register says where its cases came from.
 
-    ``ga6_normal`` enters three wing cases, which override the six the selection
+    ``ga6_normal`` enters three wing cases, which override the ten the selection
     finds; a section that presented those three as the outcome of a search would
     be describing an analysis nobody ran. Both the sentence and the table that
     marks each named condition run or not are asserted, because the case a
@@ -2922,8 +2922,11 @@ def test_an_entered_wing_case_list_is_not_reported_as_the_selections_result():
                  if t.title.startswith("Critical wing conditions"))
     run = dict(zip([row[1] for row in table.rows],
                    [row[-1] for row in table.rows]))
+    # Note 62's four slots (#288) are named by the selection on the GA6 and,
+    # like the three .BAS slots the fixture does not enter, are not run here.
     assert run == {"PHAA": "yes", "PLAA": "no", "PMAA": "no", "NMAA": "no",
-                   "ACRL": "yes", "TORS": "yes"}
+                   "ACRL": "yes", "TORS": "yes",
+                   "NHAA": "no", "NLAA": "no", "PNZ": "no", "NNZ": "no"}
 
 
 def test_a_project_that_enters_no_wing_cases_reports_the_selections_own_result():

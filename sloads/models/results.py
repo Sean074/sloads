@@ -863,9 +863,25 @@ class BalancedCaseResult:
     notes: List[str] = field(default_factory=list)
 
     @property
+    def gate_load_factor(self) -> float:
+        """The load factor the residual and relief fractions are stated against:
+        ``|nz|``, floored at **1 g** (#288, design note 62 shipping review).
+
+        A case near 0 g -- ``concept_heavy``'s NLAA is a −0.024 g gust at VD --
+        still balances about a weight of lift against a weight of inertia; they
+        cancel, and the *net* is what is near zero. A residual stated against
+        that net reads 31 % where the same residual is 0.75 % of the loads the
+        case actually carries, and a 1 % gate on it would be forty times tighter
+        than on any other case for no physical reason. The floor is the scale of
+        the loads present, and every shipped case above 1 g is unchanged by it.
+        """
+        return max(abs(self.nz), 1.0)
+
+    @property
     def n_w(self) -> float:
-        """``n*W`` -- the scale the force residual is judged against."""
-        return abs(self.nz * self.weight_lb)
+        """``n*W`` -- the scale the force residual is judged against, with
+        :attr:`gate_load_factor`'s 1 g floor."""
+        return self.gate_load_factor * self.weight_lb
 
     @property
     def roll_moment_fraction(self) -> float:

@@ -27,6 +27,8 @@ import os
 import sys
 from dataclasses import replace
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sloads import Project, SelectInput, TailLoadsInput, VTailLoadsInput, io
@@ -68,6 +70,134 @@ _VTAIL = VTailLoadsInput(
 )
 
 
+#: Design note 62's slots above SELECT.BAS (#288): the negative triad's other
+#: two members and the load-factor-extreme pair.
+_NOTE_62_SLOTS = ("NHAA", "NLAA", "PNZ", "NNZ")
+
+#: **G-62.2** -- the frozen picks of note 62 §4, by name: (source label, nz,
+#: V KEAS, CG case, altitude ft, resultant lb) per slot, or ``None`` for an
+#: **empty** slot. Named rather than numbered because #164's V-n renumber moves
+#: the case numbers and not the points. ``None`` for NNZ on the Baron and the
+#: RJ and for both on the heavy is D-62.8's coincidence rule (the point is
+#: NMAA's / PHAA's already); every other slot is a new point.
+_FROZEN_PICKS = {
+    "ga6_normal": {
+        "NHAA": ("STALL -N", -1.52, 113.5, "CG2", 0.0, 5105),
+        "NMAA": ("GUST -C", -2.43, 170.0, "CG3", 0.0, 6772),
+        "NLAA": ("GUST -D", -1.69, 212.5, "CG4", 0.0, 3226),
+        "PNZ": ("GUST +C", +5.25, 170.0, "CG4", 0.0, 11335),
+        "NNZ": ("GUST -C", -3.25, 170.0, "CG4", 0.0, 6644),
+    },
+    "baron_58": {
+        "NHAA": ("STALL -N", -1.46, 134.2, "fwd gross", 0.0, 8011),
+        "NMAA": ("GUST -C", -2.35, 195.0, "fwd regardless", 10000.0, 9844),
+        "NLAA": ("GUST -D", -1.21, 248.0, "fwd regardless", 10000.0, 4884),
+        "PNZ": ("GUST +C", +4.34, 195.0, "fwd regardless", 10000.0, 18961),
+        "NNZ": None,
+    },
+    "atr42_100": {
+        "NHAA": ("STALL -N", -1.00, 170.9, "fwd gross", 12000.0, 36841),
+        "NMAA": ("MAN -C", -1.00, 183.3, "fwd gross", 25000.0, 36594),
+        "NLAA": ("GUST -D", -0.63, 300.0, "min weight", 12000.0, 12055),
+        "PNZ": ("GUST +C", +3.44, 240.0, "min weight", 12000.0, 67231),
+        "NNZ": ("GUST -C", -1.44, 240.0, "min weight", 12000.0, 27272),
+    },
+    "concept_regional_jet": {
+        "NHAA": ("STALL -N", -1.00, 150.5, "fwd gross", 20000.0, 34454),
+        "NMAA": ("GUST -C", -1.80, 310.0, "min weight", 20000.0, 35650),
+        "NLAA": ("GUST -D", -0.80, 350.0, "min weight", 20000.0, 14457),
+        "PNZ": ("GUST +C", +3.80, 310.0, "min weight", 20000.0, 82102),
+        "NNZ": None,
+    },
+    "concept_heavy": {
+        "NHAA": ("STALL -N", -2.00, 195.3, "CGmax", 0.0, 32463),
+        "NMAA": ("MAN -C", -2.00, 250.0, "CGmax", 0.0, 32367),
+        "NLAA": ("GUST -D", -0.02, 312.5, "CGmax", 0.0, 2335),
+        "PNZ": None,
+        "NNZ": None,
+    },
+}
+
+# The candidate pools, restated here from note 62 D-62.1 / D-62.8 so the gate
+# reads the note rather than the module's own tables.
+_NEGATIVE_POOLS = {
+    "NHAA": ("STALL -N", "STALL -1G"),
+    "NMAA": ("MAN -C", "GUST -C"),
+    "NLAA": ("MAN -D", "GUST -D"),
+}
+_POSITIVE_FAMILY = ("STALL +N", "MAN A", "MAN D", "GUST D", "GUST +D", "MAN C", "GUST +C")
+_NEGATIVE_FAMILY = sum(_NEGATIVE_POOLS.values(), ())
+
+
+def _fixture(name: str) -> Project:
+    return io.load_project(os.path.join(_EXAMPLES, f"{name}.project.json"))
+
+
+def _resultant(v) -> float:
+    return math.hypot(v.lzw, v.dx)
+
+
+@pytest.mark.parametrize("name", sorted(_FROZEN_PICKS))
+def test_the_negative_triad_and_load_factor_invariants(name):
+    """**G-62.1** (design note 62 #288). For every fixture and every negative
+    slot: the delivered point is a member of the slot's candidate labels, has
+    ``LZW < 0``, and no other V-n point with those labels and ``LZW < 0`` has a
+    larger resultant; a slot with no eligible candidate is absent, not filled.
+    And D-62.8's invariant: PNZ's point has the largest ``nz`` of every
+    eligible positive-family point and NNZ's the most negative of every
+    eligible negative-family point; a PNZ/NNZ point equal to another slot's
+    pick is absent; and no V-n case number carries two wing ids.
+    """
+    project = _fixture(name)
+    by_label, vn = _by_label(project)
+    points = list(vn.values())
+    for slot, labels in _NEGATIVE_POOLS.items():
+        eligible = [v for v in points if v.condition in labels and v.lzw < 0]
+        if not eligible:
+            assert slot not in by_label, f"{name} {slot}: filled with no eligible point"
+            continue
+        assert slot in by_label, f"{name} {slot}: eligible points but the slot is empty"
+        picked = vn[by_label[slot].case]
+        assert picked.condition in labels and picked.lzw < 0, (name, slot)
+        assert _resultant(picked) >= max(_resultant(v) for v in eligible) * (1 - 1e-9)
+    others = {c.case for lbl, c in by_label.items() if lbl not in ("PNZ", "NNZ")}
+    for slot, family, sign, pick in (("PNZ", _POSITIVE_FAMILY, +1, max),
+                                     ("NNZ", _NEGATIVE_FAMILY, -1, min)):
+        eligible = [v for v in points if v.condition in family and sign * v.lzw > 0]
+        extreme_nz = pick(v.nz for v in eligible)
+        tied = [v for v in eligible if math.isclose(v.nz, extreme_nz, rel_tol=1e-9)]
+        best = max(tied, key=_resultant)
+        if best.case in others:
+            assert slot not in by_label, f"{name} {slot}: delivered a second time"
+        else:
+            assert slot in by_label and by_label[slot].case == best.case, (name, slot)
+    cases = [c.case for c in by_label.values()]
+    assert len(cases) == len(set(cases)), f"{name}: one V-n case under two wing ids"
+
+
+@pytest.mark.parametrize("name", sorted(_FROZEN_PICKS))
+def test_the_frozen_picks_of_note_62(name):
+    """**G-62.2** -- the regression baseline for the slots above the .BAS, by
+    name (label, load factor, speed, CG case, altitude, resultant), against
+    note 62 §4's table. NMAA is included because its narrowing moves it on the
+    ATR (case 128 → 227, STALL −N is NHAA's now) and on the heavy (STALL −N →
+    MAN −C, the same two points); every other NMAA is the .BAS's own point.
+    """
+    by_label, vn = _by_label(_fixture(name))
+    for slot, want in _FROZEN_PICKS[name].items():
+        if want is None:
+            assert slot not in by_label, f"{name} {slot}: expected empty"
+            continue
+        assert slot in by_label, f"{name} {slot}: expected {want[0]}"
+        v = vn[by_label[slot].case]
+        label, nz, speed, cg, alt, resultant = want
+        assert v.condition == label, (name, slot, v.condition)
+        assert math.isclose(v.nz, nz, abs_tol=0.006), (name, slot, v.nz)
+        assert math.isclose(v.v_eas_kt, speed, abs_tol=0.06), (name, slot, v.v_eas_kt)
+        assert v.cg == cg and v.altitude_ft == alt, (name, slot, v.cg, v.altitude_ft)
+        assert math.isclose(_resultant(v), resultant, abs_tol=0.6), (name, slot, _resultant(v))
+
+
 def _by_label(project: Project):
     # The wing-condition view (used by the wing-focused tests).
     cls = select.build_critical(project)
@@ -92,7 +222,10 @@ def test_critical_wing_conditions_match_appendix_a():
         ("ACRL", "AC ROLL", 1.328, 116.00),
         ("TORS", "ST ROL C", 0.470, 170.00),
     ]
-    assert set(by_label) == {lbl for lbl, *_ in expect}
+    # The six Appendix A slots, exactly; what else the search names is design
+    # note 62's four slots above the .BAS (gate 1: the oracle does not move).
+    assert {lbl for lbl, *_ in expect} <= set(by_label)
+    assert set(by_label) - {lbl for lbl, *_ in expect} <= set(_NOTE_62_SLOTS)
     for label, cond_name, cl, v in expect:
         c = by_label[label]
         assert vn[c.case].condition == cond_name, (label, vn[c.case].condition)
@@ -168,7 +301,7 @@ def test_select_uses_persisted_envelope_when_present():
     p.envelope = build_envelope(p)
     p.flight_loads = None  # force the persisted-envelope path
     cls = select.build_critical(p)
-    assert len(cls.conditions) == 6
+    assert len(cls.conditions) == 6 + len(_NOTE_62_SLOTS)
 
 
 def test_rational_balancing_tail_load_hand_calc():

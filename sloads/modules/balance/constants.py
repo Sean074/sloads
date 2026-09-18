@@ -22,8 +22,11 @@ CLOSURE_DIAGNOSTIC = "diagnostic"
 #: joined this list at B7 **by measurement**: its ``unbal_moment`` is zero on
 #: every fixture, because a steady roll has no unbalanced rolling moment (see the
 #: module docstring). Assembling it as symmetric is therefore not an
-#: approximation -- it is what the case contains.
-SYMMETRIC_WING_CONDITIONS = ("PHAA", "PLAA", "PMAA", "NMAA", "TORS")
+#: approximation -- it is what the case contains. ``NHAA``, ``NLAA``, ``PNZ``
+#: and ``NNZ`` are design note 62's slots above SELECT.BAS (D-62.4): none is a
+#: roll point, so none carries an unbalanced rolling moment, exactly as NMAA.
+SYMMETRIC_WING_CONDITIONS = ("PHAA", "PLAA", "PMAA", "NMAA", "TORS",
+                             "NHAA", "NLAA", "PNZ", "NNZ")
 
 #: Wing conditions that may carry an unbalanced rolling moment, hence a handed
 #: pair. Membership here does **not** by itself make a case antisymmetric: a
