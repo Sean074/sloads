@@ -2,8 +2,12 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: PROPOSED 2026-09-17** (owner, in session, under the solo profile —
-`DEVELOPMENT_PROCESS.md` §0; rule 1's working-alone branch). This is the
+**Status: AGREED 2026-09-17** (owner, in session, under the solo profile —
+`DEVELOPMENT_PROCESS.md` §0; rule 1's working-alone branch; PROPOSED,
+reviewed and flipped the same day — the critical-advocate review's three
+findings are **ruled** in §9 and their rulings are written into D-63.2,
+D-63.7, D-63.8, D-63.10, D-63.11, gate 1, G-63.3a and G-63.4; R-63.4's
+scope split is left to the owner at implementation). This is the
 note design note 62 §6 promised: the wing mass states in the Wing Loads
 step. The discussion that shaped it (2026-09-17) widened it from "a state
 list on `WingMassInput`" to the ruling in §2: **the suite keeps one mass
@@ -27,8 +31,10 @@ carries what the wing does not), UG Table 2.2 (WTONECG feeds WINGINER).
 Related and not repeated: note 25 (D-25, the entered loading), note 31
 (`wing_fraction`, the row split in space), note 39 (OV-1, blank derives and
 typed overrides), note 50 (the fuselage station table derived from the
-items), note 32 (CONM2 per-row cards), note 62 (the eight SELECT slots this
-note's variants multiply).
+items), note 32 (CONM2 per-row cards), note 62 (the **ten** SELECT slots this
+note's variants multiply — six `.BAS`, NHAA/NLAA, and the load-factor pair
+PNZ/NNZ of D-62.8, which already delivers the nz extremes so D-63.7 is a
+question of mass state only).
 
 ---
 
@@ -123,21 +129,28 @@ applied.
 | # | Decision | Why |
 |---|---|---|
 | **D-63.1** | **The mass state of a case is its D-25 loading, and every inertia consumer reads it.** WINGINER, NETLOADS, `body_loads` and the balanced deck take their masses from `reacted_parts(loading.items)` for the case they run. A case without a loading keeps today's search fallback (`derive_case_loadings`), bit-for-bit, so `ga6_normal` and every pre-existing file run unchanged; concept-mode validation warns (`case_loading_missing`) on a FLIGHT case with no loading — **the warning ships with the editor (D-63.9), not with the physics**, so no GUI user sees a warning the GUI cannot clear. | One model, one reading. The search stays a fallback, never the state of record. |
-| **D-63.2** | **`WingMassInput` loses its mass.** `concentrated[]` is removed (v67 migration: each entry becomes a per-side WING item at its `x`/`±y`/`z`, kind EMPTY, carriage POINT — and a fuel entry becomes a consumable row named in a loading, see D-63.4). `panel_weight_lb` becomes a derived read: half the WING-tagged PANEL items, override allowed (`panel_weight_override_lb: Optional[float]`, OV-1 shape); the migration writes the override only where the derived value differs from the entered one by more than the tie tolerance. `tip_root_density_ratio`, `inboard_rib_y`, `surface`, `cases[]` stay. | The fuselage precedent (note 50). `wing_mass_tie` reduces to *derived panel vs override* and `unmodelled_wing_mass` is deleted — there is nothing left to disagree with. |
+| **D-63.2** *(amended 2026-09-17, R-63.3)* | **`WingMassInput` loses its mass.** `concentrated[]` is removed. **The v67 migration drops, stamps and reports; it does not convert a mass the items already carry.** Measured: the wing tie closes on every shipped fixture, so every fixture's items already hold the concentrated mass — per-side rows on the Baron, `wing_fraction` slices of a fuselage fuel row on the ATR and concept_heavy — and converting each entry to a new row would double-count 2,381 lb on the Baron and 3,800 lb on the ATR, with no robust row match (the Baron's lumped 575.5 lb engine is three item rows at three stations; its 180 lb "systems" entry has no counterpart). So: on a file whose tie closes, `concentrated` is **dropped** and the dropped entries are named once in a validation note; on a file whose tie is open by the entries' amount, they are converted to per-side WING items (kind EMPTY, carriage POINT) because there the mass really is missing. In both cases the migration **stamps `carriage = POINT` on every WING row with a non-zero butt line** and leaves centreline WING rows PANEL — a one-time default for rows that exist, after which every row is typed (this is not the classification heuristic D-63.3 rejects). The three fixtures are then **hand-corrected in the PR** per D-63.4: ATR and concept_heavy fuel to per-side wing tank rows with the fuselage row's `wing_fraction` zeroed, ATR engines and nacelles per side. `panel_weight_lb` becomes a derived read: half the WING-tagged PANEL items, override allowed (`panel_weight_override_lb: Optional[float]`, OV-1 shape); the migration writes the override only where the derived value differs from the entered one by more than the tie tolerance. `tip_root_density_ratio`, `inboard_rib_y`, `surface`, `cases[]` stay. | The fuselage precedent (note 50). `wing_mass_tie` reduces to *derived panel vs override* and `unmodelled_wing_mass` is deleted — there is nothing left to disagree with. |
 | **D-63.3** | **`MassItem.carriage: WingCarriage = PANEL`** (`PANEL` \| `POINT`), read on WING-reacted parts only. PANEL mass is spread by WINGINER's taper; POINT mass is a WINGINER concentrated mass at the part's own `x`/`y`/`z` (Ch 13 p93, lines 1180–1270). Default PANEL reproduces today's balanced-deck scaling on every row that exists. | The taper cannot tell an engine from a spar by inspection: `atr42_100` carries "Engines (2)" as one row at the centreline. A typed tag is the OV-1 answer, not a butt-line heuristic. |
 | **D-63.4** | **Fuel is entered per tank as a WING (or fuselage) consumable row, carriage POINT, at the tank centroid**; `wing_fraction` remains for a row that genuinely spans both beams. A loading names the fuel rows aboard and their fractions. A tank modelled as a point is the `.BAS`'s own idealisation; a spanwise tank extent is parked (§6). | `baron_58` already does this. It removes the second fuel opinion the ATR carries today. |
 | **D-63.5** | **`weight.max_zero_fuel_weight_lb`** (MZFW) joins MTOW and MLW as an SSOT design weight (G-4/G-14 shape: `0` = not entered; nothing derives it silently; the page offers OEW + max payload as the estimate). `seed_flight_cases` grows by three named cases when MZFW is entered — `"mzfw aft"`, `"mzfw fwd"`, `"full fuel aft"` — each written **with** its loading (all discretionary payload rows, no fuel rows / fuel rows to 1.0 with payload trimmed to MTOW); the five existing seed names and their derived loadings are unchanged. | Ruling 2. Part 25 requires MZFW as a design weight (25.321); on a wing-fuel airplane it is the up-bending critical state and today no case reaches it. |
 | **D-63.6** | **WINGINER and NETLOADS run each wing case at a named mass state.** `WingLoadCase` gains `cg: Optional[str]` (a FLIGHT case name). Resolution: explicit `cg` wins; else the V-n point's own CG case (today's implicit state, now stated); else the search fallback. The point-mass list and the panel scale are built **per case** from that loading's WING parts; `inertia_units` (the shape) is built once. Every `WingLoadResult`/`CaseRef` names the mass state it ran at. | Today the case weight reaches the label and nothing else. |
-| **D-63.7** | **Each SELECT wing slot runs at every FLIGHT mass state, and the net-governing variant is the delivered case.** The Wing Loads step expands the eight slots (note 62) × the FLIGHT cases: for slot *s* and case *k*, the air load is that family's own winning V-n point balanced at *k* (SELECT's per-family criterion applied within case *k*), the inertia is *k*'s loading. The variant with the largest net root bending (resultant, same rule as the air pick) is **the** W-nn case: the id is the slot's (W-01…W-08, note 62 D-62.3), the label names the CG case, the deck subcase is that variant. The report's wing table lists every variant with the governing one marked; the balanced deck's mass set for the subcase is the governing variant's loading, so the deck and the net table describe one state. | Ruling 3, and the only way an MZFW case can govern a slot the air pick gave to MTOW. The count is 8 × 5–8, cheap. |
-| **D-63.8** | **`body_loads` reads the case's loading**: `fuselage_beam_stations(project, loading)` lumps that loading's body parts. The override table stays one per project (an override is one table, not one per state) and validation warns when an override is set on a project whose FLIGHT loadings differ in body mass by more than the tie tolerance. | Note 50's derivation was whole-database because there was no per-case read; there is now. |
+| **D-63.7** *(amended 2026-09-17, R-63.2)* | **Each SELECT wing slot runs at every FLIGHT mass state, and the net-governing variant is the delivered case.** The Wing Loads step expands the ten slots (note 62) × the FLIGHT cases **regardless of `wing_mass.cases`** — an entered table is a *filter* on which slots run, never a second source of points (this narrows M4-2 decision 2's "explicit entries always win" to the slot list). For slot *s* and case *k*, the air load is that family's own winning V-n point balanced at *k* (SELECT's per-family criterion applied within case *k*), the inertia is *k*'s loading. Each variant is an existing V-n point — a **run** with its own identity (D-63.11). The governing variant is the one with the extreme **signed root `Mxx` at the loads reference axis** — largest for the positive slots, most negative for the negative ones (not "resultant": root bending is a signed moment). **The slot is a role the down-select assigns to one run:** SELECT's delivered `CriticalCondition` for the slot *is* the governing run — SELECT's air pick per family stays a queryable intermediate (`select.air_picks`, what the Appendix A test asserts) and an assessed row in the variant table without a W id, and the slot's condition is re-pointed to the governing run before anything downstream (index, deck, report) reads it. The W-nn id is the slot's (W-01…W-10, note 62 D-62.3) and the deck subcase number derives from it as today; the run key (D-63.11) names the point. The report's wing table lists every variant with the governing one marked; the balanced deck's mass set for the subcase is the governing run's loading, so the deck and the net table describe one state. | Ruling 3, and the only way an MZFW case can govern a slot the air pick gave to MTOW. One id per physical condition (M4-2 decision 1) holds because the slot id and the run key are two different things (D-63.11): SELECT's air pick and the governing variant are two runs with two run keys, and only one carries the slot. The count is 10 × 5–8, cheap. |
+| **D-63.11** *(owner, R-63.2, 2026-09-17)* | **`CaseRef` carries the run key beside the slot id.** The run key is the composite that names a balanced point without reference to its position in the matrix: **manoeuvre label, CG case name, altitude, configuration** — the tuple G-62.2 already uses to survive the #164 renumber. `CaseRef` gains `run: str` (the manoeuvre label, e.g. `"GUST +C"`) and `config: str`; `cg`, `speed_kt`, `altitude_ft` already exist. The V-n `case` integer stays as a convenience and is never identity. **The slot id is the deliverable's number, the run key is the condition's name:** the case index keys its rows on the run key with the slot as a column, every deck subcase's `$` header states both (`SUBCASE 5101  W-01 PHAA  —  STALL +N, CG2, 0 ft, clean`), and `subcase_id`/`balanced_subcase_id` stay pure functions of the slot id so persisted `selected_case_ids` and exported decks do not move. `CONVENTIONS.md` §4 (case identity) and note 22 gain the one paragraph that says this. | The user's model (2026-09-17): every run of payload case × manoeuvre × speed/altitude × variation gets its own identifier at generation, the down-select picks the critical ones, and *their names stay*. FLTLOADS already generates that matrix; the missing piece was a run identity that does not float with the matrix size and is not confused with the slot. Nastran/sbeam need a small stable integer per subcase, which is what the slot band gives and a run-derived number could not. |
+| **D-63.8** | **`body_loads` reads the case's loading**: `fuselage_beam_stations(project, loading)` lumps that loading's body parts — the entered loading, else the search fallback of D-63.1. The override table stays one per project (an override is one table, not one per state) and validation warns when an override is set on a project whose FLIGHT loadings differ in body mass by more than the tie tolerance. **This is a stated correction, not an oracle-locked read (owner, R-63.1, 2026-09-17):** today the Ch 15 beam integrates the *whole* item database at every fuselage condition — on `ga6_normal` 3,070 lb of body mass at the GREATEST NZ condition, whose CG4 airplane weighs 2,063 lb and carries 1,733 lb of body mass; AFT DOWN BENDING at CG3 integrates 3,070 against 2,470; MAX DOWN LOAD ON WING at CG2 keeps its total but moves the sixth occupant out and 248 lb of ballast in; AFT UP BENDING at CG1 is unchanged. Ch 15 prints no station table, so the body distributions are closure-locked, not oracle-locked, and the closure holds per condition either way. | Note 50's derivation was whole-database because there was no per-case read; there is now. A whole-database fallback would keep the defect on every fixture until #290 and leave the body reading a different mass state from the deck's. |
 | **D-63.9** *(split to its own tier M issue **#290**, owner 2026-09-17; lands directly after #289)* | **The Payload Cases tab gains the loading editor**: per case, the discretionary rows aboard (checkboxes), a fraction on each consumable row aboard, an optional ballast row, and the echo check beside the entered weight/CG (D-25a). The Wing Loads page loses its mass table and shows the per-case WING parts read-only. | Ruling 1. D-25 shipped without a GUI; a state that can only be typed in JSON is not entered. |
-| **D-63.10** | **Oracle unchanged, twin unchanged.** `ga6_normal`: derived panel 165 = entered; no POINT rows; no loading → search fallback → WINGINER and `body_loads` bit-for-bit. `cessna_210`/`baron_58` closure figures move only by the removal of the `concentrated` duplicate where it disagreed with the items; the moved figures are measured in the PR and stated in the fragment. | Rule 2 and CLAUDE.md's oracle lock. |
+| **D-63.10** *(amended 2026-09-17, R-63.1/R-63.3)* | **Oracle unchanged, twin movements stated.** `ga6_normal`: derived panel 165 = entered; no POINT rows; no loading → search fallback → WINGINER, NETLOADS, the deck's wing sets and CONM2 bit-for-bit; `body_loads` moves as gate 1 states (R-63.1). `baron_58` closure figures move by two stated causes: the `concentrated` duplicate goes and the lumped engine at x 48 becomes the item rows at x 30/50/55 (BL 66 kept through the POINT stamp), so PHAA/TORS torsion moves by the station change; the ATR and concept_heavy wing distributions move by the fuel re-slicing of D-63.4. Every moved figure is measured in the PR and stated in the fragment. | Rule 2 and CLAUDE.md's oracle lock. |
 
 ## 4. Gates (benchmark-first)
 
-1. **Oracle unchanged.** Every Appendix A WINGINER and Ch 15 assertion
-   passes without edit; `ga6_normal` digests for `wing_inertia`,
-   `net_loads`, `body_loads`, the deck and CONM2 are byte-identical.
+1. **Oracle unchanged, body loads corrected.** Every Appendix A WINGINER
+   assertion and every Ch 15 closure assertion passes without edit;
+   `ga6_normal` digests for `wing_inertia`, `net_loads`, the deck's wing
+   sets and CONM2 are byte-identical. **`body_loads` moves** (D-63.8,
+   R-63.1): on `ga6_normal` the CG1 condition is unchanged and the CG2,
+   CG3 and CG4 conditions integrate the case's own body mass (3,070 lb
+   redistributed, 2,470 and 1,733 lb against 3,070 today); the history
+   fragment states the per-condition movement on every fixture and the
+   `body_loads` digest is re-baselined in the same wave.
 2. **G-63.1 one model.** For every fixture and every FLIGHT case: Σ WING
    parts of the case's loading = 2 × (panel used + Σ point masses used) by
    WINGINER for that case, to `RECONCILE_REL_TOL`. `mass_wing_tie` becomes
@@ -149,13 +162,25 @@ applied.
    the inequality reverses.
 4. **G-63.3 the variant table is complete.** Slots × FLIGHT cases rows,
    exactly one marked governing per slot, the deck subcase's `$` header
-   names the same CG case as the marked row, and the CONM2 mass set the
-   subcase references is that case's.
-5. **G-63.4 migration.** Every shipped `concentrated` entry becomes a WING
-   item whose weight, `x`, `|y|`, `z` match; `panel_weight_override_lb` is
-   `None` on every fixture after the item databases are corrected (the
-   corrections are part of the PR: ATR wing tankage as per-side rows,
-   engines per side).
+   names the same run key as the marked row, and the CONM2 mass set the
+   subcase references is that case's. **G-63.3a identity:** across a full
+   run no two `CaseRef`s share a run key with different loads, no W id is
+   carried by more than one run, and on `ga6_normal` the governing run of
+   every slot has the run key of SELECT's air pick (the Appendix A set
+   reproduced, gate 1 in one line). `select.air_picks` on the GA6 asserts
+   the six Appendix A points unchanged.
+5. **G-63.4 migration.** On every shipped fixture the v67 migration drops
+   `concentrated` (the tie closes on all five) and the WING item weight
+   the migrated file carries equals the pre-migration weight to the pound
+   — nothing double-counted, nothing lost; every WING row at non-zero
+   butt line is `POINT`, every centreline WING row `PANEL`. A synthetic
+   file with an open tie converts its entries and closes the tie.
+   `panel_weight_override_lb` is `None` on every fixture after the item
+   databases are corrected (the corrections are part of the PR: ATR wing
+   tankage as per-side rows, engines and nacelles per side, concept_heavy
+   fuel per side). The Baron's WINGINER point-mass list after migration
+   holds the same total per side as today's `concentrated` (1,190.5 lb),
+   at the item rows' own stations.
 6. **G-63.5 body per case.** `body_loads` on `baron_58` "fwd light"
    integrates the loading's body weight, not the database's.
 7. **G-63.6 schema/GUI.** Data dictionary regenerated; field registry
@@ -198,7 +223,8 @@ applied.
 `PROGRAM_SPEC.md` WTONECG/payload_cases, WINGINER, NETLOADS and Ch 15
 sections; `ch04_wing_loads.md` (the variant table); `theory_sources.md`
 WINGINER row citing this note; `CONVENTIONS.md` §7 SSOT table (the mass
-state's owner); `DATA_DICTIONARY.md` regenerated (v67); one
+state's owner) and §4 case identity (the slot id / run key split, D-63.11,
+with note 22 amended the same way); `DATA_DICTIONARY.md` regenerated (v67); one
 `changes/<slug>.history.md` fragment in full step format with the measured
 twin/concept movements; one Imperial digest wave (`wing_inertia`,
 `net_loads`, `body_loads`, balance, deck, CONM2, report); this note's status
@@ -313,3 +339,65 @@ Three readings:
 - **NLAA at minimum weight** is the one slot the light case wins on air
   alone, and only because D-62.2 excludes the positive-lift GUST −D points
   the MTOW cases produce.
+
+## 9. Review findings open at AGREED (critical-advocate review, 2026-09-17)
+
+Recorded with the reviewer's recommendation; each is ruled by the owner
+before its decision is coded, and the ruling amends the decision above.
+
+- **R-63.1 — RULED 2026-09-17 (option 1: state it as a correction; D-63.8
+  and gate 1 amended in place).** Original finding: gate 1 was not true for
+  `body_loads` on `ga6_normal`. Today
+  the Ch 15 beam integrates the **whole** item database (3,070 lb of body
+  mass) for every fuselage condition; the four GA6 fuselage conditions sit
+  at CG2, CG3, CG1 and CG4, and CG4 weighs 2,063 lb. D-63.8 reading the
+  case's loading moves three of the four GA6 body distributions, so the
+  `body_loads` digest cannot be byte-identical. There is no printed Ch 15
+  station oracle, only the closure gate. *Recommendation:* state the GA6
+  body movement as a **correction** (a 2,063 lb airplane's body inertia is
+  integrated at 3,070 lb today), measure it in the PR, and amend gate 1 to
+  "byte-identical for WINGINER, NETLOADS, the deck's wing sets and CONM2;
+  `body_loads` moves by the stated amount". The alternative — a
+  whole-database fallback when no loading is entered — keeps the defect.
+- **R-63.2 — RULED 2026-09-17 (option 1 with the identity split: D-63.7
+  amended, D-63.11 added).** Original finding: D-63.7 collided with case
+  identity. M4-2 decision 1 gives one
+  id per physical condition and the case index dedupes on it. If W-01's
+  net-governing variant is a different V-n point from SELECT's PHAA
+  condition, two conditions share one id and the index collapses them.
+  Also, §8.4 runs all slots on the ATR while D-62.7 keeps the fixtures'
+  explicit `wing_mass.cases` and `resolve_wing_cases` gives explicit entries
+  precedence. *Recommendation:* rule that (a) the variant expansion runs
+  over SELECT's slot set **regardless** of `wing_mass.cases` (the entered
+  table becomes a filter, not a source), and (b) SELECT's delivered
+  condition **is** the governing variant — the SELECT pick is re-pointed
+  after the Wing Loads step decides, so one id, one point. State the
+  governing quantity precisely: signed root `Mxx` per slot (largest for the
+  positive slots, most negative for the negative ones), not "resultant".
+- **R-63.3 — RULED 2026-09-17 (option 1: drop where the tie closes, stamp
+  POINT on off-centreline WING rows, hand-correct the three fixtures;
+  D-63.2, D-63.10 and G-63.4 amended).** Original finding: the migration
+  could not be mechanical. The wing tie closes
+  on all five fixtures today, so every fixture's items already carry the
+  `concentrated` mass in some form: per-side rows on the Baron,
+  `wing_fraction` slices of a fuselage fuel row on the ATR and
+  concept_heavy. Converting each entry into a new WING item double-counts
+  2,381 lb on the Baron and 3,800 lb on the ATR, and no robust row match
+  exists (the Baron's "Systems & unusable fuel" 180 lb/side has no item
+  counterpart). Conversely D-63.3's default PANEL smears the Baron's
+  engine, gear and fuel — WINGINER point masses at BL 66/57/95 today —
+  until hand-tagged, so "PANEL reproduces today" holds for the deck and
+  not for WINGINER on the Baron. *Recommendation:* the migration **drops**
+  `concentrated` where the tie closes (recording what it dropped in a
+  validation note), stamps `carriage = POINT` on every WING row at
+  non-zero butt line, and the PR hand-corrects the ATR and concept_heavy
+  fuel rows per D-63.4; twin movements measured and stated (D-63.10).
+- **R-63.4 (minor).** D-63.5 adds a third search objective (heaviest
+  zero-fuel loading inside the envelope) beside the exact-subset search and
+  the ground burn-down; `cg_cases.FLIGHT_CASE_NAMES` pins the five seed
+  names and its guard test moves. Five orthogonal tags now sit on one
+  `MassItem` row (kind, component, consumable, wing_fraction, carriage) —
+  the complexity cost of the OV-1 choice, to be stated in the data
+  dictionary. *Scope:* the reviewer recommends splitting #289 — D-63.1 to
+  D-63.4, D-63.6 and D-63.8 as the one-model step; D-63.5 and D-63.7 as the
+  variants step with its own gates.
