@@ -41,13 +41,28 @@ _EXAMPLES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 _GA = os.path.join(_EXAMPLES, "ga6_normal.project.json")
 
 
+#: Appendix A balances the 6-place GA at three altitudes and picks five of its
+#: six critical wing conditions at 12,000 ft. Until #164 (2026-09-20) the
+#: shipped fixture carried sea level alone and this file patched the set in, so
+#: the oracle passed on an envelope the fixture never delivered.
+_APPENDIX_A_ALTITUDES_FT = [0.0, 12000.0, 18000.0]
+
+
 def _ga6_three_altitudes() -> Project:
-    """The 6-place GA project with the Appendix A altitude set (0/12000/18000 ft)
-    and the loads-report steady-roll inputs."""
+    """The 6-place GA project as shipped: the Appendix A altitude set
+    (0/12000/18000 ft) and the loads-report steady-roll inputs are the
+    fixture's own since #164."""
     p = io.load_project(_GA)
-    p.flight_loads.altitudes_ft = [0.0, 12000.0, 18000.0]
     p.select_input = SelectInput(full_down_aileron_deg=15.0, basic_airfoil_cm=-0.03)
     return p
+
+
+def test_the_shipped_fixture_carries_the_appendix_a_altitude_set():
+    """**#164** -- the oracle below runs on the fixture as shipped, so the
+    fixture must state the altitudes the manual balances at; a sea-level-only
+    list would put `0 ft` on every delivered case again while every number
+    here still reproduced."""
+    assert io.load_project(_GA).flight_loads.altitudes_ft == _APPENDIX_A_ALTITUDES_FT
 
 
 # Appendix A "General input for calculation of horiz tail loads" (6-place report).
@@ -81,12 +96,19 @@ _NOTE_62_SLOTS = ("NHAA", "NLAA", "PNZ", "NNZ")
 #: RJ and for both on the heavy is D-62.8's coincidence rule (the point is
 #: NMAA's / PHAA's already); every other slot is a new point.
 _FROZEN_PICKS = {
+    # Re-pinned 2026-09-20 (#164): the fixture balances at Appendix A's three
+    # altitudes, and every negative slot now governs at 12,000 ft -- the gust
+    # factor grows with altitude (Kg through mu), the stall speed shrinks with
+    # the compressibility correction. Before: all five at 0 ft (NHAA 113.5 kt
+    # R 5,105; NMAA -2.43 g R 6,772; NLAA -1.69 g R 3,226; PNZ +5.25 g
+    # R 11,335; NNZ -3.25 g R 6,644). NMAA (CG3) and NNZ (CG4) carry the same
+    # wing lift: one gust at one speed, two weights.
     "ga6_normal": {
-        "NHAA": ("STALL -N", -1.52, 113.5, "CG2", 0.0, 5105),
-        "NMAA": ("GUST -C", -2.43, 170.0, "CG3", 0.0, 6772),
-        "NLAA": ("GUST -D", -1.69, 212.5, "CG4", 0.0, 3226),
-        "PNZ": ("GUST +C", +5.25, 170.0, "CG4", 0.0, 11335),
-        "NNZ": ("GUST -C", -3.25, 170.0, "CG4", 0.0, 6644),
+        "NHAA": ("STALL -N", -1.52, 112.3, "CG2", 12000.0, 5137),
+        "NMAA": ("GUST -C", -2.80, 170.0, "CG3", 12000.0, 7834),
+        "NLAA": ("GUST -D", -2.08, 212.5, "CG4", 12000.0, 4034),
+        "PNZ": ("GUST +C", +5.81, 170.0, "CG4", 12000.0, 12508),
+        "NNZ": ("GUST -C", -3.81, 170.0, "CG4", 12000.0, 7834),
     },
     "baron_58": {
         "NHAA": ("STALL -N", -1.46, 134.2, "fwd gross", 0.0, 8011),

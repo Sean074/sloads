@@ -35,8 +35,7 @@ _TAIL = TailLoadsInput(
 
 
 def _ga6() -> Project:
-    p = io.load_project(_GA)
-    p.flight_loads.altitudes_ft = [0.0, 12000.0, 18000.0]
+    p = io.load_project(_GA)  # the Appendix A altitude set is the fixture's own since #164
     p.select_input = SelectInput(full_down_aileron_deg=15.0, basic_airfoil_cm=-0.03)
     p.tail_loads = _TAIL
     return p

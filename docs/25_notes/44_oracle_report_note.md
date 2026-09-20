@@ -908,7 +908,13 @@ same OR-8 footing as the rulings above.
   `0 ft` where the manual reads 12,000, and the compressibility factor at those
   points is the sea-level one. Raised in the owner's review of iteration 3,
   2026-09-03; **filed as #164**, which also records why adding the altitude is
-  not a free change (it renumbers every V-n case).
+  not a free change (it renumbers every V-n case). **Shipped 2026-09-20 (#164):**
+  the fixture carries Appendix A's altitude set `[0, 12000, 18000]` ft, so the
+  matrix is 240 points and every delivered case states the altitude the manual
+  states; the SELECT oracle tests read the shipped fixture instead of patching
+  the list in, and the shipped GA6 now reproduces the Appendix A tail figures
+  the G-OR-83 identity gate (`tests/test_oracle_report_tail.py`) said it
+  could not.
 
 - **The GA6 wing case set holds no negative-load-factor condition.** The entered
   three (PHAA, TORS, ACRL) are all positive-g, and the selection's **NMAA**

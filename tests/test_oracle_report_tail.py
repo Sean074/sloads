@@ -270,24 +270,20 @@ def test_the_printed_totals_are_the_modules_own_unscaled_values():
 
 
 def test_every_appendix_a_condition_is_present_and_named_as_the_oracle_names_it():
-    """G-OR-83's identity half, and a limitation of the fixture stated outright.
+    """G-OR-83's identity half.
 
-    **The shipped ``ga6_normal`` does not reproduce the Appendix A tail figures,
-    and cannot.** The oracle values (balancing +519.85 / -613.92, unchecked
-    -1397.8 / +1227.2, checked -671.5 / +787.8, gust +908.6 / -1292.8,
-    unsymmetrical -1204.7) are selected from a **three-altitude** envelope --
-    ``test_select.py::_ga6_three_altitudes`` -- while every case the shipped
-    example delivers is at sea level, so the search governs on different points
-    and lands 0.3-3 % away. That is backlog **#164** (*"every delivered case
-    states 0 ft where Appendix A names its critical wing conditions at 12,000
-    ft"*), an open item this section did not create and must not paper over.
-
-    So the oracle comparison stays where the right fixture is --
+    Until #164 (2026-09-20) the shipped ``ga6_normal`` balanced at sea level
+    alone while the Appendix A tail figures (balancing +519.85 / -613.92,
+    unchecked -1397.8 / +1227.2, checked -671.5 / +787.8, gust +908.6 /
+    -1292.8, unsymmetrical -1204.7) are selected from a **three-altitude**
+    envelope, so the search governed on different points and landed 0.3-3 %
+    away. The fixture now carries that altitude set, and the oracle comparison
+    stays where it has always been --
     ``test_select.py::test_critical_htail_balancing_match_appendix_a`` and its
-    siblings, page-cited and toleranced there -- and this gate asserts what the
-    *document* is responsible for: that every condition the oracle names is
-    present, under the name the oracle uses. Pinning the document to the printed
-    numbers would mean pinning it to a fixture defect.
+    siblings, page-cited and toleranced there -- while this gate asserts what
+    the *document* is responsible for: that every condition the oracle names is
+    present, under the name the oracle uses. One fact, one owner: the numbers
+    are not re-oracled here.
     """
     register = next(t for t in _tables(_section(_doc(), "htail_loads"))
                     if t.title == "Design conditions analysed")
