@@ -286,7 +286,9 @@ _PITCH_RESIDUAL_RATCHET = {
     # pattern; no unsymmetrical family assembles (shape-keeping placeholder).
     "baron_58.project.json": {"symmetric": 0.0060, "lateral": 0.0055,
                               "unsymmetrical": 0.0005},
-    "concept_heavy.project.json": {"symmetric": 0.0090, "lateral": 0.0010,
+    # concept_heavy re-pinned 2026-09-20 (#291): PHAA 0.515 % on the
+    # re-entered polar (0.844 % before).
+    "concept_heavy.project.json": {"symmetric": 0.0055, "lateral": 0.0010,
                                    "unsymmetrical": 0.0010},
     # RJ symmetric re-pinned 2026-09-18 (#292): NMAA delivered at `fwd
     # regardless` (note 63 D-63.7), 0.087 %.
@@ -312,7 +314,7 @@ _PITCH_RESIDUAL_RATCHET = {
 #: ``concept_regional_jet``   1.506 %      0.349 %
 #: ``dhc8_dash8``             1.626 %      0.523 %
 #: ``atr42_100``              1.929 %      0.520 %
-#: ``concept_heavy``          1.990 %      --
+#: ``concept_heavy``          1.214 %      --
 #: =========================  ===========  =========
 #:
 #: The ordering is the tell: ga6 -- the Appendix A airplane, the one fixture whose
@@ -345,6 +347,11 @@ _PITCH_RESIDUAL_RATCHET = {
 #: for clamped cases too). The same lift-model reading at a point where the
 #: tail load is a larger share of the balance; pitch stays at a tenth of its
 #: gate on both. Ratchets re-pinned; the ATR's and heavy's absorb theirs.
+#: **Re-measured 2026-09-20 (#291, the heavy's polar re-entered).** With the
+#: polar's minimum moved to the wing's zero-alpha lift coefficient, every
+#: heavy case's non-wing drag shrinks and its symmetric worst falls from
+#: 1.994 % (PHAA) to 1.214 % (still PHAA); the table above is the re-measured
+#: value and the ratchet follows it.
 _FORCE_RESIDUAL_RATCHET = {
     "ga6_normal.project.json": {"symmetric": 0.0120, "lateral": 0.0030,
                                 "unsymmetrical": 0.0030},
@@ -356,7 +363,8 @@ _FORCE_RESIDUAL_RATCHET = {
     # fixture-data pattern of #271 on a case that never assembled before).
     "baron_58.project.json": {"symmetric": 0.0135, "lateral": 0.0015,
                               "unsymmetrical": 0.0005},
-    "concept_heavy.project.json": {"symmetric": 0.0200, "lateral": 0.0030,
+    # concept_heavy re-pinned 2026-09-20 (#291): PHAA 1.214 %.
+    "concept_heavy.project.json": {"symmetric": 0.0125, "lateral": 0.0030,
                                    "unsymmetrical": 0.0030},
     "concept_regional_jet.project.json": {"symmetric": 0.0165, "lateral": 0.0035,
                                           "unsymmetrical": 0.0040},
@@ -397,29 +405,37 @@ FORCE_RESIDUAL_CEILING = FORCE_RESIDUAL_ACCEPTANCE
 #: regional jet's NHAA (STALL −N, alpha −18.7 deg) clamps at 1.60 % / 0.68 %.
 #: Re-measured 2026-09-18 (#292): the Baron's NHAA first assembles, at the
 #: seeded `mzfw aft` loading (alpha outside the window), 0.15 % / 0.002 %.
+#: Re-measured 2026-09-20 (#291): the heavy's polar re-entered with its
+#: minimum at the wing's zero-alpha CL; its NHAA (STALL −N, alpha −14.2 deg)
+#: still comes out forward outside the window and still clamps, at 0.24 % /
+#: 0.65 % (0.54 % / 2.09 % before -- the same defect, smaller by the linear
+#: term).
 _CLAMPED_BODY_AXIAL = {
     "atr42_100.project.json": {"NHAA": (0.0030, 0.0165),
                                "NMAA": (0.0005, 0.0085)},
     "baron_58.project.json": {"NHAA": (0.0020, 0.0005)},
-    "concept_heavy.project.json": {"NHAA": (0.0060, 0.0220)},
+    "concept_heavy.project.json": {"NHAA": (0.0030, 0.0070)},
     "concept_regional_jet.project.json": {"PHAA": (0.0110, 0.0065),
                                           "ACRL": (0.0020, 0.0020),
                                           "NHAA": (0.0165, 0.0075)},
 }
 
 #: A forward non-wing axial force **inside** the trusted window is a fixture
-#: aero-data defect and is not clamped (design note 20 D-4); this records the
-#: one shipped instance rather than excusing it silently. ``concept_heavy``'s
-#: NMAA is MAN −C at −2.0 g and alpha −9.8 deg since note 62 narrowed the slot
-#: (2026-09-17, #288) -- 0.2 deg inside the window's lower edge on a concept
-#: fixture with a crude polar, where the previous NMAA point (STALL −N, −14.3
-#: deg, now NHAA's) was outside it and clamped. The number that parks it: dCD
-#: +0.0169 against a −0.0131…−0.1385 band elsewhere on the fixture. The
-#: fixture's polar is the fix, not the gate; an entry here is asserted to
-#: still be forward, so it cannot outlive the defect it records.
-_DELTA_CD_FORWARD_INSIDE_WINDOW = {
-    "concept_heavy.project.json": {"NMAA": 0.0170},
-}
+#: aero-data defect and is not clamped (design note 20 D-4); this records a
+#: shipped instance with its number rather than excusing it silently, and an
+#: entry here is asserted to still be forward, so it cannot outlive the defect
+#: it records. **Empty since 2026-09-20 (#291).** The one instance was
+#: ``concept_heavy``'s NMAA (MAN −C at −2.0 g, alpha −9.8 deg, 0.2 deg inside
+#: the window's lower edge once note 62 narrowed the slot, #288): dCD +0.0169.
+#: The cause was the polar, not the point -- the heavy's ``CD = 0.025 +
+#: 0.05·CL²`` had its minimum at ``CL = 0`` on a wing whose lift fit reads
+#: ``CL = 0.3`` at zero alpha, so at negative CL the polar under-read the
+#: airplane's drag by the missing ``CL``-linear term. Re-entered as ``CD =
+#: 0.0295 − 0.03·CL + 0.05·CL²`` (the same quadratic, minimum moved to the
+#: zero-alpha CL), NMAA reads −0.0039 and every heavy case inside the window is
+#: negative. The dict stays so that the next instance has somewhere to be
+#: recorded with its number.
+_DELTA_CD_FORWARD_INSIDE_WINDOW: dict = {}
 
 #: The hard stop on a clamped case's pitch residual, the pitch twin of
 #: :data:`FORCE_RESIDUAL_CEILING`. Above this the un-applied force is no longer
@@ -1098,7 +1114,10 @@ _DELTA_CD_BAND = {
     # lateral cases at `aft gross`.
     'baron_58.project.json': (-0.0727, -0.0001),
     'dhc8_dash8.project.json': (-0.1061, -0.0018),
-    'concept_heavy.project.json': (-0.1385, +0.0398),
+    # concept_heavy re-pinned 2026-09-20 (#291): polar re-entered with its
+    # minimum at the zero-alpha CL; PHAA -0.0898, the clamped NHAA +0.0084
+    # (was -0.1385 .. +0.0397, with NMAA forward inside the window).
+    'concept_heavy.project.json': (-0.0899, +0.0085),
     'concept_regional_jet.project.json': (-0.0372, +0.0726),
 }
 
