@@ -315,7 +315,7 @@ tuples:
    | baron_58 | STALL −N case 28, −1.46 g, 134.2 kt, fwd gross, 0 ft, R 8,011 | GUST −C case 113, −2.35 g, 195 kt, fwd regardless, 10,000 ft, R 9,844 | GUST −D case 112, −1.21 g, 248 kt, fwd regardless, 10,000 ft, R 4,884 |
    | atr42_100 | STALL −N case 128, −1.00 g, 170.9 kt, fwd gross, 12,000 ft, R 36,841 | MAN −C case 227, −1.00 g, 183.3 kt, fwd gross, 25,000 ft, R 36,594 | GUST −D case 172, −0.63 g, 300 kt, min weight, 12,000 ft, R 12,055 |
    | concept_regional_jet | STALL −N case 128, −1.00 g, 150.5 kt, fwd gross, 20,000 ft, R 34,454 | GUST −C case 173, −1.80 g, 310 kt, min weight, 20,000 ft, R 35,650 | GUST −D case 172, −0.80 g, 350 kt, min weight, 20,000 ft, R 14,457 |
-   | concept_heavy | STALL −N case 8, −2.00 g, 195.3 kt, CGmax, 0 ft, R 32,463 | MAN −C case 7, −2.00 g, 250 kt, CGmax, 0 ft, R 32,367 | GUST −D case 12, −0.02 g, 312.5 kt, CGmax, 0 ft, R 2,335 |
+   | concept_heavy | STALL −N case 8, −2.00 g, 195.3 kt, CGmax, 0 ft, R 32,405 (32,463 before #291) | MAN −C case 7, −2.00 g, 250 kt, CGmax, 0 ft, R 32,273 (32,367) | GUST −D case 12, −0.02 g, 312.5 kt, CGmax, 0 ft, R 2,752 (2,335) |
 
    And the load-factor pair (D-62.8), with the coincidence rule applied:
 
@@ -419,7 +419,18 @@ and `airloads` did not move on any fixture.
    is — a fixture aero-data defect in the heavy's crude polar. Recorded with
    its number in `tests/test_balance.py::_DELTA_CD_FORWARD_INSIDE_WINDOW`,
    asserted both ways so it cannot outlive the defect; the fix is the
-   fixture's polar, filed as **#291**.
+   fixture's polar, filed as **#291**. **Resolved 2026-09-20 (#291):** the
+   cause was the polar's shape, not the point — `CD = 0.025 + 0.05·CL²` has
+   its minimum at `CL = 0` on a wing whose lift fit reads `CL = 0.3` at zero
+   alpha, so at negative CL it under-read the drag by the missing linear
+   term. Re-entered as `CD = 0.0295 − 0.03·CL + 0.05·CL²` (same quadratic,
+   minimum at the zero-alpha CL); NMAA reads dCD −0.0039, every heavy case
+   inside the window is negative, the record is empty, and NHAA (outside the
+   window) still clamps at 0.24 % / 0.65 %. The heavy's sixteen digest
+   channels moved, `balance` through the decks, since the polar enters every
+   balanced point's drag; the same picks win every slot, and §4's heavy
+   resultants (G-62.2's frozen table) are re-pinned with the old values
+   beside them.
 4. **Ratchets and clamps re-pinned with the cause stated** (in
    `test_balance.py`): NHAA clamps on the ATR, the RJ and the heavy (stall-line
    alpha −12.8 / −18.7 / −14.3°, the point that clamped under NMAA's name

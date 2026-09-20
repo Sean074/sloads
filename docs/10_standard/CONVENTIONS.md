@@ -147,8 +147,8 @@ file + symbol is the anchor.
   - **The scale is `n·W` with `n` floored at 1 g** (`BalancedCaseResult.gate_load_factor`,
     #288, 2026-09-17). A case near 0 g still balances a weight of lift against a
     weight of inertia; the *net* is what is near zero, and a residual stated
-    against the net reads 31 % where it is 0.75 % of the loads the case carries
-    (`concept_heavy`'s NLAA, a −0.024 g VD gust). Every case above 1 g is
+    against the net reads 37 % where it is 0.9 % of the loads the case carries
+    (`concept_heavy`'s NLAA, a −0.024 g VD gust; re-measured at #291). Every case above 1 g is
     unchanged by the floor; the relief fraction reads the same owner.
 - **A residual the airplane is not meant to balance is reported, never gated**
   (plan 11 §10, extended by plan 13 decision L-5, 2026-08-09). Two of the six DOF

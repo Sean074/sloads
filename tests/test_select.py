@@ -109,10 +109,13 @@ _FROZEN_PICKS = {
         "PNZ": ("GUST +C", +3.80, 310.0, "min weight", 20000.0, 82102),
         "NNZ": None,
     },
+    # Resultants re-pinned 2026-09-20 (#291): the heavy's polar re-entered
+    # with its minimum at the zero-alpha CL, so every point's drag moved; the
+    # picks, load factors and speeds did not.
     "concept_heavy": {
-        "NHAA": ("STALL -N", -2.00, 195.3, "CGmax", 0.0, 32463),
-        "NMAA": ("MAN -C", -2.00, 250.0, "CGmax", 0.0, 32367),
-        "NLAA": ("GUST -D", -0.02, 312.5, "CGmax", 0.0, 2335),
+        "NHAA": ("STALL -N", -2.00, 195.3, "CGmax", 0.0, 32405),
+        "NMAA": ("MAN -C", -2.00, 250.0, "CGmax", 0.0, 32273),
+        "NLAA": ("GUST -D", -0.02, 312.5, "CGmax", 0.0, 2752),
         "PNZ": None,
         "NNZ": None,
     },
