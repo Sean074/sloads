@@ -49,21 +49,21 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `weight.cg_cases[].xcg` | `float` |  | `**required**` | original | FLTLOADS.BAS CG station of the case |
 | `weight.cg_cases[].zcg` | `float` |  | `**required**` | original | FLTLOADS.BAS CG waterline of the case |
 | `weight.cg_cases[].analyses` | `set[AnalysisKind]` |  | `{<AnalysisKind.FLIGHT: 'flight'>} (factory)` | sloads (supplied) | which analyses use this case, Step D5 -- the original recorded it by which program's screen the case was typed into. Load-bearing (G5): the default {FLIGHT} loses every ground case |
-| `weight.cg_cases[].loading.aboard` | `List[str]` |  | `[] (factory)` | sloads | loading definition, decision D-25 |
-| `weight.cg_cases[].loading.fractions` | `dict[str, float]` |  | `{} (factory)` | sloads | loading definition, decision D-25 |
-| `weight.cg_cases[].loading.ballast.name` | `str` |  | `**required**` | sloads | ballast item, decision D-25 |
-| `weight.cg_cases[].loading.ballast.weight_lb` | `float` | lb | `**required**` | sloads | ballast item, decision D-25 |
-| `weight.cg_cases[].loading.ballast.x` | `float` |  | `0.0` | sloads | ballast item, decision D-25 |
-| `weight.cg_cases[].loading.ballast.y` | `float` |  | `0.0` | sloads | ballast item, decision D-25 |
-| `weight.cg_cases[].loading.ballast.z` | `float` |  | `0.0` | sloads | ballast item, decision D-25 |
-| `weight.cg_cases[].loading.ballast.ixx` | `float` |  | `0.0` | sloads | ballast item, decision D-25 |
-| `weight.cg_cases[].loading.ballast.iyy` | `float` |  | `0.0` | sloads | ballast item, decision D-25 |
-| `weight.cg_cases[].loading.ballast.izz` | `float` |  | `0.0` | sloads | ballast item, decision D-25 |
-| `weight.cg_cases[].loading.ballast.kind` | `MassItemKind` |  | `MassItemKind.EMPTY` | sloads | ballast item, decision D-25 |
-| `weight.cg_cases[].loading.ballast.component` | `Optional[MassComponent]` |  | `None` | sloads | ballast item, decision D-25 |
-| `weight.cg_cases[].loading.ballast.consumable` | `bool` |  | `False` | sloads | ballast item, decision D-25 |
-| `weight.cg_cases[].loading.ballast.wing_fraction` | `float` |  | `0.0` | sloads | ballast item, decision D-25 |
-| `weight.cg_cases[].loading.ballast.carriage` | `WingCarriage` |  | `WingCarriage.PANEL` | sloads | ballast item, decision D-25 |
+| `weight.cg_cases[].loading.aboard` | `List[str]` |  | `[] (factory)` | sloads | which discretionary weight items are aboard for this case (decision D-25b): the loading is the mass state every inertia load reads (design note 63 D-63.1), and the original suite had no such statement -- FLTLOADS took a weight and a CG |
+| `weight.cg_cases[].loading.fractions` | `dict[str, float]` |  | `{} (factory)` | sloads | how full each consumable or part-filled discretionary row aboard is, (0, 1] (decision D-25b, design note 63 D-63.5): a part-full tank keeps its station, a clipped hold keeps its place; 1 is whole and is not written |
+| `weight.cg_cases[].loading.ballast.name` | `str` |  | `**required**` | sloads | a ballast row of an entered loading (decision D-25b/D-25d): real stress or flight-test ballast the case carries, a full weight item of its own -- its name |
+| `weight.cg_cases[].loading.ballast.weight_lb` | `float` | lb | `**required**` | sloads | a ballast row of an entered loading (decision D-25b/D-25d): real stress or flight-test ballast the case carries, a full weight item of its own -- its weight |
+| `weight.cg_cases[].loading.ballast.x` | `float` |  | `0.0` | sloads | a ballast row of an entered loading (decision D-25b/D-25d): real stress or flight-test ballast the case carries, a full weight item of its own -- its station |
+| `weight.cg_cases[].loading.ballast.y` | `float` |  | `0.0` | sloads | a ballast row of an entered loading (decision D-25b/D-25d): real stress or flight-test ballast the case carries, a full weight item of its own -- its butt line |
+| `weight.cg_cases[].loading.ballast.z` | `float` |  | `0.0` | sloads | a ballast row of an entered loading (decision D-25b/D-25d): real stress or flight-test ballast the case carries, a full weight item of its own -- its waterline, required because the case's zcg is checked against it (D-25a) |
+| `weight.cg_cases[].loading.ballast.ixx` | `float` |  | `0.0` | sloads | a ballast row of an entered loading (decision D-25b/D-25d): real stress or flight-test ballast the case carries, a full weight item of its own -- its own roll inertia |
+| `weight.cg_cases[].loading.ballast.iyy` | `float` |  | `0.0` | sloads | a ballast row of an entered loading (decision D-25b/D-25d): real stress or flight-test ballast the case carries, a full weight item of its own -- its own pitch inertia |
+| `weight.cg_cases[].loading.ballast.izz` | `float` |  | `0.0` | sloads | a ballast row of an entered loading (decision D-25b/D-25d): real stress or flight-test ballast the case carries, a full weight item of its own -- its own yaw inertia |
+| `weight.cg_cases[].loading.ballast.kind` | `MassItemKind` |  | `MassItemKind.EMPTY` | sloads | a ballast row of an entered loading (decision D-25b/D-25d): real stress or flight-test ballast the case carries, a full weight item of its own -- its kind, which must be discretionary (D-25 semantics 3) |
+| `weight.cg_cases[].loading.ballast.component` | `Optional[MassComponent]` |  | `None` | sloads | a ballast row of an entered loading (decision D-25b/D-25d): real stress or flight-test ballast the case carries, a full weight item of its own -- the component that carries it, the fuselage as a rule |
+| `weight.cg_cases[].loading.ballast.consumable` | `bool` |  | `False` | sloads | a ballast row of an entered loading (decision D-25b/D-25d): real stress or flight-test ballast the case carries, a full weight item of its own -- whether it burns off, which ballast does not |
+| `weight.cg_cases[].loading.ballast.wing_fraction` | `float` |  | `0.0` | sloads | a ballast row of an entered loading (decision D-25b/D-25d): real stress or flight-test ballast the case carries, a full weight item of its own -- the share of it the wing carries (design note 29 WF-3) |
+| `weight.cg_cases[].loading.ballast.carriage` | `WingCarriage` |  | `WingCarriage.PANEL` | sloads | a ballast row of an entered loading (decision D-25b/D-25d): real stress or flight-test ballast the case carries, a full weight item of its own -- PANEL or POINT on the wing (design note 63 D-63.3) |
 | `select_input.wing_weight_lb` | `float` | lb | `0.0` | original | SELECT wing weight, Ch 9; a weight quantity, edited with the weight data (#95, C210-22 -- the 0 -> 0.09*MTOW fallback was undisclosed on the page); override of `external: the Ch 9 statistical stand-in 0.09 x MTOW (select.select_fuselage; the items table's wing-component sum is the better number to type -- both-sides total wing group weight)` |
 | `tail_mass[].surface` | `str` | "htail" \| "vtail" | `'htail'` | sloads (supplied) | row selector -- which tail surface the row describes; load-bearing (G5, #98): an unmatched row is refused by name where it used to be silently inert |
 | `tail_mass[].panel_weight_lb` | `float` | whole surface (both sides for the h-tail) | `0.0` | sloads | empennage distributed inertia -- sloads spreads tail panel mass along the beam model, where the original suite took a single tail weight (plan 09 T-3) |

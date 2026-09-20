@@ -140,7 +140,7 @@ applied.
 | **D-63.7** *(amended 2026-09-17, R-63.2)* | **Each SELECT wing slot runs at every FLIGHT mass state, and the net-governing variant is the delivered case.** The Wing Loads step expands the ten slots (note 62) × the FLIGHT cases **regardless of `wing_mass.cases`** — an entered table is a *filter* on which slots run, never a second source of points (this narrows M4-2 decision 2's "explicit entries always win" to the slot list). For slot *s* and case *k*, the air load is that family's own winning V-n point balanced at *k* (SELECT's per-family criterion applied within case *k*), the inertia is *k*'s loading. Each variant is an existing V-n point — a **run** with its own identity (D-63.11). The governing variant is the one with the extreme **signed root `Mxx` at the loads reference axis** — largest for the positive slots, most negative for the negative ones (not "resultant": root bending is a signed moment). **The slot is a role the down-select assigns to one run:** SELECT's delivered `CriticalCondition` for the slot *is* the governing run — SELECT's air pick per family stays a queryable intermediate (`select.air_picks`, what the Appendix A test asserts) and an assessed row in the variant table without a W id, and the slot's condition is re-pointed to the governing run before anything downstream (index, deck, report) reads it. The W-nn id is the slot's (W-01…W-10, note 62 D-62.3) and the deck subcase number derives from it as today; the run key (D-63.11) names the point. The report's wing table lists every variant with the governing one marked; the balanced deck's mass set for the subcase is the governing run's loading, so the deck and the net table describe one state. | Ruling 3, and the only way an MZFW case can govern a slot the air pick gave to MTOW. One id per physical condition (M4-2 decision 1) holds because the slot id and the run key are two different things (D-63.11): SELECT's air pick and the governing variant are two runs with two run keys, and only one carries the slot. The count is 10 × 5–8, cheap. |
 | **D-63.11** *(owner, R-63.2, 2026-09-17)* | **`CaseRef` carries the run key beside the slot id.** The run key is the composite that names a balanced point without reference to its position in the matrix: **manoeuvre label, CG case name, altitude, configuration** — the tuple G-62.2 already uses to survive the #164 renumber. `CaseRef` gains `run: str` (the manoeuvre label, e.g. `"GUST +C"`) and `config: str`; `cg`, `speed_kt`, `altitude_ft` already exist. The V-n `case` integer stays as a convenience and is never identity. **The slot id is the deliverable's number, the run key is the condition's name:** the case index keys its rows on the run key with the slot as a column, every deck subcase's `$` header states both (`SUBCASE 5101  W-01 PHAA  —  STALL +N, CG2, 0 ft, clean`), and `subcase_id`/`balanced_subcase_id` stay pure functions of the slot id so persisted `selected_case_ids` and exported decks do not move. `CONVENTIONS.md` §4 (case identity) and note 22 gain the one paragraph that says this. | The user's model (2026-09-17): every run of payload case × manoeuvre × speed/altitude × variation gets its own identifier at generation, the down-select picks the critical ones, and *their names stay*. FLTLOADS already generates that matrix; the missing piece was a run identity that does not float with the matrix size and is not confused with the slot. Nastran/sbeam need a small stable integer per subcase, which is what the slot band gives and a run-derived number could not. |
 | **D-63.8** | **`body_loads` reads the case's loading**: `fuselage_beam_stations(project, loading)` lumps that loading's body parts — the entered loading, else the search fallback of D-63.1. The override table stays one per project (an override is one table, not one per state) and validation warns when an override is set on a project whose FLIGHT loadings differ in body mass by more than the tie tolerance. **This is a stated correction, not an oracle-locked read (owner, R-63.1, 2026-09-17):** today the Ch 15 beam integrates the *whole* item database at every fuselage condition — on `ga6_normal` 3,070 lb of body mass at the GREATEST NZ condition, whose CG4 airplane weighs 2,063 lb and carries 1,733 lb of body mass; AFT DOWN BENDING at CG3 integrates 3,070 against 2,470; MAX DOWN LOAD ON WING at CG2 keeps its total but moves the sixth occupant out and 248 lb of ballast in; AFT UP BENDING at CG1 is unchanged. Ch 15 prints no station table, so the body distributions are closure-locked, not oracle-locked, and the closure holds per condition either way. | Note 50's derivation was whole-database because there was no per-case read; there is now. A whole-database fallback would keep the defect on every fixture until #290 and leave the body reading a different mass state from the deck's. |
-| **D-63.9** *(split to its own tier M issue **#290**, owner 2026-09-17; lands directly after #289)* | **The Payload Cases tab gains the loading editor**: per case, the discretionary rows aboard (checkboxes), a fraction on each consumable row aboard, an optional ballast row, and the echo check beside the entered weight/CG (D-25a). The Wing Loads page loses its mass table and shows the per-case WING parts read-only. | Ruling 1. D-25 shipped without a GUI; a state that can only be typed in JSON is not entered. |
+| **D-63.9** *(split to its own tier M issue **#290**, owner 2026-09-17; lands directly after #289; **shipped 2026-09-18**, §12)* | **The Payload Cases tab gains the loading editor**: per case, the discretionary rows aboard (checkboxes), a fraction on each consumable row aboard, an optional ballast row, and the echo check beside the entered weight/CG (D-25a). The Wing Loads page loses its mass table and shows the per-case WING parts read-only. | Ruling 1. D-25 shipped without a GUI; a state that can only be typed in JSON is not entered. |
 | **D-63.10** *(amended 2026-09-17, R-63.1/R-63.3)* | **Oracle unchanged, twin movements stated.** `ga6_normal`: derived panel 165 = entered; no POINT rows; no loading → search fallback → WINGINER, NETLOADS, the deck's wing sets and CONM2 bit-for-bit; `body_loads` moves as gate 1 states (R-63.1). `baron_58` closure figures move by two stated causes: the `concentrated` duplicate goes and the lumped engine at x 48 becomes the item rows at x 30/50/55 (BL 66 kept through the POINT stamp), so PHAA/TORS torsion moves by the station change; the ATR and concept_heavy wing distributions move by the fuel re-slicing of D-63.4. Every moved figure is measured in the PR and stated in the fragment. | Rule 2 and CLAUDE.md's oracle lock. |
 
 ## 4. Gates (benchmark-first)
@@ -544,3 +544,48 @@ What #292 delivered against §4 (the full account is
   subcase mass set follows the delivered run's CG case by construction
   (`balance/air.py` looks the loading up by the point's case). One Imperial
   digest wave; `04_far25_gap_analysis.md` 25.321 to **A**.
+
+## 12. Shipped: the loading editor (#290, 2026-09-18)
+
+What #290 delivered against D-63.9 (the paragraph of record is
+`changes/loading-editor.history.md`):
+
+- **The editor, inside the case's row.** The one generic renderer gained
+  a record-inside-a-list-row shape (`oracle_app.form.render_nested`,
+  `nested_prefix`): a CG case's `loading` renders under the case's own
+  fields, added and removed by a named click as an Optional record is one
+  level up (#143), so visiting the page attaches nothing. *Add loading*
+  enters the searched loading **as found** —
+  `mass_distribution.loading_definition_of`, the one construction the
+  fixtures use too — so the gesture moves no load. **One amendment to the
+  row's wording:** the rows aboard are a *multiselect* over the
+  `DISCRETIONARY` items rather than a checkbox per row (the same statement,
+  one widget, and a name the project no longer carries stays visible
+  instead of vanishing); a fraction widget exists for every row that may
+  be partial (a consumable row aboard, implicitly or by name, and a named
+  discretionary row — D-63.5's clipped hold), `1` being whole and not
+  written; the ballast is a second named gesture inside the first, all of
+  its `MassItem` fields on the page. The D-25a echo is a caption from
+  `entered_loading` and the two tolerance owners, loud when the loading
+  stops producing the case. The 15 `loading.*` registry rows left
+  `JSON_ONLY_RECORDS` for the extension tier with their bases stated; the
+  tier gate (`tests/test_oracle_gui.py`) re-derives addressability through
+  `nested_record_class` and the class holds one entry, the rotors.
+- **The read-only views.** `mass_distribution.mass_case_summary` (the
+  Mass cases table on the Weight & Mass Properties page, one row per CG
+  case: id, name, role, analyses, entered W/Xcg/%MAC/Zcg, the loading's
+  own W/Xcg/Zcg and the echo, fuel by the item `consumable` flag, payload,
+  ballast lb and %, wing panel and points per side, source with reason)
+  and `wing_parts_summary` (the Wing Loads page's per-case WING parts,
+  panel first). Both read `derive_case_loadings`, `wing_mass_state` and the
+  item flag and compute nothing (gated in `tests/test_one_mass_model.py`);
+  the GUI renders them under the group through `form.GROUP_TABLES`.
+- **`case_loading_missing`** ships as D-63.1 said: concept mode, a FLIGHT
+  case whose loading the search derives and nobody entered, on the page
+  that enters it; the search's failure stays
+  `wing_case_loading_not_derivable`'s. The two concept fixtures enter their
+  five WTENV cases as found (`loading_definition_of`), so it fires on no
+  shipped fixture and the replay gate holds the item set, weight and CG
+  exactly; the Baron stays searched, its two non-derivable cases being the
+  editor's demonstration. Digest movers: the ATR's and the jet's `entered`
+  column and mass-state labels only.

@@ -884,6 +884,11 @@ _LAND = "landing_loads"
 #    oracle GUI must still offer it; that is the whole point of OG-7.
 
 
+#: The basis every field of an entered loading's ballast row shares (#290).
+_BALLAST_BASIS = (
+    "a ballast row of an entered loading (decision D-25b/D-25d): real stress or "
+    "flight-test ballast the case carries, a full weight item of its own")
+
 REGISTRY: Tuple[FieldEntry, ...] = (
     # ----------------------------------------------------------------- #
     # geometry -- WINGGEOM (configuration_layout)
@@ -1260,21 +1265,36 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "which analyses use this case, Step D5 -- the original recorded it by which program's screen "
        "the case was typed into. Load-bearing (G5): the default {FLIGHT} loses every ground case",
        supplied=True),
-    _E("weight.cg_cases[].loading.aboard", _WT, _SLDS, "loading definition, decision D-25"),
-    _E("weight.cg_cases[].loading.fractions", _WT, _SLDS, "loading definition, decision D-25"),
-    _E("weight.cg_cases[].loading.ballast.name", _WT, _SLDS, "ballast item, decision D-25"),
-    _E("weight.cg_cases[].loading.ballast.weight_lb", _WT, _SLDS, "ballast item, decision D-25"),
-    _E("weight.cg_cases[].loading.ballast.x", _WT, _SLDS, "ballast item, decision D-25"),
-    _E("weight.cg_cases[].loading.ballast.y", _WT, _SLDS, "ballast item, decision D-25"),
-    _E("weight.cg_cases[].loading.ballast.z", _WT, _SLDS, "ballast item, decision D-25"),
-    _E("weight.cg_cases[].loading.ballast.ixx", _WT, _SLDS, "ballast item, decision D-25"),
-    _E("weight.cg_cases[].loading.ballast.iyy", _WT, _SLDS, "ballast item, decision D-25"),
-    _E("weight.cg_cases[].loading.ballast.izz", _WT, _SLDS, "ballast item, decision D-25"),
-    _E("weight.cg_cases[].loading.ballast.kind", _WT, _SLDS, "ballast item, decision D-25"),
-    _E("weight.cg_cases[].loading.ballast.component", _WT, _SLDS, "ballast item, decision D-25"),
-    _E("weight.cg_cases[].loading.ballast.consumable", _WT, _SLDS, "ballast item, decision D-25"),
-    _E("weight.cg_cases[].loading.ballast.wing_fraction", _WT, _SLDS, "ballast item, decision D-25"),
-    _E("weight.cg_cases[].loading.ballast.carriage", _WT, _SLDS, "ballast item, decision D-25"),
+    # The case's loading (decision D-25; the mass state of every inertia load,
+    # design note 63 D-63.1). A record inside a list row, entered on the case
+    # itself since #290 (D-63.9); the JSON alone before that.
+    _E("weight.cg_cases[].loading.aboard", _WT, _SLDS,
+       "which discretionary weight items are aboard for this case (decision D-25b): the "
+       "loading is the mass state every inertia load reads (design note 63 D-63.1), and "
+       "the original suite had no such statement -- FLTLOADS took a weight and a CG"),
+    _E("weight.cg_cases[].loading.fractions", _WT, _SLDS,
+       "how full each consumable or part-filled discretionary row aboard is, (0, 1] "
+       "(decision D-25b, design note 63 D-63.5): a part-full tank keeps its station, "
+       "a clipped hold keeps its place; 1 is whole and is not written"),
+    _E("weight.cg_cases[].loading.ballast.name", _WT, _SLDS, _BALLAST_BASIS + " -- its name"),
+    _E("weight.cg_cases[].loading.ballast.weight_lb", _WT, _SLDS, _BALLAST_BASIS + " -- its weight"),
+    _E("weight.cg_cases[].loading.ballast.x", _WT, _SLDS, _BALLAST_BASIS + " -- its station"),
+    _E("weight.cg_cases[].loading.ballast.y", _WT, _SLDS, _BALLAST_BASIS + " -- its butt line"),
+    _E("weight.cg_cases[].loading.ballast.z", _WT, _SLDS,
+       _BALLAST_BASIS + " -- its waterline, required because the case's zcg is checked against it (D-25a)"),
+    _E("weight.cg_cases[].loading.ballast.ixx", _WT, _SLDS, _BALLAST_BASIS + " -- its own roll inertia"),
+    _E("weight.cg_cases[].loading.ballast.iyy", _WT, _SLDS, _BALLAST_BASIS + " -- its own pitch inertia"),
+    _E("weight.cg_cases[].loading.ballast.izz", _WT, _SLDS, _BALLAST_BASIS + " -- its own yaw inertia"),
+    _E("weight.cg_cases[].loading.ballast.kind", _WT, _SLDS,
+       _BALLAST_BASIS + " -- its kind, which must be discretionary (D-25 semantics 3)"),
+    _E("weight.cg_cases[].loading.ballast.component", _WT, _SLDS,
+       _BALLAST_BASIS + " -- the component that carries it, the fuselage as a rule"),
+    _E("weight.cg_cases[].loading.ballast.consumable", _WT, _SLDS,
+       _BALLAST_BASIS + " -- whether it burns off, which ballast does not"),
+    _E("weight.cg_cases[].loading.ballast.wing_fraction", _WT, _SLDS,
+       _BALLAST_BASIS + " -- the share of it the wing carries (design note 29 WF-3)"),
+    _E("weight.cg_cases[].loading.ballast.carriage", _WT, _SLDS,
+       _BALLAST_BASIS + " -- PANEL or POINT on the wing (design note 63 D-63.3)"),
 
     # ----------------------------------------------------------------- #
     # speeds -- STRSPEED + MACHLIM (structural_speeds)
@@ -1844,21 +1864,23 @@ class Tier(Enum):
     SUITE = "suite"
     #: Capability sloads added. Renders, marked, with its ``basis`` stated.
     EXTENSION = "extension"
-    #: Renders nowhere: its record lives inside a list row, which no widget can
-    #: address. Entered through the JSON editor; see :data:`JSON_ONLY_RECORDS`.
+    #: Renders nowhere: its record is a list inside a list row, which no widget
+    #: can address. Entered through the JSON editor; see :data:`JSON_ONLY_RECORDS`.
     JSON_ONLY = "json_only"
 
 
 #: Records the GUI cannot build, each with the reason — note 57 gate 3's second
 #: clause, *"or carries a documented JSON-only classification with a reason"*.
 #:
-#: The reason is the same for all three and it is structural, not a preference:
-#: the record's path crosses a ``[]`` hop, so addressing it means naming *which
-#: row*, and :func:`oracle_app.form.record_at` has no way to say that -- it
-#: returns ``None``, and :func:`~oracle_app.form.rows_at` returns a list
-#: detached from the project. A widget there would take an edit and drop it.
-#: These are entered in the Project JSON Editor (D-57.3), which is why that row
-#: was sequenced first.
+#: The reason is structural, not a preference: the record's path crosses a
+#: ``[]`` hop *and then a second list*, so addressing it means naming which
+#: row's list, and :func:`~oracle_app.form.rows_at` has no way to say that --
+#: it returns a list detached from the project, and a widget there would take
+#: an edit and drop it. These are entered in the Project JSON Editor (D-57.3),
+#: which is why that row was sequenced first. A *record* inside a list row --
+#: a CG case's ``loading`` -- is addressed through the row it sits on since
+#: #290 (design note 63 D-63.9, :func:`oracle_app.form.render_nested`), so it
+#: is no longer in this class; the class held three entries until then.
 #:
 #: Declared here rather than in the GUI because it is registry knowledge: *which
 #: fields this project can offer a widget for* is a property of the schema's
@@ -1868,12 +1890,6 @@ JSON_ONLY_RECORDS: Dict[str, str] = {
     "engines[].rotors[]":
         "a list inside a list row -- the rotor set of one engine. Entered in "
         "the Project JSON Editor until a nested-row shape exists.",
-    "weight.cg_cases[].loading":
-        "a record inside a list row -- the loading state of one CG case. "
-        "Entered in the Project JSON Editor.",
-    "weight.cg_cases[].loading.ballast":
-        "a list inside a record inside a list row -- the ballast items of one "
-        "CG case's loading. Entered in the Project JSON Editor.",
 }
 
 

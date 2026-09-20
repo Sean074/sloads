@@ -530,7 +530,31 @@
         "zcg": 137.04,
         "analyses": [
           "flight"
-        ]
+        ],
+        "loading": {
+          "aboard": [
+            "Passengers, fwd cabin (24)",
+            "Cargo, fwd hold",
+            "Cargo, aft hold",
+            "Wing fuel, left",
+            "Wing fuel, right"
+          ],
+          "ballast": {
+            "name": "Ballast (aft gross)",
+            "weight_lb": 3116.0,
+            "x": 512.3889666238766,
+            "y": 0.0,
+            "z": 137.03680359435162,
+            "ixx": 0.0,
+            "iyy": 0.0,
+            "izz": 0.0,
+            "kind": "discretionary",
+            "component": "fuselage",
+            "consumable": false,
+            "wing_fraction": 0.0,
+            "carriage": "panel"
+          }
+        }
       },
       {
         "name": "fwd gross",
@@ -539,7 +563,31 @@
         "zcg": 137.04,
         "analyses": [
           "flight"
-        ]
+        ],
+        "loading": {
+          "aboard": [
+            "Passengers, fwd cabin (24)",
+            "Cargo, fwd hold",
+            "Cargo, aft hold",
+            "Wing fuel, left",
+            "Wing fuel, right"
+          ],
+          "ballast": {
+            "name": "Ballast (fwd gross)",
+            "weight_lb": 3116.0,
+            "x": 337.28372272143775,
+            "y": 0.0,
+            "z": 137.03680359435162,
+            "ixx": 0.0,
+            "iyy": 0.0,
+            "izz": 0.0,
+            "kind": "discretionary",
+            "component": "fuselage",
+            "consumable": false,
+            "wing_fraction": 0.0,
+            "carriage": "panel"
+          }
+        }
       },
       {
         "name": "fwd regardless",
@@ -548,7 +596,29 @@
         "zcg": 140.12,
         "analyses": [
           "flight"
-        ]
+        ],
+        "loading": {
+          "aboard": [
+            "Cargo, fwd hold",
+            "Wing fuel, left",
+            "Wing fuel, right"
+          ],
+          "ballast": {
+            "name": "Ballast (fwd regardless)",
+            "weight_lb": 1429.0,
+            "x": 250.9230230930721,
+            "y": 0.0,
+            "z": 143.77536738978307,
+            "ixx": 0.0,
+            "iyy": 0.0,
+            "izz": 0.0,
+            "kind": "discretionary",
+            "component": "fuselage",
+            "consumable": false,
+            "wing_fraction": 0.0,
+            "carriage": "panel"
+          }
+        }
       },
       {
         "name": "min weight",
@@ -557,7 +627,8 @@
         "zcg": 130.65,
         "analyses": [
           "flight"
-        ]
+        ],
+        "loading": {}
       },
       {
         "name": "mid gross",
@@ -566,7 +637,30 @@
         "zcg": 137.04,
         "analyses": [
           "flight"
-        ]
+        ],
+        "loading": {
+          "aboard": [
+            "Passengers, fwd cabin (24)",
+            "Passengers, aft cabin (24)",
+            "Wing fuel, left",
+            "Wing fuel, right"
+          ],
+          "ballast": {
+            "name": "Ballast (mid gross)",
+            "weight_lb": 236.0,
+            "x": 158.49597457626646,
+            "y": 0.0,
+            "z": 182.23169491525297,
+            "ixx": 0.0,
+            "iyy": 0.0,
+            "izz": 0.0,
+            "kind": "discretionary",
+            "component": "fuselage",
+            "consumable": false,
+            "wing_fraction": 0.0,
+            "carriage": "panel"
+          }
+        }
       },
       {
         "name": "mzfw aft",

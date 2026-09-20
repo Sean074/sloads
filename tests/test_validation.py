@@ -19,6 +19,7 @@ from sloads import (
     SurfaceInput,
     consistency_warnings,
 )
+from sloads.validation import PAGE_WEIGHT_CG
 from sloads import io as sloads_io
 from sloads.models import AnalysisKind, GeometryInput, GroundCaseRole, MassComponent
 
@@ -436,12 +437,14 @@ def test_no_one_model_warning_fires_on_a_shipped_fixture_but_the_barons_two():
     state) fire nowhere. ``wing_case_loading_not_derivable`` fires on exactly
     the Baron's ``fwd gross`` and ``fwd regardless`` -- the two FLIGHT cases no
     loading reaches, which #290's editor is for -- and on no other fixture.
+    ``case_loading_missing`` (#290) fires nowhere: the two concept fixtures
+    enter their WTENV cases as the search found them.
     """
     import glob
 
     quiet = {"wing_panel_override_open", "wing_mass_asymmetric",
              "wing_case_mass_state_unnamed", "wing_panel_empty", "migration_note",
-             "fuselage_override_varies_by_case"}
+             "fuselage_override_varies_by_case", "case_loading_missing"}
     fired = {}
     for path in sorted(glob.glob(os.path.join(_EXAMPLES, "*.project.json"))):
         warnings = consistency_warnings(sloads_io.load_project(path))
@@ -762,3 +765,26 @@ if __name__ == "__main__":
             traceback.print_exc()
     print(f"\n{len(tests) - failed}/{len(tests)} passed")
     sys.exit(1 if failed else 0)
+
+
+def test_a_concept_flight_case_without_a_loading_is_named_and_a_ga_one_is_not():
+    """Design note 63 D-63.1, shipped with the editor (D-63.9, #290):
+    ``case_loading_missing`` fires on a concept-mode FLIGHT case whose
+    loading the search *derives* but nobody entered, on the page that enters
+    it; it stays silent when the search fails (that is
+    ``wing_case_loading_not_derivable``'s), on a GROUND-only case, and in
+    category N, where the Appendix A cases are derived by construction."""
+    rj = sloads_io.load_project(_RJ)
+    assert "case_loading_missing" not in _codes(rj)
+    rj.weight.cg_cases[0].loading = None
+    fired = [w for w in consistency_warnings(rj) if w.code == "case_loading_missing"]
+    assert len(fired) == 1 and fired[0].page == PAGE_WEIGHT_CG
+    assert "'aft gross'" in fired[0].message and "the search derives one" in fired[0].message
+    # a GROUND-only case is not a mass state of the flight analyses
+    ground = next(c for c in rj.weight.cg_cases if AnalysisKind.FLIGHT not in c.analyses)
+    ground.loading = None
+    assert len([w for w in consistency_warnings(rj) if w.code == "case_loading_missing"]) == 1
+    # category N: silent, whatever the loading says
+    ga = sloads_io.load_project(_GA)
+    assert all(c.loading is None for c in ga.weight.cg_cases)
+    assert "case_loading_missing" not in _codes(ga)

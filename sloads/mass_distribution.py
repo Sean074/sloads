@@ -1395,6 +1395,208 @@ def case_loading_checks(project: Project) -> List[MassCheck]:
 
 
 # --------------------------------------------------------------------------- #
+# The entered form of a searched loading (design note 63 D-63.9, #290)
+# --------------------------------------------------------------------------- #
+def loading_definition_of(loading: CaseLoading, items: Sequence[MassItem]
+                          ) -> Optional[LoadingDefinition]:
+    """The :class:`LoadingDefinition` that re-enters ``loading`` as found.
+
+    The one way a searched loading becomes the state of record (D-25c makes
+    the search a fallback, D-63.1 says it is never the state of record): the
+    Payload Cases editor's *Add loading* gesture and a fixture that enters its
+    cases both call this, so the entered form is one construction. The
+    ``DISCRETIONARY`` rows of the loading are ``aboard``; a row carried at a
+    weight other than its database weight -- a GROUND burn-down, a D-63.5
+    seed's clipped hold -- carries the ratio as its fraction; the solved
+    ballast row becomes the entered ballast row, name, station and waterline
+    as solved. ``None`` for a loading the search did not produce: there is
+    nothing to enter.
+
+    Replaying the result through :func:`entered_loading` reproduces the
+    searched item set, weight and CG (gated in ``tests/test_one_mass_model.py``),
+    which is what makes the gesture an entry rather than a rewrite.
+    """
+    if not loading.derivable:
+        return None
+    by_name = {it.name: it for it in items}
+    aboard: List[str] = []
+    fractions: Dict[str, float] = {}
+    for it in loading.items:
+        if it is loading.ballast:
+            continue
+        row = by_name.get(it.name)
+        if row is None:
+            continue
+        if row.kind == MassItemKind.DISCRETIONARY:
+            aboard.append(it.name)
+        if row.weight_lb and not math.isclose(it.weight_lb, row.weight_lb,
+                                              rel_tol=1e-12, abs_tol=1e-9):
+            fractions[it.name] = it.weight_lb / row.weight_lb
+    ballast = (dataclasses.replace(loading.ballast)
+               if loading.ballast is not None else None)
+    return LoadingDefinition(aboard=aboard, fractions=fractions, ballast=ballast)
+
+
+# --------------------------------------------------------------------------- #
+# The Mass cases table and the per-case WING parts (design note 63 D-63.9)
+# --------------------------------------------------------------------------- #
+@dataclass(frozen=True)
+class MassCaseSummary:
+    """One weight/CG case, read from its owners -- no new calculation.
+
+    The entered scalars come from the :class:`CgCase`; the loading's own
+    weight and CG (the D-25a echo), the fuel, payload and ballast aboard from
+    :func:`derive_case_loadings` and the item ``consumable`` flag; the wing
+    panel and points from :func:`wing_mass_state`, which also names the
+    ``source`` (``entered`` / ``searched`` / ``database``) and its ``reason``.
+    A case no FLIGHT analysis runs has no wing state: those columns are
+    ``None`` and ``source`` is the loading's own route. Raw Imperial; the
+    consumer converts.
+    """
+
+    case: str
+    cg_id: str
+    role: str
+    analyses: Tuple[str, ...]
+    weight_lb: float
+    xcg: float
+    zcg: float
+    pct_mac: Optional[float]
+    loading_weight_lb: Optional[float]
+    loading_cg_x: Optional[float]
+    loading_cg_z: Optional[float]
+    echo_ok: Optional[bool]
+    fuel_lb: Optional[float]
+    payload_lb: Optional[float]
+    ballast_lb: float
+    ballast_fraction: float
+    panel_weight_lb: Optional[float]
+    point_weight_lb: Optional[float]
+    point_count: Optional[int]
+    source: str
+    reason: str
+    entered: bool
+
+
+def mass_case_summary(project: Project) -> List[MassCaseSummary]:
+    """One :class:`MassCaseSummary` per weight/CG case, in entry order."""
+    weight = project.weight
+    if weight is None or not weight.cg_cases:
+        return []
+    from .cg_cases import flight_case_ids
+    from .derived_geometry import mac_reference, station_to_pct_mac
+
+    ids = flight_case_ids(project)
+    ref = mac_reference(project)
+    if ref is not None and not ref.mac:
+        ref = None
+    loadings: Dict[str, CaseLoading] = {}
+    invalid = ""
+    if weight.items:
+        try:
+            loadings = {ld.name: ld for ld
+                        in derive_case_loadings(project, weight.cg_cases)}
+        except ValueError as exc:
+            invalid = str(exc)
+    out: List[MassCaseSummary] = []
+    for case in weight.cg_cases:
+        ld = loadings.get(case.name)
+        flight = AnalysisKind.FLIGHT in (case.analyses or ())
+        role = case.role.value.replace("_", " ") if case.role is not None else ""
+        analyses = tuple(k.value for k in AnalysisKind if k in (case.analyses or ()))
+        pct = station_to_pct_mac(case.xcg, ref) if ref is not None else None
+        entered = case.loading is not None
+        if ld is None or not ld.derivable:
+            reason = ld.note if ld is not None else (
+                invalid or "no weight item data base")
+            out.append(MassCaseSummary(
+                case=case.name, cg_id=ids.get(case.name, ""), role=role,
+                analyses=analyses, weight_lb=case.weight_lb, xcg=case.xcg,
+                zcg=case.zcg, pct_mac=pct, loading_weight_lb=None,
+                loading_cg_x=None, loading_cg_z=None, echo_ok=None,
+                fuel_lb=None, payload_lb=None, ballast_lb=0.0,
+                ballast_fraction=0.0, panel_weight_lb=None,
+                point_weight_lb=None, point_count=None,
+                source="database" if flight else "not derivable",
+                reason=reason, entered=entered))
+            continue
+        fuel = math.fsum(it.weight_lb for it in ld.items if it.consumable)
+        payload = math.fsum(
+            it.weight_lb for it in ld.items
+            if it.kind == MassItemKind.DISCRETIONARY and not it.consumable
+            and it is not ld.ballast)
+        echo_ok = (abs(ld.weight_lb - case.weight_lb) <= echo_weight_tolerance(case.weight_lb)
+                   and abs(ld.cg_x - case.xcg) <= cg_match_tolerance()
+                   and abs(ld.cg_z - case.zcg) <= cg_match_tolerance())
+        panel: Optional[float] = None
+        points: Optional[float] = None
+        count: Optional[int] = None
+        source = "entered" if ld.entered else "searched"
+        reason = ld.note
+        if flight:
+            state = wing_mass_state(project, case.name)
+            panel = state.panel_weight_lb
+            points = math.fsum(it.weight_lb for it in state.point_masses)
+            count = len(state.point_masses)
+            source = state.source
+            reason = state.reason or ld.note
+        out.append(MassCaseSummary(
+            case=case.name, cg_id=ids.get(case.name, ""), role=role,
+            analyses=analyses, weight_lb=case.weight_lb, xcg=case.xcg,
+            zcg=case.zcg, pct_mac=pct, loading_weight_lb=ld.weight_lb,
+            loading_cg_x=ld.cg_x, loading_cg_z=ld.cg_z, echo_ok=echo_ok,
+            fuel_lb=fuel, payload_lb=payload,
+            ballast_lb=ld.ballast.weight_lb if ld.ballast is not None else 0.0,
+            ballast_fraction=ld.ballast_fraction, panel_weight_lb=panel,
+            point_weight_lb=points, point_count=count, source=source,
+            reason=reason, entered=entered))
+    return out
+
+
+@dataclass(frozen=True)
+class WingPartRow:
+    """One WING part of one FLIGHT case's mass state, as WINGINER hangs it.
+
+    The panel row carries the per-side panel and no station; a point row is
+    one per-side ``POINT`` part at its own station, butt line and waterline
+    (a centreline part at half its weight, as :func:`wing_mass_state` lists
+    it). Read-only: the Wing Loads page shows these, the loading that made
+    them is entered on the Weight & Mass Properties page (D-63.9).
+    """
+
+    case: str
+    source: str
+    part: str
+    carriage: str
+    weight_lb: float
+    x: Optional[float]
+    y: Optional[float]
+    z: Optional[float]
+
+
+def wing_parts_summary(project: Project) -> List[WingPartRow]:
+    """The per-case WING parts of every FLIGHT case, panel first."""
+    out: List[WingPartRow] = []
+    if project.weight is None or not project.weight.items:
+        return out
+    for case in flight_cases(project):
+        try:
+            state = wing_mass_state(project, case.name)
+        except ValueError:
+            continue                  # a malformed entered loading: validation names it
+        out.append(WingPartRow(
+            case=case.name, source=state.source, part="panel (per side)",
+            carriage=WingCarriage.PANEL.value, weight_lb=state.panel_weight_lb,
+            x=None, y=None, z=None))
+        for it in state.point_masses:
+            out.append(WingPartRow(
+                case=case.name, source=state.source, part=it.name,
+                carriage=WingCarriage.POINT.value, weight_lb=it.weight_lb,
+                x=it.x, y=it.y, z=it.z))
+    return out
+
+
+# --------------------------------------------------------------------------- #
 # Reporting helper
 # --------------------------------------------------------------------------- #
 def component_summary(project: Project) -> List[Dict[str, str]]:
@@ -1427,10 +1629,12 @@ __all__ = [
     "TAIL_COMPONENTS",
     "TAIL_GAP_WARN_FRACTION",
     "CaseLoading",
+    "MassCaseSummary",
     "MassCheck",
     "MassDistribution",
     "SeedLoading",
     "WingMassState",
+    "WingPartRow",
     "case_loading_checks",
     "cg_match_tolerance",
     "component_of",
@@ -1446,7 +1650,9 @@ __all__ = [
     "fuselage_beam_stations",
     "fuselage_reconciliation",
     "infer_component",
+    "loading_definition_of",
     "loading_mass_state",
+    "mass_case_summary",
     "panel_weight",
     "partition_closes",
     "seed_loading_search",
@@ -1456,5 +1662,6 @@ __all__ = [
     "wing_mass_state",
     "wing_mass_tie",
     "wing_parts",
+    "wing_parts_summary",
     "wing_state_tie",
 ]

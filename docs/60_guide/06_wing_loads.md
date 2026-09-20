@@ -40,11 +40,15 @@ station where the panel starts. The panel weight must be the wing structure
 your weight database carries — the page's consistency check compares the two
 and says when they disagree.
 
-**Concentrated masses.** Anything on the wing that is not smeared structure:
-engines, gear, tip tanks, fuel — one row per item **per side**, at its
-station, butt line and waterline. Each concentrated row is a step in the
-spanwise inertia diagram; on a twin, the engine row is the largest single
-relief on the wing.
+**Wing parts per mass state** (read-only). Anything on the wing that is
+not smeared structure — engines, gear, tip tanks, fuel — is a `POINT`
+row of the weight database, and which of those rows are aboard is the
+case's loading, entered on the Weight & Mass Properties page. This page
+shows, for each flight case, the per-side panel and each point part at its
+station, butt line and waterline exactly as the distribution hangs them;
+each point is a step in the spanwise inertia diagram, and on a twin the
+engine is the largest single relief on the wing. Nothing here is typed:
+change the loading, or the item's carriage, on the page that owns it.
 
 **Load cases.** The conditions to distribute: each row carries the
 normal and chordwise load factors, the CL, the speed and any unbalanced
@@ -104,9 +108,9 @@ tolerance.
 
 - **Panel weight entered for both sides.** It is per side; doubling it
   doubles the inertia relief and undercuts the net loads.
-- **Forgetting the wing-mounted masses.** A twin whose engines are missing
-  from the concentrated list overloads its wing root bending by the whole
-  missing relief — the page's mass tie warns, read it.
+- **Forgetting the wing-mounted masses.** A twin whose engines are not
+  `wing`-tagged `POINT` rows of the database overloads its wing root bending
+  by the whole missing relief — the page's mass tie warns, read it.
 - **Twist as a single number.** The polyline is the distribution; one point
   makes the wing untwisted from that station outward.
 - **Expecting the two blocks to differ by the safety factor.** They do not:
