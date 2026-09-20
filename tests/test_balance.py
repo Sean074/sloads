@@ -816,7 +816,7 @@ def test_a_ground_row_cites_its_own_far_condition(example):
 
 
 def _skipped_block(skipped):
-    from sloads.export.balanced_deck import _skipped_block as block
+    from sloads.modules.balance import skipped_block as block
     return "\n".join(block(skipped))
 
 

@@ -87,7 +87,7 @@ from ..modules.balance import (
     is_ground,
     is_lateral,
     is_unsymmetrical_htail,
-    skipped_condition_lines,
+    skipped_block,
     skipped_conditions,
     vtail_load,
 )
@@ -391,26 +391,6 @@ def _load_lines(case: BalancedCaseResult, sid: int, nodes, u: DeliverableUnits,
     return lines
 
 
-def _skipped_block(skipped: Sequence[SkippedCondition]) -> List[str]:
-    """The F-C7 record as deck comment lines, wrapped inside 72 columns.
-
-    Printed whether or not anything was skipped: "every condition assembled" is
-    the completeness statement, and a block that appears only on a lossy run
-    cannot be told from a deck written before the record existed.
-    """
-    out = ["$",
-           "$ ------------------------------ CONDITIONS NOT ASSEMBLED (SELECT set)"]
-    lines = skipped_condition_lines(skipped)
-    if not lines:
-        out.append("$ None -- every condition SELECT named assembled into a case.")
-        return out
-    for line in lines:
-        out += [f"$ {ln}" for ln in textwrap.wrap(line, width=70,
-                                                 initial_indent="- ",
-                                                 subsequent_indent="    ")]
-    return out
-
-
 def balanced_deck(project: Project, *,
                   header_comment: str = "",
                   system: UnitSystem = UnitSystem.IMPERIAL,
@@ -490,7 +470,7 @@ def balanced_deck(project: Project, *,
                  f"{' -- run ' + run_key if run_key else ''}")
         head += [f"$ {ln}" for ln in textwrap.wrap(entry, width=70,
                                                    subsequent_indent="    ")]
-    head += _skipped_block(skipped)
+    head += skipped_block(skipped)
     head.append("$")
     for sid, case in zip(sids, cases):
         head += [

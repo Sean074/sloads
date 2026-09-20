@@ -31,11 +31,17 @@ from sloads.export.lra_model import (
     build_lra_model,
     lra_model_bdf,
     transferred_case_loads,
+    write_lra_model_bdf,
 )
 from sloads.export.mass_cards import mass_check_deck
 from sloads.report.applied import wing_nodal_loads
 from sloads.models import LRA_DEFAULT_GRIDS, LraMeshInput
-from sloads.modules.balance import build_balanced_cases
+from sloads.modules.balance import (
+    build_balanced_cases,
+    skipped_block,
+    skipped_condition_lines,
+    skipped_conditions,
+)
 from sloads.modules.net_loads import build_net_loads, loads_ref_axis_results
 
 _EXAMPLES = os.path.join(os.path.dirname(__file__), "..", "examples")
@@ -678,3 +684,54 @@ if __name__ == "__main__":  # pragma: no cover - self-runner
 
     raise SystemExit(subprocess.call(
         [sys.executable, "-m", "pytest", "-q", __file__]))
+
+
+# --------------------------------------------------------------------------- #
+# #284 -- the shipping deck states what it does not cover
+# --------------------------------------------------------------------------- #
+
+_SKIP_BLOCK_HEAD = "$ ------------------------------ CONDITIONS NOT ASSEMBLED (SELECT set)"
+
+
+def _skip_block_of(deck_text: str):
+    lines = deck_text.splitlines()
+    start = lines.index(_SKIP_BLOCK_HEAD)
+    return lines[start:lines.index("$", start)]
+
+
+# The four fixtures whose LRA deck exports: ``concept_heavy`` refuses on the
+# side of body (BM-1) and so has no deck to state anything in.
+@pytest.mark.parametrize("example", ["atr42_100.project.json",
+                                     "baron_58.project.json",
+                                     "concept_regional_jet.project.json",
+                                     "ga6_normal.project.json"])
+def test_the_lra_deck_states_what_it_does_not_cover(example, tmp_path):
+    """**#284** -- the F-C7 record is in the LRA deck, deck ↔ record equal.
+
+    The assembler records every SELECT condition it does not assemble, but the
+    block that rendered the record lived in the assembled deck note 56 D-56.8
+    stopped shipping, and the LRA deck -- the one deck that ships -- wrote
+    none: a sizing loop reading it was never told that a quarter of SELECT's
+    set is absent (ATR 47 assembled / 28 recorded, 2026-09-20). The block is
+    the wording owner's (:func:`skipped_block`), so it is byte-identical to the
+    assembled producer's; both the derived path (no ``cases``) and the
+    supplied path (the GUI's) state it; and the CLI's writer lands it on disk.
+    """
+    project = _project(example)
+    record = skipped_conditions(project)
+    assert record, example  # every shipped fixture has something to state
+    text = lra_model_bdf(project)
+    block = _skip_block_of(text)
+    assert ["$"] + block == skipped_block(record)  # the owner leads with a bare $
+    flat = " ".join(" ".join(ln.lstrip("$ ").lstrip("- ").split()) for ln in block)
+    for line in skipped_condition_lines(record):
+        assert " ".join(line.split()) in flat, (example, line)
+    # No reason may point the reader at an artifact note 56 deleted.
+    assert "per-component" not in text, example
+    supplied = lra_model_bdf(project, cases=build_balanced_cases(project),
+                             skipped=record)
+    assert _skip_block_of(supplied) == block
+    path = os.path.join(tmp_path, "m.bdf")
+    write_lra_model_bdf(project, path)
+    with open(path, encoding="utf-8") as fh:
+        assert _skip_block_of(fh.read()) == block

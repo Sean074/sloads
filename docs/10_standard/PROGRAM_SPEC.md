@@ -1244,11 +1244,14 @@ result that lacks what a deck needs is a stated error, never an empty column.
   with one `SkippedCondition` (component, condition, V-n point, reason code and
   reader-facing reason) per dropped condition, and the record is stated on three
   surfaces: the `ModuleResult` (a final "Assembly record — conditions not
-  assembled" condition carrying the count and the grouped reasons), the deck's
-  own `$ CONDITIONS NOT ASSEMBLED` block, and report §4 (beside the assembled
-  half of the same statement, report §6). Reason codes:
-  `out-of-family` (fuselage, ground and ONENGOUT conditions — the deliberate
-  exclusion), `htail-symmetric` (an h-tail condition already carried by every
+  assembled" condition carrying the count and the grouped reasons), the
+  `$ CONDITIONS NOT ASSEMBLED` block in the header of **the LRA deck** — the
+  one solver deck that ships (note 56 D-56.8; the internal assembled producer
+  renders the same block from the same owner, `balance.skipped_block`, #284) —
+  and report §4 (beside the assembled half of the same statement, report §6).
+  Reason codes: `out-of-family` (the fuselage and ONENGOUT conditions — the
+  deliberate exclusion; the reason names the surviving artifacts that carry
+  them, never a deck note 56 deleted), `htail-symmetric` (an h-tail condition already carried by every
   case as its trim tail load; only 23.427(a) assembles — D-R8),
   `no-htail-loads`, `no-fin-loads`, `no-vn-point`, `no-cg-case`,
   `loading-not-derivable`. The record is emitted whether or not anything was

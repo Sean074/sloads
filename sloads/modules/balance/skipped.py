@@ -10,6 +10,7 @@ with :func:`~sloads.modules.balance.run`.
 
 from __future__ import annotations
 
+import textwrap
 from dataclasses import dataclass
 from typing import List, Optional, Sequence, Tuple
 
@@ -32,9 +33,13 @@ from .queries import source_case_name
 #: or constant names appear here.
 SKIP_REASONS = {
     "out-of-family": (
-        "not one of the balanced families this analysis assembles -- fuselage "
-        "and one-engine-out conditions are covered by the per-component "
-        "analyses only"),
+        # Reworded at #284: the sentence used to send the reader to the
+        # per-component decks note 56 D-56.2 deleted. It now names the artifacts
+        # that survive, and states the deck absence as an absence.
+        "not one of the balanced families this analysis assembles -- the "
+        "fuselage conditions are delivered as net fuselage loads in the report "
+        "and the case index, and the one-engine-out fin conditions in the "
+        "report alone; none of them reaches a solver deck"),
     "gear-design-only": (
         "a supplementary nose-wheel condition (FAR 23.499): it carries nose "
         "reactions only, with no main-gear reaction anywhere in the family, so "
@@ -157,6 +162,30 @@ def skipped_condition_lines(skipped: Sequence[SkippedCondition]) -> List[str]:
             grouped.append((s.reason, []))
         grouped[index[s.code]][1].append(s.name)
     return [f"{reason}: {', '.join(names)}" for reason, names in grouped]
+
+
+def skipped_block(skipped: Sequence[SkippedCondition]) -> List[str]:
+    """The F-C7 record as deck comment lines, wrapped inside 72 columns.
+
+    Printed whether or not anything was skipped: "every condition assembled" is
+    the completeness statement, and a block that appears only on a lossy run
+    cannot be told from a deck written before the record existed.
+
+    Owned here, beside the wording, since #284: the LRA deck -- the one solver
+    deck that ships (note 56 D-56.8) -- renders it as well as the assembled
+    producer, and the shipping deck must not import it from the internal one.
+    """
+    out = ["$",
+           "$ ------------------------------ CONDITIONS NOT ASSEMBLED (SELECT set)"]
+    lines = skipped_condition_lines(skipped)
+    if not lines:
+        out.append("$ None -- every condition SELECT named assembled into a case.")
+        return out
+    for line in lines:
+        out += [f"$ {ln}" for ln in textwrap.wrap(line, width=70,
+                                                 initial_indent="- ",
+                                                 subsequent_indent="    ")]
+    return out
 
 
 def carry_sources_absent(result: BalancedCaseResult) -> bool:
