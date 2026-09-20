@@ -33,8 +33,7 @@ _GA = os.path.join(_EXAMPLES, "ga6_normal.project.json")
 
 
 def _project():
-    p = io.load_project(_GA)
-    p.flight_loads.altitudes_ft = [0.0, 12000.0, 18000.0]
+    p = io.load_project(_GA)  # the Appendix A altitude set is the fixture's own since #164
     p.fuselage_mass = FuselageMassInput(stations=[
         FuselageStation(x=x, weight_lb=w) for x, w in
         [(30, 200), (60, 400), (90, 600), (140, 500), (200, 300), (250, 150)]

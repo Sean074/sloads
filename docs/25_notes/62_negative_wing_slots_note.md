@@ -311,7 +311,7 @@ tuples:
 
    | Fixture | NHAA | NMAA | NLAA |
    |---|---|---|---|
-   | ga6_normal | STALL −N case 28, −1.52 g, 113.5 kt, CG2, 0 ft, R 5,105 | GUST −C case 53 (unchanged) | GUST −D case 72, −1.69 g, 212.5 kt, CG4, 0 ft, R 3,226 |
+   | ga6_normal | STALL −N case 28, −1.52 g, 113.5 kt, CG2, 0 ft, R 5,105 — *since #164 (2026-09-20): case 108, 112.3 kt, 12,000 ft, R 5,137* | GUST −C case 53 (unchanged) — *since #164: case 133, −2.80 g, 12,000 ft, R 7,834* | GUST −D case 72, −1.69 g, 212.5 kt, CG4, 0 ft, R 3,226 — *since #164: case 152, −2.08 g, 12,000 ft, R 4,034* |
    | baron_58 | STALL −N case 28, −1.46 g, 134.2 kt, fwd gross, 0 ft, R 8,011 | GUST −C case 113, −2.35 g, 195 kt, fwd regardless, 10,000 ft, R 9,844 | GUST −D case 112, −1.21 g, 248 kt, fwd regardless, 10,000 ft, R 4,884 |
    | atr42_100 | STALL −N case 128, −1.00 g, 170.9 kt, fwd gross, 12,000 ft, R 36,841 | MAN −C case 227, −1.00 g, 183.3 kt, fwd gross, 25,000 ft, R 36,594 | GUST −D case 172, −0.63 g, 300 kt, min weight, 12,000 ft, R 12,055 |
    | concept_regional_jet | STALL −N case 128, −1.00 g, 150.5 kt, fwd gross, 20,000 ft, R 34,454 | GUST −C case 173, −1.80 g, 310 kt, min weight, 20,000 ft, R 35,650 | GUST −D case 172, −0.80 g, 350 kt, min weight, 20,000 ft, R 14,457 |
@@ -321,7 +321,7 @@ tuples:
 
    | Fixture | PNZ (W-09) | NNZ (W-10) |
    |---|---|---|
-   | ga6_normal | GUST +C case 70, +5.25 g, 170 kt, CG4, 0 ft, R 11,335 | GUST −C case 73, −3.25 g, 170 kt, CG4, 0 ft, R 6,644 |
+   | ga6_normal | GUST +C case 70, +5.25 g, 170 kt, CG4, 0 ft, R 11,335 — *since #164: case 150, +5.81 g, 12,000 ft, R 12,508* | GUST −C case 73, −3.25 g, 170 kt, CG4, 0 ft, R 6,644 — *since #164: case 153, −3.81 g, 12,000 ft, R 7,834* |
    | baron_58 | GUST +C case 110, +4.34 g, 195 kt, fwd regardless, 10,000 ft, R 18,961 | **empty** — coincides with NMAA (case 113) |
    | atr42_100 | GUST +C case 170, +3.44 g, 240 kt, min weight, 12,000 ft, R 67,231 | GUST −C case 173, −1.44 g, 240 kt, min weight, 12,000 ft, R 27,272 |
    | concept_regional_jet | GUST +C case 170, +3.80 g, 310 kt, min weight, 20,000 ft, R 82,102 | **empty** — coincides with NMAA (case 173) |
@@ -335,7 +335,10 @@ tuples:
    fixture's NMAA is the same point as today. V-n case numbers are the
    matrix's own and **renumber when #164 adds 12,000 ft to the GA6**; the
    gate names the point by label, load factor, speed, CG and altitude, not by
-   number, so it survives that.
+   number, so it survives that. *#164 shipped 2026-09-20: every GA6 slot
+   above now governs at 12,000 ft (the gust factor grows with altitude, the
+   stall speed shrinks with the compressibility correction), and the gate's
+   table was re-pinned to the italic values.*
 4. **G-62.3 — The deck.** On every CLI-exportable fixture the LRA deck's
    SUBCASE set gains W-07 and W-08 wherever the slot is non-empty **and**
    its CG case resolves to a derivable loading, each closing G-OR-72 and

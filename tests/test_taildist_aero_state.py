@@ -56,8 +56,7 @@ _GA = os.path.join(_EXAMPLES, "ga6_normal.project.json")
 def _ga6_appendix_a():
     """The 6-place GA at the Appendix A altitude set (the case-202 setup of
     ``test_select.test_rational_balancing_tail_load_hand_calc``)."""
-    p = io.load_project(_GA)
-    p.flight_loads.altitudes_ft = [0.0, 12000.0, 18000.0]
+    p = io.load_project(_GA)  # the Appendix A altitude set is the fixture's own since #164
     p.select_input = SelectInput(full_down_aileron_deg=15.0, basic_airfoil_cm=-0.03)
     return p
 

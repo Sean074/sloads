@@ -116,8 +116,7 @@ def test_select_to_taildist_integration():
     (The four flaps-extended horizontal conditions in the Appendix A 13-row table
     need the flapped V-n envelope, a documented C6 deferral; the pure-oracle test
     above covers all 13 rows directly via :func:`chordwise_pressures`.)"""
-    p = io.load_project(_GA)
-    p.flight_loads.altitudes_ft = [0.0, 12000.0, 18000.0]
+    p = io.load_project(_GA)  # the Appendix A altitude set is the fixture's own since #164
     results = build_tail_chordwise(p)
     htail = [r for r in results if r.component == "htail"]
     vtail = [r for r in results if r.component == "vtail"]
@@ -133,8 +132,7 @@ def test_far_reference_propagates_from_select():
     """The chordwise distribution keeps the governing condition's citation, not a
     single hardcoded 23.421 (the pre-fix behaviour mis-cited every v-tail and
     maneuver/gust/unsymmetrical h-tail row as "23.421 Balancing Loads")."""
-    p = io.load_project(_GA)
-    p.flight_loads.altitudes_ft = [0.0, 12000.0, 18000.0]
+    p = io.load_project(_GA)  # the Appendix A altitude set is the fixture's own since #164
 
     # build_tail_chordwise copies far_reference verbatim from the SELECT condition.
     src = {(c.component, c.label): c.far_reference
@@ -194,8 +192,7 @@ def test_airload4_sweep_shifts_load_outboard():
 def test_io_roundtrip_chordwise_fields():
     """The new tail-span fields and the chordwise result slice round-trip, and an
     older (pre-C7) project without them still loads with the defaults."""
-    p = io.load_project(_GA)
-    p.flight_loads.altitudes_ft = [0.0, 12000.0, 18000.0]
+    p = io.load_project(_GA)  # the Appendix A altitude set is the fixture's own since #164
     p.loads = p.loads or None
     from sloads.models import LoadsResult
     p.loads = LoadsResult(tail_chordwise=build_tail_chordwise(p))

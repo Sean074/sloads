@@ -245,7 +245,10 @@ def test_multi_altitude_vn_regression():
     matrix without changing the sea-level (Appendix A) numbers, i.e. no equation
     change, purely a GUI exposure of an existing calc loop."""
     project = io.load_project(_GA)
-    baseline = _by_case(build_envelope(project))
+    # The shipped fixture balances at three altitudes since #164; the sea-level
+    # block is the Appendix A baseline this test compares against.
+    baseline = {case: p for case, p in _by_case(build_envelope(project)).items()
+                if p.altitude_ft == 0.0}
 
     project.flight_loads.altitudes_ft = [0.0, 8000.0]
     two_alt = build_envelope(project)

@@ -1105,7 +1105,10 @@ def test_no_wing_items_and_no_panel_still_weighs_the_case():
 #: sign-flip regression at ordinary ``alpha`` would trip. (Two lower edges widened
 #: by 0.0001 on 2026-08-17 when q went to the exact ``V^2/295.237``, issue #26.)
 _DELTA_CD_BAND = {
-    'ga6_normal.project.json': (-0.0208, -0.0164),
+    # ga6_normal re-pinned 2026-09-20 (#164): the fixture balances at Appendix
+    # A's three altitudes, so ACRL governs at 12,000 ft (-0.0222; was -0.0208
+    # at sea level); the upper edge is SIDE GUST at 12,000 ft, -0.0163.
+    'ga6_normal.project.json': (-0.0223, -0.0163),
     'cessna_210.project.json': (-0.0822, -0.0030),
     'atr42_100.project.json': (-0.1519, +0.0221),
     # baron_58 re-pinned 2026-09-18 (#292): the eight wing slots assemble at
@@ -2159,8 +2162,12 @@ _LATERAL_CASE_NUMBERS = {
     # p_dot shifting ~0.1 % through the Ixz coupling. The fin LOAD and Ny are
     # bit-identical, which is the check that a lever arm moved and not the
     # aerodynamics. ga6 is the only raked fixture; every other pin is untouched.
+    # 2026-09-20 (#164): the fixture balances at Appendix A's three altitudes
+    # and SIDE GUST now governs at 12,000 ft (V-n case 115, CG2), where the
+    # gust lift is 0.04 % higher: fin 603.9910 -> 604.2286 lb, Ny and both
+    # accelerations by the same ratio. The other three stay at sea level.
     'ga6_normal.project.json': {
-        'SIDE GUST': (603.9910, +0.177644, +182.302685, -96.771794),
+        'SIDE GUST': (604.2286, +0.177714, +182.374401, -96.809862),
         'SUDDEN RUDDER': (585.6409, +0.172247, +174.735861, -86.025707),
         'YAW 15 NEUTRAL': (-525.6850, -0.154613, -148.052336, +78.271821),
         'YAW TO SIDESLIP': (-97.7496, -0.028750, -17.732176, +15.727660),

@@ -317,10 +317,12 @@ def test_a_point_selected_by_three_conditions_prints_all_three():
     case_col, vt = _column(loads, "Case"), _column(loads, "VT")
     row = next(r for r in loads.rows if r[case_col] == "14")
     assert row[vt] == "VT-01, VT-02, VT-03"
-    # ...and the two-component case, which the same slot also truncated.
-    row30 = next(r for r in loads.rows if r[case_col] == "30")
-    assert row30[_column(loads, "W")] == "W-03"
-    assert row30[_column(loads, "F")] == "F-01"
+    # ...and the two-component case, which the same slot also truncated
+    # (V-n case 30 until #164 put the fixture at three altitudes; PMAA and
+    # MAX DOWN LOAD ON WING now share GUST +C at CG2, 12,000 ft, case 110).
+    row110 = next(r for r in loads.rows if r[case_col] == "110")
+    assert row110[_column(loads, "W")] == "W-03"
+    assert row110[_column(loads, "F")] == "F-01"
 
 
 def test_no_engine_or_gear_case_id_reaches_the_vn_register():
