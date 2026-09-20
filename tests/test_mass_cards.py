@@ -181,15 +181,23 @@ _DERIVABLE = {
     "concept_regional_jet.project.json": _WTENV_FLIGHT + _MZFW_JET,
 }
 #: Cases whose loading is **entered** on the case (D-25) rather than searched
-#: for. Since D-27 only ``concept_heavy`` (one case, one loading) enters one;
+#: for. Since D-27 only ``concept_heavy`` (one case, one loading) entered one;
 #: ga6 stays entirely on the derived route so the Appendix A airplane's bytes
 #: are never moved by a fixture-data step, and the four type fixtures' limit
 #: points are derived by construction (see ``_DERIVABLE``).
+#:
+#: **#290 (design note 63 D-63.9, 2026-09-18):** the two concept fixtures
+#: enter their five WTENV cases as the search found them
+#: (``mass_distribution.loading_definition_of``, the editor's *Add loading*
+#: gesture) -- the searched item set, weight and CG reproduced exactly, so no
+#: load moved and ``case_loading_missing`` fires on no shipped fixture. The
+#: Baron stays searched: it is category N, and its two non-derivable cases
+#: are the editor's demonstration.
 _ENTERED = {
     "concept_heavy.project.json": ["CGmax"],
-    "atr42_100.project.json": _MZFW_ATR,
+    "atr42_100.project.json": _WTENV_FLIGHT + _MZFW_ATR,
     "baron_58.project.json": _MZFW_BARON,
-    "concept_regional_jet.project.json": _MZFW_JET,
+    "concept_regional_jet.project.json": _WTENV_FLIGHT + _MZFW_JET,
 }
 
 

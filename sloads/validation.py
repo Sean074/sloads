@@ -90,6 +90,7 @@ from .models import (
     AnalysisKind,
     GearCarrier,
     MassComponent,
+    MassItemKind,
     MissingInputError,
     Project,
 )
@@ -1243,6 +1244,51 @@ def _check_wing_mass_states(project: Project) -> List[ConsistencyWarning]:
     return out
 
 
+def _check_case_loading_missing(project: Project) -> List[ConsistencyWarning]:
+    """A concept-mode FLIGHT case that states no loading (design note 63 D-63.1).
+
+    The search is a fallback, never the state of record: an inertia load run
+    at a case with no entered loading runs on whatever subset the search
+    found, and a file that does not say what was aboard cannot be read back.
+    Concept mode only -- the FAR23 core's four Appendix A cases are derived by
+    construction and the oracle lock keeps ``ga6_normal``'s bytes still -- and
+    shipped with the editor that clears it (D-63.9, #290), not with the
+    physics, so no GUI user sees a warning the GUI cannot act on: the case's
+    *Add loading* gesture enters the searched loading as found
+    (``mass_distribution.loading_definition_of``).
+
+    ``wing_case_loading_not_derivable`` is the other half and stays distinct:
+    that one fires when the search *fails*, in either mode; this one fires
+    when the search *succeeded* and nobody wrote it down.
+    """
+    out: List[ConsistencyWarning] = []
+    weight = project.weight
+    if not project.is_concept or weight is None or not weight.items:
+        return out
+    for case in cg_cases.flight_cases(project):
+        if case.loading is not None:
+            continue
+        found = mass_distribution.derive_case_loadings(project, [case])
+        if not found or not found[0].derivable:
+            continue                  # named by wing_case_loading_not_derivable
+        ld = found[0]
+        aboard = [it.name for it in ld.items
+                  if it.kind == MassItemKind.DISCRETIONARY and it is not ld.ballast]
+        what = (f"the search derives one -- {len(aboard)} discretionary row(s) "
+                f"aboard" + (f", solved ballast {ld.ballast.weight_lb:,.0f} lb"
+                             if ld.ballast is not None else "")
+                + " -- and nothing on the case says so")
+        out.append(ConsistencyWarning(
+            "case_loading_missing",
+            f"Weight/CG case '{case.name}' states no loading: {what}. Every "
+            "inertia load run at it uses the search's subset, which is a "
+            "fallback and not the state of record (design note 63 D-63.1). "
+            "Add the loading on the case to enter it as found, then adjust "
+            "it.",
+            PAGE_WEIGHT_CG))
+    return out
+
+
 def _check_fuselage_override_per_case(project: Project) -> List[ConsistencyWarning]:
     """An entered station table is one table for every mass state (D-63.8).
 
@@ -1582,6 +1628,7 @@ def consistency_warnings(project: Project) -> List[ConsistencyWarning]:
     out += _check_wing_fraction(project)
     out += _check_wing_mass_tie(project)
     out += _check_wing_mass_states(project)
+    out += _check_case_loading_missing(project)
     out += _check_fuselage_override_per_case(project)
     out += _check_migration_notes(project)
     out += _check_aero_coefficients(project)

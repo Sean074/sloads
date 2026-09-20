@@ -14,6 +14,7 @@ Reference: ``docs/25_notes/63_one_mass_model_note.md``; Ref 1 Ch 13 p93
 beam carries what the wing does not).
 """
 
+import dataclasses
 import math
 import os
 import sys
@@ -526,3 +527,87 @@ def test_mzfw_is_a_design_weight_in_the_mlw_shape():
     p.weight.max_zero_fuel_weight_lb = 3500.0          # above MTOW: the chain says so
     codes = [w.code for w in validation.consistency_warnings(p)]
     assert "weight_order_chain" in codes
+
+
+# --------------------------------------------------------------------------- #
+# D-63.9 / #290: the loading editor's owners -- the entered form of a searched
+# loading, the Mass cases summary and the per-case WING parts
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize("example", EXAMPLES)
+def test_entering_a_searched_loading_as_found_changes_nothing(example):
+    """G-63.6's GUI half: ``loading_definition_of`` is the *Add loading*
+    gesture, and replaying its result through ``entered_loading`` reproduces
+    the searched item set, weight and CG exactly -- so entering a case as the
+    search found it moves no load, and every later edit is the user's."""
+    project = _project(example)
+    items = project.weight.items
+    all_cases = list(project.weight.cg_cases)
+    before = {ld.name: ld for ld in md.derive_case_loadings(project, all_cases)}
+    checked = 0
+    for case in all_cases:
+        found = before[case.name]
+        definition = md.loading_definition_of(found, items)
+        if not found.derivable:
+            assert definition is None
+            continue
+        replay = md.entered_loading(items, dataclasses.replace(case, loading=definition))
+        assert [it.name for it in replay.items] == [it.name for it in found.items], case.name
+        assert replay.weight_lb == pytest.approx(found.weight_lb, abs=1e-9)
+        assert replay.cg_x == pytest.approx(found.cg_x, abs=1e-9)
+        assert replay.cg_z == pytest.approx(found.cg_z, abs=1e-9)
+        assert all(0.0 < f <= 1.0 for f in definition.fractions.values())
+        checked += 1
+    assert checked >= 1
+
+
+@pytest.mark.parametrize("example", EXAMPLES)
+def test_the_mass_cases_summary_reads_its_owners_and_computes_nothing(example):
+    """One row per CG case, every column equal to the owner it is read from:
+    the case scalars, ``derive_case_loadings`` (the D-25a echo values, fuel by
+    the item ``consumable`` flag, payload, ballast) and ``wing_mass_state``
+    (panel, points, source, reason) -- design note 63 D-63.9."""
+    project = _project(example)
+    rows = md.mass_case_summary(project)
+    cases = project.weight.cg_cases
+    assert [r.case for r in rows] == [c.name for c in cases]
+    loadings = {ld.name: ld for ld in md.derive_case_loadings(project, cases)}
+    for row, case in zip(rows, cases):
+        assert (row.weight_lb, row.xcg, row.zcg) == (case.weight_lb, case.xcg, case.zcg)
+        assert row.entered == (case.loading is not None)
+        ld = loadings[case.name]
+        if not ld.derivable:
+            assert row.loading_weight_lb is None and row.reason == ld.note
+            continue
+        assert row.loading_weight_lb == ld.weight_lb
+        assert row.fuel_lb == pytest.approx(
+            math.fsum(it.weight_lb for it in ld.items if it.consumable))
+        assert row.ballast_lb == (ld.ballast.weight_lb if ld.ballast else 0.0)
+        assert row.ballast_fraction == ld.ballast_fraction
+        if case.name in {c.name for c in flight_cases(project)}:
+            state = md.wing_mass_state(project, case.name)
+            assert row.source == state.source
+            assert row.panel_weight_lb == state.panel_weight_lb
+            assert row.point_weight_lb == pytest.approx(
+                math.fsum(it.weight_lb for it in state.point_masses))
+            assert row.point_count == len(state.point_masses)
+        else:
+            assert row.panel_weight_lb is None
+            assert row.source == ("entered" if ld.entered else "searched")
+
+
+@pytest.mark.parametrize("example", EXAMPLES)
+def test_the_wing_parts_view_is_the_mass_state_panel_first(example):
+    """The Wing Loads page's read-only view lists, per FLIGHT case, the panel
+    row then each per-side POINT part exactly as ``wing_mass_state`` hangs
+    them (design note 63 D-63.3 / D-63.9)."""
+    project = _project(example)
+    rows = md.wing_parts_summary(project)
+    for case in flight_cases(project):
+        state = md.wing_mass_state(project, case.name)
+        mine = [r for r in rows if r.case == case.name]
+        assert mine[0].part == "panel (per side)"
+        assert mine[0].weight_lb == state.panel_weight_lb
+        assert mine[0].carriage == WingCarriage.PANEL.value
+        assert [(r.part, r.weight_lb, r.y) for r in mine[1:]] == \
+            [(it.name, it.weight_lb, it.y) for it in state.point_masses]
+        assert {r.source for r in mine} == {state.source}

@@ -82,12 +82,24 @@ from sloads import workflow as wf
 from sloads.applicability import step_not_applicable
 from sloads.derived import refresh_derived
 from sloads.derived_geometry import tail_cp_suggestion
-from sloads.mass_distribution import unplaced_warning
-from sloads.models import Project, same_name
+from sloads.mass_distribution import (
+    cg_match_tolerance,
+    derive_case_loadings,
+    echo_weight_tolerance,
+    entered_loading,
+    loading_definition_of,
+    mass_case_summary,
+    unplaced_warning,
+    wing_parts_summary,
+)
+from sloads.models import MassComponent, MassItem, MassItemKind, Project, same_name
 from sloads.modules.landing import below_energy_caution, energy_load_factor_estimate
+from sloads.report.content import Units
+from sloads.report.render import format_value
 from sloads.selectors import duplicate_selectors, seed_name
 from sloads.units import (
     FieldUnit,
+    UnitSystem,
     display_format,
     field_unit,
     to_display,
@@ -517,9 +529,40 @@ def _list_element(hint: object) -> Optional[object]:
     return None
 
 
+def _mapping_value(hint: object) -> Optional[object]:
+    """The value annotation of a ``Dict[str, ...]``, else ``None``."""
+    inner, _ = _unwrap_optional(hint)
+    if typing.get_origin(inner) is dict:
+        args = typing.get_args(inner)
+        return args[1] if len(args) == 2 else None
+    return None
+
+
 def is_composite(hint: object) -> bool:
     """True if the field needs more than one number/word to hold its value."""
-    return _tuple_arity(hint) > 0 or _list_element(hint) is not None
+    return (_tuple_arity(hint) > 0 or _list_element(hint) is not None
+            or _mapping_value(hint) is not None)
+
+
+def nested_prefix(path: str) -> str:
+    """The list prefix a path's record sits **inside**, or ``""``.
+
+    ``weight.cg_cases[].loading.aboard`` sits on the record
+    ``weight.cg_cases[].loading``, which is not a slice of the project but a
+    field of one *row* of ``weight.cg_cases[]``. The row is what the renderer
+    can address (:func:`render_table` walks it), so the record is rendered
+    inside the row's expander (:func:`render_nested`, #290) and this answers
+    which table owns it: the prefix up to the last ``[]``. Empty for a path
+    on a project slice or on a row itself.
+    """
+    record = fr.record_of(path)
+    head, marker, tail = record.rpartition(fr.LIST_MARKER)
+    return head + marker if marker and tail else ""
+
+
+def group_prefix(path: str) -> str:
+    """The record prefix a path renders under: its own, or the list row's."""
+    return nested_prefix(path) or fr.record_of(path)
 
 
 # --------------------------------------------------------------------------- #
@@ -558,6 +601,8 @@ def _empty_value(hint: object) -> Any:
         return []
     if typing.get_origin(inner) is set:
         return set()
+    if typing.get_origin(inner) is dict:
+        return {}
     if inner is str:
         return ""
     if inner is bool:
@@ -1059,6 +1104,287 @@ def render_enum_set(record: Any, path: str, *, key: str, container: Any = None,
     _persist(record, name, set(chosen))
 
 
+# --------------------------------------------------------------------------- #
+# The case loading (design note 25 D-25b, design note 63 D-63.9; #290)
+# --------------------------------------------------------------------------- #
+def _discretionary_names(project: Any, _record: Any) -> List[str]:
+    """The names ``loading.aboard`` may hold: the DISCRETIONARY rows (D-25 §3.1)."""
+    weight = getattr(project, "weight", None)
+    return [it.name for it in (weight.items if weight is not None else ())
+            if it.kind == MassItemKind.DISCRETIONARY]
+
+
+def _fraction_rows(project: Any, record: Any) -> List[Tuple[str, str]]:
+    """``[(name, why it may be partial)]`` for ``loading.fractions`` (D-25 §3.2).
+
+    A consumable row aboard -- implicitly (EMPTY/MINIMUM) or by name -- may be
+    part-full; a discretionary row aboard may be part-filled (design note 63
+    D-63.5's clipped hold). Nothing else may carry a fraction, so nothing
+    else is offered one.
+    """
+    weight = getattr(project, "weight", None)
+    aboard = set(getattr(record, "aboard", ()) or ())
+    rows: List[Tuple[str, str]] = []
+    for it in (weight.items if weight is not None else ()):
+        if it.kind == MassItemKind.DISCRETIONARY:
+            if it.name in aboard:
+                rows.append((it.name, "part-full tank" if it.consumable
+                             else "part-filled row"))
+        elif it.consumable:
+            rows.append((it.name, f"{it.kind.value} row, consumable"))
+    return rows
+
+
+#: Composite ``List[str]`` fields whose values are *names of other rows*: the
+#: widget is a multiselect over what the resolver offers, never free text, so
+#: the name typed is one the calc will find (``entered_loading`` rejects any
+#: other, loudly). Keyed by registry path; the resolver takes the project and
+#: the record the field sits on.
+CHOICES: Dict[str, Callable[[Any, Any], List[str]]] = {
+    "weight.cg_cases[].loading.aboard": _discretionary_names,
+}
+
+#: ``Dict[str, float]`` fields whose keys are names of other rows: one number
+#: per key the resolver offers, ``1`` meaning *whole* and therefore not stored.
+MAP_KEYS: Dict[str, Callable[[Any, Any], List[Tuple[str, str]]]] = {
+    "weight.cg_cases[].loading.fractions": _fraction_rows,
+}
+
+
+def render_name_set(record: Any, path: str, *, key: str, container: Any = None,
+                    project: Any = None) -> None:
+    """A ``List[str]`` of row names as a multiselect over :data:`CHOICES`."""
+    where = container if container is not None else st
+    _mark_composite(path, project, where, record)
+    name = _leaf(path)
+    current = list(getattr(record, name) or [])
+    options = list(CHOICES[path](project, record))
+    # A name the project no longer carries stays visible rather than being
+    # silently dropped by a widget that cannot show it; validation names it.
+    options += [n for n in current if n not in options]
+    chosen = where.multiselect(
+        _field_label(path), options, default=current, key=widget_key(key),
+        help=_help(path))
+    _persist(record, name, list(chosen))
+
+
+def render_fraction_map(record: Any, path: str, *, key: str, container: Any = None,
+                        project: Any = None) -> None:
+    """A ``Dict[str, float]`` of fractions, one number per eligible row.
+
+    Whole (``1``) is the absence of an entry -- D-25 §3.2: ``0`` means *not
+    aboard* and is said by omitting the name, so the widget's floor is just
+    above it. A row the stored dict names but the resolver no longer offers is
+    kept as stored; validation names it.
+    """
+    where = container if container is not None else st
+    _mark_composite(path, project, where, record)
+    name = _leaf(path)
+    stored: Dict[str, float] = dict(getattr(record, name) or {})
+    rows = MAP_KEYS[path](project, record)
+    where.markdown(f"**{_field_label(path)}**", help=_help(path))
+    if not rows:
+        where.caption("No consumable row is aboard and no discretionary row is "
+                      "named, so nothing here can be partial.")
+        return
+    updated = dict(stored)
+    for start in range(0, len(rows), _COLUMNS):
+        columns = where.columns(_COLUMNS)
+        for column, (item, why) in zip(columns, rows[start:start + _COLUMNS]):
+            value = column.number_input(
+                f"{item} — fraction aboard", min_value=0.001, max_value=1.0,
+                value=float(stored.get(item, 1.0)), step=0.05,
+                format=display_format(field_unit(path)),
+                key=widget_key(f"{key}.{item}"),
+                help=f"{why}; 1 is whole and is not written")
+            if value >= 1.0:
+                updated.pop(item, None)
+            else:
+                updated[item] = float(value)
+    _persist(record, name, updated)
+
+
+def _loading_echo_note(project: Any, case: Any, loading: Any) -> str:
+    """The D-25a echo, beside the loading it checks.
+
+    The loading is authoritative; the case's weight, station and waterline
+    are an echo of it. Said here, in the display units, from the same
+    assembly and the same tolerances ``case_loading_checks`` uses -- a
+    caption, never a second rule.
+    """
+    del loading
+    weight = getattr(project, "weight", None)
+    if weight is None or not weight.items:
+        return "No weight items yet -- the loading has nothing to sum."
+    try:
+        ld = entered_loading(weight.items, case)
+    except ValueError as exc:
+        return f"\u26a0 {exc}"
+    system = active_system()
+    u = Units(system)
+    mass, length = u.label("mass"), u.label("length")
+    summed = (f"This loading sums to **{u.plain(ld.weight_lb, 'mass')} {mass}** at "
+              f"Xcg **{u.plain(ld.cg_x, 'length')} {length}**, "
+              f"Zcg **{u.plain(ld.cg_z, 'length')} {length}**")
+    gaps = []
+    if abs(ld.weight_lb - case.weight_lb) > echo_weight_tolerance(case.weight_lb):
+        gaps.append(f"weight {u.plain(case.weight_lb, 'mass')} {mass} entered")
+    for got, want, label in ((ld.cg_x, case.xcg, "Xcg"), (ld.cg_z, case.zcg, "Zcg")):
+        if abs(got - want) > cg_match_tolerance():
+            gaps.append(f"{label} {u.plain(want, 'length')} {length} entered")
+    if gaps:
+        return (f"\u26a0 {summed}, which is not what the case states: "
+                + "; ".join(gaps) + ". The loading is authoritative (D-25a): "
+                "what is exported is the loading's own weight and CG -- correct "
+                "one or the other.")
+    return (f"{summed}; the case's entered weight and CG agree within tolerance "
+            "(D-25a echo).")
+
+
+def _seed_loading(project: Any, case: Any) -> Any:
+    """What *Add loading* creates: the searched loading, entered as found.
+
+    The one construction (``mass_distribution.loading_definition_of``): the
+    case gets the subset the search had been running on, so adding the
+    loading changes no load and then every edit is the user's. A case the
+    search cannot produce gets an empty loading -- EMPTY and MINIMUM rows
+    aboard, nothing else -- to fill in.
+    """
+    weight = getattr(project, "weight", None)
+    if weight is not None and weight.items:
+        try:
+            found = derive_case_loadings(project, [case])
+        except ValueError:
+            found = []
+        if found:
+            definition = loading_definition_of(found[0], weight.items)
+            if definition is not None:
+                return definition
+    return seeded(fr.field_type("weight.cg_cases[].loading").__args__[0],
+                  "weight.cg_cases[].loading")
+
+
+def _seed_ballast(_project: Any, _loading: Any) -> Any:
+    """What *Add ballast* creates: a discretionary fuselage row named Ballast."""
+    return MassItem(name="Ballast", weight_lb=0.0, kind=MassItemKind.DISCRETIONARY,
+                    component=MassComponent.FUSELAGE)
+
+
+#: What the *Add* gesture of a nested Optional record creates, keyed by the
+#: record's prefix; :func:`seeded` when a record is not listed. The callable
+#: takes the project and the record the nested one sits on.
+NESTED_SEEDS: Dict[str, Callable[[Any, Any], Any]] = {
+    "weight.cg_cases[].loading": _seed_loading,
+    "weight.cg_cases[].loading.ballast": _seed_ballast,
+}
+
+#: A caption under a nested record's fields, from the project, the owner and
+#: the record -- the loading's D-25a echo.
+NESTED_NOTES: Dict[str, Callable[[Any, Any, Any], str]] = {
+    "weight.cg_cases[].loading": _loading_echo_note,
+}
+
+
+def _mass_cases_table(project: Project, system: UnitSystem
+                      ) -> Optional[Tuple[str, str, List[Dict[str, Any]]]]:
+    """The Mass cases table: one row per CG case, every column read from its
+    owner (design note 63 D-63.9, #290) -- nothing computed here."""
+    rows = mass_case_summary(project)
+    if not rows:
+        return None
+    u = Units(system)
+    mass, length = u.label("mass"), u.label("length")
+
+    def _m(value: Optional[float]) -> str:
+        return u.plain(value, "mass") if value is not None else "\u2014"
+
+    def _l(value: Optional[float]) -> str:
+        return u.plain(value, "length") if value is not None else "\u2014"
+
+    out = []
+    for r in rows:
+        echo = ("\u2014" if r.echo_ok is None else
+                "agrees" if r.echo_ok else "\u26a0 differs")
+        out.append({
+            "CG": r.cg_id or "\u2014", "Case": r.case, "Role": r.role or "\u2014",
+            "Analyses": ", ".join(r.analyses) or "\u2014",
+            f"W ({mass})": _m(r.weight_lb), f"Xcg ({length})": _l(r.xcg),
+            "Xcg (% MAC)": (format_value(r.pct_mac) if r.pct_mac is not None
+                            else "\u2014"),
+            f"Zcg ({length})": _l(r.zcg),
+            f"Loading W ({mass})": _m(r.loading_weight_lb),
+            f"Loading Xcg ({length})": _l(r.loading_cg_x),
+            f"Loading Zcg ({length})": _l(r.loading_cg_z),
+            "Echo": echo,
+            f"Fuel ({mass})": _m(r.fuel_lb), f"Payload ({mass})": _m(r.payload_lb),
+            f"Ballast ({mass})": _m(r.ballast_lb),
+            "Ballast (%)": format_value(100.0 * r.ballast_fraction),
+            f"Wing panel/side ({mass})": _m(r.panel_weight_lb),
+            f"Wing points/side ({mass})": (
+                f"{_m(r.point_weight_lb)} ({r.point_count})"
+                if r.point_weight_lb is not None else "\u2014"),
+            "Source": ("entered" if r.entered else r.source)
+                      + (f" -- {r.reason}" if r.reason else ""),
+        })
+    return (
+        "Mass cases",
+        "One row per weight/CG case: the entered scalars, the loading's own "
+        "weight and CG (the D-25a echo), what is aboard, and the wing panel and "
+        "points WINGINER hangs for it -- read from `derive_case_loadings`, "
+        "`wing_mass_state` and the item fuel flag, nothing recomputed (design "
+        "note 63 D-63.9). *Source* is the mass state of record: entered on the "
+        "case, searched, or the whole database when the search fails.",
+        out)
+
+
+def _wing_parts_table(project: Project, system: UnitSystem
+                      ) -> Optional[Tuple[str, str, List[Dict[str, Any]]]]:
+    """The per-case WING parts, read-only: the loading is entered on the
+    Weight & Mass Properties page (design note 63 D-63.9)."""
+    rows = wing_parts_summary(project)
+    if not rows:
+        return None
+    u = Units(system)
+    mass, length = u.label("mass"), u.label("length")
+    out = [{
+        "Case": r.case, "State": r.source, "Part": r.part, "Carriage": r.carriage,
+        f"Weight/side ({mass})": u.plain(r.weight_lb, "mass"),
+        f"X ({length})": u.plain(r.x, "length") if r.x is not None else "\u2014",
+        f"BL ({length})": u.plain(r.y, "length") if r.y is not None else "\u2014",
+        f"Z ({length})": u.plain(r.z, "length") if r.z is not None else "\u2014",
+    } for r in rows]
+    return (
+        "Wing parts per mass state",
+        "What WINGINER distributes for each FLIGHT case: the per-side panel "
+        "and each POINT part at its station, from the case's loading. "
+        "Read-only here -- the loading is entered on the case, Weight & Mass "
+        "Properties page (design note 63 D-63.3/D-63.9).",
+        out)
+
+
+#: Read-only tables rendered under a form group, keyed by group prefix: a
+#: per-case view of what the group's inputs resolve to, in the display units.
+GROUP_TABLES: Dict[str, Callable[[Project, UnitSystem],
+                                 Optional[Tuple[str, str, List[Dict[str, Any]]]]]] = {
+    "weight.cg_cases[]": _mass_cases_table,
+    "wing_mass.cases[]": _wing_parts_table,
+}
+
+
+def render_group_table(project: Project, prefix: str, system: UnitSystem) -> None:
+    """The :data:`GROUP_TABLES` entry for ``prefix``, if any."""
+    build = GROUP_TABLES.get(prefix)
+    if build is None:
+        return
+    table = build(project, system)
+    if table is None:
+        return
+    title, caption, rows = table
+    st.markdown(f"**{title}**")
+    st.caption(caption)
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+
+
 def _to_display(value: Any, unit: FieldUnit) -> Any:
     if unit.kind is None or not isinstance(value, (int, float)):
         return value
@@ -1151,7 +1477,11 @@ def render_field(record: Any, path: str, *, key: str, container: Any = None,
     """
     hint = fr.field_type(path)
     element = _list_element(hint)
-    if isinstance(element, type) and issubclass(element, Enum):
+    if path in CHOICES:
+        render_name_set(record, path, key=key, container=container, project=project)
+    elif _mapping_value(hint) is not None:
+        render_fraction_map(record, path, key=key, container=container, project=project)
+    elif isinstance(element, type) and issubclass(element, Enum):
         render_enum_set(record, path, key=key, container=container, project=project)
     elif element is not None:
         render_curve(record, path, key=key, container=container, project=project)
@@ -1562,11 +1892,13 @@ def render_table(project: Project, prefix: str, paths: Sequence[str]) -> None:
         st.caption(_empty_table_note(label, paths))
         return
 
-    if any(is_composite(fr.field_type(p)) for p in paths):
+    if (any(is_composite(fr.field_type(p)) for p in paths)
+            or any(nested_prefix(p) for p in paths)):
         for index, row in enumerate(rows):
             title = _row_title(row, paths, f"{prefix}.{index}")
             with st.expander(f"{index + 1} · {title}", expanded=index == 0):
-                render_record_row(row, paths, f"{prefix}.{index}", project)
+                render_record_row(row, paths, f"{prefix}.{index}", project,
+                                  prefix=prefix)
                 _delete_button(st, rows, index, prefix, title)
     else:
         _render_flat_table(rows, paths, prefix)
@@ -1574,14 +1906,18 @@ def render_table(project: Project, prefix: str, paths: Sequence[str]) -> None:
 
 
 def render_record_row(row: Any, paths: Sequence[str], key_prefix: str,
-                      project: Any = None) -> None:
+                      project: Any = None, prefix: str = "") -> None:
     """One row of a composite-bearing table, laid out like a record block.
 
     ``key_prefix`` carries the row index into every widget key: one registry
     path is N widgets across N rows, and Streamlit needs each of them named.
+    ``prefix`` is the table's; a path on a record *inside* the row (a CG
+    case's ``loading``, #290) is rendered by :func:`render_nested` under the
+    row's own fields rather than as a field of the row.
     """
-    scalars = [p for p in paths if not is_composite(fr.field_type(p))]
-    composites = [p for p in paths if is_composite(fr.field_type(p))]
+    own = [p for p in paths if not prefix or fr.record_of(p) == prefix]
+    scalars = [p for p in own if not is_composite(fr.field_type(p))]
+    composites = [p for p in own if is_composite(fr.field_type(p))]
     for start in range(0, len(scalars), _COLUMNS):
         columns = st.columns(_COLUMNS)
         for column, path in zip(columns, scalars[start:start + _COLUMNS]):
@@ -1589,6 +1925,104 @@ def render_record_row(row: Any, paths: Sequence[str], key_prefix: str,
                           project=project)
     for path in composites:
         render_field(row, path, key=f"{key_prefix}.{_leaf(path)}", project=project)
+    if prefix:
+        for child in _child_records(prefix, paths):
+            render_nested(row, child, paths, key_prefix, project)
+
+
+def _child_records(prefix: str, paths: Sequence[str]) -> List[str]:
+    """The record prefixes sitting directly on ``prefix``, in path order."""
+    out: List[str] = []
+    for p in paths:
+        record = fr.record_of(p)
+        while record and fr.record_of(record) != prefix:
+            record = fr.record_of(record)
+        if record and record != prefix and record not in out:
+            out.append(record)
+    return out
+
+
+def nested_record_class(prefix: str) -> Optional[type]:
+    """The dataclass a nested record prefix names, or ``None``.
+
+    The renderer's own answer to *can this record be addressed through its
+    row*: the prefix sits inside a list row (:func:`nested_prefix`) and its
+    field is a dataclass, Optional or not. ``tests/test_oracle_gui.py``'s
+    tier gate asks this, so a record it cannot answer for stays JSON-only.
+    """
+    if not nested_prefix(prefix + ".x"):
+        return None
+    inner, _ = _unwrap_optional(fr.field_type(prefix))
+    return inner if isinstance(inner, type) and dataclasses.is_dataclass(inner) else None
+
+
+def _attach_nested(owner: Any, attr: str, prefix: str, project: Any) -> None:
+    """Create the nested record on its owner, for real, by a named click."""
+    seed = NESTED_SEEDS.get(prefix)
+    cls = nested_record_class(prefix)
+    if seed is not None:
+        setattr(owner, attr, seed(project, owner))
+    elif cls is not None:
+        setattr(owner, attr, seeded(cls, prefix))
+
+
+def _detach_nested(owner: Any, attr: str) -> None:
+    setattr(owner, attr, None)
+
+
+def render_nested(owner: Any, prefix: str, paths: Sequence[str], key_prefix: str,
+                  project: Any = None) -> None:
+    """A record inside a list row: a CG case's loading (#290, note 63 D-63.9).
+
+    The same posture as :func:`render_record` one level up (#143): an
+    Optional nested record is created and removed by a **named click**, its
+    fields off the page until then, so visiting the row attaches nothing and a
+    touch inside the block cannot mint a loading of its own. The *Add* click
+    creates what :data:`NESTED_SEEDS` says -- for a loading, the searched one
+    entered as found -- and the remove is a plain button rather than the
+    expander :func:`_offer_record_remove` uses, because this block already
+    sits inside the row's expander and Streamlit nests none.
+    """
+    attr = _leaf(prefix)
+    hint = fr.field_type(prefix)
+    _inner, optional = _unwrap_optional(hint)
+    if nested_record_class(prefix) is None:
+        return
+    under = [p for p in paths if p.startswith(prefix + ".")]
+    own = [p for p in under if fr.record_of(p) == prefix]
+    title = fr.DISPLAY_GROUPS.get(own[0]) if own else None
+    title = title or pretty(attr)
+    key = f"{key_prefix}.{attr}"
+    value = getattr(owner, attr, None)
+    box = st.container(border=True)
+    with box:
+        st.markdown(f"**{title}**")
+        st.caption(f"`{prefix}`")
+        if value is None:
+            if optional:
+                names = ", ".join(_field_label(p) for p in own)
+                st.caption(
+                    f"Not entered. The {title} fields are off the page until "
+                    f"the record is added: {names}.")
+                st.button(
+                    f"\u2795 Add {title}", key=widget_key(f"_add.{key}"),
+                    on_click=_attach_nested, args=(owner, attr, prefix, project),
+                    help=f"Creates `{prefix}` on this row and puts its fields on "
+                         "the page. It can be removed again.")
+            return
+        render_record_row(value, own, key, project, prefix=prefix)
+        for child in _child_records(prefix, under):
+            render_nested(value, child, under, key, project)
+        note = NESTED_NOTES.get(prefix)
+        if note is not None:
+            st.caption(note(project, owner, value))
+        if optional:
+            st.button(
+                f"\U0001f5d1 Remove {title}", key=widget_key(f"_remove.{key}"),
+                on_click=_detach_nested, args=(owner, attr),
+                help=f"Removes `{prefix}` from this row, with everything entered "
+                     "in it. The programs that read it fall back to what they do "
+                     "when it was never there.")
 
 
 def _row_title(row: Any, paths: Sequence[str], key_prefix: str) -> str:
@@ -1752,7 +2186,9 @@ def page_groups(key: str) -> List[Tuple[str, List[str]]]:
         # fields of the same record, so a wing quantity that lives on a tail
         # record for SELECT's convenience stops rendering as tail data.
         title = fr.DISPLAY_GROUPS.get(row.path, "")
-        groups.setdefault((fr.record_of(row.path), title), []).append(row.path)
+        # A record inside a list row renders inside that row (#290), so its
+        # paths join the list's group: see :func:`nested_prefix`.
+        groups.setdefault((group_prefix(row.path), title), []).append(row.path)
     return [(prefix, paths) for (prefix, _title), paths in groups.items()]
 
 
@@ -1858,6 +2294,7 @@ def render_step(key: str) -> None:
                 render_table(ctx.project, prefix, paths)
             else:
                 render_record(ctx.project, prefix, paths)
+            render_group_table(ctx.project, prefix, ctx.system)
             st.divider()
 
     # Records the widgets were given are attached only now, and only if the pass
@@ -1917,9 +2354,11 @@ def _step_caption(step: wf.WorkflowStep) -> str:
 
 
 __all__ = [
-    "EXTENSION_MARK", "EXTENSION_NOTE",
-    "GROUP_NOTES", "MEMBER_LABELS", "blank", "commit_pending", "is_composite",
-    "optional_steps", "page_groups", "record_at",
-    "render_field", "render_record", "render_scalar", "render_step",
-    "render_table", "row_class", "rows_at", "seeded",
+    "CHOICES", "EXTENSION_MARK", "EXTENSION_NOTE",
+    "GROUP_NOTES", "GROUP_TABLES", "MAP_KEYS", "MEMBER_LABELS", "NESTED_NOTES",
+    "NESTED_SEEDS", "blank", "commit_pending", "group_prefix", "is_composite",
+    "nested_prefix", "nested_record_class", "optional_steps", "page_groups",
+    "record_at", "render_field", "render_fraction_map", "render_group_table",
+    "render_name_set", "render_nested", "render_record", "render_scalar",
+    "render_step", "render_table", "row_class", "rows_at", "seeded",
 ]

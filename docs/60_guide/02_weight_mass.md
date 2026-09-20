@@ -66,6 +66,19 @@ state weight and CG, or it can **state its loading** — which discretionary
 rows are aboard and how full each consumable is — and let the page check
 that the stated weight and CG are what that loading actually sums to.
 
+**The loading, on the case.** Open a case's row: below its scalars sits
+its loading. A case without one offers **Add loading**, which enters the
+loading the search found for it — the same rows, the same weight and CG,
+so nothing moves until you change it. Then the rows aboard are a
+multiselect over the discretionary items, every row that may be partial
+(a tank aboard, a named hold) gets a fraction with `1` meaning whole, and
+**Add ballast** puts a real ballast row on the case with its own station
+and waterline. The caption under the block is the check: what the loading
+sums to, and whether the entered weight and CG agree with it — the loading
+is authoritative, the scalars are its echo. On a concept-category
+airplane a flight case that still runs on the search is named at the top
+of the page until its loading is entered.
+
 **Wing weight for SELECT.** The wing structural weight the selection program
 subtracts as inertia relief; enter the same wing weight your database
 carries.
@@ -113,7 +126,12 @@ Three blocks, none of them loads (no LIMIT/ULTIMATE, no safety factors):
 the **advisory estimate** beside your entered weights with the delta; the
 **mass properties** of the itemized loading — total weight, CG position,
 and the moments of inertia `WTONECG` computed; and the **CG envelope** as
-`WTENV` built it. Sanity checks: computed empty weight and CG against the
+`WTENV` built it. Under the cases themselves, the **Mass cases** table:
+one row per case with its entered weight and CG, what its loading sums to
+and whether the two agree, the fuel, payload and ballast aboard, the wing
+panel and point masses the wing analysis will hang for it, and where the
+loading came from — entered on the case, found by the search, or the
+whole database when the search fails, with the reason. Sanity checks: computed empty weight and CG against the
 weight statement; the all-aboard total against MTOW (it should exceed it —
 you choose what to leave behind); inertias within the ballpark of published
 values for the class; and the page's consistency warnings — a loading CG

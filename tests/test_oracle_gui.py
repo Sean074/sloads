@@ -1105,6 +1105,15 @@ def _addressable(prefix):
     try:
         if prefix.endswith(fr.LIST_MARKER):
             return form.rows_at(project, prefix) is form.rows_at(project, prefix)
+        # A record inside a list row -- a CG case's ``loading`` -- is reached
+        # through the row the table walks, not through ``record_at`` (#290,
+        # note 63 D-63.9): addressable iff its table is and the renderer can
+        # name its class (``nested_record_class``), which is what
+        # ``render_nested`` itself asks before it renders anything.
+        table = form.nested_prefix(prefix + ".x")
+        if table:
+            return (form.nested_record_class(prefix) is not None
+                    and form.rows_at(project, table) is form.rows_at(project, table))
         return form.record_at(project, prefix) is not None
     finally:
         # ``_PENDING`` is module state and these probes populate it with records
@@ -2401,3 +2410,106 @@ def test_the_taildist_advisory_points_at_the_spanwise_home():
     for title in absent:
         assert title not in text, (
             f"the advisory names {title!r}, which is not a page of this GUI")
+
+
+# --------------------------------------------------------------------------- #
+# #290 -- the case loading is entered on the case (design note 63 D-63.9)
+# --------------------------------------------------------------------------- #
+def _keyed(widgets, key):
+    from app_shell.widget_keys import unstamped
+
+    return next(w for w in widgets if w.key and unstamped(w.key) == key)
+
+
+def test_a_group_table_names_a_group_an_oracle_page_renders():
+    """``GROUP_TABLES`` is keyed by group prefix like ``GROUP_NOTES`` and rots
+    the same way: a table under a group nobody renders never appears."""
+    from oracle_app.form import GROUP_TABLES, page_groups
+
+    rendered = {prefix
+                for step in wf.oracle_steps()
+                for prefix, _paths in page_groups(step.key)}
+    unknown = sorted(set(GROUP_TABLES) - rendered)
+    assert not unknown, f"group tables for groups no oracle page renders: {unknown}"
+
+
+def test_the_loading_is_added_as_the_search_found_it_edited_and_echoed():
+    """The editor's journey, on the Appendix A airplane (#290, G-63.6):
+
+    * a case with no loading shows *Add loading* and no loading widget -- and
+      visiting the page attaches nothing (the walk in ``test_gui_journey``);
+    * the click enters the searched loading as found
+      (``loading_definition_of``): the same discretionary set, so no load
+      moves;
+    * the aboard multiselect writes ``CgCase.loading.aboard``; a fraction
+      widget exists per row that may be partial and ``1`` is not stored;
+    * the D-25a echo caption states the loading's own sum and whether the
+      case agrees, and turns loud when the loading is changed under it;
+    * ballast is a second named gesture inside the first; *Remove loading*
+      takes the record back off.
+    """
+    from sloads.mass_distribution import derive_case_loadings, loading_definition_of
+    from sloads.validation import consistency_warnings
+
+    project = _seeded()
+    searched = loading_definition_of(derive_case_loadings(project)[0],
+                                     project.weight.items)
+    at = _render("weight_mass", project)
+    assert not at.exception
+    assert not [w for w in at.multiselect if w.key and "loading" in w.key]
+    _keyed(at.button, "_add.weight.cg_cases[].0.loading").click().run()
+    assert not at.exception, [e.message for e in at.exception]
+    live = at.session_state["project"]
+    entered = live.weight.cg_cases[0].loading
+    assert entered is not None and entered.aboard == searched.aboard
+    assert entered.fractions == searched.fractions == {}
+    assert (entered.ballast is None) == (searched.ballast is None)
+
+    aboard = _keyed(at.multiselect, "weight.cg_cases[].0.loading.aboard")
+    assert aboard.value == entered.aboard
+    fractions = [w for w in at.number_input
+                 if w.key and "loading.fractions." in w.key]
+    assert {w.value for w in fractions} == {1.0}
+    assert live.weight.cg_cases[0].loading.fractions == {}
+    echo = next(c.value for c in at.caption if "sums to" in c.value)
+    assert "agree within tolerance" in echo
+
+    dropped = aboard.value[:-1]
+    aboard.set_value(dropped).run()
+    live = at.session_state["project"]
+    assert live.weight.cg_cases[0].loading.aboard == dropped
+    echo = next(c.value for c in at.caption if "sums to" in c.value)
+    assert "not what the case states" in echo
+    assert "cg_case_loading_echo" in [w.code for w in consistency_warnings(live)]
+
+    if entered.ballast is None:
+        _keyed(at.button, "_add.weight.cg_cases[].0.loading.ballast").click().run()
+        live = at.session_state["project"]
+        assert live.weight.cg_cases[0].loading.ballast is not None
+    _keyed(at.number_input, "weight.cg_cases[].0.loading.ballast.weight_lb_imperial")
+    _keyed(at.button, "_remove.weight.cg_cases[].0.loading").click().run()
+    live = at.session_state["project"]
+    assert live.weight.cg_cases[0].loading is None
+
+
+def test_the_mass_cases_and_wing_parts_tables_render_read_only():
+    """The two read-only views (#290): one Mass cases row per CG case on the
+    Weight & Mass page, and the per-case WING parts on the Wing Loads page --
+    dataframes, never widgets, so the walk in ``test_gui_journey`` has nothing
+    to touch in them."""
+    from sloads.mass_distribution import mass_case_summary, wing_parts_summary
+
+    project = _seeded()
+    at = _render("weight_mass", project)
+    titles = [m.value for m in at.markdown]
+    assert "**Mass cases**" in titles
+    frames = [d.value for d in at.dataframe]
+    mass = next(f for f in frames if "Loading W (lb)" in f.columns)
+    assert list(mass["Case"]) == [r.case for r in mass_case_summary(project)]
+    assert set(mass["Source"]) <= {"searched", "entered"} | {
+        s for s in mass["Source"] if s.startswith("database")}
+
+    at = _render("wing_loads", project)
+    assert "**Wing parts per mass state**" in [m.value for m in at.markdown]
+    parts = next(d.value for d in at.dataframe if "Carriage" in d.value.columns)
+    assert len(parts) == len(wing_parts_summary(project))
