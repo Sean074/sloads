@@ -99,7 +99,12 @@ from ..joints import JointName, wing_lra_point
 from ..joints import joints as joint_register
 from ..models import BalancedCaseResult, BalancedLoad, LraMeshInput, Project
 from ..models.enums import GearCarrier
-from ..modules.balance import build_balanced_cases
+from ..modules.balance import (
+    SkippedCondition,
+    build_balanced_cases,
+    skipped_block,
+    skipped_conditions,
+)
 from ..modules.tail_span import ATTACH_STRIP_PAIR, build_tail_span, htail_attachment
 from ..modules.wing_geometry import require_integrable_planform
 from ..picks import extreme
@@ -1120,7 +1125,8 @@ def _case_header(case: BalancedCaseResult, sid: int) -> List[str]:
 def lra_model_bdf(project: Project, *,
                   header_comment: str = "",
                   system: UnitSystem = UnitSystem.IMPERIAL,
-                  cases: Sequence[BalancedCaseResult] = ()) -> str:
+                  cases: Sequence[BalancedCaseResult] = (),
+                  skipped: Optional[Sequence[SkippedCondition]] = None) -> str:
     """The LRA beam model as one solvable SOL 101 deck.
 
     ``cases`` defaults to :func:`~sloads.modules.balance.build_balanced_cases`
@@ -1128,9 +1134,24 @@ def lra_model_bdf(project: Project, *,
     on this model. Raises :class:`LraRefusal` when the project lacks a datum
     the skeleton must not guess (see the module docstring), and ``ValueError``
     when no case assembles -- an empty model would read as a result.
+
+    ``skipped`` is the F-C7 record rendered under the case map (#284): the
+    SELECT conditions the case map does *not* carry, and why. A sizing loop
+    reads this one deck, so the deck states its own completeness; the record
+    is derived here when the caller does not supply it, so the block can
+    never be silently absent, and a caller that already assembled passes its
+    own and saves the second pass.
     """
     model = build_lra_model(project)
-    cases = list(cases) or build_balanced_cases(project, [])
+    if cases:
+        cases = list(cases)
+        if skipped is None:
+            skipped = skipped_conditions(project)
+    else:
+        record: List[SkippedCondition] = []
+        cases = build_balanced_cases(project, record)
+        if skipped is None:
+            skipped = record
     if not cases:
         raise ValueError(
             "no balanced case could be assembled -- the LRA model carries the "
@@ -1165,6 +1186,7 @@ def lra_model_bdf(project: Project, *,
                  f"{' -- run ' + run_key if run_key else ''}")
         head += [f"$ {ln}" for ln in textwrap.wrap(entry, width=70,
                                                    subsequent_indent="    ")]
+    head += skipped_block(skipped)
     head.append("$")
     for sid, case in zip(sids, cases):
         head += [
@@ -1258,12 +1280,13 @@ def lra_model_bdf(project: Project, *,
 def write_lra_model_bdf(project: Project, path: str, *,
                         header_comment: str = "",
                         system: UnitSystem = UnitSystem.IMPERIAL,
-                        cases: Sequence[BalancedCaseResult] = ()) -> None:
+                        cases: Sequence[BalancedCaseResult] = (),
+                        skipped: Optional[Sequence[SkippedCondition]] = None) -> None:
     # Rendered before the file opens: this exporter legitimately refuses (an
     # LraRefusal names the missing datum), and a failed export must leave no
     # partial artifact.
     text = lra_model_bdf(project, header_comment=header_comment, system=system,
-                         cases=cases)
+                         cases=cases, skipped=skipped)
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(text)
 

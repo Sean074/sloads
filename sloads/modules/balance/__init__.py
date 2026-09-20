@@ -300,6 +300,7 @@ from .skipped import (
     SkippedCondition,
     _skipped_record,
     carry_sources_absent,
+    skipped_block,
     skipped_condition_lines,
 )
 
@@ -468,6 +469,7 @@ __all__ = [
     "residual_gate_family",
     "resultant",
     "resultant6",
+    "skipped_block",
     "skipped_condition_lines",
     "skipped_conditions",
     "source_case_name",
