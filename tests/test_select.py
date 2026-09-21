@@ -117,12 +117,15 @@ _FROZEN_PICKS = {
         "PNZ": ("GUST +C", +4.34, 195.0, "fwd regardless", 10000.0, 18961),
         "NNZ": None,
     },
+    # atr42_100 re-pinned 2026-09-21 (#260): the fixture reconciled to the
+    # type's wing area, CLmax and mass model, its cases re-seeded, so every
+    # air pick moved (the delivered runs re-point to `mzfw aft`, D-63.7).
     "atr42_100": {
-        "NHAA": ("STALL -N", -1.00, 170.9, "fwd gross", 12000.0, 36841),
-        "NMAA": ("MAN -C", -1.00, 183.3, "fwd gross", 25000.0, 36594),
-        "NLAA": ("GUST -D", -0.63, 300.0, "min weight", 12000.0, 12055),
-        "PNZ": ("GUST +C", +3.44, 240.0, "min weight", 12000.0, 67231),
-        "NNZ": ("GUST -C", -1.44, 240.0, "min weight", 12000.0, 27272),
+        "NHAA": ("STALL -N", -1.00, 153.94, "fwd gross", 0.0, 36821.5),
+        "NMAA": ("MAN -C", -1.00, 240.00, "fwd gross", 12000.0, 36447.1),
+        "NLAA": ("GUST -D", -0.61, 300.0, "min weight", 12000.0, 14276.8),
+        "PNZ": ("GUST +C", +3.41, 240.0, "min weight", 12000.0, 80493.7),
+        "NNZ": ("GUST -C", -1.41, 240.0, "min weight", 12000.0, 32061.3),
     },
     "concept_regional_jet": {
         "NHAA": ("STALL -N", -1.00, 150.5, "fwd gross", 20000.0, 34454),

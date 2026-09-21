@@ -86,6 +86,28 @@ def test_run_emits_conditions():
     assert all(c.far_reference == "23.421" for c in res.conditions)
 
 
+def test_a_blank_wing_aspect_ratio_derives_from_the_planform():
+    """Note 36 OV-1 in BALLOADS: a blank ``aspect_ratio_wing`` (and lift
+    slope) derives from the planform exactly as SELECT's own balancing does.
+    Until #260 (2026-09-21) this module handed the raw record to the downwash
+    term, which divides by ARW unguarded -- the first fixture to blank its
+    typed copy (the ATR) hit a bare ``ZeroDivisionError``."""
+    from sloads.derived_geometry import wing_aspect_ratio
+    from sloads.modules.select import wing_lift_slope_per_rad
+
+    p = _ga6()
+    p.tail_loads.aspect_ratio_wing = wing_aspect_ratio(p)
+    p.tail_loads.wing_lift_slope_per_rad = wing_lift_slope_per_rad(p)
+    typed = balloads.verify_balancing(p)
+    p.tail_loads.aspect_ratio_wing = 0.0
+    p.tail_loads.wing_lift_slope_per_rad = 0.0
+    derived = balloads.verify_balancing(p)
+    assert len(derived) == len(typed) and derived
+    # Blank derives exactly the owner's number: typing that number is the identity.
+    for a, b in zip(typed, derived):
+        assert a["LT"] == b["LT"] and a["ELEV"] == b["ELEV"], a["point"]
+
+
 if __name__ == "__main__":
     test_case_202_up_balancing_load()
     test_matches_select_balancing()

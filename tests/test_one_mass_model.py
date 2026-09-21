@@ -216,7 +216,9 @@ def test_a_hand_entered_wing_case_resolves_its_mass_state_in_the_stated_order():
 #: rows (+6,074 lb: the 41 % ``wing_fraction`` slice was 3,800); the heavy's
 #: 5,500 lb fuel row into per-side tank rows (+4,300 lb: the slice was 1,200).
 _WING_ITEM_WEIGHT = {
-    "atr42_100.project.json": 2650.0 + 1780.0 + 600.0 + 9174.0 + 700.0,
+    # The ATR re-entered at #260 (2026-09-21): wing 3,500 lb, engines,
+    # propellers and nacelles per side, the same 9,874 lb of fuel.
+    "atr42_100.project.json": 3500.0 + 1780.0 + 620.0 + 640.0 + 9174.0 + 700.0,
     "baron_58.project.json": 2941.0,
     "concept_heavy.project.json": 1800.0 + 5500.0,
     "concept_regional_jet.project.json": 4200.0,
@@ -227,7 +229,7 @@ _WING_ITEM_WEIGHT = {
 #: at every state that carries them all -- and their total, which on the Baron
 #: is exactly the 1,190.5 lb its four lumped ``concentrated`` entries summed to.
 _POINT_ROWS = {
-    "atr42_100.project.json": (4, 890.0 + 300.0 + 4587.0 + 350.0),
+    "atr42_100.project.json": (5, 890.0 + 310.0 + 320.0 + 4587.0 + 350.0),
     "baron_58.project.json": (9, 1190.5),
     "concept_heavy.project.json": (1, 2750.0),
     "concept_regional_jet.project.json": (0, 0.0),
@@ -459,9 +461,12 @@ def test_the_mzfw_seeds_on_the_appendix_a_airplane():
 
 
 def test_the_atr_mzfw_aft_seed_is_note_63s_row_and_is_entered_from_birth():
-    """Note 63 §8.3: ``mzfw aft`` 28,410 lb at 35.0 % MAC with the aft hold
-    trimmed to 853 lb -- the search's answer to the pound; and the seeded
-    case is an entered loading, so D-25a's echo reads it."""
+    """Note 63 §8.3's mechanism on the #260 fixture: ``mzfw aft`` is the MZFW
+    cap itself, 33,510 lb, with the forward cabin trimmed to 4,056 lb so the
+    loading sits under the cap inside the aft line (403.69 in against the
+    404.11 in limit) -- the search's answer to the pound; and the seeded case
+    is an entered loading, so D-25a's echo reads it. (Before #260 the sample
+    was 28,410 lb with the aft hold trimmed to 853 lb onto the aft line.)"""
     from sloads.cg_cases import seed_flight_cases
     from sloads.mass_distribution import derive_case_loadings
 
@@ -469,9 +474,9 @@ def test_the_atr_mzfw_aft_seed_is_note_63s_row_and_is_entered_from_birth():
     seeded, missing = seed_flight_cases(p)
     assert not missing
     aft = next(c for c in seeded if c.name == "mzfw aft")
-    assert aft.weight_lb == pytest.approx(28409.6, abs=0.05)
-    assert aft.loading.fractions["Cargo, aft hold"] * 1050.0 == pytest.approx(853.0, abs=0.5)
-    assert aft.xcg == pytest.approx(402.06, abs=0.01)          # the aft line
+    assert aft.weight_lb == pytest.approx(33510.0, abs=0.05)
+    assert aft.loading.fractions["Passengers, fwd cabin (24)"] * 4080.0 == pytest.approx(4056.0, abs=0.5)
+    assert aft.xcg == pytest.approx(403.69, abs=0.01)          # inside the aft line
     ld = derive_case_loadings(p, [aft])[0]
     assert ld.entered and ld.derivable and ld.weight_lb == pytest.approx(aft.weight_lb, abs=0.05)
     # The fixture carries exactly the seed (its own drift guard is test_cg_cases).

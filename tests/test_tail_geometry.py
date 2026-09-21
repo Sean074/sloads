@@ -523,6 +523,7 @@ def test_the_outline_branch_states_its_datum_and_a_pointed_cone_falls_through():
     project = _project("atr42_100.project.json")
     project.geometry.surfaces = [s for s in project.geometry.surfaces
                                  if s.name != VTAIL]
+    project.geometry.parametric.h_tail_z = 0.0   # entered since #260; the T-tail branch would fire first
     planform = resolve_tail_planform(project, VTAIL)
     note = next(n for n in planform.notes if "local fuselage top" in n)
     assert "z_centre" in note and "fuselage centre line ASSUMED" in note

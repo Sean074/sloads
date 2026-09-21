@@ -1106,7 +1106,7 @@ def test_the_transferred_moment_is_the_two_lever_arms():
 #: "weighs nothing" and the code has to say which.
 _DERIVED_TAIL_WEIGHT = {
     "ga6_normal.project.json": (42.0, 23.0),
-    "atr42_100.project.json": (320.0, 270.0),
+    "atr42_100.project.json": (340.0, 420.0),   # re-entered at #260
     "concept_regional_jet.project.json": (520.0, 640.0),
     "concept_heavy.project.json": (400.0, None),
 }

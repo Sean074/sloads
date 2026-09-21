@@ -858,17 +858,27 @@ def test_the_lra_named_node_internal_loads_are_the_cut_side_sums(sbeam, example)
             f_g = np.zeros(3)
             m_g = np.zeros(3)
             f_scale = 0.0
+            m_scale = 0.0
             for gid, scale, n in forces.get(sid, ()):
                 if gid not in far:
                     continue
                 f = scale * np.array(n)
                 f_g += f
-                m_g += np.cross(np.array(grids[gid]) - a, f)
+                lever = np.cross(np.array(grids[gid]) - a, f)
+                m_g += lever
                 f_scale += float(np.abs(f).max())
+                m_scale = max(m_scale, float(np.abs(lever).max()))
             for gid, scale, n in moments.get(sid, ()):
                 if gid in far:
-                    m_g += scale * np.array(n)
-            m_scale = float(np.abs(m_g).max())
+                    m = scale * np.array(n)
+                    m_g += m
+                    m_scale = max(m_scale, float(np.abs(m).max()))
+            # The moment scale is the largest single contribution, as
+            # ``closes`` documents (``max|f_i * lever_i|``), not the net: the
+            # two main-gear transfer couples of a landing case (+-1.4e6 lb-in on
+            # the ATR since #260) cancel to a torque the deck's 7-significant-
+            # digit cards can only state to +-0.5 lb-in, and a net-derived
+            # scale judged that card rounding as a closure failure.
             f_e = rot @ f_g
             m_e = rot @ m_g
             bar = sols[sid].bar_forces[eid]
