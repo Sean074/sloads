@@ -318,7 +318,8 @@ FAR23LOADS/
 ├── examples/
 │   ├── ga6_normal.project.json   # Appendix A — 6-place GA single (category N); the oracle fixture
 │   ├── baron_58.project.json     # light twin (category N); the twin closure lock
-│   ├── atr42_100.project.json    # ATR 42-100 turboprop twin (concept mode, category C)
+│   ├── atr42_100.project.json    # ATR 42-300 turboprop twin (concept mode, category C); sources: atr42_100.sources.md
+│   ├── atr42_100.sources.md      # its data-sources register (published values cited, estimates tagged)
 │   ├── concept_heavy.project.json     # 18,000 lb concept commuter twin (concept mode, category C)
 │   └── concept_regional_jet.project.json  # concept regional jet — the T-tail / lateral fixture
 │   # (cessna_210 and dhc8_dash8 retired to unmaintained parking at #264,

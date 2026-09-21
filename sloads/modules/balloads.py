@@ -31,7 +31,7 @@ from ..cg_cases import flight_cases
 from ..derived_geometry import require_wing_reference, sync_geometry_derived
 from ..models import CgCase, ConditionResult, LoadValue, MissingInputError, ModuleResult, Project, VnPoint
 from ..registry import register
-from .select import default_envelope, elevator_load, flaps_by_config_name, htail_balance
+from .select import default_envelope, effective_tail_inputs, elevator_load, flaps_by_config_name, htail_balance
 
 MODULE_NAME = "balloads"
 
@@ -59,6 +59,11 @@ def verify_balancing(project: Project) -> List[Dict[str, Any]]:
     ti, fl = project.tail_loads, project.flight_loads
     if ti is None or fl is None:
         raise MissingInputError("balloads needs Project.tail_loads and Project.flight_loads")
+    # OV-1: a blank ARW/AW derives from the planform exactly as SELECT's own
+    # balancing does -- the raw record reached the downwash term's division
+    # here until #260's fixture blanked its typed copy (2026-09-21).
+    ti = effective_tail_inputs(project)
+    assert ti is not None
     wr = require_wing_reference(project)
     cg_map: Dict[str, CgCase] = {c.name: c for c in flight_cases(project)}
     flaps: Dict[str, bool] = flaps_by_config_name(project)

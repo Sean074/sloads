@@ -141,7 +141,7 @@ def _skip_if_empty(results, example, what):
 #: wing -- one per strip that holds one. See
 #: :func:`test_offset_couples_exist_only_where_a_concentrated_mass_does`.
 _COUPLE_NODES = {
-    "atr42_100.project.json": 1,      # engine + fuel, one strip
+    "atr42_100.project.json": 2,      # engine/prop/nacelle at BL 161, fuel at BL 250 (#260)
     "baron_58.project.json": 4,       # engine/gear/fuel/systems, four strips
     "concept_heavy.project.json": 1,  # engine + fuel, one strip
 }
@@ -459,7 +459,7 @@ def test_every_example_has_decks():
     """
     coverage = {ex: tuple(bool(c) for c in _cached(ex)) for ex in EXAMPLES}
     assert coverage == {
-        "atr42_100.project.json": (True, True, True, False, True, True),
+        "atr42_100.project.json": (True, True, True, True, True, True),
         "baron_58.project.json": (True, True, True, True, True, True),
         "concept_heavy.project.json": (True, True, False, False, False, False),
         "concept_regional_jet.project.json": (True, True, True, True, True, True),

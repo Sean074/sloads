@@ -164,13 +164,14 @@ def _atr42_project(phaa_speed_kt=None):
     """ATR-42 with a persisted envelope + critical set. ``phaa_speed_kt`` restates
     the speed the shipped fixture entered on PHAA until #292 made its list a
     filter (170 kt against SELECT's pick), for the tests of that ruling."""
-    from dataclasses import replace
+    from sloads.models.inputs import WingLoadCase
 
     project = io.load_project(os.path.join(_EXAMPLES, "atr42_100.project.json"))
     if phaa_speed_kt is not None:
-        project.wing_mass.cases = [
-            replace(c, v_eas_kt=phaa_speed_kt) if c.name == "PHAA" else c
-            for c in project.wing_mass.cases]
+        # The shipped table is empty since #260 (every slot derives, note 62
+        # D-62.7), so the filter row is entered here: a PHAA that names the
+        # slot and states only its own speed.
+        project.wing_mass.cases = [WingLoadCase(name="PHAA", v_eas_kt=phaa_speed_kt)]
     project.envelope = build_envelope(project)
     project.envelope.critical = build_critical(project)
     return project
@@ -224,7 +225,7 @@ def test_the_case_id_stays_selects_when_the_speed_is_the_cases_own():
 
 def test_the_atr42_phaa_divergence_is_pinned():
     """The measured instance behind the decision: the fixture enters PHAA at
-    170 kt, SELECT's PHAA point is 185.36 kt. The row now reads 170.
+    170 kt, SELECT's PHAA point is 147.55 kt. The row now reads 170.
 
     SELECT's pick moved from 185.85 kt with Pri 5 / D-26: PHAA is flown at
     ``CGmid``, whose station and waterline are now its loading's own rather than
@@ -235,7 +236,10 @@ def test_the_atr42_phaa_divergence_is_pinned():
     The divergence the decision exists for is unchanged in kind and in sign.
     **Since #292 the shipped fixture enters a filter** (note 63 D-63.7: its
     PHAA carries no speed of its own), so the 170 kt entry is restated here in
-    memory -- the mechanism is the fixture's to use, and this pins it.
+    memory -- the mechanism is the fixture's to use, and this pins it. **And
+    147.55 kt since #260 (2026-09-21):** the fixture's wing was redrawn to the
+    type's area and its CLmax re-entered, so the STALL +N point moved; the
+    shipped table is now empty and the PHAA row is entered here.
     """
     project = _atr42_project(phaa_speed_kt=170.0)
     cases = resolve_wing_cases(project, project.wing_mass)
@@ -245,7 +249,7 @@ def test_the_atr42_phaa_divergence_is_pinned():
     select_ref = next(c.case_ref for c in project.envelope.critical.conditions
                       if c.component == "wing" and c.label == "PHAA")
     assert math.isclose(case.v_eas_kt, 170.0, rel_tol=1e-9)
-    assert math.isclose(select_ref.speed_kt, 185.36, rel_tol=1e-3), select_ref.speed_kt
+    assert math.isclose(select_ref.speed_kt, 147.55, rel_tol=1e-3), select_ref.speed_kt
     assert math.isclose(wing_case_ref(project, i, case).speed_kt, 170.0, rel_tol=1e-9)
 
 

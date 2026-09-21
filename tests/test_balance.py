@@ -355,7 +355,10 @@ _PITCH_RESIDUAL_RATCHET = {
 _FORCE_RESIDUAL_RATCHET = {
     "ga6_normal.project.json": {"symmetric": 0.0120, "lateral": 0.0030,
                                 "unsymmetrical": 0.0030},
-    "atr42_100.project.json": {"symmetric": 0.0240, "lateral": 0.0065,
+    # atr42_100 re-measured 2026-09-21 (#260, the fixture reconciled): its
+    # PHAA sits at CLmax 1.8 on the true wing, symmetric 2.14 %, lateral
+    # 0.55 %; ratchets re-pinned to those.
+    "atr42_100.project.json": {"symmetric": 0.0220, "lateral": 0.0060,
                                "unsymmetrical": 0.0140},
     # baron_58 measured 2026-09-11 (#271): symmetric 0.191 %, lateral 0.117 %.
     # Re-measured 2026-09-18 (#292): the eight wing slots now assemble at the
@@ -411,8 +414,8 @@ FORCE_RESIDUAL_CEILING = FORCE_RESIDUAL_ACCEPTANCE
 #: 0.65 % (0.54 % / 2.09 % before -- the same defect, smaller by the linear
 #: term).
 _CLAMPED_BODY_AXIAL = {
-    "atr42_100.project.json": {"NHAA": (0.0030, 0.0165),
-                               "NMAA": (0.0005, 0.0085)},
+    # atr42_100 re-measured 2026-09-21 (#260): NMAA no longer clamps.
+    "atr42_100.project.json": {"NHAA": (0.0020, 0.0150)},
     "baron_58.project.json": {"NHAA": (0.0020, 0.0005)},
     "concept_heavy.project.json": {"NHAA": (0.0030, 0.0070)},
     "concept_regional_jet.project.json": {"PHAA": (0.0110, 0.0065),
@@ -1110,7 +1113,9 @@ _DELTA_CD_BAND = {
     # at sea level); the upper edge is SIDE GUST at 12,000 ft, -0.0163.
     'ga6_normal.project.json': (-0.0223, -0.0163),
     'cessna_210.project.json': (-0.0822, -0.0030),
-    'atr42_100.project.json': (-0.1519, +0.0221),
+    # atr42_100 re-pinned 2026-09-21 (#260): PHAA -0.1248 at `mzfw aft` on
+    # the reconciled wing, CLmax 1.8 and CD0 0.032; NHAA +0.0209.
+    'atr42_100.project.json': (-0.1260, +0.0215),
     # baron_58 re-pinned 2026-09-18 (#292): the eight wing slots assemble at
     # the seeded MZFW loadings (PHAA -0.0726 at `mzfw aft`, NMAA -0.0086 at
     # `mzfw fwd`; the clamped NHAA -0.0002); before, only TORS and the
@@ -1903,8 +1908,13 @@ _CLOSURE_IZZ = {
     # BL 57-95. The heavy: +30 % -- the whole 5,500 lb fuel row is at BL 120
     # where 1,200 lb of it was. Physics, not drift: the mass is where the row
     # says it is.
-    'atr42_100.project.json': {'fwd gross': 181423.5, 'aft gross': 188533.5,
-                               'min weight': 107130.2},
+    # The ATR re-entered at #260 (2026-09-21): its tanks moved out to BL 250,
+    # the propellers became per-side wing rows, the mass breakdown was rebuilt
+    # to the published OEW and the cases re-seeded, so every Izz moved; the
+    # `mzfw aft` and `fwd regardless` cases first assemble a lateral case.
+    'atr42_100.project.json': {'fwd gross': 312383.9, 'aft gross': 278340.1,
+                               'min weight': 139455.1, 'fwd regardless': 142120.4,
+                               'mzfw aft': 155699.7},
     # The Baron's two MZFW loadings first assemble at #292 (note 63 D-63.5/
     # D-63.7), measured 2026-09-18; the RJ's `fwd regardless` likewise (NMAA).
     'baron_58.project.json': {'aft gross': 7369.3, 'mzfw aft': 6129.2, 'mzfw fwd': 5667.1},
@@ -2223,11 +2233,15 @@ _LATERAL_CASE_NUMBERS = {
     # Note 63 (#289, 2026-09-17): fin loads and Ny untouched; r_dot and p_dot
     # move with the closure inertia (the ATR's fuel, engines and nacelles are
     # per-side POINT rows at BL 161-175 now, not spread to the tip).
+    # #260 (2026-09-21): the ATR fixture reconciled -- fin loads move with the
+    # re-seeded cases and the derived (blank) wing span/aspect ratio, and the
+    # accelerations halve with the closure inertia (tanks at BL 250, the
+    # rebuilt mass breakdown); the load/Ny identity still holds.
     'atr42_100.project.json': {
-        'SIDE GUST': (4139.6916, +0.112440, +46.760631, -15.595115),
-        'SUDDEN RUDDER': (4288.1132, +0.116471, +47.268762, -16.196495),
-        'YAW 15 NEUTRAL': (-4878.1324, -0.132497, -51.189606, +18.518107),
-        'YAW TO SIDESLIP': (-2053.4588, -0.055775, -19.277726, +7.877044),
+        'SIDE GUST': (4139.7165, +0.112440, +27.191901, -8.453740),
+        'SUDDEN RUDDER': (3921.4912, +0.106513, +29.116149, -7.863764),
+        'YAW 15 NEUTRAL': (-4461.0653, -0.121169, -31.521337, +9.015387),
+        'YAW TO SIDESLIP': (-1877.8937, -0.051006, -11.861589, +3.856239),
     },
     'dhc8_dash8.project.json': {
         'SIDE GUST': (4527.1258, +0.131221, +32.818008, -12.523604),
@@ -2379,7 +2393,7 @@ def test_the_symmetric_half_of_a_lateral_case_still_closes(example):
 _UNSYMMETRICAL_SPLIT = {
     'ga6_normal.project.json': (-700.2880318468195, -504.20738292971004, 72.0),
     'cessna_210.project.json': (-687.2978354106667, -494.85444149568, 72.0),
-    'atr42_100.project.json': (3464.295823974718, 2771.436659179775, 80.0),
+    'atr42_100.project.json': (-3127.8358046094277, -2502.2686436875424, 80.0),   # #260
     'dhc8_dash8.project.json': (-3302.095528143376, -2641.6764225147012, 80.0),
     'concept_regional_jet.project.json': (6076.817597362804, 4861.454077890244, 80.0),
 }

@@ -37,7 +37,6 @@ from sloads.aero_curves import (
     operating_points,
     recovered_cl,
     reference_glauert,
-    stall_limits,
 )
 from sloads.derived_geometry import require_wing_reference
 from sloads.modules.flight_envelope import balance_configs, build_envelope
@@ -52,7 +51,9 @@ _EXAMPLES = os.path.join(_ROOT, "examples")
 
 # Closure-carrying fixtures: the Appendix A GA oracle plus both concept airplanes
 # (the hand-built-polynomial case the plot exists for).
-_CLOSING_FIXTURES = (_GA6, _CONCEPT, _RJ)
+# ``_ATR`` joined at #260 (2026-09-21): with the wing redrawn to the type's
+# area none of its points is Mach-capped, so it closes like the others.
+_CLOSING_FIXTURES = (_GA6, _CONCEPT, _RJ, _ATR)
 
 
 def _closures(path):
@@ -135,78 +136,6 @@ def test_stall_clamp_closure_holds_on_the_closing_fixtures():
                 f"at {c.worst_stall_label}")
             assert c.passed
 
-
-def test_the_atr42_stall_exceedance_is_the_documented_mach_capped_one():
-    """The ATR-42 example does *not* close -- deliberately pinned, not ignored.
-
-    Five of its 180 balanced points (MAN A/C and AC ROLL at 25,000 ft) sit up to
-    ~0.14 CL above the stall clamp because the local Mach is pinned at MC, so the
-    dynamic-pressure iteration cannot raise q any further: the airplane cannot
-    reach n = 2.5 at that altitude within its own Mach cap and CLmax. That is a
-    property of the fixture's speeds/altitude set, not of this module. If it ever
-    starts closing, delete this test and add the fixture to ``_CLOSING_FIXTURES``.
-
-    **Decided 2026-08-18 (D-30, #13): this is ordinary flight, not a defect.** An
-    airplane commonly cannot reach its manoeuvre load factor at altitude and is
-    stall-limited through the speed range, and 23.333(b) says so: the manoeuvring
-    envelope applies "except where limited by maximum (static) lift coefficients"
-    (Ref 1 p62; Ref 2 §11.2.1.2 p68), so these points lie *outside* the envelope
-    the rule defines rather than being design conditions the airplane misses. The
-    Mach cap that produces them is the regulation's own provision too -- design
-    speeds are EAS except 23.335 a.(4)'s compressibility-limited MC at altitudes
-    where an MD is established (Ref 2 §7.2.1 p45-46), which is this fixture's
-    MC = 0.4555. The point is still not re-reported at a reduced "attainable" n,
-    but on conservatism and method consistency, *not* on an obligation to design
-    to n = 2.5 there -- there is none. The earlier reading of this exceedance as "loads that are
-    not physically attainable" is retired: the alpha iteration enforces
-    ``nz = n``, so the load factor and the total ``n*W`` are exact and the whole
-    effect is on the LZW/LT split (<= 0.5 % of ``n*W``). What *is* real is that
-    the balance closes at alpha 14.1-16.3 deg against a fitted stall edge of
-    13.18 deg, so CM and CD are extrapolated 0.9-3.1 deg past their fits; frozen
-    at the fit edge instead, the published tail quantities move 3.3-44 % (LT),
-    6.5-20.4 % (LT25/LT50) and 8.5-20.8 % (elevator load). None of the nine is
-    SELECTed as a governing critical condition, so no sizing load moves anywhere
-    -- but BALLOADS publishes all 300 points, so nine published rows carry the
-    extrapolation unmarked (**#32**, band B). The solver's own silence -- both
-    iteration loops returning their last iterate with no signal -- was **#33**,
-    closed 2026-08-22: the balance now reports these nine as **clamped**, and
-    ``tests/test_convergence.py::test_the_clamped_set_is_the_rows_the_published_numbers_also_flag``
-    pins that its set is the same set this test recovers from the published CL.
-
-    **It got roughly half way there on its own.** Pri 5 / D-26 corrected this
-    fixture's CG cases to loadings its weight database can produce, and the
-    exceedance fell from 7 points at +0.29 to 5 at +0.14 -- the cases are lighter
-    and their CGs are where the airplane's mass actually puts them, so less lift
-    is asked of the same Mach-capped q. Still not attainable, still pinned.
-
-    **And back up with D-27 (2026-08-17):** the flight cases are the WTENV
-    limit points now -- five of them, so 300 balanced points -- and 9 of them
-    exceed, the worst ``MAN A`` at ``fwd gross`` (MTOW, forward-gross limit) at
-    +0.27: three cases at full gross weight at 25,000 ft ask the most lift of
-    the same Mach-capped q. Same cause, same altitude, still a property of the
-    fixture's speeds/altitude set; the band below brackets it.
-    """
-    project, env, closures = _closures(_ATR)
-    fl = project.flight_loads
-    wr = require_wing_reference(project)
-    cfg = balance_configs(project.aero_coeffs)[0]
-    assert len(closures) == 1
-    assert 0.2 < closures[0].worst_stall_excess < 0.35
-    assert "25,000 ft" in closures[0].worst_stall_label
-    # The recovered-CL drift guard still holds -- the points are self-consistent,
-    # they are simply not attainable.
-    assert closures[0].worst_cl <= CL_CLOSURE_TOL
-
-    exceeding = []
-    for p in env.vn:
-        rec = recovered_cl(p, wr.s_sqft)
-        pos, neg = stall_limits(cfg, p.g_corr, fl.mn)
-        if max(rec - pos, neg - rec) > STALL_CLOSURE_TOL:
-            exceeding.append(p)
-    # Nine at #288; twelve since #292 (note 63 D-63.5): the seeded `full fuel
-    # aft` case is a fourth MTOW case, with the same three capped points.
-    assert len(exceeding) == 12
-    assert {p.altitude_ft for p in exceeding} == {25000.0}
 
 
 def test_a_perturbed_lift_polynomial_breaks_the_recovered_cl_closure():

@@ -414,7 +414,9 @@ def test_speed_ratio_route_reproduces_todays_numbers_on_every_example():
     import glob
 
     frozen = {                       # name: (vd, vc, va, vf)
-        "atr42_100": (300.0, 240.0, 167.756878, 161.136638),
+        # atr42_100 re-pinned 2026-09-21 (#260): the wing redrawn to the
+        # type's 586 sq ft and CLmax 1.8 move VA and VF (both W/S and CLmax).
+        "atr42_100": (300.0, 240.0, 160.42529068733623, 145.85895021470324),
         "concept_heavy": (312.5, 250.0, 189.338480, 147.085572),
         "concept_regional_jet": (387.5, 310.0, 187.071106, 169.649611),
         # VA/VF re-pinned 2026-08-30 (register line in 02_approved_corrections):

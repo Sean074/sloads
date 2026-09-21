@@ -143,7 +143,13 @@ def test_the_classified_loops_still_exist():
 #: Every V-n row on a shipped fixture whose balance clamps at the Mach cap --
 #: measured 2026-08-22, and the same nine rows decision **D-30** ruled ordinary
 #: stall-limited flight. Nothing else in the suite reaches a non-converged state.
-_CLAMPED = {
+_CLAMPED: dict = {
+    # Empty since #260 (2026-09-21): the ATR fixture's wing was redrawn to the
+    # type's 586 sq ft (it was 18 % small), and at the true wing loading none
+    # of its 25,000 ft manoeuvre points is Mach-capped any more. The clamped
+    # state is exercised on ``_clamped_atr()`` below instead.
+}
+_CLAMPED_BEFORE_260 = {
     "atr42_100.project.json": {
         ("MAN A", "aft gross", 25000.0), ("MAN C", "aft gross", 25000.0),
         ("AC ROLL", "aft gross", 25000.0),
@@ -159,6 +165,17 @@ _CLAMPED = {
 }
 
 
+def _clamped_atr():
+    """The ATR balanced at 35,000 ft: the Mach cap pins the true airspeed
+    there and 41 of the 480 rows clamp (D-30's stall-limited flight). The
+    shipped fixture stopped clamping at #260; this is the same physics on the
+    same airplane, at an altitude it does not ship with."""
+    project = _project("atr42_100.project.json")
+    project.flight_loads.altitudes_ft = [0.0, 12000.0, 35000.0]
+    project.speeds.mach_limit.max_operating_altitude_ft = 35000
+    return project
+
+
 @pytest.mark.parametrize("example", _examples())
 def test_every_shipped_fixture_balances_or_says_why(example):
     """No shipped fixture reaches the ``FAILED`` state: the refusals added here
@@ -172,9 +189,9 @@ def test_the_clamped_rows_are_the_mach_capped_corner_and_nothing_else():
     """Pinned by count as well as identity: a tenth clamped row on this fixture
     is a physics change, not a rounding difference, and #32's marker will publish
     exactly this set."""
-    env = fe.build_envelope(_project("atr42_100.project.json"))
+    env = fe.build_envelope(_clamped_atr())
     assert len(env.vn) == 480          # eight FLIGHT cases since #292
-    assert len(env.clamped_cases) == 12
+    assert len(env.clamped_cases) == 41
     assert all(env.is_clamped(p) == (p.case in env.clamped_cases) for p in env.vn)
 
 
@@ -188,7 +205,7 @@ def test_a_clamped_solve_is_a_fixed_point_not_an_abandoned_search():
     exit skips could not have changed the answer. (The whole-fixture check is the
     frozen digest and the SELECT pins, which did not move when this landed.)
     """
-    project = _project("atr42_100.project.json")
+    project = _clamped_atr()
     env = fe.build_envelope(project)
     point = next(p for p in env.vn if env.is_clamped(p) and p.condition == "MAN A")
 
@@ -223,7 +240,7 @@ def test_the_clamped_set_is_the_rows_the_published_numbers_also_flag():
     """
     from sloads.aero_curves import STALL_CLOSURE_TOL, recovered_cl, stall_limits
 
-    project = _project("atr42_100.project.json")
+    project = _clamped_atr()
     env = fe.build_envelope(project)
     wr = fe.require_wing_reference(project)
     config = fe.balance_configs(project.aero_coeffs)[0]
@@ -240,7 +257,7 @@ def test_the_clamped_set_is_the_rows_the_published_numbers_also_flag():
 def test_a_clamped_row_carries_its_state_no_further_than_memory():
     """``clamped_cases`` is derived, not persisted (no schema hop): a project
     round-tripped through JSON comes back with the list empty rather than stale."""
-    project = _project("atr42_100.project.json")
+    project = _clamped_atr()
     project.envelope = fe.build_envelope(project)
     assert project.envelope.clamped_cases
     reloaded = io.project_from_dict(io.project_to_dict(project))

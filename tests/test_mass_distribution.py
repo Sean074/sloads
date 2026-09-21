@@ -173,7 +173,7 @@ def test_stations_at_the_same_x_merge_into_one_node():
 #: items (D-63.2) -- the value ``wing_mass.panel_weight_lb`` entered before v67,
 #: to the pound, so no fixture carries an override (G-63.4).
 _DERIVED_PANEL = {
-    "atr42_100.project.json": 1325.0,
+    "atr42_100.project.json": 1750.0,   # 3,500 lb wing since #260
     "baron_58.project.json": 280.0,
     "concept_heavy.project.json": 900.0,
     "concept_regional_jet.project.json": 2100.0,
@@ -344,17 +344,8 @@ def test_the_entered_tables_are_all_short_of_the_item_model(example):
     check = md.fuselage_reconciliation(p)
     if check is None:
         pytest.skip(f"{example}: no entered station table to compare")
-    if example == "atr42_100.project.json":
-        # The one entered table that now exceeds the beam: note 63 moved the
-        # ATR's fuel (to gross + reserve; 6,074 lb of body share) off the
-        # fuselage row and into per-side wing tank rows (D-63.4), so the
-        # derived body beam fell from 28,951 to 22,877 lb and the stale hand
-        # table -- never used, always reconciled -- reads 2,333 lb over it.
-        # Pinned rather than the table edited: the table is the fixture's
-        # history, the beam is the item model's truth.
-        assert check.gap == pytest.approx(25210.0 - 22877.0, abs=1.0), check.detail
-    else:
-        assert check.gap < 0, f"{example}: entered table now exceeds the item model"
+    # (The ATR enters no station table since #260, so it skips above.)
+    assert check.gap < 0, f"{example}: entered table now exceeds the item model"
     assert not check.ok, f"{example}: gap closed — update this test"
 
 

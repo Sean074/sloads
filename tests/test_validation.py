@@ -498,11 +498,18 @@ def test_a_searched_loading_never_takes_one_tank_of_a_pair():
     from sloads import mass_distribution as md
     from sloads.cg_cases import ground_cases
     project = sloads_io.load_project(os.path.join(_EXAMPLES, "atr42_100.project.json"))
+    fuelled = 0
     for ld in md.derive_case_loadings(project, ground_cases(project)):
         assert ld.derivable, ld.name
         assert md._wing_points_symmetric(ld.items, project), ld.name
         tanks = {it.name: it.weight_lb for it in ld.items if it.name.startswith("Wing fuel")}
-        assert tanks["Wing fuel, left"] == tanks["Wing fuel, right"], ld.name
+        # Since #260 the light case closes on payload and ballast with no
+        # mission fuel aboard (its forward station is not a burn-down of the
+        # tanks); the two max-landing cases carry both tanks, equal.
+        if tanks:
+            fuelled += 1
+            assert tanks["Wing fuel, left"] == tanks["Wing fuel, right"], ld.name
+    assert fuelled == 2
 
 
 def test_a_hand_entered_wing_case_with_no_mass_state_is_named():
