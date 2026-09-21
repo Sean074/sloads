@@ -1432,7 +1432,16 @@ def select_fuselage(project: Project, envelope: Optional[EnvelopeResult] = None)
     """The critical fuselage *conditions* (Ch 9): the fuselage load reacted at the
     wing ``LZW - NZ*WW``, the aft-fuselage down/up bending (largest signed product
     of that load and the tail load), and the greatest vertical inertia factor for
-    concentrated-weight installations. ``WW`` is the wing weight."""
+    concentrated-weight installations. ``WW`` is the wing weight.
+
+    **One quantity, one key (#222, 2026-09-20).** The wing reaction is
+    ``fuselage_load_on_wing`` on every block that states it and the tail load is
+    ``tail_load`` on every block, the sign carrying the sense. Until #222 the two
+    down blocks keyed the reaction ``fuselage_down_load_on_wing`` and the
+    GREATEST NZ block keyed the tail load ``balancing_tail_load``, so a consumer
+    reading "the fuselage load on the wing for every fuselage block" needed two
+    spellings of each -- the M4-9 key contract read the wrong way round (the
+    report folded them, note 44 OR-14). Guard: ``tests/test_select.py``."""
     fl = project.flight_loads
     if fl is None:
         return []
@@ -1454,7 +1463,7 @@ def select_fuselage(project: Project, envelope: Optional[EnvelopeResult] = None)
     vsmax = extreme(vn, fus_on_wing)
     out.append(CriticalCondition(
         component="fuselage", label="MAX DOWN LOAD ON WING", far_reference="23.301", case=vsmax.case,
-        loads=[LoadValue("Fuselage down load on wing", fus_on_wing(vsmax), "lb", key="fuselage_down_load_on_wing"),
+        loads=[LoadValue("Fuselage load on wing", fus_on_wing(vsmax), "lb", key="fuselage_load_on_wing"),
                LoadValue("Load factor NZ", vsmax.nz, key="load_factor_nz"),
                LoadValue("Tail load", vsmax.lt, "lb", key="tail_load")]))
 
@@ -1464,7 +1473,7 @@ def select_fuselage(project: Project, envelope: Optional[EnvelopeResult] = None)
         bmmax = extreme(pos, bending)
         out.append(CriticalCondition(
             component="fuselage", label="AFT DOWN BENDING", far_reference="23.331", case=bmmax.case,
-            loads=[LoadValue("Fuselage down load on wing", fus_on_wing(bmmax), "lb", key="fuselage_down_load_on_wing"),
+            loads=[LoadValue("Fuselage load on wing", fus_on_wing(bmmax), "lb", key="fuselage_load_on_wing"),
                    LoadValue("Load factor NZ", bmmax.nz, key="load_factor_nz"),
                    LoadValue("Tail load", bmmax.lt, "lb", key="tail_load")]))
     if neg:
@@ -1479,7 +1488,7 @@ def select_fuselage(project: Project, envelope: Optional[EnvelopeResult] = None)
     out.append(CriticalCondition(
         component="fuselage", label="GREATEST NZ", far_reference="23.301", case=nzmax.case,
         loads=[LoadValue("Load factor NZ", nzmax.nz, key="load_factor_nz"),
-               LoadValue("Balancing tail load", nzmax.lt, "lb", key="balancing_tail_load")]))
+               LoadValue("Tail load", nzmax.lt, "lb", key="tail_load")]))
     return out
 
 

@@ -500,11 +500,43 @@ def test_critical_fuselage_conditions_match_appendix_a():
     p = _ga6_three_altitudes()
     f = {c.label: c for c in select.build_critical(p).conditions if c.component == "fuselage"}
     assert set(f) == {"MAX DOWN LOAD ON WING", "AFT DOWN BENDING", "AFT UP BENDING", "GREATEST NZ"}
-    assert math.isclose(_vals(f["MAX DOWN LOAD ON WING"])["Fuselage down load on wing"],
+    assert math.isclose(_vals(f["MAX DOWN LOAD ON WING"])["Fuselage load on wing"],
                         13347.6, rel_tol=3e-3)
-    assert math.isclose(_vals(f["AFT DOWN BENDING"])["Fuselage down load on wing"], 12569.6, rel_tol=3e-3)
+    assert math.isclose(_vals(f["AFT DOWN BENDING"])["Fuselage load on wing"], 12569.6, rel_tol=3e-3)
     assert math.isclose(_vals(f["AFT UP BENDING"])["Fuselage load on wing"], -6390.3, rel_tol=3e-3)
     assert math.isclose(_vals(f["GREATEST NZ"])["Load factor NZ"], 5.81, rel_tol=3e-3)
+
+
+_FUSELAGE_KEYS = {"fuselage_load_on_wing", "load_factor_nz", "tail_load"}
+
+
+@pytest.mark.parametrize("name", ["ga6_normal", "atr42_100", "baron_58",
+                                  "concept_regional_jet", "concept_heavy"])
+def test_one_quantity_one_key_across_the_critical_set(name):
+    """**#222** -- within a component, a ``LoadValue`` label names one key and a
+    key carries one label (M4-9: the key is the machine identity, the label its
+    display text). Until 2026-09-20 ``select_fuselage`` keyed the wing reaction
+    ``fuselage_down_load_on_wing`` on its two down blocks and
+    ``fuselage_load_on_wing`` on the up one, and the tail load ``tail_load`` on
+    three blocks and ``balancing_tail_load`` on the fourth, so the report folded
+    two keys per column (note 44 OR-14). Swept across every component of every
+    shipped fixture (rule 4), and the fuselage set's key vocabulary is pinned."""
+    conditions = select.build_critical(_fixture(name)).conditions
+    for component in sorted({c.component for c in conditions}):
+        label_to_keys: dict = {}
+        key_to_labels: dict = {}
+        for c in conditions:
+            if c.component != component:
+                continue
+            for lv in c.loads:
+                label_to_keys.setdefault(lv.label, set()).add(lv.key)
+                key_to_labels.setdefault(lv.key, set()).add(lv.label)
+        split = {k: v for k, v in label_to_keys.items() if len(v) > 1}
+        assert not split, (name, component, "one label, two keys", split)
+        split = {k: v for k, v in key_to_labels.items() if len(v) > 1}
+        assert not split, (name, component, "one key, two labels", split)
+    fuselage_keys = {lv.key for c in conditions if c.component == "fuselage" for lv in c.loads}
+    assert fuselage_keys == _FUSELAGE_KEYS, fuselage_keys
 
 
 def test_wing_and_fuselage_when_no_tail_loads():

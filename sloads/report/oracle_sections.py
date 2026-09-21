@@ -3137,24 +3137,17 @@ def _body_beam(project: Project, *, system: UnitSystem,
                    figures=body_side_view_figures(project, system=system))
 
 
-#: How the report names the p198 quantities that SELECT publishes twice.
-#:
-#: ``select_fuselage`` labels the same quantity -- the fuselage load reacted at
-#: the wing, ``LZW - NZ*WW`` -- ``fuselage_down_load_on_wing`` on the two down
-#: blocks and ``fuselage_load_on_wing`` on the up one, and the balancing tail
-#: load ``tail_load`` on three blocks and ``balancing_tail_load`` on the fourth.
-#: They are one quantity under two keys, which is the M4-9 key contract read the
-#: wrong way round; the table folds them so the reader gets one column rather
-#: than two half-empty ones.
-#:
-#: **Filed, not fixed** (OR-14): renaming a published key changes every CSV
-#: column built from it, which is not the additive change OR-13 admits. See the
-#: backlog entry raised with this section.
-_BODY_QUANTITIES: Tuple[Tuple[str, Tuple[str, ...], str], ...] = (
-    ("Total fuselage load on wing",
-     ("fuselage_down_load_on_wing", "fuselage_load_on_wing"), "force"),
-    ("Nz", ("load_factor_nz",), ""),
-    ("Tail load", ("tail_load", "balancing_tail_load"), "force"),
+#: How the report names the p198 quantities SELECT publishes: (column label,
+#: ``LoadValue.key``, dimension). One key per column -- ``select_fuselage``
+#: keys the wing reaction ``LZW - NZ*WW`` and the tail load the same way on
+#: every block since #222 (2026-09-20). Until then the down blocks and the up
+#: block keyed the reaction two ways, and so did the tail load, and this table
+#: carried both spellings per column to fold them (note 44 OR-14, filed under
+#: the 0.8.2 freeze and fixed when the freeze lifted).
+_BODY_QUANTITIES: Tuple[Tuple[str, str, str], ...] = (
+    ("Total fuselage load on wing", "fuselage_load_on_wing", "force"),
+    ("Nz", "load_factor_nz", ""),
+    ("Tail load", "tail_load", "force"),
 )
 
 
@@ -3391,7 +3384,7 @@ def _critical_summary_table(project: Project,
     u = Units(system)
     vn = _vn_points(project)
     columns = ["Case", "Condition", "14 CFR", "V-n point", "SF"]
-    for label, _keys, dim in _BODY_QUANTITIES:
+    for label, _key, dim in _BODY_QUANTITIES:
         columns.append(f"{label} ({u.ult_label(dim)})" if dim else label)
     rows = []
     for condition in conditions:
@@ -3401,8 +3394,8 @@ def _critical_summary_table(project: Project,
         row = [getattr(ref, "case_id", "") or "--", name,
                condition.far_reference or "--", str(vn.get(name, "--")),
                format_value(sf)]
-        for _label, keys, dim in _BODY_QUANTITIES:
-            value = _first_value(condition, keys)
+        for _label, key, dim in _BODY_QUANTITIES:
+            value = _first_value(condition, (key,))
             if value is None:
                 row.append("--")
             elif dim:
