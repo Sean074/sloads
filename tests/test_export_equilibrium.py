@@ -453,7 +453,9 @@ def test_every_example_has_decks():
     ``fuselage_mass.stations`` at all, and was the one fixture with no fuselage
     loads for that reason. The beam is now derived from ``weight.items`` (the
     mass SSOT), so a project needs no hand-entered station table to have a
-    fuselage.
+    fuselage. It keeps that deck under design note 64 on an **assumed** wing
+    station (no side of body resolves, so the wing post stands on the LRA's
+    centreline point -- §7b amendment 2), stated in the result.
     """
     coverage = {ex: tuple(bool(c) for c in _cached(ex)) for ex in EXAMPLES}
     assert coverage == {

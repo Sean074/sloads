@@ -55,7 +55,7 @@ FAMILY_COLOR = {"wing": "#1f77b4", "fuselage": "#2ca02c",
 MARKERS = {
     "lra-sob": ("o", "#1f77b4", "SOB node"),
     "lra-post": ("s", "#2ca02c", "spar post"),
-    "lra-centre": ("D", "black", "centre hub"),
+    "lra-centre": ("D", "black", "wing centre"),
     "lra-fin-root": ("^", "#9467bd", "fin root"),
     "lra-attach": ("v", "#d62728", "h-tail attach"),
     "lra-gear": ("P", "#8c564b", "gear"),

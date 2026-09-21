@@ -133,10 +133,13 @@ GATES: Dict[str, Gate] = {
         "Y_MAC equal the trapezoid closed form, and Appendix A p141's wing is "
         "reproduced to a stated plausibility band"),
     "body_loads": Gate(
-        CLOSURE, ("test_body_net_closes_in_equilibrium",),
+        CLOSURE, ("test_the_two_cantilevers_and_the_box_close_the_free_body",
+                  "test_a_positive_load_factor_bends_both_bodies_down"),
         "Ch 15 ships no program and no printed station table (Ref 1 p103), so the "
-        "gate is equilibrium: the beam carries no net force and no net couple once "
-        "the unbalanced moment is reacted at the spar attachments (M4-1)"),
+        "gate is equilibrium: the forward body's terminal at the front spar, the "
+        "aft body's at the rear spar, the box's applied rows and the wing reaction "
+        "at the wing station sum to zero force and zero moment, and a positive load "
+        "factor bends both bodies down (design note 64 gates 4 and 5)"),
     "one_engine_out": Gate(
         CLOSURE, ("test_thrust_and_windmill_drag_formula", "test_time_history_matches_case",
                   "test_the_shipped_turboprops_execute_onengout"),

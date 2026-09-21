@@ -136,12 +136,6 @@ DEFAULT_REAR_SPAR_PCT = 0.60
 # LRA beam-model exporter refuses an unset axis instead of assuming this.
 DEFAULT_REF_AXIS_PCT = 0.25
 
-# Point loads the carry-through line load is lumped onto (body_loads). The
-# per-segment lumping is the exact static equivalent of a linear load, so the
-# closure holds at any count >= 2; this only sets how finely the reaction is
-# resolved along the carry-through for the beam model.
-CARRY_THROUGH_NODES = 5
-
 
 # --------------------------------------------------------------------------- #
 # Mass properties (WTESTIMA / WTONECG)

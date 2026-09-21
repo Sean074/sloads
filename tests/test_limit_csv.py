@@ -45,7 +45,7 @@ from sloads.modules.taildist import build_tail_chordwise  # noqa: E402
 from sloads.units import to_si_scalar  # noqa: E402
 
 _GA = os.path.join(_ROOT, "examples", "ga6_normal.project.json")
-_IDENTITY = {"Case", "MyyAxis", "Basis", "Component", "Condition"}
+_IDENTITY = {"Case", "MyyAxis", "Basis", "Component", "Condition", "Region"}
 _IMPERIAL = {"in", "lbf", "lb-in", "psi"}
 _SI = {"mm", "N", "N·m", "kPa"}
 
@@ -112,9 +112,17 @@ def test_body_table_labels_and_converts(system):
     _check_headers(parsed[0].keys(), expected, limit_in_band=False)
     assert {r["Basis"] for r in parsed} == {"LIMIT"}
     myy_hdr = "Myy (lb-in)" if system == UnitSystem.IMPERIAL else "Myy (N·m)"
+    boxes = 0
     for src, out in zip(rows, parsed):
+        if src["Region"] == "box":
+            # A box row's running load is structurally absent (note 64 D-64.2)
+            # and stays blank in every unit system rather than reading as zero.
+            assert src["Myy"] == "" and out[myy_hdr] == ""
+            boxes += 1
+            continue
         want = to_si_scalar(float(src["Myy"]), "lb-in", system)
         assert math.isclose(float(out[myy_hdr]), want, rel_tol=1e-3, abs_tol=0.06)
+    assert boxes, "ga6_normal carries stations inside its wing box"
 
 
 # --------------------------------------------------------------------------- #

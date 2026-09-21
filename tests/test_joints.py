@@ -48,6 +48,8 @@ from sloads import io
 from sloads.derived_geometry import carry_through
 from sloads.export.lra_model import build_lra_model, lra_model_bdf
 from sloads.joints import (
+    BEAM,
+    RIGID,
     SPAR_ENTERED,
     SPAR_ESTIMATOR,
     JointName,
@@ -92,13 +94,16 @@ def _project(name: str):
 
 
 def _deck_nodes_and_ties(deck: str):
-    """``({(family, side): gid}, {gid: pos}, [(gn, cm, [gm...])])`` from the bytes.
+    """``({(family, side): gid}, {gid: pos}, [(gn, cm, [gm...])], [(ga, gb)])``
+    from the bytes.
 
     The deck is the artifact under test, so this reads the cards rather than
     the model: a ``$ SLOADS-NODE <family> <side>`` comment tags the ``GRID``
-    that follows it (BM-5), and ``RBE2, eid, gn, cm, gm...`` is the tie.
+    that follows it (BM-5), ``RBE2, eid, gn, cm, gm...`` is a rigid tie and
+    ``CBAR, eid, pid, ga, gb, ...`` a beam element -- since note 64 a joint's
+    arm may be spanned by either (``Joint.element``).
     """
-    tags, pos, ties = {}, {}, []
+    tags, pos, ties, cbars = {}, {}, [], []
     pending = None
     for line in deck.splitlines():
         line = line.strip()
@@ -115,9 +120,12 @@ def _deck_nodes_and_ties(deck: str):
         elif line.startswith("RBE2"):
             f = [c.strip() for c in line.split(",")]
             ties.append((int(f[2]), f[3], [int(g) for g in f[4:] if g]))
+        elif line.startswith("CBAR"):
+            f = [c.strip() for c in line.split(",")]
+            cbars.append((int(f[3]), int(f[4])))
         elif line:
             pending = None if not line.startswith("$") else pending
-    return tags, pos, ties
+    return tags, pos, ties, cbars
 
 
 def _close(a, b) -> bool:
@@ -168,6 +176,7 @@ def test_the_joint_set_partitions_by_layout():
         seen |= got
         assert JointName.WING_SOB in got, name
         assert JointName.WING_SPAR_POST in got, name
+        assert JointName.WING_POST in got, name
         assert JointName.VTAIL_ROOT in got, name
         tail = {JointName.VTAIL_TIP_HTAIL, JointName.HTAIL_ATTACH} & got
         assert len(tail) == 1, (name, sorted(j.value for j in tail))
@@ -180,6 +189,12 @@ def test_the_joint_set_partitions_by_layout():
             sides = {j.side for j in reg.by_name(pair)}
             assert sides in ({"R", "L"}, set()), (name, pair, sides)
         assert {j.side for j in reg.by_name(JointName.WING_SPAR_POST)} == {"F", "A"}
+        # One wing post, and it is the only rigid joint of the wing-body set
+        # (note 64 D-64.1): the SOB arms and the spar arms are beam segments.
+        assert {j.side for j in reg.by_name(JointName.WING_POST)} == {"W"}
+        assert {j.element for j in reg.by_name(JointName.WING_POST)} == {RIGID}
+        assert {j.element for j in reg.by_name(JointName.WING_SOB)} == {BEAM}
+        assert {j.element for j in reg.by_name(JointName.WING_SPAR_POST)} == {BEAM}
         # No joint is silently half-built.
         for j in reg:
             assert j.basis, (name, j.name)
@@ -204,15 +219,18 @@ def test_every_joint_is_exported_where_the_register_puts_it(name):
     fixture list here.
 
     The arm is compared **direction-agnostically**: which end of a tie is the
-    ``RBE2``'s independent node is the exporter's topology choice (the hub is
-    independent of its posts, the fin tip independent of the h-tail it
-    carries), and this guard is about geometry, not about that choice.
+    ``RBE2``'s independent node is the exporter's topology choice (the wing
+    post is independent of the wing centre, the fin tip independent of the
+    h-tail it carries), and this guard is about geometry, not about that
+    choice. Since note 64 a joint says what spans its arm (``Joint.element``):
+    the wing post's is an ``RBE2``, the SOB's and the spar grids' a ``CBAR``
+    of the member itself, and the walk looks for that card.
     """
     project = _project(name)
     reg = joints(project)
     model = build_lra_model(project)
     model_pos = {(n.family, n.side): n.pos for n in model.nodes if n.family}
-    tags, pos, ties = _deck_nodes_and_ties(lra_model_bdf(project))
+    tags, pos, ties, cbars = _deck_nodes_and_ties(lra_model_bdf(project))
     assert reg.joints, name
 
     for j in reg:
@@ -236,13 +254,22 @@ def test_every_joint_is_exported_where_the_register_puts_it(name):
                 f"{j.location[i]:.6f}")
         # The tie exists, and spans the stated arm.
         arms = []
-        for gn, cm, gms in ties:
-            if gn == gid:
-                arms += [(cm, tuple(pos[g][i] - here[i] for i in range(3)))
-                         for g in gms]
-            elif gid in gms:
-                arms.append((cm, tuple(pos[gn][i] - here[i] for i in range(3))))
-        assert arms, f"{name}: {j.name.value} {j.side} is in no RBE2 at all"
+        if j.element == RIGID:
+            for gn, cm, gms in ties:
+                if gn == gid:
+                    arms += [(cm, tuple(pos[g][i] - here[i] for i in range(3)))
+                             for g in gms]
+                elif gid in gms:
+                    arms.append((cm, tuple(pos[gn][i] - here[i] for i in range(3))))
+            assert arms, f"{name}: {j.name.value} {j.side} is in no RBE2 at all"
+        else:
+            assert j.element == BEAM
+            for ga, gb in cbars:
+                if ga == gid:
+                    arms.append((j.dof, tuple(pos[gb][i] - here[i] for i in range(3))))
+                elif gb == gid:
+                    arms.append((j.dof, tuple(pos[ga][i] - here[i] for i in range(3))))
+            assert arms, f"{name}: {j.name.value} {j.side} is in no CBAR at all"
         matched = [cm for cm, arm in arms
                    if all(_deck_close(arm[i], j.arm[i]) for i in range(3))]
         assert matched, (

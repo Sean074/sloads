@@ -41,12 +41,26 @@ The cuts are the member's **own nodes**, and both curves are computed about the
 same ones. A cut is at a point, so a torsion compared between two sets is only
 meaningful if both are stated about that point.
 
-"Outboard" is the member's own span coordinate increasing: butt line on the
-wing and horizontal tail (right side; the left is its mirror), waterline on the
-fin, fuselage station on the body. A load lying exactly at the cut counts as
-outboard -- the cut carries what is applied at it -- which is
-:func:`~sloads.report.applied.sob_internal_loads`' own rule and keeps the root
-cut's value equal to the whole member's resultant.
+"Outboard" is away from the wing-body box, toward the member's free end:
+butt line increasing on the wing and horizontal tail (right side; the left is
+its mirror), waterline increasing on the fin, and on the body **away from the
+spars** -- forward of the front spar and aft of the rear one. A load lying
+exactly at an interior cut counts as outboard -- the cut carries what is
+applied at it -- which is :func:`~sloads.report.applied.sob_internal_loads`'
+own rule.
+
+**The box is integrated by nothing** (design note 64 D-64.2/D-64.6). The model
+states each member's box (``LraModel.boxes``): no cut lies strictly inside it,
+its two ends are the roots the integrations run to, and a load that lands on a
+root grid belongs to the box -- it is excluded from that root's cut in both
+curves, because the element outboard of the root, which is what the round-trip
+gate measures, never sees it. Until note 64 the fuselage was integrated nose
+to tail through the box and the wing's root cut counted the inboard strips
+that land on the side-of-body grid, and both produced deviations that were
+artifacts of the cut, not of the lumping: 183 % of the fuselage shear peak on
+``concept_regional_jet``. The aft body's bending is published positive for an
+up load (D-64.4, owner ``modules.body_loads.cantilever_sign``), so its curve
+is the negative of the right-handed moment about the cut.
 """
 
 from __future__ import annotations
@@ -93,9 +107,9 @@ class Channels:
 #: The wing and the horizontal tail are drawn on the **right** side only: the
 #: left is its mirror on every case the suite runs, and two curves that are one
 #: curve reflected say nothing the one curve does not. The fin spans in z. The
-#: fuselage is not a cantilever and does not need to be -- the resultant of
-#: everything aft of a station, about that station, is the internal load there
-#: whichever side of the carry-through it falls on.
+#: fuselage is two cantilevers (note 64 D-64.2): forward of the front spar the
+#: internal load is the resultant of everything forward of the cut, aft of the
+#: rear spar of everything aft of it, and nothing is stated between them.
 _MEMBERS: Dict[str, Tuple[str, int, Channels, bool]] = {
     "wing": ("wing-R", 1,
              Channels(2, 0, 1, "Fz", "Mx", "My"), True),
@@ -205,18 +219,40 @@ class ComponentComparison:
         return extreme(ranked, lambda r: abs(r[1]))
 
 
+def _box(model: "LraModel", component: str) -> Optional[Tuple[float, float]]:
+    """The member's wing-body box on its span coordinate, if the model states one."""
+    key = _MEMBERS[component][0]
+    return getattr(model, "boxes", {}).get(key)
+
+
 def _cuts(model: "LraModel", component: str) -> List[Cut]:
-    """The member's own nodes, ordered along its span coordinate."""
+    """The member's own nodes, ordered along its span coordinate -- none
+    strictly inside the box (D-64.6)."""
     key, axis, _channels, right_only = _MEMBERS[component]
     nodes = model.members.get(key) or []
     picked = [n for n in nodes if not right_only or n.pos[axis] >= 0.0]
+    box = _box(model, component)
+    if box is not None:
+        lo, hi = box
+        picked = [n for n in picked
+                  if not (lo + _AT_THE_CUT < n.pos[axis] < hi - _AT_THE_CUT)]
     out = [Cut(s=n.pos[axis], pos=n.pos, gid=n.gid) for n in picked]
     return sorted(out, key=lambda c: c.s)
 
 
 def _curve(rows: Sequence[object], cuts: Sequence[Cut], axis: int,
-           channels: Channels) -> Curve:
-    """``rows``' internal loads at ``cuts``: the outboard resultant, transferred."""
+           channels: Channels, box: Optional[Tuple[float, float]] = None,
+           aft_sign: float = 1.0) -> Curve:
+    """``rows``' internal loads at ``cuts``: the outboard resultant, transferred.
+
+    Without a ``box`` every cut looks toward increasing ``s`` and a load at the
+    cut counts (the interior rule). With one, a cut at or below the box's low
+    end looks toward decreasing ``s`` and a cut at or above its high end toward
+    increasing ``s``; a load **on the root** -- at the box's end exactly -- is
+    the box's and counts at neither root cut (D-64.6). ``aft_sign`` multiplies
+    the bending on the high side: ``-1`` for the fuselage, whose aft body is
+    published positive for an up load (D-64.4).
+    """
     from ..gear_loads import transfer_couple
     from .applied import applied_body_moments
 
@@ -228,10 +264,19 @@ def _curve(rows: Sequence[object], cuts: Sequence[Cut], axis: int,
 
     curve = Curve()
     for cut in cuts:
+        if box is None:
+            low_side, root = False, False
+        elif cut.s <= box[0] + _AT_THE_CUT:
+            low_side, root = True, abs(cut.s - box[0]) <= _AT_THE_CUT
+        else:
+            low_side, root = False, abs(cut.s - box[1]) <= _AT_THE_CUT
+        sign = aft_sign if (box is not None and not low_side) else 1.0
         force = [0.0, 0.0, 0.0]
         moment = [0.0, 0.0, 0.0]
         for s, p, f, m in loads:
-            if s < cut.s - _AT_THE_CUT:
+            at_cut = abs(s - cut.s) <= _AT_THE_CUT
+            beyond = (s < cut.s - _AT_THE_CUT) if low_side else (s > cut.s + _AT_THE_CUT)
+            if not (beyond or (at_cut and not root)):
                 continue
             couple = transfer_couple(p, cut.pos, f)
             for i in range(3):
@@ -239,7 +284,7 @@ def _curve(rows: Sequence[object], cuts: Sequence[Cut], axis: int,
                 moment[i] += m[i] + couple[i]
         curve.s.append(cut.s)
         curve.shear.append(force[channels.shear])
-        curve.bending.append(moment[channels.bending])
+        curve.bending.append(sign * moment[channels.bending])
         curve.torsion.append(moment[channels.torsion])
     return curve
 
@@ -290,14 +335,19 @@ def compare(project: Project, component: str,
         return None
     lumped_rows = aggregate_to_lra(station_rows, model, component)
     _member, axis, channels, _right_only = _MEMBERS[component]
+    box = _box(model, component)
+    # The body's aft cantilever is published positive for an up load (D-64.4),
+    # and the sign is the integrator's, not this module's.
+    from ..modules.body_loads import cantilever_sign
+    aft_sign = cantilever_sign(aft=True) if component == "fuselage" else 1.0
 
     station_cases = _by_case(station_rows)
     lumped_cases = _by_case(lumped_rows)
     cases = [
         CaseComparison(case=case,
-                       station=_curve(rows, cuts, axis, channels),
+                       station=_curve(rows, cuts, axis, channels, box, aft_sign),
                        lumped=_curve(lumped_cases.get(case, []), cuts, axis,
-                                     channels),
+                                     channels, box, aft_sign),
                        # Read off the row, not defaulted: every AppliedLoad
                        # mints the field (M4-13/M4-16), and a fallback here
                        # would print SF 0 -- a factor no regulation prescribes

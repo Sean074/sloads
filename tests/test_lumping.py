@@ -157,6 +157,76 @@ def test_the_station_curve_at_the_root_is_the_side_of_body_owner(example):
                             abs_tol=1e-6), (example, result)
 
 
+def test_the_fuselage_comparison_reads_its_aft_sign_from_the_integrator():
+    """Note 64 D-64.4/D-64.6: with a box, a cut at the low end looks forward
+    and one at the high end looks aft; a load on a root grid belongs to the
+    box and counts at neither root; and the aft bending is published positive
+    for an up load, the sign read from ``body_loads.cantilever_sign`` rather
+    than restated here."""
+    from sloads.modules.body_loads import cantilever_sign
+
+    channels = lumping._MEMBERS["fuselage"][2]
+    box = (20.0, 40.0)
+    cuts = [_cut(0.0, (0.0, 0.0, 0.0)), _cut(20.0, (20.0, 0.0, 0.0)),
+            _cut(40.0, (40.0, 0.0, 0.0)), _cut(60.0, (60.0, 0.0, 0.0))]
+    rows = [_Row(0.0, 0.0, 0.0, fz=7.0),      # at the forward cut: counts there
+            _Row(10.0, 0.0, 0.0, fz=3.0),     # forward body
+            _Row(20.0, 0.0, 0.0, fz=100.0),   # ON the front-spar root: the box's
+            _Row(30.0, 0.0, 0.0, fz=100.0),   # inside the box
+            _Row(40.0, 0.0, 0.0, fz=100.0),   # ON the rear-spar root: the box's
+            _Row(100.0, 0.0, 0.0, fz=5.0)]    # aft body
+    aft_sign = cantilever_sign(aft=True)
+    curve = lumping._curve(rows, cuts, 0, channels, box, aft_sign)
+    # Forward: the cut at FS 20 carries FS 0 and FS 10 and not the root's own load.
+    assert curve.shear[1] == pytest.approx(10.0)
+    assert curve.bending[1] == pytest.approx(7.0 * 20.0 + 3.0 * 10.0)   # positive for up
+    # An interior forward cut carries the load AT it (FS 0), looking forward.
+    assert curve.shear[0] == pytest.approx(7.0) and curve.bending[0] == pytest.approx(0.0)
+    # Aft: the cut at FS 40 carries FS 100 only, bending positive for up.
+    assert curve.shear[2] == pytest.approx(5.0)
+    assert curve.bending[2] == pytest.approx(5.0 * 60.0)
+    assert aft_sign == -1.0 and cantilever_sign(aft=False) == 1.0
+    # ...and the sign is the integrator's: flip it and the aft moment flips.
+    flipped = lumping._curve(rows, cuts, 0, channels, box, -aft_sign)
+    assert flipped.bending[2] == pytest.approx(-curve.bending[2])
+    # Without a box the old rule holds: everything at or beyond the cut, increasing s.
+    plain = lumping._curve(rows, cuts, 0, channels)
+    assert plain.shear[1] == pytest.approx(305.0)
+
+
+@pytest.mark.parametrize("example", _LOADED_FIXTURES)
+def test_no_cut_lies_inside_the_box_and_no_load_crosses_a_root(example):
+    """Note 64 gate 7: the fuselage comparison has no cut strictly between the
+    spars and no ``"carry"`` row to lump; the wing's cuts start at the side of
+    body. So a load that lands on a root grid moves nothing across that
+    root's cut -- the artifact the note measured cannot recur."""
+    from sloads.derived_geometry import carry_through, sob_station
+    from sloads.export.lra_model import build_lra_model
+    from sloads.report.oracle_sections import _body_net, _wing_net
+
+    project = _project(example)
+    model = build_lra_model(project)
+    ct = carry_through(project)
+    sob = sob_station(project)
+    fus = lumping._cuts(model, "fuselage")
+    assert fus and not any(ct.x_f + 1e-9 < c.s < ct.x_r - 1e-9 for c in fus)
+    assert any(abs(c.s - ct.x_f) < 1e-9 for c in fus)
+    assert any(abs(c.s - ct.x_r) < 1e-9 for c in fus)
+    wing = lumping._cuts(model, "wing")
+    assert wing and min(c.s for c in wing) == pytest.approx(sob.y)
+    body = lumping.compare(project, "fuselage", _body_net(project))
+    assert body is not None
+    for case in body.cases:
+        # No station row is a carry station any more; the reaction is a box
+        # row, so at the two root cuts the station curve and the lumped curve
+        # both exclude it -- the deviation there is mass-station crossing only.
+        assert len(case.station.s) == len(fus)
+    wing_cmp = lumping.compare(project, "wing", _wing_net(project))
+    assert wing_cmp is not None
+    for case in wing_cmp.cases:
+        assert case.station.s[0] == pytest.approx(sob.y)
+
+
 @pytest.mark.parametrize("example", _LOADED_FIXTURES)
 def test_every_surface_states_what_its_lumping_cost(example):
     """Every comparison the project may state is built, and names a case it ran.

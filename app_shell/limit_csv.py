@@ -47,7 +47,8 @@ _WING_UNITS: _UnitMap = {
     "Mxx": ("lb-in", 0), "Myy": ("lb-in", 0), "Mzz": ("lb-in", 0),
 }
 _BODY_UNITS: _UnitMap = {
-    "X": ("in", 3), "Fz": ("lbf", 2), "Sz": ("lbf", 2), "Myy": ("lb-in", 1),
+    "X": ("in", 3), "Fz": ("lbf", 2), "My_free": ("lb-in", 1),
+    "Sz": ("lbf", 2), "Myy": ("lb-in", 1),
 }
 
 
@@ -68,7 +69,11 @@ def _convert_rows(rows: Iterable[Dict[str, str]], units: _UnitMap,
         for key, val in r.items():
             if key in units:
                 unit, nd = units[key]
-                conv[_header(key, unit, system)] = round(to_si_scalar(float(val), unit, system), nd)
+                # A blank cell is a structurally absent value -- a body-loads box
+                # row's running shear or moment (note 64 D-64.2) -- and stays
+                # blank in every unit system rather than reading as zero.
+                conv[_header(key, unit, system)] = (
+                    "" if val == "" else round(to_si_scalar(float(val), unit, system), nd))
             else:
                 conv[key] = val
         out.append(conv)

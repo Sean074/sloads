@@ -52,7 +52,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Optional, Tuple
+from typing import List, NamedTuple, Optional, Tuple
 
 from .derived_geometry import (
     carry_through,
@@ -72,6 +72,15 @@ Vec3 = Tuple[float, float, float]
 #: implicit in a string literal at the six call sites that used to spell it.
 ALL_SIX = "123456"
 
+#: What spans a joint's arm in the deck (note 64 D-64.1). A ``RIGID`` joint is
+#: an ``RBE2`` -- the one wing post, the tail ties -- and a ``BEAM`` joint is a
+#: ``CBAR`` the member itself runs through: the side-of-body grid's arm to the
+#: wing centre grid, and each spar grid's arm to the fuselage wing-station grid.
+#: The drift guard reads this to know which card to look for; the geometry it
+#: checks is the same either way.
+RIGID = "RBE2"
+BEAM = "CBAR"
+
 
 class JointName(str, Enum):
     """The joints the airplane model has. ``str`` so a value is its own label."""
@@ -79,8 +88,9 @@ class JointName(str, Enum):
     VTAIL_ROOT = "vtail_root"              # fin -> fuselage LRA (R-5)
     VTAIL_TIP_HTAIL = "vtail_tip_htail"    # T-tail: h-tail centreline -> fin tip (R-6)
     HTAIL_ATTACH = "htail_attach"      # conventional: the pair -> fuselage LRA
-    WING_SOB = "wing_sob"              # side-of-body -> centre-box hub (BM-2)
-    WING_SPAR_POST = "wing_spar_post"  # front/rear post -> centre-box hub (BM-2)
+    WING_SOB = "wing_sob"              # side-of-body -> the wing centre grid, straight across (note 64 D-64.3)
+    WING_SPAR_POST = "wing_spar_post"  # front/rear spar grid -> the fuselage wing-station grid (D-64.1)
+    WING_POST = "wing_post"            # the one rigid post: fuselage wing-station grid -> wing centre grid (D-64.1)
 
 
 #: ``basis`` values this module mints itself, where the owner it reads has a
@@ -89,6 +99,12 @@ class JointName(str, Enum):
 #: ``carry_through`` consumer untouched.
 SPAR_ENTERED = "entered spar stations"
 SPAR_ESTIMATOR = "%-of-root-chord estimator -- assumed"
+#: The wing post's basis when no side of body resolves (note 64 §7b amendment
+#: 2): the wing station falls back to the wing LRA's own centreline point,
+#: flagged assumed, so a project with a full planform and no body datum keeps
+#: its body loads. The LRA model still refuses such a project -- it has no
+#: SOB joint to start the wing at -- so only the calc reads this post.
+WING_STATION_CENTRELINE = "wing LRA at the centreline -- no side of body, assumed"
 
 
 @dataclass(frozen=True)
@@ -116,15 +132,16 @@ class Joint:
     """
 
     name: JointName
-    side: str            # C / R / L / F / A -- BM-5's own vocabulary
+    side: str            # C / R / L / F / A / W -- BM-5's own vocabulary
     location: Vec3       # airplane coordinates, in
     arm: Vec3            # location -> the counterpart node, in
     to: str              # what the arm reaches, in words
     node_family: str     # the BM-5 node tag this joint is exported as
-    dof: str             # the RBE2 CM string
+    dof: str             # the RBE2 CM string (a beam joint carries all six too)
     basis: str           # copied from the resolving owner
     assumed: bool        # copied from the resolving owner
     note: str = ""       # copied from the resolving owner
+    element: str = RIGID # what spans the arm in the deck: RIGID or BEAM (D-64.1)
 
     @property
     def counterpart(self) -> Vec3:
@@ -202,7 +219,7 @@ def wing_lra_point(project: Project, y: float,
     The same construction the delivered wing stations are on
     (``net_loads.to_loads_ref_axis`` -- one chord-fraction owner) lifted onto
     the wing plane (``derived_geometry.wing_plane``, note 33 DS-2), so the SOB
-    and hub joints sit on the beam the loads are already stated along.
+    and centre joints sit on the beam the loads are already stated along.
     """
     geom = project.geometry
     surf = geom.by_name(surface_name) if geom is not None else None
@@ -308,18 +325,50 @@ def _htail_joints(project: Project, joints: List[Joint],
 
 def _wing_joints(project: Project, joints: List[Joint],
                  refusals: List[Refusal]) -> None:
-    """The side-of-body pair and the two spar posts, tied to the centre-box hub."""
-    hub = wing_lra_point(project, 0.0)
-    if hub is None:
-        return
+    """The wing-to-body joint of design note 64 (D-64.1, D-64.3).
+
+    Four joints, one rigid element. The **side-of-body pair** (R/L) sits on the
+    wing LRA at the SOB butt line; its arm runs **straight across** to the wing
+    centre grid at the SOB's own fuselage station and waterline
+    ``(x_sob, 0, z_sob)`` -- a ``CBAR``, the wing beam's inboard segment. The
+    two **spar grids** (F/A) sit on the fuselage LRA at the entered spar
+    stations; each arm runs along the body to the fuselage wing-station grid --
+    a ``CBAR``, the box beam. The **wing post** (W) is the fuselage grid at the
+    wing station ``x_w = x_sob``; its arm is the vertical to the wing centre
+    grid, and it is the one ``RBE2`` between wing and body.
+
+    The wing station must lie between the spars; outside them the post is
+    refused by name with the three stations in the sentence (D-64.3).
+    """
     sob = sob_station(project)
-    if sob is None:
+    right = wing_lra_point(project, abs(sob.y)) if sob is not None else None
+    centre: Optional[Vec3] = None
+    post_basis, post_assumed, post_note = "", False, ""
+    if sob is None or right is None:
         refusals.append(Refusal(JointName.WING_SOB, (
             "no side of body resolves (no entered sob_y_in and no fuselage "
             "width) -- the wing beam starts at the SOB (note 24 R-3) and this "
             "exporter will not invent a body (BM-1)")))
+        hub = wing_lra_point(project, 0.0)
+        if hub is None:
+            refusals.append(Refusal(JointName.WING_POST, (
+                "no wing planform resolves, so there is no wing station for "
+                "the wing post to stand at (note 64 D-64.3)")))
+        else:
+            # No body to be straight across from: the wing station is the
+            # LRA's own centreline point, and the grade says so.
+            centre = hub
+            post_basis, post_assumed = WING_STATION_CENTRELINE, True
+            post_note = (
+                f"wing station ASSUMED at FS {hub[0]:.1f}, the wing loads "
+                "reference axis at the centreline -- no side of body resolves "
+                "(no entered sob_y_in and no fuselage width), so there is no "
+                "SOB station to place the wing post straight across from "
+                "(note 64 D-64.3). Enter sob_y_in to state it")
     else:
-        right = wing_lra_point(project, abs(sob.y)) or hub  # hub resolved => so does this
+        # Straight across (D-64.3): the centre grid keeps the SOB's own x and z.
+        centre = (right[0], 0.0, right[2])
+        post_basis, post_assumed, post_note = sob.basis, sob.assumed, ""
         for side, here in (("R", right), ("L", _mirror(right))):
             # The left joint is the RIGHT one mirrored, never a second
             # evaluation at -y: the chord-fraction owner extrapolates its
@@ -330,16 +379,21 @@ def _wing_joints(project: Project, joints: List[Joint],
             # the deck does, and this register may not spell it a second way.
             joints.append(Joint(
                 name=JointName.WING_SOB, side=side, location=here,
-                arm=_sub(hub, here), to="wing-hub",
+                arm=_sub(centre, here), to="wing-centre",
                 node_family="lra-sob", dof=ALL_SIX,
-                basis=sob.basis, assumed=sob.assumed, note=sob.note))
+                basis=sob.basis, assumed=sob.assumed, note=sob.note,
+                element=BEAM))
 
     ct = carry_through(project)
     if ct is None:
         refusals.append(Refusal(JointName.WING_SPAR_POST, (
             "no wing carry-through resolves (degenerate root chord or spar "
-            "stations) -- the split-fuselage posts sit at the front/rear-spar "
-            "stations (BM-2) and cannot be placed")))
+            "stations) -- the fuselage beam's spar grids sit at the front/"
+            "rear-spar stations (note 64 D-64.1) and cannot be placed")))
+        if centre is not None:
+            refusals.append(Refusal(JointName.WING_POST, (
+                "no wing carry-through resolves, so the box the wing post "
+                "stands in (note 64 D-64.1) has no ends")))
         return
     lra = fuselage_lra(project)
     # The ASSUMED sentence lives here, not at the deck writer, so the grade and
@@ -347,17 +401,68 @@ def _wing_joints(project: Project, joints: List[Joint],
     note = "" if not ct.assumed else (
         f"wing spar stations ASSUMED -- derived at "
         f"{ct.front_pct * 100.0:.0f}/{ct.rear_pct * 100.0:.0f} % of the root "
-        f"chord, so the posts sit at fuselage stations "
+        f"chord, so the spar grids sit at fuselage stations "
         f"{ct.x_f:.1f}/{ct.x_r:.1f}. Enter front/rear_spar_x_in to state "
         "the joint")
+    if centre is None:
+        post_grid: Optional[Vec3] = None
+    else:
+        x_w = centre[0]
+        post_grid = (x_w, 0.0, lra.z_at(x_w))
+        if not (ct.x_f < x_w < ct.x_r):
+            refusals.append(Refusal(JointName.WING_POST, (
+                f"the wing station FS {x_w:.1f} -- the side of body's own "
+                "fuselage station, where the wing post stands (note 64 "
+                f"D-64.3) -- is not between the front spar FS {ct.x_f:.1f} "
+                f"and the rear spar FS {ct.x_r:.1f}. Enter spar stations "
+                "that bracket the wing, or a side of body that lies between "
+                "them")))
+            post_grid = None
     for side, x in (("F", ct.x_f), ("A", ct.x_r)):
         post: Vec3 = (x, 0.0, lra.z_at(x))
         joints.append(Joint(
             name=JointName.WING_SPAR_POST, side=side, location=post,
-            arm=_sub(hub, post), to="wing-hub",
+            arm=_sub(post_grid, post) if post_grid is not None else (0.0, 0.0, 0.0),
+            to="wing-post",
             node_family="lra-post", dof=ALL_SIX,
             basis=SPAR_ESTIMATOR if ct.assumed else SPAR_ENTERED,
-            assumed=ct.assumed, note=note))
+            assumed=ct.assumed, note=note, element=BEAM))
+    if post_grid is not None and centre is not None:
+        joints.append(Joint(
+            name=JointName.WING_POST, side="W", location=post_grid,
+            arm=_sub(centre, post_grid), to="wing-centre",
+            node_family="lra-post", dof=ALL_SIX,
+            basis=post_basis, assumed=post_assumed, note=post_note,
+            element=RIGID))
+
+
+class WingStation(NamedTuple):
+    """Where the wing loads the body, on whose authority (note 64 D-64.5)."""
+
+    x: float
+    assumed: bool
+    note: str              # the in-band sentence an assumed station owes, else ""
+    refused: Optional[str]  # the register's reason when no post can be placed
+
+
+def wing_station(project: Project) -> WingStation:
+    """The wing station the body reacts the wing at, or why there is none.
+
+    The single owner of "where does the wing load the body" for
+    ``modules/body_loads`` (note 64 D-64.5): the wing post's fuselage station,
+    read from the register rather than resolved a second time, with the
+    post's grade and note copied verbatim (D-54.5). A project with no wing
+    planform, no carry-through, or a wing station outside its spars has no
+    wing post, and ``refused`` is the register's own sentence.
+    """
+    reg = joints(project)
+    posts = reg.by_name(JointName.WING_POST)
+    if len(posts) == 1:
+        post = posts[0]
+        return WingStation(post.location[0], post.assumed, post.note, None)
+    refusal = reg.refusal(JointName.WING_POST)
+    return WingStation(0.0, False, "", refusal.reason if refusal is not None
+                       else "the joint register places no wing post")
 
 
 def joints(project: Project) -> JointRegister:
@@ -380,8 +485,9 @@ def joints(project: Project) -> JointRegister:
     out: List[Joint] = []
     refusals: List[Refusal] = []
     if project.geometry is None:
-        return JointRegister((), (Refusal(
-            JointName.WING_SOB, "the joint register needs Project.geometry"),))
+        return JointRegister((), (
+            Refusal(JointName.WING_SOB, "the joint register needs Project.geometry"),
+            Refusal(JointName.WING_POST, "the joint register needs Project.geometry")))
     _wing_joints(project, out, refusals)
     _vtail_joints(project, out)
     _htail_joints(project, out, refusals)
@@ -390,13 +496,18 @@ def joints(project: Project) -> JointRegister:
 
 __all__ = [
     "ALL_SIX",
+    "BEAM",
+    "RIGID",
     "SPAR_ENTERED",
     "SPAR_ESTIMATOR",
+    "WING_STATION_CENTRELINE",
     "Joint",
     "JointName",
     "JointRegister",
     "Refusal",
     "Vec3",
+    "WingStation",
     "joints",
     "wing_lra_point",
+    "wing_station",
 ]

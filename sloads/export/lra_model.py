@@ -29,16 +29,23 @@ chain node nearest the front post -- see the support comment in
 :func:`build_lra_model`), and the recovered reaction IS the case residual,
 ~0. The members:
 
-* the **wing**, one chain per side, **starting at the side-of-body node**
-  (note 24 R-3) and running to the tip on the surface's entered LRA;
-* the **split fuselage** (decision BM-2): the forward body a cantilever ending
-  at the front-spar post, the aft body + empennage a cantilever starting at
-  the rear-spar post, on the section-centre line ``(x, 0, z_c(x))`` (R-4).
-  No element spans the carry-through region -- each mid-body load routes to
-  the nearer post, which is exactly the two-sums idealization;
-* a rigid **centre-box hub** tying the two SOB nodes and the two posts to the
-  wing LRA centreline point. Rigid (``RBE2``), deliberately not a ``CBAR``:
-  a stiffness carry-through element is step 14's (R-12);
+* the **wing**, one chain tip -> tip: from each tip inboard on the surface's
+  entered LRA to the side-of-body grid (note 24 R-3, the root of the wing's
+  integration), then **straight across** to the wing centre grid at the
+  SOB's own fuselage station and waterline (note 64 D-64.3). The inboard
+  segments are the wing box; they carry the strips inboard of the SOB and
+  are integrated by nothing;
+* the **fuselage**, one chain nose -> tail on its LRA (R-4): the forward
+  body meshed from the nose to the front-spar grid, the **box** as its three
+  owned grids -- front spar, the wing station, rear spar -- with two elements
+  and nothing between, and the aft body + empennage meshed from the rear-spar
+  grid to the tail. The box elements carry load in the solver and report
+  nothing: the body's internal loads are the two cantilevers' (D-64.2);
+* the **wing post** (D-64.1): the one ``RBE2`` between wing and body, from the
+  fuselage grid at the wing station down to the wing centre grid. One post
+  keeps the model a tree, which is R-12's condition for honest internal loads
+  under placeholder stiffness; the rigid centre-box hub and its four ties, and
+  BM-2's elementless carry-through, retired here;
 * the **fin**, root node at the fin-root waterline, rigid to the fuselage
   node inserted at that station (R-5);
 * the **h-tail**, full span; its attachment pair rigid to the fuselage node
@@ -57,20 +64,20 @@ chain node nearest the front post -- see the support comment in
 With placeholder ``PBAR``/``MAT1`` -- one identical pair per section family,
 :data:`SECTION_FAMILIES`, so a sizing tool overwrites one card per family
 (backlog Pri 7, step 14 descoped 2026-08-16) -- only the **determinate** paths
-give honest internal loads -- the wing outboard of the SOB, the fin, the two fuselage
-cantilever sums, the gear/engine links (note 24 R-12); the h-tail span between
-its two rigid attachments is placeholder-stiffness-dependent and the header
-says so.
+give honest internal loads -- the wing outboard of the SOB, the fin, the two
+body cantilever sums at the spar grids, the wing reaction through the post,
+the gear/engine links (note 24 R-12); the h-tail span between its two rigid
+attachments is placeholder-stiffness-dependent and the header says so.
 
 Loads (LM-1/LM-7)
 -----------------
 Every ``BalancedLoad`` of every assembled case transfers to the nearest node
 of the member its ``source`` names, carrying the exact lever-arm couple
 ``(p - n) x F`` -- single owner :func:`sloads.export.coordinates
-.transfer_couple`. Wing strips inboard of the SOB therefore land **on** the
-SOB node (R-3's collapse, by the same rule); the balanced strips sit on the
-calc's 25 %-chord line, so the chordwise part of the couple *is* the torsion
-transfer to the LRA. The transferred set has the identical resultant the
+.transfer_couple`. Wing strips inboard of the SOB therefore land on the wing
+box's nearest grid -- the SOB or the centre (note 64 D-64.7), by the same
+rule; the balanced strips sit on the calc's 25 %-chord line, so the chordwise
+part of the couple *is* the torsion transfer to the LRA. The transferred set has the identical resultant the
 assembled set has, which is the plan-07 acceptance gate.
 
 Refusals (BM-3 / LM-4)
@@ -78,7 +85,8 @@ Refusals (BM-3 / LM-4)
 The exporter raises, naming the missing datum, rather than building a beam on
 a guess: an unset ``ref_axis_pct`` on an entered wing/tail surface (R-7c), no
 resolvable side of body, no fuselage outline, no carry-through spar stations,
-or an h-tail attachment on the ``ATTACH_STRIP_PAIR`` fallback. Geometry it
+a wing station outside its spars (note 64 D-64.3), or an h-tail attachment on
+the ``ATTACH_STRIP_PAIR`` fallback. Geometry it
 accepts **assumed** (section centres, spar fractions, the SOB fallback, an
 outline-derived attachment) is stated in the deck header.
 """
@@ -254,6 +262,14 @@ class LraModel:
     support_gid: int = 0
     #: The header's honesty block: every assumed datum the model accepted.
     assumed_notes: List[str] = field(default_factory=list)
+    #: **The wing-body box, per member** (note 64 D-64.2/D-64.6): member key ->
+    #: the closed interval of the member's own span coordinate that the box
+    #: spans. Inside it the member is a load path and not a beam being
+    #: analysed: its ends are the roots the cantilevers are integrated to, no
+    #: internal load is stated strictly inside it, and a load on a root grid
+    #: belongs to the box. The wing's is ``[-y_sob, +y_sob]`` on both sides;
+    #: the fuselage's is ``[x_f, x_r]``. Read by ``report.lumping``.
+    boxes: Dict[str, Tuple[float, float]] = field(default_factory=dict)
 
     def add_chain(self, nodes: Sequence[LraNode], family: str) -> None:
         """Register the ``CBAR`` chain through ``nodes`` under a section family."""
@@ -519,16 +535,16 @@ def _refuse_unsolvable_skeleton(model: LraModel, mesh: LraMeshInput) -> None:
             continue
         ends = [nodes[0].pos, nodes[-1].pos]
         length = _dist2(ends[0], ends[1]) ** 0.5
-        member = "wing" if family == "wing" else family
+        member = "wing" if family.startswith("wing") else family
         try:
             count = mesh.count(member)
-        except ValueError:                  # pragma: no cover -- every chain maps
+        except ValueError:                  # gear / engine: ties, not chains
             continue
         floor = _MIN_ELEMENT_FRACTION * length / max(1, count - 1)
         if floor <= 0.0:
             continue
         for ga, gb in ((a, b) for (a, b), f in zip(model.cbars, model.cbar_families)
-                       if f == family):
+                       if f == member):
             element = _dist2(pos[ga], pos[gb]) ** 0.5
             if element < floor:
                 raise LraRefusal(
@@ -684,14 +700,20 @@ def build_lra_model(project: Project) -> LraModel:
                     _mirror(n.pos), n.family, "L" if n.side else "")
             for i, n in enumerate(right)]
     sob_l = left[0]
-    hub_c = LraNode(_CENTRE_BAND.allocate(0), j_sob.counterpart,
-                    "lra-centre", "C")
-    model.nodes += right + left + [hub_c]
+    # **The wing beam runs straight across to the centreline** (note 64
+    # D-64.3): the centre grid is the SOB joint's own counterpart -- its
+    # fuselage station and waterline at BL 0 -- and the two inboard segments
+    # are CBARs of the wing family. They are the wing box: the strips inboard
+    # of the SOB land on them (D-64.7), and nothing integrates through them.
+    # Until note 64 this grid was a rigid hub on the extrapolated LRA with four
+    # RBE2 ties -- the two SOB nodes and the two spar posts -- and the box had
+    # no beam at all (BM-2, R-12's two-post case).
+    centre = LraNode(_CENTRE_BAND.allocate(0), j_sob.counterpart,
+                     "lra-centre", "C")
+    model.nodes += right + left + [centre]
     model.add_chain(right, "wing")
     model.add_chain(left, "wing")
-    model.rbe2s.append((hub_c.gid, "123456", [sob_r.gid, sob_l.gid],
-                        "centre box: the two SOB nodes move with the hub -- "
-                        "rigid, NOT a stiffness carry-through (step 14 / R-12)"))
+    model.add_chain([sob_r, centre, sob_l], "wing")
 
     # -------------------------------------------------------------- fin chain
     # Both tail chains are meshed by D-56.4 exactly as the wing is: the surface's
@@ -927,35 +949,52 @@ def build_lra_model(project: Project) -> LraModel:
         raise LraRefusal("no fuselage outline -- the fuselage LRA needs its sections")
     section_xs = [sec.x for sec in outline.sections]
     nose_x, tail_x = min(section_xs), max(section_xs)
-    tie_xs = [x for x, _gids, _label in pending_body_ties
-              if not ct.x_f + _COINCIDENT_TOL < x < ct.x_r - _COINCIDENT_TOL]
+    tie_xs = [x for x, _gids, _label in pending_body_ties]
 
     def _body_point(x: float) -> Vec3:
         return (x, 0.0, lra.z_at(x))
 
+    # **The box is its three owned grids and nothing between** (note 64
+    # D-64.1/D-64.9): the front-spar grid, the wing-station grid the post
+    # stands on, and the rear-spar grid, from the register (D-54.5). The two
+    # cantilevers are meshed to their own count on either side of it, so
+    # ``lra_mesh.fuselage`` keeps its meaning -- grids per body cantilever --
+    # and the box, which reports nothing, takes none. A body tie inside the
+    # box is not an owned point; it parents on the nearest free box grid
+    # below (D-64.8).
+    j_post_w = reg.one(JointName.WING_POST)
     n_fus = mesh.count("fuselage")
     fwd_owned = [_Owned(min(nose_x, ct.x_f), None, "", ""),
-                 _Owned(ct.x_f, None, "lra-post", "F")]
+                 _Owned(ct.x_f, reg.one(JointName.WING_SPAR_POST, "F").location,
+                        "lra-post", "F")]
     fwd_owned += [_Owned(x) for x in tie_xs if x < ct.x_f - _COINCIDENT_TOL]
-    aft_owned = [_Owned(ct.x_r, None, "lra-post", "A"),
+    aft_owned = [_Owned(ct.x_r, reg.one(JointName.WING_SPAR_POST, "A").location,
+                        "lra-post", "A"),
                  _Owned(max(tail_x, ct.x_r), None, "", "")]
     aft_owned += [_Owned(x) for x in tie_xs if x > ct.x_r + _COINCIDENT_TOL]
     fus_fwd = _mesh_chain(fwd_owned, n_fus, _FUSELAGE_BAND, _body_point)
+    post_w = LraNode(_FUSELAGE_BAND.allocate(len(fus_fwd)), j_post_w.location,
+                     "lra-post", "W")
     fus_aft = _mesh_chain(aft_owned, n_fus, _FUSELAGE_BAND, _body_point,
-                          first_index=len(fus_fwd))
-    model.nodes += fus_fwd + fus_aft
-    model.add_chain(fus_fwd, "fuselage")
-    model.add_chain(fus_aft, "fuselage")
+                          first_index=len(fus_fwd) + 1)
     post_f = fus_fwd[-1]
     post_a = fus_aft[0]
-    model.rbe2s.append((hub_c.gid, "123456", [post_f.gid],
-                        "front-spar post (BM-2): the forward-body cantilever "
-                        "hangs here; its sum is the last forward element's "
-                        "end force"))
-    model.rbe2s.append((hub_c.gid, "123456", [post_a.gid],
-                        "rear-spar post (BM-2): the aft body + empennage "
-                        "cantilever hangs here"))
-    fus_all = fus_fwd + fus_aft
+    model.nodes += fus_fwd + [post_w] + fus_aft
+    model.add_chain(fus_fwd, "fuselage")
+    model.add_chain([post_f, post_w, post_a], "fuselage")
+    model.add_chain(fus_aft, "fuselage")
+    # **The one rigid element between wing and body** (D-64.1): the fuselage
+    # wing-station grid independent, the wing centre grid dependent. The
+    # forward body's sum is the last forward element's end force, the aft
+    # body's the first aft element's, and the wing reaction on the body is
+    # what this post transmits -- all three recoverable because the model is a
+    # tree (R-12).
+    model.rbe2s.append((post_w.gid, "123456", [centre.gid],
+                        "wing post (note 64 D-64.1): the wing centre grid "
+                        "moves with the fuselage wing-station grid -- the one "
+                        "rigid element between wing and body; NOT a stiffness "
+                        "carry-through (step 14 / R-12)"))
+    fus_all = fus_fwd + [post_w] + fus_aft
     # **A body tie never parents on a node that is already a dependent**
     # (design note 55 D-55.1). A GRID that is dependent in one RBE2 and
     # independent in another states a chain of rigid elements, which sbeam
@@ -1000,6 +1039,8 @@ def build_lra_model(project: Project) -> LraModel:
     # the distance it was always a proxy for, the clamp stays beside the wing
     # and both chains are eligible. Ties go through `extreme` (CR-B-1), so the
     # deck's bytes cannot depend on the platform.
+    # Since note 64 the front-spar grid is in no RBE2 (the hub's tie to it
+    # retired with the hub), so the clamp lands on the spar grid itself.
     tied = model.dependent_gids | {gn for gn, _cm, _gms, _lbl in model.rbe2s}
     support = next((n for n in reversed(fus_fwd) if n.gid not in tied), None)
     if support is None:
@@ -1012,11 +1053,19 @@ def build_lra_model(project: Project) -> LraModel:
             "report it with the project file")
     model.support_gid = support.gid
 
+    # The centre grid is a routing target of both wing members (the strips
+    # inboard of the SOB land on the SOB or the centre, D-64.7) and a cut of
+    # neither: ``boxes`` says where each member's integration stops.
     model.members = {
-        "wing-R": right,
-        "wing-L": left,
+        "wing-R": [centre] + right,
+        "wing-L": [centre] + left,
         "fuselage": fus_all,
         "all": list(model.nodes),
+    }
+    model.boxes = {
+        "wing-R": (-sob.y, sob.y),
+        "wing-L": (-sob.y, sob.y),
+        "fuselage": (ct.x_f, ct.x_r),
     }
     if htail_chain:
         model.members["htail"] = htail_chain
@@ -1103,8 +1152,10 @@ STIFFNESS_NOTE = (
     "placeholder PBAR/MAT1, one pair per section family (wing = MID/PID 1, "
     "fuselage 2, htail 3, vtail 4; identical values): only the DETERMINATE "
     "paths give honest internal loads -- the wing outboard of each SOB node, "
-    "the fin, the two split-fuselage cantilever sums at the posts, and the "
-    "rigid gear/engine links. The h-tail span between its two attachments "
+    "the fin, the two body cantilever sums at the spar grids, the wing "
+    "reaction through the wing post, and the rigid gear/engine links; the "
+    "box between the spars is a load path and reports nothing (note 64). "
+    "The h-tail span between its two attachments "
     "(conventional layout) is placeholder-stiffness-dependent. sloads takes "
     "no section input: overwrite the four cards with the sizing tool's own "
     "sections to make the indeterminate paths its (backlog Pri 7, step 14 "
@@ -1162,8 +1213,8 @@ def lra_model_bdf(project: Project, *,
     head: List[str] = ["SOL 101", "$"]
     head += comment(
         "LRA BEAM MODEL (step 12) -- a structural idealization: node lines "
-        "on the load reference axes, CBAR chains, rigid posts/attachments/"
-        "gear/engine ties, and the assembled balanced cases' load sets "
+        "on the load reference axes, CBAR chains, one rigid wing post, rigid "
+        "attachment/gear/engine ties, and the assembled balanced cases' load sets "
         "transferred onto the nodes. Its value is the INTERNAL loads at the "
         "$ SLOADS-NODE tagged nodes, and it is the one solver deck these "
         "cases ship on: it carries its own equilibrium proof below, and the "
@@ -1208,7 +1259,8 @@ def lra_model_bdf(project: Project, *,
     bulk += comment(
         "Named nodes carry a '$ SLOADS-NODE <family> <side>' tag (decision "
         "BM-5) -- the identity contract an imported model is mapped by. "
-        "Sides: R/L/C, plus F/A for the front/rear-spar posts.")
+        "Sides: R/L/C, plus F/A/W for the front-spar, rear-spar and "
+        "wing-post grids of the fuselage beam (note 64).")
     bulk.append(f"$ Lengths in {u.length.label}.")
     bulk.append("$ GRID, GID, CP, X1, X2, X3")
     for node in model.nodes:

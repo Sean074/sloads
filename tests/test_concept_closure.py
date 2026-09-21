@@ -149,7 +149,11 @@ def test_taildist_carries_select_split():
 # tail air load + wing reaction sum to zero, so the terminal shear is zero.
 # --------------------------------------------------------------------------- #
 def test_body_vertical_equilibrium():
-    """The net fuselage distribution closes: applied Fz sums to 0 (terminal Sz = 0)."""
+    """The net fuselage distribution closes: applied Fz sums to 0, and the two
+    cantilevers, the box's rows and the wing reaction close the free body
+    (note 64 gate 4)."""
+    from sloads.modules.body_loads import closure_residuals
+
     results = build_body_loads(_concept_project())
     assert results
     for r in results:
@@ -157,7 +161,9 @@ def test_body_vertical_equilibrium():
         # Scale tolerance by the fuselage inertia magnitude (a big concept airframe).
         scale = max(abs(s.fz) for s in r.stations)
         assert math.isclose(applied, 0.0, abs_tol=1e-6 * scale + 1e-6)
-        assert math.isclose(r.stations[-1].sz, 0.0, abs_tol=1e-6 * scale + 1e-6)
+        force, moment = closure_residuals(r)
+        assert math.isclose(force, 0.0, abs_tol=1e-6 * scale + 1e-6)
+        assert math.isclose(moment, 0.0, abs_tol=1e-6 * max(abs(s.myy) for s in r.stations) + 1e-6)
 
 
 def test_body_nodal_cards_sum_to_zero():

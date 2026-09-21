@@ -805,11 +805,15 @@ def test_the_lra_named_node_internal_loads_are_the_cut_side_sums(sbeam, example)
     solver's CBAR end force in that element must equal the applied resultant
     of everything on the far side of the cut -- computed here from the deck's
     own cards by graph partition, with the element frame built from geometry
-    (the step-13 sign map). Asserted at the two joints the deliverable exists
-    to state: the wing side of body (first element outboard of the tagged SOB
-    node) and the front-spar post (the forward-fuselage cantilever's last
-    element, whose far side is everything BUT the forward body -- BM-2's sum,
-    seen from the other end).
+    (the step-13 sign map). Asserted at the joints the deliverable exists to
+    state (note 64 gate 3): the wing side of body (first element outboard of
+    the tagged SOB node); the front-spar grid (the forward-fuselage
+    cantilever's last element, whose far side is everything BUT the forward
+    body -- the forward sum seen from the other end); the rear-spar grid (the
+    aft cantilever's first element); and the box element between the front
+    spar and the wing post, whose far side is everything but the forward body
+    again -- the same sum, now carried by the box beam note 64 D-64.1 put
+    through the carry-through.
     """
     import numpy as np
 
@@ -828,6 +832,12 @@ def test_the_lra_named_node_internal_loads_are_the_cut_side_sums(sbeam, example)
     post_f = tags["lra-post F"]
     cuts.append(("post-F", next((eid, ga, gb) for eid, ga, gb in cbars
                                 if gb == post_f)))
+    post_a = tags["lra-post A"]
+    cuts.append(("post-A", next((eid, ga, gb) for eid, ga, gb in cbars
+                                if ga == post_a)))
+    post_w = tags["lra-post W"]
+    cuts.append(("box-F", next((eid, ga, gb) for eid, ga, gb in cbars
+                               if ga == post_f and gb == post_w)))
 
     for name, (eid, ga, gb) in cuts:
         a = np.array(grids[ga])

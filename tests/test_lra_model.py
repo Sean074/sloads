@@ -90,7 +90,7 @@ def test_the_skeleton_carries_every_named_node_family():
     model = build_lra_model(_project("ga6_normal.project.json"))
     families = {(n.family, n.side) for n in model.nodes if n.family}
     for expected in (("lra-sob", "R"), ("lra-sob", "L"), ("lra-post", "F"),
-                     ("lra-post", "A"), ("lra-fin-root", "C"),
+                     ("lra-post", "W"), ("lra-post", "A"), ("lra-fin-root", "C"),
                      ("lra-attach", "R"), ("lra-attach", "L"),
                      ("lra-centre", "C"), ("lra-engine-mount", "C"),
                      ("lra-gear", "L"), ("lra-gear", "R")):
@@ -131,31 +131,68 @@ def test_the_t_tail_htail_hangs_on_the_fin_tip_not_the_fuselage():
     assert joint.pos[2] - tip.pos[2] == pytest.approx(0.0, abs=1e-9)
 
 
-def test_the_split_fuselage_has_no_element_through_the_carry_through():
-    """BM-2 structurally: no CBAR spans the front->rear spar region, so the
-    forward and aft cantilever sums are recoverable element end forces."""
+@pytest.mark.parametrize("name", ("ga6_normal", "baron_58", "atr42_100",
+                                  "concept_regional_jet"))
+def test_the_box_is_two_elements_through_the_wing_station_and_one_post(name):
+    """Note 64 gate 1 (D-64.1): the fuselage beam runs through the box as
+    exactly two elements, front spar -> wing station -> rear spar; exactly one
+    ``RBE2`` joins wing and body, the wing centre grid dependent on the
+    fuselage wing-station grid; and that post is the **only** connection --
+    cut it and the wing and the body fall into separate components -- which
+    is R-12's condition for honest internal loads under placeholder
+    stiffness. (The skeleton as a whole is not a tree on a conventional
+    layout: the h-tail spans between two rigid attachments, and the header
+    says that path is stiffness-dependent.)
+
+    BM-2's elementless carry-through and the four-way centre hub retired here.
+    """
     from sloads.derived_geometry import carry_through
 
-    project = _project("atr42_100.project.json")
+    project = _project(f"{name}.project.json")
     ct = carry_through(project)
     model = build_lra_model(project)
-    pos = {n.gid: n.pos for n in model.nodes}
-    for ga, gb in model.cbars:
-        xa, xb = pos[ga][0], pos[gb][0]
-        # Only fuselage elements have both ends on the centreline plane and
-        # a run along x (the fin runs along z at y = 0 but shares one x).
-        if abs(pos[ga][1]) < 1e-9 and abs(pos[gb][1]) < 1e-9 \
-                and abs(xa - xb) > 1e-9:
-            lo, hi = min(xa, xb), max(xa, xb)
-            assert not (lo < ct.x_f - 1e-6 and hi > ct.x_r + 1e-6), (
-                f"element {ga}-{gb} spans the carry-through "
-                f"({lo:.1f}..{hi:.1f} vs spars {ct.x_f:.1f}/{ct.x_r:.1f})")
+    tag = {(n.family, n.side): n for n in model.nodes if n.family}
+    post_f, post_w, post_a = (tag[("lra-post", s)] for s in "FWA")
+    centre = tag[("lra-centre", "C")]
+    assert post_f.pos[0] == pytest.approx(ct.x_f) and post_a.pos[0] == pytest.approx(ct.x_r)
+    assert ct.x_f < post_w.pos[0] < ct.x_r
+    box = [(ga, gb) for (ga, gb), fam in zip(model.cbars, model.cbar_families)
+           if fam == "fuselage" and {ga, gb} & {post_f.gid, post_w.gid, post_a.gid}
+           and {ga, gb} <= {post_f.gid, post_w.gid, post_a.gid}]
+    assert box == [(post_f.gid, post_w.gid), (post_w.gid, post_a.gid)]
+    # One rigid element between wing and body, and its sense (the wing-mounted
+    # gear and engine ties hang OFF the wing and are not wing-body joints).
+    wing_gids = {n.gid for n in model.members["wing-R"] + model.members["wing-L"]}
+    fus_gids = {n.gid for n in model.members["fuselage"]}
+    joint = [(gn, gms) for gn, _cm, gms, _lbl in model.rbe2s
+             if (gn in fus_gids and set(gms) & wing_gids)
+             or (gn in wing_gids and set(gms) & fus_gids)]
+    assert joint == [(post_w.gid, [centre.gid])]
+    # The post is vertical: same station, same butt line, different waterline.
+    assert centre.pos[0] == pytest.approx(post_w.pos[0]) and centre.pos[1] == 0.0
+    assert centre.pos[2] != post_w.pos[2]
+    # Cut the post and the wing is no longer connected to the body.
+    edges = list(model.cbars) + [(gn, gm) for gn, _cm, gms, _lbl in model.rbe2s
+                                 for gm in gms if (gn, gm) != (post_w.gid, centre.gid)]
+    adj = {}
+    for a, b in edges:
+        adj.setdefault(a, set()).add(b)
+        adj.setdefault(b, set()).add(a)
+    seen, stack = {centre.gid}, [centre.gid]
+    while stack:
+        for nxt in adj.get(stack.pop(), ()):
+            if nxt not in seen:
+                seen.add(nxt)
+                stack.append(nxt)
+    assert wing_gids <= seen and not (seen & fus_gids)
 
 
-def test_the_wing_chain_starts_at_the_sob_and_inboard_strips_collapse_there():
-    """R-3: the wing member's inboard-most node is the SOB, and every wing
-    strip load inboard of it lands ON that node -- the sob_collapsed_load
-    behaviour, produced by the one transfer rule rather than a special case."""
+def test_the_wing_beam_runs_to_the_centre_and_inboard_strips_land_on_the_box():
+    """Note 64 D-64.3/D-64.7: the wing member runs centre -> SOB -> tip, the
+    centre grid straight across from the SOB at the SOB's own station and
+    waterline, and every wing strip inboard of the SOB lands on the wing box
+    -- the SOB grid or the centre grid -- and nowhere outboard. R-3's collapse
+    onto the SOB node alone retired with the hub."""
     from sloads.derived_geometry import sob_station
     from sloads.modules.balance import build_balanced_cases
 
@@ -163,7 +200,12 @@ def test_the_wing_chain_starts_at_the_sob_and_inboard_strips_collapse_there():
     sob = sob_station(project)
     model = build_lra_model(project)
     right = model.members["wing-R"]
-    assert abs(right[0].pos[1] - sob.y) < 1e-6 and right[0].family == "lra-sob"
+    centre, sob_r = right[0], right[1]
+    assert centre.family == "lra-centre" and centre.pos[1] == 0.0
+    assert abs(sob_r.pos[1] - sob.y) < 1e-6 and sob_r.family == "lra-sob"
+    assert centre.pos[0] == pytest.approx(sob_r.pos[0])
+    assert centre.pos[2] == pytest.approx(sob_r.pos[2])
+    assert all(n.pos[1] > sob.y for n in right[2:])
 
     case = build_balanced_cases(project, [])[0]
     inboard = [ld for ld in case.loads
@@ -171,15 +213,11 @@ def test_the_wing_chain_starts_at_the_sob_and_inboard_strips_collapse_there():
                and ld.y < sob.y - 1e-6]
     assert inboard, "the centre box carries strips inboard of the SOB"
     loads = transferred_case_loads(case, model)
-    sob_gid_r = right[0].gid
-    assert sob_gid_r in loads
-    # The collapse is resultant-preserving by LM-1 (the invariant test below
-    # proves it); what this pins is the ROUTING: every inboard strip's nearest
-    # wing-chain node is the SOB itself, so none lands anywhere outboard.
+    assert {centre.gid, sob_r.gid} & set(loads)
     nearest = {min(right, key=lambda n: (n.pos[1] - ld.y) ** 2
                + (n.pos[0] - ld.x) ** 2 + (n.pos[2] - ld.z) ** 2).gid
                for ld in inboard}
-    assert nearest == {sob_gid_r}
+    assert nearest <= {centre.gid, sob_r.gid}
 
 
 def test_missing_data_refuses_with_the_datum_named():
@@ -509,7 +547,9 @@ def test_an_absent_mesh_slice_is_the_default_table():
     project = _project("ga6_normal.project.json")
     assert project.lra_mesh is None
     model = build_lra_model(project)
-    assert len(model.members["wing-R"]) == 20
+    # 20 grids SOB -> tip, plus the wing centre grid the member routes onto
+    # but is not integrated to (note 64 D-64.7).
+    assert len(model.members["wing-R"]) == 21
 
 
 def test_the_gear_keeps_the_carrier_the_project_entered():

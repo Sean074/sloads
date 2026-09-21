@@ -903,11 +903,15 @@ def fuselage_applied_load_rows(arg, project: Optional[Project] = None
                                ) -> List[AppliedLoad]:
     """The applied fuselage load set, one record per station of the body beam.
 
-    ``Fz`` is the whole of it: the body beam carries the station inertia, the
-    balancing tail load and the wing carry-through reaction, all vertical. There
-    is no producer for a fore-aft or lateral applied load on the beam and no
-    free moment at a station, so five of the six components are structurally
-    zero and are published as such (note 44 OR-140).
+    ``Fz`` is the whole of the force: the body beam carries the station
+    inertia, the balancing tail load and the wing reaction, all vertical. There
+    is no producer for a fore-aft or lateral applied load on the beam, so
+    ``Fx``/``Fy`` and the free torsion are structurally zero and are published
+    as such (note 44 OR-140). One row carries a free moment: the wing reaction
+    at the wing station (note 64 D-64.5) is a force **and** the closing couple
+    the wing post transmits, ``My`` right-handed about the airplane's +y, and
+    it rides on the row as the station's own free moment. A spar station
+    (``source == "root"``) applies nothing and is not a row of this set.
 
     The point is where the *structure* is, not where the mass is: the beam runs
     down the centre plane on the fuselage loads reference axis, so ``y`` is zero
@@ -928,15 +932,17 @@ def fuselage_applied_load_rows(arg, project: Optional[Project] = None
         sf = case_sf(result)
         case_id, loading = case_identity(result.case_ref)
         for gid, s in zip(body_station_gids(result), result.stations):
+            if s.source == "root":
+                continue
             out.append(AppliedLoad(
                 case=result.case, case_id=case_id, loading=loading,
                 label=str(gid), gid=gid,
                 x=s.x, y=0.0, z=(lra.z_at(s.x) if lra is not None else 0.0),
                 fx=_NO_BODY_AXIAL_LOAD, fy=_NO_BODY_LATERAL_LOAD, fz=s.fz,
-                mxx_free=_NO_FREE_BENDING, myy_free=_NO_BODY_FREE_TORSION,
+                mxx_free=_NO_FREE_BENDING, myy_free=s.couple,
                 mzz_free=_NO_FREE_BENDING,
                 safety_factor=sf, torsion_axis=_BODY_TORSION_AXIS,
-                component="fuselage"))
+                component="fuselage", body_moments=True))
     return out
 
 
@@ -1583,16 +1589,20 @@ def _lra_point_at(loads: List[NodalLoad], y: float) -> Tuple[float, float]:
 # they are at, and they have to agree.
 #
 # GIDs are keyed off each station's provenance (``BodyStationLoad.source``), not
-# its index in the merged table: the wing carry-through reaction (M4-1) inserts
-# extra nodes into the middle of the beam, and an index-based GID would have
-# renumbered every mass station aft of the wing whenever the spar stations
-# changed. Mass/tail stations therefore keep the historical ``1001 + i`` in
-# nose->tail order and the reaction nodes take a disjoint block at ``1501 +``.
+# its index in the merged table: the wing reaction row and the two spar rows
+# (note 64 D-64.2/D-64.5) sit in the middle of the beam, and an index-based GID
+# would have renumbered every mass station aft of the wing whenever the spar
+# stations changed. Mass/tail stations therefore keep the historical
+# ``1001 + i`` in nose->tail order and the reaction/spar rows take a disjoint
+# block at ``1501 +``.
 _BODY_MASS_BAND = band("body-mass")          # 1001-1500
 _BODY_CARRY_BAND = band("body-reaction")     # 1501-2000
 
-#: ``BodyStationLoad.source`` values that belong to the reaction-node GID block.
-_BODY_REACTION_SOURCES = ("carry", "correction")
+#: ``BodyStationLoad.source`` values that belong to the reaction-node GID block:
+#: the wing reaction at the wing station and the two spar rows (note 64). The
+#: two historical names are kept so a result written before note 64 still
+#: numbers stably.
+_BODY_REACTION_SOURCES = ("reaction", "root", "carry", "correction")
 
 
 def beam_station_gid(index: int) -> int:
@@ -1612,10 +1622,10 @@ def body_station_gids(result: BodyLoadResult) -> List[int]:
     """Stable sbeam GIDs for one body result's stations, in table order.
 
     Fuselage mass stations and the tail air-load station number from the
-    ``body-mass`` band in nose->tail order; the wing carry-through reaction
-    nodes (or the fallback correction nodes) from ``body-reaction``. Keying on
-    ``source`` keeps a mass station's GID
-    fixed no matter how many reaction nodes are inserted around it."""
+    ``body-mass`` band in nose->tail order; the wing reaction row and the two
+    spar rows from ``body-reaction``. Keying on ``source`` keeps a mass
+    station's GID fixed no matter how many reaction rows are inserted around
+    it."""
     gids: List[int] = []
     n_mass = 0
     n_reaction = 0

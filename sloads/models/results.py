@@ -970,9 +970,18 @@ class BodyStationLoad:
     ``source`` records where the applied load came from, so the export can give
     each station a **stable GID** independent of its index in the merged table:
     ``"mass"`` (a fuselage mass item), ``"tail"`` (the balancing tail air load),
-    ``"carry"`` (a wing carry-through reaction node) or ``"correction"`` (a
-    whole-body fallback correction node) -- see
-    :func:`sloads.report.applied.body_station_gids`."""
+    ``"reaction"`` (the wing reaction on the body, one row at the wing station
+    -- note 64 D-64.5) or ``"root"`` (a spar station, carrying no load: the
+    cantilever's terminal row) -- see
+    :func:`sloads.report.applied.body_station_gids`.
+
+    ``region`` says which integration the station belongs to (note 64 D-64.2):
+    ``"forward"`` (nose to the front spar), ``"aft"`` (tail to the rear spar)
+    or ``"box"`` (at or between the spars -- an applied load the box reacts,
+    integrated by neither cantilever; its ``sz``/``myy`` are structurally
+    absent and published blank). ``couple`` is the free pitching moment applied
+    at the station (lb-in, LIMIT, right-handed about +y): zero everywhere but
+    the reaction row, which carries the closing couple the wing post transmits."""
     x: float
     fx: float
     fy: float
@@ -984,27 +993,31 @@ class BodyStationLoad:
     myy: float
     mzz: float
     source: str = "mass"
+    region: str = ""
+    couple: float = 0.0
 
 
 @dataclass
 class BodyLoadResult:
-    """One condition's longitudinal fuselage net-load table (nose-to-tail).
+    """One condition's longitudinal fuselage net-load table, nose to tail.
 
     ``stations`` hold **LIMIT** loads; ``safety_factor`` is the per-case factor the
     render/export boundary scales them by to deliver ULTIMATE (see
     :class:`ConditionResult`), copied from the source :class:`CriticalCondition`.
 
-    The moment-closure fields (Ref 1 Ch 15 p103, M4-1): ``m_unbalanced`` is the
-    unbalanced moment of the wing-reaction-free set (lb-in, LIMIT);
-    ``r_front``/``r_rear`` are the front/rear spar **fitting loads** (lb, LIMIT) at
-    stations ``x_front``/``x_rear``, reported for the wing-attach fittings and
-    *not* applied on top of the distribution (which already carries them).
+    Two cantilevers (note 64 D-64.2/D-64.4): the forward body is integrated
+    from the nose to the front spar and the aft body from the tail to the rear
+    spar, shear and bending **positive for an up load in either body**; the
+    stations at or between the spars are the box's and carry no running load.
+    The wing reacts the body at one station: ``r_wing`` at ``x_wing`` with the
+    closing couple ``m_wing`` (lb-in, right-handed about +y) -- what the wing
+    post transmits (D-64.5). ``m_unbalanced`` is the pass-1 terminal moment of
+    the inertia + tail set about the aft-most station (Ref 1 Ch 15 p103), and
+    ``r_front``/``r_rear`` at ``x_front``/``x_rear`` are the front/rear spar
+    **fitting loads** (lb, LIMIT): the static equivalent of the one reaction at
+    the two spars, reported for the wing-attach fittings and applied nowhere.
     ``spars_assumed`` marks spar stations taken from the module defaults rather
-    than entered. ``closure_artifact`` marks the fallback path -- no derivable
-    spar stations, so the moment was closed by a whole-body correction with no
-    physical source; those results carry
-    :data:`~sloads.modules.body_loads.CLOSURE_ARTIFACT_CAVEAT` and leave the
-    fitting loads ``None``."""
+    than entered."""
     case: str
     stations: List[BodyStationLoad] = field(default_factory=list)
     case_ref: Optional[CaseRef] = None
@@ -1018,7 +1031,13 @@ class BodyLoadResult:
     x_front: Optional[float] = None          # in -- front spar station
     x_rear: Optional[float] = None           # in -- rear spar station
     spars_assumed: bool = False              # spar fractions defaulted, not entered
-    closure_artifact: bool = False           # moment closed by the whole-body fallback
+    x_wing: Optional[float] = None           # in -- the wing station (note 64 D-64.5)
+    r_wing: Optional[float] = None           # lb, LIMIT -- the wing reaction on the body
+    m_wing: Optional[float] = None           # lb-in, LIMIT -- its closing couple, about +y
+    #: The register's in-band sentence when the wing station is ASSUMED (no
+    #: side of body: the LRA's centreline point, note 64 §7b amendment 2);
+    #: "" when the station is the side of body's own.
+    wing_station_note: str = ""
 
 
 @dataclass

@@ -195,7 +195,8 @@ def carry_sources_absent(result: BalancedCaseResult) -> bool:
     recovers it — so applying it as well would react the wing twice. Structural
     here (``assemble`` never reads ``body_loads``); this is the drift guard.
     """
-    return not any(ld.source in ("carry", "correction") for ld in result.loads)
+    return not any(ld.source in ("reaction", "root", "carry", "correction")
+                   for ld in result.loads)
 
 
 #: Title of the F-C7 record row on the ``ModuleResult``. A constant because it is

@@ -53,8 +53,9 @@ cut and carried the cut reaction as an applied load, and in the assembled model
 the solver recovers it instead. No cut model ships any more, so the rule now
 records why this module is shaped as it is. Concretely the wing carry-through
 reaction
-(``BodyStationLoad.source == "carry"``) is *excluded* -- :func:`assemble` never
-reads ``body_loads``, and :func:`carry_sources_absent` is the guard.
+(``BodyStationLoad.source == "reaction"``, note 64 D-64.5) is *excluded* --
+:func:`assemble` never reads ``body_loads``, and :func:`carry_sources_absent`
+is the guard.
 
 The fuselage pitching moment
 ----------------------------

@@ -348,7 +348,7 @@ from .results import EnvelopeResult, LoadsResult, MassResult
 # ``ga6_normal`` WINGINER, NETLOADS, the deck's wing sets and CONM2 are
 # byte-identical; ``body_loads`` moves by the stated per-case correction
 # (D-63.8) and the twin/concept fixtures by the fuel re-slicing (D-63.10).
-SCHEMA_VERSION = 67
+SCHEMA_VERSION = 68
 
 
 @dataclass

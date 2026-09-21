@@ -406,6 +406,22 @@ def _hop_66(d: Dict[str, Any]) -> Dict[str, Any]:
     return d
 
 
+def _hop_67(d: Dict[str, Any]) -> Dict[str, Any]:
+    """v67 -> v68 (design note 64, #275): **identity**.
+
+    v68 changes the shape of two *result* dataclasses and no input.
+    ``BodyStationLoad`` gains ``region`` and ``couple``; ``BodyLoadResult``
+    gains ``x_wing``/``r_wing``/``m_wing``/``wing_station_note`` and loses
+    ``closure_artifact``. A v67 file loads bit-identical: its persisted body
+    results, if any, read with the new fields at their defaults and the old
+    flag ignored, and every consumer re-derives the body loads from the
+    inputs anyway. The delivered loads that *do* move -- the body table's aft
+    sign, the blank box rows, the one-station reaction -- are the note's,
+    gated by ``tests/test_body_loads.py``, not the hop's.
+    """
+    return d
+
+
 #: hop here; :data:`SUPPORTED_FLOOR` names the oldest version the chain starts
 #: from.
 MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
@@ -421,6 +437,7 @@ MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     64: _hop_64,
     65: _hop_65,
     66: _hop_66,
+    67: _hop_67,
 }
 
 #: The oldest project version this build reads. It sat at ``SCHEMA_VERSION``
