@@ -379,7 +379,10 @@ def fields_hash() -> str:
 #: move; ``ga6_normal``'s elevator/rudder ``trailing_edge`` entries are
 #: removed in the same re-stamp because the derived TE is byte-identical to
 #: them (asserted in ``tests/test_tail_geometry.py``).
-EXPECTED_FIELDS_HASH = "97e8def040faf399"
+#: v68 (design note 64, #275): ``BodyStationLoad`` gains ``region``/``couple``,
+#: ``BodyLoadResult`` gains the one-station reaction and its note and loses
+#: ``closure_artifact`` -- result shapes only; ``_hop_67`` is an identity.
+EXPECTED_FIELDS_HASH = "0033f694499d3b5e"
 
 
 def test_persisted_dataclass_shapes_are_unchanged():

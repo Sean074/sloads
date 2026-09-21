@@ -1314,15 +1314,20 @@ def _body_load_result_from_dict(d: Dict[str, Any]) -> BodyLoadResult:
         safety_factor=_safety_factor(d),
         mass_state=str(d.get("mass_state", "") or ""),
         # Moment-closure fields (M4-1). An older file lacks them: m_unbalanced
-        # defaults to 0.0 and the fitting loads to None, exactly as a
-        # closure-artifact result serializes.
+        # defaults to 0.0 and the fitting loads to None. The one-station wing
+        # reaction (note 64 D-64.5) is absent from any file written before it
+        # and is None there; a pre-note-64 ``closure_artifact`` key is ignored
+        # -- the path it marked no longer exists.
         m_unbalanced=float(d.get("m_unbalanced", 0.0) or 0.0),
         r_front=_opt_float(d.get("r_front")),
         r_rear=_opt_float(d.get("r_rear")),
         x_front=_opt_float(d.get("x_front")),
         x_rear=_opt_float(d.get("x_rear")),
         spars_assumed=bool(d.get("spars_assumed", False)),
-        closure_artifact=bool(d.get("closure_artifact", False)),
+        x_wing=_opt_float(d.get("x_wing")),
+        r_wing=_opt_float(d.get("r_wing")),
+        m_wing=_opt_float(d.get("m_wing")),
+        wing_station_note=str(d.get("wing_station_note", "") or ""),
     )
 
 

@@ -41,7 +41,7 @@ from sloads.models.enums import RotorDirection
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _FIXTURES = os.path.join(_HERE, "fixtures_schema")
 _EXAMPLES = os.path.join(os.path.dirname(_HERE), "examples")
-_CURRENT = "v67_current.json"
+_CURRENT = "v68_current.json"
 
 
 def _load(name=_CURRENT):
@@ -351,6 +351,18 @@ def test_a_v65_file_loads_through_the_identity_hop_unchanged():
     assert hopped == v65, "the 65->66 identity hop moved something"
 
 
+def test_the_v67_hop_is_an_identity():
+    """v67 -> v68 (design note 64, #275): result shapes only, so a v67 file
+    migrates to the v68 fixture with nothing but its stamp changed."""
+    v67 = _load("v67_current.json")
+    assert v67["schema_version"] == 67
+    migrated = migrate(copy.deepcopy(v67))
+    assert migrated["schema_version"] == SCHEMA_VERSION
+    assert {k: v for k, v in migrated.items() if k != "schema_version"} == \
+        {k: v for k, v in v67.items() if k != "schema_version"}
+    assert migrated == _load()
+
+
 def test_the_v66_hop_moves_the_wing_mass_into_the_item_database():
     """Design note 63 D-63.2 (#289, G-63.4): the 66->67 hop is **not** an identity.
 
@@ -372,7 +384,7 @@ def test_the_v66_hop_moves_the_wing_mass_into_the_item_database():
     for row in hopped["weight"]["items"]:
         want = "point" if row.get("component") == "wing" and row.get("y") else "panel"
         assert row["carriage"] == want, row["name"]
-    assert applied_hops(66) == [66]
+    assert applied_hops(66) == [66, 67]       # the v67 hop (note 64) is an identity
     assert io.project_to_dict(io.project_from_dict(v66)) == \
            io.project_to_dict(io.project_from_dict(_load()))
 

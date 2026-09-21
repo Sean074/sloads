@@ -1383,7 +1383,8 @@ def test_no_free_body_cut_reaction_is_applied(example):
     """
     for case in build_balanced_cases(_project(example)):
         assert carry_sources_absent(case), f"{example} {case.label}"
-        assert not any(ld.source in ("carry", "correction") for ld in case.loads)
+        assert not any(ld.source in ("reaction", "root", "carry", "correction")
+                       for ld in case.loads)
 
 
 # --------------------------------------------------------------------------- #

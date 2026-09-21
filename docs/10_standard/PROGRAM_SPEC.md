@@ -630,12 +630,24 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   `front_spar_x_in`/`rear_spar_x_in`; blank derives from 20 %/60 % of the
   planform root chord and flags the result `assumed`; **M4-1**, note 50
   OR-121/OR-122).
-- **Writes:** the longitudinal net shear/bending-moment distribution along the
-  fuselage stations (`BodyLoadResult`, via `build_body_loads`) / CSV; feeds the
-  sbeam export bridge's body target. Per condition it also writes the
-  moment-closure fields on `BodyLoadResult` — `m_unbalanced` and the front/rear
-  spar **fitting loads** `r_front`/`r_rear` at `x_front`/`x_rear`, with the
-  `spars_assumed` / `closure_artifact` provenance flags.
+- **Writes:** the body's net shear/bending distribution as **two cantilevers**
+  (design note 64 D-64.2, 2026-09-21): the forward body integrated from the
+  nose to the front spar and the aft body from the tail to the rear spar, each
+  ending in a `source="root"` row at its spar that applies nothing and carries
+  the whole of that body; a station at or between the spars is a `region="box"`
+  row — an applied load the box reacts, published with **no running shear or
+  moment** (`BodyLoadResult`, via `build_body_loads`; the CSV's `Sz`/`Myy` are
+  blank there and a `Region` column says which). **Shear and bending are
+  positive for an up load in either body** (D-64.4, owner
+  `body_loads.cantilever_sign`, `CONVENTIONS.md` §7), so a positive load
+  factor bends both bodies down. Per condition it also writes the closure
+  fields: the wing reaction `r_wing` and its couple `m_wing` at the wing
+  station `x_wing` (D-64.5 — the force and couple the wing post of the LRA
+  model transmits; the couple rides on the reaction row as `couple` and reaches
+  the applied set as that row's `My`), the p103 pass-1 `m_unbalanced`, and the
+  front/rear spar **fitting loads** `r_front`/`r_rear` at `x_front`/`x_rear` —
+  the static equivalent of the one reaction at the two spars, reported and
+  applied nowhere — with the `spars_assumed` provenance flag.
   **`run()` publishes the p198 critical-fuselage summary** (note 44 §15 OR-108,
   2026-09-05): one `ConditionResult` per block 1/2/3/7 of Appendix A p198
   (`MAX DOWN LOAD ON WING`, `AFT DOWN BENDING`, `AFT UP BENDING`, `GREATEST NZ`),
@@ -651,25 +663,29 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   oracle report's 4.2 states). Blocks 4 and 5 are the pull-up maneuvers and
   belong to SELECT's h-tail conditions; block 6 is the manual's landing advisory.
 - **Validation:** **no printed oracle** (a modern addition); closure-checked in
-  **both** degrees of freedom (physics-closure, not a manual figure) — the
-  applied `ΣFz = 0`, the running shear returns to ~0 at the aft end, and the
-  terminal `Myy` returns to ~0. **Moment closure (M4-1, closed 2026-08-03)**
-  follows the two passes of Ref 1 p103: the terminal moment of the
-  inertia + tail-load set is the unbalanced moment `M_ub`, reacted with the
-  vertical residual `R_total = NZ·W_fus − LT` at the wing front/rear spar
-  attachments (`R_r = (M_ub + R_total·(x_ref − x_f))/(x_r − x_f)`,
-  `R_f = R_total − R_r`, `x_ref` = the integrator's aft-most station). The two
-  reactions are applied as the statically **equivalent linear line load** over
-  `[x_f, x_r]` — a documented refinement of p103, which prescribes two point
-  loads: same resultant and first moment, no `±M_ub/d` shear spike across a
-  short carry-through, and it collapses onto the manual's two-point solve as
-  `d → 0`. The fitting loads `R_f`/`R_r` are **reported, not re-applied** (the
-  distribution already carries them). When the spar stations are underivable a
-  whole-body correction closes the beam instead; it has no physical source, so
-  the result is flagged `closure_artifact` and single-sources the limitation as
-  `body_loads.CLOSURE_ARTIFACT_CAVEAT`, stamped as `$ CAVEAT:` lines in
-  `fuselage_loads.bdf`, a warning on the **Net Fuselage Loads** page and a
-  caption on the **Export** page's Fuselage row — **only on that fallback path**.
+  **both** degrees of freedom (physics-closure, not a manual figure): the
+  forward table's terminal shear and moment at the front spar are the forward
+  set's resultant and moment, the aft table's at the rear spar likewise, and
+  the two terminals, the box's applied rows and the wing reaction sum to zero
+  force and zero moment about the wing station (`body_loads.closure_residuals`,
+  note 64 gate 4). **The wing reacts the body at one station** (D-64.5): the
+  free body is closed by `R = −ΣFz` and the couple that zeroes the moment of
+  the whole set about the wing station — the side of body's own fuselage
+  station, where the LRA model's wing post stands — which is exact at any mesh,
+  so no node-count or `d → 0` gate exists. Ref 1 p103's two-point solve
+  survives as the reported fitting pair. **M4-1's linear line load over
+  `[x_f, x_r]` retired at note 64 (2026-08-03 → 2026-09-21)**: it smoothed the
+  `±M/d` spike of two point reactions across a region that is not a beam and
+  is integrated by nothing, so there was nothing left for it to smooth. **A
+  project that cannot place the wing post — no wing planform, no
+  carry-through, or a wing station outside its spars — is refused by name**
+  (`MissingInputError` carrying the joint register's own reason, note 64 §8
+  ruling 1); the whole-body `closure_artifact` correction that used to close
+  such a beam had no physical source and is gone with its caveat. A planform
+  with **no side of body** keeps its beam on a wing station **assumed** at
+  the wing LRA's centreline point (`joints.WING_STATION_CENTRELINE`, note 64
+  §7b amendment 2), the register's sentence carried on
+  `BodyLoadResult.wing_station_note` and printed in 4.1.
   Still open and split out: the pitching load factor (**M4-21**; `θ̈ = 0` on the
   balanced trim cases, so it does not affect this closure) and the distributed
   body aero moment (**M4-19**).
@@ -1733,9 +1749,11 @@ the applied load set (`applied_loads("htail"|"vtail", ...)`), GID bands `4001+`
   `CBAR` carries its family's PID) so a sizing tool overwrites one card per
   family — sloads takes no section input (backlog Pri 7, step 14 descoped,
   2026-08-17);
-  production `RBE2` ties (band `lra-rbe2`) for the centre-box hub + front/rear
-  spar posts (split-fuselage idealization, BM-2 — no element spans the
-  carry-through), the fin root, the h-tail attachment pair (basis-gated,
+  production `RBE2` ties (band `lra-rbe2`) for the **wing post** — the one
+  rigid element between wing and body (design note 64 D-64.1, 2026-09-21: the
+  fuselage grid at the wing station independent, the wing centre grid
+  dependent; the rigid centre-box hub with its four ties and BM-2's
+  elementless carry-through retired there), the fin root, the h-tail attachment pair (basis-gated,
   BM-3: refuse `ATTACH_STRIP_PAIR`) or the T-tail fin-tip joint (the fin
   deck's T7 lumped transfer is **never** applied here, plan 11 §4), the gear
   per `carrier` (G-2 = BM-4's gear half) and the engine hub + mount per
@@ -1743,8 +1761,20 @@ the applied load set (`applied_loads("htail"|"vtail", ...)`), GID bands `4001+`
   the **mount** still carrying nothing applied — ENGLOADS' torque and gyro
   `MOMENT`s wait for design note 21.
   Named nodes carry `$ SLOADS-NODE <family> <side>` identity tags (BM-5).
-  The wing chains **start at the side-of-body** (R-3); the deck is free-free
-  on one clamped fuselage node whose recovered reaction is the case residual.
+  **The joint (note 64 D-64.1/D-64.3).** The wing beam runs tip → side of
+  body (R-3, the root of its integration) → **straight across** to the wing
+  centre grid at the SOB's own fuselage station and waterline (`lra-centre C`);
+  the fuselage beam runs nose → front-spar grid (`lra-post F`) → wing-station
+  grid (`lra-post W`) → rear-spar grid (`lra-post A`) → tail, the box as its
+  three owned grids with two elements and nothing between; the wing post is
+  the vertical `RBE2` from `lra-post W` down to `lra-centre C`. One post keeps
+  the model a tree, which is R-12's condition. The inboard wing segments and
+  the box are load paths and report nothing: the wing is integrated to the
+  SOB and the body to each spar (`LraModel.boxes` states the intervals; the
+  oracle-locked AIRLOADS/WINGINER tables still run to the centreline, ruling
+  7). The deck is free-free on one clamped fuselage node — the forward-chain
+  node nearest the front spar in no `RBE2`, since note 64 the front-spar grid
+  itself — whose recovered reaction is the case residual.
 - **The skeleton is checked for solvability before it is returned** (design
   note 55): no `GRID` is rigidly tied on both sides (a chain of rigid elements,
   which sbeam refuses — D-55.1 keeps a body tie off a node that is already a
@@ -1771,20 +1801,23 @@ the applied load set (`applied_loads("htail"|"vtail", ...)`), GID bands `4001+`
   same LIMIT basis and per-subcase factor statement — each load transferred to the nearest node of
   the member its `source` names with the exact lever-arm couple `(p − n) × F`
   (**single owner `export/coordinates.transfer_couple`**, note 24 R-11 /
-  LM-1). Wing strips inboard of the SOB land on the SOB node (the R-3
-  collapse); the chordwise part of the couple is the 25 %-chord → LRA torsion
-  transfer, so no separate axis transfer exists to drift.
+  LM-1). Wing strips inboard of the SOB land on the wing box's nearest grid —
+  the SOB or the centre (note 64 D-64.7); the chordwise part of the couple is
+  the 25 %-chord → LRA torsion transfer, so no separate axis transfer exists
+  to drift.
 - **Gates (CI):** the plan-07 invariant — the LRA deck's per-case card
   resultant equals the balanced deck's, all six components
   (`tests/test_lra_model.py`); the solver reaction equals minus the applied
-  resultant ≈ 0, and the SOB / front-post internal loads equal the cut-side
-  card sums through the element frame
-  (`tests/test_sbeam_roundtrip.py::test_the_lra_*`). Known pinned limitation:
+  resultant ≈ 0, and the internal loads at the SOB, both spar grids and the
+  box element beside the post equal the cut-side card sums through the
+  element frame — the two body cantilever sums and the wing reaction the post
+  transmits (`tests/test_sbeam_roundtrip.py::test_the_lra_*`, note 64 gate 3). Known pinned limitation:
   sbeam's dense-path condition heuristic refuses the largest airframe's SI
   (mm) deck — a units artifact (equilibrated cond ~1e9), strict-xfailed.
 - **Refuses** (raising `LraRefusal`, the datum named): unset `ref_axis_pct`,
-  no resolvable SOB, no fuselage outline, no carry-through, a strip-pair
-  h-tail attachment. Accepted-but-assumed geometry (section centres, spar
+  no resolvable SOB, no fuselage outline, no carry-through, a wing station
+  outside its spars (note 64 D-64.3, the three stations in the sentence), a
+  strip-pair h-tail attachment. Accepted-but-assumed geometry (section centres, spar
   fractions, SOB fallback, outline attachment, inferred gear/engine parents)
   is listed in the deck header. `concept_heavy` refuses by design (no
   resolvable SOB); every other shipped fixture builds a model, and the bundle

@@ -3088,11 +3088,16 @@ def _carry_through_sentence(project: Project, system: UnitSystem) -> str:
     if carry is None:
         return (
             "The wing carry-through could not be derived for this project, so "
-            "the unbalanced moment has no wing attachment to be reacted at. "
-            "The consequence is stated with the distributions.")
+            "the wing reaction has no box to stand in and the beam is not "
+            "produced. The consequence is stated with the distributions.")
     scale, length = _length_channel(system)
     span = (f"{format_value(carry.x_f * scale)} to "
             f"{format_value(carry.x_r * scale)} {length}")
+    # An assumed wing station (no side of body) is stated in the register's
+    # own words, beside the spars it sits between (note 64 §7b amendment 2).
+    net = _body_net(project)
+    station_note = next((r.wing_station_note for r in net if r.wing_station_note), "")
+    suffix = (" " + station_note + ".") if station_note else ""
     if carry.assumed:
         return (
             "The wing carry-through runs from fuselage station "
@@ -3103,11 +3108,11 @@ def _carry_through_sentence(project: Project, system: UnitSystem) -> str:
             "chord. Every wing-attach fitting load in this document is "
             "therefore sized on assumed geometry. The spar stations are an "
             "input of this analysis, so entering the measured ones replaces "
-            "the estimate.")
+            "the estimate.") + suffix
     return (
         "The wing carry-through runs from fuselage station "
         f"{span}, entered for this airplane. The wing-attach fitting loads "
-        "below are sized on that geometry as entered.")
+        "below are sized on that geometry as entered.") + suffix
 
 
 def _body_beam(project: Project, *, system: UnitSystem,
@@ -3316,22 +3321,25 @@ def _body_nomenclature_table(system: UnitSystem) -> Table:
 def _body_derivation_note() -> str:
     """How the fuselage beam is built, in the manual's own two passes."""
     return (
-        "The beam is solved in the two passes of Reference 1 page 103. The "
-        "first applies the inertia of each station weight at that case's load "
-        "factor, and the balancing tail air load at the tail station, and "
-        "integrates nose to tail; the moment left at the aft end of that set is "
-        "the unbalanced moment. The second reacts the unbalanced moment, and "
-        "the residual vertical force with it, at the wing carry-through, and "
-        "re-integrates the whole set. Writing i for a station and i+1 for the "
-        "station aft of it:\n"
+        "The beam follows Reference 1 page 103 with the wing reacting the body "
+        "at one station. The inertia of each station weight at that case's "
+        "load factor and the balancing tail air load at the tail station "
+        "leave a vertical force and a moment over; the wing carries both, as "
+        "a force and a couple at the wing station -- the side of body's own "
+        "fuselage station, where the wing post of the beam model stands. The "
+        "body is then integrated as two cantilevers, each from its free end "
+        "toward the wing box: the forward body from the nose to the front "
+        "spar and the aft body from the tail to the rear spar. Writing i for "
+        "a station and i-1 for the station before it on the way in:\n"
         "  Fz(i) = -Nz W(i)\n"
         "  Sz(i) = Sz(i-1) + Fz(i)\n"
-        "  Myy(i) = Myy(i-1) + Sz(i-1) [X(i) - X(i-1)]\n\n"
-        "The reactions are applied as the statically equivalent linear "
-        "distribution over the carry-through rather than as the manual's two "
-        "point loads: same resultant, same first moment, and no shear spike "
-        "across a short carry-through. The front and rear fitting loads are "
-        "reported separately and are not applied again on top of it.")
+        "  Myy(i) = Myy(i-1) + Sz(i-1) |X(i) - X(i-1)|\n\n"
+        "Shear and bending are positive for an up load in either body, so a "
+        "positive load factor bends both bodies down. Nothing is integrated "
+        "between the spars: a station at or between them is an applied load "
+        "the box reacts, printed with no running shear or moment. The front "
+        "and rear fitting loads are the static equivalent of the one reaction "
+        "at the two spars, reported for the fittings and applied nowhere.")
 
 
 def _body_cases(project: Project, results: Mapping[str, Optional[ModuleResult]],
@@ -3620,27 +3628,32 @@ def _closure_sentence(project: Project, system: UnitSystem) -> str:
     this analysis is held to; a section that claims a beam closes and does not
     say to what is asking to be taken on trust.
     """
+    from ..modules.body_loads import closure_residuals
+
     net = _body_net(project)
     if not net:
         return ""
     u = Units(system)
-    end_sz = end_myy = peak_sz = peak_myy = 0.0
+    res_f = res_m = peak_sz = peak_myy = 0.0
     for result in net:
         stations = list(getattr(result, "stations", ()))
         if not stations:
             continue
-        end_sz = max(end_sz, abs(stations[-1].sz))
-        end_myy = max(end_myy, abs(stations[-1].myy))
+        force, moment = closure_residuals(result)
+        res_f = max(res_f, abs(force))
+        res_m = max(res_m, abs(moment))
         peak_sz = max(peak_sz, *(abs(s.sz) for s in stations))
         peak_myy = max(peak_myy, *(abs(s.myy) for s in stations))
     return (
-        "The beam closes. Across every case in this section the shear left at "
-        f"the aft-most station is at most {u.plain(end_sz, 'force')} "
-        f"{u.label('force')} and the bending moment at most "
-        f"{u.plain(end_myy, 'moment')} {u.label('moment')}, against peaks "
+        "The beam closes. In every case the forward body's shear and moment "
+        "at the front spar, the aft body's at the rear spar, the loads "
+        "applied within the box and the wing reaction sum to a vertical "
+        f"residual of at most {u.plain(res_f, 'force')} {u.label('force')} "
+        f"and a moment about the wing station of at most "
+        f"{u.plain(res_m, 'moment')} {u.label('moment')}, against peaks "
         f"along the body of {u.plain(peak_sz, 'force')} {u.label('force')} and "
         f"{u.plain(peak_myy, 'moment')} {u.label('moment')}: the residue of "
-        "the integration, not a load. Chapter 15 publishes no "
+        "the arithmetic, not a load. Chapter 15 publishes no "
         "station-by-station figures, so this closure is the acceptance "
         "criterion the distributions are held to, in place of a printed "
         "oracle.")
@@ -3730,7 +3743,6 @@ def _body_distribution_figure(net: Sequence[BodyLoadResult], key: str, attr: str
 def _body_distributions(project: Project, *, system: UnitSystem,
                         plan: Sequence[SectionPlan]) -> Section:
     """4.5 -- the net distributions of every fuselage case."""
-    net = _body_net(project)
     critical = subsection_ref(plan, _BODY_STEP, _BODY_CRITICAL)
     body = [
         "The distributions below are the net fuselage loads: the inertia of "
@@ -3740,24 +3752,6 @@ def _body_distributions(project: Project, *, system: UnitSystem,
         "tabulated in "
         + (appendix_ref(BODY_LOAD_STATIONS) or "the appendix") + ".",
     ]
-    # A closure-artifact result has no wing attachment to react at: the beam was
-    # closed by a correction spread over the whole body, which relieves the wing
-    # region and loads the tail cone with a moment nothing applies there. Its
-    # station table is a closure artifact and not a load distribution, and
-    # printing it would publish a load with no physical source (OR-98). Stated
-    # through the same gap-state machinery an unbuilt section uses.
-    if net and any(getattr(r, "closure_artifact", False) for r in net):
-        return Section("", body=body, absent_reason=(
-            "The wing carry-through could not be derived for this project, so "
-            "the unbalanced moment was closed by a self-equilibrated "
-            "correction spread over the whole body rather than reacted where "
-            "the wing attaches. The beam closes, but the correction has no "
-            "physical source: it relieves the wing region and loads the tail "
-            "cone with a moment nothing applies there. The resulting station "
-            "table is a closure artifact and is not published as a load "
-            "distribution. Entering the wing front and rear spar stations "
-            "gives the Chapter 15 carry-through reaction and this subsection "
-            "its distributions."), absent_lead="Not published")
     figures = body_distribution_figures(project, system=system,
                                         critical=critical)
     return Section("", body=body, figures=figures)
@@ -3861,30 +3855,38 @@ def _body_station_appendix(project: Project, *, system: UnitSystem,
         name = getattr(ref, "case_id", "") or getattr(result, "case", "")
         sf = case_sf(result)
         for gid, station in zip(body_station_gids(result), result.stations):
+            box = station.region == "box"
             rows.append([
                 name, str(gid), u.plain(station.x, "length"),
-                u.load(station.sz, "force", sf),
-                u.load(station.myy, "moment", sf),
+                station.region,
+                "" if box else u.load(station.sz, "force", sf),
+                "" if box else u.load(station.myy, "moment", sf),
                 format_value(sf),
             ])
     if applied is None or not rows:
         return absent_c
     carried = Table(
         title="Cumulative fuselage loads by station (LIMIT)",
-        columns=["Case", "GID", f"X ({u.label('length')})",
+        columns=["Case", "GID", f"X ({u.label('length')})", "Region",
                  f"Sz ({u.ult_label('force')})",
                  f"Myy ({u.ult_label('moment')})", "SF"],
         rows=rows, small=True,
         note=("What the fuselage carries at each station: the applied loads of "
-              "C.1 accumulated nose to tail, as defined in the notation of "
-              + subsection_ref(plan, _BODY_STEP, _BODY_CASES) + ". The station "
+              "C.1 accumulated from each free end toward the wing box, as "
+              "defined in the notation of "
+              + subsection_ref(plan, _BODY_STEP, _BODY_CASES) + ". The forward "
+              "body runs from the nose to the front spar and the aft body from "
+              "the tail to the rear spar, each ending in a row at its spar "
+              "that applies nothing and carries the whole of that body; a "
+              "station at or between the spars is the box's -- an applied "
+              "load the box reacts -- and prints no running load. Shear and "
+              "bending are positive for an up load in either body. The station "
               "coordinates are printed once, with the applied set. These are "
               "the beam's own quantities and not the body-axis vector of the "
               "table above; Myy is about the fuselage loads reference axis, "
               "which runs fore and aft, so the letter and the airplane axis "
-              "agree here. The cumulative columns close to zero at the aft "
-              "end. Every load is LIMIT and states the factor it does not "
-              "apply."))
+              "agree here. Every load is LIMIT and states the factor it does "
+              "not apply."))
     if lra is None:
         body.append(
             "The fuselage loads reference axis is not resolvable for this "

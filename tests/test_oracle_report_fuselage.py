@@ -17,8 +17,9 @@ Gates covered:
   the Weight & Mass screen and no issued document.
 * **G-OR-56** -- the fitting-load table states ``assumed`` against ``entered``
   spar stations, asserted on a project of each.
-* **G-OR-57** -- a ``closure_artifact`` result renders its stated state and no
-  distribution.
+* **G-OR-57** -- a project whose wing post cannot be placed is refused by
+  name and the section renders its absence (note 64 §8 ruling 1; the
+  ``closure_artifact`` path this gate used to cover retired there).
 * **G-OR-58** -- 4.2 states which path its case list came from, what the sign of
   its load factors means, and whether the set holds a negative-g condition.
 * **G-OR-59** -- Appendix C's rows and the applied-load CSV download are
@@ -255,6 +256,9 @@ def test_a_surface_no_weight_item_claims_is_stated_on_the_beam_that_carries_it()
     body = _prose(_section_four(_doc(path)))
     assert "not separately accounted" in body
     assert "vertical tail" in body
+    # ...and, since note 64, that fixture's wing station is ASSUMED (no side of
+    # body resolves), which 4.1 states in the register's own words.
+    assert "wing station ASSUMED" in body
     # The fixtures that claim every surface say nothing, rather than saying none.
     assert "not separately accounted" not in _prose(_section_four(_doc()))
 
@@ -313,29 +317,38 @@ def test_the_fitting_loads_state_whether_their_spar_stations_were_assumed():
 
 
 # --------------------------------------------------------------------------- #
-# G-OR-57 -- a closure artifact is stated, never printed as a distribution
+# G-OR-57 -- an unplaceable wing post is refused, and the section says so
 # --------------------------------------------------------------------------- #
-def test_a_closure_artifact_states_its_state_and_publishes_no_distribution():
-    """No shipped fixture reaches this path, so it is asserted on a
-    constructed project -- written from the code rather than from the example.
+def test_an_unplaceable_wing_post_refuses_and_the_section_states_its_absence():
+    """No shipped fixture with a body reaches this path, so it is asserted on
+    a constructed project -- written from the code rather than from the
+    example.
 
-    With no carry-through resolvable the beam is closed by a self-equilibrated
-    whole-body correction that has no physical source: it relieves the wing
-    region and loads the tail cone. Printing that station table as a load
-    distribution would publish a load nothing applies.
+    Until note 64 an unresolvable carry-through closed the beam with a
+    self-equilibrated whole-body correction that had no physical source, and
+    this gate checked that the correction was never printed as a load
+    distribution. The path is gone (§8 ruling 1): ``body_loads`` refuses with
+    the joint register's sentence, and the document renders section 4 in its
+    ABSENT state and still builds (G-OR-7).
     """
+    from sloads.models import MissingInputError
+
     project = reduce_to_oracle_inputs(io.load_project(_GA))
     wing = next(s for s in project.geometry.surfaces if s.name == "wing")
     # An out-of-order spar pair: the geometry is intact, so the wing reference
     # the beam needs still resolves, and only the carry-through is unresolvable
     # (``carry_through`` refuses ``d <= 0`` rather than clamping it).
     wing.front_spar_x_in, wing.rear_spar_x_in = 110.0, 70.0
-    net = body_loads.build_body_loads(project)
-    assert net and all(r.closure_artifact for r in net)   # the path was taken
-    distributions = _section_four(_doc(project=project)).subsections[4]
-    assert distributions.absent_reason
-    assert "closure artifact" in distributions.absent_reason
-    assert not distributions.figures
+    try:
+        body_loads.build_body_loads(project)
+    except MissingInputError as err:
+        assert "carry-through" in str(err)
+    else:
+        raise AssertionError("an unplaceable wing post must refuse")
+    assert not hasattr(body_loads, "CLOSURE_ARTIFACT_CAVEAT")
+    section = _section_four(_doc(project=project))
+    assert section.absent_reason == oc.STATE_REASON[oc.SectionState.ABSENT]
+    assert not any(s.figures for s in _flat([section]))
 
 
 # --------------------------------------------------------------------------- #

@@ -2,10 +2,11 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: AGREED 2026-09-21** (PROPOSED and agreed the same day — owner, in
-session, under the solo profile, `DEVELOPMENT_PROCESS.md` §0; rule 1's
-working-alone branch; the three questions of §8 are **ruled** there and
-written into D-64.5, D-64.6 and §7). Filed against **#275** (band B7, 0.8.6), which this
+**Status: SHIPPED 2026-09-21** (PROPOSED, AGREED and shipped the same day —
+owner, in session, under the solo profile, `DEVELOPMENT_PROCESS.md` §0; rule
+1's working-alone branch; the three questions of §8 are **ruled** there and
+written into D-64.5, D-64.6 and §7; **§7b** is the implementation record,
+including the re-measured Appendix G table and the two in-code amendments). Filed against **#275** (band B7, 0.8.6), which this
 note **re-cuts**: the row's stated resolution — own the carry-through stations
 in the fuselage mesh — is withdrawn in §2 and replaced by the joint
 idealisation below. The owner's rulings of 2026-09-21 are §2; the
@@ -277,3 +278,103 @@ the same physics, and the deck's forward-post internal load is unchanged
    out of the tree; the shipped drawing is `scripts/plot_lra_model.py`'s,
    which #283 promotes to the beam-model page and which will show the joint
    as this note leaves it.
+
+---
+
+## 7b. Implementation record (#275, shipped 2026-09-21)
+
+**What landed, against the gates.** The joint register (`sloads/joints.py`)
+states the four joints of D-64.1/D-64.3 and what spans each arm
+(`Joint.element`: the wing post `RBE2`, the SOB and spar arms `CBAR`), refuses
+a wing station outside its spars by name, and owns the wing station for the
+calc (`wing_station`). `export/lra_model.py` builds the wing chain tip → SOB →
+centre (straight across) → SOB → tip, the fuselage chain nose → front spar →
+wing station → rear spar → tail with the box as three owned grids, one `RBE2`
+(fuselage `lra-post W` independent, wing `lra-centre C` dependent), and states
+each member's box on `LraModel.boxes`; the clamp lands on the front-spar grid,
+which is in no `RBE2` now. `modules/body_loads.py` integrates two cantilevers
+from their free ends (`_cantilever`), closes the free body with one reaction
+`(R, M_w)` at the wing station, reports the fitting pair as its static
+equivalent, publishes every station's `region` and the reaction row's
+`couple`, owns the sign (`cantilever_sign`) and the closure
+(`closure_residuals`), and refuses an unplaceable post with the register's
+sentence; `CARRY_THROUGH_NODES`, `_linear_load_nodes`, the `"carry"` and
+`"correction"` station families, `closure_artifact` and
+`CLOSURE_ARTIFACT_CAVEAT` are gone. `report/lumping.py` reads the box and the
+sign (D-64.6); `report/applied.py` carries the reaction's couple as the row's
+`My` and skips the spar rows; the report's 4.3 method paragraph, 4.4 closure
+sentence, Appendix C.2 (a `Region` column, blank running loads on box rows)
+and the methods block state the new statement. Gates 1–11 are
+`test_the_box_is_two_elements_through_the_wing_station_and_one_post`,
+`test_the_lra_model_solves_and_reacts_only_the_residual`,
+`test_the_lra_named_node_internal_loads_are_the_cut_side_sums` (now four
+cuts: SOB, front spar, rear spar, the box element beside the post),
+`test_the_two_cantilevers_and_the_box_close_the_free_body`,
+`test_a_positive_load_factor_bends_both_bodies_down`,
+`test_spar_reactions_are_the_static_equivalent_of_the_one_reaction`,
+`test_no_cut_lies_inside_the_box_and_no_load_crosses_a_root` and
+`test_the_fuselage_comparison_reads_its_aft_sign_from_the_integrator`, the
+digest sweep, `test_an_unplaceable_wing_post_is_refused_by_name`, the joint
+walk with `Joint.element`, and `tests/test_doc_currency.py`.
+
+**Appendix G, re-measured** (worst deviation over every case as a share of
+the channel's own peak; shipped figures from §1 in brackets):
+
+| Fixture | fuselage shear | fuselage bending | wing shear | wing torsion |
+|---|---|---|---|---|
+| `concept_regional_jet` | **44 %** at FS 460 (183 %) | 4 % (14 %) | 8 % (29 %) | 4 % |
+| `baron_58` | **40 %** (111 %) | 3 % (19 %) | 27 % at BL 97 (30 %) | 14 % |
+| `ga6_normal` | **33 %** (48 %) | 4 % (15 %) | 8 % (19 %) | 12 % |
+| `atr42_100` | **80 %** at the rear spar (43 %) | 4 % (7 %) | 12 % (29 %) | 53 % |
+
+Every number left is mass-station crossing — a load ahead of a grid landing
+on it — which is D-56.4's accepted cost and a function of the grid count. The
+jet's worst moved from the rear post to FS 460, a mass station ahead of a
+forward-body grid. The ATR rose exactly as §1.1 predicted: its two cancelling
+errors at the rear spar were a 19,280 lb carry station (gone) and a 12,771 lb
+mass station 1.9 in ahead of the spar grid (still landing on it), and the
+second now stands alone. Fuselage bending fell to 3–4 % everywhere.
+
+**Three in-code amendments, recorded here rather than silently made.**
+
+1. **D-64.7's on-node clause is the lumped set's, not the closed form's.**
+   `sob_internal_loads` keeps counting a strip *coincident* with the SOB as
+   outboard: it works on strip positions, no shipped strip sits on the SOB,
+   and `test_the_station_curve_at_the_root_is_the_side_of_body_owner` gates
+   the generic curve against it at a single cut with no box, where the
+   interior rule applies. The root exclusion lives where the grid exists —
+   `lumping._curve` with a box (gate 7) — and the wing's SOB deviation fell to
+   the honest crossing of the first outboard strips onto the SOB grid.
+2. **A full planform with no body datum keeps its body loads on an assumed
+   wing station.** `concept_heavy` enters no side of body and no fuselage
+   width, so "straight across from the SOB" has nothing to start from — and
+   §8 ruling 1 was given on the premise that only a project with *no
+   planform* has no wing station. Refusing it would have retired a shipped
+   fixture's fuselage loads, its Appendix C, its mass-gap statements and its
+   body rows in the case index, for want of one body datum. So the register
+   places the wing post on the **wing LRA's own centreline point, flagged
+   ASSUMED** (`WING_STATION_CENTRELINE`, the OV-1 pattern: blank derives,
+   graded), still checked to lie between the spars, and carries its sentence
+   onto every `BodyLoadResult.wing_station_note`, which 4.1 prints beside the
+   spars. The LRA model still refuses the project — it has no SOB joint to
+   start the wing at — so only the calc reads that post. D-64.3's rejected
+   "extrapolate the LRA" stands where an SOB exists: on a swept wing the two
+   differ, and the joint is where the body is. Gate:
+   `test_a_project_with_no_side_of_body_reacts_the_wing_at_an_assumed_station`.
+3. **D-64.9 is amended: a schema hop after all.** Two *result* dataclasses
+   changed shape (`BodyStationLoad` gains `region`/`couple`,
+   `BodyLoadResult` gains the one-station reaction and its note and loses
+   `closure_artifact`), and the shape guard demands a hop for any persisted
+   change, additive or not. v67 → v68, `_hop_67` an identity, the examples
+   re-stamped, the delivered loads that move being the note's own (gate 8),
+   not the hop's.
+
+**Digest channels that moved** (gate 8, measured against the pre-change
+snapshot): `sbeam/body_applied` on the four loaded fixtures (one reaction row
+with its couple replaces five carry rows), `sbeam/lra_model` on the four that
+build a model, `sbeam/wing_applied` on the same four (the inboard strips now
+land on the wing box's grids), and `sbeam/body_applied` on `concept_heavy`,
+whose wing station is now the assumed centreline one (amendment 2). The `body_loads` CSV/text channels of the loaded fixtures
+are the p198 critical summary, which did not move; the station table with
+its aft sign and blank box rows is the body applied set and Appendix C.2.
+Every AIRLOADS/WINGINER/SELECT channel is byte-identical.

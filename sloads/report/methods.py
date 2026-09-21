@@ -368,27 +368,19 @@ def _category_block(project: Project) -> List[str]:
 
 
 def _closure_block(project: Project) -> List[str]:
-    """The fuselage closure caveat, verbatim, only when a case actually fell back.
-
-    Imported lazily: :mod:`sloads.modules.body_loads` imports the flight envelope,
-    and this module is imported from ``sloads.report``'s package init.
-    """
+    """The fuselage closure statement -- one path since note 64 retired the
+    whole-body fallback and its caveat."""
     loads = project.loads
     body = getattr(loads, "body_net", None) if loads is not None else None
     if not body:
         return []
-    artifacts = [b for b in body if getattr(b, "closure_artifact", False)]
-    if not artifacts:
-        return [
-            "  Fuselage moment closure: the unbalanced moment is reacted at the "
-            "wing front/rear spar attachments (Ref 1 Ch 15 p103); both the vertical "
-            "residual and the terminal Myy close."
-        ]
-    from ..modules.body_loads import CLOSURE_ARTIFACT_CAVEAT
-
     return [
-        f"  Fuselage moment closure: {len(artifacts)} case(s) used the fallback path.",
-        f"    {CLOSURE_ARTIFACT_CAVEAT}",
+        "  Fuselage closure: the wing reacts the body at the wing station -- "
+        "force and couple, what the wing post carries (design note 64 D-64.5); "
+        "the forward body is integrated nose to front spar and the aft body "
+        "tail to rear spar, positive for an up load, and the two terminals, "
+        "the box's applied rows and the reaction close both the vertical "
+        "residual and the moment (Ref 1 Ch 15 p103)."
     ]
 
 

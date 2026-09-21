@@ -82,13 +82,14 @@ trade is `docs/25_notes/04_m4-1_body_moment_closure.md`.
 **There is no printed station-by-station oracle** — Ch 15 ships no program
 and Appendix A prints no fuselage beam table — so the gate is **equilibrium
 closure with an independent witness** (hub provenance table: a physical
-invariant the module nowhere encodes): the applied vertical force sums to
-zero, the running shear returns to ~0 at the aft end, and the terminal `Myy`
-is ~0 (free-free in both ΣFz and ΣM; backlog M4-1). The same conditions are
-re-checked downstream from the deliverable itself: the exported body deck's
-card text closes to zero force and zero moment about its aft-most station,
-and sbeam reassembles the whole cumulative table from the `FORCE` cards and
-`GRID` coordinates alone (chapter 11).
+invariant the module nowhere encodes): the forward body's terminal shear and
+moment at the front spar, the aft body's at the rear spar, the loads applied
+within the box and the wing reaction sum to zero force and zero moment about
+the wing station (free-free in both ΣFz and ΣM; note 64 gate 4), and a
+positive load factor bends both bodies down (gate 5). The same free body is
+re-checked downstream from the deliverable itself: the LRA deck's front-spar,
+rear-spar and post elements recover the two cantilever sums and the wing
+reaction from the solver (chapter 11).
 
 A closure gate of this shape could not catch a *missing mass* — the beam
 closes on a light table just as well as on the right one — which is exactly
