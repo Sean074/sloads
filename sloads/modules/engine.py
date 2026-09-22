@@ -250,6 +250,50 @@ def combined_cg(inp: EngineInput) -> Vec3:
     return (out[0], out[1], out[2])
 
 
+def _applied_at(point: Vec3) -> List[LoadValue]:
+    """The three ``loc_*`` values every engine condition states (#210).
+
+    One owner for the point of application, so that no condition can be
+    emitted without one: the load-case index, the engine applied-load file and
+    the report's engine section all read these three keys, and a condition that
+    stated none used to be filled in at the render boundary from the condition
+    it followed (note 44 OR-193). The producer states it now, on every
+    condition, and the boundary no longer fills anything.
+    """
+    return [
+        LoadValue("Applied at X", point[0], "in", key="loc_x"),
+        LoadValue("Applied at Y", point[1], "in", key="loc_y"),
+        LoadValue("Applied at Z", point[2], "in", key="loc_z"),
+    ]
+
+
+#: The point a pure couple states, and why (#210). A free moment is the same
+#: at every point of a rigid body, so the sudden-stoppage torque needs no point
+#: of its own; it states the combined CG so the index shows one point per
+#: engine. Which beam-model grid takes the couple is #286's decision.
+STOPPAGE_POINT_NOTE = (
+    "A free couple about the thrust line; the stated point is the combined "
+    "engine-plus-propeller CG for indexing only."
+)
+
+
+def gyro_point_note(vertical: str) -> str:
+    """The three-point fact a gyroscopic condition's single stated point hides (#210).
+
+    The condition carries loads at three places: the vertical load at the
+    combined CG, the two gyroscopic couples anywhere, and the thrust on the
+    thrust line at the hub. One point is stated -- the weight's -- and this
+    sentence says so, so that a reader summing moments about the mount from the
+    index does not put the thrust at the CG and lose ``thrust x (hub - CG)``.
+    """
+    return (
+        "Point of application stated is the combined engine-plus-propeller CG, "
+        f"where the {vertical} acts. The two gyroscopic moments are free couples "
+        "and act at any point. The thrust acts along the thrust line at the "
+        "propeller hub, offset from the stated point by the CG-to-hub distance."
+    )
+
+
 def _required(value: Optional[float], name: str) -> float:
     """An ``EngineInput`` field this condition needs, present -- else the error
     contract's ``ValueError`` (present-but-invalid input) instead of a ``TypeError``
@@ -352,9 +396,7 @@ def condition_361_a1(inp: EngineInput) -> ConditionResult:
         values=[
             LoadValue("Vertical load factor", n75, key="vertical_load_factor"),
             LoadValue("Vertical down load", vload, "lb", key="fz_vertical"),
-            LoadValue("Applied at X", cg[0], "in", key="loc_x"),
-            LoadValue("Applied at Y", cg[1], "in", key="loc_y"),
-            LoadValue("Applied at Z", cg[2], "in", key="loc_z"),
+            *_applied_at(cg),
             LoadValue("Torque factor", factor, key="torque_factor"),
             LoadValue("Mean takeoff torque", base_torque, "ft-lb",
                       quantity=ENGINE_RATING, key="mean_takeoff_torque"),
@@ -385,9 +427,7 @@ def condition_361_a2(inp: EngineInput) -> ConditionResult:
         values=[
             LoadValue("Vertical load factor", n100, key="vertical_load_factor"),
             LoadValue("Vertical down load", vload, "lb", key="fz_vertical"),
-            LoadValue("Applied at X", cg[0], "in", key="loc_x"),
-            LoadValue("Applied at Y", cg[1], "in", key="loc_y"),
-            LoadValue("Applied at Z", cg[2], "in", key="loc_z"),
+            *_applied_at(cg),
             LoadValue("Torque factor", factor, key="torque_factor"),
             LoadValue("Max continuous torque", base_torque, "ft-lb",
                       quantity=ENGINE_RATING, key="max_continuous_torque"),
@@ -410,9 +450,7 @@ def condition_363(inp: EngineInput) -> ConditionResult:
             LoadValue("Vertical load factor", 0.0, key="vertical_load_factor"),
             LoadValue("Side load factor", ny, key="side_load_factor"),
             LoadValue("Side load", side_load, "lb", key="fy_side"),
-            LoadValue("Applied at X", cg[0], "in", key="loc_x"),
-            LoadValue("Applied at Y", cg[1], "in", key="loc_y"),
-            LoadValue("Applied at Z", cg[2], "in", key="loc_z"),
+            *_applied_at(cg),
         ],
     )
 
@@ -447,9 +485,7 @@ def condition_361_a3(inp: EngineInput) -> ConditionResult:
         values=[
             LoadValue("Vertical load factor", 1.0, key="vertical_load_factor"),
             LoadValue("Vertical down load", vload, "lb", key="fz_vertical"),
-            LoadValue("Applied at X", cg[0], "in", key="loc_x"),
-            LoadValue("Applied at Y", cg[1], "in", key="loc_y"),
-            LoadValue("Applied at Z", cg[2], "in", key="loc_z"),
+            *_applied_at(cg),
             LoadValue("Torque factor", factor, key="torque_factor"),
             LoadValue("Malfunction factor", TURBOPROP_MALFUNCTION_FACTOR, key="malfunction_factor"),
             LoadValue("Mean takeoff torque", base_torque, "ft-lb",
@@ -481,9 +517,11 @@ def condition_361_b1(inp: EngineInput) -> ConditionResult:
         rotor_values.append(LoadValue(f"Ixx rotor({i})", irotor, "slug-ft^2", key=f"ixx_rotor_{i}"))
 
     torq_total = torq_prop + torq_rotors
+    cg = combined_cg(inp)
     values = [LoadValue("Ixx propeller", iprop, "slug-ft^2", key="ixx_propeller")]
     values.extend(rotor_values)
     values.append(LoadValue("Time to stop", dt, "s", key="time_to_stop"))
+    values.extend(_applied_at(cg))
     values.append(LoadValue("Engine mount torque",
                             _floored_torque(inp, torq_total), "ft-lb",
                             key="mx_mount_torque"))
@@ -491,7 +529,7 @@ def condition_361_b1(inp: EngineInput) -> ConditionResult:
         title="Torque for sudden stoppage due to malfunction or structural failure",
         far_reference="23.361(b)(1)",
         values=values,
-        note="Clockwise from pilot's view is positive.",
+        note="Clockwise from pilot's view is positive. " + STOPPAGE_POINT_NOTE,
     )
 
 
@@ -518,6 +556,7 @@ def condition_371_b(inp: EngineInput) -> ConditionResult:
     m_pitch = PITCH_RATE * tpitch  # Mzz due to 1 rad/s pitch
     thrust = _required(inp.max_engine_torque, "max_engine_torque") * omega_prop / VSF
     vload = GYRO_VERTICAL_LOAD_FACTOR * combined_weight(inp)
+    cg = combined_cg(inp)
 
     # Component magnitudes (the four loads to be combined).
     values = [
@@ -525,6 +564,7 @@ def condition_371_b(inp: EngineInput) -> ConditionResult:
         LoadValue("Mzz due to 1 rad/s pitch (+/-)", m_pitch, "ft-lb", key="mzz_due_to_1_rad_s_pitch_pm"),
         LoadValue("Vertical 2.5g load", vload, "lb", key="fz_vertical_2_5g"),
         LoadValue("Max continuous thrust", thrust, "lb", key="fx_thrust"),
+        *_applied_at(cg),
     ]
 
     # Enumerate each load case the mount must be checked against: every sign
@@ -550,7 +590,8 @@ def condition_371_b(inp: EngineInput) -> ConditionResult:
             "FAR 23.371(b) requires all four load cases above to be assessed: "
             "every sign combination of the gyroscopic pitching (Myy) and yawing "
             "(Mzz) moments, each combined with the 2.5g vertical load and the "
-            "max-continuous thrust acting simultaneously."
+            "max-continuous thrust acting simultaneously. "
+            + gyro_point_note("2.5g vertical load")
         ),
     )
 
@@ -616,9 +657,7 @@ def condition_25_361_a3i(inp: EngineInput) -> ConditionResult:
     values.extend([
         LoadValue("Vertical load factor", 1.0, key="vertical_load_factor"),
         LoadValue("Vertical down load", 1.0 * ppwt, "lb", key="fz_vertical"),
-        LoadValue("Applied at X", cg[0], "in", key="loc_x"),
-        LoadValue("Applied at Y", cg[1], "in", key="loc_y"),
-        LoadValue("Applied at Z", cg[2], "in", key="loc_z"),
+        *_applied_at(cg),
         LoadValue("Engine mount torque", _floored_torque(inp, torq_total),
                   "ft-lb", key="mx_mount_torque"),
     ])
@@ -650,9 +689,7 @@ def condition_25_361_a3ii(inp: EngineInput) -> ConditionResult:
         values=[
             LoadValue("Vertical load factor", 1.0, key="vertical_load_factor"),
             LoadValue("Vertical down load", 1.0 * ppwt, "lb", key="fz_vertical"),
-            LoadValue("Applied at X", cg[0], "in", key="loc_x"),
-            LoadValue("Applied at Y", cg[1], "in", key="loc_y"),
-            LoadValue("Applied at Z", cg[2], "in", key="loc_z"),
+            *_applied_at(cg),
             LoadValue("Max accelerating torque", accel_torque, "ft-lb",
                       quantity=ENGINE_RATING, key="max_accelerating_torque"),
             LoadValue("Engine mount torque", torque_sense(inp) * accel_torque, "ft-lb",
@@ -688,12 +725,14 @@ def condition_25_371(inp: EngineInput) -> ConditionResult:
     m_pitch = PITCH_RATE * tpitch
     thrust = _required(inp.max_engine_torque, "max_engine_torque") * omega_prop / VSF
     vload = inp.limit_load_factor * combined_weight(inp)
+    cg = combined_cg(inp)
 
     values = [
         LoadValue("Myy due to 2.5 rad/s yaw (+/-)", m_yaw, "ft-lb", key="myy_due_to_2_5_rad_s_yaw_pm"),
         LoadValue("Mzz due to 1 rad/s pitch (+/-)", m_pitch, "ft-lb", key="mzz_due_to_1_rad_s_pitch_pm"),
         LoadValue("Vertical limit-load (A2) load", vload, "lb", key="vertical_limit_load_a2_load"),
         LoadValue("Max continuous thrust", thrust, "lb", key="fx_thrust"),
+        *_applied_at(cg),
     ]
     for case, (syaw, spitch) in enumerate(
         itertools.product((+1, -1), repeat=2), start=1
@@ -711,7 +750,8 @@ def condition_25_371(inp: EngineInput) -> ConditionResult:
         "yaw, 1 rad/s pitch) used in lieu of the 25.371 maneuver-derived rates; "
         "valid while the concept's actual rates stay at or below these. All four "
         "sign combinations of Myy/Mzz are combined with the A2 vertical load and "
-        "max-continuous thrust acting simultaneously."
+        "max-continuous thrust acting simultaneously. "
+        + gyro_point_note("A2 vertical load")
     )
 
     # Guard: if the concept declares a real 25.371 body rate above the fixed

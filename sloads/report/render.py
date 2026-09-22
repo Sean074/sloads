@@ -760,36 +760,17 @@ def _result_location(r: ConditionResult) -> Optional[tuple]:
 def _running_locations(results: Sequence[ConditionResult]) -> List[tuple]:
     """Each condition's point of application, one per condition, in order.
 
-    A condition with no location of its own takes the location of **the last
-    condition that had one**, not the first in the whole set.
-
-    This is a defect fix (note 44 OR-193, found 2026-09-07 building the engine's
-    applied-load file). Two of the six engine-mount conditions -- the sudden
-    stoppage torque of 23.361(b)(1) and the gyroscopic condition of 23.371(b) --
-    carry no ``loc_*`` values, while the four beside them for the same engine do.
-    The old fallback was the *first* location in the set, so on every multi-engine
-    fixture the load-case index printed the right-hand engine's stoppage torque
-    and its four gyroscopic sub-cases at the **left-hand** engine's butt line:
-    ten rows on ``atr42_100`` and ``dhc8_dash8``, fifteen on
-    ``concept_regional_jet``, each a real load at a point on the wrong side of
-    the airplane. A blank column invites a reader to ask; a mirrored coordinate
-    does not.
-
-    The producers emit an engine's conditions together, so the previous location
-    is that engine's -- verified against every shipped example, and gated, since
-    it is a property of the emission order rather than of the type. The proper
-    repair is for the producer to state the point on every condition it emits;
-    ``modules/engine.py`` is frozen for 0.8.2, so this boundary carries it and
-    the producer fix is filed.
+    The identity: a condition states its own point or it has none, and nothing
+    is filled in from a neighbour. Every engine condition states one (#210,
+    ``modules.engine._applied_at``); a producer whose case has no single point
+    -- the one-engine-out fin conditions, the rudder cases -- is carried as a
+    blank point, which the index prints as blank. This used to fill a pointless
+    condition from the condition it followed (note 44 OR-193, when two of the
+    six FAR 23 engine conditions and the FAR 25 gyroscopic case stated none)
+    and before that from the first point in the whole set, mirroring a twin's
+    right engine onto its left butt line. The producer owns the point now.
     """
-    out: List[tuple] = []
-    last = (None, None, None)
-    for r in results:
-        loc = _result_location(r)
-        if loc is not None:
-            last = loc
-        out.append(last)
-    return out
+    return [_result_location(r) or (None, None, None) for r in results]
 
 
 def _val(loadvalue: Optional[LoadValue]):
@@ -919,15 +900,14 @@ def point_load_records(results: Sequence[ConditionResult]) -> List[PointLoadReco
     (OR-186), so that the file and the index cannot come to disagree about the
     same case -- the failure mode M4-9 was written about, one level up.
 
-    A condition carrying no location of its own takes the point of the condition
-    it follows, through :func:`_running_locations` -- the same owner the load-case
-    index uses, so the two files state one point per case. A condition that
-    reaches here with no location at all, its own or inherited, is skipped: a
-    point load with no point is not a load (design note 39).
+    Every condition states its own point (#210), read through
+    :func:`_running_locations` -- the same owner the load-case index uses, so
+    the two files state one point per case. A point whose coordinate is blank
+    is skipped: a point load with no point is not a load (design note 39).
     """
     out: List[PointLoadRecord] = []
     for r, loc in zip(results, _running_locations(results)):
-        if loc is None or any(v is None for v in loc):
+        if any(v is None for v in loc):
             continue
         x, y, z = (_f(v) for v in loc)
         if _has_gyro_subcases(r):

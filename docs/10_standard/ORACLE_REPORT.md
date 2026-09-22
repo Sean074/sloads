@@ -1301,8 +1301,12 @@ reading aid and are labelled as one.
   project with no `landing` slice renders `ABSENT` — it is missing an input,
   not exempt from a regulation, so `NOT_APPLICABLE` is not used here.
 - **OR-193** (recorded in §23's register for the fix shipped here): a condition
-  stating no point of application takes the point of the condition it follows —
-  the same engine's — never the first in the set.
+  stating no point of application took the point of the condition it follows —
+  the same engine's — never the first in the set. Superseded by #210: every
+  engine condition now states its own point (`engine._applied_at`, the combined
+  engine-plus-propeller CG), the boundary is the identity, and a pure couple or
+  a three-point gyroscopic condition says in its note what its single stated
+  point means.
 
 ## 3.13 Appendix A: the V-n condition register
 
