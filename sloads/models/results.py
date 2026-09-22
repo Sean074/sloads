@@ -777,6 +777,14 @@ class BalancedLoad:
     #: Carried so the residual closure can spread relief in proportion to mass
     #: without dividing a force by a load factor that may be zero.
     weight_lb: float = 0.0
+    #: For a ``closure-*`` load: the ``source`` of the mass load it relieves
+    #: (``wing-inertia``, ``body-inertia``, ...). The LRA transfer routes the
+    #: relief to the member that carries that mass, exactly as the mass load
+    #: itself is routed (#293) -- a relief with no carrier used to fall to the
+    #: nearest grid in the whole skeleton, which on a low body mass is a
+    #: main-gear attach grid, and on a centreline mass one grid of the
+    #: mirrored pair. Empty on every other load.
+    carrier: str = ""
 
 
 @dataclass

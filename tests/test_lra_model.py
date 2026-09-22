@@ -719,6 +719,69 @@ def test_no_gid_is_defined_at_two_positions_across_the_shipped_decks(example):
                 f"in {name} -- two artifacts define one node")
 
 
+# --------------------------------------------------------------------------- #
+# #293: a closure load lands on the member that carries its mass
+# --------------------------------------------------------------------------- #
+_BODY_GEAR = ("ga6_normal.project.json", "concept_regional_jet.project.json",
+              "atr42_100.project.json")
+
+
+@pytest.mark.parametrize("example", _BODY_GEAR)
+def test_a_symmetric_landing_loads_the_two_main_gear_grids_identically(example):
+    """**#293.** The level landing reacts both main legs equally, and the deck's
+    two gear attach grids carry exactly those reactions -- nothing else. Until
+    2026-09-21 the closure relief of a low body mass fell to the nearest grid
+    in the whole skeleton, a main-gear grid, and the tie between the mirrored
+    pair put all of it on one leg (the ATR read 19,566 / 27,142 lb)."""
+    from sloads.modules.balance import build_balanced_cases
+
+    project = _project(example)
+    model = build_lra_model(project)
+    case = next(c for c in build_balanced_cases(project, [])
+                if c.label.startswith("3-wheel level landing"))
+    loads = transferred_case_loads(case, model)
+    legs = {n.side: loads[n.gid][0] for n in model.nodes
+            if n.family == "lra-gear" and n.side in ("R", "L")}
+    assert set(legs) == {"R", "L"}
+    for i in range(3):
+        assert legs["R"][i] == pytest.approx(legs["L"][i], abs=1e-6), (example, i)
+    reactions = {ld.side: (ld.fx, ld.fy, ld.fz) for ld in case.loads
+                 if ld.source == "gear-main"}
+    for side in ("R", "L"):
+        for i in range(3):
+            assert legs[side][i] == pytest.approx(reactions[side][i], abs=1e-6), (example, side, i)
+
+
+@pytest.mark.parametrize("example", _BODY_GEAR + ("baron_58.project.json", "concept_heavy.project.json"))
+def test_a_closure_load_routes_to_the_member_that_carries_its_mass(example):
+    """**#293.** Every ``closure-*`` load records the mass load it relieves and
+    the transfer sends it where that mass went: a gear grid carries ``gear-*``
+    sources only and an engine grid ``engine-*`` sources only, on every case."""
+    from sloads.export.lra_model import _member_key
+    from sloads.modules.balance import build_balanced_cases
+
+    project = _project(example)
+    try:
+        model = build_lra_model(project)
+    except LraRefusal:
+        pytest.skip(f"{example}: no LRA model")
+    for case in build_balanced_cases(project, []):
+        for ld in case.loads:
+            if ld.source.startswith("closure"):
+                assert ld.carrier, (example, case.label, ld.source)
+                assert _member_key(ld, model.members) not in ("gear", "engine", "all"), (
+                    example, case.label, ld.source, ld.carrier)
+
+
+def test_the_case_header_states_what_its_closure_field_is():
+    """**#293.** A ground case's header says the field is its inertia set; a
+    flight case's states the residual fraction it spread and the ceiling."""
+    text = lra_model_bdf(_project("atr42_100.project.json"))
+    assert "Closure field = the inertia set" in text
+    assert "Closure field = the pre-closure residual" in text
+    assert "% of n*W, spread over the masses" in text
+
+
 if __name__ == "__main__":  # pragma: no cover - self-runner
     import subprocess
 
