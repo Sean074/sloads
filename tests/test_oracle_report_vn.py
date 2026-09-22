@@ -24,9 +24,9 @@ Gates covered:
 * **G-OR-137** -- *(OR-202)* every ``OR-n``/``G-OR-n`` cited anywhere in the tree
   is defined in a design note. The gate that would have caught the missing
   OR-193 row.
-* **G-OR-138** -- *(OR-193/OR-202)* a condition with no point of application
-  takes the point of the condition it follows, and on a multi-engine airplane
-  that is the **same engine's** -- the property, not a digest.
+* **G-OR-138** -- *(OR-193/OR-202, #210)* every engine condition states its
+  own point of application, its engine's combined CG, and on a multi-engine
+  airplane no two engines share it -- the property, not a digest.
 
 **The numbers are not re-oracled here.** The V-n matrix is oracle-locked against
 Ref 1 Appendix A p179-180 by ``tests/test_flight_envelope.py``, whose tolerances
@@ -510,51 +510,88 @@ def test_every_or_id_cited_anywhere_is_defined_in_a_design_note():
 
 
 # --------------------------------------------------------------------------- #
-# G-OR-138 -- a point of application is the same engine's
+# G-OR-138 -- every engine condition states its own point, its engine's
 # --------------------------------------------------------------------------- #
-def test_a_condition_with_no_point_takes_the_point_of_its_own_engine():
-    """G-OR-138 *(OR-193)*. The property, asserted per engine, rather than the
-    frozen digest that was holding it -- a digest fails as a *changed number*, so
-    a change that moved the locations and regenerated the baseline would pass.
+def test_every_engine_condition_states_its_own_point():
+    """G-OR-138 *(OR-193, #210)*. The property, asserted per condition and per
+    engine, rather than the frozen digest that was holding it -- a digest fails
+    as a *changed number*, so a change that moved the locations and regenerated
+    the baseline would pass.
 
-    Two of the six engine-mount conditions carry no ``loc_*`` values: the
-    sudden-stoppage torque of 23.361(b)(1) and the gyroscopic condition of
-    23.371(b). The old fallback reached for the first location in the whole set,
-    so a twin printed the right engine's stoppage torque and its four gyroscopic
-    sub-cases at the **left** engine's butt line -- ten rows on ``atr42_100``,
-    fifteen on ``concept_regional_jet``. Stated as: every condition an engine
-    emits sits at one point, and no two engines share it.
+    Two of the six FAR 23 engine-mount conditions and the FAR 25 gyroscopic case
+    used to carry no ``loc_*`` values, and the render boundary filled them from
+    the condition they followed (OR-193) -- before that, from the first point in
+    the whole set, which mirrored a twin's right engine onto its left butt line.
+    Since #210 the **producer** states the point on every condition it emits:
+    every condition carries its engine's combined CG, one point per engine, and
+    no two engines share it. The boundary is the identity and refuses a
+    condition without a point, which this gate also holds.
     """
+    from sloads.models.results import ConditionResult, LoadValue
+    from sloads.modules.engine import combined_cg, resolved_engines, run_all
     from sloads.registry import get
-    from sloads.report.render import point_load_records
+    from sloads.report.render import (LOC_KEYS, _find, _running_locations,
+                                      point_load_records)
 
     for name in ("atr42_100", "concept_regional_jet"):
         project = _project(name)
         assert len(project.engines) > 1, name
-        records = point_load_records(get("engine")(project).conditions)
-        assert records, name
-
-        # The producer emits one engine's conditions **together**, which is the
-        # premise the fix rests on, so the grouping is the emission block. Not
-        # the engine designation: a twin routinely carries the same designation
-        # on both engines (``concept_regional_jet`` does), and grouping by it
-        # would merge exactly the two sets this gate must keep apart.
-        count = len(project.engines)
-        assert len(records) % count == 0, (name, len(records), count)
-        per = len(records) // count
-        blocks = [records[i * per:(i + 1) * per] for i in range(count)]
+        conditions = get("engine")(project).conditions
+        engines = resolved_engines(project)
+        per = len(conditions) // len(engines)
+        assert per * len(engines) == len(conditions), (name, len(conditions))
 
         seen = []
-        for index, block in enumerate(blocks):
-            points = {(round(r.x, 6), round(r.y, 6), round(r.z, 6))
-                      for r in block}
-            assert len(points) == 1, (name, index, sorted(points))
-            seen.append(next(iter(points)))
+        for index, eng in enumerate(engines):
+            expected = combined_cg(eng)
+            block = conditions[index * per:(index + 1) * per]
+            for cond in block:
+                stated = tuple(_find(cond.values, k).value for k in LOC_KEYS)
+                assert stated == expected, (name, cond.far_reference, stated, expected)
+            seen.append(expected)
         # ...and the engines are at *different* points, which is the half the
-        # defect broke: it collapsed every block onto the first engine's
-        # coordinate, so the butt lines stopped being distinct.
-        assert len(set(seen)) == count, (name, seen)
-        assert len({y for _x, y, _z in seen}) == count, (name, seen)
+        # original defect broke: it collapsed every block onto the first
+        # engine's coordinate, so the butt lines stopped being distinct.
+        assert len(set(seen)) == len(engines), (name, seen)
+        assert len({y for _x, y, _z in seen}) == len(engines), (name, seen)
+
+        # The FAR 25 supplemental set states the point too (its gyro case was
+        # the third pointless condition).
+        for eng in engines:
+            for cond in run_all(eng, include_far25=True):
+                stated = tuple(_find(cond.values, k).value for k in LOC_KEYS)
+                assert stated == combined_cg(eng), (name, cond.far_reference)
+
+        # ...and the applied-load records, which read the same owner, land on
+        # those points and nowhere else.
+        records = point_load_records(conditions)
+        assert records, name
+        assert {(r.x, r.y, r.z) for r in records} == set(seen), name
+
+    # The boundary is the identity: a condition with no point stays pointless,
+    # never filled from the condition before it.
+    stated = ConditionResult(title="s", far_reference="x", values=[
+        LoadValue("Applied at X", 1.0, "in", key="loc_x"),
+        LoadValue("Applied at Y", 2.0, "in", key="loc_y"),
+        LoadValue("Applied at Z", 3.0, "in", key="loc_z")])
+    blank = ConditionResult(title="b", far_reference="y", values=[])
+    assert _running_locations([stated, blank]) == [(1.0, 2.0, 3.0), (None, None, None)]
+
+
+def test_the_pointless_conditions_say_what_their_point_means():
+    """#210. A pure couple and a three-point condition each state one point;
+    the note says what it is, so a reader of the index does not sum the thrust
+    at the CG. The three sentences are the owners in ``modules.engine``."""
+    from sloads.modules.engine import (STOPPAGE_POINT_NOTE, gyro_point_note,
+                                       resolved_engines, run_all)
+
+    project = _project("atr42_100")
+    for eng in resolved_engines(project):
+        by_ref = {c.far_reference: c for c in run_all(eng, include_far25=True)}
+        assert STOPPAGE_POINT_NOTE in by_ref["23.361(b)(1)"].note
+        assert gyro_point_note("2.5g vertical load") in by_ref["23.371(b)"].note
+        assert gyro_point_note("A2 vertical load") in by_ref["25.371"].note
+        assert "propeller hub" in by_ref["23.371(b)"].note
 
 
 if __name__ == "__main__":                       # zero-dependency self-runner
