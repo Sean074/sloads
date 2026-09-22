@@ -2,9 +2,10 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: PROPOSED 2026-09-21** (owner, in session, under the solo profile,
-`DEVELOPMENT_PROCESS.md` §0; rule 1's working-alone branch — AGREED in chat
-before the first code change; the three questions of §8 are for the owner).
+**Status: AGREED 2026-09-21** (PROPOSED and AGREED the same day — owner, in
+session, under the solo profile, `DEVELOPMENT_PROCESS.md` §0; rule 1's
+working-alone branch; the three questions of §8 are **ruled** there and
+written into D-65.4 and D-65.6).
 Filed against **#161** (band B7, 0.8.6, tier M): the 2026-09-01 owner PDF
 review's OR-14 finding that `format_value` prints inconsistent precision and
 flips notation on integral values, held until the 0.8.2 freeze lifted and
@@ -144,7 +145,7 @@ know whether it is printing a coefficient or a bending moment.
   |---|---|---|---|---|---|---|
   | `lb` (force), `lb` (mass), `lb-in`, `ft-lb`, `in^2`, `lb-in^2`, `slug-ft^2` | N, kg, N·m, m², kg·m² | 12,517 | 0 decimals | `13360`, `243800` | `59428`, `27547` | a load or moment below one unit is noise against §5's band; the row the review is about |
   | `in` | mm | 5,921 | 1 decimal | `112.5`, `403.7` | `2857.5` | stations and arms; the CG owner and the mass model carry stations to 0.1 in |
-  | `ft` | ft | 68 | 0 decimals | `12000`, `25000` | same | altitude, aviation-standard in both systems, never converted (#232 carve-out), integral by nature |
+  | `ft` | ft | 68 | 1 decimal | `12000.0`, `25000.0` | same | altitude, aviation-standard in both systems, never converted (#232 carve-out); one decimal with the stations, so a length is a length (§8 Q2) |
   | `kt(EAS)`, `ft/s` | kt, m/s | 2,222 | 1 decimal | `170.0`, `160.4` | `48.9` | design speeds are pinned to 0.1 kt (VA 160.4 on the ATR) and the manual prints them so |
   | `deg`, `deg/s`, `deg/s^2` | same | 2,371 | 2 decimals | `0.53`, `-3.41` | same | angles of attack and tail angles are small; 0.01° resolves them without pretending more |
   | `lb/in^2`, `lb/ft^2` | kPa, kN/m² | 309 | 2 decimals | `5.21`, `18.47` | `35.92` | pressures and wing loading are order 1–100 |
@@ -159,13 +160,13 @@ know whether it is printing a coefficient or a bending moment.
   meaningful; the row key is the string the converter already reads, so
   there is no second key to drift. `content.py`'s `plain`/`load` pass their
   Imperial `dim` label; `render.py`'s tables pass `lv.units`.
-- **D-65.6 The safety-factor cell is the governing table's number, as the
-  table states it.** `sf_cell` and the LIMIT statement print the factor
-  with trailing zeros stripped (`1.5`, `1.0`, `1.25`), not `1.500`: the
-  factor is a stated regulation constant, not a measurement, and the
-  four-figure rule would dress it as one. This is the single special case
-  and it lives in the two owners that already exist (#180), not at any
-  call site. *(§8 Q1.)*
+- **D-65.6 The safety-factor cell has no special case.** `sf_cell` and the
+  LIMIT statement print the factor under the dimensionless rule (`1.500`,
+  `1.000`, `1.250`) like every other unitless quantity. The owner's ruling
+  (§8 Q1): a factor is not always a round regulation constant — a future
+  25.302-class factor, or a per-condition derived one from the governing
+  table, is a number in its own right — so the cell must not carry a rule
+  that presumes it is. One rule, no exception, nothing to drift.
 - **D-65.7 No renderer writes a digit count.** The PB-22 AST guard extends
   to `sloads/report/`: a format literal or an f-string spec with a
   precision fails unless the line carries a stated exemption (an axis tick
@@ -250,17 +251,15 @@ on shipped content (every delivered table cell) outranks every fidelity row.
 - `format_value`'s docstring rewritten to the rule; the #147 paragraph
   shortened to the quantization it still owns.
 
-## 8. Questions for AGREED (owner, 2026-09-21)
+## 8. Rulings taken at AGREED (owner, 2026-09-21, in chat)
 
-- **Q1 — the safety-factor cell (D-65.6).** Recommended: `1.5`, stripped,
-  as the governing table states it. The alternative is the plain
-  dimensionless rule (`1.500`), which is consistent and needs no special
-  case but reads as a measured quantity.
-- **Q2 — altitude at zero decimals (D-65.4, `ft`).** Recommended: `12000`
-  not `12000.0`; the §2 discussion tabled `in` and `ft` together at one
-  decimal, and the prototype showed the altitude column reading oddly.
-- **Q3 — the unrowed-unit fallback (D-65.4, last row).** Recommended: print
-  at four significant figures **and** fail gate 3, so a report never
-  crashes on a new unit but the new unit never ships without a row. The
-  alternative, raising at render time, makes a missing row a runtime
-  failure on the user's machine rather than in CI.
+- **Q1 — the safety-factor cell.** Proposed: `1.5`, stripped, as the
+  governing table states it. **Ruled: no special case** — the cell prints
+  under the dimensionless rule. A safety factor will not always be 1.0 or
+  1.5: when the suite applies a 25.302-class factor it is a computed
+  number, and a rule that strips it as a constant would misstate it.
+  Written into D-65.6.
+- **Q2 — altitude decimals.** Proposed: none (`12000`). **Ruled: one
+  decimal**, with the stations. Written into D-65.4's `ft` row.
+- **Q3 — the unrowed-unit fallback.** Proposed: print at four significant
+  figures and fail gate 3. **Ruled: agreed.** D-65.4's last row stands.
