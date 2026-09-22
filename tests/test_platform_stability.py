@@ -28,12 +28,15 @@ is integer arithmetic and exact everywhere.
 """
 
 import ast
+import glob
 import math
 import os
 import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import pytest
 
 import sloads
 from sloads.picks import extreme
@@ -299,25 +302,6 @@ def test_the_deck_formatter_still_prints_what_it_used_to():
         assert fmt(value) == expected, (value, fmt(value), expected)
 
 
-def test_the_formatter_still_says_what_it_used_to_where_nothing_was_at_stake():
-    """The quantization is a fix for the cliff, not a change of precision.
-
-    A value nowhere near a boundary prints exactly as before -- integers in
-    full, everything else at four significant figures -- and the near-integers
-    that used to fall off the cliff now join their exact twins rather than the
-    twins joining them.
-    """
-    from sloads.report.render import format_value
-
-    assert format_value(24000.0) == "24000"
-    assert format_value(10) == "10"
-    assert format_value(0.004128) == "0.004128"
-    assert format_value(1.0 / 3) == "0.3333"
-    assert format_value(-687258.0) == format_value(-687257.9999999999) == "-687258"
-    assert format_value(12768.0) == format_value(12768.000000000002) == "12768"
-    assert format_value(1.6685) == format_value(1.6684999999999999) == "1.669"
-
-
 def test_the_keyed_pick_guard_recognises_the_shapes_it_must():
     # the plain forms, and the CR-B-1 bypass the substring grep could not see
     assert _keyed_picks("p = max(cands, key=f)", "t") == [(1, "Name(id='max', ctx=Load())")]
@@ -355,3 +339,195 @@ if __name__ == "__main__":
             traceback.print_exc()
     print(f"\n{len(tests) - failed}/{len(tests)} passed")
     sys.exit(1 if failed else 0)
+
+
+# --------------------------------------------------------------------------- #
+# Design note 65: every delivered cell prints at the precision its unit
+# prescribes (#161). Four gates: the rule by example in both channels, no
+# exponent form on any human channel, every emitted unit string rowed, and no
+# renderer in ``sloads/report/`` writing a digit count of its own.
+# --------------------------------------------------------------------------- #
+_EXAMPLES_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(sloads.__file__))), "examples")
+_REPORT_SOURCES = sorted(glob.glob(os.path.join(os.path.dirname(os.path.abspath(sloads.__file__)), "report", "*.py")))
+
+
+def test_every_delivered_cell_prints_at_its_units_precision():
+    """Design note 65 D-65.2 .. D-65.6, one example per row of the table.
+
+    The unit string names the row: a load to the pound, a station to 0.1 in,
+    an angle to 0.01 deg, a coefficient at four significant figures with its
+    zeros kept -- and no exponent form inside the delivered window, whatever
+    the magnitude. A non-zero cell that would print as ``0`` at its row's
+    decimals falls to four figures (the floor, D-65.3, one significant
+    figure as amended at implementation). An ``int`` with a fixed-decimal row
+    prints at the row (a typed 170 kt is the loaded 170.0); one with none is a
+    count and prints as itself. The safety factor is a dimensionless
+    number like any other (§8 Q1). #147's near-integer pair still prints one
+    string, because the twelve-figure quantization stayed.
+    """
+    from sloads.report.content import Units
+    from sloads.report.render import format_value
+    from sloads.units import HUMAN_SI, UnitSystem
+
+    cases = [
+        # loads, moments, areas, inertias: the whole unit
+        (13360.4, "lb", "13360"), (243800.2, "lb-in", "243800"), (-10937.6, "ft-lb", "-10938"),
+        (13259.29, "in^2", "13259"), (5566065.78, "lb-in^2", "5566066"),
+        (232252.63, "slug-ft^2", "232253"), (586.6, "ft^2", "587"), (1.4, "lb", "1"),
+        # lengths and altitude: one decimal (§8 Q2)
+        (112.46, "in", "112.5"), (-99636.97, "in", "-99637.0"), (12000.0, "ft", "12000.0"),
+        # speeds
+        (170.0, "kt(EAS)", "170.0"), (160.42529, "kt(EAS)", "160.4"), (10.0, "ft/s", "10.0"),
+        # angles, rates, pressures, percentages (ruling 3), load factors
+        (0.5263, "deg", "0.53"), (3.98815, "deg", "3.99"), (4.078, "deg/s", "4.08"),
+        (636.6952, "deg/s^2", "636.70"), (3.12, "lb/in^2", "3.12"), (152.949, "lb/ft^2", "152.95"),
+        (25.3, "%MAC", "25.30"), (72.0, "%", "72.00"), (6.49997, "% tail MAC", "6.50"),
+        (3.8016, "g", "3.80"), (-1.52, "g", "-1.52"),
+        # dimensionless: four significant figures, zeros kept, no exponent switch
+        (0.4718, "", "0.4718"), (4.93, "", "4.930"), (0.107, "1/deg", "0.1070"),
+        (4.4297, "/rad", "4.430"), (2.35, "s", "2.350"), (1.5, "", "1.500"), (1.0, "", "1.000"),
+        (24000.4, "", "24000"), (0.004128, "", "0.004128"), (1.0 / 3, "", "0.3333"),
+        (9.9995, "", "9.999"), (0.00099995, "", "0.001000"),
+        # the floor: a non-zero cell that would print as 0 keeps four figures
+        (0.3, "lb-in", "0.3000"), (0.004239, "in", "0.004239"), (0.004, "deg", "0.004000"),
+        # zero at the row's decimals; an int as itself
+        (0.0, "lb", "0"), (0.0, "in", "0.0"), (0.0, "deg", "0.00"), (0.0, "", "0"),
+        (10, "", "10"), (7, "lb", "7"), (170, "kt(EAS)", "170.0"), (12000, "ft", "12000.0"),
+        # the exponent window's edges
+        (-5.067e-05, "g", "-5.067e-05"), (1.2e9, "", "1.200e+09"),
+        # a unit with no row prints at four figures (the gate below is what fails)
+        (1234.5678, "furlong", "1235"),
+        # the SI labels a converted LoadValue carries take the Imperial row (D-65.5)
+        (59412.3, "N", "59412"), (1542.21, "kg", "1542"), (27547.4, "N·m", "27547"),
+        (2857.46, "mm", "2857.5"), (35.923, "kPa", "35.92"), (7.32, "kN/m²", "7.32"),
+        (48.94, "m/s", "48.9"), (0.5, "kg·m²", "0.5000"), (54.6, "m^2", "55"), (3.1, "kg*m^2", "3"),
+    ]
+    for value, units, expected in cases:
+        got = format_value(value, units)
+        assert got == expected, (value, units, got, expected)
+    assert format_value(-687258.0, "lb") == format_value(-687257.9999999999, "lb") == "-687258"
+    assert format_value(1.6685) == format_value(1.6684999999999999) == "1.669"
+    # The document's Units passes the Imperial label whatever system it prints
+    # in, so an SI cell has exactly its Imperial row's decimals.
+    si, imp = Units(UnitSystem.SI), Units(UnitSystem.IMPERIAL)
+    for value, dim, unit, si_dim in [(3400.0, "mass", "lb", "mass"), (100.0, "length", "in", "length_in"),
+                                     (5.2, "pressure", "lb/in^2", "pressure")]:
+        assert imp.plain(value, dim) == format_value(value, unit)
+        assert si.plain(value, dim) == format_value(value * HUMAN_SI[si_dim].factor, unit)
+    assert imp.load(13360.4, "force", 1.5) == "13360"
+    assert si.load(13360.4, "force", 1.5) == format_value(13360.4 * HUMAN_SI["force"].factor, "lb")
+    assert si.load(13360.4, "force", 1.5).isdigit()
+
+
+def _delivered_units_of(project):
+    """Every unit string a LoadValue of every module of ``project`` carries."""
+    from dataclasses import fields, is_dataclass
+
+    from sloads import registry
+    from sloads.models import LoadValue
+
+    seen = set()
+
+    def walk(o, depth=0):
+        if isinstance(o, LoadValue):
+            seen.add(o.units)
+        elif isinstance(o, (list, tuple)):
+            for x in o:
+                walk(x, depth + 1)
+        elif isinstance(o, dict):
+            for x in o.values():
+                walk(x, depth + 1)
+        elif is_dataclass(o) and depth < 6:
+            for f in fields(o):
+                walk(getattr(o, f.name), depth + 1)
+    for result in registry.run_all_modules(project):
+        walk(result)
+    return seen
+
+
+def test_every_unit_string_a_fixture_emits_has_a_precision_row():
+    """D-65.4's last row is a fallback, never a destination: every unit string
+    an example emits, every key the SI converter reads, every SI label it
+    writes and every ASCII label the report prints has a row -- and the SI row
+    of a label agrees with every Imperial unit that converts to it."""
+    import imperial_baseline as baseline
+    from sloads import io
+    from sloads.report.content import _EXTRA_DIMENSIONS
+    from sloads.units import (
+        DELIVERED_PRECISION,
+        DELIVERED_PRECISION_SI,
+        HUMAN_SI,
+        _RESULT_TO_SI,
+    )
+
+    emitted = set()
+    for example in baseline.EXAMPLES:
+        emitted |= _delivered_units_of(io.load_project(os.path.join(_EXAMPLES_DIR, example)))
+    assert emitted, "the walk must not quietly empty out"
+    assert emitted <= set(DELIVERED_PRECISION), sorted(emitted - set(DELIVERED_PRECISION))
+    assert set(_RESULT_TO_SI) <= set(DELIVERED_PRECISION), sorted(set(_RESULT_TO_SI) - set(DELIVERED_PRECISION))
+    si_labels = {d.label for d in HUMAN_SI.values()} | {si for _f, _i, si in _EXTRA_DIMENSIONS.values()}
+    assert si_labels <= set(DELIVERED_PRECISION_SI), sorted(si_labels - set(DELIVERED_PRECISION_SI))
+    for unit, (_factor, label) in _RESULT_TO_SI.items():
+        assert DELIVERED_PRECISION_SI[label] == DELIVERED_PRECISION[unit], (unit, label)
+
+
+@pytest.mark.parametrize("example", __import__("imperial_baseline").EXAMPLES)
+def test_no_delivered_cell_is_in_exponent_form(example):
+    """Every human channel of every example -- the CSVs, the text views, the
+    case index -- prints no cell in exponent form inside the delivered window
+    (D-65.2: below 1e-4 or at 1e9 and above the plain spelling would be worse,
+    and the match is asserted to be there). Outside the scan: the solver
+    channel (``sbeam/*``, D-65.8) and the gear report, which is written by
+    ``deck_format.fmt`` in the solver's consistent units on purpose
+    (``report/tables.py``, ``solver_units``) and is that channel's companion."""
+    import imperial_baseline as baseline
+
+    human = {k: v for k, v in baseline.artifacts(example).items()
+             if not k.startswith("sbeam/") and k != "gear_report"}
+    assert human, example
+    exponent = re.compile(r"(?<![\w.])-?\d+\.?\d*[eE][+-]\d+")
+    inside = {}
+    for channel, text in human.items():
+        bad = [m for m in exponent.findall(text) if 1e-4 <= abs(float(m)) < 1e9]
+        if bad:
+            inside[channel] = bad[:3]
+    assert not inside, inside
+
+
+@pytest.mark.parametrize("path", _REPORT_SOURCES, ids=os.path.basename)
+def test_no_report_renderer_writes_a_digit_count_of_its_own(path):
+    """D-65.7: precision is the unit's, read through ``format_value``. An
+    f-string precision spec or a ``%.Nf`` format in ``sloads/report/`` fails
+    unless its line (or the line above) states ``note 65 exempt`` and why --
+    a TikZ coordinate, a LaTeX length, the solver channel's companion CSV."""
+    with open(path, encoding="utf-8") as fh:
+        source = fh.read()
+    lines = source.splitlines()
+    spec = re.compile(r"\.\d+[fFeEgG]")
+    percent = re.compile(r"%[0-9]*\.\d+[feg]")
+
+    def exempt(stmt):
+        # The marker anywhere on the statement's own lines (an f-string's
+        # FormattedValue reports the enclosing string's line on 3.10/3.11).
+        return any("note 65 exempt" in lines[i - 1]
+                   for i in range(stmt.lineno, (stmt.end_lineno or stmt.lineno) + 1))
+
+    offenders = []
+    for stmt in ast.walk(ast.parse(source)):
+        if not isinstance(stmt, ast.stmt) or exempt(stmt):
+            continue
+        for node in ast.iter_child_nodes(stmt):
+            for sub in ast.walk(node):
+                if isinstance(sub, ast.stmt):
+                    continue        # a nested statement is judged on its own lines
+                if isinstance(sub, ast.FormattedValue) and sub.format_spec is not None:
+                    text = "".join(v.value for v in sub.format_spec.values
+                                   if isinstance(v, ast.Constant) and isinstance(v.value, str))
+                    if spec.search(text):
+                        offenders.append((sub.lineno, text))
+                elif (isinstance(sub, ast.BinOp) and isinstance(sub.op, ast.Mod)
+                      and isinstance(sub.left, ast.Constant) and isinstance(sub.left.value, str)
+                      and percent.search(sub.left.value)):
+                    offenders.append((sub.lineno, sub.left.value))
+    assert not offenders, f"{os.path.basename(path)}: {offenders} -- call format_value(value, units)"

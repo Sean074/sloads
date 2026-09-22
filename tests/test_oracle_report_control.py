@@ -200,11 +200,11 @@ def test_the_printed_loads_and_pressures_are_the_modules_own():
                 " ".join(cell for row in table.rows for cell in row)
                 for table in _section(doc, starts).tables)
             for record in records:
-                assert format_value(record.load_lb) in printed, (
+                assert format_value(record.load_lb, "lb") in printed, (
                     name, starts, record.case)
                 for station in record.stations:
                     if station.psi:
-                        assert format_value(station.psi) in printed, (
+                        assert format_value(station.psi, "lb/in^2") in printed, (
                             name, starts, record.case, station.x)
 
 
@@ -226,8 +226,8 @@ def test_no_pressure_is_computed_from_a_drawn_outline():
                        "aileron_loads")
     printed = _cells(section.tables[0], "psi at 0.00c")
     module = build_aileron(project)
-    assert printed[0] == format_value(module[0].stations[0].psi)
-    assert format_value(module[0].stations[0].psi * entered / drawn) not in printed
+    assert printed[0] == format_value(module[0].stations[0].psi, "lb/in^2")
+    assert format_value(module[0].stations[0].psi * entered / drawn, "lb/in^2") not in printed
 
 
 # --------------------------------------------------------------------------- #

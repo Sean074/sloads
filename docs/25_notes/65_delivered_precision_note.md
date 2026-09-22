@@ -263,3 +263,60 @@ on shipped content (every delivered table cell) outranks every fidelity row.
   decimal**, with the stations. Written into D-65.4's `ft` row.
 - **Q3 — the unrowed-unit fallback.** Proposed: print at four significant
   figures and fail gate 3. **Ruled: agreed.** D-65.4's last row stands.
+
+## 7b. Implementation record (#161, 2026-09-21)
+
+- **D-65.3 amended at implementation: the floor is one significant figure,
+  not three.** At three, every angle below 1° (a 0.53° tail angle is the
+  common case) and every load below 100 lb left its row for the
+  four-figure rule, and a column mixed `0.5263` with `3.99` — the fault the
+  note set out to remove, back through a different door. D-65.4's own `deg`
+  example (`0.53`) already assumed the one-figure floor. As shipped: a
+  non-zero cell that would print as `0` at its row's decimals falls to four
+  significant figures; every other cell keeps its row. Re-measured on the
+  §1.2 population: 6 cells reach the floor (was 1,912 at three).
+- **Two rows the sweep added to D-65.4**: `hp` and `rpm` (0 decimals) for
+  the entered engine record in section 10; `ft^2` joined the whole-unit row.
+- **The SI table is explicit, not derived** (`DELIVERED_PRECISION_SI`): a
+  converted `LoadValue` carries only its SI string, and the report's own
+  ASCII spellings (`m^2`, `kg*m^2`) sit beside the units owner's (`m²`,
+  `kg·m²`), so one derived map would have missed half of them. Gate 3
+  asserts every `HUMAN_SI` label and every `content.py` label has a row.
+  `content.py`'s `Units` passes the **Imperial** label as the precision key
+  (`precision_key(dim)`) — D-65.5 literally.
+- **The sweep**: 113 sites read; 81 given their unit in this change (the
+  rest are safety factors, coefficients and ratios, which take the default);
+  `_num`, `_scalar_cell` and `_engine_input_cell` gained a `units` argument
+  so a helper cannot swallow the unit its caller knows. The sixteen
+  hand-written formats of §1.4: three routed through `format_value` (the
+  case index's speed and altitude, the gear report's ground angle and
+  stroke, an engine axis's direction cosines), thirteen exempted on the
+  line — the solver channel's companion CSV (D-65.8), a TikZ coordinate, a
+  LaTeX column width, an error message, three prose shares and a column
+  header.
+- **Gate 2's scan excludes the gear report** beside `sbeam/*`: it is
+  written by `deck_format.fmt` in the solver's consistent units on purpose
+  (`report/tables.py`, `solver_units`) and is that channel's companion. Its
+  two hand-formatted prose columns (ground angle, stroke) did route through
+  the owner, so its digest moved with the human wave.
+- **A cell prints at the unit its source emitted**, even where a neighbour
+  spells the same quantity differently: the V-n corner load factors print
+  at the envelope's own (dimensionless) unit, `3.800`, while a module that
+  emits `g` prints `3.80`. Section 2's no-invented-number gate is what
+  enforces this, and the producers' inconsistency (§1.4's third
+  observation, found at implementation) is theirs to settle, not the
+  formatter's.
+- **Two tests changed meaning, stated here.** The appendix-to-CSV
+  fuselage gate compares the safety factor as a number (`1.500` beside the
+  solver channel's `1.5`, one factor in two channels' spellings). The
+  LaTeX orientation gate no longer lists "Wing load cases run" among the
+  turned tables: its root-bending columns printed `-1.234e+04` and now
+  print to the pound, so it sets upright.
+- **Measured at closure**: 213 human-channel digests moved across the five
+  examples (46–48 on each shipped fixture, 25 on `concept_heavy`); no
+  `sbeam/*` digest moved.
+- **D-65.2's `int` clause amended at implementation.** An `int` with a
+  fixed-decimal row prints at the row; only an `int` with none (a count, a
+  case number) prints as itself. The GUI journey found it: a speed typed in
+  a widget arrives as `170` and the same speed loaded from the file as
+  `170.0`, and "prints as itself" gave the two one number two spellings.

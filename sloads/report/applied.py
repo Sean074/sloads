@@ -325,7 +325,7 @@ def _require_applied_set_matches_cumulative(result: WingLoadResult) -> None:
     if scale and abs(got - root.myy) > CARD_TOL * scale:
         raise ValueError(
             f"wing case {result.case!r}: the applied set does not rebuild the "
-            f"cumulative root torsion ({got:.1f} against {root.myy:.1f} lb-in). "
+            f"cumulative root torsion ({got:.1f} against {root.myy:.1f} lb-in). "  # note 65 exempt: an error message
             "The stations' free torsion or the concentrated wing masses are "
             "missing from this result -- most likely it was loaded from a "
             "project written before those fields existed. Recompute the loads "
@@ -1424,9 +1424,11 @@ def applied_load_csv(arg: ResultsArg, header_comment: str = "", *,
             # the exported deck, and inventing one here would read as a node a
             # consumer could reference.
             "GID": "" if load.gid is None else load.gid,
-            x_h: f"{gx:.3f}", y_h: f"{gy:.3f}", z_h: f"{gz:.3f}",
-            fx_h: f"{fx:.1f}", fy_h: f"{fy:.1f}", fz_h: f"{fz:.1f}",
-            mx_h: f"{mx:.0f}", my_h: f"{my:.0f}", mz_h: f"{mz:.0f}",
+            # note 65 exempt: the solver channel's companion CSV (D-65.8) --
+            # its decimals are the deck's, not the report's
+            x_h: f"{gx:.3f}", y_h: f"{gy:.3f}", z_h: f"{gz:.3f}",  # note 65 exempt
+            fx_h: f"{fx:.1f}", fy_h: f"{fy:.1f}", fz_h: f"{fz:.1f}",  # note 65 exempt
+            mx_h: f"{mx:.0f}", my_h: f"{my:.0f}", mz_h: f"{mz:.0f}",  # note 65 exempt
             "TorsionAxis": load.torsion_axis,
             "SF": sf_str(sf),
         })

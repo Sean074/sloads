@@ -279,6 +279,9 @@ _EXTRA_DIMENSIONS = {
     "inertia_lbin2": (HUMAN_SI["inertia_lbin2"].factor, "lb-in^2", "kg*m^2"),
 }
 
+_IMPERIAL_HUMAN: DeliverableUnits = deliverable_units(UnitSystem.IMPERIAL, Channel.HUMAN)
+
+
 class Units:
     """The document's resolved unit set, plus the conversions the tables need.
 
@@ -304,7 +307,15 @@ class Units:
         """
         if value is None or value == "":
             return ""
-        return format_value(value * self._factor(dim))
+        return format_value(value * self._factor(dim), self.precision_key(dim))
+
+    def precision_key(self, dim: str) -> str:
+        """The Imperial unit string of ``dim`` -- the key a cell's delivered
+        precision is read by, whatever system the document prints in (note 65
+        D-65.5: the SI channel uses the row of the unit it converted from)."""
+        if dim in _EXTRA_DIMENSIONS:
+            return _EXTRA_DIMENSIONS[dim][1]
+        return getattr(_IMPERIAL_HUMAN, dim).label
 
     def label(self, dim: str) -> str:
         """The plain unit label for ``dim`` (``"in"``/``"mm"``, ``"lb"``/``"kg"``...)."""
@@ -334,7 +345,7 @@ class Units:
         """
         if value is None or value == "":
             return ""
-        return format_value(self.load_value(value, dim, sf))
+        return format_value(self.load_value(value, dim, sf), self.precision_key(dim))
 
     # -- the same two conversions as numbers, for a figure's axis ------------ #
     #

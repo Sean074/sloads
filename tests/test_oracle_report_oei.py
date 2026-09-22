@@ -375,10 +375,10 @@ def test_the_ultimate_case_states_its_factor_and_the_section_marks_no_load_ultim
     marked = 0
     for row in loads.rows:
         if "ultimate" in row[case_col]:
-            assert row[sf_col] == "1", row
+            assert row[sf_col] == "1.000", row  # note 65 D-65.6
             marked += 1
         else:
-            assert row[sf_col] == "1.5", row
+            assert row[sf_col] == "1.500", row
     assert marked, "no 23.367(a)(2) row in the load table"
     for table in tables:
         assert not any("-ULT" in c for c in table.columns), table.title

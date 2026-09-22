@@ -360,7 +360,7 @@ def _category_block(project: Project) -> List[str]:
     exceedances = far23_applicability(project)
     if exceedances:
         out.append("  FAR 23 applicability exceeded on:")
-        out.extend(
+        out.extend(  # note 65 exempt: a sentence in the CSV comment block, thousands-separated, mixed units
             f"    - {e.label}: {e.value:,.0f} exceeds the limit of {e.limit:,.0f}"
             for e in exceedances
         )

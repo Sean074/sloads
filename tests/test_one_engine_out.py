@@ -216,7 +216,7 @@ def test_rendered_loads_are_limit_and_each_case_states_its_sf():
             for r in report.load_cases_to_rows(oeo.run(p).conditions)}
     vc = rows["one engine out — VC (ultimate)"]
     vd = rows["one engine out — VD (limit)"]
-    assert vc["SF"] == "1" and vd["SF"] == "1.5"
+    assert vc["SF"] == "1.000" and vd["SF"] == "1.500"  # note 65 D-65.6
     load_cols = [k for k in vc if "load" in k.lower() or "moment" in k.lower() or "Thrust" in k]
     assert load_cols and not any("-ULT" in k for k in load_cols)
     # OR-180: and the row actually carries a load. Under the old key every one

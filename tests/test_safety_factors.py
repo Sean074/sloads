@@ -486,6 +486,8 @@ def test_every_printed_sf_column_is_a_view_of_the_table():
     reports a load -- so the assertion is that an override of the flight family
     reaches those columns, which is the same claim over more surfaces.
     """
+    from sloads.report.render import format_value
+
     doc = oc.build_oracle_document(_overridden("flight", 1.2), default_spec())
 
     def walk(sections):
@@ -499,7 +501,8 @@ def test_every_printed_sf_column_is_a_view_of_the_table():
             if "SF" in table.columns
             for row in table.rows]
     assert seen, "no section prints an SF column"
-    assert "1.2" in seen, f"the flight override never reaches a printed SF: {set(seen)}"
+    # Printed under the dimensionless rule (design note 65 D-65.6): ``1.200``.
+    assert format_value(1.2) in seen, f"the flight override never reaches a printed SF: {set(seen)}"
 
 
 def test_the_companion_csv_states_the_derived_value_beside_the_override():

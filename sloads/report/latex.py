@@ -359,7 +359,7 @@ def _table_size_and_spec(table: Table, *,
     # padding per column as well would take it twice and leave every column a few
     # points too narrow, which is exactly how a number ends up on top of its
     # neighbour.
-    specs = [r"L{%.4f\sltablewidth}" % (w / available) for w in widths]
+    specs = [r"L{%.4f\sltablewidth}" % (w / available) for w in widths]  # note 65 exempt: a column width
     return size, "@{}" + "".join(specs) + "@{}"
 
 

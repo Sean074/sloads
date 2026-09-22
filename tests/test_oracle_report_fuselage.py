@@ -238,8 +238,8 @@ def test_the_beam_states_how_far_the_entered_table_is_from_it():
     """
     body = _prose(_section_four(_doc()))
     assert "not the same airplane" in body
-    assert format_value(2578.0) in body and format_value(3070.0) in body
-    assert format_value(492.0) in body and "16 %" in body
+    assert format_value(2578.0, "lb") in body and format_value(3070.0, "lb") in body
+    assert format_value(492.0, "lb") in body and "16 %" in body
     # And it is the gate that decides which sentence, not the sign of the gap.
     assert "1 %" in body
 
@@ -313,7 +313,7 @@ def test_the_fitting_loads_state_whether_their_spar_stations_were_assumed():
     column = table.columns.index("Spars")
     assert {row[column] for row in table.rows} == {"entered"}
     assert "entered for this airplane" in _prose(_section_four(entered))
-    assert table.rows[0][table.columns.index("X front (in)")] == format_value(62.0)
+    assert table.rows[0][table.columns.index("X front (in)")] == format_value(62.0, "in")
 
 
 # --------------------------------------------------------------------------- #
@@ -467,7 +467,10 @@ def test_the_appendix_table_and_the_exported_csv_are_one_load_set():
     columns = {name: index for index, name in enumerate(applied.columns)}
     for row, out in zip(applied.rows, exported):
         assert row[columns["GID"]] == out["GID"]
-        assert row[columns["SF"]] == out["SF"]
+        # The document's SF cell takes the dimensionless rule (note 65 D-65.6,
+        # ``1.500``); the CSV's is the solver channel's ``sf_str`` (``1.5``). One
+        # factor, two spellings, compared as the number it is.
+        assert float(row[columns["SF"]]) == float(out["SF"])
         # The two renderers round differently -- the document to significant
         # figures, the CSV to a fixed decimal -- so the values are compared as
         # numbers, which is what "one load set" means.
@@ -538,8 +541,8 @@ def test_the_pull_up_blocks_read_their_values_from_the_tail_analysis():
                             ("balanced_tail_load", "Balanced tail load (lb)"),
                             ("unbalanced_moment_about_cg",
                              "Unbalanced moment about CG (lb-in)")):
-            published = next(v.value for v in condition.values if v.key == key)
-            assert row[table.columns.index(column)] == format_value(published)
+            published = next(v for v in condition.values if v.key == key)
+            assert row[table.columns.index(column)] == format_value(published.value, published.units)
 
 
 def test_the_pull_up_blocks_state_weight_and_cg_by_lookup():
@@ -554,8 +557,8 @@ def test_the_pull_up_blocks_state_weight_and_cg_by_lookup():
     xcg = table.columns.index("XCG (in)")
     cg = table.columns.index("CG case")
     assert [row[cg] for row in table.rows] == ["CG4", "CG3"]
-    assert [row[xcg] for row in table.rows] == [format_value(73.09),
-                                                format_value(72.64)]
+    assert [row[xcg] for row in table.rows] == [format_value(73.09, "in"),
+                                                format_value(72.64, "in")]
 
 
 def test_the_unbalanced_moment_reproduces_the_printed_page():
@@ -692,7 +695,7 @@ def test_the_beam_table_states_where_the_mass_is_and_where_the_beam_runs():
     zs = [float(r[3]) for r in table.rows if r[0] != "Total"]
     assert min(zs) < max(zs), "the body mass is not all at one waterline"
     lra = fuselage_lra(reduce_to_oracle_inputs(io.load_project(_GA)))
-    assert format_value(lra.z_at(0.0)) in (table.note or "")
+    assert format_value(lra.z_at(0.0), "in") in (table.note or "")
     assert "only X does" in (table.note or "")
 
 
@@ -715,6 +718,6 @@ def test_appendix_c_places_every_station_on_the_airplane():
     assert [c.split(" ")[0] for c in table.columns[:6]] == [
         "Case", "Station", "GID", "X", "Y", "Z"]
     y, z = table.columns.index("Y (in)"), table.columns.index("Z (in)")
-    assert {r[y] for r in table.rows} == {format_value(0.0)}, "the beam is on the centre plane"
+    assert {r[y] for r in table.rows} == {format_value(0.0, "in")}, "the beam is on the centre plane"
     lra = fuselage_lra(reduce_to_oracle_inputs(io.load_project(_GA)))
-    assert {r[z] for r in table.rows} == {format_value(lra.z_at(0.0))}
+    assert {r[z] for r in table.rows} == {format_value(lra.z_at(0.0), "in")}

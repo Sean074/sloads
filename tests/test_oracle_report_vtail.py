@@ -184,7 +184,7 @@ def test_the_printed_totals_are_selects_own_unscaled_values():
                           if v.key in ("total_tail_load",
                                        "total_tail_load_cp_25_pct")), None)
             assert total is not None, condition.label
-            assert printed[condition.case_ref.case_id] == format_value(total.value)
+            assert printed[condition.case_ref.case_id] == format_value(total.value, total.units)
 
 
 def test_every_appendix_a_vertical_tail_condition_is_present_and_named():
@@ -546,9 +546,9 @@ def test_appendix_e_places_every_load_where_the_deck_places_it():
                             project)
     assert len(table.rows) == len(rows)
     for row, load in zip(table.rows, rows):
-        assert row[col["X"]] == format_value(load.x)
-        assert row[col["Y"]] == format_value(load.y)
-        assert row[col["Z"]] == format_value(load.z)
+        assert row[col["X"]] == format_value(load.x, "in")
+        assert row[col["Y"]] == format_value(load.y, "in")
+        assert row[col["Z"]] == format_value(load.z, "in")
     # ...and every one of those points is a node of the fin's own chain, which
     # is what "where the deck places it" means now.
     model = build_lra_model(project)
@@ -674,8 +674,8 @@ def test_the_loads_reference_axis_runs_up_the_fin_not_along_its_root():
     want = [tail_station_to_airplane(st.x, st.y, "vtail", st.z) for st in stations]
     assert len(axis.rows) == len(want)
     for row, (x, y, z) in zip(axis.rows, want):
-        assert row[1] == format_value(x) and row[2] == format_value(y)
-        assert row[3] == format_value(z)
+        assert row[1] == format_value(x, "in") and row[2] == format_value(y, "in")
+        assert row[3] == format_value(z, "in")
 
     # The property that the flat-line defect violated: the fin's span runs up
     # the waterline and stays on the centreline, and the h-tail's does neither.

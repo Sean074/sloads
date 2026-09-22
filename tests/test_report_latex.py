@@ -517,7 +517,10 @@ def test_a_table_is_turned_only_when_it_cannot_be_set_upright():
         "Pull-up maneuver fuselage loads (LIMIT)",
         "Applied landing gear loads by case (LIMIT)",
         "Files carried in this package",
-        "Wing load cases run",
+        # The wing case table ("Wing load cases run") turned from design note 63
+        # D-63.11 (the Run column) until #161: its three root-bending columns
+        # printed at ``%.4g`` -- ``-1.234e+04``, nine characters -- and design
+        # note 65 prints them to the pound, so it sets upright again.
         # The slot x mass-state variant table (design note 63 D-63.7, #292):
         # twelve columns -- the run key's four names, the point's weight, speed
         # and load factor, and the three root bendings -- cannot be set upright.

@@ -806,6 +806,66 @@ def display_format(unit: FieldUnit) -> str:
             else DIMENSIONLESS_FORMAT)
 
 
+#: What a **delivered** cell prints a value at, keyed by the Imperial unit
+#: string a ``LoadValue`` carries (the same key ``_RESULT_TO_SI`` converts by,
+#: #232): a fixed decimal count, or ``None`` for four significant figures.
+#: Design note 65 D-65.4 is the table's rationale row by row; the SI channel
+#: uses the row of the Imperial unit it converted from (D-65.5), every SI
+#: label being finer than, or within a factor of 2.2 of, its source. A string
+#: not tabled falls to the significant-figure rule and fails the gate
+#: (``tests/test_platform_stability.py``), so a report never crashes on a new
+#: unit and a new unit never ships without a row (§8 Q3).
+DELIVERED_PRECISION: Dict[str, Optional[int]] = {
+    # loads, moments, areas, inertias: to the whole unit
+    "lb": 0, "lb-in": 0, "ft-lb": 0, "in^2": 0, "lb-in^2": 0, "slug-ft^2": 0,
+    "ft^2": 0,
+    # lengths: stations and arms to 0.1 in; altitude to 0.1 ft (§8 Q2)
+    "in": 1, "ft": 1,
+    # speeds
+    "kt(EAS)": 1, "ft/s": 1,
+    # angles, rates, pressures, percentages, load factors
+    "deg": 2, "deg/s": 2, "deg/s^2": 2,
+    "lb/in^2": 2, "lb/ft^2": 2,
+    "%": 2, "%MAC": 2, "% tail MAC": 2,
+    "g": 2,
+    # engine ratings and speeds (entered engine records, section 10)
+    "hp": 0, "rpm": 0,
+    # dimensionless, slopes, times: four significant figures
+    "": None, "1/deg": None, "/rad": None, "s": None,
+}
+
+#: The same table under the SI labels a converted ``LoadValue`` carries
+#: (``convert_results`` rewrites ``units`` in place, so a cell rendered from a
+#: converted result knows only the SI string): each row is the decimals of the
+#: Imperial unit it converted from (D-65.5). The ASCII spellings are the
+#: report's own (``report/content.py`` ``_EXTRA_DIMENSIONS``). Guarded: every
+#: ``HUMAN_SI`` label has a row, and no two Imperial sources of one SI label
+#: disagree on its decimals.
+DELIVERED_PRECISION_SI: Dict[str, Optional[int]] = {
+    "N": 0, "kg": 0, "N·m": 0, "m²": 0, "m^2": 0, "kg·m²": 0, "kg*m^2": 0, "kW": 0,
+    "mm": 1, "m/s": 1,
+    "kPa": 2, "kN/m²": 2,
+}
+
+#: Significant figures of the dimensionless rule, and the floor a fixed-decimal
+#: row keeps: a non-zero cell that would show fewer than
+#: :data:`DELIVERED_FLOOR_SIG` significant figures at its row's decimals -- at
+#: one, a cell that would print as ``0`` -- falls to the significant-figure
+#: rule instead (D-65.3), so a 0.3 lb-in moment prints ``0.3000``, never ``0``,
+#: while a 0.53 deg angle keeps its row's ``0.53``.
+DELIVERED_SIG = 4
+DELIVERED_FLOOR_SIG = 1
+
+
+def delivered_precision(units: str) -> Optional[int]:
+    """The fixed decimal count a cell of ``units`` prints at, ``None`` for four
+    significant figures. The one owner of delivered precision (note 65 D-65.1);
+    read by ``report.render.format_value`` and nowhere else."""
+    if units in DELIVERED_PRECISION:
+        return DELIVERED_PRECISION[units]
+    return DELIVERED_PRECISION_SI.get(units)
+
+
 def _is_number(value: Any) -> bool:
     """A real number to convert -- ``bool`` is an ``int`` in Python and is not."""
     return isinstance(value, (int, float)) and not isinstance(value, bool)

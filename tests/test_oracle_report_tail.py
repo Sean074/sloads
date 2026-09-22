@@ -265,7 +265,7 @@ def test_the_printed_totals_are_the_modules_own_unscaled_values():
     printed = dict(zip(_cells(summary, "Case"), _cells(summary, "Total load")))
     for condition in conditions:
         total = next(v for v in condition.loads if v.key == "total_tail_load")
-        assert printed[condition.case_ref.case_id] == format_value(total.value), \
+        assert printed[condition.case_ref.case_id] == format_value(total.value, total.units), \
             condition.case_ref.case_id
 
 
@@ -324,7 +324,7 @@ def test_the_printed_pressures_are_taildists_own():
     for row in table.rows:
         result = results[row[0]]
         for i, station in enumerate(result.stations):
-            assert row[3 + i] == format_value(station.psi), (row[0], i)
+            assert row[3 + i] == format_value(station.psi, "lb/in^2"), (row[0], i)
 
 
 def test_the_chord_stations_print_once_and_the_constants_are_reference_data():
@@ -627,9 +627,9 @@ def test_appendix_d_places_every_load_on_the_airplane():
     want = ap.applied_loads("htail", results, project)
     assert len(table.rows) == len(want)
     for row, load in zip(table.rows, want):
-        assert row[col["X"]] == format_value(load.x)
-        assert row[col["Y"]] == format_value(load.y)
-        assert row[col["Z"]] == format_value(load.z)
+        assert row[col["X"]] == format_value(load.x, "in")
+        assert row[col["Y"]] == format_value(load.y, "in")
+        assert row[col["Z"]] == format_value(load.z, "in")
     # Both surfaces span in ``y`` and load in ``z`` here, so the appendix spans
     # the airplane rather than one side of it -- the check that this is the
     # full-span set and not a half read twice.

@@ -115,7 +115,7 @@ def test_the_default_render_applies_no_factor_and_states_it():
                 if is_load_unit(v.units, v.quantity or ""))
     assert condition.safety_factor is not None
     # the calc's own number, unscaled -- and the factor still stated
-    assert format_value(load.value) in text
+    assert format_value(load.value, load.units) in text
     assert format_value(condition.safety_factor) in text
 
 
@@ -171,7 +171,7 @@ def test_a_limit_render_reports_the_calc_value_unscaled(path):
             for v in c.values:
                 if not is_load_unit(v.units, v.quantity or "") or not v.value:
                     continue
-                assert format_value(v.value) in text, (
+                assert format_value(v.value, v.units) in text, (
                     f"{path}/{mr.module}: {v.label} is not at its LIMIT value")
 
 

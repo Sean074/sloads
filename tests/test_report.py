@@ -113,7 +113,7 @@ def test_loads_are_limit_with_sf_column():
     vert = _col(rows, "Vertical load")
     assert "-ULT" not in vert
     a2 = next(r for r in rows if r["FAR"] == "23.361(a)(2)")
-    assert a2["SF"] == "1.5"
+    assert a2["SF"] == "1.500"  # note 65 D-65.6
     limit_vert = _limit(results, "23.361(a)(2)", "fz_vertical")
     # rel_tol matches the 4-significant-figure display formatting of the CSV cell.
     import math
@@ -130,7 +130,7 @@ def test_locations_are_not_scaled():
     lx = _col(rows, "Loc X")
     limit_x = _limit(results, "23.361(a)(2)", "loc_x")
     a2 = next(r for r in rows if r["FAR"] == "23.361(a)(2)")
-    assert abs(float(a2[lx]) - limit_x) < 1e-6
+    assert abs(float(a2[lx]) - limit_x) < 0.05     # printed to 0.1 in (note 65)
 
 
 # --------------------------------------------------------------------------- #
