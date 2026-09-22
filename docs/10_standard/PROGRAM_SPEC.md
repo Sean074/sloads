@@ -1804,7 +1804,22 @@ the applied load set (`applied_loads("htail"|"vtail", ...)`), GID bands `4001+`
   LM-1). Wing strips inboard of the SOB land on the wing box's nearest grid —
   the SOB or the centre (note 64 D-64.7); the chordwise part of the couple is
   the 25 %-chord → LRA torsion transfer, so no separate axis transfer exists
-  to drift.
+  to drift. **A closure load routes by the member of the mass it relieves
+  (#293, 2026-09-21):** every `closure-*` load records the `source` of the
+  mass load it was spread over (`BalancedLoad.carrier`) and lands on that
+  member — a body mass's relief on the fuselage beam, a wing mass's on its
+  wing chain — where the mass itself landed. Until then a relief had no member
+  and fell to the nearest grid in the whole skeleton: on a body mass low in the
+  fuselage that was a main-gear attach grid, and on a centreline mass one grid
+  of the mirrored pair by the tie rule, so `atr42_100`'s level landing put
+  19,566 lb on one leg and 27,142 on the other for two equal reactions. Gear
+  grids carry gear reactions only and engine grids thrust and mount loads only;
+  guarded by the mirrored-leg identity in `tests/test_lra_model.py`. Each
+  case header also states what its closure field **is**: for a ground case the
+  inertia set itself (the six-DOF accelerations the gear reactions and the
+  23.473(a) lift produce on the mass distribution, no residual), for a flight
+  case the pre-closure residual as a fraction of `n·W` beside the ceiling the
+  balance gates it at.
 - **Gates (CI):** the plan-07 invariant — the LRA deck's per-case card
   resultant equals the balanced deck's, all six components
   (`tests/test_lra_model.py`); the solver reaction equals minus the applied

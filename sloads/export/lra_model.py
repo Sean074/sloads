@@ -1092,14 +1092,25 @@ def _member_key(load: BalancedLoad, members: Dict[str, List[LraNode]]) -> str:
     (backlog #10). It would land there anyway through the ``all`` fallback; the
     rule is explicit so a future nacelle stick cannot silently re-route it.
 
-    Anything unrecognised -- the closure relief fields, the aileron
-    couple -- goes to the nearest node in the whole skeleton: relief acts at
-    each mass's own position, and nearest-node with the exact couple preserves
-    the resultant wherever it lands. A member the model could not build falls
-    back the same way rather than dropping the load; the invariant gate is on
-    the full set.
+    A ``closure-*`` load routes by the ``carrier`` it records -- the
+    ``source`` of the mass load it relieves -- so a body mass's relief lands
+    on the fuselage beam and a wing mass's on its wing chain, exactly where
+    the mass itself landed (#293). Before that it went to the nearest node in
+    the whole skeleton, which on a body mass low in the fuselage was a
+    main-gear attach grid, and on a centreline mass one grid of the mirrored
+    pair (the ATR's level landing read 19,566 / 27,142 lb on two legs the
+    balanced case reacts equally). Gear grids therefore carry gear reactions
+    only, and engine grids thrust and mount loads only.
+
+    Anything else unrecognised -- the aileron couple, a relief with no
+    carrier -- goes to the nearest node in the whole skeleton; nearest-node
+    with the exact couple preserves the resultant wherever it lands. A member
+    the model could not build falls back the same way rather than dropping
+    the load; the invariant gate is on the full set.
     """
     s, side = load.source, load.side
+    if s.startswith("closure") and load.carrier:
+        s = load.carrier
     if s.startswith("wing-") or s == "ground-lift":
         key = {"R": "wing-R", "L": "wing-L"}.get(side, "all")
     elif s == "tail-air" or s.startswith("htail"):
@@ -1163,6 +1174,34 @@ STIFFNESS_NOTE = (
 )
 
 
+def _closure_sentence(case: BalancedCaseResult) -> str:
+    """What the case's rigid-body closure field is, stated in the deck (#293).
+
+    A ground case has no inertia set of its own: the six-DOF accelerations the
+    applied gear reactions and the 23.473(a) lift produce on the mass
+    distribution ARE its inertia loads, applied at every mass, so no residual
+    remains. A flight case applies its inertia at the case load factor and the
+    field spreads the strip-integration residual over the masses; the deck
+    states that fraction beside the ceiling the balance gates it at.
+    """
+    from ..modules.balance.constants import FORCE_RESIDUAL_ACCEPTANCE
+    from ..modules.balance.queries import is_ground, residual_gate_applies
+
+    if is_ground(case):
+        return ("Closure field = the inertia set: the six-DOF rigid-body "
+                "accelerations the gear reactions and the 23.473(a) lift "
+                "produce on the mass distribution, applied at every mass on "
+                "the member that carries it; no residual remains.")
+    if residual_gate_applies(case):
+        return (f"Closure field = the pre-closure residual, "
+                f"{100.0 * case.force_residual_fraction:.2f} % of n*W, spread "
+                "over the masses as a rigid-body relief field on the members "
+                f"that carry them (ceiling {100.0 * FORCE_RESIDUAL_ACCEPTANCE:.1f} %).")
+    return ("Closure field = the applied maneuver load's rigid-body relief, "
+            "spread over the masses on the members that carry them (the "
+            "pre-closure residual is the maneuver, not a trim error).")
+
+
 def _case_header(case: BalancedCaseResult, sid: int) -> List[str]:
     label = case.case_ref.case_id if case.case_ref else case.label
     return comment(
@@ -1170,7 +1209,8 @@ def _case_header(case: BalancedCaseResult, sid: int) -> List[str]:
         f"{('-' + case.hand) if case.hand else ''}, SID {sid}: the balanced "
         f"case's load set transferred onto the beam nodes. "
         f"{basis_sentence(case.safety_factor)} Identical resultant to the "
-        "assembled set by the transfer rule (note 25 LM-1).")
+        "assembled set by the transfer rule (note 25 LM-1). "
+        + _closure_sentence(case))
 
 
 def lra_model_bdf(project: Project, *,

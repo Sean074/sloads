@@ -382,7 +382,11 @@ def fields_hash() -> str:
 #: v68 (design note 64, #275): ``BodyStationLoad`` gains ``region``/``couple``,
 #: ``BodyLoadResult`` gains the one-station reaction and its note and loses
 #: ``closure_artifact`` -- result shapes only; ``_hop_67`` is an identity.
-EXPECTED_FIELDS_HASH = "0033f694499d3b5e"
+#: #293 (2026-09-21): ``BalancedLoad.carrier`` -- the ``source`` of the mass
+#: load a ``closure-*`` load relieves, read by the LRA transfer. A **result**
+#: field with a default on a class ``io.py`` never writes (the B8a-2 standing
+#: above): nothing on disk has this shape, ``SCHEMA_VERSION`` stays at 68.
+EXPECTED_FIELDS_HASH = "af8b5da4d4216f9d"
 
 
 def test_persisted_dataclass_shapes_are_unchanged():

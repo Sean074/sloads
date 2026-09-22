@@ -175,7 +175,8 @@ def _closure(loads: List[BalancedLoad], cg: CgCase,
         f = relief_force(w, r, n, zero)
         loads.append(BalancedLoad(x=ld.x, y=ld.y, z=ld.z,
                                   fx=f[0], fy=f[1], fz=f[2],
-                                  source="closure-n", side=ld.side))
+                                  source="closure-n", side=ld.side,
+                                  carrier=ld.source))
         for source, axis in _ROTATIONAL_SOURCES:
             if not omega_dot[axis]:
                 continue
@@ -185,11 +186,17 @@ def _closure(loads: List[BalancedLoad], cg: CgCase,
             f = relief_force(w, r, zero, only)
             loads.append(BalancedLoad(x=ld.x, y=ld.y, z=ld.z,
                                       fx=f[0], fy=f[1], fz=f[2],
-                                      source=source, side=ld.side))
+                                      source=source, side=ld.side,
+                                      carrier=ld.source))
 
     for (x, y, z), si in self_inertia:
         m = relief_moment(si, omega_dot)
         if any(m):
+            # The self-inertia rides with the point mass at the same station,
+            # so its carrier is that mass load's (#293).
+            host = next((ld for ld, _ in masses
+                         if ld.x == x and ld.y == y and ld.z == z), None)
             loads.append(BalancedLoad(x=x, y=y, z=z, mx=m[0], my=m[1], mz=m[2],
-                                      source="closure-self", side="C"))
+                                      source="closure-self", side="C",
+                                      carrier=host.source if host else ""))
     return n, omega_dot, tensor
