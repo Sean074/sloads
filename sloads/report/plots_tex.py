@@ -87,7 +87,7 @@ def _num(value: object) -> str:
     v = float(value)
     if not math.isfinite(v):
         return "0"
-    return f"{v:.6g}"
+    return f"{v:.6g}"  # note 65 exempt: a TikZ coordinate, not a delivered cell
 
 
 def _finite(series: Series) -> List[tuple]:

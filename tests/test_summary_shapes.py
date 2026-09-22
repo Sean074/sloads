@@ -51,7 +51,7 @@ def test_select_renders_one_line_per_case_with_its_sf():
         assert row["Condition"] == cond.title
         assert float(str(row["SF"])) == cond.safety_factor
     wing = [r for r in rows if r["Component"] == "wing"]
-    assert wing and all(r["SF"] == "1.5" for r in wing), (
+    assert wing and all(r["SF"] == "1.500" for r in wing), (  # note 65 D-65.6
         "the per-case SF must be visible on wing cases -- C210-27's complaint")
 
 
@@ -138,7 +138,8 @@ def test_wtenv_folds_weight_station_pairs_to_one_row_per_point():
     # 85.11 -> 85.09 with closed-form planform integration (2026-08-30, register
     # line in 02_approved_corrections): the structural CG limits are
     # XLEMAC-referenced, so they move with the wing MAC's 0.042 %.
-    assert corner["Weight (lb)"] == "3400" and corner["Station (in)"] == "85.09"
+    # A station prints to 0.1 in since note 65 (#161): 85.09 -> 85.1.
+    assert corner["Weight (lb)"] == "3400" and corner["Station (in)"] == "85.1"
     # The forward loading envelope: one row per vertex, not three.
     envelope = [r for r in rows
                 if r["Condition"].startswith("Forward loading envelope")]

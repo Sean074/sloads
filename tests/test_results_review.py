@@ -54,7 +54,7 @@ def test_governing_loads_table_renders_limit_with_sf():
     lv = next(lv for lv in conds[idx].loads if lv.units == "lb")
     header = f"{lv.label} ({lv.units})"
     assert "-ULT" not in header
-    assert rows[idx][header] == format_value(lv.value)
+    assert rows[idx][header] == format_value(lv.value, lv.units)
 
     # (b) A dimensionless quantity (load factor NZ) is unscaled and unmarked.
     nz_headers = [h for h in rows[0] if h.startswith("Load factor NZ")]
@@ -98,7 +98,7 @@ def test_per_case_safety_factor_is_honoured():
 
     lv = next(lv for lv in conds[idx].loads if lv.units == "lb")
     header = f"{lv.label} ({lv.units})"
-    assert after[idx][header] == format_value(lv.value)          # x1.0, not x1.5
+    assert after[idx][header] == format_value(lv.value, lv.units)  # x1.0, not x1.5
     assert after[idx]["SF"] == format_value(1.0)                 # and it says so
     assert "-ULT" not in header                                  # a LIMIT column
     assert after[other] == before[other]                         # neighbours untouched

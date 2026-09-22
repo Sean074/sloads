@@ -220,10 +220,10 @@ def test_every_printed_cell_is_its_own_points_value():
 
         for row_s, row_l, point in zip(state.rows, loads.rows, env.vn):
             assert row_s == [
-                ids[point.cg], point.config, format_value(point.altitude_ft),
+                ids[point.cg], point.config, format_value(point.altitude_ft, "ft"),
                 str(point.case), point.condition,
-                format_value(point.v_eas_kt), format_value(point.nz),
-                format_value(point.alpha_deg), format_value(point.g_corr),
+                format_value(point.v_eas_kt, "kt(EAS)"), format_value(point.nz, "g"),
+                format_value(point.alpha_deg, "deg"), format_value(point.g_corr),
                 format_value(point.cl)], (name, point.case)
             assert row_l[3:8] == [
                 u.load(point.m_wf, "moment", 0.0),
@@ -233,7 +233,7 @@ def test_every_printed_cell_is_its_own_points_value():
                 format_value(inertia_drag_factor(
                     point.dx,
                     {c.name: c.weight_lb
-                     for c in flight_cases(project)}[point.cg]))], (
+                     for c in flight_cases(project)}[point.cg]), "g")], (
                 name, point.case)
 
 
@@ -361,7 +361,7 @@ def test_every_printed_nx_is_the_inertia_drag_factor_of_its_own_row():
         # asserting the round trip rather than the derivation.
         for row, point in zip(loads.rows, env.vn):
             expected = inertia_drag_factor(point.dx, by_id[row[cg]])
-            assert row[nx] == format_value(expected), (name, row)
+            assert row[nx] == format_value(expected, "g"), (name, row)
 
 
 def test_the_thrust_assumption_is_stated_in_the_appendix():

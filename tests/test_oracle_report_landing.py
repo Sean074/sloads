@@ -441,6 +441,7 @@ def test_each_figure_names_its_axle_state_and_its_ground_angle():
     """
     from sloads.modules.landing import gear_geometry, ground_angles
     from sloads.report.oracle_sections import _GROUND_ATTITUDES
+    from sloads.report.render import format_value
 
     project = _project("ga6_normal")
     angles = ground_angles(project.landing, gear_geometry(project))
@@ -453,7 +454,7 @@ def test_each_figure_names_its_axle_state_and_its_ground_angle():
     for figure, (_title, state, gra_index) in zip(figures, _GROUND_ATTITUDES):
         assert state in figure.title, (figure.title, state)
         assert state in figure.caption
-        assert f"{angles[gra_index]:.4g}" in figure.caption, (
+        assert format_value(angles[gra_index], "deg") in figure.caption, (
             gra_index, figure.caption)
 
 

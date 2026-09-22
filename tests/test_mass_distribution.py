@@ -536,7 +536,7 @@ def test_the_issued_document_states_every_mass_gap_it_ships_with(example):
     if check is not None and not check.ok:
         assert "not the same airplane" in text, example
         for value in (check.got, check.want):
-            assert format_value(value) in text, (example, value)
+            assert format_value(value, "lb") in text, (example, value)
     untagged = md.untagged_tail_surfaces(project)
     if untagged and project.weight is not None and project.weight.items:
         assert "not separately accounted" in text, example
@@ -551,7 +551,7 @@ def test_the_issued_document_states_every_mass_gap_it_ships_with(example):
             continue
         weight = md.tail_surface_weight(project, component)
         if weight:
-            assert format_value(weight) in text, (example, component, weight)
+            assert format_value(weight, "lb") in text, (example, component, weight)
         else:
             assert "absent inertia relief" in text, (example, component)
     # The wing tie is stated on every fixture, holding or not.

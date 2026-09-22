@@ -40,6 +40,7 @@ from ..gear_loads import (
 )
 from ..models import Project
 from ..units import DeliverableUnits, UnitSystem
+from .render import format_value
 
 
 # --------------------------------------------------------------------------- #
@@ -139,8 +140,8 @@ def case_index_rows_from(*groups: Sequence, assembled: Sequence = ()) -> List[di
                 "Run": ref.run,
                 "Config": ref.config,
                 "CG": ref.cg,
-                "Speed (kt)": f"{ref.speed_kt:.2f}" if ref.speed_kt is not None else "",
-                "Altitude (ft)": f"{ref.altitude_ft:.0f}" if ref.altitude_ft is not None else "",
+                "Speed (kt)": format_value(ref.speed_kt, "kt(EAS)") if ref.speed_kt is not None else "",
+                "Altitude (ft)": format_value(ref.altitude_ft, "ft") if ref.altitude_ft is not None else "",
                 "FAR": ref.far_reference,
             }
             by_id[ref.case_id] = row
@@ -375,9 +376,9 @@ def gear_report_rows(project: Project, units: Optional[DeliverableUnits] = None,
                 "Wheel": "starboard" if leg.leg == MAIN else "centreline",
                 "Carrier": leg.carrier.value if leg.carrier is not None else "",
                 "Strut state": leg.strut_state,
-                "Ground angle (deg)": f"{leg.ground_angle_deg:.3f}",
+                "Ground angle (deg)": format_value(leg.ground_angle_deg, "deg"),
                 "Stroke": fmt(leg.stroke_in * u.length.factor),
-                "Stroke (%)": f"{leg.stroke_fraction * 100:.1f}",
+                "Stroke (%)": format_value(leg.stroke_fraction * 100, "%"),
                 "Patch X": fmt(px), "Patch Y": fmt(py), "Patch Z": fmt(pz),
                 "Ground-line V": fmt(gv), "Ground-line D": fmt(gd),
                 "Ground-line S": fmt(gs),

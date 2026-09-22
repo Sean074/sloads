@@ -120,7 +120,7 @@ Four rulings, and the costs they book:
 
 The efficiency claim is stated narrowly, because it was measured: the
 convergence saves **one** tier-S row of duplicated effort (#255). `format_value`
-(#161) has **zero** `app/` call sites — 164 in `sloads/report/`, three in
+(the precision row, closed at #161) has **zero** `app/` call sites — 164 in `sloads/report/`, three in
 `oracle_app/` — the override cross-check (#243) lives at `oracle_app/form.py`,
 #177 and #239 are on the survivor, and D-56.2's seven `app/views/` consumers
 were already paid on 2026-09-10/11. The gain is not avoided rework: it is that
@@ -256,7 +256,7 @@ clause, which knew of no milestone between.
 > One correction the review makes to itself: the deck's wing set comes from
 > SELECT, so the ATR's single entered wing case (now #260's E6) reaches the
 > WINGINER distributions and the report, not the deck. Renumbered densely,
-> **Pri 1–30**: B6 0 rows, B7 2 (0 L, 1 M, 1 S), B8 5, B9 1, B2 8, C 8 *(recounted 2026-09-21 at the #293 closure)*.
+> **Pri 1–30**: B6 0 rows, B7 1 (0 L, 0 M, 1 S), B8 5, B9 1, B2 8, C 8 *(recounted 2026-09-21 at the #161 closure)*.
 > Cut clause unchanged.
 
 > **B6 is retired: 0.8.5 was cut on 2026-09-16** (tag `v0.8.5`; the release-cut
@@ -318,7 +318,6 @@ keeps its body in *Open defects*, and the [E]/[V] detail sections hold the rest.
 | Pri | Item (detail below / in its plan) | What ships | Tag | Tier / effort | Depends on |
 |---|---|---|---|---|---|
 | **B7 — 0.8.6: the baseline wave** ||||||
-| 6 | **`format_value` prints inconsistent precision and flips notation on integral values** — `%g` strips significant zeros and switches notation at 1e5; ~84 call sites, every delivered table cell *(owner's PDF review 2026-09-01, OR-14)* (#161) | Consistent fixed-significant-figure rendering, design note first; lands **last** in the baseline wave since it reformats what the others produce | V | M / M | design note; the baseline wave |
 | 7 | **Two engine-mount conditions per engine state no point of application** — the 23.361(b)(1) sudden-stoppage torque and the 23.371(b) gyroscopic condition carry no `loc_*` values while the four beside them for the same engine do. Until 2026-09-07 the index filled the gap with the *first* location in the set, publishing the right-hand engine's stoppage torque and its four gyroscopic sub-cases at the **left-hand** engine's butt line — ten rows on `atr42_100` and `dhc8_dash8`, fifteen on `concept_regional_jet`. Note 44 OR-193 carried the fix at the render boundary (a condition with no point takes the point of the condition it follows, which is that engine's, gated on every fixture); the **producer** stating the point on every condition it emits is the proper repair, and `modules/engine.py` is frozen for 0.8.2 *(note 44 §22, OR-193)* (#210) | `modules/engine.py` emitting `loc_x`/`loc_y`/`loc_z` on all six conditions, and `_running_locations` reduced to the identity it should be | V | S / S | — *(the OR-13 freeze lifted at the 0.8.2 cut; the row was stranded on a satisfied dependency until the 2026-09-14 re-cut)* |
 | **B8 — 0.8.7: report polish** ||||||
 | 8 | **Override cross-check warnings fire below display precision and print two identical numbers** *(2026-09-08 review G6)* (#243) | One owner for the comparison tolerance (display precision or a stated rel-tol) so every cross-check warning behaves the same | V | S / S | — |

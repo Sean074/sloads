@@ -13,6 +13,7 @@ text output (see CLAUDE.md's ultimate-load contract).
 
 from __future__ import annotations
 
+import math
 import re
 from enum import Enum
 from typing import Callable, Dict, List, NamedTuple, Optional, Sequence
@@ -32,40 +33,72 @@ from ..load_keys import (
     parse_gyro_key,
 )
 from ..models import ConditionResult, CriticalCondition, EngineInput, LoadValue
-from ..units import UnitSystem, canonical, convert_results
+from ..units import (
+    DELIVERED_FLOOR_SIG,
+    DELIVERED_SIG,
+    UnitSystem,
+    canonical,
+    convert_results,
+    delivered_precision,
+)
 from ..units import is_load_unit as _is_load_unit
 
 
-def format_value(value: float) -> str:
-    """Format one numeric cell for a table or the text report.
+def format_value(value: float, units: str = "") -> str:
+    """Format one numeric cell for a table, a CSV or the text report.
 
-    Public since G8.1: it was ``_fmt``, but ``tests/test_results_review.py``
-    already imported it across the module boundary, which the M4-12b public-symbol
-    contract (``PROJECT_GUIDE`` §5) makes a defect rather than a shortcut. Promoted
-    rather than re-exported under its private name.
+    Public since G8.1 (it was ``_fmt``; ``tests/test_results_review.py``
+    imported it across the module boundary, which the M4-12b public-symbol
+    contract makes a defect rather than a shortcut).
+
+    **The rule is the unit's, not the caller's** (design note 65). ``units`` is
+    the Imperial unit string the value carries -- ``lv.units``, or the
+    ``content.py`` dimension label -- and :func:`sloads.units.delivered_precision`
+    says what it prints at: a fixed decimal count (a load to the pound, a
+    station to 0.1 in, an angle to 0.01 deg), or four significant figures for
+    a dimensionless quantity. Neither branch ever switches to exponent form
+    inside the delivered window (below 1e-4 or at 1e9 and above nothing
+    sloads delivers lives, and there the plain spelling would be worse), and
+    a significant trailing zero is kept, so two cells of one column read at
+    one precision. A fixed-decimal cell that would show fewer than three
+    significant figures -- would print as ``0`` -- falls to the
+    significant-figure rule (D-65.3). An ``int`` with no fixed-decimal row
+    prints as itself (a count, a case number); one with a row prints at the
+    row, so a typed ``170`` kt and a loaded ``170.0`` are one cell.
 
     **Quantized first, because a printed byte may not hang on the last ulp**
-    (``CONVENTIONS.md`` §7 "platform-stable deliverable bytes", #147). The two
-    branches below are far apart -- an integral value prints in full, everything
-    else at four significant figures -- so on the raw double they made a
-    *discontinuous* function of it: ``-687258.0`` printed ``-687258`` while
-    ``-687257.9999999999``, the same load rotated through one more cosine,
-    printed ``-6.873e+05``. Both spellings shipped in one landing case, and the
-    choice between them moved with the libm build: macOS and glibc disagree in
-    the last ulp of ``sin``/``cos``, so the frozen Imperial digest passed on the
-    developer's Mac and failed on the Linux CI leg. Rounding to twelve
-    significant figures first absorbs any such difference (~1e-12 relative,
-    four orders above a double's ulp and far below anything a load means) and
-    makes both branches read the same number the reader sees. The residual knife
-    edge is a value within an ulp of a *twelfth*-digit boundary, which no
-    quantization can remove and no deliverable distinguishes.
+    (``CONVENTIONS.md`` §7 "platform-stable deliverable bytes", #147):
+    ``units.canonical`` rounds to twelve significant figures before anything
+    is formatted, so a platform's last-ulp disagreement in ``sin``/``cos``
+    cannot move a rounding tie. Before note 65 the function had two far-apart
+    spellings (an integral value in full, everything else ``%.4g``) and the
+    quantization was what kept ``-687258.0`` and ``-687257.9999999999`` on the
+    same side of that cliff; the cliff is gone and the quantization stays.
     """
-    if isinstance(value, int):
-        return str(value)
-    value = canonical(value)
-    if value == int(value):
-        return str(int(value))
-    return f"{value:.4g}"
+    decimals = delivered_precision(units)
+    if isinstance(value, int) and not isinstance(value, bool) and decimals is None:
+        return str(value)            # a count, a case number
+    value = canonical(float(value))
+    if value == 0.0:
+        return "0" if decimals is None else f"{0.0:.{decimals}f}"
+    if decimals is not None and abs(value) >= 10.0 ** (DELIVERED_FLOOR_SIG - 1 - decimals):
+        return f"{value:.{decimals}f}"
+    return _significant(value)
+
+
+def _significant(value: float) -> str:
+    """``value`` at :data:`DELIVERED_SIG` significant figures, plain decimal
+    with trailing zeros kept; exponent form only outside the delivered window."""
+    magnitude = abs(value)
+    if magnitude < 1e-4 or magnitude >= 1e9:
+        return f"{value:.{DELIVERED_SIG - 1}e}"
+    exponent = math.floor(math.log10(magnitude))
+    decimals = max(DELIVERED_SIG - 1 - exponent, 0)
+    text = f"{value:.{decimals}f}"
+    # rounding can carry into a new digit (9.9995 -> "10.000"): re-derive once
+    if abs(float(text)) >= 10.0 ** (exponent + 1) and decimals > 0:
+        text = f"{value:.{decimals - 1}f}"
+    return text
 
 
 def envelope_extremes(series: List[List[float]],
@@ -318,10 +351,10 @@ def results_to_rows(results: List[ConditionResult], *,
                     "Condition": r.title,
                     "Component": ref.component if ref else "",
                     "CG": ref.cg if ref else "",
-                    "Speed (kt)": format_value(ref.speed_kt) if ref and ref.speed_kt is not None else "",
-                    "Altitude (ft)": format_value(ref.altitude_ft) if ref and ref.altitude_ft is not None else "",
+                    "Speed (kt)": format_value(ref.speed_kt, "kt(EAS)") if ref and ref.speed_kt is not None else "",
+                    "Altitude (ft)": format_value(ref.altitude_ft, "ft") if ref and ref.altitude_ft is not None else "",
                     "Quantity": v.label,
-                    "Value": format_value(value),
+                    "Value": format_value(value, v.units),
                     "Units": _chan_units(v.units, v.quantity, channel, r.safety_factor),
                     "SF": sf_cell(r.safety_factor) if is_load else "",
                     "Frame": v.frame,
@@ -411,7 +444,7 @@ def governing_loads_table(
             if header not in seen:
                 seen.add(header)
                 load_cols.append(header)
-            row[header] = format_value(lv.value)
+            row[header] = format_value(lv.value, lv.units)
         partial.append(row)
 
     return _union_rows(partial, base_cols, load_cols)
@@ -483,7 +516,7 @@ def critical_rows(results: List[ConditionResult], *,
                 load_cols.append(header)
             row[header] = format_value(
                 _chan_value(lv.value, lv.units, lv.quantity,
-                            r.safety_factor, channel))
+                            r.safety_factor, channel), lv.units)
         partial.append(row)
     return _union_rows(partial, base_cols, load_cols)
 
@@ -574,7 +607,7 @@ def weight_station_rows(results: List[ConditionResult]) -> List[Dict[str, object
                 column = weight_col
             else:
                 column = station_col
-            row[column] = format_value(v.value)
+            row[column] = format_value(v.value, v.units)
             if v.quantity == "mass":
                 # The weight label names the point; a station-first pair
                 # (the CG-limit block lists stations before weights) still
@@ -971,18 +1004,18 @@ def load_cases_to_rows(results: List[ConditionResult], *,
             "Component": case_ref.component if case_ref else "",
             "Condition": case_ref.condition if case_ref else "",
             "CG": case_ref.cg if case_ref else "",
-            "Speed (kt)": _num(case_ref.speed_kt) if case_ref and case_ref.speed_kt is not None else "",
-            "Altitude (ft)": _num(case_ref.altitude_ft) if case_ref and case_ref.altitude_ft is not None else "",
+            "Speed (kt)": _num(case_ref.speed_kt, "kt(EAS)") if case_ref and case_ref.speed_kt is not None else "",
+            "Altitude (ft)": _num(case_ref.altitude_ft, "ft") if case_ref and case_ref.altitude_ft is not None else "",
             "SF": sf_cell(sf),
-            c_id[0]: _num(x),
-            c_id[1]: _num(y),
-            c_id[2]: _num(z),
-            c_vert: _num(_cell_value(fz, sf, channel)),
-            c_side: _num(_cell_value(fy, sf, channel)),
-            c_thr: _num(_cell_value(fx, sf, channel)),
-            c_roll: _num(_cell_value(mx, sf, channel)),
-            c_pitch: _num(_cell_value(my, sf, channel)),
-            c_yaw: _num(_cell_value(mz, sf, channel)),
+            c_id[0]: _num(x, len_u),
+            c_id[1]: _num(y, len_u),
+            c_id[2]: _num(z, len_u),
+            c_vert: _num(_cell_value(fz, sf, channel), force_u),
+            c_side: _num(_cell_value(fy, sf, channel), force_u),
+            c_thr: _num(_cell_value(fx, sf, channel), force_u),
+            c_roll: _num(_cell_value(mx, sf, channel), mom_u),
+            c_pitch: _num(_cell_value(my, sf, channel), mom_u),
+            c_yaw: _num(_cell_value(mz, sf, channel), mom_u),
         }
 
     rows: List[Dict[str, object]] = []
@@ -1027,11 +1060,11 @@ def _cell_value(value, sf: Optional[float],
     return value
 
 
-def _num(value) -> str:
-    """Format a numeric cell; blank for missing components."""
+def _num(value, units: str = "") -> str:
+    """Format a numeric cell at ``units``'s precision; blank for missing components."""
     if value == "" or value is None:
         return ""
-    return format_value(value)
+    return format_value(value, units)
 
 
 def module_text_report(title: str, results: List[ConditionResult], *,
@@ -1056,7 +1089,7 @@ def module_text_report(title: str, results: List[ConditionResult], *,
             unit = f" {unit_str}" if unit_str else ""
             value = _chan_value(v.value, v.units, v.quantity,
                                 r.safety_factor, channel)
-            lines.append(f"    {v.label:<38}{format_value(value)}{unit}")
+            lines.append(f"    {v.label:<38}{format_value(value, v.units)}{unit}")
         if r.note:
             lines.append(f"    NOTE: {r.note}")
         lines.append("")
@@ -1095,7 +1128,7 @@ def text_report(
             unit = f" {unit_str}" if unit_str else ""
             value = _chan_value(v.value, v.units, v.quantity,
                                 r.safety_factor, channel)
-            lines.append(f"    {v.label:<38}{format_value(value)}{unit}")
+            lines.append(f"    {v.label:<38}{format_value(value, v.units)}{unit}")
         if r.note:
             lines.append(f"    NOTE: {r.note}")
         lines.append("")

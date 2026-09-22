@@ -1213,7 +1213,7 @@ def test_section_two_invents_no_number():
                 continue
             for condition in result.conditions:
                 for value in condition.values:
-                    sourced.add(format_value(value.value))
+                    sourced.add(format_value(value.value, value.units))
 
     empennage = project.geometry.empennage
     echoed = ((empennage.htail, osec._HTAIL_ROWS),
@@ -1222,21 +1222,21 @@ def test_section_two_invents_no_number():
               (project.flap_loads, osec._FLAP_ROWS))
     echoed += tuple((tab, osec._TAB_ROWS) for tab in project.tab_loads.tabs)
     for source, rows in echoed:
-        for attr, _label, _units in rows:
+        for attr, _label, units in rows:
             value = getattr(source, attr, None)
             if value is not None:
-                sourced.add(format_value(value))
+                sourced.add(format_value(value, units))
     mac_ref = mac_reference(project)
     for case in project.weight.cg_cases:
-        sourced.update(format_value(v)
-                       for v in (case.weight_lb, case.xcg, case.zcg))
+        sourced.add(format_value(case.weight_lb, "lb"))
+        sourced.update(format_value(v, "in") for v in (case.xcg, case.zcg))
         # The %MAC column is the *same* station in another reference, so its
         # source is the entered station put through the one relation's owner.
         # Deliberately narrow: only a case's own xcg, only through
         # ``station_to_pct_mac``, only against the resolver's reference -- a
         # column derived any other way, or from a second reading of the wing,
         # still lands in ``unaccounted``.
-        sourced.add(format_value(station_to_pct_mac(case.xcg, mac_ref)))
+        sourced.add(format_value(station_to_pct_mac(case.xcg, mac_ref), "%MAC"))
 
     numeric = {cell for cell in printed
                if cell and (cell[0].isdigit() or cell[0] == "-")
@@ -1689,7 +1689,7 @@ def test_the_cg_case_table_prints_the_percent_mac_relation_and_its_reference():
     assert "%MAC = 100 (X - XLEMAC) / MAC" in note
     assert "X = XLEMAC + (%MAC / 100) MAC" in note
     ref = mac_reference(project)
-    assert format_value(ref.xlemac) in note and format_value(ref.mac) in note
+    assert format_value(ref.xlemac, "in") in note and format_value(ref.mac, "in") in note
     assert "planform" in note
 
 
@@ -1713,18 +1713,18 @@ def test_the_planform_table_prints_the_pair_every_pct_mac_is_measured_from():
     rows = {row[0]: row[1] for row in table.rows}
     ref = mac_reference(project)
     assert ref is not None and ref.source == "planform"
-    assert rows["MAC"] == format_value(ref.mac)
-    assert rows["XLE(MAC) station of MAC LE"] == format_value(ref.xlemac)
+    assert rows["MAC"] == format_value(ref.mac, "in")
+    assert rows["XLE(MAC) station of MAC LE"] == format_value(ref.xlemac, "in")
     # The GA-6 wing is cranked (LE break at BL 46.5), so the retired
     # parametric-trapezoid pair genuinely differs -- the equality above cannot
     # pass by both tables reading the trapezoid.
     from sloads.modules.configuration import _wing_geometry
     parametric = _wing_geometry(project.geometry.parametric)
-    assert (format_value(parametric["XLE(MAC) station of MAC LE"])
+    assert (format_value(parametric["XLE(MAC) station of MAC LE"], "in")
             != rows["XLE(MAC) station of MAC LE"])
     # 2.2 prints the same pair and attributes it to the planform of 2.1.
     note = _cg_case_table(project).note or ""
-    assert format_value(ref.xlemac) in note and format_value(ref.mac) in note
+    assert format_value(ref.xlemac, "in") in note and format_value(ref.mac, "in") in note
     assert "planform stated in 2.1" in note
 
 
@@ -2124,9 +2124,9 @@ def test_the_envelope_vertex_table_is_wtenv_s_own_result():
         assert count and sum(1 for r in table.rows if r[0].startswith(edge)) == count
         for i in range(1, count + 1):
             assert printed[f"{edge} {i}"] == [
-                format_value(values[f"{prefix}_{i}_weight"]),
-                format_value(values[f"{prefix}_{i}_station"]),
-                format_value(values[f"{prefix}_{i}_waterline"])]
+                format_value(values[f"{prefix}_{i}_weight"], "lb"),
+                format_value(values[f"{prefix}_{i}_station"], "in"),
+                format_value(values[f"{prefix}_{i}_waterline"], "in")]
 
 
 def test_the_weight_cg_figure_states_no_load_and_no_safety_factor():
@@ -2490,7 +2490,7 @@ def test_the_appendix_separates_the_applied_loads_from_the_carried_ones():
     # row is the root station's carried shear.
     station = net[0].stations[0]
     assert carried.rows[0][carried.columns.index("Sz (lb)")] == format_value(
-        station.sz)
+        station.sz, "lb")
     # B.1 is the **delivered** applied set, which note 56 D-56.9 states at the
     # beam's grids -- so its first row is a grid's summed load, not the root
     # station's own. Checked against the owner rather than against a station,
@@ -2500,7 +2500,7 @@ def test_the_appendix_separates_the_applied_loads_from_the_carried_ones():
     from sloads.report import applied as ap
 
     first = ap.applied_loads("wing", net, project)[0]
-    assert applied.rows[0][applied.columns.index("Fz (lb)")] == format_value(first.fz)
+    assert applied.rows[0][applied.columns.index("Fz (lb)")] == format_value(first.fz, "lb")
 
 
 def test_the_cumulative_table_carries_the_chord_bending():
@@ -2522,7 +2522,7 @@ def test_the_cumulative_table_carries_the_chord_bending():
     for result in net:
         for station in result.stations:
             assert carried.rows[row][column] == format_value(
-                station.mzz)
+                station.mzz, "lb-in")
             row += 1
     assert row == len(carried.rows)
 
@@ -2901,7 +2901,7 @@ def test_the_register_states_the_matrix_the_selection_actually_searched():
     for cg in sorted({p.cg for p in points}):
         assert cg in body
     for altitude in sorted({p.altitude_ft for p in points}):
-        assert f"{format_value(altitude)} ft" in body
+        assert f"{format_value(altitude, 'ft')} ft" in body
 
 
 def test_an_entered_wing_case_list_is_not_reported_as_the_selections_result():

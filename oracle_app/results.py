@@ -330,8 +330,8 @@ def weight_estimate_advisory(project: Project, system: UnitSystem) -> str:
     for i, r in enumerate(rows):
         est, entered, delta = display[3 * i:3 * i + 3]
         parts.append(
-            f"**{r.quantity}** — estimate {format_value(est.value)} {est.units} "
-            f"against {format_value(entered.value)} {entered.units} entered "
+            f"**{r.quantity}** — estimate {format_value(est.value, est.units)} {est.units} "
+            f"against {format_value(entered.value, entered.units)} {entered.units} entered "
             f"({delta.value:+.0f} {delta.units}, {r.delta_pct:+.1f} %)")
     return f"{_ESTIMATE_ADVISORY} " + "; ".join(parts) + "."
 

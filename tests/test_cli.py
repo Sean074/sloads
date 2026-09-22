@@ -220,7 +220,7 @@ def test_the_load_case_csv_carries_the_stamp_and_still_parses(tmp_path):
     headers = [h or "" for h in rows[0]]
     assert any("(lb)" in h for h in headers), headers
     assert not any("-ULT" in h for h in headers), headers
-    assert rows[0]["SF"] == "1.5", "the factor is stated, not applied"
+    assert rows[0]["SF"] == "1.500", "the factor is stated, not applied"  # note 65 D-65.6
 
 
 def test_a_stamped_headless_deck_still_parses_as_bulk_data(tmp_path):

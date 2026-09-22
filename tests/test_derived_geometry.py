@@ -832,7 +832,8 @@ def test_the_report_column_and_wtenv_measure_the_same_wing():
             continue
         assert math.isclose(
             float(row[pct_col]),
-            station_to_pct_mac(float(row[station_col]), ref), abs_tol=0.02), row
+            station_to_pct_mac(float(row[station_col]), ref),
+            abs_tol=0.06), row   # the station prints to 0.1 in (note 65): 0.05 in on a 104-in MAC is 0.05 % MAC
         checked += 1
     assert checked, "the document printed no station/% MAC pair to check"
 

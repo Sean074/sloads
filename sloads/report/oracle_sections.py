@@ -143,7 +143,7 @@ def _cell(value: LoadValue) -> Tuple[str, str]:
     than a silently plausible number.
     """
     units = ultimate_units(value.units, value.quantity)
-    return format_value(value.value), units
+    return format_value(value.value, value.units), units
 
 
 def _rows(condition: Optional[ConditionResult], *, skip: Sequence[str] = (),
@@ -838,7 +838,7 @@ def _cg_case_table(project: Project, system: UnitSystem) -> Optional[Table]:
             u.plain(case.xcg, "length"),
             # ``case.xcg`` is internal inches and a percentage is dimensionless,
             # so this converts once, through the relation's owner, and not again.
-            format_value(station_to_pct_mac(case.xcg, ref)) if ref else "--",
+            format_value(station_to_pct_mac(case.xcg, ref), "%MAC") if ref else "--",
             u.plain(case.zcg, "length"),
             ", ".join(analyses) or "--",
         ])
@@ -928,9 +928,9 @@ def _envelope_vertex_table(result: Optional[ModuleResult],
             # ordinal in its own column: an ordinal is not a quantity, and a
             # column of naked integers beside three of measurements invites the
             # reader to read one as the other.
-            rows.append([f"{edge} {index}", format_value(cell["weight"]),
-                         format_value(cell["station"]),
-                         format_value(waterline) if waterline is not None
+            rows.append([f"{edge} {index}", format_value(cell["weight"], "lb"),
+                         format_value(cell["station"], "in"),
+                         format_value(waterline, "in") if waterline is not None
                          else "--"])
     if not rows:
         return None
@@ -1286,7 +1286,10 @@ def _corner_table(blocks: Sequence[Tuple[str, Dict[str, ConditionResult]]],
         for _name, case in _CORNERS:
             condition = cases.get(case)
             point = _point(condition) if condition is not None else None
-            row.append(format_value(point[1]) if point is not None else "")
+            # At the module's own unit for the factor (dimensionless on the
+            # envelope), so the cell is the source value printed, not re-typed.
+            row.append(format_value(point[1], _by_key(condition)["load_factor_nz"].units)
+                       if point is not None else "")
         rows.append(row)
     if not rows:
         return None
@@ -1360,10 +1363,10 @@ def _mach_limit_table(result: Optional[ModuleResult],
         values = _by_key(condition)
         if "altitude" not in values:
             continue
-        row = [format_value(values["altitude"].value)]
+        row = [format_value(values["altitude"].value, "ft")]
         for _name, key in _MACH_LIMIT_COLUMNS:
             value = values.get(key)
-            row.append(format_value(value.value) if value is not None else "")
+            row.append(format_value(value.value, value.units) if value is not None else "")
             if value is not None and not units:
                 units = value.units
         rows.append(row)
@@ -1460,7 +1463,7 @@ def _load_cell(value: LoadValue, sf: float) -> Tuple[str, str]:
     2's ``sf=1.0`` cannot trip that, because it passes no loads.
     """
     marked = ultimate_units(value.units, value.quantity) if sf == 1.0 else value.units
-    return format_value(value.value), marked
+    return format_value(value.value, value.units), marked
 
 
 def _required_sf(condition) -> float:
@@ -1934,10 +1937,10 @@ def _matrix_sentence(envelope) -> str:
     cgs = sorted({p.cg for p in points})
     altitudes = sorted({p.altitude_ft for p in points})
     conditions = len({p.condition for p in points})
-    altitude_text = (f"the single altitude {format_value(altitudes[0])} ft"
+    altitude_text = (f"the single altitude {format_value(altitudes[0], 'ft')} ft"
                      if len(altitudes) == 1
                      else "the altitudes "
-                          + ", ".join(f"{format_value(a)} ft" for a in altitudes))
+                          + ", ".join(f"{format_value(a, 'ft')} ft" for a in altitudes))
     return (
         f"The selection searches the balanced V-n matrix: {len(points)} points, "
         f"every combination of {len(configs)} configuration"
@@ -2001,10 +2004,10 @@ def _wing_case_table(project: Project, net: Sequence[object],
             getattr(ref, "far_reference", "") or "--",
             cg or "--",
             u.plain(weight, "mass") if weight is not None else "--",
-            format_value(getattr(ref, "speed_kt", 0.0) or 0.0),
-            format_value(getattr(ref, "altitude_ft", 0.0) or 0.0),
-            format_value(getattr(result, "nz", 0.0)),
-            format_value(getattr(result, "nx", 0.0)),
+            format_value(getattr(ref, "speed_kt", 0.0) or 0.0, "kt(EAS)"),
+            format_value(getattr(ref, "altitude_ft", 0.0) or 0.0, "ft"),
+            format_value(getattr(result, "nz", 0.0), "g"),
+            format_value(getattr(result, "nx", 0.0), "g"),
         ])
     return Table(
         title="Wing load cases run",
@@ -2253,8 +2256,8 @@ def _variant_table(project: Project, envelope: object,
     for v in table.variants:
         mark = "governing" if v.governing else ("air pick" if v.air_pick else "")
         rows.append([
-            v.slot, v.cg, v.run, format_value(v.altitude_ft), v.config or "--",
-            u.plain(v.weight_lb, "mass"), format_value(v.v_eas_kt), format_value(v.nz),
+            v.slot, v.cg, v.run, format_value(v.altitude_ft, "ft"), v.config or "--",
+            u.plain(v.weight_lb, "mass"), format_value(v.v_eas_kt, "kt(EAS)"), format_value(v.nz, "g"),
             u.plain(v.air_root_mxx, "moment"), u.plain(v.inertia_root_mxx, "moment"),
             u.plain(v.root_mxx, "moment"), mark or "--",
         ])
@@ -2910,7 +2913,7 @@ def _beam_reconciliation(project: Project, system: UnitSystem) -> str:
     lighter = "lighter" if check.gap < 0.0 else "heavier"
     return (f"The two tables are not the same airplane: {account} -- "
             f"{u.plain(abs(check.gap), 'mass')} {mass} {lighter}, "
-            f"{share:.0f} % of the beam, past the "
+            f"{share:.0f} % of the beam, past the "  # note 65 exempt: a share the sentence composes
             f"{FUSELAGE_GAP_WARN_FRACTION * 100:g} % at which an entered table "
             "is a rounding of the item data base rather than a disagreement "
             "with it. " + ("Every load in this section is the beam's, not the "
@@ -3036,7 +3039,7 @@ def _body_side_view(project: Project, system: UnitSystem) -> Figure:
         series.append(Series(
             "Fuselage beam (LRA)", [x * scale for x in xs],
             [lra.z_at(x) * scale for x in xs], "solid"))
-    points = [(format_value(station.weight_lb * u.plain_value(1.0, "mass")),
+    points = [(format_value(station.weight_lb * u.plain_value(1.0, "mass"), "lb"),
                station.x * scale, station.z * scale)
               for station in beam if station.weight_lb]
     vlines = []
@@ -3091,8 +3094,8 @@ def _carry_through_sentence(project: Project, system: UnitSystem) -> str:
             "the wing reaction has no box to stand in and the beam is not "
             "produced. The consequence is stated with the distributions.")
     scale, length = _length_channel(system)
-    span = (f"{format_value(carry.x_f * scale)} to "
-            f"{format_value(carry.x_r * scale)} {length}")
+    span = (f"{format_value(carry.x_f * scale, 'in')} to "
+            f"{format_value(carry.x_r * scale, 'in')} {length}")
     # An assumed wing station (no side of body) is stated in the register's
     # own words, beside the spars it sits between (note 64 §7b amendment 2).
     net = _body_net(project)
@@ -3103,8 +3106,8 @@ def _carry_through_sentence(project: Project, system: UnitSystem) -> str:
             "The wing carry-through runs from fuselage station "
             f"{span}, and neither station was entered for this airplane: "
             "both are the estimator's, placed at "
-            f"{format_value(carry.front_pct * 100.0)} and "
-            f"{format_value(carry.rear_pct * 100.0)} per cent of the root "
+            f"{format_value(carry.front_pct * 100.0, '%')} and "
+            f"{format_value(carry.rear_pct * 100.0, '%')} per cent of the root "
             "chord. Every wing-attach fitting load in this document is "
             "therefore sized on assumed geometry. The spar stations are an "
             "input of this analysis, so entering the measured ones replaces "
@@ -3409,7 +3412,7 @@ def _critical_summary_table(project: Project,
             elif dim:
                 row.append(_load_cell(value, sf)[0])
             else:
-                row.append(format_value(value.value))
+                row.append(format_value(value.value, value.units))
         rows.append(row)
     return Table(
         title="Critical fuselage loads (LIMIT)", columns=columns, rows=rows,
@@ -4389,8 +4392,8 @@ def _tail_state_table(project: Project, component: str,
             _fmt_angle(getattr(condition, "alpha_tail_deg", None)),
             _fmt_angle(getattr(condition, "delta_deg", None)),
             _fmt_angle(getattr(condition, "beta_deg", None)),
-            _scalar_cell(getattr(condition, "q_psf", None), q_scale),
-            _scalar_cell(extra.value if extra is not None else None, i_scale),
+            _scalar_cell(getattr(condition, "q_psf", None), q_scale, "lb/ft^2"),
+            _scalar_cell(extra.value if extra is not None else None, i_scale, "slug-ft^2"),
         ])
     return Table(
         title="Aerodynamic state of each condition",
@@ -4442,7 +4445,7 @@ def _inertia_basis(project: Project, component: str) -> str:
 
 def _fmt_angle(value) -> str:
     """An angle cell: the value, or empty where the method defines none."""
-    return "--" if value is None else format_value(value)
+    return "--" if value is None else format_value(value, "deg")
 
 
 def _tail_summary(project: Project, component: str, *,
@@ -4486,9 +4489,10 @@ def _scalar_channel(units: str, system: UnitSystem) -> Tuple[float, str]:
     return float(converted.value), converted.units
 
 
-def _scalar_cell(value, scale: float) -> str:
-    """One converted scalar cell, or ``--`` where the method defines none."""
-    return "--" if value is None else format_value(value * scale)
+def _scalar_cell(value, scale: float, units: str = "") -> str:
+    """One converted scalar cell at the Imperial ``units``'s precision (note 65
+    D-65.5), or ``--`` where the method defines none."""
+    return "--" if value is None else format_value(value * scale, units)
 
 
 # --- 5.3 / 6.3 -- the chordwise distribution -------------------------------- #
@@ -4509,7 +4513,7 @@ def _tail_chord_stations_table(results: Sequence[TailChordResult],
         return None
     meanings = ["Leading edge", "Quarter chord", "Trailing edge",
                 "Hinge line", "Chord less the hinge-line station"]
-    rows = [[f"X{i}", meaning, format_value(station.x * scale)]
+    rows = [[f"X{i}", meaning, format_value(station.x * scale, "in")]
             for i, (station, meaning) in enumerate(zip(stations, meanings), start=1)]
     return Table(
         title="Chord stations of the pressure profile",
@@ -4536,7 +4540,7 @@ def _tail_pressure_table(results: Sequence[TailChordResult],
         row = [_tail_case_id(result),
                u.load(getattr(result, "lt25", None), "force", sf),
                u.load(getattr(result, "lt50", None), "force", sf)]
-        row += [_scalar_cell(s.psi, pressure[0])
+        row += [_scalar_cell(s.psi, pressure[0], "lb/in^2")
                 for s in getattr(result, "stations", ())]
         row.append(format_value(sf))
         rows.append(row)
@@ -4598,7 +4602,7 @@ def _tail_constants_table(project: Project, component: str) -> Optional[Table]:
     return Table(
         title="Aerodynamic constants of the surface",
         columns=["Quantity", "Value", "Units"],
-        rows=[[v.label, format_value(v.value), v.units] for v in constants.values],
+        rows=[[v.label, format_value(v.value, v.units), v.units] for v in constants.values],
         note=("Reference constants, not loads: they carry no safety factor and "
               "nothing here is sized to them. Printed once because they are the "
               "same constants inside every condition above -- read from the "
@@ -4996,7 +5000,7 @@ def _tail_mass_provenance(project: Project, component: str,
                    f"{u.plain(check.got if override else check.want, 'mass')} "
                    f"{mass}, the "
             + ("tagged items" if override else "entered panel weight")
-            + f" -- differs by {share:.0f} %, so the two are not the same "
+            + f" -- differs by {share:.0f} %, so the two are not the same "  # note 65 exempt: prose share
               "surface and the one stated above is what the loads below were "
               "computed with.")
 
@@ -5546,9 +5550,9 @@ def _area_discrepancy(project: Project, surface: str, entered_sqft: float,
     sense = "larger" if difference > 0 else "smaller"
     return (
         f"The two entered areas of this {printed} disagree: the analysis was "
-        f"run on {format_value(entered_sqft * scale)} {units} and the entered "
-        f"outline encloses {format_value(drawn * scale)} {units}, "
-        f"{abs(difference):.0f} % {sense} than the area the pressure was "
+        f"run on {format_value(entered_sqft * scale, 'ft^2')} {units} and the entered "
+        f"outline encloses {format_value(drawn * scale, 'ft^2')} {units}, "
+        f"{abs(difference):.0f} % {sense} than the area the pressure was "  # note 65 exempt: prose share
         f"computed from. The "
         f"pressures above are the analysis's own and were computed from the "
         f"first of those; the figure below draws the second. Which is the "
@@ -5581,15 +5585,15 @@ def _control_case_table(records: Sequence[ControlSurfaceLoadResult],
         rows.append([
             str(record.case),
             _tail_case_id(record) if record.case_ref else "--",
-            format_value(record.v_kt),
+            format_value(record.v_kt, "kt(EAS)"),
             u.load(record.load_lb, "force", sf),
-        ] + [_scalar_cell(by_x.get(x), p_scale) for x in stations] + [
+        ] + [_scalar_cell(by_x.get(x), p_scale, "lb/in^2") for x in stations] + [
             format_value(sf)])
     return Table(
         title=title,
         columns=["Condition", "Case ID", "Speed (KEAS)",
                  f"Load ({u.ult_label('force')})"]
-                + [f"psi at {x:.2f}c ({p_units})" for x in stations]
+                + [f"psi at {x:.2f}c ({p_units})" for x in stations]  # note 65 exempt: a column header
                 + ["SF"],
         rows=rows, note=note)
 
@@ -5725,7 +5729,7 @@ def _flap_slipstream_table(result: Optional[ModuleResult],
         is_load = value.units.startswith("lb") or value.units.startswith("N")
         rows.append([value.label,
                      u.load(value.value, "force", sf) if is_load
-                     else format_value(value.value),
+                     else format_value(value.value, value.units),
                      (u.ult_label("force") if is_load else value.units),
                      sf_cell(sf) if is_load else ""])
     return Table(
@@ -5889,19 +5893,19 @@ def _tab_table(result: Optional[ModuleResult], project: Project,
         station = _TAB_STATION_NAMES.get(host, "Station")
         rows.append([
             _REGION_NAMES.get(_TAB_HOSTS.get(host, host), host or "--"),
-            f"{station} {format_value((getattr(spec, 'station_in', 0.0) or 0.0) * scale)} {length}"
+            f"{station} {format_value((getattr(spec, 'station_in', 0.0) or 0.0) * scale, 'in')} {length}"
             if spec is not None else "--",
-            _scalar_cell(getattr(spec, "area_sqft", None), area_scale)
+            _scalar_cell(getattr(spec, "area_sqft", None), area_scale, "ft^2")
             if spec is not None else "--",
-            _scalar_cell(getattr(spec, "mac_in", None), scale)
+            _scalar_cell(getattr(spec, "mac_in", None), scale, "in")
             if spec is not None else "--",
             format_value(values["tab_chord_ratio_e"].value)
             if "tab_chord_ratio_e" in values else "--",
             u.load(values["tab_load"].value, "force", sf)
             if "tab_load" in values else "--",
-            _scalar_cell(values["tab_le_pressure"].value, p_scale)
+            _scalar_cell(values["tab_le_pressure"].value, p_scale, "lb/in^2")
             if "tab_le_pressure" in values else "--",
-            _scalar_cell(values["tab_te_pressure"].value, p_scale)
+            _scalar_cell(values["tab_te_pressure"].value, p_scale, "lb/in^2")
             if "tab_te_pressure" in values else "--",
             sf_cell(sf),
         ])
@@ -6256,7 +6260,7 @@ def _engine_input_cell(value, units: str, system: UnitSystem) -> str:
     if not units:
         return format_value(value)
     scale, _label = _scalar_channel(units, system)
-    return format_value(float(value) * scale)
+    return format_value(float(value) * scale, units)
 
 
 def _engine_entered(value) -> bool:
@@ -6314,7 +6318,7 @@ def _engine_input_table(records: Sequence[_EngineRecord],
 
 def _engine_point_cell(point: Sequence[float], scale: float) -> str:
     """An ``(x, y, z)`` station as the one cell the oracle prints it as."""
-    return ", ".join(format_value(v * scale) for v in point)
+    return ", ".join(format_value(v * scale, "in") for v in point)
 
 
 def _engine_station_table(records: Sequence[_EngineRecord],
@@ -6333,7 +6337,7 @@ def _engine_station_table(records: Sequence[_EngineRecord],
             _engine_point_cell(eng.prop_cg, scale),
             _engine_point_cell(record.cases[0].point if record.cases
                                else (0.0, 0.0, 0.0), scale),
-            ", ".join(f"{c:.4f}" for c in record.axis)
+            ", ".join(format_value(c) for c in record.axis)
             + (" (ASSUMED)" if record.axis_assumed else ""),
         ])
     return Table(
@@ -6574,7 +6578,7 @@ def _engine_components_table(records: Sequence[_EngineRecord],
                 [str(case.engine), case.case_id or "--",
                  _engine_short_name(case.far, case.condition)]
                 + [u.load(component, "force", case.sf) for component in case.force]
-                + [format_value(component * scale) for component in case.moment]
+                + [format_value(component * scale, "lb-in") for component in case.moment]
                 + [sf_cell(case.sf)])
     force_label = u.ult_label("force", 1.0 if {c.sf for r in records
                                               for c in r.cases} == {1.0} else 0.0)
@@ -6605,7 +6609,7 @@ def _engine_thrust_line_table(records: Sequence[_EngineRecord],
     scale, moment_label = _engine_moment_channel(records, system)
     rows = [[str(case.engine), case.case_id or "--",
              _engine_short_name(case.far, case.condition),
-             format_value(case.torque * scale),
+             format_value(case.torque * scale, "ft-lb"),
              u.load(case.thrust, "force", case.sf),
              sf_cell(case.sf)]
             for record in records for case in record.cases]
@@ -7030,11 +7034,11 @@ def _oei_input_table(project: Project, cases: Sequence["VtailCase"],
             # than printed unsigned -- two rows that differ only in the sign
             # of this cell are inputs producing opposite-sign fin loads (#231).
             u.plain(-fc.sense * c.bleng, "length"),
-            format_value(c.maxhp),
+            format_value(c.maxhp, "hp"),
             u.plain(c.dia_ft * 12.0, "length"),
-            _scalar_cell(c.izz, i_scale),
+            _scalar_cell(c.izz, i_scale, "slug-ft^2"),
             u.plain(c.xcg, "length"),
-            format_value(c.alt_ft),
+            format_value(c.alt_ft, "ft"),
         ])
     if not rows:
         return None
@@ -7061,19 +7065,19 @@ def _oei_timing_table(cases: Sequence["VtailCase"]) -> Optional[Table]:
         return None
     c = cases[0].inputs
     rows = [
-        ["Corrective action delay", format_value(_OEI_DELAY_S), "s",
+        ["Corrective action delay", format_value(_OEI_DELAY_S, "s"), "s",
          "14 CFR 23.367(b): no earlier than 2 s after the failure."],
-        ["Thrust decay time", format_value(c.time2decay), "s",
+        ["Thrust decay time", format_value(c.time2decay, "s"), "s",
          "The failed engine's thrust ramps to zero over this time."],
-        ["Windmill drag build-up", format_value(c.time2drag), "s",
+        ["Windmill drag build-up", format_value(c.time2drag, "s"), "s",
          "Glauert windmilling drag reaches full value by this time and holds."],
-        ["Rudder travel time", format_value(c.inctimerud), "s",
+        ["Rudder travel time", format_value(c.inctimerud, "s"), "s",
          "Full rudder is reached this long after corrective action begins."],
-        ["Maximum rudder deflection", format_value(c.defl_rud_max), "deg",
+        ["Maximum rudder deflection", format_value(c.defl_rud_max, "deg"), "deg",
          "The rudder throw the recovery is flown with."],
-        ["Integration step", format_value(c.dt), "s",
+        ["Integration step", format_value(c.dt, "s"), "s",
          "Euler step of the march."],
-        ["Simulation bound", format_value(60.0), "s",
+        ["Simulation bound", format_value(60.0, "s"), "s",
          "A case that has not recovered by here is reported uncontrollable."],
     ]
     return Table(
@@ -7093,7 +7097,7 @@ def _oei_case_list_table(cases: Sequence["VtailCase"]) -> Optional[Table]:
             _oei_engine_number(fc.engine_index),
             fc.load_case.label,
             fc.load_case.far_reference,
-            format_value(fc.inputs.v_kt),
+            format_value(fc.inputs.v_kt, "kt(EAS)"),
             format_value(fc.load_case.safety_factor),
             "recovered" if fc.recovered else "NOT recovered",
         ])
@@ -7128,7 +7132,7 @@ def _oei_load_table(cases: Sequence["VtailCase"], system: UnitSystem) -> Optiona
             u.plain(fc.sense * s.lt25_at_peak_lb, "force"),
             u.plain(fc.sense * s.lt50_at_peak_lb, "force"),
             u.plain(fc.sense * s.max_tail_load_lb, "force"),
-            format_value(fc.peak.time),
+            format_value(fc.peak.time, "s"),
             format_value(fc.load_case.safety_factor),
         ])
     if not rows:
@@ -7170,11 +7174,11 @@ def _oei_response_table(cases: Sequence["VtailCase"], system: UnitSystem) -> Opt
         rows.append([
             fc.case_id,
             fc.load_case.label,
-            format_value(fc.inputs.v_kt),
+            format_value(fc.inputs.v_kt, "kt(EAS)"),
             u.plain(s.thrust_lb, "force"),
             u.plain(s.windmill_drag_lb, "force"),
-            format_value(s.max_yaw_rate_deg_s),
-            format_value(s.time_to_recovery_s) if s.recovered else "not recovered",
+            format_value(s.max_yaw_rate_deg_s, "deg/s"),
+            format_value(s.time_to_recovery_s, "s") if s.recovered else "not recovered",
         ])
     if not rows:
         return None
@@ -7246,7 +7250,7 @@ def _oei_figures(cases: Sequence["VtailCase"], system: UnitSystem
                      "takes effect. " + ("The march reached the 60 s bound "
                      "without the yaw returning through zero: this case did not "
                      "recover." if not fc.recovered else
-                     f"Recovery is complete at {format_value(fc.summary.time_to_recovery_s)} s."))))
+                     f"Recovery is complete at {format_value(fc.summary.time_to_recovery_s, 's')} s."))))
         out.append(Figure(
             key=f"{key}-load", family="oei_load",
             title=f"Fin load — {tag} ({fc.case_id})",
@@ -7262,7 +7266,7 @@ def _oei_figures(cases: Sequence["VtailCase"], system: UnitSystem
                                style="thick")],
                 vlines=marks),
             caption=(f"The peak total load falls at "
-                     f"t = {format_value(fc.peak.time)} s. "
+                     f"t = {format_value(fc.peak.time, 's')} s. "
                      f"This case is LIMIT at SF "
                      f"{format_value(fc.load_case.safety_factor)}"
                      + (" — 23.367(a)(2) classifies its loads as ULTIMATE, so the "
@@ -7469,8 +7473,8 @@ def _landing_geometry_table(project: Project, system: UnitSystem) -> Optional[Ta
         for cg_index, cg in enumerate(cgs):
             rows.append([
                 title, cg.name,
-                format_value(geo.gra[gra_index]),
-                format_value(geo.beta[gra_index]),
+                format_value(geo.gra[gra_index], "deg"),
+                format_value(geo.beta[gra_index], "deg"),
                 u.plain(geo.ap[gra_index][cg_index], "length"),
                 u.plain(geo.bp[gra_index][cg_index], "length"),
                 u.plain(geo.dp[gra_index][cg_index], "length"),
@@ -7483,7 +7487,7 @@ def _landing_geometry_table(project: Project, system: UnitSystem) -> Optional[Ta
                  f"CP ({length})"],
         rows=rows, small=True,
         note=(f"K = {format_value(geo.k)} and GAMMA = arctan K = "
-              f"{format_value(geo.gamma_deg)} deg; BETA is GAMMA less the ground "
+              f"{format_value(geo.gamma_deg, 'deg')} deg; BETA is GAMMA less the ground "
               "angle in the level attitude and the negative of the ground angle "
               "in the other two, whose reaction is normal to the ground. AP, BP "
               "and DP are the lever arms about the CG and the axles; CP is the "
@@ -7509,16 +7513,16 @@ def _landing_factor_table(project: Project,
     # quotation is no longer a quotation (#232).
     v_scale, v_units = _scalar_channel("ft/s", system)
     rows = [
-        ["Limit descent velocity", _scalar_cell(lf.sink_rate_fps, v_scale),
+        ["Limit descent velocity", _scalar_cell(lf.sink_rate_fps, v_scale, "ft/s"),
          v_units, "23.473(d): 4.4 (W/S)^0.25, held between 7 and 10 ft/s."],
-        ["Airplane load factor N (energy)", format_value(lf.airplane_load_factor),
+        ["Airplane load factor N (energy)", format_value(lf.airplane_load_factor, "g"),
          "", "LGFACTOR's drop-test work-energy estimate."],
-        ["Gear load factor NLG (energy)", format_value(lf.gear_load_factor), "",
+        ["Gear load factor NLG (energy)", format_value(lf.gear_load_factor, "g"), "",
          "N less the wing lift factor L."],
-        ["Airplane load factor N (governing)", format_value(n_gov), "",
+        ["Airplane load factor N (governing)", format_value(n_gov, "g"), "",
          "Entered on the project." if entered
          else "The energy value: no N is entered."],
-        ["Gear load factor NLG (governing)", format_value(nlg_gov), "",
+        ["Gear load factor NLG (governing)", format_value(nlg_gov, "g"), "",
          "N - L, always derived: the lift factor moves the reaction."],
     ]
     return Table(
@@ -7590,7 +7594,7 @@ def _landing_moment_table(cases: Sequence[_GroundCase],
                      u.load(c.pitch, "moment", 1.5),
                      u.load(c.roll, "moment", 1.5),
                      u.load(c.yaw, "moment", 1.5),
-                     format_value(c.nr), format_value(c.nv), format_value(c.nd)])
+                     format_value(c.nr, "g"), format_value(c.nv, "g"), format_value(c.nd, "g")])
     if not rows:
         return None
     return Table(
@@ -7676,7 +7680,7 @@ def _landing_free_body_table(project: Project,
         return None
     rows: List[List[str]] = []
     for (leg_name, state, angle, stroke), numbers in seen.items():
-        rows.append([leg_name, state, format_value(angle),
+        rows.append([leg_name, state, format_value(angle, "deg"),
                      u.plain(stroke, "length"),
                      _case_range_words(sorted(numbers))])
     return Table(
@@ -7804,7 +7808,7 @@ def _attitude_figure(project: Project, index: int, *,
     slope = math.tan(math.radians(angle))
     ref_x, ref_z = patches[-1]
     series.append(Series(
-        f"Ground line ({format_value(angle)} deg)", [x0, x1],
+        f"Ground line ({format_value(angle, 'deg')} deg)", [x0, x1],
         [ref_z + (x0 - ref_x) * slope, ref_z + (x1 - ref_x) * slope], "dashed"))
 
     points = [(cg.name, cg.xcg * scale, cg.zcg * scale) for cg in cgs]
@@ -7814,7 +7818,7 @@ def _attitude_figure(project: Project, index: int, *,
         f"The airplane in the {title.lower()} attitude, to scale on equal axes, "
         f"drawn in the airplane's own axes so the fuselage station line is "
         f"horizontal and the ground is what tilts. The ground angle is "
-        f"{format_value(angle)} deg, positive nose-up.",
+        f"{format_value(angle, 'deg')} deg, positive nose-up.",
         f"The wheels are drawn at the {state} axle positions with their "
         f"entered rolling radii, and the dotted line from each axle is the "
         f"radius to the contact patch the reaction acts through.",
@@ -8114,7 +8118,7 @@ def _lumping_table(comparisons: Sequence["ComponentComparison"],
             sf = entry.safety_factor if entry is not None else 0.0
             symbol = getattr(comparison.channels, f"{channel}_symbol")
             share = "" if reference == 0.0 else format_value(
-                100.0 * abs(gap) / reference)
+                100.0 * abs(gap) / reference, "%")
             rows.append([
                 _LUMPING_NAMES[comparison.component].capitalize(),
                 f"{letter} ({symbol})", case,
@@ -8309,14 +8313,14 @@ def _vn_rows(project: Project, env: "EnvelopeResult", u: Units
         # matrix that does not, so the weight lookup cannot come up empty.
         nx = inertia_drag_factor(p.dx, weights.get(p.cg, 0.0))
         cg, case = ids.get(p.cg, p.cg), str(p.case)
-        state = [cg, p.config, format_value(p.altitude_ft), case, p.condition,
-                 format_value(p.v_eas_kt), format_value(p.nz),
-                 format_value(p.alpha_deg), format_value(p.g_corr),
+        state = [cg, p.config, format_value(p.altitude_ft, "ft"), case, p.condition,
+                 format_value(p.v_eas_kt, "kt(EAS)"), format_value(p.nz, "g"),
+                 format_value(p.alpha_deg, "deg"), format_value(p.g_corr),
                  format_value(p.cl)]
         loads = [cg, case, p.condition,
                  u.load(p.m_wf, "moment", 0.0), u.load(p.lzw, "force", 0.0),
                  u.load(p.lt, "force", 0.0), u.load(p.dx, "force", 0.0),
-                 format_value(nx)]
+                 format_value(nx, "g")]
         loads += [", ".join(r.case_id for r in p.case_refs
                             if r.component == component)
                   for _prefix, component in _VN_COMPONENTS]
@@ -8906,7 +8910,7 @@ def _static_margin_figure(project: Project, system: UnitSystem) -> Figure:  # no
         caption=(
             f"Static margin is the neutral point less the centre of gravity, "
             f"both in per cent of the mean aerodynamic chord; the neutral point "
-            f"is {format_value(np_pct)} %MAC from the tail-volume estimate. It "
+            f"is {format_value(np_pct, '%MAC')} %MAC from the tail-volume estimate. It "
             f"is stated because it is what makes the balancing tail load above "
             f"the sign it is, and it is not a load: nothing in this report is "
             f"sized to it, no safety factor applies to it, and this analysis "

@@ -1309,7 +1309,7 @@ def _mass_cases_table(project: Project, system: UnitSystem
             "CG": r.cg_id or "\u2014", "Case": r.case, "Role": r.role or "\u2014",
             "Analyses": ", ".join(r.analyses) or "\u2014",
             f"W ({mass})": _m(r.weight_lb), f"Xcg ({length})": _l(r.xcg),
-            "Xcg (% MAC)": (format_value(r.pct_mac) if r.pct_mac is not None
+            "Xcg (% MAC)": (format_value(r.pct_mac, "%MAC") if r.pct_mac is not None
                             else "\u2014"),
             f"Zcg ({length})": _l(r.zcg),
             f"Loading W ({mass})": _m(r.loading_weight_lb),
@@ -1318,7 +1318,7 @@ def _mass_cases_table(project: Project, system: UnitSystem
             "Echo": echo,
             f"Fuel ({mass})": _m(r.fuel_lb), f"Payload ({mass})": _m(r.payload_lb),
             f"Ballast ({mass})": _m(r.ballast_lb),
-            "Ballast (%)": format_value(100.0 * r.ballast_fraction),
+            "Ballast (%)": format_value(100.0 * r.ballast_fraction, "%"),
             f"Wing panel/side ({mass})": _m(r.panel_weight_lb),
             f"Wing points/side ({mass})": (
                 f"{_m(r.point_weight_lb)} ({r.point_count})"

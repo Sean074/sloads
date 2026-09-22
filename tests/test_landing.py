@@ -981,13 +981,13 @@ def test_landing_csv_is_ultimate_and_carries_moments_and_factors():
     legs = delivered_gear_legs(gear_case_loads(p))[16]
     right = next(leg for leg in legs if leg.name == MAIN_RIGHT)
     force = quantities["Main right Fz"]
-    assert force["Units"] == "lb" and force["SF"] == "1.5"
+    assert force["Units"] == "lb" and force["SF"] == "1.500"  # note 65 D-65.6
     assert math.isclose(float(force["Value"]), right.force[2], rel_tol=1e-3)
     where = quantities["Main right z"]
     assert where["Units"] == "in" and where["SF"] == "", where
     assert math.isclose(float(where["Value"]), right.point[2], rel_tol=1e-3)
     moment = quantities["Unbalanced pitching moment (datum)"]
-    assert moment["Units"] == "lb-in" and moment["SF"] == "1.5"
+    assert moment["Units"] == "lb-in" and moment["SF"] == "1.500"
     assert math.isclose(float(moment["Value"]), by_case[16].pitch, rel_tol=1e-3)
     factor = quantities["Vertical load factor NV"]
     assert factor["Units"] == "" and factor["SF"] == "", factor
