@@ -278,6 +278,36 @@ tuples:
   63's D-63.7 a question of *mass state* only: the nz extremes are already
   in the slot set, so the variant expansion never has to recover them.
 
+  **In-code amendment at #294 (0.8.6 pre-cut review, 2026-09-22) — the
+  coincidence rule is a delivery rule, applied once, to the delivered set.**
+  As shipped it ran on the *air* picks, before note 63's re-pointing: on
+  baron_58 and concept_regional_jet NNZ was emptied against NMAA's air
+  pick, NMAA then moved to a zero-fuel case, and the 23.337(b) extreme
+  (Baron V-n case 153 at −2.345 g, RJ case 213 at −1.805 g) was carried by
+  nothing in the one deck that ships. `wing_slot_picks` is now the search
+  alone, `select.air_picks` lists every slot's pick whatever the other slots
+  picked, and `select_wing` applies `_coincidence_rule` after the
+  re-pointing: a PNZ/NNZ slot is empty only when the point it would deliver
+  is another *delivered* slot's. Two rulings travel with it: (i) the tie in
+  the table above is the balance's own band — two points converged to one
+  target differ by up to `2 × constants.NZ_BALANCE_TOL` (0.01 g) and are one
+  load factor, the tie going to the larger resultant; the shipped 1e-9
+  relative tie never matched two balanced points, so the resultant
+  tie-break never fired (on concept_heavy PNZ's air pick is now MAN A at
+  4.001 g over GUST +C at 4.002 g, and it still coincides, with PHAA); and
+  (ii) an air-pick slot (`AIR_PICK_SLOTS`) keeps its air pick without
+  exception — `wing_variant_table` assesses every air pick at its own CG
+  case, so the row always exists, and `_mark_governing` raises rather than
+  re-points such a slot on bending. Measured after: NNZ is delivered on the
+  Baron (W-10, at "fwd regardless", the record's until #290) and on the RJ
+  (W-10, assembled); the heavy's PNZ/NNZ still coincide (with PHAA and
+  NHAA) and are empty at delivery; ga6_normal and atr42_100 do not move.
+  Gates: G-62.1 gains its loss side — on every fixture each eligible
+  PNZ/NNZ extreme is carried by some delivered wing case — G-62.2 is
+  re-pinned on the air picks, G-62.5 holds the tie band to the tolerance
+  owner, and G-63.3 asserts the air pick for every air-pick slot with no
+  "assessed and not delivered" escape.
+
 - **D-62.7 — Fixtures' explicit wing-case tables are not touched here.**
   §1.5: every fixture enters `wing_mass.cases` by hand, so WINGINER/
   NETLOADS/AIRLOADS output does not move on any fixture in this issue. Which

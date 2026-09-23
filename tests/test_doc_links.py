@@ -43,7 +43,7 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _DOCS = os.path.join(_ROOT, "docs")
 
 #: Directories walked for markdown files. `.venv` and caches are not ours.
-_SKIP_DIRS = {".git", ".venv", "__pycache__", "node_modules", ".mypy_cache",
+_SKIP_DIRS = {".git", ".venv", ".claude", "__pycache__", "node_modules", ".mypy_cache",
               ".pytest_cache", ".ruff_cache", "htmlcov", "build", "dist"}
 #: Trees whose source files cite documentation paths in prose.
 _CITING_TREES = ("tests", "scripts", "sloads", "app", "app_shell", "oracle_app")

@@ -235,7 +235,7 @@ def test_no_second_spelling_of_the_release_state():
     offenders = []
     for base, dirs, files in os.walk(_ROOT):
         dirs[:] = [d for d in dirs if d not in
-                   {".git", ".venv", "__pycache__", ".pytest_cache", "reference",
+                   {".git", ".venv", ".claude", "__pycache__", ".pytest_cache", "reference",
                     "sloads.egg-info", "_to_delete", "_staging_tmp2", "projects"}]
         for name in files:
             if not name.endswith((".py", ".md", ".toml")):

@@ -111,6 +111,17 @@ TURBOPROP_TORQUE_FACTOR = 1.25
 # it (``tests/test_balance.py`` reads it from here).
 POLAR_TRUSTED_ALPHA_DEG = (-10.0, 15.0)
 
+# The FLTLOADS balance's load-factor resolution (FLTLOADS.BAS: the
+# angle-of-attack iteration stops when NZ lands within +-0.005 g of the
+# target). Every balanced V-n point carries this much noise in ``nz``, so it
+# is also the band within which two points' load factors are **the same
+# number** -- SELECT's PNZ/NNZ tie (D-62.8, #294: two points converged to one
+# target differ by up to twice this). Single owner: ``flight_envelope`` reads
+# it for the iteration, ``select`` for the tie, ``wing_variants`` cites it for
+# ``GOVERNING_TIE_REL``; never copy the literal (guard:
+# ``tests/test_select.py``).
+NZ_BALANCE_TOL = 0.005
+
 # --------------------------------------------------------------------------- #
 # Wing carry-through (Ref 1 Ch 15 p103 fuselage moment closure, M4-1)
 # --------------------------------------------------------------------------- #

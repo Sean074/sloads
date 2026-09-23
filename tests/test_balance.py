@@ -160,10 +160,12 @@ _WING_CASES = [("PHAA", ""), ("PLAA", ""), ("PMAA", ""), ("NMAA", "")]
 #: Design note 62's four slots above SELECT.BAS (#288, D-62.4), assembled
 #: symmetric after TORS in ``WING_SLOTS`` order. A slot is absent where it is
 #: **empty** (no eligible V-n point, or D-62.8's coincidence rule: PNZ/NNZ on
-#: ``concept_heavy`` and NNZ on the RJ coincide with a slot already delivered)
-#: or where its CG case has no derivable loading (``baron_58``: every new pick
-#: sits at "fwd gross"/"fwd regardless", recorded ``loading-not-derivable``,
-#: G-62.3). The per-fixture set is note 62 §4 G-62.2's table.
+#: ``concept_heavy`` coincide with a slot already delivered) or where its CG
+#: case has no derivable loading (``baron_58``: every new pick sits at "fwd
+#: gross"/"fwd regardless", recorded ``loading-not-derivable``, G-62.3). The
+#: per-fixture set is note 62 §4 G-62.2's table. NNZ on the Baron and the RJ
+#: is delivered since #294: it shares NMAA's air pick, NMAA re-points to a
+#: zero-fuel case, and the coincidence rule runs on the delivered set.
 _NOTE_62_CASES = {
     "ga6_normal.project.json": [("NHAA", ""), ("NLAA", ""), ("PNZ", ""), ("NNZ", "")],
     "atr42_100.project.json": [("NHAA", ""), ("NLAA", ""), ("PNZ", ""), ("NNZ", "")],
@@ -172,7 +174,7 @@ _NOTE_62_CASES = {
     # PNZ stays on the non-derivable `fwd regardless` and is the record's.
     "baron_58.project.json": [("NHAA", ""), ("NLAA", "")],
     "concept_heavy.project.json": [("NHAA", ""), ("NLAA", "")],
-    "concept_regional_jet.project.json": [("NHAA", ""), ("NLAA", ""), ("PNZ", "")],
+    "concept_regional_jet.project.json": [("NHAA", ""), ("NLAA", ""), ("PNZ", ""), ("NNZ", "")],
 }
 
 #: **Six of six fixtures assemble, since Pri 5 / D-26 (2026-08-15).** Four of
@@ -716,8 +718,9 @@ def test_the_note_62_slots_reach_the_deck_or_the_record(example):
     (D-62.4); neither slot is ever silently absent. On ``baron_58`` every new
     pick sits on a CG case the item database cannot derive ("fwd gross", "fwd
     regardless") -- until #292 (note 63 D-63.7) re-pointed NHAA and NLAA to
-    the seeded ``mzfw aft`` / ``mzfw fwd`` loadings; W-09 (PNZ, on ``fwd
-    regardless``) is still the record's, until #290 enters that loading.
+    the seeded ``mzfw aft`` / ``mzfw fwd`` loadings; W-09 (PNZ) and, since
+    #294, W-10 (NNZ), both on ``fwd regardless``, are the record's until
+    #290 enters that loading.
     """
     project = _project(example)
     skipped = []
@@ -735,7 +738,7 @@ def test_the_note_62_slots_reach_the_deck_or_the_record(example):
         if case.label in named:
             assert case.hand == "" and case.unbal_moment == 0.0, case.label
     if example == "baron_58.project.json":
-        assert set(recorded) == {"PNZ"}, recorded
+        assert set(recorded) == {"PNZ", "NNZ"}, recorded
 
 
 @pytest.mark.parametrize("example", _with_cases())

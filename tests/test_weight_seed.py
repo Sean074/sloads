@@ -152,9 +152,12 @@ def test_the_estimate_to_item_expansion_has_exactly_one_caller():
     what both front-ends ask.
     """
     callers = []
-    for base, _dirs, names in os.walk(_ROOT):
-        if any(part in base for part in (".venv", ".git", "__pycache__", "reference")):
-            continue
+    for base, dirs, names in os.walk(_ROOT):
+        # Prune by directory name, not by path substring: a worktree under
+        # `.claude/worktrees/` is a second copy of the repo, and the repo itself
+        # may sit under a path that spells one of these names.
+        dirs[:] = [d for d in dirs if d not in
+                   {".venv", ".git", ".claude", "__pycache__", "reference"}]
         for name in names:
             if not name.endswith(".py") or name == os.path.basename(__file__):
                 continue

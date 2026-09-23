@@ -85,6 +85,7 @@ from ..constants import (
     GUST_LOAD_FACTOR_DIVISOR,
     IN_PER_FT,
     KT_TO_FPS,
+    NZ_BALANCE_TOL,
     RHO_SL,
     G,
     dynamic_pressure_psf,
@@ -112,7 +113,7 @@ from ..models import (
     VnPoint,
     VTailLoadsInput,
 )
-from ..picks import TIE_REL, extreme
+from ..picks import extreme
 from ..registry import register
 from ..selectors import keyed
 from ._vtail import large_deflection_factor, lift_curve_slope, rudder_effectiveness
@@ -142,6 +143,12 @@ _POSITIVE_FAMILIES = _PHAA + _PLAA + _PMAA
 _NEGATIVE_FAMILIES = _NHAA + _NMAA + _NLAA
 #: The two slots D-62.8's coincidence rule applies to.
 _NZ_SLOTS = ("PNZ", "NNZ")
+#: Two V-n points whose ``nz`` differ by no more than this carry the **same
+#: load factor** (D-62.8's tie, #294): the balance converges each to within
+#: ``NZ_BALANCE_TOL`` of its target, so two points converged to one target
+#: differ by up to twice it. ``picks.TIE_REL`` (1e-9, relative) is the
+#: platform-stability tie and never matches two balanced points.
+NZ_TIE_BAND = 2.0 * NZ_BALANCE_TOL
 
 
 def _check_envelope_cg_cases(project: Project, env: EnvelopeResult) -> None:
@@ -324,15 +331,15 @@ def _pick_load_factor(vn: List[VnPoint], labels, eligible: Callable[[VnPoint], b
     """The eligible point with the extreme ``nz`` among ``labels`` (D-62.8).
 
     Largest ``nz`` for PNZ, most negative for NNZ; among points whose ``nz``
-    ties (to ``picks.TIE_REL``), the largest resultant -- the D-62.1 criterion
-    -- so the point delivered is the one that also loads the wing hardest.
+    ties (to :data:`NZ_TIE_BAND`), the largest resultant -- the D-62.1
+    criterion -- so the point delivered is the one that also loads the wing
+    hardest.
     """
     cands = [p for p in vn if p.condition in labels and eligible(p)]
     if not cands:
         return None
     best = extreme(cands, lambda p: p.nz, largest=largest)
-    band = TIE_REL * abs(best.nz)
-    tied = [p for p in cands if abs(p.nz - best.nz) <= band]
+    tied = [p for p in cands if abs(p.nz - best.nz) <= NZ_TIE_BAND]
     return extreme(tied, _resultant)
 
 
@@ -441,7 +448,7 @@ SLOT_LIFT_SIGN: Dict[str, float] = {
 AIR_PICK_SLOTS = ("TORS", "PNZ", "NNZ")
 
 
-def wing_slot_picks(project: Project, vn: List[VnPoint], *, coincide: bool = True
+def wing_slot_picks(project: Project, vn: List[VnPoint]
                     ) -> List[Tuple[str, str, Optional[VnPoint]]]:
     """The ten wing slots' picks over ``vn`` -- SELECT.BAS 3000's search plus
     the note 62 slots, in ``WING_SLOTS`` order, each ``(label, 14 CFR, point)``.
@@ -450,10 +457,11 @@ def wing_slot_picks(project: Project, vn: List[VnPoint], *, coincide: bool = Tru
     per-family **air pick** (:func:`air_picks`), or the points balanced at one
     CG case for that case's variant (``wing_variants``, D-63.7) -- the same
     criterion applied within the case. A slot with no eligible point is
-    ``None``. With ``coincide`` (the delivered set) D-62.8's coincidence rule
-    is applied: a load-factor-extreme point that is already another slot's
-    pick empties the PNZ/NNZ slot; the variant table asks without it, so
-    every slot is assessed at every case.
+    ``None``. This is the **search**: D-62.8's coincidence rule is not
+    applied here but once, on the delivered set (:func:`select_wing`,
+    #294) -- a slot's pick is a fact of the matrix whatever the other slots
+    picked, so every slot is assessed at every case and the air-pick slots
+    keep their air pick through the re-pointing.
     """
     si = project.select_input
     aileron_deg = resolved_full_down_aileron_deg(project)   # OV-2: blank derives
@@ -475,14 +483,20 @@ def wing_slot_picks(project: Project, vn: List[VnPoint], *, coincide: bool = Tru
         ("NNZ", "23.337(b)/23.341",
          _pick_load_factor(vn, _NEGATIVE_FAMILIES, _wing_lift_negative, largest=False)),
     ]
-    return _coincidence_rule(picks) if coincide else picks
+    return picks
 
 
 def _coincidence_rule(picks: List[Tuple[str, str, Optional[VnPoint]]]
                       ) -> List[Tuple[str, str, Optional[VnPoint]]]:
     """D-62.8's coincidence rule: a load-factor-extreme point that is already
     another slot's pick is one physical condition, delivered under one id
-    (case_ids M4-2 decision 1) -- the PNZ/NNZ slot is then empty."""
+    (case_ids M4-2 decision 1) -- the PNZ/NNZ slot is then empty.
+
+    Applied **once, to the delivered set** (#294): before the D-63.7
+    re-pointing it emptied NNZ against NMAA's *air* pick, and when NMAA then
+    moved to another mass state the load-factor extreme was carried by
+    nothing (``baron_58`` V-n case 153, ``concept_regional_jet`` 213).
+    """
     taken = {p.case for label, _, p in picks if p is not None and label not in _NZ_SLOTS}
     return [(label, far, None if (label in _NZ_SLOTS and p is not None and p.case in taken) else p)
             for label, far, p in picks]
@@ -494,9 +508,12 @@ def air_picks(project: Project, envelope: Optional[EnvelopeResult] = None
     conditions SELECT.BAS 3000 delivered, kept as the queryable intermediate
     of design note 63 D-63.7 (what the Appendix A test asserts).
 
-    Not stamped with a :class:`CaseRef`: the slot id belongs to the delivered
-    condition (:func:`select_wing`), which is the net-governing run and may be
-    another point of the same family at another mass state.
+    The search result, one per slot the matrix can fill: D-62.8's coincidence
+    rule is a *delivery* rule and is applied in :func:`select_wing` (#294),
+    so a PNZ/NNZ air pick is listed here even where it is another slot's
+    point. Not stamped with a :class:`CaseRef`: the slot id belongs to the
+    delivered condition, which is the net-governing run and may be another
+    point of the same family at another mass state.
     """
     vn = _resolve_envelope(project, envelope).vn
     weights = _cg_weights(project)
@@ -517,6 +534,12 @@ def select_wing(project: Project, envelope: Optional[EnvelopeResult] = None) -> 
     MTOW pick. A project the wing analysis cannot run on (no ``wing_mass``,
     geometry or aero) delivers the air picks unchanged. A re-pointed
     condition says so in its ``note``, naming both runs.
+
+    D-62.8's coincidence rule is applied **once, after** the re-pointing, to
+    the set actually delivered (#294): a PNZ/NNZ slot is empty only when the
+    point it would deliver is carried by another delivered slot, so a
+    load-factor extreme whose bending twin moved to another mass state is
+    still delivered, under its own id.
     """
     env = _resolve_envelope(project, envelope)
     weights = _cg_weights(project)
@@ -526,7 +549,8 @@ def select_wing(project: Project, envelope: Optional[EnvelopeResult] = None) -> 
 
     table = wing_variant_table(project, env, air)
     if not table.variants:
-        return air
+        return [_condition("wing", label, far, p, weights)
+                for label, far, p in _coincidence_rule(picks) if p is not None]
     by_case = {p.case: p for p in env.vn}
     governing = table.governing()
     repointed: List[Tuple[str, str, Optional[VnPoint]]] = []
