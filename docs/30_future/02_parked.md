@@ -287,6 +287,22 @@ is already in place — this is a category gate plus a per-category default in
 `resolve_mach_margin`, and an oracle-unchanged test. Pairs with the dormant
 "Distinct Commuter category" item. Effort: S.
 
+### [V] Mach-capped past-fit marker — rows published with coefficients extrapolated past the fitted stall alpha (#32) *(parked 2026-09-22 with the number zero)*
+
+**Was** band C row "Mach-capped balanced points are published with their
+coefficients extrapolated past the fitted stall alpha, and nothing says so"
+(from the #13 closure, D-30): a derived past-fit marker wherever a per-point
+quantity is published, reading `EnvelopeResult.is_clamped` (#33's owner).
+**Parked at the 2026-09-22 re-cut with the number that parks it: zero.** After
+#260 rebuilt the ATR fixture no shipped fixture reaches the Mach-capped
+clamped state at all — the small wing was what put the ATR's 25,000 ft
+manoeuvre points on the cap — and D-30's clamped state is exercised by
+`tests/test_convergence.py` on the same airplane balanced at 35,000 ft, a test
+case and not a deliverable. Effect on shipped content: none. **Activation:** a
+fixture, or a user project the owner wants in the examples, whose balanced
+points clamp; the marker is then tier M / S as the row stated, and the design
+is unchanged (`is_clamped` read, never re-derived).
+
 ### [V] Flutter-clearance Mach basis for transport concepts *(new 2026-08-08, from F25-2)*
 MACHLIM's `MFC = 1.2·MD` is GA-lineage (MACHLIM.BAS, Ref 1 Ch 6). Even with the
 RJ's dive speed corrected it gives **MFC 1.021** — transonic nonsense for a
@@ -303,7 +319,10 @@ input and checks the 25.335(a) ordering; **computing** it, and the full
 `VC ≥ VB + 1.32·U_ref` margin, both land here with the U_ref schedule — the VB
 formula is the Pratt K_g already in the gust engine, so it is cheap once U_ref
 exists); transport gust corner set —
-Pratt engine with the 25.341 U_ref schedule + F_g; MZFW design weight.
+Pratt engine with the 25.341 U_ref schedule + F_g. (MZFW as a design weight
+left this pack at #292 — note 63 D-63.5, `weight.max_zero_fuel_weight_lb`,
+the seeded `mzfw aft`/`mzfw fwd` cases; 25.321 reads **A** in
+[`04_far25_gap_analysis.md`](04_far25_gap_analysis.md).)
 Identity test: "T" with FAR 23 parameters reproduces the FAR 23 envelope. The
 dive-speed machinery is already built (F25-2): "T" inherits
 `structural_speeds.resolve_mach_margin` and the `vd_basis` enum unchanged — only
