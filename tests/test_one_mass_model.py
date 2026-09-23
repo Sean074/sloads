@@ -329,29 +329,37 @@ def test_the_variant_table_is_complete_and_the_slot_is_delivered_at_its_governin
     envelope, table = _variants(p)
     assert table.variants, table.reason
     by_case = {pt.case: pt for pt in envelope.vn}
-    # Completeness: the family pick within each case is a row.
+    # Completeness: the family pick within each case is a row, and so is
+    # every air pick at its own case (#294) -- the search is the same
+    # criterion within the case, so the two sets normally coincide.
     expected = set()
     for k in flight_cases(p):
         vn_k = [pt for pt in envelope.vn if pt.cg == k.name]
-        for label, _, pt in wing_slot_picks(p, vn_k, coincide=False):
+        for label, _, pt in wing_slot_picks(p, vn_k):
             if pt is not None:
                 expected.add((label, k.name, pt.case))
+    for label, _, pt in wing_slot_picks(p, envelope.vn):
+        if pt is not None:
+            expected.add((label, pt.cg, pt.case))
     assert {(v.slot, v.cg, v.case) for v in table.variants} == expected
     # Exactly one governing per slot, on a row of that slot; the air-pick
-    # slots keep their air pick.
+    # slots keep their air pick, without exception (#294: before, a slot
+    # whose air pick the coincidence rule had emptied was "assessed and not
+    # delivered", which is how NNZ left the Baron's deck).
     governing = table.governing()
     assert set(governing) == set(table.slots)
-    delivered_labels = {c.label for c in build_critical(p, envelope).conditions
-                        if c.component == "wing"}
     for slot, g in governing.items():
         assert sum(1 for v in table.by_slot(slot) if v.governing) == 1, slot
         if slot in AIR_PICK_SLOTS:
-            # Its air pick, or -- when the whole-matrix pick is empty (D-62.8's
-            # coincidence rule) -- the slot is assessed and not delivered.
-            assert g.air_pick or slot not in delivered_labels, slot
-    # The delivered condition is the governing run.
+            assert g.air_pick, slot
+    # The delivered condition is the governing run; a slot the table
+    # assessed and the deck omits is a coincidence (D-62.8) with a delivered
+    # slot at that very case, never a loss.
     delivered = {c.label: c for c in build_critical(p, envelope).conditions
                  if c.component == "wing"}
+    for slot, g in governing.items():
+        if slot not in delivered:
+            assert any(c.case == g.case for c in delivered.values()), (slot, g.case)
     for slot, c in delivered.items():
         g = governing[slot]
         assert c.case == g.case, (slot, c.case, g.case)
@@ -429,7 +437,10 @@ def test_a_repointed_slot_says_so_and_a_project_without_a_wing_keeps_its_air_pic
     assert not table.variants and "wing_mass" in table.reason
     delivered = {c.label: c.case for c in build_critical(bare, envelope).conditions
                  if c.component == "wing"}
-    assert delivered == picks
+    # The air picks, with D-62.8's coincidence rule applied at delivery
+    # (#294): NNZ shares NMAA's point and nothing re-points, so it is empty.
+    assert delivered == {k: v for k, v in picks.items() if k != "NNZ"}
+    assert picks["NNZ"] == picks["NMAA"]
 
 
 # --------------------------------------------------------------------------- #

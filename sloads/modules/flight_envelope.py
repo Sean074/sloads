@@ -63,6 +63,7 @@ from ..constants import (
     DEG_PER_RAD,
     GUST_LOAD_FACTOR_DIVISOR,
     IN_PER_FT,
+    NZ_BALANCE_TOL,
     RAD_PER_DEG,
     RHO_SL,
     G,
@@ -213,12 +214,12 @@ def _balance(n: float, v_init: float, mach_cap: float, config: AeroCoeffSet,
             dx = d * math.cos(al * RAD_PER_DEG) - ll * math.sin(al * RAD_PER_DEG)
             lt = (lz * (cg.xcg - wr.xw) - dx * (cg.zcg - wr.zw) + mm) / (xt - cg.xcg)
             nz = (lz + lt) / cg.weight_lb
-            if n - 0.005 <= nz <= n + 0.005:
+            if n - NZ_BALANCE_TOL <= nz <= n + NZ_BALANCE_TOL:
                 break
             da = 0.75 * da
-            if nz > n + 0.005:
+            if nz > n + NZ_BALANCE_TOL:
                 al -= da
-            elif nz < n - 0.005:
+            elif nz < n - NZ_BALANCE_TOL:
                 al += da
             if da < 0.005:
                 da = 0.005
@@ -512,7 +513,7 @@ def balance_configs(aero) -> List[AeroCoeffSet]:
     states the same missing input.
 
     It is also where a set with **no alpha lever** is refused (#144). The inner
-    balance moves alpha until ``NZ`` lands in its ±0.005 band; if ``C1..C4`` are
+    balance moves alpha until ``NZ`` lands in its ``NZ_BALANCE_TOL`` band; if ``C1..C4`` are
     all zero, ``CL`` (and with it ``LZ``, ``MM`` and the tail load) is the same
     number at every alpha, so no trip can answer differently and the loop
     exhausts as "did not converge in 400 iterations ... reached NZ=0 at

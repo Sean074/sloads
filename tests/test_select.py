@@ -92,9 +92,11 @@ _NOTE_62_SLOTS = ("NHAA", "NLAA", "PNZ", "NNZ")
 #: **G-62.2** -- the frozen picks of note 62 §4, by name: (source label, nz,
 #: V KEAS, CG case, altitude ft, resultant lb) per slot, or ``None`` for an
 #: **empty** slot. Named rather than numbered because #164's V-n renumber moves
-#: the case numbers and not the points. ``None`` for NNZ on the Baron and the
-#: RJ and for both on the heavy is D-62.8's coincidence rule (the point is
-#: NMAA's / PHAA's already); every other slot is a new point.
+#: the case numbers and not the points. These are the **air picks**, the
+#: search result: since #294 D-62.8's coincidence rule is applied on the
+#: delivered set alone, so NNZ on the Baron and the RJ and both slots on the
+#: heavy are listed here at the point they share with NMAA / PHAA / NHAA
+#: (``_DELIVERED_EMPTY`` says which of them the delivery then leaves out).
 _FROZEN_PICKS = {
     # Re-pinned 2026-09-20 (#164): the fixture balances at Appendix A's three
     # altitudes, and every negative slot now governs at 12,000 ft -- the gust
@@ -115,7 +117,9 @@ _FROZEN_PICKS = {
         "NMAA": ("GUST -C", -2.35, 195.0, "fwd regardless", 10000.0, 9844),
         "NLAA": ("GUST -D", -1.21, 248.0, "fwd regardless", 10000.0, 4884),
         "PNZ": ("GUST +C", +4.34, 195.0, "fwd regardless", 10000.0, 18961),
-        "NNZ": None,
+        # NNZ is NMAA's air pick; NMAA re-points to `mzfw fwd` (D-63.7), so
+        # NNZ is delivered at this point under its own id (#294).
+        "NNZ": ("GUST -C", -2.35, 195.0, "fwd regardless", 10000.0, 9844),
     },
     # atr42_100 re-pinned 2026-09-21 (#260): the fixture reconciled to the
     # type's wing area, CLmax and mass model, its cases re-seeded, so every
@@ -132,7 +136,8 @@ _FROZEN_PICKS = {
         "NMAA": ("GUST -C", -1.80, 310.0, "min weight", 20000.0, 35650),
         "NLAA": ("GUST -D", -0.80, 350.0, "min weight", 20000.0, 14457),
         "PNZ": ("GUST +C", +3.80, 310.0, "min weight", 20000.0, 82102),
-        "NNZ": None,
+        # NMAA's air pick, delivered under NNZ once NMAA re-points (#294).
+        "NNZ": ("GUST -C", -1.80, 310.0, "min weight", 20000.0, 35650),
     },
     # Resultants re-pinned 2026-09-20 (#291): the heavy's polar re-entered
     # with its minimum at the zero-alpha CL, so every point's drag moved; the
@@ -141,9 +146,22 @@ _FROZEN_PICKS = {
         "NHAA": ("STALL -N", -2.00, 195.3, "CGmax", 0.0, 32405),
         "NMAA": ("MAN -C", -2.00, 250.0, "CGmax", 0.0, 32273),
         "NLAA": ("GUST -D", -0.02, 312.5, "CGmax", 0.0, 2752),
-        "PNZ": None,
-        "NNZ": None,
+        # PNZ: MAN A at 4.001 g and GUST +C at 4.002 g are one load factor
+        # within the balance's band (``select.NZ_TIE_BAND``, #294), and the
+        # tie goes to the larger resultant -- PHAA's point, so PNZ is not
+        # delivered. Before #294 the 1e-9 tie never fired and the pick was
+        # GUST +C, which coincided with PMAA instead.
+        "PNZ": ("MAN A", +4.00, 202.2, "CGmax", 0.0, 69555),
+        "NNZ": ("STALL -N", -2.00, 195.3, "CGmax", 0.0, 32405),
     },
+}
+
+#: The PNZ/NNZ slots D-62.8's coincidence rule leaves out of the **delivered**
+#: set: the air pick above is carried by the named slot at delivery, so the
+#: id is a gap in the band. The Baron's and the RJ's NNZ are *not* here:
+#: NMAA moves and NNZ stays (#294).
+_DELIVERED_EMPTY = {
+    "concept_heavy": {"PNZ": "PHAA", "NNZ": "NHAA"},
 }
 
 # The candidate pools, restated here from note 62 D-62.1 / D-62.8 so the gate
@@ -173,9 +191,20 @@ def test_the_negative_triad_and_load_factor_invariants(name):
     larger resultant; a slot with no eligible candidate is absent, not filled.
     And D-62.8's invariant: PNZ's point has the largest ``nz`` of every
     eligible positive-family point and NNZ's the most negative of every
-    eligible negative-family point; a PNZ/NNZ point equal to another slot's
-    pick is absent; and no V-n case number carries two wing ids.
+    eligible negative-family point (ties within ``select.NZ_TIE_BAND`` to
+    the largest resultant); the air pick holds it whatever the other slots
+    picked; and no V-n case number carries two wing ids.
+
+    **The loss side (#294):** on the *delivered* set each load-factor extreme
+    is carried by some delivered wing case -- under its own id, or, when the
+    point is another delivered slot's, under that id with PNZ/NNZ empty. The
+    coincidence rule is a delivery rule: it can never drop a 23.337/23.341
+    extreme from the deck, which it did while it ran on the air picks and
+    NMAA then re-pointed (``baron_58`` case 153, ``concept_regional_jet``
+    213).
     """
+    from sloads.modules.select import NZ_TIE_BAND
+
     project = _fixture(name)
     by_label, vn = _by_label(project)
     points = list(vn.values())
@@ -188,23 +217,33 @@ def test_the_negative_triad_and_load_factor_invariants(name):
         picked = vn[by_label[slot].case]
         assert picked.condition in labels and picked.lzw < 0, (name, slot)
         assert _resultant(picked) >= max(_resultant(v) for v in eligible) * (1 - 1e-9)
-    others = {c.case for lbl, c in by_label.items() if lbl not in ("PNZ", "NNZ")}
+    delivered = _delivered_by_label(project)
+    others_delivered = {lbl: c.case for lbl, c in delivered.items() if lbl not in ("PNZ", "NNZ")}
     for slot, family, sign, pick in (("PNZ", _POSITIVE_FAMILY, +1, max),
                                      ("NNZ", _NEGATIVE_FAMILY, -1, min)):
         eligible = [v for v in points if v.condition in family and sign * v.lzw > 0]
         extreme_nz = pick(v.nz for v in eligible)
-        tied = [v for v in eligible if math.isclose(v.nz, extreme_nz, rel_tol=1e-9)]
+        tied = [v for v in eligible if abs(v.nz - extreme_nz) <= NZ_TIE_BAND]
         best = max(tied, key=_resultant)
-        if best.case in others:
-            assert slot not in by_label, f"{name} {slot}: delivered a second time"
+        # The air pick is the search result, whatever the other slots picked.
+        assert slot in by_label and by_label[slot].case == best.case, (name, slot)
+        # The loss side: the extreme is in the deck under some wing id.
+        carried_by = [lbl for lbl, case in others_delivered.items() if case == best.case]
+        if carried_by:
+            assert slot not in delivered, f"{name} {slot}: delivered a second time"
+            assert _DELIVERED_EMPTY.get(name, {}).get(slot) in carried_by, (name, slot, carried_by)
         else:
-            assert slot in by_label and by_label[slot].case == best.case, (name, slot)
-    cases = [c.case for c in by_label.values()]
-    assert len(cases) == len(set(cases)), f"{name}: one V-n case under two wing ids"
-    # The same invariant on the delivered set: re-pointing (D-63.7) may move a
-    # slot onto another run, never onto a run another slot already carries.
-    delivered = [c.case for c in _delivered_by_label(project).values()]
-    assert len(delivered) == len(set(delivered)), f"{name}: one V-n case under two wing ids (delivered)"
+            assert slot not in _DELIVERED_EMPTY.get(name, {}), (name, slot)
+            assert slot in delivered, f"{name} {slot}: the load-factor extreme is carried by no wing case"
+            assert delivered[slot].case == best.case, (name, slot, delivered[slot].case, best.case)
+    # The air picks may share a point only between a load-factor slot and a
+    # bending slot (that is what the coincidence rule is for); the delivered
+    # set never does: re-pointing (D-63.7) may move a slot onto another run,
+    # never onto a run another slot already carries.
+    others_air = {c.case for lbl, c in by_label.items() if lbl not in ("PNZ", "NNZ")}
+    assert len(others_air) == sum(1 for lbl in by_label if lbl not in ("PNZ", "NNZ")), name
+    delivered_cases = [c.case for c in delivered.values()]
+    assert len(delivered_cases) == len(set(delivered_cases)), f"{name}: one V-n case under two wing ids (delivered)"
 
 
 @pytest.mark.parametrize("name", sorted(_FROZEN_PICKS))
@@ -217,9 +256,6 @@ def test_the_frozen_picks_of_note_62(name):
     """
     by_label, vn = _by_label(_fixture(name))
     for slot, want in _FROZEN_PICKS[name].items():
-        if want is None:
-            assert slot not in by_label, f"{name} {slot}: expected empty"
-            continue
         assert slot in by_label, f"{name} {slot}: expected {want[0]}"
         v = vn[by_label[slot].case]
         label, nz, speed, cg, alt, resultant = want
@@ -228,6 +264,43 @@ def test_the_frozen_picks_of_note_62(name):
         assert math.isclose(v.v_eas_kt, speed, abs_tol=0.06), (name, slot, v.v_eas_kt)
         assert v.cg == cg and v.altitude_ft == alt, (name, slot, v.cg, v.altitude_ft)
         assert math.isclose(_resultant(v), resultant, abs_tol=0.6), (name, slot, _resultant(v))
+
+
+def test_the_load_factor_tie_is_the_balances_own_band():
+    """**G-62.5** (#294). Two V-n points converged to one target load factor
+    differ by up to twice ``constants.NZ_BALANCE_TOL`` and are **one** load
+    factor to PNZ/NNZ: the tie goes to the larger resultant (D-62.8), not to
+    whichever landed a thousandth higher. The band is derived from the
+    tolerance the balance itself iterates to -- ``flight_envelope`` reads the
+    same name, and neither module carries the literal -- so the two cannot
+    drift apart (rule 3, CLAUDE.md).
+    """
+    import inspect
+
+    from sloads import constants
+    from sloads.models import VnPoint
+    from sloads.modules import flight_envelope
+    from sloads.modules.select import NZ_TIE_BAND, _pick_load_factor
+
+    assert NZ_TIE_BAND == 2.0 * constants.NZ_BALANCE_TOL
+    assert flight_envelope.NZ_BALANCE_TOL is constants.NZ_BALANCE_TOL
+    for mod in (flight_envelope, select):
+        src = inspect.getsource(mod)
+        assert "n - 0.005" not in src and "n + 0.005" not in src, mod.__name__
+
+    def point(case: int, nz: float, lzw: float) -> VnPoint:
+        return VnPoint(case=case, condition="GUST +C", config="CRUISE", cg="CG1",
+                       altitude_ft=0.0, v_eas_kt=170.0, nz=nz, alpha_deg=0.0,
+                       g_corr=1.0, cl=0.5, m_wf=0.0, lzw=lzw, lt=0.0, dx=0.0)
+
+    # Both converged to 3.8 g; the one that landed higher carries less lift.
+    higher_nz = point(1, 3.8 + 0.9 * constants.NZ_BALANCE_TOL, 1000.0)
+    heavier = point(2, 3.8 - 0.9 * constants.NZ_BALANCE_TOL, 1200.0)
+    outside = point(3, 3.8 - 3.0 * constants.NZ_BALANCE_TOL, 5000.0)
+    got = _pick_load_factor([higher_nz, heavier, outside], ("GUST +C",), lambda p: p.lzw > 0, largest=True)
+    assert got is heavier
+    got = _pick_load_factor([outside, heavier], ("GUST +C",), lambda p: p.lzw > 0, largest=True)
+    assert got is heavier, "a point outside the band is not a tie"
 
 
 def _by_label(project: Project):

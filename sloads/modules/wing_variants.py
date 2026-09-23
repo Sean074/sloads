@@ -50,7 +50,7 @@ from .wing_inertia import fold_units, panel_shape, wing_inertia_distribution
 
 #: Two variants whose signed root ``Mxx`` agree to this are a tie and the air
 #: pick keeps the slot. It is the FLTLOADS balance's own resolution: the
-#: angle-of-attack iteration converges ``NZ`` to +-0.005 (``flight_envelope``),
+#: angle-of-attack iteration converges ``NZ`` to ``constants.NZ_BALANCE_TOL``,
 #: so every point's CL -- and the root bending built from it -- carries ~0.5 %
 #: of noise, and a smaller difference between two runs is not a finding
 #: (``tests/test_select.py`` holds the Appendix A CLs to the same band).
@@ -146,6 +146,8 @@ def wing_variant_table(project: Project, envelope: Optional[EnvelopeResult] = No
     plane = wing_plane(project, wm.surface)
     shape = panel_shape(geom, wm, *plane, panel_weight(project))
     vn: List[VnPoint] = list(env.vn)
+    by_case = {p.case: p for p in vn}
+    far_of = {label: far for label, far, _ in _select.wing_slot_picks(project, vn)}
     variants: List[WingVariant] = []
     for k in flight_cases(project):
         vn_k = [p for p in vn if p.cg == k.name]
@@ -153,9 +155,16 @@ def wing_variant_table(project: Project, envelope: Optional[EnvelopeResult] = No
             continue
         state = wing_mass_state(project, k.name)
         units = fold_units(shape, state.panel_weight_lb, state.point_masses)
-        for label, far, p in _select.wing_slot_picks(project, vn_k, coincide=False):
-            if p is None:
-                continue
+        rows = [(label, far, p) for label, far, p in _select.wing_slot_picks(project, vn_k)
+                if p is not None]
+        # Every air pick has a row at its own CG case (#294): the whole-matrix
+        # pick is normally that case's own family pick, but a tie resolved
+        # the other way (or TORS's last-wins reference speeds) can put it
+        # elsewhere, and an air-pick slot must be able to keep its air pick.
+        assessed = {label for label, _, _ in rows}
+        rows += [(label, far_of[label], by_case[case]) for label, case in air_case.items()
+                 if label not in assessed and case in by_case and by_case[case].cg == k.name]
+        for label, far, p in rows:
             nz = -p.nz
             nx = inertia_drag_factor(p.dx, k.weight_lb)
             inertia = wing_inertia_distribution(
@@ -179,8 +188,11 @@ def _mark_governing(variants: List[WingVariant]) -> List[WingVariant]:
     The air pick keeps the slot when it is within :data:`GOVERNING_TIE_REL`
     of the extreme (the balance's own noise), and always for the
     ``select.AIR_PICK_SLOTS`` -- the torsion and load-factor slots, whose
-    criterion is not the bending. A slot whose air pick is not in the table
-    (none on any shipped fixture) is governed by its extreme row alone.
+    criterion is not the bending. A bending slot whose air pick is not in
+    the table is governed by its extreme row alone; an air-pick slot without
+    its air row is a contract error (#294: ``wing_variant_table`` assesses
+    every air pick at its own case, so the slot can never be re-pointed on a
+    criterion that is not its own), raised rather than defaulted.
     """
     from .select import AIR_PICK_SLOTS, SLOT_LIFT_SIGN
 
@@ -197,9 +209,15 @@ def _mark_governing(variants: List[WingVariant]) -> List[WingVariant]:
             return s * v.root_mxx
         best = extreme(rows, signed)
         air = next((v for v in rows if v.air_pick), None)
-        if air is not None:
+        if slot in AIR_PICK_SLOTS:
+            if air is None:
+                raise ValueError(
+                    f"wing slot {slot} is delivered at its air pick, and the variant "
+                    f"table holds no row for it (rows at {[v.case for v in rows]})")
+            best = air
+        elif air is not None:
             band = max(GOVERNING_TIE_REL, TIE_REL) * abs(best.root_mxx)
-            if slot in AIR_PICK_SLOTS or sign * air.root_mxx >= sign * best.root_mxx - band:
+            if sign * air.root_mxx >= sign * best.root_mxx - band:
                 best = air
         winners[slot] = best
     for v in variants:
