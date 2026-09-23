@@ -71,6 +71,109 @@ inertia. Every wing case id traces to one of these criteria; contrast the
 empennage and ground families, which run **all** their conditions and envelope
 after analysis (chapters 5 and 8 state the same contrast from their side).
 
+## The rolling conditions — origin and derivation (FAR 23.349)
+
+The two rolling slots, `ACRL` and `TORS`, are the wing's only unsymmetrical
+flight conditions, and both are **constructed from a symmetric manoeuvre**
+rather than analysed as a roll. The regulation says so itself. 14 CFR 23.349,
+*Rolling conditions* (as amended through Amdt 23-48, 61 FR 5144, 1996):
+
+> (a) *Unsymmetrical wing loads appropriate to the category. Unless the
+> following values result in unrealistic loads, the rolling accelerations may
+> be obtained by modifying the symmetrical flight conditions in §23.333(d) as
+> follows:* (1) *For the acrobatic category, in conditions A and F, assume
+> that 100 percent of the semispan wing airload acts on one side of the plane
+> of symmetry and 60 percent of this load acts on the other side.* (2) *For
+> normal, utility, and commuter categories, in Condition A, assume that 100
+> percent of the semispan wing airload acts on one side of the airplane and
+> 75 percent of this load acts on the other side.*
+>
+> (b) *The loads resulting from the aileron deflections and speeds specified
+> in §23.455, in combination with an airplane load factor of at least two
+> thirds of the positive maneuvering load factor used for design. Unless the
+> following values result in unrealistic loads, the effect of aileron
+> displacement on wing torsion may be accounted for by adding the following
+> increment to the basic airfoil moment coefficient over the aileron portion
+> of the span in the critical condition determined in §23.333(d):*
+> Δcₘ = −0.01 δ, *δ the down aileron deflection in degrees.*
+
+**Paragraph (a) — the accelerated roll (`ACRL`).** Condition A is the corner
+of the 23.333(d) envelope where the positive stall line meets the limit
+manoeuvre load factor n₁ — FLTLOADS's `STALL +N` point, *not* the point at
+V_A (Reference 1 Ch 13 p. 96, footnote). The rule keeps 100 % of that
+condition's semispan air load on one side and a fraction p on the other:
+**75 %** for normal, utility and commuter; **60 %** for acrobatic, on
+conditions A and F both. The airplane as a whole then carries the average of
+the two sides, a load factor of `(100 + p)/200 · n₁`, and that is the V-n
+point FLTLOADS balances as `AC ROLL` at the condition A speed for every
+configuration, CG and altitude (`flight_envelope._config_points`; 0.875·n₁ =
+3.325 on the Appendix A airplane at p = 75). SELECT picks the `AC ROLL` point
+with the largest wing lift (SELECT.BAS line 3330; Ch 9 p. 68 says "largest
+resultant airload"). The rolling moment the airplane is *not* meant to balance
+is the difference between the two sides' root bending,
+
+> **UNB = (1 − p/100) · M_root(condition A)**,
+
+and the manual (Ch 12 pp. 91–92, Ch 13 pp. 95–96) computes it by hand from the
+AIRLOADS run of condition A and types it into WINGINER, which reacts it by roll
+acceleration alone — nothing else in a free-free airplane can — through the
+unit-roll inertia set `Fz_r = W·y·10⁵/I_wxx`, `I_wxx = 2·ΣW·y²` (panel strips
+and concentrated masses alike), scaled by `UNB/10⁵`, with `θ̈ = UNB·g/I_wxx`
+(WINGINER.BAS 1350–1620, 1760–1810; the §"roll closure" below verifies the
+reaction strip for strip). The governing side's **air load is condition A's**
+distribution at the same weight, altitude and CG — AIRLOADS at condition A's
+CL and speed (Appendix A case 142 for case 160, p. 208) — while the inertia is
+the `AC ROLL` point's own n_z and n_x; net = air − inertia, and the manual
+prints the 100 % side only (p. 225 "100 PERCENT SIDE"); the other side is the
+same rows scaled by p. No aileron enters paragraph (a): the up- and down-going
+aileron's differential lift has no spanwise carrier in this method (§Assumptions
+below), and the couple is the construction's, not the aileron's.
+
+Worked numbers, Appendix A airplane (W 3400 lb, n₁ 3.8, CG2, 12,000 ft):
+
+| | Manual (71.03 %, pre-1996 rule) | 23.349(a)(2) as amended (75 %) |
+|---|---|---|
+| condition A root bending, lb-in (p. 212) | 514,475 | 514,475 |
+| UNB, lb-in | 149,043 (p. 96) | 128,619 |
+| airplane load factor at `AC ROLL` | 3.25 | 3.325 |
+| θ̈, deg/s² (p. 219) | −13.287 | ≈ −11.47 |
+| WINGINER root M_xx, lb-in (p. 219) | −124,095 | ≈ −115,500 |
+| net root M_x, 100 % side, lb-in (p. 225) | +390,380 | ≈ +399,000 |
+
+The manual's linear 70→75 % rule (Ch 12 p. 91: 70 % at 1000 lb rising to
+75 % at 12,500 lb) is the pre-Amdt 23-48 wording; the amended flat 75 % is the
+rule of record here — [`02_approved_corrections.md`](02_approved_corrections.md)
+§23.349(a)(2). The full-span assembled deck (chapter 9) carries the same
+condition in its own representation: the averaged lift balanced at the
+`AC ROLL` load factor, the couple `−UNB` at the wing aerodynamic centre, and
+the closure-roll relief `k·w·y` that the identity below proves is WINGINER's
+own unit-roll set — statically equivalent in total force and rolling moment to
+the two-sided construction, while the semispan station tables are the
+governing side.
+
+**Paragraph (b) — the steady roll (`TORS`).** The aileron deflection schedule
+of 23.455, full δ at V_A, `(V_A/V_C)·δ` at V_C and `0.5·(V_A/V_D)·δ` at V_D
+(CAM 3.222(b)(3) for the halving), at two thirds of n₁ — FLTLOADS's
+`ST ROL A/C/D` points. The steady roll has no unbalanced moment: the aileron
+couple is balanced by roll damping, so the case is symmetric in bending and
+TORS exists for **torsion**. SELECT ranks the three points on the torsion proxy
+`(cₘ − 0.01·δ)·q` (Ch 12 p. 93), which is paragraph (b)'s increment; the
+delivered distribution applies the increment over the aileron span through the
+per-station section-cₘ mechanism when the aileron butt lines are entered and
+reduces to the printed run when they are blank — the manual's own worked
+example entered a uniform cₘ (p. 216) and skipped its Ch 12 instruction, which
+is why Appendix A passes without the increment (design note 52 §2, D-52.5).
+
+**What the code carries today, until design note 52 ships** (backlog B8): the
+unbalanced moment is an entered field (`wing_mass.cases[].unbal_moment`), a
+derived `ACRL` case carries zero, the delivered `ACRL` variant is built at the
+`AC ROLL` point's own averaged lift rather than condition A's, the percentage
+in FLTLOADS is the manual's linear rule with no category branch, and the TORS
+increment is applied in selection but not in the delivered distribution.
+Design note 52 (amended 2026-09-22) is the design of record for closing all
+five; the WINGINER inertia math and the SELECT pick are oracle-locked as they
+stand.
+
 ## Method (outline)
 
 1. **Airload distribution** — Schrenk's approximation (Ch 7): the spanwise
@@ -99,8 +202,11 @@ after analysis (chapters 5 and 8 state the same contrast from their side).
   accelerated-roll case: the couple is lumped at the wing aerodynamic centre,
   which reduces exactly to the oracle-locked WINGINER model (inertia reaction
   only) but omits the differential lift from `ACRL` wing bending. Stated
-  in-band wherever the case is rendered; on the backlog. The roll-case design
-  of record (semispan side, `UNB` from the condition's own root bending) is
+  in-band wherever the case is rendered; on the backlog. This is faithful to
+  23.349(a), which prescribes the percentage construction and no aileron term
+  (§"The rolling conditions" above). The roll-case design of record (semispan
+  side, `UNB` from condition A's root bending, condition A's lift on the
+  delivered side, the amended 75 %) is
   `docs/25_notes/52_wing_roll_cases_note.md`.
 - **The Mach threshold for the swept branch is Reference 1's 0.4** (the User's
   Guide says 0.5); kept conservative because no `.BAS` oracle exists for the
@@ -159,6 +265,7 @@ what confirms that sign is right rather than merely self-consistent.
 - Reference 1 Ch 7 (AIRLOADS), Ch 9 (SELECT), Ch 12 (AIRLOAD4), Ch 13
   (WINGINER), Ch 14 (NETLOADS); Appendix A oracle pages per the hub's
   per-module rows.
-- FAR 23.333, 23.349; CAM 3.222 (aileron deflection schedule).
+- FAR 23.333, 23.349 (as amended by Amdt 23-48, 61 FR 5144, 1996-02-09 —
+  the 75 % other side), 23.455; CAM 3.222 (aileron deflection schedule).
 - `docs/25_notes/52_wing_roll_cases_note.md` — the roll-case design of
   record.

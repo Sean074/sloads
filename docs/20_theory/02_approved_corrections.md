@@ -343,6 +343,49 @@ which asserts both halves: the entered station is printed, and it is not zero.
 
 ---
 
+### 23.349(a)(2) other-side percentage — 75 % flat, not the manual's 70→75 % *(approved 2026-09-22, in session; ships with design note 52)*
+
+The manual constructs the accelerated-roll condition (Ch 12 pp. 91–92, Ch 13
+pp. 95–96) with the other wing at **70 % rising linearly with design weight to
+75 % at 12,500 lb** — 71.03 % on the Appendix A airplane at 3400 lb — and
+derives the unbalanced rolling moment as `(1 − p)` times condition A's root
+bending: **149,043 lb-in** (p. 96, the case 160 input on p. 219). That is the
+pre-1996 wording of the rule. **14 CFR 23.349(a)(2) as amended by Amdt 23-48
+(61 FR 5144, 1996-02-09)** reads "assume that 100 percent of the semispan wing
+airload acts on one side of the airplane and **75 percent** of this load acts
+on the other side" for normal, utility and commuter, at every weight; the
+acrobatic 60 % on conditions A and F is unchanged. The 1996 manual still
+carried the older text.
+
+**Correction.** The other-side percentage owner (note 52 D-52.1/D-52.11)
+returns 75 % for normal, utility and commuter; the FLTLOADS `AC ROLL` load
+factor becomes `0.875·n₁` at every weight (the `w ≤ 1000` branch retires with
+the rule); the derived UNB on the Appendix A airplane is **128,619 lb-in**
+(0.25 × 514,475). The 100 % side's air load — condition A's — is unchanged.
+Moved figures, GA6 case 160: `AC ROLL` n_z 3.25 → 3.325, SELECT's `ACRL` pick
+CL 1.328 → ≈ 1.36 at 116 kt, θ̈ −13.287 → ≈ −11.47 deg/s², WINGINER root Mxx
+−124,095 → ≈ −115,500, net governing-side root MX +390,380 → ≈ +399,000 lb-in
+(+2 %; exact values fixed at implementation and stated in the tests beside the
+printed figures). **The printed rows are not lost:** a test-built case 160 with
+the manual's entered 149,043 holds WINGINER's and NETLOADS's Appendix A output
+bit-for-bit (note 52 G-52.12), so the `.BAS` math stays oracle-locked under
+either rule; the shipped `ga6_normal` fixture follows the amended rule
+(D-52.12), and its Imperial digests move once, at the step that ships this.
+
+**Trail (note 52 §7):** the owner's docstring cites this entry and the
+amendment; the affected `ConditionResult`s carry a `note`; `PROGRAM_SPEC.md`'s
+FLTLOADS/SELECT/WINGINER rows and
+[`00_theory_sources.md`](00_theory_sources.md)'s rolling-conditions row cite
+it; the history fragment states the digest wave. Sources: the regulation text
+as amended (`reference/` copy to be added with the implementation);
+`reference/FAR23Loads_Code.pdf` Ch 12 p. 91, Ch 13 p. 96, Appendix A pp. 219,
+225.
+
+**Authority:** owner's ruling in session, 2026-09-22 ("the oracle can be
+updated to the later amendment"), recorded in design note 52 D-52.11.
+
+---
+
 ---
 
 ## Withdrawn from scope
