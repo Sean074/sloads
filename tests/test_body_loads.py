@@ -198,6 +198,23 @@ def test_an_unplaceable_wing_post_is_refused_by_name():
     text = str(err.value)
     assert "not between" in text and f"FS {x_w:.1f}" in text
     assert f"FS {x_w + 10.0:.1f}" in text and f"FS {x_w + 40.0:.1f}" in text
+    # The exporter refuses with the same sentence (#297): its wing-post lookup
+    # used to raise a bare ``KeyError``, which no ``LraRefusal`` handler catches.
+    # The full fixture is used because the calc fixture's tail-loads stub has no
+    # tail area, and the exporter builds the tail spans before it reaches the post.
+    from dataclasses import replace
+
+    from sloads.export.lra_model import LraRefusal, build_lra_model
+
+    full = io.load_project(_GA)
+    full.geometry.surfaces = [
+        replace(s, front_spar_x_in=x_w + 10.0, rear_spar_x_in=x_w + 40.0)
+        if s.name == "wing" else s for s in full.geometry.surfaces
+    ]
+    with pytest.raises(LraRefusal) as exported:
+        build_lra_model(full)
+    assert "not between" in str(exported.value)
+    assert text.endswith(str(exported.value))     # the register's one wording, D-54.5
     assert not hasattr(body_loads, "CLOSURE_ARTIFACT_CAVEAT")
 
 

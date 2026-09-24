@@ -962,6 +962,13 @@ def build_lra_model(project: Project) -> LraModel:
     # and the box, which reports nothing, takes none. A body tie inside the
     # box is not an owned point; it parents on the nearest free box grid
     # below (D-64.8).
+    # **A wing station the spars do not bracket is a refusal, not a lookup
+    # error** (#297): the register grades the post it cannot place and names
+    # the three stations; ``one()`` would raise ``KeyError``, which is not a
+    # ``ValueError`` and so escapes every handler written for ``LraRefusal``
+    # (the importer's position check, the report's lumping, the CLI contract).
+    if reg.refusal(JointName.WING_POST) is not None:
+        raise LraRefusal(_refusal_reason(reg, JointName.WING_POST))
     j_post_w = reg.one(JointName.WING_POST)
     n_fus = mesh.count("fuselage")
     fwd_owned = [_Owned(min(nose_x, ct.x_f), None, "", ""),
