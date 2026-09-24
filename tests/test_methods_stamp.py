@@ -133,8 +133,18 @@ _REGISTER = os.path.join(
 )
 
 
+#: The register marks a correction that is approved but whose implementing
+#: step has not landed with ``ships with ...`` in its heading suffix (policy
+#: paragraph of the register). Such an entry is a promise, not a deviation the
+#: delivered numbers carry, so the statement must NOT declare it yet -- the
+#: implementing step drops the marker and declares it in the same change.
+_PENDING_MARKER = "ships with"
+
+
 def _register_headings(state):
-    """``### `` headings under one ``## `` section of the register, suffix stripped.
+    """``### `` headings under one ``## `` section of the register, as
+    ``(title, pending)`` pairs -- the title with its suffix stripped, and whether
+    the suffix carries the ``ships with`` marker.
 
     ``state`` is the section heading to read ("Register", "Considered and
     declined"). Parsing stops at the next ``## `` so that a *withdrawn* or
@@ -153,7 +163,8 @@ def _register_headings(state):
                 # the approval date is register metadata, not part of the entry's
                 # identity, and pinning it here would make every re-approval a
                 # code edit.
-                out.append(title.split(" *(")[0].strip())
+                head, _, suffix = title.partition(" *(")
+                out.append((head.strip(), _PENDING_MARKER in suffix))
     return out
 
 
@@ -169,7 +180,9 @@ def test_statement_lists_every_approved_correction():
     is the authority ``CLAUDE.md`` names, so the register is what the guard reads.
     """
     declared = [heading for heading, _, _ in APPROVED_CORRECTIONS]
-    approved = _register_headings("Register")
+    entries = _register_headings("Register")
+    approved = [h for h, pending in entries if not pending]
+    pending = [h for h, is_pending in entries if is_pending]
 
     assert approved, "no ### entries parsed from the register's Register section"
     missing = [h for h in approved if h not in declared]
@@ -181,7 +194,14 @@ def test_statement_lists_every_approved_correction():
     extra = [h for h in declared if h not in approved]
     assert not extra, (
         "APPROVED_CORRECTIONS declares entries the register does not approve "
-        f"under '## Register': {extra}"
+        f"under '## Register' (a 'ships with' entry is approved but not yet "
+        f"implemented -- the implementing step drops the marker): {extra}"
+    )
+    premature = [h for h in pending if h in declared]
+    assert not premature, (
+        "APPROVED_CORRECTIONS declares a correction the register still marks "
+        f"'ships with' a step that has not landed, so a stamped file would claim "
+        f"a deviation the delivered numbers do not carry: {premature}"
     )
     assert declared == approved, (
         "the statement lists the approved corrections in a different order from "

@@ -452,6 +452,26 @@ def test_the_v66_hop_converts_a_concentrated_list_the_items_never_had():
     assert project.wing_mass.panel_weight_override_lb is None
 
 
+def test_the_v66_hop_keeps_a_converted_centreline_entry_as_a_point_mass():
+    """#296: a ``concentrated`` entry at y = 0 converts to one doubled WING row,
+    carriage POINT, and the stamp does not re-type it PANEL -- the mass stays
+    in the point list and no ``panel_weight_override_lb`` is written."""
+    d = _v66_with_wing_masses(
+        concentrated=[{"name": "centre tank", "weight_lb": 40.0, "x": 90.0, "y": 0.0, "z": 88.0}])
+    hopped = MIGRATIONS[66](copy.deepcopy(d))
+    added = [r for r in hopped["weight"]["items"] if r["name"] == "centre tank"]
+    assert [(r["weight_lb"], r["y"], r["carriage"], r["component"], r["kind"])
+            for r in added] == [(80.0, 0.0, "point", "wing", "empty")]
+    assert "panel_weight_override_lb" not in hopped["wing_mass"]
+    assert [n for n in hopped["migration_notes"] if "converted" in n] and len(hopped["migration_notes"]) == 1
+    project = io.project_from_dict(d)
+    from sloads import mass_distribution as md
+    state = md.database_mass_state(project)
+    assert md.wing_state_tie(state).ok
+    assert [m.name for m in state.point_masses] == ["centre tank"]
+    assert project.wing_mass.panel_weight_override_lb is None
+
+
 def test_the_v66_hop_keeps_an_entered_panel_that_differs_as_the_override():
     """D-63.2: ``panel_weight_lb`` survives only where the derived value differs."""
     d = _v66_with_wing_masses(panel=150.0)
