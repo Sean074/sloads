@@ -13,6 +13,7 @@ Imperial is the canonical internal system; SI is purely a presentation choice.
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import replace
 from enum import Enum
@@ -810,8 +811,8 @@ def display_format(unit: FieldUnit) -> str:
 #: string a ``LoadValue`` carries (the same key ``_RESULT_TO_SI`` converts by,
 #: #232): a fixed decimal count, or ``None`` for four significant figures.
 #: Design note 65 D-65.4 is the table's rationale row by row; the SI channel
-#: uses the row of the Imperial unit it converted from (D-65.5), every SI
-#: label being finer than, or within a factor of 2.2 of, its source. A string
+#: has its own table below, each row resolving no coarser than the Imperial
+#: cell it converted from (D-65.5 as amended at #298). A string
 #: not tabled falls to the significant-figure rule and fails the gate
 #: (``tests/test_platform_stability.py``), so a report never crashes on a new
 #: unit and a new unit never ships without a row (§8 Q3).
@@ -836,15 +837,25 @@ DELIVERED_PRECISION: Dict[str, Optional[int]] = {
 
 #: The same table under the SI labels a converted ``LoadValue`` carries
 #: (``convert_results`` rewrites ``units`` in place, so a cell rendered from a
-#: converted result knows only the SI string): each row is the decimals of the
-#: Imperial unit it converted from (D-65.5). The ASCII spellings are the
-#: report's own (``report/content.py`` ``_EXTRA_DIMENSIONS``). Guarded: every
-#: ``HUMAN_SI`` label has a row, and no two Imperial sources of one SI label
-#: disagree on its decimals.
+#: converted result knows only the SI string). Each row is what
+#: :func:`si_decimals` gives the Imperial unit it converted from -- the
+#: Imperial row plus one decimal per decade the conversion factor divides by,
+#: so the SI cell resolves **no coarser** than its source (D-65.5 as amended
+#: at #298: the rows used to copy the Imperial count, which printed a 31.2 ft²
+#: tail as ``3`` m²); a label two Imperial units convert to (``N·m`` from
+#: lb-in and ft-lb, ``kg·m²`` from lb-in² and slug-ft², ``m²`` from the
+#: wing geometry's in² and the tail's ft²) takes the larger need. The ASCII
+#: spellings are the report's own (``report/content.py``
+#: ``_EXTRA_DIMENSIONS``). Guarded (``tests/test_platform_stability.py``):
+#: every ``HUMAN_SI`` label has a row, and every row equals the largest
+#: :func:`si_decimals` of the Imperial units a shipped fixture or the report
+#: converts to it.
 DELIVERED_PRECISION_SI: Dict[str, Optional[int]] = {
-    "N": 0, "kg": 0, "N·m": 0, "m²": 0, "m^2": 0, "kg·m²": 0, "kg*m^2": 0, "kW": 0,
-    "mm": 1, "m/s": 1,
-    "kPa": 2, "kN/m²": 2,
+    "N": 0,                                      # lbf (4.45): the factor is above one
+    "kg": 1, "N·m": 1, "mm": 1, "kW": 1,         # lb (0.45), lb-in (0.11), in (25.4), hp (0.75)
+    "m/s": 2, "kPa": 2,                          # ft/s (0.30), lb/in² (6.9)
+    "m²": 4, "m^2": 4,                           # in² (6.5e-4) shares the label with ft² (0.093)
+    "kg·m²": 4, "kg*m^2": 4, "kN/m²": 4,         # lb-in² (2.9e-4), lb/ft² (0.048)
 }
 
 #: Significant figures of the dimensionless rule, and the floor a fixed-decimal
@@ -855,6 +866,24 @@ DELIVERED_PRECISION_SI: Dict[str, Optional[int]] = {
 #: while a 0.53 deg angle keeps its row's ``0.53``.
 DELIVERED_SIG = 4
 DELIVERED_FLOOR_SIG = 1
+
+
+def si_decimals(imperial_units: str, factor: float) -> Optional[int]:
+    """The decimal count an SI cell converted from ``imperial_units`` by
+    ``factor`` (Imperial -> SI, the dimension's own -- a ``lb`` is force or
+    mass by its ``quantity``, so the string alone does not name it) needs to
+    resolve no coarser than the Imperial cell it replaces (D-65.5 as amended
+    at #298): the Imperial row, plus one decimal for every decade the factor
+    divides by. A factor above one adds nothing, and a row is never made
+    coarser than its Imperial source. ``None`` for a unit with no
+    fixed-decimal row. The one owner of the rule; :data:`DELIVERED_PRECISION_SI`
+    states its outcome per SI label and the gate asserts the two agree."""
+    decimals = DELIVERED_PRECISION.get(imperial_units)
+    if decimals is None:
+        return None
+    # -log10 of an exact decade lands on an integer; the nudge keeps a last-ulp
+    # excess from adding a decimal the source does not need.
+    return decimals + max(0, math.ceil(-math.log10(factor) - 1e-9))
 
 
 def delivered_precision(units: str) -> Optional[int]:
