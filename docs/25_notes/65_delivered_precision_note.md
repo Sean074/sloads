@@ -160,6 +160,8 @@ know whether it is printing a coefficient or a bending moment.
   meaningful; the row key is the string the converter already reads, so
   there is no second key to drift. `content.py`'s `plain`/`load` pass their
   Imperial `dim` label; `render.py`'s tables pass `lv.units`.
+  *Amended at #298 (§7b): the premise was false for area, moment and
+  inertia; an SI row now resolves no coarser than its Imperial source.*
 - **D-65.6 The safety-factor cell has no special case.** `sf_cell` and the
   LIMIT statement print the factor under the dimensionless rule (`1.500`,
   `1.000`, `1.250`) like every other unitless quantity. The owner's ruling
@@ -320,3 +322,24 @@ on shipped content (every delivered table cell) outranks every fidelity row.
   case number) prints as itself. The GUI journey found it: a speed typed in
   a widget arrives as `170` and the same speed loaded from the file as
   `170.0`, and "prints as itself" gave the two one number two spellings.
+- **D-65.5 amended at #298 (2026-09-23): an SI row resolves no coarser
+  than the Imperial cell it converted from.** The premise that every SI
+  unit is "finer than, or within a factor of 2.2 of" its source held for
+  N, mm and kPa and failed for the rest: ft² → m² is 10.8×, lb-in → N·m
+  8.9×, lb-in² → kg·m² 3418×, lb/ft² → kN/m² 20.9×, so a 31.2 ft² tail
+  printed as `3` m² (−3.4 %) and an inertia to one or two figures. The
+  rule as shipped: the SI row is the Imperial row plus one decimal per
+  decade the conversion factor divides by (`units.si_decimals`, the one
+  owner); a label two Imperial units convert to takes the larger need.
+  Rows now: N 0; kg, N·m, mm, kW 1; m/s, kPa 2; m², kg·m², kN/m² 4. `kg`
+  gained a decimal by the same rule (1 lb = 0.45 kg), which the 2.2×
+  tolerance had waved through; `m²` takes four because the wing geometry
+  and airloads emit their areas in `in^2` (1 in² = 6.5 cm²) under the same
+  label the tail's `ft^2` converts to. `content.py`'s `Units` now passes the
+  **document's** label as the precision key, not the Imperial one, so the
+  report's SI cells read the SI rows like a converted `LoadValue` does.
+  Gate 3 no longer asserts SI row == Imperial row: it derives each SI
+  label's need from the Imperial units a shipped fixture emits, the mass
+  strings among them and the dimensions the report prints, and asserts
+  the row equals it — a converter row no producer emits would not set a
+  row.

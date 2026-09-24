@@ -310,12 +310,13 @@ class Units:
         return format_value(value * self._factor(dim), self.precision_key(dim))
 
     def precision_key(self, dim: str) -> str:
-        """The Imperial unit string of ``dim`` -- the key a cell's delivered
-        precision is read by, whatever system the document prints in (note 65
-        D-65.5: the SI channel uses the row of the unit it converted from)."""
-        if dim in _EXTRA_DIMENSIONS:
-            return _EXTRA_DIMENSIONS[dim][1]
-        return getattr(_IMPERIAL_HUMAN, dim).label
+        """The unit string of ``dim`` in the document's own system -- the key a
+        cell's delivered precision is read by. An SI cell reads the SI row,
+        which resolves no coarser than the Imperial cell it converted from
+        (note 65 D-65.5 as amended at #298); until then this returned the
+        Imperial label whatever the system, and a 31.2 ft² tail printed as
+        ``3`` m²."""
+        return self.label(dim)
 
     def label(self, dim: str) -> str:
         """The plain unit label for ``dim`` (``"in"``/``"mm"``, ``"lb"``/``"kg"``...)."""

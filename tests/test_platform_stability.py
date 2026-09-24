@@ -397,30 +397,40 @@ def test_every_delivered_cell_prints_at_its_units_precision():
         (-5.067e-05, "g", "-5.067e-05"), (1.2e9, "", "1.200e+09"),
         # a unit with no row prints at four figures (the gate below is what fails)
         (1234.5678, "furlong", "1235"),
-        # the SI labels a converted LoadValue carries take the Imperial row (D-65.5)
-        (59412.3, "N", "59412"), (1542.21, "kg", "1542"), (27547.4, "N·m", "27547"),
-        (2857.46, "mm", "2857.5"), (35.923, "kPa", "35.92"), (7.32, "kN/m²", "7.32"),
-        (48.94, "m/s", "48.9"), (0.5, "kg·m²", "0.5000"), (54.6, "m^2", "55"), (3.1, "kg*m^2", "3"),
+        # the SI labels a converted LoadValue carries resolve no coarser than the
+        # Imperial cell they converted from (D-65.5 as amended at #298): the
+        # Imperial row plus a decimal per decade the factor divides by
+        (59412.3, "N", "59412"), (1542.21, "kg", "1542.2"), (27547.4, "N·m", "27547.4"),
+        (2857.46, "mm", "2857.5"), (35.923, "kPa", "35.92"), (7.32, "kN/m²", "7.3200"),
+        (48.94, "m/s", "48.94"), (0.5, "kg·m²", "0.5000"), (54.6, "m^2", "54.6000"),
+        (3.1, "kg*m^2", "3.1000"), (2.899, "m^2", "2.8990"),    # #298's 31.2 ft² tail, not "3"
+        (8.55437, "m²", "8.5544"),                              # the wing geometry's 13259 in²
+        (1628.66, "kg·m²", "1628.6600"), (74.57, "kW", "74.6"),
     ]
     for value, units, expected in cases:
         got = format_value(value, units)
         assert got == expected, (value, units, got, expected)
     assert format_value(-687258.0, "lb") == format_value(-687257.9999999999, "lb") == "-687258"
     assert format_value(1.6685) == format_value(1.6684999999999999) == "1.669"
-    # The document's Units passes the Imperial label whatever system it prints
-    # in, so an SI cell has exactly its Imperial row's decimals.
+    # The document's Units passes the label of the system it prints in, so an
+    # SI cell has the SI row's decimals, an Imperial cell the Imperial row's.
     si, imp = Units(UnitSystem.SI), Units(UnitSystem.IMPERIAL)
-    for value, dim, unit, si_dim in [(3400.0, "mass", "lb", "mass"), (100.0, "length", "in", "length_in"),
-                                     (5.2, "pressure", "lb/in^2", "pressure")]:
+    for value, dim, unit, si_dim, si_unit in [
+        (3400.0, "mass", "lb", "mass", "kg"), (100.0, "length", "in", "length_in", "mm"),
+        (5.2, "pressure", "lb/in^2", "pressure", "kPa"), (31.2, "area", "ft^2", "area_sqft", "m^2"),
+    ]:
         assert imp.plain(value, dim) == format_value(value, unit)
-        assert si.plain(value, dim) == format_value(value * HUMAN_SI[si_dim].factor, unit)
+        assert si.plain(value, dim) == format_value(value * HUMAN_SI[si_dim].factor, si_unit)
+    assert si.plain(31.2, "area") == "2.8986" and si.plain(3400.0, "mass") == "1542.2"
     assert imp.load(13360.4, "force", 1.5) == "13360"
-    assert si.load(13360.4, "force", 1.5) == format_value(13360.4 * HUMAN_SI["force"].factor, "lb")
+    assert si.load(13360.4, "force", 1.5) == format_value(13360.4 * HUMAN_SI["force"].factor, "N")
     assert si.load(13360.4, "force", 1.5).isdigit()
 
 
-def _delivered_units_of(project):
-    """Every unit string a LoadValue of every module of ``project`` carries."""
+def _delivered_units_of(project, mass_units=None):
+    """Every unit string a LoadValue of every module of ``project`` carries;
+    the strings a ``quantity="mass"`` value carries are also added to
+    ``mass_units`` when a set is passed (a ``lb`` of mass converts to kg, not N)."""
     from dataclasses import fields, is_dataclass
 
     from sloads import registry
@@ -431,6 +441,8 @@ def _delivered_units_of(project):
     def walk(o, depth=0):
         if isinstance(o, LoadValue):
             seen.add(o.units)
+            if mass_units is not None and o.quantity == "mass":
+                mass_units.add(o.units)
         elif isinstance(o, (list, tuple)):
             for x in o:
                 walk(x, depth + 1)
@@ -449,27 +461,74 @@ def test_every_unit_string_a_fixture_emits_has_a_precision_row():
     """D-65.4's last row is a fallback, never a destination: every unit string
     an example emits, every key the SI converter reads, every SI label it
     writes and every ASCII label the report prints has a row -- and the SI row
-    of a label agrees with every Imperial unit that converts to it."""
+    of a label is exactly what the Imperial units that convert to it need to
+    print no coarser than their source (D-65.5 as amended at #298; until then
+    the row *copied* the Imperial count, and a 31.2 ft² tail printed as ``3``
+    m²). The sources are the unit strings a shipped fixture emits, the mass
+    strings among them (a ``lb`` of mass converts to kg, not N), and the
+    dimensions the report prints itself; a converter row no producer emits
+    would not set a row. ``m²`` takes four decimals because the wing geometry
+    emits its areas to the square inch, and 0.0001 m² is the nearest decimal
+    not coarser than that."""
     import imperial_baseline as baseline
     from sloads import io
-    from sloads.report.content import _EXTRA_DIMENSIONS
+    from sloads.report.content import _EXTRA_DIMENSIONS, _IMPERIAL_HUMAN
     from sloads.units import (
         DELIVERED_PRECISION,
         DELIVERED_PRECISION_SI,
         HUMAN_SI,
+        UNIT_LABELS,
+        Channel,
+        UnitSystem,
+        _INPUT_KIND,
         _RESULT_TO_SI,
+        deliverable_units,
+        si_decimals,
     )
 
-    emitted = set()
+    emitted, mass_units = set(), set()
     for example in baseline.EXAMPLES:
-        emitted |= _delivered_units_of(io.load_project(os.path.join(_EXAMPLES_DIR, example)))
+        emitted |= _delivered_units_of(io.load_project(os.path.join(_EXAMPLES_DIR, example)), mass_units)
     assert emitted, "the walk must not quietly empty out"
     assert emitted <= set(DELIVERED_PRECISION), sorted(emitted - set(DELIVERED_PRECISION))
     assert set(_RESULT_TO_SI) <= set(DELIVERED_PRECISION), sorted(set(_RESULT_TO_SI) - set(DELIVERED_PRECISION))
     si_labels = {d.label for d in HUMAN_SI.values()} | {si for _f, _i, si in _EXTRA_DIMENSIONS.values()}
     assert si_labels <= set(DELIVERED_PRECISION_SI), sorted(si_labels - set(DELIVERED_PRECISION_SI))
-    for unit, (_factor, label) in _RESULT_TO_SI.items():
-        assert DELIVERED_PRECISION_SI[label] == DELIVERED_PRECISION[unit], (unit, label)
+
+    needed = {}                       # SI label -> the most decimals any source needs
+
+    def source(imperial, factor, label):
+        d = si_decimals(imperial, factor)
+        assert d is not None, (imperial, label)
+        needed[label] = max(needed.get(label, 0), d)
+
+    for unit, (factor, label) in _RESULT_TO_SI.items():
+        if unit in emitted:
+            source(unit, factor, label)
+    for unit in mass_units:
+        source(unit, HUMAN_SI["mass"].factor, HUMAN_SI["mass"].label)
+    si_human = deliverable_units(UnitSystem.SI, Channel.HUMAN)
+    for dim in ("force", "length", "moment", "torque", "pressure", "mass", "mass_inertia"):
+        source(getattr(_IMPERIAL_HUMAN, dim).label, getattr(si_human, dim).factor, getattr(si_human, dim).label)
+    for factor, imperial, si in _EXTRA_DIMENSIONS.values():
+        source(imperial, factor, si)
+    for kind, imperial in UNIT_LABELS[UnitSystem.IMPERIAL].items():
+        if imperial in DELIVERED_PRECISION:          # the engine record's hp -> kW
+            source(imperial, HUMAN_SI[_INPUT_KIND[kind]].factor, UNIT_LABELS[UnitSystem.SI][kind])
+    # The report's ASCII spelling of a label is the same unit as the owner's
+    # (``m^2`` is ``m²``) and takes the same row: one document prints both.
+    for dim, owner in {"mass": "mass", "area": "area_sqft", "inertia": "inertia_slugft2",
+                       "inertia_lbin2": "inertia_lbin2"}.items():
+        ascii_label, owner_label = _EXTRA_DIMENSIONS[dim][2], HUMAN_SI[owner].label
+        needed[ascii_label] = needed[owner_label] = max(needed[ascii_label], needed[owner_label])
+    assert {"kg", "N·m", "m²", "m^2", "kg·m²", "kg*m^2", "kW", "kN/m²"} <= set(needed), sorted(needed)
+    for label, decimals in needed.items():
+        assert DELIVERED_PRECISION_SI[label] == decimals, (label, DELIVERED_PRECISION_SI[label], decimals)
+    assert si_decimals("ft^2", HUMAN_SI["area_sqft"].factor) == 2      # 1 ft² = 0.093 m²: two decimals
+    assert si_decimals("in^2", HUMAN_SI["area_sqin"].factor) == 4      # 1 in² = 6.5e-4 m²: the label's row
+    assert si_decimals("lb-in^2", HUMAN_SI["inertia_lbin2"].factor) == 4
+    assert si_decimals("in", HUMAN_SI["length_in"].factor) == 1        # 0.1 in = 2.54 mm: the row stays
+    assert si_decimals("", 1.0) is None
 
 
 @pytest.mark.parametrize("example", __import__("imperial_baseline").EXAMPLES)
