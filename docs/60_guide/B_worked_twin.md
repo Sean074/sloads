@@ -52,9 +52,9 @@ teaches.
    geometry-derived tail CP suggestion accepted; three certificate-corner
    CG cases balanced across all of it.
 6. **[Wing](06_wing_loads.md) and [Fuselage](07_fuselage_loads.md)
-   Loads.** The twin's substance: the concentrated list hangs the engines,
-   propellers, gear and fuel on the wing per side, and the fuselage lumps
-   carry only what the body really carries. The engine step in the
+   Loads.** The twin's substance: the loading's wing point parts hang the
+   engines, propellers, gear and fuel on the wing per side, and the fuselage
+   lumps carry only what the body really carries. The engine step in the
    spanwise shear curve at butt line ±1.68 m is the picture to look at.
 7. **[Tail](08_tail_loads.md), [Aileron](09_aileron_loads.md),
    [Flap](10_flap_loads.md), [Tab](11_tab_loads.md) Loads.** As the

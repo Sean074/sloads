@@ -339,15 +339,21 @@ def test_a_design_note_does_not_claim_unbuilt_work_it_has_shipped(note):
 # question and a wrong header has nothing to contradict it. The evidence is the same
 # in-repo proxy #128 uses, narrowed to where it is unambiguous: a
 # `changes/*.history.md` fragment's own `## Step` heading names the note it
-# ships (``(design note 53, tier L``); a prose mention in a fragment body
-# ("until note 51 lands") is exactly what this must NOT count.
+# ships (``(design note 53, tier L``), or -- since #299 -- its tier-M bold
+# lead's parenthetical does, right after the issue number (``(#290, design
+# note 63 D-63.9, tier M``; `changes/README.md`). The 0.8.6 pre-cut review
+# found note 65 at AGREED three days after its tier-M closure shipped: the
+# step-heading form is tier L's, so a note a tier-M paragraph closed against
+# was never looked at. A prose mention in a fragment body ("until note 51
+# lands") is exactly what this must NOT count.
 _STEP_NOTE_CITE = re.compile(r"^## Step[^(]*\((?:design )?note (\d+)\b", re.M)
+_LEAD_NOTE_CITE = re.compile(r"^- \*\*[^\n]*?\(#\d+, (?:design )?note (\d+)\b", re.M)
 #: The note's Status paragraph: from the ``**Status`` line to the first blank.
 _STATUS_PARA = re.compile(r"^\*\*Status[^\n]*(?:\n(?!\n)[^\n]*)*", re.M)
 
 
 def _history_shipped_notes():
-    """Note numbers named in a ``## Step`` heading of a history fragment."""
+    """Note numbers a history fragment's ``## Step`` heading or tier-M lead names."""
     shipped = {}
     if not os.path.isdir(_CHANGES):
         return shipped
@@ -355,9 +361,20 @@ def _history_shipped_notes():
         if not name.endswith(".history.md"):
             continue
         with open(os.path.join(_CHANGES, name), encoding="utf-8") as fh:
-            for number in _STEP_NOTE_CITE.findall(fh.read()):
-                shipped.setdefault(number, name)
+            text = fh.read()
+        for number in _STEP_NOTE_CITE.findall(text) + _LEAD_NOTE_CITE.findall(text):
+            shipped.setdefault(number, name)
     return shipped
+
+
+def test_the_tier_m_lead_cite_is_read_and_a_body_mention_is_not():
+    """The #299 form is recognised; the body mention #183 excluded stays excluded."""
+    lead = "- **The editor lands (#290, design note 63 D-63.9, tier M, 2026-09-18)** — body\n"
+    assert _LEAD_NOTE_CITE.findall(lead) == ["63"]
+    bare = "- **The editor lands (#290, tier M, 2026-09-18)** — waits until note 51 lands\n"
+    assert _LEAD_NOTE_CITE.findall(bare) == []
+    unbulleted = "**The editor lands (#290, design note 63, tier M, 2026-09-18)** — body\n"
+    assert _LEAD_NOTE_CITE.findall(unbulleted) == []
 
 
 @pytest.mark.parametrize("note", _design_notes())
@@ -371,7 +388,7 @@ def test_a_note_closed_by_a_history_fragment_says_shipped(note):
     assert status, f"{note} has no **Status** line to carry its shipped state"
     assert _SHIPPED_MARK.search(status.group(0)), (
         f"{note} is the design basis of changes/{fragment} (its step heading "
-        f"names note {number}) but its Status paragraph carries no "
+        f"or tier-M lead names note {number}) but its Status paragraph carries no "
         "SHIPPED/BUILT/✅ mark. Flip the header -- RELEASE_PROCESS.md §4 "
         "step 3 rolls notes by status, so a stale AGREED skips the roll and "
         "enters the record wrong (#183)."

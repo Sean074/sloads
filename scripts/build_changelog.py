@@ -89,9 +89,14 @@ def validate_fragment(name: str, body: str) -> str:
                 f"{name}: derived type '{derived}' not in {sorted(TYPE_TO_HEADING)}")
         if not body.strip():
             raise FragmentError(f"{name}: history fragment is empty")
-        if not body.lstrip().startswith(("- **", "**", "## ")):
+        # A tier-M paragraph is a bullet: the history file lists them as
+        # bullets, and six 0.8.6 fragments opened with a bare '**' and would
+        # have rolled in un-bulleted (#299). The bare form survives only for
+        # the tier-L step heading the README also allows ('**Step N — …**').
+        if not body.lstrip().startswith(("- **", "**Step", "## ")):
             raise FragmentError(
-                f"{name}: history fragment must be a tier-M paragraph ('- **' / '**') or a tier-L step ('## ')")
+                f"{name}: history fragment must be a tier-M bullet ('- **') "
+                "or a tier-L step ('## Step' / '**Step')")
         derive_bullet(name, body)  # a fragment with no derivable lead is a fault now, not at cut
         return kind
     if kind not in TYPE_TO_HEADING:
