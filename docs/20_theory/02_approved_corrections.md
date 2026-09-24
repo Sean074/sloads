@@ -17,6 +17,16 @@ in `PROGRAM_SPEC.md` / [`00_theory_sources.md`](00_theory_sources.md), in
 conditions are met, replicate the manual exactly (warts and all). Record each
 correction below.
 
+An entry may be approved ahead of the step that implements it (a design note
+agreed at AGREED, its implementation issue still open). Such an entry carries
+**`ships with <note/issue>`** in its heading suffix: it is a promise, not a
+deviation the delivered numbers carry, and the methods statement
+(`report/methods.APPROVED_CORRECTIONS`) must **not** declare it until the
+implementing step lands and drops the marker in the same change. The guard
+`tests/test_methods_stamp.py::test_statement_lists_every_approved_correction`
+reads the marker: a pending entry is neither required nor permitted in the
+statement.
+
 ## Register
 
 ### 23.361(a)(1) takeoff-torque factor *(approved 2026-06-22)*

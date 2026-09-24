@@ -317,10 +317,12 @@ def _hop_66(d: Dict[str, Any]) -> Dict[str, Any]:
        Where the tie is **open** the entries are mass the items never had, so
        each becomes two ``EMPTY`` WING rows, carriage ``POINT``, at ``±y``.
     2. **Every WING row at a non-zero butt line is stamped ``POINT``**, every
-       centreline row ``PANEL`` -- a one-time default for rows that exist,
-       after which every row is typed (this is not the classification
-       heuristic D-63.3 rejects). Rows the fuselage carries take ``PANEL``, the
-       value the tag has no reading for.
+       centreline row ``PANEL`` -- a one-time default for the rows the file
+       already holds, after which every row is typed (this is not the
+       classification heuristic D-63.3 rejects). Rows the fuselage carries take
+       ``PANEL``, the value the tag has no reading for. The stamp runs before
+       move 1's conversion, never over its rows: a converted entry is typed
+       ``POINT`` by construction, whatever its butt line (#296).
     3. **``panel_weight_lb`` becomes derived.** Half the WING-carried PANEL
        pounds is what WINGINER integrates from now on; the entered value
        survives as ``panel_weight_override_lb`` **only** where it differs by
@@ -334,6 +336,24 @@ def _hop_66(d: Dict[str, Any]) -> Dict[str, Any]:
     items: List[Dict[str, Any]] = list(weight.get("items", []) or []) if isinstance(weight, dict) else []
     wm = d.get("wing_mass")
     notes: List[str] = list(d.get("migration_notes", []) or [])
+
+    # 2. the carriage stamp, on every row the file already holds (and on an
+    # entered ballast row) -- before the conversion below, so a converted
+    # centreline entry keeps the POINT tag the conversion gives it (#296: a
+    # stamp run afterwards re-typed it PANEL by the y != 0 rule, moved the mass
+    # out of the point list and wrote a spurious panel override).
+    def _stamp(row: Dict[str, Any]) -> None:
+        y = float(row.get("y", 0.0) or 0.0)
+        row["carriage"] = "point" if (row.get("component") == "wing" and y != 0.0) else "panel"
+
+    for it in items:
+        _stamp(it)
+    if isinstance(weight, dict):
+        for case in weight.get("cg_cases", []) or []:
+            loading = case.get("loading") if isinstance(case, dict) else None
+            ballast = loading.get("ballast") if isinstance(loading, dict) else None
+            if isinstance(ballast, dict):
+                _stamp(ballast)
 
     if isinstance(wm, dict):
         panel = float(wm.pop("panel_weight_lb", 0.0) or 0.0)
@@ -374,20 +394,8 @@ def _hop_66(d: Dict[str, Any]) -> Dict[str, Any]:
                 f"2 x ({panel:g} + {conc_total:g}) = {want:.1f} lb), so the item "
                 "database did not carry these masses (design note 63 D-63.2)")
 
-    # 2. the carriage stamp, on every row (and on an entered ballast row)
-    def _stamp(row: Dict[str, Any]) -> None:
-        y = float(row.get("y", 0.0) or 0.0)
-        row["carriage"] = "point" if (row.get("component") == "wing" and y != 0.0) else "panel"
-
-    for it in items:
-        _stamp(it)
     if isinstance(weight, dict):
         weight["items"] = items
-        for case in weight.get("cg_cases", []) or []:
-            loading = case.get("loading") if isinstance(case, dict) else None
-            ballast = loading.get("ballast") if isinstance(loading, dict) else None
-            if isinstance(ballast, dict):
-                _stamp(ballast)
 
     # 3. the derived panel, and the override only where the entered one differs
     if isinstance(wm, dict):
