@@ -32,6 +32,501 @@ written directly, by the release manager.
 
 ---
 
+## Release cut: **sloads 0.8.6** (the baseline wave — one mass model, the negative wing slots, the wing-body joint, delivered precision), tag `v0.8.6`, 2026-09-23
+
+**Objective.** Close band **B7** — the rows that move delivered numbers and
+regenerate the digests, sequenced after 0.8.5 so the regeneration is paid
+once, and gated on one decision: #164's case-set shape. Taking that decision
+opened the band wider than its five rows. Design note 62 (the negative
+angle-of-attack wing slots) answered the case-set question; note 63 (one mass
+model) answered what mass each case carries; note 64 (the wing-body joint)
+answered where the body reacts the wing; note 65 (delivered precision)
+answered how a number becomes text. The band emptied on 2026-09-22, the
+pre-cut critical review found the cut not clean — one CRITICAL, ten MAJOR —
+and it re-opened for six fixes (#294–#299, #295 folded into #306), the round
+trip the 0.8.3 cut also took: a release cannot knowingly carry a wrong
+delivered load.
+
+**Deliverables** (the `[0.8.6]` changelog section is the release note):
+- **The wing case set is complete on both sides (#288, note 62, tier L).**
+  SELECT.BAS carried three positive angle-of-attack slots and one negative;
+  NHAA (W-07) and NLAA (W-08) are added, NMAA narrowed to the VC pair, a
+  negative slot admits negative lift only, and the load-factor-extreme pair
+  PNZ (W-09) and NNZ (W-10) delivers the point that sizes the wing-mounted
+  masses whatever weight it occurs at. The six Appendix A picks are locked and
+  the new slots closure-gated on every fixture's frozen pick.
+- **One mass model (#289, #292, #290, note 63, tier L/L/M).** The case's D-25
+  loading is the mass state of every inertia load: `WingMassInput` loses its
+  mass (schema **v67**), the panel is derived from the `PANEL` rows and the
+  concentrated masses are the loading's `POINT` rows, fuel is entered per tank,
+  MZFW is a design weight that seeds the zero-fuel and full-fuel cases, every
+  SELECT wing slot runs at every FLIGHT mass state with the net-governing run
+  delivered, `CaseRef` carries the run key beside the slot id, and the Payload
+  Cases group edits the loading the distributions read.
+- **The wing-to-body joint (#275, note 64, tier L).** One vertical post at the
+  wing station, the fuselage beam through the box with grids at both spars,
+  the body integrated as two cantilevers positive-up, the box's loads applied
+  and never integrated, M4-1's linear smear and the whole-body closure
+  correction retired; a project that cannot place the wing post is refused by
+  name (schema **v68**).
+- **The baseline wave proper (#164, #222, #260, #293, #161, tier M each).**
+  The GA6 fixture balances at Appendix A's three altitudes; the fuselage
+  critical set publishes one key per quantity; the ATR 42 fixture is
+  reconciled end to end from the published 42-300 data; a closure load lands
+  on the member that carries its mass; and every delivered cell prints at the
+  precision its unit prescribes (note 65) — no exponent form on the human
+  channel, one owner for the digit count, the solver channel untouched.
+- **The deck says what it does not carry (#284, #210, #291, tier S).** The LRA
+  deck states the SELECT conditions it does not assemble; every engine-mount
+  condition states its own point of application; the heavy's drag polar has
+  its minimum at the wing's zero-alpha lift coefficient.
+- **The pre-cut review's fixes (#294, tier M; #296, #297, #298, #299, tier S).**
+  D-62.8's coincidence rule runs once, on the delivered wing set, so the NNZ
+  extreme is delivered by somebody whatever mass state NMAA moves to (the
+  CRITICAL: `baron_58` case 153 at −2.345 g and the RJ's case 213 were absent
+  from the one deck that ships); the v67 migration keeps a converted
+  centreline wing mass a point mass; the LRA exporter refuses an unbracketed
+  wing station by name instead of a `KeyError`; an SI cell resolves no
+  coarser than the Imperial cell it converted from (a 31.2 ft² tail printed
+  `3` m²); the live corpus states shipped 0.8.6 and a tier-M closure can no
+  longer leave its note at AGREED.
+- **Docs-only commits on the branch:** the 2026-09-22 re-cut (B8 re-chartered
+  "the deck carries what the airplane carries", #300–#305 filed, rule 6
+  applied to #226, #111 and #32) and design note 52 amended and re-agreed
+  (D-52.10–D-52.13; the 23.349(a)(2) 75 % correction registered ahead of its
+  implementation, #306, with the register's `ships with` marker).
+- **Version** `0.8.5` → **`0.8.6`**. Schema **v66 → v68**: v67 at #289 (the
+  hop drops `wing_mass.concentrated`, stamps carriage and reports what it
+  converted; #296 fixed its stamp order), v68 at #275 (an identity hop on the
+  input model — two result dataclasses changed shape).
+- **Changelog cut** — `scripts/build_changelog.py 0.8.6 --date 2026-09-23`:
+  **19 fragments** consumed — 8 into `## [0.8.6]` directly and **11 history
+  entries** rolled to the top of this file, their changelog bullets derived
+  from their leads — and a fresh empty `[Unreleased]` opened.
+- **Record roll** (`RELEASE_PROCESS.md` §4 step 3): no note moves (note 61
+  CV-3). This file stood at 966 lines before the cut and 1,461
+  after it; the changelog at 870 and 967. Neither crossed
+  1,500, so nothing rolled.
+- **Verification baseline** (§4 step 5): unchanged from
+  [`36_verification_baseline_0.7.0.md`](36_verification_baseline_0.7.0.md).
+  No FAR 23 oracle figure moved: the Appendix A assertions are the same tests
+  on the same printed numbers (note 62 G-62.2 locks the six Appendix A wing
+  picks by name, #164 re-pins the GA6 conditions at the altitudes the manual
+  states). What moved is the delivered set above the oracle — the new slots,
+  the per-case mass states, the two-cantilever body, the ATR and heavy
+  fixtures, every human-channel digit — each pinned by its own closure gate
+  in the notes' §4 tables and regenerated digests, and each recorded in its
+  history entry below. A new baseline document would restate 0.7.0's numbers
+  verbatim.
+- **Gates at cut:** `pytest` **3,742 passed / 9 skipped / 2 xfailed / 0 failed** (3,591 passed / 7 skipped /
+  2 xfailed at the 0.8.5 cut), `ruff` clean, `mypy` clean (`sloads/`, 109
+  source files), `scripts/smoke_test.sh` **PASS**, `scripts/backlog_issues.py
+  check` clean, `scripts/branch_protection_snapshot.py --check`
+  matches on 7 tracked keys, the §3.5 by-hand walk done by the owner (2026-09-24), no open CRITICAL/MAJOR review
+  findings (the 2026-09-22 review's eleven closed in #294–#299 and #306's
+  charter). The **9 skips are fixture-conditional** (§3.3): a parametrized check that a bundled example carries no input for — an entered station table, a WTENV envelope, a fuselage outline, a geometry slice to half-enter — states so and skips, and the three `concept_heavy` LRA skips state the exporter's refusal on a fixture where no side of body resolves (note 64); the set grew by two since 0.8.5 within those. The **2 xfails are the same pair as at 0.8.4 and 0.8.5**: the SI-frame LRA round trips on `concept_regional_jet` and `ga6_normal`, refused by sbeam's dense-path condition heuristic and solving exactly in Imperial (note 55 §8).
+
+**Key decisions.** *A case set is not complete until both sides of it are.*
+The band opened on one question — what shape the case set takes — and the
+honest answer was three notes deep: a slot for the negative side needs a mass
+state to run at, a mass state needs one model that every consumer reads, and
+a body that reacts the wing needs a station the beam model actually has. Each
+note was PROPOSED and AGREED in session under the solo profile and shipped
+within days, with the shipping measurements recorded in the note itself (§8
+of note 62, §10–§12 of note 63, §7b of notes 64 and 65) so a decision and its
+amendment sit on one page. The second decision was the review's: a band that
+has emptied is not a release until a critical read of the whole branch says
+so, and this one did not — the coincidence rule on the wrong set would have
+shipped a 23.337 design condition to nobody. The round trip cost a day and
+six tier-S rows; the alternative was a known-wrong deck under a release tag.
+
+- **The ATR 42 fixture is reconciled end to end from the published 42-300 data, so the concept turboprop demonstrates the suite on an airplane whose inputs agree with each other (#260, tier M, 2026-09-21).** `examples/atr42_100.project.json` drew a wing 18 % under the type's area with the true 586 sq ft stored in a field the planform overrides, entered a fuselage station table that no longer matched its own item database, typed five copies of derived quantities that disagreed with their owners (wing span, aspect ratio, lift slope, stall CL, SELECT wing weight), carried no aileron, flap or tab slice and a zero T-tail height, and filtered the wing slots to one mislabelled `PHAA` row — the 2026-09-09 capability review's §4, plus three faults found at the rebuild: no spars or side of body (so note 64's wing post stood on an assumed station), a max landing weight 1,155 lb under the type sheet's, and a clean CLmax the lift curve could not reach inside the balance's angle-of-attack window. The fixture now carries the published span, area (the planform integrates to 586.6 sq ft, aspect ratio 11.08 derived), length, weights (MTOW 36,817, MLW 36,155, MZFW 33,510, OEW 22,674 lb, 9,921 lb of fuel) and PW120 ratings from the manufacturer's factsheet, a constant-chord centre section with 3.1° quarter-chord sweep on the outer panels per Jane's, spars at 15/60 % of the root chord and a side of body at half the outline width, aileron/flap/tab slices and the trim tab, a statistical mass breakdown summing to the OEW with the propellers and tanks as per-side wing rows (empty CG 25 % MAC), every typed copy blanked to derive, the parametric block seeded from the planform, no station table (the fifteen derived stations carry the beam, and the beam waterline is the body's own centre line), an empty wing-case table so all ten SELECT slots derive (note 62 D-62.7's ruling for this fixture), and the eleven weight/CG cases re-seeded — each flight case an entered loading, the gross-weight limits closing with 4.5 % ballast. The choices that are not published — clean CLmax 1.8, CD0 0.032, the lift curve 0.30 + 0.08α — are recorded in `examples/atr42_100.sources.md` with the reason each was made (the balanced PHAA's pre-closure residual scales with the stall angle of attack and sits at 2.1 % of n·W; the non-wing drag must be aft inside the trusted window). Two things changed beyond the fixture: BALLOADS handed the raw h-tail record to the downwash term and divided by a blank aspect ratio, the first fixture to blank its typed copy exposing it, so it now resolves the note 36 blanks through `effective_tail_inputs` exactly as SELECT does (guarded in `tests/test_balloads.py`); and the shipped fixtures no longer reach the Mach-capped clamped state at all — the small wing was what put the ATR's 25,000 ft manoeuvre points on the cap — so `tests/test_convergence.py` exercises D-30's clamped state on the same airplane balanced at 35,000 ft, `tests/test_aero_curves.py` moves the ATR to its closing set, and `PROGRAM_SPEC.md`'s convergence bullet says so. Re-pinned on the ATR alone: note 62's five air picks, the design speeds (VA 160.4, VF 145.9 kt), every balance pin (closure Izz, lateral accelerations halved by the closure inertia, the unsymmetrical split, the residual ratchets and dCD band, NMAA no longer body-axial clamped), the derived panel (1,750 lb/side), tail weights, the MZFW seed (33,510 lb with the forward cabin trimmed to 4,056 lb), the wing point-row count and the equilibrium coverage (a control-surface deck now ships on it). One Imperial digest wave on `atr42_100` alone: 51 of its 58 channels moved (six are new — the control-surface files), no other fixture's digest changed. The B7 recount is 2 rows (1 M, 1 S).
+
+- **A closure load lands on the member that carries its mass, so a symmetric landing loads the deck's two main-gear grids identically (#293, tier M, 2026-09-21).** The LRA transfer sends each balanced load to the nearest grid of the member its `source` names (note 25 LM-7), and the six-DOF closure field — the relief a case spreads over its masses, which for a ground case is the whole inertia set — named no member: it fell to the nearest grid in the entire skeleton. For a body mass low in the fuselage that grid is a main-gear attach grid rather than the beam, and for a centreline mass the mirrored pair is an exact tie the CR-B-1 rule breaks to the first in order, so `atr42_100`'s level landing put the relief of its 1,250 lb gear item and its 1,607 lb ballast row on the right leg alone: 19,566 lb against 27,142 lb for two reactions the balanced case makes equal (the pre-#260 fixture showed 2,800 lb; `ga6_normal` 144 lb; the Baron's and the ATR's engine hub grids carried wing-mass relief the same way). Found 2026-09-21 tracing the #260 cut-side-sum failure. Now every `closure-*` load records the `source` of the mass load it relieves (`BalancedLoad.carrier`, a result field, no schema hop) and `_member_key` routes it there — body relief to the fuselage beam, wing relief to its wing chain, a self-inertia moment with the point mass it rides on — so a gear grid carries gear reactions only and an engine grid thrust and mount loads only, and the two halves of one mass load land on one structure. The resultant of every case is unchanged by construction (the exact transfer couple), so the plan-07 invariant and the round-trip equilibrium gates did not move; the per-grid loads did, on the four fixtures that build a model. Each LRA case header now states what its closure field *is* — for a ground case the inertia set itself, the accelerations the gear reactions and the 23.473(a) lift produce on the mass distribution, with no residual; for a flight case the pre-closure residual as a percentage of `n·W` beside the 2.5 % ceiling the balance gates it at — the owner's ruling of 2026-09-21 that the residual is spread while small and stated, never lumped. Guarded in `tests/test_lra_model.py`: the mirrored-leg identity on every body-gear fixture (the grid loads equal the balanced reactions to 1e-6), no closure load routed to a gear or engine grid on any case of any fixture, and the header statements. `PROGRAM_SPEC.md`'s LRA transfer paragraph carries the rule. One Imperial digest wave: the LRA deck channel on `ga6_normal`, `baron_58`, `concept_regional_jet` and `atr42_100`; no other channel moved.
+
+- **Every delivered cell prints at the precision its unit prescribes, so a 13,360 lb load reads `13360` beside its neighbours instead of `1.336e+04` (#161, design note 65, tier M, 2026-09-21).** `format_value` rendered every human-channel cell — report tables, the case index, the CSVs, the text views, the GUI results tables — with `%.4g` on any non-integral value and an integral value in full, so `%g`'s exponent switch put every load above 9,999.5 lb into scientific notation beside an integral neighbour printed plain, and stripped the significant zeros that told a reader two cells shared a precision; the 2026-09-01 owner PDF review filed it as OR-14 and the item waited for the 0.8.2 freeze and then for the end of the baseline wave. Design note 65 (AGREED 2026-09-21) makes precision a property of the unit, as PB-22 already made it for the entered channel: `units.py` gains `DELIVERED_PRECISION`, keyed by the Imperial unit string a `LoadValue` carries — loads, moments, areas and inertias to the whole unit; stations to 0.1 in and altitudes to 0.1 ft; speeds to 0.1 kt; angles, pressures, percentages and load factors to 0.01; dimensionless quantities at four significant figures with their zeros kept — and `format_value(value, units)` reads it, never switching to exponent form inside the delivered window, dropping a non-zero cell that would print as `0` to four significant figures, and printing a unit with no row at four figures while the gate fails. The SI channel uses the row of the unit it converted from (`DELIVERED_PRECISION_SI`, one row per SI label; `content.py` passes the Imperial label). The owner's rulings: per-unit rather than uniform, entered precision not preserved (the report does not re-echo inputs, OR-194, and a converted value has no entered digit count), percentages at two decimals, the safety-factor cell under the dimensionless rule because a future 25.302-class factor is not a round constant, altitude at one decimal. The 113 call sites each hand over their unit; three helpers gained a `units` argument; three hand-written formats were routed through the owner and thirteen exempted on the line (the solver channel's companion CSV keeps the deck's decimals, D-65.8). Measured on the three shipped fixtures' 29,283 delivered cells: 8.9 % were in exponent form, none are; 47 % of cells change, almost all by a kept zero or a fixed decimal count. Gated in `tests/test_platform_stability.py`: the table by example in both channels, no exponent form on any human channel of any example, every emitted unit string rowed, and an AST scan of `sloads/report/` for a renderer writing a digit count of its own. One Imperial digest wave on every example's human channels (`txt/*`, `csv/*`, `case_index`, `gear_report` — 213 channels across the five examples); no `sbeam/*` digest moved, asserted against the pre-#161 fixture at closure.
+
+- **The fuselage critical set publishes each quantity under one key and one label, so the report reads a single key per column and folds nothing (#222, tier M, 2026-09-20).** `select_fuselage` keyed the wing reaction `LZW − NZ·WW` as `fuselage_down_load_on_wing` on its two down blocks and `fuselage_load_on_wing` on the up one, and the tail load as `tail_load` on three blocks and `balancing_tail_load` on the GREATEST NZ block: one quantity under two keys, the M4-9 key contract read the wrong way round. Found 2026-09-06 while building the report's §4.3 fuselage table, under the 0.8.2 solver freeze, so the table carried both spellings per column to fold them and the defect was filed rather than fixed (note 44 OR-14). Now every block keys the reaction `fuselage_load_on_wing` and the tail load `tail_load`, the sign carrying the sense, and the labels converge with them ("Fuselage load on wing", "Tail load"); the report's `_BODY_QUANTITIES` names one key per column. A guard in `tests/test_select.py` sweeps every component of every shipped fixture for a label under two keys or a key under two labels, and pins the fuselage key vocabulary. No delivered value moves; three label cells move in the SELECT and BODY_LOADS CSV and text outputs of each fixture, and their twenty digest channels regenerate.
+
+- **The GA6 fixture balances at Appendix A's three altitudes, so every delivered case states the altitude the manual states (#164, tier M, 2026-09-20).** `examples/ga6_normal.project.json` carried one FLTLOADS altitude, sea level, while the Appendix A loads report balances at 0, 12,000 and 18,000 ft and picks five of its six critical wing conditions at 12,000 ft; the loads reproduced (equivalent-airspeed points, and the entered wing cases pin the printed nz/CL/V), but every case in the report, the case index, the CSVs and the LRA deck read `0 ft` where the manual reads 12,000, with the sea-level compressibility factor at those points — the 2026-09-04 review's CRITICAL R-26, confirmed on the deliverable. The fixture's `flight_loads.altitudes_ft` is now `[0, 12000, 18000]` (240 V-n points, 80 per altitude, in place of 80), and the shipped fixture's SELECT picks are the Appendix A ones by identity — PHAA STALL +N CG2 at 0 ft, PLAA MAN D / PMAA GUST +C / ACRL at CG2, NMAA GUST −C at CG3 and TORS ST ROL C at CG1, all at 12,000 ft — with the case numbers the renumber assigns; the merged half of the row (#165, the wing-case envelope) shipped under notes 62 and 63 (#288, #292), so this is the altitude half alone. The SELECT, BALLOADS, BODY_LOADS, TAILDIST and results-review tests that patched the three-altitude list onto the fixture in their own helpers now read the fixture as shipped, and a guard in `tests/test_select.py` holds the shipped list at Appendix A's set so the oracle can never again pass on a fixture it does not exercise; the G-OR-83 identity gate's statement that the shipped GA6 cannot reproduce the Appendix A tail figures is withdrawn. Note 44's fixture bullet carries the dated closure. One Imperial digest wave on `ga6_normal` alone: every channel that carries a V-n case number, an altitude or a load selected from the matrix moved; no other fixture's digest changed.
+
+- **The case's loading is entered on the case: the Payload Cases group edits it, the Mass cases table and the Wing Loads page's WING parts read it (#290, design note 63 D-63.9, tier M, 2026-09-18)** — D-25 shipped `CgCase.loading` with no page that edits it, so a loading was typed into the JSON or not at all. The one generic renderer gained a record-inside-a-list-row shape (`oracle_app.form.render_nested`): a CG case's loading renders inside the case's own row — the discretionary rows aboard as a multiselect (the note's checkboxes, one widget), a fraction on every row that may be partial with `1` meaning whole and not written, an optional ballast row with its own station and waterline, and the D-25a echo as a caption from `entered_loading` and the two tolerance owners, loud when the loading stops producing the case. *Add loading* enters the searched loading **as found** — `mass_distribution.loading_definition_of`, the one construction, replayed exactly (`tests/test_one_mass_model.py`) so the gesture moves no load — and *Remove loading* takes it off; both named clicks, so a page visit attaches nothing (`test_gui_journey`). The 15 `loading.*` registry rows left `JSON_ONLY_RECORDS` for the extension tier with their bases stated, and the tier gate re-derives their reach through `nested_record_class`. Two read-only views, computed nowhere in the GUI: `mass_distribution.mass_case_summary` (one row per CG case — id, name, role, analyses, entered W/Xcg/%MAC/Zcg, the loading's own W/Xcg/Zcg and the echo, fuel by the item `consumable` flag, payload, ballast lb and %, the wing panel and points per side, the source with its reason) under the cases, and `wing_parts_summary` (panel first, then each per-side POINT part) on the Wing Loads page, rendered through `form.GROUP_TABLES`. `case_loading_missing` ships as D-63.1 said — concept mode, a FLIGHT case whose loading the search derives and nobody entered — and the two concept fixtures enter their five WTENV cases as found, so it fires on no shipped fixture; the Baron stays searched, its two non-derivable cases being the editor's demonstration. Digest movers: the ATR's and the jet's `entered` column and mass-state labels. Docs: `PROGRAM_SPEC.md` (`payload_cases`, the slice table, the merged-page table's stale `st.tabs` column), `CONVENTIONS.md` §7 (the mass-state row), guide chapters 02 and 06 (the stale *Concentrated masses* paragraph), the data dictionary regenerated, note 63 §12.
+
+## Step — The negative angle-of-attack wing slots and the load-factor-extreme pair, above SELECT.BAS (#288, design note 62 D-62.1…D-62.8, tier L, 2026-09-17)
+
+**Objective.** Close the coverage gap note 62 measured: `SELECT.BAS` searches
+three positive angle-of-attack slots and **one** negative, so whichever
+negative point has the largest resultant is delivered and the other spar's
+down-load case is discarded with nothing said, and because every slot picks
+on air load the largest-magnitude load-factor points in the matrix (GA6
++5.25 g and −3.25 g at CG4, the case that sizes every wing-mounted mass)
+reach no deliverable either. This is the #164 case-set ruling, taken in the
+owner's rulings of note 62 §2 and its critical-advocate review the same day.
+
+**Deliverables.** `select_wing` gains four slots after TORS: **NHAA**
+(largest resultant among STALL −N / STALL −1G), **NLAA** (MAN −D / GUST −D),
+**PNZ** (largest `nz` over every positive-family label, tie-break largest
+resultant) and **NNZ** (most negative `nz` over every negative-family label);
+**NMAA** is narrowed to the VC pair MAN −C / GUST −C. A negative slot admits a
+point only when the **wing's** lift is negative (`LZW < 0`) and PNZ only when
+it is positive — the sign tested is the wing's, not the airplane's load factor
+(D-62.2) — and a slot with no eligible point is **empty**, a gap in the W-
+band; a PNZ/NNZ point another slot already delivers is not delivered twice
+(D-62.8's coincidence rule, `case_ids` M4-2 decision 1). `WING_SLOTS` mints
+W-07…W-10 for the four and nothing moves below them; all four join
+`SYMMETRIC_WING_CONDITIONS`, so the LRA deck gains up to four symmetric
+subcases; a slot on a non-derivable CG case is a `loading-not-derivable` skip
+like the six before it (`baron_58` W-07/W-08/W-09, until #290 enters those
+loadings). `PROGRAM_SPEC.md`'s SELECT section and case-id rule,
+`ch04_wing_loads.md`'s table and `theory_sources.md`'s SELECT row state the
+four; `CONVENTIONS.md` states the residual scale's 1 g floor (below). One
+Imperial digest wave: `select`, `balance`, the balanced and LRA decks and the
+case index moved on every fixture; `net_loads`, `wing_inertia` and `airloads`
+moved on none, because every fixture enters `wing_mass.cases` by hand
+(D-62.7).
+
+**Test.** Gate 1: the six Appendix A picks are the same points on the same
+figures (`test_critical_wing_conditions_match_appendix_a`, unchanged
+tolerances). **G-62.1** asserts the invariants on every fixture — membership,
+wing-lift sign, largest resultant among the eligible, empty-when-ineligible,
+the load-factor extremes, the coincidence rule, one V-n case under one wing id.
+**G-62.2** freezes every fixture's pick by name (label, load factor, speed,
+CG case, altitude, resultant), so #164's V-n renumber cannot move it.
+**G-62.3** (`test_balance.py`) asserts each non-empty slot is assembled
+symmetric and unhanded or is in the skip record as `loading-not-derivable`,
+and names the Baron's three. **G-62.4** pins W-07…W-10 and the gaps. The
+report's per-label run register is extended to the ten GA6 slots.
+
+**Key decisions.**
+
+- **NMAA moves on the heavy as well as the ATR.** The AGREED text said the
+  narrowing returns the same point on every fixture but the ATR; on
+  `concept_heavy` the `.BAS`'s NMAA was the STALL −N point too (case 8, R
+  32,463 against MAN −C's 32,367), which is NHAA's now. Note 62 §8 corrects
+  gate 1 and G-62.2's heavy PNZ cell (it coincides with PHAA, not PMAA: the
+  three 4.0 g manoeuvre points tie on `nz` and MAN A has the largest
+  resultant).
+- **The residual gate's scale floors at 1 g** (`BalancedCaseResult.gate_load_factor`).
+  The heavy's NLAA is a −0.024 g VD gust; its pre-closure residual against
+  `n·W` read 31 % force / 13 % pitch, and 0.75 % / 0.32 % against the
+  airplane's weight — the loads the case actually carries, since a near-0 g
+  case still balances a weight of lift against a weight of inertia and the
+  *net* is what is near zero. Every case above 1 g is unchanged; the relief
+  fraction reads the same owner.
+- **A fixture defect is recorded, not excused.** The heavy's new NMAA sits at
+  alpha −9.8°, 0.2° inside the polar's trusted window, with a forward
+  non-wing axial force (dCD +0.0169) — the point the old NMAA occupied was
+  outside the window and clamped. The sign gate is right to call it a
+  fixture aero-data defect in the heavy's crude polar; it is recorded with
+  its number in `_DELTA_CD_FORWARD_INSIDE_WINDOW`, asserted both ways, and
+  the fixture's polar is the fix (#291).
+- **Ratchets and clamps re-pinned with the cause stated.** NHAA clamps on
+  the ATR, the RJ and the heavy (stall-line alpha −12.8 / −18.7 / −14.3°);
+  the ATR's new NMAA at 25,000 ft still clamps; NLAA's force residual is the
+  largest symmetric one on the GA6 (1.15 %) and the RJ (1.16 %), a VD gust
+  at small negative load factor where the tail load is a larger share of the
+  balance, inside the 2.5 % acceptance with pitch at a tenth of its gate;
+  the ATR's "min weight" case assembles for the first time and its closure
+  Izz is pinned.
+
+## Step — One mass model: the case's loading is the mass state of every inertia load (#289, design note 63 D-63.1…D-63.4, D-63.6, D-63.8, D-63.10, D-63.11, tier L, 2026-09-17)
+
+**Objective.** Close the defect design note 63 measured: WINGINER and
+NETLOADS distributed a second, project-wide mass list
+(`wing_mass.panel_weight_lb` + `concentrated[]`) that ignored the case, the
+balanced deck read a searched loading, and `body_loads` lumped the whole
+item database at every condition — three readings of the mass state that
+nothing reconciled. On `atr42_100` the −1.00 g minimum-weight pick carried
+1,900 lb of wing fuel per side in the net loads and none in the deck; on
+`ga6_normal` the GREATEST NZ condition's beam integrated 3,070 lb of body
+mass under a 2,063 lb airplane. This is the one-model step of the R-63.4
+scope split (ruled 2026-09-17); the variants step is #292 and the loading
+editor #290.
+
+**Deliverables.** **Schema v67.** `MassItem.carriage` (`WingCarriage`:
+`PANEL` | `POINT`, D-63.3) says how the wing reacts a WING-carried part;
+`WingMassInput` loses `panel_weight_lb` and `concentrated[]` — the panel is
+derived (half the WING-tagged PANEL items, `mass_distribution.panel_weight`,
+with `panel_weight_override_lb` the OV-1 override) and the concentrated
+masses are the POINT rows of the case's loading; `WingLoadCase.cg` names
+the mass state (D-63.6); `weight.max_zero_fuel_weight_lb` is stored beside
+MTOW and MLW and seeds nothing until #292 (D-63.5); `CaseRef.run`/`config`
+carry the run key beside the slot id (D-63.11) and `WingLoadResult` /
+`BodyLoadResult` state their `mass_state`. **The read.**
+`mass_distribution.wing_mass_state` resolves a CG case to its loading
+(entered, else the search, bit-for-bit the pre-v67 fallback) and to the
+panel and per-side POINT masses WINGINER hangs; `wing_inertia.panel_shape`
+iterates the taper once at the project panel and `fold_units` scales it
+and folds the case's point list per case, so WINGINER and NETLOADS carry
+the relief a case flies with; `body_loads` derives each condition's
+station table from that condition's loading (D-63.8); the balanced deck
+scales its strips to the loading's PANEL parts and places its POINT parts
+at their own stations. A loading the search cannot produce falls back to
+the whole database **with the reason in the result** and a validation
+warning; a searched loading is laterally symmetric by construction (one
+tank of a pair is never a candidate) and an asymmetric entered one is
+named. **The migration** (`_hop_66`, not an identity) drops
+`concentrated[]` where the wing tie closes — every shipped fixture — and
+names the entries once on the transient `Project.migration_notes`,
+converts them to per-side POINT rows where it is open, stamps POINT on
+every off-centreline WING row and PANEL elsewhere, and keeps the entered
+panel as the override only where the derived value differs. **The
+fixtures** are hand-corrected per D-63.2/D-63.4 and re-stamped: the
+Baron's centreline fuel-system row per side; the ATR's engines and
+nacelles per side and its 9,174 lb fuel-to-gross and 700 lb reserve rows
+into per-side wing tank rows; the heavy's 5,500 lb fuel row likewise — so
+`panel_weight_override_lb` is `None` on all five. The case index gains
+`Run`/`Config` columns and every deck's `$` case map states the run key
+after the id. The report's wing section names each case's mass state and
+states the per-case tie ("0 lb apart" on every case). `PROGRAM_SPEC.md`
+(payload_cases, WINGINER, NETLOADS, body_loads, the ownership table),
+`CONVENTIONS.md` §1, §4 and §7, note 22 §2a, `theory_sources.md`'s
+WINGINER row, `ch04`/`ch10` and the data dictionary state it.
+
+**Test.** Gate 1: every Appendix A WINGINER and NETLOADS assertion passes
+without edit and the GA6's `wing_inertia`, `net_loads`, `wing_applied`,
+`mass_model` and `mass_check` digests are byte-identical; its body applied
+set moves by the stated correction. **G-63.1** (`test_one_mass_model.py`):
+on every fixture every delivered wing case names its state, its published
+point loads are that state's POINT rows, and Σ WING parts of the loading =
+2 × (panel + Σ points); each FLIGHT case's wing and body parts partition
+its loading exactly. **G-63.3a, identity half:** every V-n-sourced
+condition carries the point's run key, within the wing family a run key
+names one slot, and WINGINER/NETLOADS deliver each W id under SELECT's run
+key. **G-63.4:** the v66 fixture hops with nothing dropped or overridden
+and loads to the current airplane; a closed-tie file drops and names, an
+open-tie file converts and closes; every fixture carries its wing mass in
+the items alone, POINT off-centreline, PANEL on it, the Baron's per-side
+point list summing to the 1,190.5 lb its four lumped entries did.
+**G-63.5:** the Baron's entered "fwd light" loading derives a beam of its
+own body weight, not the database's. Validators `wing_panel_override_open`,
+`wing_mass_asymmetric`, `wing_case_loading_not_derivable`,
+`wing_case_mass_state_unnamed`, `wing_panel_empty`,
+`fuselage_override_varies_by_case` and `migration_note` are each
+exercised; on the shipped fixtures only the Baron's two non-derivable
+FLIGHT cases fire. One Imperial digest wave.
+
+**Key decisions.**
+
+- **The fallback is stated, never silent.** A wing case that names no mass
+  state, or one whose loading the search cannot produce, runs on the whole
+  database with every row aboard — the pre-v67 reading — and the result's
+  `mass_state` says why; the Baron's hand-entered PHAA and TORS now name
+  `cg: "aft gross"`, its one derivable FLIGHT case, and its fuselage
+  conditions at "fwd gross"/"fwd regardless" fall back with the reason
+  until #290 enters those loadings.
+- **The shape is scaled, not re-iterated.** WINGINER.BAS's ±1 % density
+  band makes a re-run at a different target a different band; the shape
+  built once at the project panel and scaled per case is exact at the
+  target (Appendix A) and linear away from it.
+- **The half-span models run the starboard POINT set.** A centreline POINT
+  part enters at half its weight; the port parts are checked to mirror,
+  and the subset search refuses an asymmetric candidate so no searched
+  state can be one the deck and WINGINER cannot carry.
+- **The fixtures' fuel is where the airplane's is.** The ATR and the
+  heavy carried a `wing_fraction` slice sized to match the old fixed
+  `concentrated` entry (3,800 / 1,200 lb); the whole fuel row is now
+  per-side wing tank rows at the row's own station, so WTONECG's weight
+  and CG are unchanged and the wing relief is the fuel aboard. Measured
+  movements: the ATR PHAA relief per side 1,900 → 6,127 lb (engine 890,
+  nacelle 300, fuel 4,587, reserve 350) and its closure `Izz` −8 % / −8 %
+  / −15 % on fwd gross / aft gross / min weight; the Baron's 2,381 lb per
+  side of engines, gear, fuel and systems at BL 57–95 instead of smeared to
+  the tip, closure `Izz` 12,195 → 7,369 slug·ft² and the yaw accelerations
+  up by the reciprocal (SUDDEN RUDDER +114 → +189 deg/s²), the lumped
+  engine at x 48 now the item rows at x 30/50/55; the heavy's fuel 600 →
+  2,750 lb per side at BL 120, closure `Izz` 32,302 → 42,104, its body beam
+  15,000 → 10,700 lb; the ATR's stale entered fuselage table now reads
+  2,333 lb *over* the derived beam (28,951 → 22,877 lb of body items). The GA6 body masses per condition:
+  CG1 3,070 (unchanged), CG2 3,070 (redistributed: the sixth occupant out,
+  248 lb of ballast in), CG3 2,470, CG4 1,733 lb against 3,070 before.
+  Every fin load and `Ny` is unchanged on every fixture.
+- **`04_far25_gap_analysis.md` 25.321 stays N** until #292 seeds the
+  zero-fuel cases; MZFW is stored, not yet read.
+
+- **The load-factor extremes reach the deck whatever mass state their bending twin moves to: D-62.8's coincidence rule runs once, on the delivered wing set, and the PNZ/NNZ tie is the balance's own band (#294, tier M, 2026-09-22).** The 0.8.6 pre-cut review found the cut not clean: `select_wing` applied the coincidence rule to the *air* picks and then re-pointed them (note 63 D-63.7), so on `baron_58` and `concept_regional_jet` NNZ was emptied against NMAA's air pick, NMAA moved to a zero-fuel case, and the 23.337(b) extreme — Baron V-n case 153 at −2.345 g, RJ case 213 at −1.805 g — was carried by no subcase of the one deck that ships, while G-63.3's "assessed and not delivered" escape let it through. Two MAJORs sat in the same cluster: the PNZ/NNZ tie band was `picks.TIE_REL` (1e-9, relative) against a balance that converges `nz` to ±0.005, so the largest-resultant tie-break had never fired; and the `AIR_PICK_SLOTS` rule in `wing_variants._mark_governing` sat inside `if air is not None`, so a slot whose air row was missing fell to the bending extreme. The fix makes the rule a delivery rule: `wing_slot_picks` is the search alone (its `coincide` keyword is gone), `select.air_picks` lists every slot the matrix can fill, and `select_wing` applies `_coincidence_rule` after the re-pointing — a PNZ/NNZ slot is empty only when its point is another *delivered* slot's. The balance tolerance gets one owner, `constants.NZ_BALANCE_TOL`, read by `flight_envelope`'s iteration (three literals replaced) and by `select.NZ_TIE_BAND` (twice it: two points converged to one target differ by up to that); `wing_variant_table` assesses every air pick at its own CG case so the air row always exists, and the governing pass raises on an air-pick slot without one rather than defaulting. Measured on the five fixtures: the Baron delivers NNZ (W-10, at "fwd regardless", the record's until #290) and the RJ delivers and assembles it; the heavy's PNZ air pick moves from GUST +C at 4.002 g to MAN A at 4.001 g under the new tie (one load factor, larger resultant) and still coincides, so its delivered set is unchanged; `ga6_normal` and `atr42_100` do not move. Gates: G-62.1 gains its loss side (every eligible PNZ/NNZ extreme is carried by some delivered wing case, under its own id or the coinciding slot's), G-62.2 is re-pinned on the air picks with `_DELIVERED_EMPTY` naming the coincidences, G-62.5 holds the tie band to the tolerance owner and scans both modules for the literal, G-63.3 asserts the air pick for every air-pick slot and that a slot the table assessed and the deck omits shares its case with a delivered one, G-62.3 and the assembly pin carry the RJ's NNZ. Note 62 D-62.8 amended in place; the SELECT bullets of `PROGRAM_SPEC.md` state the staging and the band. One Imperial digest wave on the two fixtures whose delivered set moved, seven channels each (`case_index`, `csv/select`, `csv/balance`, `txt/select`, `txt/balance`, `sbeam/balanced_deck`, `sbeam/lra_model`; the Baron's deck moves by its skip record naming wing NNZ at V-n 153); `ga6_normal`, `atr42_100` and `concept_heavy` are byte-identical.
+
+## Step — The wing-to-body joint is one post, two body cantilevers, and nothing integrated through the box (#275, design note 64 D-64.1…D-64.9, tier L, 2026-09-21)
+
+**Objective.** Close the defect design note 64 measured: Appendix G's
+fuselage comparison integrated the body nose to tail through the
+carry-through, where the LRA model has no beam, so M4-1's five carry
+stations routed onto a spar post crossed its cut and the report stated a
+183 % "lumping" deviation on `concept_regional_jet` and 111 % on
+`baron_58`; the wing's side-of-body cut counted the inboard strips the
+deck's own SOB statement excludes. The owner ruled the joint wrong in kind:
+the box between the spars is not a beam region, the body is integrated from
+each free end to its spar, the wing to the side of body, and one vertical
+post connects them.
+
+**Deliverables.** The joint register states four joints and what spans each
+arm (`Joint.element`): the side-of-body pair whose arms run straight across
+to the wing centre grid at the SOB's own station and waterline (D-64.3), the
+two spar grids whose arms run along the body to the wing-station grid, and
+the one rigid **wing post** (`WING_POST`, side `W`); a wing station outside
+its spars is refused by name, and `joints.wing_station` owns it for the
+calc. The LRA model builds the wing beam tip → SOB → centre → SOB → tip, the
+fuselage beam nose → front spar → wing station → rear spar → tail with the
+box as three owned grids and two elements, and one `RBE2` between them; the
+centre hub and its four ties and BM-2's elementless carry-through retire;
+`LraModel.boxes` states where each member's integration stops. `body_loads`
+integrates two cantilevers from their free ends, shear and bending
+**positive for an up load** in either body (D-64.4, owner `cantilever_sign`,
+a `CONVENTIONS.md` §7 row), closes the free body with one reaction — force
+and couple at the wing station, what the post transmits (D-64.5) — reports
+the spar fitting pair as its static equivalent, publishes each station's
+`region` and the reaction's `couple`, and refuses an unplaceable post with
+the register's sentence; M4-1's linear smear, `CARRY_THROUGH_NODES`, the
+`"carry"`/`"correction"` families and the `closure_artifact` fallback with
+its caveat are gone. Appendix G integrates as the deck does: no cut inside
+the box, the roots' on-node loads the box's, the aft sign read from the
+integrator (D-64.6). The report's 4.3 method, 4.4 closure sentence,
+Appendix C.2 (a `Region` column, box rows blank) and the methods block, the
+body-loads CSV (`Region`, `My_free`), `PROGRAM_SPEC.md` (body_loads, the LRA
+joint), `CONVENTIONS.md` §7, `theory_sources.md` and `ch06` state it.
+
+**Test.** Gates 1–11 of the note on every CLI-exportable fixture: the box is
+two elements and the post the only wing-body connection; the free-free
+solve; the cut-side sums at the SOB, both spar grids and the box element
+beside the post; the two-cantilever closure to 1e-9; a positive load factor
+bends both bodies down; the fitting pair recovers the reaction; no cut
+inside the box and no load crossing a root; every oracle channel
+byte-identical; refusal by name, mutation-tested by moving a fixture's
+spars; the joint walk with `Joint.element`; doc currency. Re-measured
+Appendix G (note 64 §7b): fuselage shear 183 → 44 % on the jet, 111 → 40 %
+on the Baron, 48 → 33 % on GA6, and 43 → 80 % on the ATR where two
+cancelling errors became one; fuselage bending 14–19 % → 3–4 %; wing shear
+19–35 % → 8–27 %. Everything left is mass-station crossing.
+
+**Key decisions.** One post keeps the model a tree at the joint, which is
+R-12's condition — its objection was to two posts. Straight across, not the
+extrapolated LRA (21 in apart on the swept jet). The reaction at one
+station because Ch 15 prints no table to match; the fitting pair survives
+as a statement. The whole-body fallback retires because the reaction is
+physically sourced; a project with a planform and no body datum
+(`concept_heavy`, no side of body and no fuselage width) reacts the wing at
+the LRA's centreline point flagged ASSUMED, the sentence carried on every
+result and printed beside the spars (§7b amendment 2), while the LRA model
+still refuses it. The result shapes forced a schema hop, v67 → v68, an
+identity (amendment 3). The oracle-locked wing tables still run to the
+centreline; only the LRA deliverables integrate to the SOB.
+
+## Step — Each SELECT wing slot runs at every FLIGHT mass state and the net-governing run is the delivered case; MZFW seeds the zero-fuel cases with their loadings (#292, design note 63 D-63.5 and D-63.7, tier L, 2026-09-18)
+
+**Objective.** Close the second half of design note 63: after #289 every
+inertia load read its case's loading, but every wing slot was still
+delivered at the mass state of its own V-n point's CG case, so a slot whose
+air pick sat at MTOW was never assessed at zero fuel, where the wing fuel's
+relief is gone and root bending is highest; and no case reached the
+zero-fuel state at all, because nothing seeded one. This is the variants
+step of the R-63.4 scope split (ruled 2026-09-17), landing directly after
+#289 and before the loading editor #290.
+
+**Deliverables.** **The seeds (D-63.5).** `cg_cases.max_zero_fuel_weight`
+owns `weight.max_zero_fuel_weight_lb` in the MLW shape (`0` = not entered,
+refuses when required, the estimate `max_zero_fuel_weight_estimate` = OEW +
+max payload offered and never written; the design-weight ordering chain
+reads it). When it is entered, `seed_flight_cases` appends `mzfw aft`,
+`mzfw fwd` and `full fuel aft` (`MZFW_CASE_NAMES`) **with their loadings**:
+`mass_distribution.seed_loading_search` is the third search objective
+beside the exact-subset search and the ground burn-down — over the payload
+subsets (consumables off, or every consumable row at 1.0) it takes a
+whole-row loading that is inside the limits as it is and **clips** one
+that is not, scaling one payload row by the largest fraction that brings it
+under the cap (MZFW, or MTOW for the full-fuel seed) and inside the aft and
+weight-dependent forward lines (`validation.wtenv_fwd_cg_limit_line`, the
+forward limit resolved once as a callable); the aft seeds take the heaviest
+such loading, ties aft-most, the forward seed the one nearest the forward
+line, ties heavier; the database's own ballast row is payload; a seed
+coinciding with a case already seeded (D-25a's weight band, the search's
+0.5 in, `echo_weight_tolerance` / `cg_match_tolerance`) is not written.
+`LoadingDefinition.fractions` accepts any discretionary row, not only a
+consumable one — a part-filled hold is a loading. **The variants
+(D-63.7).** `modules/wing_variants.py` (pure, unregistered, never
+persisted) assesses every slot at every FLIGHT case: `select.wing_slot_picks`
+applies each family's own criterion within the points balanced at the
+case, `wing_mass_state` gives the case's loading, one `fold_units` per
+case, and air + inertia root `Mxx` is the comparison (unchanged by the LRA
+transfer). `select_wing` delivers each slot at the governing run — the
+extreme signed root `Mxx`, largest for the positive-lift slots and most
+negative for the negative ones (`SLOT_LIFT_SIGN`) — under the slot's W id,
+with the run key naming the point and a `note` naming both runs where it
+moved; SELECT.BAS 3000's search over the whole matrix stays as
+`select.air_picks`. Three in-code amendments to D-63.7, recorded in note 63
+§11: the torsion and load-factor slots (`AIR_PICK_SLOTS`: TORS, PNZ, NNZ)
+keep their air pick because their criterion is not the bending; a variant
+within the FLTLOADS balance's own noise of the air pick
+(`GOVERNING_TIE_REL`, 0.5 %) is a tie the air pick keeps; the coincidence
+rule is applied to the delivered set, not within each case. **The
+filter.** `wing_inertia.resolve_wing_cases` reads an entered
+`wing_mass.cases` list as a filter on the slots: a case naming a slot with
+no `case` of its own takes the slot's delivered point, so its mass state,
+CG and run key follow the selection; every fixture's hand-entered
+nz/nx/CL/V are gone (the ACRL couples stay; the Baron's `aft gross` pins
+of #289 go with them). **The fixtures.** MZFW entered on `atr42_100`
+(33,510 lb), `baron_58` (5,270 lb) and `concept_regional_jet` (29,500 lb)
+and their FLIGHT cases re-seeded (the Baron's hand cases keep, its two
+MZFW cases appended); `ga6_normal` keeps its four Appendix A cases so the
+oracle's V-n numbering does not move. **The surfaces.** The Flight
+Envelope page's SELECT sub-tables and the `select` CSV gain `CG case` and
+`Run` (`report.critical_rows`); the report's §3.2 prints the slot × case
+variant table with the governing row marked and its provenance sentence
+states that an entered list is a filter; the balanced deck's subcase mass
+set follows the delivered run's CG case by construction. `PROGRAM_SPEC.md`
+(payload_cases, SELECT, NETLOADS), `ch04_wing_loads.md`,
+`theory_sources.md`'s SELECT row, `04_far25_gap_analysis.md` (25.321 to
+**A**), the data dictionary and note 63 (SHIPPED, §11) state it.
+
+**Test.** **G-63.2** (`test_one_mass_model.py`): on `atr42_100` and
+`baron_58` the PHAA net root bending at the zero-fuel state exceeds the
+full-fuel state's at equal air load and NHAA's inequality reverses.
+**G-63.3:** the variant table holds every slot × FLIGHT-case row SELECT
+can pick, exactly one governing per slot, the delivered condition is the
+governing run, the balanced deck's `$` header names the same run key and
+its case is the same CG case. **G-63.3a, the rest:** across a full run no
+two `CaseRef`s share a run key with different loads, no W id is carried by
+more than one run, on `ga6_normal` every slot's governing run has the run
+key of its air pick, and `select.air_picks` on the GA6 asserts the six
+Appendix A points unchanged — the note 62 pick tests read `air_picks` too.
+The seed: the ga6 in-memory seeds, the ATR's `mzfw aft` (28,410 lb, the
+aft hold clipped to 853 lb, note 63 §8.3's row), the coincidence skip, the
+clip-not-trim rule, the fraction on a payload row, the MZFW refusal and
+chain. One Imperial digest wave: 20 channels on the ATR, 20 on the Baron
+and 21 on the jet (the V-n matrix, SELECT, WINGINER, NETLOADS, the balance
+and its decks, the mass model, `body_loads`, the case index — the seeded
+cases and the re-pointed slots); **one** on `ga6_normal` and one on the
+heavy, the `select` CSV with its two new columns — every other GA6 channel
+byte-identical, the oracle lock in one number. The balance pins move with
+the Baron's eight newly assembling wing slots (its symmetric force ratchet
+1.29 % at NLAA on `mzfw fwd`, its NHAA clamped, two closure `Izz` added)
+and the jet's NMAA at `fwd regardless`.
+
+**Key decisions.**
+- **The ATR does not move; the Baron does.** With the MZFW cases in its
+  matrix the ATR's MTOW forward pick still governs every slot — §8.4's
+  finding, PMAA 5,850 against `mzfw aft`'s 5,750 ×10³ in-lb (its wing fuel
+  sits at 25 % MAC and the zero-fuel loading is 8,400 lb lighter). On the
+  Baron seven of nine slots move: PHAA, PLAA, PMAA, ACRL and NHAA to
+  `mzfw aft` (PHAA root Mxx 504 → 564 ×10³ in-lb, +12 %), NMAA and NLAA
+  to `mzfw fwd` (+36 %, +26 %). The jet's NMAA moves 1.2 %; the heavy has
+  one case.
+- **TORS, PNZ and NNZ are delivered at their air pick.** Governed by root
+  `Mxx` the GA6's Appendix A TORS moved from case 18 to case 38 (+5.7 %)
+  and the ATR's PNZ to a mid-gross MAN D point that is not the load-factor
+  extreme. A slot's id names a criterion; the variant table still assesses
+  those slots and lists them.
+- **A 0.5 % tie band, not `TIE_REL`.** The balance's own noise; without it
+  the GA6's NLAA re-pointed on 0.44 % and G-63.3a's GA6 clause failed for a
+  difference the method cannot resolve. `theory_sources.md`'s base-method
+  band (5–10 %) ranks work and does not gate a test, so it is not the
+  number used.
+- **Clip, do not optimise.** A first draft trimmed rows to improve the
+  objective and produced a fifth of a copilot on the GA6; the shipped
+  search trims only a loading that is outside, by the least it takes.
+- **`ga6_normal` carries no MZFW.** Its seeds are asserted in memory; the
+  §8.1 sample's `mzfw fwd` (copilot only) was a hand reading — the search's
+  answer coincides with CG4 and is skipped.
+
 ## Release cut: **sloads 0.8.5** (correctness and tooling on the converged surface), tag `v0.8.5`, 2026-09-16
 
 **Objective.** Close band **B6** — the first milestone worked on the one

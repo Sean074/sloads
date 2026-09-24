@@ -15,6 +15,103 @@ everything before it in [`CHANGELOG_to_0.8.2.md`](CHANGELOG_to_0.8.2.md).
 
 ## [Unreleased]
 
+## [0.8.6] — 2026-09-23
+
+### Changed
+
+- **The ATR 42 fixture is reconciled end to end from the published 42-300 data, so the concept turboprop demonstrates the suite on an airplane whose inputs agree with each other (#260, tier M, 2026-09-21).**
+
+- **A closure load lands on the member that carries its mass, so a symmetric landing loads the deck's two main-gear grids identically (#293, tier M, 2026-09-21).**
+
+- **Every delivered cell prints at the precision its unit prescribes, so a 13,360 lb load reads `13360` beside its neighbours instead of `1.336e+04` (#161, design note 65, tier M, 2026-09-21).**
+
+- **The fuselage critical set publishes each quantity under one key and one label, so the report reads a single key per column and folds nothing (#222, tier M, 2026-09-20).**
+
+- **The GA6 fixture balances at Appendix A's three altitudes, so every delivered case states the altitude the manual states (#164, tier M, 2026-09-20).**
+
+- **The case's loading is entered on the case: the Payload Cases group edits it, the Mass cases table and the Wing Loads page's WING parts read it (#290, design note 63 D-63.9, tier M, 2026-09-18)**
+
+- **Step — The negative angle-of-attack wing slots and the load-factor-extreme pair, above SELECT.BAS (#288, design note 62 D-62.1…D-62.8, tier L, 2026-09-17)**
+
+- **Step — One mass model: the case's loading is the mass state of every inertia load (#289, design note 63 D-63.1…D-63.4, D-63.6, D-63.8, D-63.10, D-63.11, tier L, 2026-09-17)**
+
+- **The load-factor extremes reach the deck whatever mass state their bending twin moves to: D-62.8's coincidence rule runs once, on the delivered wing set, and the PNZ/NNZ tie is the balance's own band (#294, tier M, 2026-09-22).**
+
+- **Step — The wing-to-body joint is one post, two body cantilevers, and nothing integrated through the box (#275, design note 64 D-64.1…D-64.9, tier L, 2026-09-21)**
+
+- **Step — Each SELECT wing slot runs at every FLIGHT mass state and the net-governing run is the delivered case; MZFW seeds the zero-fuel cases with their loadings (#292, design note 63 D-63.5 and D-63.7, tier L, 2026-09-18)**
+
+### Fixed
+
+- **The LRA deck states the SELECT conditions it does not assemble (#284, tier S, 2026-09-20).**
+  The assembler records every condition it drops through one owner, but the block
+  that rendered the record lived in the assembled deck note 56 D-56.8 stopped
+  shipping, and the LRA deck -- the one solver deck that ships -- wrote none: a
+  sizing loop reading it was never told that a quarter of SELECT's set is absent
+  (ATR 47 assembled / 28 recorded). The `$ CONDITIONS NOT ASSEMBLED` block now
+  renders under the LRA deck's case map from the wording owner
+  (`balance.skipped_block`, moved beside `SKIP_REASONS` so the shipping deck does
+  not import it from the internal producer), derived when the caller supplies no
+  record. The `out-of-family` reason no longer sends the reader to the
+  per-component analyses D-56.2 deleted: it names the report and case index that
+  carry the fuselage conditions, the report alone for the one-engine-out fin
+  conditions, and states that none reaches a solver deck (#285 is the fin's
+  return). Guard: `tests/test_lra_model.py::test_the_lra_deck_states_what_it_does_not_cover`
+  holds deck block == record on every CLI-exportable fixture, on the derived,
+  supplied and written paths. Statement only -- no load moved; the fourteen digest
+  channels that carry the wording (balance txt, balanced_deck, lra_model)
+  regenerated.
+
+- **Every engine-mount condition states its own point of application (#210, tier S, 2026-09-22).**
+  The 23.361(b)(1) sudden-stoppage torque, the 23.371(b) gyroscopic condition and
+  the FAR 25 supplemental 25.371 case carried no `loc_*` values while the
+  conditions beside them for the same engine did, and the render boundary filled
+  the gap from the condition each followed (note 44 OR-193) -- the proper repair,
+  the producer stating the point, waited on the 0.8.2 freeze of `modules/engine.py`.
+  The producer states it now: one owner, `engine._applied_at`, emits the three
+  values on all nine conditions at the engine's combined engine-plus-propeller CG,
+  the point the six torque and side-load cases always stated; `render._running_locations`
+  is the identity it was filed to become: a condition's own point or a blank,
+  never a neighbour's -- the one-engine-out fin and rudder cases, which state
+  no single point, stay blank as they always printed. A pure couple and a three-point condition each state one
+  point, so each says what it means: the stoppage note records that a free couple
+  about the thrust line takes the combined CG for indexing only; the two
+  gyroscopic notes record that the stated point is where the vertical load acts,
+  the couples are free, and the thrust acts on the thrust line at the propeller
+  hub, offset by the CG-to-hub distance -- the moment a reader summing about the
+  mount from the index would otherwise lose. Which beam-model grid takes the
+  couple stays with #286. Gates: G-OR-138 rewritten as the producer's property
+  (`tests/test_oracle_report_vn.py::test_every_engine_condition_states_its_own_point`,
+  every condition at its engine's combined CG, no two engines sharing one, a
+  pointless condition left blank rather than filled) plus
+  `::test_the_pointless_conditions_say_what_their_point_means`. No load and no
+  point moved on any fixture; the one digest channel that moved is the engine
+  text report (`txt/engine`, ATR 42), which now prints the three point rows and
+  the note on each formerly pointless condition, and it is regenerated.
+
+- **`concept_heavy`'s drag polar re-entered with its minimum at the wing's zero-alpha lift coefficient (#291, tier S, 2026-09-20).**
+  The fixture's `CD = 0.025 + 0.05·CL²` had its minimum at `CL = 0` on a wing whose
+  lift fit reads `CL = 0.3` at zero alpha, so at negative CL the airplane-less-tail
+  polar under-read the drag and the non-wing axial force came out forward inside the
+  polar's trusted window on the NMAA case note 62 narrowed to the VC pair (dCD
+  +0.0169, note 62 §8.3). Re-entered as `CD = 0.0295 − 0.03·CL + 0.05·CL²`, the same
+  quadratic with its minimum moved, NMAA reads −0.0039 and every heavy case inside
+  the window is negative, so `tests/test_balance.py::_DELTA_CD_FORWARD_INSIDE_WINDOW`
+  is empty again; the heavy's dCD band, clamp ceilings and residual ratchets are
+  re-pinned with the cause stated (symmetric force worst 1.99 % → 1.21 %, pitch
+  0.84 % → 0.52 %; NHAA still clamps outside the window). Fixture data only, no
+  physics or schema change; the heavy's sixteen digest channels regenerated.
+
+- **The v67 migration keeps a converted centreline wing mass as a point mass** (tier S, 2026-09-23, #296, 0.8.6 pre-cut review) — `_hop_66` stamped every item row's `carriage` *after* converting an open-tie `wing_mass.concentrated` list, so an entry at y = 0 (one doubled WING row, tagged POINT by the conversion) was re-typed PANEL by the *point iff wing and y ≠ 0* rule: the mass left the point list, WINGINER integrated it into the panel, and a spurious `panel_weight_override_lb` was written with a misleading note. The stamp now runs over the rows the file already holds, before the conversion; the centreline case joins the migration test beside the ±y one.
+
+- **The LRA exporter refuses a wing station its spars do not bracket by name** (tier S, 2026-09-23, #297, 0.8.6 pre-cut review) — `build_lra_model` looked the wing post up in the joint register unguarded, so a project whose side-of-body station lies outside its front/rear spar stations died with a bare `KeyError` ("0 joints match 'wing_post'"): not a `ValueError`, it escaped the importer's position check, the report's lumping handler and the CLI error contract, while the calc side (note 64 gate 9) already refused with the register's own sentence naming the three stations. The exporter now raises `LraRefusal` with that same sentence, like every other missing-datum path, and gate 9 asserts the exporter carries the register's wording the calc side already ends with.
+
+- **The methods-stamp guard reads the register's `ships with` marker** (tier S, 2026-09-23, folded into #296) — the note 52 amendment (d3b75d4) registered the 23.349(a)(2) 75 % correction ahead of its implementation (#306), and `test_statement_lists_every_approved_correction` demanded it in `report/methods.APPROVED_CORRECTIONS` at once, which would have stamped every CSV, deck and report with a deviation the delivered numbers do not carry. The register's policy now defines `ships with <note/issue>` in a heading suffix as approved-but-pending; the guard requires such an entry to be *absent* from the statement until the implementing step drops the marker and declares it in the same change.
+
+- **The live corpus states shipped 0.8.6, and a tier-M closure can no longer leave its note at AGREED** (tier S, 2026-09-23, #299, 0.8.6 pre-cut review) — note 65's header read `AGREED` three days after #161 shipped it, because `tests/test_doc_currency.py` read the note a fragment ships only from a tier-L `## Step` heading; it now also reads the tier-M bold lead's parenthetical (`(#290, design note 63 D-63.9, tier M, …)`, the form `changes/README.md` states), note 65 says SHIPPED with its §7b amendments (D-65.3 one-figure floor, D-65.2's `int`, D-65.5 at #298) named in the header and a pointer under D-65.3. Six tier-M fragments opened with a bare `**` and would have rolled into the record un-bulleted: prefixed, and `scripts/build_changelog.py` now refuses a bare `**` that is not the tier-L `**Step` form. The statements shipped code had moved past are corrected in place: `theory_sources.md`'s body closure row and theory chapter 6's method section state note 64's two cantilevers, the one wing reaction and the fitting pair (the nose-to-tail integration, M4-1's linear carry-through distribution and `closure_artifact` are gone from the live corpus; chapter 10 and the twin walkthrough swept with them); the wing-loads guide teaches the derived panel and the loading's `POINT` wing parts, not an entered panel and a concentrated list; the fuselage-loads guide teaches the two cantilevers and the fitting loads, not the carry-through peak; the FAR 25 gap row for 25.343 rests on per-tank fuel and the MZFW seeds (note 63 D-63.4/D-63.5) with the reserve-fuel case named as what remains; the index rows for notes 62, 63 and 65 describe the shipped scope (D-62.8's PNZ/NNZ pair, D-63.11's run key, the one-figure floor and the #298 SI rule).
+
+- **An SI cell resolves no coarser than the Imperial cell it converted from** (tier S, 2026-09-23, #298, 0.8.6 pre-cut review) — the SI precision rows copied the Imperial decimal count on the premise that every SI unit is "finer than, or within a factor of 2.2 of" its source (note 65 D-65.5), which held for N, mm and kPa and failed for area (ft² → m² 10.8×), moment (lb-in → N·m 8.9×), inertia (lb-in² → kg·m² 3418×) and wing loading (lb/ft² → kN/m² 20.9×): a 31.2 ft² tail printed as `3` m² (−3.4 %) and an inertia to one or two significant figures, and the report's own `Units` passed the Imperial label as the precision key whatever system it printed in. The SI row is now the Imperial row plus one decimal per decade the conversion factor divides by (`units.si_decimals`, the one owner; `kg`, `N·m`, `kW` gain one decimal, `m/s` two, `kg·m²`, `kN/m²` and `m²` four — the wing geometry emits its areas in `in^2` under the label the tail's `ft^2` shares — while `N`, `mm`, `kPa` keep theirs), the report keys precision on the document's own label, and the gate that asserted SI row == Imperial row now derives each label's need from the units the shipped fixtures and the report actually convert and asserts the row equals it; note 65 §7b records the amendment.
+
 ## [0.8.5] — 2026-09-16
 
 ### Added

@@ -333,6 +333,16 @@ clause, which knew of no milestone between.
 > B2 is.
 
 > **B8 amended 2026-09-22 (owner, in session) — note 52 re-agreed and filed.** The #294 review of the ACRL chain against Reference 1 found the delivered `ACRL` variant carrying the roll point's averaged lift rather than condition A's (≈ 19 % low on the governing side's net root bending), the percentage on the manual's pre-1996 rule, and #295/#258 to be two symptoms of the one missing derivation. Design note 52 is amended in place (D-52.10–D-52.13) and its implementation enters **B8** as one tier-L row at #258's place, folding **#295** (B7) and **#258**; the 23-48 percentage is registered in `02_approved_corrections.md` at the amendment. Ordinals keep the re-cut's numbering (no renumber): **33 rows** — B7 4 (0 L, 0 M, 4 S), B8 9 (3 L, 4 M, 2 S), B9 4, B2 7, C 8. Cut rule unchanged.
+> **B7 is retired: 0.8.6 was cut on 2026-09-23** (tag `v0.8.6`; the release-cut
+> block in
+> [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md)
+> is the record). The band emptied on 2026-09-22, the pre-cut critical review
+> re-opened it for six fixes (#294–#299 above), and it emptied again on
+> 2026-09-23 with #299. **Band B8 (0.8.7 — the deck carries what the airplane
+> carries) is the milestone in flight**; B9 (0.8.8) and B2 (0.9.0) follow it in
+> order. Cut rule unchanged: 0.8.7 when B8 is empty, 0.8.8 when B9 is, then
+> 0.9.0 when B2 is.
+
 
 **System of record (design note 28 MD-5, 2026-08-16):** open work is **GitHub
 Issues** (labels `tier:*`, `tag:*`, `band:*`, `kind:*`; a milestone per release;
@@ -374,7 +384,6 @@ keeps its body in *Open defects*, and the [E]/[V] detail sections hold the rest.
 
 | Pri | Item (detail below / in its plan) | What ships | Tag | Tier / effort | Depends on |
 |---|---|---|---|---|---|
-| **B7 — 0.8.6: the baseline wave — re-opened 2026-09-22 for the pre-cut review's fixes** ||||||
 | **B8 — 0.8.7: the deck carries what the airplane carries (re-chartered 2026-09-22 — the report polish it was named for moves behind #283)** ||||||
 | 7 | **No engine-mount case reaches the LRA deck** — `lra-engine-mount`/`lra-engine-hub` nodes exist since note 24 R-9 and nothing loads them for a 23.361/23.363/23.371 condition; `coordinates.engine_applied_load` already owns the six components and is reached only from the report's section 10, so a nacelle, mount or attachment sized from the deck sees no engine case *(stated in *Open defects* as unfiled-by-choice since 2026-09-07; promoted 2026-09-16 from the 0.8.6 review)* (#286) | An `EM` case family with its SF from the governing table, the six components applied at the mount node and the reaction closed on the free-free airplane, equilibrium-gated in the round-trip CI, and the deck header naming every engine condition it carries and does not | V | L / M | a design note at AGREED first (one design pass with #285); #210 shipped 2026-09-22 |
 | 8 | **The one-engine-out fin conditions reach no shipped deck** — SELECT names four 23.367 fin conditions on every twin (two already ultimate) and the assembler skips all four as out-of-family, a deferral that rested on the per-component fin deck note 56 D-56.2 deleted; the OEI fin load exists in the report and in no deck, and on a wing-mounted twin it is the primary fin/aft-fuselage sizing case. Plan 13 §4's ruling that a transient is not a steady balanced case stands; the channel it deferred to does not *(2026-09-09 review §5 item 2; filed 2026-09-16 from the 0.8.6 review)* (#285) | The transient's governing instant assembled as a quasi-static lateral case on the B8a-3 rudder-case machinery, handed by reflection, `ULT SF=1.0` stated per subcase, closure-gated in the round-trip CI on both twin fixtures; the note decides the instant, the inertia set and the L-7 interaction | V | L / M | a design note at AGREED first (one design pass with #286); #284 shipped 2026-09-20 and states the absence meanwhile |
