@@ -2,10 +2,14 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: AGREED 2026-09-21** (PROPOSED and AGREED the same day — owner, in
-session, under the solo profile, `DEVELOPMENT_PROCESS.md` §0; rule 1's
-working-alone branch; the three questions of §8 are **ruled** there and
-written into D-65.4 and D-65.6).
+**Status: SHIPPED 2026-09-21** (#161; PROPOSED and AGREED the same day —
+owner, in session, under the solo profile, `DEVELOPMENT_PROCESS.md` §0; rule
+1's working-alone branch; the three questions of §8 are **ruled** there and
+written into D-65.4 and D-65.6; **§7b** is the implementation record, and it
+**amends D-65.3** (the floor is one significant figure, not three), D-65.2's
+`int` clause, and — at #298, 2026-09-23 — **D-65.5** (an SI row resolves no
+coarser than the Imperial cell it converted from). Read a decision with its
+§7b amendment.)
 Filed against **#161** (band B7, 0.8.6, tier M): the 2026-09-01 owner PDF
 review's OR-14 finding that `format_value` prints inconsistent precision and
 flips notation on integral values, held until the 0.8.2 freeze lifted and
@@ -139,6 +143,9 @@ know whether it is printing a coefficient or a bending moment.
   station of 0.004 in prints `0.004239`. This is the one place the two
   styles meet and it is stated once, in the owner. An exact zero prints at
   the row's decimal count (`0`, `0.0`, `0.00`).
+  *Amended at implementation (§7b): the floor is one significant figure —
+  a cell falls to the four-figure rule only when its row would print it as
+  `0`; `0.3` lb-in stays `0.3`, `0.53`° stays `0.53`.*
 - **D-65.4 The table.** Cell counts are §1.2's population.
 
   | Unit strings (Imperial) | SI label | Cells | Rule | Imperial | SI | Why |

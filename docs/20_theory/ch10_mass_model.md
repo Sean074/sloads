@@ -43,8 +43,8 @@ instead (`sloads/mass_distribution.py`, `tests/test_mass_distribution.py`):
 | entered `fuselage_mass.stations` vs the derived table | Reported, never silently taken — the two disagreed by 10–100 % of the beam on every shipped fixture |
 
 The beam carries the empennage (it hangs off the aft fuselage) and excludes the
-wing (which enters as the Ch 15 p103 carry-through reaction — applying it as mass
-too would double it). The free-free closure the beam already satisfied
+wing (which enters as the one reaction at the wing station, chapter 6 — applying
+it as mass too would double it). The free-free closure the beam already satisfied
 (`ΣFz = 0`, terminal `Myy = 0`) is unchanged by all of this: it held on the light
 beam and holds on the correct one, which is precisely why it could not have caught
 the missing mass.

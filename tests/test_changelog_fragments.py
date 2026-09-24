@@ -124,8 +124,11 @@ def test_history_fragment_shapes():
     bc = _builder()
     assert bc.validate_fragment("x.history.md", "- **Tier M (tier M, 2026-08-20)** — one paragraph\n") == "history"
     assert bc.validate_fragment("x.history.md", "## Step 14 — full step\n\n**Objective.** …\n") == "history"
+    assert bc.validate_fragment("x.history.md", "**Step 14 — full step**\n\n**Objective.** …\n") == "history"
     with pytest.raises(bc.FragmentError, match="history fragment"):
         bc.validate_fragment("x.history.md", "a plain paragraph\n")
+    with pytest.raises(bc.FragmentError, match="tier-M bullet"):  # un-bulleted tier M (#299)
+        bc.validate_fragment("x.history.md", "**Tier M (tier M, 2026-08-20).** one paragraph\n")
     with pytest.raises(bc.FragmentError, match="empty"):
         bc.validate_fragment("x.history.md", "\n")
 

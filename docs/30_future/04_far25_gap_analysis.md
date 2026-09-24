@@ -54,7 +54,7 @@ analysis, concept scope · **X** = out of scope (document, never silently skip).
 |---|---|---|---|---|
 | 25.301/303/305/307 | 23.301/303/305/307 | Limit/ultimate framework, SF 1.5, `-ULT` marking on every output | None — identical framework | **A** |
 | 25.321 (flight loads general; every weight/CG incl. **MZFW**) | 23.321 | V-n balance at CG cases from the weight envelope; `weight.max_zero_fuel_weight_lb` is a design weight (design note 63 D-63.5, #292) that seeds the zero-fuel and full-fuel FLIGHT cases with their loadings, and every wing slot is assessed at every FLIGHT mass state with the net-governing variant delivered (D-63.7) | Part 25 requires the maximum zero-fuel weight as a design weight (wing-bending critical with full payload / no fuel relief) | **A** (2026-09-18) |
-| 25.343 (design fuel loads, structural reserve fuel) | — | Fuel is one weight-envelope item | Fuel-distribution design cases (incl. zero wing fuel) absent | **N** (fold into the MZFW item) |
+| 25.343 (design fuel loads, structural reserve fuel) | — | Fuel is entered per tank as a `POINT` consumable row at the tank centroid (design note 63 D-63.4), aboard when the case's loading says so; MZFW seeds the zero-fuel and full-fuel FLIGHT cases (D-63.5), so the zero-wing-fuel case is assessed on every wing slot | The structural-reserve-fuel case (25.343(b)) and the intermediate fuel-distribution cases are not seeded — only the loadings the user enters, plus the two MZFW seeds | **N** (the zero-fuel half shipped 2026-09-18 with the MZFW item; the reserve-fuel case remains) |
 
 ### 1.2 Flight envelope & maneuver factors
 

@@ -50,7 +50,11 @@ file's step format (Objective / Deliverables / Test / Key decisions).
 
 The **bold lead phrase** — or the `## Step N — …` heading — is what becomes the
 changelog bullet, so write it as one: the change stated in a sentence, with the
-issue number, tier and date in the parenthetical. Everything after it is the
+issue number, tier and date in the parenthetical — and, directly after the
+issue number, the design note it ships (`(#290, design note 63 D-63.9, tier M,
+2026-09-18)`): `tests/test_doc_currency.py` reads that cite and requires the
+note's Status line to say SHIPPED. A tier-M paragraph **is a bullet** (`- **`);
+a bare `**` opens only the tier-L step form. Everything after it is the
 history entry proper and stays out of the changelog. A history fragment with no
 lead phrase to derive from is refused by the guard, at write time rather than at
 release time.

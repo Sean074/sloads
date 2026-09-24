@@ -24,34 +24,40 @@ the balanced V-n matrix, and each arrives with its load factor `NZ` and its
 balancing tail load `LT`. There is no fuselage-specific FAR condition list —
 contrast the empennage (chapter 5) and ground (chapter 8) families.
 
-## Method — the two-pass Ch 15 beam
+## Method — two cantilevers off the wing station (Ch 15, as note 64 states it)
 
-For each condition, following Ref 1 p103:
+For each condition, following Ref 1 p103 with the reaction placed where the
+beam model has a member (design note 64 D-64.2, D-64.4, D-64.5):
 
-1. Multiply each fuselage station weight by the load factor to get its
-   inertia force (`fz = −NZ·w`, down for positive `NZ`).
+1. Multiply each fuselage station weight of the case's loading (chapter 10)
+   by the load factor to get its inertia force (`fz = −NZ·w`, down for
+   positive `NZ`).
 2. Apply the balancing tail air load `LT` at the tail station.
-3. Integrate nose→tail to the running shear `Sz` and bending `Myy`; the
-   terminal moment of *that* set is the **unbalanced moment** `M_ub` ("the
-   moment at the aft end is the unbalanced moment", p103).
-4. React `M_ub` — and the residual vertical force `R_total = NZ·W_fus − LT`
-   — at the wing **front and rear spar attachments**, then re-integrate the
-   whole set.
+3. Close the free body at the **wing station** — the side of body's own
+   fuselage station, where the LRA model's wing post stands: the reaction is
+   `R = −ΣFz` and the couple that zeroes the whole set's moment about that
+   station.
+4. Integrate the **forward body from the nose to the front spar** and the
+   **aft body from the tail to the rear spar**, each from its free end toward
+   the wing, shear and bending **positive for an up load in both bodies**. A
+   station at or between the spars belongs to the box: its load is applied
+   there and carried by neither cantilever.
 
 The beam's mass table is *derived* from the tagged weight database
 (chapter 10), and the beam carries everything except the wing — the empennage
-hangs off the aft fuselage, while the wing enters only as the carry-through
-reaction (applying it as mass too would count it twice).
+hangs off the aft fuselage, while the wing enters only as the one reaction at
+the wing station (applying it as mass too would count it twice).
 
-**The distributed carry-through reaction is a refinement of p103 — ours, not
-the manual's.** p103 prescribes two point reactions; applied literally they
-put a `±M_ub/d` shear spike across a short carry-through. The two reactions
-are therefore applied as the statically equivalent **linear distribution over
-`[x_f, x_r]`** — identical resultant and first moment, no spike — and it
-collapses continuously onto the manual's two-point solve as `d → 0`. The
-reactions `R_f`/`R_r` are still reported as the fitting loads; they are *not*
-applied on top of the distribution, which already carries them. The options
-trade is `docs/25_notes/04_m4-1_body_moment_closure.md`.
+**p103's two spar reactions survive as the reported fitting pair.** The
+manual reacts the unbalanced moment at the front and rear spar attachments;
+sloads reports that pair, `R_f + R_r = R` with its moment about the wing
+station recovering the couple, as the static equivalent of the one reaction
+at the two spars — **applied nowhere**, so a consumer can carry it into their
+own box model. Nothing is integrated through the carry-through, where the
+model has no beam: the linear distribution over `[x_f, x_r]` that stood from
+2026-08-03 to 2026-09-21 (M4-1) smoothed a spike across a region that is
+integrated by nothing, and retired with the whole-body closure correction. A
+project that cannot place the wing post is refused by name.
 
 ## Assumptions & limitations
 
@@ -65,10 +71,10 @@ trade is `docs/25_notes/04_m4-1_body_moment_closure.md`.
   Ch 15 lumped table derived from the weight database; the entered
   `fuselage_mass.stations` override is reported against the derived table,
   never silently taken (chapter 10).
-- **The carry-through shape is stated, not derived.** The linear distribution
-  above is a modelling choice with the manual's Bruhn pointer as precedent
-  for diffusing discrete loads, not authority for this particular shape; the
-  fitting loads are reported separately so a consumer can apply their own.
+- **The box is not analysed here.** Between the spars the body is the
+  wing-body box, whose load path is not a beam; the fitting pair is reported
+  so a consumer can apply their own box model, and the deck's front-spar,
+  rear-spar and post elements carry the cut loads without integrating them.
 - **The station weights must already exclude** the wing mass outside the
   fuselage, per Ch 15 — an input obligation, checked by the mass-partition
   identity (chapter 10), not by this module.
@@ -98,7 +104,9 @@ why the mass-partition identities of chapter 10 exist alongside it.
 ## Sources
 
 - Reference 1 Ch 15 ("Net Fuselage Loads"), p103 — the two-pass procedure.
-- `docs/25_notes/04_m4-1_body_moment_closure.md` — the carry-through
-  distribution decision.
+- `docs/25_notes/64_wing_body_joint_note.md` — the wing-station reaction, the
+  two cantilevers and the box rule (D-64.2, D-64.4, D-64.5; gates 4–5).
+- `docs/25_notes/04_m4-1_body_moment_closure.md` — the retired linear
+  carry-through distribution, for the *why it changed* reader only.
 - [`00_theory_sources.md`](00_theory_sources.md) — the `body_loads` provenance
   row and the concept-closure identity table.

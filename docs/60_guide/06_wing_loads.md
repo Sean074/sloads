@@ -34,11 +34,14 @@ polylines, taper and tip ratios, and the Schrenk blending parameter. These
 come from the airfoil data and the loft; the section `cm` drives torsion
 directly, so source it as carefully as the lift.
 
-**Wing panel mass.** `WINGINER`'s smeared structure: the panel weight **per
-side**, the tip-to-root density ratio that tapers it, and the inboard rib
-station where the panel starts. The panel weight must be the wing structure
-your weight database carries — the page's consistency check compares the two
-and says when they disagree.
+**Wing panel mass.** `WINGINER`'s smeared structure: the tip-to-root
+density ratio that tapers it and the inboard rib station where the panel
+starts. The panel weight itself is **not typed here**: it is half the
+`WING`-carried `PANEL` rows of the weight database, derived per side, the
+same way the fuselage stations are derived from their tagged rows. The
+override field exists for the case where you must state a different figure;
+when it is set, the page reports the difference against the database rather
+than absorbing it.
 
 **Wing parts per mass state** (read-only). Anything on the wing that is
 not smeared structure — engines, gear, tip tanks, fuel — is a `POINT`
@@ -65,10 +68,11 @@ panel mass and the case table](img/06_wing_loads__page-ga6-normal.png)
 
 The section data is Appendix A's: slope 0.1075 per degree, a four-point
 twist polyline from 5° at the root through the strake kink down to 1.9° at
-the tip, flat 0.01 profile drag and −0.03 section moment. Panel weight
-165 lb per side tapering at 0.95, inboard rib at butt line 23, and **no
-concentrated masses** — the book's single carries its engine on the nose and
-its gear on the body, so the wing panel is all there is. Three cases, the
+the tip, flat 0.01 profile drag and −0.03 section moment. The derived panel
+is 165 lb per side, the book's figure, tapering at 0.95 with the inboard rib
+at butt line 23, and there are **no wing point parts** — the book's single
+carries its engine on the nose and its gear on the body, so the wing panel
+is all there is. Three cases, the
 manual's own: `PHAA` (the positive high-angle-of-attack corner), `TORS` (the
 torsion-critical dive-speed case) and `ACRL` (the aileron-roll case with its
 unbalanced rolling moment), each with the book's printed factors, CLs and
@@ -77,14 +81,16 @@ speeds.
 ## Worked example — twin (`baron_58`)
 
 The same entry with the twin's estimates: slope 0.107, a straight 3°-to-0°
-washout, panel 280 lb per side at 0.9 taper, inboard rib at the fuselage
-side. The difference that matters is the **concentrated list**: per side, the
-engine+propeller+nacelle lump at the estimated butt line 66, the main-gear
-leg at the 57.5-in half-track, the wing fuel at its tank centroid and a
-systems lump — together they carry most of what the wing lifts, and the
-consistency tie (wing-tagged database rows = panel + concentrated, per side)
-is what keeps this list honest against the weight page. Two cases, PHAA and
-TORS, at the twin's derived corner and dive speeds.
+washout, a derived panel of 280 lb per side at 0.9 taper, inboard rib at the
+fuselage side. The difference that matters is the **wing point parts**: per
+side, the engine+propeller+nacelle row at the estimated butt line 66, the
+main-gear leg at the 57.5-in half-track, the wing fuel at its tank centroid
+and a systems row — `POINT`-carriage `WING` rows of the weight database,
+aboard when the case's loading says so — together they carry most of what
+the wing lifts, and because the distribution reads the same rows the
+balanced deck reads, no second list can disagree with the weight page. Two
+cases, PHAA and TORS, at the twin's derived corner and dive speeds, each run
+at every FLIGHT mass state with the net-governing run delivered.
 
 ## Results on this page
 
@@ -99,7 +105,7 @@ Two blocks:
   with the book as it stands.
 
 Sanity checks: bending grows monotonically root-ward and is maximum at the
-side of body; a concentrated mass shows as a visible step in the shear
+side of body; a wing point part shows as a visible step in the shear
 curve at its butt line; PHAA governs bending while TORS governs torsion;
 and on the single the root bending reproduces Appendix A within the oracle
 tolerance.

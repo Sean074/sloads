@@ -54,8 +54,8 @@ printed chapter.
 Six lumps spanning stations 7 to 320, an estimated split of the
 fuselage-carried empty weight plus occupants, about waterline 100. On the
 twin most of the airplane's weight is **not** here — engines, propellers,
-gear and fuel are wing-carried and belong to the
-[Wing Loads](06_wing_loads.md) concentrated list instead; the fuselage
+gear and fuel are wing-carried `POINT` rows, the wing point parts the
+[Wing Loads](06_wing_loads.md) page shows per mass state; the fuselage
 lumps carry the shell, systems, furnishings and people. Tagging an item to
 the wrong beam is the mistake the component tags on the weight page exist
 to prevent.
@@ -65,16 +65,26 @@ to prevent.
 One block: **Fuselage stations** (**LIMIT, marked as such**) — for each
 selected fuselage condition (maximum down-load on the wing, maximum up,
 and the rest of the selected set), the running vertical load, integrated
-shear and body bending moment at each station, nose to tail. There is no
-separate summary-condition table on this page; the station table *is* the
-program's output, kept LIMIT so it reads against the manual directly.
+shear and body bending moment at each station, listed nose to tail. The
+body is **two cantilevers**: the forward body is integrated from the nose
+to the front spar and the aft body from the tail to the rear spar, each
+from its free end toward the wing, with shear and bending positive for an
+up load in both; a station at or between the spars belongs to the box and
+is applied, never carried. The wing reacts the whole set at one station
+(the side of body), and the front and rear spar **fitting loads** reported
+beside the table are the static equivalent of that one reaction at the two
+spars. There is no separate summary-condition table on this page; the
+station table *is* the program's output, kept LIMIT so it reads against
+the manual directly.
 
-Sanity checks: the shear integrates the running load (a spot check at any
-two adjacent stations confirms the sign convention); bending peaks at the
-wing carry-through, where the balancing lift enters; the summed station
-weights equal the fuselage-carried loading weight; and the tail end of the
-bending curve reflects the balancing tail load of the case — a case with a
-big down tail load bends the aft body accordingly.
+Sanity checks: the shear integrates the running load from the free end (a
+spot check at any two adjacent stations confirms the sign convention);
+bending is largest where each cantilever meets the wing box, at the front
+spar for the forward body and the rear spar for the aft; a positive-`nz`
+inertia set bends both bodies the same sense; the summed station weights
+equal the fuselage-carried loading weight; and the aft cantilever's curve
+reflects the balancing tail load of the case — a case with a big down tail
+load bends the aft body accordingly.
 
 ## Common mistakes
 
