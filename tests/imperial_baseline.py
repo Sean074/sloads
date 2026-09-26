@@ -63,8 +63,26 @@ def _try(fn, *args, **kwargs):
         return None
 
 
+#: One bundle per example per test process (#308): ``artifacts`` is pure -- it
+#: loads the example from disk and renders it -- and seven test files rebuilt
+#: it from scratch per test, the largest single share of the suite's time.
+_CACHE: Dict[str, Dict[str, str]] = {}
+
+
 def artifacts(example: str) -> Dict[str, str]:
-    """``{channel: text}`` for one example, rendered in Imperial with no stamp."""
+    """``{channel: text}`` for one example, rendered in Imperial with no stamp.
+
+    Built once per example per process and handed out as a **copy**, so a test
+    that edits the dict cannot change what the next one reads. The texts are
+    strings, immutable, so a shallow copy is the whole isolation.
+    """
+    if example not in _CACHE:
+        _CACHE[example] = _build_artifacts(example)
+    return dict(_CACHE[example])
+
+
+def _build_artifacts(example: str) -> Dict[str, str]:
+    """The uncached build :func:`artifacts` memoises."""
     from sloads import io, registry
     from sloads.report import applied as ap
     from sloads.export.balanced_deck import balanced_deck

@@ -29,6 +29,7 @@ that the producer's stated line style survived the translation.
 """
 
 import math
+import functools
 import os
 import sys
 
@@ -134,6 +135,14 @@ def test_g_fig_3_an_empty_project_draws_no_traceback():
 # Gate 10 -- parity, both ways
 # --------------------------------------------------------------------------- #
 def _report_families():
+    """Memoised per test process (#308): the build is pure and was repeated per
+    test; a fresh container each call, so no test edits another's view."""
+    built = _report_families_built()
+    return type(built)(built)
+
+
+@functools.lru_cache(maxsize=None)
+def _report_families_built():
     """Every figure family the oracle report draws, less the static diagrams.
 
     The three sign-convention diagrams (#278, note 60 D-60.8) are **authored

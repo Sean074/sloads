@@ -29,6 +29,9 @@ from sloads.models.report import default_spec
 from sloads.report.oracle_content import build_oracle_document
 from sloads.report.oracle_latex import render_oracle_document
 
+#: The fast lane (#308): every test compiles a PDF with tectonic; skipped by the per-item gate.
+pytestmark = pytest.mark.slow
+
 _EXAMPLES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                          "examples")
 _GA = os.path.join(_EXAMPLES, "ga6_normal.project.json")

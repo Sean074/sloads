@@ -48,6 +48,9 @@ import sys
 
 import pytest
 
+#: The fast lane (#308): every test drives the whole GUI through AppTest; skipped by the per-item gate.
+pytestmark = pytest.mark.slow
+
 logging.disable(logging.CRITICAL)  # silence Streamlit's bare-mode warnings
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

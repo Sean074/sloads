@@ -22,7 +22,8 @@
 #                    a 'Pri N' and a YYYY-MM-DD inside it are honoured by the
 #                    close comment and the commit date
 #   --date <YYYY-MM-DD>  date for the parenthetical (default: today)
-#   --full-gate      run the whole suite even for a docs-only change set
+#   --full-gate      run the whole suite -- the slow lane included -- even
+#                    for a docs-only change set
 #   --skip-gate      do not re-run ruff/mypy/pytest (they were just run by hand)
 #   --yes            no confirmation prompts
 #   --dry-run        print the sequence; touch nothing
@@ -138,7 +139,7 @@ if [[ $DRY_RUN -eq 1 ]]; then
   echo "             git fetch origin <branch>; git merge-base --is-ancestor origin/<branch> HEAD"
   echo "  step 3:    .venv/bin/ruff check sloads/ cli.py oracle.py app_shell/ oracle_app/ scripts/"
   echo "             .venv/bin/mypy"
-  echo "             .venv/bin/python -m pytest -q -p no:cacheprovider"
+  echo "             .venv/bin/python -m pytest -q -p no:cacheprovider -m \"not slow\"   (--full-gate: no -m)"
   echo "             a docs-only change set runs only: ${GUARD_TESTS[*]}"
   echo "  step 4:    git add -A && git status --short"
   echo "             SKIP=ruff,mypy git commit -m \"$SUBJECT (${SUFFIX:-backlog Pri N, tier X, $TODAY})\""
@@ -288,8 +289,13 @@ if [[ $SKIP_GATE -eq 0 ]]; then
   set +e
   if [[ $DOCS_ONLY -eq 1 ]]; then
     "$PY" -m pytest -q -p no:cacheprovider "${GUARD_TESTS[@]}" 2>&1 | tail -15
-  else
+  elif [[ $FULL_GATE -eq 1 ]]; then
     "$PY" -m pytest -q -p no:cacheprovider 2>&1 | tail -15
+  else
+    # The fast lane (#308): the tests marked `slow` -- PDF compiles, GUI
+    # journeys, whole-analysis sweeps -- run under --full-gate, in CI and at the
+    # milestone merge, not per item.
+    "$PY" -m pytest -q -p no:cacheprovider -m "not slow" 2>&1 | tail -15
   fi
   RC=${PIPESTATUS[0]}
   set -e
