@@ -2,12 +2,13 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: PROPOSED 2026-09-25 — no code.** Drafted for one design pass over
-two band-B8 rows the 2026-09-22 re-charter paired ("#286 and #285 move B2 → B8
-(one design pass)"): **#286**, no engine-mount case reaches the LRA deck, and
-**#285**, the one-engine-out fin conditions reach no shipped deck. §2 lists the
-owner rulings this note needs before it can be AGREED; every decision in §3
-states its recommended answer so that a ruling can be a yes.
+**Status: AGREED 2026-09-25 (owner, in session) — no code.** PROPOSED the same
+day; the owner ruled Q1–Q7 of §2 **as recommended**, so D-66.1…D-66.16 stand as
+written (§9). Drafted for one design pass over two band-B8 rows the 2026-09-22
+re-charter paired ("#286 and #285 move B2 → B8 (one design pass)"): **#286**,
+no engine-mount case reaches the LRA deck, and **#285**, the one-engine-out fin
+conditions reach no shipped deck. Implementation: #286 first, then #285, each
+a tier-L step on `dev/v0.8.7`.
 
 **Tier L, twice** (#286 and #285 ship as two steps against this note): new
 balanced-case families in the one shipped solver deck, new applied-load
@@ -139,7 +140,7 @@ absences), #210 (every EM condition states its own point).
   `test_every_assembled_case_reaches_the_beam_deck_carrying_its_lateral_load`
   hard-codes `len(lateral) == 8` on ga6/RJ.
 
-## 2. Owner rulings needed (the questions this note cannot answer itself)
+## 2. Owner rulings (asked at PROPOSED; all ruled as recommended 2026-09-25 — §9)
 
 | # | Question | Recommended | Why it is the owner's |
 |---|---|---|---|
@@ -252,3 +253,26 @@ fragments; backlog rows #286 and #285 removed at their closures.
   per condition until a consumer needs the envelope.
 - **L-7 on OEI** — if the owner wants it, it needs a sideslip from the
   transient, which ONENGOUT (single DOF) does not compute.
+
+## 9. Rulings taken at AGREED (owner, 2026-09-25, in session)
+
+"Agree Q1–Q7 as recommended." Each question of §2 is ruled in its
+*Recommended* column, and the decisions that cite it stand unamended:
+
+- **Q1** — the balanced EM set is 23.361(a)(1), (a)(2), (a)(3) and 23.371(b)
+  (plus 25.361(a)(3)(i)/(ii) and 25.371 on an `include_far25` project);
+  23.363 and 23.361(b)(1) stay mount-local and are named in the deck
+  (D-66.3, D-66.4). **Note 21's ruling that 23.361(a)(3) stays mount-local is
+  reversed** on the regulation's "1 g level flight loads".
+- **Q2** — condition A's parent is the delivered PHAA run (×0.75 for
+  (a)(1)); 23.371(b)'s is MAN A scaled to n = 2.5 (D-66.4).
+- **Q3** — the torque is reacted by note 21 P-9's aileron-trim couple
+  (D-66.7).
+- **Q4** — the OEI symmetric half is `BAL C` / `BAL D` / `STALL 1G` at the
+  heaviest derivable FLIGHT CG case and the nearest V-n altitude (D-66.11).
+- **Q5** — the OEI applied set carries the live-engine thrust and the
+  failed-engine windmill drag at the peak instant (D-66.12).
+- **Q6** — L-7 is not applied to the OEI cases, stated in band (D-66.15).
+- **Q7** — each gyro condition mints four real EM ids in ENGLOADS, retiring
+  the render-time `a/b/c/d` suffix; the turboprops' later EM ids renumber in
+  #286's digest wave (D-66.8).
