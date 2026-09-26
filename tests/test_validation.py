@@ -431,8 +431,7 @@ def test_no_one_model_warning_fires_on_a_shipped_fixture_but_the_barons_two():
     """Design note 63: the wing has one mass model on every shipped fixture.
 
     ``wing_panel_override_open`` (no fixture overrides the derived panel),
-    ``wing_mass_asymmetric`` (every searched loading is symmetric by
-    construction, every entered one by entry) and
+    ``wing_mass_asymmetric`` (every fixture's item database is mirrored) and
     ``wing_case_mass_state_unnamed`` (every hand-entered wing case resolves a
     state) fire nowhere. ``wing_case_loading_not_derivable`` fires on exactly
     the Baron's ``fwd gross`` and ``fwd regardless`` -- the two FLIGHT cases no
@@ -476,19 +475,25 @@ def test_the_panel_override_validator_names_the_gap_and_the_remedy():
     assert "wing_panel_override_open" not in _codes(project)
 
 
-def test_an_asymmetric_entered_loading_is_named():
-    """D-63.3: the half-span models run the starboard POINT set and mirror it,
-    so a loading with one tank of a pair aboard is named, never run as its
-    starboard half doubled."""
-    project = sloads_io.load_project(os.path.join(_EXAMPLES, "baron_58.project.json"))
+def test_an_asymmetric_entered_loading_is_refused_and_named():
+    """D-63.3 / #301: the half-span models run the starboard half and mirror
+    it, so a loading with one tank of a pair aboard is not derivable -- never
+    run as its starboard half doubled -- and the case's finding names the
+    tank with no image."""
+    from sloads import mass_distribution as md
     from sloads.models import LoadingDefinition
+    project = sloads_io.load_project(os.path.join(_EXAMPLES, "baron_58.project.json"))
     case = next(c for c in project.weight.cg_cases if c.name == "aft gross")
     case.loading = LoadingDefinition(aboard=["Mid passengers", "Aft passengers", "Fuel, right wing"])
-    (w,) = [w for w in consistency_warnings(project) if w.code == "wing_mass_asymmetric"]
-    # The Baron's POINT set per side is the engine, nacelle and fuel rows: one
-    # tank aboard leaves the starboard wing 360 lb heavier than the port.
-    assert "'aft gross'" in w.message
-    assert "1,190 lb" in w.message and "830 lb" in w.message
+    (ld,) = md.derive_case_loadings(project, [case])
+    assert ld.entered and not ld.derivable
+    assert "'Fuel, right wing'" in ld.note
+    assert md.wing_mass_state(project, "aft gross").source == "database"
+    (w,) = [w for w in consistency_warnings(project)
+            if w.code == "wing_case_loading_not_derivable" and "'aft gross'" in w.message]
+    assert "'Fuel, right wing'" in w.message
+    # The database itself is symmetric, so its own finding stays quiet.
+    assert "wing_mass_asymmetric" not in _codes(project)
 
 
 def test_a_searched_loading_never_takes_one_tank_of_a_pair():
@@ -501,7 +506,7 @@ def test_a_searched_loading_never_takes_one_tank_of_a_pair():
     fuelled = 0
     for ld in md.derive_case_loadings(project, ground_cases(project)):
         assert ld.derivable, ld.name
-        assert md._wing_points_symmetric(ld.items, project), ld.name
+        assert md.wing_symmetric(ld.items, project), ld.name
         tanks = {it.name: it.weight_lb for it in ld.items if it.name.startswith("Wing fuel")}
         # Since #260 the light case closes on payload and ballast with no
         # mission fuel aboard (its forward station is not a burn-down of the

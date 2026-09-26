@@ -30,6 +30,7 @@ from ...mass_distribution import (
     CaseLoading,
     assembly_distributes_mass,
     component_of,
+    half_span,
     panel_weight,
     reacted_parts,
     wing_parts,
@@ -234,8 +235,9 @@ def place_wing_inertia(loads: Sequence[BalancedLoad], loading: CaseLoading,
     **Carriage (design note 63, D-63.3).** The strips are scaled to the loading's
     ``PANEL`` parts and shifted onto *their* centroid; the loading's ``POINT``
     parts are appended as their own ``wing-inertia`` loads at their own
-    ``x``/``y``/``z`` -- the starboard ones, since the caller mirrors the set;
-    a centreline POINT part enters at half its weight and mirrors to the whole.
+    ``x``/``y``/``z`` -- the :func:`~sloads.mass_distribution.half_span`
+    starboard half, since the caller mirrors the set (a centreline POINT part
+    at half its weight, mirroring to the whole).
     ``nz`` scales the point forces exactly as the strips were scaled (0 for a
     ground case, whose closure field accelerates the mass instead). On a
     loading with no POINT part this is bit-for-bit the pre-v67 placement.
@@ -258,13 +260,10 @@ def place_wing_inertia(loads: Sequence[BalancedLoad], loading: CaseLoading,
                       x=ld.x + x_wing, z=ld.z + z_wing)
               if ld.source == "wing-inertia" else ld
               for ld in loads]
-    points: List[BalancedLoad] = []
-    for it in wing_parts(loading.items, project, WingCarriage.POINT):
-        if it.y < 0.0:
-            continue                     # the port image is the caller's mirror
-        w = it.weight_lb if it.y > 0.0 else 0.5 * it.weight_lb
-        points.append(BalancedLoad(x=it.x, y=it.y, z=it.z, fz=-w * nz, weight_lb=w,
-                                   source="wing-inertia", side="R"))
+    # The starboard half through the one projection (#301): the caller mirrors it.
+    points = [BalancedLoad(x=it.x, y=it.y, z=it.z, fz=-it.weight_lb * nz,
+                           weight_lb=it.weight_lb, source="wing-inertia", side="R")
+              for it in half_span(loading.items, project).points]
     if points:
         notes.append(
             f"{len(points)} wing POINT mass(es) applied at their own stations, "
