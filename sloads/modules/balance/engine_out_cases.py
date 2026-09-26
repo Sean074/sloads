@@ -141,6 +141,7 @@ def build_engine_out_cases(project: Project, conditions: Sequence[CriticalCondit
                            vn: Dict[int, VnPoint], cgs: Dict[str, CgCase],
                            loadings: Dict[str, CaseLoading], vtails: Dict[str, Sequence],
                            skipped: Optional[List[SkippedCondition]] = None,
+                           sources=None,
                            ) -> List[BalancedCaseResult]:
     """The one-engine-out family, per speed: one computed case and its
     reflected twin (note 66 D-66.10…D-66.16). ``conditions`` are SELECT's
@@ -183,7 +184,7 @@ def build_engine_out_cases(project: Project, conditions: Sequence[CriticalCondit
             continue
         case = assemble(project, label, point, loadings[cg.name], cg,
                         case_ref=cond.case_ref, lateral=lateral,
-                        extra=_engine_pair(project, fc))
+                        extra=_engine_pair(project, fc), sources=sources)
         hand = "R" if fc.sense > 0 else "L"      # the failed engine's side
         case = replace(case, case_ref=cond.case_ref, hand=hand,
                        notes=list(case.notes) + [
