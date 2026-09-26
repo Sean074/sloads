@@ -1016,11 +1016,12 @@ substitute rather than a self-check:
 | **pitch** | none — `Iyy` has no second producer in the suite. Carried by the closure identity `Σ r × f = −[I]{ω̇}` and by the six-DOF closure itself | identity only |
 | **the tensor** | `WTONECG` (Appendix A p136 oracle) via `Izz(closure) = Izz(WTONECG) − wing self-Izz + Σw·y²(WINGINER spread)` | 0.0 % ga6, +0.40 % RJ |
 
-**A caution recorded with the yaw row:** the two producers meet on no shipped
-fixture — the two airplanes that assemble a balanced case enter no
-`one_engine_out` slice, and the two that enter one carry no engine horsepower, so
-ONENGOUT cannot execute on any fixture as shipped (filed on the backlog). The
-gate supplies that single input and reads everything else from the fixture.
+**The two producers now meet in one case** (design note 66, #285): the
+one-engine-out family assembles ONENGOUT's peak instant on a 1 g parent with the
+live-thrust / windmill-drag pair beside the fin, and its closure yaw reproduces
+the march's `ψ̈` after the Izz ratio to 2–3 % on both twins
+(`tests/test_engine_out_cases.py` G-66.9) — the CG arm and the coupled tensor's
+`Ixz`, which a single-DOF march does not have.
 
 ### 11.3 The lateral (±β) cases (step B8a-3, 2026-08-09)
 

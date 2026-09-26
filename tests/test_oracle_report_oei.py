@@ -520,7 +520,7 @@ def test_the_oei_input_table_states_the_signed_butt_line():
     # its own magnitude -- not a lookup this table performs for itself.
     by_engine = {}
     for fc in _vtail_cases(project):
-        by_engine.setdefault(fc.engine_index, -fc.sense * fc.inputs.bleng)
+        by_engine.setdefault(fc.engine_index, fc.sense * fc.inputs.bleng)
     expected = [by_engine[i] for i in sorted(by_engine)]
     assert len(printed) == len(expected)
     for got, want in zip(printed, expected):
@@ -584,7 +584,7 @@ def test_one_engine_answers_to_one_number_across_the_document():
     # was 0-based AND unsigned, and its "#" form slipped the sweep above. The
     # note now states the same 1-based number and the same signed butt line
     # every other statement of the case's identity carries.
-    by_engine = {fc.engine_index: -fc.sense * fc.inputs.bleng
+    by_engine = {fc.engine_index: fc.sense * fc.inputs.bleng
                  for fc in _vtail_cases(project)}
     published = registry.get("one_engine_out")(project).conditions
     assert published

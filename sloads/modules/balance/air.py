@@ -90,7 +90,8 @@ def assemble(project: Project, condition: str, vn: VnPoint,
              case_ref=None, unb: float = 0.0,
              lateral: Sequence[BalancedLoad] = (),
              htail: Sequence[BalancedLoad] = (),
-             lateral_aero: Optional[LateralAeroTerms] = None) -> BalancedCaseResult:
+             lateral_aero: Optional[LateralAeroTerms] = None,
+             extra: Sequence[BalancedLoad] = ()) -> BalancedCaseResult:
     """Assemble one balanced case and close its residual.
 
     ``unb`` is the unbalanced rolling moment (FAR 23.349) for an accelerated-roll
@@ -200,6 +201,11 @@ def assemble(project: Project, condition: str, vn: VnPoint,
             if body_loads:
                 body_side_force = lateral_aero.side_force
                 body_yaw_moment_ref = lateral_aero.yaw_moment_ref
+
+    # Loads a family applies beside its defining set -- the one-engine-out
+    # case's live-thrust / windmill-drag pair (design note 66, D-66.12) --
+    # present before the residual is summed, so the closure reacts them.
+    loads += list(extra)
 
     wm, geometry, _ = _wing_slices(project)
     geom = geometry.by_name(wm.surface)
@@ -393,8 +399,16 @@ def build_balanced_cases(
 
     record: List[SkippedCondition] = skipped if skipped is not None else []
 
+    from .engine_out_cases import build_engine_out_cases, is_engine_out_condition
+
     out: List[BalancedCaseResult] = []
+    engine_out: List[CriticalCondition] = []
     for cond in critical.conditions:
+        if is_engine_out_condition(cond):
+            # ONENGOUT's 23.367 conditions: a family of their own, appended
+            # last (design note 66, #285).
+            engine_out.append(cond)
+            continue
         unb = 0.0
         lateral: Sequence[BalancedLoad] = ()
         htail: Sequence[BalancedLoad] = ()
@@ -460,6 +474,7 @@ def build_balanced_cases(
     from .engine_cases import build_engine_cases
 
     out += build_engine_cases(project, critical.conditions, vn, cgs, loadings, record)
+    out += build_engine_out_cases(project, engine_out, vn, cgs, loadings, vtails, record)
     # Every case states its own factor (design note 66, D-66.1): the governing
     # table's answer for the FAR reference its ``CaseRef`` carries -- the same
     # owner every other deliverable is stamped by (note 48), so the deck header's

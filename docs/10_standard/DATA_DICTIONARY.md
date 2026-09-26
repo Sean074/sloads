@@ -35,7 +35,7 @@ The top-level `Project` fields. `name`/`engineer`/`date` are free-text metadata;
 | `aileron_loads` | `?` | Aileron Loads / Geometry | `aileron`, `rolling`, `select` | Aileron simplified loads (AILERON) |
 | `flap_loads` | `?` | Flap Loads / Geometry | `flap` | Flap simplified loads (FLAPLOAD) |
 | `tab_loads` | `?` | Tab Loads | `tab` | Tab simplified loads (TABLOADS) |
-| `one_engine_out` | `?` | One Engine Out | `one_engine_out`, `select` | One-engine-out v-tail loads (ONENGOUT) |
+| `one_engine_out` | `?` | One Engine Out | `balance`, `one_engine_out`, `select` | One-engine-out v-tail loads (ONENGOUT) |
 | `landing` | `?` | Landing Loads | `balance`, `landing` | Landing loads (LANDLOAD / GEARLOAD) |
 | `lra_mesh` | `?` | Geometry | — | LRA beam mesh: node count per member (design note 56 D-56.4) |
 | `include_far25` | `bool` | Engine Mount Loads | `balance`, `engine` | Opt-in FAR 25 supplemental cases (flag) |

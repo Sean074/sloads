@@ -2,7 +2,7 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: AGREED 2026-09-25 (owner, in session); #286 SHIPPED 2026-09-26 (§10), #285 open.** PROPOSED the same
+**Status: SHIPPED 2026-09-26 — #286 (§10) and #285 (§11).** AGREED 2026-09-25 (owner, in session). PROPOSED the same
 day; the owner ruled Q1–Q7 of §2 **as recommended**, so D-66.1…D-66.16 stand as
 written (§9). Drafted for one design pass over two band-B8 rows the 2026-09-22
 re-charter paired ("#286 and #285 move B2 → B8 (one design pass)"): **#286**,
@@ -306,4 +306,36 @@ the condition's own; the A2 vertical is read). Gates in
    (its parent is gated as itself), and every EM case closes in all six DOF.
 5. **D-66.1 moved no number**: every assembled case on every fixture resolves
    to 1.5; the 1.0 arrives with #285.
+
+## 11. Implementation record — #285 (2026-09-26)
+
+D-66.10…D-66.16 in `balance/engine_out_cases.py`, appended after the EM
+family; `one_engine_out.engine_forces_at` (the march's engine schedule, one
+owner) and `vtail_cases` (public); `assemble` gains an `extra` load set;
+`queries.is_engine_out`. Gates in `tests/test_engine_out_cases.py`. Where the
+build met the note:
+
+1. **A published sign was wrong, and the balanced case found it.** ONENGOUT
+   published every fin load (and δ, α_tail) in the sense that *adds* to its own
+   engine's yaw, while its β carried the nose's sense: SELECT's static
+   convention (YAW 15 NEUTRAL: β +15, restoring LT25 −4461) says a nose-left β
+   carries a negative fin load, and the ATR's left-engine VC case published β
+   +9.06 with LT25 +6101. Put beside the engine pair, the fin and engine moments
+   added (closure yaw 0.3 deg/s² against the march's 52.6). `_vtail_sense` now
+   gives the fin its resisting sense (`+y` engine → `+y` fin load) and β takes
+   the opposite. **This reverses note 44 OR-173's stated rule** — magnitudes
+   and the fin envelope are unchanged (both engines' cases were always
+   delivered), but which engine's case carries which sign flips, on the twins'
+   report, CSVs and tail distributions. Recorded for the owner.
+2. **G-66.9 measured**: closure yaw × (Izz_closure ÷ Izz_ONENGOUT) against the
+   march's ψ̈ — ATR VC −51.5 / −52.6, VD −68.8 / −70.2; Baron VC −109.7 /
+   −112.9, VD −152.6 / −157.2, VS −43.4 / −44.8 deg/s² — 2–3 %, the CG arm
+   (404.1 vs 401.2 in on the ATR) and the coupled tensor's Ixz. Gated at 5 %.
+3. **D-66.16 as built**: the case's pitch residual is the engine pair's own
+   couple in full (ATR VC: 11,082 lb net axial at the hub waterline, 19 in above
+   the CG — 211,000 lb-in, 6.4 % of n·W·MAC). The family is exempt from the trim
+   gate on that ground (the powered cases' standing) and the 1 g half — the
+   case less fin, pair and relief — is gated inside 1 %.
+4. **Coverage (G-66.8)**: ATR 2 speeds × (computed + twin), VS unrecovered on
+   both engines and recorded; Baron 3 × 2. Ids are ONENGOUT's own (VT-30…35).
 
