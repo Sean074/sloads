@@ -68,13 +68,15 @@ from oracle_app.results import STATION_TABLES
 from sloads import UnitSystem, io, registry
 from sloads import workflow as wf
 from sloads.field_registry import (
+    KEPT_BY_REDUCTION,
+    kept_paths,
     oracle_input_paths,
     original_paths,
     reduce_to_oracle_inputs,
     schema_paths,
     supplied_paths,
 )
-from sloads.models.inputs import LoadingDefinition
+from sloads.mass_distribution import mass_case_summary
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _EXAMPLES = os.path.join(_ROOT, "examples")
@@ -407,14 +409,41 @@ def test_every_excused_example_states_a_reason():
 
 def test_the_reduction_drops_the_stored_slices_and_rederives_the_mass():
     """PB-3's mechanism: ``mass`` goes and comes back from the items; a rotor
-    row goes and stays gone; the CG-case ``loading`` records go (omitted)."""
+    row goes and stays gone; the CG-case ``loading`` records are **kept**
+    (#221, ``KEPT_BY_REDUCTION``) -- until then this asserted they went."""
     full = _load("atr42_100.project.json")
-    full.weight.cg_cases[0].loading = LoadingDefinition(aboard=["Crew"])  # no example carries one
+    assert full.weight.cg_cases[0].loading is not None
     reduced = reduce_to_oracle_inputs(full)
     assert reduced.envelope is None and reduced.loads == type(full.loads)()
     assert reduced.mass is not None and reduced.mass == full.mass
     assert any(e.rotors for e in full.engines) and not any(e.rotors for e in reduced.engines)
-    assert reduced.weight.cg_cases[0].loading is None
+    assert [c.loading for c in reduced.weight.cg_cases] == [c.loading for c in full.weight.cg_cases]
+
+
+def test_the_kept_set_is_declared_with_reasons_and_stays_out_of_the_tiers():
+    """#221: each ``KEPT_BY_REDUCTION`` key names at least one registry path and
+    a reason, and none of them is already kept on another ground -- the kept set
+    is not a second way to mark a field supplied, so the GUI tiers and the
+    supplied-set dial above cannot move through it."""
+    for key, why in KEPT_BY_REDUCTION.items():
+        assert len(why) > 40, f"{key}: kept with no real reason"
+        assert any(p == key or p.startswith(key + ".") for p in kept_paths()), (
+            f"KEPT_BY_REDUCTION names no registry path: {key}")
+    assert not kept_paths() & oracle_input_paths()
+
+
+@pytest.mark.parametrize("example", sorted(EXACT) + sorted(RUNS_ONLY))
+def test_the_reduction_keeps_every_case_mass_state(example):
+    """#221: the reduced project states the same mass state on every case as
+    the full one -- the same fuel, payload and ballast, and an entered loading
+    still entered. The oracle report and its fingerprint are built from the
+    reduction, so a field it resets here makes the document describe a loading
+    the analysis did not fly. Measured before the fix on ``atr42_100``: every
+    case's fuel 0 (9,874 lb at MTOW) and 8 entered loadings searched instead.
+    The module comparison above cannot see this -- fuel reclassified as
+    payload moves no oracle-page value -- which is how it stayed open."""
+    full = _load(example)
+    assert mass_case_summary(reduce_to_oracle_inputs(full)) == mass_case_summary(full)
 
 
 # --- G5 demonstrations for the #98 supplied marks ---------------------------- #

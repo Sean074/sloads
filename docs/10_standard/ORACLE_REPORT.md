@@ -451,6 +451,12 @@ reducer the fingerprint hashes through (OR-21, G-OR-13). A field the oracle GUI
 cannot set therefore moves neither the hash nor the document, as one guarantee
 with one owner.
 
+The projection keeps two kinds of sloads field besides the original suite's own:
+the `supplied` fields a delivered number depends on, and `KEPT_BY_REDUCTION` —
+the fields that set the mass state each case runs at (the `consumable` flag and
+an entered `loading`). The document therefore names the loading the analysis
+and the deck actually carried, and editing a loading moves the fingerprint.
+
 This is load-bearing, not belt-and-braces: section 2 quotes each module's own
 certification basis, and on a concept project the speeds module takes the Part 25
 Mach-margin route and says so in its note — so a concept-only field reached the
