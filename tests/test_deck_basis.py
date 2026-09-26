@@ -42,6 +42,7 @@ rather than left to a fixture that may never grow the case.
 
 import csv
 import io as _io
+import functools
 import os
 import re
 import sys
@@ -158,6 +159,14 @@ def _try(fn, *args, **kwargs):
 
 
 def _pairs(example: str):
+    """Memoised per test process (#308): the build is pure and was repeated per
+    test; a fresh container each call, so no test edits another's view."""
+    built = _pairs_built(example)
+    return type(built)(built)
+
+
+@functools.lru_cache(maxsize=None)
+def _pairs_built(example: str):
     """``[(name, deck text, csv text or None, results)]`` for one example.
 
     The pairing is written out rather than derived: *which* results a deck was
@@ -195,6 +204,14 @@ def _pairs(example: str):
 
 
 def _documents(example: str):
+    """Memoised per test process (#308): the build is pure and was repeated per
+    test; a fresh container each call, so no test edits another's view."""
+    built = _documents_built(example)
+    return type(built)(built)
+
+
+@functools.lru_cache(maxsize=None)
+def _documents_built(example: str):
     """``[(name, csv text, results)]`` -- every bundle document with an SF column.
 
     Split out from :func:`_pairs` because the two halves of G-OR-73 stopped
@@ -314,6 +331,14 @@ def test_every_document_states_the_factor_it_did_not_apply(example):
 
 
 def _package_data_files(example: str):
+    """Memoised per test process (#308): the build is pure and was repeated per
+    test; a fresh container each call, so no test edits another's view."""
+    built = _package_data_files_built(example)
+    return type(built)(built)
+
+
+@functools.lru_cache(maxsize=None)
+def _package_data_files_built(example: str):
     """``[(name, text)]`` -- every file the issue package's ``data/`` carries.
 
     G-OR-73 re-cut to the consolidated artifact set (#245). The document half

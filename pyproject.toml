@@ -213,6 +213,12 @@ markers = [
     # buried in a 900-test run; in the normal matrix these tests skip, because
     # `dev` does not install the solver.
     "roundtrip: needs the real sbeam solver installed (`pip install -e '.[solver]'`)",
+    # The fast lane (#308): tests that are irreducibly slow -- a PDF compile, a
+    # full GUI journey, a whole-analysis sweep over a perturbed project -- and
+    # add no coverage a per-item change needs beyond the rest of the suite.
+    # `solo_close.sh`'s per-item gate deselects them (`-m "not slow"`);
+    # `--full-gate`, CI and the milestone merge run everything.
+    "slow: irreducibly slow; skipped by the per-item gate, run by --full-gate and CI",
 ]
 
 [tool.coverage.run]

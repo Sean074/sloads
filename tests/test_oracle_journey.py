@@ -54,6 +54,9 @@ from sloads.field_registry import (
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _EXAMPLES = os.path.join(_ROOT, "examples")
 
+#: The fast lane (#308): every test drives the whole oracle GUI through AppTest; skipped by the per-item gate.
+pytestmark = pytest.mark.slow
+
 #: The Appendix A airplane, and a twin turboprop so One Engine Out has a case
 #: and the rotor divergence is exercised through the reduction.
 JOURNEYS = ("ga6_normal", "atr42_100")

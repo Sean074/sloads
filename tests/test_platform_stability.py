@@ -262,7 +262,9 @@ def test_no_emitted_deck_value_hangs_on_the_last_ulp():
     try:
         for example in baseline.EXAMPLES:
             seen.clear()
-            baseline.artifacts(example)
+            # The uncached build (#308): a memoised bundle would render nothing
+            # through the spy on a worker that already built it.
+            baseline._build_artifacts(example)
             for value in seen:
                 if (not isinstance(value, float) or not math.isfinite(value)
                         or value == 0.0):

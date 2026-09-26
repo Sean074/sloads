@@ -516,6 +516,7 @@ def _examples():
     return sorted(glob.glob(os.path.join(_EXAMPLES, "*.project.json")))
 
 
+@pytest.mark.slow          # a whole-analysis sweep per example (#308)
 @pytest.mark.parametrize("example", _examples(),
                          ids=[os.path.basename(f).split(".")[0] for f in _examples()])
 def test_a_mid_entry_planform_is_refused_by_name_not_by_traceback(example):
@@ -561,6 +562,7 @@ def test_a_mid_entry_planform_is_refused_by_name_not_by_traceback(example):
         f"named refusal (#71): {escaped}")
 
 
+@pytest.mark.slow          # a whole-analysis sweep per example (#308)
 @pytest.mark.parametrize("example", _examples(),
                          ids=[os.path.basename(f).split(".")[0] for f in _examples()])
 def test_a_derive_by_default_field_refuses_through_a_half_entered_planform(example):
