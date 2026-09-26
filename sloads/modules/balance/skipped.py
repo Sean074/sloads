@@ -36,10 +36,17 @@ SKIP_REASONS = {
         # Reworded at #284: the sentence used to send the reader to the
         # per-component decks note 56 D-56.2 deleted. It now names the artifacts
         # that survive, and states the deck absence as an absence.
+        # Re-cut again at #285: the one-engine-out fin conditions assemble.
         "not one of the balanced families this analysis assembles -- the "
         "fuselage conditions are delivered as net fuselage loads in the report "
-        "and the case index, and the one-engine-out fin conditions in the "
-        "report alone; none of them reaches a solver deck"),
+        "and the case index, and do not reach a solver deck"),
+    "not-recovered": (
+        # Design note 66 / ONENGOUT OR-174: never a SELECT condition, recorded
+        # here so the deck states it.
+        "a one-engine-out case whose yaw transient did not recover within the "
+        "simulated time: its fin load is where the integration stopped, not a "
+        "design load, so it is not assembled -- the report states it with the "
+        "uncontrollability finding for stability and control"),
     "mount-local": (
         # Design note 66 Q1 (#286): the engine conditions the regulation does
         # not pair with a flight state of the whole airplane.

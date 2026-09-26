@@ -41,8 +41,10 @@ BALANCED_WING_CONDITIONS = SYMMETRIC_WING_CONDITIONS + ROLLING_WING_CONDITIONS
 #: gust), each assembled as a **lateral** balanced case at B8a-3. All four sit on
 #: V-n points at ``n_z ~ 1``, so the vertical/longitudinal/pitch half of the case
 #: is the shipped symmetric machinery unchanged and only the applied set grows.
-#: ONENGOUT's 23.367 conditions are deliberately absent: that is a transient, not
-#: a balanced steady case (plan 13 §4).
+#: ONENGOUT's 23.367 conditions are not in this tuple: since design note 66
+#: (#285) they are a family of their own (``balance.engine_out_cases``), their
+#: peak instant assembled quasi-statically on a 1 g parent -- plan 13 §4's
+#: "a transient, not a balanced steady case" narrowed, not reversed.
 BALANCED_VTAIL_CONDITIONS = ("SUDDEN RUDDER", "YAW TO SIDESLIP",
                              "YAW 15 NEUTRAL", "SIDE GUST")
 

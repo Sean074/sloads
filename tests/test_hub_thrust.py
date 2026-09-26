@@ -61,6 +61,7 @@ from sloads.modules.balance import (  # noqa: E402
     handed_twin,
     hub_thrust,
     is_engine_mount,
+    is_engine_out,
     is_ground,
     is_powered,
     resultant6,
@@ -429,7 +430,10 @@ def test_asymmetric_thrust_yaws_the_airplane_and_says_so():
     asymmetric = replace(project, engines=[
         replace(e, thrust_lb=THRUST if i == 0 else None)
         for i, e in enumerate(project.engines)])
-    cases = [c for c in build_balanced_cases(asymmetric) if is_powered(c)]
+    # The flight families: a one-engine-out case (design note 66) carries the
+    # entered thrust from its 1 g parent and is handed by its own fin load.
+    cases = [c for c in build_balanced_cases(asymmetric)
+             if is_powered(c) and not is_engine_out(c)]
     assert cases
     hub_y = project.engines[0].prop_cg[1]
     for case in cases:

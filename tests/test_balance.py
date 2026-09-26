@@ -94,6 +94,7 @@ from sloads.modules.balance import (
     htail_load,
     htail_side_loads,
     is_engine_mount,
+    is_engine_out,
     is_ground,
     is_handed,
     is_lateral,
@@ -499,7 +500,7 @@ def _flight_cases(project):
     G-6's closed-form one, is in :func:`test_the_ground_closure_reproduces_landload`).
     """
     return [c for c in build_balanced_cases(project)
-            if not is_ground(c) and not is_engine_mount(c)]
+            if not is_ground(c) and not is_engine_mount(c) and not is_engine_out(c)]
 
 
 def _engine_mount_cases(project):
@@ -521,6 +522,16 @@ def _engine_conditions(project):
     try:
         return engine.run(project).conditions
     except MissingInputError:
+        return []
+
+
+def _engine_out_marches(project):
+    """ONENGOUT's marches, or none where the project has no such input."""
+    from sloads.modules.one_engine_out import vtail_cases
+
+    try:
+        return vtail_cases(project)
+    except (MissingInputError, ValueError):
         return []
 
 
@@ -666,8 +677,13 @@ def test_every_condition_is_either_assembled_or_recorded(example):
     # And ENGLOADS, the third producer (design note 66, D-66.3): an engine
     # condition has no source case number of its own, so it is keyed by title.
     named |= {("engine_mount", c.title, None) for c in _engine_conditions(project)}
+    # And ONENGOUT's own unrecovered marches, which never reach SELECT's set
+    # (OR-174) but are recorded so the deck can state them (design note 66).
+    named |= {("vtail", f"ONE ENGINE OUT — {fc.load_case.label}{fc.engine_label}", None)
+              for fc in _engine_out_marches(project) if not fc.recovered}
     assembled = {(c.case_ref.component, c.label,
-                  None if is_engine_mount(c) else c.vn_case) for c in cases}
+                  None if (is_engine_mount(c) or is_engine_out(c)) else c.vn_case)
+                 for c in cases}
     recorded = {(s.component, s.label, s.case) for s in skipped}
     assert assembled | recorded == named, sorted(named ^ (assembled | recorded))
     assert not (assembled & recorded), sorted(assembled & recorded)
@@ -879,10 +895,13 @@ def test_the_residual_gate_family_is_the_predicates(example):
     cases = build_balanced_cases(_project(example), [])
     for case in cases:
         expected = not (is_ground(case) or is_unsymmetrical_htail(case)
-                        or is_powered(case) or is_engine_mount(case))
+                        or is_powered(case) or is_engine_mount(case)
+                        or is_engine_out(case))
         assert residual_gate_applies(case) is expected, f"{example} {case.label}"
 
-    lateral = [c for c in cases if is_lateral(c)]
+    # The static fin families: the one-engine-out family (design note 66) is
+    # lateral too, and exempt for its engine pair's couple.
+    lateral = [c for c in cases if is_lateral(c) and not is_engine_out(c)]
     if lateral:
         assert all(residual_gate_applies(c) for c in lateral)
         worst = max(max(c.force_residual_fraction, c.moment_residual_fraction)
@@ -896,6 +915,7 @@ def test_the_residual_gate_family_is_the_predicates(example):
     assert ("ground" in stated) == any(is_ground(c) for c in cases)
     assert ("h-tail" in stated) == any(is_unsymmetrical_htail(c) for c in cases)
     assert ("engine mount" in stated) == any(is_engine_mount(c) for c in cases)
+    assert ("one engine out" in stated) == any(is_engine_out(c) for c in cases)
 
 
 @pytest.mark.parametrize("example", _with_cases())
@@ -2326,7 +2346,7 @@ def test_the_lateral_cases_are_pinned(example):
     """
     want = _LATERAL_CASE_NUMBERS[example]
     got = {c.label: c for c in build_balanced_cases(_project(example))
-           if is_lateral(c) and c.hand == "R"}
+           if is_lateral(c) and c.hand == "R" and not is_engine_out(c)}
     assert sorted(got) == sorted(want), f"{example}: {sorted(got)}"
     # Legality, not completeness: baron_58's SIDE GUST sits on a non-derivable
     # loading and drops (recorded, F-C7), so the full-set claim is per fixture
@@ -2408,7 +2428,10 @@ def test_the_symmetric_half_of_a_lateral_case_still_closes(example):
     silently.
     """
     project = _project(example)
-    lateral = [c for c in build_balanced_cases(project) if is_lateral(c)]
+    # The static fin families; the one-engine-out family (design note 66)
+    # carries its engine pair and is gated in test_engine_out_cases.py.
+    lateral = [c for c in build_balanced_cases(project)
+               if is_lateral(c) and not is_engine_out(c)]
     assert lateral, f"{example}: no lateral case"
     for case in lateral:
         cg = _ref_of(case)

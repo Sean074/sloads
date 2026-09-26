@@ -67,6 +67,17 @@ losing it is how a governing down-load case disappears.
    ([`00_theory_sources.md`](00_theory_sources.md) §The families still
    running on internal identities only).
 
+**Its sign, and where it reaches the deck** (design note 66, #285). The fin
+load is published in airplane axes with the sense that *resists* the failed
+engine's yaw — a starboard engine's failure loads the fin to starboard (`+y`),
+the sense SELECT's static conditions use (a nose-left sideslip `β > 0` carries
+a negative fin load). The published yaw angle is the nose's, toward the failed
+engine. Note 44 OR-173 stated the reverse fin sense, which added to the engine's
+yaw; it was invisible while each engine's case was delivered alone and was
+corrected when #285 put the fin beside the engine pair. The recovered cases
+reach the LRA deck as the one-engine-out balanced family
+(`balance.engine_out_cases`, chapter 9).
+
 It shares the v-tail aero terms (lift-curve slope, rudder effectiveness, the
 large-deflection factor) with the static rudder cases through one owner
 (`sloads/modules/_vtail.py`), which is why it lives in this chapter; the

@@ -7158,11 +7158,12 @@ def _oei_input_table(project: Project, cases: Sequence["VtailCase"],
         rows.append([
             f"{_oei_engine_number(index)}{(' — ' + name) if name else ''}",
             # The march runs on the magnitude and publishes the side through
-            # ``sense`` (-1 for a starboard engine), so the entered, signed
-            # butt line is recovered from the module's own side owner rather
-            # than printed unsigned -- two rows that differ only in the sign
-            # of this cell are inputs producing opposite-sign fin loads (#231).
-            u.plain(-fc.sense * c.bleng, "length"),
+            # ``sense`` (+1 for a starboard engine since design note 66), so
+            # the entered, signed butt line is recovered from the module's own
+            # side owner rather than printed unsigned -- two rows that differ
+            # only in the sign of this cell are inputs producing opposite-sign
+            # fin loads (#231).
+            u.plain(fc.sense * c.bleng, "length"),
             format_value(c.maxhp, "hp"),
             u.plain(c.dia_ft * 12.0, "length"),
             _scalar_cell(c.izz, i_scale, "slug-ft^2"),

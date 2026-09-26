@@ -246,6 +246,30 @@ def simulate(c: CaseInputs) -> Tuple[List[HistoryRow], CaseSummary]:
     return rows, summary
 
 
+def engine_forces_at(time: float, c: CaseInputs) -> Tuple[float, float, float]:
+    """``(live thrust, failed engine's remaining thrust, failed engine's windmill
+    drag)`` in lb at ``time`` -- the one owner of the schedule :func:`_moment`
+    turns into a yawing moment (ONENGOUT.BAS 282-286) and the balanced
+    one-engine-out case applies at the hubs (design note 66, D-66.12).
+
+    The failed engine's thrust falls from full to zero over ``time2decay``;
+    its windmill drag then rises to full over ``[time2decay, time2drag]`` and
+    holds. The live engine gives full thrust throughout. ``_moment`` is this
+    times the engine arm: ``(live - remaining + drag) * bleng``.
+    """
+    thrust, drag, _ = engine_thrust_and_drag(c)
+    if time <= 0.0:
+        return thrust, thrust, 0.0
+    remaining = thrust * (c.time2decay - time) / c.time2decay if time < c.time2decay else 0.0
+    if time <= c.time2decay:
+        windmill = 0.0
+    elif time < c.time2drag:
+        windmill = drag * (time - c.time2decay) / (c.time2drag - c.time2decay)
+    else:
+        windmill = drag
+    return thrust, remaining, windmill
+
+
 def _moment(time: float, c: CaseInputs, mom_eng: float, mom_windmill: float,
             lt25: float, lt50: float) -> float:
     """Net yaw moment about the CG at ``time`` (ONENGOUT.BAS 282-286, in-lb).
@@ -464,11 +488,22 @@ def _case_inputs(project: Project, v_kt: float,
 #: compare it with. A fin is one surface: failing the port engine and failing the
 #: starboard engine load it in *opposite* senses, and an envelope that saw only
 #: one of them would size a fin for half the cases it must carry. So the sign is
-#: taken from the engine's butt line -- ``+y`` engine, ``-y`` fin load, and the
-#: reverse -- which is what makes note 44 OR-173 a physical statement rather than
-#: a doubling of rows.
+#: taken from the engine's butt line, which is what makes note 44 OR-173 a
+#: physical statement rather than a doubling of rows.
+#:
+#: **``+y`` engine, ``+y`` fin load** (corrected at design note 66, #285). The
+#: starboard engine's failure yaws the nose to starboard, and the fin load that
+#: resists it pushes the tail to starboard -- ``+y`` in airplane axes, the sense
+#: SELECT's own static fin conditions use (YAW 15 NEUTRAL: nose-left sideslip,
+#: ``beta = +15``, restoring ``LT25 = -4461``). OR-173 stated the reverse, and
+#: every one-engine-out condition published a fin load that *added* to its own
+#: engine's yaw -- invisible while each engine's case was delivered alone (the
+#: fin envelope saw both signs either way), and found when the balanced case
+#: put the fin beside the engine pair and its yaw came out 0.3 deg/s^2 against
+#: ONENGOUT's 52.6. The yaw angle keeps its own sense: ``beta_deg`` is
+#: ``-sense * theta`` (nose toward the failed engine).
 def _vtail_sense(engine_cg_y: float) -> float:
-    return -1.0 if engine_cg_y > 0.0 else 1.0
+    return 1.0 if engine_cg_y > 0.0 else -1.0
 
 
 class VtailCase(NamedTuple):
@@ -543,6 +578,14 @@ def _engine_label(project: Project, index: int, count: int) -> str:
     """
     del project
     return f" (engine {index + 1})" if count >= 2 else ""
+
+
+def vtail_cases(project: Project) -> List[VtailCase]:
+    """Every engine's failure at every speed, recovered or not -- the public
+    face of :func:`_vtail_cases` the balanced one-engine-out family reads
+    (design note 66): the same enumeration :func:`run` and
+    :func:`vtail_conditions` walk, so the deck cannot see a different set."""
+    return _vtail_cases(project)
 
 
 def _vtail_cases(project: Project) -> List[VtailCase]:
@@ -678,7 +721,7 @@ def vtail_conditions(project: Project) -> List[CriticalCondition]:
                 condition=f"one engine out — {fc.load_case.label}{fc.engine_label}",
                 speed_kt=c.v_kt, far_reference=fc.load_case.far_reference),
             safety_factor=fc.load_case.safety_factor,
-            beta_deg=sense * fc.peak.theta,
+            beta_deg=-sense * fc.peak.theta,      # nose toward the failed engine
             alpha_tail_deg=sense * alpha,
             delta_deg=sense * fc.peak.rudder_deg,
             q_psf=q,
@@ -765,7 +808,7 @@ def run(project: Project) -> ModuleResult:
                   # publishes the side through ``sense``, so the entered butt
                   # line is recovered the same way the report recovers it.
                   f"Failed engine {fc.engine_index + 1} at butt line "
-                  f"{-fc.sense * c.bleng:g} in; "
+                  f"{fc.sense * c.bleng:g} in; "
                   f"IZZ {c.izz:g} slug-ft^2. Peak total load at t = {fc.peak.time:g} s."
                   + ("" if s.recovered else
                      f" NOT recovered within {_MAX_SIM_TIME_S:g} s — the airplane is "

@@ -1010,6 +1010,19 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   recorded as not assembled. EM cases are exempt from the trim residual gate
   (the flight case they scale is gated as itself) and carry their own gates,
   `tests/test_engine_mount_cases.py` (G-66.1…G-66.7, G-66.12).
+  **The one-engine-out family** (design note 66, #285;
+  `balance.engine_out_cases`) follows it: each recovered ONENGOUT condition at
+  its instant of peak total fin load (OR-175), assembled on a 1 g parent —
+  `BAL C` / `BAL D` / `STALL 1G` for VC / VD / VS at the heaviest derivable
+  FLIGHT CG case and the V-n altitude nearest ONENGOUT's — with the fin
+  distribution `tail_span` builds and the engine pair at that instant from
+  `one_engine_out.engine_forces_at` (live thrust at the mirror of the failed
+  hub; the failed engine's remaining thrust and windmill drag at its hub). One
+  engine's failure is computed per speed and the mirrored engine's is its
+  reflected twin under its own VT id; no L-7 term, stated in band; unrecovered
+  marches recorded (`not-recovered`). Exempt from the trim gate for the pair's
+  couple, with the 1 g half gated inside 1 % and the closure yaw held to
+  ONENGOUT's (`tests/test_engine_out_cases.py`).
   **Every balanced case states its own safety factor** (D-66.1): the governing
   table's answer for its `CaseRef`'s FAR reference, stamped in
   `build_balanced_cases` through `safety_factors.stamp`, and printed by the deck

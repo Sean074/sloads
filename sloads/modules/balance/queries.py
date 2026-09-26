@@ -112,6 +112,15 @@ def is_engine_mount(case: BalancedCaseResult) -> bool:
     return ref is not None and ref.component == "engine_mount"
 
 
+def is_engine_out(case: BalancedCaseResult) -> bool:
+    """Is this a one-engine-out case (design note 66, #285)?
+
+    Read off its applied set: the live-thrust / failed-engine pair only that
+    family applies (``engine_out_cases``).
+    """
+    return any(ld.source.startswith("engine-out-") for ld in case.loads)
+
+
 def residual_gate_applies(case: BalancedCaseResult) -> bool:
     """Is this case's pre-closure ``Fz``/``My`` residual a **gate-comparable**
     trim statement? (CR-C-2, #41.)
@@ -145,7 +154,7 @@ def residual_gate_applies(case: BalancedCaseResult) -> bool:
     turning it off.
     """
     return not (is_ground(case) or is_unsymmetrical_htail(case) or is_powered(case)
-                or is_engine_mount(case))
+                or is_engine_mount(case) or is_engine_out(case))
 
 
 #: The exempt families in the order :func:`residual_gate_exemptions` states them,
@@ -159,6 +168,9 @@ _GATE_EXEMPTIONS = (
     (is_engine_mount,
      "engine mount (a scaled flight case plus the engine's own loads; the "
      "flight case it scales is gated as itself)"),
+    (is_engine_out,
+     "one engine out (the live-thrust / windmill-drag pair's couple in full; "
+     "the 1 g case it rides on closes inside the gate without it)"),
 )
 
 

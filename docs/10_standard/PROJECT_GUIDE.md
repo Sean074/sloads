@@ -289,6 +289,7 @@ FAR23LOADS/
 │           ├── lateral.py        # the wing-body sideslip terms a lateral case carries (L-7); owner of `body-aero`
 │           ├── skipped.py        # the F-C7 record: what the assembled deliverable does not cover
 │           ├── engine_cases.py   # the engine-mount family: scaled flight case + the engine's own loads (note 66)
+│           ├── engine_out_cases.py # the one-engine-out fin: ONENGOUT's peak on a 1 g parent + the engine pair (note 66)
 │           ├── applied.py        # the applied sets — wing, body, axial, hub thrust, the two tail distributions
 │           ├── queries.py        # what a case IS: handedness, the residual-gate family, lateral/ground/powered
 │           ├── closure.py        # resultants, and the six-DOF closure that leaves the case free-free
