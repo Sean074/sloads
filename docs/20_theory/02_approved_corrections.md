@@ -353,7 +353,7 @@ which asserts both halves: the entered station is printed, and it is not zero.
 
 ---
 
-### 23.349(a)(2) other-side percentage — 75 % flat, not the manual's 70→75 % *(approved 2026-09-22, in session; ships with design note 52)*
+### 23.349(a)(2) other-side percentage — 75 % flat, not the manual's 70→75 % *(approved 2026-09-22, in session; shipped with design note 52, #306, 2026-09-25)*
 
 The manual constructs the accelerated-roll condition (Ch 12 pp. 91–92, Ch 13
 pp. 95–96) with the other wing at **70 % rising linearly with design weight to
@@ -372,15 +372,28 @@ returns 75 % for normal, utility and commuter; the FLTLOADS `AC ROLL` load
 factor becomes `0.875·n₁` at every weight (the `w ≤ 1000` branch retires with
 the rule); the derived UNB on the Appendix A airplane is **128,619 lb-in**
 (0.25 × 514,475). The 100 % side's air load — condition A's — is unchanged.
-Moved figures, GA6 case 160: `AC ROLL` n_z 3.25 → 3.325, SELECT's `ACRL` pick
-CL 1.328 → ≈ 1.36 at 116 kt, θ̈ −13.287 → ≈ −11.47 deg/s², WINGINER root Mxx
-−124,095 → ≈ −115,500, net governing-side root MX +390,380 → ≈ +399,000 lb-in
-(+2 %; exact values fixed at implementation and stated in the tests beside the
-printed figures). **The printed rows are not lost:** a test-built case 160 with
+Moved figures, as implemented (#306; each stated in
+`tests/test_rolling_conditions.py` beside the printed one): `AC ROLL` n_z
+3.25 → 3.325 (case 20 LZW 10,637 → 10,882); at the printed condition A,
+UNB 149,043 → 128,619, θ̈ −13.287 → −11.468 rad/s², WINGINER root Mxx
+−124,095 → −114,286 at the printed factors. **SELECT's `ACRL` pick moves
+altitude:** at the amended factor the CG2 `AC ROLL` points' LZW tie across
+altitude to 0.13 % — inside the balance's own 0.5 % — and sea level (V-n case
+40, CL 1.326 at 117.45 kt) takes the slot from the printed 12,000 ft point
+(CL 1.328 → 1.361 there). Condition A at sea level is the case 22 air (CL
+1.519, root 516,566), so the GA6 delivers UNB −129,142 and a governing-side
+net root MX of **+400,817** against the printed +390,380 (+2.7 %: the
+amendment's +2 % and the air point's +0.4 %). θ̈ is rad/s² — WINGINER prints
+`THETADOT` unlabelled (p. 214/219) and `UNB·g/I_wxx` is 1/s²; the "deg/s²"
+this entry carried at the amendment was a labelling slip. **The printed rows are not lost:** a test-built case 160 with
 the manual's entered 149,043 holds WINGINER's and NETLOADS's Appendix A output
 bit-for-bit (note 52 G-52.12), so the `.BAS` math stays oracle-locked under
 either rule; the shipped `ga6_normal` fixture follows the amended rule
-(D-52.12), and its Imperial digests move once, at the step that ships this.
+(D-52.12), and its Imperial digests moved once, at #306. Tests:
+`tests/test_rolling_conditions.py` (`test_the_printed_case_160_is_held_by_a_test_built_case`,
+`test_the_derived_unb_is_the_amended_quarter_of_the_root`,
+`test_the_delivered_acrl_pick_and_its_numbers`); FLTLOADS case 20 at the
+printed factor, `tests/test_flight_envelope.py::test_ac_roll_printed_row_holds_at_the_manuals_percentage`.
 
 **Trail (note 52 §7):** the owner's docstring cites this entry and the
 amendment; the affected `ConditionResult`s carry a `note`; `PROGRAM_SPEC.md`'s

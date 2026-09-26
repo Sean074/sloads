@@ -65,6 +65,49 @@ ULTIMATE_FACTOR = 1.5
 FAR23_473G_N_FLOOR = 2.67
 FAR23_473G_NLG_FLOOR = 2.0
 
+# FAR 23.349(a) accelerated rolling condition (design note 52, D-52.1/D-52.11):
+# 100 % of the semispan wing airload of symmetric condition A acts on one side
+# and ``p`` % on the other. **One owner** for ``p``: the unbalanced rolling
+# moment (``wing_inertia.accel_roll_unbalanced_moment``) and the FLTLOADS AC ROLL
+# load factor ``(100 + p)/200 * n1`` both read :func:`other_side_percent`; the
+# drift guard (G-52.9) forbids the retired rule's literals anywhere else.
+#
+# 14 CFR 23.349(a)(2) as amended by Amdt 23-48 (61 FR 5144, 1996-02-09): **75 %**
+# for normal, utility and commuter. Reference 1 (1996) still carries the
+# pre-amendment linear rule ``70 + 5*(W - 1000)/11500`` (Ch 12 p. 92) and
+# Appendix A prints 71.03 %; the deviation is registered in
+# ``docs/20_theory/02_approved_corrections.md`` §23.349(a)(2).
+ROLL_OTHER_SIDE_PERCENT = 75.0
+
+
+class UnsupportedCategoryError(ValueError):
+    """A regulatory rule sloads has not implemented for this certification
+    category -- **flagged, never defaulted** (design note 52, D-52.7/D-52.13).
+
+    The acrobatic rolling conditions (23.349(a)(1): 60 % and condition F) ship
+    with an acrobatic fixture to verify them (note 52 §8); until then an
+    acrobatic project is refused by name rather than given the normal rule."""
+
+
+def other_side_percent(weight_lb: float, category: str) -> float:
+    """The 23.349(a) other-side percentage ``p`` (design note 52, D-52.1).
+
+    75 % flat for normal, utility, commuter and concept (D-52.11); an acrobatic
+    project raises :class:`UnsupportedCategoryError` (D-52.7). ``weight_lb`` is
+    the design maximum weight (D-52.8) -- the amended rule no longer reads it,
+    and it is kept so the call site states which weight the regulation means
+    and so the record of the retired rule has its argument.
+    """
+    del weight_lb  # D-52.11: the amended rule is weight-independent
+    if category.strip().upper() == "A":
+        raise UnsupportedCategoryError(
+            "FAR 23.349(a)(1): the acrobatic accelerated rolling condition (60 % "
+            "other side, built from conditions A and F) is not implemented -- "
+            "design note 52 D-52.7/D-52.13 flags it rather than applying the "
+            "normal-category 75 %. It ships with an acrobatic fixture (note 52 §8)")
+    return ROLL_OTHER_SIDE_PERCENT
+
+
 # pi: Decision 3 ("modernize the math") -- the .BAS programs wrote 3.1416; the
 # package uses ``math.pi`` directly everywhere (no ``PI`` alias to drift; the
 # guard test forbids the literal). This shifts the manual's worked-example

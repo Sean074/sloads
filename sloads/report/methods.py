@@ -142,6 +142,15 @@ APPROVED_CORRECTIONS = (
      "while computing with the real station, which the unbalanced "
      "pitching moment printed beside it closes only against. Nothing "
      "computed is affected: the printed cell is read by no calculation."),
+    ("23.349(a)(2) other-side percentage — 75 % flat, not the manual's 70→75 %",
+     "23.349(a)(2)",
+     "Accelerated roll: the other wing carries 75 per cent of the semispan "
+     "airload at every weight, per 23.349(a)(2) as amended by Amdt 23-48; "
+     "the manual's linear 70-to-75 per cent rule is the pre-1996 wording "
+     "(71.03 per cent on its worked example). The airplane load factor at "
+     "the roll point becomes 0.875 n1 and the unbalanced rolling moment "
+     "falls to a quarter of condition A's root bending; the governing "
+     "side's air load, condition A's, is unchanged."),
 )
 
 #: Limitations that hold for every run, regardless of project content, as

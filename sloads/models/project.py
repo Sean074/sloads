@@ -348,7 +348,12 @@ from .results import EnvelopeResult, LoadsResult, MassResult
 # ``ga6_normal`` WINGINER, NETLOADS, the deck's wing sets and CONM2 are
 # byte-identical; ``body_loads`` moves by the stated per-case correction
 # (D-63.8) and the twin/concept fixtures by the fuel re-slicing (D-63.10).
-SCHEMA_VERSION = 68
+# v69 (design note 52, #306): ``WingLoadCase.unbal_moment`` becomes
+# ``Optional`` -- blank is derived on ``ACRL`` from condition A (D-52.2) and zero
+# elsewhere; ``_hop_68`` writes ``null`` for every stored ``0``, keeping a
+# non-zero entered couple. The TORS aileron increment (D-52.5) reads the
+# existing v52 ``aileron_loads.inboard_y_in``/``outboard_y_in``, so no new field.
+SCHEMA_VERSION = 69
 
 
 @dataclass

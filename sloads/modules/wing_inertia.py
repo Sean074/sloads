@@ -71,6 +71,7 @@ from ..models import (
     WingStationLoad,
 )
 from ..registry import register
+from .rolling import complete_rolling_case
 from .select import default_critical, default_envelope
 from .wing_geometry import interp_x
 
@@ -123,6 +124,10 @@ class _InertiaUnits:
     point_masses: List["_UnitPointMass"] = field(default_factory=list)
     density_root: float = 0.0
     density_tip: float = 0.0
+    #: The semispan roll inertia ``Iwxx = 2*sum(W*y^2)`` (lb-in^2), strips and
+    #: point masses -- the denominator of the unit-roll forces and of the roll
+    #: acceleration published beside an ACRL case (design note 52, D-52.4).
+    iwxx: float = 0.0
 
 
 def _root_density(dA, ye, c, dy, ytip, wm: WingMassInput, ii: int,
@@ -259,6 +264,7 @@ def fold_units(shape: _PanelShape, panel_weight_lb: float,
                   + math.fsum(cw.weight_lb * cw.y ** 2 for cw in point_masses)) or 1.0
     fz_r = [w[i] * ye[i] * 100000.0 / iwxx for i in range(h)]
     u.fz_r = fz_r
+    u.iwxx = iwxx
 
     # Cumulative integration tip->root for the vertical, drag and roll cases.
     sz_v = [0.0] * h
@@ -340,7 +346,7 @@ def wing_inertia_distribution(case: WingLoadCase, units: _InertiaUnits
     u = units
     nz = case.nz if case.nz is not None else 0.0
     nx = case.nx if case.nx is not None else 0.0
-    ur = case.unbal_moment / 100000.0
+    ur = (case.unbal_moment or 0.0) / 100000.0
     stations: List[WingStationLoad] = []
     for i in range(len(u.ye)):
         stations.append(WingStationLoad(
@@ -451,16 +457,6 @@ def _resolve_case(project: Project, case: WingLoadCase,
                         unbal_moment=case.unbal_moment, cl=case.cl, v_eas_kt=case.v_eas_kt)
 
 
-def _critical_wing_conditions(project: Project,
-                              sources: Optional[WingCaseSources] = None
-                              ) -> List[CriticalCondition]:
-    """SELECT's wing conditions, or ``[]`` when SELECT cannot run at all.
-
-    Through :class:`WingCaseSources`, so "SELECT has not been *persisted*" is no
-    longer read as "SELECT has no conditions" (review F-C6)."""
-    return _sources(project, sources).wing_conditions
-
-
 def resolve_wing_cases(project: Project, wm: WingMassInput,
                        sources: Optional[WingCaseSources] = None) -> List[WingLoadCase]:
     """``wm.cases``, or -- when it is empty -- the cases derived from SELECT's
@@ -487,17 +483,23 @@ def resolve_wing_cases(project: Project, wm: WingMassInput,
     a project that never filled the table, and the *Wing Loads* page's "pull
     from SELECT" button materialises the same list into the editable table.
 
-    **Limitation:** a derived ACRL case carries ``unbal_moment = 0`` -- SELECT's
-    condition does not name an unbalanced rolling moment (it comes from AILERON,
-    Ref 1 Ch 13). Enter the case explicitly to give one.
+    **The accelerated roll arrives complete** (design note 52, D-52.2/D-52.10):
+    an ``ACRL`` case -- derived, or entered with blanks -- takes its unbalanced
+    rolling moment and its condition A air point from
+    :func:`sloads.modules.rolling.complete_rolling_case`, the owners every reader
+    of the case shares. UNB is ``-(1 - p/100)`` of condition A's root air
+    bending (Ref 1 Ch 12 p. 92, Ch 13 pp. 95-96); an entered value still wins.
     """
-    conditions = _critical_wing_conditions(project, sources)
+    src = _sources(project, sources)
+    conditions = src.wing_conditions
     if wm.cases:
         by_label = {c.label: c for c in conditions if c.case is not None}
-        return [replace(c, case=by_label[c.name].case)
-                if c.case is None and c.name in by_label else c
-                for c in wm.cases]
-    return [WingLoadCase(name=c.label, case=c.case) for c in conditions]
+        cases = [replace(c, case=by_label[c.name].case)
+                 if c.case is None and c.name in by_label else c
+                 for c in wm.cases]
+    else:
+        cases = [WingLoadCase(name=c.label, case=c.case) for c in conditions]
+    return [complete_rolling_case(project, c, src.vn) for c in cases]
 
 
 def _stated_speed(case: WingLoadCase, vp: Optional[VnPoint],

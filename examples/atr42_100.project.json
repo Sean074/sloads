@@ -1,5 +1,5 @@
 {
-  "schema_version": 68,
+  "schema_version": 69,
   "name": "ATR 42-300 (\"ATR 42-100\" prototype designation never entered production; -300 is the closest PW120-powered production analog) \u2014 2x PW120 (concept, category C)",
   "description": "ATR 42-300, 48-seat regional turboprop twin (concept mode, category C). Published data cited, everything else estimated -- sources: examples/atr42_100.sources.md (#260)",
   "engines": [

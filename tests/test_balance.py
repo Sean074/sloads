@@ -109,7 +109,7 @@ from sloads.modules.balance import (
 from sloads.modules.balance import resultant as case_resultant
 from sloads.modules.select import default_critical, default_envelope
 from sloads.modules.tail_span import build_tail_span, strip_spans
-from sloads.modules.wing_inertia import inertia_units
+from sloads.modules.wing_inertia import inertia_units, resolve_wing_cases
 from sloads.rigid_body import InertiaTensor, radians_per_s2
 from sloads.tail_geometry import HTAIL, VTAIL, resolve_tail_planform
 from sloads.units import Channel, UnitSystem, deliverable_units
@@ -151,10 +151,11 @@ _LATERAL_CASES = [
 _UNSYMMETRICAL_CASES = [("UNSYMMETRICAL", "R"), ("UNSYMMETRICAL", "L")]
 
 #: The symmetric wing families every fixture with a full V-n set reaches.
-#: ``ACRL`` is handed only where SELECT names a rolling condition with a
-#: **left/right** split; where it does not, the case is its own mirror image and
-#: is emitted once, which is why the twins and the Cessna carry ``("ACRL", "")``
-#: against ga6's and the RJ's handed pair.
+#: ``ACRL`` is a handed pair on **every** fixture since design note 52 (#306):
+#: its unbalanced rolling moment is derived from condition A (D-52.2) wherever
+#: none is entered, so the case is never its own mirror image. Before, only
+#: ga6 and the RJ -- which *entered* a couple -- rolled; the ATR, the Baron and
+#: ``concept_heavy`` assembled ``("ACRL", "")`` with a zero couple (#258).
 _WING_CASES = [("PHAA", ""), ("PLAA", ""), ("PMAA", ""), ("NMAA", "")]
 
 #: Design note 62's four slots above SELECT.BAS (#288, D-62.4), assembled
@@ -193,7 +194,7 @@ _EXPECTED_CASES = {
     ] + _NOTE_62_CASES["ga6_normal.project.json"]
       + _UNSYMMETRICAL_CASES + _LATERAL_CASES,
     "atr42_100.project.json": _WING_CASES + [
-        ("ACRL", ""), ("TORS", ""),
+        ("ACRL", "R"), ("ACRL", "L"), ("TORS", ""),
     ] + _NOTE_62_CASES["atr42_100.project.json"]
       + _UNSYMMETRICAL_CASES + _LATERAL_CASES,
     # baron_58 entered the walk 2026-09-11 (#271, EXAMPLES made structural):
@@ -202,12 +203,12 @@ _EXPECTED_CASES = {
     # TORS and the full lateral set assemble on it.
     # baron_58 since #292: the wing slots re-pointed to the seeded MZFW
     # loadings (design note 63 D-63.7) assemble; TORS stays at `aft gross`.
-    "baron_58.project.json": _WING_CASES + [("ACRL", ""), ("TORS", "")]
+    "baron_58.project.json": _WING_CASES + [("ACRL", "R"), ("ACRL", "L"), ("TORS", "")]
       + _NOTE_62_CASES["baron_58.project.json"] + [
         (label, hand) for label, hand in _LATERAL_CASES
         if label != "SIDE GUST"     # non-derivable loading; dropped, recorded
     ],
-    "concept_heavy.project.json": _WING_CASES + [("ACRL", "")]
+    "concept_heavy.project.json": _WING_CASES + [("ACRL", "R"), ("ACRL", "L")]
       + _NOTE_62_CASES["concept_heavy.project.json"],
     "concept_regional_jet.project.json": _WING_CASES + [
         ("ACRL", "R"), ("ACRL", "L"), ("TORS", ""),
@@ -549,11 +550,10 @@ def _with_handed_cases():
 def _with_handed_roll():
     """Fixtures whose ``ACRL`` is handed -- i.e. that actually roll.
 
-    SELECT hands a rolling case only where it names a left/right split; on
-    ``cessna_210``, ``atr42_100``, ``dhc8_dash8`` and ``concept_heavy`` it does
-    not, so their ``ACRL`` is symmetric and carries no applied roll couple. Those
-    fixtures have nothing for a roll-closure test to check -- which is a property
-    of their input, pinned in :data:`_EXPECTED_CASES`, not a gap here.
+    Every fixture since design note 52 (#306): the couple is derived from
+    condition A where none is entered (D-52.2), so a fixture drops out of this
+    list only if it assembles no ``ACRL`` at all -- pinned in
+    :data:`_EXPECTED_CASES`, not a gap here.
     """
     return [e for e, v in _EXPECTED_CASES.items()
             if ("ACRL", "R") in v or ("ACRL", "L") in v]
@@ -1649,8 +1649,9 @@ def test_only_acrl_carries_roll():
     """``unbal_moment`` is non-zero on ``ACRL`` alone -- a **measured** finding.
 
     Plan 11 phase 2 is worded "the antisymmetric wing cases (``ACRL``, ``TORS``)",
-    but the handedness of a wing case lives entirely in ``WingLoadCase.unbal_moment``
-    (FAR 23.349), and every shipped fixture enters zero for ``TORS``. That is not
+    but the handedness of a wing case lives entirely in its resolved UNB
+    (FAR 23.349; the owner, ``resolve_wing_cases``, derives it on ``ACRL`` alone
+    since design note 52), and no shipped fixture enters one for ``TORS``. That is not
     a fixture oversight: a *steady* roll has no unbalanced rolling moment by
     definition -- the aileron moment is balanced by roll damping -- and the
     up-going/down-going aero asymmetry that remains has no spanwise
@@ -1664,10 +1665,11 @@ def test_only_acrl_carries_roll():
     assert ROLLING_WING_CONDITIONS == ("ACRL",)
     for example in EXAMPLES:
         project = _project(example)
-        for case in (project.wing_mass.cases if project.wing_mass else []):
+        for case in (resolve_wing_cases(project, project.wing_mass)
+                     if project.wing_mass else []):
             if case.name == "ACRL":
                 continue
-            assert case.unbal_moment == 0.0, (
+            assert not case.unbal_moment, (
                 f"{example} {case.name} carries UNB={case.unbal_moment}: it is "
                 "antisymmetric and must not be assembled as a symmetric case")
 
@@ -1727,6 +1729,12 @@ _WING_SPAN_ROLL_SHARE = {
     # share shifted by 0.1 %. Mass layout, not physics.
     # 0.871435 -> 0.871426 on 2026-08-30 with the re-seeded CG cases.
     "concept_regional_jet.project.json": 0.871426,
+    # Design note 52 (#306): these three roll for the first time -- their
+    # ``ACRL`` couple is derived from condition A where none was entered.
+    # Measured; the shape half of the gate holds to 1e-15 on each.
+    "atr42_100.project.json": 0.622080,
+    "baron_58.project.json": 0.529069,
+    "concept_heavy.project.json": 0.383907,
 }
 
 
@@ -1794,7 +1802,15 @@ def test_roll_closure_reproduces_winginer(example):
             f"{example} {case.label}: the wing span now reacts {ratios[0]:.6f} "
             f"of the aileron rolling moment, not the pinned {share}")
 
-        # ...and that constant IS the roll-inertia ratio, not a fitted number.
+        # ...and that constant IS the roll-inertia ratio, not a fitted number --
+        # exactly, where every off-axis wing mass is a strip. A wing POINT mass
+        # (the ATR's and the Baron's engines, ``concept_heavy``'s fuel; they roll
+        # since design note 52 derived their couple) is relieved at its own butt
+        # line, off the strip grid this ratio reads, while ``Sum w*y^2`` counts
+        # it: the strip ratio then understates the share by the points' part
+        # (0.3-0.6 % measured). The share pin above still catches drift there.
+        if md.wing_mass_state(project, case.cg).point_masses:
+            continue
         masses = [ld for ld in case.loads if ld.weight_lb]
         span_only = sum(ld.weight_lb * ld.y ** 2 for ld in masses)
         assert ratios[0] == pytest.approx(
@@ -2018,8 +2034,16 @@ def test_a_symmetric_case_reduces_to_three_dof(example):
 #: force the roll field applies, and the yaw acceleration ``Ixz`` induces from
 #: it, in deg/s^2. **G6** -- the one shipped case whose *physics* L-2 changes,
 #: so the change is asserted rather than re-baselined (risk R1).
+#:
+#: Design note 52 (#306) moved these: ga6's couple is derived at the amended
+#: 75 % (-129,142 lb-in against the entered -149,043; 89.83 lb / 18.930 deg/s^2
+#: before), and the ATR, Baron and ``concept_heavy`` roll for the first time.
+#: The RJ enters its couple and keeps it.
 _ACRL_LATERAL = {
-    'ga6_normal.project.json': {"companion_fy_lb": 89.83, "r_dot_deg_s2": 18.930},
+    'ga6_normal.project.json': {"companion_fy_lb": 77.83, "r_dot_deg_s2": 16.402},
+    'atr42_100.project.json': {"companion_fy_lb": 455.59, "r_dot_deg_s2": 6.255},
+    'baron_58.project.json': {"companion_fy_lb": 25.68, "r_dot_deg_s2": 4.663},
+    'concept_heavy.project.json': {"companion_fy_lb": 274.78, "r_dot_deg_s2": 2.637},
     'concept_regional_jet.project.json': {"companion_fy_lb": 307.46, "r_dot_deg_s2": 4.394},
 }
 

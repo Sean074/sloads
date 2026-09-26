@@ -335,7 +335,13 @@ def test_critical_wing_conditions_match_appendix_a():
         ("PLAA", "MAN D", 0.472, 212.40),
         ("PMAA", "GUST +C", 0.810, 170.00),
         ("NMAA", "GUST -C", -0.433, 170.00),
-        ("ACRL", "AC ROLL", 1.328, 116.00),
+        # Printed: 160 ACRL +1.328 116.00 CG2 12000. Design note 52 (D-52.11,
+        # registered at 23.349(a)(2)) balances AC ROLL at 0.875*n1, not the
+        # manual's 0.855*n1; the CG2 roll points' LZW then tie across altitude
+        # to 0.13 % -- inside the balance's 0.5 % -- and sea level takes the
+        # slot (V-n case 40). The 12,000 ft point is CL 1.361 at 115.9 kt.
+        # tests/test_rolling_conditions.py states the full move.
+        ("ACRL", "AC ROLL", 1.326, 117.45),
         ("TORS", "ST ROL C", 0.470, 170.00),
     ]
     # The six Appendix A slots, exactly; what else the search names is design

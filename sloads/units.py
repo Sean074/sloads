@@ -826,6 +826,8 @@ DELIVERED_PRECISION: Dict[str, Optional[int]] = {
     "kt(EAS)": 1, "ft/s": 1,
     # angles, rates, pressures, percentages, load factors
     "deg": 2, "deg/s": 2, "deg/s^2": 2,
+    # the roll acceleration WINGINER prints to three places (p. 219, note 52)
+    "rad/s^2": 3,
     "lb/in^2": 2, "lb/ft^2": 2,
     "%": 2, "%MAC": 2, "% tail MAC": 2,
     "g": 2,

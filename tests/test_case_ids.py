@@ -500,7 +500,11 @@ def test_the_index_row_states_the_condition_its_cards_were_computed_at():
         row = rows.get(wing_case_id(name))
         if row is None:                      # a condition this project does not export
             continue
-        assert float(row["Speed (kt)"]) == pytest.approx(case.v_eas_kt, rel=1e-9), (
+        # At the index's own print resolution (kt(EAS) to 0.1, units
+        # DELIVERED_PRECISION): the derived ACRL flies condition A's balanced
+        # 117.4503 kt since design note 52 (#306), where every entered speed
+        # before it was already round.
+        assert float(row["Speed (kt)"]) == pytest.approx(case.v_eas_kt, abs=0.05), (
             f"{name}: index says {row['Speed (kt)']} kt, loads computed at {case.v_eas_kt}")
         checked += 1
     assert checked, "no entered wing case reached the index -- the gate checked nothing"

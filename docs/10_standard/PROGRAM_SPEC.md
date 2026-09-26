@@ -1279,9 +1279,10 @@ result that lacks what a deck needs is a stated error, never an empty column.
   (`test_every_condition_is_either_assembled_or_recorded`) — the property, in
   place of the shipped fixtures' pinned drop set that was the only guard before.
 - **Antisymmetric (rolling) cases and handedness (step B7, 2026-08-08).** A wing
-  condition carrying an unbalanced rolling moment (`WingLoadCase.unbal_moment`,
-  FAR 23.349 — `ACRL` only; `TORS` enters zero on every fixture because a steady
-  roll has none) is assembled with that couple applied as a **lumped free moment**
+  condition carrying an unbalanced rolling moment (FAR 23.349 — `ACRL` only,
+  derived from condition A unless entered, design note 52 D-52.2/D-52.3, and
+  read from the same owner as WINGINER's, `balance.air.unbalanced_rolling_moment`;
+  `TORS` has none because a steady roll has none) is assembled with that couple applied as a **lumped free moment**
   at the wing aerodynamic centre and reacted by a **fourth closure degree of
   freedom**, roll acceleration, distributed over every mass. That relief
   reproduces WINGINER's own unit-roll inertia distribution strip for strip, which
@@ -2048,10 +2049,16 @@ shipped); summary for anyone adding a new module:
   there is one (explicit always wins, so every shipped example and every
   Appendix A oracle takes the path it always did) and otherwise builds one case
   per `envelope.critical` wing condition. The Wing Loads page's **Pull cases from
-  SELECT** button materialises the same list into the editable table. Known
-  limitation: a derived ACRL case carries no unbalanced rolling moment, and its
-  air-load CL/V differ from the worked example's — see the open defect in
-  `docs/30_future/00_backlog.md`.
+  SELECT** button materialises the same list into the editable table. A derived or
+  blank-field `ACRL` is completed by `rolling.complete_rolling_case` (design
+  note 52, #306): its air point is condition A at the pick's weight, altitude,
+  CG and configuration (D-52.10) and its unbalanced rolling moment
+  `−(1 − p/100)` of condition A's root bending (D-52.2); entered values win.
+  `TORS`'s air load carries `Δcm = −0.01·δ` over the aileron when
+  `aileron_loads.inboard_y_in`/`outboard_y_in` are entered (D-52.5), and is the
+  printed run when they are blank. FLTLOADS's `AC ROLL` factor is
+  `(100 + p)/200 · n₁` with `p` = `constants.other_side_percent` (75 %, Amdt
+  23-48; acrobatic refused).
 - **A `ConditionResult` carries at most one `CaseRef`.** Where a module packs
   several sub-cases into one result (23.371(b)'s four gyro sign combinations),
   the base id is minted once in calc and the sub-case ids are *derived*

@@ -89,10 +89,11 @@ the physics, not the correction.
 The antisymmetric cases (B7)
 ----------------------------
 **Only ``ACRL`` is antisymmetric, and it is measured, not assumed.** The
-handedness of a wing case lives entirely in ``WingLoadCase.unbal_moment`` (UNB,
-FAR 23.349), and UNB is non-zero on ``ACRL`` alone -- ``ga6_normal`` -149,043
-in-lb, ``concept_regional_jet`` -600,000, zero everywhere else including
-``TORS`` on every fixture. That is not a fixture accident: a *steady* roll has no
+handedness of a wing case lives entirely in its resolved UNB (FAR 23.349,
+``WingLoadCase.unbal_moment``), and UNB is non-zero on ``ACRL`` alone --
+derived from condition A's root bending since design note 52 (D-52.2; an
+entered value still wins), zero everywhere else including ``TORS`` on every
+fixture. That is not a fixture accident: a *steady* roll has no
 unbalanced rolling moment by definition (the aileron moment is balanced by roll
 damping), and the up-going/down-going aero asymmetry that remains has no
 spanwise representation anywhere in this suite. ``TORS`` is therefore assembled

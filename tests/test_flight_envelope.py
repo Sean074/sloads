@@ -25,6 +25,8 @@ import math
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sloads import (
@@ -35,6 +37,7 @@ from sloads import (
     io,
 )
 from sloads.cg_cases import flight_cases
+from sloads.constants import UnsupportedCategoryError, other_side_percent
 from sloads.derived_geometry import require_wing_reference
 from sloads.modules import flight_envelope as fe
 from sloads.modules.flight_envelope import build_envelope, design_inputs
@@ -170,7 +173,8 @@ def test_cg1_corner_speeds_and_load_factors():
         (3, 121.3, 3.80, 12.75),    # MAN A
         (5, 212.5, 3.80, 1.56),     # MAN D
         (7, 170.0, -1.52, -7.00),   # MAN -C
-        (20, 115.0, 3.25, 11.96),   # AC ROLL
+        # Case 20 (AC ROLL) is held by test_ac_roll_... below: the printed row
+        # is the manual's pre-Amdt 23-48 percentage (note 52 D-52.11).
     ]:
         p = pts[case]
         _oracle(p.v_eas_kt, v, 1, why=f"case {case} V")
@@ -186,7 +190,7 @@ def test_cg1_corner_speeds_and_load_factors():
 def test_cg1_balancing_tail_loads():
     pts = _by_case(build_envelope(io.load_project(_GA)))
     # Balancing tail load LT, Appendix A p179 CG1.
-    for case, lt in [(1, 132), (3, 493), (5, 169), (7, -465), (10, 352), (20, 412)]:
+    for case, lt in [(1, 132), (3, 493), (5, 169), (7, -465), (10, 352)]:
         _oracle(pts[case].lt, lt, 0, allow=_load_allow(_CG1_WEIGHT_LB),
                 why=f"case {case} LT: the NZ band on a 3400 lb airplane")
 
@@ -194,13 +198,72 @@ def test_cg1_balancing_tail_loads():
 def test_cg1_wing_lift_and_pitching_moment():
     pts = _by_case(build_envelope(io.load_project(_GA)))
     # LZW (lift less tail) + M(W+F), Appendix A p179 CG1 -- larger-magnitude points.
-    for case, lzw in [(3, 12419), (10, 13120), (20, 10637)]:
+    for case, lzw in [(3, 12419), (10, 13120)]:
         _oracle(pts[case].lzw, lzw, 0, allow=_load_allow(_CG1_WEIGHT_LB),
                 why=f"case {case} LZW: the NZ band on a 3400 lb airplane")
     # M(W+F) is a moment, so the NZ band reaches it through the same lift times
     # the 25 %-MAC arm; measured 0.01 % and 0.08 %, both inside the contract.
     _oracle(pts[3].m_wf, 22864, 0)
     _oracle(pts[7].m_wf, -58797, 0)
+
+
+def _cg1_sea_level_balance(n: float, v: float):
+    """FLTLOADS subroutine 3900 at CG1, cruise, sea level -- the balance the
+    printed Appendix A p179 rows came from, called at a stated load factor."""
+    project = io.load_project(_GA)
+    di = design_inputs(project)
+    cruise = next(c for c in fe.balance_configs(project.aero_coeffs) if not c.flaps_down)
+    cg = next(c for c in flight_cases(project) if c.name == "CG1")
+    return fe._balance(n, v, di.mc, cruise, cg, project.flight_loads,
+                       require_wing_reference(project), 0.0)
+
+
+def test_ac_roll_printed_row_holds_at_the_manuals_percentage():
+    """**G-52.11 / D-52.12's FLTLOADS half** -- the Appendix A p179 case 20 row
+    (AC ROLL, CG1) is the balance at the manual's ``(100 + 71.03)/200 * 3.8 =
+    3.25``. The shipped matrix now balances at the Amdt 23-48 factor (below),
+    so the printed row is held here, at the printed factor, and the ``.BAS``
+    balance stays oracle-locked whatever the rule
+    (``docs/20_theory/02_approved_corrections.md`` §23.349(a)(2))."""
+    # The manual's rule verbatim, at the design gross 3400 lb (Ch 12 p. 92),
+    # at the STALL +N speed the envelope carries (case 2) -- the ``v9`` FLTLOADS
+    # hands the AC ROLL point.
+    n_manual = 3.8 * (1.7 + 0.05 * (3400.0 - 1000.0) / 11500.0) / 2.0
+    v9 = _by_case(build_envelope(io.load_project(_GA)))[2].v_eas_kt
+    b = _cg1_sea_level_balance(n_manual, v9)
+    assert abs(b.nz - 3.25) <= _nz_tol(), b.nz
+    _oracle(b.v_eas, 115.0, 1, why="case 20 V: the STALL +N speed")
+    _oracle(b.alpha, 11.96, 2, allow=_alpha_allow(11.96, 3.25) + _PLANFORM_ALPHA_ALLOW_DEG,
+            why="case 20 alpha: the NZ band through the local slope")
+    _oracle(b.lt, 412, 0, allow=_load_allow(_CG1_WEIGHT_LB), why="case 20 LT")
+    _oracle(b.lz, 10637, 0, allow=_load_allow(_CG1_WEIGHT_LB), why="case 20 LZW")
+
+
+def test_ac_roll_balances_at_the_amended_percentage():
+    """**G-52.11** -- the shipped AC ROLL point is balanced at ``(100 + p)/200 *
+    n1`` with ``p`` from the one owner (D-52.1): 75 % flat under 23.349(a)(2)
+    as amended by Amdt 23-48 (D-52.11), so ``0.875 * 3.8 = 3.325`` on the GA6
+    at every weight, at the STALL +N speed as before."""
+    p = _by_case(build_envelope(io.load_project(_GA)))[20]
+    assert p.condition == "AC ROLL"
+    assert other_side_percent(3400.0, "N") == 75.0
+    assert abs(p.nz - 0.875 * 3.8) <= _nz_tol(), p.nz
+    _oracle(p.v_eas_kt, 115.0, 1, why="AC ROLL rides the STALL +N speed")
+    # Lift less tail scales with the factor: the printed 10,637 at 3.25.
+    _oracle(p.lzw, 10637 * 3.325 / 3.25, 0, allow=_load_allow(_CG1_WEIGHT_LB),
+            why="case 20 LZW at the amended factor")
+
+
+def test_an_acrobatic_project_is_refused_the_ac_roll_point():
+    """**G-52.13** (D-52.7/D-52.13) -- FLTLOADS has no acrobatic roll rule
+    (23.349(a)(1): 60 % from conditions A *and* F); the percentage owner it
+    now reads refuses by name instead of handing over the normal 75 %."""
+    project = io.load_project(_GA)
+    project.speeds.category = "A"
+    with pytest.raises(UnsupportedCategoryError, match="23.349"):
+        build_envelope(project)
+    with pytest.raises(UnsupportedCategoryError):
+        other_side_percent(3400.0, "a")
 
 
 def test_cg2_balancing_tail_loads():
