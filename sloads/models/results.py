@@ -851,8 +851,9 @@ class BalancedCaseResult:
     #: / ``delta_roll`` carried before it: ``q_dot`` moved 18-22 % on
     #: ``ga6_normal`` when the pitch DOF stopped being ``My / Sum w*dx^2``.
     #:
-    #: ``p_dot`` is the d'Alembert reaction to the aileron's unbalanced rolling
-    #: moment; its sign reverses between the handed twins, as ``r_dot`` and
+    #: ``p_dot`` is the d'Alembert reaction to the unbalanced rolling moment
+    #: (FAR 23.349, derived from condition A -- design note 52 D-52.2); its
+    #: sign reverses between the handed twins, as ``r_dot`` and
     #: :attr:`delta_ny` do.
     p_dot: float = 0.0
     q_dot: float = 0.0

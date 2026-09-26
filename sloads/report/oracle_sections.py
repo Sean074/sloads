@@ -1441,8 +1441,9 @@ _WING_STEP = "wing_loads"
 #: composed from the numbering owner rather than typed as "3.1" (F-R2).
 _WING_INPUTS = 0
 _WING_CASES = 1
-_WING_ASSESSED = 2
-_WING_DISTRIBUTIONS = 3
+_WING_ROLLING = 2
+_WING_ASSESSED = 3
+_WING_DISTRIBUTIONS = 4
 
 
 def _load_cell(value: LoadValue, sf: float) -> Tuple[str, str]:
@@ -2036,11 +2037,13 @@ def _provenance_sentence(entered: bool, named: Sequence[str],
     """Where the analysed case list came from -- selection, or entry (OR-57).
 
     Two different statements, and the report may not make the first while the
-    second is true. An entered list is legitimate and is sometimes necessary --
-    the selection names a condition but not the unbalanced rolling moment an
-    accelerated-roll case needs, which only an entered case can carry -- but it
+    second is true. An entered list is legitimate -- it chooses which slots run
+    and can state an explicit mass state or override a derived value -- but it
     is the project's list, not the selection's, and the difference is the
     reader's to see (OR-46's rule, applied to a case set rather than a value).
+    The accelerated roll's unbalanced moment is **derived** on either route
+    (design note 52, D-52.2/D-52.9): it comes from condition A's root bending
+    and the 23.349(a) percentage, not from the aileron analysis.
     """
     if not entered:
         return ("The cases below are the critical-load selection's own result: "
@@ -2051,9 +2054,10 @@ def _provenance_sentence(entered: bool, named: Sequence[str],
         "filter on the selection's slots, not a second source of points "
         "(design note 63 D-63.7). An entered case that names a slot runs at "
         "the slot's delivered point -- the net-governing run -- and carries "
-        "what the selection cannot name: an accelerated-roll case's "
-        "unbalanced rolling moment, which comes from the aileron analysis and "
-        "not from the V-n matrix, or an explicit mass state.")
+        "what the entry states over the selection: an explicit mass state, or "
+        "a value entered in place of a derived one (an accelerated-roll case's "
+        "unbalanced rolling moment is otherwise derived from condition A, as "
+        "the rolling-conditions subsection states).")
     if missing:
         sentence += (
             " The selection names "
@@ -2321,9 +2325,131 @@ def _wing_cases(project: Project, *, system: UnitSystem,
     return Section("", body=body, tables=tables)
 
 
+#: ``(LoadValue key, dimension for ``Units.plain``, row label)`` of the
+#: accelerated roll's published derivation (design note 52, D-52.4), in the
+#: order the construction runs. ``None`` is a dimensionless or
+#: system-independent value printed through ``format_value`` on its own units.
+_ROLL_ROWS: Tuple[Tuple[str, Optional[str], str], ...] = (
+    ("other_side_percent", None, "Other-side percentage p (23.349(a)(2))"),
+    ("condition_a_cl", None, "Condition A wing CL"),
+    ("condition_a_v_eas", None, "Condition A speed"),
+    ("condition_a_root_mxx", "moment", "Condition A root bending (governing side)"),
+    ("unbalanced_rolling_moment", "moment", "Unbalanced rolling moment -(1 - p/100) x root"),
+    ("roll_acceleration", None, "Roll acceleration UNB g / Iwxx"),
+)
+
+#: The steady roll's CAM 3.222 schedule, as published on the TORS case.
+_SCHEDULE_ROWS: Tuple[Tuple[str, str], ...] = (
+    ("aileron_down_va", "Down aileron at VA"),
+    ("aileron_down_vc", "Down aileron at VC"),
+    ("aileron_down_vd", "Down aileron at VD"),
+    ("aileron_down_deflection", "Down aileron at the case's own speed"),
+)
+
+
+def _wing_rolling(project: Project, *, system: UnitSystem,
+                  plan: Sequence[SectionPlan]) -> Section:
+    """3.3 -- the rolling conditions (design note 52, D-52.6).
+
+    The method of 23.349(a) and (b), the percentage, the unbalanced moment's
+    derivation with its numbers, the roll acceleration and the deflection
+    schedule -- each read from the ``LoadValue`` s the selection published on
+    the delivered case (D-52.4), so the section states the values the loads
+    were computed from and never re-derives one (OR-6). The distributions
+    3.4 and 3.5 print for these cases are the governing (100 %) side.
+    """
+    conditions, _ = _wing_selection(project)
+    by_label = {getattr(c, "label", ""): c for c in conditions}
+    acrl, tors = by_label.get("ACRL"), by_label.get("TORS")
+    if acrl is None and tors is None:
+        return Section("", body=[], absent_reason=(
+            "The selection names no rolling condition for this project, so "
+            "there is no 23.349 construction to state."))
+    u = Units(system)
+    body = [
+        "14 CFR 23.349 builds two rolling conditions. The accelerated roll "
+        "(paragraph (a)) modifies symmetric condition A -- the stall line at "
+        "the limit load factor, not the point at VA -- so that 100 per cent "
+        "of the semispan air load acts on one side and p per cent on the "
+        "other. p is 75 per cent at every weight for the normal, utility and "
+        "commuter categories, per 23.349(a)(2) as amended by Amendment 23-48; "
+        "the source manual's 70-to-75 per cent rule is the earlier wording, "
+        "and the deviation is stated with the approved corrections of this "
+        "document's methods statement. The airplane is balanced at the "
+        "average of the two sides, (100 + p)/200 of the limit load factor, "
+        "and the difference is an unbalanced rolling moment, (1 - p/100) "
+        "times condition A's root bending, which the wing's mass reacts by "
+        "roll acceleration. It is derived from the air load; no aileron "
+        "geometry enters it.",
+        "The distributions of the rolling cases in "
+        + subsection_ref(plan, _WING_STEP, _WING_DISTRIBUTIONS)
+        + " and the appendix are the governing (100 per cent) side: condition A's air "
+        "load with the roll point's own inertia and the relief of the roll "
+        "acceleration. The other side is the same rows at p per cent of the "
+        "air load and is not printed, as the source prints only the "
+        "governing side.",
+    ]
+    ail = project.aileron_loads
+    inboard = ail.inboard_y_in if ail is not None else None
+    outboard = ail.outboard_y_in if ail is not None else None
+    body.append(
+        "The steady roll (paragraph (b)) is the symmetric air load at two "
+        "thirds of the limit load factor at VA, VC and VD, with the aileron "
+        "down by the full deflection at VA, VA/VC of it at VC and half of "
+        "VA/VD of it at VD. The section pitching moment over the aileron "
+        + ("is modified by -0.01 per degree of that deflection, between the "
+           f"aileron's entered butt lines {format_value(inboard, 'in')} and "
+           f"{format_value(outboard, 'in')} in."
+           if inboard is not None and outboard is not None else
+           "would be modified by -0.01 per degree of that deflection; the "
+           "aileron's butt lines are not entered for this project, so the "
+           "section pitching moment is the entered one along the whole span, "
+           "as the source's worked example ran it, and the torsion of the "
+           "steady roll does not include the increment."))
+    sfs: Dict[str, float] = {r.case: r.safety_factor for r in _wing_net(project)}
+    carried = [label for label in ("ACRL", "TORS") if label in sfs]
+    if carried:
+        body.append(
+            "Every rolling case delivered here is LIMIT; its factor of "
+            "safety is stated per case ("
+            + ", ".join(f"{label} {format_value(sfs[label], '')}" for label in carried)
+            + ") and applied nowhere.")
+    tables = []
+    if acrl is not None:
+        values = {v.key: v for v in getattr(acrl, "loads", ())}
+        rows = []
+        for key, dim, label in _ROLL_ROWS:
+            v = values.get(key)
+            if v is None:
+                continue
+            if dim is not None:
+                rows.append([label, u.plain(v.value, dim), u.label(dim)])
+            else:
+                rows.append([label, format_value(v.value, v.units), v.units or "--"])
+        if rows:
+            tables.append(Table(
+                title="Accelerated roll: the unbalanced rolling moment and its derivation",
+                columns=["Quantity", "Value", "Units"], rows=rows,
+                note=("At the run the accelerated-roll case is delivered at. "
+                      "The roll acceleration is per second squared in both "
+                      "unit systems; the source prints it unlabelled.")))
+    if tors is not None:
+        values = {v.key: v for v in getattr(tors, "loads", ())}
+        rows = [[label, format_value(values[key].value, "deg"), "deg"]
+                for key, label in _SCHEDULE_ROWS if key in values]
+        if rows:
+            tables.append(Table(
+                title="Steady roll: the down-aileron deflection schedule",
+                columns=["Quantity", "Value", "Units"], rows=rows,
+                note=("CAM 3.222 at the steady-roll speeds of the delivered "
+                      "case's altitude; the last row is the deflection the "
+                      "selection ranked the case on and the load applies.")))
+    return Section("", body=body, tables=tables)
+
+
 def _wing_summary_table(result: Optional[ModuleResult],
                         system: UnitSystem) -> Optional[Table]:
-    """3.3's root values, one row per case, LIMIT with each case's own factor
+    """3.4's root values, one row per case, LIMIT with each case's own factor
     stated beside it.
 
     Built from the module's own conditions, so the quantities printed are the
@@ -2367,7 +2493,7 @@ def _wing_summary_table(result: Optional[ModuleResult],
 def _wing_summary(results: Mapping[str, Optional[ModuleResult]], *,
                   system: UnitSystem,
                   plan: Sequence[SectionPlan]) -> Section:
-    """3.3 -- the load cases assessed, at the root."""
+    """3.4 -- the load cases assessed, at the root."""
     table = _wing_summary_table(results.get(_WING_STEP), system)
     body = [
         "The root of the wing carries the whole of each distribution, so the "
@@ -2384,7 +2510,7 @@ def _wing_summary(results: Mapping[str, Optional[ModuleResult]], *,
     return Section("", body=body, tables=[table])
 
 
-#: ``(figure key, station attribute, dimension, title)`` for 3.4's distributions.
+#: ``(figure key, station attribute, dimension, title)`` for 3.5's distributions.
 #:
 #: Chord bending Mzz is here (OR-72, superseding OR-55). OR-55 left it out as a
 #: load "nobody reads off a plot"; at the root it is larger than the torsion
@@ -2443,7 +2569,7 @@ def _distribution_figure(net: Sequence[WingLoadResult], key: str, attr: str, dim
 
 def _wing_distributions(project: Project, *, system: UnitSystem,
                         plan: Sequence[SectionPlan]) -> Section:
-    """3.4 -- the net distributions of every selected case."""
+    """3.5 -- the net distributions of every selected case."""
     net = _wing_net(project)
     axis = _torsion_axis(net)
     assessed = subsection_ref(plan, _WING_STEP, _WING_ASSESSED)
@@ -2466,7 +2592,8 @@ def _wing_distributions(project: Project, *, system: UnitSystem,
 
 def _wing_loads(project: Project, results: Mapping[str, Optional[ModuleResult]],
                 *, system: UnitSystem, plan: Sequence[SectionPlan]) -> Section:
-    """Section 3 -- Wing Loads, in its four subsections (OR-48).
+    """Section 3 -- Wing Loads, in its five subsections (OR-48; the rolling
+    conditions joined at design note 52, D-52.6).
 
     The subsections carry no numbers of their own: each is titled here and
     numbered by :func:`build_section`, so a subsection cannot be renumbered
@@ -2474,8 +2601,8 @@ def _wing_loads(project: Project, results: Mapping[str, Optional[ModuleResult]],
     """
     return Section("", body=[
         "This section states the wing loads: the data they were run from, the "
-        "cases run, the loads at the wing root, and the distributions along "
-        "the span. Every load case delivered here is LIMIT with its safety "
+        "cases run, how the rolling conditions are built, the loads at the "
+        "wing root, and the distributions along the span. Every load case delivered here is LIMIT with its safety "
         "factor stated and not applied, and every quantity that is not a "
         "delivered load says which it is.",
     ], subsections=[
@@ -2483,6 +2610,8 @@ def _wing_loads(project: Project, results: Mapping[str, Optional[ModuleResult]],
                 title="Wing input data"),
         replace(_wing_cases(project, system=system, plan=plan),
                 title="Load cases and sign convention"),
+        replace(_wing_rolling(project, system=system, plan=plan),
+                title="Rolling conditions"),
         replace(_wing_summary(results, system=system, plan=plan),
                 title="Load cases assessed"),
         replace(_wing_distributions(project, system=system, plan=plan),
@@ -2496,14 +2625,14 @@ def _wing_loads(project: Project, results: Mapping[str, Optional[ModuleResult]],
 #: ``(station attribute, dimension, label)`` of each column the appendix prints.
 #:
 #: ``fz``/``fx`` are the **increment** each strip contributes; the rest are the
-#: cumulative quantities of 3.4. Both are printed because the reader checking a
+#: cumulative quantities of 3.5. Both are printed because the reader checking a
 #: distribution needs the thing being summed as well as the sum, and neither is
 #: recoverable from the other on a page.
 #: The cumulative channels of B.2, in the order the structure carries them.
 #:
 #: ``Mzz`` is the chord bending the wing carries, and it is here (OR-71): it is
 #: computed for every case, oracle-locked at the root (Appendix A p222), printed
-#: by ``wing_span_loads.csv``, printed at the root by 3.3, and named by the
+#: by ``wing_span_loads.csv``, printed at the root by 3.4, and named by the
 #: closure gate this appendix is written under -- and at the root it *exceeds*
 #: the torsion beside it on four of the five example cases. The earlier omission
 #: was recorded as "not delivered by this analysis", which was never true of the
@@ -8959,7 +9088,7 @@ def aero_curve_figures(project: Project, *, system: UnitSystem,  # noqa: ARG001
 def wing_distribution_figures(project: Project, *, system: UnitSystem,
                               results: Optional[Mapping[str, Optional[ModuleResult]]] = None,  # noqa: ARG001
                               assessed: str = "") -> List[Figure]:
-    """3.4's net wing distributions, every selected case on each axes."""
+    """3.5's net wing distributions, every selected case on each axes."""
     net = _wing_net(project)
     return [_distribution_figure(net, key, attr, dim, title, system, assessed)
             for key, attr, dim, title in _DISTRIBUTION_FIGURES]

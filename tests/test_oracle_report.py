@@ -2201,8 +2201,10 @@ def _wing_tables(doc):
                for t in s.tables])
 
 
-def test_the_wing_section_renders_its_four_subsections_numbered_by_the_owner():
-    """3.1 ... 3.4, and the numbers come from the numbering owner.
+def test_the_wing_section_renders_its_five_subsections_numbered_by_the_owner():
+    """3.1 ... 3.5, and the numbers come from the numbering owner. The rolling
+    conditions went in at 3.3 (design note 52, D-52.6) and moved the two after
+    it without a single hand-typed number changing.
 
     A builder that titled its own subsections "3.1" would be a second numbering
     scheme -- one that cannot renumber itself when a section is inserted above
@@ -2216,7 +2218,8 @@ def test_the_wing_section_renders_its_four_subsections_numbered_by_the_owner():
         oc.heading(oc.subsection_number(entry.number, index), title)
         for index, title in enumerate(
             ["Wing input data", "Load cases and sign convention",
-             "Load cases assessed", "Critical load distributions"])]
+             "Rolling conditions", "Load cases assessed",
+             "Critical load distributions"])]
 
 
 def test_wing_loads_is_appendix_b_and_the_reservation_held_its_place():

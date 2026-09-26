@@ -39,6 +39,7 @@ from ..models import (
 )
 from ..registry import register
 from .airloads import air_load_distribution
+from .rolling import steady_roll_aero
 from .wing_geometry import chord_fraction_x
 from .wing_inertia import (
     WingCaseSources,
@@ -220,7 +221,10 @@ def build_net_loads(project: Project) -> LoadsResult:
         # and export can never disagree (defect M4-13).
         sf = ULTIMATE_FACTOR
         cl, v = _air_cl_v(project, case, src)
-        air = air_load_distribution(geom, aero, cl, v, *plane)
+        vp = src.vn.get(case.case) if case.case is not None else None
+        air = air_load_distribution(
+            geom, steady_roll_aero(project, aero, case.name, vp, src.vn.values()),
+            cl, v, *plane)
         air.case = case.name
         air.case_ref = ref
         air.safety_factor = sf

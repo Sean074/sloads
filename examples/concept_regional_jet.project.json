@@ -1,5 +1,5 @@
 {
-  "schema_version": 68,
+  "schema_version": 69,
   "name": "RJ-50 concept \u2014 50-seat regional jet (concept mode, Part 25)",
   "engines": [
     {
@@ -975,7 +975,7 @@
         "case": null,
         "nz": null,
         "nx": null,
-        "unbal_moment": 0,
+        "unbal_moment": null,
         "cl": null,
         "v_eas_kt": null,
         "cg": null
@@ -985,7 +985,7 @@
         "case": null,
         "nz": null,
         "nx": null,
-        "unbal_moment": 0,
+        "unbal_moment": null,
         "cl": null,
         "v_eas_kt": null,
         "cg": null

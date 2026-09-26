@@ -13,16 +13,19 @@ printed figures (Ref 1 p217-221). Derivation never fires for ga6 in normal use
 construction) -- this test exists to check that the two routes *agree*, i.e. that
 turning derivation on for a project would not quietly change the loads.
 
-What it locks, and one thing it found
--------------------------------------
+What it locks, and what design note 52 changed
+----------------------------------------------
 Nz and Nx agree closely for every shared condition. The air-load CL/V agree for
-the balanced picks (PHAA, TORS). They do **not** agree for ACRL: SELECT's
-23.349(a)(2) pick lands on a point whose own CL is ~1.30 at 117.4 kt, while the
-worked example enters CL 1.55 at 116 kt for the same condition -- so a derived
-ACRL case would carry a materially different air load. That divergence is
-recorded as an open defect ("derived ACRL air-load point", docs/30_future/
-00_backlog.md) rather than papered over with a loose tolerance here; the
-hand-entered route is unaffected and remains what every shipped example uses.
+the balanced picks (PHAA, TORS). ACRL used to be the one that did not: SELECT's
+23.349(a)(2) pick is the AC ROLL point, balanced at the airplane-average factor,
+whose own CL is the average of the two sides' -- while the manual's 100 % side
+flies condition A (CL 1.55 at 116 kt in the worked example). D-29 accepted that
+divergence on the premise that every fixture entered its ACRL; note 63 removed
+the premise, and **note 52 D-52.10 closes it**: a derived ACRL takes its air
+point from condition A (``rolling.condition_a_point``), its couple from
+condition A's root bending (D-52.2), and ``ga6_normal``'s ACRL row is itself
+derived since #306 (D-52.12) -- the Appendix A case 160 is held by a test-built
+case in ``tests/test_rolling_conditions.py``.
 """
 
 import math
@@ -52,8 +55,8 @@ _NZ_TOL = 5e-3      # 0.5%
 _NX_TOL = 5e-2      # 5%
 _V_TOL = 1.5e-2     # 1.5%
 
-#: Conditions whose air-load CL/V the two routes agree on (see the module
-#: docstring for ACRL, the one that does not).
+#: Conditions whose air-load CL/V the fixture still enters by hand, so the two
+#: routes can be compared (ACRL is derived on the fixture since #306).
 _AIR_LOAD_AGREES = ("PHAA", "TORS")
 
 
@@ -92,8 +95,14 @@ def test_an_entered_list_is_a_filter_on_the_slots():
     slots = {c.label: c.case for c in project.envelope.critical.conditions
              if c.component == "wing"}
     got = resolve_wing_cases(project, project.wing_mass)
-    assert [replace(c, case=None) for c in got] == project.wing_mass.cases
-    assert [c.case for c in got] == [slots[c.name] for c in project.wing_mass.cases]
+    entered = project.wing_mass.cases
+    # Every entered value is kept; the one completion is the accelerated roll's,
+    # whose blanks the note 52 owners fill (D-52.2/D-52.10).
+    assert [replace(c, case=None) for c in got if c.name != "ACRL"] == \
+        [c for c in entered if c.name != "ACRL"]
+    acrl = next(c for c in got if c.name == "ACRL")
+    assert acrl.cl is not None and acrl.v_eas_kt is not None and acrl.unbal_moment
+    assert [c.case for c in got] == [slots[c.name] for c in entered]
     # An explicit case reference, or a name outside the slots, is left alone.
     wm = replace(project.wing_mass, cases=[
         replace(project.wing_mass.cases[0], case=5),
@@ -105,9 +114,15 @@ def test_derived_load_factors_match_the_worked_example():
     """Decision 7's closure gate: the derived Nz/Nx reproduce the hand-typed
     Appendix A figures for every condition the fixture and SELECT share."""
     project = _selected_project()
-    hand = {c.name: c for c in project.wing_mass.cases}
+    # The rows the fixture still enters by hand (PHAA, TORS); ACRL is derived on
+    # the fixture since #306, and its factor is the amended one below.
+    hand = {c.name: c for c in project.wing_mass.cases if c.nz is not None}
+    assert set(hand) == {"PHAA", "TORS"}
     derived = [c for c in resolve_wing_cases(project, WingMassInput()) if c.name in hand]
     assert {c.name for c in derived} == set(hand), "fixture and SELECT name different conditions"
+    acrl = next(c for c in resolve_wing_cases(project, WingMassInput()) if c.name == "ACRL")
+    # 23.349(a)(2) as amended (D-52.11): (100 + 75)/200 * 3.8, not the printed 3.25.
+    assert math.isclose(_resolve_case(project, acrl).nz, -0.875 * 3.8, rel_tol=_NZ_TOL)
 
     for case in derived:
         got = _resolve_case(project, case)
@@ -130,30 +145,40 @@ def test_derived_air_load_matches_for_the_balanced_conditions():
         assert math.isclose(v, v_want, rel_tol=_V_TOL), f"{case.name} V {v} vs {v_want}"
 
 
-def test_the_acrl_divergence_is_the_documented_one():
-    """Pin the divergence so it cannot drift silently: the derived ACRL air load
-    differs from the worked example's by more than the balanced conditions' 1%.
+def test_a_derived_acrl_flies_condition_a():
+    """**G-52.10 on the derived route** (design note 52, D-52.10; supersedes the
+    D-29 divergence pin this test replaced). A derived ACRL's air point is
+    condition A -- ``STALL +N`` at the picked AC ROLL point's weight, altitude,
+    CG and configuration -- not the roll point's airplane-average lift, and its
+    couple is ``-(1 - p/100)`` of that point's root air bending."""
+    from sloads.modules.rolling import condition_a_root_mxx
 
-    **Decided 2026-08-18 (D-29, #13):** SELECT's own 23.349(a)(2) pick is what the
-    derived case names, and the ~19 % difference against the worked example's
-    entered point (CL 1.55 at 116 kt vs CL ~1.30 at 117.4 kt) is accepted and
-    stated rather than reconciled -- there is no printed oracle for the derived
-    route, and every shipped fixture enters its cases explicitly, so no oracle or
-    deliverable is affected. The consequence this pin guards: the derived route is
-    a *first pass*, and an ACRL case used for sizing is entered, never derived
-    (a derived one also carries ``unbal_moment = 0``, AILERON Ch 13 being where
-    the rolling moment comes from). So this stays an inequality by decision. If it
-    ever starts failing because the two agree, that is new information about the
-    derived route -- reopen D-29 rather than quietly making it an equality."""
     project = _selected_project()
-    hand = {c.name: c for c in project.wing_mass.cases}
-    acrl = next((c for c in resolve_wing_cases(project, WingMassInput()) if c.name == "ACRL"), None)
-    assert acrl is not None and "ACRL" in hand
-    cl, _ = _air_cl_v(project, acrl)
-    cl_want, _ = _air_cl_v(project, hand["ACRL"])
-    assert not math.isclose(cl, cl_want, rel_tol=1e-2), (
-        "derived and hand-entered ACRL CL now agree -- close the backlog defect "
-        "and turn this into an equality assertion")
+    vn = {p.case: p for p in project.envelope.vn}
+    acrl = next(c for c in resolve_wing_cases(project, WingMassInput()) if c.name == "ACRL")
+    pick = vn[acrl.case]
+    assert pick.condition == "AC ROLL"
+    cond_a = next(p for p in vn.values() if p.condition == "STALL +N" and p.cg == pick.cg
+                  and p.config == pick.config and p.altitude_ft == pick.altitude_ft)
+    assert _air_cl_v(project, acrl) == (cond_a.cl, cond_a.v_eas_kt)
+    assert cond_a.cl > pick.cl, "the 100 % side carries more lift than the average"
+    assert acrl.unbal_moment == -0.25 * condition_a_root_mxx(project, cond_a)
+
+
+def test_an_entered_acrl_value_still_wins():
+    """D-52.2/D-52.10: the derivation fills blanks only -- an entered CL, speed
+    or couple is the project's statement and is kept (the 2026-08-13 ruling)."""
+    from dataclasses import replace
+
+    project = _selected_project()
+    wm = replace(project.wing_mass, cases=[
+        WingLoadCase(name="ACRL", cl=1.55, v_eas_kt=116.0, unbal_moment=-149043.0)])
+    got = resolve_wing_cases(project, wm)[0]
+    assert (got.cl, got.v_eas_kt, got.unbal_moment) == (1.55, 116.0, -149043.0)
+    # A partly entered row keeps what it states and derives the rest.
+    half = resolve_wing_cases(project, replace(wm, cases=[
+        WingLoadCase(name="ACRL", unbal_moment=-1.0)]))[0]
+    assert half.unbal_moment == -1.0 and half.cl is not None and half.cl != 1.55
 
 
 # --------------------------------------------------------------------------- #

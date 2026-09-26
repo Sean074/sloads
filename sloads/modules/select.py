@@ -118,6 +118,7 @@ from ..registry import register
 from ..selectors import keyed
 from ._vtail import large_deflection_factor, lift_curve_slope, rudder_effectiveness
 from .flight_envelope import build_envelope, density_ratio, design_inputs
+from .rolling import ACCEL_ROLL_SLOTS, STEADY_ROLL_SLOTS, steady_roll_deflection, steady_roll_schedule
 
 MODULE_NAME = "select"
 
@@ -348,29 +349,17 @@ def _steady_roll_torsion(vn: List[VnPoint], aileron_deg: float, cm: float) -> Op
     (SELECT.BAS 3372-3465). Aileron deflection per CAM 3.222 scales with the
     altitude's ST ROL A/C/D speeds; the torsion proxy is (CM-0.01*defl)*G*V^2.
 
-    Faithful to the BASIC, the per-altitude reference speeds VA/VC/VD are the last
-    ST ROL A/C/D speeds seen at that altitude (the program overwrites VA(J) as it
-    scans all CG blocks).
+    The deflection is :func:`sloads.modules.rolling.steady_roll_deflection` --
+    the schedule the applied TORS ``Δcm`` increment reads too (design note 52,
+    D-52.5), faithful to the BASIC's last-wins per-altitude reference speeds.
     """
-    # Per-altitude reference speeds (last-wins, matching SELECT.BAS 3395-3405).
-    speeds: Dict[float, Dict[str, float]] = {}
-    for p in vn:
-        if p.condition in _STROLL:
-            speeds.setdefault(p.altitude_ft, {})[p.condition] = p.v_eas_kt
-
+    schedule = steady_roll_schedule(vn, aileron_deg)
     best: Optional[VnPoint] = None
     best_ta = 0.0  # SELECT.BAS TMIN starts at 0; only negative torsion is selected.
     for p in vn:
         if p.condition not in _STROLL:
             continue
-        sp = speeds.get(p.altitude_ft, {})
-        va, vc, vd = sp.get("ST ROL A", 0.0), sp.get("ST ROL C", 0.0), sp.get("ST ROL D", 0.0)
-        if p.condition == "ST ROL A":
-            defl = aileron_deg
-        elif p.condition == "ST ROL C":
-            defl = (va / vc * aileron_deg) if vc else 0.0
-        else:  # ST ROL D
-            defl = (0.5 * va / vd * aileron_deg) if vd else 0.0
+        defl = steady_roll_deflection(schedule, p)
         ta = (cm - 0.01 * defl) * p.g_corr * p.v_eas_kt ** 2
         if ta < best_ta:
             best_ta, best = ta, p
@@ -549,8 +538,14 @@ def select_wing(project: Project, envelope: Optional[EnvelopeResult] = None) -> 
 
     table = wing_variant_table(project, env, air)
     if not table.variants:
-        return [_condition("wing", label, far, p, weights)
-                for label, far, p in _coincidence_rule(picks) if p is not None]
+        bare = []
+        for label, far, p in _coincidence_rule(picks):
+            if p is None:
+                continue
+            c = _condition("wing", label, far, p, weights)
+            c.loads += _rolling_loads(project, table, label, p, env.vn)
+            bare.append(c)
+        return bare
     by_case = {p.case: p for p in env.vn}
     governing = table.governing()
     repointed: List[Tuple[str, str, Optional[VnPoint]]] = []
@@ -565,6 +560,7 @@ def select_wing(project: Project, envelope: Optional[EnvelopeResult] = None) -> 
         if p is None:
             continue
         c = _condition("wing", label, far, p, weights)
+        c.loads += _rolling_loads(project, table, label, p, env.vn)
         if a is not None and a.case != p.case:
             c.note = (f"net-governing run (design note 63 D-63.7): root Mxx "
                       f"{governing[label].root_mxx:,.0f} lb-in at '{p.cg}' against "
@@ -573,6 +569,46 @@ def select_wing(project: Project, envelope: Optional[EnvelopeResult] = None) -> 
                       f"{a.altitude_ft:.0f} ft, {a.config})")
         out.append(c)
     return out
+
+
+def _rolling_loads(project: Project, table, label: str, p: VnPoint,
+                   vn: List[VnPoint]) -> List[LoadValue]:
+    """The rolling conditions' derivation, published on the delivered case
+    (design note 52, D-52.4) -- what the report's rolling subsection and the
+    GUI caption state, read from the owners that computed the loads.
+
+    ``ACRL``: the other-side percentage, condition A's point and root air
+    bending, the derived unbalanced rolling moment and WINGINER's roll
+    acceleration, off the variant row the slot is delivered at. ``TORS``: the
+    CAM 3.222 down-aileron schedule at the case's altitude and the deflection
+    its own speed takes (the δ of the selection proxy and of the applied
+    ``Δcm``). Every other slot: nothing.
+    """
+    if label in ACCEL_ROLL_SLOTS:
+        row = next((v for v in table.by_slot(label) if v.case == p.case), None)
+        if row is None or row.other_side_percent is None:
+            return []
+        return [
+            LoadValue("Other-side percent", row.other_side_percent, "%", key="other_side_percent"),
+            LoadValue("Condition A CL", row.cl, key="condition_a_cl"),
+            LoadValue("Condition A V (EAS)", row.v_eas_kt, "kt(EAS)", key="condition_a_v_eas"),
+            LoadValue("Condition A root bending", row.air_root_mxx, "lb-in",
+                      key="condition_a_root_mxx"),
+            LoadValue("Unbalanced rolling moment", row.unbal_moment, "lb-in",
+                      key="unbalanced_rolling_moment"),
+            LoadValue("Roll acceleration", row.roll_accel, "rad/s^2", key="roll_acceleration"),
+        ]
+    if label in STEADY_ROLL_SLOTS:
+        schedule = steady_roll_schedule(vn, resolved_full_down_aileron_deg(project))
+        at_alt = schedule.get(p.altitude_ft, {})
+        return [
+            LoadValue("Aileron down deflection", steady_roll_deflection(schedule, p), "deg",
+                      key="aileron_down_deflection"),
+            LoadValue("Down deflection at VA", at_alt.get("A", 0.0), "deg", key="aileron_down_va"),
+            LoadValue("Down deflection at VC", at_alt.get("C", 0.0), "deg", key="aileron_down_vc"),
+            LoadValue("Down deflection at VD", at_alt.get("D", 0.0), "deg", key="aileron_down_vd"),
+        ]
+    return []
 
 
 def _air_mxx(table, label: str, case: int) -> float:

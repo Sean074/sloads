@@ -28,6 +28,6 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `wing_mass.cases[].nx` | `Optional[float]` |  | `None` | original | WINGINER.BAS 1660-1710 nx |
 | `wing_mass.cases[].cl` | `Optional[float]` |  | `None` | original | WINGINER.BAS 1660-1710 CL |
 | `wing_mass.cases[].v_eas_kt` | `Optional[float]` | KEAS | `None` | original | WINGINER.BAS 1660-1710 speed |
-| `wing_mass.cases[].unbal_moment` | `float` |  | `0.0` | original | WINGINER.BAS 1660-1710 unbalanced moment |
+| `wing_mass.cases[].unbal_moment` | `Optional[float]` | blank = derived on ACRL (D-52.2, v69) | `None` | original | WINGINER.BAS 1660-1710 unbalanced moment |
 | `wing_mass.cases[].cg` | `Optional[str]` | mass state: a FLIGHT CG case name (D-63.6) | `None` | sloads | the mass state the case's inertia is built from -- a FLIGHT weight/CG case whose loading supplies WINGINER's panel and point masses (design note 63 D-63.6); blank resolves to the referenced V-n point's CG case, then to the selected condition of the same label. The original distributed one project-wide mass list at every case |
 

@@ -273,6 +273,7 @@ FAR23LOADS/
 │       ├── wing_inertia.py       # WINGINER
 │       ├── net_loads.py          # NETLOADS
 │       ├── wing_variants.py      # slot x mass-state variants, the net-governing run (note 63 D-63.7)
+│       ├── rolling.py            # FAR 23.349 owners: condition A air, derived UNB, TORS Δcm (note 52)
 │       ├── body_loads.py         # net fuselage loads — the body analogue of NETLOADS (modern; Ch 15)
 │       ├── aileron.py            # AILERON
 │       ├── flap.py               # FLAPLOAD

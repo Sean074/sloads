@@ -386,6 +386,10 @@ def fields_hash() -> str:
 #: load a ``closure-*`` load relieves, read by the LRA transfer. A **result**
 #: field with a default on a class ``io.py`` never writes (the B8a-2 standing
 #: above): nothing on disk has this shape, ``SCHEMA_VERSION`` stays at 68.
+#: v69 (design note 52, #306): ``WingLoadCase.unbal_moment`` becomes
+#: ``Optional`` (blank = derived on ACRL). A type, not a name, so this hash --
+#: field names only -- does not move; the version bump and ``_hop_68`` (every
+#: stored ``0`` -> ``null``) carry the change, and ``test_migrations`` pins it.
 EXPECTED_FIELDS_HASH = "af8b5da4d4216f9d"
 
 

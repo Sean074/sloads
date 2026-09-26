@@ -11,17 +11,28 @@ from __future__ import annotations
 
 import math
 from dataclasses import replace
-from typing import List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence
 
 from ...case_ids import handed_case_id
 from ...cg_cases import flight_cases
 from ...derived_geometry import require_wing_reference, sync_geometry_derived
 from ...export.coordinates import reflect_side
 from ...mass_distribution import CaseLoading, derive_case_loadings
-from ...models import BalancedCaseResult, BalancedLoad, CgCase, CriticalCondition, MissingInputError, Project, VnPoint
+from ...models import (
+    BalancedCaseResult,
+    BalancedLoad,
+    CgCase,
+    CriticalCondition,
+    MissingInputError,
+    Project,
+    VnPoint,
+    WingLoadCase,
+)
 from ...tail_geometry import HTAIL, VTAIL
+from ..rolling import complete_rolling_case
 from ..select import default_critical, default_envelope
 from ..tail_span import build_tail_span
+from ..wing_inertia import resolve_wing_cases
 from .applied import (
     _flight_loads,
     _mirror,
@@ -49,20 +60,28 @@ from .queries import is_handed, point_mass_self_inertia
 from .skipped import SkippedCondition, _skip
 
 
-def unbalanced_rolling_moment(project: Project, condition: str) -> float:
-    """The entered ``UNB`` of wing condition ``condition`` (FAR 23.349), or 0.
+def unbalanced_rolling_moment(project: Project, condition: str,
+                              point: Optional[VnPoint] = None,
+                              vn: Optional[Dict[int, VnPoint]] = None) -> float:
+    """The resolved ``UNB`` of wing condition ``condition`` (FAR 23.349), or 0.
 
-    Read from the **entered** ``wing_mass.cases``, which is where the aileron's
-    unbalanced rolling moment lives; a *derived* wing case carries ``UNB = 0``
-    (the documented gap in ``wing_inertia.resolve_wing_cases``), so a project
-    relying on the derived route simply has no rolling case to assemble rather
-    than a silently symmetric one.
+    **One owner for both readers** (design note 52, D-52.3): the value the wing
+    chain runs -- ``wing_inertia.resolve_wing_cases``, which fills a blank
+    ``ACRL`` couple from condition A through ``rolling.complete_rolling_case``
+    and keeps an entered one -- so the balanced deck and WINGINER can never
+    carry two different moments for one physical condition. Where the wing case
+    list does not run the condition (an entered list is a filter, D-63.7, and
+    may omit ``ACRL`` while SELECT still names it), the couple is derived by the
+    same owner at the balanced case's own V-n ``point``. Before note 52 this read
+    the *entered* table alone, and a derived ``ACRL`` assembled symmetric.
     """
     wm = project.wing_mass
     if wm is None:
         return 0.0
-    case = next((c for c in wm.cases if c.name == condition), None)
-    return case.unbal_moment if case is not None else 0.0
+    case = next((c for c in resolve_wing_cases(project, wm) if c.name == condition), None)
+    if case is None and point is not None and vn is not None:
+        case = complete_rolling_case(project, WingLoadCase(name=condition, case=point.case), vn)
+    return (case.unbal_moment or 0.0) if case is not None else 0.0
 
 
 def assemble(project: Project, condition: str, vn: VnPoint,
@@ -380,8 +399,7 @@ def build_balanced_cases(
         htail: Sequence[BalancedLoad] = ()
         lateral_cond: Optional[CriticalCondition] = None
         if cond.component == "wing" and cond.label in BALANCED_WING_CONDITIONS:
-            unb = (unbalanced_rolling_moment(project, cond.label)
-                   if cond.label in ROLLING_WING_CONDITIONS else 0.0)
+            pass    # a rolling condition's couple is resolved at its V-n point below
         elif cond.component == VTAIL and cond.label in BALANCED_VTAIL_CONDITIONS:
             lateral = vtails.get(cond.label, ())
             if not lateral:
@@ -411,6 +429,8 @@ def build_balanced_cases(
         if not loading.derivable:
             record.append(_skip(cond, "loading-not-derivable"))
             continue
+        if cond.component == "wing" and cond.label in ROLLING_WING_CONDITIONS:
+            unb = unbalanced_rolling_moment(project, cond.label, point, vn)
         terms = (lateral_aero_terms(project, lateral_cond, point)
                  if lateral_cond is not None else None)
         case = assemble(project, cond.label, point, loading, cg,

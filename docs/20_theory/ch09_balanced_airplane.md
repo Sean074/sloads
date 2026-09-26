@@ -382,9 +382,12 @@ Condition **ACRL** (FAR 23.349 accelerated roll) at V-n point 40, CG2,
 `n_z` = 3.2494. The symmetric half is Example 1 over again (residuals `Fz`
 0.237 %, `My` 0.126 %). What is new is the hand.
 
-**The applied couple is lumped; the reaction is distributed.** The entered
-unbalanced rolling moment is `UNB` = −149,043 lb-in, applied as a single
-labelled free couple `mx = −UNB = +149,043` at the wing AC — WINGINER's
+**The applied couple is lumped; the reaction is distributed.** The unbalanced
+rolling moment was the entered `UNB` = −149,043 lb-in when this example was
+written; since design note 52 (#306) it is derived, −(1 − 0.75) × condition A's
+root bending (−129,142 lb-in on the shipped GA6), and the mechanism below is
+unchanged. It is applied as a single labelled free couple `mx = −UNB` at the
+wing AC — WINGINER's
 Appendix-A-locked model never distributes the aileron's own lift increment (the
 suite has no aileron butt lines; stated in-band), so neither does the assembly.
 The pre-closure `Mx` residual is therefore **exactly** the applied couple, and

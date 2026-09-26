@@ -2,9 +2,10 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: AGREED 2026-09-07 (owner) — no code. Amended and re-agreed
+**Status: SHIPPED 2026-09-25 (#306, 0.8.7 band B8) — §9 records the build
+against the gates.** AGREED 2026-09-07 (owner); amended and re-agreed
 2026-09-22 (owner, in session): D-52.10–D-52.13 added, the gates re-pinned,
-filed to 0.8.7 (band B8).** The three open decisions were resolved in the
+filed to 0.8.7 (band B8). The three open decisions were resolved in the
 2026-09-07 review: **D-52.5 decided (owner: implement the cm increment,
 blank-reduces-to-oracle)**, **D-52.7 decided (owner: flagged error)**,
 **D-52.8 decided (owner: design maximum weight)**. The 2026-09-22 amendment
@@ -261,3 +262,53 @@ over the rolling cases in §3.2/3.3/3.4 and Appendix B.
   mis-scaling it. Both ship together, with the F point's SELECT family
   (a negative-lift accelerated roll, no slot today) decided in the note that
   brings the fixture.
+
+## 9. As implemented (#306, 2026-09-25)
+
+Owners: `constants.other_side_percent` / `ROLL_OTHER_SIDE_PERCENT` (D-52.1,
+D-52.11; `UnsupportedCategoryError` for D-52.7/D-52.13) and the new
+`modules/rolling.py` (`condition_a_point`, `condition_a_root_mxx`,
+`accel_roll_unbalanced_moment`, `roll_acceleration`, `derive_accel_roll`,
+`complete_rolling_case`, `steady_roll_schedule`/`steady_roll_deflection`,
+`steady_roll_aero`, `aileron_cm_increment`). Gates: `tests/test_rolling_conditions.py`
+(G-52.1–G-52.13), plus the FLTLOADS case 20 pair in `tests/test_flight_envelope.py`.
+Schema v69 (`_hop_68`): `WingLoadCase.unbal_moment` is `Optional`, blank
+derived; every stored `0` migrates to `null`.
+
+Where the build departs from what §3/§4 predicted — each measured and stated
+in the tests:
+
+1. **The GA6's ACRL pick moved altitude.** At `0.875·n₁` the CG2 `AC ROLL`
+   points' LZW (SELECT's criterion) tie across altitude to 0.13 %, inside the
+   balance's 0.5 %, and sea level (V-n case 40, CL 1.326 at 117.45 kt) wins
+   over the printed 12,000 ft point (CL 1.361 there — G-52.11's "≈ 1.36" is
+   that point, not the pick). Condition A is then the case 22 air (CL 1.519,
+   root 516,566): UNB −129,142, θ̈ −11.515, net root MX **+400,817** (+2.7 %
+   on the print; G-52.4 predicted +399,000 at 12,000 ft). G-52.1/G-52.3 are
+   asserted at the printed condition A (CL 1.55, 116 kt): UNB 128,619, θ̈
+   −11.468, WINGINER root Sz −1046.3 / Mxx −114,286 (the §4 −1058 / −115,500
+   were hand estimates). **Open for the owner:** whether a 0.13 % LZW tie
+   should keep SELECT's printed altitude (a tie band on the ACRL pick) — not
+   decided here; the build follows SELECT's criterion as it stands.
+2. **θ̈ is rad/s².** WINGINER prints `THETADOT` unlabelled (pp. 214, 219);
+   `UNB·g/I_wxx` is 1/s². §4's "deg/s²" was a labelling slip; published as
+   `rad/s^2` (a `DELIVERED_PRECISION` row, three places as printed).
+3. **D-52.5 needed no new field.** `AileronLoadsInput.inboard_y_in` /
+   `outboard_y_in` exist since v52 (note 24 R-2); the increment reads them.
+   G-52.7's root ΔMyy is −18,667 (δ 10.7065°), against the hand estimate
+   −19,035. The increment is wing-chain only (NETLOADS, the variant table);
+   the balanced deck's TORS stays the symmetric trim case — the increment is
+   antisymmetric between the down- and up-going ailerons.
+4. **The balanced deck derives where the wing list omits ACRL.** An entered
+   list is a filter (D-63.7); on `baron_58` and `concept_heavy` it names no
+   ACRL while SELECT does, so `balance.air.unbalanced_rolling_moment` derives
+   the couple at the balanced case's own V-n point through the same owner.
+   Consequence: **every fixture's ACRL is now a handed pair** — the ATR, the
+   Baron and `concept_heavy` assembled a symmetric ACRL with no couple before
+   (#258 across the fleet, not only on the derived route).
+5. **The published derivation** (D-52.4) rides on the delivered wing
+   `CriticalCondition`: `other_side_percent`, `condition_a_cl`,
+   `condition_a_v_eas`, `condition_a_root_mxx`, `unbalanced_rolling_moment`,
+   `roll_acceleration` on ACRL; `aileron_down_deflection` and the VA/VC/VD
+   schedule on TORS.
+

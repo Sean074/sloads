@@ -1,5 +1,5 @@
 {
-  "schema_version": 68,
+  "schema_version": 69,
   "name": "Concept commuter twin (>12,500 lb, category C)",
   "weight": {
     "estimation": {
@@ -423,7 +423,7 @@
         "case": null,
         "nz": null,
         "nx": null,
-        "unbal_moment": 0,
+        "unbal_moment": null,
         "cl": null,
         "v_eas_kt": null,
         "cg": null

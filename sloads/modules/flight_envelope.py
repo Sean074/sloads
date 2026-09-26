@@ -70,6 +70,7 @@ from ..constants import (
     dynamic_pressure_psf,
     eas_from_dynamic_pressure,
     gust_alleviation_factor,
+    other_side_percent,
     standard_atmosphere,
 )
 from ..convergence import SolveState, solver_failure
@@ -436,8 +437,11 @@ def _config_points(config: AeroCoeffSet, cg: CgCase, fl: FlightLoadsInput,
     add("ST ROL A", 2.0 * np_ / 3.0, di.va, di.mc)
     add("ST ROL C", 2.0 * np_ / 3.0, di.vc, di.mc)
     add("ST ROL D", 2.0 * np_ / 3.0, di.vd, di.md)
-    acc_n = 0.85 * np_ if w <= 1000.0 else np_ * (1.7 + 0.05 * (w - 1000.0) / 11500.0) / 2.0
-    add("AC ROLL", acc_n, state["v9"], di.mc)
+    # FAR 23.349(a): the airplane balanced at the average of the 100 % and p %
+    # sides of condition A (design note 52, D-52.1/D-52.11/D-52.13) -- ``p``
+    # from its one owner, which refuses an acrobatic project by name.
+    p = other_side_percent(w, cat)
+    add("AC ROLL", np_ * (100.0 + p) / 200.0, state["v9"], di.mc)
     return pts, case, clamped
 
 

@@ -1124,8 +1124,13 @@ class WingLoadCase:
     ``case`` references a :class:`VnPoint` in ``Project.envelope.vn``; ``nz``/``nx``
     (= ``-DX/W`` inertia drag factor) and the air-load ``cl``/``v_eas_kt`` default
     from that point when not given explicitly. ``unbal_moment`` is the unbalanced
-    rolling moment (in-lb) for an accelerated-roll case (FAR 23.349; zero
-    otherwise). This is the C3-before-SELECT bridge: the critical conditions come
+    rolling moment (in-lb) for an accelerated-roll case (FAR 23.349). **Blank
+    (``None``, v69) is derived** on an ``ACRL`` case -- ``-(1 - p/100)`` of
+    condition A's root air bending (design note 52, D-52.2,
+    :func:`sloads.modules.rolling.complete_rolling_case`) -- and zero on every
+    other; an entered value always wins. On ``ACRL`` a blank ``cl``/``v_eas_kt``
+    is condition A's, not the AC ROLL point's averaged lift (D-52.10). This is
+    the C3-before-SELECT bridge: the critical conditions come
     straight from the FLTLOADS V-n matrix (C2) since SELECT (C6) is not built yet.
 
     ``cg`` (design note 63, D-63.6, v67) names the **mass state** the case's
@@ -1141,7 +1146,7 @@ class WingLoadCase:
     case: Optional[int] = None
     nz: Optional[float] = None
     nx: Optional[float] = None
-    unbal_moment: float = 0.0
+    unbal_moment: Optional[float] = None   # blank = derived on ACRL (D-52.2, v69)
     cl: Optional[float] = None
     v_eas_kt: Optional[float] = None
     cg: Optional[str] = None               # mass state: a FLIGHT CG case name (D-63.6)

@@ -408,13 +408,15 @@ def test_opening_an_older_file_is_refused_and_adopts_nothing():
     which was the right fix for the wrong future: the notice fired on a v41
     example that no longer exists.
     """
+    from sloads.migrations import SUPPORTED_FLOOR
     from sloads.models import SCHEMA_VERSION
 
-    at = _upload_app(dirty=False, extra={"schema_version": SCHEMA_VERSION - 14})
+    older = SUPPORTED_FLOOR - 1          # below the hop chain: refused, not migrated
+    at = _upload_app(dirty=False, extra={"schema_version": older})
     at.run()
     assert not at.exception, [e.message for e in at.exception]
     errors = [e.value for e in at.error]
-    assert any(f"schema {SCHEMA_VERSION - 14}" in e and f"{SCHEMA_VERSION}" in e
+    assert any(f"schema {older}" in e and f"{SCHEMA_VERSION}" in e
                for e in errors), errors
     assert at.session_state["project"].name != "from-upload", (
         "a file this build cannot read was adopted anyway")

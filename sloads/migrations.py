@@ -430,6 +430,27 @@ def _hop_67(d: Dict[str, Any]) -> Dict[str, Any]:
     return d
 
 
+def _hop_68(d: Dict[str, Any]) -> Dict[str, Any]:
+    """v68 -> v69 (design note 52, #306): ``WingLoadCase.unbal_moment`` is
+    **blank-means-derived**.
+
+    Before v69 the field defaulted to ``0.0``, so a zero on disk was the
+    default and never a statement -- no case could enter a zero couple and mean
+    it, and a derived ``ACRL`` carried none. v69 makes it ``Optional``: blank is
+    derived on ``ACRL`` from condition A (D-52.2) and zero on every other case.
+    The hop writes ``null`` for every stored ``0`` -- on ``ACRL`` that is the
+    derivation the old default stood in for (#258's zero couple), on any other
+    case it reads back as the same zero. A non-zero entered couple is kept:
+    entered still wins.
+    """
+    wm = d.get("wing_mass")
+    if isinstance(wm, dict):
+        for case in wm.get("cases") or []:
+            if isinstance(case, dict) and case.get("unbal_moment") in (0, 0.0):
+                case["unbal_moment"] = None
+    return d
+
+
 #: hop here; :data:`SUPPORTED_FLOOR` names the oldest version the chain starts
 #: from.
 MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
@@ -446,6 +467,7 @@ MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     65: _hop_65,
     66: _hop_66,
     67: _hop_67,
+    68: _hop_68,
 }
 
 #: The oldest project version this build reads. It sat at ``SCHEMA_VERSION``

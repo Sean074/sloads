@@ -41,7 +41,7 @@ from sloads.models.enums import RotorDirection
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _FIXTURES = os.path.join(_HERE, "fixtures_schema")
 _EXAMPLES = os.path.join(os.path.dirname(_HERE), "examples")
-_CURRENT = "v68_current.json"
+_CURRENT = "v69_current.json"
 
 
 def _load(name=_CURRENT):
@@ -65,7 +65,7 @@ def test_a_current_file_passes_through_untouched():
     assert migrate(current) == current
 
 
-@pytest.mark.parametrize("version", [SUPPORTED_FLOOR - 1, SCHEMA_VERSION - 14, 18, 0])
+@pytest.mark.parametrize("version", [SUPPORTED_FLOOR - 1, SUPPORTED_FLOOR - 10, 18, 0])
 def test_an_older_file_is_refused_and_says_both_versions(version):
     d = {**_load(), "schema_version": version}
     with pytest.raises(SchemaVersionError) as exc:
@@ -358,9 +358,26 @@ def test_the_v67_hop_is_an_identity():
     assert v67["schema_version"] == 67
     migrated = migrate(copy.deepcopy(v67))
     assert migrated["schema_version"] == SCHEMA_VERSION
-    assert {k: v for k, v in migrated.items() if k != "schema_version"} == \
-        {k: v for k, v in v67.items() if k != "schema_version"}
-    assert migrated == _load()
+    assert MIGRATIONS[67](copy.deepcopy(v67)) == v67, "the 67->68 hop moved something"
+    assert migrated == _load()          # through the v68 hop below, to the v69 fixture
+
+
+def test_the_v68_hop_blanks_the_default_couple_and_keeps_an_entered_one():
+    """v68 -> v69 (design note 52, #306): ``unbal_moment`` is blank-means-derived.
+
+    A stored ``0`` was the old default, never a statement, so it becomes
+    ``null`` -- on ``ACRL`` the derivation the default stood in for (#258), on
+    every other case the same zero. A non-zero entered couple is kept (entered
+    wins, D-52.2): the frozen v68 fixture's Appendix A ``-149,043`` survives."""
+    v68 = _load("v68_current.json")
+    assert v68["schema_version"] == 68
+    hopped = MIGRATIONS[68](copy.deepcopy(v68))
+    got = {c["name"]: c["unbal_moment"] for c in hopped["wing_mass"]["cases"]}
+    assert got == {"PHAA": None, "TORS": None, "ACRL": -149043}
+    assert migrate(copy.deepcopy(v68)) == _load()
+    # A v68 dict with no wing_mass, or no cases, passes through.
+    bare = {k: v for k, v in copy.deepcopy(v68).items() if k != "wing_mass"}
+    assert MIGRATIONS[68](copy.deepcopy(bare)) == bare
 
 
 def test_the_v66_hop_moves_the_wing_mass_into_the_item_database():
@@ -384,7 +401,7 @@ def test_the_v66_hop_moves_the_wing_mass_into_the_item_database():
     for row in hopped["weight"]["items"]:
         want = "point" if row.get("component") == "wing" and row.get("y") else "panel"
         assert row["carriage"] == want, row["name"]
-    assert applied_hops(66) == [66, 67]       # the v67 hop (note 64) is an identity
+    assert applied_hops(66) == [66, 67, 68]   # v67 (note 64) is an identity; v68 (note 52) blanks zeros
     assert io.project_to_dict(io.project_from_dict(v66)) == \
            io.project_to_dict(io.project_from_dict(_load()))
 

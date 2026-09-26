@@ -136,9 +136,15 @@ Worked numbers, Appendix A airplane (W 3400 lb, n₁ 3.8, CG2, 12,000 ft):
 | condition A root bending, lb-in (p. 212) | 514,475 | 514,475 |
 | UNB, lb-in | 149,043 (p. 96) | 128,619 |
 | airplane load factor at `AC ROLL` | 3.25 | 3.325 |
-| θ̈, deg/s² (p. 219) | −13.287 | ≈ −11.47 |
-| WINGINER root M_xx, lb-in (p. 219) | −124,095 | ≈ −115,500 |
-| net root M_x, 100 % side, lb-in (p. 225) | +390,380 | ≈ +399,000 |
+| θ̈, rad/s² (p. 219, printed unlabelled) | −13.287 | −11.468 |
+| WINGINER root M_xx at n_z −3.25, lb-in (p. 219) | −124,095 | −114,286 |
+| net root M_x, 100 % side, lb-in (p. 225) | +390,380 | +400,817 (as shipped, below) |
+
+As shipped the GA6's `ACRL` slot is V-n case 40 (CG2, **sea level**), not the
+printed 12,000 ft point: at the amended factor the CG2 roll points' LZW —
+SELECT's criterion — tie across altitude to 0.13 %, inside the balance's own
+0.5 %, and sea level wins. Its condition A is the case 22 air (CL 1.519 at
+117.45 kt, root 516,566), so UNB is −129,142 and the net root +400,817.
 
 The manual's linear 70→75 % rule (Ch 12 p. 91: 70 % at 1000 lb rising to
 75 % at 12,500 lb) is the pre-Amdt 23-48 wording; the amended flat 75 % is the
@@ -164,15 +170,15 @@ reduces to the printed run when they are blank — the manual's own worked
 example entered a uniform cₘ (p. 216) and skipped its Ch 12 instruction, which
 is why Appendix A passes without the increment (design note 52 §2, D-52.5).
 
-**What the code carries today, until design note 52 ships** (backlog B8): the
-unbalanced moment is an entered field (`wing_mass.cases[].unbal_moment`), a
-derived `ACRL` case carries zero, the delivered `ACRL` variant is built at the
-`AC ROLL` point's own averaged lift rather than condition A's, the percentage
-in FLTLOADS is the manual's linear rule with no category branch, and the TORS
-increment is applied in selection but not in the delivered distribution.
-Design note 52 (amended 2026-09-22) is the design of record for closing all
-five; the WINGINER inertia math and the SELECT pick are oracle-locked as they
-stand.
+**Owners** (design note 52, shipped #306): `constants.other_side_percent`
+(75 %, acrobatic refused by name, read by FLTLOADS too) and
+`modules/rolling.py` (`condition_a_point`, `accel_roll_unbalanced_moment`,
+`steady_roll_deflection`, `steady_roll_aero`, `complete_rolling_case`). A blank
+`wing_mass.cases[].unbal_moment` (v69) is derived; an entered one wins. The
+derivation is published on the delivered cases (`other_side_percent`,
+`condition_a_*`, `unbalanced_rolling_moment`, `roll_acceleration` on `ACRL`;
+the deflection schedule on `TORS`). The TORS increment reads the existing
+`aileron_loads.inboard_y_in`/`outboard_y_in`; blank reproduces p. 226.
 
 ## Method (outline)
 

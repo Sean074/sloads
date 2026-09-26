@@ -46,6 +46,13 @@ from ..models import (
 )
 from ..picks import TIE_REL, extreme
 from .airloads import air_load_distribution
+from .rolling import (
+    ACCEL_ROLL_SLOTS,
+    derive_accel_roll,
+    roll_acceleration,
+    roll_other_side_percent,
+    steady_roll_aero,
+)
 from .wing_inertia import fold_units, panel_shape, wing_inertia_distribution
 
 #: Two variants whose signed root ``Mxx`` agree to this are a tie and the air
@@ -83,6 +90,14 @@ class WingVariant:
     mass_state_case: str      # ``WingMassState.case`` ("" = database fallback)
     air_pick: bool = False    # SELECT's per-family air pick over the whole matrix
     governing: bool = False   # the variant the slot is delivered as (D-63.7)
+    #: The accelerated roll's derivation (design note 52, D-52.2/D-52.4/D-52.10),
+    #: on ``ACRL`` rows only: ``cl``/``v_eas_kt`` above are then condition A's
+    #: (the air the 100 % side carries) while ``case``/``run``/``nz``/``nx`` stay
+    #: the AC ROLL point's (the inertia the airplane feels).
+    unbal_moment: float = 0.0       # derived UNB, lb-in (WINGINER's sign)
+    roll_accel: float = 0.0         # theta_ddot = UNB*g/Iwxx, rad/s^2
+    other_side_percent: Optional[float] = None
+    cond_a_case: Optional[int] = None   # V-n case of condition A (STALL +N)
 
     @property
     def run_key(self) -> str:
@@ -148,6 +163,9 @@ def wing_variant_table(project: Project, envelope: Optional[EnvelopeResult] = No
     vn: List[VnPoint] = list(env.vn)
     by_case = {p.case: p for p in vn}
     far_of = {label: far for label, far, _ in _select.wing_slot_picks(project, vn)}
+    # The 23.349(a) percentage once per table (D-52.1); FLTLOADS has already
+    # refused an acrobatic project through the same owner (D-52.13).
+    percent = roll_other_side_percent(project)
     variants: List[WingVariant] = []
     for k in flight_cases(project):
         vn_k = [p for p in vn if p.cg == k.name]
@@ -167,18 +185,31 @@ def wing_variant_table(project: Project, envelope: Optional[EnvelopeResult] = No
         for label, far, p in rows:
             nz = -p.nz
             nx = inertia_drag_factor(p.dx, k.weight_lb)
+            # The accelerated roll's 100 % side carries condition A's air and
+            # the couple derived from it (note 52, D-52.10/D-52.2) -- ranked on
+            # the load it delivers, couple included (#295).
+            roll = (derive_accel_roll(project, vn, p, percent)
+                    if label in ACCEL_ROLL_SLOTS else None)
+            air_pt = roll.cond_a if roll is not None else p
+            unb = roll.unbal_moment if roll is not None else 0.0
             inertia = wing_inertia_distribution(
-                WingLoadCase(name=label, case=p.case, nz=nz, nx=nx), units)
-            air = air_load_distribution(geom, aero, p.cl, p.v_eas_kt, *plane)
+                WingLoadCase(name=label, case=p.case, nz=nz, nx=nx, unbal_moment=unb), units)
+            air = air_load_distribution(
+                geom, steady_roll_aero(project, aero, label, p, vn),
+                air_pt.cl, air_pt.v_eas_kt, *plane)
             a_mxx = air.stations[0].mxx
             i_mxx = inertia.stations[0].mxx
             variants.append(WingVariant(
                 slot=label, far_reference=far, cg=k.name, case=p.case,
                 run=p.condition, config=p.config, altitude_ft=p.altitude_ft,
-                v_eas_kt=p.v_eas_kt, cl=p.cl, nz=nz, nx=nx, weight_lb=k.weight_lb,
+                v_eas_kt=air_pt.v_eas_kt, cl=air_pt.cl, nz=nz, nx=nx, weight_lb=k.weight_lb,
                 air_root_mxx=a_mxx, inertia_root_mxx=i_mxx, root_mxx=a_mxx + i_mxx,
                 mass_state=state.label, mass_state_case=state.case,
-                air_pick=(air_case.get(label) == p.case)))
+                air_pick=(air_case.get(label) == p.case),
+                unbal_moment=unb,
+                roll_accel=roll_acceleration(unb, units.iwxx) if roll is not None else 0.0,
+                other_side_percent=roll.percent if roll is not None else None,
+                cond_a_case=roll.cond_a.case if roll is not None else None))
     return WingVariantTable(variants=_mark_governing(variants))
 
 

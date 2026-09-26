@@ -428,7 +428,49 @@ def landing_frame_advisory(_project: Project, _system: UnitSystem) -> str:
             f"CSV.")
 
 
+def rolling_couple_advisory(project: Project, system: UnitSystem) -> str:
+    """NETLOADS's block caption: the accelerated roll's derived couple
+    (design note 52, D-52.6) -- UNB and the roll acceleration it drives,
+    beside the ACRL rows, and only when there is one to state.
+
+    Read from the case list the table was built from
+    (``wing_inertia.resolve_wing_cases``) and from the derivation SELECT
+    published on the delivered ACRL (D-52.4), so the caption and the rows can
+    never state two couples. The roll acceleration is per second squared in
+    either unit system.
+    """
+    from sloads.modules.select import default_critical
+    from sloads.modules.wing_inertia import resolve_wing_cases
+    from sloads.report.render import format_value
+    from sloads.units import si_scalar_label, to_si_scalar
+
+    wm = project.wing_mass
+    if wm is None:
+        return ""
+    try:
+        case = next((c for c in resolve_wing_cases(project, wm) if c.name == "ACRL"), None)
+        acrl = next((c for c in default_critical(project).conditions
+                     if c.component == "wing" and c.label == "ACRL"), None)
+    except Exception:
+        return ""
+    if case is None or not case.unbal_moment:
+        return ""
+    unb = to_si_scalar(case.unbal_moment, "lb-in", system)
+    label = si_scalar_label("lb-in", system)
+    text = (f"**ACRL** carries the 23.349(a) unbalanced rolling moment "
+            f"UNB = {format_value(unb, label)} {label}")
+    derived = {v.key: v.value for v in getattr(acrl, "loads", ())} if acrl is not None else {}
+    if "roll_acceleration" in derived and case.unbal_moment == derived.get("unbalanced_rolling_moment"):
+        text += (f", derived as {format_value(100.0 - derived['other_side_percent'], '%')} % "
+                 f"of condition A's root bending, and the wing reacts it at a roll "
+                 f"acceleration of {format_value(derived['roll_acceleration'], 'rad/s^2')} rad/s\u00b2")
+    else:
+        text += ", as entered for this project"
+    return text + ". The rows are the governing (100 %) side."
+
+
 MODULE_ADVISORIES: Dict[str, Callable[[Project, UnitSystem], str]] = {
+    "net_loads": rolling_couple_advisory,
     "weight_estimate": weight_estimate_advisory,
     "select": select_inertia_advisory,
     "taildist": taildist_spanwise_advisory,
