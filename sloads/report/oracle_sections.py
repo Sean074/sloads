@@ -806,6 +806,64 @@ def _pct_mac_note(ref: MacReference, u: Units) -> str:
     )
 
 
+def _case_loading_statement(project: Project, u: Units) -> str:
+    """Whether each case's loading reproduces the case as entered (#300).
+
+    ``case_loading_checks`` compares the loading the analysis flies -- entered,
+    or searched from the weight data base -- against the weight and CG the
+    table prints. The table states the case, so the document states whether
+    the mass model under it is that case, naming each case that is not. A
+    case the data base cannot produce has no loading and is not checked.
+    """
+    from ..mass_distribution import (
+        _ECHO_WEIGHT_REL,
+        case_loading_checks,
+        cg_match_tolerance,
+        echo_weight_tolerance,
+    )
+
+    try:
+        checks = case_loading_checks(project)
+    except (MissingInputError, ValueError):
+        return ""
+    if not checks:
+        return ""
+    # Three checks per case, each ``detail`` led by the case name and then
+    # the quantity, so the name is read back through the quantity it names --
+    # from the right, since a case may be called ``min weight``.
+    cases: Dict[str, List[str]] = {}
+    for check in checks:
+        label = check.code.rsplit("_", 1)[1]
+        name = check.detail.rsplit(f" {label} ", 1)[0]
+        gaps = cases.setdefault(name, [])
+        if not check.ok:
+            dim = "mass" if label == "weight" else "length"
+            quantity = "weight" if label == "weight" else label.capitalize()
+            gaps.append(f"{quantity} {u.plain(check.got, dim)} {u.label(dim)} "
+                        f"against {u.plain(check.want, dim)}")
+    failed = {name: gaps for name, gaps in cases.items() if gaps}
+    band = (f"{u.plain(cg_match_tolerance(), 'length')} {u.label('length')}")
+    rule = (
+        "Each case is analysed as a loading of the weight data base -- "
+        "the one it enters, or else the one found for it -- and that loading "
+        "is checked against the weight and centre of gravity in this table: a "
+        "solved ballast row closes them exactly; a loading carrying no ballast "
+        f"weighs the case and sits within {band} of it on Xcg and Zcg; an "
+        "entered loading is held to the greater of "
+        f"{u.plain(echo_weight_tolerance(0.0), 'mass')} {u.label('mass')} and "
+        f"{100 * _ECHO_WEIGHT_REL:g} % on weight and {band} on each "
+        "coordinate. ")
+    if not failed:
+        return rule + ("The one checked case holds." if len(cases) == 1
+                       else f"All {len(cases)} checked cases hold.")
+    return rule + (
+        f"{len(cases) - len(failed)} of {len(cases)} checked cases hold; "
+        + "; ".join(f"'{name}' does not ({', '.join(gaps)})"
+                    for name, gaps in failed.items())
+        + ". The loading is what the analysis flies, so the loads of those "
+        "cases are the loading's, not the table's.")
+
+
 def _cg_case_table(project: Project, system: UnitSystem) -> Optional[Table]:
     """The weight and CG cases analysed, one row each."""
     weight = project.weight
@@ -848,6 +906,9 @@ def _cg_case_table(project: Project, system: UnitSystem) -> Optional[Table]:
              " Xcg is not stated in %MAC: neither an entered XLEMAC and MAC nor "
              "a wing planform to read them from is present, so there is no "
              "reference to measure a percentage against.")
+    loadings = _case_loading_statement(project, u)
+    if loadings:
+        note += " " + loadings
     return Table(
         title="Weight and centre-of-gravity cases",
         columns=["CG", "Case", "Role", f"Weight ({u.label('mass')})",

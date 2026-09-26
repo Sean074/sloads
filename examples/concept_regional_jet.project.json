@@ -552,7 +552,7 @@
         "name": "aft max landing",
         "weight_lb": 31000.0,
         "xcg": 593.79,
-        "zcg": 62.66,
+        "zcg": 61.96,
         "analyses": [
           "ground"
         ],
@@ -562,7 +562,7 @@
         "name": "fwd max landing",
         "weight_lb": 31000.0,
         "xcg": 572.6,
-        "zcg": 62.66,
+        "zcg": 64.82,
         "analyses": [
           "ground"
         ],
@@ -572,7 +572,7 @@
         "name": "fwd light",
         "weight_lb": 24000,
         "xcg": 569.44,
-        "zcg": 62.66,
+        "zcg": 63.08,
         "analyses": [
           "ground"
         ],

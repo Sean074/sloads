@@ -318,7 +318,9 @@ def seed_landing_cases(project: Project) -> Tuple[List[CgCase], List[str]]:
       row from ``wtenv_fwd_cg_limit_at_weight`` interpolated **at that row's own
       weight**. Appendix A p230 reads 76.12 in at the 3230 lb landing weight, not
       the 72.64 in weight-agnostic hull value.
-    * zcg -- the WTONECG waterline ``project.mass.cases[0].cg_z``.
+    * zcg -- the waterline of the loading that closes the row (D-26a, #300),
+      searched from the WTONECG waterline ``project.mass.cases[0].cg_z`` as a
+      placeholder; the placeholder stands where no loading closes it.
 
     Returns ``(cases, missing)``: an empty list and the named missing sources when
     it cannot seed. The fwd/aft station split is a seed only -- WTENV cannot
@@ -353,9 +355,33 @@ def seed_landing_cases(project: Project) -> Tuple[List[CgCase], List[str]]:
     )
     if any(x is None or not x for _, _, _, x in seeds):
         return [], ["a forward CG limit at one of the seeded weights"]
-    return [CgCase(name=name, weight_lb=w, xcg=x, zcg=zbar,
-                   analyses={AnalysisKind.GROUND}, role=role)
-            for role, name, w, x in seeds if x is not None], []
+    cases = [CgCase(name=name, weight_lb=w, xcg=x, zcg=zbar,
+                    analyses={AnalysisKind.GROUND}, role=role)
+             for role, name, w, x in seeds if x is not None]
+    _echo_loading_waterlines(project, cases)
+    return cases, []
+
+
+def _echo_loading_waterlines(project: Project, cases: List[CgCase]) -> None:
+    """Re-echo each seeded case's ``zcg`` from the loading that closes it (D-26a).
+
+    A seed knows a case's weight and station, never its waterline, so it
+    starts from a placeholder and asks the search for the loading --
+    matching the station alone, since the placeholder is no target -- then
+    writes that loading's waterline back, ballast excluded; a solved ballast
+    lands on the same line. Both seeds call this (#300): the landing seed
+    once kept the WTONECG placeholder, and ``concept_regional_jet``'s ``fwd
+    max landing`` flew a burn-down loading 2.16 in above the waterline its
+    case stated.
+    """
+    from .mass_distribution import derive_case_loadings
+
+    for case, loading in zip(cases, derive_case_loadings(project, cases,
+                                                         match_waterline=False)):
+        real = [it for it in loading.items if it is not loading.ballast]
+        w = math.fsum(it.weight_lb for it in real)
+        if loading.derivable and w > 0:
+            case.zcg = round(math.fsum(it.weight_lb * it.z for it in real) / w, 2)
 
 
 def seed_flight_cases(project: Project) -> Tuple[List[CgCase], List[str]]:
@@ -400,7 +426,7 @@ def seed_flight_cases(project: Project) -> Tuple[List[CgCase], List[str]]:
     empty list and the named missing sources when it cannot seed. Never
     zero-filled.
     """
-    from .mass_distribution import derive_case_loadings, seed_loading_search
+    from .mass_distribution import seed_loading_search
     from .validation import _wtenv_stations, wtenv_fwd_cg_limit_line
 
     missing = []
@@ -437,13 +463,7 @@ def seed_flight_cases(project: Project) -> Tuple[List[CgCase], List[str]]:
     cases = [CgCase(name=name, weight_lb=round(w, 2), xcg=round(x, 2),
                     zcg=round(z_all, 2), analyses={AnalysisKind.FLIGHT})
              for name, w, x in seeds]
-    # The closing loading's own waterline (D-26a): re-echo zcg from the subset the
-    # search picks, ballast excluded, then the ballast is solved onto that line.
-    for case, loading in zip(cases, derive_case_loadings(project, cases)):
-        real = [it for it in loading.items if it is not loading.ballast]
-        w = math.fsum(it.weight_lb for it in real)
-        if loading.derivable and w > 0:
-            case.zcg = round(math.fsum(it.weight_lb * it.z for it in real) / w, 2)
+    _echo_loading_waterlines(project, cases)
 
     # The zero-fuel and full-fuel seeds (D-63.5), each with its loading.
     mzfw = max_zero_fuel_weight(project, required=False)

@@ -416,18 +416,7 @@ def test_component_summary_covers_the_whole_airplane(example):
 #: purpose: every reconciliation this module computes is stated on the page that
 #: ships. An entry here is a deliberate exemption and must say why the reader of
 #: a certification document does not need the number.
-_UNSTATED_CHECKS = {
-    "case_loading_checks":
-        "not the two mass models: it compares a derived loading against the "
-        "flight case's own weight/CG echo, and its derived branch holds that "
-        "to 1e-9 where its owner documents the match as _CG_MATCH_TOL (0.5 in) "
-        "for a zero-ballast loading -- so it reports a failure on four of the "
-        "five shipped fixtures that is not one. Routing it to the document "
-        "today would print those false alarms. Filed with a body in the "
-        "backlog's Open defects index (2026-09-16), with the one real "
-        "disagreement underneath it: baron_58's `aft gross` loading sits "
-        "4.12 in below the zcg the case states, past that same 0.5 in.",
-}
+_UNSTATED_CHECKS: dict = {}
 
 
 def _check_producers():
@@ -557,6 +546,58 @@ def test_the_issued_document_states_every_mass_gap_it_ships_with(example):
     # The wing tie is stated on every fixture, holding or not.
     if md.wing_mass_tie(project) is not None:
         assert "two models of the wing's mass" in text, example
+    # #300: every case's loading is checked against the case the 2.2
+    # table prints, and the table's note says whether it holds.
+    if md.case_loading_checks(project):
+        notes = " ".join(t.note or "" for s in doc.sections
+                         for t in _tables(s))
+        assert "checked case" in notes, example
+
+
+def _tables(section):
+    out = list(section.tables)
+    for sub in section.subsections:
+        out += _tables(sub)
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# #300 -- a loading with no ballast is held to the case on both coordinates
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize("example", EXAMPLES)
+def test_every_shipped_case_loading_reproduces_its_case(example):
+    """The check holds on every fixture as shipped -- including ga6's CG4, the
+    no-ballast loading 0.0024 in off that the check once held to 1e-9."""
+    project = _project(example)
+    checks = md.case_loading_checks(project)
+    assert [c.detail for c in checks if not c.ok] == []
+    # Every case, ground as well as flight: concept_regional_jet's `fwd max
+    # landing` sat 2.16 in off its waterline while the check read flight only.
+    cases = project.weight.cg_cases
+    derivable = [ld for ld in md.derive_case_loadings(project, cases)
+                 if ld.derivable]
+    assert checks and len(checks) == 3 * len(derivable)
+
+
+def test_the_search_refuses_a_no_ballast_loading_off_the_case_waterline():
+    """The search once tested station alone, so ``baron_58``'s ``aft gross``
+    was flown at waterline 95.88 against a case stating 100.0 (4.12 in)."""
+    project = _project("baron_58.project.json")
+    case = next(c for c in project.weight.cg_cases if c.name == "aft gross")
+    found = {ld.name: ld for ld in md.derive_case_loadings(project)}
+    assert found["aft gross"].derivable and found["aft gross"].ballast is None
+    assert abs(found["aft gross"].cg_z - case.zcg) <= md.cg_match_tolerance()
+    case.zcg += 4.0 * md.cg_match_tolerance()
+    moved = {ld.name: ld for ld in md.derive_case_loadings(project)}["aft gross"]
+    # The no-ballast subset no longer counts; whatever is found instead closes
+    # the waterline through a solved ballast row, or is not derivable at all.
+    assert moved.ballast is not None or not moved.derivable
+    if moved.derivable:
+        assert moved.cg_z == pytest.approx(case.zcg, abs=1e-9)
+    # The seed's placeholder waterline is no target: that search still finds
+    # the no-ballast subset.
+    seeded = md.derive_case_loadings(project, [case], match_waterline=False)[0]
+    assert seeded.ballast is None and seeded.cg_z == found["aft gross"].cg_z
 
 
 if __name__ == "__main__":

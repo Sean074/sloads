@@ -660,7 +660,7 @@
         "name": "aft gross",
         "weight_lb": 5500.0,
         "xcg": 86.0,
-        "zcg": 100.0,
+        "zcg": 95.88,
         "analyses": [
           "flight"
         ]

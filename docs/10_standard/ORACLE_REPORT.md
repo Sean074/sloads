@@ -280,6 +280,16 @@ Properties, 2.3 Structural Design Speeds, 2.4 Flight Envelope.
   The analysis tags **SHALL** be printed in a declared order: `CgCase.analyses`
   is a set, and set iteration order is not a document property the determinism
   gates can rest on.
+- **The CG-case table's note SHALL state whether each case's loading is that
+  case** (#300), ground cases included. The table prints the case as entered; the analysis flies
+  a loading — entered, or searched from the weight data base — and
+  `mass_distribution.case_loading_checks` compares the two. The note states the
+  bands the check holds (a solved ballast row exactly, a loading with no
+  ballast within the search's match tolerance on Xcg and Zcg, an entered one
+  within the D-25a echo band), how many checked cases hold, and names each one
+  that does not with its loading's figures against the table's. It is read
+  from the check's owner, never recomputed, and `_UNSTATED_CHECKS` in
+  `tests/test_mass_distribution.py` stays empty.
 - **The CG-case table SHALL state Xcg in percent of MAC beside the station**,
   and **SHALL** state the relation it used. The entered CG limits are given in
   %MAC and the cases in stations, so a table that prints only the station makes

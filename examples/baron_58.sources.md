@@ -66,7 +66,10 @@ the guide enters and reads this example in **SI** (UG-12).
 - **Mass breakdown**: statistical component split summing to the published
   4,010 lb empty [B] at sta 78.3; discretionary rows (occupants, baggage,
   fuel) sit at the [A] arms. The flight loading of 120 US gal fuel + 4
-  occupants closes at exactly 5,500 lb inside the [A] envelope, and each
+  occupants closes at exactly 5,500 lb inside the [A] envelope — the `aft
+  gross` case, whose waterline 95.88 is that loading's own (D-26a; no source
+  states a flight waterline, and the 100.0 it carried until #300 matched no
+  loading of this database) — and each
   roled ground case **states its loading** (D-25 `loading` records): aft max
   landing 5,400 lb at sta 85.7, fwd max landing 5,400 lb at sta 79.1, fwd
   light 4,440 lb at sta 78.1 — all inside the [A] limits. Inertias are
