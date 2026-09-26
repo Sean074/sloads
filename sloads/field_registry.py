@@ -1961,6 +1961,35 @@ def omitted_records() -> Set[str]:
             if rec and not any(r.path in keep for r in group)}
 
 
+#: Fields the reduction **keeps** although they are neither original-suite nor
+#: ``supplied`` (#221), keyed by a registry path or a record prefix, each with
+#: its reason. The ground is not :data:`SUPPLIED_RULE`'s: no Appendix A oracle
+#: moves without them, but resetting one changes what the project *states* --
+#: the mass state each case runs at -- so a document built from the reduction
+#: would describe a different airplane from the one the analysis and the deck
+#: carry. They stay out of :func:`oracle_input_paths` (the GUI tiers and the
+#: supplied-set dial are untouched). Guard: ``tests/test_oracle_inputs.py``
+#: holds every case's mass state equal on the full and reduced fixtures.
+KEPT_BY_REDUCTION: Dict[str, str] = {
+    "weight.items[].consumable":
+        "the fuel flag: reset, every tank reads as payload, the per-case fuel "
+        "falls to zero and no loading has a zero-fuel state (#221: 9,874 lb -> 0 "
+        "at MTOW on atr42_100)",
+    "weight.cg_cases[].loading":
+        "the entered loading, the authoritative mass state of its case (D-25a, "
+        "design note 63 D-63.1): dropped, the case is searched instead and the "
+        "search adds ballast the airplane does not carry (#221: 1,669 lb on "
+        "atr42_100's full fuel aft)",
+}
+
+
+def kept_paths() -> Set[str]:
+    """Registry paths :data:`KEPT_BY_REDUCTION` names, record prefixes expanded."""
+    return {e.path for e in REGISTRY
+            if any(e.path == key or e.path.startswith(key + ".")
+                   for key in KEPT_BY_REDUCTION)}
+
+
 def reduce_to_oracle_inputs(project: Project) -> Project:
     """A deep copy of ``project`` holding only what the oracle GUI would have set.
 
@@ -1981,9 +2010,16 @@ def reduce_to_oracle_inputs(project: Project) -> Project:
     its own is then put back by :func:`sloads.derived.refresh_derived`, the
     same call the form makes after a persist, so the reduced project carries a
     ``mass`` slice exactly when a typed one would.
+
+    What goes excludes :data:`KEPT_BY_REDUCTION` (#221): those fields, and the
+    records holding them, survive, so the projection states each case's own
+    mass state.
     """
+    kept = kept_paths()
+    omitted = {rec for rec in omitted_records()
+               if not any(p == rec or p.startswith(rec + ".") for p in kept)}
     reduced = copy.deepcopy(project)
-    _reduce(reduced, "", oracle_input_paths(), omitted_records())
+    _reduce(reduced, "", oracle_input_paths() | kept, omitted)
     for name in RESULT_SLICES:
         _reset(reduced, next(f for f in dataclasses.fields(reduced) if f.name == name))
     refresh_derived(reduced)
