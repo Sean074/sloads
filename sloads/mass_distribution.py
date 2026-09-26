@@ -546,9 +546,9 @@ class WingMassState:
     """What WINGINER distributes for one case: the mass state, resolved.
 
     ``panel_weight_lb`` is the **per-side** panel for this state and
-    ``point_masses`` the per-side concentrated masses (the starboard ``POINT``
-    parts at their own stations; a centreline POINT part at half its weight),
-    both built from ``items`` -- the loading's rows, or the database's.
+    ``point_masses`` the per-side concentrated masses, both the
+    :func:`half_span` projection of ``items`` -- the loading's rows, or the
+    database's -- so a state exists only for a laterally symmetric wing.
     ``wing_weight_lb`` is Σ WING parts of the state, both sides, which is what
     :func:`wing_state_tie` holds ``2 x (panel + Σ points)`` to. ``label`` is
     the sentence a result states (``WingLoadResult.mass_state``); ``case`` is
@@ -563,9 +563,6 @@ class WingMassState:
     point_masses: List[MassItem]
     wing_weight_lb: float
     label: str
-    #: Σ of the port-side POINT parts, both for the symmetry check the half-span
-    #: model owes (``validation`` ``wing_mass_asymmetric``) and for the tie.
-    port_point_weight_lb: float = 0.0
     #: The loading behind the state, when one was derived (``None`` for the
     #: database), so a consumer can read the body parts of the same state.
     loading: Optional["CaseLoading"] = None
@@ -576,38 +573,104 @@ class WingMassState:
     reason: str = ""
 
 
-def _state_panel(project: Project, items: Sequence[MassItem]) -> float:
+def _state_panel(project: Project, half: "HalfSpan") -> float:
     """The per-side panel for a state: the project panel, scaled by the state's
     PANEL parts against the database's -- so an override scales with the
     loading and ``None`` reduces exactly to half the state's PANEL parts."""
     base = derived_panel_weight(project)
-    state = derived_panel_weight(project, items)
     if base <= 0.0:
         return panel_weight(project)
-    return panel_weight(project) * state / base
+    return panel_weight(project) * half.panel_lb / base
 
 
-def _state_points(project: Project, items: Sequence[MassItem]
-                  ) -> Tuple[List[MassItem], float]:
-    """``(per-side point masses, port-side weight)`` of a state's POINT parts.
+class WingAsymmetric(ValueError):
+    """A mass state the half-span models cannot carry (#301), naming the wing
+    parts that have no mirror image. A ``ValueError``, so every caller that
+    already refuses a malformed loading refuses this the same way."""
 
-    WINGINER is a half-span model of a laterally symmetric wing (WINGINER.BAS
-    carries every concentrated weight at a positive butt line), so the
-    starboard parts are the list, a centreline part enters at half its weight
-    (it steps no strip but keeps its mass in the model), and the port parts
-    are counted for the symmetry check rather than mirrored onto the list --
-    mirroring would double a symmetric pair.
+    def __init__(self, rows: Sequence[str]) -> None:
+        self.rows = list(rows)
+        super().__init__(
+            "the wing mass is not laterally symmetric -- no mirror image for "
+            + ", ".join(f"'{r}'" for r in self.rows)
+            + "; WINGINER and the balanced deck are half-span models of a "
+            "symmetric wing, so the state is refused rather than delivered as "
+            "one side doubled (design note 63 D-63.3, #301)")
+
+
+@dataclass(frozen=True)
+class HalfSpan:
+    """The starboard half of a symmetric wing mass state: what the half-span
+    models are fed. ``panel_lb`` is the per-side PANEL weight; ``points`` are
+    the starboard POINT parts at their own stations, a centreline part at
+    half its weight (it steps no strip but keeps its mass in the model)."""
+
+    panel_lb: float
+    points: List[MassItem]
+
+
+def _mirrors(a: MassItem, b: MassItem) -> bool:
+    """``b`` is ``a``'s image through the centreline plane: the same weight,
+    station and waterline and the opposite butt line."""
+    return (abs(a.weight_lb - b.weight_lb)
+            <= RECONCILE_REL_TOL * max(a.weight_lb, b.weight_lb, 1.0)
+            and abs(a.x - b.x) <= _CG_MATCH_TOL
+            and abs(a.y + b.y) <= _CG_MATCH_TOL
+            and abs(a.z - b.z) <= _CG_MATCH_TOL)
+
+
+def _unmirrored(items: Sequence[MassItem], project: Project) -> List[str]:
+    """The off-centreline WING parts of ``items`` with no mirror image, PANEL
+    and POINT alike -- each pair is matched once, so two starboard rows cannot
+    share one port row."""
+    out: List[str] = []
+    for carriage in (WingCarriage.PANEL, WingCarriage.POINT):
+        parts = [it for it in wing_parts(items, project, carriage) if it.y != 0.0]
+        port = [it for it in parts if it.y < 0.0]
+        for it in parts:
+            if it.y < 0.0:
+                continue
+            mate = next((q for q in port if _mirrors(it, q)), None)
+            if mate is None:
+                out.append(it.name)
+            else:
+                port.remove(mate)
+        out += [q.name for q in port]
+    return out
+
+
+def wing_symmetric(items: Sequence[MassItem], project: Project) -> bool:
+    """Would :func:`half_span` accept ``items``? The search's candidate test."""
+    return not _unmirrored(items, project)
+
+
+def half_span(items: Sequence[MassItem], project: Project) -> HalfSpan:
+    """The one route from a full-span mass state to the half-span models (#301).
+
+    The item database is full span -- every row at its own butt line -- while
+    WINGINER (whose BASIC hangs every concentrated weight at a positive butt
+    line) and the balanced deck's wing set (the starboard half, mirrored) are
+    half-span. This is the projection between them, and the one place lateral
+    symmetry is asked: every off-centreline WING part, PANEL or POINT, must
+    have its mirror image (:func:`_mirrors`), or the state is refused with
+    those parts named (:class:`WingAsymmetric`). A state that passes is an
+    exact starboard half, so mirroring it reproduces the whole.
+
+    The subset search and the seed search test candidates through
+    :func:`wing_symmetric`, an entered loading that fails is not derivable
+    (:func:`derive_case_loadings`), and ``validation`` names a database that
+    fails -- so no caller carries a second copy of the rule.
     """
+    rows = _unmirrored(items, project)
+    if rows:
+        raise WingAsymmetric(rows)
     points: List[MassItem] = []
-    port = 0.0
     for it in wing_parts(items, project, WingCarriage.POINT):
         if it.y > 0.0:
             points.append(it)
-        elif it.y < 0.0:
-            port += it.weight_lb
-        else:
+        elif it.y == 0.0:
             points.append(dataclasses.replace(it, weight_lb=0.5 * it.weight_lb))
-    return points, port
+    return HalfSpan(panel_lb=derived_panel_weight(project, items), points=points)
 
 
 def database_mass_state(project: Project, reason: str = "",
@@ -621,26 +684,26 @@ def database_mass_state(project: Project, reason: str = "",
     the validator, never into the label.
     """
     items = list(project.weight.items) if project.weight is not None else []
-    points, port = _state_points(project, items)
+    half = half_span(items, project)
     label = "item database (every row aboard)" + (f"; {reason}" if reason else "")
     return WingMassState(
         case="", source="database", items=items,
-        panel_weight_lb=_state_panel(project, items), point_masses=points,
+        panel_weight_lb=_state_panel(project, half), point_masses=half.points,
         wing_weight_lb=math.fsum(it.weight_lb for it in wing_parts(items, project)),
-        label=label, port_point_weight_lb=port, reason=detail)
+        label=label, reason=detail)
 
 
 def loading_mass_state(project: Project, loading: "CaseLoading") -> WingMassState:
     """The mass state of one derived :class:`CaseLoading` (D-63.1)."""
     items = list(loading.items)
-    points, port = _state_points(project, items)
+    half = half_span(items, project)
     return WingMassState(
         case=loading.name, source="entered" if loading.entered else "searched",
-        items=items, panel_weight_lb=_state_panel(project, items),
-        point_masses=points,
+        items=items, panel_weight_lb=_state_panel(project, half),
+        point_masses=half.points,
         wing_weight_lb=math.fsum(it.weight_lb for it in wing_parts(items, project)),
         label=f"loading '{loading.name}' ({'entered' if loading.entered else 'searched'})",
-        port_point_weight_lb=port, loading=loading)
+        loading=loading)
 
 
 def wing_mass_state(project: Project, cg_name: Optional[str]) -> WingMassState:
@@ -696,9 +759,9 @@ def wing_state_tie(state: WingMassState) -> MassCheck:
 
     The one-model gate, per case: what the case's loading tags to the wing is
     what WINGINER distributes for it, both sides together. Exact by
-    construction on a laterally symmetric loading with no panel override; open
-    by the override's gap, or by the port/starboard difference of an asymmetric
-    loading the half-span model cannot carry -- both named in ``detail``.
+    construction with no panel override, since a state exists only through
+    :func:`half_span` (an asymmetric one is refused, #301); open by the
+    override's gap, named in ``detail``.
     """
     points = math.fsum(it.weight_lb for it in state.point_masses)
     want = 2.0 * (state.panel_weight_lb + points)
@@ -987,6 +1050,19 @@ def entered_loading(items: Sequence[MassItem], case: CgCase) -> CaseLoading:
                        ballast=ballast, derivable=True, note=note, entered=True)
 
 
+def _symmetric_or_refused(loading: CaseLoading, project: Project) -> CaseLoading:
+    """An entered loading the half-span models cannot carry is not derivable
+    (#301): the one exception to D-25's "an entered loading is derivable
+    unconditionally", so the deck, WINGINER and the body beam refuse it by the
+    route they already take for a case no loading reaches, with the one-sided
+    parts named in ``note``."""
+    rows = _unmirrored(loading.items, project)
+    if not rows:
+        return loading
+    return dataclasses.replace(loading, derivable=False,
+                               note=str(WingAsymmetric(rows)))
+
+
 def derive_case_loadings(project: Project,
                          cases: Optional[Sequence[CgCase]] = None, *,
                          match_waterline: bool = True) -> List[CaseLoading]:
@@ -1023,13 +1099,13 @@ def derive_case_loadings(project: Project,
     needing the **least ballast**; ties break toward the larger payload. Least
     ballast is the loading closest to something an operator could actually fly.
 
-    **A searched loading is laterally symmetric on the wing** (design note 63,
-    D-63.3): a subset whose ``WING``-carried ``POINT`` parts weigh differently
-    port and starboard -- one tank of a pair -- is not a candidate. WINGINER
-    and the balanced deck are half-span models of a symmetric wing, so the
-    search may not hand them a state they cannot carry; an asymmetric state is
-    an entered loading's to state, and ``validation`` names it
-    (``wing_mass_asymmetric``).
+    **A loading is laterally symmetric on the wing** (design note 63, D-63.3,
+    #301): a candidate -- base and subset together -- whose off-centreline
+    ``WING`` parts, PANEL or POINT, are not mirrored pairs (one tank of a
+    pair, a one-sided empty row) is not a candidate, and an entered loading
+    that is not symmetric is not derivable. WINGINER and the balanced deck are
+    half-span models of a symmetric wing and :func:`half_span` is the one
+    route into them, so no state they cannot carry reaches them.
 
     The ballast row's ``x`` **and** ``z`` are both solved (weight from the
     residual, station from the x-moment, waterline from the z-moment), so the
@@ -1073,14 +1149,14 @@ def derive_case_loadings(project: Project,
             # D-25: the case states its loading, so there is nothing to search
             # for. The entered set is authoritative and the case's weight/CG
             # become a checked echo of it -- see ``case_loading_checks``.
-            out.append(entered_loading(items, case))
+            out.append(_symmetric_or_refused(entered_loading(items, case), project))
             continue
         burns = AnalysisKind.GROUND in case.analyses
         best: Optional[Tuple[float, int, List[MassItem], Optional[MassItem]]] = None
         for mask in range(1 << len(discretionary)):
             sub = [it for i, it in enumerate(discretionary) if mask >> i & 1]
-            if not _wing_points_symmetric(sub, project):
-                continue                       # one tank of a pair (D-63.3)
+            if not wing_symmetric(base + sub, project):
+                continue                       # one tank of a pair (D-63.3, #301)
             # G-5: for a GROUND target, burn the consumables in this subset down
             # to a continuous partial value -- proportionally, so a tank layout is
             # preserved -- *before* considering the subset a loading. A design
@@ -1144,22 +1220,6 @@ def derive_case_loadings(project: Project,
             ballast=best_ballast, derivable=credible, note=note,
         ))
     return out
-
-
-def _wing_points_symmetric(items: Sequence[MassItem], project: Project) -> bool:
-    """Do ``items``' WING POINT parts weigh the same port and starboard?
-
-    The predicate the subset search (:func:`derive_case_loadings`) and the
-    ``wing_mass_asymmetric`` validator share, so the two cannot disagree about
-    what the half-span models can carry. Centreline parts are neither side.
-    """
-    port = starboard = 0.0
-    for it in wing_parts(items, project, WingCarriage.POINT):
-        if it.y > 0.0:
-            starboard += it.weight_lb
-        elif it.y < 0.0:
-            port += it.weight_lb
-    return abs(port - starboard) <= RECONCILE_REL_TOL * max(port, starboard, 1.0)
 
 
 def _burn_down(items: List[MassItem], target_lb: float) -> Optional[List[MassItem]]:
@@ -1270,8 +1330,6 @@ def seed_loading_search(project: Project, *, fuel: str, cap_lb: float, edge: str
     consumables = [it for it in discretionary if it.consumable]
     payload = [it for it in discretionary if not it.consumable]
     fixed = empty + minimum + (consumables if fuel == "full" else [])
-    if fuel == "full" and not _wing_points_symmetric(consumables, project):
-        return None                                 # one tank of a pair (D-63.3)
     w_fixed = math.fsum(it.weight_lb for it in fixed)
     mx_fixed = math.fsum(it.weight_lb * it.x for it in fixed)
     if w_fixed > cap_lb + _BALLAST_EPS or w_fixed <= 0.0:
@@ -1312,13 +1370,18 @@ def seed_loading_search(project: Project, *, fuel: str, cap_lb: float, edge: str
 
     for mask in range(1 << len(payload)):
         sub = [it for i, it in enumerate(payload) if mask >> i & 1]
-        if not _wing_points_symmetric(sub, project):
-            continue
+        if not wing_symmetric(fixed + sub, project):
+            continue                      # one tank of a pair (D-63.3, #301)
         if consider(sub, None, 1.0):
             continue                      # inside as it is: never trimmed
         w0 = w_fixed + math.fsum(it.weight_lb for it in sub)
         mx0 = mx_fixed + math.fsum(it.weight_lb * it.x for it in sub)
         for row in sub:
+            # Trimming one row of a mirrored pair leaves its image whole.
+            if not wing_symmetric(fixed + [
+                    dataclasses.replace(it, weight_lb=0.5 * it.weight_lb)
+                    if it is row else it for it in sub], project):
+                continue
             fractions = {k / _TRIM_STEPS for k in range(1, _TRIM_STEPS)}
             # The two linear constraints solved exactly: the fraction that puts
             # the weight on the cap, and the one that puts the CG on the aft line.

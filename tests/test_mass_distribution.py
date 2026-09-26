@@ -600,5 +600,70 @@ def test_the_search_refuses_a_no_ballast_loading_off_the_case_waterline():
     assert seeded.ballast is None and seeded.cg_z == found["aft gross"].cg_z
 
 
+
+# --------------------------------------------------------------------------- #
+# #301 -- one projection into the half-span models, and it refuses
+# --------------------------------------------------------------------------- #
+def _one_sided(y, carriage, kind=None):
+    from sloads.models import MassItem, MassItemKind, WingCarriage
+    return MassItem(name="one-sided", weight_lb=50.0, x=85.0, y=y, z=90.0,
+                    kind=kind or MassItemKind.EMPTY, component=MassComponent.WING,
+                    carriage=getattr(WingCarriage, carriage))
+
+
+@pytest.mark.parametrize("example", EXAMPLES)
+def test_every_shipped_mass_state_is_an_exact_half_span(example):
+    """The database and every derivable loading of every case project: every
+    off-centreline wing part has its mirror image, so the half is exact and
+    ``2 x (panel + points)`` is the wing, per case."""
+    project = _project(example)
+    md.half_span(project.weight.items, project)
+    for ld in md.derive_case_loadings(project, project.weight.cg_cases):
+        if ld.derivable:
+            half = md.half_span(ld.items, project)
+            wing = math.fsum(it.weight_lb for it in md.wing_parts(ld.items, project))
+            points = math.fsum(it.weight_lb for it in half.points)
+            assert wing == pytest.approx(2.0 * (half.panel_lb + points), rel=1e-9), ld.name
+
+
+@pytest.mark.parametrize("y, carriage", [(100.0, "POINT"), (-100.0, "POINT"),
+                                          (100.0, "PANEL")])
+def test_a_one_sided_wing_part_is_refused_by_name(y, carriage):
+    """#301 on ga6: a starboard POINT row was run doubled, a port one dropped,
+    and a one-sided PANEL row halved onto both wings with no finding at all.
+    Each is now refused, the part named."""
+    from sloads.validation import consistency_warnings
+    project = _project("ga6_normal.project.json")
+    project.weight.items.append(_one_sided(y, carriage))
+    with pytest.raises(md.WingAsymmetric) as exc:
+        md.half_span(project.weight.items, project)
+    assert exc.value.rows == ["one-sided"]
+    with pytest.raises(md.WingAsymmetric):
+        md.wing_mass_state(project, None)
+    (w,) = [w for w in consistency_warnings(project) if w.code == "wing_mass_asymmetric"]
+    assert "'one-sided'" in w.message
+
+
+def test_the_search_tests_the_base_as_well_as_the_subset():
+    """#301: the search once asked the discretionary subset alone, so an
+    asymmetric EMPTY row rode into every searched loading. The base is part of
+    the loading, so no candidate is symmetric and no case is derivable."""
+    project = _project("ga6_normal.project.json")
+    project.weight.items.append(_one_sided(100.0, "POINT"))
+    loadings = md.derive_case_loadings(project)
+    assert loadings and not any(ld.derivable for ld in loadings)
+
+
+def test_a_mirrored_pair_is_accepted_and_one_short_image_is_not():
+    """The mirror test is a pairing, not a weight sum: a 50 lb row at +100
+    against 50 lb at -30 weighs the same per side and is still refused."""
+    project = _project("ga6_normal.project.json")
+    base = list(project.weight.items)
+    project.weight.items = base + [_one_sided(100.0, "POINT"), _one_sided(-100.0, "POINT")]
+    assert len(md.half_span(project.weight.items, project).points) == 1
+    project.weight.items = base + [_one_sided(100.0, "POINT"), _one_sided(-30.0, "POINT")]
+    assert not md.wing_symmetric(project.weight.items, project)
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([os.path.abspath(__file__), "-q"]))

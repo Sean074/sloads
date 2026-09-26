@@ -1161,12 +1161,14 @@ def _check_wing_mass_tie(project: Project) -> List[ConsistencyWarning]:
 def _check_wing_mass_states(project: Project) -> List[ConsistencyWarning]:
     """The per-case mass state every inertia load reads (design note 63, D-63.1).
 
-    * ``wing_mass_asymmetric`` -- a FLIGHT case's loading carries a different
-      POINT weight on the port wing than on the starboard. WINGINER and the
-      balanced deck are half-span models of a symmetric wing (WINGINER.BAS
-      hangs every concentrated weight at a positive butt line and the deck
-      mirrors the starboard set), so the port rows are checked, not run, and
-      an asymmetric state would be delivered as its starboard half doubled.
+    * ``wing_mass_asymmetric`` -- the item database has a WING part, PANEL or
+      POINT, with no mirror image. WINGINER and the balanced deck are
+      half-span models of a symmetric wing (WINGINER.BAS hangs every
+      concentrated weight at a positive butt line and the deck mirrors the
+      starboard set), so :func:`~sloads.mass_distribution.half_span` refuses
+      the state rather than deliver its starboard half doubled (#301). An
+      entered loading that is asymmetric is not derivable, and is named by the
+      next finding with the parts in its reason.
     * ``wing_case_loading_not_derivable`` -- a FLIGHT case a wing or fuselage
       condition runs at has no entered loading and the search cannot produce
       one, so WINGINER and the body beam fell back to the item database with
@@ -1197,6 +1199,17 @@ def _check_wing_mass_states(project: Project) -> List[ConsistencyWarning]:
             "wing inertia load is the POINT rows alone, or nothing. Tag the "
             "outboard structure `wing` (design note 63 D-63.2).",
             PAGE_WEIGHT_CG))
+    # The database itself (#301): every case no loading reaches falls back to
+    # it, so a one-sided wing row there refuses every such case at once.
+    try:
+        mass_distribution.half_span(weight.items, project)
+    except mass_distribution.WingAsymmetric as exc:
+        out.append(ConsistencyWarning(
+            "wing_mass_asymmetric",
+            f"The weight item data base has {exc}. No wing inertia load or "
+            "balanced case can be built from it, and a loading built on it is "
+            "not a candidate: enter the missing image, or move the part to the "
+            "centreline.", PAGE_WEIGHT_CG))
     for case in cg_cases.flight_cases(project):
         try:
             state = mass_distribution.wing_mass_state(project, case.name)
@@ -1213,18 +1226,6 @@ def _check_wing_mass_states(project: Project) -> List[ConsistencyWarning]:
                 "loading, or correct its weight and CG (design note 63 D-63.1).",
                 PAGE_WEIGHT_CG))
             continue
-        starboard = math.fsum(it.weight_lb for it in state.point_masses if it.y > 0.0)
-        port = state.port_point_weight_lb
-        if not mass_distribution._wing_points_symmetric(state.items, project):
-            out.append(ConsistencyWarning(
-                "wing_mass_asymmetric",
-                f"Weight/CG case '{case.name}' carries {starboard:,.0f} lb of "
-                f"POINT wing mass on the starboard wing and {port:,.0f} lb on the "
-                "port. The wing inertia and the balanced deck are half-span models "
-                "of a symmetric wing: the starboard set is what is run and "
-                "mirrored. Enter a symmetric loading, or model the asymmetry as "
-                "its own case (design note 63 D-63.3).",
-                PAGE_WEIGHT_CG))
     if wm is not None and wm.cases:
         try:
             unnamed = [c.name for c in wm.cases

@@ -35,4 +35,4 @@
   net or body load moves on either. The Imperial baseline was regenerated for
   those three (Baron 24 channels, ATR 8, RJ 8). Not in scope and unchanged:
   Baron's `fwd gross` and `fwd regardless` need 720 lb (13 %) of ballast, past
-  the credibility gate, and reach no deck.
+  the credibility gate, and reach no deck (filed as #309).
