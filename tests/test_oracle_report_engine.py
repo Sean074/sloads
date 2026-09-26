@@ -265,11 +265,12 @@ def test_the_uncorrected_oracle_torque_is_stated_beside_the_corrected_one():
 # G-OR-107 -- the four gyroscopic sign combinations
 # --------------------------------------------------------------------------- #
 def test_each_gyroscopic_sign_combination_is_its_own_case():
-    """G-OR-107. Four rows per engine, ids suffixed a/b/c/d by the owner that
-    mints them for the CSV, and no fifth. The vertical and the thrust are
-    constant across the four -- they act in every combination -- so a build in
-    which they varied would mean the fan-out had picked up a per-sub-case value
-    that does not exist."""
+    """G-OR-107. Four rows per engine, each under an id of its own (design note
+    66 Q7, #286: the a/b/c/d suffix retired -- ``engine.split_gyro`` delivers
+    each combination as a condition that mints its own ``EM`` id), and no fifth.
+    The vertical and the thrust are constant across the four -- they act in
+    every combination -- so a build in which they varied would mean the split
+    had picked up a per-sub-case value that does not exist."""
     section = _section(_doc("concept_regional_jet"))
     components = _table(section, "Engine mount loads")
     ids = _column(components, "Case ID")
@@ -277,8 +278,8 @@ def test_each_gyroscopic_sign_combination_is_its_own_case():
     gyro = [row for row in components.rows if "Gyroscopic" in row[2]]
     assert len(gyro) == 8, [row[ids] for row in gyro]
     for engine_rows in (gyro[:4], gyro[4:]):
-        assert [row[ids][-1] for row in engine_rows] == ["a", "b", "c", "d"]
-        assert len({row[ids][:-1] for row in engine_rows}) == 1
+        seqs = [int(row[ids].split("-")[1]) for row in engine_rows]
+        assert seqs == list(range(seqs[0], seqs[0] + 4)), [row[ids] for row in engine_rows]
         assert len({row[fz] for row in engine_rows}) == 1
         assert len({row[fx] for row in engine_rows}) == 1
 

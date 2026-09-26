@@ -35,7 +35,7 @@ from ..constants import (
     G,
     reciprocating_torque_factor,
 )
-from ..load_keys import gyro_key
+from ..load_keys import FZ_VERTICAL_A2, gyro_key, parse_gyro_key
 from ..models import (
     CaseRef,
     ConditionResult,
@@ -730,7 +730,7 @@ def condition_25_371(inp: EngineInput) -> ConditionResult:
     values = [
         LoadValue("Myy due to 2.5 rad/s yaw (+/-)", m_yaw, "ft-lb", key="myy_due_to_2_5_rad_s_yaw_pm"),
         LoadValue("Mzz due to 1 rad/s pitch (+/-)", m_pitch, "ft-lb", key="mzz_due_to_1_rad_s_pitch_pm"),
-        LoadValue("Vertical limit-load (A2) load", vload, "lb", key="vertical_limit_load_a2_load"),
+        LoadValue("Vertical limit-load (A2) load", vload, "lb", key=FZ_VERTICAL_A2),
         LoadValue("Max continuous thrust", thrust, "lb", key="fx_thrust"),
         *_applied_at(cg),
     ]
@@ -829,6 +829,43 @@ def run_all(inp: EngineInput, *, include_far25: bool = False) -> List[ConditionR
     return results
 
 
+def split_gyro(cond: ConditionResult) -> List[ConditionResult]:
+    """One condition per gyroscopic sign combination (design note 66, D-66.8/Q7).
+
+    23.371(b) and 25.371 publish their four ``(±Myy, ±Mzz)`` combinations inside
+    one :class:`ConditionResult`; every other condition is returned as it is.
+    Each combination is a physical load case the mount is checked against, so
+    each is delivered as its own condition -- its own title, and in
+    :func:`run` its own ``EM`` id -- carrying the shared magnitudes, vertical,
+    thrust and point, and only its own signed pair (``gyro_key(k, ...)``).
+    Before #286 the four shared one id and the render boundary suffixed it
+    ``a``-``d``, which no solver subcase could be numbered from.
+    """
+    subs = sorted({p[0] for p in (parse_gyro_key(v.key) for v in cond.values) if p})
+    if not subs:
+        return [cond]
+    shared = [v for v in cond.values if parse_gyro_key(v.key) is None]
+    out: List[ConditionResult] = []
+    for k in subs:
+        own = [v for v in cond.values if (parse_gyro_key(v.key) or (None,))[0] == k]
+        tag = own[0].label.split(":")[0].strip() if own else f"Case {k}"
+        out.append(ConditionResult(
+            title=f"{cond.title} — {tag}", far_reference=cond.far_reference,
+            values=shared + own, note=cond.note))
+    return out
+
+
+def mount_conditions(inp: EngineInput, *, include_far25: bool = False) -> List[ConditionResult]:
+    """The engine's **delivered** conditions: :func:`run_all` with each
+    gyroscopic condition split into its four sign combinations (:func:`split_gyro`).
+
+    The one list :func:`run` mints ids over and the report slices per engine,
+    so the two can never count an engine's conditions differently. ``run_all``
+    stays the packed, oracle-shaped calc the Appendix B tests read.
+    """
+    return [c for cond in run_all(inp, include_far25=include_far25) for c in split_gyro(cond)]
+
+
 # --------------------------------------------------------------------------- #
 # Project entry point + registration
 # --------------------------------------------------------------------------- #
@@ -857,13 +894,10 @@ def run(project: Project) -> ModuleResult:
     # is not, and that is a property of the set (#241).
     tags = engine_tags(resolved)
     for i, eng in enumerate(resolved, start=1):
-        for cond in run_all(eng, include_far25=project.include_far25):
-            # The 23.371(b)/25.371 gyro condition packs 4 sign-combination
-            # sub-cases into one ConditionResult (report.py's _gyro_subcases
-            # fans it out); it still mints exactly one base EM- id here -- the
-            # 4 sub-case ids are derived from it (a/b/c/d suffix) at render
-            # time, since the model has no way to carry 4 case_refs on one
-            # ConditionResult (see docs/30_future/00_backlog.md Step D1).
+        for cond in mount_conditions(eng, include_far25=project.include_far25):
+            # Each gyroscopic sign combination is its own condition here and
+            # mints its own EM- id (design note 66 Q7, #286); the render-time
+            # a/b/c/d suffix it replaced could not be numbered as a subcase.
             # The tag goes on before the id is minted, so the ``condition`` the
             # load-case index prints is the engine's own (#241). Minting first
             # gave a twin's two mounts one condition string under two ids -- an

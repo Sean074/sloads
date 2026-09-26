@@ -101,6 +101,17 @@ def is_ground(case: BalancedCaseResult) -> bool:
     return any(ld.source.startswith("gear-") for ld in case.loads)
 
 
+def is_engine_mount(case: BalancedCaseResult) -> bool:
+    """Is this an engine-mount case (design note 66, #286)?
+
+    Read off the case's identity -- the ``EM`` family ENGLOADS mints -- not off
+    its loads: an EM case is a scaled flight case plus the engine's own loads,
+    and a flight case with entered hub thrust also carries ``engine-thrust``.
+    """
+    ref = case.case_ref
+    return ref is not None and ref.component == "engine_mount"
+
+
 def residual_gate_applies(case: BalancedCaseResult) -> bool:
     """Is this case's pre-closure ``Fz``/``My`` residual a **gate-comparable**
     trim statement? (CR-C-2, #41.)
@@ -133,7 +144,8 @@ def residual_gate_applies(case: BalancedCaseResult) -> bool:
     fixture (worst 0.614 %), which is the check working, not an argument for
     turning it off.
     """
-    return not (is_ground(case) or is_unsymmetrical_htail(case) or is_powered(case))
+    return not (is_ground(case) or is_unsymmetrical_htail(case) or is_powered(case)
+                or is_engine_mount(case))
 
 
 #: The exempt families in the order :func:`residual_gate_exemptions` states them,
@@ -144,6 +156,9 @@ _GATE_EXEMPTIONS = (
     (is_unsymmetrical_htail,
      "unsymmetrical h-tail (FAR 23.427(a); the maneuver tail load in full)"),
     (is_powered, "powered (the applied thrust couple in full)"),
+    (is_engine_mount,
+     "engine mount (a scaled flight case plus the engine's own loads; the "
+     "flight case it scales is gated as itself)"),
 )
 
 

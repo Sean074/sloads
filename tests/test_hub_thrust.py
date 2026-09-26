@@ -60,6 +60,7 @@ from sloads.modules.balance import (  # noqa: E402
     build_balanced_cases,
     handed_twin,
     hub_thrust,
+    is_engine_mount,
     is_ground,
     is_powered,
     resultant6,
@@ -99,7 +100,11 @@ def _by_id(cases):
 
 
 def _flight(cases):
-    return [c for c in cases if not is_ground(c)]
+    """The flight families -- not ground, and not the engine-mount family
+    (design note 66): an EM case is a *scaled* flight case whose entered thrust
+    is held at its value, so G-3's closed-form identities are the flight
+    families' own; the EM family is gated in ``test_engine_mount_cases.py``."""
+    return [c for c in cases if not is_ground(c) and not is_engine_mount(c)]
 
 
 # --------------------------------------------------------------------------- #

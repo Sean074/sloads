@@ -93,6 +93,7 @@ from sloads.modules.balance import (
     handed_twin,
     htail_load,
     htail_side_loads,
+    is_engine_mount,
     is_ground,
     is_handed,
     is_lateral,
@@ -497,12 +498,30 @@ def _flight_cases(project):
     against, so a residual gate on it would be a gate on nothing (its own gate,
     G-6's closed-form one, is in :func:`test_the_ground_closure_reproduces_landload`).
     """
-    return [c for c in build_balanced_cases(project) if not is_ground(c)]
+    return [c for c in build_balanced_cases(project)
+            if not is_ground(c) and not is_engine_mount(c)]
+
+
+def _engine_mount_cases(project):
+    """The engine-mount family alone (design note 66, #286): a scaled flight
+    case plus the engine's own loads, gated by its own G-66.x
+    (``tests/test_engine_mount_cases.py``), not by the flight trim gates above."""
+    return [c for c in build_balanced_cases(project) if is_engine_mount(c)]
 
 
 def _ground_cases(project):
     """The balanced cases of the ground family alone."""
     return [c for c in build_balanced_cases(project) if is_ground(c)]
+
+
+def _engine_conditions(project):
+    """ENGLOADS's delivered conditions, or none where the project has no engine."""
+    from sloads.modules import engine
+
+    try:
+        return engine.run(project).conditions
+    except MissingInputError:
+        return []
 
 
 def _landload_conditions(project):
@@ -644,7 +663,11 @@ def test_every_condition_is_either_assembled_or_recorded(example):
     # named is".
     named |= {("landing_gear", g.description, g.case)
               for g in _landload_conditions(project)}
-    assembled = {(c.case_ref.component, c.label, c.vn_case) for c in cases}
+    # And ENGLOADS, the third producer (design note 66, D-66.3): an engine
+    # condition has no source case number of its own, so it is keyed by title.
+    named |= {("engine_mount", c.title, None) for c in _engine_conditions(project)}
+    assembled = {(c.case_ref.component, c.label,
+                  None if is_engine_mount(c) else c.vn_case) for c in cases}
     recorded = {(s.component, s.label, s.case) for s in skipped}
     assert assembled | recorded == named, sorted(named ^ (assembled | recorded))
     assert not (assembled & recorded), sorted(assembled & recorded)
@@ -816,6 +839,10 @@ def test_a_ground_row_cites_its_own_far_condition(example):
             assert row.far_reference == case.case_ref.far_reference, row.title
             assert row.far_reference.startswith("23.4"), row.title
             ground += 1
+        elif is_engine_mount(case):
+            # Design note 66: an engine-mount row cites ENGLOADS's paragraph.
+            assert row.far_reference == case.case_ref.far_reference, row.title
+            assert row.far_reference[3:6] in ("361", "371"), row.title
         elif not (is_lateral(case) or is_unsymmetrical_htail(case)):
             assert row.far_reference in ("23.321", "23.349"), row.title
     assert ground == len(_EXPECTED_GROUND_CASES[example])
@@ -852,7 +879,7 @@ def test_the_residual_gate_family_is_the_predicates(example):
     cases = build_balanced_cases(_project(example), [])
     for case in cases:
         expected = not (is_ground(case) or is_unsymmetrical_htail(case)
-                        or is_powered(case))
+                        or is_powered(case) or is_engine_mount(case))
         assert residual_gate_applies(case) is expected, f"{example} {case.label}"
 
     lateral = [c for c in cases if is_lateral(c)]
@@ -868,6 +895,7 @@ def test_the_residual_gate_family_is_the_predicates(example):
     stated = " ".join(residual_gate_exemptions(cases))
     assert ("ground" in stated) == any(is_ground(c) for c in cases)
     assert ("h-tail" in stated) == any(is_unsymmetrical_htail(c) for c in cases)
+    assert ("engine mount" in stated) == any(is_engine_mount(c) for c in cases)
 
 
 @pytest.mark.parametrize("example", _with_cases())

@@ -6345,7 +6345,7 @@ def _engine_records(project: Project,
     the wrong engine.
     """
     from ..export.coordinates import ThrustLineError, engine_thrust_axis
-    from ..modules.engine import resolved_engines, run_all
+    from ..modules.engine import mount_conditions, resolved_engines
 
     result = results.get("engine_mount")
     if result is None or not project.engines:
@@ -6359,7 +6359,7 @@ def _engine_records(project: Project,
     taken = 0
     for number, eng in enumerate(engines, start=1):
         try:
-            count = len(run_all(eng, include_far25=project.include_far25))
+            count = len(mount_conditions(eng, include_far25=project.include_far25))
         except MissingInputError:
             return []
         mine = conditions[taken:taken + count]

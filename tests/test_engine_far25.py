@@ -155,7 +155,10 @@ def test_project_flag_appends_far25():
     mr = calc.run(project)
     refs = [c.far_reference for c in mr.conditions]
     assert "25.361(a)(3)(ii)" in refs and "25.371" in refs
-    assert len(mr.conditions) == 9
+    # 6 FAR 23 + 3 FAR 25, with each gyroscopic condition delivered as its four
+    # sign combinations (design note 66 Q7): 9 + 6.
+    assert len(mr.conditions) == 15
+    assert refs.count("23.371(b)") == refs.count("25.371") == 4
 
 
 def test_far25_json_round_trips():
@@ -166,7 +169,7 @@ def test_far25_json_round_trips():
     back = fio.project_from_dict(fio.project_to_dict(project))
     assert back.include_far25 is True
     assert back.engines[0].max_accel_torque == 2500.0
-    assert len(calc.run(back).conditions) == 9
+    assert len(calc.run(back).conditions) == 15
 
 
 if __name__ == "__main__":

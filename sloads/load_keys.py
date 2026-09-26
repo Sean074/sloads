@@ -33,8 +33,11 @@ LOC_KEYS = (LOC_X, LOC_Y, LOC_Z)
 FZ_VERTICAL = "fz_vertical"
 #: The 2.5g vertical load carried alongside the gyroscopic moments (23.371(b)).
 FZ_VERTICAL_2_5G = "fz_vertical_2_5g"
+#: 25.371's vertical, at the project's A2 limit load factor rather than 2.5 g.
+#: Dropped by every vertical reader until design note 66 (D-66.8, #286).
+FZ_VERTICAL_A2 = "vertical_limit_load_a2_load"
 #: Either vertical load fills the load-case row's vertical column, first match wins.
-VERTICAL_KEYS = (FZ_VERTICAL, FZ_VERTICAL_2_5G)
+VERTICAL_KEYS = (FZ_VERTICAL, FZ_VERTICAL_2_5G, FZ_VERTICAL_A2)
 
 FY_SIDE = "fy_side"
 FX_THRUST = "fx_thrust"

@@ -13,6 +13,7 @@ import math
 from dataclasses import replace
 from typing import Dict, List, Optional, Sequence
 
+from ... import safety_factors
 from ...case_ids import handed_case_id
 from ...cg_cases import flight_cases
 from ...derived_geometry import require_wing_reference, sync_geometry_derived
@@ -454,4 +455,17 @@ def build_balanced_cases(
     from .ground import build_ground_cases
 
     out += build_ground_cases(project, record)
+    # The engine-mount family joins last (design note 66, D-66.2): appended, so
+    # every shipped deck's subcase sequence ahead of it is untouched.
+    from .engine_cases import build_engine_cases
+
+    out += build_engine_cases(project, critical.conditions, vn, cgs, loadings, record)
+    # Every case states its own factor (design note 66, D-66.1): the governing
+    # table's answer for the FAR reference its ``CaseRef`` carries -- the same
+    # owner every other deliverable is stamped by (note 48), so the deck header's
+    # basis sentence and the case can never disagree. Before #286 nothing set
+    # it and every assembled case said SF 1.5 by the field's default -- right for
+    # every family then, wrong the moment a 23.367(a)(2) case (already
+    # ultimate) joins.
+    safety_factors.stamp(project, out)
     return out
