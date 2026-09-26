@@ -860,9 +860,9 @@ class CaseLoading:
     When a ballast row is needed it is *solved* from the case's weight, xcg and
     zcg, so those three match exactly by construction. When the loading already
     weighs the case weight, no ballast exists to move it and the match is only
-    within :data:`_CG_MATCH_TOL`: ga6's CG4 is the minimum-flight-weight loading
-    at station 73.0924 against a case entered as 73.09. That difference is real
-    and is exported as it stands.
+    within :data:`_CG_MATCH_TOL`, on station and waterline alike (#300): ga6's
+    CG4 is the minimum-flight-weight loading at station 73.0924 against a case
+    entered as 73.09. That difference is real and is exported as it stands.
 
     What is *not* guaranteed at all is that the ballast is physically credible,
     and that is what ``derivable`` and ``note`` carry: a case needing 31 % of the
@@ -904,6 +904,20 @@ def _wx(items: Sequence[MassItem]) -> Tuple[float, float, float]:
     return (w,
             math.fsum(it.weight_lb * it.x for it in items) / w,
             math.fsum(it.weight_lb * it.z for it in items) / w)
+
+
+def _cg_matches(x: float, z: float, case: CgCase,
+                waterline: bool = True) -> bool:
+    """A loading with no ballast to move it counts as ``case`` only if its CG
+    sits within :data:`_CG_MATCH_TOL` of the case's on **both** coordinates.
+
+    One rule for station and waterline (#300): the search once tested the
+    station alone, so ``baron_58``'s ``aft gross`` was accepted at a waterline
+    4.12 in below the case's -- and every module reading ``case.zcg`` balanced
+    a mass model that was not there.
+    """
+    return (abs(x - case.xcg) <= _CG_MATCH_TOL
+            and (not waterline or abs(z - case.zcg) <= _CG_MATCH_TOL))
 
 
 def entered_loading(items: Sequence[MassItem], case: CgCase) -> CaseLoading:
@@ -974,7 +988,8 @@ def entered_loading(items: Sequence[MassItem], case: CgCase) -> CaseLoading:
 
 
 def derive_case_loadings(project: Project,
-                         cases: Optional[Sequence[CgCase]] = None) -> List[CaseLoading]:
+                         cases: Optional[Sequence[CgCase]] = None, *,
+                         match_waterline: bool = True) -> List[CaseLoading]:
     """One :class:`CaseLoading` per weight/CG case.
 
     ``cases`` defaults to the ``FLIGHT``-tagged cases -- what this used to read
@@ -1019,7 +1034,14 @@ def derive_case_loadings(project: Project,
     The ballast row's ``x`` **and** ``z`` are both solved (weight from the
     residual, station from the x-moment, waterline from the z-moment), so the
     derived loading matches the case in all three. Its inertias are zero -- a
-    point mass, which is what a ballast weight is.
+    point mass, which is what a ballast weight is. A loading carrying **no**
+    ballast has nothing to move it, so it counts as the case only within
+    :data:`_CG_MATCH_TOL` on station and waterline both (#300).
+    ``match_waterline=False`` drops the waterline half of that test for the
+    one caller whose case has no waterline yet: ``cg_cases.seed_flight_cases``
+    searches on a placeholder and writes the found loading's waterline back as
+    ``zcg`` (D-26a), so there the waterline is the search's answer, not its
+    target.
 
     **All of that is the fallback since D-25.** A case carrying an explicit
     ``loading`` is assembled by :func:`entered_loading` instead: no search, no
@@ -1070,8 +1092,8 @@ def derive_case_loadings(project: Project,
             if burns:
                 burnt = _burn_down(base + sub, case.weight_lb)
                 if burnt is not None:
-                    _, bx, _bz = _wx(burnt)
-                    if abs(bx - case.xcg) <= _CG_MATCH_TOL:
+                    _, bx, bz = _wx(burnt)
+                    if _cg_matches(bx, bz, case, match_waterline):
                         cand: Tuple[float, int, List[MassItem], Optional[MassItem]] = (0.0, -len(sub), burnt, None)
                         if best is None or cand[:2] < best[:2]:
                             best = cand
@@ -1081,7 +1103,7 @@ def derive_case_loadings(project: Project,
             if wb < -_BALLAST_EPS:
                 continue                       # loading is already heavier than the case
             if abs(wb) <= _BALLAST_EPS:
-                if abs(xa - case.xcg) > _CG_MATCH_TOL:
+                if not _cg_matches(xa, za, case, match_waterline):
                     continue                   # right weight, wrong CG -- ballast cannot help
                 cand = (0.0, -len(sub), base + sub, None)
             else:
@@ -1362,10 +1384,12 @@ def case_loading_checks(project: Project) -> List[MassCheck]:
 
     Two routes, two meanings, one check:
 
-    * a **derived** loading matches exactly by construction -- the ballast is
-      *solved* from the target -- so this guards the construction, not the
-      physics: it fails if the subset search ever returns a loading that does not
-      actually sum to what it claims;
+    * a **derived** loading guards the construction, not the physics: with a
+      solved ballast row it matches exactly (the ballast is *solved* from the
+      target, held to 1e-9); with none, nothing can move it, and the search
+      accepted it within :data:`_CG_MATCH_TOL` on both coordinates -- so that
+      is the band it is held to here (#300: ga6's CG4, 0.0024 in off, is the
+      precedent the tolerance was written for, not a failure);
     * an **entered** loading (D-25) is authoritative, and the case's
       ``weight_lb``/``xcg``/``zcg`` are the *echo*. Nothing is bent to make them
       agree; instead a disagreement beyond
@@ -1374,22 +1398,29 @@ def case_loading_checks(project: Project) -> List[MassCheck]:
       loading honest about the case it claims to be.
     """
     out: List[MassCheck] = []
-    for loading in derive_case_loadings(project):
+    # Every case, ground as well as flight (#300): ``concept_regional_jet``'s
+    # ``fwd max landing`` flew a loading 2.16 in off its waterline unseen
+    # while this read the flight cases alone.
+    cases = list(project.weight.cg_cases) if project.weight is not None else []
+    for case, loading in zip(cases, derive_case_loadings(project, cases)):
         if not loading.derivable:
             continue
-        case = next(c for c in flight_cases(project) if c.name == loading.name)
         w_tol = max(_ECHO_WEIGHT_ABS, _ECHO_WEIGHT_REL * abs(case.weight_lb))
         for got, want, label, tol in (
                 (loading.weight_lb, case.weight_lb, "weight", w_tol),
                 (loading.cg_x, case.xcg, "xcg", _CG_MATCH_TOL),
                 (loading.cg_z, case.zcg, "zcg", _CG_MATCH_TOL)):
-            ok = (abs(got - want) <= tol if loading.entered
-                  else _close(got, want, 1e-9))
+            # A solved ballast row closes weight and CG exactly; without one
+            # the weight still closes (the subset or its burn-down weighs the
+            # case) and only the CG is held to the band the search accepted.
+            banded = loading.entered or (loading.ballast is None
+                                         and label != "weight")
+            ok = abs(got - want) <= tol if banded else _close(got, want, 1e-9)
+            route = "entered loading" if loading.entered else "no ballast"
             out.append(MassCheck(
                 code=f"mass_case_{label}", ok=ok, got=got, want=want,
                 detail=(f"{loading.name} {label} {got:.4f} against {want:.4f}"
-                        + (f" (entered loading, tolerance {tol:g})"
-                           if loading.entered else "")),
+                        + (f" ({route}, tolerance {tol:g})" if banded else "")),
             ))
     return out
 
