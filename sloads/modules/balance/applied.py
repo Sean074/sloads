@@ -137,17 +137,22 @@ def _flight_loads(project: Project) -> FlightLoadsInput:
     return fl
 
 
-def wing_sets(project: Project, vn: VnPoint) -> Tuple[List[BalancedLoad], float, float]:
+def wing_sets(project: Project, vn: VnPoint,
+              sources=None) -> Tuple[List[BalancedLoad], float, float]:
     """Starboard wing air + inertia loads, at ``vn``'s own flight condition.
 
     Returns ``(loads, wing_item_weight, cm_free_total)`` where ``cm_free_total``
     is the section-``Cm`` free moment of **both** wings -- the caller needs it to
     work out the fuselage's share of the trim moment.
+
+    ``sources`` is the caller's already-resolved
+    :class:`~sloads.modules.wing_inertia.WingCaseSources`; without it the case
+    list re-resolves the V-n matrix and SELECT's set, once per call.
     """
     wm, geometry, aero_in = _wing_slices(project)
     geom = geometry.by_name(wm.surface)
     aero = aero_in.by_name(wm.surface)
-    base = next((c for c in resolve_wing_cases(project, wm)), None)
+    base = next((c for c in resolve_wing_cases(project, wm, sources)), None)
     if geom is None or aero is None or base is None:
         raise MissingInputError("balance needs a wing surface, aero set and load case")
 

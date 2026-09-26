@@ -33,7 +33,7 @@ from ...tail_geometry import HTAIL, VTAIL
 from ..rolling import complete_rolling_case
 from ..select import default_critical, default_envelope
 from ..tail_span import build_tail_span
-from ..wing_inertia import resolve_wing_cases
+from ..wing_inertia import WingCaseSources, resolve_wing_cases
 from .applied import (
     _flight_loads,
     _mirror,
@@ -63,7 +63,8 @@ from .skipped import SkippedCondition, _skip
 
 def unbalanced_rolling_moment(project: Project, condition: str,
                               point: Optional[VnPoint] = None,
-                              vn: Optional[Dict[int, VnPoint]] = None) -> float:
+                              vn: Optional[Dict[int, VnPoint]] = None,
+                              sources: Optional[WingCaseSources] = None) -> float:
     """The resolved ``UNB`` of wing condition ``condition`` (FAR 23.349), or 0.
 
     **One owner for both readers** (design note 52, D-52.3): the value the wing
@@ -79,7 +80,8 @@ def unbalanced_rolling_moment(project: Project, condition: str,
     wm = project.wing_mass
     if wm is None:
         return 0.0
-    case = next((c for c in resolve_wing_cases(project, wm) if c.name == condition), None)
+    case = next((c for c in resolve_wing_cases(project, wm, sources)
+                 if c.name == condition), None)
     if case is None and point is not None and vn is not None:
         case = complete_rolling_case(project, WingLoadCase(name=condition, case=point.case), vn)
     return (case.unbal_moment or 0.0) if case is not None else 0.0
@@ -91,7 +93,8 @@ def assemble(project: Project, condition: str, vn: VnPoint,
              lateral: Sequence[BalancedLoad] = (),
              htail: Sequence[BalancedLoad] = (),
              lateral_aero: Optional[LateralAeroTerms] = None,
-             extra: Sequence[BalancedLoad] = ()) -> BalancedCaseResult:
+             extra: Sequence[BalancedLoad] = (),
+             sources: Optional[WingCaseSources] = None) -> BalancedCaseResult:
     """Assemble one balanced case and close its residual.
 
     ``unb`` is the unbalanced rolling moment (FAR 23.349) for an accelerated-roll
@@ -128,7 +131,7 @@ def assemble(project: Project, condition: str, vn: VnPoint,
     wr = require_wing_reference(project)
     notes: List[str] = []
 
-    wing_r, panel_both, _cm_free = wing_sets(project, vn)
+    wing_r, panel_both, _cm_free = wing_sets(project, vn, sources)
     wing_r, scale_notes = place_wing_inertia(wing_r, loading, project, panel_both, vn.nz)
     notes += scale_notes
 
@@ -396,6 +399,13 @@ def build_balanced_cases(
     loadings = {ld.name: ld for ld in derive_case_loadings(project)}
     vtails = _vtail_distributions(project)
     htails = _htail_distributions(project)
+    # What ``wing_inertia.wing_case_sources`` would resolve, from the envelope
+    # and critical set already in hand: every case's wing set asks for the wing
+    # case list, and without this each ``assemble`` rebuilt the V-n matrix and
+    # SELECT's set from scratch -- 46 envelope builds for the ATR's deck once
+    # the engine families (design note 66) added their parents.
+    sources = WingCaseSources(
+        vn=vn, wing_conditions=[c for c in critical.conditions if c.component == "wing"])
 
     record: List[SkippedCondition] = skipped if skipped is not None else []
 
@@ -445,10 +455,10 @@ def build_balanced_cases(
             record.append(_skip(cond, "loading-not-derivable"))
             continue
         if cond.component == "wing" and cond.label in ROLLING_WING_CONDITIONS:
-            unb = unbalanced_rolling_moment(project, cond.label, point, vn)
+            unb = unbalanced_rolling_moment(project, cond.label, point, vn, sources)
         terms = (lateral_aero_terms(project, lateral_cond, point)
                  if lateral_cond is not None else None)
-        case = assemble(project, cond.label, point, loading, cg,
+        case = assemble(project, cond.label, point, loading, cg, sources=sources,
                         case_ref=cond.case_ref, unb=unb, lateral=lateral,
                         htail=htail, lateral_aero=terms)
         out.append(case)
@@ -473,8 +483,10 @@ def build_balanced_cases(
     # every shipped deck's subcase sequence ahead of it is untouched.
     from .engine_cases import build_engine_cases
 
-    out += build_engine_cases(project, critical.conditions, vn, cgs, loadings, record)
-    out += build_engine_out_cases(project, engine_out, vn, cgs, loadings, vtails, record)
+    out += build_engine_cases(project, critical.conditions, vn, cgs, loadings, record,
+                              sources=sources)
+    out += build_engine_out_cases(project, engine_out, vn, cgs, loadings, vtails, record,
+                                  sources=sources)
     # Every case states its own factor (design note 66, D-66.1): the governing
     # table's answer for the FAR reference its ``CaseRef`` carries -- the same
     # owner every other deliverable is stamped by (note 48), so the deck header's

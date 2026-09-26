@@ -224,6 +224,7 @@ def build_engine_cases(project: Project, critical: Sequence[CriticalCondition],
                        vn: Dict[int, VnPoint], cgs: Dict[str, CgCase],
                        loadings: Dict[str, CaseLoading],
                        skipped: Optional[List[SkippedCondition]] = None,
+                       sources=None,
                        ) -> List[BalancedCaseResult]:
     """The EM family: one balanced case per ENGLOADS condition that pairs with
     a flight state, per engine, in ENGLOADS's own order (note 66 D-66.4).
@@ -251,6 +252,9 @@ def build_engine_cases(project: Project, critical: Sequence[CriticalCondition],
     anchor = vn.get(phaa.case) if phaa is not None and phaa.case is not None else None
 
     out: List[BalancedCaseResult] = []
+    # Many engine cases share one parent point (the ATR's 14 share 3): each is
+    # assembled once and scaled per case.
+    parents: Dict[int, BalancedCaseResult] = {}
     taken = 0
     for index, eng in enumerate(engines, start=1):
         count = len(mount_conditions(eng, include_far25=project.include_far25))
@@ -285,7 +289,10 @@ def build_engine_cases(project: Project, critical: Sequence[CriticalCondition],
                 record.append(_skip(_EngineCondition(cond), "thrust-line"))
                 continue
             target = _target_n(cond, weight)
-            parent = assemble(project, cond.title, point, loading, cg)
+            if point.case not in parents:
+                parents[point.case] = assemble(project, cond.title, point, loading, cg,
+                                               sources=sources)
+            parent = parents[point.case]
             k = target / parent.nz if parent.nz else 0.0
             case = _scaled(parent, k)
             loads = list(case.loads) + increment
