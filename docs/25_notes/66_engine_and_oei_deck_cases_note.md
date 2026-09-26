@@ -2,7 +2,7 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: AGREED 2026-09-25 (owner, in session) — no code.** PROPOSED the same
+**Status: AGREED 2026-09-25 (owner, in session); #286 SHIPPED 2026-09-26 (§10), #285 open.** PROPOSED the same
 day; the owner ruled Q1–Q7 of §2 **as recommended**, so D-66.1…D-66.16 stand as
 written (§9). Drafted for one design pass over two band-B8 rows the 2026-09-22
 re-charter paired ("#286 and #285 move B2 → B8 (one design pass)"): **#286**,
@@ -276,3 +276,34 @@ fragments; backlog rows #286 and #285 removed at their closures.
 - **Q7** — each gyro condition mints four real EM ids in ENGLOADS, retiring
   the render-time `a/b/c/d` suffix; the turboprops' later EM ids renumber in
   #286's digest wave (D-66.8).
+
+## 10. Implementation record — #286 (2026-09-26)
+
+D-66.1…D-66.9 as written, in `balance/engine_cases.py` (the family),
+`balance/air.py` (appended after ground; the SF stamp), `balance/queries.py`
+(`is_engine_mount`, a residual-gate exemption), `balance/applied.py`
+(`reflect_load`'s rotation-fixed sources), `export/lra_model.py` (a member per
+engine; `_member_key` routes by `carrier`), `modules/engine.py`
+(`split_gyro`/`mount_conditions`, Q7) and `report/render.py` (the gyro id is
+the condition's own; the A2 vertical is read). Gates in
+`tests/test_engine_mount_cases.py`. Where the build met the note:
+
+1. **Coverage (G-66.2), measured:** ga6 2 EM cases + 23.363 recorded; baron
+   4 + 2; atr 14 + 4; RJ 26 + 4; `concept_heavy` none. The round-trip solve
+   (G-66.6) passes on all four engine fixtures, Imperial and SI.
+2. **G-66.3 is two statements.** The case's `n` equals ENGLOADS's
+   `vertical ÷ PPWT` to 1e-9 everywhere; the database's engine and propeller
+   rows equal `PPWT` to the pound on ga6 (579), the Baron (515.5/engine) and
+   the ATR (1,200/engine). **The RJ carries both engines as one 3,400 lb
+   centreline FUSELAGE lump against 2 × 1,550**, so its engine inertia rides the
+   body at +300 lb — a fixture-data finding, stated here, not fixed.
+3. **The per-engine member (D-66.6) needed the model's member table built
+   first**: the first cut assigned it before `members` was rebuilt and the
+   loads silently fell back to the shared member — resultant exact, per-engine
+   landing wrong. G-66.4 caught it.
+4. **No new exemption beyond the family**: a gyro case carries hub thrust and
+   was already "powered"; the family as a whole is exempt from the trim gate
+   (its parent is gated as itself), and every EM case closes in all six DOF.
+5. **D-66.1 moved no number**: every assembled case on every fixture resolves
+   to 1.5; the 1.0 arrives with #285.
+

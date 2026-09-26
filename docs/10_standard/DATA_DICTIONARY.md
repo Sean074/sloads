@@ -38,7 +38,7 @@ The top-level `Project` fields. `name`/`engineer`/`date` are free-text metadata;
 | `one_engine_out` | `?` | One Engine Out | `one_engine_out`, `select` | One-engine-out v-tail loads (ONENGOUT) |
 | `landing` | `?` | Landing Loads | `balance`, `landing` | Landing loads (LANDLOAD / GEARLOAD) |
 | `lra_mesh` | `?` | Geometry | — | LRA beam mesh: node count per member (design note 56 D-56.4) |
-| `include_far25` | `bool` | Engine Mount Loads | `engine` | Opt-in FAR 25 supplemental cases (flag) |
+| `include_far25` | `bool` | Engine Mount Loads | `balance`, `engine` | Opt-in FAR 25 supplemental cases (flag) |
 
 ## Field tables
 

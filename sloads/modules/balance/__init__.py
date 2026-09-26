@@ -284,6 +284,7 @@ from .queries import (  # noqa: F401
     htail_load,
     htail_side_loads,
     hub_thrust,
+    is_engine_mount,
     is_ground,
     is_handed,
     is_lateral,
@@ -389,7 +390,9 @@ def run(project: Project) -> ModuleResult:
         # the V-n envelope source (23.333), but the *balancing* of that point
         # is 23.321's requirement, so the row keeps citing it.
         ground = is_ground(c)
-        if lateral or unsymmetrical or ground:
+        # An engine-mount case cites the 23.361/23.371 paragraph ENGLOADS
+        # minted it under (design note 66), like the lateral and ground families.
+        if lateral or unsymmetrical or ground or is_engine_mount(c):
             far = (c.case_ref.far_reference if c.case_ref else "") or (
                 "23.471" if ground else "23.321")
         else:
@@ -460,6 +463,7 @@ __all__ = [
     "htail_side_loads",
     "hub_thrust",
     "hub_thrust_set",
+    "is_engine_mount",
     "is_ground",
     "is_handed",
     "is_lateral",

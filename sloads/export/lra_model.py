@@ -896,6 +896,7 @@ def build_lra_model(project: Project) -> LraModel:
 
     # ---------------------------------------------------------------- engines
     engine_nodes: List[LraNode] = []
+    per_engine: Dict[str, List[LraNode]] = {}
     from ..modules.engine import resolved_engines
     for i, eng in enumerate(resolved_engines(project) if project.engines else []):
         mount_pos: Tuple[float, float, float] = (eng.engine_cg[0], eng.engine_cg[1], eng.engine_cg[2])
@@ -923,6 +924,10 @@ def build_lra_model(project: Project) -> LraModel:
             # Coincident hub and mount cannot both exist (zero-length tie adds
             # nothing); keep the mount, drop the hub node.
             engine_nodes.pop()
+        # Each engine is a member of its own too, so an engine-mount case's
+        # loads land on *this* engine's nodes (design note 66, D-66.6). Held
+        # here and added with the other members below.
+        per_engine[f"engine-{i + 1}"] = [n for n in (mount, hub) if n in engine_nodes]
         if mounted == "wing":
             wing_chain = right if side != "L" else left
             parent = nearest_node(wing_chain[1:] or wing_chain, mount_pos)
@@ -1082,6 +1087,7 @@ def build_lra_model(project: Project) -> LraModel:
         model.members["gear"] = gear_nodes
     if engine_nodes:
         model.members["engine"] = engine_nodes
+        model.members.update(per_engine)
     _refuse_unsolvable_skeleton(model, mesh)
     return model
 
@@ -1127,7 +1133,9 @@ def _member_key(load: BalancedLoad, members: Dict[str, List[LraNode]]) -> str:
     elif s.startswith("gear-"):
         key = "gear"
     elif s.startswith("engine-"):
-        key = "engine"
+        # An engine-mount case names its engine (note 66 D-66.6); hub thrust
+        # of the flight families names none and keeps the shared member.
+        key = load.carrier if load.carrier.startswith("engine-") else "engine"
     elif s.startswith("body") or s == "fuselage-cm":
         key = "fuselage"
     else:

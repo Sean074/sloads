@@ -18,13 +18,14 @@ import re
 from enum import Enum
 from typing import Callable, Dict, List, NamedTuple, Optional, Sequence
 
-from ..case_ids import GYRO_SUBCASE_SUFFIXES, NO_LOAD_ID, deck_load_id
+from ..case_ids import NO_LOAD_ID, deck_load_id
 from ..constants import IN_PER_FT
 from ..frames import is_report_only
 from ..load_keys import (
     FX_THRUST,
     FY_SIDE,
     FZ_VERTICAL_2_5G,
+    FZ_VERTICAL_A2,
     LOAD_CASE_KEYS,
     LOC_KEYS,
     MX_MOUNT_TORQUE,
@@ -669,14 +670,11 @@ def summary_rows(module: str, results: List[ConditionResult], *,
 # the lookup returned ``None``, ``_val`` turned that into ``""`` and the renderer
 # wrote an empty cell with no error anywhere. Keys are the calc's machine
 # identity for a quantity and live in :mod:`sloads.load_keys`.
-#: The FAR 23 gyroscopic condition, named for the one place a *reference* still
-#: has to be matched: :func:`has_load_case_data` is asked before any value is
-#: read. Everywhere a condition's own values are in hand, the question "does this
-#: fan out into sign combinations?" is asked of the **keys** instead --
-#: :func:`_has_gyro_subcases` -- because 25.371 packs the same four sub-cases
-#: under a different reference, and matching the string dropped every one of
-#: them: its row printed with no moments at all (found 2026-09-07, note 44 §20).
-_GYRO_FAR = "23.371(b)"
+# Whether a condition fans out into gyroscopic sign combinations is asked of
+# its **keys** (:func:`_has_gyro_subcases`), never of its reference: 25.371
+# packs the same sub-cases under another reference (note 44 §20), and since
+# design note 66 a balanced engine-mount case cites 23.371(b) with no engine
+# keys at all -- the last reference match flipped the balance table's schema.
 
 
 def _has_gyro_subcases(r: ConditionResult) -> bool:
@@ -692,7 +690,10 @@ def has_load_case_data(results: List[ConditionResult]) -> bool:
     this returns False for them and callers fall back to the generic table.
     """
     for r in results:
-        if r.far_reference == _GYRO_FAR or _has_gyro_subcases(r):
+        # Decided from the keys alone: a balanced engine-mount case cites
+        # 23.371(b) too (design note 66) and carries no engine load keys, and
+        # a reference match flipped the whole balance table's schema.
+        if _has_gyro_subcases(r):
             return True
         for v in r.values:
             if v.key in LOAD_CASE_KEYS:
@@ -777,20 +778,14 @@ def _val(loadvalue: Optional[LoadValue]):
     return loadvalue.value if loadvalue is not None else ""
 
 
-#: Read from the id vocabulary rather than respelt here, so the suffix this
-#: mints is the one :func:`~sloads.case_ids.index_case_id` knows how to strip.
-_GYRO_SUBCASE_SUFFIX = GYRO_SUBCASE_SUFFIXES
-
-
 def _gyro_subcase_id(r: ConditionResult, num: int) -> str:
-    """The sub-case ID for one gyro sign-combination: the condition's calc-minted
-    EM- id with an a/b/c/d suffix (the model has no way to carry 4 case_refs on
-    one ConditionResult -- see docs/30_future/00_backlog.md Step D1)."""
-    if r.case_ref is None:
-        return ""
-    idx = num - 1
-    suffix = _GYRO_SUBCASE_SUFFIX[idx] if 0 <= idx < len(_GYRO_SUBCASE_SUFFIX) else str(num)
-    return f"{r.case_ref.case_id}{suffix}"
+    """The id of one gyro sign combination: the condition's own calc-minted
+    ``EM-`` id. Since design note 66 (Q7, #286) ``engine.run`` delivers each
+    combination as its own condition with its own id (``engine.split_gyro``),
+    so there is nothing to derive; the ``a``-``d`` suffix this used to mint
+    retired with it. ``num`` is kept for the caller's loop."""
+    del num
+    return r.case_ref.case_id if r.case_ref is not None else ""
 
 
 #: The gyro sub-case *description* is the only thing still read off the label —
@@ -810,7 +805,10 @@ def _gyro_subcases(r: ConditionResult):
     sign combinations; only the gyroscopic moments vary.
     """
     thrust = _val(_find(r.values, FX_THRUST))
-    vertical = _val(_find(r.values, FZ_VERTICAL_2_5G))
+    # 23.371(b) states its vertical at the fixed 2.5 g, 25.371 at the A2 load
+    # factor under its own key -- read both (note 66 D-66.8: 25.371's vertical
+    # printed 0 on every sub-case until #286).
+    vertical = _val(_find_any(r.values, (FZ_VERTICAL_2_5G, FZ_VERTICAL_A2)))
     cases: Dict[int, Dict[str, object]] = {}
     for v in r.values:
         parsed = parse_gyro_key(v.key)
@@ -821,7 +819,8 @@ def _gyro_subcases(r: ConditionResult):
         case[comp] = v.value
     for num in sorted(cases):
         c = cases[num]
-        desc = f"{r.title} — {c['desc']}"
+        # A split condition (engine.split_gyro) already names its combination.
+        desc = r.title if str(c["desc"]) in r.title else f"{r.title} — {c['desc']}"
         yield desc, c.get("myy", ""), c.get("mzz", ""), thrust, vertical, _gyro_subcase_id(r, num)
 
 

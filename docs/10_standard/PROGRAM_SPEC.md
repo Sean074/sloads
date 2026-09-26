@@ -992,6 +992,28 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   stay parked with that note. Off unless entered, so every pre-#10 case is
   bit-for-bit unchanged. Single owner `balance.hub_thrust_set`;
   `CONVENTIONS.md` §7.
+  **The engine-mount family** (design note 66, #286; `balance.engine_cases`)
+  is the last one appended: ENGLOADS's 23.361(a)(1)/(a)(2)/(a)(3), 23.371(b)
+  and (on an `include_far25` project) 25.361(a)(3)(i)/(ii)/25.371 conditions,
+  **per engine and never mirrored**, ids the mount module's own `EM-nn`. Each is
+  an assembled flight case in SELECT's delivered PHAA block — PHAA's own point
+  for condition A, `BAL C` for 1 g, `MAN A` for the gyroscopic cases — scaled by
+  one constant to the load factor ENGLOADS states for the engine
+  (`vertical ÷ PPWT`: 0.75 n₁, n₁, 1 g, 2.5 g, A2), plus the engine's own loads
+  through `coordinates.engine_applied_load`: the torque and gyroscopic couples
+  at the mount node, the thrust at the hub, each carrying `carrier="engine-<i>"`
+  so the LRA router lands it on that engine's pair. **ENGLOADS's vertical is not
+  re-applied** — the engine's mass is already in the parent's inertia at that
+  `n`. The propeller torque is trimmed by an equal and opposite `aileron-trim`
+  couple at the wing a.c. (note 21 P-9); the gyro couples and thrust are closed
+  by the rigid-body relief. 23.363 and 23.361(b)(1) are mount-local and
+  recorded as not assembled. EM cases are exempt from the trim residual gate
+  (the flight case they scale is gated as itself) and carry their own gates,
+  `tests/test_engine_mount_cases.py` (G-66.1…G-66.7, G-66.12).
+  **Every balanced case states its own safety factor** (D-66.1): the governing
+  table's answer for its `CaseRef`'s FAR reference, stamped in
+  `build_balanced_cases` through `safety_factors.stamp`, and printed by the deck
+  header's basis sentence — 1.5 on every family shipped to date.
   A condition whose CG the weight database cannot produce is **recorded, not
   invented**. The ground families' own method — the `n_z = 0` solve, the applied
   gear/lift set and the LANDLOAD identity — is

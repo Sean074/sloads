@@ -124,21 +124,18 @@ def test_a_twins_two_mounts_no_longer_share_one_case_string():
     assert "right" in index["EM-04"]["Condition"]
 
 
-def test_a_gyro_sub_case_names_the_case_the_index_lists_it_under():
-    """The four sign combinations are four rows and one indexed case.
-
-    Stated rather than tolerated: the delivered id is the base id plus an
-    ``a``/``b``/``c``/``d`` suffix, because one ``ConditionResult`` cannot carry
-    four ``CaseRef``s (Step D1), and the strip that joins them back has one owner.
-    """
+def test_a_gyro_sub_case_is_a_case_the_index_lists():
+    """The four sign combinations are four rows **and four indexed cases**
+    (design note 66 Q7, #286): each is its own condition with its own ``EM``
+    id, so the applied file and the index join on the id itself -- there is no
+    suffix to strip any more, and no id the index does not list."""
     applied, index = _bundle("atr42_100.project.json")
     rows = applied["sbeam/engine_applied"]
-    gyro = [r["Case ID"] for r in rows if r["Case ID"][-1:] in "abcd"]
-    assert gyro, "no gyro sub-case rows -- has the 23.371(b) fan-out moved?"
-    assert len(gyro) % 4 == 0
+    gyro = [r["Case ID"] for r in rows if "Gyroscopic" in r["Case"]]
+    assert gyro, "no gyro rows -- has the 23.371(b) condition moved?"
+    assert len(gyro) == len(set(gyro)) == 8, gyro      # 4 per engine, distinct
     for case_id in gyro:
-        assert case_id not in index
-        assert index_case_id(case_id) in index
+        assert case_id in index
     assert index_case_id("W-05R") == "W-05"
     assert index_case_id("EM-06") == "EM-06"
 

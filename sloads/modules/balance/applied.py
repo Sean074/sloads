@@ -90,8 +90,19 @@ def reflect_load(load: BalancedLoad) -> BalancedLoad:
     x, y, z = reflect_point(load.x, load.y, load.z)
     fx, fy, fz = reflect_force(load.fx, load.fy, load.fz)
     mx, my, mz = reflect_moment(load.mx, load.my, load.mz)
+    if load.source in _ROTATION_FIXED_SOURCES:
+        # A propeller's torque and gyroscopic couples keep their sense: the
+        # mirrored airplane's propeller turns the same way (note 21 §4.4,
+        # design note 66 D-66.7). Its position mirrors; its couple does not.
+        mx, my, mz = load.mx, load.my, load.mz
     return replace(load, x=x, y=y, z=z, fx=fx, fy=fy, fz=fz,
                    mx=mx, my=my, mz=mz, side=reflect_side(load.side))
+
+
+#: The couples :func:`reflect_load` does not mirror -- the owner is
+#: ``engine_cases.ROTATION_FIXED_SOURCES``; restated here only because that
+#: module imports this one (a guard test holds the two equal).
+_ROTATION_FIXED_SOURCES = ("engine-torque", "engine-gyro")
 
 
 def _mirror(loads: Sequence[BalancedLoad]) -> List[BalancedLoad]:

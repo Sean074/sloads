@@ -40,6 +40,23 @@ SKIP_REASONS = {
         "fuselage conditions are delivered as net fuselage loads in the report "
         "and the case index, and the one-engine-out fin conditions in the "
         "report alone; none of them reaches a solver deck"),
+    "mount-local": (
+        # Design note 66 Q1 (#286): the engine conditions the regulation does
+        # not pair with a flight state of the whole airplane.
+        "an engine-mount condition the regulation states without a concurrent "
+        "flight load -- the side load is to be taken independently of other "
+        "flight conditions, and the sudden-stoppage torque carries no flight "
+        "state -- so it is a local mount-design case and there is nothing for "
+        "a balanced airplane to balance. It is delivered at the mount in the "
+        "report and the engine applied-load file"),
+    "no-parent": (
+        "the engine case is built on a flight condition of the airplane (the "
+        "critical positive-high-angle-of-attack run, or a 1 g or maneuvering "
+        "point beside it), and that condition is not available for this "
+        "project, so there is no flight state to combine the engine load with"),
+    "thrust-line": (
+        "the engine's thrust line is entered as one point of two, so the "
+        "direction the engine loads act along is not defined"),
     "gear-design-only": (
         "a supplementary nose-wheel condition (FAR 23.499): it carries nose "
         "reactions only, with no main-gear reaction anywhere in the family, so "
