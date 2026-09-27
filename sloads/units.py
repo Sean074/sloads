@@ -680,7 +680,7 @@ _NOT_DIMENSIONAL: Dict[str, str] = {
     "crew": "a head count",
     "seats": "a seat count",
     "occupants": "a head count",
-    "engines": "an engine count",
+    "engine_count": "an engine count",
     "cylinders": "a cylinder count",
     "prop_blades": "a blade count",
     "elements": "a strip count (WINGGEOM's H)",

@@ -226,19 +226,6 @@ def test_every_classification_is_of_a_field_that_exists():
                 "-- remove the entry")
 
 
-#: The one collision that predates the gate below, pinned with its reason
-#: rather than waved through. ``WeightEstimationInput.engines`` is an engine
-#: **count** while ``Project.engines`` is the list of engine inputs, and the
-#: walker reaches the list first -- so the count has never been asked whether
-#: it is classified. It is harmless today, because a count is dimensionless and
-#: unconverted is the right answer by accident; the fix is to rename it
-#: ``engine_count``, which moves the published field-registry path
-#: ``weight.estimation.engines`` and so belongs to its own change rather than
-#: to note 56's LRA mesh. A row here is a decision on the record, not a
-#: silence: removing the name is how the rename closes.
-_KNOWN_AMBIGUOUS = {"engines"}
-
-
 def test_one_field_name_never_means_a_number_here_and_a_dataclass_there():
     """The classification tables key on the **bare field name**, so a name must
     mean one kind of thing across the whole schema.
@@ -254,10 +241,13 @@ def test_one_field_name_never_means_a_number_here_and_a_dataclass_there():
     the four inherited ``GeometryInput``'s non-numeric answer and slipped
     straight through. Only ``wing``, which nothing else claimed, was flagged.
     The fields are ``*_grids`` now; this is the gate that would have said so.
+    It ran with one pinned exception until #276: the weight estimate's engine
+    count was named ``engines``, the name of ``Project.engines``' list, and is
+    ``engine_count`` since v70.
     """
     _fields, collisions = _reachable_fields()
     ambiguous = {name: owners for name, owners in collisions.items()
-                 if len(owners) > 1 and name not in _KNOWN_AMBIGUOUS}
+                 if len(owners) > 1}
     assert not ambiguous, (
         "these field names are numeric in one dataclass and not in another, so "
         "sloads.units can only give one of them the right answer and the "

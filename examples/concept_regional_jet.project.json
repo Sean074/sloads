@@ -1,5 +1,5 @@
 {
-  "schema_version": 69,
+  "schema_version": 70,
   "name": "RJ-50 concept \u2014 50-seat regional jet (concept mode, Part 25)",
   "engines": [
     {
@@ -125,7 +125,7 @@
       "airplane": "50-PLACE REGIONAL JET (concept)",
       "max_continuous_hp": 2800,
       "override_max_continuous_hp": false,
-      "engines": 2,
+      "engine_count": 2,
       "seats": 50,
       "crew": 1,
       "cruise_hours": 2,

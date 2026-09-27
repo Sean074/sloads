@@ -1163,7 +1163,7 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "mzfw fwd / full fuel aft with their loadings (#292). The original suite had no "
        "zero-fuel design weight"),
     _E("weight.estimation.airplane", _WT, _ORIG, "WTESTIMA airplane class"),
-    _E("weight.estimation.engines", _WT, _ORIG, "WTESTIMA NOENGS", "engine count",
+    _E("weight.estimation.engine_count", _WT, _ORIG, "WTESTIMA NOENGS", "engine count",
        EXTERNAL + "len(Project.engines) (review N1 instance 3: concept_heavy 2 vs 0)",
        governs=True),
     _E("weight.estimation.max_continuous_hp", _WT, _ORIG, "WTESTIMA HP", "max continuous power",

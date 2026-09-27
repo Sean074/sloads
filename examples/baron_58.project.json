@@ -1,5 +1,5 @@
 {
-  "schema_version": 69,
+  "schema_version": 70,
   "name": "Beechcraft Baron 58 \u2014 two Continental IO-550-C",
   "description": "Guide worked example (design note 34 UG-9): FAA Aircraft Spec 3A16 Rev 82, Model 58 S/N TH-1396\u2013TH-2124. Certified data cited, everything else estimated \u2014 sources: examples/baron_58.sources.md",
   "engines": [
@@ -108,7 +108,7 @@
       "airplane": "BEECH BARON 58 (6-PLACE TWIN, RETRACTABLE)",
       "max_continuous_hp": 300,
       "override_max_continuous_hp": false,
-      "engines": 2,
+      "engine_count": 2,
       "seats": 6,
       "crew": 1,
       "cruise_hours": 5,
