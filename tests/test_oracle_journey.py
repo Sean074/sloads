@@ -84,7 +84,11 @@ render_step(st.session_state["_key"])
 '''
 
 _WIDGET_KINDS = ("number_input", "text_input", "checkbox", "selectbox", "multiselect")
-_MAX_ROUNDS = 16   # a #143 record add is a round of its own (one click per rerun)
+#: Reruns that type values. A #143 record add is a rerun too, but not one of
+#: these: the page bounds the adds itself (each button is clicked once and must
+#: go), and an entered loading or ballast per weight case is one add each, so a
+#: shared budget ran out on ``atr42_100``'s eleven cases (#311).
+_MAX_ROUNDS = 16
 
 
 def _render(key: str, project: Project, replay=None) -> AppTest:
@@ -135,11 +139,18 @@ def _type_page(key: str, typed: Project, answer_at: AppTest) -> Project:
     answer_adds = set(_add_buttons(answer_at))
     frames = dict(answer_at.session_state["_rec_tables"])
     at = _render(key, typed, replay=frames)
-    for _round in range(_MAX_ROUNDS):
-        adds = [b for k, b in _add_buttons(at).items() if k not in answer_adds]
+    clicked: set = set()
+    rounds = 0
+    while True:
+        adds = [(k, b) for k, b in _add_buttons(at).items() if k not in answer_adds]
         if adds:
             # Records first: their fields are off the page until they exist.
-            adds[0].click()
+            add_key, button = adds[0]
+            assert add_key not in clicked, (
+                f"[{key}] {add_key} was clicked and is still offered: the gesture "
+                "creates nothing")
+            clicked.add(add_key)
+            button.click()
             at.run()
             assert not at.exception, f"[{key}] {[e.message for e in at.exception]}"
             continue
@@ -150,6 +161,11 @@ def _type_page(key: str, typed: Project, answer_at: AppTest) -> Project:
                    for k, (val, w) in present.items() if not _same(val, wanted[k][0])]
         if not pending:
             break
+        if rounds == _MAX_ROUNDS:
+            # Read from this render, not the last typing round's (#311).
+            pytest.fail(f"[{key}] did not converge in {_MAX_ROUNDS} rounds: "
+                        f"{[(k, t, present[k][0]) for _, k, t, _ in pending]}")
+        rounds += 1
         # Counts first: they create the rows the other widgets live in.
         rank = min(p[0] for p in pending)
         for r, _k, target, w in pending:
@@ -157,9 +173,6 @@ def _type_page(key: str, typed: Project, answer_at: AppTest) -> Project:
                 w.set_value(target)
         at.run()
         assert not at.exception, f"[{key}] {[e.message for e in at.exception]}"
-    else:
-        pytest.fail(f"[{key}] did not converge in {_MAX_ROUNDS} rounds: "
-                    f"{[(k, t, present[k][0]) for _, k, t, _ in pending]}")
     missing = sorted(set(wanted) - set(_widgets(at)))
     assert not missing, f"[{key}] the answer page has widgets the typed page never showed: {missing}"
     return at.session_state["project"]
