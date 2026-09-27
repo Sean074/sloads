@@ -353,7 +353,10 @@ from .results import EnvelopeResult, LoadsResult, MassResult
 # elsewhere; ``_hop_68`` writes ``null`` for every stored ``0``, keeping a
 # non-zero entered couple. The TORS aileron increment (D-52.5) reads the
 # existing v52 ``aileron_loads.inboard_y_in``/``outboard_y_in``, so no new field.
-SCHEMA_VERSION = 69
+# v70 (#276): ``WeightEstimationInput.engines`` (WTESTIMA's NOENGS, a count) is
+# renamed ``engine_count`` so that ``engines`` names only ``Project.engines``'
+# list. No hop: v69 was never released (#310).
+SCHEMA_VERSION = 70
 
 
 @dataclass

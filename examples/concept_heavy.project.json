@@ -1,12 +1,12 @@
 {
-  "schema_version": 69,
+  "schema_version": 70,
   "name": "Concept commuter twin (>12,500 lb, category C)",
   "weight": {
     "estimation": {
       "airplane": "CONCEPT 10-PLACE COMMUTER TWIN",
       "max_continuous_hp": 1300,
       "override_max_continuous_hp": false,
-      "engines": 2,
+      "engine_count": 2,
       "seats": 10,
       "crew": 1,
       "cruise_hours": 4,

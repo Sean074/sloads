@@ -37,7 +37,7 @@ def ga6_estimation() -> WeightEstimationInput:
     return WeightEstimationInput(
         airplane="6 PLACE SINGLE ENGINE GENERAL AVIATION",
         max_continuous_hp=265,
-        engines=1,
+        engine_count=1,
         seats=6,
         cruise_hours=3,
         baggage_lb=0,

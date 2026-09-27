@@ -72,7 +72,7 @@ def _empty_to_takeoff_ratio(inp: WeightEstimationInput) -> float:
         k += WT_K_ONE_SEAT
     if inp.pressurized:
         k += WT_K_PRESSURIZED
-    if inp.engines > 1:
+    if inp.engine_count > 1:
         k += WT_K_MULTI_ENGINE
     if et == "TP":
         k += WT_K_TURBOPROP
@@ -103,7 +103,7 @@ def estimate(inp: WeightEstimationInput) -> List[ConditionResult]:
     Returns four labelled groups (summary, structure, powerplant, systems). Every
     figure is truncated with ``int(...)`` to match the original program's printout.
     """
-    if inp.engines < 1:
+    if inp.engine_count < 1:
         raise MissingInputError("WTESTIMA needs at least one engine")
     if inp.seats < 1:
         raise MissingInputError("WTESTIMA needs at least one seat")
@@ -115,14 +115,14 @@ def estimate(inp: WeightEstimationInput) -> List[ConditionResult]:
     wto = useful / (1.0 - k)
 
     # Constant (HP-driven) powerplant weights.
-    installed = installed_engine_weight(inp.engine_weight_type.value, inp.max_continuous_hp, inp.engines)
-    prop = inp.engines * WT_PROP_COEFF * (inp.max_continuous_hp / inp.engines) ** WT_PROP_EXPONENT
+    installed = installed_engine_weight(inp.engine_weight_type.value, inp.max_continuous_hp, inp.engine_count)
+    prop = inp.engine_count * WT_PROP_COEFF * (inp.max_continuous_hp / inp.engine_count) ** WT_PROP_EXPONENT
     fuel_system = WT_FUEL_SYSTEM_FRACTION * installed
-    exhaust = (WT_EXHAUST_FRACTION_MULTI if inp.engines >= 2 else WT_EXHAUST_FRACTION_SINGLE) * installed
+    exhaust = (WT_EXHAUST_FRACTION_MULTI if inp.engine_count >= 2 else WT_EXHAUST_FRACTION_SINGLE) * installed
     engine_other = WT_ENGINE_OTHER_FRACTION * installed
     powerplant = installed + fuel_system + exhaust + engine_other
 
-    multi = inp.engines > 1
+    multi = inp.engine_count > 1
     systems_fracs = WT_SYSTEMS_MULTI if multi else WT_SYSTEMS_SINGLE
     systems_total_frac = WT_SYSTEMS_MULTI_TOTAL_FRACTION if multi else WT_SYSTEMS_SINGLE_TOTAL_FRACTION
 

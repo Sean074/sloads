@@ -267,7 +267,7 @@ class WeightEstimationInput:
     airplane: str = ""
     max_continuous_hp: float = 0.0   # HP -- combined total; override value (see class doc)
     override_max_continuous_hp: bool = False  # use the stored total instead of the engine sum
-    engines: int = 1                 # NOENGS
+    engine_count: int = 1            # NOENGS
     seats: int = 1                   # SEATS (170 lb each) -- total occupant seats
     crew: int = 1                    # flight crew (170 lb each); part of the operating
                                      # empty weight (OEW = empty + crew*170), not payload.

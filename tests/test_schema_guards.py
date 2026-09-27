@@ -391,7 +391,9 @@ def fields_hash() -> str:
 #: ``Optional`` (blank = derived on ACRL). A type, not a name, so this hash --
 #: field names only -- does not move; the version bump and ``_hop_68`` (every
 #: stored ``0`` -> ``null``) carry the change, and ``test_migrations`` pins it.
-EXPECTED_FIELDS_HASH = "af8b5da4d4216f9d"
+#: v70 (#276): ``WeightEstimationInput.engines`` renamed ``engine_count``. No
+#: hop: v69 was never released (#310).
+EXPECTED_FIELDS_HASH = "faed9529c2bb358d"
 
 
 def test_persisted_dataclass_shapes_are_unchanged():

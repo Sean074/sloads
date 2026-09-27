@@ -303,7 +303,7 @@ def test_sob_y_in_round_trips_and_defaults_to_none():
 def _project_with_engines(hps, *, estimate_total, override):
     engines = [EngineInput(max_cont_hp=hp) for hp in hps]
     est = WeightEstimationInput(max_continuous_hp=estimate_total,
-                                override_max_continuous_hp=override, engines=len(hps))
+                                override_max_continuous_hp=override, engine_count=len(hps))
     return Project(name="p", engines=engines, weight=WeightInput(estimation=est))
 
 
