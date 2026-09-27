@@ -14,8 +14,8 @@ Two guards:
    ``project_from_dict``, and assert nothing was dropped.
 2. **Fields hash** — a hash of every persisted dataclass's field names, checked
    against a committed value. Changing a persisted shape fails this test, whose
-   message says to bump ``SCHEMA_VERSION`` and add a migration hop. The
-   discipline was previously unenforced.
+   message says to bump ``SCHEMA_VERSION`` and, once a release has shipped a
+   schema, register a migration hop. The discipline was previously unenforced.
 
 The fields hash is *not* a correctness assertion — it is a tripwire. Its whole
 value is that it fails, loudly, at the moment someone changes a persisted shape.
@@ -138,8 +138,9 @@ def fields_hash() -> str:
 #: Committed digest. **When this test fails:** you changed a persisted dataclass.
 #: Decide whether the change alters the on-disk *shape* — a new optional field
 #: with a default does not (the tolerant readers handle it); a renamed, removed or
-#: relocated field does. If it does: bump ``SCHEMA_VERSION`` and add a hop to
-#: ``sloads.migrations.MIGRATIONS``. Then update this constant.
+#: relocated field does. If it does: bump ``SCHEMA_VERSION`` and, once a release
+#: has shipped a schema, add a hop to ``sloads.migrations.MIGRATIONS`` (#310).
+#: Then update this constant.
 #: plan 11 B7: ``BalancedCaseResult`` gains the lateral residuals, the roll
 #: relief, the applied ``unbal_moment``, ``hand`` and ``semi_span``.
 #: plan 09 T1-T5 (v42): ``Project.tail_mass`` (a new ``TailMassInput``, itself
@@ -401,9 +402,10 @@ def test_persisted_dataclass_shapes_are_unchanged():
         "Bump SCHEMA_VERSION -- required for any persisted-shape change, "
         "additive or not -- and re-stamp the bundled examples at the new "
         "version, which the guard below requires and the Imperial digests then "
-        "prove changed no delivered number. Register the hop in "
-        "sloads/migrations.py (an additive change gets an identity hop -- "
-        "note 36 OV-10 is the precedent). "
+        "prove changed no delivered number. Once a release has shipped a "
+        "schema (sloads.migrations.RELEASED_SCHEMAS), register the hop in "
+        "sloads/migrations.py -- an additive change gets an identity hop "
+        "(#310; tests/test_migrations.py holds the chain gap-free). "
         f"Then update EXPECTED_FIELDS_HASH in {os.path.basename(__file__)} "
         "to the value above."
     )
@@ -435,12 +437,11 @@ def test_schema_version_is_an_int():
 
 
 def test_every_bundled_example_is_written_at_the_current_version():
-    """The examples are the floor's only customers, so they must sit on it.
+    """The examples ship with the build, so they sit on its schema.
 
-    Pre-production the supported floor *is* ``SCHEMA_VERSION`` (#93): a project
-    file at any other version is refused, migration hops and all. That makes a
-    stale example not a compatibility question but a broken example -- the app
-    would refuse to open its own bundled projects. This is the guard that turns
+    A stale example is not a compatibility question but a broken one: between
+    releases the app would refuse to open its own bundled projects, and after
+    one it would open them only through a hop. This is the guard that turns
     the next ``SCHEMA_VERSION`` bump into a red suite until they are re-stamped.
 
     Read off **disk**, never off a loaded ``Project``: ``project_from_dict``

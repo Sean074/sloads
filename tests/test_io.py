@@ -121,12 +121,11 @@ def test_project_round_trip(tmp_path=None):
 
 
 def test_surface_ref_axis_pct_round_trips():
-    """The LRA persists per surface; a stored 0.25 reads back as UNSET (v52).
+    """The LRA persists per surface, and entered and not-entered stay apart.
 
-    The pre-v52 writer emitted ``ref_axis_pct`` unconditionally, so a stored
-    0.25 carries no entered-ness information -- the reader maps it to ``None``
-    ("not entered", R-7c), whose effective value through ``ref_axis`` is the
-    same 0.25. Any non-default value was necessarily entered and survives.
+    An entered 0.25 -- the default's value -- reads back entered (#310): the
+    rule that read a stored 0.25 as unset served files the pre-v52 writer wrote
+    unconditionally, which no release from 0.8.7 on can open.
     """
     project = io.load_project(GA6)
     wing = project.geometry.by_name("wing")
@@ -134,11 +133,9 @@ def test_surface_ref_axis_pct_round_trips():
     wing.ref_axis_pct = 0.42
     again = io.project_from_dict(io.project_to_dict(project))
     assert again.geometry.by_name("wing").ref_axis_pct == 0.42
-    # The stored-default mapping, both directions:
     wing.ref_axis_pct = 0.25
     again = io.project_from_dict(io.project_to_dict(project))
-    assert again.geometry.by_name("wing").ref_axis_pct is None
-    assert again.geometry.by_name("wing").ref_axis == 0.25
+    assert again.geometry.by_name("wing").ref_axis_pct == 0.25
     wing.ref_axis_pct = None
     again = io.project_from_dict(io.project_to_dict(project))
     assert again.geometry.by_name("wing").ref_axis_pct is None
@@ -565,13 +562,12 @@ def test_project_from_dict_raises_on_malformed():
     assert raised
 
 
-def test_a_parametric_block_defaults_the_fuselage_outline():
-    """The fuselage outline is defaulted from the parametric length/width/height
-    scalars, and the oracle-locked ``.surfaces`` consumers are untouched.
-
-    Written against the current schema. It used to enter through the v25 hop from
-    a pre-v25 top-level ``configuration`` block, which #93 retired -- but the
-    defaulting is the reader's, not the hop's, and is what this test is about.
+def test_the_fuselage_scalars_are_not_an_input():
+    """The fuselage length/width/height are a derived summary of the outline and
+    are never written, so a file that carries them without an outline has no
+    body: nothing is synthesized from them (#310 -- the reader used to build a
+    three-section outline for files older than it, which no release from 0.8.7
+    on can open), and the oracle-locked ``.surfaces`` consumers are untouched.
     """
     d = {
         "schema_version": SCHEMA_VERSION,
@@ -586,25 +582,18 @@ def test_a_parametric_block_defaults_the_fuselage_outline():
     }
     p = io.project_from_dict(d)
     assert p.geometry is not None
-    # The parametric block arrives on the geometry slice.
     assert p.geometry.parametric is not None
     assert p.geometry.parametric.wing_area_sqft == 174.0
-    # Surfaces (oracle path) preserved unchanged.
     assert [s.name for s in p.geometry.surfaces] == ["wing"]
-    # Fuselage outline defaulted from the scalars: nose -> max (0.35L) -> tail.
-    secs = p.geometry.fuselage.sections
-    assert len(secs) == 3
-    assert secs[0].x == 0.0 and secs[0].width == 0.0
-    assert abs(secs[1].x - 0.35 * 300.0) < 1e-9
-    assert secs[1].width == 48.0 and secs[1].height == 54.0
-    # Round-trips on the geometry slice, with no top-level "configuration".
+    assert p.geometry.fuselage is None
     out = io.project_to_dict(p)
     assert "configuration" not in out
-    assert out["geometry"]["parametric"]["wing_area_sqft"] == 174.0
-    assert len(out["geometry"]["fuselage"]["sections"]) == 3
+    assert "fuselage" not in out["geometry"] or not out["geometry"]["fuselage"]
+    for key in ("fuselage_length", "fuselage_width", "fuselage_height"):
+        assert key not in out["geometry"]["parametric"]
     again = io.project_from_dict(out)
     assert again.geometry.parametric == p.geometry.parametric
-    assert again.geometry.fuselage == p.geometry.fuselage
+    assert again.geometry.fuselage is None
 
 
 def test_explicit_fuselage_outline_round_trip_and_not_defaulted():

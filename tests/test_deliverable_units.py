@@ -429,13 +429,12 @@ def test_unit_system_round_trips_and_stays_out_of_a_default_file():
 def test_a_file_that_never_chose_a_system_reads_as_imperial():
     """Absent *is* the value — which is why v38 needed no migration hop.
 
-    Read from a current file with the key left out, not from a pre-v38 fixture:
-    since #93 a v37 file is refused at the gate, and the property under test was
+    Read from a current file with the key left out: the property under test was
     never about the vintage. It is about a project that never touched the units
     toggle, which is every one of the shipped examples.
     """
-    here = os.path.dirname(os.path.abspath(__file__))
-    with open(os.path.join(here, "fixtures_schema", "v55_current.json")) as fh:
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    with open(os.path.join(here, "examples", "ga6_normal.project.json")) as fh:
         never_chose = json.load(fh)
     never_chose.pop("unit_system", None)
     assert io.project_from_dict(never_chose).unit_system == "imperial"
