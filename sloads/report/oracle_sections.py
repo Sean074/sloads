@@ -2247,9 +2247,12 @@ def _wing_mass_tie_sentence(project: Project, system: UnitSystem,
     every case, or the gap and its cause. An entered panel override is the
     one second opinion left, and is named when set.
 
-    ``""`` when there is no wing mass input.
+    ``""`` when there is no wing mass input. A mass state the half-span models
+    refuse (:class:`~sloads.mass_distribution.WingAsymmetric`, #301) or a
+    missing input is stated with its reason; anything else is a defect and is
+    not caught (#303).
     """
-    from ..mass_distribution import wing_mass_state, wing_mass_tie, wing_state_tie
+    from ..mass_distribution import WingAsymmetric, wing_mass_state, wing_mass_tie, wing_state_tie
 
     if project.wing_mass is None or project.weight is None:
         return ""
@@ -2265,8 +2268,8 @@ def _wing_mass_tie_sentence(project: Project, system: UnitSystem,
         ties = {cg: wing_state_tie(wing_mass_state(project, cg or None))
                 for _, _, cg in states}
         override = wing_mass_tie(project)
-    except Exception:
-        return ""
+    except (WingAsymmetric, MissingInputError) as exc:
+        return f"The wing's mass model could not be read for these cases: {exc}."
     gaps = [t for t in ties.values() if not t.ok]
     parts = [
         "The wing's mass is the item data base, read once per case: the "
@@ -2297,25 +2300,26 @@ def _wing_mass_tie_sentence(project: Project, system: UnitSystem,
     return " ".join(parts)
 
 
-def _variant_table(project: Project, envelope: object,
-                   system: UnitSystem) -> Optional[Table]:
+def _variant_table(project: Project, envelope: Optional["EnvelopeResult"],
+                   system: UnitSystem) -> Tuple[Optional[Table], str]:
     """3.2's variant register (design note 63 D-63.7, #292): every wing slot
     at every FLIGHT mass state, the governing run marked.
 
+    ``(table, "")``, or ``(None, sentence)`` stating why there is none.
+
     Read from ``wing_variants.wing_variant_table`` on the same matrix the
-    selection searched; ``None`` when the wing analysis cannot run (the
-    table's own stated reason) or there is no matrix.
+    selection searched. The table states its own reason when the wing
+    analysis cannot run, and that reason is printed; nothing is caught,
+    because ``wing_variant_table`` raises only on a defect (#303).
     """
     if envelope is None:
-        return None
+        return None, ""
     from ..modules.wing_variants import wing_variant_table
 
-    try:
-        table = wing_variant_table(project, envelope)  # type: ignore[arg-type]
-    except Exception:
-        return None
+    table = wing_variant_table(project, envelope)
     if not table.variants:
-        return None
+        return None, ("There is no wing slot variant register: "
+                      f"{table.reason or 'the variant table is empty'}.")
     u = Units(system)
     rows = []
     for v in table.variants:
@@ -2326,7 +2330,7 @@ def _variant_table(project: Project, envelope: object,
             u.plain(v.air_root_mxx, "moment"), u.plain(v.inertia_root_mxx, "moment"),
             u.plain(v.root_mxx, "moment"), mark or "--",
         ])
-    return Table(
+    return (Table(
         title="Wing slot variants: every slot at every flight mass state",
         columns=["Slot", "CG case", "Run", "Altitude (ft)", "Config",
                  f"Weight ({u.label('mass')})", "V (KEAS)", "Nz",
@@ -2346,7 +2350,7 @@ def _variant_table(project: Project, envelope: object,
               "the load-factor extremes are delivered at their air pick, "
               "because their criterion is not the bending. Root bending is "
               "the same about the 25 % chord and the loads reference axis; "
-              "Nz is WINGINER's, the negated flight load factor."))
+              "Nz is WINGINER's, the negated flight load factor.")), "")
 
 
 def _wing_cases(project: Project, *, system: UnitSystem,
@@ -2355,6 +2359,7 @@ def _wing_cases(project: Project, *, system: UnitSystem,
     net = _wing_net(project)
     table = _wing_case_table(project, net, system)
     conditions, envelope = _wing_selection(project)
+    variants, no_variants = _variant_table(project, envelope, system)
     run = [getattr(r, "case", "") for r in net]
     entered = bool(getattr(project.wing_mass, "cases", ()) or ())
     named = [getattr(c, "label", "") for c in conditions]
@@ -2369,13 +2374,14 @@ def _wing_cases(project: Project, *, system: UnitSystem,
         _provenance_sentence(entered, named, run, missing),
         _negative_case_sentence(net),
         _wing_mass_tie_sentence(project, system, net),
+        no_variants,
         _sign_note(plan),
         _derivation_note(net),
         _point_load_note(net),
     ]
     body = [paragraph for paragraph in body if paragraph]
     tables = [t for t in (table, _selection_table(conditions, run),
-                          _variant_table(project, envelope, system),
+                          variants,
                           _nomenclature_table(net, system))
               if t is not None]
     if table is None:

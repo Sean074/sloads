@@ -56,10 +56,19 @@ EXAMPLES = (
 
 
 def _try(fn, *args, **kwargs):
-    """Render a channel, or skip it — an example that lacks a slice has no artifact."""
+    """Render a channel, or skip it — an example that lacks a slice has no artifact.
+
+    Only the two stated refusals skip (#303): a missing input slice and an LRA
+    model that cannot be built. Anything else -- a ``NonFiniteValue`` from
+    ``format_value``, a ``KeyError`` -- is a defect, and swallowing it dropped
+    the channel from the digest set without a word.
+    """
+    from sloads.export.lra_model import LraRefusal
+    from sloads.models import MissingInputError
+
     try:
         return fn(*args, **kwargs)
-    except (ValueError, ZeroDivisionError, KeyError, IndexError, TypeError):
+    except (MissingInputError, LraRefusal):
         return None
 
 

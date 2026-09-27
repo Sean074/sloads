@@ -146,3 +146,8 @@ LATERAL_AERO_NOTE = (
 #: The applied load's ``source`` tag -- routed to the fuselage member by the LRA
 #: exporter like ``fuselage-cm`` and ``body-axial``.
 BODY_AERO_SOURCE = "body-aero"
+
+#: Every point-carried item's inertia load (``applied.body_inertia``), and so the
+#: ``carrier`` of its self-inertia relief (``queries.point_mass_self_inertia``):
+#: one name, so the two cannot route to different members (#303).
+BODY_INERTIA_SOURCE = "body-inertia"

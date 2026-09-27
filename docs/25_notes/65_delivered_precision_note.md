@@ -281,9 +281,16 @@ on shipped content (every delivered table cell) outranks every fidelity row.
   four-figure rule, and a column mixed `0.5263` with `3.99` — the fault the
   note set out to remove, back through a different door. D-65.4's own `deg`
   example (`0.53`) already assumed the one-figure floor. As shipped: a
-  non-zero cell that would print as `0` at its row's decimals falls to four
-  significant figures; every other cell keeps its row. Re-measured on the
-  §1.2 population: 6 cells reach the floor (was 1,912 at three).
+  non-zero cell smaller than one unit of its row's last decimal falls to
+  four significant figures; every other cell keeps its row. Re-measured on
+  the §1.2 population: 6 cells reach the floor (was 1,912 at three).
+  *Wording corrected at #303 (2026-09-26):* this bullet first said "a cell
+  that would print as `0`", which is not what shipped — a 0.7 lb cell
+  would round to `1`, and the code (rightly) prints `0.7000`. The test is
+  on the magnitude, not the rounded text: made to match the old words, the
+  rule moved ~70 lines across all five fixtures and each lost information
+  (a 0.5682 slug-ft² rotor inertia as `1`, a 0.0087 g closure as `0.01`).
+  A NaN or an infinity is refused (`NonFiniteValue`), never printed.
 - **Two rows the sweep added to D-65.4**: `hp` and `rpm` (0 decimals) for
   the entered engine record in section 10; `ft^2` joined the whole-unit row.
 - **The SI table is explicit, not derived** (`DELIVERED_PRECISION_SI`): a

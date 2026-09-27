@@ -364,16 +364,17 @@ def test_every_delivered_cell_prints_at_its_units_precision():
     The unit string names the row: a load to the pound, a station to 0.1 in,
     an angle to 0.01 deg, a coefficient at four significant figures with its
     zeros kept -- and no exponent form inside the delivered window, whatever
-    the magnitude. A non-zero cell that would print as ``0`` at its row's
-    decimals falls to four figures (the floor, D-65.3, one significant
-    figure as amended at implementation). An ``int`` with a fixed-decimal row
+    the magnitude. A non-zero cell smaller than one unit of its row's last
+    decimal falls to four figures (the floor, D-65.3 as amended at
+    implementation; the words fixed at #303), so ``0.7`` lb is ``0.7000``,
+    not ``1``. A NaN or an infinity is refused, never printed (#303). An ``int`` with a fixed-decimal row
     prints at the row (a typed 170 kt is the loaded 170.0); one with none is a
     count and prints as itself. The safety factor is a dimensionless
     number like any other (§8 Q1). #147's near-integer pair still prints one
     string, because the twelve-figure quantization stayed.
     """
     from sloads.report.content import Units
-    from sloads.report.render import format_value
+    from sloads.report.render import NonFiniteValue, format_value
     from sloads.units import HUMAN_SI, UnitSystem
 
     cases = [
@@ -395,8 +396,10 @@ def test_every_delivered_cell_prints_at_its_units_precision():
         (4.4297, "/rad", "4.430"), (2.35, "s", "2.350"), (1.5, "", "1.500"), (1.0, "", "1.000"),
         (24000.4, "", "24000"), (0.004128, "", "0.004128"), (1.0 / 3, "", "0.3333"),
         (9.9995, "", "9.999"), (0.00099995, "", "0.001000"),
-        # the floor: a non-zero cell that would print as 0 keeps four figures
+        # the floor: a non-zero cell below one unit of its row's last decimal
+        # keeps four figures -- including one that would round up to it (#303)
         (0.3, "lb-in", "0.3000"), (0.004239, "in", "0.004239"), (0.004, "deg", "0.004000"),
+        (0.7, "lb", "0.7000"), (0.06252, "in", "0.06252"), (0.008690, "g", "0.008690"),
         # zero at the row's decimals; an int as itself
         (0.0, "lb", "0"), (0.0, "in", "0.0"), (0.0, "deg", "0.00"), (0.0, "", "0"),
         (10, "", "10"), (7, "lb", "7"), (170, "kt(EAS)", "170.0"), (12000, "ft", "12000.0"),
@@ -422,6 +425,9 @@ def test_every_delivered_cell_prints_at_its_units_precision():
         got = format_value(value, units)
         assert got == expected, (value, units, got, expected)
     assert format_value(-687258.0, "lb") == format_value(-687257.9999999999, "lb") == "-687258"
+    for bad in (float("nan"), float("inf"), float("-inf")):
+        with pytest.raises(NonFiniteValue, match="lb-in"):
+            format_value(bad, "lb-in")
     assert format_value(1.6685) == format_value(1.6684999999999999) == "1.669"
     # The document's Units passes the label of the system it prints in, so an
     # SI cell has the SI row's decimals, an Imperial cell the Imperial row's.

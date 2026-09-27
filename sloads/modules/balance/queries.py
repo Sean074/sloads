@@ -16,7 +16,8 @@ from ...mass_distribution import CaseLoading, assembly_distributes_mass, compone
 from ...models import BalancedCaseResult, BalancedLoad, Project
 from ...rigid_body import SelfInertia
 from .applied import HUB_THRUST_SOURCE
-from .constants import HANDEDNESS_TOL
+from .closure import PointSelfInertia
+from .constants import BODY_INERTIA_SOURCE, HANDEDNESS_TOL
 
 
 def is_unsymmetrical_htail(case: BalancedCaseResult) -> bool:
@@ -340,8 +341,9 @@ def is_handed(applied: Sequence[BalancedLoad], n_w: float,
     return abs(roll) > HANDEDNESS_TOL * n_w * ref_length
 
 
-def point_mass_self_inertia(loading: CaseLoading, project: Project):
-    """``[((x, y, z), SelfInertia)]`` for every item carried as a point mass.
+def point_mass_self_inertia(loading: CaseLoading,
+                            project: Project) -> List[PointSelfInertia]:
+    """One :class:`~.closure.PointSelfInertia` for every item carried as a point mass.
 
     Decision **L-3**: an item the assembly does not spread still resists angular
     acceleration about its own centre, and that resistance has no other carrier
@@ -350,12 +352,19 @@ def point_mass_self_inertia(loading: CaseLoading, project: Project):
     actually says something -- on ``ga6_normal`` that is a handful of lumps
     worth 13.3 % of ``Izz``, and on ``concept_regional_jet`` it is nothing at
     all, because that database enters no self-inertias.
+
+    Each entry names the member its relief lands on: the item is carried as
+    :func:`~.applied.body_inertia` carries it, so its carrier is that load's
+    source and side. Before #303 the closure recovered the carrier by matching
+    the station against the mass loads, which a zero-weight item with an
+    entered inertia never matches (its relief fell to the whole skeleton).
     """
     out = []
     for it in reacted_parts(loading.items, project):
         if assembly_distributes_mass(component_of(it, project)):
             continue
         if it.ixx or it.iyy or it.izz:
-            out.append(((it.x, it.y, it.z),
-                        SelfInertia(it.ixx, it.iyy, it.izz)))
+            out.append(PointSelfInertia((it.x, it.y, it.z),
+                                        SelfInertia(it.ixx, it.iyy, it.izz),
+                                        carrier=BODY_INERTIA_SOURCE, side="C"))
     return out
