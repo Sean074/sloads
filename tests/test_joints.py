@@ -38,6 +38,7 @@ Four guards, in the shapes the suite already uses:
 
 import math
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -435,6 +436,37 @@ def test_entered_spar_stations_flip_the_grade_and_drop_the_note():
     # The sentence is gone from the deliverable, not merely from the flag.
     assert "wing spar stations ASSUMED" not in _deck_prose(lra_model_bdf(project))
 
+
+
+#: A station, butt line or waterline stated with a number and no unit after it.
+_BARE_COORDINATE = re.compile(
+    r"\b(?:BL|FS|waterline|stations?)\s+(?>-?\d+(?:\.\d+)?(?:/-?\d+(?:\.\d+)?)?)(?!\s+in\b)")
+
+
+@pytest.mark.parametrize("example", sorted(
+    f for f in os.listdir(_EXAMPLES) if f.endswith(".project.json")))
+def test_every_assumed_coordinate_states_its_unit_in_the_si_deck(example):
+    """**#303.** The ASSUMED sentences are written once, in inches, by the owner
+    that grades the joint, and printed unchanged into the mm deck -- where
+    "BL 21.00" and "fuselage stations 78.8/112.4" read as millimetres. Every
+    coordinate in them now carries its unit, so the sentence is right in
+    either deck."""
+    from sloads.export.lra_model import LraRefusal
+    from sloads.units import UnitSystem
+
+    project = io.load_project(os.path.join(_EXAMPLES, example))
+    try:
+        model = build_lra_model(project)
+    except LraRefusal:
+        pytest.skip(f"{example}: no LRA model")
+    prose = _deck_prose(lra_model_bdf(project, system=UnitSystem.SI))
+    for note in model.assumed_notes:
+        assert " ".join(note.split()) in prose, note
+        assert not _BARE_COORDINATE.search(note), note
+    # the pattern itself: the pre-#303 wording is caught, the unit is not
+    assert _BARE_COORDINATE.search("side of body ASSUMED at BL 21.00 -- half")
+    assert _BARE_COORDINATE.search("the spar grids sit at fuselage stations 78.8/112.4. Enter")
+    assert not _BARE_COORDINATE.search("fuselage stations 78.8/112.4 in. Enter")
 
 if __name__ == "__main__":
     test_the_joint_set_partitions_by_layout()

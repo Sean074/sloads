@@ -804,7 +804,7 @@ def sob_station(project: Project, surface_name: str = "wing") -> Optional[SobSta
     if width:
         return SobStation(
             0.5 * width, True, SOB_HALF_WIDTH,
-            f"side of body ASSUMED at BL {0.5 * width:.2f} -- half the fuselage "
+            f"side of body ASSUMED at BL {0.5 * width:.2f} in -- half the fuselage "
             f"maximum width ({width:.1f} in). Enter {surface_name} sob_y_in to "
             "state the joint")
     return None
@@ -867,7 +867,7 @@ def fuselage_centreline(project: Project) -> Optional[FuselageCentreline]:
         return FuselageCentreline(points, False, CENTRELINE_ENTERED)
     return FuselageCentreline(
         points, True, CENTRELINE_DEFAULTED,
-        f"fuselage centre line ASSUMED at waterline {bdw.z:.2f} for "
+        f"fuselage centre line ASSUMED at waterline {bdw.z:.2f} in for "
         f"{len(defaulted)} of {len(sections)} section(s) -- defaulted from the "
         "body-drag waterline. Enter FuselageSection.z_centre to state it")
 

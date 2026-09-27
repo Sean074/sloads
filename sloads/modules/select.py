@@ -612,10 +612,17 @@ def _rolling_loads(project: Project, table, label: str, p: VnPoint,
 
 
 def _air_mxx(table, label: str, case: int) -> float:
+    """Root Mxx of slot ``label`` at V-n case ``case`` in the variant table.
+
+    SELECT's air pick is a flight case and the table assesses every flight
+    case, so a miss is a defect: raised by name, where it used to return a NaN
+    that printed ``nan lb-in`` into a delivered note (#303).
+    """
     for v in table.by_slot(label):
         if v.case == case:
             return v.root_mxx
-    return float("nan")
+    raise LookupError(f"wing variant table has no '{label}' row at V-n case {case}, "
+                      "SELECT's air pick")
 
 
 # --------------------------------------------------------------------------- #

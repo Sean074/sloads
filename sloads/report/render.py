@@ -45,6 +45,15 @@ from ..units import (
 from ..units import is_load_unit as _is_load_unit
 
 
+class NonFiniteValue(ValueError):
+    """A NaN or an infinity reached a delivered cell (#303).
+
+    No delivered quantity has one: it is an upstream defect (a lookup that
+    found nothing, a division by zero), and printing ``nan`` or ``inf`` would
+    ship it. Raised by :func:`format_value`, never caught by a renderer.
+    """
+
+
 def format_value(value: float, units: str = "") -> str:
     """Format one numeric cell for a table, a CSV or the text report.
 
@@ -61,9 +70,10 @@ def format_value(value: float, units: str = "") -> str:
     inside the delivered window (below 1e-4 or at 1e9 and above nothing
     sloads delivers lives, and there the plain spelling would be worse), and
     a significant trailing zero is kept, so two cells of one column read at
-    one precision. A fixed-decimal cell that would show fewer than three
-    significant figures -- would print as ``0`` -- falls to the
-    significant-figure rule (D-65.3). An ``int`` with no fixed-decimal row
+    one precision. A non-zero fixed-decimal cell smaller than one unit of its
+    row's last decimal falls to the significant-figure rule (D-65.3 as
+    amended): a 0.3 lb-in moment prints ``0.3000`` and a 0.7 lb load
+    ``0.7000``, where rounding at the row would print ``0`` or ``1``. An ``int`` with no fixed-decimal row
     prints as itself (a count, a case number); one with a row prints at the
     row, so a typed ``170`` kt and a loaded ``170.0`` are one cell.
 
@@ -75,10 +85,16 @@ def format_value(value: float, units: str = "") -> str:
     spellings (an integral value in full, everything else ``%.4g``) and the
     quantization was what kept ``-687258.0`` and ``-687257.9999999999`` on the
     same side of that cliff; the cliff is gone and the quantization stays.
+
+    **A NaN or an infinity is refused** with :class:`NonFiniteValue` naming the
+    unit, rather than printed as ``nan``/``inf`` or failing inside the
+    quantization (#303).
     """
     decimals = delivered_precision(units)
     if isinstance(value, int) and not isinstance(value, bool) and decimals is None:
         return str(value)            # a count, a case number
+    if not math.isfinite(value):
+        raise NonFiniteValue(f"a delivered {units or 'dimensionless'} cell is {value!r}")
     value = canonical(float(value))
     if value == 0.0:
         return "0" if decimals is None else f"{0.0:.{decimals}f}"  # note 65 exempt: the owner

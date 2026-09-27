@@ -773,6 +773,30 @@ def test_a_closure_load_routes_to_the_member_that_carries_its_mass(example):
                     example, case.label, ld.source, ld.carrier)
 
 
+def test_a_self_inertia_relief_names_its_carrier_without_a_mass_to_match():
+    """**#303.** A zero-weight item with an entered inertia has no mass load at
+    its station; its ``closure-self`` relief still names the body-inertia
+    carrier and lands on the fuselage beam, not the whole skeleton's nearest node."""
+    from sloads.export.lra_model import _member_key
+    from sloads.models import MassComponent, MassItem, MassItemKind
+    from sloads.modules.balance import build_balanced_cases
+
+    project = _project("ga6_normal.project.json")
+    lump = MassItem(name="avionics rack (inertia only)", weight_lb=0.0,
+                    x=140.0, y=0.0, z=95.0, ixx=50000.0, iyy=50000.0, izz=50000.0,
+                    kind=MassItemKind.EMPTY, component=MassComponent.FUSELAGE)
+    project.weight.items.append(lump)
+    model = build_lra_model(project)
+    found = 0
+    for case in build_balanced_cases(project, []):
+        for ld in case.loads:
+            if ld.source == "closure-self" and (ld.x, ld.z) == (lump.x, lump.z):
+                found += 1
+                assert (ld.carrier, ld.side) == ("body-inertia", "C"), (case.label, ld)
+                assert _member_key(ld, model.members) == "fuselage", (case.label, ld)
+    assert found, "no case accelerated the inertia-only item"
+
+
 def test_the_case_header_states_what_its_closure_field_is():
     """**#293.** A ground case's header says the field is its inertia set; a
     flight case's states the residual fraction it spread and the ceiling."""

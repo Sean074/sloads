@@ -865,11 +865,14 @@ DELIVERED_PRECISION_SI: Dict[str, Optional[int]] = {
 }
 
 #: Significant figures of the dimensionless rule, and the floor a fixed-decimal
-#: row keeps: a non-zero cell that would show fewer than
-#: :data:`DELIVERED_FLOOR_SIG` significant figures at its row's decimals -- at
-#: one, a cell that would print as ``0`` -- falls to the significant-figure
-#: rule instead (D-65.3), so a 0.3 lb-in moment prints ``0.3000``, never ``0``,
-#: while a 0.53 deg angle keeps its row's ``0.53``.
+#: row keeps: a non-zero cell whose magnitude would leave fewer than
+#: :data:`DELIVERED_FLOOR_SIG` significant figures in front of its row's last
+#: decimal -- at one, a cell smaller than one unit of that decimal -- falls to
+#: the significant-figure rule instead (D-65.3), so a 0.3 lb-in moment prints
+#: ``0.3000`` and a 0.7 lb load ``0.7000``, never ``0`` or ``1``, while a
+#: 0.53 deg angle keeps its row's ``0.53``. The test is on the magnitude, not
+#: on the rounded text (#303): rounding a 0.7 lb cell to ``1`` would state a
+#: figure the value does not have.
 DELIVERED_SIG = 4
 DELIVERED_FLOOR_SIG = 1
 

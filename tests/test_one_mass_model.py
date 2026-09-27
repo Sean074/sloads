@@ -432,6 +432,7 @@ def test_a_repointed_slot_says_so_and_a_project_without_a_wing_keeps_its_air_pic
     assert moved, "the Baron re-points seven slots at #292"
     for c in moved:
         assert "net-governing run" in c.note and f"V-n case {picks[c.label]}" in c.note, c.label
+        assert "nan" not in c.note, c.label
     bare = replace(p, wing_mass=None)
     table = wing_variant_table(bare, envelope)
     assert not table.variants and "wing_mass" in table.reason
@@ -441,6 +442,47 @@ def test_a_repointed_slot_says_so_and_a_project_without_a_wing_keeps_its_air_pic
     # (#294): NNZ shares NMAA's point and nothing re-points, so it is empty.
     assert delivered == {k: v for k, v in picks.items() if k != "NNZ"}
     assert picks["NNZ"] == picks["NMAA"]
+
+
+def test_the_wing_register_states_what_it_cannot_build_rather_than_dropping_it():
+    """**#303.** 3.2's variant register and wing mass sentence caught every
+    exception and vanished. Without ``wing_mass`` the register now prints the
+    variant table's own reason; with a mass state the half-span models refuse
+    (#301) the mass sentence names the part. Any other exception propagates."""
+    from dataclasses import replace
+    from sloads.models import MassItem, MassItemKind, WingCarriage
+    from sloads.report.oracle_sections import (
+        _variant_table,
+        _wing_mass_tie_sentence,
+        _wing_selection,
+    )
+    from sloads.units import UnitSystem
+
+    p = _project("ga6_normal.project.json")
+    _, envelope = _wing_selection(p)
+    table, reason = _variant_table(replace(p, wing_mass=None), envelope, UnitSystem.IMPERIAL)
+    assert table is None and "no 'wing_mass' inputs" in reason, reason
+    net = build_net_loads(p).wing_net     # built before the state is made one-sided
+    p.weight.items.append(MassItem(name="one-sided", weight_lb=50.0, x=85.0, y=100.0,
+                                   z=90.0, kind=MassItemKind.EMPTY,
+                                   component=MassComponent.WING,
+                                   carriage=WingCarriage.POINT))
+    sentence = _wing_mass_tie_sentence(p, UnitSystem.IMPERIAL, net)
+    assert "could not be read" in sentence and "'one-sided'" in sentence, sentence
+
+
+def test_an_air_pick_missing_from_the_variant_table_is_refused_by_name():
+    """**#303.** The net-governing note reads the air pick's root Mxx from the
+    variant table; a miss is a defect and raises, where it used to print
+    ``nan lb-in`` into a delivered note."""
+    from sloads.modules.select import _air_mxx
+
+    class _Empty:
+        def by_slot(self, label):
+            return []
+
+    with pytest.raises(LookupError, match="'PHAA' row at V-n case 110"):
+        _air_mxx(_Empty(), "PHAA", 110)
 
 
 # --------------------------------------------------------------------------- #

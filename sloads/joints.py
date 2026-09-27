@@ -360,7 +360,7 @@ def _wing_joints(project: Project, joints: List[Joint],
             centre = hub
             post_basis, post_assumed = WING_STATION_CENTRELINE, True
             post_note = (
-                f"wing station ASSUMED at FS {hub[0]:.1f}, the wing loads "
+                f"wing station ASSUMED at FS {hub[0]:.1f} in, the wing loads "
                 "reference axis at the centreline -- no side of body resolves "
                 "(no entered sob_y_in and no fuselage width), so there is no "
                 "SOB station to place the wing post straight across from "
@@ -402,7 +402,7 @@ def _wing_joints(project: Project, joints: List[Joint],
         f"wing spar stations ASSUMED -- derived at "
         f"{ct.front_pct * 100.0:.0f}/{ct.rear_pct * 100.0:.0f} % of the root "
         f"chord, so the spar grids sit at fuselage stations "
-        f"{ct.x_f:.1f}/{ct.x_r:.1f}. Enter front/rear_spar_x_in to state "
+        f"{ct.x_f:.1f}/{ct.x_r:.1f} in. Enter front/rear_spar_x_in to state "
         "the joint")
     if centre is None:
         post_grid: Optional[Vec3] = None

@@ -10,10 +10,24 @@ gates in :mod:`~sloads.modules.balance.queries` judge.
 from __future__ import annotations
 
 import math
-from typing import List, Sequence, Tuple
+from typing import List, NamedTuple, Sequence, Tuple
 
 from ...models import BalancedLoad, CgCase
 from ...rigid_body import InertiaTensor, PointMass, SelfInertia, inertia_tensor, relief_force, relief_moment
+
+
+class PointSelfInertia(NamedTuple):
+    """One point-carried item's entered self-inertia, and where its relief lands.
+
+    ``carrier`` and ``side`` are the item's own mass load's, stated by the
+    producer (:func:`~.queries.point_mass_self_inertia`) rather than recovered
+    here by matching stations (#303).
+    """
+
+    point: Tuple[float, float, float]
+    inertia: SelfInertia
+    carrier: str
+    side: str
 
 
 def resultant(loads: Sequence[BalancedLoad],
@@ -67,8 +81,7 @@ _ROTATIONAL_SOURCES = (("closure-roll", 0), ("closure-pitch", 1),
 
 def _closure(loads: List[BalancedLoad], cg: CgCase,
              residual: Tuple[float, float, float, float, float, float],
-             self_inertia: Sequence[Tuple[Tuple[float, float, float],
-                                          SelfInertia]] = (),
+             self_inertia: Sequence[PointSelfInertia] = (),
              ) -> Tuple[Tuple[float, float, float],
                         Tuple[float, float, float], InertiaTensor]:
     """Close the residual as rigid-body relief; return ``(n, omega_dot, tensor)``.
@@ -160,7 +173,7 @@ def _closure(loads: List[BalancedLoad], cg: CgCase,
     cy = math.fsum(ld.y * w for ld, w in masses) / w_total
     cz = math.fsum(ld.z * w for ld, w in masses) / w_total
     points = [PointMass(w, ld.x - cx, ld.y - cy, ld.z - cz) for ld, w in masses]
-    tensor = inertia_tensor(points, [si for _, si in self_inertia])
+    tensor = inertia_tensor(points, [s.inertia for s in self_inertia])
     fx, fy, fz, mx, my, mz = residual
     n = (fx / w_total, fy / w_total, fz / w_total)
     # The residual arrives about the CG; transfer it to the centroid,
@@ -189,14 +202,13 @@ def _closure(loads: List[BalancedLoad], cg: CgCase,
                                       source=source, side=ld.side,
                                       carrier=ld.source))
 
-    for (x, y, z), si in self_inertia:
-        m = relief_moment(si, omega_dot)
+    for s in self_inertia:
+        m = relief_moment(s.inertia, omega_dot)
         if any(m):
-            # The self-inertia rides with the point mass at the same station,
-            # so its carrier is that mass load's (#293).
-            host = next((ld for ld, _ in masses
-                         if ld.x == x and ld.y == y and ld.z == z), None)
+            # The relief rides with its item's own mass load: the carrier and
+            # side the producer names (#293, #303).
+            x, y, z = s.point
             loads.append(BalancedLoad(x=x, y=y, z=z, mx=m[0], my=m[1], mz=m[2],
-                                      source="closure-self", side="C",
-                                      carrier=host.source if host else ""))
+                                      source="closure-self", side=s.side,
+                                      carrier=s.carrier))
     return n, omega_dot, tensor

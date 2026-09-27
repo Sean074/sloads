@@ -1844,7 +1844,12 @@ the applied load set (`applied_loads("htail"|"vtail", ...)`), GID bands `4001+`
   (#293, 2026-09-21):** every `closure-*` load records the `source` of the
   mass load it was spread over (`BalancedLoad.carrier`) and lands on that
   member — a body mass's relief on the fuselage beam, a wing mass's on its
-  wing chain — where the mass itself landed. Until then a relief had no member
+  wing chain — where the mass itself landed. A point-carried item's
+  self-inertia relief (`closure-self`) takes its carrier and side from the
+  producer, `balance.point_mass_self_inertia`, which names the item's own
+  body-inertia load; it is not recovered by matching stations, so an item
+  entered with an inertia and no weight lands on the fuselage beam too (#303).
+  Until #293 a relief had no member
   and fell to the nearest grid in the whole skeleton: on a body mass low in the
   fuselage that was a main-gear attach grid, and on a centreline mass one grid
   of the mirrored pair by the tie rule, so `atr42_100`'s level landing put

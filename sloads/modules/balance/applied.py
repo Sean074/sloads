@@ -52,7 +52,7 @@ from ...models import (
 from ...tail_geometry import HTAIL, VTAIL
 from ..airloads import air_load_distribution
 from ..wing_inertia import inertia_units, resolve_wing_cases
-from .constants import HANDEDNESS_TOL
+from .constants import BODY_INERTIA_SOURCE, HANDEDNESS_TOL
 
 
 def _free_moments(result: WingLoadResult) -> List[float]:
@@ -323,7 +323,7 @@ def body_inertia(loading: CaseLoading, project: Project,
     """
     return [
         BalancedLoad(x=it.x, y=it.y, z=it.z, fz=-it.weight_lb * nz,
-                     weight_lb=it.weight_lb, source="body-inertia", side="C")
+                     weight_lb=it.weight_lb, source=BODY_INERTIA_SOURCE, side="C")
         for it in reacted_parts(loading.items, project)
         if not assembly_distributes_mass(component_of(it, project))
     ]
