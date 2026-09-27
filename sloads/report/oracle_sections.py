@@ -851,7 +851,7 @@ def _case_loading_statement(project: Project, u: Units) -> str:
         f"weighs the case and sits within {band} of it on Xcg and Zcg; an "
         "entered loading is held to the greater of "
         f"{u.plain(echo_weight_tolerance(0.0), 'mass')} {u.label('mass')} and "
-        f"{100 * _ECHO_WEIGHT_REL:g} % on weight and {band} on each "
+        f"{100 * _ECHO_WEIGHT_REL:g} % on weight and {band} on each "  # note 65 exempt: a stated tolerance, prose
         "coordinate. ")
     if not failed:
         return rule + ("The one checked case holds." if len(cases) == 1
@@ -3097,7 +3097,7 @@ def _beam_reconciliation(project: Project, system: UnitSystem) -> str:
                f"against the beam's {u.plain(check.want, 'mass')} {mass}")
     if check.ok:
         return (f"The two tables are the same airplane: {account}, inside the "
-                f"{FUSELAGE_GAP_WARN_FRACTION * 100:g} % of the beam at which "
+                f"{FUSELAGE_GAP_WARN_FRACTION * 100:g} % of the beam at which "  # note 65 exempt: prose
                 "they would be describing different ones.")
     share = abs(check.gap) / abs(check.want) * 100.0
     lighter = "lighter" if check.gap < 0.0 else "heavier"
@@ -5184,7 +5184,7 @@ def _tail_mass_provenance(project: Project, component: str,
     share = (abs(check.gap) / abs(derived) * 100.0) if derived else 0.0
     if check.ok:
         return (lead + f" The entered panel weight and the tagged items agree "
-                       f"to within {TAIL_GAP_WARN_FRACTION * 100:g} % of each "
+                       f"to within {TAIL_GAP_WARN_FRACTION * 100:g} % of each "  # note 65 exempt: prose
                        f"other, so which was taken changes nothing.")
     return (lead + f" The project's other figure for the same surface -- "
                    f"{u.plain(check.got if override else check.want, 'mass')} "
@@ -5767,11 +5767,11 @@ def _control_case_table(records: Sequence[ControlSurfaceLoadResult],
         return None
     u = Units(system)
     p_scale, p_units = _scalar_channel("lb/in^2", system)
-    stations = sorted({round(s.x, 6) for r in records for s in r.stations})
+    stations = sorted({round(s.x, 6) for r in records for s in r.stations})  # note 65 exempt: a key, never printed
     rows = []
     for record in records:
         sf = case_sf(record)
-        by_x = {round(s.x, 6): s.psi for s in record.stations}
+        by_x = {round(s.x, 6): s.psi for s in record.stations}  # note 65 exempt: a key, never printed
         rows.append([
             str(record.case),
             _tail_case_id(record) if record.case_ref else "--",
@@ -7864,8 +7864,8 @@ def _landing_free_body_table(project: Project,
     seen: Dict[Tuple[str, str, float, float], List[int]] = {}
     for case in cases:
         for leg in case.legs:
-            key = (leg.leg, leg.strut_state, round(leg.ground_angle_deg, 4),
-                   round(leg.stroke_in, 4))
+            key = (leg.leg, leg.strut_state, round(leg.ground_angle_deg, 4),  # note 65 exempt: a key,
+                   round(leg.stroke_in, 4))                                    # never printed
             seen.setdefault(key, []).append(case.case)
     if not seen:
         return None

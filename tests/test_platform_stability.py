@@ -350,7 +350,12 @@ if __name__ == "__main__":
 # renderer in ``sloads/report/`` writing a digit count of its own.
 # --------------------------------------------------------------------------- #
 _EXAMPLES_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(sloads.__file__))), "examples")
-_REPORT_SOURCES = sorted(glob.glob(os.path.join(os.path.dirname(os.path.abspath(sloads.__file__)), "report", "*.py")))
+# D-65.7's renderers: the report package and the two GUI packages (note 65 §4
+# gate 4 names all three; until #302 the walk read the first alone).
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(sloads.__file__)))
+_RENDERER_SOURCES = sorted(
+    path for package in ("sloads/report", "app_shell", "oracle_app")
+    for path in glob.glob(os.path.join(_REPO, package, "**", "*.py"), recursive=True))
 
 
 def test_every_delivered_cell_prints_at_its_units_precision():
@@ -408,6 +413,10 @@ def test_every_delivered_cell_prints_at_its_units_precision():
         (3.1, "kg*m^2", "3.1000"), (2.899, "m^2", "2.8990"),    # #298's 31.2 ft² tail, not "3"
         (8.55437, "m²", "8.5544"),                              # the wing geometry's 13259 in²
         (1628.66, "kg·m²", "1628.6600"), (74.57, "kW", "74.6"),
+        # the scalar converter's spellings (the GUI station tables, #302) and
+        # the fleet view's power loading take the rows of the units they spell
+        (13360.4, "lbf", "13360"), (3.1234, "psi", "3.12"), (586.6, "sqft", "587"),
+        (11.674, "lb/hp", "11.67"),
     ]
     for value, units, expected in cases:
         got = format_value(value, units)
@@ -484,6 +493,7 @@ def test_every_unit_string_a_fixture_emits_has_a_precision_row():
         UnitSystem,
         _INPUT_KIND,
         _RESULT_TO_SI,
+        _SCALAR_TO_SI,
         deliverable_units,
         si_decimals,
     )
@@ -494,6 +504,11 @@ def test_every_unit_string_a_fixture_emits_has_a_precision_row():
     assert emitted, "the walk must not quietly empty out"
     assert emitted <= set(DELIVERED_PRECISION), sorted(emitted - set(DELIVERED_PRECISION))
     assert set(_RESULT_TO_SI) <= set(DELIVERED_PRECISION), sorted(set(_RESULT_TO_SI) - set(DELIVERED_PRECISION))
+    # the scalar converter the GUI station tables read (#302): its spellings
+    # print at the row of the unit they spell, never at the fallback
+    assert set(_SCALAR_TO_SI) <= set(DELIVERED_PRECISION), sorted(set(_SCALAR_TO_SI) - set(DELIVERED_PRECISION))
+    for alias, unit in {"lbf": "lb", "psi": "lb/in^2", "sqft": "ft^2"}.items():
+        assert DELIVERED_PRECISION[alias] == DELIVERED_PRECISION[unit], alias
     si_labels = {d.label for d in HUMAN_SI.values()} | {si for _f, _i, si in _EXTRA_DIMENSIONS.values()}
     assert si_labels <= set(DELIVERED_PRECISION_SI), sorted(si_labels - set(DELIVERED_PRECISION_SI))
 
@@ -547,26 +562,83 @@ def test_no_delivered_cell_is_in_exponent_form(example):
     human = {k: v for k, v in baseline.artifacts(example).items()
              if not k.startswith("sbeam/") and k != "gear_report"}
     assert human, example
-    exponent = re.compile(r"(?<![\w.])-?\d+\.?\d*[eE][+-]\d+")
+    assert not _exponent_cells(human)
+
+
+_EXPONENT = re.compile(r"(?<![\w.])-?\d+\.?\d*[eE][+-]\d+")
+
+
+def _exponent_cells(channels):
+    """``{channel: [first three cells]}`` of every exponent-form number inside
+    D-65.2's delivered window; empty when the channels are clean."""
     inside = {}
-    for channel, text in human.items():
-        bad = [m for m in exponent.findall(text) if 1e-4 <= abs(float(m)) < 1e9]
+    for channel, text in channels.items():
+        bad = [m for m in _EXPONENT.findall(text) if 1e-4 <= abs(float(m)) < 1e9]
         if bad:
             inside[channel] = bad[:3]
-    assert not inside, inside
+    return inside
 
 
-@pytest.mark.parametrize("path", _REPORT_SOURCES, ids=os.path.basename)
-def test_no_report_renderer_writes_a_digit_count_of_its_own(path):
-    """D-65.7: precision is the unit's, read through ``format_value``. An
-    f-string precision spec or a ``%.Nf`` format in ``sloads/report/`` fails
-    unless its line (or the line above) states ``note 65 exempt`` and why --
-    a TikZ coordinate, a LaTeX length, the solver channel's companion CSV."""
+@pytest.mark.parametrize("example", __import__("imperial_baseline").EXAMPLES)
+def test_no_si_load_case_cell_is_in_exponent_form(example):
+    """Gate 2 in the other unit system (note 65 §4, #302): every module's
+    load-case CSV of every example, rendered in SI. A conversion factor moves
+    a value's magnitude, so a cell Imperial prints plainly is not thereby
+    plain in SI. The text views take no unit system, so Imperial covers them;
+    the SI document and its package files are the slow lane's, below."""
+    from sloads import io, registry
+    from sloads.report import LoadChannel
+    from sloads.units import UnitSystem
+
+    project = io.load_project(os.path.join(_EXAMPLES_DIR, example))
+    csvs = {f"csv/{mr.module}": io.load_cases_csv(mr, channel=LoadChannel.LIMIT, system=UnitSystem.SI)
+            for mr in registry.run_all_modules(project)}
+    assert csvs, example
+    assert not _exponent_cells(csvs)
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("example", __import__("imperial_baseline").EXAMPLES)
+def test_no_si_document_cell_is_in_exponent_form(example):
+    """Gate 2 over the SI issue package (note 65 §4, #302): the rendered
+    document and every file of its ``data/``, less the gear report, which is
+    the solver channel's companion (``deck_format.fmt``, D-65.8) in SI as in
+    Imperial."""
+    import dataclasses
+
+    from sloads import io
+    from sloads.models.report import default_spec
+    from sloads.report.oracle_content import build_oracle_document
+    from sloads.report.oracle_latex import render_oracle_document
+    from sloads.report.package_data import DATA_DIR, data_files
+    from sloads.units import UnitSystem
+
+    project = io.load_project(os.path.join(_EXAMPLES_DIR, example))
+    doc = build_oracle_document(project, dataclasses.replace(default_spec(), unit_system=UnitSystem.SI))
+    channels = {f.name: f.content for f in data_files(doc)
+                if f.name != f"{DATA_DIR}/gear_loads.csv"}
+    assert len(channels) > 1, example
+    channels["document"] = render_oracle_document(doc)
+    assert not _exponent_cells(channels)
+
+
+@pytest.mark.parametrize("path", _RENDERER_SOURCES, ids=lambda p: os.path.relpath(p, _REPO))
+def test_no_renderer_writes_a_digit_count_of_its_own(path):
+    """D-65.7: precision is the unit's, read through ``format_value``. In
+    ``sloads/report/``, ``app_shell/`` and ``oracle_app/`` a float format fails
+    unless a line of its statement states ``note 65 exempt`` and why --
+    a TikZ coordinate, a LaTeX length, the solver channel's companion CSV, an
+    entered value's echo, a percentage the prose composes.
+
+    A float format is an f-string spec or a ``%`` format with a precision *or*
+    a float presentation type -- a bare ``:g`` or ``:,.0f`` is a digit count as
+    much as ``:.3f`` is (#302 found the safety factor printed ``1.5`` through
+    one the old pattern could not see) -- or a ``round`` to a digit count."""
     with open(path, encoding="utf-8") as fh:
         source = fh.read()
     lines = source.splitlines()
-    spec = re.compile(r"\.\d+[fFeEgG]")
-    percent = re.compile(r"%[0-9]*\.\d+[feg]")
+    spec = re.compile(r"\.\d+|[fFeEgGn%]$")
+    percent = re.compile(r"%[-+ 0#]*\d*(\.\d+)?[fFeEgG]")
 
     def exempt(stmt):
         # The marker anywhere on the statement's own lines (an f-string's
@@ -591,4 +663,7 @@ def test_no_report_renderer_writes_a_digit_count_of_its_own(path):
                       and isinstance(sub.left, ast.Constant) and isinstance(sub.left.value, str)
                       and percent.search(sub.left.value)):
                     offenders.append((sub.lineno, sub.left.value))
-    assert not offenders, f"{os.path.basename(path)}: {offenders} -- call format_value(value, units)"
+                elif (isinstance(sub, ast.Call) and isinstance(sub.func, ast.Name)
+                      and sub.func.id == "round" and len(sub.args) == 2):
+                    offenders.append((sub.lineno, "round(value, digits)"))
+    assert not offenders, f"{os.path.relpath(path, _REPO)}: {sorted(set(offenders))} -- call format_value(value, units)"

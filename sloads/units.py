@@ -829,12 +829,16 @@ DELIVERED_PRECISION: Dict[str, Optional[int]] = {
     # the roll acceleration WINGINER prints to three places (p. 219, note 52)
     "rad/s^2": 3,
     "lb/in^2": 2, "lb/ft^2": 2,
+    "lb/hp": 2,                     # the fleet view's power loading, beside W/S
     "%": 2, "%MAC": 2, "% tail MAC": 2,
     "g": 2,
     # engine ratings and speeds (entered engine records, section 10)
     "hp": 0, "rpm": 0,
     # dimensionless, slopes, times: four significant figures
     "": None, "1/deg": None, "/rad": None, "s": None,
+    # the scalar converter's own spellings of rows above (``_SCALAR_TO_SI``:
+    # the GUI station tables label a force ``lbf``), at the same precision
+    "lbf": 0, "psi": 2, "sqft": 0,
 }
 
 #: The same table under the SI labels a converted ``LoadValue`` carries

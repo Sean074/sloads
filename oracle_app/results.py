@@ -332,7 +332,8 @@ def weight_estimate_advisory(project: Project, system: UnitSystem) -> str:
         parts.append(
             f"**{r.quantity}** — estimate {format_value(est.value, est.units)} {est.units} "
             f"against {format_value(entered.value, entered.units)} {entered.units} entered "
-            f"({delta.value:+.0f} {delta.units}, {r.delta_pct:+.1f} %)")
+            f"({'+' if delta.value > 0 else ''}{format_value(delta.value, delta.units)} {delta.units}, "
+            f"{r.delta_pct:+.1f} %)")  # note 65 exempt: the share is prose
     return f"{_ESTIMATE_ADVISORY} " + "; ".join(parts) + "."
 
 
@@ -371,19 +372,19 @@ def select_inertia_advisory(project: Project, _system: UnitSystem) -> str:
             "not the item data base.")
     vt = project.vtail_loads
     if vt is not None and vt.izz_slugft2:
-        text += (f" IZZ here is the typed override, {vt.izz_slugft2:,.0f} "
+        text += (f" IZZ here is the typed override, {format_value(vt.izz_slugft2, 'slug-ft^2')} "
                  "slug-ft\u00b2.")
     else:
         izz_rod = default_side_gust_izz(project)
         if izz_rod is not None:
-            text += f" The rod IZZ in use is {izz_rod:,.0f} slug-ft\u00b2."
+            text += f" The rod IZZ in use is {format_value(izz_rod, 'slug-ft^2')} slug-ft\u00b2."
     mass = project.mass
     if mass is not None and mass.cases:
         heaviest = max(mass.cases, key=lambda c: c.weight_lb)
         text += (" For comparison, WTONECG's item-database inertias at the "
                  f"heaviest loading ({heaviest.name}): Iyy "
-                 f"{heaviest.iyy / LBIN2_PER_SLUGFT2:,.0f}, IZZ "
-                 f"{heaviest.izz / LBIN2_PER_SLUGFT2:,.0f} slug-ft\u00b2.")
+                 f"{format_value(heaviest.iyy / LBIN2_PER_SLUGFT2, 'slug-ft^2')}, IZZ "
+                 f"{format_value(heaviest.izz / LBIN2_PER_SLUGFT2, 'slug-ft^2')} slug-ft\u00b2.")
     return text
 
 

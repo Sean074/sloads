@@ -189,7 +189,7 @@ def render_applicability_banner(project: Project, *, switch_action: bool = True)
     )
     for exc in exceedances:
         st.markdown(
-            f"- **{exc.label}:** {exc.value:,.0f} exceeds the limit of {exc.limit:,.0f}"
+            f"- **{exc.label}:** {exc.value:,.0f} exceeds the limit of {exc.limit:,.0f}"  # note 65 exempt: mixed units
         )
     if not switch_action:
         return

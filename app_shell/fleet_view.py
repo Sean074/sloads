@@ -27,6 +27,7 @@ import streamlit as st
 from app_shell.plots import render_figure
 from sloads.fleet import FleetPoint, Subject, fleet_stats
 from sloads.report.content import Figure
+from sloads.report.render import format_value
 
 #: The tab each figure is shown under, keyed by ``Figure.key``. Short labels,
 #: because six tab titles have to fit on one row; the renderer prints the
@@ -41,9 +42,10 @@ TAB_LABELS: Dict[str, str] = {
 }
 
 
-def _fmt(value: Optional[float], digits: int = 0) -> Optional[float]:
-    """Round for the table, or ``None`` -- rendered blank -- when absent."""
-    return None if value is None else round(value, digits)
+def _fmt(value: Optional[float], units: str) -> Optional[float]:
+    """``value`` kept to the digits its unit prints at (note 65, #302) and still
+    a number, so the column sorts; ``None`` -- rendered blank -- when absent."""
+    return None if value is None else float(format_value(value, units))
 
 
 def _row(name: str, mtow: Optional[float], oew: Optional[float],
@@ -52,14 +54,14 @@ def _row(name: str, mtow: Optional[float], oew: Optional[float],
          seats: int) -> Dict[str, object]:
     return {
         "Aircraft": name,
-        "MTOW (lb)": _fmt(mtow),
-        "Empty weight (lb)": _fmt(oew),
-        "Power (hp)": _fmt(power),
-        "W/S (lb/ft²)": _fmt(w_s, 1),
-        "W/P (lb/hp)": _fmt(w_p, 1),
-        "Wingspan (ft)": _fmt(span, 1),
-        "Wing area (ft²)": _fmt(area),
-        "Aspect ratio": _fmt(ar, 2),
+        "MTOW (lb)": _fmt(mtow, "lb"),
+        "Empty weight (lb)": _fmt(oew, "lb"),
+        "Power (hp)": _fmt(power, "hp"),
+        "W/S (lb/ft²)": _fmt(w_s, "lb/ft^2"),
+        "W/P (lb/hp)": _fmt(w_p, "lb/hp"),
+        "Wingspan (ft)": _fmt(span, "ft"),
+        "Wing area (ft²)": _fmt(area, "ft^2"),
+        "Aspect ratio": _fmt(ar, ""),
         "Seats": seats or None,
     }
 
@@ -89,16 +91,18 @@ def render_readout(subject: Subject, fleet: Sequence[FleetPoint]) -> None:
 
     left, right = st.columns(2)
     if subject.w_s is not None and stats.ws_percentile is not None and stats.ws_band:
-        left.metric("Wing loading W/S (lb/ft²)", f"{subject.w_s:.1f}",
-                    help=(f"{stats.ws_percentile:.0f}th percentile of the fleet; "
-                          f"p10–p90 band {stats.ws_band[0]:.1f}–{stats.ws_band[1]:.1f}."))
+        ws = [format_value(v, "lb/ft^2") for v in (subject.w_s, *stats.ws_band)]
+        left.metric("Wing loading W/S (lb/ft²)", ws[0],
+                    help=(f"{stats.ws_percentile:.0f}th percentile of the fleet; "  # note 65 exempt: a rank
+                          f"p10–p90 band {ws[1]}–{ws[2]}."))
     else:
         left.metric("Wing loading W/S (lb/ft²)", "—",
                     help="Enter the wing area and the design weight to compute W/S.")
     if subject.w_p is not None and stats.wp_percentile is not None and stats.wp_band:
-        right.metric("Power loading W/P (lb/hp)", f"{subject.w_p:.1f}",
-                     help=(f"{stats.wp_percentile:.0f}th percentile of the fleet; "
-                           f"p10–p90 band {stats.wp_band[0]:.1f}–{stats.wp_band[1]:.1f}."))
+        wp = [format_value(v, "lb/hp") for v in (subject.w_p, *stats.wp_band)]
+        right.metric("Power loading W/P (lb/hp)", wp[0],
+                     help=(f"{stats.wp_percentile:.0f}th percentile of the fleet; "  # note 65 exempt: a rank
+                           f"p10–p90 band {wp[1]}–{wp[2]}."))
     else:
         right.metric("Power loading W/P (lb/hp)", "—",
                      help="Enter the installed power and the design weight to compute W/P.")
