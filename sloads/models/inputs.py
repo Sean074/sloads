@@ -529,10 +529,7 @@ class FuselageOutline:
 
     A station-area table (:class:`FuselageSection` list) that gives both the
     three-view body profile and the cross-sectional-area distribution the G4
-    fuselage pitching-moment estimator consumes. For older projects (which carry
-    only the ``fuselage_length``/``_width``/``_height`` scalars on the parametric
-    slice) it is defaulted from those scalars by
-    :func:`default_fuselage_outline` when the project loads.
+    fuselage pitching-moment estimator consumes.
     """
     sections: List[FuselageSection] = field(default_factory=list)
 
@@ -2031,9 +2028,7 @@ class LayoutInput:
     # sole editable shape source; these three scalars are a **derived read-only
     # summary** of it (length = station span, width/height = max section), kept in
     # sync by sloads.derived_geometry.sync_geometry_derived and NOT persisted. The
-    # GUI shows them read-only. For an older project that carries only these scalars
-    # (no outline) default_fuselage_outline seeds the outline from them on load, then
-    # the summary re-derives (a stable round-trip for the default 3-section shape).
+    # GUI shows them read-only.
     fuselage_length: float = 0.0     # overall length, in -- derived summary (M2-6)
     fuselage_width: float = 0.0      # max width, in -- derived summary (M2-6)
     fuselage_height: float = 0.0     # max height, in -- derived summary (M2-6)
@@ -2079,36 +2074,6 @@ class LayoutInput:
     # Landing-gear geometry moved to the single-source GeometryInput.landing_gear
     # (Step G6b): the three-view and the tip-back/overturn/clearance estimate derive
     # the station/track/height from the native LANDLOAD axle geometry there.
-
-
-# Default fuselage-outline shape (fractions of overall length / max cross-section)
-# used to seed a body outline from the coarse length/width/height scalars for a
-# project that predates the G1 outline. A first-order nose-cone -> constant-section
-# -> tail-cone form; documented here so a refinement is a one-line change.
-_FUSE_MAX_SECTION_FRAC = 0.35       # station of the max cross-section, fraction of L
-_FUSE_TAIL_WIDTH_FRAC = 0.10        # tail-end width, fraction of max width
-_FUSE_TAIL_HEIGHT_FRAC = 0.15       # tail-end height, fraction of max height
-
-
-def default_fuselage_outline(parametric: "LayoutInput") -> Optional[FuselageOutline]:
-    """A first-order fuselage outline from the parametric length/width/height.
-
-    Three sections nose -> tail: a pointed nose at the datum, the max cross-section
-    at :data:`_FUSE_MAX_SECTION_FRAC` of the length, and a tapered tail cone. Used
-    to migrate an older project (which carries only the scalars) to the G1 body
-    outline. Returns ``None`` when no fuselage length is set (draw nothing, exactly
-    as before the outline existed).
-    """
-    length = parametric.fuselage_length
-    if length <= 0:
-        return None
-    x0 = parametric.datum_x
-    w, h = parametric.fuselage_width, parametric.fuselage_height
-    return FuselageOutline(sections=[
-        FuselageSection(x0, 0.0, 0.0),
-        FuselageSection(x0 + _FUSE_MAX_SECTION_FRAC * length, w, h),
-        FuselageSection(x0 + length, _FUSE_TAIL_WIDTH_FRAC * w, _FUSE_TAIL_HEIGHT_FRAC * h),
-    ])
 
 
 __all__ = [
@@ -2164,7 +2129,6 @@ __all__ = [
     "WingLoadCase",
     "WingMassInput",
     "XYPoint",
-    "default_fuselage_outline",
     "normalise_code",
     "require_surface",
     "same_name",

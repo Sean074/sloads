@@ -500,8 +500,8 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   moment estimator). **Step M2-6: the `.fuselage` outline is the sole editable shape
   source; the `LayoutInput.fuselage_length`/`_width`/`_height` scalars are a derived
   read-only summary of it (length = station span, width/height = max section), not
-  persisted** (`fuselage_summary`); `default_fuselage_outline` remains the *migration*
-  path that seeds an outline from the scalars for a pre-outline file. One **Geometry**
+  persisted, nor read** (`fuselage_summary`); a file with no outline has no body
+  (the scalar-seeded default outline went at #310). One **Geometry**
   page owns and edits the whole slice; schema v25 at the time (v26 after Step G4's
   `fuselage_moment`, **27** after Step G6's `empennage`, **28** after Step G6b's
   `landing_gear`, **29** after Step M1-1b's single-source CLmax stall, **30** after

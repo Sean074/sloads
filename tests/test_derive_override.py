@@ -6,8 +6,8 @@ value overrides, and the registry links each collapsed path to its owner. The
 gates here are the note's own G-OV-2 (derive-equals-owner, rel 1e-9), G-OV-3
 (the silent-default defect dies, each test stating the pre-fix failure),
 G-OV-4's registry half (OV-11: the drift guard that makes the mechanism the
-single-source owner), G-OV-5's v56 round-trip half (the 55->56 hop itself is
-pinned in ``test_migrations.py``) and G-OV-6 (typed disagreements warn, a
+single-source owner), G-OV-5's v56 round-trip half (the 55->56 hop itself
+was deleted at #310) and G-OV-6 (typed disagreements warn, a
 selector naming no row is refused by name). G-OV-1 is the standing oracle
 suite, which this change must leave untouched.
 """

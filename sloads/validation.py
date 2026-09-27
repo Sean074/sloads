@@ -1332,11 +1332,10 @@ def _check_fuselage_override_per_case(project: Project) -> List[ConsistencyWarni
 def _check_migration_notes(project: Project) -> List[ConsistencyWarning]:
     """What the schema hop chain had to say about this file, stated once.
 
-    ``migration_dropped_wing_masses`` etc. are one warning per note on
-    ``Project.migration_notes`` (never persisted): a v66 file's
-    ``wing_mass.concentrated`` dropped or converted by ``_hop_66``, the panel
-    override it kept. Saving writes the file at the current version and the
-    note is gone, which is what "named once" means.
+    One warning per note on ``Project.migration_notes`` (never persisted): a
+    hop that changed an entered value says so -- the v67 hop, deleted at #310,
+    named the wing masses it dropped or converted. Saving writes the file at the
+    current version and the note is gone, which is what "named once" means.
     """
     return [ConsistencyWarning("migration_note", note, PAGE_WEIGHT_CG)
             for note in project.migration_notes]

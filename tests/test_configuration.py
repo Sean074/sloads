@@ -310,28 +310,6 @@ def test_tail_planform_v_tail_draws_two_diagonal_panels_not_h_v():
     assert math.isclose(left_y, -right_y)
 
 
-def test_default_fuselage_outline_from_scalars():
-    # Step G1: a body outline is defaulted from the coarse length/width/height
-    # scalars -- nose point, max section at 0.35L, tapered tail cone.
-    from sloads import default_fuselage_outline
-    layout = LayoutInput(fuselage_length=300.0, fuselage_width=48.0,
-                         fuselage_height=54.0, datum_x=10.0)
-    outline = default_fuselage_outline(layout)
-    assert outline is not None
-    xs = [s.x for s in outline.sections]
-    assert xs[0] == 10.0                        # nose at the datum
-    assert math.isclose(xs[1], 10.0 + 0.35 * 300.0)
-    assert math.isclose(xs[2], 10.0 + 300.0)    # tail
-    assert outline.sections[1].width == 48.0 and outline.sections[1].height == 54.0
-    assert outline.sections[0].width == 0.0     # pointed nose
-
-
-def test_default_fuselage_outline_none_without_length():
-    # No fuselage length -> no outline (draw nothing, as before the outline existed).
-    from sloads import default_fuselage_outline
-    assert default_fuselage_outline(LayoutInput()) is None
-
-
 def test_match_component_station_prefers_specific_over_lumped():
     layout = _full_layout()
     stations = component_stations(layout, _emp(xt25=270.0, xv25=265.0), _gear_geom(150.0, 30.0))

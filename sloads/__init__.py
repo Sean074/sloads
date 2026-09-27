@@ -105,7 +105,6 @@ from .models import (
     WingLoadResult,
     WingMassInput,
     WingStationLoad,
-    default_fuselage_outline,
     normalise_code,
     same_name,
 )
@@ -216,7 +215,6 @@ __all__ = [
     "consistency_warnings",
     "convert_results",
     "curve_closure",
-    "default_fuselage_outline",
     "far23_applicability",
     "fleet_stats",
     "io",

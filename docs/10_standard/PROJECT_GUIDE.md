@@ -194,7 +194,7 @@ FAR23LOADS/
 │   │   ├── report.py             # ReportSpec + REPORT_SCHEMA_VERSION: one report issue's metadata, not a Project slice (note 44, OR-17)
 │   │   └── results.py            # result dataclasses (ConditionResult/LoadValue, per-module results)
 │   ├── io.py                     # the only dataclass<->JSON mapping; project.json + load-case CSV
-│   ├── migrations.py             # normalise any historical project.json to the current schema
+│   ├── migrations.py             # the schema gate: a file a release wrote is read through the hop chain, any other refused
 │   ├── registry.py               # module registry: name -> run(project) -> ModuleResult; run_all_modules
 │   ├── _version.py               # THE version literal: pyproject reads it via attr:, the report stamps it (guard: tests/test_version_owner.py)
 │   ├── spec_names.py             # registry name -> PROGRAM_SPEC heading (+ the non-module allowlist), guarded (R6-D6)
@@ -316,8 +316,7 @@ FAR23LOADS/
 ├── tests/                        # pytest; each file also has a zero-dependency __main__ self-runner
 │   ├── test_<module>.py          # one per module — Appendix A/B oracles, else a stated closure gate
 │   ├── imperial_baseline.py      # renders every deliverable channel of every example (M4-20)
-│   ├── fixtures_imperial/        #   ...digested and frozen: the D-21 "Imperial is unchanged" guard
-│   └── fixtures_schema/          # one frozen file at the current schema; the shape tripwire lives in test_schema_guards.py
+│   └── fixtures_imperial/        #   ...digested and frozen: the D-21 "Imperial is unchanged" guard
 ├── examples/
 │   ├── ga6_normal.project.json   # Appendix A — 6-place GA single (category N); the oracle fixture
 │   ├── baron_58.project.json     # light twin (category N); the twin closure lock
@@ -358,7 +357,7 @@ So that every module is copy-of-the-pattern, these are fixed once:
 - **Results are keyed values.** Reuse the existing `LoadValue(label, value, units, quantity, key)` / `ConditionResult` types so `report.py`, the units layer and the CSV writer work unchanged for every module. A `ConditionResult` also carries `safety_factor` (default `constants.ULTIMATE_FACTOR = 1.5`, 14 CFR 25.303) — see below.
 - **`LoadValue.key` is the identity; `label` is cosmetic (M4-9).** Every `LoadValue` SHALL carry a non-empty snake_case `key`, unique within its `ConditionResult`. **Downstream code matches on `key` only** — `report`, `report/applied.py`, the views and `tests/helpers.py`. `label` is display text and may be reworded, re-annotated or translated freely; nothing may branch on it. (Rendering it, as `report.results_to_rows` does in its `Quantity` column, is not branching on it.)
   Keys that cross a module boundary — the load-case schema's `loc_x`/`fz_vertical`/`fy_side`/`fx_thrust`/`mx_mount_torque` and the `gyro_case{n}_{myy,mzz}` sub-cases — are named once in **`sloads/load_keys.py`** and imported by both producer and consumer. Keys internal to one module are written inline at the producing site. Never derive a key from the label at runtime (`load_keys.key_from_label` exists for the one case where the "label" *is* data — `weight_estimate`'s rows, whose names are the keys of the `WT_*_FRACTIONS` tables).
-  Why: before M4-9 the semantics rode on the label, so rewording a report column silently blanked it — the lookup returned `None`, the renderer wrote an empty cell, and no error was raised anywhere. `tests/test_report.py::test_relabelling_every_load_value_leaves_the_csv_intact` is the standing guard. `key` is **persisted** (the envelope slice), so adding or renaming one is a `SCHEMA_VERSION` bump plus a hop — see `sloads/migrations.py`'s `_v36_load_value_keys` and its frozen table.
+  Why: before M4-9 the semantics rode on the label, so rewording a report column silently blanked it — the lookup returned `None`, the renderer wrote an empty cell, and no error was raised anywhere. `tests/test_report.py::test_relabelling_every_load_value_leaves_the_csv_intact` is the standing guard. `key` is **persisted** (the envelope slice), so adding or renaming one is a `SCHEMA_VERSION` bump, and a hop once a release has shipped a schema (`sloads/migrations.py`).
 - **Calc is LIMIT; ALL output is LIMIT** (design note 49 **OR-116** — this rule was *"ALL output is ULTIMATE"* until 2026-09-05). Modules return **limit** loads (the oracle figures) and every surface reports them unchanged: no path in `sloads/` multiplies a load by a safety factor, and **G-OR-71** scans the tree for one. What leaves the calc carries the factor **stated** — **every case states its SF** (default 1.5 per 14 CFR 23.303; Part 25 equivalent 25.303) — and the sizing analysis applies it. Load quantities carry plain units; the `ULT` marker (force `lbs-ULT`/`N-ULT`, moment `ft-lb-ULT`/`lb-in-ULT`/`Nm-ULT`, pressure `lb/in^2-ULT`) survives only on a load the regulation prescribes **already ultimate** — 23.367(a)(2) sudden engine stoppage and 23.561(b) emergency-landing inertia — which is **`ULT SF=1.0`**, apply nothing. The per-case field is also the hook for a future 14 CFR 23.302/25.302 / Appendix K probability-based factor (1.0–1.5). See `reference/14CFR_factor_of_safety.md`.
   The factor lives **on the result**, not in the renderer (defect M4-7): `safety_factor` is a field on `ConditionResult`, `CriticalCondition` and all four distributed-load results (`WingLoadResult`, `BodyLoadResult`, `TailChordResult`, `ControlSurfaceLoadResult`), minted by the module that owns the condition and copied unchanged by everything derived from it. `report.py` and `deck_format.case_sf()` each read it off the object they are rendering, so the report and the exported cards can never *state* different factors for one case. Every deliverable states the factor it did **not** apply — the `SF` column in `report.py`'s load-case rows and in the four sbeam span/chordwise CSVs (last column), and `deck_format.basis_sentence` on every card block, which is the single owner of that wording and is gated per subcase by **G-OR-73**.
 - **One CSV shape per module = load cases.** Each row is one structural load case: `ID`, `FAR §`, `Case description`, an `SF` column (always populated), application point `Loc X/Y/Z`, then the applied **ultimate** loads/moments with `-ULT` units (`lbs-ULT`/`ft-lb-ULT`/…). This is exactly the `load_cases_to_rows` pattern engloads already established — generalize it, don't reinvent per module.
@@ -387,35 +386,40 @@ So that every module is copy-of-the-pattern, these are fixed once:
   **Apply**; the oracle GUI's generic renderer persists live but writes only
   what changed, and attaches a record it created only if the pass put something
   in it.
-- **A project file is read at the current schema — or a version the hop chain
-  reaches it from — or refused** (`sloads/migrations.py`, #93). This project is
-  pre-production: no analysis made with an earlier build has to stay readable,
-  so `SUPPORTED_FLOOR` is the oldest version a registered hop starts from
-  (v55, note 36's additive-identity hop) and `migrations.migrate` raises
-  `SchemaVersionError` — a `ValueError`, so it lands in the documented error
-  contract — for anything below the floor, newer, or unversioned.
-  The gate sits inside `io.project_from_dict`, the funnel every front-end loads
-  through, so no GUI classifies versions for itself
+- **A project file is readable if a release wrote it, and refused otherwise**
+  (`sloads/migrations.py`, #310). A file written by any release from 0.8.7 on
+  stays readable by every later release; a schema version that existed only on
+  a development branch between releases is never promised. `SUPPORTED_FLOOR` is
+  the oldest released schema (`RELEASED_SCHEMAS`), and `migrations.migrate` runs
+  the hop chain from it and raises `SchemaVersionError` — a `ValueError`, so it
+  lands in the documented error contract — for anything older, newer or
+  unversioned. The gate sits inside `io.project_from_dict`, the funnel every
+  front-end loads through, so no GUI classifies versions for itself
   (guard: `tests/test_app_shell.py::test_no_gui_decides_whether_a_file_is_readable`).
   When you change a persisted dataclass, bump `SCHEMA_VERSION` — not optional
   even for a purely additive field, because the fields-hash tripwire fails on any
   persisted-shape change, which is what stops a field being added to the
   dataclass and forgotten in `io.py` — and **re-stamp the bundled examples**,
   which the guard in `tests/test_schema_guards.py` requires and which the
-  Imperial digests then prove changed no delivered number. Never add legacy
-  handling *inside* a reader: that is the five-shims-in-five-places pattern the
-  chain replaced.
-  **The migration chain is live again.** `MIGRATIONS` is a
-  `{from_version: hop}` map applied in ascending order, with the frozen
-  per-shape fixtures under `tests/fixtures_schema/` — one per version the chain
-  starts from, and one at current. Most hops are identities: an additive field
-  with a backward-benign default needs a hop because the gate refuses a version
-  it has no hop for, not because there is anything to carry across. The schema ledger — which
-  version added what — is the annotated `EXPECTED_FIELDS_HASH` block in
+  Imperial digests then prove changed no delivered number. Once a release has
+  shipped a schema, every bump also registers its hop in `MIGRATIONS` (a
+  `{from_version: hop}` map applied in ascending order), identity or not: the
+  reader drops a key it does not know, so a bump without a hop would misread a
+  stale file rather than refuse it. A hop that changes an entered value says so
+  through `migration_notes`, which `validation` states once. Never add legacy
+  handling *inside* a reader: the readers read the current schema only, and the
+  hop is where an old shape becomes the current one.
+  At each release cut the schema it ships is recorded in `RELEASED_SCHEMAS` and
+  one example is frozen at that version as
+  `tests/fixtures_schema/release_<X.Y.Z>.json` (`RELEASE_PROCESS.md` §4);
+  `tests/test_migrations.py` holds the rule structurally — every release the
+  changelog names from 0.8.7 on has a row, every frozen file loads, and the chain
+  runs without a gap from the floor to the current version. The schema ledger —
+  which version added what — is the annotated `EXPECTED_FIELDS_HASH` block in
   `tests/test_schema_guards.py` plus the comment above `SCHEMA_VERSION` in
-  `sloads/models/project.py`. The twelve hops that covered v18–v55 and the v0
-  bare-`EngineInput` branch retired with #93; they are recorded in
-  `docs/90_record/11_completed_development_to_0.5.0.md` (M4-10).
+  `sloads/models/project.py`. The hops that ran v55–v69 were deleted at #310
+  (no release from 0.8.7 on wrote those versions), as the v18–v55 chain was at
+  #93 (`docs/90_record/11_completed_development_to_0.5.0.md`, M4-10).
 - **Numbers in, numbers stored (the load boundary's typing contract, #76).** A
   field annotated as a container of numbers — `Vec3`/`XYPoint`, a list of
   numbers, a list of numeric tuples — is loaded as numbers. The shapes are

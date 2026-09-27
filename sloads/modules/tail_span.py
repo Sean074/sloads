@@ -232,10 +232,8 @@ def htail_attachment(project: Project, planform: TailPlanform) -> HTailAttachmen
 
     That branch is marked **assumed even for an entered outline**, and the reason
     is worth stating: a fuselage outline is a station-area table sized to describe
-    *volume*, and no shipped one resolves the tail cone at the empennage -- the
-    three-section default (:func:`~sloads.models.inputs.default_fuselage_outline`)
-    carries a tail-end width of a *tenth* of the maximum, a shape factor nobody
-    measured. The attachment half-span swings by half again on that factor alone.
+    *volume*, and no shipped one resolves the tail cone at the empennage, so
+    the attachment half-span rests on a tail-cone shape nobody measured.
     Consumers that need a station they can build structure on should gate on
     ``basis``, and the real fix is an entered attachment butt line -- the h-tail
     surface's ``sob_y_in`` (BM-1: one quantity, read here and by the wing SOB
