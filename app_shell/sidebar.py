@@ -61,6 +61,7 @@ from sloads.derived_geometry import (
     pct_mac_to_station,
     station_to_pct_mac,
 )
+from sloads.report.render import format_value
 from sloads.units import (
     labels_for,
     to_display,
@@ -315,7 +316,8 @@ def _render_speed_converter() -> None:
     eas = eas_from_airspeed(float(speed), float(altitude), str(measure))
     st.dataframe(
         {"Measure": list(_SPEED_UNITS),
-         "kt": [round(convert_airspeed(eas, float(altitude), u), 2) for u in _SPEED_UNITS]},
+         "kt": [float(format_value(convert_airspeed(eas, float(altitude), u), "kt(EAS)"))
+                for u in _SPEED_UNITS]},
         hide_index=True, width="stretch",
     )
     st.caption(
@@ -344,7 +346,7 @@ def _render_mac_converter(project: Project, system: UnitSystem) -> None:
         pct = st.number_input("% MAC", value=25.0, step=1.0, key=widget_key("_tool_pct_mac"))
         station = pct_mac_to_station(float(pct), ref)
         st.metric(f"Fuselage station ({length_label})",
-                  f"{to_display(station, 'length', system):.2f}")
+                  format_value(to_display(station, 'length', system), length_label))
     else:
         # A converted length goes through the one unit boundary like every other
         # converted number (#126). Seeded and keyed by hand, this
@@ -357,7 +359,7 @@ def _render_mac_converter(project: Project, system: UnitSystem) -> None:
         entered = unit_number_input("Fuselage station", ref.xlemac, kind="length",
                                     step=1.0, key=widget_key("_tool_station"))
         station = ref.xlemac if entered is None else float(entered)
-        st.metric("% MAC", f"{station_to_pct_mac(station, ref):.2f}")
+        st.metric("% MAC", format_value(station_to_pct_mac(station, ref), "%MAC"))
     # The C210-13 half of the row: WTENV falls back to the planform when the
     # envelope's XLEMAC/MAC are blank, and nothing on that page says so. A tool
     # that answers with the fallback and does not name it repeats the defect.
@@ -365,8 +367,8 @@ def _render_mac_converter(project: Project, system: UnitSystem) -> None:
               else f"the {ref.surface_name!r} wing planform")
     st.caption(
         f"Measured from {source}: XLEMAC "
-        f"{to_display(ref.xlemac, 'length', system):.2f}, MAC "
-        f"{to_display(ref.mac, 'length', system):.2f} {length_label}."
+        f"{format_value(to_display(ref.xlemac, 'length', system), length_label)}, MAC "
+        f"{format_value(to_display(ref.mac, 'length', system), length_label)} {length_label}."
     )
 
 

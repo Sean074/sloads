@@ -823,7 +823,8 @@ def test_the_speed_converter_answers_with_the_shared_atmosphere():
     shown = {m: v for m, v in zip(frame["Measure"], frame["kt"])}
     for measure, want in (("KEAS", eas), ("KTAS", convert_airspeed(eas, 20000.0, "KTAS")),
                           ("KCAS", 180.0)):
-        assert abs(shown[measure] - want) < 0.01, (measure, shown[measure], want)
+        # a speed shows to 0.1 kt (note 65, #302): within half the last digit
+        assert abs(shown[measure] - want) <= 0.05 + 1e-9, (measure, shown[measure], want)
 
 
 def test_the_mac_tool_names_the_reference_it_measured_from():

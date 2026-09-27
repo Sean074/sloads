@@ -7,7 +7,8 @@ owner per page of the column->unit map, the conversion and the header. This is
 the drift guard:
 
 1. **Imperial in, Imperial out** -- the Imperial table's numbers are the row
-   builders' own strings, headers ``(in)``/``(lbf)``/``(lb-in)``/``(psi)``.
+   builders' own values at their unit's precision (note 65, #302), headers
+   ``(in)``/``(lbf)``/``(lb-in)``/``(psi)``.
 2. **SI converts** -- every load cell equals ``to_si_scalar`` of the Imperial
    one, headers ``(mm)``/``(N)``/``(N·m)``/``(kPa)``.
 3. **No bare load header** in either system: every non-identity column states
@@ -42,6 +43,7 @@ from sloads import io as sloads_io  # noqa: E402
 from sloads.modules.body_loads import body_load_rows, build_body_loads  # noqa: E402
 from sloads.modules.net_loads import build_net_loads, wing_load_rows  # noqa: E402
 from sloads.modules.taildist import build_tail_chordwise  # noqa: E402
+from sloads.report.render import format_value  # noqa: E402
 from sloads.units import to_si_scalar  # noqa: E402
 
 _GA = os.path.join(_ROOT, "examples", "ga6_normal.project.json")
@@ -80,9 +82,33 @@ def test_wing_imperial_table_is_the_row_builder_bit_for_bit():
     _check_headers(parsed[0].keys(), _IMPERIAL, limit_in_band=False)
     assert {r["Basis"] for r in parsed} == {"LIMIT"}
     for src, out in zip(rows, parsed):
-        assert math.isclose(float(out["Sz (lbf)"]), float(src["Sz"]), rel_tol=0, abs_tol=0.05)
-        assert math.isclose(float(out["Mxx (lb-in)"]), float(src["Mxx"]), abs_tol=0.5)
+        assert out["Sz (lbf)"] == float(format_value(src["Sz"], "lbf"))
+        assert out["Mxx (lb-in)"] == float(format_value(src["Mxx"], "lb-in"))
         assert out["Case"] == src["Case"] and out["MyyAxis"] == src["MyyAxis"]
+
+
+@pytest.mark.parametrize("system", [UnitSystem.IMPERIAL, UnitSystem.SI])
+def test_every_station_cell_keeps_its_units_digits_and_stays_a_number(system):
+    """#302: the tables held digit counts of their own at two levels (the row
+    builders' strings, then this module's ``round``). A cell is now the value
+    ``format_value`` prints under its header's label, and a number, so a
+    column sorts as numbers."""
+    p = _project()
+    tables = [
+        (wing_load_rows(build_net_loads(p).wing_net), wing_limit_rows),
+        (body_load_rows(build_body_loads(p)), body_limit_rows),
+    ]
+    for rows, convert in tables:
+        for out in convert(rows, system):
+            for header, cell in out.items():
+                if header in _IDENTITY or cell == "":
+                    continue
+                assert isinstance(cell, float), (header, cell)
+                assert float(format_value(cell, _unit_of(header))) == cell, (header, cell)
+    for out in tail_limit_rows(build_tail_chordwise(p), system):
+        for header, cell in out.items():
+            if header not in _IDENTITY:
+                assert float(format_value(cell, _unit_of(header))) == cell, (header, cell)
 
 
 def test_wing_si_table_converts_every_load_column():
@@ -117,11 +143,11 @@ def test_body_table_labels_and_converts(system):
         if src["Region"] == "box":
             # A box row's running load is structurally absent (note 64 D-64.2)
             # and stays blank in every unit system rather than reading as zero.
-            assert src["Myy"] == "" and out[myy_hdr] == ""
+            assert src["Myy"] is None and out[myy_hdr] == ""
             boxes += 1
             continue
         want = to_si_scalar(float(src["Myy"]), "lb-in", system)
-        assert math.isclose(float(out[myy_hdr]), want, rel_tol=1e-3, abs_tol=0.06)
+        assert math.isclose(float(out[myy_hdr]), want, rel_tol=1e-3, abs_tol=0.5)
     assert boxes, "ga6_normal carries stations inside its wing box"
 
 
@@ -140,9 +166,9 @@ def test_tail_table_labels_units_and_limit_in_band(system):
     for src, out in zip(results, parsed):
         assert out["Component"] == src.component and out["Condition"] == src.case
         assert math.isclose(float(out[f"LT25 ({lbf}, LIMIT)"]),
-                            to_si_scalar(src.lt25, "lbf", system), rel_tol=1e-3, abs_tol=0.006)
+                            to_si_scalar(src.lt25, "lbf", system), rel_tol=1e-3, abs_tol=0.5)
         assert math.isclose(float(out[f"PSI(X1) ({psi}, LIMIT)"]),
-                            to_si_scalar(src.stations[0].psi, "psi", system), rel_tol=1e-3, abs_tol=6e-5)
+                            to_si_scalar(src.stations[0].psi, "psi", system), rel_tol=1e-3, abs_tol=0.005)
 
 
 def test_no_results_give_no_rows():

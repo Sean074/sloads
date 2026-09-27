@@ -268,7 +268,7 @@ def _shown(path: str, value: Any) -> str:
     unit = field_unit(_leaf(path))
     number = to_display(float(value), unit.kind, system) if unit.kind else float(value)
     label = _unit_label(unit, system)
-    return f"{number:,.4g}{' ' + label if label else ''}"
+    return f"{number:,.4g}{' ' + label if label else ''}"  # note 65 exempt: an entered value's echo
 
 
 def _tail_cp_group_note(project: Any) -> str:
@@ -314,9 +314,9 @@ def _landing_group_note(project: Any) -> str:
     if est is not None and project.landing is not None:
         entered = project.landing.airplane_load_factor
         n_gov = entered if entered is not None else est.airplane_load_factor
-        text += (f" Computed (energy) N ≈ {est.airplane_load_factor:.4f} → "
-                 f"governing N = {n_gov:.4f}, "
-                 f"NLG = {n_gov - project.landing.lift_factor:.4f}.")
+        text += (f" Computed (energy) N ≈ {format_value(est.airplane_load_factor)} → "
+                 f"governing N = {format_value(n_gov)}, "
+                 f"NLG = {format_value(n_gov - project.landing.lift_factor)}.")
     caution = below_energy_caution(project)
     if caution:
         text += f" ⚠ {caution}"

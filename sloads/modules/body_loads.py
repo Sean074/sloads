@@ -348,8 +348,9 @@ def build_body_loads(project: Project) -> List[BodyLoadResult]:
     return results
 
 
-def body_load_rows(results: List[BodyLoadResult]) -> List[Dict[str, str]]:
-    """One CSV row per fuselage station per condition.
+def body_load_rows(results: List[BodyLoadResult]) -> List[Dict[str, object]]:
+    """One row per fuselage station per condition, the cells the calc's own
+    floats (how many digits a table prints is the unit's, note 65).
 
     All loads are **LIMIT** (the oracle-traceable calc values), stated in-band by
     the ``Basis`` column so the basis travels with any table/CSV built from these
@@ -360,42 +361,41 @@ def body_load_rows(results: List[BodyLoadResult]) -> List[Dict[str, str]]:
     ``Sz``/``Myy`` are the cantilever's running loads, positive for an up load
     (note 64 D-64.4), and are **blank on a box row**: a station at or between
     the spars is an applied load the box reacts, not a point of either
-    integration (D-64.2). ``Region`` names which. ``My_free`` is the couple
+    integration (D-64.2): ``None``, never a zero. ``Region`` names which. ``My_free`` is the couple
     applied at the station -- the wing reaction's, zero elsewhere.
     """
-    rows: List[Dict[str, str]] = []
+    rows: List[Dict[str, object]] = []
     for r in results:
         for s in r.stations:
             box = s.region == BOX
             rows.append({
-                "Case": r.case, "X": f"{s.x:.3f}", "Fz": f"{s.fz:.2f}",
-                "My_free": f"{s.couple:.1f}",
-                "Sz": "" if box else f"{s.sz:.2f}",
-                "Myy": "" if box else f"{s.myy:.1f}",
+                "Case": r.case, "X": s.x, "Fz": s.fz, "My_free": s.couple,
+                "Sz": None if box else s.sz,
+                "Myy": None if box else s.myy,
                 "Region": s.region,
                 "Basis": "LIMIT",
             })
     return rows
 
 
-def fitting_load_rows(results: List[BodyLoadResult]) -> List[Dict[str, str]]:
+def fitting_load_rows(results: List[BodyLoadResult]) -> List[Dict[str, object]]:
     """One row per condition of the wing-attachment fitting loads (**LIMIT**).
 
     The front/rear spar reactions -- the static equivalent at the two spars of
     the one reaction the wing post carries (note 64 D-64.5; the same 2x2 as
     Ref 1 p103's) -- the sizing loads for the wing-attach fittings, applied
     nowhere. The reaction itself is stated beside them."""
-    rows: List[Dict[str, str]] = []
+    rows: List[Dict[str, object]] = []
     for r in results:
         if r.r_front is None or r.r_rear is None:
             continue
         rows.append({
             "Case": r.case,
-            "X front": f"{r.x_front:.3f}", "R front": f"{r.r_front:.2f}",
-            "X rear": f"{r.x_rear:.3f}", "R rear": f"{r.r_rear:.2f}",
-            "X wing": f"{(r.x_wing or 0.0):.3f}", "R wing": f"{(r.r_wing or 0.0):.2f}",
-            "M wing": f"{(r.m_wing or 0.0):.1f}",
-            "M unbalanced": f"{r.m_unbalanced:.1f}",
+            "X front": r.x_front, "R front": r.r_front,
+            "X rear": r.x_rear, "R rear": r.r_rear,
+            "X wing": r.x_wing or 0.0, "R wing": r.r_wing or 0.0,
+            "M wing": r.m_wing or 0.0,
+            "M unbalanced": r.m_unbalanced,
             "Spars": "assumed" if r.spars_assumed else "entered",
             "Basis": "LIMIT",
         })

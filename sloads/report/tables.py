@@ -252,8 +252,8 @@ def safety_factors_csv(project: Project, header_comment: str = "") -> str:
     writer.writeheader()
     for r in GoverningTable.for_project(project).rows:
         writer.writerow({"Family": r.label, "FAR": r.far_reference,
-                         "Load class": r.load_class, "SF": f"{r.factor:g}",
-                         "Derived SF": f"{r.derived_factor:g}",
+                         "Load class": r.load_class, "SF": format_value(r.factor),
+                         "Derived SF": format_value(r.derived_factor),
                          "Status": r.status, "Basis": r.basis})
     return header_comment + buf.getvalue()
 

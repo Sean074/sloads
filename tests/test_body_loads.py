@@ -248,8 +248,9 @@ def test_body_load_rows_shape():
     assert all(r["Basis"] == "LIMIT" for r in rows)
     # A box row prints no running load (D-64.2); every other row prints both.
     box = [r for r in rows if r["Region"] == body_loads.BOX]
-    assert box and all(r["Sz"] == "" and r["Myy"] == "" for r in box)
-    assert all(r["Sz"] and r["Myy"] for r in rows if r["Region"] != body_loads.BOX)
+    assert box and all(r["Sz"] is None and r["Myy"] is None for r in box)
+    assert all(isinstance(r["Sz"], float) and isinstance(r["Myy"], float)
+               for r in rows if r["Region"] != body_loads.BOX)
 
 
 def test_body_gids_are_stable_when_the_spar_stations_move():

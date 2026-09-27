@@ -247,8 +247,11 @@ def build_net_loads(project: Project) -> LoadsResult:
     return LoadsResult(wing_air=air_results, wing_inertia=inertia_results, wing_net=net_results)
 
 
-def wing_load_rows(results: List[WingLoadResult]) -> List[Dict[str, str]]:
-    """One CSV row per station per case (root->tip), the canonical wing-load shape.
+def wing_load_rows(results: List[WingLoadResult]) -> List[Dict[str, object]]:
+    """One row per station per case (root->tip), the canonical wing-load shape.
+
+    The cells are the calc's own floats: how many digits a table prints is the
+    unit's (note 65, ``report.render.format_value``), not this builder's.
 
     All loads are **LIMIT** (the oracle-traceable calc values), stated in-band by
     the ``Basis`` column so the basis travels with any table/CSV built from these
@@ -258,15 +261,13 @@ def wing_load_rows(results: List[WingLoadResult]) -> List[Dict[str, str]]:
     ``report.applied.applied_load_csv`` and the LRA deck's cards -- both LIMIT
     too, since note 49 OR-116: there is no ultimate deliverable anywhere.
     """
-    rows: List[Dict[str, str]] = []
+    rows: List[Dict[str, object]] = []
     for r in results:
         for s in r.stations:
             rows.append({
-                "Case": r.case,
-                "X": f"{s.x:.3f}", "Y": f"{s.y:.3f}", "Z": f"{s.z:.3f}",
-                "Fx": f"{s.fx:.1f}", "Fz": f"{s.fz:.1f}",
-                "Sx": f"{s.sx:.1f}", "Sz": f"{s.sz:.1f}",
-                "Mxx": f"{s.mxx:.0f}", "Myy": f"{s.myy:.0f}", "Mzz": f"{s.mzz:.0f}",
+                "Case": r.case, "X": s.x, "Y": s.y, "Z": s.z,
+                "Fx": s.fx, "Fz": s.fz, "Sx": s.sx, "Sz": s.sz,
+                "Mxx": s.mxx, "Myy": s.myy, "Mzz": s.mzz,
                 "MyyAxis": r.torsion_axis,
                 "Basis": "LIMIT",
             })

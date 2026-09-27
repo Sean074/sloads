@@ -81,9 +81,9 @@ def format_value(value: float, units: str = "") -> str:
         return str(value)            # a count, a case number
     value = canonical(float(value))
     if value == 0.0:
-        return "0" if decimals is None else f"{0.0:.{decimals}f}"
+        return "0" if decimals is None else f"{0.0:.{decimals}f}"  # note 65 exempt: the owner
     if decimals is not None and abs(value) >= 10.0 ** (DELIVERED_FLOOR_SIG - 1 - decimals):
-        return f"{value:.{decimals}f}"
+        return f"{value:.{decimals}f}"  # note 65 exempt: the owner
     return _significant(value)
 
 
@@ -92,13 +92,13 @@ def _significant(value: float) -> str:
     with trailing zeros kept; exponent form only outside the delivered window."""
     magnitude = abs(value)
     if magnitude < 1e-4 or magnitude >= 1e9:
-        return f"{value:.{DELIVERED_SIG - 1}e}"
+        return f"{value:.{DELIVERED_SIG - 1}e}"  # note 65 exempt: the owner
     exponent = math.floor(math.log10(magnitude))
     decimals = max(DELIVERED_SIG - 1 - exponent, 0)
-    text = f"{value:.{decimals}f}"
+    text = f"{value:.{decimals}f}"  # note 65 exempt: the owner
     # rounding can carry into a new digit (9.9995 -> "10.000"): re-derive once
     if abs(float(text)) >= 10.0 ** (exponent + 1) and decimals > 0:
-        text = f"{value:.{decimals - 1}f}"
+        text = f"{value:.{decimals - 1}f}"  # note 65 exempt: the owner
     return text
 
 

@@ -44,7 +44,7 @@ from ..units import (
     system_name,
     units_statement,
 )
-from .render import LoadChannel, ultimate_units
+from .render import LoadChannel, format_value, ultimate_units
 
 #: Bumped with the tool, not the schema; stamped into every channel so a stray
 #: CSV can be traced back to the build that produced it.
@@ -343,8 +343,8 @@ def _safety_factor_block(project: Project) -> List[str]:
     for row in table.overrides:
         risk = (" *** BELOW THE REGULATION — CERTIFICATION RISK ***"
                 if row.below_regulation else "")
-        out.append(f"  - {row.label} ({row.far_reference}): SF = {row.factor:g} "
-                   f"(regulation derives {row.derived_factor:g}).{risk} "
+        out.append(f"  - {row.label} ({row.far_reference}): SF = {format_value(row.factor)} "
+                   f"(regulation derives {format_value(row.derived_factor)}).{risk} "
                    f"Basis: {row.basis or '(none stated)'}")
     out.append("")
     return out
