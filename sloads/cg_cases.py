@@ -369,7 +369,8 @@ def _echo_loading_waterlines(project: Project, cases: List[CgCase]) -> None:
     starts from a placeholder and asks the search for the loading --
     matching the station alone, since the placeholder is no target -- then
     writes that loading's waterline back, ballast excluded; a solved ballast
-    lands on the same line. Both seeds call this (#300): the landing seed
+    lands on the same line, so echoing a seeded case again leaves its ``zcg``
+    where it is (#314). Both seeds call this (#300): the landing seed
     once kept the WTONECG placeholder, and ``concept_regional_jet``'s ``fwd
     max landing`` flew a burn-down loading 2.16 in above the waterline its
     case stated.

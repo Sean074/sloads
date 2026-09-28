@@ -734,7 +734,7 @@
         "name": "aft max landing",
         "weight_lb": 36155.0,
         "xcg": 404.1122159886015,
-        "zcg": 141.56,
+        "zcg": 140.93,
         "analyses": [
           "ground"
         ],
