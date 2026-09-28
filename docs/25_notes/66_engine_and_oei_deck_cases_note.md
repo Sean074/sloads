@@ -180,10 +180,10 @@ absences), #210 (every EM condition states its own point).
 | D-66.10 | **The instant is ONENGOUT's own**: the peak total fin load (OR-175), the one SELECT already names. Plan 13 §4's ruling is narrowed, not reversed: the transient is not re-run in the balance; its governing instant is assembled quasi-statically, which is what every other fin condition already is. | Peak yaw rate, or the time history as several cases — a second criterion for one condition |
 | D-66.11 | **The symmetric half is 1 g level flight at the case's speed** (Q4): `BAL C`/`BAL D`/`STALL 1G` at the heaviest derivable FLIGHT CG case, nearest altitude, stated. The fin distribution is `_vtail_distributions`' existing one; it replaces nothing (the trim tail load stays the parent's). | A synthetic 1 g state — FLTLOADS already balances one |
 | D-66.12 | **The applied set carries the engine pair** (Q5): live-engine thrust `−T` and failed-engine windmill drag `+D` at their hubs, at ONENGOUT's values at the peak instant (its own thrust-decay and drag ramps). The yaw residual is then fin + engine, as ONENGOUT's moment is, and the closure's ṙ reproduces ψ̈ to plan 13's Izz identity (G-66.9). | The fin alone — ψ̈ about twice ONENGOUT's on the ATR |
-| D-66.13 | **One computed case per speed, the other engine as its twin by reflection, under its own id** — engine 1's failure is computed (hand R), engine 2's is `handed_twin(case, case_ref=<engine 2's VT id>)` (the `LG-19`/`LG-20` precedent). Valid for a mirror-symmetric installation, which a gate asserts (engine 2's own march equals the reflection, G-66.10); an asymmetric installation computes each engine. | Computing both and minting twins of both — four cases for two conditions |
+| D-66.13 | **One computed case per speed, the other engine as its twin by reflection, under its own id** — engine 1's failure is computed (hand L — engine 1 is the port engine on both twins; *corrected 2026-09-27, #317: the note said R, the code has always given L*), engine 2's is `handed_twin(case, case_ref=<engine 2's VT id>)` (the `LG-19`/`LG-20` precedent). Valid for a mirror-symmetric installation, which a gate asserts (engine 2's own march equals the reflection, G-66.10); an asymmetric installation computes each engine. | Computing both and minting twins of both — four cases for two conditions |
 | D-66.14 | **`ULT SF=1.0` per subcase** on the 23.367(a)(2) cases through D-66.1; the VD/VS cases state 1.5. | — |
 | D-66.15 | **L-7 is not applied** (Q6) and every OEI case carries the standing statement plus "the yaw angle of this transient is not a sideslip; the wing-body side force is not estimated for it". | Applying L-7 at β = θ — the wrong angle |
-| D-66.16 | **Gates by family**: the symmetric half's residual gate applies (the 1 g parent closes as it does for the four static fin cases); the lateral residual is the fin + engine moment by construction and is reported, not gated. | — |
+| D-66.16 | **Gates by family**: the symmetric half's residual gate applies (the 1 g parent closes as it does for the four static fin cases); the lateral residual is the fin + engine moment by construction and is reported, not gated. **Amended 2026-09-27 (#317), recording the ruling §11.3 took at #285:** the case's pitch residual is the engine pair's own couple in full (6.4 % of n·W·MAC on the ATR's VC case), so the family is **exempt from the trim gate**, the powered cases' standing (`queries.is_engine_out`); the 1 g half — the case less fin, pair and relief — is gated inside 1 % instead (G-66.16). | — |
 
 ## 4. Gates
 
@@ -201,6 +201,9 @@ absences), #210 (every EM condition states its own point).
 | G-66.10 | The reflected twin equals engine 2's own ONENGOUT march (fin load, β, rudder) | rel 1e-9 on both twins |
 | G-66.11 | The not-assembled block names the ATR's unrecovered VS | named |
 | G-66.12 | The 25.371 vertical reaches the RJ's gyro cases | the FAR 25 gyro cases carry their own `vertical_limit_load_a2_load`, not 0 (today EM-09a..d print 0) |
+| G-66.14 | *(added 2026-09-27, #317 — defined by the #285 build; G-66.13 is unassigned)* 23.367(a)(2) states SF 1.0 and every other OEI case 1.5 (D-66.14) | equality, per case, both twins |
+| G-66.15 | *(added 2026-09-27, #317)* No wing-body side force on an OEI case, and the case states why (D-66.15) | no `body-aero` load; the note present |
+| G-66.16 | *(added 2026-09-27, #317)* The OEI 1 g half — the case less fin, engine pair and relief — closes; the case is exempt from the trim gate (D-66.16 as amended) | `\|Fz\| / (n·W)` < 1 % (`RESIDUAL_GATE`) |
 
 ## 5. Effect vs error bar (rule 6)
 
@@ -323,10 +326,13 @@ build met the note:
    +9.06 with LT25 +6101. Put beside the engine pair, the fin and engine moments
    added (closure yaw 0.3 deg/s² against the march's 52.6). `_vtail_sense` now
    gives the fin its resisting sense (`+y` engine → `+y` fin load) and β takes
-   the opposite. **This reverses note 44 OR-173's stated rule** — magnitudes
+   the opposite. **This reverses the sign note 44 OR-173 was implemented
+   with**; OR-173's rule, one case per engine, stands — magnitudes
    and the fin envelope are unchanged (both engines' cases were always
    delivered), but which engine's case carries which sign flips, on the twins'
-   report, CSVs and tail distributions. Recorded for the owner.
+   report, CSVs and tail distributions. The reversal was approved by the
+   owner in session, 2026-09-26 (after the fact: the fix shipped in 60c90ab
+   before the owner reviewed it); OR-173 carries the matching amendment.
 2. **G-66.9 measured**: closure yaw × (Izz_closure ÷ Izz_ONENGOUT) against the
    march's ψ̈ — ATR VC −51.5 / −52.6, VD −68.8 / −70.2; Baron VC −109.7 /
    −112.9, VD −152.6 / −157.2, VS −43.4 / −44.8 deg/s² — 2–3 %, the CG arm

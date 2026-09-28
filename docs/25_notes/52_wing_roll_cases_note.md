@@ -273,7 +273,9 @@ D-52.11; `UnsupportedCategoryError` for D-52.7/D-52.13) and the new
 `steady_roll_aero`, `aileron_cm_increment`). Gates: `tests/test_rolling_conditions.py`
 (G-52.1–G-52.13), plus the FLTLOADS case 20 pair in `tests/test_flight_envelope.py`.
 Schema v69 (`_hop_68`): `WingLoadCase.unbal_moment` is `Optional`, blank
-derived; every stored `0` migrates to `null`.
+derived; every stored `0` migrates to `null`. *(Amended 2026-09-27, #317: the
+hop was deleted at #310 before any release carried it — v69 was never
+released, so 0.8.7 ships no hop for this change.)*
 
 Where the build departs from what §3/§4 predicted — each measured and stated
 in the tests:

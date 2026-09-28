@@ -24,8 +24,8 @@ in the inertia; the balanced deck reads the same resolved couple, deriving it
 at the balanced case's own point where an entered filter list omits `ACRL`.
 The delivered wing conditions publish the derivation (percentage, condition
 A's CL/V/root, UNB, θ̈ on `ACRL`; the deflection schedule on `TORS`). Schema
-v69: `WingLoadCase.unbal_moment` is optional, blank derived; `_hop_68`
-writes `null` for every stored zero. `ga6_normal`'s `ACRL` row is retired to
+v69: `WingLoadCase.unbal_moment` is optional, blank derived; no hop (v69
+was never released, #310). `ga6_normal`'s `ACRL` row is retired to
 derived. The three "UNB comes from AILERON" statements are corrected.
 `CONVENTIONS.md` §7 gains three owner rows; the approved-corrections entry,
 ch04, ch09, `theory_sources.md`, `PROGRAM_SPEC.md` and D-29 carry the

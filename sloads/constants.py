@@ -68,7 +68,7 @@ FAR23_473G_NLG_FLOOR = 2.0
 # FAR 23.349(a) accelerated rolling condition (design note 52, D-52.1/D-52.11):
 # 100 % of the semispan wing airload of symmetric condition A acts on one side
 # and ``p`` % on the other. **One owner** for ``p``: the unbalanced rolling
-# moment (``wing_inertia.accel_roll_unbalanced_moment``) and the FLTLOADS AC ROLL
+# moment (``rolling.accel_roll_unbalanced_moment``) and the FLTLOADS AC ROLL
 # load factor ``(100 + p)/200 * n1`` both read :func:`other_side_percent`; the
 # drift guard (G-52.9) forbids the retired rule's literals anywhere else.
 #
