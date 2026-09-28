@@ -1113,11 +1113,14 @@ def derive_case_loadings(project: Project,
     point mass, which is what a ballast weight is. A loading carrying **no**
     ballast has nothing to move it, so it counts as the case only within
     :data:`_CG_MATCH_TOL` on station and waterline both (#300).
-    ``match_waterline=False`` drops the waterline half of that test for the
-    one caller whose case has no waterline yet: ``cg_cases.seed_flight_cases``
-    searches on a placeholder and writes the found loading's waterline back as
-    ``zcg`` (D-26a), so there the waterline is the search's answer, not its
-    target.
+    ``match_waterline=False`` is for the callers whose case has no waterline
+    yet: both seeds (``cg_cases._echo_loading_waterlines``) search on a
+    placeholder and write the found loading's waterline back as ``zcg``
+    (D-26a), so there the waterline is the search's answer, not its target.
+    It drops the waterline half of that test **and** puts a solved ballast on
+    the candidate's own waterline rather than solving it from the placeholder,
+    so nothing the search chooses depends on the placeholder and a re-seed
+    returns the same ``zcg`` (#314).
 
     **All of that is the fallback since D-25.** A case carrying an explicit
     ``loading`` is assembled by :func:`entered_loading` instead: no search, no
@@ -1186,7 +1189,12 @@ def derive_case_loadings(project: Project,
                 xb = (case.weight_lb * case.xcg - wa * xa) / wb
                 if xb < nose_x or (tail_x is not None and xb > tail_x):
                     continue                   # ballast would sit off the airplane
-                zb = (case.weight_lb * case.zcg - wa * za) / wb
+                # Without a waterline target the ballast sits on the loading's
+                # own line (#314): solved from a placeholder, it once chose the
+                # loading, and ATR's `aft max landing` seeded 141.56 then flew
+                # 1,007 lb of ballast 22.5 in above the rest of its loading.
+                zb = ((case.weight_lb * case.zcg - wa * za) / wb
+                      if match_waterline else za)
                 if not (z_lo <= zb <= z_hi):
                     continue                   # ballast would float above/below the airframe
                 ballast = MassItem(

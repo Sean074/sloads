@@ -301,6 +301,35 @@ def test_the_fixture_ground_cases_are_the_landing_seed(name):
     assert len(got) == len(seeded) == 3
 
 
+@pytest.mark.parametrize("path", _EXAMPLES, ids=os.path.basename)
+def test_a_seed_is_a_fixed_point_of_its_own_echo(path):
+    """#314: echoing a seeded case again leaves its ``zcg`` where it is, and the
+    loading it flies carries any solved ballast on that same waterline. The
+    ballast was once solved from the seed's placeholder, which then chose the
+    loading: ATR's ``aft max landing`` seeded 141.56 and flew 1,007 lb of
+    ballast 22.5 in above a loading at 140.93."""
+    import copy
+    import math
+
+    from sloads.cg_cases import _echo_loading_waterlines
+    from sloads.mass_distribution import cg_match_tolerance
+
+    project = io.load_project(path)
+    seeds = [c for seed in (seed_flight_cases, seed_landing_cases)
+             for c in seed(project)[0]]
+    if not seeds:
+        pytest.skip("no envelope to seed from")
+    again = copy.deepcopy(seeds)
+    _echo_loading_waterlines(project, again)
+    assert [c.zcg for c in again] == [c.zcg for c in seeds]
+    for case, ld in zip(seeds, derive_case_loadings(project, seeds)):
+        if not ld.derivable or ld.ballast is None:
+            continue
+        real = [it for it in ld.items if it is not ld.ballast]
+        z = math.fsum(it.weight_lb * it.z for it in real) / math.fsum(it.weight_lb for it in real)
+        assert abs(ld.ballast.z - z) <= cg_match_tolerance(), (case.name, ld.ballast.z, z)
+
+
 def test_the_seed_reproduces_appendix_a_s_four_points_on_ga6():
     """The seed is FLTLOADS.BAS's own prompt set: on the Appendix A airplane it
     lands on CG1..CG4 (Ref 1 Ch 3 p21: 3400 @ 85.1 / 77.49, 2800 @ 72.64,
