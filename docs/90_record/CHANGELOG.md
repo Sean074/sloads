@@ -15,6 +15,149 @@ everything before it in [`CHANGELOG_to_0.8.2.md`](CHANGELOG_to_0.8.2.md).
 
 ## [Unreleased]
 
+## [0.8.7] — 2026-09-27
+
+### Changed
+
+- **The accelerated roll's published couple is the one flown: the variant table resolves ACRL through the same owner as the wing chain and the balanced deck, so an entered unbalanced rolling moment reaches SELECT, report 3.3 and the Wing Loads caption (#315, tier M, 2026-09-27)**
+
+- **A case's waterline is its loading's: a loading with no ballast counts as its case only within 0.5 in on station and waterline both, both seeds write back the waterline of the loading that closes each case, and `case_loading_checks` holds every case to that and is stated under the oracle report's 2.2 case table (#300, tier M, 2026-09-26)**
+
+- **A condition that prescribes an engine's thrust replaces the entered one: the 23.371(b)/25.371 gyroscopic case's engine carries ENGLOADS's max-continuous thrust alone and a one-engine-out case ONENGOUT's pair alone (#313, design note 66, tier M, 2026-09-27)**
+
+- **The weight estimate's engine count is `engine_count`, so `engines` names only the engine list (#276, tier S, 2026-09-27).**
+  `WeightEstimationInput.engines`, WTESTIMA's `NOENGS`, shared its name with
+  `Project.engines`, and the units guard walks the schema by bare field name,
+  so it reached the list first and never asked whether the count was
+  classified. The guard ran with that one name pinned as a known exception;
+  the rename empties it, and one field name now means one kind of thing
+  everywhere. The schema goes to v70 with no hop, since v69 was never released
+  (#310); the field-registry path is `weight.estimation.engine_count`, and the
+  five examples are re-stamped with the same counts, so no load, deck or
+  digest moves.
+
+- **Step — The deck carries the engine: every 23.361/23.371 mount condition that pairs with a flight state is an assembled free-free case at the engine's own nodes, and every balanced case states its own safety factor (#286, design note 66 D-66.1…D-66.9, tier L, 2026-09-26)**
+
+- **Step — The one-engine-out fin reaches the deck: ONENGOUT's peak instant is an assembled lateral case on a 1 g parent with the engine pair beside the fin, and the fin load it publishes now resists its engine's yaw (#285, design note 66 D-66.10…D-66.16, tier L, 2026-09-26)**
+
+- **The half-span wing models are fed through one projection, `mass_distribution.half_span`, which refuses a wing mass state whose off-centreline parts are not mirrored pairs instead of running it as one side doubled (#301, tier M, 2026-09-26)**
+
+- **The oracle reduction keeps each case's mass state: the `consumable` flag and an entered `loading` survive it, so the oracle report names the loading the analysis flew and a loading edit moves its fingerprint (#221, tier M, 2026-09-26)**
+
+- **A project file is readable if a release wrote it: from 0.8.7 on every release's schema is recorded and frozen, and the hop chain must reach it without a gap; the v55–v69 hops, their fixtures and the readers' legacy branches are gone (#310, tier M, 2026-09-26)**
+
+- **Step — The rolling conditions arrive complete: condition A's lift on the delivered ACRL side, the Amdt 23-48 75 %, a derived unbalanced moment and the TORS aileron increment (#306, design note 52 D-52.1…D-52.13, tier L, 2026-09-25)**
+
+- **A seeded case's waterline is a fixed point: with no waterline target the search puts a solved ballast on the candidate loading's own waterline, so the placeholder no longer chooses the loading and re-seeding returns the same `zcg` (#314, tier M, 2026-09-27)**
+
+- **The test suite builds each fixture's shared bundle once per worker, and the per-item gate skips a marked slow lane (#308, tier S, 2026-09-26).**
+  `imperial_baseline.artifacts` -- the whole Imperial bundle of one example,
+  rebuilt from scratch in seven test files -- and the deck, document, package
+  and report-figure builders `test_deck_basis` and `test_figures` repeated per
+  test are memoised per test process and hand out copies; the frozen Imperial
+  baseline shows no byte moved. A registered `slow` marker holds the
+  irreducible tests (the PDF compiles, the GUI journeys, the whole-analysis
+  planform sweeps); `solo_close.sh` runs `-m "not slow"` per item, and
+  `--full-gate`, CI and the milestone merge run everything. Measured 2026-09-26 on the 8-core MacBook Air: the full suite 30 min 02 s -> 12 min 39 s, the per-item fast lane 11 min 49 s. The
+  issue opened and closed inside this step, so it has no backlog row.
+
+### Fixed
+
+- **The balanced deck no longer rebuilds the V-n matrix and SELECT's set for every case it assembles (design note 66 follow-up, tier S, 2026-09-26).**
+  Each case's wing set asked for the wing case list, and each ask rebuilt the
+  envelope and the critical set from scratch; the engine-mount and
+  one-engine-out families (#286, #285) doubled the asks, to 46 envelope builds
+  for the ATR's deck. `build_balanced_cases` now threads the envelope and
+  critical set it already resolved, and each engine-mount parent is assembled
+  once per V-n point: the ATR's deck builds in 2.9 s against about 20 s, and
+  every delivered byte is unchanged (the frozen Imperial baseline, 258
+  channels).
+
+- **The residues of #293 and #161: a self-inertia relief names its own carrier, a NaN or an infinity is refused rather than printed or swallowed, the precision floor is stated as it works, and the SI deck's ASSUMED coordinates carry their unit (#303, tier S, 2026-09-26).**
+  A `closure-self` relief found its carrier by matching its station against
+  the mass loads, so an item entered with an inertia and no weight matched
+  nothing and landed on the nearest grid of the whole skeleton;
+  `point_mass_self_inertia` now hands over each item's carrier and side (the
+  body-inertia load's, one constant `BODY_INERTIA_SOURCE` for both). No shipped
+  fixture had such an item: `ga6_normal`'s 406 reliefs all reached the
+  fuselage before and after. `format_value` raises `NonFiniteValue` for a
+  NaN or an infinity, where a NaN failed inside the quantization and an
+  infinity printed `inf`. The baseline's `_try` skips only a missing input
+  slice or an LRA refusal, the only two it met, instead of any `ValueError`,
+  so a NaN can no longer drop a channel from the digest without a word.
+  `select._air_mxx` raises on a miss instead of returning a NaN into the
+  net-governing note. The floor's words said "a cell that would print as
+  `0`"; the code tests the magnitude against one unit of the row's last
+  decimal, so a 0.7 lb cell prints `0.7000`. The words were corrected in
+  `units.py`, `format_value`'s docstring (which still said three figures),
+  note 65 §7b and `CONVENTIONS.md`. Changing the code instead would have
+  rounded ~70 cells across all five fixtures to a figure they do not have (a
+  0.5682 slug-ft² rotor inertia as `1`). 3.2's variant register and wing mass
+  sentence no longer sit behind `except Exception`: the register prints the
+  variant table's own reason when it is empty (its `type: ignore` went with a
+  typed `envelope`), and the mass sentence states a `WingAsymmetric` or
+  missing-input refusal by name. The side-of-body, fuselage centre line, wing
+  station and spar-station ASSUMED sentences state `in`, which the mm deck
+  printed bare. The Imperial baseline moved on `sbeam/lra_model` for
+  `baron_58`, `ga6_normal` and `concept_regional_jet`, in comment lines only,
+  and was regenerated. The centreline half-weight copy this row also named
+  was removed at #301.
+
+- **Every delivered and on-screen number takes its digits from its unit, and note 65's gates look where the note says (#302, tier S, 2026-09-26).**
+  The safety factor printed `1.5` in `safety_factors.csv` and the overrides
+  statement, through a bare `:g` the gate could not see, and `1.500` in the
+  report beside them; both now read `format_value`. The GUI station tables
+  held digit counts at two levels: the row builders (`wing_load_rows`,
+  `body_load_rows`, `fitting_load_rows`) returned strings at their own
+  decimals, and `app_shell/limit_csv.py` re-rounded them from its own table.
+  The builders now return the calc's floats, and each cell is read back from
+  `format_value` under its header's label, so it stays a number and a column
+  still sorts; on screen a station shows 0.1 in rather than 0.001 in and a
+  force the whole pound. The fleet view, the sidebar's airspeed and %MAC tools,
+  the landing page's energy N and the results page's estimate delta and
+  inertia sentences route through the owner too. `lbf`, `psi` and `sqft` (the
+  scalar converter's spellings) and `lb/hp` (the fleet view's power loading)
+  gained rows, since a unit with no row falls to the fallback. What remains is
+  exempt on its statement with a reason: prose tolerances and shares,
+  percentile ranks, dictionary keys, the entered-value echo, the owner
+  itself. Gate 4 scans `sloads/report/`, `app_shell/` and `oracle_app/`, and
+  catches any float presentation type (a bare `:g` included) and any `round`
+  to a digit count. Gate 2 runs in SI as well: the load-case CSVs in the fast
+  lane; the SI document and its `data/` in the slow lane (all five fixtures
+  clean, the gear report excepted as the solver channel's companion). Gate 3
+  holds the scalar converter's keys to a row. No Imperial baseline digest
+  moves.
+
+- **The oracle journey's round budget counts only the reruns that type values, so `atr42_100` converges again (#311, tier S, 2026-09-27).**
+  `_type_page` spent one rerun per #143 "Add" click from the same 16-round
+  budget as its typing rounds. `atr42_100`'s weight page needs an add per
+  entered case loading and ballast, 19 reruns in all, so its three journey
+  tests errored in the slow lane, which `solo_close` does not run. The adds
+  now sit outside the budget and are bounded by the page instead: each button
+  is clicked once and must be gone after its rerun. The failure message is
+  read from the final render; it had printed the last typing round's list,
+  which showed every weight field blank. Test-only.
+
+- **The closures 0.8.7 left short are completed: note 66 has its theory citation and gate rows, note 63 records #301's symmetry rule, and no fragment describes the deleted `_hop_68` (#317, tier S, 2026-09-27).**
+  Found by the 0.8.7 release review. `00_theory_sources.md` gains the design
+  note 66 row for the engine-mount and one-engine-out deck families, and
+  chapter 7's header says the deck carries them. `PROGRAM_SPEC.md` points at
+  `safety_factors.py` in place of "1.5 on every family shipped to date",
+  which #285's already-ultimate cases made wrong. It states the one-engine-out
+  fin's published sense, and its FLTLOADS, SELECT and WINGINER sections point
+  at the accelerated-roll paragraph. Note 66 amends D-66.16 with the trim-gate
+  exemption, corrects D-66.13's engine 1 to hand L and defines G-66.14 to
+  G-66.16. The OR-173 sign reversal is recorded the same way in note 44,
+  note 66 §11 and the #285 fragment: the implemented sign was reversed, the
+  one-case-per-engine rule stands, and the owner approved it in session on
+  2026-09-26, after the fix had shipped. Note 63 gains §13, the laterally
+  symmetric wing mass rule, which the #301 fragment, the code and the tests
+  now cite in place of D-63.3.
+  The `_hop_68` statements in the roll-conditions fragment, `project.py` and
+  the schema guard now say no hop (v69 was never released, #310), and the
+  fast-lane fragment drops its slow-test count. The #286 and #285 index rows
+  leave the backlog. No output moves.
+
 ## [0.8.6] — 2026-09-23
 
 ### Changed
