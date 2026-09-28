@@ -2102,6 +2102,13 @@ shipped); summary for anyone adding a new module:
   note 52, #306): its air point is condition A at the pick's weight, altitude,
   CG and configuration (D-52.10) and its unbalanced rolling moment
   `−(1 − p/100)` of condition A's root bending (D-52.2); entered values win.
+  It is the one resolver for every reader of the couple (**#315**): the wing
+  chain, the balanced deck (`balance/air.unbalanced_rolling_moment`) and the
+  `wing_variants` table, whose rows SELECT ranks and publishes from — so the
+  couple and air point SELECT, report §3.3 and the Wing Loads caption state
+  are the ones flown. `rolling.entered_rolling_case` names the entered case; an
+  entered value is published labelled *entered*, with condition A's
+  derivation beside it for comparison.
   `TORS`'s air load carries `Δcm = −0.01·δ` over the aileron when
   `aileron_loads.inboard_y_in`/`outboard_y_in` are entered (D-52.5), and is the
   printed run when they are blank. FLTLOADS's `AC ROLL` factor is

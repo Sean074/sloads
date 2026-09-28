@@ -440,6 +440,7 @@ def rolling_couple_advisory(project: Project, system: UnitSystem) -> str:
     never state two couples. The roll acceleration is per second squared in
     either unit system.
     """
+    from sloads.modules.rolling import entered_rolling_case
     from sloads.modules.select import default_critical
     from sloads.modules.wing_inertia import resolve_wing_cases
     from sloads.report.render import format_value
@@ -461,12 +462,17 @@ def rolling_couple_advisory(project: Project, system: UnitSystem) -> str:
     text = (f"**ACRL** carries the 23.349(a) unbalanced rolling moment "
             f"UNB = {format_value(unb, label)} {label}")
     derived = {v.key: v.value for v in getattr(acrl, "loads", ())} if acrl is not None else {}
-    if "roll_acceleration" in derived and case.unbal_moment == derived.get("unbalanced_rolling_moment"):
-        text += (f", derived as {format_value(100.0 - derived['other_side_percent'], '%')} % "
-                 f"of condition A's root bending, and the wing reacts it at a roll "
-                 f"acceleration of {format_value(derived['roll_acceleration'], 'rad/s^2')} rad/s\u00b2")
-    else:
+    # Entered or derived is the input's to say, not a comparison of numbers:
+    # SELECT publishes the resolved couple either way (#315).
+    typed = entered_rolling_case(project, "ACRL")
+    if typed is not None and typed.unbal_moment is not None:
         text += ", as entered for this project"
+    elif "other_side_percent" in derived:
+        text += (f", derived as {format_value(100.0 - derived['other_side_percent'], '%')} % "
+                 f"of condition A's root bending")
+    if "roll_acceleration" in derived and case.unbal_moment == derived.get("unbalanced_rolling_moment"):
+        text += (f", and the wing reacts it at a roll acceleration of "
+                 f"{format_value(derived['roll_acceleration'], 'rad/s^2')} rad/s\u00b2")
     return text + ". The rows are the governing (100 %) side."
 
 

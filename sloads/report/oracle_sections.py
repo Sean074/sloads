@@ -71,6 +71,7 @@ from ..models.results import (
     TailSpanResult,
     WingLoadResult,
 )
+from ..modules.rolling import entered_rolling_case
 from ..modules.select import flaps_by_config_name
 from ..picks import extreme
 from ..units import UnitSystem, convert_results
@@ -2401,6 +2402,8 @@ _ROLL_ROWS: Tuple[Tuple[str, Optional[str], str], ...] = (
     ("condition_a_cl", None, "Condition A wing CL"),
     ("condition_a_v_eas", None, "Condition A speed"),
     ("condition_a_root_mxx", "moment", "Condition A root bending (governing side)"),
+    ("entered_cl", None, "Wing CL, as entered"),
+    ("entered_v_eas", None, "Speed, as entered"),
     ("unbalanced_rolling_moment", "moment", "Unbalanced rolling moment -(1 - p/100) x root"),
     ("roll_acceleration", None, "Roll acceleration UNB g / Iwxx"),
 )
@@ -2482,13 +2485,23 @@ def _wing_rolling(project: Project, *, system: UnitSystem,
             + ", ".join(f"{label} {format_value(sfs[label], '')}" for label in carried)
             + ") and applied nowhere.")
     tables = []
+    typed = entered_rolling_case(project, "ACRL")
+    entered_unb = typed is not None and typed.unbal_moment is not None
+    if acrl is not None and typed is not None and entered_unb:
+        body.append(
+            "This project enters the accelerated roll's unbalanced rolling "
+            "moment, and the entered value is the couple the wing and the "
+            "balanced deck carry; the derivation is stated beside it for "
+            "comparison.")
     if acrl is not None:
         values = {v.key: v for v in getattr(acrl, "loads", ())}
         rows = []
-        for key, dim, label in _ROLL_ROWS:
+        for key, dim, row_label in _ROLL_ROWS:
             v = values.get(key)
             if v is None:
                 continue
+            label = ("Unbalanced rolling moment, as entered"
+                     if key == "unbalanced_rolling_moment" and entered_unb else row_label)
             if dim is not None:
                 rows.append([label, u.plain(v.value, dim), u.label(dim)])
             else:

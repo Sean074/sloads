@@ -30,7 +30,7 @@ and SELECT then delivers its air picks unchanged.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from ..aero_curves import inertia_drag_factor
 from ..cg_cases import flight_cases
@@ -48,7 +48,9 @@ from ..picks import TIE_REL, extreme
 from .airloads import air_load_distribution
 from .rolling import (
     ACCEL_ROLL_SLOTS,
+    complete_rolling_case,
     derive_accel_roll,
+    entered_rolling_case,
     roll_acceleration,
     roll_other_side_percent,
     steady_roll_aero,
@@ -63,6 +65,10 @@ from .wing_inertia import fold_units, panel_shape, wing_inertia_distribution
 #: (``tests/test_select.py`` holds the Appendix A CLs to the same band).
 #: ``picks.TIE_REL`` (1e-9) is the platform-stability tie, a different thing.
 GOVERNING_TIE_REL = 5e-3
+
+#: The accelerated-roll fields an entered case may state in place of the
+#: derivation (``rolling.complete_rolling_case``).
+_ROLL_FIELDS: Tuple[str, ...] = ("cl", "v_eas_kt", "unbal_moment")
 
 __all__ = ["GOVERNING_TIE_REL", "WingVariant", "WingVariantTable", "governing_points",
            "wing_variant_table"]
@@ -90,14 +96,21 @@ class WingVariant:
     mass_state_case: str      # ``WingMassState.case`` ("" = database fallback)
     air_pick: bool = False    # SELECT's per-family air pick over the whole matrix
     governing: bool = False   # the variant the slot is delivered as (D-63.7)
-    #: The accelerated roll's derivation (design note 52, D-52.2/D-52.4/D-52.10),
-    #: on ``ACRL`` rows only: ``cl``/``v_eas_kt`` above are then condition A's
-    #: (the air the 100 % side carries) while ``case``/``run``/``nz``/``nx`` stay
-    #: the AC ROLL point's (the inertia the airplane feels).
-    unbal_moment: float = 0.0       # derived UNB, lb-in (WINGINER's sign)
+    #: The accelerated roll (design note 52, D-52.2/D-52.4/D-52.10), on ``ACRL``
+    #: rows only: ``cl``/``v_eas_kt``/``unbal_moment`` are the **resolved** case
+    #: the wing chain and the balanced deck fly (``rolling.complete_rolling_case``,
+    #: #315) -- condition A's air and the derived couple, unless the project
+    #: entered one, named in ``entered`` -- while ``case``/``run``/``nz``/``nx``
+    #: stay the AC ROLL point's (the inertia the airplane feels). The ``cond_a_*``
+    #: fields are the derivation itself, published beside it either way.
+    unbal_moment: float = 0.0       # resolved UNB, lb-in (WINGINER's sign)
     roll_accel: float = 0.0         # theta_ddot = UNB*g/Iwxx, rad/s^2
     other_side_percent: Optional[float] = None
     cond_a_case: Optional[int] = None   # V-n case of condition A (STALL +N)
+    cond_a_cl: Optional[float] = None
+    cond_a_v_eas_kt: Optional[float] = None
+    cond_a_root_mxx: Optional[float] = None   # condition A's air root bending, lb-in
+    entered: Tuple[str, ...] = ()   # the ``WingLoadCase`` fields entered, not derived
 
     @property
     def run_key(self) -> str:
@@ -188,28 +201,47 @@ def wing_variant_table(project: Project, envelope: Optional[EnvelopeResult] = No
             # The accelerated roll's 100 % side carries condition A's air and
             # the couple derived from it (note 52, D-52.10/D-52.2) -- ranked on
             # the load it delivers, couple included (#295).
+            # An entered value wins here as it does in the wing chain and the
+            # balanced deck: the one resolver, so the row SELECT ranks and
+            # publishes is the case that is flown (#315).
             roll = (derive_accel_roll(project, vn, p, percent)
                     if label in ACCEL_ROLL_SLOTS else None)
-            air_pt = roll.cond_a if roll is not None else p
-            unb = roll.unbal_moment if roll is not None else 0.0
+            entered: Tuple[str, ...] = ()
+            if roll is not None:
+                typed = entered_rolling_case(project, label)
+                entered = tuple(f for f in _ROLL_FIELDS
+                                if typed is not None and getattr(typed, f) is not None)
+                flown = complete_rolling_case(
+                    project, WingLoadCase(name=label, case=p.case,
+                                          **{f: getattr(typed, f) for f in entered}),
+                    by_case, roll)
+                # ``p`` is in ``by_case``, so the resolver always fills the air point.
+                if flown.cl is None or flown.v_eas_kt is None:
+                    raise LookupError(f"ACRL at V-n case {p.case} was not completed")
+                cl, v_eas, unb = flown.cl, flown.v_eas_kt, flown.unbal_moment or 0.0
+            else:
+                cl, v_eas, unb = p.cl, p.v_eas_kt, 0.0
             inertia = wing_inertia_distribution(
                 WingLoadCase(name=label, case=p.case, nz=nz, nx=nx, unbal_moment=unb), units)
             air = air_load_distribution(
-                geom, steady_roll_aero(project, aero, label, p, vn),
-                air_pt.cl, air_pt.v_eas_kt, *plane)
+                geom, steady_roll_aero(project, aero, label, p, vn), cl, v_eas, *plane)
             a_mxx = air.stations[0].mxx
             i_mxx = inertia.stations[0].mxx
             variants.append(WingVariant(
                 slot=label, far_reference=far, cg=k.name, case=p.case,
                 run=p.condition, config=p.config, altitude_ft=p.altitude_ft,
-                v_eas_kt=air_pt.v_eas_kt, cl=air_pt.cl, nz=nz, nx=nx, weight_lb=k.weight_lb,
+                v_eas_kt=v_eas, cl=cl, nz=nz, nx=nx, weight_lb=k.weight_lb,
                 air_root_mxx=a_mxx, inertia_root_mxx=i_mxx, root_mxx=a_mxx + i_mxx,
                 mass_state=state.label, mass_state_case=state.case,
                 air_pick=(air_case.get(label) == p.case),
                 unbal_moment=unb,
                 roll_accel=roll_acceleration(unb, units.iwxx) if roll is not None else 0.0,
                 other_side_percent=roll.percent if roll is not None else None,
-                cond_a_case=roll.cond_a.case if roll is not None else None))
+                cond_a_case=roll.cond_a.case if roll is not None else None,
+                cond_a_cl=roll.cond_a.cl if roll is not None else None,
+                cond_a_v_eas_kt=roll.cond_a.v_eas_kt if roll is not None else None,
+                cond_a_root_mxx=roll.root_mxx if roll is not None else None,
+                entered=entered))
     return WingVariantTable(variants=_mark_governing(variants))
 
 

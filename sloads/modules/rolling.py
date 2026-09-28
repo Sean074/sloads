@@ -26,7 +26,9 @@ its quantity is made:
   deflection are one number.
 * :func:`complete_rolling_case` -- a wing case of a rolling slot filled from
   the owners: an **entered** value always wins (the 2026-08-13 ruling), a
-  blank one is derived.
+  blank one is derived. Every reader of the couple -- the wing chain, the
+  balanced deck and the variant table SELECT publishes from -- resolves
+  through it, the entered case named by :func:`entered_rolling_case` (#315).
 
 The percentage itself is :func:`sloads.constants.other_side_percent`
 (D-52.1/D-52.11): 75 % flat under Amdt 23-48, acrobatic refused by name.
@@ -54,6 +56,7 @@ __all__ = [
     "condition_a_point",
     "condition_a_root_mxx",
     "derive_accel_roll",
+    "entered_rolling_case",
     "roll_acceleration",
     "roll_other_side_percent",
     "steady_roll_aero",
@@ -162,8 +165,20 @@ def derive_accel_roll(project: Project, vn: Iterable[VnPoint], pick: VnPoint,
     return RollDerivation(p, cond_a, root, accel_roll_unbalanced_moment(root, p))
 
 
+def entered_rolling_case(project: Project, label: str) -> Optional[WingLoadCase]:
+    """The wing case the project **entered** for accelerated-roll slot
+    ``label``, or ``None`` -- what :func:`complete_rolling_case` lets win over
+    the derivation. ``None`` for any other slot, and where no list is entered.
+    """
+    wm = project.wing_mass
+    if wm is None or label not in ACCEL_ROLL_SLOTS:
+        return None
+    return next((c for c in wm.cases if c.name == label), None)
+
+
 def complete_rolling_case(project: Project, case: WingLoadCase,
-                          vn: Dict[int, VnPoint]) -> WingLoadCase:
+                          vn: Dict[int, VnPoint],
+                          derivation: Optional[RollDerivation] = None) -> WingLoadCase:
     """``case`` with its accelerated-roll quantities filled from the owners.
 
     Applies to the :data:`ACCEL_ROLL_SLOTS` alone; every other case is
@@ -172,6 +187,9 @@ def complete_rolling_case(project: Project, case: WingLoadCase,
     condition A at the case's V-n point (D-52.2, D-52.10). A case with no V-n
     point to derive from (the C3-before-SELECT bridge) keeps what it has --
     its blank couple is zero, and the report says so in band.
+
+    ``derivation`` is the caller's own :func:`derive_accel_roll` at the case's
+    point, reused rather than run twice (the variant table has it already).
     """
     if case.name not in ACCEL_ROLL_SLOTS:
         return case
@@ -180,7 +198,7 @@ def complete_rolling_case(project: Project, case: WingLoadCase,
     pick = vn.get(case.case) if case.case is not None else None
     if pick is None:
         return case
-    d = derive_accel_roll(project, vn.values(), pick)
+    d = derivation if derivation is not None else derive_accel_roll(project, vn.values(), pick)
     return replace(
         case,
         cl=case.cl if case.cl is not None else d.cond_a.cl,
