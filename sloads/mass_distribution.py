@@ -595,7 +595,7 @@ class WingAsymmetric(ValueError):
             + ", ".join(f"'{r}'" for r in self.rows)
             + "; WINGINER and the balanced deck are half-span models of a "
             "symmetric wing, so the state is refused rather than delivered as "
-            "one side doubled (design note 63 D-63.3, #301)")
+            "one side doubled (design note 63 §13, #301)")
 
 
 @dataclass(frozen=True)
@@ -1099,7 +1099,7 @@ def derive_case_loadings(project: Project,
     needing the **least ballast**; ties break toward the larger payload. Least
     ballast is the loading closest to something an operator could actually fly.
 
-    **A loading is laterally symmetric on the wing** (design note 63, D-63.3,
+    **A loading is laterally symmetric on the wing** (design note 63 §13,
     #301): a candidate -- base and subset together -- whose off-centreline
     ``WING`` parts, PANEL or POINT, are not mirrored pairs (one tank of a
     pair, a one-sided empty row) is not a candidate, and an entered loading
@@ -1159,7 +1159,7 @@ def derive_case_loadings(project: Project,
         for mask in range(1 << len(discretionary)):
             sub = [it for i, it in enumerate(discretionary) if mask >> i & 1]
             if not wing_symmetric(base + sub, project):
-                continue                       # one tank of a pair (D-63.3, #301)
+                continue                       # one tank of a pair (note 63 §13, #301)
             # G-5: for a GROUND target, burn the consumables in this subset down
             # to a continuous partial value -- proportionally, so a tank layout is
             # preserved -- *before* considering the subset a loading. A design
@@ -1313,7 +1313,7 @@ def seed_loading_search(project: Project, *, fuel: str, cap_lb: float, edge: str
     Over the ``2^n`` payload subsets (the discretionary rows that are not
     consumable -- a ballast row the database itself carries is payload here,
     which is how the Appendix A airplane's full-fuel seed *is* CG1), each
-    laterally symmetric on the wing (D-63.3). A whole-row loading inside the
+    laterally symmetric on the wing (note 63 §13). A whole-row loading inside the
     limits is taken as it is. One that misses the cap or an edge is
     **clipped**: one payload row is scaled by the largest fraction that
     brings it inside -- the aft hold scaled until the CG sits on the aft line,
@@ -1379,7 +1379,7 @@ def seed_loading_search(project: Project, *, fuel: str, cap_lb: float, edge: str
     for mask in range(1 << len(payload)):
         sub = [it for i, it in enumerate(payload) if mask >> i & 1]
         if not wing_symmetric(fixed + sub, project):
-            continue                      # one tank of a pair (D-63.3, #301)
+            continue                      # one tank of a pair (note 63 §13, #301)
         if consider(sub, None, 1.0):
             continue                      # inside as it is: never trimmed
         w0 = w_fixed + math.fsum(it.weight_lb for it in sub)

@@ -3,9 +3,14 @@
 > **Cases analyzed:** the engine-mount family derives entirely from its own
 > FAR conditions — 23.361 (engine torque), 23.363 (side load), 23.371
 > (gyroscopic) — evaluated at prescribed powers and factors, with no V-n
-> down-select. The 23.367 one-engine-out condition, though titled
-> "unsymmetrical loads due to engine failure", delivers a **vertical-tail**
-> load and is covered in [`ch05_empennage_loads.md`](ch05_empennage_loads.md).
+> down-select for the mount loads themselves. The balanced LRA deck carries
+> each condition as a delivered V-n parent scaled to its FAR pairing plus
+> these mount loads (design note 66; citation in
+> [`00_theory_sources.md`](00_theory_sources.md)). The 23.367 one-engine-out
+> condition, though titled "unsymmetrical loads due to engine failure",
+> delivers a **vertical-tail** load and is covered in
+> [`ch05_empennage_loads.md`](ch05_empennage_loads.md); the deck carries it
+> with the engine pair's thrust and windmill drag beside the fin.
 > Sign and truncation conventions preserved from the original are
 > `CONVENTIONS.md` §5.
 

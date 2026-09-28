@@ -476,7 +476,7 @@ def test_the_panel_override_validator_names_the_gap_and_the_remedy():
 
 
 def test_an_asymmetric_entered_loading_is_refused_and_named():
-    """D-63.3 / #301: the half-span models run the starboard half and mirror
+    """Note 63 §13 / #301: the half-span models run the starboard half and mirror
     it, so a loading with one tank of a pair aboard is not derivable -- never
     run as its starboard half doubled -- and the case's finding names the
     tank with no image."""
@@ -497,7 +497,7 @@ def test_an_asymmetric_entered_loading_is_refused_and_named():
 
 
 def test_a_searched_loading_never_takes_one_tank_of_a_pair():
-    """The same rule inside the search (D-63.3): a subset whose WING POINT
+    """The same rule inside the search (note 63 §13): a subset whose WING POINT
     parts are asymmetric is not a candidate, so the ATR's ground cases burn
     both tanks down together instead of leaving one behind."""
     from sloads import mass_distribution as md

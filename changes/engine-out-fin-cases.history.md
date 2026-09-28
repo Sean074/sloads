@@ -32,9 +32,11 @@ on 23.367(a)(2) (G-66.14); no L-7 load and the statement in band (G-66.15);
 the 1 g half closes inside 1 % (G-66.16); `engine_forces_at` reproduces the
 march's engine moment at every instant.
 
-**Key decisions.** (1) The sign correction reverses note 44 OR-173's stated
-rule — found because the balanced case is the first place the fin and the
-engine met; recorded in note 66 §11 for the owner. (2) The family is exempt
-from the trim gate for the engine pair's pitch couple (6.4 % of n·W·MAC on the
+**Key decisions.** (1) The sign correction reverses the fin-load sign note
+44 OR-173 was implemented with (its one-case-per-engine rule stands) — found
+because the balanced case is the first place the fin and the engine met;
+recorded in note 66 §11 and approved by the owner in session, 2026-09-26
+(after the fact: the fix shipped in 60c90ab before the owner reviewed it).
+(2) The family is exempt from the trim gate for the engine pair's pitch couple (6.4 % of n·W·MAC on the
 ATR's VC case — the pair's axial force at the hub waterline), the powered
 cases' standing; the 1 g half is gated instead.

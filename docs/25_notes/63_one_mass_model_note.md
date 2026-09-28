@@ -443,8 +443,8 @@ What #289 delivered against §4, measured at closure (the full account is
   engine at x 48 now the item rows at x 30/50/55. Heavy: fuel 600 → 2,750
   lb per side, closure `Izz` 32,302 → 42,104, body beam 15,000 → 10,700
   lb. Fin loads and `Ny` unchanged everywhere.
-- **Two amendments found in the code.** (a) A searched loading is
-  laterally symmetric by construction: the subset search refuses a
+- **Two amendments found in the code.** (a) *(superseded by §13, #301)* A
+  searched loading is laterally symmetric by construction: the subset search refuses a
   candidate whose WING POINT parts differ port and starboard (the ATR's
   "fwd light" ground case would otherwise have taken one tank). (b) A wing
   case with no resolvable state, or a state whose loading the search cannot
@@ -589,3 +589,30 @@ What #290 delivered against D-63.9 (the paragraph of record is
   exactly; the Baron stays searched, its two non-derivable cases being the
   editor's demonstration. Digest movers: the ATR's and the jet's `entered`
   column and mass-state labels only.
+
+## 13. Amendment: the wing mass is laterally symmetric (#301, 2026-09-26; recorded 2026-09-27, #317)
+
+The item database is full span, but WINGINER, the balanced deck's mirrored
+wing set and the per-case tie are half-span models. Before #301 the
+symmetry they depend on was checked in three places over three row sets,
+by weight sum and on POINT rows only (§10 amendment (a) records that
+check). Owner ruling at #301, in session: **refuse** an asymmetric state
+rather than name it and run it as one side doubled.
+
+- **One rule, one owner.** `mass_distribution.half_span` is the only route
+  into the half-span models. Every off-centreline `WING` part, **PANEL or
+  POINT**, must have a mirror image: same weight, `x` and `z`, opposite
+  `y`, within `RECONCILE_REL_TOL` and 0.5 in.
+- **A pairing, not a weight sum.** A weight-balanced pair at unmirrored
+  stations fails. A failing state raises `WingAsymmetric` naming the parts.
+- **The searches obey it.** The subset and seed searches test base and
+  subset together (`wing_symmetric`), so a searched loading is symmetric by
+  construction and never takes one tank of a pair. An asymmetric *entered*
+  loading is not derivable, and the deck, WINGINER and the body beam refuse
+  it by the route they take for an unreachable case.
+- **§10 amendment (a) is superseded** by this rule, which widens it from
+  POINT to PANEL and from the discretionary subset to base and subset
+  together. D-63.3 itself, the carriage tag, is unchanged.
+
+A per-side deck, which would carry an asymmetric state rather than refuse
+it, is parked (tier L) while no delivered load comes from one.

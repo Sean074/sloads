@@ -389,8 +389,8 @@ def fields_hash() -> str:
 #: above): nothing on disk has this shape, ``SCHEMA_VERSION`` stays at 68.
 #: v69 (design note 52, #306): ``WingLoadCase.unbal_moment`` becomes
 #: ``Optional`` (blank = derived on ACRL). A type, not a name, so this hash --
-#: field names only -- does not move; the version bump and ``_hop_68`` (every
-#: stored ``0`` -> ``null``) carry the change, and ``test_migrations`` pins it.
+#: field names only -- does not move; the version bump carries the change. No
+#: hop: v69 was never released (#310).
 #: v70 (#276): ``WeightEstimationInput.engines`` renamed ``engine_count``. No
 #: hop: v69 was never released (#310).
 EXPECTED_FIELDS_HASH = "faed9529c2bb358d"

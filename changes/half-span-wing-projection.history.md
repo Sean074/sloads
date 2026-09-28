@@ -13,8 +13,8 @@
   search still called the loading valid. A one-sided PANEL row was halved
   onto both wings with no finding at all. Owner ruling (in session): build the
   projection now rather than a per-side deck (tier L, parked while no
-  delivered load comes from an asymmetric mass state), and **refuse**, which
-  amends design note 63 D-63.3's "an asymmetric entered state is named". The
+  delivered load comes from an asymmetric mass state), and **refuse**; design
+  note 63 §13 records the rule and supersedes its §10 amendment (a). The
   projection is the one place the rule lives: every off-centreline `WING`
   part, PANEL or POINT, must have a mirror image (same weight, x and z,
   opposite y, within `RECONCILE_REL_TOL` and 0.5 in). This is a pairing, not

@@ -350,9 +350,9 @@ from .results import EnvelopeResult, LoadsResult, MassResult
 # (D-63.8) and the twin/concept fixtures by the fuel re-slicing (D-63.10).
 # v69 (design note 52, #306): ``WingLoadCase.unbal_moment`` becomes
 # ``Optional`` -- blank is derived on ``ACRL`` from condition A (D-52.2) and zero
-# elsewhere; ``_hop_68`` writes ``null`` for every stored ``0``, keeping a
-# non-zero entered couple. The TORS aileron increment (D-52.5) reads the
-# existing v52 ``aileron_loads.inboard_y_in``/``outboard_y_in``, so no new field.
+# elsewhere. No hop: v69 was never released (#310). The TORS aileron increment
+# (D-52.5) reads the existing v52 ``aileron_loads.inboard_y_in``/
+# ``outboard_y_in``, so no new field.
 # v70 (#276): ``WeightEstimationInput.engines`` (WTESTIMA's NOENGS, a count) is
 # renamed ``engine_count`` so that ``engines`` names only ``Project.engines``'
 # list. No hop: v69 was never released (#310).

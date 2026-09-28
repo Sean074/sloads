@@ -274,6 +274,7 @@ distribution it drives, cross-linked from both pages) writes it (`flight_envelop
   sea-level altitude admits it); `validation._check_tail_cp_stations`
   (`tail_cp_station_unset`, page `flight_envelope`) warns before anything runs
   — the `cg_case_without_weight` pattern.
+- **Accelerated roll (design note 52, #306):** `AC ROLL`'s load factor is `(100 + p)/200 · n₁` with `p` = `constants.other_side_percent`; the `ACRL` paragraph of *Structured load-case IDs* below is the owner statement.
 
 ### SELECT — Critical load selection
 `modules/select.py` (registers `"select"`). Oracle-locked against the Appendix A
@@ -326,6 +327,7 @@ approved-corrections register [`../20_theory/02_approved_corrections.md`](../20_
 - **Derive-by-default (note 36 OV-1/OV-2/OV-5, #97):** `select.effective_tail_inputs` resolves a blank `aspect_ratio_wing` from the consolidated planform AR (`derived_geometry.wing_aspect_ratio`) and a blank `wing_lift_slope_per_rad` from the cruise set's C1 × 57.3 (`select.wing_lift_slope_per_rad`) onto a local copy — an ARW that resolves to 0 is refused by name rather than reaching the downwash divide (C210-36's bare `ZeroDivisionError`). `select.resolved_full_down_aileron_deg` derives a blank SELECT DN from `aileron_loads.down_deflection_deg` (C210-38; a typed disagreement warns, `aileron_deflection_mismatch`). Typed values pass through verbatim, so every Appendix A pin is untouched. **Extended at #95 (C210-3/5):** a blank elevator area SE derives as SEFWDHL + SEAFTHL (`select.derived_elevator_area`) and a blank rudder area SR as SRFWDHL + SRAFTHL (`derived_rudder_area`) — one owner per control-surface area triple; a typed total that disagrees with its halves past 1 % (Appendix A's own manual rounding sits at 0.2–0.7 %) warns, `elevator_area_mismatch` / `rudder_area_mismatch`. `select.effective_vtail_inputs` also derives a blank `wing_span_in` from the WINGGEOM planform's own span (`derived_geometry.wing_span_in`); ONENGOUT and `tail_span`'s control-load split read through the same effective inputs (rule 4). A blank `izz_slugft2` keeps its SELECT.BAS rod default, now **disclosed**: `select.default_side_gust_izz` is the registry resolver shown beside the field, and the oracle SELECT block captions both rod inertias against WTONECG's database values (`oracle_app.results.select_inertia_advisory`, C210-25 — the rod IZZ measured +49 % on the C210).
 - **The net-governing run (design note 63 D-63.7, #292, 2026-09-18).** `select_wing` delivers each wing slot at the variant whose signed root `Mxx` is the extreme — `wing_variants.wing_variant_table` assesses every slot at every FLIGHT case (the family's own pick among the points balanced at that case, `wing_slot_picks`, run at that case's loading) and marks one governing row per slot, largest for the positive-lift slots and most negative for the negative ones (`select.SLOT_LIFT_SIGN`); the slot keeps its W id and the run key (D-63.11) names the point, the re-pointed condition says so in its `note`. SELECT.BAS 3000's per-family search over the whole matrix stays as `select.air_picks`, the intermediate the Appendix A and note 62 pick tests assert. Two in-code amendments: the torsion slot and the load-factor extremes (`select.AIR_PICK_SLOTS`: TORS, PNZ, NNZ) are delivered at their air pick, their criterion not being the bending — without exception since #294: the table assesses every air pick at its own CG case so the row always exists, and a governing pass that finds no air row for such a slot raises rather than re-points it on bending; and a variant within the FLTLOADS balance's own noise of the air pick (`wing_variants.GOVERNING_TIE_REL`, 0.5 %) is a tie the air pick keeps. A project the wing analysis cannot run on delivers the air picks unchanged. An entered `wing_mass.cases` list is a **filter** on the slots, never a second source of points (`wing_inertia.resolve_wing_cases`): a case naming a slot with no `case` of its own takes the slot's delivered point.
 - **The summary table (#95, C210-26/27 — owner directive, "one line per case"):** SELECT's on-screen table and its module CSV render through `report.summary_rows` → `report.critical_rows` — one row per condition with ID / LOAD / Component / Condition / FAR / CG case / Run (the run key beside the id, #292) / the per-quantity column union (`"—"` where absent) / the per-case `SF`, sharing `governing_loads_table`'s one-line core (`_union_rows`) so the M2-4 tables and this one cannot diverge. The oracle page groups the same rows per component (`SUMMARY_GROUP_BY`); the CSV keeps them flat. This replaced the stacked one-row-per-quantity shape (~150 rows for 27 conditions, SF invisible on wing cases) — an accepted deliverable-format change, the `csv/*` digests re-frozen with it.
+- **Accelerated roll (design note 52, #306, #315):** the `ACRL` slot is ranked from the `wing_variants` rows, each completed by `rolling.complete_rolling_case`, and publishes condition A's CL, speed and root bending, the unbalanced rolling moment (derived, or labelled *entered*) and the roll acceleration; the `ACRL` paragraph of *Structured load-case IDs* below is the owner statement.
 
 ### BALLOADS — Rational balanced-tail-load verification (utility) — Step C11
 - **FAR §:** 23.421 (balancing loads); supports the 23.331 rational-balancing requirement.
@@ -352,6 +354,7 @@ approved-corrections register [`../20_theory/02_approved_corrections.md`](../20_
 - **Writes:** the spanwise wing inertia distribution per case → **`Project.loads.wing_inertia`** (one `WingLoadResult` of `WingStationLoad` each, its `mass_state` naming the loading it was built from and its `case_ref.cg` that loading's case). Pure entry `wing_inertia.build_wing_inertia(project)`.
 - **Validation:** Appendix A "Wing Inertia Loads" p217-221 — root/tip density 2.213/2.102 lb/ft²; unit vertical/drag/roll and the combined case 138 (Nz −2.54 Nx −0.1318: root Mxx −41041, Myy +11161).
 - **Notes:** The panel mass is a linearly-tapered area density iterated to the entered panel weight (a density the ±1 % band is never reached with is a refusal, not a last step — #33, `sloads/convergence.py`); strips inboard of the rib carry no panel mass; concentrated weights add spanwise steps to the shears/moments. **The shape is built once per run at the project panel and each case folds its own state onto it** (`wing_inertia.panel_shape` / `fold_units`, D-63.6): the strips scale by the case's panel against the shape's target (exactly 1.0 when equal, which keeps Appendix A bit-for-bit) and the case's POINT rows fold in with their own unit-roll forces, so a zero-fuel case carries no wing-fuel relief and a full-fuel case all of it. Subtracted from the air load in NETLOADS. **A non-positive panel weight short-circuits to an empty panel** (review F-C5, 2026-08-10): the BASIC iteration's ±1% acceptance band is empty at zero, so it walked the density down *through* zero and returned negative strip masses — a sign-flipped wing, not a lighter one (−0.108 lb integrated on `ga6_normal` with the weight cleared).
+- **Accelerated roll (design note 52, #306):** an `ACRL` case's unbalanced rolling moment is derived as `−(1 − p/100)` of condition A's root bending unless entered, completed by `rolling.complete_rolling_case` through `resolve_wing_cases`; the `ACRL` paragraph of *Structured load-case IDs* below is the owner statement.
 
 ### NETLOADS — Net wing loads
 - **FAR §:** 23.301(b) (net = air + inertia in equilibrium).
@@ -424,8 +427,11 @@ approved-corrections register [`../20_theory/02_approved_corrections.md`](../20_
   condition (note 44 §21, OR-172/OR-173/OR-174, 2026-09-07).** One engine's
   failure loads the fin in one sense and a fin is sized for both, so each engine
   whose failure produces a yawing moment is marched in turn, with its own case ID
-  and its own sign (`_failed_engine_indices`; an engine on the centreline has no
-  arm and is skipped). `vtail_conditions` publishes the recovered cases as
+  (`_failed_engine_indices`; an engine on the centreline has no arm and is
+  skipped). The published fin load **resists** the failed engine's yaw: an
+  engine at `+y` gives a `+y` fin load, and β is the nose's, toward the failed
+  engine (`one_engine_out._vtail_sense`; note 44 OR-173 as amended at #285,
+  design note 66 §11). `vtail_conditions` publishes the recovered cases as
   `CriticalCondition`s and `select.default_critical` admits them to the vertical
   tail's critical set, from which Section 6, the chordwise and spanwise
   distributions, the applied-load appendix and the exported v-tail deck take them
@@ -1034,7 +1040,8 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   **Every balanced case states its own safety factor** (D-66.1): the governing
   table's answer for its `CaseRef`'s FAR reference, stamped in
   `build_balanced_cases` through `safety_factors.stamp`, and printed by the deck
-  header's basis sentence — 1.5 on every family shipped to date.
+  header's basis sentence; the factor itself is `sloads/safety_factors.py`'s
+  row for the family, never a value stated here.
   A condition whose CG the weight database cannot produce is **recorded, not
   invented**. The ground families' own method — the `n_z = 0` solve, the applied
   gear/lift set and the LANDLOAD identity — is
