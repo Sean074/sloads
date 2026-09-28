@@ -344,6 +344,12 @@ clause, which knew of no milestone between.
 > carries) is the milestone in flight**; B9 (0.8.8) and B2 (0.9.0) follow it in
 > order. Cut rule unchanged: 0.8.7 when B8 is empty, 0.8.8 when B9 is, then
 > 0.9.0 when B2 is.
+>
+> **B8 re-opened 2026-09-27 (owner, in session) — the 0.8.7 release review.**
+> The review (`CODE_REVIEW_PROCESS.md`, full suite green) filed #313–#322; the
+> owner banded the four that block the cut into B8 at ordinals 12–15 (#313 #314
+> #315 #317, 3 M, 1 S). #316 and #318–#322 are filed unbanded. Cut rule
+> unchanged: 0.8.7 when B8 is empty again.
 
 
 **System of record (design note 28 MD-5, 2026-08-16):** open work is **GitHub
@@ -387,6 +393,10 @@ keeps its body in *Open defects*, and the [E]/[V] detail sections hold the rest.
 | Pri | Item (detail below / in its plan) | What ships | Tag | Tier / effort | Depends on |
 |---|---|---|---|---|---|
 | **B8 — 0.8.7: the deck carries what the airplane carries (re-chartered 2026-09-22 — the report polish it was named for moves behind #283)** ||||||
+| 12 | **EM gyro cases count the engine's thrust twice when the project enters `thrust_lb`** — `_scaled` keeps the parent's entered hub thrust and `_increment` adds ENGLOADS's at the same hub on every 23.371(b)/25.371 case; latent (no fixture enters thrust) *(0.8.7 release review, 2026-09-27)* (#313) | The case's engine carries exactly ENGLOADS's thrust at its hub; a gate on a fixture copy with `thrust_lb` entered | E | M / S | — |
+| 13 | **The case-loading waterline echo is not idempotent** — the `match_waterline=False` pass still solves and filters against the placeholder `zcg`, so ATR `aft max landing` ships 141.56 while its flown loading sits at 140.93 *(0.8.7 release review, 2026-09-27)* (#314) | Re-echoing leaves every case's `zcg` unchanged on every fixture (guard); ATR re-seeded and its baseline regenerated; PROGRAM_SPEC's `match_waterline` line corrected | E | M / S | — |
+| 14 | **The variant table always derives the ACRL couple** — an entered UNB is flown while SELECT and report 3.3 publish the derived one (RJ: −600,000 flown, −1,614,422 published) *(0.8.7 release review, 2026-09-27)* (#315) | The variant table reads the resolved couple (`complete_rolling_case`); a gate that the published UNB equals the resolved one on every fixture | E | M / S | — |
+| 15 | **0.8.7 closure debt** — #286/#285 index rows, note 66's `theory_sources` row, stale PROGRAM_SPEC lines, note 66/63 amendments, fragments describing the deleted `_hop_68` *(0.8.7 release review, 2026-09-27)* (#317) | Every item in the issue body closed; lands before `build_changelog.py` consumes the fragments | E | S / S | the cut waits on it |
 | **B9 — 0.8.8: the beam-model page, with the report polish behind it** ||||||
 | 16 | **Beam-model page: the LRA definition, the model drawn, and the sbeam deck written to a chosen directory** — the LRA free-free model is the primary deliverable and the GUI has no path to it: no step, no page, no editor for `lra_mesh` or `ref_axis_pct` beyond raw JSON, and `lra_model.bdf` is written only by the CLI; the schema has called it "step 12" since v52 and no step exists. The page shows the axis (default a chord percentage, user-definable), draws the model as `scripts/plot_lra_model.py` does (iso + three views, outlines overlaid, refusal shown verbatim) and writes the **sbeam input BDF** — one writer, `write_lra_model_bdf` with the CLI's stamp — to a user-selected directory through the Report page's native picker. **Reopens note 57 D-57.6**, which retired the export page without port: this is the missing step for the deliverable, not that page ported, and a design note must say so at AGREED first. The report package does **not** carry the deck (owner, 2026-09-14): this page is the one GUI channel for it *(owner's request, 2026-09-14; moved from B2 into B9 at the same day's split, paired with #275)* (#283) | The note AGREED; the page as a step or declared non-step in `workflow.py`; the script's drawing moved to one owner the page and the script both call; no second writer, picker, stamp or figure (the #239 class) | V | L / M | a design note at AGREED first; #275 shipped 2026-09-21 |
 | 17 | **Override cross-check warnings fire below display precision and print two identical numbers** *(2026-09-08 review G6)* (#243) | One owner for the comparison tolerance (display precision or a stated rel-tol) so every cross-check warning behaves the same | V | S / S | — |
