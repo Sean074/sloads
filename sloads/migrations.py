@@ -59,7 +59,9 @@ class SchemaVersionError(ValueError):
 
 #: The schema version each release shipped, keyed by release, from 0.8.7 on
 #: (#310). A row is added at the release cut, never on a development branch.
-RELEASED_SCHEMAS: Dict[str, int] = {}
+RELEASED_SCHEMAS: Dict[str, int] = {
+    "0.8.7": 70,
+}
 
 #: ``{from_version: hop}`` -- applied in ascending order, each turning a file of
 #: version *n* into version *n+1* shape. Empty until a schema bump follows the

@@ -350,6 +350,15 @@ clause, which knew of no milestone between.
 > owner banded the four that block the cut into B8 at ordinals 12–15 (#313 #314
 > #315 #317, 3 M, 1 S). #316 and #318–#322 are filed unbanded. Cut rule
 > unchanged: 0.8.7 when B8 is empty again.
+>
+> **B8 is retired: 0.8.7 was cut on 2026-09-27** (tag `v0.8.7`; the release-cut
+> block in
+> [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md)
+> is the record). The band emptied again with #317. **Band B9 (0.8.8 — the
+> beam-model page, with the report polish behind it) is the milestone in
+> flight**; B2 (0.9.0) follows it. #316 and #318 (MAJOR) stay open and unbanded
+> by the owner's 2026-09-27 ruling. Cut rule unchanged: 0.8.8 when B9 is empty,
+> then 0.9.0 when B2 is.
 
 
 **System of record (design note 28 MD-5, 2026-08-16):** open work is **GitHub
@@ -392,7 +401,6 @@ keeps its body in *Open defects*, and the [E]/[V] detail sections hold the rest.
 
 | Pri | Item (detail below / in its plan) | What ships | Tag | Tier / effort | Depends on |
 |---|---|---|---|---|---|
-| **B8 — 0.8.7: the deck carries what the airplane carries (re-chartered 2026-09-22 — the report polish it was named for moves behind #283)** ||||||
 | **B9 — 0.8.8: the beam-model page, with the report polish behind it** ||||||
 | 16 | **Beam-model page: the LRA definition, the model drawn, and the sbeam deck written to a chosen directory** — the LRA free-free model is the primary deliverable and the GUI has no path to it: no step, no page, no editor for `lra_mesh` or `ref_axis_pct` beyond raw JSON, and `lra_model.bdf` is written only by the CLI; the schema has called it "step 12" since v52 and no step exists. The page shows the axis (default a chord percentage, user-definable), draws the model as `scripts/plot_lra_model.py` does (iso + three views, outlines overlaid, refusal shown verbatim) and writes the **sbeam input BDF** — one writer, `write_lra_model_bdf` with the CLI's stamp — to a user-selected directory through the Report page's native picker. **Reopens note 57 D-57.6**, which retired the export page without port: this is the missing step for the deliverable, not that page ported, and a design note must say so at AGREED first. The report package does **not** carry the deck (owner, 2026-09-14): this page is the one GUI channel for it *(owner's request, 2026-09-14; moved from B2 into B9 at the same day's split, paired with #275)* (#283) | The note AGREED; the page as a step or declared non-step in `workflow.py`; the script's drawing moved to one owner the page and the script both call; no second writer, picker, stamp or figure (the #239 class) | V | L / M | a design note at AGREED first; #275 shipped 2026-09-21 |
 | 17 | **Override cross-check warnings fire below display precision and print two identical numbers** *(2026-09-08 review G6)* (#243) | One owner for the comparison tolerance (display precision or a stated rel-tol) so every cross-check warning behaves the same | V | S / S | — |
