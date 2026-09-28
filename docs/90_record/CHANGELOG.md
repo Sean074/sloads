@@ -63,6 +63,18 @@ everything before it in [`CHANGELOG_to_0.8.2.md`](CHANGELOG_to_0.8.2.md).
 
 ### Fixed
 
+- **The #303 unit guard's regex loads on Python 3.10, so `tests/test_joints.py` runs on every version the package supports (#325, tier S, 2026-09-28).**
+  `_BARE_COORDINATE` took its number with an atomic group, `(?>…)`, which
+  Python has only from 3.11; the package declares `>=3.10`, so on 3.10 the
+  file failed to collect and `main`'s full CI run after the 0.8.7 merge was
+  red on that leg alone (3,859 passed, 4 collection errors). The number is
+  now taken whole with the lookahead-and-backreference spelling of the same
+  group, `(?=(…))\1`, which matches exactly what the atomic group did. Checked
+  under Python 3.10 in Docker: the file passes, the whole tree compiles and
+  the whole suite collects. Test-only; nothing under `sloads/` moves. Found
+  after the merge, so this bullet was written into the `[0.8.7]` section by
+  hand.
+
 - **The balanced deck prints a closure load factor that is zero by construction as an unsigned zero, so its bytes no longer depend on the Python version (#324, tier S, 2026-09-28).**
   The six-DOF closure sentence of each case header and the summary table's
   closure columns printed `dnx`, `dny`, `dn` raw with `+.5f`. On a symmetric
