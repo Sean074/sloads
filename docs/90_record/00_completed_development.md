@@ -87,6 +87,10 @@ third milestone running to take that round trip.
   its solve residue, `+0.00000` on Python 3.11 and `-0.00000` on 3.12. Both
   print sites now read one snapped owner; the ATR 42's eight such headers move
   to `+0.00000` and its deck digest is regenerated, and no load card moves.
+- **A test regex that loads on Python 3.10 (#325, tier S).** `main`'s full
+  CI run after the merge failed on the 3.10 leg alone: #303's unit guard in
+  `tests/test_joints.py` used a 3.11-only atomic group. It now uses the
+  lookahead-and-backreference spelling, and the tag waited for the fix.
 - **The release review's closure debt (#317, tier S).** Note 66 gained its
   theory citation and gate rows, note 63 records the symmetric wing mass rule,
   and no fragment describes the deleted hop.
@@ -152,6 +156,9 @@ fast gate on `dev/v0.8.7` was red on every push from #286 to the cut, on one
 Python-version byte (#324), and no close stopped on it because
 `solo_close.sh` gates locally and reads CI after the push. The release PR was
 the first place anyone read it; a close that waits for CI is left to the owner.
+The merge then found the other half of the same gap: 3.10 and 3.11 run only on
+the push to `main`, so a 3.11-only regex in a test (#325) surfaced after the
+milestone PR had merged, and the tag waited on a second PR.
 
 - **The accelerated roll's published couple is the one flown: the variant table resolves ACRL through the same owner as the wing chain and the balanced deck, so an entered unbalanced rolling moment reaches SELECT, report 3.3 and the Wing Loads caption (#315, tier M, 2026-09-27)** —
   The wing chain and the balanced deck resolve the ACRL case through

@@ -439,8 +439,12 @@ def test_entered_spar_stations_flip_the_grade_and_drop_the_note():
 
 
 #: A station, butt line or waterline stated with a number and no unit after it.
+#: The number is taken whole -- ``(?=(…))\1`` is the atomic group ``(?>…)``
+#: spelled for Python 3.10, which has no atomic groups (#325) -- so the
+#: lookahead cannot pass by backtracking into ``78.8/112.4 in`` to ``78.8/112.``.
 _BARE_COORDINATE = re.compile(
-    r"\b(?:BL|FS|waterline|stations?)\s+(?>-?\d+(?:\.\d+)?(?:/-?\d+(?:\.\d+)?)?)(?!\s+in\b)")
+    r"\b(?:BL|FS|waterline|stations?)\s+"
+    r"(?=(-?\d+(?:\.\d+)?(?:/-?\d+(?:\.\d+)?)?))\1(?!\s+in\b)")
 
 
 @pytest.mark.parametrize("example", sorted(
