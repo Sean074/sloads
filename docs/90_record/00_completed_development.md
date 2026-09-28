@@ -127,8 +127,8 @@ third milestone running to take that round trip.
   them; `ruff` clean, `mypy` clean (`sloads/`, 112 source files),
   `scripts/smoke_test.sh` **PASS**, `scripts/backlog_issues.py check` clean,
   `scripts/branch_protection_snapshot.py --check` matches on
-  7 tracked keys, the §3.5 by-hand walk left to the owner before the
-  milestone merge. Of the 2026-09-27 review's CRITICAL/MAJOR findings,
+  7 tracked keys, the §3.5 by-hand walk done by the owner
+  (2026-09-28). Of the 2026-09-27 review's CRITICAL/MAJOR findings,
   #313–#315 and #317 closed on the branch;
   **two MAJOR stay open by the owner's banding ruling of 2026-09-27**, which
   named the four above as the cut's blockers and left the rest unbanded: #316
