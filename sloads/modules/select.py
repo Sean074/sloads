@@ -578,8 +578,11 @@ def _rolling_loads(project: Project, table, label: str, p: VnPoint,
     GUI caption state, read from the owners that computed the loads.
 
     ``ACRL``: the other-side percentage, condition A's point and root air
-    bending, the derived unbalanced rolling moment and WINGINER's roll
-    acceleration, off the variant row the slot is delivered at. ``TORS``: the
+    bending, the unbalanced rolling moment and WINGINER's roll acceleration,
+    off the variant row the slot is delivered at. The moment is the one the
+    wing chain and the balanced deck fly -- derived, or the project's entered
+    value, which is then labelled so (#315) -- and an entered air point is
+    published beside condition A's. ``TORS``: the
     CAM 3.222 down-aileron schedule at the case's altitude and the deflection
     its own speed takes (the δ of the selection proxy and of the applied
     ``Δcm``). Every other slot: nothing.
@@ -588,14 +591,23 @@ def _rolling_loads(project: Project, table, label: str, p: VnPoint,
         row = next((v for v in table.by_slot(label) if v.case == p.case), None)
         if row is None or row.other_side_percent is None:
             return []
-        return [
+        out = [
             LoadValue("Other-side percent", row.other_side_percent, "%", key="other_side_percent"),
-            LoadValue("Condition A CL", row.cl, key="condition_a_cl"),
-            LoadValue("Condition A V (EAS)", row.v_eas_kt, "kt(EAS)", key="condition_a_v_eas"),
-            LoadValue("Condition A root bending", row.air_root_mxx, "lb-in",
+            LoadValue("Condition A CL", row.cond_a_cl, key="condition_a_cl"),
+            LoadValue("Condition A V (EAS)", row.cond_a_v_eas_kt, "kt(EAS)",
+                      key="condition_a_v_eas"),
+            LoadValue("Condition A root bending", row.cond_a_root_mxx, "lb-in",
                       key="condition_a_root_mxx"),
-            LoadValue("Unbalanced rolling moment", row.unbal_moment, "lb-in",
-                      key="unbalanced_rolling_moment"),
+        ]
+        if "cl" in row.entered:
+            out.append(LoadValue("Wing CL (entered)", row.cl, key="entered_cl"))
+        if "v_eas_kt" in row.entered:
+            out.append(LoadValue("V (EAS) (entered)", row.v_eas_kt, "kt(EAS)",
+                                 key="entered_v_eas"))
+        entered_unb = "unbal_moment" in row.entered
+        return out + [
+            LoadValue("Unbalanced rolling moment" + (" (entered)" if entered_unb else ""),
+                      row.unbal_moment, "lb-in", key="unbalanced_rolling_moment"),
             LoadValue("Roll acceleration", row.roll_accel, "rad/s^2", key="roll_acceleration"),
         ]
     if label in STEADY_ROLL_SLOTS:

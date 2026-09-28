@@ -343,3 +343,58 @@ def test_the_wing_loads_page_states_the_couple():
     assert "-600000 lb-in, as entered" in rj
     assert caption(io.load_project(os.path.join(_ROOT, "examples", "baron_58.project.json")),
                    UnitSystem.IMPERIAL) == ""
+
+
+# --------------------------------------------------------------------------- #
+# #315 -- the couple SELECT publishes is the couple that is flown
+# --------------------------------------------------------------------------- #
+_EXAMPLES = sorted(os.path.join(_ROOT, "examples", f)
+                   for f in os.listdir(os.path.join(_ROOT, "examples"))
+                   if f.endswith(".project.json"))
+
+
+@pytest.mark.parametrize("path", _EXAMPLES, ids=os.path.basename)
+def test_the_published_couple_is_the_flown_one(path):
+    """**#315**: SELECT's ACRL publishes the unbalanced rolling moment -- and
+    an entered air point -- that the wing chain and the balanced deck fly,
+    on every fixture. The variant table once derived the couple regardless,
+    so the regional jet flew its entered -600,000 lb-in while SELECT and
+    report 3.3 published -1,614,422."""
+    from sloads.modules.balance.air import unbalanced_rolling_moment
+    from sloads.modules.select import default_envelope
+    from sloads.modules.wing_inertia import resolve_wing_cases
+
+    p = io.load_project(path)
+    acrl = next((c for c in build_critical(p).conditions
+                 if c.component == "wing" and c.label == "ACRL"), None)
+    if acrl is None:
+        pytest.skip("the selection names no accelerated roll")
+    got = {lv.key: lv.value for lv in acrl.loads}
+    vn = {q.case: q for q in default_envelope(p).vn}
+    flown = unbalanced_rolling_moment(p, "ACRL", vn[acrl.case], vn)
+    assert got["unbalanced_rolling_moment"] == pytest.approx(flown, rel=1e-12)
+    wing = next((c for c in resolve_wing_cases(p, p.wing_mass) if c.name == "ACRL"), None)
+    if wing is not None:
+        assert got["unbalanced_rolling_moment"] == pytest.approx(wing.unbal_moment, rel=1e-12)
+        assert got.get("entered_cl", got["condition_a_cl"]) == pytest.approx(wing.cl, rel=1e-12)
+        assert got.get("entered_v_eas", got["condition_a_v_eas"]) == pytest.approx(
+            wing.v_eas_kt, rel=1e-12)
+
+
+def test_an_entered_couple_is_published_as_entered():
+    """**#315**: the regional jet enters its couple, so SELECT labels it
+    entered and its roll acceleration is the entered couple's, while
+    condition A's derivation stays published beside it."""
+    p = io.load_project(os.path.join(_ROOT, "examples", "concept_regional_jet.project.json"))
+    acrl = next(c for c in build_critical(p).conditions
+                if c.component == "wing" and c.label == "ACRL")
+    got = {lv.key: lv for lv in acrl.loads}
+    unb = got["unbalanced_rolling_moment"]
+    assert unb.value == -600000.0 and "(entered)" in unb.label
+    row = wing_variant_table(p).governing()["ACRL"]
+    assert row.entered == ("unbal_moment",)
+    assert got["roll_acceleration"].value == pytest.approx(row.roll_accel, rel=1e-12)
+    derived = accel_roll_unbalanced_moment(row.cond_a_root_mxx, row.other_side_percent)
+    assert derived == pytest.approx(-1614422.0, rel=1e-3)   # what was published before
+    assert got["condition_a_root_mxx"].value == pytest.approx(row.cond_a_root_mxx, rel=1e-12)
+    assert "entered_cl" not in got and "entered_v_eas" not in got
