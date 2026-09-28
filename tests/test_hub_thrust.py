@@ -34,7 +34,11 @@ invariant** -- the standard `CLAUDE.md` rule 2 sets for concept-mode physics:
 * **G-11** an **asymmetric** installation yaws the airplane and says so, mints
   no twin of its own (``is_handed`` measures lateral force and roll, and an
   axial force off the centreline makes neither), and states that a twin got
-  from another source mirrors the installation with everything else.
+  from another source mirrors the installation with everything else;
+* **G-12** a condition that prescribes its own thrust **replaces** the entered
+  one (#313): a gyroscopic engine-mount case's engine carries ENGLOADS's
+  thrust alone, a one-engine-out case ONENGOUT's pair alone, a torque case
+  keeps every entered thrust, and no hub in any case carries two thrusts.
 """
 
 from __future__ import annotations
@@ -65,6 +69,11 @@ from sloads.modules.balance import (  # noqa: E402
     is_ground,
     is_powered,
     resultant6,
+)
+from sloads.modules.balance.engine_cases import ENGINE_MOUNT_THRUST_SOURCE  # noqa: E402
+from sloads.modules.balance.engine_out_cases import (  # noqa: E402
+    OEI_FAILED_ENGINE_SOURCE,
+    OEI_LIVE_THRUST_SOURCE,
 )
 
 #: A twin-turboprop with wing-mounted engines whose hub (``prop_cg``, x = 305)
@@ -101,11 +110,14 @@ def _by_id(cases):
 
 
 def _flight(cases):
-    """The flight families -- not ground, and not the engine-mount family
-    (design note 66): an EM case is a *scaled* flight case whose entered thrust
-    is held at its value, so G-3's closed-form identities are the flight
-    families' own; the EM family is gated in ``test_engine_mount_cases.py``."""
-    return [c for c in cases if not is_ground(c) and not is_engine_mount(c)]
+    """The flight families -- not ground, not the engine-mount family and not
+    one engine out (design note 66). An EM case is a *scaled* flight case whose
+    entered thrust is held at its value, so G-3's closed-form identities are
+    the flight families' own; the EM family is gated in
+    ``test_engine_mount_cases.py``. An engine-out case carries ONENGOUT's
+    engine pair in place of the entered thrust (#313, G-12)."""
+    return [c for c in cases
+            if not (is_ground(c) or is_engine_mount(c) or is_engine_out(c))]
 
 
 # --------------------------------------------------------------------------- #
@@ -430,10 +442,9 @@ def test_asymmetric_thrust_yaws_the_airplane_and_says_so():
     asymmetric = replace(project, engines=[
         replace(e, thrust_lb=THRUST if i == 0 else None)
         for i, e in enumerate(project.engines)])
-    # The flight families: a one-engine-out case (design note 66) carries the
-    # entered thrust from its 1 g parent and is handed by its own fin load.
-    cases = [c for c in build_balanced_cases(asymmetric)
-             if is_powered(c) and not is_engine_out(c)]
+    # The flight families: a one-engine-out case carries ONENGOUT's pair in
+    # place of the entered thrust (#313), so none of its cases is powered.
+    cases = [c for c in build_balanced_cases(asymmetric) if is_powered(c)]
     assert cases
     hub_y = project.engines[0].prop_cg[1]
     for case in cases:
@@ -466,6 +477,89 @@ def _unpowered_mz(project, case):
     base = _by_id(build_balanced_cases(project))
     return base[(case.label, case.hand)].residual_mz
 
+
+
+# --------------------------------------------------------------------------- #
+# G-12 -- a condition's own thrust replaces the entered one (#313)
+# --------------------------------------------------------------------------- #
+#: Every source that puts a thrust (or a windmill drag) on a hub.
+_THRUST_SOURCES = (HUB_THRUST_SOURCE, ENGINE_MOUNT_THRUST_SOURCE,
+                   OEI_LIVE_THRUST_SOURCE, OEI_FAILED_ENGINE_SOURCE)
+
+
+def _members(project):
+    return {f"engine-{i}" for i in range(1, len(project.engines) + 1)}
+
+
+def _entered(case):
+    return {ld.carrier: ld.fx for ld in case.loads if ld.source == HUB_THRUST_SOURCE}
+
+
+@pytest.mark.parametrize("example", [TWIN, SINGLE])
+def test_no_hub_carries_two_thrusts(example):
+    """G-12a, the class guard: in every case of a powered build, each hub
+    carries at most one thrust-bearing load, whichever family applied it."""
+    _, project = _powered(example)
+    for case in build_balanced_cases(project):
+        at = [(round(ld.x, 6), round(ld.y, 6), round(ld.z, 6))
+              for ld in case.loads if ld.source in _THRUST_SOURCES]
+        assert len(at) == len(set(at)), f"{example} {case.label}{case.hand}: {at}"
+
+
+@pytest.mark.parametrize("example", [TWIN, SINGLE])
+def test_a_gyroscopic_case_replaces_its_engines_entered_thrust(example):
+    """G-12b. A 23.371(b)/25.371 case's engine carries ENGLOADS's thrust --
+    the same load it carries with no thrust entered -- and not the entered one;
+    every other engine keeps its entered thrust. A torque case applies no
+    thrust of its own and keeps them all."""
+    bare, project = _powered(example)
+    base = _by_id(build_balanced_cases(bare))
+    gyros = torques = 0
+    for case in build_balanced_cases(project):
+        if not is_engine_mount(case):
+            continue
+        entered = _entered(case)
+        own = [ld for ld in case.loads if ld.source == ENGINE_MOUNT_THRUST_SOURCE]
+        where = f"{example} {case.label}"
+        if own:
+            gyros += 1
+            (mine,) = own
+            assert set(entered) == _members(project) - {mine.carrier}, where
+            want = next(ld for ld in base[(case.label, case.hand)].loads
+                        if ld.source == ENGINE_MOUNT_THRUST_SOURCE)
+            assert (mine.fx, mine.fy, mine.fz) == (want.fx, want.fy, want.fz), where
+            assert any("is NOT applied" in n for n in case.notes), where
+        else:
+            torques += 1
+            assert set(entered) == _members(project), where
+        assert set(entered.values()) <= {-THRUST}, where
+        force = resultant6(case.loads, (case.cg_x, 0.0, case.cg_z))[:3]
+        assert max(abs(v) for v in force) < 1e-9 * case.n_w, where
+    assert torques
+    if example == TWIN:
+        assert gyros, "the turboprop has 23.371(b) cases"
+
+
+def test_an_engine_out_case_carries_onengouts_pair_alone():
+    """G-12c. ONENGOUT models the airplane as a twin -- the failed engine and a
+    live one at its mirror -- so its pair is the case's whole thrust state: no
+    entered thrust is applied beside it, the pair is the one it carries with no
+    thrust entered, and the case says the entered thrust was left out."""
+    bare, project = _powered(TWIN)
+    base = _by_id(build_balanced_cases(bare))
+    cases = [c for c in build_balanced_cases(project) if is_engine_out(c)]
+    assert cases
+    for case in cases:
+        where = f"{case.label}{case.hand}"
+        assert not _entered(case), where
+        assert not is_powered(case), where
+        pair = sorted((ld.source, ld.x, ld.y, ld.z, ld.fx) for ld in case.loads
+                      if ld.source in _THRUST_SOURCES)
+        want = sorted((ld.source, ld.x, ld.y, ld.z, ld.fx)
+                      for ld in base[(case.label, case.hand)].loads
+                      if ld.source in _THRUST_SOURCES)
+        assert pair == want, where
+        assert any("is NOT applied" in n for n in case.notes), where
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

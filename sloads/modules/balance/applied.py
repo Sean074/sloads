@@ -13,7 +13,7 @@ from __future__ import annotations
 import math
 from dataclasses import replace
 from math import cos, pi, radians, sin
-from typing import List, Sequence, Tuple
+from typing import Collection, List, Sequence, Tuple
 
 from ...constants import POLAR_TRUSTED_ALPHA_DEG, dynamic_pressure_psf
 from ...derived_geometry import body_drag_waterline, require_wing_reference, wing_plane
@@ -500,7 +500,17 @@ def _body_drag_stations(project: Project,
 HUB_THRUST_SOURCE = "engine-thrust"
 
 
-def hub_thrust_set(project: Project, cg: CgCase
+def engine_member(index: int) -> str:
+    """The LRA member name of engine ``index`` (1-based): its mount and hub.
+
+    Every load an engine carries names it as ``carrier`` (note 66 D-66.6), so
+    the LRA router puts it on that engine's pair and a condition can find the
+    entered thrust it replaces (#313).
+    """
+    return f"engine-{index}"
+
+
+def hub_thrust_set(project: Project, cg: CgCase, replaced: Collection[str] = ()
                    ) -> Tuple[List[BalancedLoad], List[str]]:
     """The user-entered engine thrust: one hub force per engine, ``(loads, notes)``.
 
@@ -551,13 +561,23 @@ def hub_thrust_set(project: Project, cg: CgCase
     ``thrust_lb`` of ``None`` or ``0`` applies nothing at all, which is every
     shipped fixture: today's cases are exactly zero-thrust and stay bit-for-bit
     identical (``test_hub_thrust.py`` G-1).
+
+    **A condition that prescribes its own thrust replaces the entered one**
+    (#313). ``replaced`` names the engines (:func:`engine_member`) whose thrust
+    the case applies itself -- a 23.371(b) gyroscopic case its engine's
+    max-continuous thrust, a one-engine-out case ONENGOUT's pair -- and their
+    entered thrust is left out, and said to be, so no hub carries two.
     """
     loads: List[BalancedLoad] = []
     applied: List[str] = []
+    skipped: List[str] = []
     from ..engine import resolved_engines
     for i, eng in enumerate(resolved_engines(project) if project.engines else []):
         thrust = eng.thrust_lb
         if not thrust:
+            continue
+        if engine_member(i + 1) in replaced:
+            skipped.append(f"engine {i + 1}")
             continue
         hub = tuple(eng.prop_cg) if any(eng.prop_cg) else tuple(eng.engine_cg)
         if not any(hub):
@@ -568,11 +588,16 @@ def hub_thrust_set(project: Project, cg: CgCase
         x, y, z = hub
         loads.append(BalancedLoad(x=x, y=y, z=z, fx=-thrust,
                                   source=HUB_THRUST_SOURCE,
-                                  side="R" if y > 0 else "L" if y < 0 else "C"))
+                                  side="R" if y > 0 else "L" if y < 0 else "C",
+                                  carrier=engine_member(i + 1)))
         applied.append(f"engine {i + 1} {thrust:+,.0f} lb at "
                        f"({x:,.1f}, {y:,.1f}, {z:,.1f})")
+    replaced_note = ([
+        f"the entered thrust of {', '.join(skipped)} is NOT applied: this "
+        f"condition prescribes that engine's thrust itself, and one hub carries "
+        f"one thrust (#313)"] if skipped else [])
     if not loads:
-        return [], []
+        return [], replaced_note
 
     total = math.fsum(-ld.fx for ld in loads)
     couple = math.fsum((ld.z - cg.zcg) * ld.fx for ld in loads)
@@ -613,7 +638,7 @@ def hub_thrust_set(project: Project, cg: CgCase
         f"longitudinal and pitch degrees of freedom -- nx = (D - sum T)/W is "
         f"the carrier the assembled model has always lacked -- and the 1 % "
         f"residual gate does not apply to a powered case's My, the same "
-        f"standing as the 23.427(a) maneuver tail load"] + notes
+        f"standing as the 23.427(a) maneuver tail load"] + notes + replaced_note
 
 
 def vtail_sets(result: TailSpanResult) -> List[BalancedLoad]:

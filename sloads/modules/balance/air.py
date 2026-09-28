@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import replace
-from typing import Dict, List, Optional, Sequence
+from typing import Collection, Dict, List, Optional, Sequence
 
 from ... import safety_factors
 from ...case_ids import handed_case_id
@@ -94,7 +94,8 @@ def assemble(project: Project, condition: str, vn: VnPoint,
              htail: Sequence[BalancedLoad] = (),
              lateral_aero: Optional[LateralAeroTerms] = None,
              extra: Sequence[BalancedLoad] = (),
-             sources: Optional[WingCaseSources] = None) -> BalancedCaseResult:
+             sources: Optional[WingCaseSources] = None,
+             thrust_replaced: Collection[str] = ()) -> BalancedCaseResult:
     """Assemble one balanced case and close its residual.
 
     ``unb`` is the unbalanced rolling moment (FAR 23.349) for an accelerated-roll
@@ -126,6 +127,10 @@ def assemble(project: Project, condition: str, vn: VnPoint,
     put it there -- the aileron couple of ``ACRL``, the fin load of a rudder kick
     or the left/right split of 23.427(a). Before B8a-3 the first two would have
     been separate flags; :func:`is_handed` is the one predicate.
+
+    ``thrust_replaced`` names the engines whose entered thrust this case leaves
+    out because the condition applies that engine's thrust itself (#313,
+    :func:`hub_thrust_set`); every other caller replaces none.
     """
     fl = _flight_loads(project)
     wr = require_wing_reference(project)
@@ -171,7 +176,7 @@ def assemble(project: Project, condition: str, vn: VnPoint,
 
     # The user-entered engine thrust (backlog #10) -- the assembled model's only
     # forward force, and the only load here that nothing balances by design.
-    thrust_loads, thrust_notes = hub_thrust_set(project, cg)
+    thrust_loads, thrust_notes = hub_thrust_set(project, cg, thrust_replaced)
     loads += thrust_loads
     notes += thrust_notes
 

@@ -31,9 +31,19 @@ not on the nearest node of another. **The propeller torque is trimmed by
 aileron** (D-66.7, note 21 P-9): an equal and opposite ``aileron-trim`` free
 couple at the wing aerodynamic centre, so the case stays unhanded and in roll
 balance, and a counter-rotating pair applies none. The gyroscopic couples and
-the thrust are reacted by the closure (their ``q_dot``/``r_dot``/``n_x``); the
-thrust makes the case :func:`~sloads.modules.balance.queries.is_powered`, the
-standing exemption from the trim residual gate.
+the thrust are reacted by the closure (their ``q_dot``/``r_dot``/``n_x``), and
+the family is exempt from the trim residual gate as itself
+(:func:`~sloads.modules.balance.queries.is_engine_mount`). ENGLOADS's thrust
+does **not** make the case
+:func:`~sloads.modules.balance.queries.is_powered`: that reads the entered hub
+thrust (#10) alone, and the "Applied engine thrust" row it drives reports that
+input, not the condition's own thrust, which the increment carries.
+
+**The gyroscopic case's engine carries one thrust** (#313): ENGLOADS's
+max-continuous thrust replaces that engine's entered hub thrust, which its
+parent is assembled without (:func:`~sloads.modules.balance.hub_thrust_set`'s
+``replaced``); every other engine keeps its entered thrust, as in any flight
+case. A torque case applies no thrust of its own and keeps them all.
 
 EM cases are **per engine and never mirrored**: ENGLOADS computes every engine
 and every gyroscopic sign combination, so a reflected twin would be a second
@@ -69,7 +79,7 @@ from ...models import (
     Project,
     VnPoint,
 )
-from .applied import HUB_THRUST_SOURCE
+from .applied import HUB_THRUST_SOURCE, engine_member
 from .closure import _closure, resultant6
 from .queries import point_mass_self_inertia
 from .skipped import SkippedCondition, _skip
@@ -130,11 +140,6 @@ class _EngineCondition:
         # The title an assembled EM case carries as its label, so a condition
         # is named the same whether it was assembled or recorded.
         return self.cond.title
-
-
-def engine_member(index: int) -> str:
-    """The LRA member name of engine ``index`` (1-based): its mount and hub."""
-    return f"engine-{index}"
 
 
 def _scaled(case: BalancedCaseResult, k: float) -> BalancedCaseResult:
@@ -253,8 +258,9 @@ def build_engine_cases(project: Project, critical: Sequence[CriticalCondition],
 
     out: List[BalancedCaseResult] = []
     # Many engine cases share one parent point (the ATR's 14 share 3): each is
-    # assembled once and scaled per case.
-    parents: Dict[int, BalancedCaseResult] = {}
+    # assembled once and scaled per case -- once per engine for a gyroscopic
+    # case, whose parent leaves that engine's entered thrust out (#313).
+    parents: Dict[Tuple[int, Tuple[str, ...]], BalancedCaseResult] = {}
     taken = 0
     for index, eng in enumerate(engines, start=1):
         count = len(mount_conditions(eng, include_far25=project.include_far25))
@@ -289,10 +295,12 @@ def build_engine_cases(project: Project, critical: Sequence[CriticalCondition],
                 record.append(_skip(_EngineCondition(cond), "thrust-line"))
                 continue
             target = _target_n(cond, weight)
-            if point.case not in parents:
-                parents[point.case] = assemble(project, cond.title, point, loading, cg,
-                                               sources=sources)
-            parent = parents[point.case]
+            replaced = (engine_member(index),) if kind == "gyro" else ()
+            if (point.case, replaced) not in parents:
+                parents[point.case, replaced] = assemble(
+                    project, cond.title, point, loading, cg, sources=sources,
+                    thrust_replaced=replaced)
+            parent = parents[point.case, replaced]
             k = target / parent.nz if parent.nz else 0.0
             case = _scaled(parent, k)
             loads = list(case.loads) + increment
