@@ -80,6 +80,13 @@ third milestone running to take that round trip.
   non-finite value is refused; the balanced deck resolves the envelope once;
   the suite's shared bundles build once per worker behind a `slow` lane; the
   oracle journey converges on `atr42_100` again.
+- **A zero prints unsigned whatever the Python version (#324, tier S).** The
+  release PR's CI (#323) failed on the regional jet's balanced-deck digest,
+  and so had every `dev/v0.8.7` push since #286: the gyroscopic engine-mount
+  headers printed a zero-by-construction closure load factor with the sign of
+  its solve residue, `+0.00000` on Python 3.11 and `-0.00000` on 3.12. Both
+  print sites now read one snapped owner; the ATR 42's eight such headers move
+  to `+0.00000` and its deck digest is regenerated, and no load card moves.
 - **The release review's closure debt (#317, tier S).** Note 66 gained its
   theory citation and gate rows, note 63 records the symmetric wing mass rule,
   and no fragment describes the deleted hop.
@@ -95,7 +102,9 @@ third milestone running to take that round trip.
 - **Changelog cut** — `scripts/build_changelog.py 0.8.7 --date 2026-09-27`:
   **17 fragments** consumed — 7 into `## [0.8.7]` directly and **10 history
   entries** rolled to the top of this file, their changelog bullets derived
-  from their leads — and a fresh empty `[Unreleased]` opened.
+  from their leads — and a fresh empty `[Unreleased]` opened. #324's bullet
+  was written into `## [0.8.7]` by hand afterwards: the release PR's CI found
+  it after the cut (below).
 - **Record roll** (`RELEASE_PROCESS.md` §4 step 3): no note moves (note 61
   CV-3). This file stood at 1,461 lines before the cut and 1,803 after
   the fragments, over 1,500, so everything below the 0.8.6 release-cut block
@@ -138,7 +147,11 @@ thrust counted twice on a gyroscopic case and a published couple that was not
 the one flown; the round trip cost a day and four rows. The third is recorded
 where it was made late: #285 reversed the fin-load sign OR-173 was
 implemented with before the owner saw it, and the approval stands in three
-places that now say the same thing.
+places that now say the same thing. The last was learned at the merge: the
+fast gate on `dev/v0.8.7` was red on every push from #286 to the cut, on one
+Python-version byte (#324), and no close stopped on it because
+`solo_close.sh` gates locally and reads CI after the push. The release PR was
+the first place anyone read it; a close that waits for CI is left to the owner.
 
 - **The accelerated roll's published couple is the one flown: the variant table resolves ACRL through the same owner as the wing chain and the balanced deck, so an entered unbalanced rolling moment reaches SELECT, report 3.3 and the Wing Loads caption (#315, tier M, 2026-09-27)** —
   The wing chain and the balanced deck resolve the ACRL case through

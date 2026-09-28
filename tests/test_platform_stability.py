@@ -304,6 +304,36 @@ def test_the_deck_formatter_still_prints_what_it_used_to():
         assert fmt(value) == expected, (value, fmt(value), expected)
 
 
+def test_a_zero_closure_load_factor_prints_unsigned_whatever_the_residue_sign():
+    """#324: ``dny`` of a symmetric case is zero by construction and lands on
+    solve residue whose sign differs between Python 3.11 and 3.12, so the
+    regional jet's gyroscopic engine-mount headers printed ``-0.00000`` on CI
+    and ``+0.00000`` locally. Both print sites -- the case header and the
+    summary table -- read the one snapped owner; a real component survives."""
+    from dataclasses import replace
+
+    from sloads import io
+    from sloads.export.balanced_deck import _header, balanced_case_rows
+    from sloads.export.deck_format import solver_units
+    from sloads.modules.balance import build_balanced_cases
+    from sloads.units import UnitSystem
+
+    project = io.load_project(os.path.join(_REPO, "examples", "ga6_normal.project.json"))
+    case = build_balanced_cases(project)[0]
+    u = solver_units(UnitSystem.IMPERIAL)
+    printed = []
+    for dust in (+1e-17, -1e-17):
+        c = replace(case, delta_nx=-0.56681, delta_ny=dust, delta_n=0.00399)
+        header = " ".join(_header(c, u))
+        assert "n = (-0.56681, +0.00000, +0.00399) g" in header, header
+        row = balanced_case_rows([c])[0]
+        assert row["Closure dNy (g)"] == "+0.00000", row
+        printed.append(header)
+    assert printed[0] == printed[1]
+    real = replace(case, delta_nx=0.0, delta_ny=-0.01234, delta_n=1.0)
+    assert balanced_case_rows([real])[0]["Closure dNy (g)"] == "-0.01234"
+
+
 def test_the_keyed_pick_guard_recognises_the_shapes_it_must():
     # the plain forms, and the CR-B-1 bypass the substring grep could not see
     assert _keyed_picks("p = max(cands, key=f)", "t") == [(1, "Name(id='max', ctx=Load())")]
