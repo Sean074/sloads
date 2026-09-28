@@ -914,7 +914,10 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   `gear_loads.gear_case_loads` / `applied_wheels`, whose reactions are LANDLOAD's
   own, unchanged. From the hub thrust card (#10) it also reads
   `Project.engines[].thrust_lb` and each engine's hub station (`prop_cg`,
-  falling back to `engine_cg`).
+  falling back to `engine_cg`), each hub force carrying its engine as
+  `carrier`. A condition that prescribes an engine's thrust itself applies
+  that engine's thrust **in place of** the entered one, and says so in band —
+  one thrust per hub (#313; `hub_thrust_set`'s `replaced`).
 - **Writes:** one `BalancedCaseResult` per assembled condition — **two** where
   the condition has a hand, the port twin got by reflection rather than
   recomputation (B-6/B-7) — carrying the full-span applied set of
@@ -1006,7 +1009,10 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   re-applied** — the engine's mass is already in the parent's inertia at that
   `n`. The propeller torque is trimmed by an equal and opposite `aileron-trim`
   couple at the wing a.c. (note 21 P-9); the gyro couples and thrust are closed
-  by the rigid-body relief. 23.363 and 23.361(b)(1) are mount-local and
+  by the rigid-body relief. A gyroscopic case's parent is assembled without
+  **its** engine's entered thrust, which ENGLOADS's max-continuous thrust
+  replaces; the other engines keep theirs, and a torque case keeps all
+  (#313). 23.363 and 23.361(b)(1) are mount-local and
   recorded as not assembled. EM cases are exempt from the trim residual gate
   (the flight case they scale is gated as itself) and carry their own gates,
   `tests/test_engine_mount_cases.py` (G-66.1…G-66.7, G-66.12).
@@ -1017,7 +1023,9 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   FLIGHT CG case and the V-n altitude nearest ONENGOUT's — with the fin
   distribution `tail_span` builds and the engine pair at that instant from
   `one_engine_out.engine_forces_at` (live thrust at the mirror of the failed
-  hub; the failed engine's remaining thrust and windmill drag at its hub). One
+  hub; the failed engine's remaining thrust and windmill drag at its hub) —
+  the case's whole thrust state, so no entered thrust is applied beside it
+  (#313). One
   engine's failure is computed per speed and the mirrored engine's is its
   reflected twin under its own VT id; no L-7 term, stated in band; unrecovered
   marches recorded (`not-recovered`). Exempt from the trim gate for the pair's

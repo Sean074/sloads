@@ -362,9 +362,10 @@ def run(project: Project) -> ModuleResult:
             LoadValue("Pitch acceleration", degrees(radians_per_s2(
                 (0.0, c.q_dot, 0.0))[1]), "deg/s^2", key="balanced_q_dot"),
         ] if unsymmetrical else []
-        # A powered case reports the thrust it carries and the longitudinal
-        # acceleration that reacts it (backlog #10) -- and only a powered case
-        # does, so an unpowered fixture's condition rows are unchanged.
+        # A powered case reports the entered thrust it carries and the
+        # longitudinal acceleration that reacts it (backlog #10) -- and only a
+        # powered case does, so an unpowered fixture's condition rows are
+        # unchanged. A condition's own thrust is not in this row (#313).
         powered_values = [
             LoadValue("Applied engine thrust", hub_thrust(c), "lb",
                       key="balanced_hub_thrust"),

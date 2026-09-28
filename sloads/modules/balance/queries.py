@@ -78,6 +78,12 @@ def hub_thrust(case: BalancedCaseResult) -> float:
     Positive forward, i.e. the negated sum of the hub forces' ``fx`` -- read as
     thrust rather than as the ``x`` force it is applied as, because that is the
     number the user entered and the sense ``n_x = (D - sum T)/W`` reads in.
+
+    **The entered thrust only.** A condition that applies its own thrust -- the
+    23.371(b) gyroscopic case's ENGLOADS thrust, the one-engine-out case's
+    ONENGOUT pair -- carries it under its own source, in place of that engine's
+    entered thrust (#313), and it is not counted here: this is the input, and
+    the condition's own thrust is stated with the condition.
     """
     return -math.fsum(ld.fx for ld in case.loads
                       if ld.source == HUB_THRUST_SOURCE)

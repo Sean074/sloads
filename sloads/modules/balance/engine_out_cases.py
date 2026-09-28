@@ -36,7 +36,7 @@ The 23.367(a)(2) cases state ``ULT SF=1.0`` through the D-66.1 stamp.
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from ...cg_cases import flight_cases
 from ...mass_distribution import CaseLoading
@@ -50,6 +50,7 @@ from ...models import (
     VnPoint,
 )
 from ...picks import extreme
+from .applied import engine_member
 from .skipped import SkippedCondition, _skip
 
 #: The 1 g parent point of each ONENGOUT speed case, by its label's speed.
@@ -114,6 +115,17 @@ def _nearest_altitude(points: Sequence[VnPoint], altitude_ft: float) -> VnPoint:
     def gap(p: VnPoint) -> float:
         return abs(p.altitude_ft - altitude_ft)
     return extreme(points, gap, largest=False)
+
+
+def _thrust_replaced(project: Project) -> Tuple[str, ...]:
+    """Every engine whose entered thrust the case leaves out (#313).
+
+    ONENGOUT models the airplane as a twin -- the failed engine and a live one
+    at its mirror -- so :func:`_engine_pair` is the case's whole thrust state,
+    and an entered hub thrust beside it would give the live engine two thrusts
+    and the dead one a thrust it no longer makes.
+    """
+    return tuple(engine_member(i) for i in range(1, len(project.engines or []) + 1))
 
 
 def _engine_pair(project: Project, fc) -> List[BalancedLoad]:
@@ -184,7 +196,8 @@ def build_engine_out_cases(project: Project, conditions: Sequence[CriticalCondit
             continue
         case = assemble(project, label, point, loadings[cg.name], cg,
                         case_ref=cond.case_ref, lateral=lateral,
-                        extra=_engine_pair(project, fc), sources=sources)
+                        extra=_engine_pair(project, fc), sources=sources,
+                        thrust_replaced=_thrust_replaced(project))
         hand = "R" if fc.sense > 0 else "L"      # the failed engine's side
         case = replace(case, case_ref=cond.case_ref, hand=hand,
                        notes=list(case.notes) + [
