@@ -95,7 +95,7 @@ from ..rigid_body import radians_per_s2
 from ..units import DeliverableUnits, UnitSystem
 from .bands import band
 from .coordinates import SBEAM_CID, to_force, to_grid, to_moment
-from .deck_format import SPC_SID, basis_sentence, fmt3, solver_units, stamped
+from .deck_format import SPC_SID, basis_sentence, fmt3, snap_zero, solver_units, stamped
 
 #: Node runs, from the band registry (:mod:`sloads.export.bands`) -- the single
 #: owner of every GID/EID/SID band in the suite. These three were 4001/4201/4401
@@ -256,6 +256,22 @@ def _deg(rad_per_s2: float) -> float:
     return 0.0 if abs(value) < _OMEGA_DOT_NOISE else value
 
 
+def _closure_n(case: BalancedCaseResult) -> Tuple[float, float, float]:
+    """The closure's load-factor increment ``(dnx, dny, dn)`` as it is printed,
+    dust snapped to an unsigned zero against the vector's own scale.
+
+    A component that is zero by construction -- ``dny`` of a symmetric case --
+    lands on ~1e-17 of solve residue whose sign differs between Python 3.11 and
+    3.12, so ``+.5f`` printed ``+0.00000`` on one and ``-0.00000`` on the other
+    (the gyroscopic engine-mount headers, #324). The same rule as
+    :func:`deck_format.fmt3` gives a card's components; ``_deg`` is the
+    angular accelerations' form of it.
+    """
+    n = (case.delta_nx, case.delta_ny, case.delta_n)
+    scale = max(abs(v) for v in n)
+    return snap_zero(n[0], scale), snap_zero(n[1], scale), snap_zero(n[2], scale)
+
+
 def _header(case: BalancedCaseResult, u: DeliverableUnits) -> List[str]:
     _, _, res_fz = to_force(0.0, 0.0, case.residual_fz, u)
     _, res_my, _ = to_moment(0.0, case.residual_my, 0.0, u)
@@ -282,6 +298,7 @@ def _header(case: BalancedCaseResult, u: DeliverableUnits) -> List[str]:
     # solves in. The conversion has one owner; see sloads.rigid_body.
     p_dot, q_dot, r_dot = (_deg(v) for v in
                            radians_per_s2((case.p_dot, case.q_dot, case.r_dot)))
+    d_nx, d_ny, d_n = _closure_n(case)
     sentences = [
         f"Balanced case {case.label}{hand} -- {case_source_name(case)}, "
         f"loading {case.cg}, Nz = {case.nz:g}",
@@ -293,8 +310,8 @@ def _header(case: BalancedCaseResult, u: DeliverableUnits) -> List[str]:
         f"My {res_my:.0f} {u.moment.label} "
         f"({case.moment_residual_fraction * 100:.3f} % of n*W*MAC).",
         f"Closed in SIX DOF by the rigid-body relief field "
-        f"f = -w (n + wdot x r): n = ({case.delta_nx:+.5f}, "
-        f"{case.delta_ny:+.5f}, {case.delta_n:+.5f}) g, wdot = "
+        f"f = -w (n + wdot x r): n = ({d_nx:+.5f}, "
+        f"{d_ny:+.5f}, {d_n:+.5f}) g, wdot = "
         f"({p_dot:+.4g}, {q_dot:+.4g}, {r_dot:+.4g}) deg/s^2, plus each "
         "point mass's own inertia as a free moment.",
         "The support below is determinate: its reaction IS the residual above.",
@@ -534,6 +551,7 @@ def balanced_case_rows(cases: Sequence[BalancedCaseResult]) -> List[Dict[str, st
     for c in cases:
         p_dot, q_dot, r_dot = (_deg(v) for v in
                                radians_per_s2((c.p_dot, c.q_dot, c.r_dot)))
+        _, d_ny, d_n = _closure_n(c)
         rows.append({
             # The assembled deck's own identity for this case (design note 17):
             # the id is the deck's LABEL, LOAD its SUBCASE/SID integer -- minted
@@ -555,8 +573,8 @@ def balanced_case_rows(cases: Sequence[BalancedCaseResult]) -> List[Dict[str, st
             # Applied, not unbalanced -- see
             # BalancedCaseResult.roll_moment_fraction.
             "Roll couple (% n*W*b/2)": f"{c.roll_moment_fraction * 100:.3f}",
-            "Closure dn (g)": f"{c.delta_n:+.5f}",
-            "Closure dNy (g)": f"{c.delta_ny:+.5f}",
+            "Closure dn (g)": f"{d_n:+.5f}",
+            "Closure dNy (g)": f"{d_ny:+.5f}",
             "Yaw acc (deg/s^2)": f"{r_dot:+.4g}",
             "Roll acc (deg/s^2)": f"{p_dot:+.4g}",
             "Pitch acc (deg/s^2)": f"{q_dot:+.4g}",

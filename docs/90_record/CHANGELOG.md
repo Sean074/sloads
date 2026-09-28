@@ -63,6 +63,23 @@ everything before it in [`CHANGELOG_to_0.8.2.md`](CHANGELOG_to_0.8.2.md).
 
 ### Fixed
 
+- **The balanced deck prints a closure load factor that is zero by construction as an unsigned zero, so its bytes no longer depend on the Python version (#324, tier S, 2026-09-28).**
+  The six-DOF closure sentence of each case header and the summary table's
+  closure columns printed `dnx`, `dny`, `dn` raw with `+.5f`. On a symmetric
+  gyroscopic engine-mount case `dny` is solve residue near 1e-17 whose sign
+  differs between Python 3.11 and 3.12, so the regional jet's header read
+  `+0.00000` on the developer's Mac and `-0.00000` on CI, and the frozen
+  Imperial digest failed on every `dev/v0.8.7` push from #286 on; the release
+  PR (#323) is where it was read. One owner, `balanced_deck._closure_n`, snaps
+  the vector against its own scale with `deck_format.snap_zero`, the rule
+  `fmt3` already gives a card's components, and both print sites read it. No
+  load card moves. The ATR 42's eight gyroscopic headers, which printed
+  `-0.00000` on both versions, now print `+0.00000`, and its `sbeam/balanced_deck`
+  digest is regenerated; no other channel moves. Found after the changelog
+  was cut, so this bullet was written into the `[0.8.7]` section by hand. A
+  guard in `tests/test_platform_stability.py` feeds both residue signs through
+  both print sites.
+
 - **The balanced deck no longer rebuilds the V-n matrix and SELECT's set for every case it assembles (design note 66 follow-up, tier S, 2026-09-26).**
   Each case's wing set asked for the wing case list, and each ask rebuilt the
   envelope and the critical set from scratch; the engine-mount and
