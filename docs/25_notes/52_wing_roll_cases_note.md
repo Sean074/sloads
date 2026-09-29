@@ -305,6 +305,10 @@ in the tests:
    were hand estimates). **Open for the owner:** whether a 0.13 % LZW tie
    should keep SELECT's printed altitude (a tie band on the ACRL pick) — not
    decided here; the build follows SELECT's criterion as it stands.
+   *Decided 2026-09-28, shipped 2026-09-29 (#320):* a tie band, `select.LZW_TIE_REL`
+   (0.5 %), broken on the net root `Mxx` the slot delivers — not on the printed
+   altitude. The GA6 keeps sea level (400,817 against 400,315 lb-in at
+   12,000 ft); the regional jet's pick moves to sea level (+0.76 %).
 2. **θ̈ is rad/s².** WINGINER prints `THETADOT` unlabelled (pp. 214, 219);
    `UNB·g/I_wxx` is 1/s². §4's "deg/s²" was a labelling slip; published as
    `rad/s^2` (a `DELIVERED_PRECISION` row, three places as printed).

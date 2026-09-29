@@ -47,7 +47,7 @@ whatever altitude and CG case wins:
 | **PLAA** | MAN D, GUST D | largest resultant | limit n at VD, small CL, CP furthest aft, largest nose-down air torsion and drag: **rear spar** bending and shear, box skin shear in the nose-down sense, drag bracing, aft chord bending |
 | **PMAA** | MAN C, GUST +C | largest `LZW` | the VC gust is often the largest n in the envelope: **root bending `Mxx` and upper-skin compression** on a gust-critical wing; picked on `LZW` for that reason |
 | **NMAA** | STALL −N, MAN −C, MAN −D, GUST −C, GUST −D | largest resultant | load reversal: **lower skin and lower caps in compression**, ribs and attachments under reversed load, a strut in compression |
-| **ACRL** | AC ROLL | largest `LZW` | two-thirds n with ailerons deflected: **outer-wing bending and shear** outboard of the aileron, the aileron hinge and backup rib, the unbalanced rolling moment the fuselage carries as differential root shear |
+| **ACRL** | AC ROLL | largest `LZW` (a tie within 0.5 % to the larger net root `Mxx`, #320) | two-thirds n with ailerons deflected: **outer-wing bending and shear** outboard of the aileron, the aileron hinge and backup rib, the unbalanced rolling moment the fuselage carries as differential root shear |
 | **TORS** | ST ROL A, ST ROL C, ST ROL D | most negative `(CM − 0.01·δ)·G·V²`, δ per CAM 3.222 | aileron pitching-moment increment added to the aerofoil CM at high q: **torsion-box skin shear**, the rear spar as the box's aft wall, aileron hinge loads; ST ROL C usually wins because the VD deflection is halved |
 
 Two properties of the method matter for what follows. First, it is a

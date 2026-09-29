@@ -50,6 +50,22 @@ MODULE_NAME = "aileron"
 
 
 
+def cam_3222_deflection(speed_tag: str, va: float, v: float, deflection_deg: float) -> float:
+    """The CAM 3.222 / FAR 23.455(a)(2) aileron deflection at speed ``v``:
+    ``deflection_deg`` at VA (``speed_tag`` "A"), ``VA/VC`` of it at VC ("C"),
+    half of ``VA/VD`` of it at VD ("D") -- the one schedule AILERON's loads and
+    the 23.349(b) steady roll (``rolling.steady_roll_schedule``) both read.
+    Each caller passes its own speeds (AILERON STRSPEED's, the steady roll
+    SELECT.BAS's per-altitude ``ST ROL`` speeds)."""
+    if speed_tag == "A":
+        return deflection_deg
+    if speed_tag == "C":
+        return va / v * deflection_deg
+    if speed_tag == "D":
+        return 0.5 * va / v * deflection_deg
+    raise ValueError(f"CAM 3.222 has no speed {speed_tag!r} (A, C or D)")
+
+
 class AileronResult(NamedTuple):
     """Critical aileron loads + forward-of-hinge pressures (AILERON.BAS)."""
     down_load_lb: float
@@ -78,8 +94,8 @@ def aileron_loads(va: float, vc: float, vd: float, down_deg: float, up_deg: floa
         return 0.04 * defl * sa * dynamic_pressure_psf(v)
 
     # Deflection schedule per FAR 23.455 / CAM 3.222.
-    cdeg, cupdeg = (va / vc) * adeg, (va / vc) * aupdeg
-    ddeg, dupdeg = 0.5 * (va / vd) * adeg, 0.5 * (va / vd) * aupdeg
+    cdeg, cupdeg = cam_3222_deflection("C", va, vc, adeg), cam_3222_deflection("C", va, vc, aupdeg)
+    ddeg, dupdeg = cam_3222_deflection("D", va, vd, adeg), cam_3222_deflection("D", va, vd, aupdeg)
 
     down = [(load(adeg, va), va), (load(cdeg, vc), vc), (load(ddeg, vd), vd)]
     up = [(load(aupdeg, va), va), (load(cupdeg, vc), vc), (load(dupdeg, vd), vd)]
