@@ -393,7 +393,11 @@ def fields_hash() -> str:
 #: hop: v69 was never released (#310).
 #: v70 (#276): ``WeightEstimationInput.engines`` renamed ``engine_count``. No
 #: hop: v69 was never released (#310).
-EXPECTED_FIELDS_HASH = "faed9529c2bb358d"
+#: v71 (design note 66 D-66.12a, #319): ``EngineInput.windmill_drag_cd``, the
+#: windmilling propeller's disc drag coefficient. Additive with a ``None``
+#: default that means exactly the v70 state, so ``_hop_70`` is an identity --
+#: the first hop after a released schema.
+EXPECTED_FIELDS_HASH = "e47d21d31f235b1b"
 
 
 def test_persisted_dataclass_shapes_are_unchanged():

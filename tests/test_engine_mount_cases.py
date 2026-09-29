@@ -10,6 +10,7 @@ gyroscopic couples and thrust at its own mount and hub nodes. 23.363 and
 import math
 import os
 import sys
+from dataclasses import replace
 
 import pytest
 
@@ -25,7 +26,7 @@ from sloads.models import BalancedLoad
 from sloads.modules import engine
 from sloads.modules.balance import build_balanced_cases, is_engine_mount, reflect_load
 from sloads.modules.balance.air import assemble
-from sloads.modules.balance.applied import _ROTATION_FIXED_SOURCES, HUB_THRUST_SOURCE
+from sloads.modules.balance.applied import HUB_THRUST_SOURCE
 from sloads.modules.balance.engine_cases import (
     AILERON_TRIM_SOURCE,
     EM_BALANCED,
@@ -127,11 +128,28 @@ def _pinned_n(far_reference, limnz):
             "23.371(b)": 2.5, "25.371": limnz}[far_reference]
 
 
+def _engine_index(project):
+    """``{EM id: 1-based engine}`` from ENGLOADS's own per-engine condition
+    lists, in the order ``engine.run`` mints ids over them."""
+    out, conds = {}, engine.run(project).conditions
+    taken = 0
+    for i, eng in enumerate(engine.resolved_engines(project), start=1):
+        count = len(engine.mount_conditions(eng, include_far25=project.include_far25))
+        out.update({c.case_ref.case_id: i for c in conds[taken:taken + count]})
+        taken += count
+    return out
+
+
 def _engine_of(case, project):
-    """The engine an EM case is for: the one whose loads it carries."""
-    member = next(ld.carrier for ld in case.loads
-                  if ld.source in ("engine-torque", "engine-gyro"))
-    return project.engines[int(member.split("-")[1]) - 1], member
+    """The engine an EM case is for: the one its EM id was minted for. A
+    gyroscopic case carries every engine's loads (D-66.4a), so the loads
+    cannot say."""
+    i = _engine_index(project)[case.case_ref.case_id]
+    return project.engines[i - 1], f"engine-{i}"
+
+
+def _gyro_sub(cond):
+    return next(p[0] for p in (parse_gyro_key(v.key) for v in cond.values) if p)
 
 
 @pytest.mark.parametrize("name", _ENGINE_FIXTURES)
@@ -175,39 +193,60 @@ def test_the_increment_is_the_mount_modules_on_its_own_engine(name):
     """**G-66.4** (D-66.5/D-66.6): the engine loads are
     ``engine_applied_load`` of ENGLOADS's scalars, and they land on **their
     own** engine's nodes in the LRA model -- torque and couples at the mount,
-    thrust at the hub."""
+    thrust at the hub. A gyroscopic case carries **every** engine's couples and
+    thrust (G-66.4 as amended at #319, D-66.4a), each from that engine's own
+    condition of the same FAR reference and sub-case."""
     project, cases, _ = _built(name)
     conds = _by_id(project)
+    owner = _engine_index(project)
     model = build_lra_model(project)
     engines = engine.resolved_engines(project)
+    eng_nodes = {n.gid for n in model.nodes if n.family.startswith("lra-engine")}
     for c in _em(cases):
         cond = conds[c.case_ref.case_id]
-        values = {v.key: v.value for v in cond.values}
+        index = owner[c.case_ref.case_id]
         own = [ld for ld in c.loads
                if ld.source in ("engine-torque", "engine-gyro", ENGINE_MOUNT_THRUST_SOURCE)]
-        member = own[0].carrier
-        index = int(member.split("-")[1])
-        axis, _ = engine_thrust_axis(engines[index - 1])
-        if "torque" in {ld.source.split("-")[1] for ld in own}:
+        if any(ld.source == "engine-torque" for ld in own):
+            values = {v.key: v.value for v in cond.values}
+            axis, _ = engine_thrust_axis(engines[index - 1])
             _, m = engine_applied_load(axis, torque=values[MX_MOUNT_TORQUE])
-            torque = next(ld for ld in own if ld.source == "engine-torque")
+            (torque,) = own
+            assert torque.carrier == f"engine-{index}"
             assert (torque.mx, torque.my, torque.mz) == pytest.approx(tuple(12 * v for v in m))
+            members = {torque.carrier}
         else:
-            myy = mzz = 0.0
-            for v in cond.values:
-                parsed = parse_gyro_key(v.key)
-                if parsed:
-                    myy, mzz = (v.value, mzz) if parsed[1] == "myy" else (myy, v.value)
-            _, m = engine_applied_load(axis, myy=myy, mzz=mzz)
-            gyro = next(ld for ld in own if ld.source == "engine-gyro")
-            assert (gyro.mx, gyro.my, gyro.mz) == pytest.approx(tuple(12 * v for v in m))
-            f, _ = engine_applied_load(axis, thrust=values[FX_THRUST])
-            thrust = next(ld for ld in own if ld.source == ENGINE_MOUNT_THRUST_SOURCE)
-            assert (thrust.fx, thrust.fy, thrust.fz) == pytest.approx(f)
-        gids = {n.gid for n in model.members[member]}
+            members = set()
+            for j, eng in enumerate(engines, start=1):
+                partner = next(x for x in conds.values()
+                               if owner[x.case_ref.case_id] == j
+                               and x.far_reference == cond.far_reference
+                               and any(parse_gyro_key(v.key) for v in x.values)
+                               and _gyro_sub(x) == _gyro_sub(cond))
+                values = {v.key: v.value for v in partner.values}
+                myy = mzz = 0.0
+                for v in partner.values:
+                    parsed = parse_gyro_key(v.key)
+                    if parsed:
+                        myy, mzz = (v.value, mzz) if parsed[1] == "myy" else (myy, v.value)
+                axis, _ = engine_thrust_axis(eng)
+                _, m = engine_applied_load(axis, myy=myy, mzz=mzz)
+                gyro = next(ld for ld in own if ld.source == "engine-gyro"
+                            and ld.carrier == f"engine-{j}")
+                assert (gyro.mx, gyro.my, gyro.mz) == pytest.approx(tuple(12 * v for v in m))
+                f, _ = engine_applied_load(axis, thrust=values[FX_THRUST])
+                thrust = next(ld for ld in own if ld.source == ENGINE_MOUNT_THRUST_SOURCE
+                              and ld.carrier == f"engine-{j}")
+                assert (thrust.fx, thrust.fy, thrust.fz) == pytest.approx(f)
+                members.add(f"engine-{j}")
+            assert len(own) == 2 * len(engines), c.label
+        gids = {n.gid for m in members for n in model.members[m]}
         landed = transferred_case_loads(c, model)
-        eng_nodes = {n.gid for n in model.nodes if n.family.startswith("lra-engine")}
         assert {g for g in landed if g in eng_nodes} <= gids, c.label
+        for ld in own:
+            mine = {n.gid for n in model.members[ld.carrier]}
+            single = transferred_case_loads(replace(c, loads=[ld]), model)
+            assert {g for g in single if g in eng_nodes} <= mine, (c.label, ld.carrier)
 
 
 @pytest.mark.parametrize("name", _ENGINE_FIXTURES)
@@ -216,8 +255,8 @@ def test_the_case_is_the_scaled_parent_plus_the_increment(name):
     increment equals the scaled parent, load for load.
 
     The parent is built here, on its own -- the flight case at the EM case's
-    V-n point and CG case, assembled without the engine's entered thrust on a
-    gyroscopic case (#313) -- and scaled by hand by ``k`` = the pinned load
+    V-n point and CG case, assembled without every engine's entered thrust on
+    a gyroscopic case (#313, D-66.4a) -- and scaled by hand by ``k`` = the pinned load
     factor over its own ``nz``: every load times ``k`` except an entered hub
     thrust, which is the engine's and does not scale. The EM case must open
     with exactly those loads, in order, and carry nothing after them but the
@@ -231,10 +270,11 @@ def test_the_case_is_the_scaled_parent_plus_the_increment(name):
     loadings = {ld.name: ld for ld in derive_case_loadings(project)}
     increment = {"engine-torque", "engine-gyro", ENGINE_MOUNT_THRUST_SOURCE, AILERON_TRIM_SOURCE}
     for c in _em(cases):
-        eng, member = _engine_of(c, project)
+        eng, _ = _engine_of(c, project)
         gyro = any(ld.source == "engine-gyro" for ld in c.loads)
+        every = tuple(f"engine-{j}" for j in range(1, len(project.engines) + 1))
         parent = assemble(project, c.label, vn[c.vn_case], loadings[c.cg], cgs[c.cg],
-                          thrust_replaced=(member,) if gyro else ())
+                          thrust_replaced=every if gyro else ())
         k = _pinned_n(c.case_ref.far_reference, eng.limit_load_factor) / parent.nz
         head, tail = c.loads[:len(parent.loads)], c.loads[len(parent.loads):]
         for got, base in zip(head, parent.loads, strict=True):
@@ -264,9 +304,8 @@ def test_the_torque_is_trimmed_in_roll_and_no_case_is_handed(name):
 
 def test_a_reflection_keeps_the_propellers_sense():
     """D-66.7 / note 21 §4.4: the rotation-fixed couples keep their sense
-    under a reflection (their position mirrors), and the two restatements of
-    the source list are one list."""
-    assert tuple(_ROTATION_FIXED_SOURCES) == ROTATION_FIXED_SOURCES
+    under a reflection (their position mirrors)."""
+    assert ROTATION_FIXED_SOURCES == ("engine-torque", "engine-gyro")
     ld = BalancedLoad(x=50.0, y=66.0, z=97.0, mx=1000.0, my=-20.0, mz=30.0,
                       source="engine-torque", side="R")
     mirrored = reflect_load(ld)
@@ -302,3 +341,71 @@ def test_each_gyroscopic_sign_case_has_its_own_id():
     gyro = [c.case_ref.case_id for c in conds if c.far_reference == "23.371(b)"]
     assert gyro == ["EM-06", "EM-07", "EM-08", "EM-09", "EM-15", "EM-16", "EM-17", "EM-18"]
     assert all(c.case_ref.case_id[-1].isdigit() for c in conds)
+
+
+@pytest.mark.parametrize("name", ("atr42_100", "concept_regional_jet"))
+def test_a_gyroscopic_case_thrusts_every_engine_and_yaws_on_none(name):
+    """**G-66.17** (D-66.4a, #319): each 23.371(b)/25.371 case carries every
+    engine's max-continuous thrust, so on a symmetric installation the thrusts'
+    yawing moment about the CG is zero -- before #319 the ATR's case thrust its
+    own engine alone, 10,865 lb at y = +/-161 in, a 1.75 M lb-in yaw. The net
+    axial force is stated in band."""
+    project, cases, _ = _built(name)
+    gyros = [c for c in _em(cases) if any(ld.source == "engine-gyro" for ld in c.loads)]
+    assert gyros
+    for c in gyros:
+        thrusts = [ld for ld in c.loads if ld.source == ENGINE_MOUNT_THRUST_SOURCE]
+        assert {ld.carrier for ld in thrusts} == {f"engine-{j}"
+                                                  for j in range(1, len(project.engines) + 1)}
+        one = max(abs(ld.fx * ld.y) for ld in thrusts)
+        yaw = math.fsum(ld.x * ld.fy - ld.y * ld.fx for ld in thrusts)
+        assert abs(yaw) <= 1e-9 * max(one, 1.0), (c.label, yaw)
+        net = abs(math.fsum(ld.fx for ld in thrusts))
+        assert any(n.startswith("GYROSCOPIC") and f"{net:,.0f} lb" in n for n in c.notes), c.label
+
+
+def test_a_sub_case_is_the_airplanes_rates_on_every_engine():
+    """D-66.4a / note 53 D-53.6 as amended at #319: the propeller's spin is
+    signed by ``prop_direction`` as a rotor's is by its rpm, so sub-case ``k``
+    is the same airplane yaw and pitch rate on every engine. A clockwise
+    propeller's couples are unchanged; a counter-clockwise one's reverse; the
+    RJ's counter-rotating fans (signed rotor rpm) cancel at one state, and the
+    ATR's co-rotating propellers add -- and each case says which."""
+    ga6 = _project("ga6_normal")
+    cw = engine.resolved_engines(ga6)[0]
+    ccw = replace(cw, prop_direction=type(cw.prop_direction).COUNTERCLOCKWISE)
+    assert engine.spin_sense(cw) == 1.0 and engine.spin_sense(ccw) == -1.0
+    atr = engine.resolved_engines(_project("atr42_100"))[0]
+    flipped = replace(atr, prop_direction=type(atr.prop_direction).COUNTERCLOCKWISE,
+                      rotors=[replace(r, max_rpm=-r.max_rpm) for r in atr.rotors])
+    assert engine.angular_momentum(flipped) == pytest.approx(-engine.angular_momentum(atr))
+    for a, b in zip(engine.condition_371_b(atr).values, engine.condition_371_b(flipped).values,
+                    strict=True):
+        if parse_gyro_key(a.key):
+            assert b.value == pytest.approx(-a.value), a.key
+    for name, spin_note in (("atr42_100", "spins the same way"),
+                            ("concept_regional_jet", "do not all spin the same way")):
+        project, cases, _ = _built(name)
+        for c in _em(cases):
+            gyro = [ld for ld in c.loads if ld.source == "engine-gyro"]
+            if not gyro:
+                continue
+            total = math.fsum(ld.my for ld in gyro)
+            one = abs(gyro[0].my)
+            assert total == pytest.approx(0.0 if name == "concept_regional_jet" else 2 * gyro[0].my,
+                                          abs=1e-9 * one), c.label
+            assert any(spin_note in n for n in c.notes), c.label
+
+
+def test_a_case_scaled_by_zero_is_recorded_not_shipped(monkeypatch):
+    """#321 (note 66 §12 riders): an engine with no weight to state a load
+    factor, or a parent at zero load factor, gave ``k = 0`` and shipped a case
+    of no load with no record; it is recorded as unscalable."""
+    from sloads.modules.balance import engine_cases
+
+    monkeypatch.setattr(engine_cases, "_target_n", lambda *_a, **_kw: 0.0)
+    _, cases, skipped = _built("ga6_normal")
+    assert not _em(cases)
+    assert {s.label for s in skipped if s.code == "unscalable"} == {
+        c.title for cid, c in _by_id(_project("ga6_normal")).items()
+        if c.far_reference in EM_BALANCED}

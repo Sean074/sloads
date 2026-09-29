@@ -246,7 +246,34 @@ def simulate(c: CaseInputs) -> Tuple[List[HistoryRow], CaseSummary]:
     return rows, summary
 
 
-def engine_forces_at(time: float, c: CaseInputs) -> Tuple[float, float, float]:
+def disc_drag_coefficient(c: CaseInputs, drag_lb: float) -> float:
+    """The disc drag coefficient ``drag_lb`` is at the case's speed: the drag
+    over the true dynamic pressure times the disc area ``pi * D^2 / 4``.
+
+    Of the Glauert term it is ``0.85 * 0.232 * 8 / pi = 0.502``, the manual's
+    "can not be more than" (Ch 11 p88), which the balanced case states; its
+    inverse is :func:`windmill_drag_from_cd`. Both read the density and true
+    airspeed :func:`engine_thrust_and_drag` does, so neither restates them.
+    """
+    return drag_lb / _disc_q_area(c)
+
+
+def windmill_drag_from_cd(c: CaseInputs, cd: float) -> float:
+    """The full windmill drag, lb, of a propeller whose windmilling disc drag
+    coefficient is ``cd`` (``EngineInput.windmill_drag_cd``, design note 66
+    D-66.12a), at the case's speed and altitude."""
+    return cd * _disc_q_area(c)
+
+
+def _disc_q_area(c: CaseInputs) -> float:
+    """True dynamic pressure (psf) times the propeller disc area (ft^2)."""
+    sigma = standard_atmosphere(c.alt_ft)[1]
+    _, _, vtfps = engine_thrust_and_drag(c)
+    return 0.5 * RHO_SL * sigma * vtfps ** 2 * math.pi * c.dia_ft ** 2 / 4.0
+
+
+def engine_forces_at(time: float, c: CaseInputs,
+                     windmill_cd: Optional[float] = None) -> Tuple[float, float, float]:
     """``(live thrust, failed engine's remaining thrust, failed engine's windmill
     drag)`` in lb at ``time`` -- the one owner of the schedule :func:`_moment`
     turns into a yawing moment (ONENGOUT.BAS 282-286) and the balanced
@@ -256,8 +283,14 @@ def engine_forces_at(time: float, c: CaseInputs) -> Tuple[float, float, float]:
     its windmill drag then rises to full over ``[time2decay, time2drag]`` and
     holds. The live engine gives full thrust throughout. ``_moment`` is this
     times the engine arm: ``(live - remaining + drag) * bleng``.
+
+    ``windmill_cd`` is an entered disc drag coefficient (D-66.12a): the full
+    drag is then :func:`windmill_drag_from_cd`'s, on the same ramp. ``None`` is
+    the Glauert bound, the march's own forcing.
     """
     thrust, drag, _ = engine_thrust_and_drag(c)
+    if windmill_cd is not None:
+        drag = windmill_drag_from_cd(c, windmill_cd)
     if time <= 0.0:
         return thrust, thrust, 0.0
     remaining = thrust * (c.time2decay - time) / c.time2decay if time < c.time2decay else 0.0

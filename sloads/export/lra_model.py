@@ -110,6 +110,7 @@ from ..models.enums import GearCarrier
 from ..modules.balance import (
     SkippedCondition,
     build_balanced_cases,
+    engine_member,
     skipped_block,
     skipped_conditions,
 )
@@ -120,7 +121,16 @@ from ..tail_geometry import HTAIL, VTAIL, h_tail_waterline, resolve_tail_planfor
 from ..units import UnitSystem
 from .balanced_deck import case_sids
 from .bands import band
-from .coordinates import SBEAM_CID, tail_station_to_airplane, to_force, to_grid, to_moment, to_pressure, transfer_couple
+from .coordinates import (
+    SBEAM_CID,
+    side_of,
+    tail_station_to_airplane,
+    to_force,
+    to_grid,
+    to_moment,
+    to_pressure,
+    transfer_couple,
+)
 from .deck_format import (
     MAT1_E,
     MAT1_NU,
@@ -912,8 +922,7 @@ def build_lra_model(project: Project) -> LraModel:
                 f"engine {i + 1} mounted_on ASSUMED {mounted!r} -- inferred "
                 f"from |CG BL {mount_pos[1]:.1f}| vs the side of body (BL "
                 f"{sob.y:.2f}). Enter mounted_on to state it (BM-4)")
-        side = ("C" if abs(mount_pos[1]) <= _COINCIDENT_TOL
-                else ("R" if mount_pos[1] > 0 else "L"))
+        side = side_of(mount_pos[1])
         mount = LraNode(_ENGINE_BAND.allocate(2 * i), mount_pos,
                         "lra-engine-mount", side)
         hub = LraNode(_ENGINE_BAND.allocate(2 * i + 1), hub_pos,
@@ -927,7 +936,7 @@ def build_lra_model(project: Project) -> LraModel:
         # Each engine is a member of its own too, so an engine-mount case's
         # loads land on *this* engine's nodes (design note 66, D-66.6). Held
         # here and added with the other members below.
-        per_engine[f"engine-{i + 1}"] = [n for n in (mount, hub) if n in engine_nodes]
+        per_engine[engine_member(i + 1)] = [n for n in (mount, hub) if n in engine_nodes]
         if mounted == "wing":
             wing_chain = right if side != "L" else left
             parent = nearest_node(wing_chain[1:] or wing_chain, mount_pos)

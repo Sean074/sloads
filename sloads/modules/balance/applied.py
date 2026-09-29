@@ -91,7 +91,7 @@ def reflect_load(load: BalancedLoad) -> BalancedLoad:
     x, y, z = reflect_point(load.x, load.y, load.z)
     fx, fy, fz = reflect_force(load.fx, load.fy, load.fz)
     mx, my, mz = reflect_moment(load.mx, load.my, load.mz)
-    if load.source in _ROTATION_FIXED_SOURCES:
+    if load.source in ROTATION_FIXED_SOURCES:
         # A propeller's torque and gyroscopic couples keep their sense: the
         # mirrored airplane's propeller turns the same way (note 21 §4.4,
         # design note 66 D-66.7). Its position mirrors; its couple does not.
@@ -100,10 +100,15 @@ def reflect_load(load: BalancedLoad) -> BalancedLoad:
                    mx=mx, my=my, mz=mz, side=reflect_side(load.side))
 
 
-#: The couples :func:`reflect_load` does not mirror -- the owner is
-#: ``engine_cases.ROTATION_FIXED_SOURCES``; restated here only because that
-#: module imports this one (a guard test holds the two equal).
-_ROTATION_FIXED_SOURCES = ("engine-torque", "engine-gyro")
+#: The ``source`` of an engine-mount case's propeller torque and gyroscopic
+#: couples (design note 66, D-66.5), at the engine's mount.
+ENGINE_TORQUE_SOURCE = "engine-torque"
+ENGINE_GYRO_SOURCE = "engine-gyro"
+
+#: The couple sources :func:`reflect_load` does not mirror (note 21 §4.4, note
+#: 66 D-66.7): a mirrored airplane's propeller still turns the same way. The one
+#: owner; ``engine_cases`` re-exports it (#321).
+ROTATION_FIXED_SOURCES = (ENGINE_TORQUE_SOURCE, ENGINE_GYRO_SOURCE)
 
 
 def _mirror(loads: Sequence[BalancedLoad]) -> List[BalancedLoad]:
@@ -564,8 +569,9 @@ def hub_thrust_set(project: Project, cg: CgCase, replaced: Collection[str] = ()
 
     **A condition that prescribes its own thrust replaces the entered one**
     (#313). ``replaced`` names the engines (:func:`engine_member`) whose thrust
-    the case applies itself -- a 23.371(b) gyroscopic case its engine's
-    max-continuous thrust, a one-engine-out case ONENGOUT's pair -- and their
+    the case applies itself -- a 23.371(b) gyroscopic case every engine's
+    max-continuous thrust (note 66 D-66.4a, #319), a one-engine-out case
+    ONENGOUT's pair -- and their
     entered thrust is left out, and said to be, so no hub carries two.
     """
     loads: List[BalancedLoad] = []
@@ -594,8 +600,8 @@ def hub_thrust_set(project: Project, cg: CgCase, replaced: Collection[str] = ()
                        f"({x:,.1f}, {y:,.1f}, {z:,.1f})")
     replaced_note = ([
         f"the entered thrust of {', '.join(skipped)} is NOT applied: this "
-        f"condition prescribes that engine's thrust itself, and one hub carries "
-        f"one thrust (#313)"] if skipped else [])
+        f"condition prescribes the thrust itself, and one hub carries one "
+        f"thrust (#313)"] if skipped else [])
     if not loads:
         return [], replaced_note
 

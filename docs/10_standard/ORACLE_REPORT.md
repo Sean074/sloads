@@ -1188,11 +1188,13 @@ engine, and the two scalars they were resolved from beside them.
   direction cosines make the resolution checkable on the page, and the owner is
   `export/coordinates.py`, which `CONVENTIONS.md` §1 already names the single
   edit point for every axis resolution in the suite.
-- **The propeller's rotation is an input, per engine, and it sets one sign.**
-  Clockwise from the pilot's seat by default, so nothing shipped moves; a
-  counter-clockwise engine reverses every torque it delivers to the airframe, in
-  every deliverable that carries one. The gyroscopic condition is exempt and the
-  section says why — it publishes all four sign combinations either way.
+- **The propeller's rotation is an input, per engine, and it sets the sense of
+  the engine's spin.** Clockwise from the pilot's seat by default, so nothing
+  shipped moves; a counter-clockwise engine reverses every torque it delivers to
+  the airframe, in every deliverable that carries one, and both gyroscopic
+  couples of each sign combination — whose signs are the airplane's rates, the
+  same four either way (note 53 D-53.6 as amended at #319). The section says
+  so.
 - **The torque's sense is derived, not asserted.** "Clockwise from the pilot's
   view is positive" is the right-hand sense about the thrust line, because the
   pilot looks along it. A conventional propeller delivers a counter-clockwise
@@ -1588,7 +1590,7 @@ without a guard is prose, not a gate).
 | 8. The flap prints the set its pick came from (OR-156) | 2026-09-07 | `test_oracle_report_control.py::test_the_flap_prints_four_candidates_and_names_the_critical_one`, `::test_a_flap_with_no_engine_record_states_the_slipstream_absence` |
 | 9. One row per tab, naming its station (OR-157) | 2026-09-07 | `test_oracle_report_control.py::test_the_tab_table_has_a_row_per_tab_and_names_its_station` |
 | 7-9. The hinge-moment absence (OR-154) | 2026-09-07 | `test_oracle_report_control.py::test_every_control_section_says_why_there_is_no_hinge_moment` |
-| 10.1 The thrust line and the rotation as inputs (note 53 D-53.1…D-53.7) | 2026-09-07 | `test_engine_thrust_line.py::test_an_entered_line_is_the_axis`, `::test_an_unentered_line_is_the_airplanes_forward_axis_and_says_so`, `::test_the_axis_is_not_derived_from_the_mount_and_hub_stations`, `::test_half_a_thrust_line_is_refused_by_name`, `::test_a_pusher_resolves_to_the_same_torque_sign_as_a_tractor`, `::test_a_counter_clockwise_engine_reverses_every_torque`, `::test_the_gyroscopic_case_is_unchanged_by_the_rotation_direction`, `::test_the_field_states_the_sign_convention_where_it_is_entered` |
+| 10.1 The thrust line and the rotation as inputs (note 53 D-53.1…D-53.7) | 2026-09-07 | `test_engine_thrust_line.py::test_an_entered_line_is_the_axis`, `::test_an_unentered_line_is_the_airplanes_forward_axis_and_says_so`, `::test_the_axis_is_not_derived_from_the_mount_and_hub_stations`, `::test_half_a_thrust_line_is_refused_by_name`, `::test_a_pusher_resolves_to_the_same_torque_sign_as_a_tractor`, `::test_a_counter_clockwise_engine_reverses_every_torque`, `::test_a_counter_clockwise_propeller_reverses_its_gyroscopic_couples`, `::test_the_field_states_the_sign_convention_where_it_is_entered` |
 | 10.1 Inputs, stations and the thrust axis (OR-159, OR-161 superseded) | 2026-09-07 | `test_oracle_report_engine.py::test_the_application_point_is_the_combined_cg_and_no_other_station`, `::test_an_assumed_thrust_axis_is_marked_and_an_entered_one_is_not`, `::test_an_entered_thrust_line_is_the_axis_the_loads_resolve_about`, `::test_an_unentered_engine_input_is_not_printed_as_a_zero` |
 | 10.2 Six components resolved from two scalars (OR-162, OR-163) | 2026-09-07 | `test_oracle_report_engine.py::test_the_printed_components_are_the_resolution_of_the_printed_scalars`, `::test_the_document_and_the_csv_carry_opposite_torque_signs` |
 | 10.2 The applied sense, stated (OR-160) | 2026-09-07 | `test_oracle_report_engine.py::test_the_section_states_that_it_publishes_the_applied_load` |

@@ -194,6 +194,15 @@ class EngineInput:
     # header -- the same explicit-with-flagged-inference shape as the gear's
     # ``carrier`` (G-2), which is BM-4's gear half and is not duplicated here.
     mounted_on: Optional[str] = None            # "fuselage" | "wing"
+    # v71 (design note 66 D-66.12a, #319): the windmilling propeller's disc drag
+    # coefficient, on the disc area at the one-engine-out case's dynamic
+    # pressure -- from the propeller maker's data or the 23.367(a)(3) history.
+    # Read only by the balanced one-engine-out case, for the drag it delivers at
+    # this engine's hub when this engine is the failed one. ``None`` delivers
+    # ONENGOUT's Glauert term instead, which the manual (Ch 11 p88) calls the
+    # most the drag can be (C_D,disc 0.50), and the case states it as that
+    # bound. ONENGOUT's own march always uses the bound, so no fin load reads it.
+    windmill_drag_cd: Optional[float] = None
 
     @property
     def is_turboprop(self) -> bool:

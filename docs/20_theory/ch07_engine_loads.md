@@ -147,11 +147,15 @@ side     = n_y · PPWT                            [lb]
   blades-only thin-rod approximation `I = m·L²/3`; rotors default to a solid disk
   `I = ½·m·r²`.
 - **23.371(b)** gyroscopic loads — the spinning prop/rotor angular momentum
-  `T = Σ I·ω` (at max-continuous RPM) crossed with the airframe rates gives a
-  pitching moment `Myy = 2.5·T` (2.5 rad/s yaw) and a yawing moment `Mzz = 1·T`
-  (1 rad/s pitch). Both act in either direction, so **all four sign combinations**
+  `T = Σ I·ω` (at max-continuous RPM, **signed**: clockwise from the pilot's
+  seat positive, the propeller's term by `prop_direction` and each rotor's by
+  its signed rpm) crossed with the airframe rates gives a pitching moment
+  `Myy = 2.5·T` (2.5 rad/s yaw) and a yawing moment `Mzz = 1·T` (1 rad/s
+  pitch). Both rates act in either direction, so **all four sign combinations**
   are enumerated, each combined with a steady 2.5 g vertical load and the
-  max-continuous thrust.
+  max-continuous thrust; a combination's signs are the airplane's rates, the
+  same state on every engine (#319). In the balanced deck each combination
+  applies every engine's couples and thrust at once (note 66 D-66.4a).
 
 An optional FAR 25 superset (`Project.include_far25`, turbopropeller only) appends
 the non-duplicative Part 25 cases; see `00_theory_sources.md` and

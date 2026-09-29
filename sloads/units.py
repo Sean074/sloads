@@ -671,6 +671,7 @@ _NOT_DIMENSIONAL: Dict[str, str] = {
     "aspect_ratio_htail": "an aspect ratio",
     "aspect_ratio_vtail": "an aspect ratio",
     "aspect_ratio_wing": "an aspect ratio",
+    "windmill_drag_cd": "a disc drag coefficient (note 66 D-66.12a)",
     "lift": "the C0..C4 polynomial coefficients of CL vs alpha",
     "drag": "the D0..D4 polynomial coefficients of CD vs CL",
     "moment": "the M0..M4 polynomial coefficients of CM vs alpha",

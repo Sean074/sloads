@@ -224,18 +224,30 @@ def test_a_pusher_resolves_to_the_same_torque_sign_as_a_tractor():
 # --------------------------------------------------------------------------- #
 # G-53.6 -- the gyroscopic exemption
 # --------------------------------------------------------------------------- #
-def test_the_gyroscopic_case_is_unchanged_by_the_rotation_direction():
-    """G-53.6. All four sign combinations are published either way, so the set
-    the mount is checked against is identical and nothing there flips."""
-    cw = replace(turboprop(), prop_direction=RotorDirection.CLOCKWISE)
-    ccw = replace(turboprop(), prop_direction=RotorDirection.COUNTERCLOCKWISE)
+def test_a_counter_clockwise_propeller_reverses_its_gyroscopic_couples():
+    """G-53.6 as amended at #319 (note 53 D-53.6, note 66 D-66.4a). A sub-case's
+    signs are the airplane's rates, and its couples are those rates times the
+    engine's signed spin, so a counter-clockwise propeller carries both couples
+    of every sub-case reversed; the set of four magnitudes, the thrust and the
+    vertical are unchanged. ``turboprop()`` has no rotor, so the propeller is
+    the whole spin."""
+    from sloads.load_keys import parse_gyro_key
+
+    cw = replace(turboprop(), prop_direction=RotorDirection.CLOCKWISE, rotors=[])
+    ccw = replace(turboprop(), prop_direction=RotorDirection.COUNTERCLOCKWISE, rotors=[])
 
     def gyro(engine):
         condition = next(c for c in run_all(engine)
                          if c.far_reference == "23.371(b)")
         return {v.key: v.value for v in condition.values}
 
-    assert gyro(cw) == gyro(ccw)
+    a, b = gyro(cw), gyro(ccw)
+    assert a.keys() == b.keys()
+    for key, value in a.items():
+        if parse_gyro_key(key) or key.startswith(("myy_", "mzz_")):
+            assert b[key] == -value, key
+        else:
+            assert b[key] == value, key
 
 
 def test_section_ten_states_the_gyroscopic_exemption_and_the_rotation():

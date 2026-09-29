@@ -63,10 +63,18 @@ RELEASED_SCHEMAS: Dict[str, int] = {
     "0.8.7": 70,
 }
 
+def _hop_70(d: Dict[str, Any]) -> Dict[str, Any]:
+    """v70 -> v71 (design note 66 D-66.12a, #319): ``EngineInput`` gains
+    ``windmill_drag_cd``, optional, whose blank is exactly the v70 meaning (the
+    one-engine-out hub drag is the Glauert bound). An identity."""
+    return d
+
+
 #: ``{from_version: hop}`` -- applied in ascending order, each turning a file of
-#: version *n* into version *n+1* shape. Empty until a schema bump follows the
-#: first released schema.
-MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {}
+#: version *n* into version *n+1* shape.
+MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
+    70: _hop_70,
+}
 
 #: The oldest project version this build reads: the oldest released schema, or
 #: the current one while no release has been recorded.

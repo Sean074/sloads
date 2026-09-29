@@ -39,11 +39,23 @@ does **not** make the case
 thrust (#10) alone, and the "Applied engine thrust" row it drives reports that
 input, not the condition's own thrust, which the increment carries.
 
-**The gyroscopic case's engine carries one thrust** (#313): ENGLOADS's
-max-continuous thrust replaces that engine's entered hub thrust, which its
-parent is assembled without (:func:`~sloads.modules.balance.hub_thrust_set`'s
-``replaced``); every other engine keeps its entered thrust, as in any flight
-case. A torque case applies no thrust of its own and keeps them all.
+**A gyroscopic case applies every engine at one airplane state** (D-66.4a,
+#319). 23.371(b) is a flight state -- a yaw rate, a pitch rate, n = 2.5 and
+max-continuous thrust -- and every engine is in it: each engine's ENGLOADS
+thrust at its hub and gyroscopic couples at its mount, at the sub-case with
+the same airplane rates -- the same sub-case, whose signs are the rates on
+every engine (:data:`~sloads.modules.engine.GYRO_SIGNS`; a counter-rotating
+engine's couples come out reversed through its signed
+:func:`~sloads.modules.engine.angular_momentum`). Until #319 the case thrust its
+own engine alone, and the closure reacted the asymmetric thrust -- 1.75 M
+lb-in on the ATR -- with a yaw acceleration nothing in the airplane made. The
+ENGLOADS thrust replaces each engine's entered hub thrust, which the parent is
+assembled without (#313, :func:`~sloads.modules.balance.hub_thrust_set`'s
+``replaced``). The net axial force is reacted by the airplane's longitudinal
+inertia and stated in band. The case keeps its own engine's EM id -- the mount
+it sizes -- so on a co-rotating installation the left and right engines'
+cases of one sign combination are the same airplane state, which each states.
+A torque case applies no thrust of its own and keeps every entered thrust.
 
 EM cases are **per engine and never mirrored**: ENGLOADS computes every engine
 and every gyroscopic sign combination, so a reflected twin would be a second
@@ -55,19 +67,14 @@ mount-local by the owner's ruling (note 66 Q1).
 
 from __future__ import annotations
 
+import math
 from dataclasses import replace
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from ...constants import IN_PER_FT
 from ...derived_geometry import require_wing_reference
-from ...export.coordinates import ThrustLineError, engine_applied_load, engine_thrust_axis
-from ...load_keys import (
-    FX_THRUST,
-    FZ_VERTICAL,
-    FZ_VERTICAL_2_5G,
-    FZ_VERTICAL_A2,
-    MX_MOUNT_TORQUE,
-    parse_gyro_key,
-)
+from ...export.coordinates import ThrustLineError, engine_applied_load, engine_thrust_axis, side_of
+from ...load_keys import FX_THRUST, MX_MOUNT_TORQUE, VERTICAL_KEYS, parse_gyro_key
 from ...mass_distribution import CaseLoading
 from ...models import (
     BalancedCaseResult,
@@ -75,11 +82,19 @@ from ...models import (
     CgCase,
     ConditionResult,
     CriticalCondition,
+    EngineInput,
     MissingInputError,
     Project,
     VnPoint,
 )
-from .applied import HUB_THRUST_SOURCE, engine_member
+from ..wing_inertia import WingCaseSources
+from .applied import (
+    ENGINE_GYRO_SOURCE,
+    ENGINE_TORQUE_SOURCE,
+    HUB_THRUST_SOURCE,
+    ROTATION_FIXED_SOURCES,
+    engine_member,
+)
 from .closure import _closure, resultant6
 from .queries import point_mass_self_inertia
 from .skipped import SkippedCondition, _skip
@@ -103,11 +118,6 @@ EM_BALANCED: Dict[str, Tuple[Optional[str], str]] = {
 #: sudden stoppage carries no flight state in FAR 23.
 EM_MOUNT_LOCAL: Tuple[str, ...] = ("23.363(a)&(b)", "23.361(b)(1)")
 
-#: The couple sources an engine applies, which keep their sense under a
-#: reflection (note 21 §4.4, note 66 D-66.7): a mirrored airplane's propeller
-#: still turns the same way.
-ROTATION_FIXED_SOURCES: Tuple[str, ...] = ("engine-torque", "engine-gyro")
-
 #: The free couple that trims the propeller torque in roll (note 21 P-9).
 AILERON_TRIM_SOURCE = "aileron-trim"
 
@@ -116,9 +126,6 @@ AILERON_TRIM_SOURCE = "aileron-trim"
 #: ``HUB_THRUST_SOURCE``): that one is a project input every flight family
 #: carries, this one is ENGLOADS's number for one condition.
 ENGINE_MOUNT_THRUST_SOURCE = "engine-mount-thrust"
-
-#: ft-lb (ENGLOADS) -> lb-in (the balanced cases).
-_IN_PER_FT = 12.0
 
 __all__ = ["AILERON_TRIM_SOURCE", "EM_BALANCED", "EM_MOUNT_LOCAL", "ENGINE_MOUNT_THRUST_SOURCE",
            "ROTATION_FIXED_SOURCES", "build_engine_cases", "engine_member"]
@@ -170,15 +177,71 @@ def _scaled(case: BalancedCaseResult, k: float) -> BalancedCaseResult:
 
 def _target_n(cond: ConditionResult, weight_lb: float) -> float:
     """The load factor ENGLOADS states for the engine: its vertical over the
-    engine-plus-propeller weight -- 0.75 n1, n1, 1 g, 2.5 g or the A2 factor."""
+    engine-plus-propeller weight -- 0.75 n1, n1, 1 g, 2.5 g or the A2 factor.
+    ``0`` when the engine carries no weight to state one (the caller records
+    the case as unscalable)."""
     values = {v.key: v.value for v in cond.values}
-    for key in (FZ_VERTICAL, FZ_VERTICAL_2_5G, FZ_VERTICAL_A2):
+    for key in VERTICAL_KEYS:
         if key in values:
             return values[key] / weight_lb if weight_lb else 0.0
     raise ValueError(f"engine condition {cond.far_reference} states no vertical load")
 
 
-def _increment(project: Project, index: int, eng, cond: ConditionResult,
+def _gyro_case(cond: ConditionResult) -> int:
+    """The sign combination a split gyroscopic condition carries."""
+    return next(p[0] for p in (parse_gyro_key(v.key) for v in cond.values) if p)
+
+
+def _gyro_partners(index: int, cond: ConditionResult, engines: Sequence[EngineInput],
+                   by_engine: Dict[int, List[ConditionResult]],
+                   ) -> List[Tuple[int, EngineInput, ConditionResult]]:
+    """Every engine's condition at the airplane rates of engine ``index``'s
+    gyroscopic ``cond`` (D-66.4a): its own, and each other engine's of the same
+    FAR reference and sub-case -- a sub-case's signs are the airplane's rates on
+    every engine. An engine with no such condition (not a turboprop)
+    contributes nothing."""
+    case = _gyro_case(cond)
+    out: List[Tuple[int, EngineInput, ConditionResult]] = []
+    for j, eng in enumerate(engines, start=1):
+        if j == index:
+            out.append((j, eng, cond))
+            continue
+        match = next((c for c in by_engine.get(j, ())
+                      if c.far_reference == cond.far_reference and _gyro_case(c) == case), None)
+        if match is not None:
+            out.append((j, eng, match))
+    return out
+
+
+def _gyro_notes(index: int, partners: Sequence[Tuple[int, EngineInput, ConditionResult]],
+                loads: Sequence[BalancedLoad], weight_lb: float) -> List[str]:
+    """What a gyroscopic case states about its engines (D-66.4a)."""
+    fx = math.fsum(ld.fx for ld in loads if ld.source == ENGINE_MOUNT_THRUST_SOURCE)
+    pairs = ", ".join(f"engine {j} {c.title.rsplit('— ', 1)[-1]}" for j, _, c in partners)
+    notes = [
+        f"GYROSCOPIC (design note 66 D-66.4a): every engine's max-continuous "
+        f"thrust and gyroscopic couples at one airplane yaw and pitch rate -- "
+        f"{pairs}. The net axial force, {abs(fx):,.0f} lb "
+        f"({abs(fx) / weight_lb:.2f} g), is reacted by the airplane's "
+        "longitudinal inertia." if weight_lb else "",
+    ]
+    from ..engine import angular_momentum
+
+    spins = {angular_momentum(eng) > 0 for _, eng, _ in partners}
+    if len(partners) > 1 and len(spins) == 1:
+        others = ", ".join(str(j) for j, _, _ in partners if j != index)
+        notes.append(
+            "Every engine spins the same way, so the case of these rates for "
+            f"engine {others} is this same airplane state; both are delivered, "
+            "each under the id of the mount it sizes.")
+    elif len(partners) > 1:
+        notes.append(
+            "The engines do not all spin the same way, so their gyroscopic "
+            "couples at these rates partly or wholly oppose.")
+    return [n for n in notes if n]
+
+
+def _increment(project: Project, index: int, eng: EngineInput, cond: ConditionResult,
                kind: str) -> Tuple[List[BalancedLoad], bool]:
     """The engine's own loads for ``cond`` and whether the axis was assumed.
 
@@ -191,15 +254,15 @@ def _increment(project: Project, index: int, eng, cond: ConditionResult,
     values = {v.key: v.value for v in cond.values}
     mount = tuple(float(c) for c in eng.engine_cg)
     hub = tuple(float(c) for c in eng.prop_cg) if any(eng.prop_cg) else mount
-    side = "C" if abs(mount[1]) < 1e-9 else ("R" if mount[1] > 0 else "L")
+    side = side_of(mount[1])
     member = engine_member(index)
     loads: List[BalancedLoad] = []
     if kind == "torque":
         _, m = engine_applied_load(axis, torque=values.get(MX_MOUNT_TORQUE, 0.0))
-        m_in = tuple(c * _IN_PER_FT for c in m)
+        m_in = tuple(c * IN_PER_FT for c in m)
         loads.append(BalancedLoad(x=mount[0], y=mount[1], z=mount[2],
                                   mx=m_in[0], my=m_in[1], mz=m_in[2],
-                                  source="engine-torque", side=side, carrier=member))
+                                  source=ENGINE_TORQUE_SOURCE, side=side, carrier=member))
         wr = require_wing_reference(project)
         loads.append(BalancedLoad(x=wr.xw, y=0.0, z=wr.zw, mx=-m_in[0],
                                   source=AILERON_TRIM_SOURCE, side="C"))
@@ -214,9 +277,9 @@ def _increment(project: Project, index: int, eng, cond: ConditionResult,
                     mzz = v.value
         _, m = engine_applied_load(axis, myy=myy, mzz=mzz)
         loads.append(BalancedLoad(x=mount[0], y=mount[1], z=mount[2],
-                                  mx=m[0] * _IN_PER_FT, my=m[1] * _IN_PER_FT,
-                                  mz=m[2] * _IN_PER_FT,
-                                  source="engine-gyro", side=side, carrier=member))
+                                  mx=m[0] * IN_PER_FT, my=m[1] * IN_PER_FT,
+                                  mz=m[2] * IN_PER_FT,
+                                  source=ENGINE_GYRO_SOURCE, side=side, carrier=member))
         f, _ = engine_applied_load(axis, thrust=values.get(FX_THRUST, 0.0))
         loads.append(BalancedLoad(x=hub[0], y=hub[1], z=hub[2],
                                   fx=f[0], fy=f[1], fz=f[2],
@@ -229,7 +292,7 @@ def build_engine_cases(project: Project, critical: Sequence[CriticalCondition],
                        vn: Dict[int, VnPoint], cgs: Dict[str, CgCase],
                        loadings: Dict[str, CaseLoading],
                        skipped: Optional[List[SkippedCondition]] = None,
-                       sources=None,
+                       sources: Optional[WingCaseSources] = None,
                        ) -> List[BalancedCaseResult]:
     """The EM family: one balanced case per ENGLOADS condition that pairs with
     a flight state, per engine, in ENGLOADS's own order (note 66 D-66.4).
@@ -258,16 +321,18 @@ def build_engine_cases(project: Project, critical: Sequence[CriticalCondition],
 
     out: List[BalancedCaseResult] = []
     # Many engine cases share one parent point (the ATR's 14 share 3): each is
-    # assembled once and scaled per case -- once per engine for a gyroscopic
-    # case, whose parent leaves that engine's entered thrust out (#313).
+    # assembled once per set of replaced entered thrusts (#313) and scaled per
+    # case.
     parents: Dict[Tuple[int, Tuple[str, ...]], BalancedCaseResult] = {}
+    by_engine: Dict[int, List[ConditionResult]] = {}
     taken = 0
     for index, eng in enumerate(engines, start=1):
         count = len(mount_conditions(eng, include_far25=project.include_far25))
-        conditions = delivered[taken:taken + count]
+        by_engine[index] = list(delivered[taken:taken + count])
         taken += count
+    for index, eng in enumerate(engines, start=1):
         weight = combined_weight(eng)
-        for cond in conditions:
+        for cond in by_engine[index]:
             rule = EM_BALANCED.get(cond.far_reference)
             if rule is None:
                 record.append(_skip(_EngineCondition(cond), "mount-local"))
@@ -289,19 +354,31 @@ def build_engine_cases(project: Project, critical: Sequence[CriticalCondition],
             if not loading.derivable:
                 record.append(_skip(_EngineCondition(cond), "loading-not-derivable"))
                 continue
+            partners = (_gyro_partners(index, cond, engines, by_engine)
+                        if kind == "gyro" else [(index, eng, cond)])
             try:
-                increment, assumed = _increment(project, index, eng, cond, kind)
+                increment: List[BalancedLoad] = []
+                assumed = False
+                for j, eng_j, cond_j in partners:
+                    loads_j, assumed_j = _increment(project, j, eng_j, cond_j, kind)
+                    increment += loads_j
+                    assumed = assumed or assumed_j
             except ThrustLineError:
                 record.append(_skip(_EngineCondition(cond), "thrust-line"))
                 continue
             target = _target_n(cond, weight)
-            replaced = (engine_member(index),) if kind == "gyro" else ()
+            replaced = (tuple(engine_member(j) for j, _, _ in partners)
+                        if kind == "gyro" else ())
             if (point.case, replaced) not in parents:
                 parents[point.case, replaced] = assemble(
                     project, cond.title, point, loading, cg, sources=sources,
                     thrust_replaced=replaced)
             parent = parents[point.case, replaced]
-            k = target / parent.nz if parent.nz else 0.0
+            if not target or not parent.nz:
+                # A zero scale would ship a case of no load (#321).
+                record.append(_skip(_EngineCondition(cond), "unscalable"))
+                continue
+            k = target / parent.nz
             case = _scaled(parent, k)
             loads = list(case.loads) + increment
             ref = (cg.xcg, 0.0, cg.zcg)
@@ -325,6 +402,8 @@ def build_engine_cases(project: Project, critical: Sequence[CriticalCondition],
                 notes.append("The propeller torque is trimmed by an equal and "
                              "opposite aileron couple at the wing aerodynamic "
                              "centre (note 21 P-9).")
+            else:
+                notes += _gyro_notes(index, partners, increment, case.weight_lb)
             out.append(replace(
                 case, label=cond.title, loads=loads, hand="",
                 case_ref=cond.case_ref, notes=notes,

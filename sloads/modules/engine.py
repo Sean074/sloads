@@ -11,12 +11,14 @@ clockwise from that seat**, because that is the torque the engine delivers to
 the airframe -- see :func:`torque_sense`, which is the one place
 ``EngineInput.prop_direction`` reaches a published load (design note 53, under
 the owner's OR-15 admission of 2026-09-07, scoped to this sign and nothing
-else).
+else). The gyroscopic conditions read the rotation too, through
+:func:`angular_momentum` (note 53 D-53.6 as amended at #319): the spin is
+signed so that a gyroscopic sub-case names the airplane's rates on every
+engine.
 """
 
 from __future__ import annotations
 
-import itertools
 import math
 from typing import List, Optional, Sequence, Tuple
 
@@ -201,13 +203,39 @@ def torque_sense(inp: EngineInput) -> float:
     ``-1`` for every project written before the field existed and no shipped
     load moves by a pound-foot.
 
-    The 23.371(b) / 25.371 gyroscopic condition does **not** call this, and that
-    is deliberate (D-53.6): it publishes all four sign combinations of
-    ``±Myy``/``±Mzz``, so the set the mount is checked against is identical
-    whichever way the propeller turns, and flipping a sign there would rename
-    four cases and change nothing.
+    The 23.371(b) / 25.371 gyroscopic condition does not call this: it reads
+    the rotation through :func:`spin_sense` and :func:`angular_momentum`.
     """
     return -1.0 if inp.prop_direction is RotorDirection.CLOCKWISE else 1.0
+
+
+def spin_sense(inp: EngineInput) -> float:
+    """``+1`` for a propeller turning clockwise from the pilot's seat, ``-1``
+    counter-clockwise: the sense a rotor's signed ``max_rpm`` already carries.
+
+    The propeller's term in :func:`angular_momentum`. Until #319 it was added
+    unsigned (note 53 D-53.6: every sign combination is published, so the set
+    one mount is checked against does not depend on it) while a rotor's was
+    signed, so a sub-case named the couples' signs on one engine and the
+    airplane's rates on none. Signed, sub-case ``k`` is the same airplane yaw
+    and pitch rate on every engine (design note 66 D-66.4a).
+    """
+    return 1.0 if inp.prop_direction is RotorDirection.CLOCKWISE else -1.0
+
+
+def angular_momentum(inp: EngineInput) -> float:
+    """The engine's spin angular momentum at max-continuous rpm, slug-ft^2/s,
+    positive clockwise from the pilot's seat: the propeller's
+    ``spin_sense * Iprop * omega`` plus each rotor's ``Irotor * omega(max_rpm)``
+    with its own signed rpm. The gyroscopic couples are the airplane's rates
+    times this (23.371(b), 25.371), so its sign is the engine's spin, one owner
+    for both conditions and for the balanced case's statement of which engines
+    spin together.
+    """
+    h = spin_sense(inp) * _prop_inertia(inp) * _omega(inp.max_cont_rpm)
+    for rotor in inp.rotors:
+        h += _rotor_inertia(rotor) * _omega(rotor.max_rpm)
+    return h
 
 
 def _floored_torque(inp: EngineInput, magnitude: float) -> float:
@@ -543,14 +571,15 @@ def condition_371_b(inp: EngineInput) -> ConditionResult:
     permutations of (Myy, Mzz) are each enumerated below, every one applied
     simultaneously with the steady 2.5g vertical load and the max-continuous
     thrust (which act in a single sense in every case).
-    """
-    iprop = _prop_inertia(inp)
-    omega_prop = _omega(inp.max_cont_rpm)
 
-    tpitch = iprop * omega_prop
-    for rotor in inp.rotors:
-        irotor = _rotor_inertia(rotor)
-        tpitch += irotor * _omega(rotor.max_rpm)
+    A sub-case's signs are the airplane's **rates** (yaw, pitch); the couples
+    are those rates times the signed :func:`angular_momentum`, so a
+    counter-rotating engine's sub-case ``k`` carries both couples reversed
+    against a clockwise one's -- the same airplane state (note 53 D-53.6 as
+    amended at #319).
+    """
+    omega_prop = _omega(inp.max_cont_rpm)
+    tpitch = angular_momentum(inp)
 
     m_yaw = YAW_RATE * tpitch     # Myy due to 2.5 rad/s yaw
     m_pitch = PITCH_RATE * tpitch  # Mzz due to 1 rad/s pitch
@@ -571,9 +600,7 @@ def condition_371_b(inp: EngineInput) -> ConditionResult:
     # combination of the two gyroscopic moments. The vertical 2.5g load and the
     # max-continuous thrust (listed once above) are applied simultaneously in
     # every case, so only the varying signed moments are spelled out per case.
-    for case, (syaw, spitch) in enumerate(
-        itertools.product((+1, -1), repeat=2), start=1
-    ):
+    for case, (syaw, spitch) in enumerate(GYRO_SIGNS, start=1):
         ytag = "+" if syaw > 0 else "-"
         ptag = "+" if spitch > 0 else "-"
         prefix = f"Case {case} ({ytag}Myy, {ptag}Mzz)"
@@ -711,12 +738,8 @@ def condition_25_371(inp: EngineInput) -> ConditionResult:
     load uses the project's actual A2 limit load factor (25.333(b)) rather than the
     fixed 2.5g, so it is not under-conservative when A2 > 2.5.
     """
-    iprop = _prop_inertia(inp)
     omega_prop = _omega(inp.max_cont_rpm)
-
-    tpitch = iprop * omega_prop
-    for rotor in inp.rotors:
-        tpitch += _rotor_inertia(rotor) * _omega(rotor.max_rpm)
+    tpitch = angular_momentum(inp)
 
     # Fixed FAR 23.371(b) stand-in rates -- the moment is ALWAYS computed at these
     # (D-2: keep the fixed stand-in). Declared concept rates, if any, only drive the
@@ -734,9 +757,7 @@ def condition_25_371(inp: EngineInput) -> ConditionResult:
         LoadValue("Max continuous thrust", thrust, "lb", key="fx_thrust"),
         *_applied_at(cg),
     ]
-    for case, (syaw, spitch) in enumerate(
-        itertools.product((+1, -1), repeat=2), start=1
-    ):
+    for case, (syaw, spitch) in enumerate(GYRO_SIGNS, start=1):
         ytag = "+" if syaw > 0 else "-"
         ptag = "+" if spitch > 0 else "-"
         prefix = f"Case {case} ({ytag}Myy, {ptag}Mzz)"
@@ -827,6 +848,13 @@ def run_all(inp: EngineInput, *, include_far25: bool = False) -> List[ConditionR
     if include_far25:
         results.extend(run_far25(inp))
     return results
+
+
+#: The gyroscopic sign combinations in sub-case order: sub-case ``k`` is
+#: ``GYRO_SIGNS[k - 1]``, the signs of the airplane's ``(yaw, pitch)`` rates --
+#: the same state on every engine, since the couples are those rates times the
+#: signed :func:`angular_momentum` (design note 66 D-66.4a, #319).
+GYRO_SIGNS: Tuple[Tuple[int, int], ...] = ((+1, +1), (+1, -1), (-1, +1), (-1, -1))
 
 
 def split_gyro(cond: ConditionResult) -> List[ConditionResult]:

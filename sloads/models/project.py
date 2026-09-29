@@ -356,7 +356,11 @@ from .results import EnvelopeResult, LoadsResult, MassResult
 # v70 (#276): ``WeightEstimationInput.engines`` (WTESTIMA's NOENGS, a count) is
 # renamed ``engine_count`` so that ``engines`` names only ``Project.engines``'
 # list. No hop: v69 was never released (#310).
-SCHEMA_VERSION = 70
+# v71 (design note 66 D-66.12a, #319): ``EngineInput.windmill_drag_cd``, the
+# windmilling propeller's disc drag coefficient (optional; blank delivers the
+# Glauert bound, stated). Additive, so ``_hop_70`` is an identity -- the first
+# hop after a released schema (0.8.7 shipped v70).
+SCHEMA_VERSION = 71
 
 
 @dataclass

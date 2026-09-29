@@ -2,8 +2,8 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: SHIPPED 2026-09-26 — #286 (§10) and #285 (§11).** **Amended at
-AGREED 2026-09-29 (#319, §12): the engine axial loads of both families.**
+**Status: SHIPPED 2026-09-26 — #286 (§10) and #285 (§11).** **§12 (#319, the
+engine axial loads of both families) AGREED and SHIPPED 2026-09-29.**
 AGREED 2026-09-25 (owner, in session). PROPOSED the same
 day; the owner ruled Q1–Q7 of §2 **as recommended**, so D-66.1…D-66.16 stand as
 written (§9). Drafted for one design pass over two band-B8 rows the 2026-09-22
@@ -402,8 +402,10 @@ session: 1a, 2a, 3a — this section is the note, committed before the code).
 - **G-66.5** — the parent of a gyroscopic case leaves out every engine's
   entered thrust.
 - **G-66.9** — the yaw identity holds as stated when the bound is delivered;
-  with an entered coefficient the closure's `ṙ` differs from ONENGOUT's `ψ̈` by
-  exactly `(D_bound − D_entered) · y_hub / Izz`, which the gate checks.
+  with an entered coefficient the closure's accelerations differ from the
+  bound's by exactly the drag difference's moment through the case's own
+  inertia tensor, `[I]{Δω̇} = ΔM` — about `(D_bound − D_entered) · y_hub / Izz`
+  in yaw, the tensor's `Ixz` coupling the rest — which the gate checks.
 - **G-66.17** (new, §4).
 
 **What moves.** The ATR and RJ gyroscopic EM cases (the Imperial baseline and
@@ -418,3 +420,31 @@ test's literal → `lra_model._COINCIDENT_TOL`; `_MIRROR_TOL` split into a lengt
 and a relative load tolerance; a zero engine weight or a zero-`n` parent is
 recorded as skipped instead of shipping a case at `k = 0`; the OEI hub's `y`
 checked against `engine_cg`; the missing type hints.
+
+**§12 amended in the build, 2026-09-29 (owner ruling (a), in session): the
+pairing rule.** D-66.4a above pairs a counter-rotating engine by flipping both
+signs (ruling 2a). The build found the premise wrong: ENGLOADS signs a turbine
+rotor's spin by its `max_rpm` but added the propeller's unsigned, so the RJ's
+counter-rotating fans (left rotor −8,500 rpm, both propellers `CW`) already
+publish opposite couples at sub-case 1, and pairing by `prop_direction` would
+have called them co-rotating and paired two opposite spins. **Ruled instead:**
+ENGLOADS signs the propeller's spin by `prop_direction` too
+(`engine.angular_momentum`, note 53 D-53.6 as amended), so sub-case `k` is the
+airplane's rates on every engine and **every engine pairs `k` with `k`**. The
+in-band "same airplane state" statement reads the sign of each engine's net
+spin, not `prop_direction`. Measured: the ATR's co-rotating propellers' couples
+add (EM-06…09, EM-15…18: `ṙ` −0.0022 → ±0.0004, `Δn_x` −0.79 → −1.12 on the
+second engine's 10,865 lb); the RJ's fans cancel (`q̇`, `ṙ` → 0). `Rotor.direction`,
+which no code reads while the sign lives in `max_rpm`, is filed as #332.
+
+**§12 implementation record (#319, 2026-09-29).** D-66.12a in
+`one_engine_out.windmill_drag_from_cd` / `disc_drag_coefficient` (one owner of
+the disc drag, read back from the Glauert term so 0.502 is never restated) and
+`engine_forces_at(..., windmill_cd=)`; `engine_out_cases` delivers it, states it
+per case, and reflects a twin only when both engines enter the same
+coefficient. D-66.4a in `engine_cases` (`_gyro_partners`, `_gyro_notes`;
+parents cached per set of replaced thrusts). Schema v71 with `_hop_70`, the
+first hop after a released schema. The #321 riders as listed, the two new
+records `unscalable` and `hub-off-arm`. Gates: G-66.4/G-66.5 as amended, the
+entered-coefficient delivery and statement, G-66.9's `[I]{Δω̇} = ΔM` identity,
+the twin rule, G-66.17, the sub-case/spin identity, the two records.
