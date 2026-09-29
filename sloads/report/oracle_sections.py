@@ -99,7 +99,7 @@ from .oracle_content import (
     section_ref,
     subsection_ref,
 )
-from .render import format_value, sf_cell, ultimate_units
+from .render import REFUSALS, format_value, sf_cell, ultimate_units
 
 if TYPE_CHECKING:
     # pragma: no cover - typing only, and a cycle if imported at runtime
@@ -1561,7 +1561,7 @@ def _wing_net(project: Project) -> List[WingLoadResult]:
     try:
         net = build_net_loads(project)
         return list(loads_ref_axis_results(project, net.wing_net))
-    except Exception:
+    except REFUSALS:
         return []
 
 
@@ -1696,7 +1696,7 @@ def _wing_aero_row(project: Project):
     name = _wing_surface_name(project)
     try:
         rows = resolve_aero_surfaces(project)
-    except Exception:
+    except REFUSALS:
         return None
     for row in rows:
         if same_name(row.name, name):
@@ -1739,7 +1739,7 @@ def _span_load_figure(project: Project, clmax: Optional[float],
             continue
         try:
             table = schrenk_distribution(surface, _replace(aero, target_cl=cl))
-        except Exception:
+        except REFUSALS:
             continue
         printed = (label if target is not None
                    else f"CL = CLmax = {format_value(cl)}")
@@ -1812,7 +1812,7 @@ def _aero_curves(project: Project):
             points = operating_points(build_envelope(project), config.name,
                                       wing_area_sqft=reference.s_sqft,
                                       mac_in=reference.mac)
-    except Exception:
+    except REFUSALS:
         points = None
     return build_aero_curves(config, points=points), config
 
@@ -1974,11 +1974,11 @@ def _wing_selection(project: Project):
     try:
         conditions = [c for c in default_critical(project).conditions
                       if getattr(c, "component", "") == "wing"]
-    except Exception:
+    except REFUSALS:
         conditions = []
     try:
         envelope = build_envelope(project)
-    except Exception:
+    except REFUSALS:
         envelope = None
     return conditions, envelope
 
@@ -3009,7 +3009,7 @@ def _body_net(project: Project) -> List[BodyLoadResult]:
 
     try:
         return list(build_body_loads(project))
-    except Exception:
+    except REFUSALS:
         return []
 
 
@@ -3019,7 +3019,7 @@ def _beam_stations(project: Project) -> List[FuselageStation]:
 
     try:
         return list(fuselage_beam_stations(project))
-    except Exception:
+    except REFUSALS:
         return []
 
 
@@ -3105,7 +3105,7 @@ def _beam_reconciliation(project: Project, system: UnitSystem) -> str:
 
     try:
         check = fuselage_reconciliation(project)
-    except Exception:
+    except REFUSALS:
         return ""
     if check is None or not check.want:
         return ""
@@ -3146,7 +3146,7 @@ def _untagged_surface_statement(project: Project) -> str:
 
     try:
         untagged = untagged_tail_surfaces(project)
-    except Exception:
+    except REFUSALS:
         return ""
     if not untagged or project.weight is None or not project.weight.items:
         return ""
@@ -3189,7 +3189,7 @@ def _beam_provenance(project: Project, system: UnitSystem) -> str:
     untagged = _untagged_surface_statement(project)
     try:
         check = partition_closes(project)
-    except Exception:
+    except REFUSALS:
         return " ".join(part for part in (sentence, reconciliation, untagged)
                         if part)
     # The check's own ``detail`` is an Imperial diagnostic sentence; the
@@ -3295,7 +3295,7 @@ def _carry_through_sentence(project: Project, system: UnitSystem) -> str:
 
     try:
         carry = carry_through(project)
-    except Exception:
+    except REFUSALS:
         carry = None
     if carry is None:
         return (
@@ -3406,7 +3406,7 @@ def _vn_points(project: Project) -> Dict[str, int]:
 
     try:
         conditions = critical_fuselage_conditions(project)
-    except Exception:
+    except REFUSALS:
         return {}
     return {c.label: c.case for c in conditions if c.case is not None}
 
@@ -5178,7 +5178,7 @@ def _tail_mass_provenance(project: Project, component: str,
         used = tail_surface_weight(project, component)
         derived = derived_tail_surface_weight(project, component)
         check = tail_reconciliation(project, component)
-    except Exception:
+    except REFUSALS:
         return ""
     u = Units(system)
     mass = u.label("mass")

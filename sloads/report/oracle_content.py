@@ -37,12 +37,13 @@ from typing import (
 )
 
 from .. import workflow as wf
-from ..models import Project
+from ..models import MissingInputError, Project
 from ..models.report import ReportSpec, is_draft
 from ..models.results import ModuleResult
 from ..safety_factors import ENGINE_FAILURE_NOUN
 from ..units import UnitSystem
 from .content import Section
+from .render import REFUSALS
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from .oracle_package import MemberInfo
@@ -652,15 +653,23 @@ def _not_applicable_reason(project: Project, step_key: str) -> Optional[str]:
 
     try:
         return step_not_applicable(step_key, project)
-    except Exception:            # a predicate must never be what crashes first
+    except REFUSALS:             # a predicate asked of a half-entered project
         return None
 
 
-def _state_reason(state: SectionState, na: Optional[str]) -> str:
-    """The sentence a state renders, with the applicability reason appended."""
+#: An ``ABSENT`` section whose inputs are present and were refused (#316). The
+#: module's own message follows it: "not present" would be false.
+REFUSED_REASON = "The inputs this section needs are present, and the analysis refused them:"
+
+
+def _state_reason(state: SectionState, na: Optional[str],
+                  refused: Optional[str] = None) -> str:
+    """The sentence a state renders, with the applicability or refusal reason."""
     base = STATE_REASON.get(state, "")
     if state is SectionState.NOT_APPLICABLE and na:
         return f"{base} {na}"
+    if state is SectionState.ABSENT and refused:
+        return f"{REFUSED_REASON} {refused.rstrip('.')}."
     return base
 
 
@@ -695,7 +704,7 @@ def _plan_row(project: Project, spec: ReportSpec, step: wf.WorkflowStep,
         state = SectionState.INCLUDED
     return SectionPlan(
         step_key=step.key, number="", title=document_title(step), state=state,
-        reason=_state_reason(state, na),
+        reason=_state_reason(state, na, _refusal(results, step.key)),
         lead=STATE_TEXT.get(state, ("", ""))[0],
         selected=selected, inputs_present=present)
 
@@ -736,24 +745,55 @@ def _split_row(project: Project, spec: ReportSpec, step: wf.WorkflowStep,
         state = SectionState.INCLUDED
     return SectionPlan(
         step_key=split.key, number="", title=split.title, state=state,
-        reason=_state_reason(state, na),
+        reason=_state_reason(state, na, _refusal(results, split.step_key)),
         lead=STATE_TEXT.get(state, ("", ""))[0],
         selected=selected, inputs_present=present)
 
 
+class SectionResults(Dict[str, Optional[ModuleResult]]):
+    """``step key -> result or None``, and why a step that ran produced nothing.
+
+    :attr:`refused` maps a key to the module's own message when the module
+    refused inputs that *are* present (a plain ``ValueError``): a curve half
+    entered, an area typed as zero. The section still reads as ``ABSENT`` --
+    G-OR-7 keeps a report built mid-entry building -- but its reason is that
+    message, not "the inputs are not present", which would be false (#316).
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.refused: Dict[str, str] = {}
+
+
+def _refusal(results: Optional[Mapping[str, Optional[ModuleResult]]],
+             key: str) -> Optional[str]:
+    """The module's refusal of present inputs for ``key``, if it refused them."""
+    return results.refused.get(key) if isinstance(results, SectionResults) else None
+
+
 def run_sections(project: Project, spec: ReportSpec, *,
                  implemented: FrozenSet[str] = IMPLEMENTED,
-                 ) -> Dict[str, Optional[ModuleResult]]:
+                 ) -> SectionResults:
     """Run each implemented, selected step once: ``step key -> result or None``.
 
     The **one** place a module is run for the report, so the preflight and the
     document can never describe different analyses (the same reasoning that has
     ``package_members`` accept an already-built document). ``None`` records a
-    step that could not produce a result -- missing inputs, or a module that
-    raised on a partial project -- and :func:`section_plan` reads it as
-    ``ABSENT``. Catching broadly is deliberate: G-OR-7 says a half-filled
-    project still builds, and a traceback out of here would take the whole
-    report down over one absent slice.
+    step that could not produce a result, and :func:`section_plan` reads it as
+    ``ABSENT``. Two refusals are caught, and they are told apart (#316):
+
+    * :class:`~sloads.models.MissingInputError` -- the inputs are not there,
+      the contract :func:`sloads.registry.run_all_modules` keeps; the section
+      says so.
+    * a plain ``ValueError`` -- the inputs are there and the module refused
+      them (``00_program_overview.md`` §Error handling): a curve half entered,
+      an area typed as zero. G-OR-7 keeps a report built mid-entry building
+      (#71), so the section is ``ABSENT``, and its reason is the module's own
+      message (:attr:`SectionResults.refused`), never "not present".
+
+    Nothing else is caught. :class:`~sloads.report.render.NonFiniteValue` is
+    not a ``ValueError``: a NaN on its way to print stops the build by name,
+    as does any other exception.
 
     **A step's folded modules are run too**, keyed by *module name* beside the
     step keys. A page that names three programs in its ``bas`` -- Weight & Mass
@@ -767,7 +807,7 @@ def run_sections(project: Project, spec: ReportSpec, *,
     from ..registry import get as get_module
     from ..workflow import step_modules
 
-    results: Dict[str, Optional[ModuleResult]] = {}
+    results = SectionResults()
     for step in analysis_steps():
         # A split step runs when *any* of its sections is implemented and
         # selected (OR-129), which is what lets Section 5 ship while Section 6 is
@@ -787,8 +827,10 @@ def run_sections(project: Project, spec: ReportSpec, *,
             key = step.key if name == step.module else name
             try:
                 results[key] = get_module(name)(project)
-            except Exception:                 # see the docstring
+            except REFUSALS as exc:           # see the docstring
                 results[key] = None
+                if not isinstance(exc, MissingInputError):
+                    results.refused[key] = str(exc)   # present, refused: stated
     return results
 
 
@@ -1248,6 +1290,7 @@ __all__ = [
     "IMPLEMENTED",
     "LUMPING_COMPARISON",
     "NOT_CARRIED",
+    "REFUSED_REASON",
     "SECTION_GROUPS",
     "SECTION_SPLITS",
     "STATE_REASON",
@@ -1260,6 +1303,7 @@ __all__ = [
     "OracleDocument",
     "SectionGroup",
     "SectionPlan",
+    "SectionResults",
     "SectionSplit",
     "SectionState",
     "analysis_steps",
