@@ -211,7 +211,7 @@ def _is_list_of(annotation, cls: type, in_list: bool = False) -> bool:
 def _hints(cls: type) -> Dict[str, object]:
     try:
         return typing.get_type_hints(cls, _HINT_NS)
-    except Exception:  # pragma: no cover - a forward ref we cannot resolve
+    except Exception:  # pragma: no cover  # broad-except: unresolvable forward ref, no calc runs
         return {f.name: f.type for f in dataclasses.fields(cls)}
 
 

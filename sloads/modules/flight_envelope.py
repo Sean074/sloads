@@ -548,6 +548,17 @@ def balance_configs(aero) -> List[AeroCoeffSet]:
                     "lift coefficients (clmax_clean / clmax_flap) on the Aerodynamic "
                     "Data page, or enter this set's own stall CL."
                 )
+            # The flaps-up corners fly STALL -N and STALL -1G, and each stall
+            # speed divides by the negative stall CL; a flaps-down set flies no
+            # negative stall point. Refused by name, not as a bare
+            # ZeroDivisionError (#330) -- the #81 class, one sign further.
+            if not config.flaps_down and not config.neg_stall_cl:
+                raise MissingInputError(
+                    f"flight_envelope: the '{config.name}' coefficient set has no "
+                    "negative stall CL, and the STALL -N and STALL -1G speeds "
+                    "divide by it. Set clmax_clean_neg on the Aerodynamic Data "
+                    "page, or enter this set's own negative stall CL."
+                )
             if not any(config.lift[1:]):
                 raise MissingInputError(
                     f"flight_envelope: the '{config.name}' coefficient set's lift "

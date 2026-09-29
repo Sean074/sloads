@@ -681,6 +681,21 @@ def htail_balance(p: VnPoint, cg: CgCase, xw: float, zw: float,
     the CG and gives the camber load ``LT50``; ``LT = LT25 + LT50``. ``cp`` is the
     load centre of pressure in percent tail MAC.
     """
+    # The balance divides by the tail lift slope's aspect ratio and by the
+    # elevator's lift per degree (effectiveness x area). A zero there is an
+    # h-tail record added and not yet filled, refused by name rather than as a
+    # bare ZeroDivisionError (#330); ARW is refused upstream, in
+    # ``effective_tail_inputs`` (C210-36).
+    unset = [name for name in ("aspect_ratio_htail", "htail_area_sqft", "elevator_effectiveness")
+             if not getattr(ti, name)]
+    if unset:
+        raise MissingInputError(
+            "the rational h-tail balance needs "
+            + ", ".join(f"geometry.empennage.htail.{n}" for n in unset)
+            + ": 0/unset, and the elevator deflection that balances the CG "
+            "moment divides by the tail's lift per degree of elevator. Enter "
+            "them on the Geometry page (the planform fields derive from the "
+            "h-tail's boundary lines when those are entered).")
     e_down = 2.0 * DEG_PER_RAD * p.cl / (math.pi * ti.aspect_ratio_wing)  # 114.6*CL/(pi*AR)
     at = p.alpha_deg + ti.tail_incidence_deg - e_down
     aht = lift_curve_slope(ti.aspect_ratio_htail)

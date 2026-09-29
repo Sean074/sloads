@@ -126,6 +126,6 @@ def run_all_modules_reporting(project: Project) -> Tuple[List[ModuleResult],
             results.append(_REGISTRY[name](project))
         except MissingInputError:
             continue
-        except Exception as exc:  # reported, by name, to the caller
+        except Exception as exc:  # broad-except: returned with the module name, the caller shows it
             failures.append((name, exc))
     return results, failures

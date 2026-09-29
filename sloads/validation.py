@@ -87,6 +87,7 @@ from . import cg_cases, mass_distribution
 from .constants import ULTIMATE_FACTOR
 from .models import (
     GROUND_CASE_ROLE_ORDER,
+    REFUSALS,
     AnalysisKind,
     GearCarrier,
     MassComponent,
@@ -1230,8 +1231,8 @@ def _check_wing_mass_states(project: Project) -> List[ConsistencyWarning]:
         try:
             unnamed = [c.name for c in wm.cases
                        if resolve_mass_case(project, c) is None]
-        except Exception:      # a half-entered project: the module's own refusal
-            unnamed = []
+        except REFUSALS:       # a half-entered project: the module's own
+            unnamed = []       # refusal, stated on its page (#330)
         if unnamed:
             out.append(ConsistencyWarning(
                 "wing_case_mass_state_unnamed",

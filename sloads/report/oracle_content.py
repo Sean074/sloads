@@ -37,13 +37,12 @@ from typing import (
 )
 
 from .. import workflow as wf
-from ..models import MissingInputError, Project
+from ..models import REFUSALS, MissingInputError, Project
 from ..models.report import ReportSpec, is_draft
 from ..models.results import ModuleResult
 from ..safety_factors import ENGINE_FAILURE_NOUN
 from ..units import UnitSystem
 from .content import Section
-from .render import REFUSALS
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from .oracle_package import MemberInfo

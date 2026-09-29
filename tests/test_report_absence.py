@@ -6,7 +6,7 @@ Before #316 about twenty handlers in the report and package paths caught
 into a delivered cell, or a calc defect, shipped as a short document or a
 package missing one file, with no message anywhere. Now:
 
-* a report or package path reads only ``render.REFUSALS`` as an absence:
+* a report or package path reads only ``sloads.models.REFUSALS`` as an absence:
   ``MissingInputError`` (the inputs are not there) and a plain ``ValueError``
   (they are there and the calc refused them -- a curve half entered, #71);
 * a section absent by a ``ValueError`` states the module's own message, never
@@ -24,15 +24,21 @@ from __future__ import annotations
 import ast
 import math
 import os
+import re
 import sys
 
 import pytest
 
-from sloads.report.render import REFUSALS, NonFiniteValue, format_value
+from sloads.models import REFUSALS
+from sloads.report.render import NonFiniteValue, format_value
 
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_SCOPE = ("sloads/report", "sloads/export")
+_SCOPE = ("sloads",)
 _BROAD = {"Exception", "BaseException"}
+#: The on-line exemption a broad handler must carry, followed by its reason
+#: (#330): the registry's run-all, which returns each failure with the module's
+#: name, and typing introspection, where no calc runs.
+_EXEMPT = re.compile(r"#\s*broad-except:\s*\S")
 
 
 def _names(node: ast.expr | None) -> list[str]:
@@ -57,7 +63,9 @@ def _offenders() -> list[str]:
                     continue
                 path = os.path.join(root, name)
                 with open(path, encoding="utf-8") as fh:
-                    tree = ast.parse(fh.read(), path)
+                    source = fh.read()
+                lines = source.splitlines()
+                tree = ast.parse(source, path)
                 rel = os.path.relpath(path, _REPO)
                 for node in ast.walk(tree):
                     if not isinstance(node, ast.ExceptHandler):
@@ -65,18 +73,20 @@ def _offenders() -> list[str]:
                     names = _names(node.type)
                     if node.type is None:
                         out.append(f"{rel}:{node.lineno}: bare except")
-                    elif _BROAD & set(names):
+                    elif _BROAD & set(names) and not _EXEMPT.search(lines[node.lineno - 1]):
                         out.append(f"{rel}:{node.lineno}: except {'/'.join(sorted(_BROAD & set(names)))}")
                     elif "NonFiniteValue" in names and not _reraises(node):
                         out.append(f"{rel}:{node.lineno}: NonFiniteValue caught and not re-raised")
     return out
 
 
-def test_no_report_or_export_handler_can_swallow_a_non_finite_value():
-    """The static half: every handler in scope is narrower than ``NonFiniteValue``."""
+def test_no_handler_in_sloads_can_swallow_a_calc_defect():
+    """The static half: every handler in ``sloads/`` is narrower than
+    ``Exception`` (#316 for the report and export paths, #330 for the rest),
+    unless it carries a ``# broad-except: <reason>`` on its line."""
     offenders = _offenders()
     assert not offenders, (
-        "a report/export handler can swallow a NaN or a calc defect (#316); catch "
+        "a handler in sloads/ can swallow a NaN or a calc defect (#316, #330); catch "
         "MissingInputError (a stated absence) or the specific refusal instead:\n  "
         + "\n  ".join(offenders))
 
@@ -181,6 +191,144 @@ def test_a_module_defect_is_not_an_absent_section(monkeypatch, exc):
     """Anything that is not one of the two refusals stops the build by name."""
     with pytest.raises(type(exc)):
         _run_with(monkeypatch, exc)
+
+
+# --------------------------------------------------------------------------- #
+# #330 -- a divisor an input can zero is refused by name where it divides
+# --------------------------------------------------------------------------- #
+def _ga6():
+    from sloads.io import load_project
+
+    return load_project(os.path.join(_REPO, "examples", "ga6_normal.project.json"))
+
+
+def _blank_htail(project):
+    project.geometry.empennage.htail = type(project.geometry.empennage.htail)()
+
+
+def _blank_gear(project):
+    project.geometry.landing_gear = type(project.geometry.landing_gear)()
+
+
+def _no_negative_stall(project):
+    project.aero_coeffs.cruise.neg_stall_cl = 0.0
+
+
+@pytest.mark.parametrize("blank,build,names", [
+    (_blank_htail, "select", "elevator_effectiveness"),
+    (_blank_gear, "landing", "axle compressed"),
+    (_no_negative_stall, "flight_envelope", "negative stall CL"),
+], ids=["blank h-tail record", "blank landing-gear record", "no negative stall CL"])
+def test_a_zeroed_divisor_is_refused_by_name(blank, build, names):
+    """Each was a bare ``ZeroDivisionError`` -- a GUI "Add" of the h-tail or gear
+    record, a cruise set with no negative stall CL -- which since #316 stopped
+    the whole report with a message that named nothing."""
+    from sloads.models import MissingInputError
+    from sloads.modules.flight_envelope import build_envelope
+    from sloads.modules.landing import ground_angles
+    from sloads.modules.select import default_critical
+
+    project = _ga6()
+    blank(project)
+    with pytest.raises(MissingInputError, match=names):
+        if build == "select":
+            default_critical(project)
+        elif build == "landing":
+            ground_angles(project.landing, project.geometry.landing_gear)
+        else:
+            build_envelope(project)
+
+
+def test_the_weight_warnings_withhold_only_on_a_refusal(monkeypatch):
+    """``validation``'s mass-state check reads a refusal as "nothing to name"
+    (the module states it on its page); a defect raises (#330)."""
+    from sloads import validation
+    from sloads.modules import wing_inertia
+
+    project = _ga6()
+    _blank_htail(project)
+    validation.consistency_warnings(project)          # a refusal: no raise
+
+    def broken(*_a, **_kw):
+        raise ZeroDivisionError("a calc defect")
+
+    monkeypatch.setattr(wing_inertia, "resolve_mass_case", broken)
+    project = _ga6()
+    assert project.wing_mass and project.wing_mass.cases, "nothing to resolve: the test proves nothing"
+    with pytest.raises(ZeroDivisionError, match="a calc defect"):
+        validation.consistency_warnings(project)
+
+
+@pytest.mark.parametrize("exc,raises", [("refusal", False), ("defect", True)])
+def test_the_fleet_fallback_is_taken_only_on_a_refusal(monkeypatch, exc, raises):
+    """``fleet._wtestima_value`` falls back on a refusal and raises on a
+    defect, which it used to turn into a quiet change of source (#330)."""
+    from sloads import fleet, registry
+    from sloads.models import MissingInputError
+
+    project = _ga6()
+    assert project.weight and project.weight.estimation, "no WTESTIMA inputs: the test proves nothing"
+    err = MissingInputError("not entered") if exc == "refusal" else KeyError("a calc defect")
+
+    def broken(_project):
+        raise err
+
+    real = registry.get
+    monkeypatch.setattr(registry, "get",
+                        lambda name: broken if name == "weight_estimate" else real(name))
+    if raises:
+        with pytest.raises(KeyError, match="a calc defect"):
+            fleet._wtestima_value(project, "max_take_off_weight")
+    else:
+        assert fleet._wtestima_value(project, "max_take_off_weight") is None
+
+
+def _optional_blocks():
+    """Every Optional record block the GUI can add, read as ``test_oracle_gui``
+    reads it -- so a new one joins this sweep the day it is registered."""
+    from oracle_app.form import optional_steps, page_groups
+    from sloads import field_registry as fr
+    from sloads import workflow as wf
+
+    seen, out = set(), []
+    for key in sorted(wf.oracle_step_keys()):
+        for prefix, _paths in page_groups(key):
+            if prefix.endswith(fr.LIST_MARKER) or prefix in seen:
+                continue
+            if optional_steps(prefix):
+                seen.add(prefix)
+                out.append(prefix)
+    return out
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("prefix", _optional_blocks())
+def test_a_freshly_added_record_leaves_the_report_building(prefix):
+    """The GUI's "Add" of any Optional record puts it at its blank defaults;
+    the document and the package still build over it (G-OR-7, #71), each gap a
+    stated refusal (#330). Measured on all five examples at the close; run on
+    ga6_normal here."""
+    import typing
+
+    from sloads.models.report import ReportSpec
+    from sloads.report import oracle_content as oc
+    from sloads.report import package_data
+
+    project = _ga6()
+    *head, attr = prefix.split(".")
+    parent = project
+    for part in head:
+        parent = getattr(parent, part)
+        if parent is None:
+            pytest.skip(f"ga6_normal enters no {part}")
+    hint = typing.get_type_hints(type(parent))[attr]
+    cls = next((a for a in typing.get_args(hint) if a is not type(None)), hint)
+    try:
+        blank = cls()
+    except TypeError:
+        pytest.skip(f"{cls.__name__} has no blank default (required fields)")
+    setattr(parent, attr, blank)
+    package_data.data_files(oc.build_oracle_document(project, ReportSpec()))
 
 
 if __name__ == "__main__":  # zero-dependency self-runner
