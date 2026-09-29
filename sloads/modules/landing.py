@@ -214,6 +214,17 @@ def ground_angles(inp: LandingInput, gear: LandingGearGeometry
     """
     mg, ng = gear.main_gear, gear.nose_gear
     rm, rn = mg.rolling_radius_in, ng.rolling_radius_in
+    # The axle line's slope divides by the main-to-nose stagger. Equal stations
+    # are a gear record added and not yet filled (both at the datum), never an
+    # airplane: refused by name rather than as a bare ZeroDivisionError (#330).
+    for state in ("axle_compressed", "axle_static"):
+        if getattr(mg, state)[0] == getattr(ng, state)[0]:
+            raise MissingInputError(
+                f"landing: the main and nose gear {state.replace('_', ' ')} "
+                f"stations are both X = {getattr(mg, state)[0]:g} in, and every "
+                "ground angle divides by the distance between them. Enter the "
+                "axle positions on the Landing Gear Geometry page "
+                f"(geometry.landing_gear.main_gear/nose_gear.{state}).")
     return (_ground_angle(*mg.axle_compressed, *ng.axle_compressed, rm, rn),
             _ground_angle(*mg.axle_static, *ng.axle_static, rm, rn),
             inp.tail_down_angle_deg)

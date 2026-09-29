@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Dict, List, Mapping, Optional, Sequence, Set, Tuple
+from typing import Dict, List, Mapping, Optional, Sequence, Set, Tuple, Type
 
 from ..constants import DEFAULT_REF_AXIS_PCT, ULTIMATE_FACTOR
 from .enums import (
@@ -43,6 +43,25 @@ class MissingInputError(ValueError):
     ``docs/10_standard/00_program_overview.md``) and now propagates instead of
     vanishing from run-all/export. It subclasses :class:`ValueError`, so every
     existing ``except ValueError`` (the GUI pages, the CLI) still catches it."""
+
+
+#: The two refusals a caller may read as "this cannot be produced from this
+#: project" (#316, #330; ``00_program_overview.md`` §Error handling):
+#: :class:`MissingInputError`, the inputs are not there, and a plain
+#: ``ValueError``, they are there and the calc refused them -- a curve half
+#: entered, an area typed as zero -- which G-OR-7 keeps a report built
+#: mid-entry building around (#71). **The one owner**: every handler in
+#: ``sloads/`` that turns a refusal into an absence, a fallback or a withheld
+#: warning catches this and nothing wider (guard
+#: ``tests/test_report_absence.py``). Neither is silent where it becomes an
+#: absence: ``report.oracle_content.run_sections`` states a section's refusal
+#: in its own words. Here beside :class:`MissingInputError`, below every layer
+#: that catches it, because the calc layer never imports ``report``.
+#: ``report.render.NonFiniteValue`` is not in it and subclasses neither
+#: member, so a NaN passes every such handler. A ``ZeroDivisionError`` is not
+#: in it either: a divisor an input can zero is refused by name where it
+#: divides (#330), and one that is not is a defect.
+REFUSALS: Tuple[Type[Exception], ...] = (MissingInputError, ValueError)
 
 
 @dataclass
@@ -2080,6 +2099,7 @@ __all__ = [
     "CATEGORIES",
     "HTAIL_BOUNDARY_DERIVED",
     "LRA_DEFAULT_GRIDS",
+    "REFUSALS",
     "STRUT_TYPES",
     "TAB_SURFACES",
     "TAIL_SURFACES",

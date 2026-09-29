@@ -208,7 +208,7 @@ def _numeric_containers(cls: Any) -> Dict[str, str]:
     """``{field name: shape}`` for every numeric container ``cls`` declares."""
     try:
         hints = get_type_hints(cls)
-    except Exception:  # pragma: no cover - unresolvable forward ref
+    except Exception:  # pragma: no cover  # broad-except: unresolvable forward ref, no calc runs
         return {}
     fields = cls.__dataclass_fields__
     shapes = ((name, _numeric_shape(hint)) for name, hint in hints.items())
@@ -268,7 +268,7 @@ def _nullable_fields(cls: Any) -> FrozenSet[str]:
     """
     try:
         hints = get_type_hints(cls)
-    except Exception:  # pragma: no cover - unresolvable forward ref
+    except Exception:  # pragma: no cover  # broad-except: unresolvable forward ref, no calc runs
         return frozenset(cls.__dataclass_fields__)
     out = set()
     for name in cls.__dataclass_fields__:

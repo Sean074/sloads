@@ -373,16 +373,20 @@ def _wtestima_value(project: "Project", key: str) -> Optional[float]:
     """One figure out of a live WTESTIMA estimate, by ``LoadValue.key``, or ``None``.
 
     Runs the registered ``weight_estimate`` module (needs ``weight.estimation``);
-    any failure (missing slice, ValueError) yields ``None`` so the caller falls
-    back to a lower-priority source.
+    a refusal (:data:`~sloads.models.REFUSALS`: a missing slice, an input the
+    module refused) yields ``None`` so the caller falls back to a lower-priority
+    source. Anything else is a WTESTIMA defect and raises (#330): a fallback
+    taken over a defect places the airplane on the fleet chart from a different
+    source and says nothing.
     """
     from . import registry
+    from .models import REFUSALS
 
     if not (project.weight and project.weight.estimation):
         return None
     try:
         result = registry.get("weight_estimate")(project)
-    except Exception:
+    except REFUSALS:
         return None
     for cond in result.conditions:
         for value in cond.values:

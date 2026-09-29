@@ -16,7 +16,7 @@ from __future__ import annotations
 import math
 import re
 from enum import Enum
-from typing import Callable, Dict, List, NamedTuple, Optional, Sequence, Tuple, Type
+from typing import Callable, Dict, List, NamedTuple, Optional, Sequence
 
 from ..case_ids import NO_LOAD_ID, deck_load_id
 from ..constants import IN_PER_FT
@@ -33,7 +33,7 @@ from ..load_keys import (
     gyro_key,
     parse_gyro_key,
 )
-from ..models import ConditionResult, CriticalCondition, EngineInput, LoadValue, MissingInputError
+from ..models import ConditionResult, CriticalCondition, EngineInput, LoadValue
 from ..units import (
     DELIVERED_FLOOR_SIG,
     DELIVERED_SIG,
@@ -59,22 +59,11 @@ class NonFiniteValue(Exception):
     subclass this was caught by every one of them, and a NaN became an empty
     section or a file missing from the package. Derived from ``Exception``, it
     passes every narrowed handler, and the handler that could still catch it
-    (``except Exception``, a bare ``except``) is refused in the report and
-    export paths by ``tests/test_report_absence.py``.
+    (``except Exception``, a bare ``except``) is refused everywhere in
+    ``sloads/`` by ``tests/test_report_absence.py``. It is not in
+    :data:`sloads.models.REFUSALS` and subclasses neither member.
     """
 
-
-#: The two refusals a report or package path may read as "this cannot be
-#: produced from this project" (#316; ``00_program_overview.md`` §Error
-#: handling): :class:`~sloads.models.MissingInputError`, the inputs are not
-#: there, and a plain ``ValueError``, they are there and the calc refused them
-#: -- a curve half entered, an area typed as zero -- which G-OR-7 keeps a report
-#: built mid-entry building around (#71). **The one owner**: every handler in
-#: ``sloads/report/`` that turns a refusal into an absence catches this and
-#: nothing wider. Neither is silent: ``oracle_content.run_sections`` states a
-#: section's refusal in its own words. :class:`NonFiniteValue` is not in it and
-#: is not a subclass of either, so a NaN passes every such handler.
-REFUSALS: Tuple[Type[Exception], ...] = (MissingInputError, ValueError)
 
 
 def format_value(value: float, units: str = "") -> str:

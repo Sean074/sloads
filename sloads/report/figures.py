@@ -52,11 +52,10 @@ from enum import Enum
 from functools import lru_cache
 from typing import Callable, Dict, List, Mapping, Optional, Sequence, Set, Tuple
 
-from ..models import Project
+from ..models import REFUSALS, Project
 from ..models.results import ModuleResult
 from ..units import UnitSystem
 from .content import Figure
-from .render import REFUSALS
 
 
 class Stage(Enum):

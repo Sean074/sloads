@@ -56,8 +56,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, List, Sequence, Tuple
 
 from .. import csv_text
-from ..models import Project
-from .render import REFUSALS, NonFiniteValue
+from ..models import REFUSALS, Project
+from .render import NonFiniteValue
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from .content import Figure, Section, Table

@@ -125,6 +125,7 @@ Raise with a descriptive message; never silently emit a wrong or `nan` load.
 | A bounded iterative solve exhausts its trips with the iterate still moving | `raise SolverFailure` (a `ValueError` subclass, `convergence.py`) quoting the trip bound and the case — a load is never reported from a solve that did not close (#33). A non-converged solve that has reached a **fixed point** is a third outcome, *clamped*: it returns its iterate with the state attached, because a solver with no lever left is sometimes a real flight condition (`CONVENTIONS.md` §7) |
 | A project file is not at the current `SCHEMA_VERSION` (older, newer or unversioned) | `raise SchemaVersionError` (a `ValueError` subclass, `migrations.py`) naming both versions — a file no release from 0.8.7 on wrote is refused rather than reshaped, and a released one is read through the hop chain (#310). Raised once, inside `io.project_from_dict`, so every front-end refuses identically |
 | A NaN or an infinity reaches a delivered cell | `raise NonFiniteValue` (`report/render.py`, from `format_value`) naming the unit, re-raised by the package build naming the file. **Deliberately not a `ValueError`**, so no handler narrowed to a declined geometry can catch it (#316) |
+| An input a formula divides by is 0 / unset (a record added and not yet filled, a stall CL not entered) | `raise MissingInputError` **where it divides**, naming the field — never a bare `ZeroDivisionError`, which names nothing and is not a refusal (#330: the h-tail balance's effectiveness/area/ARHT, the gear axle stagger, a flaps-up set's negative stall CL) |
 | Unknown module name requested | `raise KeyError` listing the registered modules (`registry.py:30`) |
 | An optional input is omitted (e.g. measured polar inertia) | Approximate from geometry where the manual does; never emit `nan` as a reported load value |
 
@@ -135,18 +136,22 @@ its entry guards) rather than returning an empty result. A plain `ValueError` is
 reserved for present-but-invalid data and genuine defects, which must remain visible
 — before M2R-8 the registry swallowed *every* `ValueError`, hiding those defects.
 
-**The report and the issue package read the same two refusals as an absence,
-and nothing wider (#316).** G-OR-7 keeps a half-filled or half-entered project
-building a complete document and package (#71): `report.render.REFUSALS` —
+**Every caller reads the same two refusals as an absence, and nothing wider
+(#316, #330).** G-OR-7 keeps a half-filled or half-entered project
+building a complete document and package (#71): `sloads.models.REFUSALS` —
 `MissingInputError` (the inputs are not there) and a plain `ValueError` (they
 are there and the calc refused them) — is what a report or package path may turn
-into an `ABSENT` section or a file not in `data/`. The two are told apart where
+into an `ABSENT` section or a file not in `data/`, and what any other caller in
+`sloads/` may turn into a fallback or a withheld warning. The two are told apart where
 they are stated: a section absent by a `ValueError` prints the module's own
 message after `oracle_content.REFUSED_REASON`, never "not present". Anything
 else — a `KeyError`, a `ZeroDivisionError`, a `NonFiniteValue` — stops the build
-by name. No handler under `sloads/report/` or `sloads/export/` catches
-`Exception`, `BaseException` or a bare `except`, and `NonFiniteValue` is named
-only to re-raise it (guard `tests/test_report_absence.py`).
+by name. No handler in `sloads/` catches `Exception`, `BaseException` or a bare
+`except` unless its line says `# broad-except: <reason>` — the registry's
+run-all, which returns each failure with its module's name, and typing
+introspection, where no calc runs — and `NonFiniteValue` is named only to
+re-raise it (guard `tests/test_report_absence.py`, which also builds the report
+over every Optional record the GUI can add, at its blank defaults).
 
 **No silent defaults at a read (CH-2, 2026-08-16).** `getattr(obj, name, default)`
 is the shape that hides a missing attribute behind a quiet fallback; a value the

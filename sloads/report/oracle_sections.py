@@ -56,7 +56,7 @@ from ..derived_geometry import (
     wing_reference,
 )
 from ..export.deck_format import case_sf
-from ..models import MissingInputError, Project
+from ..models import REFUSALS, MissingInputError, Project
 from ..models.enums import AnalysisKind
 from ..models.inputs import EngineInput, FuselageStation
 from ..models.results import (
@@ -99,7 +99,7 @@ from .oracle_content import (
     section_ref,
     subsection_ref,
 )
-from .render import REFUSALS, format_value, sf_cell, ultimate_units
+from .render import format_value, sf_cell, ultimate_units
 
 if TYPE_CHECKING:
     # pragma: no cover - typing only, and a cycle if imported at runtime
