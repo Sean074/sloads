@@ -5,6 +5,11 @@
 **Status: AGREED 2026-09-06 (owner) — no code.** D-51.3's theory source is
 FAA **AC 23-9** (2026-09-06 review); **D-51.3a decided (owner: net β)**;
 **D-51.6 decided (owner: yaw parked with the numbers)**.
+**Re-scope pending (2026-09-28, #328):** §1 describes the fin deck note 56
+deleted; this note is to be amended against the LRA deck — 23.427(b) on every
+tail, (c) by AC 23-9 ¶5a on a T-tail, sized for the fin, the horizontal-tail
+assumption stated and checked — and re-reach AGREED before code. The scope is
+on the issue.
 
 **Tier L** (new load case, new physics on the fin deck). The T-tail transfer sits in
 the review-§3 frozen list; this note is the owner's explicit admission reopening
