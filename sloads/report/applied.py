@@ -155,6 +155,7 @@ from ..models import (
     BodyLoadResult,
     CaseRef,
     ConcentratedLoad,
+    MissingInputError,
     Project,
     TailSpanResult,
     WingLoadResult,
@@ -343,7 +344,7 @@ def _as_results(arg: ResultsArg) -> List[WingLoadResult]:
     """Coerce the argument to the list of net wing-load results to export."""
     if isinstance(arg, Project):
         if arg.loads is None or not arg.loads.wing_net:
-            raise ValueError(
+            raise MissingInputError(
                 "Project has no net wing loads to export -- run the 'net_loads' "
                 "module (build_net_loads) first so Project.loads.wing_net is set."
             )
@@ -354,7 +355,7 @@ def _as_results(arg: ResultsArg) -> List[WingLoadResult]:
         return [arg]
     results = list(arg)
     if not results:
-        raise ValueError("no wing-load results to export")
+        raise MissingInputError("no wing-load results to export")
     return results
 
 
@@ -921,12 +922,9 @@ def fuselage_applied_load_rows(arg, project: Optional[Project] = None
     """
     from ..derived_geometry import fuselage_lra
 
-    lra = None
-    if project is not None:
-        try:
-            lra = fuselage_lra(project)
-        except Exception:           # an airplane with no body geometry entered
-            lra = None
+    # ``fuselage_lra`` is total: an airplane with no body geometry entered
+    # comes back as the "none" source, so nothing here is caught (#316).
+    lra = fuselage_lra(project) if project is not None else None
     out: List[AppliedLoad] = []
     for result in _body_results(arg):
         sf = case_sf(result)
@@ -1652,7 +1650,7 @@ def body_station_gids(result: BodyLoadResult) -> List[int]:
 def _body_results(arg: "Union[Project, BodyLoadResult, Sequence[BodyLoadResult]]") -> List[BodyLoadResult]:
     if isinstance(arg, Project):
         if arg.loads is None or not arg.loads.body_net:
-            raise ValueError(
+            raise MissingInputError(
                 "Project has no net body loads to export -- run the 'body_loads' "
                 "module (build_body_loads) first so Project.loads.body_net is set."
             )
@@ -1661,7 +1659,7 @@ def _body_results(arg: "Union[Project, BodyLoadResult, Sequence[BodyLoadResult]]
         return [arg]
     results = list(arg)
     if not results:
-        raise ValueError("no body-load results to export")
+        raise MissingInputError("no body-load results to export")
     return results
 
 
@@ -1762,14 +1760,14 @@ def _tail_span_results(arg, component: str) -> List:
                 "'htail' or 'vtail'")
         slice_ = slices[component]
         if not slice_:
-            raise ValueError(
+            raise MissingInputError(
                 f"Project has no spanwise {component} loads to export -- run the "
                 f"'tail_span' module (build_tail_span) first so "
                 f"Project.loads.{component}_span is set.")
         return list(slice_)
     results = [arg] if isinstance(arg, TailSpanResult) else list(arg)
     if not results:
-        raise ValueError(f"no spanwise {component} results to export")
+        raise MissingInputError(f"no spanwise {component} results to export")
     return results
 
 

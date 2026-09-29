@@ -56,6 +56,7 @@ from ..models import Project
 from ..models.results import ModuleResult
 from ..units import UnitSystem
 from .content import Figure
+from .render import REFUSALS
 
 
 class Stage(Enum):
@@ -218,9 +219,14 @@ def results_for_step(project: Project, step: str,
     *and* by module name for the same reason ``run_sections`` is: a page that
     names three programs produces numbers from all three.
 
-    Catching broadly matches ``run_sections``: a half-filled project must still
-    draw the figures it can, and a traceback out of here would take a page down
-    over one absent slice.
+    The same two refusals ``run_sections`` catches, and nothing else (#316): a
+    :class:`~sloads.models.MissingInputError` (the inputs are not there) and a
+    plain ``ValueError`` (they are there and the module refused them -- a page
+    mid-entry, #121). Neither is silent: the page's own run of the same module
+    states the refusal as the block's note (``oracle_app/results.py``
+    ``_NOT_READY``), and this only keeps the figure block from crashing the
+    page over it. :class:`~sloads.report.render.NonFiniteValue` is not a
+    ``ValueError`` and any other exception is a defect: both raise.
     """
     from ..registry import get as get_module
     from ..workflow import BY_KEY, step_modules
@@ -231,7 +237,7 @@ def results_for_step(project: Project, step: str,
     for name in modules:
         try:
             result: Optional[ModuleResult] = get_module(name)(project)
-        except Exception:  # see the docstring
+        except REFUSALS:  # see the docstring
             result = None
         out[step if name == primary else name] = result
     return out

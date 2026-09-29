@@ -57,6 +57,7 @@ from typing import TYPE_CHECKING, Callable, List, Sequence, Tuple
 
 from .. import csv_text
 from ..models import Project
+from .render import REFUSALS, NonFiniteValue
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from .content import Figure, Section, Table
@@ -297,11 +298,15 @@ def _named_files(doc: "OracleDocument") -> List[DataFile]:
                              drawn_by=ref)
         try:
             content = build(header)
-        except Exception:      # see the module docstring of
-            # ``run_sections``: a half-filled project must still build a package,
-            # and a producer that raises on one means that file is absent, not
-            # that the package is.
+        except REFUSALS:       # see ``run_sections``: a half-filled project
+            # must still build a package, and a producer that refuses one means
+            # that file is absent, not that the package is -- the section that
+            # owns the file states the refusal. Nothing wider is caught (#316):
+            # a NaN on its way into a cell raises NonFiniteValue naming the file
+            # (below), and any other exception is a defect.
             return
+        except NonFiniteValue as exc:
+            raise NonFiniteValue(f"{_path(name)}: {exc}") from exc
         if not _has_rows(content):
             return
         out.append(DataFile(_path(name), content, contents=contents, units=units,
@@ -331,9 +336,9 @@ def _named_files(doc: "OracleDocument") -> List[DataFile]:
         from ..export.balanced_deck import build_balanced_cases
         try:
             assembled = build_balanced_cases(project) or []
-        except Exception:      # the same rule as ``add`` below: a project that
-            assembled = []     # assembles nothing has no assembled column, not
-                               # no index.
+        except REFUSALS:       # the same rule as ``add`` below: a project
+            assembled = []     # that assembles nothing has no assembled
+                               # column, not no index.
         return rt.case_index_csv_from(*groups, header_comment=header,
                                       assembled=assembled)
 
@@ -417,8 +422,10 @@ def _load_case_files(doc: "OracleDocument") -> List[DataFile]:
         header = data_header(doc, name=path, step_key=name, drawn_by=ref)
         try:
             content = io_.load_cases_csv(result, header, system=doc.system)
-        except Exception:      # as above
+        except REFUSALS:       # as in ``add``
             continue
+        except NonFiniteValue as exc:
+            raise NonFiniteValue(f"{path}: {exc}") from exc
         if not _has_rows(content):
             continue
         out.append(DataFile(
