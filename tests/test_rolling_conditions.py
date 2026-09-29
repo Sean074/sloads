@@ -389,10 +389,61 @@ def test_an_entered_couple_is_published_as_entered():
     assert row.entered == ("unbal_moment",)
     assert got["roll_acceleration"].value == pytest.approx(row.roll_accel, rel=1e-12)
     derived = accel_roll_unbalanced_moment(row.cond_a_root_mxx, row.other_side_percent)
-    assert derived == pytest.approx(-1614422.0, rel=1e-3)   # what was published before
+    # What was published before #315, at condition A of 20,000 ft; since #320's
+    # tie the slot is flown at sea level (V-n case 40), condition A root 6,498,159.
+    assert derived == pytest.approx(-1624540.0, rel=1e-3)
     assert got["condition_a_root_mxx"].value == pytest.approx(row.cond_a_root_mxx, rel=1e-12)
     assert "entered_cl" not in got and "entered_v_eas" not in got
 
+
+
+# --------------------------------------------------------------------------- #
+# #321's rolling riders (ride #320): one owner per rule, refusals by name
+# --------------------------------------------------------------------------- #
+def test_the_rolling_rules_have_one_owner_each():
+    """``Δcm = -0.01·δ`` is ``constants.AILERON_DCM_PER_DEG``, and the CAM 3.222
+    schedule is ``aileron.cam_3222_deflection`` -- read by AILERON and the
+    steady roll alike, each with its own speeds (rule 3)."""
+    import ast
+    import inspect
+
+    from sloads.constants import AILERON_DCM_PER_DEG
+    from sloads.modules import aileron, rolling, select
+
+    assert AILERON_DCM_PER_DEG == -0.01
+    for mod in (rolling, select):
+        literals = [n.value for n in ast.walk(ast.parse(inspect.getsource(mod)))
+                    if isinstance(n, ast.Constant) and n.value == 0.01]
+        assert not literals, mod.__name__
+    for mod in (rolling, aileron):
+        assert "va / vc" not in inspect.getsource(mod), mod.__name__
+    # Appendix A p. 200's schedule: VA 121.3, VC 170, VD 212.4 at 15 deg down.
+    va, vc, vd = 121.3, 170.0, 212.4
+    assert aileron.cam_3222_deflection("A", va, va, 15.0) == 15.0
+    assert aileron.cam_3222_deflection("C", va, vc, 15.0) == pytest.approx(10.703, rel=1e-3)
+    assert aileron.cam_3222_deflection("D", va, vd, 15.0) == pytest.approx(0.5 * 15.0 * va / vd)
+    with pytest.raises(ValueError):
+        aileron.cam_3222_deflection("B", va, vc, 15.0)
+
+
+def test_a_project_without_a_category_is_refused_not_given_the_normal_rule():
+    """D-52.7: flagged, never defaulted -- the 23.349(a) percentage needs the
+    project's category, and a project without STRSPEED's is refused by name."""
+    from sloads.models import MissingInputError
+    from sloads.modules.rolling import roll_other_side_percent
+
+    p = io.load_project(_GA)
+    p.speeds = None
+    with pytest.raises(MissingInputError, match="category"):
+        roll_other_side_percent(p)
+
+
+def test_a_zero_roll_inertia_is_refused_not_a_zero_acceleration():
+    """``UNB·g/Iwxx`` with ``Iwxx = 0`` is no acceleration of zero: refused."""
+    from sloads.models import MissingInputError
+
+    with pytest.raises(MissingInputError, match="Iwxx"):
+        roll_acceleration(-149043.0, 0.0)
 
 if __name__ == "__main__":  # zero-dependency self-runner
     sys.exit(pytest.main([__file__, "-p", "no:xdist", "-q"]))

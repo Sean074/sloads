@@ -339,7 +339,8 @@ def test_critical_wing_conditions_match_appendix_a():
         # registered at 23.349(a)(2)) balances AC ROLL at 0.875*n1, not the
         # manual's 0.855*n1; the CG2 roll points' LZW then tie across altitude
         # to 0.13 % -- inside the balance's 0.5 % -- and sea level takes the
-        # slot (V-n case 40). The 12,000 ft point is CL 1.361 at 115.9 kt.
+        # slot (V-n case 40): since #320 on the tie's net root Mxx, 400,817
+        # against 400,315 lb-in. The 12,000 ft point is CL 1.361 at 115.9 kt.
         # tests/test_rolling_conditions.py states the full move.
         ("ACRL", "AC ROLL", 1.326, 117.45),
         ("TORS", "ST ROL C", 0.470, 170.00),
@@ -803,6 +804,90 @@ def test_the_rod_izz_resolver_is_the_calcs_own_number():
     assert izz is not None and izz > 0
     assert fr.external_value("geometry.empennage.vtail.izz_slugft2", p) == izz
 
+
+
+# --------------------------------------------------------------------------- #
+# #320: the ACRL tie -- LZW within the balance's resolution, broken on the
+# net root Mxx the slot delivers
+# --------------------------------------------------------------------------- #
+_RJ = os.path.join(_EXAMPLES, "concept_regional_jet.project.json")
+
+
+def _rj_fwd_gross():
+    p = io.load_project(_RJ)
+    return p, [q for q in select.vn_points(p) if q.cg == "fwd gross"]
+
+
+def test_the_accel_roll_tie_band_is_the_balance_resolution():
+    """The band is the balance's own number, never a second literal (rule 3)."""
+    import inspect
+
+    from sloads import constants
+
+    assert select.LZW_TIE_REL is constants.NZ_BALANCE_TOL
+    assert "0.005" not in inspect.getsource(select._accel_roll_band)
+
+
+def test_an_accel_roll_tie_is_broken_on_the_net_root_bending():
+    """**#320**: the regional jet's fwd gross roll points at 20,000 ft (V-n case
+    180) and sea level (40) differ by 0.185 % in LZW, inside the balance's
+    0.5 %. SELECT.BAS took 180 on LZW; the tie goes to 40, whose net root Mxx
+    is the larger (5,527,521 against 5,486,079 lb-in, measured 2026-09-29), and
+    the variant table delivers the slot there."""
+    from sloads.modules.wing_variants import assessor, wing_variant_table
+
+    p, vn = _rj_fwd_gross()
+    band = select._accel_roll_band(vn)
+    assert [q.case for q in band] == [180, 40]
+    gap = (band[0].lzw - band[1].lzw) / band[0].lzw
+    assert 0.0 < gap < select.LZW_TIE_REL
+    run = assessor(p)
+    assert not isinstance(run, str)
+    mxx = {q.case: run("ACRL", "23.349(a)(2)", q, vn).root_mxx for q in band}
+    assert mxx[40] == pytest.approx(5527521.0, rel=1e-4)
+    assert mxx[180] == pytest.approx(5486079.0, rel=1e-4)
+    assert select._pick_accel_roll(p, vn, "23.349(a)(2)").case == 40
+    row = wing_variant_table(p).governing()["ACRL"]
+    assert (row.case, row.cg) == (40, "fwd gross")
+    assert row.root_mxx == pytest.approx(mxx[40], rel=1e-12)
+    acrl = next(c for c in select.select_wing(p) if c.label == "ACRL")
+    assert "#320" in acrl.note and "case 40" in acrl.note
+
+
+def test_a_lift_change_inside_the_band_does_not_move_the_pick():
+    """The point of the band: moving either tied point's LZW by less than the
+    balance's resolution -- what a change to the iteration does -- leaves the
+    pick where it was, and a point pushed out of the band leaves the tie."""
+    p, vn = _rj_fwd_gross()
+    top = max(q.lzw for q in vn if q.case in (40, 180))
+
+    def with_lzw(case: int, lzw: float):
+        return [replace(q, lzw=lzw) if q.case == case else q for q in vn]
+
+    # Case 40 now the larger lift, then case 180 raised almost to the band's edge.
+    for moved in (with_lzw(40, top * 1.001), with_lzw(180, top * 1.003)):
+        assert select._pick_accel_roll(p, moved, "23.349(a)(2)").case == 40
+    # Case 40 dropped out of the band: SELECT.BAS's largest LZW, alone.
+    out = with_lzw(40, top * (1.0 - 2.0 * select.LZW_TIE_REL))
+    assert [q.case for q in select._accel_roll_band(out)] == [180]
+    assert select._pick_accel_roll(p, out, "23.349(a)(2)").case == 180
+
+
+def test_an_accel_roll_tie_without_a_wing_model_keeps_the_largest_lift():
+    """No wing model, no root bending to rank on: the tie falls to SELECT.BAS's
+    largest LZW, and the delivered ACRL says so with the reason."""
+    p = io.load_project(_RJ)
+    p.wing_mass = None
+    acrl = next(c for c in select.select_wing(p) if c.label == "ACRL")
+    assert acrl.case == 180
+    assert "#320" in acrl.note and "cannot run" in acrl.note and "wing_mass" in acrl.note
+
+
+def test_an_untied_accel_roll_says_nothing():
+    """concept_heavy has one roll point in its band: no tie, no note."""
+    p = io.load_project(os.path.join(_EXAMPLES, "concept_heavy.project.json"))
+    acrl = next(c for c in select.select_wing(p) if c.label == "ACRL")
+    assert "#320" not in acrl.note
 
 if __name__ == "__main__":
     import traceback

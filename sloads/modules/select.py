@@ -15,7 +15,9 @@ iteration and WINGINER/NETLOADS:
   NMAA  largest resultant among the negative VC points MAN -C / GUST -C
         (negative medium angle of attack; FAR 23.333(c) or (b)) -- narrowed
         from the .BAS's five negative labels by design note 62 D-62.1
-  ACRL  largest LZW among the accelerated-roll points (FAR 23.349(a))
+  ACRL  largest LZW among the accelerated-roll points (FAR 23.349(a)); points
+        within ``LZW_TIE_REL`` of it tie, and the largest net root Mxx takes
+        the slot (#320)
   TORS  steady-roll condition with the most negative aileron-induced torsion proxy
         (CM - 0.01*aileron_deg)*G*V^2 among ST ROL A/C/D, with the aileron
         deflection per CAM 3.222 (DA at VA, DC = (VA/VC)*DA at VC,
@@ -75,12 +77,13 @@ from __future__ import annotations
 
 import math
 from dataclasses import replace
-from typing import Callable, Dict, List, NamedTuple, Optional, Tuple
+from typing import TYPE_CHECKING, Callable, Dict, List, NamedTuple, Optional, Tuple
 
 from ..aero_curves import inertia_drag_factor
 from ..case_ids import WING_BAND_EXTRA, WING_SLOTS, CaseIdAllocator, wing_case_id
 from ..cg_cases import flight_cases, max_takeoff_weight
 from ..constants import (
+    AILERON_DCM_PER_DEG,
     DEG_PER_RAD,
     GUST_LOAD_FACTOR_DIVISOR,
     IN_PER_FT,
@@ -120,6 +123,9 @@ from ._vtail import large_deflection_factor, lift_curve_slope, rudder_effectiven
 from .flight_envelope import build_envelope, density_ratio, design_inputs
 from .rolling import ACCEL_ROLL_SLOTS, STEADY_ROLL_SLOTS, steady_roll_deflection, steady_roll_schedule
 
+if TYPE_CHECKING:
+    from .wing_variants import Assessor
+
 MODULE_NAME = "select"
 
 # V-n condition labels grouped by the wing search they belong to (SELECT.BAS
@@ -150,6 +156,13 @@ _NZ_SLOTS = ("PNZ", "NNZ")
 #: differ by up to twice it. ``picks.TIE_REL`` (1e-9, relative) is the
 #: platform-stability tie and never matches two balanced points.
 NZ_TIE_BAND = 2.0 * NZ_BALANCE_TOL
+#: Two accelerated-roll points whose wing lift ``LZW`` differs by no more than
+#: this fraction of the larger carry the **same lift** (#320): each balances
+#: ``nz`` to ``NZ_BALANCE_TOL``, so two points at one target differ by up to
+#: ``NZ_TIE_BAND`` -- 0.46 % of the lift at the ATR's 2.19 g, the smallest
+#: roll load factor of the fixtures. The ACRL tie is then broken on the net
+#: root ``Mxx`` the slot delivers (D-62.8's pattern, the wing's own criterion).
+LZW_TIE_REL = NZ_BALANCE_TOL
 
 
 def _check_envelope_cg_cases(project: Project, env: EnvelopeResult) -> None:
@@ -344,6 +357,38 @@ def _pick_load_factor(vn: List[VnPoint], labels, eligible: Callable[[VnPoint], b
     return extreme(tied, _resultant)
 
 
+def _accel_roll_band(vn: List[VnPoint]) -> List[VnPoint]:
+    """The accelerated-roll points within :data:`LZW_TIE_REL` of the largest
+    ``LZW``, largest first -- the ACRL tie (#320)."""
+    cands = [p for p in vn if p.condition in _ACRL]
+    if not cands:
+        return []
+    best = extreme(cands, lambda p: p.lzw)
+    band = [p for p in cands if best.lzw - p.lzw <= LZW_TIE_REL * abs(best.lzw)]
+    return [best] + [p for p in band if p is not best]
+
+
+def _pick_accel_roll(project: Project, vn: List[VnPoint], far: str,
+                     rank: Optional[Assessor] = None) -> Optional[VnPoint]:
+    """ACRL: the largest ``LZW`` (SELECT.BAS), a tie broken on the net root
+    ``Mxx`` the slot would deliver at each tied point (#320) -- the variant
+    table's own row, run by ``rank`` (``wing_variants.Assessor``; built here
+    when the caller has none). A project the wing analysis cannot run on keeps
+    SELECT.BAS's largest ``LZW``, and :func:`select_wing` says so."""
+    band = _accel_roll_band(vn)
+    if len(band) < 2:
+        return band[0] if band else None
+    if rank is None:
+        from .wing_variants import assessor  # lazy: wing_variants imports this module
+
+        built = assessor(project)
+        if isinstance(built, str):
+            return band[0]
+        rank = built
+    runs = [(p, rank("ACRL", far, p, vn).root_mxx) for p in band]
+    return extreme(runs, lambda t: t[1])[0]
+
+
 def _steady_roll_torsion(vn: List[VnPoint], aileron_deg: float, cm: float) -> Optional[VnPoint]:
     """The steady-roll point with the most negative aileron-induced wing torsion
     (SELECT.BAS 3372-3465). Aileron deflection per CAM 3.222 scales with the
@@ -360,7 +405,7 @@ def _steady_roll_torsion(vn: List[VnPoint], aileron_deg: float, cm: float) -> Op
         if p.condition not in _STROLL:
             continue
         defl = steady_roll_deflection(schedule, p)
-        ta = (cm - 0.01 * defl) * p.g_corr * p.v_eas_kt ** 2
+        ta = (cm + AILERON_DCM_PER_DEG * defl) * p.g_corr * p.v_eas_kt ** 2
         if ta < best_ta:
             best_ta, best = ta, p
     return best
@@ -437,7 +482,7 @@ SLOT_LIFT_SIGN: Dict[str, float] = {
 AIR_PICK_SLOTS = ("TORS", "PNZ", "NNZ")
 
 
-def wing_slot_picks(project: Project, vn: List[VnPoint]
+def wing_slot_picks(project: Project, vn: List[VnPoint], rank: Optional[Assessor] = None
                     ) -> List[Tuple[str, str, Optional[VnPoint]]]:
     """The ten wing slots' picks over ``vn`` -- SELECT.BAS 3000's search plus
     the note 62 slots, in ``WING_SLOTS`` order, each ``(label, 14 CFR, point)``.
@@ -450,7 +495,9 @@ def wing_slot_picks(project: Project, vn: List[VnPoint]
     applied here but once, on the delivered set (:func:`select_wing`,
     #294) -- a slot's pick is a fact of the matrix whatever the other slots
     picked, so every slot is assessed at every case and the air-pick slots
-    keep their air pick through the re-pointing.
+    keep their air pick through the re-pointing. ``rank`` runs the ACRL
+    tie's candidates (:func:`_pick_accel_roll`); the variant table passes its
+    own so the wing model is built once.
     """
     si = project.select_input
     aileron_deg = resolved_full_down_aileron_deg(project)   # OV-2: blank derives
@@ -461,7 +508,7 @@ def wing_slot_picks(project: Project, vn: List[VnPoint]
         ("PLAA", "23.333(b)", _pick(vn, _PLAA, _resultant)),
         ("PMAA", "23.333(c)or(b)", _pick(vn, _PMAA, lambda p: p.lzw)),
         ("NMAA", "23.333(c)or(b)", _pick(vn, _NMAA, _resultant, _wing_lift_negative)),
-        ("ACRL", "23.349(a)(2)", _pick(vn, _ACRL, lambda p: p.lzw)),
+        ("ACRL", "23.349(a)(2)", _pick_accel_roll(project, vn, "23.349(a)(2)", rank)),
         ("TORS", "23.349(b)", _steady_roll_torsion(vn, aileron_deg, cm)),
         # Above the .BAS (note 62): the negative triad's other two members and
         # the load-factor-extreme pair, in WING_SLOTS order (D-62.3).
@@ -544,6 +591,8 @@ def select_wing(project: Project, envelope: Optional[EnvelopeResult] = None) -> 
                 continue
             c = _condition("wing", label, far, p, weights)
             c.loads += _rolling_loads(project, table, label, p, env.vn)
+            if label in ACCEL_ROLL_SLOTS:
+                c.note = _accel_roll_tie_note(env.vn, p, table.reason)
             bare.append(c)
         return bare
     by_case = {p.case: p for p in env.vn}
@@ -561,14 +610,34 @@ def select_wing(project: Project, envelope: Optional[EnvelopeResult] = None) -> 
             continue
         c = _condition("wing", label, far, p, weights)
         c.loads += _rolling_loads(project, table, label, p, env.vn)
+        notes = []
+        if label in ACCEL_ROLL_SLOTS and a is not None:
+            notes.append(_accel_roll_tie_note(env.vn, a))
         if a is not None and a.case != p.case:
-            c.note = (f"net-governing run (design note 63 D-63.7): root Mxx "
-                      f"{governing[label].root_mxx:,.0f} lb-in at '{p.cg}' against "
-                      f"{_air_mxx(table, label, a.case):,.0f} lb-in at SELECT's air "
-                      f"pick, V-n case {a.case} ({a.condition}, {a.cg}, "
-                      f"{a.altitude_ft:.0f} ft, {a.config})")
+            notes.append(f"net-governing run (design note 63 D-63.7): root Mxx "
+                         f"{governing[label].root_mxx:,.0f} lb-in at '{p.cg}' against "
+                         f"{_air_mxx(table, label, a.case):,.0f} lb-in at SELECT's air "
+                         f"pick, V-n case {a.case} ({a.condition}, {a.cg}, "
+                         f"{a.altitude_ft:.0f} ft, {a.config})")
+        c.note = "  ".join(n for n in notes if n)
         out.append(c)
     return out
+
+
+def _accel_roll_tie_note(vn: List[VnPoint], pick: VnPoint, refused: str = "") -> str:
+    """What the ACRL tie (#320) decided, when it decided anything: ``""`` when
+    the band holds one point or the tie-break kept the largest ``LZW``."""
+    band = _accel_roll_band(vn)
+    if len(band) < 2 or (pick is band[0] and not refused):
+        return ""
+    cases = ", ".join(str(p.case) for p in band)
+    head = (f"accelerated-roll tie (#320): V-n cases {cases} lie within "
+            f"{LZW_TIE_REL:.1%} of the largest wing lift (case {band[0].case})")
+    if refused:
+        return (f"{head}; the wing analysis cannot run ({refused}), so SELECT.BAS's "
+                "largest wing lift takes the slot")
+    return (f"{head}; case {pick.case} ({pick.altitude_ft:.0f} ft) delivers the "
+            "largest net root Mxx and takes the slot")
 
 
 def _rolling_loads(project: Project, table, label: str, p: VnPoint,

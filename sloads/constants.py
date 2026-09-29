@@ -79,6 +79,13 @@ FAR23_473G_NLG_FLOOR = 2.0
 # ``docs/20_theory/02_approved_corrections.md`` §23.349(a)(2).
 ROLL_OTHER_SIDE_PERCENT = 75.0
 
+# FAR 23.349(b) steady roll: the aileron's section pitching-moment increment
+# per degree of down deflection, ``Δcm = -0.01 * δ`` (Ref 1 Ch 12 p. 93;
+# SELECT.BAS's torsion proxy ``(CM - .01*DEFL)``). One owner for the ranking
+# (``select._steady_roll_torsion``) and the applied increment
+# (``rolling.aileron_cm_increment``), design note 52 D-52.5.
+AILERON_DCM_PER_DEG = -0.01
+
 
 class UnsupportedCategoryError(ValueError):
     """A regulatory rule sloads has not implemented for this certification

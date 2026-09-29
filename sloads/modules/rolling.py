@@ -40,9 +40,10 @@ from dataclasses import replace
 from typing import Dict, Iterable, List, NamedTuple, Optional, Sequence, Tuple
 
 from ..cg_cases import max_takeoff_weight
-from ..constants import IN_PER_FT, G, other_side_percent
+from ..constants import AILERON_DCM_PER_DEG, IN_PER_FT, G, other_side_percent
 from ..derived_geometry import wing_plane
 from ..models import AeroSurfaceInput, MissingInputError, Project, VnPoint, WingLoadCase
+from .aileron import cam_3222_deflection
 from .airloads import _interp_yv, air_load_distribution
 
 __all__ = [
@@ -87,8 +88,16 @@ _G_IN_S2 = G * IN_PER_FT
 def roll_other_side_percent(project: Project) -> float:
     """The project's 23.349(a) other-side percentage ``p`` -- the one owner
     (:func:`sloads.constants.other_side_percent`) at the design maximum weight
-    (D-52.8) and the project's category (D-52.7/D-52.13 refuse acrobatic)."""
-    category = project.speeds.category if project.speeds is not None else "N"
+    (D-52.8) and the project's category (D-52.7/D-52.13 refuse acrobatic).
+
+    The category is the project's own (STRSPEED's ``speeds.category``); a
+    project without it is refused by name, never given the normal rule
+    (D-52.7: flagged, never defaulted)."""
+    if project.speeds is None:
+        raise MissingInputError(
+            "the 23.349(a) other-side percentage needs the certification category "
+            "(the structural speeds, STRSPEED) -- design note 52 D-52.7")
+    category = project.speeds.category
     return other_side_percent(max_takeoff_weight(project, required=False) or 0.0, category)
 
 
@@ -143,7 +152,12 @@ def roll_acceleration(unbal_moment: float, iwxx: float) -> float:
     """WINGINER's roll acceleration ``theta_ddot = UNB * g / Iwxx`` (rad/s^2),
     ``Iwxx`` the semispan roll inertia (lb-in^2). Appendix A p. 219 prints
     ``-13.287`` for ``UNB -149,043``."""
-    return unbal_moment * _G_IN_S2 / iwxx if iwxx else 0.0
+    if not iwxx:
+        raise MissingInputError(
+            "the roll acceleration UNB*g/Iwxx needs the semispan's roll inertia, "
+            "and the wing's mass model gives Iwxx = 0 (no panel or point mass off "
+            "the centreline)")
+    return unbal_moment * _G_IN_S2 / iwxx
 
 
 class RollDerivation(NamedTuple):
@@ -228,9 +242,9 @@ def steady_roll_schedule(vn: Iterable[VnPoint], aileron_deg: float
     for alt, sp in speeds.items():
         va, vc, vd = sp.get("A", 0.0), sp.get("C", 0.0), sp.get("D", 0.0)
         out[alt] = {
-            "A": aileron_deg,
-            "C": (va / vc * aileron_deg) if vc else 0.0,
-            "D": (0.5 * va / vd * aileron_deg) if vd else 0.0,
+            "A": cam_3222_deflection("A", va, va, aileron_deg),
+            "C": cam_3222_deflection("C", va, vc, aileron_deg) if vc else 0.0,
+            "D": cam_3222_deflection("D", va, vd, aileron_deg) if vd else 0.0,
         }
     return out
 
@@ -301,7 +315,7 @@ def aileron_cm_increment(section_cm: Sequence[Tuple[float, float]],
         return _interp_yv(base, y)
 
     inb, outb = sorted((inboard_y, outboard_y))
-    dcm = -0.01 * delta_deg
+    dcm = AILERON_DCM_PER_DEG * delta_deg
     ys = sorted({float(y) for y, _ in base} | {0.0, float(tip_y)})
     rows: List[Tuple[float, float]] = [(y, at(y)) for y in ys if y < inb - _STEP_IN]
     if inb - _STEP_IN >= 0.0:

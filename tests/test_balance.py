@@ -423,8 +423,10 @@ _CLAMPED_BODY_AXIAL = {
     "atr42_100.project.json": {"NHAA": (0.0020, 0.0150)},
     "baron_58.project.json": {"NHAA": (0.0020, 0.0005)},
     "concept_heavy.project.json": {"NHAA": (0.0030, 0.0070)},
+    # concept_regional_jet ACRL re-measured 2026-09-29 (#320): the tie moved the
+    # slot to sea level (V-n case 40), force 0.451 %, pitch 0.346 %.
     "concept_regional_jet.project.json": {"PHAA": (0.0110, 0.0065),
-                                          "ACRL": (0.0020, 0.0020),
+                                          "ACRL": (0.0050, 0.0040),
                                           "NHAA": (0.0165, 0.0075)},
 }
 

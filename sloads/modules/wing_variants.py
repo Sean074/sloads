@@ -30,17 +30,20 @@ and SELECT then delivers its air picks unchanged.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
 
 from ..aero_curves import inertia_drag_factor
 from ..cg_cases import flight_cases
 from ..derived_geometry import require_integrable_planform, sync_geometry_derived, wing_plane
-from ..mass_distribution import panel_weight, wing_mass_state
+from ..mass_distribution import WingMassState, panel_weight, wing_mass_state
 from ..models import (
+    AeroSurfaceInput,
+    CgCase,
     CriticalCondition,
     EnvelopeResult,
     MissingInputError,
     Project,
+    SurfaceInput,
     VnPoint,
     WingLoadCase,
 )
@@ -55,7 +58,13 @@ from .rolling import (
     roll_other_side_percent,
     steady_roll_aero,
 )
-from .wing_inertia import fold_units, panel_shape, wing_inertia_distribution
+from .wing_inertia import (
+    _InertiaUnits,
+    _PanelShape,
+    fold_units,
+    panel_shape,
+    wing_inertia_distribution,
+)
 
 #: Two variants whose signed root ``Mxx`` agree to this are a tie and the air
 #: pick keeps the slot. It is the FLTLOADS balance's own resolution: the
@@ -70,8 +79,8 @@ GOVERNING_TIE_REL = 5e-3
 #: derivation (``rolling.complete_rolling_case``).
 _ROLL_FIELDS: Tuple[str, ...] = ("cl", "v_eas_kt", "unbal_moment")
 
-__all__ = ["GOVERNING_TIE_REL", "WingVariant", "WingVariantTable", "governing_points",
-           "wing_variant_table"]
+__all__ = ["GOVERNING_TIE_REL", "Assessor", "WingVariant", "WingVariantTable", "assessor",
+           "governing_points", "wing_variant_table"]
 
 
 @dataclass(frozen=True)
@@ -159,23 +168,13 @@ def wing_variant_table(project: Project, envelope: Optional[EnvelopeResult] = No
     env = envelope if envelope is not None else _select.default_envelope(project)
     picks = list(air_picks) if air_picks is not None else _select.air_picks(project, env)
     air_case = {c.label: c.case for c in picks if c.case is not None}
-    sync_geometry_derived(project)
-    wm = project.wing_mass
-    if wm is None:
-        return WingVariantTable(reason="the project has no 'wing_mass' inputs")
-    geom = project.geometry.by_name(wm.surface) if project.geometry is not None else None
-    aero = project.aero.by_name(wm.surface) if project.aero is not None else None
-    if geom is None or aero is None:
-        return WingVariantTable(reason=f"the project has no '{wm.surface}' geometry and aero surfaces")
-    try:
-        require_integrable_planform(geom)
-    except MissingInputError as exc:
-        return WingVariantTable(reason=str(exc))
-    plane = wing_plane(project, wm.surface)
-    shape = panel_shape(geom, wm, *plane, panel_weight(project))
+    model = _wing_model(project)
+    if isinstance(model, str):
+        return WingVariantTable(reason=model)
     vn: List[VnPoint] = list(env.vn)
     by_case = {p.case: p for p in vn}
-    far_of = {label: far for label, far, _ in _select.wing_slot_picks(project, vn)}
+    rank = Assessor(project, model)
+    far_of = {label: far for label, far, _ in _select.wing_slot_picks(project, vn, rank)}
     # The 23.349(a) percentage once per table (D-52.1); FLTLOADS has already
     # refused an acrobatic project through the same owner (D-52.13).
     percent = roll_other_side_percent(project)
@@ -185,8 +184,8 @@ def wing_variant_table(project: Project, envelope: Optional[EnvelopeResult] = No
         if not vn_k:
             continue
         state = wing_mass_state(project, k.name)
-        units = fold_units(shape, state.panel_weight_lb, state.point_masses)
-        rows = [(label, far, p) for label, far, p in _select.wing_slot_picks(project, vn_k)
+        units = fold_units(model.shape, state.panel_weight_lb, state.point_masses)
+        rows = [(label, far, p) for label, far, p in _select.wing_slot_picks(project, vn_k, rank)
                 if p is not None]
         # Every air pick has a row at its own CG case (#294): the whole-matrix
         # pick is normally that case's own family pick, but a tie resolved
@@ -196,53 +195,134 @@ def wing_variant_table(project: Project, envelope: Optional[EnvelopeResult] = No
         rows += [(label, far_of[label], by_case[case]) for label, case in air_case.items()
                  if label not in assessed and case in by_case and by_case[case].cg == k.name]
         for label, far, p in rows:
-            nz = -p.nz
-            nx = inertia_drag_factor(p.dx, k.weight_lb)
-            # The accelerated roll's 100 % side carries condition A's air and
-            # the couple derived from it (note 52, D-52.10/D-52.2) -- ranked on
-            # the load it delivers, couple included (#295).
-            # An entered value wins here as it does in the wing chain and the
-            # balanced deck: the one resolver, so the row SELECT ranks and
-            # publishes is the case that is flown (#315).
-            roll = (derive_accel_roll(project, vn, p, percent)
-                    if label in ACCEL_ROLL_SLOTS else None)
-            entered: Tuple[str, ...] = ()
-            if roll is not None:
-                typed = entered_rolling_case(project, label)
-                entered = tuple(f for f in _ROLL_FIELDS
-                                if typed is not None and getattr(typed, f) is not None)
-                flown = complete_rolling_case(
-                    project, WingLoadCase(name=label, case=p.case,
-                                          **{f: getattr(typed, f) for f in entered}),
-                    by_case, roll)
-                # ``p`` is in ``by_case``, so the resolver always fills the air point.
-                if flown.cl is None or flown.v_eas_kt is None:
-                    raise LookupError(f"ACRL at V-n case {p.case} was not completed")
-                cl, v_eas, unb = flown.cl, flown.v_eas_kt, flown.unbal_moment or 0.0
-            else:
-                cl, v_eas, unb = p.cl, p.v_eas_kt, 0.0
-            inertia = wing_inertia_distribution(
-                WingLoadCase(name=label, case=p.case, nz=nz, nx=nx, unbal_moment=unb), units)
-            air = air_load_distribution(
-                geom, steady_roll_aero(project, aero, label, p, vn), cl, v_eas, *plane)
-            a_mxx = air.stations[0].mxx
-            i_mxx = inertia.stations[0].mxx
-            variants.append(WingVariant(
-                slot=label, far_reference=far, cg=k.name, case=p.case,
-                run=p.condition, config=p.config, altitude_ft=p.altitude_ft,
-                v_eas_kt=v_eas, cl=cl, nz=nz, nx=nx, weight_lb=k.weight_lb,
-                air_root_mxx=a_mxx, inertia_root_mxx=i_mxx, root_mxx=a_mxx + i_mxx,
-                mass_state=state.label, mass_state_case=state.case,
-                air_pick=(air_case.get(label) == p.case),
-                unbal_moment=unb,
-                roll_accel=roll_acceleration(unb, units.iwxx) if roll is not None else 0.0,
-                other_side_percent=roll.percent if roll is not None else None,
-                cond_a_case=roll.cond_a.case if roll is not None else None,
-                cond_a_cl=roll.cond_a.cl if roll is not None else None,
-                cond_a_v_eas_kt=roll.cond_a.v_eas_kt if roll is not None else None,
-                cond_a_root_mxx=roll.root_mxx if roll is not None else None,
-                entered=entered))
+            variants.append(_assess(project, model, vn, by_case, k, state, units, percent,
+                                    label, far, p, air_pick=(air_case.get(label) == p.case)))
     return WingVariantTable(variants=_mark_governing(variants))
+
+
+class _WingModel(NamedTuple):
+    """The wing the variants are run on: its surfaces, plane and panel mass shape."""
+    geom: SurfaceInput
+    aero: AeroSurfaceInput
+    plane: Tuple[float, float]
+    shape: _PanelShape
+
+
+def _wing_model(project: Project) -> Union[_WingModel, str]:
+    """The wing model, or the reason the wing analysis cannot run on ``project``."""
+    sync_geometry_derived(project)
+    wm = project.wing_mass
+    if wm is None:
+        return "the project has no 'wing_mass' inputs"
+    geom = project.geometry.by_name(wm.surface) if project.geometry is not None else None
+    aero = project.aero.by_name(wm.surface) if project.aero is not None else None
+    if geom is None or aero is None:
+        return f"the project has no '{wm.surface}' geometry and aero surfaces"
+    try:
+        require_integrable_planform(geom)
+    except MissingInputError as exc:
+        return str(exc)
+    plane = wing_plane(project, wm.surface)
+    return _WingModel(geom, aero, plane, panel_shape(geom, wm, *plane, panel_weight(project)))
+
+
+def _assess(project: Project, model: _WingModel, vn: Sequence[VnPoint],
+            by_case: Dict[int, VnPoint], k: CgCase, state: WingMassState,
+            units: _InertiaUnits, percent: float, label: str, far: str, p: VnPoint,
+            air_pick: bool = False) -> WingVariant:
+    """Slot ``label`` run at V-n point ``p`` with FLIGHT case ``k``'s loading --
+    one row of the table, and the one quantity SELECT's ACRL tie reads (#320)."""
+    nz = -p.nz
+    nx = inertia_drag_factor(p.dx, k.weight_lb)
+    # The accelerated roll's 100 % side carries condition A's air and
+    # the couple derived from it (note 52, D-52.10/D-52.2) -- ranked on
+    # the load it delivers, couple included (#295).
+    # An entered value wins here as it does in the wing chain and the
+    # balanced deck: the one resolver, so the row SELECT ranks and
+    # publishes is the case that is flown (#315).
+    roll = (derive_accel_roll(project, vn, p, percent)
+            if label in ACCEL_ROLL_SLOTS else None)
+    entered: Tuple[str, ...] = ()
+    if roll is not None:
+        typed = entered_rolling_case(project, label)
+        entered = tuple(f for f in _ROLL_FIELDS
+                        if typed is not None and getattr(typed, f) is not None)
+        flown = complete_rolling_case(
+            project, WingLoadCase(name=label, case=p.case,
+                                  **{f: getattr(typed, f) for f in entered}),
+            by_case, roll)
+        # ``p`` is in ``by_case``, so the resolver always fills the air point.
+        if flown.cl is None or flown.v_eas_kt is None:
+            raise LookupError(f"ACRL at V-n case {p.case} was not completed")
+        cl, v_eas, unb = flown.cl, flown.v_eas_kt, flown.unbal_moment or 0.0
+    else:
+        cl, v_eas, unb = p.cl, p.v_eas_kt, 0.0
+    inertia = wing_inertia_distribution(
+        WingLoadCase(name=label, case=p.case, nz=nz, nx=nx, unbal_moment=unb), units)
+    air = air_load_distribution(
+        model.geom, steady_roll_aero(project, model.aero, label, p, vn), cl, v_eas,
+        *model.plane)
+    a_mxx = air.stations[0].mxx
+    i_mxx = inertia.stations[0].mxx
+    return WingVariant(
+        slot=label, far_reference=far, cg=k.name, case=p.case,
+        run=p.condition, config=p.config, altitude_ft=p.altitude_ft,
+        v_eas_kt=v_eas, cl=cl, nz=nz, nx=nx, weight_lb=k.weight_lb,
+        air_root_mxx=a_mxx, inertia_root_mxx=i_mxx, root_mxx=a_mxx + i_mxx,
+        mass_state=state.label, mass_state_case=state.case,
+        air_pick=air_pick,
+        unbal_moment=unb,
+        roll_accel=roll_acceleration(unb, units.iwxx) if roll is not None else 0.0,
+        other_side_percent=roll.percent if roll is not None else None,
+        cond_a_case=roll.cond_a.case if roll is not None else None,
+        cond_a_cl=roll.cond_a.cl if roll is not None else None,
+        cond_a_v_eas_kt=roll.cond_a.v_eas_kt if roll is not None else None,
+        cond_a_root_mxx=roll.root_mxx if roll is not None else None,
+        entered=entered)
+
+
+class Assessor:
+    """Runs a slot at any V-n point with its own CG case's loading, exactly as
+    the table's row would be (:func:`_assess`), on one wing model built once.
+
+    SELECT's ACRL tie (#320) ranks the points in its band on the net root
+    ``Mxx`` this returns; the table cannot serve it, being built from SELECT's
+    picks, so the table hands SELECT its own assessor and every other caller
+    gets one from :func:`assessor`.
+    """
+
+    def __init__(self, project: Project, model: _WingModel) -> None:
+        self._project = project
+        self._model = model
+        self._cases = {c.name: c for c in flight_cases(project)}
+        self._loading: Dict[str, Tuple[WingMassState, _InertiaUnits]] = {}
+        self._percent = roll_other_side_percent(project)
+
+    def __call__(self, slot: str, far: str, point: VnPoint,
+                 vn: Sequence[VnPoint]) -> WingVariant:
+        """``slot`` at ``point``; ``vn`` is the matrix ``point`` was picked from
+        (condition A is looked up in it)."""
+        k = self._cases.get(point.cg)
+        if k is None:
+            # SELECT's own refusal (``select._cg_case``, review CR-B-4), worded alike.
+            raise ValueError(
+                f"V-n case {point.case} ({point.condition}) was balanced at CG case "
+                f"{point.cg!r}, which this project does not carry as a FLIGHT case. "
+                "Re-run the flight envelope (FLTLOADS) to rebuild the matrix.")
+        if k.name not in self._loading:
+            state = wing_mass_state(self._project, k.name)
+            self._loading[k.name] = (state, fold_units(
+                self._model.shape, state.panel_weight_lb, state.point_masses))
+        state, units = self._loading[k.name]
+        return _assess(self._project, self._model, vn, {p.case: p for p in vn}, k,
+                       state, units, self._percent, slot, far, point)
+
+
+def assessor(project: Project) -> Union[Assessor, str]:
+    """An :class:`Assessor` for ``project``, or the reason the wing analysis
+    cannot run on it."""
+    model = _wing_model(project)
+    return model if isinstance(model, str) else Assessor(project, model)
 
 
 def _mark_governing(variants: List[WingVariant]) -> List[WingVariant]:
