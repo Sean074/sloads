@@ -8,6 +8,7 @@ the mirrored engine's as its reflected twin under its own id.
 import math
 import os
 import sys
+from dataclasses import replace
 
 import pytest
 
@@ -223,3 +224,100 @@ def test_the_engine_schedule_is_the_marchs(name):
             live, remaining, windmill = engine_forces_at(t, c)
             want = _moment(t, c, thrust * c.bleng, drag * c.bleng, 0.0, 0.0)
             assert (live - remaining + windmill) * c.bleng == pytest.approx(want, abs=1e-6)
+
+
+def _with_cd(project, cds):
+    """``project`` with ``windmill_drag_cd`` entered per engine (``None`` keeps
+    the bound)."""
+    return replace(project, engines=[replace(e, windmill_drag_cd=cd)
+                                     for e, cd in zip(project.engines, cds, strict=True)])
+
+
+def _pair(case):
+    from sloads.modules.balance.engine_out_cases import OEI_FAILED_ENGINE_SOURCE
+    return next(ld for ld in case.loads if ld.source == OEI_FAILED_ENGINE_SOURCE)
+
+
+@pytest.mark.parametrize("name", _TWINS)
+def test_an_entered_windmill_coefficient_is_delivered_and_the_bound_otherwise(name):
+    """**D-66.12a** (#319): blank, the failed hub carries ONENGOUT's Glauert
+    drag and the case states it as the method's upper bound (C_D,disc 0.50,
+    manual Ch 11 p88); entered, it carries ``C_D * q * pi D^2 / 4`` on the same
+    ramp, stated as the entered coefficient. The fin load is the march's either
+    way, so no ``vtail-air`` load moves."""
+    from sloads.modules.one_engine_out import disc_drag_coefficient
+
+    project = _project(name)
+    bound = {c.label: c for c in _oei(build_balanced_cases(project))}
+    entered = {c.label: c for c in _oei(build_balanced_cases(_with_cd(project, [0.25, 0.25])))}
+    marches = _marches(project)
+    assert bound.keys() == entered.keys()
+    for label, b in bound.items():
+        e = entered[label]
+        assert any("upper bound" in n and "0.50" in n and "can not be more than" in n
+                   for n in b.notes), label
+        assert any("entered disc drag coefficient 0.25" in n for n in e.notes), label
+        fc = marches.get(label)
+        if fc is not None:
+            live, remaining, windmill = engine_forces_at(fc.peak.time, fc.inputs)
+            full = engine_thrust_and_drag(fc.inputs)[1]
+            assert disc_drag_coefficient(fc.inputs, full) == pytest.approx(0.502, abs=5e-4)
+            assert _pair(b).fx == pytest.approx(-remaining + windmill, rel=1e-12)
+            assert _pair(e).fx == pytest.approx(-remaining + windmill * 0.25
+                                                / disc_drag_coefficient(fc.inputs, full),
+                                                rel=1e-9)
+        fin_b = [ld for ld in b.loads if ld.source == "vtail-air"]
+        fin_e = [ld for ld in e.loads if ld.source == "vtail-air"]
+        assert [(ld.fy, ld.y) for ld in fin_b] == [(ld.fy, ld.y) for ld in fin_e], label
+
+
+@pytest.mark.parametrize("name", _TWINS)
+def test_an_entered_coefficient_moves_the_closure_yaw_by_its_own_moment(name):
+    """**G-66.9** as amended (#319, D-66.12a): with the bound the closure's yaw
+    is ONENGOUT's (above); with an entered coefficient it differs by exactly the
+    drag difference's moment through the case's own inertia tensor --
+    ``[I]{delta omega_dot} = delta M`` about the CG -- and by nothing else."""
+    project = _project(name)
+    bound = {c.label: c for c in _oei(build_balanced_cases(project))}
+    entered = {c.label: c for c in _oei(build_balanced_cases(_with_cd(project, [0.25, 0.25])))}
+    for label, b in bound.items():
+        e = entered[label]
+        ref = (b.cg_x, 0.0, b.cg_z)
+        dm = [x - y for x, y in zip(resultant6([_pair(e)], ref)[3:],
+                                    resultant6([_pair(b)], ref)[3:], strict=True)]
+        dw = (e.p_dot - b.p_dot, e.q_dot - b.q_dot, e.r_dot - b.r_dot)
+        got = [math.fsum(row[i] * dw[i] for i in range(3)) for row in b.closure_inertia.matrix()]
+        scale = max(abs(v) for v in dm)
+        assert scale > 0, label
+        for g, want in zip(got, dm, strict=True):
+            assert g == pytest.approx(want, abs=1e-3 * scale), label
+
+
+def test_a_twin_needs_both_engines_to_windmill_alike():
+    """D-66.12a: the twin reflects the failed hub's drag, so it stands only when
+    both engines enter the same coefficient; otherwise the mirrored engine's
+    failure is computed on its own, with its own (here, the bound's) drag."""
+    project = _with_cd(_project("baron_58"), [0.25, None])
+    cases = _oei(build_balanced_cases(project))
+    marches = _marches(project)
+    assert {c.label for c in cases} == set(marches)     # the Baron recovers at every speed
+    for c in cases:
+        fc = marches[c.label]
+        live, remaining, windmill = engine_forces_at(
+            fc.peak.time, fc.inputs, windmill_cd=project.engines[fc.engine_index].windmill_drag_cd)
+        assert _pair(c).fx == pytest.approx(-remaining + windmill, rel=1e-9), c.label
+
+
+def test_a_hub_off_the_engines_butt_line_is_recorded():
+    """#321 (note 66 §12 riders): the march's arm is the engine's butt line and
+    the pair lands at the hub, so a hub off that line is recorded by name
+    instead of carrying a yaw the fin load was never found against."""
+    project = _project("baron_58")
+    eng = project.engines[0]
+    x, y, z = eng.prop_cg
+    moved = replace(project, engines=[replace(eng, prop_cg=(x, y + 3.0, z)), project.engines[1]])
+    skipped = []
+    cases = _oei(build_balanced_cases(moved, skipped))
+    off = [s for s in skipped if s.code == "hub-off-arm"]
+    assert off and all("(engine 1)" in s.label for s in off)
+    assert all("(engine 1)" not in c.label or c.hand for c in cases)

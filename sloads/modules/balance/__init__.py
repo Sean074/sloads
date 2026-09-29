@@ -223,10 +223,12 @@ from .air import (  # noqa: F401
 )
 from .applied import (  # noqa: F401
     HUB_THRUST_SOURCE,
+    ROTATION_FIXED_SOURCES,
     _free_moments,
     _wing_inertia_scale,
     body_axial_set,
     body_inertia,
+    engine_member,
     htail_sets,
     hub_thrust_set,
     place_wing_inertia,
@@ -450,6 +452,7 @@ __all__ = [
     "LATERAL_AERO_NOTE",
     "RESIDUAL_GATE",
     "ROLLING_WING_CONDITIONS",
+    "ROTATION_FIXED_SOURCES",
     "SKIPPED_RECORD_TITLE",
     "SKIP_REASONS",
     "SYMMETRIC_WING_CONDITIONS",
@@ -459,6 +462,7 @@ __all__ = [
     "build_balanced_cases",
     "carry_sources_absent",
     "case_source_name",
+    "engine_member",
     "handed_twin",
     "htail_load",
     "htail_sets",

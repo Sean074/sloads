@@ -507,11 +507,11 @@ def test_no_hub_carries_two_thrusts(example):
 
 
 @pytest.mark.parametrize("example", [TWIN, SINGLE])
-def test_a_gyroscopic_case_replaces_its_engines_entered_thrust(example):
-    """G-12b. A 23.371(b)/25.371 case's engine carries ENGLOADS's thrust --
-    the same load it carries with no thrust entered -- and not the entered one;
-    every other engine keeps its entered thrust. A torque case applies no
-    thrust of its own and keeps them all."""
+def test_a_gyroscopic_case_replaces_every_engines_entered_thrust(example):
+    """G-12b, as amended by #319 (note 66 D-66.4a). A 23.371(b)/25.371 case
+    applies **every** engine's ENGLOADS thrust -- the same loads it carries with
+    no thrust entered -- and no entered thrust at all. A torque case applies no
+    thrust of its own and keeps every entered thrust."""
     bare, project = _powered(example)
     base = _by_id(build_balanced_cases(bare))
     gyros = torques = 0
@@ -523,11 +523,12 @@ def test_a_gyroscopic_case_replaces_its_engines_entered_thrust(example):
         where = f"{example} {case.label}"
         if own:
             gyros += 1
-            (mine,) = own
-            assert set(entered) == _members(project) - {mine.carrier}, where
-            want = next(ld for ld in base[(case.label, case.hand)].loads
-                        if ld.source == ENGINE_MOUNT_THRUST_SOURCE)
-            assert (mine.fx, mine.fy, mine.fz) == (want.fx, want.fy, want.fz), where
+            assert {ld.carrier for ld in own} == _members(project), where
+            assert not entered, where
+            want = [ld for ld in base[(case.label, case.hand)].loads
+                    if ld.source == ENGINE_MOUNT_THRUST_SOURCE]
+            assert ([(ld.carrier, ld.fx, ld.fy, ld.fz) for ld in own]
+                    == [(ld.carrier, ld.fx, ld.fy, ld.fz) for ld in want]), where
             assert any("is NOT applied" in n for n in case.notes), where
         else:
             torques += 1

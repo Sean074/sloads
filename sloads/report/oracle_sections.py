@@ -6679,16 +6679,20 @@ def _engine_rotation_sentence(records: Sequence["_EngineRecord"]) -> str:
         f"Rotation is stated per engine and seen from the pilot's seat: "
         f"{listed}. It sets the sign of every torque the engine delivers to the "
         f"airframe -- a propeller turning clockwise from that seat delivers a "
-        f"counter-clockwise torque to the structure -- and it sets nothing "
+        f"counter-clockwise torque to the structure -- and the sense of its "
+        f"gyroscopic couples at each of the airplane's rates, and nothing "
         f"else.{tail}")
 
 
 _ENGINE_GYRO_EXEMPTION = (
-    "The gyroscopic condition is the one exception, and deliberately so. "
-    "14 CFR 23.371(b) is assessed for every sign combination of its two "
-    "moments, all four of which are printed below, so the set the mount is "
-    "checked against is the same whichever way the propeller turns. Reversing "
-    "a sign there would rename four cases and change none of them."
+    "The gyroscopic condition reads the rotation differently. 14 CFR 23.371(b) "
+    "is assessed for every sign combination of the airplane's yaw and pitch "
+    "rates, all four of which are printed below, and each couple is the rate "
+    "times the engine's spinning angular momentum, whose sense is its "
+    "rotation: an engine turning the other way carries both couples of a "
+    "combination reversed. The set of four the mount is checked against is "
+    "the same either way; what the rotation decides is which engines' "
+    "couples add, and which cancel, when the whole airplane turns at one rate."
 )
 
 _ENGINE_GYRO_ABSENCE = (

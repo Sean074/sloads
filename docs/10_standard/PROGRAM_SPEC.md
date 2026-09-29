@@ -406,7 +406,7 @@ approved-corrections register [`../20_theory/02_approved_corrections.md`](../20_
 - **FAR §:** 23.361(a)(1)/(a)(2)/(a)(3), 23.361(b)(1), 23.363, 23.371(b).
 - **Source:** Ch 19, `ENGLOADS.BAS`. Implemented in `sloads/modules/engine.py` (the original `engloads/` port).
 - **Reads:** `Project.engine` (engine/prop weight, CG, diameter, RPM, HP/torque, rotor list, optional measured polar inertia), `Project.weight` load factor.
-- **Writes:** the 3 (recip) / 6 (turboprop) FAR conditions; load-case CSV (one row per case, gyro 23.371(b) expands to 4 sign-combination cases).
+- **Writes:** the 3 (recip) / 6 (turboprop) FAR conditions; load-case CSV (one row per case, gyro 23.371(b) expands to 4 sign-combination cases). A gyro sub-case's signs are the airplane's yaw and pitch **rates**; its couples are those rates times the engine's signed spin angular momentum (`angular_momentum`: the propeller's term signed by `prop_direction`, each rotor's by its signed `max_rpm`), so a counter-rotating engine's sub-case carries both couples reversed (note 53 D-53.6 as amended, #319).
 - **Validation:** Appendix A (Continental IO-520-BB) and Appendix B (turboprop gyro), ±0.1% per Decision 3 — **except** the (a)(1) takeoff torque, see the approved correction below.
 - **Approved correction — 23.361(a)(1) takeoff-torque factor (AC 23-19A):** the manual leaves the takeoff-case engine torque **unfactored** (Appendix A prints 554.39 ft-lb), encoding the **Amendment 23-26** drafting error. AC 23-19A states this is non-conservative and was corrected by **Amendment 23-45**: 23.361(c) applies the mean-torque factor to *all* of paragraph (a). `condition_361_a1` now applies `factor × mean takeoff torque` (IO-520-BB → **737.34 ft-lb**; turbopropeller → 1.25× mean, identical to 25.361(a)(1)(i)). User-approved, documented deviation from the oracle (register: `docs/20_theory/02_approved_corrections.md`; policy in CLAUDE.md); cited to `reference/AC_23-19A_engine_torque.md`. `test_361_a1` asserts the corrected value and keeps 554.39 as the mean-torque figure for traceability.
 - **Approved correction — 23.361(a)(3) turboprop-malfunction mean-torque factor (AC 23-19A):** the manual / `ENGLOADS.BAS` (`TTP=1.6*ENGTORQ`) apply only the 1.6 propeller-control-malfunction factor, encoding the same **Amendment 23-26** omission. The (a)(3) base "limit engine torque corresponding to takeoff power and propeller speed" is the same quantity as (a)(1), so by the same authority 23.361(c)'s **1.25** turbopropeller mean-torque factor applies before the 1.6 factor. `condition_361_a3` now reports `1.6 × 1.25 × mean takeoff torque` (= **2.0× mean**). User-approved, documented deviation; cited to `reference/AC_23-19A_engine_torque.md`. No printed Appendix B engine-mount oracle exists in the bundled PDF, so it is formula-checked in `test_361_a3_applies_mean_torque_factor`.
@@ -1019,10 +1019,19 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   re-applied** — the engine's mass is already in the parent's inertia at that
   `n`. The propeller torque is trimmed by an equal and opposite `aileron-trim`
   couple at the wing a.c. (note 21 P-9); the gyro couples and thrust are closed
-  by the rigid-body relief. A gyroscopic case's parent is assembled without
-  **its** engine's entered thrust, which ENGLOADS's max-continuous thrust
-  replaces; the other engines keep theirs, and a torque case keeps all
-  (#313). 23.363 and 23.361(b)(1) are mount-local and
+  by the rigid-body relief. **A gyroscopic case applies every engine at one
+  airplane state** (D-66.4a, #319): each engine's ENGLOADS thrust at its hub
+  and couples at its mount, from that engine's condition of the same FAR
+  reference and sub-case — a sub-case's signs are the airplane's rates on every
+  engine, since ENGLOADS signs each engine's spin (`engine.angular_momentum`) —
+  so a symmetric installation's thrusts yaw nothing, co-rotating couples add
+  and counter-rotating ones cancel. Its parent is assembled without every
+  engine's entered thrust, which the ENGLOADS thrusts replace; a torque case
+  keeps all (#313). The case keeps its own engine's `EM` id and states the net
+  axial force the `n_x` relief reacts and, on a co-rotating installation, that
+  the other engine's case of the same rates is the same airplane state. A case
+  scaled by zero (no engine weight, or a zero-`n` parent) is recorded
+  (`unscalable`), never shipped empty. 23.363 and 23.361(b)(1) are mount-local and
   recorded as not assembled. EM cases are exempt from the trim residual gate
   (the flight case they scale is gated as itself) and carry their own gates,
   `tests/test_engine_mount_cases.py` (G-66.1…G-66.7, G-66.12).
@@ -1035,9 +1044,16 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   `one_engine_out.engine_forces_at` (live thrust at the mirror of the failed
   hub; the failed engine's remaining thrust and windmill drag at its hub) —
   the case's whole thrust state, so no entered thrust is applied beside it
-  (#313). One
+  (#313). **The windmill drag at the failed hub** (D-66.12a, #319) is the
+  engine's own when `EngineInput.windmill_drag_cd` is entered —
+  `C_D · q · πD²/4` on the march's ramp — and otherwise ONENGOUT's Glauert term,
+  the method's upper bound (C_D,disc 0.50, manual Ch 11 p88), delivered as that
+  bound and stated so per case; the march and the fin load always use the bound.
+  A hub off the engine's butt line (the march's arm) is recorded
+  (`hub-off-arm`). One
   engine's failure is computed per speed and the mirrored engine's is its
-  reflected twin under its own VT id; no L-7 term, stated in band; unrecovered
+  reflected twin under its own VT id when both engines enter the same windmill
+  coefficient; no L-7 term, stated in band; unrecovered
   marches recorded (`not-recovered`). Exempt from the trim gate for the pair's
   couple, with the 1 g half gated inside 1 % and the closure yaw held to
   ONENGOUT's (`tests/test_engine_out_cases.py`).

@@ -252,6 +252,19 @@ def reflect_moment(mx: float, my: float, mz: float) -> Vec3:
     return (-mx, my, -mz)
 
 
+#: A butt line within this (in) of the centreline is on it -- the side-tag rule
+#: an engine's loads and its LRA nodes share (#321).
+CENTRELINE_TOL_IN = 1e-6
+
+
+def side_of(y: float) -> str:
+    """The side tag of butt line ``y``: ``"C"`` on the centreline, else
+    ``"R"`` (``+y``, starboard) or ``"L"``."""
+    if abs(y) <= CENTRELINE_TOL_IN:
+        return "C"
+    return "R" if y > 0 else "L"
+
+
 def reflect_side(side: str) -> str:
     """The mirrored side tag: ``"R" <-> "L"``, centreline unchanged."""
     return {"R": "L", "L": "R"}.get(side, side)

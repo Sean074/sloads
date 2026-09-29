@@ -1710,6 +1710,11 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("engines[].design_yaw_rate_rad_s", _ENG, _SLDS,
        "the real pitch or yaw rate a concept design is sized to, for the 25.371 gyroscopic case; the FAR 23 suite "
        "prescribed a rate and asked for none"),
+    _E("engines[].windmill_drag_cd", _ENG, _SLDS,
+       "the windmilling propeller's disc drag coefficient, from the maker's data or the 23.367(a)(3) history "
+       "(design note 66 D-66.12a). Delivered as the failed engine's hub drag in the balanced one-engine-out cases; "
+       "blank delivers ONENGOUT's Glauert term, the manual's upper bound (C_D,disc 0.50), stated as that bound. "
+       "The ONENGOUT march and the fin loads always use the bound"),
     _E("engines[].rotors[].rotor_type", _ENG, _SLDS, "turbine rotor model, Step C9"),
     _E("engines[].rotors[].weight_lb", _ENG, _SLDS, "turbine rotor model, Step C9"),
     _E("engines[].rotors[].diameter_in", _ENG, _SLDS, "turbine rotor model, Step C9"),

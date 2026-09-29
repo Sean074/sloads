@@ -97,6 +97,20 @@ reverses with it.
 | **D-53.8** | **The balanced cases are out of scope, and the gap is filed** *(owner: "maybe this should be an issue raised for 0.8.3 or later milestone?")*. `balance.hub_thrust_set` applies `EngineInput.thrust_lb` as a pure `−x` force, and its own docstring says why: *"The P-6 incidence/toe angles (`i_T`, `tau`) have no fields and no estimator, and inventing them would put a lateral and a vertical component into every case on an assumed geometry."* An entered thrust line **is** those missing fields, so this note creates the input that unblocks it and stops there — honouring it would move every balanced case, every deck and the digests, in `modules/balance/`, which the OR-15 grant does **not** cover. Filed for 0.8.3+ against note 21. | note 21 |
 | **D-53.9** | **Entered on the Engine Mount page, drawn on Configuration & Layout** *(owner: Q5/Q6)*. The input sits with the rest of the engine's geometry on `app/views/engine_mount.py`, which already carries both CGs; the Configuration & Layout three-view **draws** it, alongside the engine markers it already places at `engine_cg`. One field, one page, one drawing — not the same control on two pages. The oracle GUI needs no edit: it builds from `field_registry`, so a registry row is enough and `oracle_app/form.py` stays frozen and untouched. | note 44 OR-13 (untouched) |
 
+**D-53.6 amended 2026-09-29 (#319, owner ruling (a); note 66 §12 D-66.4a).**
+The exemption held for one mount and failed for the airplane. ENGLOADS added the
+propeller's spin unsigned while a turbine rotor's was already signed by its
+`max_rpm`, so a sub-case's `+Myy`/`+Mzz` named the couples on a propeller engine
+and the airplane's rates on none — and the balanced 23.371(b) case, which now
+applies every engine at one airplane state, needs the rates. The propeller's
+term is now signed by `prop_direction` (`engine.spin_sense`, clockwise from
+the seat positive, the rotor rpm's sense) inside one owner of the engine's
+angular momentum, `engine.angular_momentum`. Sub-case `k` is the airplane's yaw
+and pitch rate signs on every engine; a counter-clockwise propeller's sub-case
+carries both couples reversed. No shipped number moves: every fixture propeller
+turns clockwise. The four-case set one mount is checked against is the same
+set either way, which is what D-53.6 said and still holds.
+
 ## 4. Gates
 
 - **G-53.1** — *(D-53.4/D-53.5)* a counter-clockwise engine's torque is the exact
@@ -120,6 +134,10 @@ reverses with it.
   merely stated.
 - **G-53.6** — *(D-53.6)* the four gyroscopic sub-cases are **unchanged** by the
   rotation direction, all six components, and section 10 states the exemption.
+  *Amended 2026-09-29 (#319, owner ruling (a), note 66 §12):* see D-53.6's
+  amendment below the table — a counter-clockwise propeller's sub-case now
+  carries both couples reversed, so this gate is replaced by
+  `tests/test_engine_mount_cases.py::test_a_sub_case_is_the_airplanes_rates_on_every_engine`.
 - **G-53.7** — *(D-53.7)* the Engine Mount page states the sign convention beside
   the control, and section 10.1 states each engine's direction; both through one
   owner, so the two cannot word it differently. Asserted on the rendered content

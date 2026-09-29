@@ -64,6 +64,20 @@ SKIP_REASONS = {
     "thrust-line": (
         "the engine's thrust line is entered as one point of two, so the "
         "direction the engine loads act along is not defined"),
+    "unscalable": (
+        # #321 (note 66 §12 riders): a case scaled by zero shipped as a case of
+        # no load, with no record.
+        "the engine case is its flight condition scaled to the load factor the "
+        "engine mount states, and either the engine carries no weight to state "
+        "one or the flight condition is at zero load factor, so there is no "
+        "scale to apply"),
+    "hub-off-arm": (
+        # #321 (note 66 §12 riders): the march's arm is the engine's butt line,
+        # the pair lands at the propeller hub.
+        "the propeller hub is not on the engine's butt line, and the "
+        "one-engine-out transient takes its yawing arm from the engine, so the "
+        "engine forces at the hubs would not carry the yaw the fin load was "
+        "found against"),
     "gear-design-only": (
         "a supplementary nose-wheel condition (FAR 23.499): it carries nose "
         "reactions only, with no main-gear reaction anywhere in the family, so "
