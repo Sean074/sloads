@@ -114,17 +114,55 @@ def test_the_fin_opposes_the_engine(name):
             assert cond.beta_deg * cond.lt25 < 0, label
 
 
+def _load_key(ld):
+    return (ld.source, round(ld.x, 6), round(ld.y, 6), round(ld.z, 6))
+
+
 @pytest.mark.parametrize("name", _TWINS)
-def test_each_twin_is_the_other_engines_own_condition(name):
-    """**G-66.10** (D-66.13): the reflected twin carries the mirrored engine's
-    own fin load -- the reflection reproduces the march it stands for."""
+def test_each_twin_is_the_other_engines_own_condition(name, monkeypatch):
+    """**G-66.10** (D-66.13): the reflected twin reproduces the mirrored
+    engine's own condition, load for load at rel 1e-9 -- fin strips, engine
+    pair, relief -- against that engine's case **built directly** from its own
+    ONENGOUT march with the reflection switched off, and its engine pair is
+    ``engine_forces_at`` of that march at that engine's hub. Before #318 the
+    gate compared one sum (the fin's ``fy``) and the id."""
+    from sloads.modules.balance import engine_out_cases
+    from sloads.modules.balance.engine_out_cases import (
+        OEI_FAILED_ENGINE_SOURCE,
+        OEI_LIVE_THRUST_SOURCE,
+    )
+    from sloads.modules.engine import resolved_engines
+
     project, cases, _ = _built(name)
     crit = {x.label: x for x in default_critical(project).conditions if x.component == "vtail"}
-    for c in _oei(cases):
-        cond = crit[c.label]
-        fy = math.fsum(ld.fy for ld in c.loads if ld.source == "vtail-air")
-        assert fy == pytest.approx(cond.lt25 + cond.lt50, rel=1e-9), c.label
-        assert c.case_ref.case_id == cond.case_ref.case_id
+    computed = {c.label for c in _oei(cases)[::2]}
+    twins = [c for c in _oei(cases) if c.label not in computed]
+    assert twins, "no reflected twin: the gate proves nothing"
+    monkeypatch.setattr(engine_out_cases, "_mirror_of", lambda *_a, **_kw: None)
+    direct = {c.label: c for c in _oei(build_balanced_cases(_project(name)))}
+    marches = _marches(project)
+    for twin in twins:
+        own = direct[twin.label]
+        assert twin.case_ref.case_id == own.case_ref.case_id == crit[twin.label].case_ref.case_id
+        assert twin.hand == own.hand
+        got, want = sorted(twin.loads, key=_load_key), sorted(own.loads, key=_load_key)
+        assert [_load_key(ld) for ld in got] == [_load_key(ld) for ld in want], twin.label
+        for a, b in zip(got, want, strict=True):
+            for q in ("fx", "fy", "fz", "mx", "my", "mz"):
+                assert getattr(a, q) == pytest.approx(getattr(b, q), rel=1e-9, abs=1e-9), \
+                    (twin.label, a.source, q)
+        for q in ("p_dot", "q_dot", "r_dot", "delta_ny"):
+            assert getattr(twin, q) == pytest.approx(getattr(own, q), rel=1e-9, abs=1e-12), q
+        fc = marches[twin.label]
+        eng = resolved_engines(project)[fc.engine_index]
+        hub = eng.prop_cg if any(eng.prop_cg) else eng.engine_cg
+        live, remaining, windmill = engine_forces_at(fc.peak.time, fc.inputs)
+        pair = {ld.source: ld for ld in twin.loads
+                if ld.source in (OEI_LIVE_THRUST_SOURCE, OEI_FAILED_ENGINE_SOURCE)}
+        failed, alive = pair[OEI_FAILED_ENGINE_SOURCE], pair[OEI_LIVE_THRUST_SOURCE]
+        assert (failed.y, alive.y) == pytest.approx((hub[1], -hub[1]))
+        assert failed.fx == pytest.approx(-remaining + windmill, rel=1e-9)
+        assert alive.fx == pytest.approx(-live, rel=1e-9)
 
 
 def test_an_unrecovered_march_is_recorded():
