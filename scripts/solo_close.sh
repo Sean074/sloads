@@ -10,9 +10,10 @@
 #                    the branch identifies the milestone, not the item.
 #   <issue-number>   OPTIONAL. Under the solo profile issues are optional (§0:
 #                    "00_backlog.md is the record"); omit it and the script
-#                    never calls `gh` — no auth check, no issue read, no close,
-#                    no backlog_issues.py check (which needs gh to mean
-#                    anything). Pass it when the item has an issue to close.
+#                    makes no issue call — no issue read, no close, no
+#                    backlog_issues.py check (which needs gh to mean
+#                    anything). The read-only CI check still runs when gh is
+#                    authenticated (#329). Pass it when the item has an issue.
 #   <Subject>        commit subject in the project style, WITHOUT the trailing
 #                    parenthetical — the script appends
 #                    "(backlog Pri N, tier X, YYYY-MM-DD)" (or "(issue #N, …)"
@@ -25,6 +26,9 @@
 #   --full-gate      run the whole suite -- the slow lane included -- even
 #                    for a docs-only change set
 #   --skip-gate      do not re-run ruff/mypy/pytest (they were just run by hand)
+#   --ci-red-ok "<reason>"  close although CI is red on the pushed tip (the
+#                    preflight below); the reason goes into the commit body.
+#                    For the change that fixes the red, or a red that is known.
 #   --yes            no confirmation prompts
 #   --dry-run        print the sequence; touch nothing
 #
@@ -52,6 +56,11 @@
 #     item's row is gone from the priority table (no "(#N)" left in
 #     docs/30_future/00_backlog.md)
 #   * origin/<branch> has not moved past HEAD (else: pull --rebase first)
+#   * CI on the pushed tip (#329): `gh run list` for origin/<branch>, judged by
+#     scripts/ci_state.py — red (failure/timed_out/startup_failure) refuses
+#     unless --ci-red-ok; still running, no run yet or cancelled warns. Read
+#     whenever gh is authenticated, issue number or not; without gh it says
+#     "CI unread" and carries on.
 #   * something to land: uncommitted changes, or commits not yet pushed
 # Steps:
 #   3  gate    ruff · mypy · pytest (the CLAUDE.md merge gate, once, scaled)
@@ -66,7 +75,7 @@
 set -euo pipefail
 
 usage() {
-  sed -n '2,62p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '2,73p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
 }
 
 die() { printf 'solo_close: %s\n' "$*" >&2; exit 1; }
@@ -90,7 +99,7 @@ GUARD_TESTS=(
   tests/test_workflow.py
 )
 
-SLUG=""; SUFFIX=""; DATE=""; SKIP_GATE=0; FULL_GATE=0; YES=0; DRY_RUN=0
+SLUG=""; SUFFIX=""; DATE=""; SKIP_GATE=0; FULL_GATE=0; YES=0; DRY_RUN=0; CI_RED_OK=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --slug) SLUG="$2"; shift 2 ;;
@@ -98,6 +107,9 @@ while [[ $# -gt 0 ]]; do
     --date) DATE="$2"; shift 2 ;;
     --full-gate) FULL_GATE=1; shift ;;
     --skip-gate) SKIP_GATE=1; shift ;;
+    --ci-red-ok) [[ $# -ge 2 ]] || die "--ci-red-ok needs a reason (it goes into the commit body)"
+                 CI_RED_OK="$2"; shift 2
+                 [[ -n "$CI_RED_OK" ]] || die "--ci-red-ok needs a reason (it goes into the commit body)" ;;
     --yes) YES=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -131,12 +143,14 @@ if [[ $DRY_RUN -eq 1 ]]; then
   if [[ -n "$ISSUE" ]]; then
     echo "             gh auth status; gh issue view $ISSUE --json state == OPEN"
   else
-    echo "             (no issue number — gh is not called in preflight, step 6 or step 7)"
+    echo "             (no issue number — no issue read, close or backlog check; the CI read below needs only gh auth)"
   fi
   echo "             ls changes/$SLUG.history[-<type>].md             (tier M/L: the one fragment, note 61 CV-2)"
   echo "             ls changes/$SLUG.{added,changed,fixed,removed,breaking}.md   (tier S; optional at M/L)"
   [[ -n "$ISSUE" ]] && echo "             grep -c \"(#$ISSUE)\" docs/30_future/00_backlog.md == 0"
   echo "             git fetch origin <branch>; git merge-base --is-ancestor origin/<branch> HEAD"
+  echo "             gh run list --branch <branch> --workflow ci.yml --json status,conclusion,headSha,url"
+  echo "               | scripts/ci_state.py --tip origin/<branch>   (red refuses; --ci-red-ok \"<reason>\")"
   echo "  step 3:    .venv/bin/ruff check sloads/ cli.py oracle.py app_shell/ oracle_app/ scripts/"
   echo "             .venv/bin/mypy"
   echo "             .venv/bin/python -m pytest -q -p no:cacheprovider -m \"not slow\"   (--full-gate: no -m)"
@@ -256,6 +270,34 @@ if [[ $HAS_REMOTE -eq 1 ]] && ! git merge-base --is-ancestor "origin/$BRANCH" HE
   die "origin/$BRANCH has moved past this checkout — run: git pull --rebase --autostash, then re-run"
 fi
 
+# CI on the pushed tip (#329). Read before the gate, so a refusal leaves nothing
+# changed; judged by scripts/ci_state.py (owner rulings 1a/2a, 2026-09-28).
+CI_LINE="unread (branch not pushed yet)"
+CI_NOTE=""
+if [[ $HAS_REMOTE -eq 1 ]]; then
+  if gh auth status >/dev/null 2>&1; then
+    TIP="$(git rev-parse "origin/$BRANCH")"
+    RUNS="$(gh run list --branch "$BRANCH" --workflow ci.yml --limit 20 \
+              --json status,conclusion,headSha,url 2>/dev/null || true)"
+    set +e
+    CI_LINE="$("$PY" scripts/ci_state.py --tip "$TIP" <<<"$RUNS")"
+    CI_RC=$?
+    set -e
+    if [[ $CI_RC -eq 1 ]]; then
+      [[ -n "$CI_RED_OK" ]] || die "$CI_LINE
+Fix the red first (it is on the branch already, under every item after it), or,
+when this change is the fix or the red is known, re-run with
+  --ci-red-ok \"<reason>\"   (the reason goes into the commit body)."
+      CI_NOTE="$CI_LINE -- closed anyway: $CI_RED_OK"
+    elif [[ $CI_RC -ne 0 ]]; then
+      echo "solo_close: warning -- $CI_LINE" >&2
+    fi
+  else
+    CI_LINE="unread -- gh is not authenticated; check it yourself"
+    echo "solo_close: $CI_LINE" >&2
+  fi
+fi
+
 DIRTY=0
 [[ -n "$(git status --porcelain)" ]] && DIRTY=1
 AHEAD=0
@@ -278,6 +320,7 @@ if [[ $DOCS_ONLY -eq 1 ]]; then
 else
   echo "            gate     ruff · mypy · the whole suite"
 fi
+echo "            ci       $CI_LINE"
 echo "            commit   \"$MSG\""
 
 # ---- step 3: gate -----------------------------------------------------------
@@ -320,7 +363,11 @@ if [[ $DIRTY -eq 1 ]]; then
   run git add -A
   git status --short
   confirm "Commit the files above as: \"$MSG\"?"
-  SKIP=ruff,mypy run git commit -q -m "$MSG"
+  if [[ -n "$CI_NOTE" ]]; then
+    SKIP=ruff,mypy run git commit -q -m "$MSG" -m "$CI_NOTE"
+  else
+    SKIP=ruff,mypy run git commit -q -m "$MSG"
+  fi
   run git log --oneline -1
 else
   say "step 4 — nothing uncommitted; pushing the $AHEAD commit(s) already on $BRANCH"
