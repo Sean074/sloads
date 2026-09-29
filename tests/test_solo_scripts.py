@@ -18,9 +18,11 @@ the retired per-item branch → PR → squash-merge path.
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import shutil
 import subprocess
+import sys
 
 import pytest
 
@@ -30,6 +32,7 @@ _CLOSE = os.path.join(_ROOT, "scripts", "solo_close.sh")
 _CI = os.path.join(_ROOT, ".github", "workflows", "ci.yml")
 _PROCESS = os.path.join(_ROOT, "docs", "10_standard", "DEVELOPMENT_PROCESS.md")
 _CRIB = os.path.join(_ROOT, "docs", "10_standard", "WORKFLOW_COMMANDS.txt")
+_CI_STATE = os.path.join(_ROOT, "scripts", "ci_state.py")
 
 pytestmark = pytest.mark.skipif(shutil.which("bash") is None, reason="bash not on PATH")
 
@@ -100,7 +103,7 @@ def test_close_dry_run_lists_steps_3_to_7_in_order():
         "git push origin",
         "gh issue close 27 --reason completed",
         "backlog_issues.py check",
-        "gh run list --branch",
+        "gh run list --branch <branch> --limit 1",
     ]
     positions = [res.stdout.find(s) for s in signatures]
     assert all(p >= 0 for p in positions), dict(zip(signatures, positions))
@@ -248,7 +251,84 @@ def test_the_process_and_crib_sheet_describe_the_milestone_branch():
         "WORKFLOW_COMMANDS.txt still prescribes the per-item squash-merge")
 
 
-if __name__ == "__main__":  # zero-dependency self-runner
-    import sys
+# --- #329: the close reads CI on the pushed tip before its gate -------------
 
+
+def _ci_state():
+    spec = importlib.util.spec_from_file_location("ci_state", _CI_STATE)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_TIP = "0123456789abcdef0123456789abcdef01234567"
+
+
+def _run(sha=_TIP, status="completed", conclusion="success"):
+    return {"headSha": sha, "status": status, "conclusion": conclusion,
+            "url": f"https://example.invalid/runs/{sha[:7]}"}
+
+
+@pytest.mark.parametrize("runs, code", [
+    ([_run()], 0),
+    ([_run(conclusion="failure")], 1),
+    ([_run(conclusion="timed_out")], 1),
+    ([_run(conclusion="startup_failure")], 1),
+    ([_run(status="in_progress", conclusion="")], 2),
+    ([_run(status="queued", conclusion="")], 2),
+    ([_run(conclusion="cancelled")], 2),
+    ([_run(conclusion="action_required")], 2),
+    ([], 2),
+    # the newest run is a superseded commit's red; the tip's own run is green
+    ([_run(sha="f" * 40, conclusion="failure"), _run()], 0),
+    # ...and the other way round: only the tip's run is judged
+    ([_run(sha="f" * 40), _run(conclusion="failure")], 1),
+    # nothing listed for the tip yet: a newer push's run has not started
+    ([_run(sha="f" * 40)], 2),
+], ids=["green", "failure", "timed_out", "startup_failure", "in_progress", "queued",
+        "cancelled", "action_required", "no_runs", "tip_green_under_a_red",
+        "tip_red_under_a_green", "tip_not_listed"])
+def test_the_ci_verdict_judges_the_pushed_tip_by_ruling_1a(runs, code):
+    """Red refuses, green passes, everything else warns (owner ruling 1a,
+    2026-09-28) -- and only the run of the pushed tip is judged, because
+    ``ci.yml`` cancels a superseded commit's run. Credential-free: the verdict
+    is the helper's, fed the JSON ``gh run list`` returns."""
+    got, message = _ci_state().verdict(runs, _TIP)
+    assert got == code, message
+    if code == 1:
+        assert "red" in message and "https://" in message
+
+
+@pytest.mark.parametrize("stdin", ["", "not json", '{"a": 1}'])
+def test_unreadable_ci_warns_rather_than_refusing(stdin):
+    """``gh`` failed, or answered something else: CI is unread, which warns
+    (ruling 2a) -- a network blip must not block a close, nor pass as green."""
+    res = subprocess.run([sys.executable, _CI_STATE, "--tip", _TIP], input=stdin,
+                         capture_output=True, text=True, timeout=30, check=False)
+    assert res.returncode == 2, res.stdout + res.stderr
+    assert "unread" in res.stdout
+
+
+def test_the_close_reads_ci_in_preflight_before_the_gate():
+    """The read is preflight: before the gate, so a red refuses with nothing
+    changed -- with or without an issue number (ruling 2a)."""
+    for argv in (["27", "Subject"], ["Subject"]):
+        res = _bash(_CLOSE, "--dry-run", "--slug", "some-slug", *argv)
+        assert res.returncode == 0, res.stderr
+        read = res.stdout.find("--workflow ci.yml")
+        assert 0 <= read < res.stdout.find("ruff check"), res.stdout
+        assert "scripts/ci_state.py" in res.stdout and "--ci-red-ok" in res.stdout
+
+
+def test_a_red_close_needs_a_reason_and_the_reason_is_recorded():
+    """``--ci-red-ok`` takes a reason and the script puts it in the commit
+    body; an empty one is refused before anything runs."""
+    res = _bash(_CLOSE, "--dry-run", "--slug", "s", "--ci-red-ok", "", "27", "X")
+    assert res.returncode == 1 and "reason" in res.stderr
+    src = _read(_CLOSE)
+    assert 'git commit -q -m "$MSG" -m "$CI_NOTE"' in src
+    assert "scripts/ci_state.py --tip" in src
+
+
+if __name__ == "__main__":  # zero-dependency self-runner
     sys.exit(pytest.main([__file__, "-p", "no:xdist", "-q"]))

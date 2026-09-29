@@ -59,13 +59,14 @@ git status -sb                     # ## dev/v<X.Y.Z>...origin/dev/v<X.Y.Z>
 # 4. Close the item: gate (scaled to the change set), one commit, push, close
 #    the issue with the branch SHA, then verify. --dry-run first shows the
 #    sequence without doing it; --slug is REQUIRED (the branch names the
-#    milestone, not the item).
+#    milestone, not the item). It reads CI on the pushed tip first (#329): red
+#    refuses -- add --ci-red-ok "<reason>" when this item is the fix.
 scripts/solo_close.sh --slug <slug> <N> "<Subject>"      # closing issue #N
 scripts/solo_close.sh --slug <slug> "<Subject>"          # no issue
 
 # 5. The push runs the fast gate on dev/** — ADVISORY. Nothing waits on it and
-#    it runs while you start the next item; just do not start the next item on
-#    a red one. A re-push cancels the run in flight, so a burst of commits
+#    it runs while you start the next item; the next close refuses on a red
+#    one (#329). A re-push cancels the run in flight, so a burst of commits
 #    leaves only the last one verified.
 gh run list --branch dev/v<X.Y.Z> --limit 3
 

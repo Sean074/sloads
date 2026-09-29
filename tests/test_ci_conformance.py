@@ -139,6 +139,101 @@ def test_the_suite_runs_on_the_interpreter_ci_runs():
     )
 
 
+#: Every interpreter literal ``ci.yml`` states, in any form: a scalar
+#: ``python-version: "3.12"`` (the `typecheck` job's, which `_ci_jobs` does not
+#: parse: that job reports under its bare name), a list, or a ``fromJSON``
+#: include row.
+_CI_VERSION = re.compile(r'python-version["\']?\s*:\s*(?:\[[^\]]*\]|["\']?3\.\d+["\']?)')
+
+
+def test_every_interpreter_ci_names_is_the_test_jobs():
+    """#329, a rider from the #327 review: `typecheck` pins a scalar
+    ``python-version: "3.12"`` that the matrix parser never sees, so moving the
+    `test` job to a new Python would leave mypy checking the old one with every
+    conformance test green. Every version literal in ``ci.yml`` is one the
+    `test` job runs."""
+    text = _read(_CI)
+    found = {v for m in _CI_VERSION.finditer(text) for v in re.findall(r"3\.\d+", m.group(0))}
+    assert found, "no python-version literal parsed out of ci.yml"
+    assert any(re.search(r'python-version:\s*"3\.\d+"', line) for line in text.splitlines()), (
+        "the typecheck job's scalar python-version is no longer parsed -- re-check this guard")
+    test = {v for v in _ci_jobs()["test"][0] if v}
+    assert found <= test, (
+        f"ci.yml names {sorted(found - test)} outside the `test` job's {sorted(test)} (#329)")
+
+
+#: Where the current truth lives (``CLAUDE.md`` "Where to look"): the standard
+#: and theory trees and the three front-door files. ``docs/90_record/`` is the
+#: record, and a dated line there may name any interpreter it was true of.
+_CURRENT_TRUTH = ("CLAUDE.md", "README.md", "CONTRIBUTING.md",
+                  os.path.join("docs", "10_standard"), os.path.join("docs", "20_theory"))
+
+#: An interpreter named as one, and only in context -- so a section number
+#: ("3.10 Section 10") and a matplotlib stamp ("v3.11.1") are not read as one.
+_DOC_VERSION = re.compile(
+    r"\bPython\s+(3\.\d+)\b"            # Python 3.12
+    r"|\bpython(3\.\d+)\b"               # python3.12 -m venv
+    r"|\bpy3(1\d)\b"                      # py312
+    r"|\w \((3\.\d+)\)"                   # test (3.12)
+    r"|\b(3\.\d+)(?=\s+legs?\b)"          # the 3.12 leg
+    r"|\b(3\.1\d)(?=/3\.\d)"              # 3.10/3.11/...
+    r"|(?<=/)(3\.1\d)\b")                  # .../3.12
+
+#: The mentions of other interpreters that are current truth and not a claim of
+#: support (owner ruling 3a, #329): ``(file, version): reason``. A new one fails
+#: until it is reworded or added here with its reason.
+_INTERPRETER_MENTIONS = {
+    ("docs/10_standard/DEVELOPMENT_PROCESS.md", "3.10"):
+        "§0's CI row records the retired 3.10/3.11 legs and why they went (#327)",
+    ("docs/10_standard/DEVELOPMENT_PROCESS.md", "3.11"):
+        "§0's CI row records the retired 3.10/3.11 legs and why they went (#327)",
+    ("docs/10_standard/DEVELOPMENT_PROCESS.md", "3.14"):
+        "branch coverage under sys.monitoring needs CPython 3.14 -- a fact about "
+        "coverage, not an interpreter sloads claims",
+}
+
+
+def _doc_files():
+    for entry in _CURRENT_TRUTH:
+        path = os.path.join(_ROOT, entry)
+        if os.path.isfile(path):
+            yield path
+            continue
+        for dirpath, _dirs, files in os.walk(path):
+            for name in sorted(files):
+                if name.endswith((".md", ".txt")):
+                    yield os.path.join(dirpath, name)
+
+
+def test_no_standard_doc_names_an_interpreter_ci_does_not_run():
+    """#329, the other #327-review rider: #327 retired the doc-wording check
+    for the old three-version list along with the list, and left nothing to
+    stop a doc claiming an interpreter again -- ``CONVENTIONS.md`` §7 still
+    said "identical on 3.10/3.11/3.12". Every interpreter a current-truth doc
+    names is one ``ci.yml``'s `test` job runs, or an allowlisted mention with
+    its reason."""
+    ci = {v for v in _ci_jobs()["test"][0] if v}
+    stray, seen = [], set()
+    for path in _doc_files():
+        rel = os.path.relpath(path, _ROOT)
+        for lineno, line in enumerate(_read(path).splitlines(), start=1):
+            for m in _DOC_VERSION.finditer(line):
+                raw = next(g for g in m.groups() if g)
+                version = f"3.{raw}" if "." not in raw else raw
+                if version in ci:
+                    continue
+                if (rel, version) in _INTERPRETER_MENTIONS:
+                    seen.add((rel, version))
+                    continue
+                stray.append(f"{rel}:{lineno}: {version}")
+    assert not stray, (
+        f"a current-truth doc names an interpreter ci.yml does not run ({sorted(ci)}):\n  "
+        + "\n  ".join(stray)
+        + "\nReword it, or add it to _INTERPRETER_MENTIONS with its reason (#329).")
+    stale = set(_INTERPRETER_MENTIONS) - seen
+    assert not stale, f"allowlisted mentions no longer in the docs -- remove them: {sorted(stale)}"
+
+
 # --- hop 1a: snapshot <-> ci.yml -------------------------------------------
 
 def test_every_required_check_actually_runs_on_a_pull_request():
