@@ -25,22 +25,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The full matrix runs in exactly one place: the push to `main`, which
-        # is the milestone merge. Everything else -- every PR, and every push to
-        # a `dev/**` milestone branch -- is the fast gate: ONE interpreter
-        # (3.12, uninstrumented). The 3.10 / 3.11 legs are the *compatibility*
-        # claim, not the correctness gate, and in this repository they have
-        # never failed where 3.12 passed; they are fixed forward if they ever
-        # differ (2026-08-17 process review; DEVELOPMENT_PROCESS §0). Required
-        # checks on `main` are therefore `test (3.12)`, `typecheck`,
+        # ONE interpreter everywhere (#327, 2026-09-28): every PR, every push
+        # to a `dev/**` milestone branch and the push to `main` run 3.12, the
+        # interpreter the developer's gate runs (the suite refuses any other,
+        # tests/test_ci_conformance.py). The 3.10/3.11 compatibility legs that
+        # ran on `main` alone retired: they let a 3.11-vs-3.12 byte (#324) and
+        # a 3.11-only regex (#325) through every gate before the merge.
+        # Required checks on `main` are `test (3.12)`, `typecheck`,
         # `sbeam-roundtrip (3.12)`.
-        python-version: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && fromJSON('["3.10", "3.11", "3.12"]') || fromJSON('["3.12"]') }}
+        python-version: ["3.12"]
         # Coverage on ONE leg, and on PUSH TO MAIN only (2026-08-16 item 8;
         # moved off the PR leg 2026-08-22): coverage instrumentation was the
         # wall-clock multiplier — the instrumented PR leg had grown past 27
         # minutes against ~2.5 uninstrumented local minutes. The 80 % floor is
-        # one number a single item almost never moves; like the 3.10/3.11
-        # compatibility legs it is measured on the merge push and fixed forward
+        # one number a single item almost never moves; it is the one thing the
+        # merge push measures that a PR does not, and it is fixed forward
         # (DEVELOPMENT_PROCESS §0). Keeping it off `dev/**` is what holds the
         # advisory gate at its measured ~7.3 min instead of ~27.
         include: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && fromJSON('[{"python-version":"3.12","coverage":"--cov=sloads --cov-report=term-missing --cov-fail-under=80"}]') || fromJSON('[]') }}
@@ -78,8 +77,8 @@ jobs:
         run: pytest -q --tb=short --durations=15 ${{ matrix.coverage }}
 
   # Static type check of the calc package (design note 27, 2026-08-16). Its own
-  # job, on one interpreter: mypy 2.x targets the running Python and the code's
-  # 3.10 compatibility is the test matrix's claim, not mypy's. Zero errors in
+  # job, on the one interpreter (#327): mypy 2.x targets the running Python,
+  # which is the developer's too. Zero errors in
   # default mode is the gate; the per-package strictness ratchet lives in
   # pyproject.toml [[tool.mypy.overrides]].
   typecheck:
@@ -106,15 +105,14 @@ jobs:
   #
   # Its own job, not a fourth leg of the matrix above: that keeps `pip install
   # scipy` off the three existing legs, and names the failure ("sbeam round
-  # trip") in the PR check list instead of burying it in a 1000-test run. 3.10 is
-  # skipped for install cost only -- sbeam's own CI covers it.
+  # trip") in the PR check list instead of burying it in a 1000-test run.
   sbeam-roundtrip:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        # Same split as `test`: 3.12 everywhere, 3.11 added on the push to main.
-        python-version: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && fromJSON('["3.11", "3.12"]') || fromJSON('["3.12"]') }}
+        # The one interpreter, as `test` (#327).
+        python-version: ["3.12"]
 
     steps:
       - uses: actions/checkout@v4

@@ -112,8 +112,8 @@ paragraph had said *merge commit* since 2026-08-22 and the setting had said
 otherwise all along). Rebase satisfies both: linear history for the protection
 rule, one commit per item for the record. It rewrites the branch's SHAs onto
 `main`'s tip, so delete `dev/vX.Y.Z` after the merge rather than reusing it, and
-it drops any merge commit the branch itself picked up. That push to `main` runs the full
-3.10/3.11 + coverage matrix — the gate of record for the whole milestone. Step 4
+it drops any merge commit the branch itself picked up. That push to `main` runs the
+suite on the rebased tree with coverage — the gate of record for the whole milestone. Step 4
 tags `main` after the merge, unchanged. The issues of this milestone are
 already closed, each in its own commit, so the PR body carries **no**
 `Closes #N`.
@@ -125,9 +125,9 @@ already closed, each in its own commit, so the PR body carries **no**
    - if [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md) exceeds **1,500 lines** (`tests/test_changelog_fragments.py` warns), cut it at the *previous* release's "Release cut" block and move everything below that block verbatim into a new frozen `docs/90_record/NN_completed_development_to_<prev>.md` (header text: copy `11_completed_development_to_0.5.0.md`); the live file keeps this release's cycle plus its own release-cut block; add the INDEX row and the pointer line in the live file's header;
    - if [`../90_record/CHANGELOG.md`](../90_record/CHANGELOG.md) exceeds the same **1,500 lines** (same guard, note 61 CV-5), roll it in the same pass: re-run step 2 with `--roll`, or `.venv/bin/python scripts/build_changelog.py X.Y.Z --date YYYY-MM-DD --roll`. Release blocks older than the previous one are frozen verbatim into `docs/90_record/CHANGELOG_to_<version>.md`; add its INDEX row.
    Nothing here is an audit: line counts are the only inputs.
-4. **Tag — only on a green `main`.** The merge's push to `main` runs the full
-   3.10/3.11 + coverage matrix, the gate of record for the whole milestone, and
-   it runs only there — so the tag waits for it: run
+4. **Tag — only on a green `main`.** The merge's push to `main` runs the suite
+   on the rebased tree with coverage, the gate of record for the whole
+   milestone, and coverage runs only there — so the tag waits for it: run
    `.venv/bin/python scripts/branch_protection_snapshot.py --check-main-run`
    and proceed only on exit 0 (it refuses a red **or still-running** newest run
    on `main`). 0.8.0 was tagged while that run was red at install (#132); this

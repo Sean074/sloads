@@ -359,6 +359,16 @@ clause, which knew of no milestone between.
 > flight**; B2 (0.9.0) follows it. #316 and #318 (MAJOR) stay open and unbanded
 > by the owner's 2026-09-27 ruling. Cut rule unchanged: 0.8.8 when B9 is empty,
 > then 0.9.0 when B2 is.
+>
+> **B9 amended 2026-09-28 (owner, in session) — three rows ahead of #283.**
+> **#327** (Python 3.12 alone: the developer's gate, the PR gate and `main`'s
+> run on one interpreter) goes first, because every later item closes through
+> the gate it changes; it shipped in its own banding commit, so its row 13 never
+> stood. **#316** (a NaN still drops a delivered file silently) is a defect with
+> first-order effect on shipped content, so it outranks every [V] row
+> (ordering rule, 2026-08-16); **#318** (note 66 and 52 gates that re-derive
+> what they check) follows it. They take the free ordinals 14–15, so nothing
+> renumbers. B9 is **8 rows** (1 L, 2 M, 5 S). Cut rule unchanged.
 
 
 **System of record (design note 28 MD-5, 2026-08-16):** open work is **GitHub
@@ -402,6 +412,8 @@ keeps its body in *Open defects*, and the [E]/[V] detail sections hold the rest.
 | Pri | Item (detail below / in its plan) | What ships | Tag | Tier / effort | Depends on |
 |---|---|---|---|---|---|
 | **B9 — 0.8.8: the beam-model page, with the report polish behind it** ||||||
+| 14 | **A NaN still drops a delivered file silently** — `package_data.add()` swallows `NonFiniteValue`, which `render.py` states is never caught by a renderer, and #303's `except Exception` sweep stopped at report 3.2: about sixteen sibling handlers in `oracle_sections.py`, `applied.py:928` and the load-case CSV loop still turn any calc exception into an empty result where G-OR-7 licenses only a missing-input refusal *(0.8.7 release review [MAJOR], 2026-09-27; banded 2026-09-28)* (#316) | Every broad `except` in the report and package paths narrowed to the stated refusals, the rest let through; `package_data` refuses a non-finite value by name; a guard that no report or package path catches `NonFiniteValue` or a bare `Exception` | E | S / M | — |
+| 15 | **Note 66 and 52 gates that re-derive what they check, and G-66.5 is not the gate the note agreed** — gates that recompute the quantity under test from the same owner assert the code against itself (P-2) *(0.8.7 release review [MAJOR], 2026-09-27; banded 2026-09-28)* (#318) | G-66.5 rebuilt as the note agreed (the EM case minus its engine increment equals the scaled parent, load for load); G-66.1/G-66.3/G-66.10, the report's OEI butt-line check and the note 52 roll gates each compared against a figure that does not share the code's derivation (a printed oracle, the engine's entered station, the reflected twin strip by strip); the literal-arithmetic test removed | E | S / S–M | — |
 | 16 | **Beam-model page: the LRA definition, the model drawn, and the sbeam deck written to a chosen directory** — the LRA free-free model is the primary deliverable and the GUI has no path to it: no step, no page, no editor for `lra_mesh` or `ref_axis_pct` beyond raw JSON, and `lra_model.bdf` is written only by the CLI; the schema has called it "step 12" since v52 and no step exists. The page shows the axis (default a chord percentage, user-definable), draws the model as `scripts/plot_lra_model.py` does (iso + three views, outlines overlaid, refusal shown verbatim) and writes the **sbeam input BDF** — one writer, `write_lra_model_bdf` with the CLI's stamp — to a user-selected directory through the Report page's native picker. **Reopens note 57 D-57.6**, which retired the export page without port: this is the missing step for the deliverable, not that page ported, and a design note must say so at AGREED first. The report package does **not** carry the deck (owner, 2026-09-14): this page is the one GUI channel for it *(owner's request, 2026-09-14; moved from B2 into B9 at the same day's split, paired with #275)* (#283) | The note AGREED; the page as a step or declared non-step in `workflow.py`; the script's drawing moved to one owner the page and the script both call; no second writer, picker, stamp or figure (the #239 class) | V | L / M | a design note at AGREED first; #275 shipped 2026-09-21 |
 | 17 | **Override cross-check warnings fire below display precision and print two identical numbers** *(2026-09-08 review G6)* (#243) | One owner for the comparison tolerance (display precision or a stated rel-tol) so every cross-check warning behaves the same | V | S / S | — |
 | 18 | **Report polish rollup from the 2026-09-08 review** — ten tier-S presentation items in one issue so none is lost *(R13–R23)* (#240) | The ten items closed or individually declined with a reason | V | S / S–M | — |

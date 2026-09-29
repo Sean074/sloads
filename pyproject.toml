@@ -10,12 +10,14 @@ name = "sloads"
 dynamic = ["version"]
 description = "Modern Python/Streamlit replication of the FAR 23 LOADS suite (McMaster) — FAR Part 23 Subpart C structural design loads."
 readme = "README.md"
-# 3.10 floor: streamlit>=1.51 (the width= layout API, #129) declares
-# Requires-Python >=3.10, and Python 3.9 is EOL (2025-10). The 0.8.0 cut
-# shipped a >=3.9 claim the resolver refused on 3.9 (#132) -- the classifier
-# list below and the ci.yml matrix mirror this floor, guarded by
-# tests/test_ci_conformance.py.
-requires-python = ">=3.10"
+# One interpreter (#327, 2026-09-28): the developer's gate, the PR gate and the
+# push to `main` all run 3.12. The old >=3.10 floor was streamlit's (#132), not
+# a need of this code, and carrying 3.10/3.11 legs that ran only on `main` let
+# a 3.11-vs-3.12 byte (#324) and a 3.11-only regex (#325) through every gate
+# before the merge. The classifier list below and the ci.yml matrix mirror this
+# floor, and the test suite refuses to run on any other interpreter, guarded
+# by tests/test_ci_conformance.py.
+requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [
     {name = "Sean O'Meara", email = "sean.c.omeara74@gmail.com"},
@@ -33,8 +35,6 @@ classifiers = [
     "Programming Language :: Python :: 3",
     # Mirrors the CI matrix in .github/workflows/ci.yml -- a classifier claiming
     # less than CI tests understates support; claiming more asserts an untested one.
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering",
 ]
@@ -160,8 +160,9 @@ ignore = [
     "RUF005",  # list-literal concatenation reads better than unpacking for the multi-line deck/card builders
     "C408",    # `dict(width=3)` is the plotly/Streamlit keyword idiom throughout app/; not a defect
     # The two rules below arrived with the py310 target (requires-python >= 3.10,
-    # #132) and are the same churn class as `UP` above -- 3.10+ spellings of
-    # working code, not defects. Enabling either is its own deliberate PR: B905
+    # #132; the target is py312 since #327) and are the same churn class as `UP`
+    # above -- newer spellings of working code, not defects. Enabling either is
+    # its own deliberate PR: B905
     # in particular is not a blind sweep (`strict=True` turns a silent truncation
     # into a raise, which is a behavior choice per site, and several zips here
     # truncate by design, e.g. `zip(pts, pts[1:])`).
@@ -174,7 +175,7 @@ ignore = [
 # `sloads/`; the overrides below ratchet strictness per package, SSOT owners
 # first. Never widen an override to silence an error -- narrow the type.
 # No python_version pin: mypy 2.x targets the running interpreter (the CI job
-# runs it on 3.12; the code stays 3.10-compatible by the test matrix, not by mypy).
+# and the developer both run it on 3.12, the one supported interpreter, #327).
 files = ["sloads"]
 ignore_missing_imports = true      # streamlit / plotly / openpyxl / sbeam ship no stubs
 warn_unused_ignores = true

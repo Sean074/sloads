@@ -120,9 +120,10 @@ Additional rules (rationale in `docs/50_reviews/`):
   (`00_program_overview.md` §Documentation currency; guard `tests/test_doc_currency.py`).
 - **Keep the build green.** `ruff check sloads/ cli.py oracle.py app_shell/ oracle_app/ scripts/` clean, `mypy` clean (zero
   errors on `sloads/`; strictness ratchets per package in `pyproject.toml`) and `pytest` passing
-  are the merge gate. **CI is asymmetric — `ci.yml` is the authority** (guard
-  `tests/test_ci_conformance.py`): PRs and `dev/**` pushes run the fast gate (3.12,
-  `typecheck`, `sbeam-roundtrip (3.12)`); 3.10/3.11 and coverage run on the push to `main`.
+  are the merge gate. **One interpreter, 3.12 — `ci.yml` is the authority** (guard
+  `tests/test_ci_conformance.py`, which also refuses a `.venv` on any other): PRs,
+  `dev/**` pushes and the push to `main` run `test (3.12)`, `typecheck`,
+  `sbeam-roundtrip (3.12)`; only coverage is added on the push to `main`.
 - **The git workflow is REQUIRED for all development work** — no change lands outside
   it. The operative mode is the **solo profile** (`DEVELOPMENT_PROCESS.md` §0) unless
   collaboration is explicitly in play: `scripts/solo_start.sh dev/vX.Y.Z` opens the

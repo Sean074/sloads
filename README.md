@@ -88,9 +88,10 @@ mypy                                                        # type check (sloads
 `pyproject.toml` is the single dependency source — `pip install -e .` for the
 runtime set, `pip install -e '.[dev]'` for the supported developer install (a
 second `requirements.txt` list was deleted at 0.5.0 because it had drifted from
-it). CI (`.github/workflows/ci.yml`) runs ruff and pytest on Python 3.12 for
-every pull request and every push to a `dev/**` milestone branch; the
-3.10 / 3.11 compatibility legs run on the push to `main`.
+it). sloads requires **Python 3.12**, the one interpreter the developer's gate
+and CI both run (#327). CI (`.github/workflows/ci.yml`) runs ruff and pytest on
+it for every pull request, every push to a `dev/**` milestone branch and the
+push to `main`, which alone adds the coverage measurement.
 
 ## Validation & math fidelity
 
