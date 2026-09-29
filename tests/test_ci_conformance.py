@@ -47,13 +47,6 @@ _RELEASE = os.path.join(_STD, "RELEASE_PROCESS.md")
 _COMMANDS = os.path.join(_STD, "WORKFLOW_COMMANDS.txt")
 _SMOKE = os.path.join(_ROOT, "scripts", "smoke_test.sh")
 
-#: Standard docs that describe the CI matrix to a reader.
-_CI_CLAIM_SITES = (
-    "README.md",
-    "CLAUDE.md",
-    os.path.join("docs", "10_standard", "00_program_overview.md"),
-    os.path.join("docs", "10_standard", "DEVELOPMENT_PROCESS.md"),
-)
 
 
 def _read(path):
@@ -68,6 +61,10 @@ _MATRIX = re.compile(
     r"python-version:\s*\$\{\{.*?fromJSON\('(?P<full>\[[^']*\])'\).*?fromJSON\('(?P<fast>\[[^']*\])'\)",
     re.S,
 )
+#: `python-version: ["3.12"]` -- one list, the same on a PR and on the push to
+#: main (#327). The conditional form above stays readable so a reintroduced
+#: split is parsed, and then refused by the parity test below.
+_PLAIN_MATRIX = re.compile(r"^\s+python-version:\s*(?P<list>\[[^\]]*\])\s*$", re.M)
 _JOB = re.compile(r"^  (?P<name>[a-z][a-z0-9-]*):\s*$", re.M)
 
 
@@ -83,8 +80,12 @@ def _ci_jobs():
     for i, (name, start) in enumerate(starts):
         end = starts[i + 1][1] if i + 1 < len(starts) else len(text)
         m = _MATRIX.search(text, start, end)
+        plain = _PLAIN_MATRIX.search(text, start, end)
         if m:
             jobs[name] = (json.loads(m.group("fast")), json.loads(m.group("full")))
+        elif plain:
+            versions = json.loads(plain.group("list"))
+            jobs[name] = (versions, versions)
         else:
             jobs[name] = ([""], [""])
     return jobs
@@ -107,10 +108,34 @@ def test_the_ci_matrix_is_parsed_at_all():
     assert {"test", "typecheck", "sbeam-roundtrip"} <= set(jobs), (
         f"ci.yml job names not recognised: {sorted(jobs)}"
     )
-    assert jobs["test"][0] != jobs["test"][1], (
-        "ci.yml's `test` matrix no longer differs between a PR and the push to main. "
-        "If the asymmetry was removed deliberately, this file and the docs it asserts "
-        "must be rewritten together — that asymmetry is their whole subject."
+    assert jobs["test"][0] != [""], "ci.yml's `test` job has no python-version list parsed"
+
+
+def test_a_pull_request_runs_every_interpreter_the_push_to_main_runs():
+    """#327. The push to `main` used to add 3.10/3.11 legs no PR ran, so a
+    3.11-only regex (#325) was found only after the milestone merge. One
+    interpreter everywhere: whatever the merge push runs, a PR ran first. Only
+    coverage stays merge-push-only (``ci.yml``'s ``include``), and it is not an
+    interpreter."""
+    split = {name: v for name, v in _ci_jobs().items() if v[0] != v[1]}
+    assert not split, (
+        f"ci.yml runs different interpreters on a PR and on the push to main: {split}. "
+        "A leg that only the merge push runs is found after the merge (#325, #327)."
+    )
+
+
+def test_the_suite_runs_on_the_interpreter_ci_runs():
+    """#327. The developer's `.venv` was 3.11 while CI ran 3.12, so a byte
+    that differed between them (#324) passed every local gate and failed every
+    CI run for two days. The gate is only CI's gate if it runs CI's
+    interpreter: read from `ci.yml`, so moving to a new Python is one edit that
+    fails here until the venv follows."""
+    ci = {v for v in _ci_jobs()["test"][0] if v}
+    here = f"{sys.version_info.major}.{sys.version_info.minor}"
+    assert here in ci, (
+        f"this suite is running on Python {here}; ci.yml's `test` job runs {sorted(ci)}. "
+        "Rebuild .venv on that interpreter (CONTRIBUTING.md) -- a gate on another "
+        "interpreter is not the gate CI runs (#324, #327)."
     )
 
 
@@ -254,31 +279,6 @@ def test_the_process_docs_agree_with_the_live_review_settings():
         )
 
 
-# --- hop 1c: no doc may state the matrix without its asymmetry -------------
-
-_FULL_LIST = re.compile(r"3\.10\s*(?:/|,)\s*3\.11\s*(?:/|,)\s*3\.12")
-
-
-@pytest.mark.parametrize("rel", _CI_CLAIM_SITES)
-def test_no_doc_states_the_full_matrix_as_if_it_ran_everywhere(rel):
-    """CR-D-4's first instance. Three documents said "CI runs ... on 3.9 / 3.11 /
-    3.12" with no caveat, while a PR runs 3.12 alone — so a change that breaks
-    3.9 merges green by design, and the docs promised otherwise. Any sentence
-    naming the full matrix must also name `main`, where it actually runs."""
-    lines = _read(os.path.join(_ROOT, rel)).splitlines()
-    bad = []
-    for n, line in enumerate(lines):
-        if not _FULL_LIST.search(line):
-            continue
-        window = " ".join(lines[max(0, n - 2) : n + 3])  # prose wraps
-        if "main" not in window:
-            bad.append(f"{rel}:{n + 1}: {line.strip()[:100]}")
-    assert not bad, (
-        "the full CI matrix is stated without saying it runs only on the push to "
-        "`main` (a PR runs 3.12 alone):\n  " + "\n  ".join(bad)
-    )
-
-
 # --------------------------------------------------------------------------- #
 # The §3.5 smoke gate and the front-ends it claims to boot (#127)
 # --------------------------------------------------------------------------- #
@@ -361,7 +361,6 @@ def test_the_smoke_gate_runs_the_oracle_launcher_rather_than_resolving_it():
 
 _CLASSIFIER = re.compile(r'"Programming Language :: Python :: (3\.\d+)"')
 _REQ_PY = re.compile(r'requires-python\s*=\s*">=(3\.\d+)"')
-_MATRIX_LIST = re.compile(r"fromJSON\('\[([^\]]*)\]'\)")
 
 
 def test_the_python_support_claim_is_one_claim_in_three_places():
@@ -382,14 +381,8 @@ def test_the_python_support_claim_is_one_claim_in_three_places():
     floor_v = tuple(int(n) for n in floor.group(1).split("."))
     classifiers = {c for c in _CLASSIFIER.findall(pyproject) if c != "3"}
 
-    ci = _read(_CI)
-    lists = [
-        {v.strip().strip('"') for v in m.group(1).split(",")}
-        for m in _MATRIX_LIST.finditer(ci)
-    ]
-    versions = [vs for vs in lists if vs and all(v.startswith("3.") for v in vs)]
-    assert versions, "no python-version matrix list parsed out of ci.yml"
-    full = max(versions, key=len)  # the main-push list; PR legs are a subset
+    full = {v for _, on_main in _ci_jobs().values() for v in on_main if v}
+    assert full, "no python-version matrix list parsed out of ci.yml"
 
     assert classifiers == full, (
         f"the classifier set {sorted(classifiers)} is not the ci.yml full matrix "
@@ -524,9 +517,9 @@ def test_the_declared_streamlit_reaches_are_not_stale():
 # The tag precondition and its script cannot drift apart (#184)
 # --------------------------------------------------------------------------- #
 def test_the_tag_step_names_the_green_main_check_and_the_script_offers_it():
-    """§4 step 4 tags after the merge, but the full 3.10/3.11 + coverage
-    matrix runs only on that push to `main`, "fixed forward" -- and 0.8.0 was
-    tagged while that run was red at install (#132). The precondition is a
+    """§4 step 4 tags after the merge, but coverage runs only on that push to
+    `main`, "fixed forward", and the rebased tree is not the PR's -- and 0.8.0
+    was tagged while that run was red at install (#132). The precondition is a
     scripted check (`--check-main-run`), kept beside `--check` because both
     need the `gh` credential CI does not have; this test is the credential-free
     hop: the doc must name the check, and the script must actually offer it,

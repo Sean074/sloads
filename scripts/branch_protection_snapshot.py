@@ -115,9 +115,9 @@ def check_main_run(branch: str) -> int:
     """Exit status for ``--check-main-run``: 0 iff the newest run is green.
 
     The tag precondition of ``RELEASE_PROCESS.md`` §4 step 4 (#184): the push
-    to ``main`` that the milestone merge makes runs the full 3.10/3.11 +
-    coverage matrix — the gate of record for the whole milestone — and it runs
-    *only* there, "fixed forward". 0.8.0 was tagged while that run was red at
+    to ``main`` that the milestone merge makes runs the suite on the rebased
+    tree with coverage — the gate of record for the whole milestone — and
+    coverage runs *only* there, "fixed forward". 0.8.0 was tagged while that run was red at
     install (#132); the classifier half was fixed then, this is the
     tag-on-red half. An **in-progress** run also refuses: tagging before the
     matrix finishes is the same hole with better luck.

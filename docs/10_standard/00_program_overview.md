@@ -63,8 +63,8 @@ stale.
 
 ## Coding standards
 
-- **Python 3.10+**, with `from __future__ import annotations` at the top of each
-  module.
+- **Python 3.12** (the one supported interpreter, #327), with
+  `from __future__ import annotations` at the top of each module.
 - **Type hints** on all function signatures.
 - **`@dataclass`** for every input and result object (`EngineInput`, `Rotor`,
   `LoadValue`, `ConditionResult`, `ModuleResult`, `Project`). Use **`Enum`** for
@@ -320,14 +320,15 @@ floor against the layout parameter the front-end passes).
   twin turboprop, p251) figures within **±0.1%** (`rel_tol=1e-3`); exact equality
   only for integer/dimensionless quantities.
 - `ruff check sloads/ cli.py oracle.py app_shell/ oracle_app/ scripts/` clean, `mypy` clean and `pytest` passing are the
-  merge gate. **The CI matrix is asymmetric and `.github/workflows/ci.yml` is its
-  authority** (guard: `tests/test_ci_conformance.py`): every pull request and every
-  push to a `dev/**` milestone branch runs ruff + pytest on **3.12 only**, with `mypy`
-  and `sbeam-roundtrip (3.12)` in their own jobs — that trio is the required-check set
-  on `main`. The **3.10 / 3.11 compatibility legs, `sbeam-roundtrip (3.11)` and the
-  coverage-instrumented leg run on the push to `main` only**, i.e. on the milestone
-  merge, and are fixed forward (`DEVELOPMENT_PROCESS.md` §0): a change that breaks 3.10
-  merges green by design. See §Static typing & lint below for what each checks.
+  merge gate. **CI runs one interpreter, 3.12, and `.github/workflows/ci.yml` is
+  its authority** (guard: `tests/test_ci_conformance.py`): every pull request, every
+  push to a `dev/**` milestone branch and the push to `main` run ruff + pytest on
+  3.12, with `mypy` and `sbeam-roundtrip (3.12)` in their own jobs — that trio is the
+  required-check set on `main`. The **coverage-instrumented run is the one thing the
+  push to `main` adds**, i.e. the milestone merge, and it is fixed forward
+  (`DEVELOPMENT_PROCESS.md` §0). The same guard refuses to run the suite on any
+  interpreter `ci.yml` does not, so the local gate is CI's gate (#324, #327). See
+  §Static typing & lint below for what each checks.
 - **Parallel by default (CH-1).** `addopts` in `pyproject.toml` carries
   `-n auto` (`pytest-xdist`), so every `pytest` invocation — local and CI —
   runs across all cores. To debug with `-s`/pdb, disable workers with
@@ -339,8 +340,7 @@ floor against the layout parameter the front-end passes).
   (the 3.12 leg, via the matrix `include`; item 8, 2026-08-16; moved off the PR
   leg 2026-08-22, where instrumentation had grown the run past 27 minutes): the floor is one number and needs
   measuring once, and branch instrumentation was what made every leg a
-  ten-minute job — the 3.10/3.11 legs are the compatibility claim and run
-  uninstrumented. Opt in locally with `--cov=sloads`; the `[tool.coverage.*]`
+  ten-minute job. Opt in locally with `--cov=sloads`; the `[tool.coverage.*]`
   tables in `pyproject.toml` still configure branch mode and reporting. This
   floor is a **ratchet**: raise it toward 85% as `report.py` and `constants.py`
   gain tests, and tighten to a per-module gate on `sloads/modules/` (the load

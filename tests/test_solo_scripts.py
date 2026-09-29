@@ -219,16 +219,19 @@ def test_ci_runs_on_the_milestone_branch():
     assert '"dev/**"' in ci, "pushes to a milestone branch must trigger CI (§0)"
 
 
-def test_the_full_matrix_is_reserved_for_the_push_to_main():
-    """Three conditionals — the interpreter matrix, the coverage `include`, and
-    the round-trip matrix — must all key on *push to main*, not on `pull_request`.
-    Keyed the old way, a `dev/**` push would take the `||` arm and run the
-    coverage-instrumented 3.10/3.11/3.12 matrix: the ~27-minute leg that the
-    2026-08-22 change moved off the fast gate in the first place."""
+def test_coverage_is_reserved_for_the_push_to_main():
+    """One conditional — the coverage `include` — must key on *push to main*, not
+    on `pull_request`. Keyed the old way, a `dev/**` push would take the `||` arm
+    and run the coverage-instrumented leg: the ~27-minute run that the
+    2026-08-22 change moved off the fast gate in the first place. The two
+    interpreter conditionals it used to share this rule with retired at #327:
+    every run is 3.12, so only coverage differs between a PR and `main`
+    (``tests/test_ci_conformance.py`` holds that parity)."""
     ci = _read(_CI)
     sentinel = "github.event_name == 'push' && github.ref == 'refs/heads/main'"
-    assert ci.count(sentinel) == 3, (
-        f"expected the full-matrix condition in 3 places, found {ci.count(sentinel)}")
+    assert ci.count(sentinel) == 1, (
+        f"expected the push-to-main condition once (the coverage include), found "
+        f"{ci.count(sentinel)}")
     assert "github.event_name == 'pull_request' &&" not in ci, (
         "a matrix still keys on 'is this a PR', which sends dev/** pushes to the full matrix")
 
