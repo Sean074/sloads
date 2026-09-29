@@ -2,7 +2,9 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: SHIPPED 2026-09-26 — #286 (§10) and #285 (§11).** AGREED 2026-09-25 (owner, in session). PROPOSED the same
+**Status: SHIPPED 2026-09-26 — #286 (§10) and #285 (§11).** **Amended at
+AGREED 2026-09-29 (#319, §12): the engine axial loads of both families.**
+AGREED 2026-09-25 (owner, in session). PROPOSED the same
 day; the owner ruled Q1–Q7 of §2 **as recommended**, so D-66.1…D-66.16 stand as
 written (§9). Drafted for one design pass over two band-B8 rows the 2026-09-22
 re-charter paired ("#286 and #285 move B2 → B8 (one design pass)"): **#286**,
@@ -204,6 +206,7 @@ absences), #210 (every EM condition states its own point).
 | G-66.14 | *(added 2026-09-27, #317 — defined by the #285 build; G-66.13 is unassigned)* 23.367(a)(2) states SF 1.0 and every other OEI case 1.5 (D-66.14) | equality, per case, both twins |
 | G-66.15 | *(added 2026-09-27, #317)* No wing-body side force on an OEI case, and the case states why (D-66.15) | no `body-aero` load; the note present |
 | G-66.16 | *(added 2026-09-27, #317)* The OEI 1 g half — the case less fin, engine pair and relief — closes; the case is exempt from the trim gate (D-66.16 as amended) | `\|Fz\| / (n·W)` < 1 % (`RESIDUAL_GATE`) |
+| G-66.17 | *(added 2026-09-29, #319 — §12)* Every 23.371(b)/25.371 case carries every engine's max-continuous thrust and gyroscopic couples at one airplane state; on a symmetric installation the thrusts' summed yawing moment about the CG is zero | per engine, identity; yaw < 1e-9 relative to one engine's thrust × arm |
 
 **What each gate compares against** *(amended 2026-09-28, #318 — the 0.8.7
 review's P-2 finding).* A gate may not re-derive what it checks. **G-66.5** is
@@ -361,3 +364,57 @@ build met the note:
 4. **Coverage (G-66.8)**: ATR 2 speeds × (computed + twin), VS unrecovered on
    both engines and recorded; Baron 3 × 2. Ids are ONENGOUT's own (VT-30…35).
 
+
+## 12. Amendment — the engine axial loads (#319, AGREED 2026-09-29)
+
+**Why.** The 0.8.7 release review (#319, rule 6) asked whether the axial
+loads the two families put at the hubs stand as LIMIT loads. Measured at
+`dev/v0.8.8` before this amendment:
+
+- **OEI.** The failed hub carries ONENGOUT's Glauert windmill drag,
+  `0.85·0.232·ρV²D²` (ONENGOUT.BAS 203–211) — a disc drag coefficient
+  `C_D,disc = 0.85·0.232·8/π = 0.502` on the disc area at the case's `q`, which
+  the manual (Ch 11 p88) calls the value the drag "can not be more than".
+  Fully ramped at the peak instant on both twins: `atr42_100` +13,004 lb (VC)
+  and +20,319 lb (VD) against 1,921 / 1,537 lb live thrust; `baron_58` 2,091 /
+  3,383 / 391 lb (VC / VD / VS). ONENGOUT used it only as a yaw forcing; the
+  deck delivers it as a hub load and said nothing of its being a bound.
+- **Gyro.** Each 23.371(b)/25.371 case thrust its own engine alone: on the ATR
+  10,865 lb at y = ±161 in (EM-06…09, EM-15…18, 33,510 lb, n = 2.5), a
+  1.75 M lb-in yaw the closure reacted with `ṙ` — 73 % of the OEI VC forcing,
+  in a case the regulation defines as a flight state, not an asymmetric-thrust
+  one. The RJ's ENGLOADS thrust is 0 (its couples alone); ga6 and the Baron
+  have no gyro case.
+
+**Owner rulings** (2026-09-28 on #319: part 1 (a′), part 2 (a); 2026-09-29 in
+session: 1a, 2a, 3a — this section is the note, committed before the code).
+
+| # | Decision | Alternative rejected |
+|---|---|---|
+| D-66.12a | **The windmill drag at the failed hub is the engine's own when entered, else the bound, stated.** `EngineInput.windmill_drag_cd` (optional, the propeller's windmilling disc drag coefficient, from the maker's data or the 23.367(a)(3) history; schema v71, additive, hop 70→71): when entered, the failed hub's drag is `C_D · q · πD²/4` at the case's true airspeed and density, on ONENGOUT's own ramp at the peak instant. When blank, the hub carries the Glauert bound and every OEI subcase states that it is the manual's Ch 11 p88 upper bound (`C_D,disc` 0.50), delivered as a conservative bound, and names the input that replaces it. **The ONENGOUT march and the fin loads always use the bound** (owner ruling (a′): the fin forcing is unchanged, so no fin load moves); a case with an entered coefficient states that its fin load is the bound's. | A drag force per engine per OEI speed (ruling 1a: a coefficient scales with speed and rides the same ramp); feeding the entered value to the march (moves the fin loads the ruling keeps) |
+| D-66.4a / D-66.5a | **A gyroscopic case applies every engine at one airplane state.** Each 23.371(b)/25.371 case carries every engine's ENGLOADS max-continuous thrust at its hub and every engine's gyroscopic couples at its mount, and replaces every engine's entered hub thrust (#313, as the OEI family does). The engines are paired at the **same airplane yaw and pitch rates**: a co-rotating engine takes the case's own sign combination, a counter-rotating one the combination with both signs flipped (sub-case 1↔4, 2↔3; `prop_direction`, ruling 2a), because a gyroscopic couple reverses with the propeller's spin. The case keeps its own engine's EM id, which names the mount it sizes. The net axial force (ATR 21,730 lb, 0.65 g at 33,510 lb) is reacted by `nx` inertia and stated in band; on a co-rotating installation the left and right engines' cases carry the same airplane state, which is stated in band rather than deduplicated. | One engine's thrust (a yaw no rudder reacts); pairing by index whatever the rotation (a counter-rotating pair would see opposite rates) |
+
+**Gates amended.**
+
+- **G-66.4** — the increment is every engine's, each at its own mount and hub
+  (`carrier = engine-<i>`), equal to `engine_applied_load` of that engine's own
+  condition at the paired sign combination.
+- **G-66.5** — the parent of a gyroscopic case leaves out every engine's
+  entered thrust.
+- **G-66.9** — the yaw identity holds as stated when the bound is delivered;
+  with an entered coefficient the closure's `ṙ` differs from ONENGOUT's `ψ̈` by
+  exactly `(D_bound − D_entered) · y_hub / Izz`, which the gate checks.
+- **G-66.17** (new, §4).
+
+**What moves.** The ATR and RJ gyroscopic EM cases (the Imperial baseline and
+the LRA/balanced deck digests). No OEI number moves on any fixture (none
+enters a coefficient); every OEI case's statement changes.
+
+**Riders (#321, the engine items).** `engine_cases`' `_IN_PER_FT` →
+`constants.IN_PER_FT`; `ROTATION_FIXED_SOURCES` owned by `applied`, the
+restatement and its guard dropped; `lra_model`'s `f"engine-{i + 1}"` →
+`engine_member`; the vertical key tuple → `load_keys.VERTICAL_KEYS`; the side
+test's literal → `lra_model._COINCIDENT_TOL`; `_MIRROR_TOL` split into a length
+and a relative load tolerance; a zero engine weight or a zero-`n` parent is
+recorded as skipped instead of shipping a case at `k = 0`; the OEI hub's `y`
+checked against `engine_cg`; the missing type hints.
