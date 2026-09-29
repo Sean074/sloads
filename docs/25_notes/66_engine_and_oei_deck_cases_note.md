@@ -205,6 +205,22 @@ absences), #210 (every EM condition states its own point).
 | G-66.15 | *(added 2026-09-27, #317)* No wing-body side force on an OEI case, and the case states why (D-66.15) | no `body-aero` load; the note present |
 | G-66.16 | *(added 2026-09-27, #317)* The OEI 1 g half — the case less fin, engine pair and relief — closes; the case is exempt from the trim gate (D-66.16 as amended) | `\|Fz\| / (n·W)` < 1 % (`RESIDUAL_GATE`) |
 
+**What each gate compares against** *(amended 2026-09-28, #318 — the 0.8.7
+review's P-2 finding).* A gate may not re-derive what it checks. **G-66.5** is
+now the gate the table states: the test assembles each EM case's parent itself
+(its V-n point and CG case, the engine's entered thrust left out on a
+gyroscopic case), scales it by hand, and finds it load for load at the head of
+the EM case, with only the increment and its relief after it (exact on all four
+engine fixtures). **G-66.3**'s load factor is pinned from the rule and the
+engine's entered `limit_load_factor` (0.75·LIMNZ, LIMNZ, 1, 2.5, A2 = LIMNZ),
+not from ENGLOADS's vertical ÷ PPWT; on `baron_58` that LIMNZ (4.2) disagrees
+with the airplane's 23.337 n₁ (3.648), so its (a)(1)/(a)(2) cases fly at 3.15 /
+4.2 g against "75 % / 100 % of condition A" — filed for the owner at the #318
+close, not pinned. **G-66.1** pins 1.0 on 23.367(a)(2) and 1.5 elsewhere rather
+than asking the table the stamp asks. **G-66.10** compares the reflected twin,
+load for load at rel 1e-9, with the mirrored engine's case built directly from
+its own march, and its engine pair with `engine_forces_at` of that march.
+
 ## 5. Effect vs error bar (rule 6)
 
 - **OEI is the largest fin load on both twins** — 3.6× the ATR's largest

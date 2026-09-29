@@ -177,6 +177,19 @@ GA6 (`ga6_normal` untouched — the D-52.5 fixture is separate).
 | G-52.8 | D-52.5 reduction: the fixture with blank BLs reproduces G-52.5 bit-for-bit | identical rows | — |
 | G-52.9 | Drift guards: the percent owner is the only source of 70/75/12500/1000; the UNB derivation is the only producer of a derived case's `unbal_moment` | grep-style guard per rule 3 | — |
 
+**Which gates are oracles and which are pins** *(amended 2026-09-28, #318 —
+the 0.8.7 review's P-2 finding; owner ruling 2a).* Under the Amdt 23-48 75 %
+rule no printed figure exists for the delivered ACRL case, so **G-52.4 and
+G-52.11 are characterization pins**: the delivered values at the amended rule,
+measured at #306 and held so a change is seen, not checked against anything
+independent. The oracle lock for the manual's arithmetic is **G-52.12**'s
+test-built case at the printed inputs. Two delivered quantities *are* printed
+and are asserted against the print at ±0.1 %, page-cited: condition A's root
+bending on the case 22 air (+516,955 lb-in, p. 206; delivered 516,566) under
+G-52.10, and the aileron deflection δ (10.703°, p. 93; delivered 10.7065°)
+under G-52.7. G-52.6's knit checks on the printed rows are statements about the
+print, recorded in its row; they test no code and are not a test.
+
 Report gates: the D-52.6 subsection carries the standing SF statement per case
 (G-OR-73/74 pattern — LIMIT, stated, applied nowhere); G-OR-26 ordering extends
 over the rolling cases in §3.2/3.3/3.4 and Appendix B.

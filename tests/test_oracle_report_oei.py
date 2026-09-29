@@ -516,12 +516,10 @@ def test_the_oei_input_table_states_the_signed_butt_line():
     column = next(i for i, c in enumerate(table.columns)
                   if c.startswith("Butt line"))
     printed = [float(row[column]) for row in table.rows]
-    # Signed, one per side, and each is the module's own side owner applied to
-    # its own magnitude -- not a lookup this table performs for itself.
-    by_engine = {}
-    for fc in _vtail_cases(project):
-        by_engine.setdefault(fc.engine_index, fc.sense * fc.inputs.bleng)
-    expected = [by_engine[i] for i in sorted(by_engine)]
+    # Signed, one per side, and each is the engine's own entered butt line --
+    # not the module's ``sense * bleng``, which is the side owner under test
+    # and passed while the fin sign was wrong (#318).
+    expected = [eng.engine_cg[1] for eng in project.engines]
     assert len(printed) == len(expected)
     for got, want in zip(printed, expected):
         assert math.isclose(got, want, rel_tol=1e-6, abs_tol=1e-9), (got, want)
@@ -584,8 +582,7 @@ def test_one_engine_answers_to_one_number_across_the_document():
     # was 0-based AND unsigned, and its "#" form slipped the sweep above. The
     # note now states the same 1-based number and the same signed butt line
     # every other statement of the case's identity carries.
-    by_engine = {fc.engine_index: fc.sense * fc.inputs.bleng
-                 for fc in _vtail_cases(project)}
+    by_engine = {i: eng.engine_cg[1] for i, eng in enumerate(project.engines)}
     published = registry.get("one_engine_out")(project).conditions
     assert published
     for condition in published:

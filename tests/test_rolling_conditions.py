@@ -3,7 +3,7 @@
 FAR 23.349 builds two wing cases the suite always selected but never delivered
 whole. **ACRL** (23.349(a)) modifies symmetric condition A -- 100 % of its air
 load on the governing side, ``p`` % on the other -- and reacts the unbalanced
-rolling moment ``UNB = (1 - p/100) * condition A root Mxx`` through WINGINER's
+rolling moment ``UNB = -(1 - p/100) * condition A root Mxx`` through WINGINER's
 unit-roll inertia. **TORS** (23.349(b)) adds ``Δcm = -0.01 * δ`` over the
 aileron to the steady-roll air load.
 
@@ -27,8 +27,6 @@ import sys
 from dataclasses import replace
 
 import pytest
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sloads import WingLoadCase, io
 from sloads import mass_distribution as md
@@ -188,10 +186,14 @@ def test_the_delivered_acrl_air_is_condition_as():
             ("STALL +N", pick.cg, pick.altitude_ft, pick.config)
         assert (v.cl, v.v_eas_kt) == (cond_a.cl, cond_a.v_eas_kt)
         assert math.isclose(v.air_root_mxx, condition_a_root_mxx(p, cond_a), rel_tol=1e-9)
-        assert math.isclose(v.unbal_moment, -0.25 * v.air_root_mxx, rel_tol=1e-12)
     gov = table.governing()["ACRL"]
     air, _, _ = _delivered("ACRL")
     assert math.isclose(air.stations[0].mxx, gov.air_root_mxx, rel_tol=1e-9)
+    # ...and that air is the manual's: condition A's root bending on the case
+    # 22 air, printed +516,955 lb-in (Appendix A p. 206); delivered 516,566,
+    # -0.08 %. Checked against the print, not against ``-0.25 * root`` -- the
+    # schedule rule itself, which a gate may not re-derive (#318).
+    assert math.isclose(gov.air_root_mxx, 516955.0, rel_tol=1e-3)
 
 
 def test_the_delivered_acrl_pick_and_its_numbers():
@@ -227,16 +229,6 @@ def test_air_plus_inertia_is_net_on_the_rolling_cases(label):
     for a, i, n in zip(air.stations, inertia.stations, net.stations):
         for q in ("sz", "sx", "mxx", "myy", "mzz"):
             assert math.isclose(getattr(n, q), getattr(a, q) + getattr(i, q), abs_tol=1e-6)
-
-
-def test_the_printed_knit_checks():
-    """**G-52.6**'s knit checks on the printed rows: 514,475 - 124,095 =
-    390,380 (MX), -78,716 + 30,410 = -48,306 (MY), -57,444 + 11,161 = -46,283
-    (case 138 MY) -- the print is internally consistent, so G-52.12's lock is
-    one statement, not three."""
-    assert 514475 - 124095 == 390380
-    assert -78716 + 30410 == -48306
-    assert -57444 + 11161 == -46283
 
 
 # --------------------------------------------------------------------------- #
@@ -275,7 +267,9 @@ def test_tors_with_the_aileron_entered_carries_the_increment():
     crit = build_critical(p)
     tors = next(c for c in crit.conditions if c.component == "wing" and c.label == "TORS")
     delta = next(lv.value for lv in tors.loads if lv.key == "aileron_down_deflection")
-    assert math.isclose(delta, 15.0 * 121.3 / 170.0, rel_tol=5e-3)
+    # The printed deflection (Ref 1 Ch 12 p. 93), not the schedule rule
+    # ``15 * 121.3 / 170`` restated (#318): 10.7065 against 10.703, +0.03 %.
+    assert math.isclose(delta, 10.703, rel_tol=1e-3)
 
 
 def test_the_increment_is_a_double_station_step():
@@ -331,8 +325,8 @@ def test_the_wing_loads_page_states_the_couple():
     """D-52.6's GUI half: the NETLOADS block caption states UNB and θ̈ beside
     the ACRL rows -- derived on the GA6, as entered on the RJ -- and nothing
     where the table runs no accelerated roll (the Baron's filter list)."""
-    from sloads.units import UnitSystem
     from oracle_app.results import MODULE_ADVISORIES
+    from sloads.units import UnitSystem
 
     caption = MODULE_ADVISORIES["net_loads"]
     ga6 = caption(_ga6(), UnitSystem.IMPERIAL)
@@ -398,3 +392,7 @@ def test_an_entered_couple_is_published_as_entered():
     assert derived == pytest.approx(-1614422.0, rel=1e-3)   # what was published before
     assert got["condition_a_root_mxx"].value == pytest.approx(row.cond_a_root_mxx, rel=1e-12)
     assert "entered_cl" not in got and "entered_v_eas" not in got
+
+
+if __name__ == "__main__":  # zero-dependency self-runner
+    sys.exit(pytest.main([__file__, "-p", "no:xdist", "-q"]))
