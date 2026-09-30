@@ -1181,10 +1181,9 @@ def _check_wing_mass_states(project: Project) -> List[ConsistencyWarning]:
       condition shares its label, so its inertia is built from the whole
       database. Name the mass state.
 
-    None of the three fires on a shipped fixture; the Baron's two
-    non-derivable FLIGHT cases are reached by no delivered wing case (its
-    hand-entered rows name ``cg``) and by its fuselage conditions, which the
-    second warning names.
+    Only the second fires on a shipped fixture: ``baron_58``'s ``fwd
+    regardless``, which no loading of the airplane reaches (#309) and whose
+    fuselage conditions it names.
     """
     out: List[ConsistencyWarning] = []
     weight = project.weight
@@ -1288,6 +1287,90 @@ def _check_case_loading_missing(project: Project) -> List[ConsistencyWarning]:
             "fallback and not the state of record (design note 63 D-63.1). "
             "Add the loading on the case to enter it as found, then adjust "
             "it.",
+            PAGE_WEIGHT_CG))
+    return out
+
+
+def _check_envelope_reach(project: Project) -> List[ConsistencyWarning]:
+    """An envelope point no loading can produce (#309, owner ruling 2026-09-27).
+
+    * ``envelope_point_unreachable`` -- an entered structural limit or a
+      weight/CG case that no loading of the weight database reaches within
+      every row's limits, with ballast only inside the fuselage and under the
+      10 % credibility gate. The rule: such a point makes the envelope not
+      valid, so it is flagged, never silently dropped or ballasted over.
+      FLTLOADS still balances the case's entered weight and CG; no assembled
+      case carries it. ``baron_58``'s ``fwd regardless`` is the one on a
+      shipped fixture.
+    * ``case_loading_search_missed`` -- a case with no entered loading that
+      the whole-row search cannot produce although a loading with part-filled
+      rows does. The case is left out of the deck for the search's reason,
+      not the airplane's, so the warning prints a loading that reaches it to
+      enter on the case.
+
+    Both read ``mass_distribution.envelope_point_reach``, as the 2.2 case
+    table does, so the warning and the document cannot disagree.
+    """
+    weight = project.weight
+    if weight is None or not weight.items:
+        return []
+    from .mass_distribution import BALLAST_CREDIBLE_FRACTION
+    try:
+        reach = mass_distribution.envelope_point_reach(project)
+    except (MissingInputError, ValueError):
+        return []
+    base = [it for it in weight.items if it.kind != MassItemKind.DISCRETIONARY]
+    w_base = math.fsum(it.weight_lb for it in base)
+    out: List[ConsistencyWarning] = []
+    for r in reach:
+        what = ("structural limit" if r.kind == "limit" else "weight/CG case")
+        head = (f"The {what} '{r.name}' ({r.weight_lb:,.0f} lb at station "
+                f"{r.xcg:,.2f} in)")
+        if not r.reachable:
+            if r.weight_lb < w_base:
+                why = (f"weighs less than the minimum flight weight "
+                       f"({w_base:,.0f} lb)")
+            elif r.ballast_lb is None:
+                why = ("is reached by no loading within every row's limits, and "
+                       "no ballast inside the fuselage closes it")
+            else:
+                why = (f"needs {r.ballast_lb:,.0f} lb of ballast "
+                       f"({100 * (r.ballast_fraction or 0.0):.1f} % of its weight), "
+                       f"past the {100 * BALLAST_CREDIBLE_FRACTION:g} % credibility gate")
+            span = (f"; at that weight the loadings span stations "
+                    f"{r.fwd_x:,.2f} to {r.aft_x:,.2f} in"
+                    if r.fwd_x is not None and r.aft_x is not None else "")
+            out.append(ConsistencyWarning(
+                "envelope_point_unreachable",
+                f"{head} {why}{span}. An envelope point no loading can produce "
+                "makes the envelope not valid: no loads are assessed on a loading "
+                "at it, and no assembled case carries it"
+                + (" (FLTLOADS balances the entered weight and CG only)"
+                   if r.kind == "case" else "")
+                + ". Correct the limit or the weight data base (#309).",
+                PAGE_WEIGHT_CG))
+            continue
+        if r.kind != "case" or r.entered:
+            continue
+        case = next((c for c in weight.cg_cases if c.name == r.name), None)
+        if case is None:
+            continue
+        found = mass_distribution.derive_case_loadings(project, [case])
+        if not found or found[0].derivable:
+            continue
+        if r.fractions is not None:
+            rows = ", ".join(f"'{n}' {f:.3f}" for n, f in r.fractions.items())
+            how = (f"with no ballast; one such loading is {rows} "
+                   "(fractions of each row, 1 = whole)")
+        else:
+            how = (f"with {r.ballast_lb or 0.0:,.0f} lb of ballast inside the "
+                   "fuselage")
+        out.append(ConsistencyWarning(
+            "case_loading_search_missed",
+            f"{head} is a loading of the weight data base with part-filled rows, "
+            f"{how}, but the whole-row search cannot produce it "
+            f"({found[0].note}), so no assembled case carries it. Enter the "
+            "case's loading (#309).",
             PAGE_WEIGHT_CG))
     return out
 
@@ -1697,6 +1780,7 @@ def consistency_warnings(project: Project) -> List[ConsistencyWarning]:
     out += _check_wing_mass_tie(project)
     out += _check_wing_mass_states(project)
     out += _check_case_loading_missing(project)
+    out += _check_envelope_reach(project)
     out += _check_fuselage_override_per_case(project)
     out += _check_migration_notes(project)
     out += _check_aero_coefficients(project)

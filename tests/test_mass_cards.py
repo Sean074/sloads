@@ -176,7 +176,9 @@ _MZFW_JET = ["mzfw aft", "full fuel aft"]
 _DERIVABLE = {
     "ga6_normal.project.json": ["CG1", "CG2", "CG3", "CG4"],
     "atr42_100.project.json": _WTENV_FLIGHT + _MZFW_ATR,
-    "baron_58.project.json": ["aft gross"] + _MZFW_BARON,
+    # #309 (2026-09-29): `fwd gross` is entered as the no-ballast loading two
+    # part-filled rows give; `fwd regardless` is no loading of the airplane.
+    "baron_58.project.json": ["aft gross", "fwd gross"] + _MZFW_BARON,
     "concept_heavy.project.json": ["CGmax"],
     "concept_regional_jet.project.json": _WTENV_FLIGHT + _MZFW_JET,
 }
@@ -191,12 +193,13 @@ _DERIVABLE = {
 #: (``mass_distribution.loading_definition_of``, the editor's *Add loading*
 #: gesture) -- the searched item set, weight and CG reproduced exactly, so no
 #: load moved and ``case_loading_missing`` fires on no shipped fixture. The
-#: Baron stays searched: it is category N, and its two non-derivable cases
-#: are the editor's demonstration.
+#: Baron stays searched: it is category N. **#309 (2026-09-29)** enters its
+#: ``fwd gross``, which the whole-row search could not find; ``fwd regardless``
+#: stays searched and underivable, flagged ``envelope_point_unreachable``.
 _ENTERED = {
     "concept_heavy.project.json": ["CGmax"],
     "atr42_100.project.json": _WTENV_FLIGHT + _MZFW_ATR,
-    "baron_58.project.json": _MZFW_BARON,
+    "baron_58.project.json": ["fwd gross"] + _MZFW_BARON,
     "concept_regional_jet.project.json": _WTENV_FLIGHT + _MZFW_JET,
 }
 

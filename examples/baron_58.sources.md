@@ -74,6 +74,24 @@ the guide enters and reads this example in **SI** (UG-12).
   landing 5,400 lb at sta 85.7, fwd max landing 5,400 lb at sta 79.1, fwd
   light 4,440 lb at sta 78.1 — all inside the [A] limits. Inertias are
   order-of-magnitude estimates.
+- **Baggage rows (#309)**: nose baggage is the [A] 300 lb at +15 (it carried
+  150 lb until #309), and the [A] 400 lb rear compartment at +150 is its own
+  row; the rear row's waterline 100 is [E], the seats' own, since no source
+  states it. Every loading entered before the correction carries the nose
+  hold at 0.5, so each is the same mass it was.
+- **`fwd gross` (#309)**: the [A] forward limit at gross weight (5,500 lb at
+  78.3) is entered as a loading of this database with no ballast — pilot and
+  front passenger, both wing tanks full, the nose hold at 0.4881 (146.4 lb) and
+  the mid passengers at 0.5693 (193.6 lb), solved to weigh 5,500 lb at 78.30 — and its waterline 95.75 is that
+  loading's own (D-26a). The whole-row search cannot find it (it asked for
+  13 % ballast); two part-filled rows reach it.
+- **`fwd regardless` is not a loading of this airplane (#309)**: the [A]
+  forward limit at 4,200 lb (74.0) lies 2.85 in forward of the most-forward
+  4,200 lb loading (76.85: the empty airplane, unusable fuel and 100 lb of
+  nose baggage), and no ballast inside the fuselage closes it. The case is
+  kept as entered and flagged (`envelope_point_unreachable`, the 2.2 case
+  table): FLTLOADS balances its weight and CG, no assembled case carries it,
+  and its waterline 99.0 has no source and no loading to take one from.
 - **Gear geometry**: axle stations/waterlines, 8-in oleo stroke, 20-in tire —
   statistical; tread is the published 115 in [B], oleo strut type per the
   Baron's air-oil gear.
@@ -86,7 +104,9 @@ the guide enters and reads this example in **SI** (UG-12).
 - Loads every page of the oracle GUI; all 14 run without error (gate G-UG-4,
   `tests/test_guide.py`), including ONENGOUT with the off-centreline failed
   engine.
-- No `validation.consistency_warnings` on load: loading CG inside the WTENV
+- The one limit it cannot reach is warned on load (`envelope_point_unreachable`
+  for `fwd regardless`, the case and the entered limit, with
+  `wing_case_loading_not_derivable` for its inertia) and nothing else: loading CG inside the WTENV
   envelope, the G-4/G-14 weight chain, the note-29 wing-mass tie
   (items tagged `wing` = 2 × (WINGINER panel + concentrated)) all close.
 - The oracle **reduction reproduces it exactly** (`tests/test_oracle_inputs.py`

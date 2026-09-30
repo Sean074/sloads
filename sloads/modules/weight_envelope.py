@@ -167,12 +167,51 @@ def _sweep(start: EnvelopeVertex, discretionary: List[MassItem], *,
     """
     w, mx, mz = start.weight, start.weight * start.station, start.weight * start.waterline
     vertices = [start]
-    for it in sorted(discretionary, key=lambda i: -i.x if aft else i.x):
+    for it in sweep_order(discretionary, aft=aft):
         w += it.weight_lb
         mx += it.weight_lb * it.x
         mz += it.weight_lb * it.z
         vertices.append(EnvelopeVertex(w, mx / w, mz / w))
     return vertices
+
+
+def sweep_order(discretionary: List[MassItem], *, aft: bool) -> List[MassItem]:
+    """The order one edge adds the discretionary items in -- the one owner of
+    WTENV's sort, read by :func:`_sweep` and by the reachability test
+    (``mass_distribution.envelope_point_reach``, #309), which fills the same
+    edge a fraction of a row at a time."""
+    return sorted(discretionary, key=lambda i: -i.x if aft else i.x)
+
+
+class LimitPoint(NamedTuple):
+    """One entered structural CG-limit point: its name, weight and station."""
+
+    name: str
+    weight: float
+    station: float
+
+
+def structural_limit_points(project: Project,
+                            inp: WeightEnvelopeInput) -> List[LimitPoint]:
+    """The three entered structural limits as points -- aft gross, forward
+    gross, forward regardless -- the one owner of their weights and stations.
+
+    The gross weight falsy-derives from the MTOW SSOT (note 36, OV-1/OV-2) and
+    each station is ``XLEMAC + pct/100 MAC`` through the one relation owner
+    (#80). The fourth FLTLOADS point, the minimum flight weight, is the
+    database's own and is not an entered limit, so it is not here. Raises
+    what :func:`~sloads.derived_geometry.require_mac_reference` raises.
+    """
+    mac_ref = require_mac_reference(project, inp)
+    gross_weight = inp.gross_weight or max_takeoff_weight(project, required=False)
+    return [
+        LimitPoint("aft gross limit", gross_weight,
+                   pct_mac_to_station(inp.aft_gross_pct_mac, mac_ref)),
+        LimitPoint("forward gross limit", gross_weight,
+                   pct_mac_to_station(inp.fwd_gross_pct_mac, mac_ref)),
+        LimitPoint("forward regardless limit", inp.fwd_regardless_weight,
+                   pct_mac_to_station(inp.fwd_regardless_pct_mac, mac_ref)),
+    ]
 
 
 def _ballast(wl: float, xl: float, wa: float, xa: float) -> Optional[Tuple[float, float]]:
@@ -231,18 +270,15 @@ def envelope(project: Project, inp: WeightEnvelopeInput) -> List[ConditionResult
 
     # The XLEMAC/MAC and the relation both come from the one owner (#80): the
     # typed override else the planform (C210-13), and X = XLEMAC + pct/100*MAC.
-    mac_ref = require_mac_reference(project, inp)
-
     # The gross-weight corner falsy-derives from the MTOW SSOT (note 36,
     # OV-1/OV-2; C210-13): a blank envelope.gross_weight used to put the gross
     # corners at 0 lb, silently. Safe against the reverse G-14 fallback --
     # max_takeoff_weight reads this same raw field only when it is non-zero,
-    # which is exactly when this branch does not run.
-    gross_weight = inp.gross_weight or max_takeoff_weight(project, required=False)
-
-    aft_s = pct_mac_to_station(inp.aft_gross_pct_mac, mac_ref)
-    fwd_s = pct_mac_to_station(inp.fwd_gross_pct_mac, mac_ref)
-    reg_s = pct_mac_to_station(inp.fwd_regardless_pct_mac, mac_ref)
+    # which is exactly when that branch does not run. Both live in
+    # :func:`structural_limit_points`, which the reachability test reads too.
+    aft_p, fwd_p, reg_p = structural_limit_points(project, inp)
+    gross_weight = aft_p.weight
+    aft_s, fwd_s, reg_s = aft_p.station, fwd_p.station, reg_p.station
 
     # Both edges, from one sweep called twice (WTENV.BAS 330 and 500; note 45
     # WE-1/WE-2). The ballast below keeps reading the forward edge alone -- the

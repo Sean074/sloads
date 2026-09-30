@@ -206,11 +206,9 @@ _EXPECTED_CASES = {
     # TORS and the full lateral set assemble on it.
     # baron_58 since #292: the wing slots re-pointed to the seeded MZFW
     # loadings (design note 63 D-63.7) assemble; TORS stays at `aft gross`.
+    # Since #309 SIDE GUST assembles too: its `fwd gross` is an entered loading.
     "baron_58.project.json": _WING_CASES + [("ACRL", "R"), ("ACRL", "L"), ("TORS", "")]
-      + _NOTE_62_CASES["baron_58.project.json"] + [
-        (label, hand) for label, hand in _LATERAL_CASES
-        if label != "SIDE GUST"     # non-derivable loading; dropped, recorded
-    ],
+      + _NOTE_62_CASES["baron_58.project.json"] + _LATERAL_CASES,
     "concept_heavy.project.json": _WING_CASES + [("ACRL", "R"), ("ACRL", "L")]
       + _NOTE_62_CASES["concept_heavy.project.json"],
     "concept_regional_jet.project.json": _WING_CASES + [
@@ -370,7 +368,10 @@ _FORCE_RESIDUAL_RATCHET = {
     # Re-measured 2026-09-18 (#292): the eight wing slots now assemble at the
     # seeded MZFW loadings; symmetric 1.289 % (NLAA at `mzfw fwd`, the
     # fixture-data pattern of #271 on a case that never assembled before).
-    "baron_58.project.json": {"symmetric": 0.0135, "lateral": 0.0015,
+    # #309 (2026-09-29): SIDE GUST first assembles, at the entered `fwd
+    # gross` loading -- lateral 0.376 %, the #271 pattern on a case that
+    # never assembled before (the ATR's lateral sits at 0.55 %).
+    "baron_58.project.json": {"symmetric": 0.0135, "lateral": 0.0040,
                               "unsymmetrical": 0.0005},
     # concept_heavy re-pinned 2026-09-20 (#291): PHAA 1.214 %.
     "concept_heavy.project.json": {"symmetric": 0.0125, "lateral": 0.0030,
@@ -1990,7 +1991,9 @@ _CLOSURE_IZZ = {
                                'mzfw aft': 155699.7},
     # The Baron's two MZFW loadings first assemble at #292 (note 63 D-63.5/
     # D-63.7), measured 2026-09-18; the RJ's `fwd regardless` likewise (NMAA).
-    'baron_58.project.json': {'aft gross': 7369.3, 'mzfw aft': 6129.2, 'mzfw fwd': 5667.1},
+    # #309: `fwd gross` first assembles (SIDE GUST), entered with no ballast.
+    'baron_58.project.json': {'aft gross': 7369.3, 'fwd gross': 7136.3,
+                              'mzfw aft': 6129.2, 'mzfw fwd': 5667.1},
     'dhc8_dash8.project.json': {'fwd gross': 276188.3, 'min weight': 184928.0, 'aft gross': 269576.3, 'fwd regardless': 261441.6},
     'concept_heavy.project.json': {'CGmax': 42104.0},
 #: The RJ's three moved on 2026-08-30: its CG cases were re-seeded to the
@@ -2264,15 +2267,16 @@ _LATERAL_CASE_NUMBERS = {
         'YAW 15 NEUTRAL': (-525.6850, -0.154613, -148.052336, +78.271821),
         'YAW TO SIDESLIP': (-97.7496, -0.028750, -17.732176, +15.727660),
     },
-    # baron_58 entered the walk 2026-09-11 (#271). Its SIDE GUST sits on a
-    # non-derivable loading and drops, recorded (F-C7), so three of the four
-    # lateral conditions are pinned here.
+    # baron_58 entered the walk 2026-09-11 (#271). Its SIDE GUST sat on a
+    # non-derivable loading and dropped, recorded (F-C7), until #309 entered
+    # `fwd gross` (2026-09-29); all four are pinned since.
     # Note 63 (#289, 2026-09-17): the fin loads and Ny are untouched; the
     # yaw and roll accelerations move with the closure inertia (see
     # _CLOSURE_IZZ) -- the Baron's engines, gear and fuel sit at BL 57-95 as
     # POINT rows instead of spread to the tip, so Izz fell 40 % and r_dot
     # rose by the reciprocal.
     'baron_58.project.json': {
+        'SIDE GUST': (1015.6257, +0.184659, +149.735407, -40.737848),
         'SUDDEN RUDDER': (1287.5019, +0.234091, +188.790473, -50.516764),
         'YAW 15 NEUTRAL': (-1357.1866, -0.246761, -187.122729, +53.493268),
         'YAW TO SIDESLIP': (-476.8407, -0.086698, -54.469075, +19.024485),
@@ -2360,9 +2364,9 @@ def test_the_lateral_cases_are_pinned(example):
     got = {c.label: c for c in build_balanced_cases(_project(example))
            if is_lateral(c) and c.hand == "R" and not is_engine_out(c)}
     assert sorted(got) == sorted(want), f"{example}: {sorted(got)}"
-    # Legality, not completeness: baron_58's SIDE GUST sits on a non-derivable
-    # loading and drops (recorded, F-C7), so the full-set claim is per fixture
-    # -- the exact set is the `want` pin above.
+    # Legality, not completeness: a fixture whose governing loading is not
+    # derivable drops that condition (recorded, F-C7), so the full-set claim
+    # is per fixture -- the exact set is the `want` pin above.
     assert set(got) <= set(BALANCED_VTAIL_CONDITIONS), example
 
     for label, (fin, ny, r_dot, p_dot) in want.items():

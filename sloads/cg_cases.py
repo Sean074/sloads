@@ -370,7 +370,10 @@ def _echo_loading_waterlines(project: Project, cases: List[CgCase]) -> None:
     matching the station alone, since the placeholder is no target -- then
     writes that loading's waterline back, ballast excluded; a solved ballast
     lands on the same line, so echoing a seeded case again leaves its ``zcg``
-    where it is (#314). Both seeds call this (#300): the landing seed
+    where it is (#314). The waterline is written unrounded (#309): a
+    solved ballast re-solved from a rounded ``zcg`` moves by the rounding
+    times ``W / ballast``, and ``baron_58``'s corrected database seeds a
+    20 lb ballast that a 0.005 in rounding put 1 in off the line. Both seeds call this (#300): the landing seed
     once kept the WTONECG placeholder, and ``concept_regional_jet``'s ``fwd
     max landing`` flew a burn-down loading 2.16 in above the waterline its
     case stated.
@@ -382,7 +385,7 @@ def _echo_loading_waterlines(project: Project, cases: List[CgCase]) -> None:
         real = [it for it in loading.items if it is not loading.ballast]
         w = math.fsum(it.weight_lb for it in real)
         if loading.derivable and w > 0:
-            case.zcg = round(math.fsum(it.weight_lb * it.z for it in real) / w, 2)
+            case.zcg = math.fsum(it.weight_lb * it.z for it in real) / w
 
 
 def seed_flight_cases(project: Project) -> Tuple[List[CgCase], List[str]]:
@@ -484,7 +487,7 @@ def seed_flight_cases(project: Project) -> Tuple[List[CgCase], List[str]]:
                                     for c in cases):
                 continue
             cases.append(CgCase(name=name, weight_lb=round(found.weight_lb, 2),
-                                xcg=round(found.cg_x, 2), zcg=round(found.cg_z, 2),
+                                xcg=round(found.cg_x, 2), zcg=found.cg_z,
                                 analyses={AnalysisKind.FLIGHT}, loading=found.loading))
     return cases, []
 
