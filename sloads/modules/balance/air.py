@@ -35,6 +35,8 @@ from ..select import default_critical, default_envelope
 from ..tail_span import build_tail_span
 from ..wing_inertia import WingCaseSources, resolve_wing_cases
 from .applied import (
+    INDUCED_ROLL_NOTE,
+    INDUCED_ROLL_SOURCE,
     _flight_loads,
     _mirror,
     _wing_slices,
@@ -200,6 +202,8 @@ def assemble(project: Project, condition: str, vn: VnPoint,
     if lateral:
         loads += list(lateral)
         notes.append(LATERAL_AERO_NOTE)
+        if any(ld.source == INDUCED_ROLL_SOURCE for ld in lateral):
+            notes.append(INDUCED_ROLL_NOTE)
         if lateral_aero is not None:
             body_loads = body_aero_loads(lateral_aero)
             loads += body_loads

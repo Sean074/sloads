@@ -82,6 +82,7 @@ from sloads.modules.balance import (
     BALANCED_VTAIL_CONDITIONS,
     FORCE_RESIDUAL_ACCEPTANCE,
     HANDEDNESS_TOL,
+    INDUCED_ROLL_SOURCE,
     RESIDUAL_GATE,
     ROLLING_WING_CONDITIONS,
     SKIP_REASONS,
@@ -1737,14 +1738,17 @@ def test_the_roll_moment_is_the_applied_couple(example):
     load sits above the roll axis, so ``-Fy*(z - z_cg)`` is a genuine rolling
     moment the case is *supposed* to carry, and it is asserted positively here
     rather than merely excused -- the roll must equal the fin set's own moment
-    about the CG, with no contribution from anything else in the assembly.
+    about the CG, with no contribution from anything else in the assembly. On a
+    T-tail the fin set includes the AC 23-9 induced rolling moment at its tip
+    (design note 51 D-51.4a), which is the fin's by construction.
     """
     project = _project(example)
     for case in _flight_cases(project):
         where = f"{example} {case.label}{case.hand}"
         if is_lateral(case):
             cg = _ref_of(case)
-            fin = [ld for ld in case.loads if ld.source == "vtail-air"]
+            fin = [ld for ld in case.loads
+                   if ld.source in ("vtail-air", INDUCED_ROLL_SOURCE)]
             _, _, _, mx, _, _ = resultant6(fin, (cg.xcg, 0.0, cg.zcg))
             assert case.residual_mx == pytest.approx(mx, rel=1e-12), (
                 f"{where}: the pre-closure roll is not the fin load's own moment")
@@ -2314,11 +2318,16 @@ _LATERAL_CASE_NUMBERS = {
     # re-seeded cases and the derived (blank) wing span/aspect ratio, and the
     # accelerations halve with the closure inertia (tanks at BL 250, the
     # rebuilt mass breakdown); the load/Ny identity still holds.
+    # #328 (2026-09-29, design note 51 D-51.4a): both T-tails' fin sets gain the
+    # AC 23-9 induced rolling moment as a couple at the fin tip, in the sense of
+    # the fin's own bending, so p_dot grows (ATR +27-42 %, RJ +62-83 %) and
+    # r_dot moves < 4 % through the Ixz coupling. Fin load and Ny untouched --
+    # the check that this added a couple and moved no aerodynamics.
     'atr42_100.project.json': {
-        'SIDE GUST': (4139.7165, +0.112440, +27.191901, -8.453740),
-        'SUDDEN RUDDER': (3921.4912, +0.106513, +29.116149, -7.863764),
-        'YAW 15 NEUTRAL': (-4461.0653, -0.121169, -31.521337, +9.015387),
-        'YAW TO SIDESLIP': (-1877.8937, -0.051006, -11.861589, +3.856239),
+        'SIDE GUST': (4139.7165, +0.112440, +27.083856, -12.022951),
+        'SUDDEN RUDDER': (3921.4912, +0.106513, +29.032081, -10.341919),
+        'YAW 15 NEUTRAL': (-4461.0653, -0.121169, -31.425702, +11.834521),
+        'YAW TO SIDESLIP': (-1877.8937, -0.051006, -11.821331, +5.042959),
     },
     'dhc8_dash8.project.json': {
         'SIDE GUST': (4527.1258, +0.131221, +32.818008, -12.523604),
@@ -2329,11 +2338,12 @@ _LATERAL_CASE_NUMBERS = {
     # Re-seeded CG cases (2026-08-30) move the RJ's yaw and roll by ~0.04 %;
     # the fin loads and Ny are unchanged, so this is the CG station moving and
     # not the aerodynamics.
+    # #328: the T-tail induced rolling moment, as for the ATR above.
     'concept_regional_jet.project.json': {
-        'SIDE GUST': (7082.5380, +0.214622, +54.746975, -61.475670),
-        'SUDDEN RUDDER': (6907.5333, +0.209319, +54.207528, -59.659156),
-        'YAW 15 NEUTRAL': (-8042.9389, -0.243725, -58.674365, +71.160684),
-        'YAW TO SIDESLIP': (-3548.2873, -0.107524, -22.069147, +32.849733),
+        'SIDE GUST': (7082.5380, +0.214622, +52.012669, -112.241274),
+        'SUDDEN RUDDER': (6907.5333, +0.209319, +52.268697, -95.900408),
+        'YAW 15 NEUTRAL': (-8042.9389, -0.243725, -56.416846, +113.358986),
+        'YAW TO SIDESLIP': (-3548.2873, -0.107524, -21.073202, +51.466274),
     },
 }
 
@@ -2440,7 +2450,8 @@ def test_the_symmetric_half_of_a_lateral_case_still_closes(example):
         where = f"{example} {case.label}{case.hand}"
         applied = [ld for ld in case.loads
                    if not ld.source.startswith("closure-")]
-        half = [ld for ld in applied if ld.source != "vtail-air"]
+        half = [ld for ld in applied
+                if ld.source not in ("vtail-air", INDUCED_ROLL_SOURCE)]
         fx, fy, fz, mx, my, mz = resultant6(half, (cg.xcg, 0.0, cg.zcg))
 
         assert fx == pytest.approx(case.residual_fx, rel=1e-12), f"{where} Fx"

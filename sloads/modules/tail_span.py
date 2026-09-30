@@ -117,16 +117,31 @@ layouts are untouched, to the byte.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple
 
+from ..case_ids import COMPONENT_PREFIX, VTAIL_BAND_TTAIL
 from ..cg_cases import flight_cases
+from ..constants import (
+    AC23_9_GUST_BETA_FACTOR,
+    AC23_9_MACH_WARN,
+    AC23_9_ROLL_COEFF,
+    DEG_PER_RAD,
+    IN2_PER_FT2,
+    IN_PER_FT,
+    KT_TO_FPS,
+    dynamic_pressure_psf,
+    eas_to_mach,
+    gust_ude_fps,
+    standard_atmosphere,
+)
 from ..derived_geometry import fuselage_width_at
 from ..models import (
     ConditionResult,
     ControlPointLoad,
     CriticalCondition,
     CriticalLoadSet,
+    InducedRoll,
     LoadValue,
     MissingInputError,
     ModuleResult,
@@ -951,7 +966,9 @@ def _tail_cp_station(project: Project, case: Optional[int]) -> Tuple[float, bool
 
 def ttail_transfer(project: Project, cond: CriticalCondition,
                    htail: Optional[TailPlanform], x_tip: float,
-                   points: Sequence["VnPoint"]) -> Optional[TipTransfer]:
+                   points: Sequence["VnPoint"],
+                   induced: Optional[InducedRoll] = None,
+                   parent: Optional["VnPoint"] = None) -> Optional[TipTransfer]:
     """The h-tail set this fin case carries at its tip, or ``None`` (T7).
 
     ``None`` -- not a zero set -- when the pairing cannot be resolved: no
@@ -963,21 +980,40 @@ def ttail_transfer(project: Project, cond: CriticalCondition,
     The moment is taken about the fin-tip node in the ``(x_ref - x_load)*F``
     sense :func:`sloads.export.coordinates.tail_torsion_to_airplane` derives, so
     the transferred set and the fin's own strip torsions are in one convention.
-    Roll and yaw are zero by T-16: a balancing condition is symmetric, so the
-    h-tail's halves cancel about the centreline.
+    The pairing is symmetric, so it adds no roll (T-16, narrowed by note 51
+    D-51.1); ``mxx`` is the AC 23-9 induced rolling moment ``induced`` carries.
+
+    ``parent`` is the V-n point a one-engine-out condition is paired with (note
+    51 D-51.1a): such a condition is a transient, not a point of the matrix, so
+    its pairing comes from the owner the balanced deck assembles the same case
+    on (``engine_out_cases.oei_parent_point``). With no point but an induced
+    moment the transfer carries ``mxx`` alone and says why.
     """
-    if htail is None or cond.case is None:
+    if htail is None:
         return None
-    point = next((p for p in points if p.case == cond.case), None)
+    case = cond.case if cond.case is not None else (
+        parent.case if parent is not None else None)
+    point = next((p for p in points if p.case == case), None) if case is not None else None
+    m_r = induced.m_r if induced is not None else 0.0
     if point is None:
-        return None
+        if induced is None:
+            return None
+        return TipTransfer(
+            mxx=m_r, induced=induced,
+            note=("T-tail: no 1 g pairing resolves for this condition, so the "
+                  "fin tip carries the AC 23-9 induced rolling moment alone "
+                  f"({m_r:+,.0f} lb-in) and no balancing load"))
     weight = _surface_weight(project, HTAIL)
-    x_air, cp_assumed = _tail_cp_station(project, cond.case)
+    x_air, cp_assumed = _tail_cp_station(project, point.case)
     x_mass = mid_chord_centroid(htail)
     air, inertia = point.lt, -point.nz * weight
+    how = (f"V-n case {point.case}" if cond.case is not None else
+           f"the one-engine-out case's 1 g parent, V-n case {point.case} "
+           f"({point.condition}, {point.cg}, {point.altitude_ft:.0f} ft), the "
+           "point the balanced deck assembles it on (note 51 D-51.1a)")
     note = (f"T-tail: the horizontal tail's concurrent load rides this fin's tip "
-            f"(T-5 pairing -- the balancing load {air:+.0f} lb at V-n case "
-            f"{cond.case}, n = {point.nz:.2f}, plus its own inertia "
+            f"(T-5 pairing -- the balancing load {air:+.0f} lb at {how}, "
+            f"n = {point.nz:.2f}, plus its own inertia "
             f"{inertia:+.0f} lb at {weight:.0f} lb of surface mass)")
     if cp_assumed:
         note += (". Its chordwise station is ASSUMED as the 25 % tail MAC -- the "
@@ -987,9 +1023,229 @@ def ttail_transfer(project: Project, cond: CriticalCondition,
     return TipTransfer(
         fz=air + inertia,
         myy=(x_tip - x_air) * air + (x_tip - x_mass) * inertia,
+        mxx=m_r,
         air_lb=air, inertia_lb=inertia, x_air=x_air, x_mass=x_mass, x_tip=x_tip,
         n_case=point.nz, surface_weight_lb=weight, cp_assumed=cp_assumed,
-        note=note)
+        paired_case=point.case, induced=induced, note=note)
+
+
+# --------------------------------------------------------------------------- #
+# The T-tail's horizontal-tail asymmetry at the fin (design note 51 §9)
+# --------------------------------------------------------------------------- #
+#: The fin condition that reacts the h-tail's 23.427(a) case through the fin
+#: (D-51.2a). Minted here, not by SELECT: the fin carries no air load of its own
+#: in it, and the balanced deck never assembles it (its 23.427(a) case already
+#: carries the roll at the fin root, G-51.1).
+HTAIL_UNSYM_LABEL = "HTAIL UNSYM"
+
+#: SELECT's label for the 23.427(a) horizontal-tail case the above reacts.
+UNSYMMETRICAL_LABEL = "UNSYMMETRICAL"
+
+#: The fin conditions whose induced sideslip is the AC's lateral-gust angle,
+#: ``1.2 U/V``, rather than the fin load's own angle (D-51.3a).
+_GUST_CONDITIONS = ("SIDE GUST",)
+
+
+def vtail_root_roll(stations: Sequence[WingStationLoad], *, air_only: bool = False) -> float:
+    """The fin's rolling moment about its root, airplane axes (lb-in).
+
+    Taken through the same frame owners the deck uses (``vtail_sets``), so its
+    sign is the deck's. ``air_only`` leaves the fin's inertia out, as the
+    deck's fin set does; that is the moment whose sense the AC's induced moment
+    takes, since it "adds to the moment due to the vertical tail load" (AC 23-9
+    ¶5d, p5-6; D-51.3a).
+    """
+    from ..export.coordinates import tail_force_to_airplane, tail_station_to_airplane
+
+    total = 0.0
+    for st in stations:
+        _, y, z = tail_station_to_airplane(st.x, st.y, VTAIL, root_z=st.z)
+        _, fy, fz = tail_force_to_airplane(
+            st.fz - st.f_inertia if air_only else st.fz, VTAIL)
+        total += y * fz - (z - st.z) * fy
+    return total
+
+
+def vtail_root_roll_with_tip(result: TailSpanResult) -> float:
+    """The fin view's root rolling moment **with** its T-tail tip set (D-51.10).
+
+    The station columns stay the fin's own loads (T7's split); this is the one
+    number a reader of the fin view compares with the deck's fin root: the
+    fin's net root roll plus the transfer's ``mxx``. The transfer's ``fz`` and
+    ``myy`` act on the fin's own axis and add no roll about its root.
+    """
+    t = result.tip_transfer
+    return vtail_root_roll(result.stations) + (t.mxx if t is not None else 0.0)
+
+
+def _condition_state(project: Project, cond: CriticalCondition,
+                     points: Sequence["VnPoint"]) -> Optional[Tuple[float, float, str]]:
+    """``(V EAS kt, altitude ft, where)`` a fin condition is flown at, or ``None``.
+
+    A SELECT condition's own V-n point; a one-engine-out condition's ONENGOUT
+    speed at ONENGOUT's altitude (``one_engine_out.case_altitude_ft``).
+    """
+    from .balance.engine_out_cases import is_engine_out_condition
+    from .one_engine_out import case_altitude_ft
+
+    if cond.case is not None:
+        point = next((p for p in points if p.case == cond.case), None)
+        if point is None:
+            return None
+        return point.v_eas_kt, point.altitude_ft, f"V-n case {point.case}"
+    if is_engine_out_condition(cond) and cond.case_ref is not None and cond.case_ref.speed_kt:
+        return (float(cond.case_ref.speed_kt), case_altitude_ft(project),
+                "the ONENGOUT speed at its march altitude")
+    return None
+
+
+def induced_roll_moment(project: Project, cond: CriticalCondition,
+                        stations: Sequence[WingStationLoad],
+                        htail: Optional[TailPlanform],
+                        points: Sequence["VnPoint"]) -> Optional[InducedRoll]:
+    """The AC 23-9 ¶5a induced rolling moment of one T-tail fin condition.
+
+    **The one owner** (design note 51 D-51.3a): ``M_r = 0.3 q S_H b_H beta``
+    (AC 23-9 ¶5a p3, lb-ft with beta in radians), stated here in lb-in and
+    airplane axes at the fin tip. ``None`` off a T-tail, for a condition with no
+    flight state, or with no h-tail planform.
+
+    **One beta rule.** beta is the fin's own side load expressed as an angle on
+    SELECT's lift slope, ``|LT25 + LT50| / (AVT/57.3 q S_V)``. For SUDDEN
+    RUDDER that is exactly ``RD EFV EFFECTV``, for YAW TO SIDESLIP exactly the
+    owner's net angle (19.5 deg less the held rudder's, D-51.3a), for YAW 15
+    NEUTRAL exactly 15 deg, and for a one-engine-out case the march's peak fin
+    load as an angle (D-51.3b). **SIDE GUST is the one exception**, the AC's own
+    ``1.2 U/V`` (U and V equivalent, ft/s): SELECT's gust angle carries the
+    alleviation factor and is not the AC's.
+
+    The sense is the fin's air root rolling moment's (:func:`vtail_root_roll`,
+    AC ¶5d p5-6). Mach at the condition's speed and altitude and the entered
+    stabilizer dihedral are carried for D-51.8's statements; the method has
+    neither effect in it (¶5a p4).
+    """
+    from .select import _avt, effective_vtail_inputs
+
+    if htail is None or not is_t_tail(project) or not stations:
+        return None
+    state = _condition_state(project, cond, points)
+    vt = effective_vtail_inputs(project)
+    if state is None or vt is None or vt.vtail_area_sqft <= 0.0:
+        return None
+    v_eas, alt, where = state
+    q = dynamic_pressure_psf(v_eas)
+    if cond.label in _GUST_CONDITIONS:
+        beta = AC23_9_GUST_BETA_FACTOR * gust_ude_fps("C", alt) / (v_eas * KT_TO_FPS)
+        basis = (f"AC 23-9 ¶5a lateral gust, beta = 1.2 U/V "
+                 f"(U {gust_ude_fps('C', alt):g} ft/s at {alt:.0f} ft)")
+    else:
+        slope = _avt(vt) / DEG_PER_RAD
+        load = (cond.lt25 or 0.0) + (cond.lt50 or 0.0)
+        beta = abs(load) / (slope * q * vt.vtail_area_sqft) / DEG_PER_RAD if q else 0.0
+        basis = ("the fin's own side load as an angle on SELECT's slope, "
+                 f"|LT25 + LT50| = {abs(load):,.0f} lb over AVT/57.3 q S_V")
+    s_h = htail.area / IN2_PER_FT2
+    b_h = 2.0 * htail.span / IN_PER_FT
+    magnitude = AC23_9_ROLL_COEFF * q * s_h * b_h * beta * IN_PER_FT
+    sense = math.copysign(1.0, vtail_root_roll(stations, air_only=True))
+    a_kt, sigma = standard_atmosphere(alt)
+    geo = project.geometry
+    dihedral = float(getattr(getattr(geo, "parametric", None), "htail_dihedral_deg", 0.0) or 0.0)
+    return InducedRoll(
+        m_r=sense * magnitude, beta_deg=beta * DEG_PER_RAD, q_psf=q,
+        mach=eas_to_mach(v_eas, a_kt, sigma), altitude_ft=alt,
+        basis=f"{basis}, at {where}", dihedral_deg=dihedral)
+
+
+def htail_root_bending(result: TailSpanResult) -> float:
+    """The larger per-side root bending of one h-tail result, about the
+    centreline (lb-in, magnitude): each half's ``Σ fz·|y|``, the load that half
+    hangs on the fin-tip joint on a T-tail."""
+    stbd = math.fsum(st.fz * st.y for st in result.stations if st.y > 0.0)
+    port = math.fsum(-st.fz * st.y for st in result.stations if st.y < 0.0)
+    return max(abs(stbd), abs(port))
+
+
+def check_htail_under_induced_roll(htails: Sequence[TailSpanResult],
+                                   vtails: Sequence[TailSpanResult]) -> None:
+    """Fill each induced moment's ``htail_ratio`` (D-51.7, owner Q5).
+
+    ``(|M_r|/2 SF_case) / (M_h SF_h)``: half the induced moment per side against
+    the governing per-side h-tail root bending over the h-tail's own
+    conditions, compared on the owner's comparison key
+    (``safety_factors.ultimate_basis``, a key and never a delivered value) -- a
+    23.367(a)(2) case is already ultimate (SF 1.0) while the h-tail's are
+    limit. It checks the owner's assumption that the moment sizes the fin and
+    not the horizontal tail; above 1.0 that assumption fails and is warned.
+    """
+    from ..safety_factors import ultimate_basis
+
+    governing = max((ultimate_basis(htail_root_bending(r), r.safety_factor)
+                     for r in htails), default=0.0)
+    if governing <= 0.0:
+        return
+    for r in vtails:
+        t = r.tip_transfer
+        if t is None or t.induced is None:
+            continue
+        ratio = ultimate_basis(0.5 * t.induced.m_r, r.safety_factor) / governing
+        t.induced.htail_ratio = ratio
+        r.notes.append(
+            f"horizontal-tail check (note 51 D-51.7): M_r/2 per side is "
+            f"{100.0 * ratio:.1f} % of the horizontal tail's governing root "
+            "bending, both on their own factors -- "
+            + ("ABOVE 100 %: the assumption that the moment sizes the fin and not "
+               "the horizontal tail FAILS here, and the horizontal tail's own "
+               "loads do not carry it (warned)" if ratio > 1.0 else
+               "the assumption that it sizes the fin and not the horizontal tail "
+               "holds"))
+
+
+def _htail_unsym_vtail(unsym: TailSpanResult,
+                     vtail: TailPlanform, weight: float) -> TailSpanResult:
+    """The ``HTAIL UNSYM`` fin condition: the 23.427(a) case through the fin.
+
+    Design note 51 D-51.2a. The fin carries no air load of its own here
+    (23.427(c): "each prescribed flight condition taken separately"); its tip
+    carries the h-tail table's own set, summed from its stations about the fin
+    tip -- ``fz`` their total, ``myy`` their moment about the tip station plus
+    their strip torsions, ``mxx`` their net roll about the centreline (the h-tail
+    frame is the airplane's). The fin's axial inertia at the case's load factor
+    stays, as on every fin condition.
+    """
+    stations = distribute(vtail, 0.0, 0.0, n_case=unsym.n_case,
+                          surface_weight_lb=weight, z_offset=vtail.root_z,
+                          n_normal=0.0, n_axial=unsym.n_case)
+    x_tip = stations[-1].x if stations else 0.0
+    h = unsym.stations
+    air = math.fsum(st.fz - st.f_inertia for st in h)
+    inertia = math.fsum(st.f_inertia for st in h)
+    transfer = TipTransfer(
+        fz=math.fsum(st.fz for st in h),
+        myy=math.fsum((x_tip - st.x) * st.fz + st.myy_free for st in h),
+        mxx=math.fsum(st.fz * st.y for st in h),
+        air_lb=air, inertia_lb=inertia, x_tip=x_tip, n_case=unsym.n_case,
+        surface_weight_lb=unsym.surface_weight_lb,
+        note=("T-tail, 23.427(c): the horizontal tail's 23.427(a) case "
+              f"({unsym.case}, RH x{unsym.rh_scale:.3f} / LH x{unsym.lh_scale:.3f}) "
+              "reacted through the fin -- its table's own stations summed about "
+              "the fin tip, the net roll included; the fin's own air load is zero "
+              "in this condition (design note 51 D-51.2a)"))
+    ref = unsym.case_ref
+    case_ref = None
+    if ref is not None:
+        case_ref = replace(
+            ref, case_id=f"{COMPONENT_PREFIX[VTAIL]}-{VTAIL_BAND_TTAIL:02d}",
+            component=VTAIL, condition=HTAIL_UNSYM_LABEL,
+            far_reference="23.427(c)")
+    return TailSpanResult(
+        case=HTAIL_UNSYM_LABEL, component=VTAIL, stations=stations,
+        lt25=0.0, lt50=0.0, n_case=unsym.n_case, surface_weight_lb=weight,
+        attachment_y=[], planform_assumed=vtail.assumed,
+        tip_transfer=transfer, inertia_modelled=weight > 0.0,
+        case_ref=case_ref, safety_factor=unsym.safety_factor,
+        torsion_axis=f"LRA {vtail.ref_axis_pct * 100:.0f}% chord",
+        notes=list(vtail.notes) + [transfer.note])
 
 
 def _h_tail_waterline(project: Project,
@@ -1022,6 +1278,33 @@ def build_tail_span(project: Project) -> Dict[str, List[TailSpanResult]]:
     # envelope -- not per condition, which would rebuild the V-n matrix up to
     # thirteen times on a fixture that persists none.
     vn_points = _vn_points(project)
+    parents: Dict[str, Optional[VnPoint]] = {}
+
+    def oei_parent(cond: CriticalCondition) -> Optional[VnPoint]:
+        """A one-engine-out condition's 1 g parent -- the deck's own (D-51.1a),
+        resolved lazily: only a T-tail twin asks, and it needs the loadings."""
+        from ..mass_distribution import derive_case_loadings
+        from .balance.engine_out_cases import (
+            is_engine_out_condition,
+            oei_parent_point,
+            speed_label_of,
+        )
+        from .one_engine_out import case_altitude_ft
+
+        if not is_engine_out_condition(cond):
+            return None
+        if cond.label not in parents:
+            if not mass_basis:
+                mass_basis.append(
+                    ({c.name: c for c in flight_cases(project)},
+                     {ld.name: ld for ld in derive_case_loadings(project)}))
+            cgs, loadings = mass_basis[0]
+            parents[cond.label] = oei_parent_point(
+                project, speed_label_of(cond), case_altitude_ft(project),
+                vn_points, cgs, loadings)[0]
+        return parents[cond.label]
+
+    mass_basis: List[Tuple[Dict, Dict]] = []
 
     for cond in _critical_set(project).conditions:
         component = cond.component
@@ -1154,8 +1437,14 @@ def build_tail_span(project: Project) -> Dict[str, List[TailSpanResult]]:
         # actually apply it at is the one whose lever arm has to be right.
         transfer = None
         if component == VTAIL and stations and is_t_tail(project):
+            induced = induced_roll_moment(project, cond, stations,
+                                          planforms.get(HTAIL), vn_points)
+            parent = (oei_parent(cond) if cond.case is None else None)
             transfer = ttail_transfer(project, cond, planforms.get(HTAIL),
-                                      stations[-1].x, vn_points)
+                                      stations[-1].x, vn_points,
+                                      induced=induced, parent=parent)
+            if induced is not None:
+                notes.append(induced_roll_note(induced))
             notes.append(transfer.note if transfer is not None else (
                 "T-TAIL layout, but the concurrent horizontal-tail load could not "
                 "be resolved (no h-tail planform, or this condition names no V-n "
@@ -1182,7 +1471,30 @@ def build_tail_span(project: Project) -> Dict[str, List[TailSpanResult]]:
             torsion_axis=f"LRA {planform.ref_axis_pct * 100:.0f}% chord",
             notes=notes,
         ))
+    vtail_planform = planforms.get(VTAIL)
+    if is_t_tail(project) and vtail_planform is not None:
+        unsym = next((r for r in out[HTAIL] if r.case == UNSYMMETRICAL_LABEL), None)
+        if unsym is not None:
+            out[VTAIL].append(_htail_unsym_vtail(
+                unsym, vtail_planform, _surface_weight(project, VTAIL)))
+        check_htail_under_induced_roll(out[HTAIL], out[VTAIL])
     return out
+
+
+def induced_roll_note(induced: InducedRoll) -> str:
+    """The in-band statement every T-tail fin condition's induced moment
+    carries (design note 51 D-51.3a, D-51.8)."""
+    return (f"T-tail induced rolling moment (AC 23-9 ¶5a): M_r = 0.3 q S_H b_H beta "
+            f"= {induced.m_r:+,.0f} lb-in at the fin tip, q {induced.q_psf:.1f} psf, "
+            f"beta {induced.beta_deg:.2f} deg ({induced.basis}); its sense is the "
+            "fin's own root rolling moment's (¶5d). Static strength only, not a "
+            f"flutter input. The method has no compressibility (Mach "
+            f"{induced.mach:.3f} here"
+            + (f", ABOVE the {AC23_9_MACH_WARN:g} warning threshold"
+               if induced.mach > AC23_9_MACH_WARN else "")
+            + f") and no dihedral effect (stabilizer dihedral "
+            f"{induced.dihedral_deg:g} deg entered; ¶5a p4: 6 deg can raise the "
+            "moment 50 %)")
 
 
 def air_total(result: TailSpanResult) -> float:
@@ -1256,7 +1568,25 @@ def run(project: Project) -> ModuleResult:
                           key="ttail_transfer_fz"),
                 LoadValue("T-tail transfer Myy (fin tip)", t.myy, "lb-in",
                           key="ttail_transfer_myy"),
+                LoadValue("T-tail transfer Mxx (fin tip)", t.mxx, "lb-in",
+                          key="ttail_transfer_mxx"),
+                LoadValue("Fin root Mxx with the tip set", vtail_root_roll_with_tip(r),
+                          "lb-in", key="vtail_root_mxx_with_tip"),
             ]
+            if t.induced is not None:
+                i = t.induced
+                extra += [
+                    LoadValue("Induced rolling moment M_r (AC 23-9)", i.m_r, "lb-in",
+                              key="induced_roll_moment"),
+                    LoadValue("Induced sideslip beta", i.beta_deg, "deg",
+                              key="induced_roll_beta"),
+                    LoadValue("Mach (AC 23-9 limit)", i.mach, "",
+                              key="induced_roll_mach"),
+                ]
+                if i.htail_ratio is not None:
+                    extra.append(LoadValue(
+                        "M_r/2 against the h-tail's governing root bending",
+                        100.0 * i.htail_ratio, "%", key="induced_roll_htail_pct"))
         conditions.append(ConditionResult(
             title=f"{r.component} spanwise load -- {r.case}",
             # The case's own reference, not a label for the component (#177).

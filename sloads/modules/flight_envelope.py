@@ -70,6 +70,7 @@ from ..constants import (
     dynamic_pressure_psf,
     eas_from_dynamic_pressure,
     gust_alleviation_factor,
+    gust_ude_fps,
     other_side_percent,
     standard_atmosphere,
 )
@@ -259,16 +260,6 @@ def _balance(n: float, v_init: float, mach_cap: float, config: AeroCoeffSet,
     return last
 
 
-def _gust_ude(ref: str, altitude_ft: float) -> float:
-    """Derived gust velocity Ude (fps): 50 @ VC, 25 @ VD/VF, tapering >20,000 ft."""
-    h = altitude_ft
-    if ref == "C":
-        return 50.0 if h <= 20000.0 else 50.0 - (25.0 / 30000.0) * (h - 20000.0)
-    if ref == "D":
-        return 25.0 if h <= 20000.0 else 25.0 - (12.5 / 30000.0) * (h - 20000.0)
-    return 25.0  # VF
-
-
 def _gust_load_factor(ng: int, v: float, mach_cap: float, ref: str, config: AeroCoeffSet,
                       cg: CgCase, fl: FlightLoadsInput, wr: WingReference,
                       altitude_ft: float) -> float:
@@ -279,7 +270,7 @@ def _gust_load_factor(ng: int, v: float, mach_cap: float, ref: str, config: Aero
     """
     h = altitude_ft
     sig = density_ratio(h)
-    ude = _gust_ude(ref, h)
+    ude = gust_ude_fps(ref, h)
     vt = v / math.sqrt(sig)
     a_sound = _speed_of_sound(h)
     mh = vt / a_sound
@@ -305,7 +296,7 @@ def gust_at_vf(project: Project) -> Optional[float]:
     **The derivation owner** ``flap_loads.gust_load_factor`` falsy-derives
     from: the maximum positive GUST VF load factor over exactly the corner set
     :func:`build_envelope` runs -- the same :func:`_gust_load_factor` /
-    :func:`_gust_ude` internals ("F" reference, Ude 25 fps), the same
+    :func:`~sloads.constants.gust_ude_fps` internals ("F" reference, Ude 25 fps), the same
     flaps-down configuration(s) x FLIGHT CG cases, under the same
     flaps-at-sea-level-only rule (FLTLOADS.BAS line 3000) -- so the derived NG
     is **bit-for-bit** the factor of the envelope's own GUST VF case (gate

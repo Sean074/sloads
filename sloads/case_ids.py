@@ -48,6 +48,9 @@ physical cases (an outright collision, not merely a divergent sequence):
 * ``HT-01``..        -- SELECT's rational h-tail conditions
 * ``HT-50``+         -- a horizontal-tail-hosted tab
 * ``VT-01``..        -- SELECT's rational v-tail conditions
+* ``VT-20``..``VT-29`` -- :data:`VTAIL_BAND_TTAIL`: a T-tail fin condition
+  that reacts a horizontal-tail case at the fin tip (``HTAIL UNSYM``, design
+  note 51 D-51.2a). Minted by ``tail_span``, not SELECT.
 * ``VT-30``..``VT-49`` -- :data:`VTAIL_BAND_ONENGOUT`: ONENGOUT (23.367). Its
   dynamic one-engine-out case is **not** one of SELECT's picks, so it is a
   different case object with its own ID -- banded rather than sharing SELECT's
@@ -129,6 +132,8 @@ HTAIL_BAND_TAB = 50
 VTAIL_BAND_TAB = 50
 
 # ONENGOUT's own VT- band, below the tab band (M4-2 decision 5).
+# The T-tail fin conditions tail_span mints (note 51 D-51.2a), below ONENGOUT's.
+VTAIL_BAND_TTAIL = 20
 VTAIL_BAND_ONENGOUT = 30
 
 

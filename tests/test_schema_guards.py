@@ -397,7 +397,7 @@ def fields_hash() -> str:
 #: windmilling propeller's disc drag coefficient. Additive with a ``None``
 #: default that means exactly the v70 state, so ``_hop_70`` is an identity --
 #: the first hop after a released schema.
-EXPECTED_FIELDS_HASH = "e47d21d31f235b1b"
+EXPECTED_FIELDS_HASH = "69410e1aa5b84ca8"
 
 
 def test_persisted_dataclass_shapes_are_unchanged():

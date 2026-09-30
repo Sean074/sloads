@@ -147,15 +147,16 @@ class TailType(str, Enum):
     * ``configuration.tail_planform`` places the two surfaces relative to each
       other for the Configuration & Layout three-view;
     * ``tail_span`` transfers the horizontal tail's load onto the fin tip on a
-      ``T_TAIL`` (plan 09 T7, ``is_t_tail``);
-    * the oracle report **withholds the vertical tail's spanwise loads** on any
-      value other than ``CONVENTIONAL`` (OR-133, ``is_conventional_tail``),
-      because in every other arrangement the vertical tail is additionally the
-      supporting structure of the horizontal tail in the sense of 14 CFR
-      23.427(a), and that load path is modelled in part at most (#254): a
-      ``T_TAIL`` transfers the horizontal tail's *symmetric* concurrent set at
-      the fin tip and the other arrangements transfer nothing, while 23.427(a)'s
-      unsymmetrical case is reacted through the fin in none of them.
+      ``T_TAIL`` (plan 09 T7, ``is_t_tail``): the symmetric balancing set, the
+      AC 23-9 induced rolling moment, and the 23.427(a) case as the fin
+      condition ``HTAIL UNSYM`` (design note 51 §9); the balanced deck applies
+      the induced moment at the fin tip;
+    * the oracle report **withholds the vertical tail's spanwise loads** on a
+      ``V_TAIL`` or a ``CRUCIFORM`` (OR-133, ``is_conventional_tail`` and
+      ``is_t_tail``): there the vertical tail is additionally the supporting
+      structure of the horizontal tail in the sense of 14 CFR 23.427(a), and
+      none of that load path is carried. A ``T_TAIL`` carries it, and publishes
+      (design note 51 D-51.11).
 
     SSOT row: ``CONVENTIONS.md`` section 7."""
     CONVENTIONAL = "conventional"

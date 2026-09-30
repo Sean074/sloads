@@ -95,8 +95,16 @@ engine-mount chapter (7) only cross-references it.
 - **Control surfaces:** the elevator/rudder load is SELECT's, decomposed and
   re-entered at the hinges with the hinge moment `HM = L_cs·(c_e/3)` — exact,
   because the aft-of-hinge pressure block is always a triangle.
-- **T-tail:** each v-tail case carries the balancing h-tail load at its own
-  V-n point plus that point's h-tail inertia, at the fin's last node.
+- **T-tail:** the fin is the horizontal tail's supporting structure
+  (23.427(c)), and its last node carries three horizontal-tail sets:
+  - each v-tail case's balancing h-tail load and that surface's inertia at its
+    own V-n point, or, for a one-engine-out case, at the 1 g parent the deck
+    assembles it on;
+  - the AC 23-9 ¶5a induced rolling moment `M_r = 0.3 q S_H b_H β`, in the
+    sense of the fin's own bending (¶5d);
+  - the 23.427(a) case itself, as the fin condition `HTAIL UNSYM`.
+
+  The method and its limits are design note 51 §9.
 
 ## Assumptions & limitations
 
@@ -203,8 +211,32 @@ a free-body statement read from the deck's own card text — the fin deck's
 resultant about the origin equals the v-tail-only resultant plus the
 transferred set at its stated node — plus byte-level gating isolation: flip
 `tail_type` back to conventional and the deck returns exactly.
-`concept_regional_jet` is the suite's only T-tail fixture. The asymmetric
-T-tail transfer method of record is `docs/25_notes/51_ttail_asymmetric_transfer_note.md`.
+
+**The asymmetric half** (design note 51 §9, #328). The pairing is symmetric,
+and the two loads a T-tail adds are not.
+
+- **The 23.427(a) case through the fin.** Its roll reaches the fin root in the
+  LRA deck exactly, as strips on a centreline rigid to the fin tip. The fin view
+  carries it as `HTAIL UNSYM` (VT-20).
+- **The sideslip- and rudder-induced rolling moment.**
+  - **Formula.** `M_r = 0.3 q S_H b_H β`, from FAA AC 23-9 ¶5a p3.
+  - **β.** The fin's own side load, expressed as an angle on SELECT's lift
+    slope; the side gust uses the AC's `1.2 U/V` instead.
+  - **Sense.** It adds to the fin's own bending (¶5d p5–6).
+  - **Where it goes.** A couple at the fin tip in the deck, and
+    `TipTransfer.mxx` in the fin view, in all four 23.441/23.443 conditions and
+    the one-engine-out ones.
+  - **What is not modelled.** It is sized for the fin. The horizontal tail's
+    own loads do not carry it, and each case states `M_r/2` per side against
+    the horizontal tail's governing root bending, warning above 100 %.
+  - **Limits.** No compressibility (Mach stated, and warned above 0.6), no
+    dihedral effect (stated and warned), static strength only.
+
+These are closure gates, not an oracle: Appendix A has no T-tail. They are the
+formula identity, the (b) roll at the deck's fin root, the deck fin root equal
+to the fin's own load plus `M_r`, and the AC's own 4–6× band
+(`tests/test_ttail_induced_roll.py`). The shipped T-tails are
+`concept_regional_jet` and `atr42_100`.
 
 ### One engine out
 

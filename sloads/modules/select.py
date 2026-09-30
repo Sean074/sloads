@@ -93,6 +93,7 @@ from ..constants import (
     G,
     dynamic_pressure_psf,
     gust_alleviation_factor,
+    gust_ude_fps,
 )
 from ..derived_geometry import (
     airplane_length_in,
@@ -1202,9 +1203,7 @@ def select_htail_gust(project: Project,
 
     def gust_increment(p: VnPoint) -> float:
         w = cg_map[p.cg].weight_lb
-        ude = 50.0 if p.condition == "BAL C" else 25.0
-        if p.altitude_ft > 20000.0:
-            ude *= 1.0 - 0.5 * (p.altitude_ft - 20000.0) / 30000.0
+        ude = gust_ude_fps("C" if p.condition == "BAL C" else "D", p.altitude_ft)
         rho = density_ratio(p.altitude_ft) * RHO_SL
         ug = 2.0 * (w / wr.s_sqft) / (rho * mac_ft * aw * G)
         kg = gust_alleviation_factor(ug)
@@ -1452,7 +1451,7 @@ def _vt_side_gust_terms(p: VnPoint, cg: CgCase, vt: VTailLoadsInput, izz: float
     k = math.sqrt(izz / (cg.weight_lb / G))            # radius of gyration
     rho = density_ratio(p.altitude_ft) * RHO_SL
     lxvt = (vt.xv25 - cg.xcg) / IN_PER_FT                     # tail arm, ft
-    ude = 50.0 if p.altitude_ft <= 20000.0 else 50.0 - (25.0 / 30000.0) * (p.altitude_ft - 20000.0)
+    ude = gust_ude_fps("C", p.altitude_ft)
     ugt = 2.0 * cg.weight_lb / (rho * (vt.vtail_mac_in / IN_PER_FT) * G * av * vt.vtail_area_sqft * (k / lxvt) ** 2)
     kgt = gust_alleviation_factor(ugt)
     load = kgt * ude * p.v_eas_kt * av * vt.vtail_area_sqft / GUST_LOAD_FACTOR_DIVISOR

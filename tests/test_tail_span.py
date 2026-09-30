@@ -47,6 +47,7 @@ from sloads.modules.tail_span import (
     ATTACH_VTAIL_TIP,
     ATTACH_OUTLINE,
     ATTACH_STRIP_PAIR,
+    HTAIL_UNSYM_LABEL,
     X25_PCT,
     X50_PCT,
     air_total,
@@ -379,6 +380,11 @@ def test_the_fin_lateral_inertia_is_exactly_the_weight_ratio_of_the_air_load(exa
     for r in _results(example):
         if r.component != VTAIL or not r.inertia_modelled:
             continue
+        if r.case == HTAIL_UNSYM_LABEL:
+            # The T-tail's 23.427(c) condition (note 51 D-51.2a) puts no air load
+            # on the fin, so it has no lateral factor and nothing to relieve.
+            assert r.n_y == 0.0 and air_total(r) == 0.0, example
+            continue
         if not r.case_weight_lb:
             # A condition that names no V-n point carries no case weight, so the
             # lateral factor cannot be formed and the relief is switched off
@@ -490,6 +496,8 @@ def test_the_fin_sits_above_the_cg_with_the_pinned_roll_arm(example):
 
     planform = resolve_tail_planform(project, VTAIL)
     for r in build_tail_span(project)[VTAIL]:
+        if r.case == HTAIL_UNSYM_LABEL:
+            continue    # no side load on the fin, so no centroid (D-51.2a)
         # A v-tail station carries the fin root in ``z`` and the span coordinate
         # in ``y``; the airplane waterline is composed by the export mapper, so
         # this asserts the number the deck's GRID cards actually get.
@@ -619,13 +627,17 @@ def test_every_result_names_its_torsion_axis_and_its_provenance(example):
 @pytest.mark.parametrize("example", EXAMPLES)
 def test_the_spanwise_and_chordwise_views_cover_the_same_conditions(example):
     """The two tail views are the same conditions seen two ways; a condition that
-    appears in one and not the other is a routing defect, not a modelling choice."""
+    appears in one and not the other is a routing defect, not a modelling choice.
+
+    With one stated exception: a T-tail's ``HTAIL UNSYM`` (note 51 D-51.2a) puts
+    no air load on the fin, so there is no chordwise profile of it to draw."""
     from sloads.modules.taildist import build_tail_chordwise
 
     project = _project(example, weight=0.0)
     spans = build_tail_span(project)
     chord_cases = {(r.component, r.case) for r in build_tail_chordwise(project)}
-    span_cases = {(r.component, r.case) for r in spans[HTAIL] + spans[VTAIL]}
+    span_cases = {(r.component, r.case) for r in spans[HTAIL] + spans[VTAIL]
+                  if r.case != HTAIL_UNSYM_LABEL}
     assert span_cases == chord_cases, example
 
 
@@ -1039,9 +1051,10 @@ def test_only_a_t_tail_carries_a_tip_transfer(example):
         # point -- so the concurrent horizontal-tail load cannot be resolved for
         # them and the result says exactly that. It is a stated omission, not a
         # silent one, and it is filed: on a T-tail twin the governing fin case is
-        # a 23.367 one, so the case that sizes the fin is the case whose tip load
-        # is missing. Resolving it is design note 51's, with the rest of the
-        # T-tail.
+        # a 23.367 one. Since note 51 D-51.1a they pair with the 1 g parent
+        # the balanced deck assembles them on, so on the shipped T-tails every
+        # fin case carries one; a case whose parent does not resolve still says
+        # so.
         assert fins, example
         for r in fins:
             if r.tip_transfer is None:
@@ -1067,6 +1080,8 @@ def test_the_transferred_set_is_the_balancing_load_plus_the_htail_inertia():
     critical = {c.label: c for c in project.envelope.critical.conditions
                 if c.component == VTAIL}
     for r in build_tail_span(project)[VTAIL]:
+        if r.case == HTAIL_UNSYM_LABEL:
+            continue    # the 23.427(a) case's own set, not a T-5 pairing
         point = points[critical[r.case].case]
         t = r.tip_transfer
         assert math.isclose(t.air_lb, point.lt, rel_tol=1e-12)
@@ -1086,6 +1101,8 @@ def test_the_transferred_moment_is_the_two_lever_arms():
     """
     project = _project("concept_regional_jet.project.json")
     for r in build_tail_span(project)[VTAIL]:
+        if r.case == HTAIL_UNSYM_LABEL:
+            continue    # the 23.427(a) case's own set, not a T-5 pairing
         t = r.tip_transfer
         want = (t.x_tip - t.x_air) * t.air_lb + (t.x_tip - t.x_mass) * t.inertia_lb
         assert math.isclose(t.myy, want, rel_tol=1e-12), r.case

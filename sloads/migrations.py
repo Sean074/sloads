@@ -70,10 +70,18 @@ def _hop_70(d: Dict[str, Any]) -> Dict[str, Any]:
     return d
 
 
+def _hop_71(d: Dict[str, Any]) -> Dict[str, Any]:
+    """v71 -> v72 (design note 51 §9, #328): ``TipTransfer`` gains ``mxx``,
+    ``paired_case`` and ``induced``, each defaulted to the v71 meaning (no roll
+    at the fin tip, no pairing record). An identity."""
+    return d
+
+
 #: ``{from_version: hop}`` -- applied in ascending order, each turning a file of
 #: version *n* into version *n+1* shape.
 MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     70: _hop_70,
+    71: _hop_71,
 }
 
 #: The oldest project version this build reads: the oldest released schema, or

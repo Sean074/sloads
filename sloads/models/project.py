@@ -360,7 +360,10 @@ from .results import EnvelopeResult, LoadsResult, MassResult
 # windmilling propeller's disc drag coefficient (optional; blank delivers the
 # Glauert bound, stated). Additive, so ``_hop_70`` is an identity -- the first
 # hop after a released schema (0.8.7 shipped v70).
-SCHEMA_VERSION = 71
+# v72 (design note 51 §9, #328): ``TipTransfer`` gains ``mxx`` (the roll at the
+# fin tip), ``paired_case`` and ``induced`` (an ``InducedRoll``, new). Result
+# fields with defaults, all additive, so ``_hop_71`` is an identity.
+SCHEMA_VERSION = 72
 
 
 @dataclass
