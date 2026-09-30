@@ -2,14 +2,14 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: AGREED 2026-09-06 (owner) — no code.** D-51.3's theory source is
-FAA **AC 23-9** (2026-09-06 review); **D-51.3a decided (owner: net β)**;
-**D-51.6 decided (owner: yaw parked with the numbers)**.
-**Re-scope pending (2026-09-28, #328):** §1 describes the fin deck note 56
-deleted; this note is to be amended against the LRA deck — 23.427(b) on every
-tail, (c) by AC 23-9 ¶5a on a T-tail, sized for the fin, the horizontal-tail
-assumption stated and checked — and re-reach AGREED before code. The scope is
-on the issue.
+**Status: SHIPPED 2026-09-29 (#328), as amended by §9, which was AGREED
+2026-09-29 (owner, in session).** First AGREED 2026-09-06, with no code. §9
+re-scopes the note against the LRA deck that replaced the fin deck §1
+describes (note 56). It holds the measurements, the owner's rulings of
+2026-09-28 and 2026-09-29, and the decisions and gates the code is built to;
+where §9 and §1–§8 differ, §9 governs. D-51.3a (net β) and D-51.6 (yaw
+parked) stand. **D-51.9 is open:** no citable source for the ATR's tailplane
+dihedral was found, so the fixture still enters 0 (§9.7).
 
 **Tier L** (new load case, new physics on the fin deck). The T-tail transfer sits in
 the review-§3 frozen list; this note is the owner's explicit admission reopening
@@ -17,6 +17,9 @@ the review-§3 frozen list; this note is the owner's explicit admission reopenin
 else.
 
 ## 1. What the code does today, and what is missing
+
+*Superseded by §9.1: this section describes the per-component fin deck note 56 deleted.*
+
 
 Step T7 (plan 09, shipped 2026-08-13) transfers the horizontal tail's concurrent
 set to the fin tip for every vertical-tail critical condition:
@@ -119,6 +122,9 @@ and (b) is the split formula. Note 21 §5 is corrected, and its stale
 
 ## 3. Decisions proposed
 
+*D-51.2, D-51.3, D-51.4 and D-51.5 are amended by §9.3; D-51.1, D-51.3a and D-51.6 stand.*
+
+
 | # | Decision | Alternative rejected |
 |---|----------|----------------------|
 | D-51.1 | **`TipTransfer` grows `mxx` (roll at the fin tip, airplane axes, default 0.0)** — additive schema change, no migration hop. T-16 is *narrowed*, not repealed: roll is zero **for a symmetric pairing** and carries the paired set's net rolling moment otherwise; the docstring states both | Keeping T-16 absolute — it was a statement about the T-5 balancing pairing, and both new producers (D-51.2, D-51.3) are asymmetric by construction |
@@ -129,6 +135,9 @@ and (b) is the split formula. Note 21 §5 is corrected, and its stale
 | D-51.6 | **Yaw transfer stays zero — parked with the numbers** (owner, 2026-09-06). The only physical producer is chordwise (drag) asymmetry on the h-tail: differing left/right induced drag makes a couple about the fin's vertical axis, landing in the fin **torsion** channel (shared `mz` component and sign convention with strip torsion, `coordinates.tail_torsion_to_airplane`). Sized on the RJ: (i) worst case is the 23.427(a) split (RH 5,816 / LH 4,600 lb at 187 KEAS) → ΔD ≈ 158 lb at the 59.7 in side centroid → **9,399 lb-in**, 1.83 % of governing fin bending and 5–24 % of the fin's *own-case* torsion (40–185 k lb-in) — but that producer exists only in the D-51.2 condition, where the fin carries no own aero, so 9.4 k lb-in can never govern the torsion envelope its own cases set; (ii) in the four fin conditions the D-51.3 induced set is antisymmetric about a ~zero balancing CL (+6 lb on the RJ), and induced drag is quadratic in CL, so its left/right drag difference cancels to second order — no producer. AC 23-9's method itself prescribes **only** the rolling moment (¶5a) | Adding an `mzz` field "for symmetry" — a number with no producer, the exact failure T-16 guarded against; or gating a 1.8 %-of-bending term the base method cannot resolve (±5–10 % band, rule 6) |
 
 ## 4. Gates (the closure targets, with expected numbers)
+
+*Superseded by §9.4, which gates the LRA deck and the fin view.*
+
 
 No printed oracle exists for any of this (Appendix A has no T-tail); every gate is
 an identity or closure per CLAUDE.md rule 2.
@@ -196,6 +205,13 @@ note-21 rider travels in the same PR.
 
 ## 8. Deferred (AC 23-9's wider producer list, each parked with its trigger)
 
+*The one-engine-out item is promoted by §9.3 (D-51.3b): its trigger is met on the ATR.
+Its low-speed end is #333: there is no VMC input, VS stands in and is below the
+ATR's VMC, and the unrecovered case reaches no output. `M_r` scales with the fin
+load, so that case's induced moment is the smallest of the three (ATR VS
+130,829 against VD 458,984 lb-in), and #328 does not wait for #333.*
+
+
 AC 23-9 ¶5d names the unsymmetric producers as 23.351, **23.367**, 23.441 and
 23.443, plus 23.455 rolling velocities. This note takes the 23.441/23.443 four;
 the rest are deferred with the condition that promotes them:
@@ -218,3 +234,228 @@ the rest are deferred with the condition that promotes them:
   un-filed; filing it as a backlog row is part of this note's S-tier rider.
   Note the AC's ¶5d pairing language ("one-g level flight balancing load") is
   an FAA citation *for* the rational T-5 policy.
+
+## 9. Amendment — against the LRA deck (#328, PROPOSED 2026-09-29)
+
+**Owner rulings.** On the issue, 2026-09-28:
+
+- Q4: 23.427(a) is met by the (b) 100/80 split on every tail, and on a T-tail
+  by (c) as well, through AC 23-9 ¶5a. `M_r` is sized for the fin, on the
+  owner's assumption that it is not critical for the horizontal tail.
+- Q5: that assumption is stated and checked on every T-tail. `M_r/2` per side
+  is compared with the stabiliser's governing root bending: a warning above
+  100 %, never a refusal, and the margin is stated below it.
+
+In session, 2026-09-29, after §9.1's measurements:
+
+- Q1 (a): the one-engine-out fin cases are a fifth producer.
+- Q2 (a): Mach is stated on every `M_r` subcase, with a warning above 0.6.
+- Q3 (a): the ATR's tailplane dihedral is entered from a cited source.
+
+**Conventions:** `CONVENTIONS.md` §3 (LIMIT, SF stated per case and applied
+nowhere), §4 (case identity), §7 (one owner per quantity), §7.1 (handedness).
+
+### 9.1 What the tree does today (measured at `dev/v0.8.8`, 2026-09-29)
+
+Note 56 deleted the per-component fin deck §1 was written against. The
+deliverable is the LRA free-free deck, with the fin view (`build_tail_span`,
+the fin's applied-load CSV in `report/applied.py`, and the report) beside it.
+The balanced deck assembles the four fin conditions and, on a twin, the
+one-engine-out cases as handed lateral cases. The 23.427(a) case is a handed
+h-tail case. On a T-tail the h-tail's centreline is rigid to the fin tip
+(`JointName.VTAIL_TIP_HTAIL`).
+
+**Gap 1 is closed in the deck and open in the fin view.** The fin-root rolling
+moment of the loads on the h-tail and fin members of the deck's 23.427(a)
+case equals the h-tail span table's `Σ fz·y` exactly, in both hands:
+
+| | RJ | ATR |
+|---|---|---|
+| 23.427(a) case picked | UNCHECKED MAN UP (V-n 34) | GUST DN RETRACTED |
+| `Σ fz·y` | +72,547 lb-in | −30,622 lb-in |
+| Deck fin root `Mx`, R / L | +72,547 / −72,547 | −30,622 / +30,622 |
+| Share of governing fin root bending | 14.2 % (of 512,444) | 12.5 % of the four fin conditions (245,278); 3.4 % of the governing one-engine-out case (889,475) |
+
+No gate asserts this, and the fin view carries no such condition. The oracle
+report's 6.5 says so ("never reacted through the vertical tail").
+
+**Gap 2 is open everywhere.** No producer of `M_r` exists. `M_r = 0.3·q·S_H·b_H·β`
+(AC 23-9 ¶5a p3), with β per §9.3 D-51.3a:
+
+| Condition | RJ q / β / Mach | RJ `M_r` (lb-in) | ATR q / β / Mach | ATR `M_r` (lb-in) |
+|---|---|---|---|---|
+| SUDDEN RUDDER 23.441(a)(1) | 118.5 / 12.88° / 0.283 | 266,727 | 87.2 / 13.19° / 0.243 | 112,543 |
+| YAW TO SIDESLIP 23.441(a)(2) | 118.5 / 6.62° / 0.283 | 137,013 | 87.2 / 6.31° / 0.243 | 53,894 |
+| YAW 15 NEUTRAL 23.441(a)(3) | 118.5 / 15.00° / 0.283 | 310,569 | 87.2 / 15.00° / 0.243 | 128,028 |
+| SIDE GUST 23.443(b) | 325.5 / 6.57° / **0.692** | 373,565 | 195.1 / 8.49° / 0.455 | 162,118 |
+| ONE ENGINE OUT VC 23.367(a)(2), ULT | — | — | 195.1 / 17.21° / 0.455 | 328,765 |
+| ONE ENGINE OUT VD 23.367(a)(1) | — | — | 304.8 / 15.38° / 0.569 | 458,984 |
+
+The inputs are S_H = 120.00 ft² and b_H = 23.167 ft on the RJ, and
+S_H = 85.00 ft² and b_H = 18.333 ft on the ATR. The RJ reproduces §4's
+figures to within 0.05 %.
+
+`M_r` is 27–73 % of the RJ's governing fin root bending. On the ATR it is
+22–66 % of the four fin conditions' root bending, but the ATR's fin is
+governed by the one-engine-out VD case (889,475 lb-in, 3.6× the four). §8's
+trigger for promoting 23.367 is therefore met, and AC 23-9 ¶5d names 23.367
+among the producers.
+
+**The horizontal-tail assumption holds everywhere except one case.**
+`M_r/2` against the governing per-side h-tail root bending (RJ 349,920,
+ATR 161,404 lb-in, both LIMIT):
+
+- RJ: at most 53.4 % (side gust).
+- ATR, the four fin conditions: at most 50.2 %.
+- ATR one-engine-out VC (ultimate, SF 1.0): 67.9 % on a common basis.
+- **ATR one-engine-out VD: 142.2 %.**
+
+**AC limits.**
+- Mach: the RJ's side gust is at 0.692.
+- Dihedral: every fixture enters `htail_dihedral_deg = 0`, including the ATR,
+  whose real tailplane has visible dihedral (`inputs.py`'s comment on the
+  field). The guard therefore has nothing to fire on.
+
+### 9.2 Governing basis, added to §2
+
+- **The sense of `M_r`** (AC 23-9 ¶5d, p5–6 and Figure 1): "For the T-tail,
+  the moment due to the horizontal surface **adds** to the moment due to the
+  vertical tail load." `M_r` takes the sign of the fin's own root rolling
+  moment in the same condition.
+- **The producer set** (¶5d p5): 23.351, **23.367**, 23.441 and 23.443
+  "generate a net lateral aerodynamic load on the vertical stabilizer and
+  induce a rolling moment on the horizontal stabilizer". This amendment takes
+  23.367, 23.441 and 23.443. 23.351 and the 23.455 rolling velocities stay in
+  §8.
+- **The combination** (¶5d p5): each producer is combined with the
+  appropriate one-g balancing load. The deck's lateral and one-engine-out
+  cases already ride their V-n point's trim tail load, and the fin view's
+  four conditions carry T-5's pairing. A one-engine-out fin condition is not
+  a point of the V-n matrix, but it runs at defined speeds (VC, VD, and VS in
+  place of VMC, Ch 11 p87). The deck already pairs each one with a parent
+  point; the fin view takes the same parent (D-51.1a).
+
+### 9.3 Decisions, as amended
+
+| # | Decision | Alternative rejected |
+|---|---|---|
+| D-51.1 *(stands)* | `TipTransfer.mxx`, the rolling moment at the fin tip in airplane axes, default 0.0. It is a result field, not an input, so there is no schema hop. T-16 is narrowed: the roll is zero for a symmetric pairing | — |
+| D-51.1a *(revised 2026-09-29, owner)* | **A one-engine-out fin result is paired with the deck's own parent point.** A 23.367 condition is a transient, not a point of the V-n matrix, so `cond.case` is `None` and today its `tip_transfer` is `None`. The deck already resolves a parent for each one: `OEI_PARENT` (VC → `BAL C`, VD → `BAL D`, VS → `STALL 1G`), taken at the heaviest derivable FLIGHT loading and at the balanced altitude nearest the case's own (`engine_out_cases._heaviest_derivable`, `_nearest_altitude`). That resolution moves to **one owner**, `balance.engine_out_cases.oei_parent_point(project, cond)`, returning `None` with the reason when no parent resolves. The deck and `tail_span.ttail_transfer` both call it. On a T-tail the fin result's transfer is T-5's set at that parent point (the parent's balancing tail load and the h-tail inertia at its load factor), plus `mxx = M_r`. This is AC ¶5d's "appropriate horizontal stabilizer balancing load for one-g level flight". If no parent resolves, the transfer carries `mxx = M_r` alone and says why, the same record the deck's `no-parent` skip writes | `M_r` alone with no pairing (the fin view would lack the balancing load ¶5d asks for, which the deck carries); a second parent rule in `tail_span` (two owners of one pairing, which can disagree) |
+| D-51.2a | **`HTAIL UNSYM` is a fin condition in the fin view only.** A fin result with zero fin air load carries the 23.427(a) h-tail case at its tip: `fz` = that table's `Σ fz` (air + inertia, as T7), `myy` by T7's own arm rule, and `mxx = Σ fz·y`. It takes the h-tail case's SF, and its id comes from a new band, `VTAIL_BAND_TTAIL = 20` (**VT-20**…VT-29), beside ONENGOUT's. It reaches the fin's applied-load CSV, the case index and the report. **The deck is not changed**, because its handed 23.427(a) case already carries the roll at the fin root exactly (§9.1); a gate asserts it (G-51.1) | Adding a lumped set to the deck (double-counts the strips, as D-51.5 said); leaving the fin view without it (the report's 6.5 states the omission today) |
+| D-51.3a *(amended)* | **One owner, one β rule.** `tail_span.induced_roll_moment(project, cond)` returns `M_r`, its β, q, Mach and basis. **β is the fin's own side load expressed as an angle** on SELECT's slope: `β = \|LT25 + LT50\| / (AVT/57.3 · q · S_V)`. For SUDDEN RUDDER this is exactly `RD·EFV·EFFECTV`, for YAW TO SIDESLIP exactly D-51.3a's net β (19.5° − the rudder's), and for YAW 15 NEUTRAL exactly 15°. The ruled net β therefore falls out of the one formula with no special case. **SIDE GUST is the one exception**, AC ¶5a's `1.2·U/V` (U and V as EAS, fps), as agreed; SELECT's own gust angle includes the alleviation factor (RJ 4.81°, ATR 6.22°) and is not the AC's. q is at the condition's EAS. The sign is the fin's root rolling moment's (§9.2). `M_r` carries the fin condition's own SF, so the one-engine-out VC case stays `ULT SF=1.0` | Per-condition β formulas (four spellings of one quantity, and the net-β rule restated); SELECT's alleviated gust β (not the AC's method) |
+| D-51.3b | **The one-engine-out fin conditions are a fifth producer** (Q1 (a)). Same owner and same β rule, at the case's speed and ONENGOUT's own altitude (entered, else the shoulder altitude). ATR: 328,765 lb-in (VC, ULT) and 458,984 lb-in (VD) | Parking it with the number (the ATR's largest induced moment, and the only case that fails the h-tail check) |
+| D-51.4a *(replaces D-51.4)* | **The deck carries `M_r` as a free couple at the fin tip.** Each lateral and one-engine-out balanced case on a T-tail gains one `BalancedLoad` with `mx = M_r` at the `VTAIL_TIP_HTAIL` joint location, `source = "vtail-induced-roll"`. It routes to the fin member, and the tip node is the nearest. It is applied before the residual is summed, so the closure's roll degree of freedom reacts it: `ṗ` moves and the inertia field with it. This is the aileron couple's precedent (`air.py`, `aileron-roll`). The port twin reflects it through `reflect_load`. `is_lateral` and `vtail_load` still read `vtail-air` alone, so the fin side load reported does not change. In the fin view, `ttail_transfer_to_airplane` widens to `(fz, myy, mxx)`, as D-51.4 said | An antisymmetric h-tail strip set (Q4: sized for the fin, the h-tail checked instead — see §9.5); a couple at the fin root (misses the fin's own bending path) |
+| D-51.5a *(replaces D-51.5)* | **No second (b) path in the deck.** D-51.2a's lumped set never enters it (G-51.3). `M_r` enters once, as D-51.4a says | — |
+| D-51.6 *(stands)* | Yaw transfer zero, parked with its numbers | — |
+| D-51.7 | **The h-tail assumption, checked** (Q5). For every `M_r` on a T-tail, the check is `(M_r/2 · SF_case) / (M_h · SF_h)`, where `M_h` is the governing per-side h-tail root bending over the h-tail's conditions, and `SF_case`/`SF_h` bring both to one basis. Above 100 %: a validation warning and an in-band statement on the case and in the report, never a refusal. At or below: the margin is stated. Shipped consequence: **the ATR warns on its one-engine-out VD case (142.2 %)** | Refusing (the owner ruled warn); `M_r/2` against a limit figure while the case is ultimate (compares unlike bases) |
+| D-51.8 | **The AC's limits, stated and guarded.** (i) **Mach** at the condition's speed and altitude is stated on every `M_r` subcase; a warning above `AC23_9_MACH_WARN = 0.6`, an engineering threshold the AC does not give (owner, Q2). The RJ's side gust (0.692) fires it. (ii) **Dihedral:** the entered `htail_dihedral_deg` is stated on every `M_r` subcase, with a warning when it is above 0: AC ¶5a p4, "6° dihedral can increase the stabilizer rolling moment by 50 %". `M_r` is not scaled, because the AC gives no method. (iii) **Static only:** the deck header and the report say `M_r` is not a flutter input (¶5a p4) | Scaling `M_r` by dihedral (no source method); a Mach refusal |
+| D-51.9 | **The ATR's tailplane dihedral is entered from a cited source** (Q3 (a)): Jane's [C] if it states a value, else measured off the [A] three-view's front elevation and tagged [E] in `atr42_100.sources.md`. No load reads the field, so only statements move | Leaving 0.0 with a stated gap |
+| D-51.10 | **The fin view states its root bending with the tip set.** Station columns stay the fin's own loads (T7's split, unchanged). Each T-tail fin result publishes one more value, the root rolling moment including the transfer's `mxx`, so a reader of the fin view sees the number the deck's fin root carries | Adding the transfer into every station column (moves the T7 split for every existing reader) |
+| D-51.11 | **The report's 6.5 is rewritten for a T-tail.** With both paths carried, the statement "never reacted through the vertical tail" is false on a `T_TAIL`, and the OR-133 withholding of the fin's spanwise loads rests on nothing on that arrangement. It lifts for `T_TAIL` only, read off `is_t_tail`. V-tail and cruciform keep it | Keeping the withholding (states an omission the code no longer has) |
+
+### 9.4 Gates (closure targets; no printed oracle — rule 2's second branch)
+
+| Gate | What is asserted | Expected (RJ / ATR) | Tolerance |
+|---|---|---|---|
+| G-51.1 | In each handed 23.427(a) balanced case, the fin-root `Mx` of the h-tail and fin members' loads equals ± the h-tail table's `Σ fz·y` (Gap 1 in the deck) | ±72,547 / ±30,622 | 1e-9 |
+| G-51.1a | Each one-engine-out fin result's transfer is paired with the same V-n point as the deck's case for it (one owner, `oei_parent_point`), and its `fz`/`myy` equal T-5's set at that point | — | exact |
+| G-51.2 | `HTAIL UNSYM`'s `TipTransfer.mxx` equals `Σ fz·y`, and its applied-load row's `mx` equals `mxx` | +72,547 / −30,622 | 1e-9 |
+| G-51.3 | The balanced deck carries no `HTAIL UNSYM` set, and exactly one `vtail-induced-roll` load per T-tail lateral or one-engine-out case | — | exact |
+| G-51.4 | `M_r = 0.3·q·S_H·b_H·β` (AC ¶5a p3, page cited); β identities: SUDDEN RUDDER = `RD·EFV·EFFECTV`, YAW TO SIDESLIP = 19.5° − that, YAW 15 = 15°, SIDE GUST = `1.2·U/V` | §9.1 table | 1e-9 (identity); ±0.1 % (figures) |
+| G-51.5 | Sense: `M_r` has the sign of the fin's air root rolling moment in every case (AC p5–6) | — | exact |
+| G-51.6 | The deck's fin-root `Mx` in each lateral and one-engine-out case equals its value without the couple plus `M_r`. The case's 1 g half still closes inside `RESIDUAL_GATE`; the roll is reacted by `ṗ`, the lateral cases' existing standing | — | 1e-9 |
+| G-51.7 | Fin-view root rolling moment with the tip set (D-51.10), airplane axes | RJ: SR −706,830, YTS +363,087, Y15 +823,013, SG −824,818 · ATR: SR −328,155, YTS +157,144, Y15 +373,307, SG −389,728, OEI VC ±965,886, OEI VD ±1,348,459 | ±0.1 % |
+| G-51.8 | AC ¶5d band: 4–6× the (b) roll on the two pure-attitude cases; the rudder-affected and one-engine-out ratios are stated, not gated | RJ 4.28× / 5.15× · ATR 4.18× / 5.29× | band |
+| G-51.9 | D-51.7: the ATR's one-engine-out VD warns (142.2 %); no other case on either fixture warns; the ratios are stated | RJ max 53.4 % · ATR VC 67.9 % | ±0.1 % |
+| G-51.10 | D-51.8: the RJ side gust's Mach warning fires (0.692) and nothing else does; the ATR's dihedral statement and warning fire once D-51.9 enters it | — | exact |
+| G-51.11 | Conventional isolation: flipping `tail_type` removes every new load, row, value and warning (the existing isolation test, extended) | — | exact |
+
+### 9.5 Effect vs error bar (rule 6), and what moves
+
+| Item | Effect on a delivered load | Verdict |
+|---|---|---|
+| Gap 1, fin view | RJ 14.2 %, ATR 12.5 % (3.4 % of its governing one-engine-out case) | Ranks on the RJ; the ATR is carried by the same rule |
+| Gap 2 | Governing fin root bending: RJ 512,444 → 824,818 (+61 %); ATR 889,475 → 1,348,459 (+52 %) | Ranks decisively |
+| h-tail under `M_r` | ATR one-engine-out VD 142.2 % of the h-tail's governing root bending | **Warned, not carried** (D-51.7, Q5). The antisymmetric h-tail case that would carry it is deferred to §8, with this number as its trigger; its trigger is met on the ATR as shipped (see below) |
+
+**What moves.** On the RJ and the ATR:
+- the fin view: the four fin conditions' transfers, the new VT-20 row and the
+  ATR's one-engine-out transfers;
+- the case index;
+- every T-tail lateral and one-engine-out balanced case, through the couple
+  and its `ṗ` (the Imperial digest and the LRA deck digests);
+- the report's 6.5;
+- on the ATR only, the fixture's dihedral (statements).
+
+ga6, the Baron and concept_heavy are conventional and do not move (G-51.11).
+
+**Deferred with its trigger met.** The ATR's one-engine-out VD case puts
+`M_r/2` at 142 % of the horizontal tail's governing root bending. By the
+owner's ruling that is warned, not carried: the h-tail's own deck and CSV do
+not see an antisymmetric set. §8 gains the row "antisymmetric h-tail case
+under `M_r` (the zero-net-lift set of the original D-51.3)". Its trigger is
+D-51.7's check above 100 % on a shipped fixture, and it is met at ship.
+Filing it as a backlog issue is part of this step's closure (rule 5).
+
+### 9.6 Closure obligations (tier L), in addition to §7
+
+- `theory_sources.md`: the 23.427 row cites AC 23-9 ¶5a p3–4 and ¶5d p5–6
+  (sense and producers), the β rule, the Mach threshold's basis and the
+  23.367 producer.
+- `PROGRAM_SPEC.md`: the tail-span, balance and export sections.
+- `CONVENTIONS.md` §7: rows for `induced_roll_moment` and
+  `VTAIL_BAND_TTAIL`.
+- `case_ids.py`'s band table.
+- `atr42_100.sources.md`: the dihedral row.
+- The report's 6.5 and OR-133 text.
+- The §6 riders: note 21 §5's lettering fix, and filing the plan 09 §8
+  pairing row.
+- The Imperial and deck digests regenerated.
+- One history fragment in full step format.
+
+### 9.7 Implementation record (#328, 2026-09-29)
+
+- **Owners.**
+  - `tail_span.induced_roll_moment` returns an `InducedRoll` record (the
+    moment, β, q, Mach, altitude, basis, dihedral, and the h-tail ratio).
+  - `tail_span.vtail_root_roll` and `vtail_root_roll_with_tip` (D-51.10).
+  - `tail_span.check_htail_under_induced_roll` (D-51.7), which also states
+    the ratio on each fin result.
+  - `engine_out_cases.oei_parent_point`: the deck's parent lookup, moved to
+    one owner and called by both the deck and the fin view (D-51.1a).
+  - `one_engine_out.case_altitude_ft`: the march's altitude, which the Mach
+    of a one-engine-out `M_r` reads.
+  - The constants `AC23_9_ROLL_COEFF`, `AC23_9_GUST_BETA_FACTOR` and
+    `AC23_9_MACH_WARN`.
+  - `case_ids.VTAIL_BAND_TTAIL` = 20.
+- **The deck.** `balance.applied.vtail_sets` appends the couple from the
+  transfer's `induced` record, source `vtail-induced-roll`, never `mxx`
+  (D-51.5a). Each case that carries it states `INDUCED_ROLL_NOTE` in band.
+- **Warnings.** `validation._check_ttail_induced_roll` raises
+  `ttail_induced_roll_sizes_htail`, `ttail_induced_roll_mach` and
+  `ttail_htail_dihedral`, all on the Tail Loads page.
+- **The report.** `_vtail_withheld` no longer withholds a T-tail.
+  `_ttail_vtail_paragraphs` states the three tip sets and each condition's
+  numbers. Section 5's pointer names the T-tail. The dead T-tail branches of
+  the withholding statement are removed.
+- **Rider (rule 4).** The 23.333(c) gust velocity had four copies:
+  `flight_envelope._gust_ude`, `vn_diagram._gust_ude`, and SELECT's lateral
+  and h-tail gusts. They are now one owner, `constants.gust_ude_fps`, with an
+  AST guard. No digest moved on any conventional fixture.
+- **What moved.** The Imperial digest moved 8 channels each on the RJ and
+  the ATR: the case index, the balance CSV and text, the tail-span CSV and
+  text, the balanced deck, the LRA deck, and the fin's applied deck. The
+  other three fixtures did not move. The lateral pins changed: roll
+  acceleration ṗ rose 27–42 % (ATR) and 62–83 % (RJ), and yaw acceleration ṙ
+  moved less than 4 %. Fin loads and Ny are unchanged.
+- **D-51.1 corrected: v72 with an identity hop.** D-51.1 said "no
+  migration hop" because `TipTransfer` is a result type. It is also
+  persisted, so the persisted-shape guard (`test_schema_guards`) requires a
+  bump. The new fields are `mxx`, `paired_case` and `induced`; the record
+  type `InducedRoll` is new. Since 0.8.7 released v70 (#310), a bump gets a
+  registered hop: v72, with an identity `_hop_71`.
+- **D-51.9 is not done.** Neither Jane's [C] nor a measurable [A] three-view
+  was available in session, and a web search found no ATR-specific tailplane
+  dihedral. The ATR still enters 0, so the dihedral guard is gated on a
+  constructed project (G-51.10). The value waits for the owner's source.
+

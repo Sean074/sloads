@@ -52,6 +52,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # tests/helpers
 
 from sloads import io  # noqa: E402
+from sloads.case_ids import VTAIL_BAND_TTAIL  # noqa: E402
 from sloads.models import TailType  # noqa: E402
 from sloads.models.report import ReportSpec  # noqa: E402
 from sloads.modules.select import default_critical  # noqa: E402
@@ -66,8 +67,9 @@ _EXAMPLES = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")
 _GA = os.path.join(_EXAMPLES, "ga6_normal.project.json")
 _TWIN = os.path.join(_EXAMPLES, "baron_58.project.json")
-#: The shipped T-tails -- the only arrangement OR-134 names that a fixture
-#: exercises. ``V_TAIL`` and ``CRUCIFORM`` are run on constructed projects.
+#: A shipped T-tail. Since design note 51 D-51.11 a T-tail publishes its fin
+#: loads; ``V_TAIL`` and ``CRUCIFORM``, which withhold, are run on constructed
+#: projects.
 _T_TAIL = os.path.join(_EXAMPLES, "atr42_100.project.json")
 
 
@@ -262,98 +264,60 @@ def test_a_conventional_tail_publishes_its_spanwise_loads():
         assert _appendix(doc, oc.VTAIL_LOAD_STATIONS).tables[0].rows, path
 
 
-def test_every_arrangement_other_than_conventional_withholds_the_span_loads():
-    """OR-134: ``T_TAIL``, ``V_TAIL`` and ``CRUCIFORM`` alike.
+def test_a_v_tail_and_a_cruciform_withhold_the_span_loads_and_a_t_tail_does_not():
+    """OR-134, re-cut by design note 51 D-51.11 (#328).
 
-    A cruciform fin carries the same horizontal-tail reaction a T-tail's does,
-    and a V-tail has no separable vertical surface for the analysis to be about,
-    so the gate is over the enum rather than over the one value a fixture
-    happens to exercise.
+    ``V_TAIL`` and ``CRUCIFORM`` withhold: neither carries the horizontal
+    tail's load path through the fin. ``T_TAIL`` publishes: its fin carries the
+    23.427(a) case (``HTAIL UNSYM``) and the AC 23-9 induced rolling moment at
+    the tip, so the two omissions the withholding rested on are gone. The gate
+    is over the enum rather than over the one value a fixture exercises.
     """
     for tail_type in TailType:
         project = _relaid(_GA, tail_type)
         doc = _doc(project)
         span = _section(doc, "vtail_loads").subsections[-1]
         appendix = _appendix(doc, oc.VTAIL_LOAD_STATIONS)
-        if tail_type is TailType.CONVENTIONAL:
-            assert not span.absent_reason and not appendix.absent_reason
+        if tail_type in (TailType.CONVENTIONAL, TailType.T_TAIL):
+            assert not span.absent_reason and not appendix.absent_reason, tail_type
             continue
         assert span.absent_reason and not span.tables, tail_type
         assert appendix.absent_reason and not appendix.tables, tail_type
         # Stated as unsupported, never as unproduced: the loads exist.
         assert span.absent_lead == "Not supported", tail_type
         assert "23.427(a)" in _prose(span), tail_type
-
-
-def test_the_shipped_t_tails_withhold_and_say_which_arrangement_they_are():
-    """The fixture half -- the enum sweep above is on a constructed project."""
-    project = _project(_T_TAIL)
-    assert tail_layout(project) is TailType.T_TAIL
-    doc = _doc(project)
-    span = _section(doc, "vtail_loads").subsections[-1]
-    assert span.absent_reason and not span.tables
-    assert "T-tail" in _prose(span)
-
-
-def test_the_withholdings_reason_matches_what_the_calc_modelled():
-    """G-OR-87 re-cut (#254): the statement is checked against the calc.
-
-    The wording agreed at note 44 OR-133 said flatly that the horizontal tail's
-    load path through the fin "is not modelled". Plan 09's T7 then put the
-    horizontal tail's concurrent set on the fin tip, and on a T-tail the report
-    went on saying the path was unmodelled while ``tail_span`` was modelling it
-    -- the two front-ends disagreeing about what the suite can do, which is the
-    whole of #254. A rewording alone would drift back the moment the next
-    arrangement acquires a transfer, so the claim is gated against its subject:
-    for every arrangement, whether ``build_tail_span`` produced a
-    ``tip_transfer`` decides which sentence 6.5 is allowed to print.
-
-    What is *not* re-cut is the withholding itself. It never rested on the tip
-    transfer: the fin's loads are withheld because the unsymmetrical case of
-    23.427(a) is absent and the asymmetry inside the four analysed cases is
-    worth 27-73 % of the governing case's own root bending -- both still true on
-    a T-tail, transfer or no transfer.
-    """
-    for tail_type in TailType:
-        if tail_type is TailType.CONVENTIONAL:
-            continue
-        project = _relaid(_GA, tail_type)
+        # ...and the statement is true of the calc: no tip set on this layout.
         results = build_tail_span(project).get("vtail", [])
-        transferred = any(r.tip_transfer is not None for r in results)
-        assert transferred == is_t_tail(project), tail_type
-        prose = _prose(_section(_doc(project), "vtail_loads").subsections[-1])
-        if transferred:
-            assert "The fin-tip transfer itself is modelled" in prose, tail_type
-            assert "No part of that load path is modelled" not in prose, tail_type
-            # ...and what remains unmodelled is named, not left as "the path".
-            assert "unsymmetrical load 23.427(a) prescribes" in prose, tail_type
-        else:
-            assert "No part of that load path is modelled" in prose, tail_type
-            assert "carry no horizontal-tail set onto the fin at all" in prose, tail_type
-        # Either way the reason the loads are withheld is the quantified one.
-        assert "27" in prose and "73" in prose, tail_type
+        assert all(r.tip_transfer is None for r in results), tail_type
+        assert "No part of that load path is modelled" in _prose(span), tail_type
+        assert "27" in _prose(span) and "73" in _prose(span), tail_type
 
 
-def test_the_shipped_t_tails_say_the_transfer_they_actually_carry():
-    """The fixture half of the re-cut, on the two shipped T-tails.
+def test_the_shipped_t_tails_publish_the_fin_and_state_its_tip_sets():
+    """D-51.11 on the two shipped T-tails, read against the calc.
 
-    ``_relaid`` gives ``ga6_normal`` a tail type it was not designed with; these
-    two are T-tails as entered, and they are the projects whose fin conditions
-    really do carry a tip set: the four that name a V-n point do (``atr42_100``
-    Fz +258 / -994 lb), and its four engine-out rows name none and carry none --
-    which is why neither the statement nor the body says *every* condition
-    transfers. A wording that did would be false on the twin T-tail alone.
+    Every fin condition carries a tip set -- the four static ones at their own
+    V-n point, the ATR's engine-out ones at the 1 g parent the deck uses (note
+    51 D-51.1a) -- and the published section says what rides the fin and states
+    each condition's induced moment, from the results' own records.
     """
     for name in ("atr42_100", "concept_regional_jet"):
         project = _project(os.path.join(_EXAMPLES, f"{name}.project.json"))
+        assert tail_layout(project) is TailType.T_TAIL
         results = build_tail_span(project)["vtail"]
-        paired = [r for r in results if r.tip_transfer is not None]
-        assert paired and len(paired) == sum(
-            1 for r in results if r.case is not None
-            and "ENGINE OUT" not in r.case.upper()), name
-        prose = _prose(_section(_doc(project), "vtail_loads").subsections[-1])
-        assert "The fin-tip transfer itself is modelled" in prose, name
-        assert "only symmetrically" in prose, name
+        assert all(r.tip_transfer is not None for r in results), name
+        doc = _doc(project)
+        span = _section(doc, "vtail_loads").subsections[-1]
+        assert not span.absent_reason and span.tables, name
+        assert _appendix(doc, oc.VTAIL_LOAD_STATIONS).tables[0].rows, name
+        prose = _prose(span)
+        assert "T-tail" in prose and "AC 23-9" in prose, name
+        assert "HTAIL UNSYM" in prose and "23.427(c)" in prose, name
+        for r in results:
+            assert r.case in prose, (name, r.case)
+        # The withholding's statement is gone with it.
+        assert "Not supported" != span.absent_lead, name
+        assert "No part of that load path is modelled" not in prose, name
 
 
 def _shape(section):
@@ -438,7 +402,7 @@ def test_section_five_points_at_the_restriction_without_stating_it():
     the first time two sections later -- and must not meet it twice, in two
     wordings that could drift apart.
     """
-    doc = _doc(_relaid(_GA, TailType.T_TAIL))
+    doc = _doc(_relaid(_GA, TailType.CRUCIFORM))
     five = _prose(_section(doc, "htail_loads"))
     assert "conventional tail" in five
     assert "does not affect anything in this section" in five
@@ -462,7 +426,7 @@ def test_the_condition_set_names_the_case_it_is_short_on_a_non_conventional_tail
     hedged, because a named case is one a reader can check and one note 51's
     D-51.1 can delete.
     """
-    section = _section(_doc(_relaid(_GA, TailType.T_TAIL)), "vtail_loads")
+    section = _section(_doc(_relaid(_GA, TailType.CRUCIFORM)), "vtail_loads")
     for starts in ("Design conditions analysed", "Critical"):
         note = _table(section, starts).note or ""
         assert "short one condition" in note, starts
@@ -480,7 +444,7 @@ def test_the_loads_reference_axis_survives_the_withholding_and_says_why():
     """The owner's 2026-09-07 ruling: geometry is not withheld to document a
     load limitation, and a station list above a withheld subsection must not
     read as loads that merely failed to compute."""
-    section = _section(_doc(_relaid(_GA, TailType.T_TAIL)), "vtail_loads")
+    section = _section(_doc(_relaid(_GA, TailType.CRUCIFORM)), "vtail_loads")
     axis = _table(section, "Loads reference axis by station")
     assert axis.rows, "the stations are geometry and are printed"
     assert "withheld" in (axis.note or "")
@@ -768,10 +732,15 @@ def test_every_case_keyed_table_in_the_section_names_the_same_conditions():
                                ("vtail_loads", oc.VTAIL_LOAD_STATIONS)):
             tables = _case_keyed_tables(_section(doc, step))
             tables.update(_case_keyed_tables(_appendix(doc, appendix)))
-            # Five in section 6 plus the appendix on a conventional tail; the
-            # spanwise pair is withheld on a T-tail (OR-133), which removes
-            # tables from the comparison and must not empty it.
+            # Five in section 6 plus the appendix. A T-tail's spanwise pair
+            # carries one condition more, stated in its own section: the fin's
+            # 23.427(c) reaction of the horizontal tail's 23.427(a) case (VT-20,
+            # design note 51 D-51.2a), which has no SELECT total, no aero state
+            # and no chordwise profile -- the fin carries no air load in it.
             assert len(tables) >= 4, (name, step, sorted(tables))
+            derived = {f"VT-{VTAIL_BAND_TTAIL:02d}"}
+            tables = {t: (ids - derived if step == "vtail_loads" else ids)
+                      for t, ids in tables.items()}
             sets = list(tables.values())
             assert all(ids == sets[0] for ids in sets), (
                 name, step, {t: sorted(ids) for t, ids in tables.items()})

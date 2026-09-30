@@ -86,6 +86,20 @@ ROLL_OTHER_SIDE_PERCENT = 75.0
 # (``rolling.aileron_cm_increment``), design note 52 D-52.5.
 AILERON_DCM_PER_DEG = -0.01
 
+# The T-tail induced rolling moment of FAA AC 23-9 ¶5a (p3), "in lieu of a
+# rational analysis": ``M_r = 0.3 q S_H b_H beta`` (lb-ft, beta in radians) at
+# the horizontal/vertical intersection. One owner, ``tail_span.induced_roll_moment``
+# (design note 51 D-51.3a).
+AC23_9_ROLL_COEFF = 0.3
+# The AC's lateral-gust effective sideslip, ``beta = 1.2 U / V`` (¶5a p3, U and V
+# both equivalent, ft/s).
+AC23_9_GUST_BETA_FACTOR = 1.2
+# The method "does not include the effects of compressibility" (¶5a p4) and
+# states no limit. Mach above this is warned on every induced-moment subcase:
+# an engineering threshold, not a regulatory one (owner, 2026-09-29, note 51
+# D-51.8).
+AC23_9_MACH_WARN = 0.6
+
 
 class UnsupportedCategoryError(ValueError):
     """A regulatory rule sloads has not implemented for this certification
@@ -364,6 +378,25 @@ def standard_atmosphere(altitude_ft: float) -> "tuple[float, float]":
 # Speed of sound at sea level for this atmosphere (kt); the reference used to map
 # an equivalent airspeed to calibrated airspeed (KEAS == KCAS == KTAS at h = 0).
 SEA_LEVEL_SOUND_KT = 29.02436 * (59.0 + 459.4) ** 0.5
+
+
+def gust_ude_fps(ref: str, altitude_ft: float) -> float:
+    """Derived gust velocity Ude (fps): 50 at VC, 25 at VD and VF, tapering
+    linearly above 20,000 ft to half at 50,000 ft (14 CFR 23.333(c); FLTLOADS
+    subroutine 4864). ``ref`` is ``"C"``, ``"D"`` or ``"F"``. Floored at zero
+    above 80,000 ft, where the taper would go negative.
+
+    The one owner: FLTLOADS' gust load factor, the V-n diagram's gust lines,
+    SELECT's lateral gust (23.443(b)) and the T-tail induced moment's gust
+    sideslip (note 51 D-51.3a) all read it. Three copies of the rule stood
+    until #328 (``flight_envelope``, ``vn_diagram``, ``select``).
+    """
+    h = altitude_ft
+    if ref == "C":
+        return 50.0 if h <= 20000.0 else max(0.0, 50.0 - (25.0 / 30000.0) * (h - 20000.0))
+    if ref == "D":
+        return 25.0 if h <= 20000.0 else max(0.0, 25.0 - (12.5 / 30000.0) * (h - 20000.0))
+    return 25.0  # VF
 
 
 def eas_to_mach(eas_kt: float, a: float, sigma: float) -> float:

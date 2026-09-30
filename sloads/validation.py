@@ -126,6 +126,7 @@ PAGE_AERO_COEFFS = "aero_coefficients"
 PAGE_FLAP = "flap_loads"
 PAGE_FLIGHT = "flight_envelope"
 PAGE_ENGINE = "engine_mount"
+PAGE_TAIL = "tail_loads"
 
 # The three canonical LANDLOAD loadings, in the order LANDLOAD consumes them (UG
 # fig 18.2). Since decision G-3a the *contract* is ``CgCase.role``, not the name --
@@ -1601,6 +1602,72 @@ def _check_derive_overrides(project: Project) -> List[ConsistencyWarning]:
     return out
 
 
+def _check_ttail_induced_roll(project: Project) -> List[ConsistencyWarning]:
+    """The T-tail induced rolling moment's three stated limits (note 51 §9).
+
+    * ``ttail_induced_roll_sizes_htail`` -- D-51.7 (owner ruling Q5): the
+      moment is sized for the fin on the owner's assumption that it does not
+      size the horizontal tail. Where half of it per side exceeds the h-tail's
+      governing root bending (on one factor basis) the assumption fails, and
+      the h-tail's own deliverables do not carry it. Warned, never refused.
+    * ``ttail_induced_roll_mach`` -- D-51.8: AC 23-9's method "does not include
+      the effects of compressibility" (¶5a p4); above
+      :data:`~sloads.constants.AC23_9_MACH_WARN` the subcase is warned.
+    * ``ttail_htail_dihedral`` -- D-51.8: nor dihedral, which at 6 deg "can
+      increase the stabilizer rolling moment by 50 %". Any entered dihedral on
+      a T-tail is warned; the moment is not scaled, since the AC gives no method.
+
+    Read from ``tail_span``'s own records, so the warning and the result that
+    states the same number cannot disagree. Silent off a T-tail and on a
+    project the spanwise build refuses.
+    """
+    from .constants import AC23_9_MACH_WARN
+    from .tail_geometry import is_t_tail
+
+    if not is_t_tail(project):
+        return []
+    from .modules.tail_span import build_tail_span
+    try:
+        vtails = build_tail_span(project)["vtail"]
+    except (MissingInputError, ValueError):
+        return []
+    out: List[ConsistencyWarning] = []
+    dihedral = 0.0
+    for r in vtails:
+        t = r.tip_transfer
+        if t is None or t.induced is None:
+            continue
+        i = t.induced
+        dihedral = i.dihedral_deg
+        if i.htail_ratio is not None and i.htail_ratio > 1.0:
+            out.append(ConsistencyWarning(
+                "ttail_induced_roll_sizes_htail",
+                f"{r.case}: half the T-tail induced rolling moment per side "
+                f"({0.5 * abs(i.m_r):,.0f} lb-in) is {100.0 * i.htail_ratio:.1f} % "
+                "of the horizontal tail's governing root bending on one factor "
+                "basis. The moment is carried by the fin; the horizontal tail's "
+                "own loads do not include it, so the assumption that it does not "
+                "size the horizontal tail fails here (design note 51 D-51.7).",
+                PAGE_TAIL))
+        if i.mach > AC23_9_MACH_WARN:
+            out.append(ConsistencyWarning(
+                "ttail_induced_roll_mach",
+                f"{r.case}: the AC 23-9 induced rolling moment is formed at Mach "
+                f"{i.mach:.3f}, above {AC23_9_MACH_WARN:g}. The method has no "
+                "compressibility effect (AC 23-9 ¶5a p4); a rational analysis is "
+                "the upgrade (design note 51 D-51.8).",
+                PAGE_TAIL))
+    if dihedral > 0.0:
+        out.append(ConsistencyWarning(
+            "ttail_htail_dihedral",
+            f"The T-tail's horizontal stabilizer has {dihedral:g} deg of dihedral "
+            "entered. AC 23-9's induced rolling moment has no dihedral effect, and "
+            "6 deg can raise it by 50 % (¶5a p4); the delivered moment is not "
+            "scaled for it (design note 51 D-51.8).",
+            PAGE_TAIL))
+    return out
+
+
 def consistency_warnings(project: Project) -> List[ConsistencyWarning]:
     """All input-consistency warnings for ``project`` (each tagged with its page).
 
@@ -1635,4 +1702,5 @@ def consistency_warnings(project: Project) -> List[ConsistencyWarning]:
     out += _check_aero_coefficients(project)
     out += _check_flap_slipstream(project)
     out += _check_derive_overrides(project)
+    out += _check_ttail_induced_roll(project)
     return out

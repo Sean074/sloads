@@ -48,6 +48,7 @@ from sloads.fuselage_moment import munk_yaw_slope_per_deg  # noqa: E402
 from sloads.models import LateralBodyAeroInput  # noqa: E402
 from sloads.modules.balance import (  # noqa: E402
     BODY_AERO_SOURCE,
+    INDUCED_ROLL_SOURCE,
     RESIDUAL_GATE,
     assemble,
     body_aero_loads,
@@ -258,7 +259,7 @@ def test_g11_the_symmetric_half_still_closes_with_fin_and_body_terms_removed(exa
             continue
         applied = [ld for ld in case.loads if not ld.source.startswith("closure-")]
         half = [ld for ld in applied
-                if ld.source not in ("vtail-air", BODY_AERO_SOURCE)]
+                if ld.source not in ("vtail-air", INDUCED_ROLL_SOURCE, BODY_AERO_SOURCE)]
         _fx, fy, fz, mx, my, mz = case_resultant(half, (case.cg_x, 0.0, case.cg_z))
         assert fy == 0.0 and mx == 0.0 and mz == 0.0, f"{example} {case.label}"
         n_w = case.n_w

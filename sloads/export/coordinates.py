@@ -327,7 +327,8 @@ def tail_axial_to_airplane(axial: float, component: str) -> Vec3:
     return (0.0, axial, 0.0)
 
 
-def ttail_transfer_to_airplane(fz: float, myy: float) -> Tuple[Vec3, Vec3]:
+def ttail_transfer_to_airplane(fz: float, myy: float,
+                               mxx: float = 0.0) -> Tuple[Vec3, Vec3]:
     """Map a T-tail's transferred tip set to airplane force/moment components.
 
     The one load on a fin deck that is **not** in the fin's local frame. Every
@@ -344,11 +345,12 @@ def ttail_transfer_to_airplane(fz: float, myy: float) -> Tuple[Vec3, Vec3]:
     emit the horizontal tail's lift as a *side* load on the fin: a deck that
     parses, solves, and bends the fin sideways with a pull-up.
 
-    Roll and yaw are zero by construction (plan 09 decision T-16): the concurrent
-    pairing is a balancing condition, which is symmetric, so the h-tail's two
-    halves cancel about the centreline.
+    ``mxx`` is the roll at the fin tip, already in airplane axes (design note 51
+    D-51.1): zero for a symmetric pairing (plan 09 decision T-16, narrowed), the
+    AC 23-9 induced rolling moment on a fin condition, and the 23.427(a) case's
+    net roll on ``HTAIL UNSYM``. Yaw stays zero (D-51.6).
     """
-    return (0.0, 0.0, fz), (0.0, myy, 0.0)
+    return (0.0, 0.0, fz), (mxx, myy, 0.0)
 
 
 def tail_torsion_to_airplane(torsion: float, component: str) -> Vec3:

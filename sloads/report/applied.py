@@ -1000,7 +1000,8 @@ def tail_applied_load_rows(arg, component: str) -> List[AppliedLoad]:
         if transfer is not None and stations:
             tip = stations[-1]
             x, y, z = tail_station_to_airplane(tip.x, tip.y, component, tip.z)
-            fvec, mvec = ttail_transfer_to_airplane(transfer.fz, transfer.myy)
+            fvec, mvec = ttail_transfer_to_airplane(transfer.fz, transfer.myy,
+                                                    transfer.mxx)
             out.append(AppliedLoad(
                 case=r.case, case_id=case_id, loading=loading,
                 label="T-tail transfer",

@@ -232,17 +232,18 @@ def test_every_surface_states_what_its_lumping_cost(example):
     """Every comparison the project may state is built, and names a case it ran.
 
     Every one it *may* state: OR-133 withholds the fin's spanwise loads on a
-    non-conventional layout, and this appendix must not publish sideways a set
-    section 6 declined to publish. ``atr42_100`` and ``concept_regional_jet``
-    are T-tails, so the assertion is live in both directions on this fixture
-    set.
+    V-tail or a cruciform, and this appendix must not publish sideways a set
+    section 6 declined to publish. A T-tail publishes them since design note 51
+    D-51.11, so ``atr42_100`` and ``concept_regional_jet`` state all four; the
+    withholding direction is gated on constructed layouts in
+    ``test_oracle_report_vtail.py``.
     """
-    from sloads.tail_geometry import is_conventional_tail
+    from sloads.tail_geometry import is_conventional_tail, is_t_tail
 
     project = _project(example)
     comparisons = _lumping_comparisons(project)
     expected = set(lumping.COMPONENTS)
-    if not is_conventional_tail(project):
+    if not is_conventional_tail(project) and not is_t_tail(project):
         expected.discard("vtail")
     assert {c.component for c in comparisons} == expected, example
     for comparison in comparisons:

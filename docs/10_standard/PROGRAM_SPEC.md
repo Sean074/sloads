@@ -449,10 +449,10 @@ approved-corrections register [`../20_theory/02_approved_corrections.md`](../20_
   occupies. Two consequences are *stated* rather than worked around: a 23.367
   condition names no V-n point, so its **case weight is zero and the fin's own
   lateral inertia relief is switched off** (the relief is unconservative and
-  worth 0.7-1.8 %), and on a **T-tail** the concurrent horizontal-tail tip
-  transfer cannot be resolved for the same reason — which on a T-tail twin means
-  the case that sizes the fin is the case whose tip load is missing. Both are
-  carried in the result's own notes; the second is design note 51's to resolve.
+  worth 0.7-1.8 %). On a **T-tail** its horizontal-tail tip transfer is paired
+  with the 1 g parent point the balanced deck assembles the case on
+  (`engine_out_cases.oei_parent_point`, design note 51 D-51.1a), and carries the
+  AC 23-9 induced rolling moment of the case (D-51.3b).
 - **A case that does not recover is published and excluded (OR-174).** The march
   bounds itself at 60 s; a load at that bound is where the integration stopped,
   not a design load. `run` reports such a case in full with the uncontrollability
@@ -767,6 +767,33 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   fin. `ConditionResult`s report the air and inertia totals, root
   `Sz`/`Mxx`/`Myy` with its stated torsion axis, and the hinge/transfer values.
   Feeds the empennage decks and, through `balance`, the assembled airplane.
+- **The T-tail fin (design note 51 §9, #328).** On a `T_TAIL` the fin is the
+  horizontal tail's supporting structure (23.427(c)), and its tip carries three
+  horizontal-tail sets:
+  - **The balancing pairing (T-5).** The balancing tail load and the h-tail's
+    inertia at each fin condition's own V-n point. A one-engine-out condition
+    is paired at its deck parent (D-51.1a). `fz`/`myy` are unchanged.
+  - **The induced rolling moment.** `induced_roll_moment` gives
+    `M_r = 0.3 q S_H b_H β` (AC 23-9 ¶5a p3) at the fin tip, as `TipTransfer.mxx`
+    with its `InducedRoll` record, in every fin condition, the one-engine-out
+    ones included.
+    - β is the fin's own side load as an angle on SELECT's slope; the side
+      gust takes the AC's `1.2 U/V` instead.
+    - Its sense is the fin's own root rolling moment's (¶5d).
+    - It is sized for the fin. `check_htail_under_induced_roll` states `M_r/2`
+      per side against the horizontal tail's governing root bending on one
+      factor basis, and `validation` warns above 100 %, never refusing.
+    - Mach is stated, with a warning above `AC23_9_MACH_WARN`. The entered
+      stabilizer dihedral is stated and warned. `M_r` is scaled for neither
+      (D-51.8).
+  - **`HTAIL UNSYM` (VT-20, 23.427(c)).** The 23.427(a) case's own stations,
+    summed about the fin tip, with no fin air load of its own. It is in the fin
+    view only: the balanced deck's 23.427(a) case already carries that roll at
+    the fin root (D-51.2a).
+
+  Each fin result publishes `vtail_root_mxx_with_tip`, the root rolling moment
+  including the tip set (D-51.10); the station columns stay the fin's own
+  loads.
 - **Validation:** **no printed oracle.** Chordwise placement is TAILDIST's
   unchanged (`LT25` at 25 %, `LT50` at 50 %), which makes every target
   closed-form, and those closed forms **are** the gate (`CLAUDE.md` practice 2)
@@ -956,7 +983,13 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   rudder kick or an abrupt elevator input, and the pre-closure `Fy`/`Mz`,
   `Fz`/`My` **are** the applied load, by construction. Each is gated instead on
   the case's symmetric (or trim) half, with the defining set removed, still
-  closing inside 1 %. Stated in full in
+  closing inside 1 %. On a T-tail the lateral and one-engine-out cases' fin set
+  also carries the AC 23-9 induced rolling moment as a free couple at the fin
+  tip (`source` `vtail-induced-roll`, design note 51 D-51.4a). It is part of the
+  defining set, and the closure's `ṗ` reacts it; the case states it in band
+  (`INDUCED_ROLL_NOTE`). The deck's 23.427(a) case carries the horizontal
+  tail's unsymmetrical roll at the fin root exactly, as strips, and gets no
+  lumped set on top (D-51.5a). Stated in full in
   [`../20_theory/ch09_balanced_airplane.md`](../20_theory/ch09_balanced_airplane.md) (§3, and §9
   for the ground families). A **powered** case (one carrying an entered engine
   thrust) joins them for the same reason and with a stronger gate of its own:

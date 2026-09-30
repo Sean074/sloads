@@ -443,6 +443,17 @@ def _load_cases(project: Project, oeo: OneEngineOutInput) -> List[_LoadCase]:
     return cases
 
 
+def case_altitude_ft(project: Project) -> float:
+    """The altitude every ONENGOUT case is marched at: the entered one, else
+    the shoulder altitude (Ref 1 Ch 11 p87, "VC and VD at shoulder point"), else
+    sea level. One owner: the march, the balanced deck's parent search and the
+    T-tail induced moment's Mach (design note 51 D-51.3b) all read it."""
+    oeo = project.one_engine_out
+    if oeo is not None and oeo.altitude_ft is not None:
+        return float(oeo.altitude_ft)
+    return float(project.speeds.shoulder_altitude_ft) if project.speeds else 0.0
+
+
 def _case_inputs(project: Project, v_kt: float,
                  engine_index: Optional[int] = None) -> CaseInputs:
     """Assemble the scalar simulation inputs for one speed from the project slices.
@@ -489,8 +500,7 @@ def _case_inputs(project: Project, v_kt: float,
     case = _heaviest_case(project)
     izz = oeo.izz_slugft2 or (case.izz / LBIN2_PER_SLUGFT2)
     xcg = oeo.xcg_in or case.cg_x
-    alt = oeo.altitude_ft if oeo.altitude_ft is not None else (
-        project.speeds.shoulder_altitude_ft if project.speeds else 0.0)
+    alt = case_altitude_ft(project)
     if izz <= 0:
         raise MissingInputError("one_engine_out needs a non-zero IZZ (Project.mass or izz_slugft2)")
 

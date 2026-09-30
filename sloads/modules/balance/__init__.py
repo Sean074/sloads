@@ -223,6 +223,8 @@ from .air import (  # noqa: F401
 )
 from .applied import (  # noqa: F401
     HUB_THRUST_SOURCE,
+    INDUCED_ROLL_NOTE,
+    INDUCED_ROLL_SOURCE,
     ROTATION_FIXED_SOURCES,
     _free_moments,
     _wing_inertia_scale,
@@ -449,6 +451,8 @@ __all__ = [
     "GROUND_SOURCE_STEM",
     "HANDEDNESS_TOL",
     "HUB_THRUST_SOURCE",
+    "INDUCED_ROLL_NOTE",
+    "INDUCED_ROLL_SOURCE",
     "LATERAL_AERO_NOTE",
     "RESIDUAL_GATE",
     "ROLLING_WING_CONDITIONS",

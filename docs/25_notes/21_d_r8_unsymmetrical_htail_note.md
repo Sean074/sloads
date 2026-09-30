@@ -71,6 +71,9 @@ handedness; the twin is a reflection (decisions B-6/B-7).
   the planform's own `assumed` marker.
 - The wing loads of this case carry ~0.5 g of relief on `ga6_normal`: it is a
   **tail and fuselage** design case, not a wing one.
-- 23.427(b) — the unsymmetrical load on a **vertical** tail with a horizontal
-  surface attached to it — is not assembled; the T-tail transfer it would need is
-  backlog step 9 (plan 09 T6–T7).
+- 23.427(c) — horizontal surfaces supported by the vertical tail, designed for
+  the combined loads of each flight condition taken separately (lettering
+  corrected at #328: (b) is the 100/80 split formula) — is carried on a T-tail
+  by design note 51 §9: this case's roll reaches the fin root in the deck, the
+  fin view carries it as `HTAIL UNSYM`, and every fin condition carries the AC
+  23-9 induced rolling moment.

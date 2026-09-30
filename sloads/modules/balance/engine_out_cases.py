@@ -90,7 +90,7 @@ _HUB_ARM_TOL_IN = 1e-6
 
 __all__ = ["ENGINE_OUT_PREFIX", "OEI_FAILED_ENGINE_SOURCE", "OEI_L7_NOTE",
            "OEI_LIVE_THRUST_SOURCE", "OEI_PARENT", "build_engine_out_cases",
-           "is_engine_out_condition"]
+           "is_engine_out_condition", "oei_parent_point", "speed_label_of"]
 
 
 def is_engine_out_condition(cond: CriticalCondition) -> bool:
@@ -112,6 +112,41 @@ class _MarchCondition:
 
 def _parent_name(label: str) -> Optional[str]:
     return next((p for k, p in OEI_PARENT.items() if label.startswith(k)), None)
+
+
+def oei_parent_point(project: Project, speed_label: str, altitude_ft: float,
+                     vn_points: Sequence[VnPoint], cgs: Dict[str, CgCase],
+                     loadings: Dict[str, CaseLoading],
+                     ) -> Tuple[Optional[VnPoint], Optional[CgCase]]:
+    """The 1 g V-n point a one-engine-out case is assembled on (D-66.11).
+
+    **The one owner of the pairing** (design note 51 D-51.1a): the balanced
+    deck assembles the case on this point, and ``tail_span`` pairs the same
+    case's T-tail transfer with it, so the fin view and the deck cannot put
+    one transient on two different flight states. ``speed_label`` is the
+    ONENGOUT case's (``"VC (ultimate)"``...), mapped by :data:`OEI_PARENT`;
+    the point is that parent condition at the heaviest FLIGHT CG case with a
+    derivable loading (ONENGOUT's own mass basis) and at the balanced altitude
+    nearest ``altitude_ft``. ``(None, cg)`` -- or ``(None, None)`` with no
+    usable loading -- when no parent resolves; the deck records that as
+    ``no-parent``.
+    """
+    cg = _heaviest_derivable(project, loadings, cgs)
+    parent_name = _parent_name(speed_label)
+    if parent_name is None or cg is None:
+        return None, cg
+    candidates = [p for p in vn_points
+                  if p.condition == parent_name and p.cg == cg.name]
+    if not candidates:
+        return None, cg
+    return _nearest_altitude(candidates, altitude_ft), cg
+
+
+def speed_label_of(cond: CriticalCondition) -> str:
+    """The ONENGOUT speed label inside a 23.367 fin condition's label --
+    ``"VC (ultimate) (engine 1)"`` from ``"ONE ENGINE OUT — VC (ultimate)
+    (engine 1)"`` -- which :data:`OEI_PARENT` is keyed by the start of."""
+    return cond.label[len(ENGINE_OUT_PREFIX):].lstrip(" —-")
 
 
 def _heaviest_derivable(project: Project, loadings: Dict[str, CaseLoading],
@@ -217,8 +252,6 @@ def build_engine_out_cases(project: Project, conditions: Sequence[CriticalCondit
             record.append(_skip(_MarchCondition(f"{ENGINE_OUT_PREFIX} — "
                                                 f"{fc.load_case.label}{fc.engine_label}"),
                                 "not-recovered"))
-    cg = _heaviest_derivable(project, loadings, cgs)
-
     out: List[BalancedCaseResult] = []
     done: Set[str] = set()
     engines = resolved_engines(project)
@@ -232,12 +265,8 @@ def build_engine_out_cases(project: Project, conditions: Sequence[CriticalCondit
         if abs(_hub(engines[fc.engine_index])[1] - fc.inputs.bleng * fc.sense) > _HUB_ARM_TOL_IN:
             record.append(_skip(cond, "hub-off-arm"))
             continue
-        parent_name = _parent_name(fc.load_case.label)
-        point = None
-        if parent_name is not None and cg is not None:
-            candidates = [p for p in vn.values() if p.condition == parent_name and p.cg == cg.name]
-            if candidates:
-                point = _nearest_altitude(candidates, fc.inputs.alt_ft)
+        point, cg = oei_parent_point(project, fc.load_case.label, fc.inputs.alt_ft,
+                                     list(vn.values()), cgs, loadings)
         if point is None or cg is None:
             record.append(_skip(cond, "no-parent"))
             continue

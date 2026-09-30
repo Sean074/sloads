@@ -862,9 +862,10 @@ module `taildist`), which is **split by surface**: the horizontal tail is sectio
   carry a pointer to it and **SHALL** say that its own loads are unaffected.
   The withholding is the **report's only**: the calc, the decks, the CLI and the
   GUI are untouched, because the spanwise vertical-tail results are what the
-  balanced deck's lateral cases close ΣFy = 0 against. Any `TailType` other than
-  `CONVENTIONAL` triggers it, which makes that field load-bearing and its
-  docstring **SHALL** say so.
+  balanced deck's lateral cases close ΣFy = 0 against. A `V_TAIL` or a
+  `CRUCIFORM` triggers it, which makes that field load-bearing and its
+  docstring **SHALL** say so. **A `T_TAIL` does not** (design note 51 D-51.11,
+  #328): its fin carries the h-tail's load path (below).
 - **The surface is the vertical tail; "fin" is retired (OR-138).** "v-tail"
   where space requires, `vtail` as the code token.
 - **The section opens with the surface it was run on (owner, 2026-09-07).** A
@@ -951,8 +952,8 @@ What follows is what is true of the vertical tail and of nothing else.
   what selects the estimate — so this is a read, not a second derivation.
 - **Non-conventional arrangements: the withholding, in full (OR-133/OR-134).**
   Stated here because this is where the loads are withheld; section 5 carries a
-  pointer and says its own loads are unaffected. On any `TailType` other than
-  `CONVENTIONAL`:
+  pointer and says its own loads are unaffected. On a `V_TAIL` or a
+  `CRUCIFORM` (a `T_TAIL` publishes, below):
   - 6.5 and Appendix E **SHALL** render the OR-32 stated state under the lead
     **"Not supported"** and no table. Not *"not produced"*: `build_tail_span`
     returns the results and the withholding is a statement about the airplane's
@@ -964,27 +965,29 @@ What follows is what is true of the vertical tail and of nothing else.
     precisely the cases that load it asymmetrically — and **SHALL** state
     positively what is unaffected.
   - **What it says about the second path SHALL be what the calc did** *(#254,
-    G-OR-87 re-cut)*. The wording agreed here in 2026-09-07 said flatly that
-    the path "is not modelled"; plan 09's T7 then put the horizontal tail's
-    concurrent set on the fin tip, and on a T-tail the report went on saying
-    the path was unmodelled while `tail_span` was modelling it — the two
-    front-ends disagreeing about what the suite can do. Both the statement and
-    6.5's first paragraph are therefore **per arrangement**, read off the same
-    `is_t_tail` the module gates the transfer on: a T-tail says the tip
-    transfer is modelled and symmetric where these conditions are not, and a
-    V-tail or cruciform says no part of the path is carried. A fin condition
-    that names no V-n point (the engine-out rows on a twin) pairs with no
-    concurrent horizontal-tail load and transfers nothing, so neither wording
-    claims *every* condition transfers. Gated against its subject rather than
-    against itself:
-    `tests/test_oracle_report_vtail.py::test_the_withholdings_reason_matches_what_the_calc_modelled`
-    asks `build_tail_span` for the transfer and decides which sentence 6.5 is
-    allowed to print.
-  - **The withholding itself is unchanged, and never rested on the transfer.**
-    The fin's spanwise loads are withheld because 23.427(a)'s case is absent
-    and the asymmetry inside the analysed cases is worth 27–73 % of the
-    governing case's own root bending — both still true on a T-tail. It is a
-    stated policy, and 6.5 says so.
+    G-OR-87 re-cut)*: no part of the path is carried on these arrangements,
+    and `build_tail_span` puts no tip set on their fin, which the gate asks
+    (`tests/test_oracle_report_vtail.py::test_a_v_tail_and_a_cruciform_withhold_the_span_loads_and_a_t_tail_does_not`).
+  - **The withholding rests on the omitted case and the asymmetry.** 23.427(a)'s
+    case is absent and the asymmetry inside the analysed cases is worth 27–73 %
+    of the governing case's own root bending. It is a stated policy, and 6.5
+    says so.
+- **A T-tail publishes its fin, and states what rides its tip (design note 51
+  D-51.11, #328).** The fin carries both loads the withholding rested on: the
+  23.427(a) case as the fin condition `HTAIL UNSYM` (23.427(c)), and the AC
+  23-9 induced rolling moment in every fin condition. 6.5 and Appendix E
+  **SHALL** therefore render on a `T_TAIL`, and 6.5 **SHALL** state the three
+  tip sets (the balancing pairing, `HTAIL UNSYM`, the induced moment), and for
+  each fin condition its induced moment, its root rolling moment with the tip
+  set, and `M_r/2` against the horizontal tail's governing root bending, all
+  read from the results' own records. It **SHALL** also state the AC's limits:
+  static strength only, no compressibility (the conditions above Mach 0.6
+  named), and no dihedral (the entered value stated). Section 5's pointer
+  **SHALL** say that the horizontal tail's loads do not include the induced
+  moment. The case-keyed tables of section 6 name one set, with `VT-20` in the
+  spanwise pair alone, since it has no SELECT total, aero state or chordwise
+  profile
+  (`tests/test_oracle_report_vtail.py::test_the_shipped_t_tails_publish_the_fin_and_state_its_tip_sets`).
   - **6.1's loads-reference-axis stations SHALL still print** *(owner,
     2026-09-07, question (a))*. They are entered geometry resolved through a
     planform, the same numbers §2.1's three-view is drawn from, and withholding
@@ -1598,7 +1601,7 @@ without a guard is prose, not a gate).
 | 10. The Appendix A engine, and the basis (OR-159, OR-170) | 2026-09-07 | `test_oracle_report_engine.py::test_the_appendix_a_engine_reaches_the_document`, `::test_no_load_the_engine_section_prints_is_marked_ultimate`, `::test_section_10_adds_no_appendix` |
 | 10.1 Three views, and the body outline's owner (OR-168, OR-169) | 2026-09-07 | `test_oracle_report_engine.py::test_the_three_views_are_built_and_name_what_they_drew`, `::test_a_project_with_no_outline_still_draws_its_engines`, `::test_a_project_with_no_engine_states_the_section_absent`, `::test_the_body_outline_has_one_owner_and_three_views` |
 | 4.1 Side view, and mass against beam | 2026-09-07 | `test_oracle_report_fuselage.py::test_the_side_view_draws_the_mass_the_beam_and_the_load_paths`, `::test_the_beam_table_states_where_the_mass_is_and_where_the_beam_runs` |
-| 6. Vertical Tail (mirror, withholding, Appendix E) | 2026-09-06 | `test_oracle_report_vtail.py::test_section_six_renders_five_subsections_mirroring_section_five`, `::test_every_appendix_a_vertical_tail_condition_is_present_and_named`, `::test_every_arrangement_other_than_conventional_withholds_the_span_loads`, `::test_appendix_e_places_every_load_where_the_deck_places_it`, `::test_no_load_appendix_e_prints_is_marked_ultimate` |
+| 6. Vertical Tail (mirror, withholding, Appendix E) | 2026-09-06 | `test_oracle_report_vtail.py::test_section_six_renders_five_subsections_mirroring_section_five`, `::test_every_appendix_a_vertical_tail_condition_is_present_and_named`, `::test_a_v_tail_and_a_cruciform_withhold_the_span_loads_and_a_t_tail_does_not`, `::test_appendix_e_places_every_load_where_the_deck_places_it`, `::test_no_load_appendix_e_prints_is_marked_ultimate` |
 | Applied appendices: one deck in one frame (OR-139…OR-146, G-OR-90) | 2026-09-07 | `test_oracle_report_applied.py::test_every_applied_appendix_prints_the_same_columns`, `::test_the_tail_appendices_carry_the_torsion_the_deck_emits`, `::test_every_applied_appendix_says_why_its_zero_columns_are_zero`, `::test_no_applied_appendix_calls_a_live_component_absent` |
 | 11. One Engine Inoperative (OR-171…OR-182, G-OR-113…G-OR-122) | 2026-09-07 | `test_oracle_report_oei.py::test_the_engine_failure_cases_are_in_the_fins_critical_set`, `::test_every_admitted_case_reaches_the_distributions_the_appendix_and_the_deck`, `::test_a_case_that_does_not_recover_is_printed_and_reaches_no_envelope`, `::test_the_ultimate_case_states_its_factor_and_the_section_marks_no_load_ultimate`, `::test_a_single_engine_airplane_is_told_the_condition_does_not_apply` |
 | 12. Landing Gear Loads (OR-183…OR-193, G-OR-123…G-OR-130) | 2026-09-07 | `test_oracle_report_landing.py::test_every_landload_case_reaches_the_section_and_the_appendix`, `::test_each_family_is_ranked_once_per_gear_it_loads`, `::test_the_governing_load_factor_is_printed_beside_the_energy_estimate`, `::test_three_attitude_figures_partition_every_case`, `::test_the_conditions_the_fuselage_section_points_here_for_are_here`, `::test_the_analysis_body_is_complete` |

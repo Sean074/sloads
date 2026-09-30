@@ -35,6 +35,7 @@ from .constants import (
     RHO_SL,
     G,
     gust_alleviation_factor,
+    gust_ude_fps,
     standard_atmosphere,
 )
 
@@ -73,17 +74,6 @@ class VnDiagram:
     gust_approximate: bool = False
 
 
-def _gust_ude(ref: str, altitude_ft: float) -> float:
-    """Derived gust velocity Ude (fps): 50 @ VC, 25 @ VD, tapering above 20,000 ft.
-
-    14 CFR 23.333(c) / 23.341; identical taper to FLTLOADS ``_gust_ude``.
-    """
-    h = altitude_ft
-    if ref == "D":
-        return 25.0 if h <= 20000.0 else max(0.0, 25.0 - (12.5 / 30000.0) * (h - 20000.0))
-    return 50.0 if h <= 20000.0 else max(0.0, 50.0 - (25.0 / 30000.0) * (h - 20000.0))  # VC
-
-
 def gust_load_factor(v_keas: float, ref: str, gust: GustInputs, sign: float = 1.0) -> float:
     """Gust normal load factor at equivalent airspeed ``v_keas`` (14 CFR 23.341).
 
@@ -100,7 +90,7 @@ def gust_load_factor(v_keas: float, ref: str, gust: GustInputs, sign: float = 1.
         kg = gust_alleviation_factor(mu)
     else:
         kg = 1.0
-    ude = _gust_ude(ref, gust.altitude_ft)
+    ude = gust_ude_fps(ref, gust.altitude_ft)
     return 1.0 + sign * kg * ude * v_keas * a_rad / (GUST_LOAD_FACTOR_DIVISOR * gust.ws)
 
 

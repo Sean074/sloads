@@ -73,6 +73,11 @@ def test_ttail_transfer_is_fz_and_myy_in_airplane_axes():
     assert moment == (0.0, 12000.0, 0.0)
     assert force != tail_force_to_airplane(-900.0, "vtail")  # not a fin side load
     assert force[1] == 0.0 and moment[0] == 0.0 and moment[2] == 0.0  # roll/yaw zero
+    # The roll at the tip (design note 51 D-51.1) is already in airplane axes and
+    # passes straight through to Mx; yaw stays zero (D-51.6).
+    force, moment = ttail_transfer_to_airplane(fz=-900.0, myy=12000.0, mxx=-3500.0)
+    assert force == (0.0, 0.0, -900.0)
+    assert moment == (-3500.0, 12000.0, 0.0)
 
 
 if __name__ == "__main__":

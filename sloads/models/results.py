@@ -604,9 +604,12 @@ class TipTransfer:
 
     ``fz``/``myy`` are the transferred set in **airplane** axes at the fin-tip
     node, LIMIT: a vertical force (axial to the fin) and the moment its fore-aft
-    offset makes about that node. Roll and yaw are identically zero and are not
-    fields: the pairing is a *balancing* condition, which is symmetric, so the
-    h-tail's two halves cancel about the centreline (decision T-16).
+    offset makes about that node. ``mxx`` is the roll at that node (design note
+    51 D-51.1), which T-16 made zero on the rationale that a *balancing* pairing
+    is symmetric. That stays true of the pairing, and T-16 is narrowed to it:
+    ``mxx`` carries the AC 23-9 induced rolling moment of the fin condition
+    (``induced``) on a fin case, and the 23.427(a) case's net roll on
+    ``HTAIL UNSYM``. Yaw stays zero and is not a field (D-51.6).
 
     Everything else here is the audit trail — the two loads separately, the
     chordwise stations their lever arms were taken from, and the node the set was
@@ -615,6 +618,7 @@ class TipTransfer:
     """
     fz: float = 0.0
     myy: float = 0.0
+    mxx: float = 0.0
     air_lb: float = 0.0
     inertia_lb: float = 0.0
     x_air: float = 0.0
@@ -625,7 +629,44 @@ class TipTransfer:
     #: Whether ``x_air`` came from the V-n point's own tail-CP station or fell
     #: back to the 25 % tail MAC — a derived value is marked, never implied.
     cp_assumed: bool = False
+    #: The V-n point the pairing was read at: the fin condition's own, or the
+    #: one-engine-out case's 1 g parent (note 51 D-51.1a). ``None`` when the
+    #: transfer carries ``mxx`` alone because no pairing resolved.
+    paired_case: Optional[int] = None
+    #: The AC 23-9 induced rolling moment inside ``mxx``, or ``None`` where the
+    #: condition produces none (``HTAIL UNSYM``). The deck reads this, not
+    #: ``mxx``, so the transferred h-tail set never enters it (D-51.5a).
+    induced: Optional["InducedRoll"] = None
     note: str = ""
+
+
+@dataclass
+class InducedRoll:
+    """The T-tail induced rolling moment of one fin condition (note 51 §9).
+
+    FAA AC 23-9 ¶5a p3, in lieu of a rational analysis:
+    ``M_r = 0.3 q S_H b_H beta`` at the horizontal/vertical intersection.
+    ``m_r`` is LIMIT (or ULTIMATE where the fin condition is, which
+    ``safety_factor`` states) in **airplane axes**, with the sense of the fin's
+    own root rolling moment: "the moment due to the horizontal surface adds to
+    the moment due to the vertical tail load" (¶5d p5-6). ``beta_deg`` is the
+    effective fin sideslip the moment was formed on, ``basis`` says which rule
+    produced it (D-51.3a), and ``mach``/``dihedral_deg`` carry the two limits
+    the AC states for itself (D-51.8).
+
+    ``htail_ratio`` is D-51.7's check of the owner's assumption that the moment
+    does not size the horizontal tail: ``(m_r/2 * SF) / (M_h * SF_h)``, with
+    ``M_h`` the governing per-side h-tail root bending over the h-tail's own
+    conditions. ``None`` when the h-tail has no conditions to compare with.
+    """
+    m_r: float
+    beta_deg: float
+    q_psf: float
+    mach: float
+    altitude_ft: float
+    basis: str
+    dihedral_deg: float = 0.0
+    htail_ratio: Optional[float] = None
 
 
 @dataclass
@@ -1240,6 +1281,7 @@ __all__ = [
     "CriticalLoadSet",
     "EnvelopeResult",
     "GearReactionCase",
+    "InducedRoll",
     "LoadValue",
     "LoadsResult",
     "MassCase",
