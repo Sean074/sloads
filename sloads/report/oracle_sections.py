@@ -865,6 +865,49 @@ def _case_loading_statement(project: Project, u: Units) -> str:
         "cases are the loading's, not the table's.")
 
 
+def _envelope_reach_statement(project: Project, u: Units) -> str:
+    """Whether every entered limit and case is a loading of the data base (#309).
+
+    Read from ``mass_distribution.envelope_point_reach``, the owner the
+    ``envelope_point_unreachable`` warning reads, so the document states
+    exactly what the page warns. A point no loading can produce makes the
+    envelope not valid (owner ruling 2026-09-27); the table keeps the case as
+    entered and this names it.
+    """
+    from ..mass_distribution import BALLAST_CREDIBLE_FRACTION, envelope_point_reach
+
+    try:
+        reach = envelope_point_reach(project)
+    except (MissingInputError, ValueError):
+        return ""
+    if not reach:
+        return ""
+    gate = f"{100 * BALLAST_CREDIBLE_FRACTION:g} %"  # note 65 exempt: a stated gate, prose
+    rule = (
+        "Each entered CG limit and each case is tested against the loadings "
+        "the weight data base can hold -- every discretionary row carried at "
+        "any fraction up to its own weight, and ballast only inside the "
+        f"fuselage and within {gate} of the weight. ")
+    bad = [r for r in reach if not r.reachable]
+    if not bad:
+        return rule + "Every one is such a loading."
+    mass, length = u.label("mass"), u.label("length")
+    named = "; ".join(
+        f"the {'limit' if r.kind == 'limit' else 'case'} '{r.name}' "
+        f"({u.plain(r.weight_lb, 'mass')} {mass} at "
+        f"{u.plain(r.xcg, 'length')} {length}"
+        + (f", against loadings spanning {u.plain(r.fwd_x, 'length')} to "
+           f"{u.plain(r.aft_x, 'length')} {length} at that weight"
+           if r.fwd_x is not None and r.aft_x is not None else "")
+        + ")"
+        for r in bad)
+    return rule + (
+        f"Not every point is: {named}. An envelope point no loading can "
+        "produce makes the envelope not valid. Such a case is analysed by "
+        "the flight envelope on its entered weight and CG alone; no loading, "
+        "and so no assembled case, stands behind it.")
+
+
 def _cg_case_table(project: Project, system: UnitSystem) -> Optional[Table]:
     """The weight and CG cases analysed, one row each."""
     weight = project.weight
@@ -910,6 +953,9 @@ def _cg_case_table(project: Project, system: UnitSystem) -> Optional[Table]:
     loadings = _case_loading_statement(project, u)
     if loadings:
         note += " " + loadings
+    reach = _envelope_reach_statement(project, u)
+    if reach:
+        note += " " + reach
     return Table(
         title="Weight and centre-of-gravity cases",
         columns=["CG", "Case", "Role", f"Weight ({u.label('mass')})",

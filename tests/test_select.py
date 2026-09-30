@@ -113,7 +113,10 @@ _FROZEN_PICKS = {
         "NNZ": ("GUST -C", -3.81, 170.0, "CG4", 12000.0, 7834),
     },
     "baron_58": {
-        "NHAA": ("STALL -N", -1.46, 134.2, "fwd gross", 0.0, 8011),
+        # #309 (2026-09-29): `fwd gross` took its loading's own waterline
+        # 95.75 for the unsourced 100.0 -- the trim's drag arm -- and NHAA's
+        # resultant fell 8,011 -> 7,978 lb (-0.4 %).
+        "NHAA": ("STALL -N", -1.46, 134.2, "fwd gross", 0.0, 7978),
         "NMAA": ("GUST -C", -2.35, 195.0, "fwd regardless", 10000.0, 9844),
         "NLAA": ("GUST -D", -1.21, 248.0, "fwd regardless", 10000.0, 4884),
         "PNZ": ("GUST +C", +4.34, 195.0, "fwd regardless", 10000.0, 18961),

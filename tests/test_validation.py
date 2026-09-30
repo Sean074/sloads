@@ -380,17 +380,21 @@ def test_the_design_weight_ordering_chain_fires_on_an_inverted_pair():
     assert "weight_order_chain" in _codes(project, page="weight_mass")
 
 
-def test_the_mlw_floor_fires_on_the_regional_jet_and_no_other_fixture():
+def test_the_mlw_floor_fires_on_the_regional_jet_and_the_baron_only():
     """G-4, measured 2026-08-14: the RJ cannot land at MLW (31,000) with full
     payload and reserve fuel (31,360). That is a real finding about that fixture,
-    and it is why the estimate is a floor rather than a prediction."""
+    and it is why the estimate is a floor rather than a prediction. The Baron
+    joined it at #309 (2026-09-29): its database now carries the [A] baggage
+    (nose 300 lb, rear 400 lb), and OEW + max payload + reserve is 5,820 lb
+    against its 5,400 lb MLW -- true of the airplane, whose six seats and two
+    holds cannot all be full on a heavy landing."""
     import glob
 
     fired = set()
     for path in sorted(glob.glob(os.path.join(_EXAMPLES, "*.project.json"))):
         if "mlw_below_landing_estimate" in _codes(sloads_io.load_project(path)):
             fired.add(os.path.basename(path))
-    assert fired == {"concept_regional_jet.project.json"}, fired
+    assert fired == {"baron_58.project.json", "concept_regional_jet.project.json"}, fired
 
 
 def test_no_shipped_fixture_disagrees_about_who_carries_the_gear():
@@ -427,15 +431,16 @@ def test_the_gear_carrier_mass_guard_still_fires_on_a_mistagged_leg():
 # --------------------------------------------------------------------------- #
 # Wing-tank fuel separability (design note 29): the tie as a validator
 # --------------------------------------------------------------------------- #
-def test_no_one_model_warning_fires_on_a_shipped_fixture_but_the_barons_two():
+def test_no_one_model_warning_fires_on_a_shipped_fixture_but_the_barons_one():
     """Design note 63: the wing has one mass model on every shipped fixture.
 
     ``wing_panel_override_open`` (no fixture overrides the derived panel),
     ``wing_mass_asymmetric`` (every fixture's item database is mirrored) and
     ``wing_case_mass_state_unnamed`` (every hand-entered wing case resolves a
     state) fire nowhere. ``wing_case_loading_not_derivable`` fires on exactly
-    the Baron's ``fwd gross`` and ``fwd regardless`` -- the two FLIGHT cases no
-    loading reaches, which #290's editor is for -- and on no other fixture.
+    the Baron's ``fwd regardless`` -- the one FLIGHT case no loading of the
+    airplane reaches (#309; its ``fwd gross`` is entered since) -- and on no
+    other fixture.
     ``case_loading_missing`` (#290) fires nowhere: the two concept fixtures
     enter their WTENV cases as the search found them.
     """
@@ -454,7 +459,7 @@ def test_no_one_model_warning_fires_on_a_shipped_fixture_but_the_barons_two():
             if w.code == "wing_case_loading_not_derivable")
     assert fired == {
         "atr42_100.project.json": [],
-        "baron_58.project.json": ["fwd gross", "fwd regardless"],
+        "baron_58.project.json": ["fwd regardless"],
         "concept_heavy.project.json": [],
         "concept_regional_jet.project.json": [],
         "ga6_normal.project.json": [],

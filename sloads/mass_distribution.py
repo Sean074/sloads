@@ -100,6 +100,7 @@ from .models import (
     MassComponent,
     MassItem,
     MassItemKind,
+    MissingInputError,
     Project,
     WingCarriage,
 )
@@ -1493,6 +1494,238 @@ def case_loading_checks(project: Project) -> List[MassCheck]:
                 detail=(f"{loading.name} {label} {got:.4f} against {want:.4f}"
                         + (f" ({route}, tolerance {tol:g})" if banded else "")),
             ))
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# Envelope-point reachability (#309, owner ruling 2026-09-27)
+# --------------------------------------------------------------------------- #
+@dataclass(frozen=True)
+class PointReach:
+    """Whether one envelope point is a loading of the weight database (#309).
+
+    **The rule (owner, 2026-09-27):** an envelope point that no loading can
+    produce within the database's limits makes the envelope not valid, and it is
+    flagged -- never silently dropped, never papered over with ballast. A limit
+    is a row's own capacity: every ``DISCRETIONARY`` row may be carried at any
+    fraction of its database weight, ``EMPTY`` and ``MINIMUM`` rows are aboard
+    whole, and nothing is carried past its row. Ballast counts only inside the
+    fuselage and under :data:`BALLAST_CREDIBLE_FRACTION`, the gate the search
+    already applies: Appendix A's own CG1..CG3 are reached with 2-5 % of it (its
+    gross weight is above its heaviest loading), and McMaster's Ch 3 p22 method
+    is that ballast.
+
+    ``kind`` is ``"limit"`` for an entered structural limit
+    (``weight_envelope.structural_limit_points``) and ``"case"`` for a
+    weight/CG case. ``fwd_x``/``aft_x`` are the most-forward and most-aft CG of
+    any loading weighing ``weight_lb`` -- exact, since a part-filled row makes
+    the reachable set at one weight an interval whose ends are WTENV's two edges
+    filled to that weight -- and ``None`` outside the loadings' weight range.
+    ``ballast_lb`` is the least ballast inside the fuselage that closes the
+    point (``0.0`` within :data:`_CG_MATCH_TOL` with none), ``None`` when none
+    does. ``fractions`` is one no-ballast loading that reaches it, as a
+    ``LoadingDefinition``'s rows (name -> fraction, ``1.0`` whole), mirrored
+    pairs carried equally; ``None`` when ballast is needed. A case carrying an
+    entered loading (D-25) is reachable by definition -- the loading is
+    authoritative and D-25a checks its echo -- and ``entered`` says so.
+    """
+
+    name: str
+    kind: str
+    weight_lb: float
+    xcg: float
+    fwd_x: Optional[float]
+    aft_x: Optional[float]
+    ballast_lb: Optional[float]
+    fractions: Optional[Dict[str, float]]
+    entered: bool = False
+
+    @property
+    def ballast_fraction(self) -> Optional[float]:
+        if self.ballast_lb is None:
+            return None
+        return self.ballast_lb / self.weight_lb if self.weight_lb else 0.0
+
+    @property
+    def reachable(self) -> bool:
+        if self.entered:
+            return True
+        f = self.ballast_fraction
+        return f is not None and f <= BALLAST_CREDIBLE_FRACTION
+
+
+def _edge_fill(order: Sequence[MassItem], w_base: float,
+               target_lb: float) -> Optional[List[float]]:
+    """Per-row fractions (in ``order``) filling ``order`` from ``w_base`` to
+    ``target_lb``, whole rows first and the last one part-filled; ``None``
+    outside ``[w_base, w_base + Σw]``."""
+    need = target_lb - w_base
+    total = math.fsum(it.weight_lb for it in order)
+    if need < -_BALLAST_EPS or need > total + _BALLAST_EPS:
+        return None
+    out: List[float] = []
+    for it in order:
+        take = min(max(need, 0.0), it.weight_lb)
+        out.append(take / it.weight_lb if it.weight_lb else 0.0)
+        need -= take
+    return out
+
+
+def _fill_moment(order: Sequence[MassItem], fractions: Sequence[float]) -> float:
+    return math.fsum(f * it.weight_lb * it.x for it, f in zip(order, fractions))
+
+
+def _least_ballast(fwd_moment: Callable[[float], Optional[float]],
+                   aft_moment: Callable[[float], Optional[float]],
+                   breaks: Sequence[float], weight_lb: float, target_m: float,
+                   nose_x: float, tail_x: Optional[float]) -> Optional[float]:
+    """The least ballast ``b > 0`` inside ``[nose_x, tail_x]`` that closes the
+    point, or ``None``.
+
+    With ``b`` aboard the loading weighs ``W - b`` and its moment spans
+    ``[Mf(W-b), Ma(W-b)]`` (the two edges); a ballast station in the fuselage
+    exists exactly when ``Mf + b nose <= W x <= Ma + b tail``. Both sides are
+    piecewise linear in ``b`` between the edges' vertex weights, so each
+    segment is solved exactly rather than scanned.
+    """
+    eps = 1e-9 * max(1.0, abs(target_m))
+
+    def gap(side: str, b: float) -> Optional[float]:
+        # How far the side's bound misses the target moment; <= 0 is met.
+        if side == "fwd":
+            m = fwd_moment(weight_lb - b)
+            return None if m is None else m + b * nose_x - target_m
+        m = aft_moment(weight_lb - b)
+        assert tail_x is not None                 # the aft side is skipped without one
+        return None if m is None else target_m - m - b * tail_x
+
+    pts = sorted({b for b in breaks if b >= 0.0})
+    for b0, b1 in zip(pts, pts[1:]):
+        lo, hi = b0, b1
+        ok = True
+        for side in ("fwd", "aft"):
+            if side == "aft" and tail_x is None:
+                continue                          # no tail bound: aft ballast is free
+            ga, gb = gap(side, b0), gap(side, b1)
+            if ga is None or gb is None:
+                ok = False
+                break
+            if ga <= eps and gb <= eps:
+                continue
+            if ga > eps and gb > eps:
+                ok = False
+                break
+            bt = b0 + ga / (ga - gb) * (b1 - b0)
+            if ga > eps:
+                lo = max(lo, bt)
+            else:
+                hi = min(hi, bt)
+        if ok and lo <= hi + 1e-9:
+            return lo
+    return None
+
+
+def envelope_point_reach(project: Project) -> List[PointReach]:
+    """Every envelope point tested against the loadings the database can hold
+    (#309) -- the entered structural limits first, then every weight/CG case.
+
+    Read by ``validation`` (``envelope_point_unreachable``,
+    ``case_loading_search_missed``) and by the oracle report's 2.2 case table,
+    so the warning and the document cannot disagree. Empty with no item
+    database; the limits are left out when the envelope or its MAC cannot
+    resolve.
+    """
+    weight = project.weight
+    items = list(weight.items) if weight is not None else []
+    if weight is None or not items:
+        return []
+    from .modules.weight_envelope import (
+        _fuselage_extent,
+        _item_buckets,
+        structural_limit_points,
+        sweep_order,
+    )
+
+    empty, minimum, discretionary = _item_buckets(items)
+    base = empty + minimum
+    w_base = math.fsum(it.weight_lb for it in base)
+    m_base = math.fsum(it.weight_lb * it.x for it in base)
+    fwd_order = sweep_order(discretionary, aft=False)
+    aft_order = sweep_order(discretionary, aft=True)
+    env = weight.envelope
+    nose_x, tail_x = _fuselage_extent(project, env) if env is not None else (0.0, None)
+
+    def moment(order: Sequence[MassItem]) -> Callable[[float], Optional[float]]:
+        def at(w: float) -> Optional[float]:
+            f = _edge_fill(order, w_base, w)
+            return None if f is None else m_base + _fill_moment(order, f)
+        return at
+
+    fwd_m, aft_m = moment(fwd_order), moment(aft_order)
+    cum = [w_base]
+    for order in (fwd_order, aft_order):
+        run = w_base
+        for it in order:
+            run += it.weight_lb
+            cum.append(run)
+    w_max = w_base + math.fsum(it.weight_lb for it in discretionary)
+
+    def pairs_equal(fracs: Dict[str, float]) -> Dict[str, float]:
+        # A mirrored pair (same weight, station, waterline, |butt line|) is
+        # carried equally, so the loading is symmetric (note 63 §13, #301);
+        # weight and moment are unchanged by construction.
+        groups: Dict[Tuple[float, float, float, float], List[MassItem]] = {}
+        for it in discretionary:
+            groups.setdefault((it.weight_lb, it.x, it.z, abs(it.y)), []).append(it)
+        out = dict(fracs)
+        for rows in groups.values():
+            if len(rows) > 1:
+                mean = math.fsum(out.get(r.name, 0.0) for r in rows) / len(rows)
+                for r in rows:
+                    out[r.name] = mean
+        return {k: v for k, v in out.items() if v > 1e-12}
+
+    def test(name: str, kind: str, w: float, x: float) -> PointReach:
+        ff = _edge_fill(fwd_order, w_base, w)
+        fa = _edge_fill(aft_order, w_base, w)
+        fwd_x = aft_x = None
+        fractions: Optional[Dict[str, float]] = None
+        ballast: Optional[float] = None
+        if ff is not None and fa is not None and w > 0.0:
+            fwd_x = (m_base + _fill_moment(fwd_order, ff)) / w
+            aft_x = (m_base + _fill_moment(aft_order, fa)) / w
+            if fwd_x - _CG_MATCH_TOL <= x <= aft_x + _CG_MATCH_TOL:
+                lam = (0.0 if aft_x - fwd_x <= 1e-12
+                       else min(1.0, max(0.0, (x - fwd_x) / (aft_x - fwd_x))))
+                blend: Dict[str, float] = {}
+                for order, fr, wt in ((fwd_order, ff, 1.0 - lam), (aft_order, fa, lam)):
+                    for it, f in zip(order, fr):
+                        blend[it.name] = blend.get(it.name, 0.0) + wt * f
+                fractions = pairs_equal(blend)
+                ballast = 0.0
+        if ballast is None and w > w_base:
+            breaks = [0.0, w - w_base] + [w - c for c in cum if w - w_max <= w - c <= w - w_base]
+            breaks += [max(0.0, w - w_max)]
+            ballast = _least_ballast(fwd_m, aft_m, breaks, w, w * x, nose_x, tail_x)
+        return PointReach(name=name, kind=kind, weight_lb=w, xcg=x, fwd_x=fwd_x,
+                          aft_x=aft_x, ballast_lb=ballast, fractions=fractions)
+
+    out: List[PointReach] = []
+    if env is not None:
+        try:
+            limits = structural_limit_points(project, env)
+        except (MissingInputError, ValueError):
+            limits = []
+        for p in limits:
+            if p.weight > 0.0:
+                out.append(test(p.name, "limit", p.weight, p.station))
+    for case in weight.cg_cases:
+        if case.weight_lb <= 0.0:
+            continue                  # named by cg_case_without_weight
+        r = test(case.name, "case", case.weight_lb, case.xcg)
+        if case.loading is not None:
+            r = dataclasses.replace(r, entered=True)
+        out.append(r)
     return out
 
 

@@ -1,7 +1,7 @@
 {
   "schema_version": 72,
-  "name": "Beechcraft Baron 58 \u2014 two Continental IO-550-C",
-  "description": "Guide worked example (design note 34 UG-9): FAA Aircraft Spec 3A16 Rev 82, Model 58 S/N TH-1396\u2013TH-2124. Certified data cited, everything else estimated \u2014 sources: examples/baron_58.sources.md",
+  "name": "Beechcraft Baron 58 — two Continental IO-550-C",
+  "description": "Guide worked example (design note 34 UG-9): FAA Aircraft Spec 3A16 Rev 82, Model 58 S/N TH-1396–TH-2124. Certified data cited, everything else estimated — sources: examples/baron_58.sources.md",
   "engines": [
     {
       "engine_designation": "CONTINENTAL IO-550-C",
@@ -629,10 +629,25 @@
       },
       {
         "name": "Nose baggage",
-        "weight_lb": 150,
+        "weight_lb": 300,
         "x": 15,
         "y": 0,
         "z": 95,
+        "ixx": 0.0,
+        "iyy": 0.0,
+        "izz": 0.0,
+        "kind": "discretionary",
+        "component": "fuselage",
+        "consumable": false,
+        "wing_fraction": 0.0,
+        "carriage": "panel"
+      },
+      {
+        "name": "Rear baggage",
+        "weight_lb": 400,
+        "x": 150,
+        "y": 0,
+        "z": 100,
         "ixx": 0.0,
         "iyy": 0.0,
         "izz": 0.0,
@@ -669,10 +684,23 @@
         "name": "fwd gross",
         "weight_lb": 5500.0,
         "xcg": 78.3,
-        "zcg": 100.0,
+        "zcg": 95.75,
         "analyses": [
           "flight"
-        ]
+        ],
+        "loading": {
+          "aboard": [
+            "Pilot & front passenger",
+            "Nose baggage",
+            "Mid passengers",
+            "Fuel, left wing",
+            "Fuel, right wing"
+          ],
+          "fractions": {
+            "Nose baggage": 0.48807189542483653,
+            "Mid passengers": 0.5693483275663207
+          }
+        }
       },
       {
         "name": "fwd regardless",
@@ -724,7 +752,8 @@
           ],
           "fractions": {
             "Fuel, left wing": 0.6527777777777778,
-            "Fuel, right wing": 0.6527777777777778
+            "Fuel, right wing": 0.6527777777777778,
+            "Nose baggage": 0.5
           }
         }
       },
@@ -757,7 +786,10 @@
             "Mid passengers",
             "Aft passengers",
             "Nose baggage"
-          ]
+          ],
+          "fractions": {
+            "Nose baggage": 0.5
+          }
         }
       },
       {
@@ -772,7 +804,10 @@
           "aboard": [
             "Pilot & front passenger",
             "Nose baggage"
-          ]
+          ],
+          "fractions": {
+            "Nose baggage": 0.5
+          }
         }
       }
     ],
@@ -1151,14 +1186,14 @@
     "cases": [
       {
         "name": "itemized loading",
-        "weight_lb": 5990.0,
-        "cg_x": 83.2779632721202,
+        "weight_lb": 6540.0,
+        "cg_x": 85.7928134556575,
         "cg_y": 0.0,
-        "cg_z": 96.09549248747913,
-        "ixx": 22285998.87829716,
-        "iyy": 12649407.569449082,
-        "izz": 33981695.69115192,
-        "ixz": 481380.0050083473,
+        "cg_z": 96.30917431192661,
+        "ixx": 22291978.349541284,
+        "iyy": 15094039.111773701,
+        "izz": 36420347.762232415,
+        "ixz": 593291.9311926606,
         "gear_down": true
       }
     ]
