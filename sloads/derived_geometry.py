@@ -30,6 +30,7 @@ from .constants import DEFAULT_FRONT_SPAR_PCT, DEFAULT_REAR_SPAR_PCT, IN2_PER_FT
 from .models import MissingInputError, Project, SurfaceInput, WeightEnvelopeInput
 from .models.results import ConditionResult
 from .picks import extreme
+from .units import NO_TEXT, Quantity, UnitText, unit_text
 
 
 class CarryThrough(NamedTuple):
@@ -763,7 +764,7 @@ class SobStation(NamedTuple):
     y: float
     assumed: bool
     basis: str
-    note: str = ""
+    note: UnitText = NO_TEXT
 
 
 SOB_ENTERED = "entered sob_y_in"
@@ -796,7 +797,8 @@ def sob_station(project: Project, surface_name: str = "wing") -> Optional[SobSta
     if surf is not None and surf.sob_y_in is not None:
         return SobStation(
             float(surf.sob_y_in), False, SOB_ENTERED,
-            f"side of body at BL {float(surf.sob_y_in):.2f} (entered sob_y_in)")
+            unit_text("side of body at BL ", Quantity(float(surf.sob_y_in), "in"),
+                      " (entered sob_y_in)"))
     width = geom.parametric.fuselage_width if geom.parametric is not None else 0.0
     if not width:
         summary = fuselage_summary(geom.fuselage)
@@ -804,9 +806,9 @@ def sob_station(project: Project, surface_name: str = "wing") -> Optional[SobSta
     if width:
         return SobStation(
             0.5 * width, True, SOB_HALF_WIDTH,
-            f"side of body ASSUMED at BL {0.5 * width:.2f} in -- half the fuselage "
-            f"maximum width ({width:.1f} in). Enter {surface_name} sob_y_in to "
-            "state the joint")
+            unit_text("side of body ASSUMED at BL ", Quantity(0.5 * width, "in"),
+                      " -- half the fuselage maximum width (", Quantity(width, "in"),
+                      f"). Enter {surface_name} sob_y_in to state the joint"))
     return None
 
 
@@ -824,7 +826,7 @@ class FuselageCentreline(NamedTuple):
     points: tuple
     assumed: bool
     basis: str
-    note: str = ""
+    note: UnitText = NO_TEXT
 
     def z_at(self, x: float) -> float:
         """Centre waterline at station ``x`` -- clamped linear interpolation,
@@ -867,9 +869,10 @@ def fuselage_centreline(project: Project) -> Optional[FuselageCentreline]:
         return FuselageCentreline(points, False, CENTRELINE_ENTERED)
     return FuselageCentreline(
         points, True, CENTRELINE_DEFAULTED,
-        f"fuselage centre line ASSUMED at waterline {bdw.z:.2f} in for "
-        f"{len(defaulted)} of {len(sections)} section(s) -- defaulted from the "
-        "body-drag waterline. Enter FuselageSection.z_centre to state it")
+        unit_text("fuselage centre line ASSUMED at waterline ", Quantity(bdw.z, "in"),
+                  f" for {len(defaulted)} of {len(sections)} section(s) -- defaulted "
+                  "from the body-drag waterline. Enter FuselageSection.z_centre to "
+                  "state it"))
 
 
 class BodyDragWaterline(NamedTuple):
@@ -976,7 +979,7 @@ class FuselageLra(NamedTuple):
     centreline: Optional[FuselageCentreline]
     assumed: bool
     basis: str
-    note: str = ""
+    note: UnitText = NO_TEXT
 
     def z_at(self, x: float) -> float:
         """The LRA waterline at station ``x``."""
@@ -1002,7 +1005,7 @@ def fuselage_lra(project: Project) -> FuselageLra:
     centreline = fuselage_centreline(project)
     entered = fm.ref_waterline if fm is not None else 0.0
     if entered:
-        note = ""
+        note = UnitText()
         if centreline is not None:
             xs = [x for x, _ in centreline.points]
             mid = centreline.z_at((min(xs) + max(xs)) / 2.0) if xs else 0.0
@@ -1018,24 +1021,25 @@ def fuselage_lra(project: Project) -> FuselageLra:
             # made the ATR-42 LRA deck singular, so this is a solve-breaking
             # class, not a cosmetic one.
             if height and abs(entered - mid) > height / 2.0:
-                note = (
-                    f"fuselage LRA waterline {entered:.1f} in is OUTSIDE the "
-                    f"fuselage it belongs to (the body spans {mid - height / 2.0:.1f} "
-                    f"to {mid + height / 2.0:.1f} in at mid-body). The value is "
-                    "used as entered, but a body beam outside its own body is "
+                note = unit_text(
+                    "fuselage LRA waterline ", Quantity(entered, "in"), " is OUTSIDE "
+                    "the fuselage it belongs to (the body spans ",
+                    Quantity(mid - height / 2.0, "in"), " to ",
+                    Quantity(mid + height / 2.0, "in"), " at mid-body). The value "
+                    "is used as entered, but a body beam outside its own body is "
                     "almost certainly a placeholder: check "
                     "fuselage_mass.ref_waterline.")
             elif abs(mid - entered) > FUSELAGE_LRA_NOTE_TOL:
-                note = (
-                    f"fuselage LRA waterline {entered:.1f} in as entered "
-                    f"(fuselage_mass.ref_waterline). The body's own section-centre "
-                    f"line is at {mid:.1f} in mid-body, so the beam is modelled "
-                    f"{abs(entered - mid):.1f} in "
-                    f"{'below' if entered < mid else 'above'} the body centre.")
+                note = unit_text(
+                    "fuselage LRA waterline ", Quantity(entered, "in"), " as entered "
+                    "(fuselage_mass.ref_waterline). The body's own section-centre "
+                    "line is at ", Quantity(mid, "in"), " mid-body, so the beam is "
+                    "modelled ", Quantity(abs(entered - mid), "in"),
+                    f" {'below' if entered < mid else 'above'} the body centre.")
         return FuselageLra(entered, centreline, False, "entered", note)
     if centreline is not None:
         return FuselageLra(0.0, centreline, True, "centre-line", centreline.note)
-    return FuselageLra(0.0, None, True, "none", _FUSELAGE_LRA_UNKNOWN)
+    return FuselageLra(0.0, None, True, "none", unit_text(_FUSELAGE_LRA_UNKNOWN))
 
 
 def sync_geometry_derived(project: Project) -> None:

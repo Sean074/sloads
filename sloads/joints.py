@@ -65,6 +65,7 @@ from .models import Project
 from .modules.tail_span import ATTACH_STRIP_PAIR, ATTACH_VTAIL_TIP, htail_attachment
 from .modules.wing_geometry import chord_fraction_x
 from .tail_geometry import HTAIL, VTAIL, h_tail_waterline, resolve_tail_planform
+from .units import NO_TEXT, Quantity, UnitText, unit_text
 
 Vec3 = Tuple[float, float, float]
 
@@ -105,6 +106,14 @@ SPAR_ESTIMATOR = "%-of-root-chord estimator -- assumed"
 #: its body loads. The LRA model still refuses such a project -- it has no
 #: SOB joint to start the wing at -- so only the calc reads this post.
 WING_STATION_CENTRELINE = "wing LRA at the centreline -- no side of body, assumed"
+#: Why a centreline wing station is assumed, with no number in it (#338): the
+#: station itself is the post's ``x``, which every writer prints in its own
+#: channel ahead of this clause.
+WING_STATION_CENTRELINE_REASON = (
+    "the wing loads reference axis at the centreline -- no side of body "
+    "resolves (no entered sob_y_in and no fuselage width), so there is no SOB "
+    "station to place the wing post straight across from (note 64 D-64.3). "
+    "Enter sob_y_in to state it")
 
 
 @dataclass(frozen=True)
@@ -140,7 +149,7 @@ class Joint:
     dof: str             # the RBE2 CM string (a beam joint carries all six too)
     basis: str           # copied from the resolving owner
     assumed: bool        # copied from the resolving owner
-    note: str = ""       # copied from the resolving owner
+    note: UnitText = NO_TEXT  # copied from the resolving owner; rendered by each writer (#338)
     element: str = RIGID # what spans the arm in the deck: RIGID or BEAM (D-64.1)
 
     @property
@@ -265,7 +274,7 @@ def _vtail_joints(project: Project, joints: List[Joint]) -> None:
         arm=(0.0, 0.0, lra.z_at(x_root) - vtail.root_z),
         to="fuselage-lra", node_family="lra-fin-root", dof=ALL_SIX,
         basis=vtail.root_z_basis, assumed=vtail.root_z_assumed,
-        note="; ".join(vtail.notes)))
+        note=UnitText.join("; ", vtail.notes)))
 
     htail = resolve_tail_planform(project, HTAIL)
     if htail is None or htail.span <= 0.0:
@@ -343,7 +352,7 @@ def _wing_joints(project: Project, joints: List[Joint],
     sob = sob_station(project)
     right = wing_lra_point(project, abs(sob.y)) if sob is not None else None
     centre: Optional[Vec3] = None
-    post_basis, post_assumed, post_note = "", False, ""
+    post_basis, post_assumed, post_note = "", False, NO_TEXT
     if sob is None or right is None:
         refusals.append(Refusal(JointName.WING_SOB, (
             "no side of body resolves (no entered sob_y_in and no fuselage "
@@ -359,16 +368,12 @@ def _wing_joints(project: Project, joints: List[Joint],
             # LRA's own centreline point, and the grade says so.
             centre = hub
             post_basis, post_assumed = WING_STATION_CENTRELINE, True
-            post_note = (
-                f"wing station ASSUMED at FS {hub[0]:.1f} in, the wing loads "
-                "reference axis at the centreline -- no side of body resolves "
-                "(no entered sob_y_in and no fuselage width), so there is no "
-                "SOB station to place the wing post straight across from "
-                "(note 64 D-64.3). Enter sob_y_in to state it")
+            post_note = unit_text("wing station ASSUMED at FS ", Quantity(hub[0], "in"),
+                                  ", " + WING_STATION_CENTRELINE_REASON)
     else:
         # Straight across (D-64.3): the centre grid keeps the SOB's own x and z.
         centre = (right[0], 0.0, right[2])
-        post_basis, post_assumed, post_note = sob.basis, sob.assumed, ""
+        post_basis, post_assumed, post_note = sob.basis, sob.assumed, NO_TEXT
         for side, here in (("R", right), ("L", _mirror(right))):
             # The left joint is the RIGHT one mirrored, never a second
             # evaluation at -y: the chord-fraction owner extrapolates its
@@ -398,12 +403,11 @@ def _wing_joints(project: Project, joints: List[Joint],
     lra = fuselage_lra(project)
     # The ASSUMED sentence lives here, not at the deck writer, so the grade and
     # the wording the deliverable prints are one thing (gate 4).
-    note = "" if not ct.assumed else (
-        f"wing spar stations ASSUMED -- derived at "
-        f"{ct.front_pct * 100.0:.0f}/{ct.rear_pct * 100.0:.0f} % of the root "
-        f"chord, so the spar grids sit at fuselage stations "
-        f"{ct.x_f:.1f}/{ct.x_r:.1f} in. Enter front/rear_spar_x_in to state "
-        "the joint")
+    note = NO_TEXT if not ct.assumed else unit_text(
+        "wing spar stations ASSUMED -- derived at ", Quantity(ct.front_pct * 100.0, "%"),
+        " and ", Quantity(ct.rear_pct * 100.0, "%"), " of the root chord, so the "
+        "spar grids sit at fuselage stations ", Quantity(ct.x_f, "in"), " and ",
+        Quantity(ct.x_r, "in"), ". Enter front/rear_spar_x_in to state the joint")
     if centre is None:
         post_grid: Optional[Vec3] = None
     else:
@@ -441,7 +445,11 @@ class WingStation(NamedTuple):
 
     x: float
     assumed: bool
-    note: str              # the in-band sentence an assumed station owes, else ""
+    #: Why an assumed station is where it is, else "". **No number in it**
+    #: (#338): it is persisted on every body result, and a sentence carrying
+    #: ``x`` in inches would reach an SI document so. A writer states ``x`` in
+    #: its own channel and this clause after it.
+    note: str
     refused: Optional[str]  # the register's reason when no post can be placed
 
 
@@ -459,7 +467,8 @@ def wing_station(project: Project) -> WingStation:
     posts = reg.by_name(JointName.WING_POST)
     if len(posts) == 1:
         post = posts[0]
-        return WingStation(post.location[0], post.assumed, post.note, None)
+        reason = WING_STATION_CENTRELINE_REASON if post.basis == WING_STATION_CENTRELINE else ""
+        return WingStation(post.location[0], post.assumed, reason, None)
     refusal = reg.refusal(JointName.WING_POST)
     return WingStation(0.0, False, "", refusal.reason if refusal is not None
                        else "the joint register places no wing post")
@@ -501,6 +510,7 @@ __all__ = [
     "SPAR_ENTERED",
     "SPAR_ESTIMATOR",
     "WING_STATION_CENTRELINE",
+    "WING_STATION_CENTRELINE_REASON",
     "Joint",
     "JointName",
     "JointRegister",

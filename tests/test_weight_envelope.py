@@ -248,10 +248,18 @@ def test_fwd_regardless_negative_station_marks_none_via_datum():
     r = calc.envelope(p, p.weight.envelope)
     labels = _labels(r)
     assert any(
-        lbl.startswith("Forward regardless ballast (none") and "ahead of the station-0 datum" in lbl
+        lbl.startswith("Forward regardless ballast (none") and "ahead of the nose datum" in lbl
         for lbl in labels
     )
     assert "Forward regardless ballast weight" not in labels
+    # The stations are rows, never digits in the label (#338): the balance
+    # station and the station-0 datum each convert in an SI table.
+    values = {v.key: v for res in r for v in res.values}
+    assert values["forward_regardless_moment_balance_station"].units == "in"
+    assert math.isclose(values["forward_regardless_moment_balance_station"].value, -380.0, rel_tol=1e-3)
+    assert values["fuselage_nose_station"].value == 0.0
+    assert "fuselage_tail_station" not in values
+    assert not any(ch.isdigit() for lbl in labels if "(none" in lbl for ch in lbl)
 
 
 def test_fwd_regardless_extent_from_geometry_outline_kept():

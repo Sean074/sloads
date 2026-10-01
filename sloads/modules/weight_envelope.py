@@ -356,19 +356,29 @@ def envelope(project: Project, inp: WeightEnvelopeInput) -> List[ConditionResult
         # databases whose loadings all sit aft of the forward limit) is
         # nonphysical -- report the degeneracy explicitly rather than a wild
         # station (M1-11).
+        # The stations are rows of their own, never digits in the label (#338):
+        # a label is text, which no unit system converts, so an SI table printed
+        # "station -105 in" beside its millimetres.
         xb = b[1]
         if xb < nose_x or (tail_x is not None and xb > tail_x):
             reason = (
-                f"moment-balance station {xb:.0f} in is ahead of the station-{nose_x:.0f} "
-                "datum; all loadings sit aft of the limit"
+                "moment-balance station is ahead of the nose datum; all loadings "
+                "sit aft of the limit"
                 if tail_x is None
-                else f"moment-balance station {xb:.0f} in is outside the fuselage "
-                f"extent [{nose_x:.0f}, {tail_x:.0f}]"
+                else "moment-balance station is outside the fuselage extent"
             )
             ballast_values.append(
                 LoadValue(f"{label} ballast (none -- {reason})", 0.0, _LB,
                           quantity="mass", key=f"{key}_ballast_weight")
             )
+            ballast_values.append(LoadValue(f"{label} moment-balance station", xb, _IN,
+                                            key=f"{key}_moment_balance_station"))
+            if not any(v.key == "fuselage_nose_station" for v in ballast_values):
+                ballast_values.append(LoadValue("Fuselage nose station", nose_x, _IN,
+                                                key="fuselage_nose_station"))
+                if tail_x is not None:
+                    ballast_values.append(LoadValue("Fuselage tail station", tail_x, _IN,
+                                                    key="fuselage_tail_station"))
             return
         ballast_values.append(LoadValue(f"{label} ballast weight", b[0], _LB,
                                         quantity="mass", key=f"{key}_ballast_weight"))

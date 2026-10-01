@@ -1045,8 +1045,10 @@ def entered_loading(items: Sequence[MassItem], case: CgCase) -> CaseLoading:
     note = ""
     if ballast is not None and w:
         fraction = ballast.weight_lb / w
-        note = (f"entered ballast {ballast.weight_lb:.0f} lb is "
-                f"{fraction * 100:.0f} % of the loading weight")
+        # No weight in the sentence (#338): the loading carries its ballast,
+        # and a writer states that weight in its own unit system.
+        note = (f"the entered ballast is {fraction * 100:.0f} % of the "
+                "loading weight")
     return CaseLoading(name=case.name, items=loading, weight_lb=w, cg_x=cx, cg_z=cz,
                        ballast=ballast, derivable=True, note=note, entered=True)
 
@@ -1219,7 +1221,7 @@ def derive_case_loadings(project: Project,
         fraction = wb / case.weight_lb if case.weight_lb else 0.0
         credible = fraction <= BALLAST_CREDIBLE_FRACTION
         note = "" if credible else (
-            f"ballast {wb:.0f} lb is {fraction * 100:.0f} % of the case weight "
+            f"the closing ballast is {fraction * 100:.0f} % of the case weight "
             f"(gate {BALLAST_CREDIBLE_FRACTION * 100:.0f} %) -- this is not a "
             "loading, it is a CG point the database cannot reach"
         )

@@ -257,8 +257,10 @@ def test_a_surface_no_weight_item_claims_is_stated_on_the_beam_that_carries_it()
     assert "not separately accounted" in body
     assert "vertical tail" in body
     # ...and, since note 64, that fixture's wing station is ASSUMED (no side of
-    # body resolves), which 4.1 states in the register's own words.
-    assert "wing station ASSUMED" in body
+    # body resolves), which 4.1 states with the station in the document's own
+    # length channel and the register's reason after it (#338 D2).
+    assert "The wing station is ASSUMED at fuselage station" in body
+    assert "no side of body resolves" in body
     # The fixtures that claim every surface say nothing, rather than saying none.
     assert "not separately accounted" not in _prose(_section_four(_doc()))
 

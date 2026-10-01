@@ -154,6 +154,7 @@ from ..models import (
 from ..picks import extreme
 from ..registry import register
 from ..tail_geometry import HTAIL, VTAIL, TailPlanform, h_tail_waterline, is_t_tail, resolve_tail_planform
+from ..units import NO_TEXT, Quantity, UnitSystem, UnitText, unit_text
 from .select import default_critical, vn_points
 
 MODULE_NAME = "tail_span"
@@ -205,7 +206,7 @@ class HTailAttachment(NamedTuple):
     y: List[float]
     assumed: bool
     basis: str
-    note: str = ""
+    note: UnitText = NO_TEXT
 
 
 #: ``basis`` values :func:`htail_attachment` can return. ``STRIP_PAIR`` is the
@@ -260,22 +261,22 @@ def htail_attachment(project: Project, planform: TailPlanform) -> HTailAttachmen
     centreline-clamp limitation, and filed alongside it.
     """
     if planform.component != HTAIL:
-        return HTailAttachment([], False, "", "")
+        return HTailAttachment([], False, "")
     if is_t_tail(project):
         return HTailAttachment(
-            [0.0], False, ATTACH_VTAIL_TIP,
+            [0.0], False, ATTACH_VTAIL_TIP, unit_text(
             "T-TAIL layout: the horizontal tail is not fuselage-attached, so its "
             "beam has ONE support -- the fin-tip joint on the centreline, which "
             "reacts moment as well as shear. A fuselage-side pair would describe "
-            "a load path this airplane does not have")
+            "a load path this airplane does not have"))
     geometry = project.geometry
     surf = geometry.by_name(planform.component) if geometry is not None else None
     if surf is not None and surf.sob_y_in is not None:
         y = abs(float(surf.sob_y_in))
         return HTailAttachment(
             [-y, y], False, ATTACH_ENTERED,
-            f"h-tail attachment at +-{y:.1f} in -- the entered sob_y_in butt "
-            "line (BM-1)")
+            unit_text("h-tail attachment at +-", Quantity(y, "in"), " -- the entered "
+                      "sob_y_in butt line (BM-1)"))
     width = fuselage_width_at(
         geometry.fuselage if geometry is not None else None,
         planform.x_at(0.0, planform.ref_axis_pct))
@@ -283,18 +284,30 @@ def htail_attachment(project: Project, planform: TailPlanform) -> HTailAttachmen
         half = min(0.5 * width, 0.9 * planform.span)
         return HTailAttachment(
             [-half, half], True, ATTACH_OUTLINE,
-            f"h-tail attachment ASSUMED at +-{half:.1f} in -- half the fuselage "
-            f"outline's width ({width:.1f} in) interpolated at the h-tail LRA "
-            f"station {planform.x_at(0.0, planform.ref_axis_pct):.1f} in. The "
-            "outline describes body volume, not the tail-cone frames: enter the "
-            "attachment butt line to state it")
+            unit_text("h-tail attachment ASSUMED at +-", Quantity(half, "in"),
+                      " -- half the fuselage outline's width (", Quantity(width, "in"),
+                      ") interpolated at the h-tail LRA station ",
+                      Quantity(planform.x_at(0.0, planform.ref_axis_pct), "in"),
+                      ". The outline describes body volume, not the tail-cone "
+                      "frames: enter the attachment butt line to state it"))
     ds = planform.span / max(2, planform.elements)
     return HTailAttachment(
         [-ds / 2.0, ds / 2.0], True, ATTACH_STRIP_PAIR,
-        f"h-tail attachment ASSUMED at the innermost strip pair (+-{ds / 2.0:.1f} "
-        "in) -- this project has no fuselage outline, so there is no body width "
-        "to sit on. The carry-through is one strip wide and the attachment "
-        "bending is correspondingly high")
+        unit_text("h-tail attachment ASSUMED at the innermost strip pair (+-",
+                  Quantity(ds / 2.0, "in"), ") -- this project has no fuselage "
+                  "outline, so there is no body width to sit on. The carry-through "
+                  "is one strip wide and the attachment bending is correspondingly "
+                  "high"))
+
+
+def imperial_notes(notes: Sequence[UnitText]) -> List[str]:
+    """Provenance sentences as a result's ``notes`` (#338).
+
+    A result's notes are persisted text, so a sentence is rendered once, in
+    the canonical Imperial system; an artifact that must state it in SI reads
+    the sentence from its owner (the joint register, the planform) instead.
+    """
+    return [n.render(UnitSystem.IMPERIAL) for n in notes]
 
 
 def attachment_stations(project: Project, planform: TailPlanform) -> List[float]:
@@ -1245,7 +1258,7 @@ def _htail_unsym_vtail(unsym: TailSpanResult,
         tip_transfer=transfer, inertia_modelled=weight > 0.0,
         case_ref=case_ref, safety_factor=unsym.safety_factor,
         torsion_axis=f"LRA {vtail.ref_axis_pct * 100:.0f}% chord",
-        notes=list(vtail.notes) + [transfer.note])
+        notes=imperial_notes(vtail.notes) + [transfer.note])
 
 
 def _h_tail_waterline(project: Project,
@@ -1345,10 +1358,10 @@ def build_tail_span(project: Project) -> Dict[str, List[TailSpanResult]]:
         control_loads: List[ControlPointLoad] = []
         control_load = hinge_moment = hinge_arm = 0.0
         control_basis = ""
-        notes = list(planform.notes)
+        notes = imperial_notes(planform.notes)
         attach = htail_attachment(project, planform)
         if attach.note:
-            notes.append(attach.note)
+            notes += imperial_notes([attach.note])
         if mode == "discrete":
             attachment = control_attachment(project, component, planform)
             fraction = hinge_chord_fraction(project, cond)

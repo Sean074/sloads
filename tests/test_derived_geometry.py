@@ -61,6 +61,16 @@ _GA = os.path.join(_EXAMPLES, "ga6_normal.project.json")
 _HEAVY = os.path.join(_EXAMPLES, "concept_heavy.project.json")
 
 
+
+def _imp(note):
+    """A provenance note as Imperial text (it is a ``UnitText`` since #338)."""
+    from sloads.units import UnitSystem
+    return note.render(UnitSystem.IMPERIAL)
+
+
+def _imps(notes):
+    return [_imp(n) for n in notes]
+
 def test_wing_reference_derives_from_ga6_geometry():
     """Appendix A wing: MAC 69.246, XLEMAC 63.641; XW = XLEMAC + 0.25*MAC and
     ZW = wrp + Y_MAC*tan(dihedral) (78.5 + Y_MAC*tan(6 deg) ~= 87.73)."""
@@ -268,7 +278,7 @@ def test_sob_station_falls_back_to_half_the_width_marked_assumed():
     sob = sob_station(p)          # works un-synced too (summary fallback)
     assert sob is not None and sob.assumed
     assert math.isclose(sob.y, 48.0)
-    assert sob.basis == SOB_HALF_WIDTH and "ASSUMED" in sob.note
+    assert sob.basis == SOB_HALF_WIDTH and "ASSUMED" in _imp(sob.note)
 
 
 def test_sob_station_is_none_without_a_body_and_never_the_inboard_rib():
@@ -917,7 +927,7 @@ def test_the_fuselage_lra_leads_the_centre_line():
     project.geometry.fuselage = None
     floor = fuselage_lra(project)
     assert floor.z_at(150.0) == 0.0 and floor.basis == "none"
-    assert "roll" not in floor.note and "Enter fuselage_mass.ref_waterline" in floor.note
+    assert "roll" not in _imp(floor.note) and "Enter fuselage_mass.ref_waterline" in _imp(floor.note)
 
 
 def test_a_waterline_outside_its_own_body_says_so():
@@ -935,15 +945,15 @@ def test_a_waterline_outside_its_own_body_says_so():
     project.fuselage_mass.ref_waterline = 100.0
     lra = fuselage_lra(project)
     assert lra.z_at(0.0) == pytest.approx(100.0), "the entered value still leads"
-    assert "OUTSIDE the fuselage" in lra.note
-    assert "placeholder" in lra.note
+    assert "OUTSIDE the fuselage" in _imp(lra.note)
+    assert "placeholder" in _imp(lra.note)
 
     # Inside the body, and away from its centre, is a legitimate axis -- stated,
     # not warned about.
     centre = fuselage_lra(_example("atr42_100.project.json")).z_at(0.0)
     project.fuselage_mass.ref_waterline = centre - 20.0
     inside = fuselage_lra(project)
-    assert "OUTSIDE" not in inside.note and "below the body centre" in inside.note
+    assert "OUTSIDE" not in _imp(inside.note) and "below the body centre" in _imp(inside.note)
 
 
 @pytest.mark.parametrize("example", [
@@ -953,4 +963,4 @@ def test_no_fixture_places_its_body_beam_outside_its_body(example):
     """The drift guard for the fixture data itself, checked by its effect."""
     lra = fuselage_lra(_example(example))
     assert lra.basis == "entered" and not lra.assumed, example
-    assert not lra.note, f"{example}: {lra.note}"
+    assert not _imp(lra.note), f"{example}: {_imp(lra.note)}"
