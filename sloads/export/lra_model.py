@@ -118,7 +118,7 @@ from ..modules.tail_span import ATTACH_STRIP_PAIR, build_tail_span, htail_attach
 from ..modules.wing_geometry import require_integrable_planform
 from ..picks import extreme
 from ..tail_geometry import HTAIL, VTAIL, h_tail_waterline, resolve_tail_planform
-from ..units import UnitSystem
+from ..units import Quantity, UnitSystem, UnitText, unit_text
 from .balanced_deck import case_sids
 from .bands import band
 from .coordinates import (
@@ -271,7 +271,7 @@ class LraModel:
     members: Dict[str, List[LraNode]] = field(default_factory=dict)
     support_gid: int = 0
     #: The header's honesty block: every assumed datum the model accepted.
-    assumed_notes: List[str] = field(default_factory=list)
+    assumed_notes: List[UnitText] = field(default_factory=list)  # rendered in the deck's system (#338)
     #: **The wing-body box, per member** (note 64 D-64.2/D-64.6): member key ->
     #: the closed interval of the member's own span coordinate that the box
     #: spans. Inside it the member is a load path and not a beam being
@@ -872,18 +872,19 @@ def build_lra_model(project: Project) -> LraModel:
         for leg_name, leg in legs:
             ax, ay, az = leg.attach
             if not any(leg.attach):
-                notes.append(
+                notes.append(unit_text(
                     f"{leg_name} gear has no attach (trunnion) point entered "
-                    "-- its node is omitted from this model")
+                    "-- its node is omitted from this model"))
                 continue
             carrier = leg.carrier
             if carrier is None:
                 carrier = (GearCarrier.WING if abs(ay) > sob.y
                            else GearCarrier.BODY)
-                notes.append(
+                notes.append(unit_text(
                     f"{leg_name} gear carrier ASSUMED {carrier.value} -- "
-                    f"inferred from |attach BL {ay:.1f}| vs the side of body "
-                    f"(BL {sob.y:.2f}). Enter carrier to state it (BM-4/G-2)")
+                    "inferred from |attach BL ", Quantity(ay, "in"), "| vs the side "
+                    "of body (BL ", Quantity(sob.y, "in"), "). Enter carrier to "
+                    "state it (BM-4/G-2)"))
             sides = ([("R", (ax, abs(ay), az)), ("L", (ax, -abs(ay), az))]
                      if abs(ay) > _COINCIDENT_TOL else [("C", (ax, 0.0, az))])
             for side, pos in sides:
@@ -918,10 +919,11 @@ def build_lra_model(project: Project) -> LraModel:
         mounted = eng.mounted_on
         if mounted is None:
             mounted = "wing" if abs(mount_pos[1]) > sob.y else "fuselage"
-            notes.append(
+            notes.append(unit_text(
                 f"engine {i + 1} mounted_on ASSUMED {mounted!r} -- inferred "
-                f"from |CG BL {mount_pos[1]:.1f}| vs the side of body (BL "
-                f"{sob.y:.2f}). Enter mounted_on to state it (BM-4)")
+                "from |CG BL ", Quantity(mount_pos[1], "in"), "| vs the side of "
+                "body (BL ", Quantity(sob.y, "in"), "). Enter mounted_on to state "
+                "it (BM-4)"))
         side = side_of(mount_pos[1])
         mount = LraNode(_ENGINE_BAND.allocate(2 * i), mount_pos,
                         "lra-engine-mount", side)
@@ -1183,6 +1185,15 @@ def transferred_case_loads(case: BalancedCaseResult, model: LraModel
 # The deck
 # --------------------------------------------------------------------------- #
 #: The R-12 statement every LRA deck header carries -- one wording.
+#: What an SI deck says once above its case map (#338 D3): a case name is an
+#: identifier, and the weight a derived ground case is named at stays Imperial.
+CASE_NAME_IDENTIFIER_NOTE = (
+    "Case names are identifiers, the same in every unit system: a ground case "
+    "re-weighted to its design weight is named \"<case> at <weight> lb\", and "
+    "the name is not converted. Every number outside a name is in this deck's "
+    "units."
+)
+
 STIFFNESS_NOTE = (
     "placeholder PBAR/MAT1, one pair per section family (wing = MID/PID 1, "
     "fuselage 2, htail 3, vtail 4; identical values): only the DETERMINATE "
@@ -1290,8 +1301,13 @@ def lra_model_bdf(project: Project, *,
         "percent chord; torsion is about it (note 24 R-7d).")
     head += comment("Stiffness: " + STIFFNESS_NOTE)
     for note in model.assumed_notes:
-        head += comment("ASSUMED: " + note)
+        head += comment("ASSUMED: " + note.render(system))
     head.append("$ ------------------------------------------------- CASE MAP")
+    if system != UnitSystem.IMPERIAL:
+        # A case name is an identifier, the same key in every channel, so a
+        # derived name that states its weight keeps the Imperial spelling it
+        # was named with (#338 D3) -- said once, here, rather than converted.
+        head += comment(CASE_NAME_IDENTIFIER_NOTE)
     for sid, case in zip(sids, cases):
         run_key = case.case_ref.run_key if case.case_ref else ""
         entry = (f"SUBCASE {sid} = "

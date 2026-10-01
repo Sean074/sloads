@@ -3353,9 +3353,14 @@ def _carry_through_sentence(project: Project, system: UnitSystem) -> str:
             f"{format_value(carry.x_r * scale, 'in')} {length}")
     # An assumed wing station (no side of body) is stated in the register's
     # own words, beside the spars it sits between (note 64 §7b amendment 2).
+    # The persisted clause carries no number (#338): the station is the
+    # result's own x_wing, stated here in this document's channel.
     net = _body_net(project)
-    station_note = next((r.wing_station_note for r in net if r.wing_station_note), "")
-    suffix = (" " + station_note + ".") if station_note else ""
+    assumed = next(((r.x_wing, r.wing_station_note) for r in net
+                    if r.wing_station_note and r.x_wing is not None), None)
+    suffix = "" if assumed is None else (
+        f" The wing station is ASSUMED at fuselage station "
+        f"{format_value(assumed[0] * scale, 'in')} {length}, {assumed[1]}.")
     if carry.assumed:
         return (
             "The wing carry-through runs from fuselage station "
@@ -4357,7 +4362,7 @@ def _htail_waterline_sentence(project: Project, system: UnitSystem) -> str:
         sentence = (f" The waterline every station sits on, {z} {length}, is "
                     "the fin tip the horizontal surface is mounted on, from "
                     "the same owner that places the fin.")
-        if "NOT USED" in resolved.note:
+        if "NOT USED" in resolved.note.template:
             sentence += (" The entered h-tail offset (h_tail_z) disagrees "
                          "with the fin tip and is NOT USED (D-54.4).")
         return sentence

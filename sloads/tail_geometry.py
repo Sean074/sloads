@@ -81,6 +81,7 @@ from .constants import IN2_PER_FT2
 from .derived_geometry import FuselageCentreline, fuselage_centreline, fuselage_height_at, require_integrable_planform
 from .models import LayoutInput, Project, SurfaceInput, TailType
 from .picks import extreme
+from .units import NO_TEXT, Quantity, UnitText, unit_text
 
 #: Component names, which are also the ``geometry.surfaces`` entry names (T-1).
 HTAIL = "htail"
@@ -166,7 +167,7 @@ class TailPlanform:
     root_z: float = 0.0             # v-tail only: waterline of the fin root
     root_z_assumed: bool = False    # v-tail only: was root_z derived? (L-1)
     root_z_basis: str = ""          # v-tail only: which branch supplied it
-    notes: List[str] = field(default_factory=list)
+    notes: List[UnitText] = field(default_factory=list)
 
     @property
     def symmetric(self) -> bool:
@@ -683,7 +684,7 @@ class VtailRoot:
     z: float
     assumed: bool
     basis: str
-    note: str = ""
+    note: UnitText = NO_TEXT
 
 
 def vtail_root_waterline(layout: Optional["LayoutInput"], vtail_span_in: float = 0.0,
@@ -769,14 +770,14 @@ def vtail_root_waterline(layout: Optional["LayoutInput"], vtail_span_in: float =
     so.
     """
     if entered_geometry:
-        note = ""
+        note = UnitText()
         limit = PLANFORM_TOLERANCE * vtail_span_in if vtail_span_in > 0 else 0.0
         if explicit and limit and abs(entered_geometry - explicit) > limit:
-            note = (
-                f"vtail root waterline {entered_geometry:.1f} in from the "
-                f"geometry.surfaces 'vtail' polyline; the entered "
-                f"vtail_root_waterline_z of {explicit:.1f} in disagrees by "
-                f"{abs(entered_geometry - explicit):.1f} in and is NOT USED. "
+            note = unit_text(
+                "vtail root waterline ", Quantity(entered_geometry, "in"), " from the "
+                "geometry.surfaces 'vtail' polyline; the entered "
+                "vtail_root_waterline_z of ", Quantity(explicit, "in"), " disagrees by ",
+                Quantity(abs(entered_geometry - explicit), "in"), " and is NOT USED. "
                 "The fin's height above the CG is the roll arm of every side "
                 "load it carries, so the surface is placed twice, differently: "
                 "correct the polyline or clear the scalar.")
@@ -784,14 +785,15 @@ def vtail_root_waterline(layout: Optional["LayoutInput"], vtail_span_in: float =
     if explicit:
         return VtailRoot(explicit, False, "entered")
     if layout is None:
-        return VtailRoot(0.0, True, "none", _VTAIL_ROOT_UNKNOWN)
+        return VtailRoot(0.0, True, "none", unit_text(_VTAIL_ROOT_UNKNOWN))
     if (layout.tail_type == TailType.T_TAIL and layout.h_tail_z
             and vtail_span_in > 0):
         z = layout.root_waterline_z + layout.h_tail_z - vtail_span_in
-        return VtailRoot(z, True, "t-tail", (
-            f"vtail root waterline {z:.1f} in ASSUMED from the T-tail relation "
-            f"(root_waterline_z {layout.root_waterline_z:.1f} + h_tail_z "
-            f"{layout.h_tail_z:.1f} - fin span {vtail_span_in:.1f}), which puts "
+        return VtailRoot(z, True, "t-tail", unit_text(
+            "vtail root waterline ", Quantity(z, "in"), " ASSUMED from the T-tail "
+            "relation (root_waterline_z ", Quantity(layout.root_waterline_z, "in"),
+            " + h_tail_z ", Quantity(layout.h_tail_z, "in"), " - fin span ",
+            Quantity(vtail_span_in, "in"), "), which puts "
             "the fin tip at the horizontal tail. Enter "
             "vtail_root_waterline_z to state it."))
     if centreline is not None:
@@ -799,22 +801,24 @@ def vtail_root_waterline(layout: Optional["LayoutInput"], vtail_span_in: float =
         if height:
             z_c = centreline.z_at(x_vtail)
             z = z_c + height / 2.0
-            note = (
-                f"vtail root waterline {z:.1f} in ASSUMED as the local fuselage "
-                f"top (z_centre {z_c:.1f} + height {height:.1f} / 2 at FS "
-                f"{x_vtail:.1f}). Enter vtail_root_waterline_z to state it.")
+            note = unit_text(
+                "vtail root waterline ", Quantity(z, "in"), " ASSUMED as the local "
+                "fuselage top (z_centre ", Quantity(z_c, "in"), " + height ",
+                Quantity(height, "in"), " / 2 at FS ", Quantity(x_vtail, "in"),
+                "). Enter vtail_root_waterline_z to state it.")
             if centreline.assumed and centreline.note:
                 note += " " + centreline.note
             return VtailRoot(z, True, "fuselage-top", note)
     if layout.root_waterline_z or layout.fuselage_height:
         z = layout.root_waterline_z + layout.fuselage_height / 2.0
-        return VtailRoot(z, True, "fuselage-top", (
-            f"vtail root waterline {z:.1f} in ASSUMED as the fuselage top "
-            f"(root_waterline_z {layout.root_waterline_z:.1f} + fuselage_height "
-            f"{layout.fuselage_height:.1f} / 2) -- with no fuselage outline the "
+        return VtailRoot(z, True, "fuselage-top", unit_text(
+            "vtail root waterline ", Quantity(z, "in"), " ASSUMED as the fuselage "
+            "top (root_waterline_z ", Quantity(layout.root_waterline_z, "in"),
+            " + fuselage_height ", Quantity(layout.fuselage_height, "in"),
+            " / 2) -- with no fuselage outline the "
             "WING root stands in for the body centreline. Enter "
             "vtail_root_waterline_z or a fuselage outline to state it."))
-    return VtailRoot(0.0, True, "none", _VTAIL_ROOT_UNKNOWN)
+    return VtailRoot(0.0, True, "none", unit_text(_VTAIL_ROOT_UNKNOWN))
 
 
 #: What a fin with no vertical placement at all owes its consumer. Loud, because
@@ -873,7 +877,7 @@ class HTailWaterline:
     z: float
     assumed: bool
     basis: str
-    note: str = ""
+    note: UnitText = NO_TEXT
 
 
 def h_tail_waterline(project: Project,
@@ -937,23 +941,24 @@ def h_tail_waterline(project: Project,
     if (layout is not None and vtail is not None and vtail.span > 0
             and layout.tail_type == TailType.T_TAIL):
         z = vtail.root_z + vtail.span
-        note = (f"h-tail waterline {z:.1f} in is the fin tip the horizontal "
-                "surface sits on (fin root + fin span, from the fin-root owner).")
+        note = unit_text("h-tail waterline ", Quantity(z, "in"), " is the fin tip "
+                         "the horizontal surface sits on (fin root + fin span, "
+                         "from the fin-root owner).")
         if layout.h_tail_z:
             entered = layout.root_waterline_z + layout.h_tail_z
             if abs(entered - z) > PLANFORM_TOLERANCE * vtail.span:
-                note += (f" The entered h_tail_z implies waterline "
-                         f"{entered:.1f} in and is NOT USED: a declared T-tail "
-                         "sits on its fin, and the two spellings disagree by "
-                         f"{abs(entered - z):.1f} in. Clear h_tail_z, or fix "
-                         "the fin geometry it contradicts.")
+                note += unit_text(
+                    " The entered h_tail_z implies waterline ", Quantity(entered, "in"),
+                    " and is NOT USED: a declared T-tail sits on its fin, and the "
+                    "two spellings disagree by ", Quantity(abs(entered - z), "in"),
+                    ". Clear h_tail_z, or fix the fin geometry it contradicts.")
         return HTailWaterline(z, vtail.root_z_assumed, "fin-tip", note)
     if (layout is not None and vtail is not None and vtail.span > 0
             and layout.tail_type == TailType.CRUCIFORM
             and not layout.h_tail_z):
         z = vtail.root_z + vtail.span / 2.0
-        return HTailWaterline(z, True, "mid-fin", (
-            f"h-tail waterline {z:.1f} in ASSUMED as the mid-fin point the "
+        return HTailWaterline(z, True, "mid-fin", unit_text(
+            "h-tail waterline ", Quantity(z, "in"), " ASSUMED as the mid-fin point the "
             "three-view draws a defaulted cruciform at. Enter h_tail_z to "
             "state it."))
     if layout is not None and layout.h_tail_z:
@@ -968,14 +973,14 @@ def h_tail_waterline(project: Project,
         z = dist.cg("z", MassComponent.HTAIL)
         names = ", ".join(it.name for it in
                           dist.by_component.get(MassComponent.HTAIL, []))
-        return HTailWaterline(z, True, "mass-item", (
-            f"h-tail waterline {z:.1f} in ASSUMED as the h-tail mass items' "
-            f"weight-weighted z ({names}) -- h_tail_z is not entered, and a "
+        return HTailWaterline(z, True, "mass-item", unit_text(
+            "h-tail waterline ", Quantity(z, "in"), " ASSUMED as the h-tail mass "
+            f"items' weight-weighted z ({names}) -- h_tail_z is not entered, and a "
             "mass station is not a surface definition. Enter h_tail_z to "
             "state it."))
     z = layout.root_waterline_z if layout is not None else 0.0
-    return HTailWaterline(z, True, "wing-root", (
-        f"h-tail waterline {z:.1f} in ASSUMED as the wing-root reference plane "
+    return HTailWaterline(z, True, "wing-root", unit_text(
+        "h-tail waterline ", Quantity(z, "in"), " ASSUMED as the wing-root reference plane "
         "-- h_tail_z is not entered, so this is not the surface's true "
         "waterline. No delivered load depends on it (the h-tail loads in fz "
         "only); it places the load stations and the exported GRIDs. Enter "
@@ -1056,12 +1061,12 @@ def resolve_tail_planform(project: Project,
     full_span = 2.0 * span_in if component == HTAIL else span_in
     chord = area_in2 / full_span
     x_le = x25 - 0.25 * chord
-    notes = [
-        f"{component} planform DERIVED as a rectangle (chord {chord:.2f} in) from "
-        f"the area/span scalars -- no '{component}' entry in geometry.surfaces. "
+    notes = [unit_text(
+        f"{component} planform DERIVED as a rectangle (chord ", Quantity(chord, "in"),
+        f") from the area/span scalars -- no '{component}' entry in geometry.surfaces. "
         "First-order: a tapered surface carries its load further inboard, so root "
         "bending here is conservative but the station distribution is not the "
-        "surface's own."
+        "surface's own.")
     ]
     notes += root_notes
     return TailPlanform(

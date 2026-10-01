@@ -69,7 +69,7 @@ from ..mass_distribution import (
     derive_case_loadings,
 )
 from ..models import MassItem, Project
-from ..units import DeliverableUnits, UnitSystem
+from ..units import DeliverableUnits, Quantity, UnitSystem, unit_text
 from .bands import band
 from .coordinates import SBEAM_CID, to_grid
 from .deck_format import fmt, fmt3, sf_str, solver_units, stamped
@@ -391,16 +391,24 @@ def mass_case_rows(project: Project) -> List[Dict[str, object]]:
 
 
 def _massset_block(cards: Sequence[MassCard], loadings: Sequence[CaseLoading],
-                   index: int) -> List[str]:
+                   index: int, system: UnitSystem) -> List[str]:
     loading = loadings[index]
     sid, label = massset_identity(loadings, index)
     eids = _overlay_eids(cards, loading, index)
+    # The caption is prose, so its numbers are stated in the deck's own system
+    # (#338) -- the case name before the colon is an identifier and is not.
+    caption = unit_text(
+        f"{loading.name}: ", Quantity(loading.weight_lb, "lb", "mass"), " at x ",
+        Quantity(loading.cg_x, "in"), ", z ", Quantity(loading.cg_z, "in"))
+    if loading.ballast is not None:
+        caption += unit_text(
+            "; ballast ", Quantity(loading.ballast.weight_lb, "lb", "mass"), " (",
+            Quantity(loading.ballast_fraction * 100, "%"), ") at x ",
+            Quantity(loading.ballast.x, "in"))
+    else:
+        caption += "; no ballast"
     lines = [
-        f"$ {loading.name}: {loading.weight_lb:.0f} lb at "
-        f"x {loading.cg_x:.2f} in, z {loading.cg_z:.2f} in"
-        + (f"; ballast {loading.ballast.weight_lb:.0f} lb "
-           f"({loading.ballast_fraction * 100:.1f} %) at x {loading.ballast.x:.1f}"
-           if loading.ballast is not None else "; no ballast"),
+        "$ " + caption.render(system),
         f"MASSSET, {sid}, {label}, 1.0",
     ]
     # ADD rows carry up to 7 EIDs each (sbeam's reader).
@@ -424,7 +432,8 @@ def _header(project: Project, u: DeliverableUnits, cards: Sequence[MassCard]) ->
         "$ each case ADDs the discretionary items and ballast it carries).",
         f"$ Mass in {u.mass.label}; inertia in {u.mass_inertia.label}; "
         f"grid coordinates in {u.length.label}.",
-        f"$ Baseline (empty + minimum flight weight): {total:.0f} lb.",
+        "$ Baseline (empty + minimum flight weight): "
+        + unit_text(Quantity(total, "lb", "mass"), ".").render(u.system),
         "$",
         "$ DO NOT apply this set together with the FORCE/MOMENT load deck: those",
         "$ cards are the TOTAL applied load and already contain inertia. Using",
@@ -492,7 +501,7 @@ def conm2_fragment(project: Project, *,
     out += ["$ ------------------------------------------------------- OVERLAY (per case)"]
     out += [_conm2_line(c, u) for c in cards if c.overlay]
     for i in range(len(loadings)):
-        out += ["$"] + _massset_block(cards, loadings, i)
+        out += ["$"] + _massset_block(cards, loadings, i, u.system)
     return stamped(header_comment, "\n".join(out) + "\n")
 
 

@@ -46,6 +46,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import pytest
 
 from sloads import io
+from sloads.units import UnitSystem
 from sloads.derived_geometry import carry_through
 from sloads.export.lra_model import build_lra_model, lra_model_bdf
 from sloads.joints import (
@@ -400,9 +401,9 @@ def test_the_assumed_grade_survives_into_the_register_and_the_deck(name):
         assert joint.assumed == ct.assumed, name
         assert joint.basis == (SPAR_ESTIMATOR if ct.assumed else SPAR_ENTERED)
         if ct.assumed:
-            assert joint.note and joint.note in _deck_prose(deck), name
+            assert joint.note and joint.note.render(UnitSystem.IMPERIAL) in _deck_prose(deck), name
         else:
-            assert joint.note == "", name
+            assert not joint.note, name
 
 
 def test_entered_spar_stations_flip_the_grade_and_drop_the_note():
@@ -430,7 +431,7 @@ def test_entered_spar_stations_flip_the_grade_and_drop_the_note():
     for joint in posts:
         assert joint.assumed is False
         assert joint.basis == SPAR_ENTERED
-        assert joint.note == ""
+        assert not joint.note
     assert [j.location[0] for j in posts if j.side == "F"] == [70.0]
     assert [j.location[0] for j in posts if j.side == "A"] == [110.0]
     # The sentence is gone from the deliverable, not merely from the flag.
@@ -444,7 +445,7 @@ def test_entered_spar_stations_flip_the_grade_and_drop_the_note():
 #: lookahead cannot pass by backtracking into ``78.8/112.4 in`` to ``78.8/112.``.
 _BARE_COORDINATE = re.compile(
     r"\b(?:BL|FS|waterline|stations?)\s+"
-    r"(?=(-?\d+(?:\.\d+)?(?:/-?\d+(?:\.\d+)?)?))\1(?!\s+in\b)")
+    r"(?=(-?\d+(?:\.\d+)?(?:/-?\d+(?:\.\d+)?)?))\1(?!\s+(?:in|mm)\b)")  # a unit after it, either system (#338)
 
 
 @pytest.mark.parametrize("example", sorted(
@@ -454,7 +455,8 @@ def test_every_assumed_coordinate_states_its_unit_in_the_si_deck(example):
     that grades the joint, and printed unchanged into the mm deck -- where
     "BL 21.00" and "fuselage stations 78.8/112.4" read as millimetres. Every
     coordinate in them now carries its unit, so the sentence is right in
-    either deck."""
+    either deck. **#338** went the rest of the way: the sentence is a
+    ``UnitText``, so the SI deck states it in millimetres."""
     from sloads.export.lra_model import LraRefusal
     from sloads.units import UnitSystem
 
@@ -465,8 +467,9 @@ def test_every_assumed_coordinate_states_its_unit_in_the_si_deck(example):
         pytest.skip(f"{example}: no LRA model")
     prose = _deck_prose(lra_model_bdf(project, system=UnitSystem.SI))
     for note in model.assumed_notes:
-        assert " ".join(note.split()) in prose, note
-        assert not _BARE_COORDINATE.search(note), note
+        text = note.render(UnitSystem.SI)
+        assert " ".join(text.split()) in prose, text
+        assert not _BARE_COORDINATE.search(text), text
     # the pattern itself: the pre-#303 wording is caught, the unit is not
     assert _BARE_COORDINATE.search("side of body ASSUMED at BL 21.00 -- half")
     assert _BARE_COORDINATE.search("the spar grids sit at fuselage stations 78.8/112.4. Enter")

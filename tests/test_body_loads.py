@@ -225,15 +225,26 @@ def test_a_project_with_no_side_of_body_reacts_the_wing_at_an_assumed_station():
     with the register's sentence carried on every result; the LRA model still
     refuses such a project, since it has no SOB joint to start the wing at."""
     from sloads.export.lra_model import LraRefusal, build_lra_model
-    from sloads.joints import WING_STATION_CENTRELINE, JointName, joints, wing_lra_point
+    from sloads.joints import (
+        WING_STATION_CENTRELINE,
+        WING_STATION_CENTRELINE_REASON,
+        JointName,
+        joints,
+        wing_lra_point,
+    )
+    from sloads.units import UnitSystem
 
     p = io.load_project(os.path.join(_EXAMPLES, "concept_heavy.project.json"))
     station = wing_station(p)
     assert station.refused is None and station.assumed
     assert station.x == pytest.approx(wing_lra_point(p, 0.0)[0])
     post = joints(p).one(JointName.WING_POST)
-    assert post.basis == WING_STATION_CENTRELINE and post.note == station.note
-    assert "wing station ASSUMED" in station.note and "sob_y_in" in station.note
+    # The register's sentence states the station; the clause the body result
+    # persists is the same reason with no number in it (#338 D2).
+    assert post.basis == WING_STATION_CENTRELINE
+    assert post.note.render(UnitSystem.IMPERIAL).endswith(station.note)
+    assert station.note == WING_STATION_CENTRELINE_REASON and "sob_y_in" in station.note
+    assert "wing station ASSUMED at FS" in post.note.render(UnitSystem.IMPERIAL)
     results = body_loads.build_body_loads(p)
     assert results and all(r.wing_station_note == station.note for r in results)
     assert all(r.x_wing == station.x for r in results)

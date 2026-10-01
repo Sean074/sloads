@@ -54,6 +54,16 @@ _TAIL_COVERAGE = {
 }
 
 
+
+def _imp(note):
+    """A provenance note as Imperial text (it is a ``UnitText`` since #338)."""
+    from sloads.units import UnitSystem
+    return note.render(UnitSystem.IMPERIAL)
+
+
+def _imps(notes):
+    return [_imp(n) for n in notes]
+
 def _project(example: str):
     return io.load_project(os.path.join(_ROOT, "examples", example))
 
@@ -167,7 +177,7 @@ def test_a_derived_planform_says_so(example):
         planform = resolve_tail_planform(project, component)
         if planform is None or not planform.assumed:
             continue
-        assert planform.notes and "DERIVED" in planform.notes[0]
+        assert planform.notes and "DERIVED" in _imp(planform.notes[0])
 
 
 def test_the_rectangle_centroid_is_half_span():
@@ -426,7 +436,7 @@ def test_no_fixture_places_its_fin_twice(example):
     project = _project(example)
     root = vtail_root(project)
     assert root.basis == "geometry" and not root.assumed, example
-    assert not root.note, f"{example}: {root.note}"
+    assert not _imp(root.note), f"{example}: {_imp(root.note)}"
 
 
 @pytest.mark.parametrize("example", sorted(_FIN_ROOT))
@@ -473,7 +483,7 @@ def test_the_fin_polyline_leads_the_explicit_scalar_and_says_what_it_ignored():
     root = vtail_root(project)
     assert root.z == pytest.approx(111.5)          # the polyline's own root
     assert not root.assumed and root.basis == "geometry"
-    assert "101.5" in root.note and "NOT USED" in root.note
+    assert "101.5" in _imp(root.note) and "NOT USED" in _imp(root.note)
     # Within tolerance it is the same measurement twice, and says nothing.
     project.vtail_loads.vtail_root_waterline_z = 111.4
     assert not vtail_root(project).note
@@ -492,7 +502,7 @@ def test_an_entered_fin_root_wins_and_is_not_assumed():
     planform = resolve_tail_planform(project, VTAIL)
     assert planform.root_z == pytest.approx(101.5)
     assert not planform.root_z_assumed and planform.root_z_basis == "entered"
-    assert not any("ASSUMED" in n for n in planform.notes)
+    assert not any("ASSUMED" in n for n in _imps(planform.notes))
 
 
 def test_the_t_tail_branch_puts_the_fin_tip_at_the_horizontal_tail():
@@ -525,7 +535,7 @@ def test_the_outline_branch_states_its_datum_and_a_pointed_cone_falls_through():
                                  if s.name != VTAIL]
     project.geometry.parametric.h_tail_z = 0.0   # entered since #260; the T-tail branch would fire first
     planform = resolve_tail_planform(project, VTAIL)
-    note = next(n for n in planform.notes if "local fuselage top" in n)
+    note = next(n for n in _imps(planform.notes) if "local fuselage top" in n)
     assert "z_centre" in note and "fuselage centre line ASSUMED" in note
 
     # Pinch the outline: zero height everywhere aft of the nose section.
@@ -537,7 +547,7 @@ def test_the_outline_branch_states_its_datum_and_a_pointed_cone_falls_through():
     layout = project.geometry.parametric
     assert fallback.root_z == pytest.approx(
         layout.root_waterline_z + layout.fuselage_height / 2.0)
-    assert any("WING root stands in" in n for n in fallback.notes)
+    assert any("WING root stands in" in n for n in _imps(fallback.notes))
 
 
 def test_a_fin_with_no_placement_at_all_says_so_loudly():
@@ -552,7 +562,7 @@ def test_a_fin_with_no_placement_at_all_says_so_loudly():
     project.geometry.parametric.fuselage_height = 0.0
     planform = resolve_tail_planform(project, VTAIL)
     assert planform.root_z == 0.0 and planform.root_z_basis == "none"
-    assert any("wrong in sign" in n for n in planform.notes)
+    assert any("wrong in sign" in n for n in _imps(planform.notes))
 
 
 @pytest.mark.parametrize("example", sorted(_FIN_ROOT))
@@ -599,7 +609,7 @@ def test_the_htail_waterline_owner_reads_the_mass_items(example, z):
     resolved = h_tail_waterline(_project(example))
     assert resolved.z == pytest.approx(z)
     assert resolved.assumed is True and resolved.basis == "mass-item"
-    assert "ASSUMED" in resolved.note and "h_tail_z" in resolved.note
+    assert "ASSUMED" in _imp(resolved.note) and "h_tail_z" in _imp(resolved.note)
 
 
 def test_the_htail_waterline_owner_assumes_the_wing_root_plane_last():
@@ -614,7 +624,7 @@ def test_the_htail_waterline_owner_assumes_the_wing_root_plane_last():
     resolved = h_tail_waterline(project)
     assert resolved.z == pytest.approx(100.0)
     assert resolved.assumed is True and resolved.basis == "wing-root"
-    assert "ASSUMED" in resolved.note and "h_tail_z" in resolved.note
+    assert "ASSUMED" in _imp(resolved.note) and "h_tail_z" in _imp(resolved.note)
 
 
 def test_the_htail_waterline_owner_puts_a_t_tail_on_the_fin_tip():
@@ -637,7 +647,7 @@ def test_a_t_tail_h_tail_z_that_contradicts_the_fin_is_named_not_used():
     resolved = h_tail_waterline(project)
     assert resolved.z == pytest.approx(316.2)
     assert resolved.basis == "fin-tip"
-    assert "NOT USED" in resolved.note and "h_tail_z" in resolved.note
+    assert "NOT USED" in _imp(resolved.note) and "h_tail_z" in _imp(resolved.note)
 
 
 def test_a_t_tail_h_tail_z_that_agrees_with_the_fin_raises_no_flag():
@@ -646,7 +656,7 @@ def test_a_t_tail_h_tail_z_that_agrees_with_the_fin_raises_no_flag():
     resolved = h_tail_waterline(_project("concept_regional_jet.project.json"))
     assert resolved.z == pytest.approx(225.0)
     assert resolved.basis == "fin-tip"
-    assert "NOT USED" not in resolved.note
+    assert "NOT USED" not in _imp(resolved.note)
 
 
 @pytest.mark.parametrize("example", ["ga6_normal.project.json",

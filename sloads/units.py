@@ -15,9 +15,9 @@ from __future__ import annotations
 
 import math
 import re
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from enum import Enum
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple
+from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Tuple
 
 from .models import ConditionResult, EngineInput, LoadValue
 
@@ -1267,3 +1267,194 @@ def canonical(value: float) -> float:
     boundary, which no quantization removes and no deliverable distinguishes.
     """
     return float(f"{value:.{CANONICAL_SIG}g}")
+
+
+# --------------------------------------------------------------------------- #
+# The delivered-precision formatter (design note 65), moved here from
+# ``report/render.py`` at #338 so calc-side text can reach it without importing
+# the report layer; ``report.render`` re-exports both names unchanged.
+# --------------------------------------------------------------------------- #
+class NonFiniteValue(Exception):
+    """A NaN or an infinity reached a delivered cell (#303).
+
+    No delivered quantity has one: it is an upstream defect (a lookup that
+    found nothing, a division by zero), and printing ``nan`` or ``inf`` would
+    ship it. Raised by :func:`format_value`, never caught by a renderer.
+
+    **Deliberately not a** :class:`ValueError` (#316). The report and package
+    paths turn a missing input into a stated absence by catching
+    :class:`~sloads.models.MissingInputError`, and a good many catch a plain
+    ``ValueError`` for a geometry the calc declines; as a ``ValueError``
+    subclass this was caught by every one of them, and a NaN became an empty
+    section or a file missing from the package. Derived from ``Exception``, it
+    passes every narrowed handler, and the handler that could still catch it
+    (``except Exception``, a bare ``except``) is refused everywhere in
+    ``sloads/`` by ``tests/test_report_absence.py``. It is not in
+    :data:`sloads.models.REFUSALS` and subclasses neither member.
+    """
+
+
+
+def format_value(value: float, units: str = "") -> str:
+    """Format one numeric cell for a table, a CSV or the text report.
+
+    Public since G8.1 (it was ``_fmt``; ``tests/test_results_review.py``
+    imported it across the module boundary, which the M4-12b public-symbol
+    contract makes a defect rather than a shortcut).
+
+    **The rule is the unit's, not the caller's** (design note 65). ``units`` is
+    the Imperial unit string the value carries -- ``lv.units``, or the
+    ``content.py`` dimension label -- and :func:`sloads.units.delivered_precision`
+    says what it prints at: a fixed decimal count (a load to the pound, a
+    station to 0.1 in, an angle to 0.01 deg), or four significant figures for
+    a dimensionless quantity. Neither branch ever switches to exponent form
+    inside the delivered window (below 1e-4 or at 1e9 and above nothing
+    sloads delivers lives, and there the plain spelling would be worse), and
+    a significant trailing zero is kept, so two cells of one column read at
+    one precision. A non-zero fixed-decimal cell smaller than one unit of its
+    row's last decimal falls to the significant-figure rule (D-65.3 as
+    amended): a 0.3 lb-in moment prints ``0.3000`` and a 0.7 lb load
+    ``0.7000``, where rounding at the row would print ``0`` or ``1``. An ``int`` with no fixed-decimal row
+    prints as itself (a count, a case number); one with a row prints at the
+    row, so a typed ``170`` kt and a loaded ``170.0`` are one cell.
+
+    **Quantized first, because a printed byte may not hang on the last ulp**
+    (``CONVENTIONS.md`` §7 "platform-stable deliverable bytes", #147):
+    ``units.canonical`` rounds to twelve significant figures before anything
+    is formatted, so a platform's last-ulp disagreement in ``sin``/``cos``
+    cannot move a rounding tie. Before note 65 the function had two far-apart
+    spellings (an integral value in full, everything else ``%.4g``) and the
+    quantization was what kept ``-687258.0`` and ``-687257.9999999999`` on the
+    same side of that cliff; the cliff is gone and the quantization stays.
+
+    **A NaN or an infinity is refused** with :class:`NonFiniteValue` naming the
+    unit, rather than printed as ``nan``/``inf`` or failing inside the
+    quantization (#303).
+    """
+    decimals = delivered_precision(units)
+    if isinstance(value, int) and not isinstance(value, bool) and decimals is None:
+        return str(value)            # a count, a case number
+    if not math.isfinite(value):
+        raise NonFiniteValue(f"a delivered {units or 'dimensionless'} cell is {value!r}")
+    value = canonical(float(value))
+    if value == 0.0:
+        return "0" if decimals is None else f"{0.0:.{decimals}f}"  # note 65 exempt: the owner
+    if decimals is not None and abs(value) >= 10.0 ** (DELIVERED_FLOOR_SIG - 1 - decimals):
+        return f"{value:.{decimals}f}"  # note 65 exempt: the owner
+    return _significant(value)
+
+
+def _significant(value: float) -> str:
+    """``value`` at :data:`DELIVERED_SIG` significant figures, plain decimal
+    with trailing zeros kept; exponent form only outside the delivered window."""
+    magnitude = abs(value)
+    if magnitude < 1e-4 or magnitude >= 1e9:
+        return f"{value:.{DELIVERED_SIG - 1}e}"  # note 65 exempt: the owner
+    exponent = math.floor(math.log10(magnitude))
+    decimals = max(DELIVERED_SIG - 1 - exponent, 0)
+    text = f"{value:.{decimals}f}"  # note 65 exempt: the owner
+    # rounding can carry into a new digit (9.9995 -> "10.000"): re-derive once
+    if abs(float(text)) >= 10.0 ** (exponent + 1) and decimals > 0:
+        text = f"{value:.{decimals - 1}f}"  # note 65 exempt: the owner
+    return text
+
+
+# --------------------------------------------------------------------------- #
+# Text that carries a number (#338)
+# --------------------------------------------------------------------------- #
+class Quantity(NamedTuple):
+    """One number inside a :class:`UnitText`: the canonical Imperial value, the
+    Imperial unit string a ``LoadValue`` would carry (``"in"``, ``"lb"``,
+    ``"lb-in"``, ...), and the ``quantity`` hint that tells a weight (``"mass"``,
+    lb -> kg) from a force (lb -> N), exactly as :func:`convert_results` reads it."""
+
+    value: float
+    units: str
+    quantity: str = ""
+
+
+@dataclass(frozen=True)
+class UnitText:
+    """A sentence whose numbers are rendered in the channel it is written to (#338).
+
+    **The one owner of a calc-side sentence that states a number.** A calc
+    builder has no unit system -- a provenance note is resolved once and
+    written into an Imperial deck, an SI deck and a document alike -- so a
+    number formatted into a string at build time could never follow the
+    channel: :func:`convert_results` converts values, never text, and before
+    #338 an SI deck said "side of body ASSUMED at BL 23.00 in" beside GRIDs in
+    mm. Here the number stays a :class:`Quantity` until :meth:`render`, which
+    converts it through the same tables a ``LoadValue`` goes through and prints
+    it through :func:`format_value` at its unit's precision (design note 65).
+
+    Build one with :func:`unit_text`. **There is no implicit ``str()``**: a
+    consumer says which system it is writing (``render(system)``), so a note
+    cannot reach an SI artifact in Imperial by being formatted into an f-string.
+    ``+`` joins two (or a ``UnitText`` and a plain string) without rendering.
+    """
+
+    template: str = ""
+    quantities: Tuple[Quantity, ...] = ()
+
+    def render(self, system: "UnitSystem") -> str:
+        """The sentence with every quantity in ``system`` (airspeed and altitude
+        stay aviation-standard, as everywhere)."""
+        return self.template.format(*(_say(q, system) for q in self.quantities))
+
+    def __bool__(self) -> bool:
+        return bool(self.template)
+
+    def __str__(self) -> str:
+        raise TypeError(
+            "a UnitText has no implicit text: render it in the system being "
+            "written (UnitText.render(system), #338)")
+
+    def __add__(self, other: "UnitText | str") -> "UnitText":
+        if isinstance(other, str):
+            other = unit_text(other)
+        if not isinstance(other, UnitText):
+            return NotImplemented
+        return UnitText(self.template + other.template, self.quantities + other.quantities)
+
+    def __radd__(self, other: str) -> "UnitText":
+        if isinstance(other, str):
+            return unit_text(other) + self
+        return NotImplemented
+
+    @classmethod
+    def join(cls, sep: str, parts: "Sequence[UnitText]") -> "UnitText":
+        """``sep.join`` for sentences, keeping every quantity live."""
+        out = cls()
+        for i, part in enumerate(parts):
+            out = out + (sep if i else "") + part
+        return out
+
+
+def unit_text(*parts: "str | Quantity") -> UnitText:
+    """A :class:`UnitText` from prose and quantities in reading order::
+
+        unit_text("side of body ASSUMED at BL ", Quantity(y, "in"), ".")
+    """
+    template, quantities = [], []
+    for part in parts:
+        if isinstance(part, Quantity):
+            template.append("{}")
+            quantities.append(part)
+        else:
+            template.append(part.replace("{", "{{").replace("}", "}}"))
+    return UnitText("".join(template), tuple(quantities))
+
+
+def _say(q: Quantity, system: "UnitSystem") -> str:
+    """One quantity, converted and printed with its label."""
+    value, label = q.value, q.units
+    if system == UnitSystem.SI:
+        conv = (_SI_BY_QUANTITY.get(q.quantity) if q.quantity else None) or _RESULT_TO_SI.get(q.units)
+        if conv is not None:
+            value, label = value * conv[0], conv[1]
+    number = format_value(value, label)
+    return f"{number} {label}" if label else number
+
+
+#: The empty sentence: the default ``note`` of every provenance record.
+NO_TEXT = UnitText()
