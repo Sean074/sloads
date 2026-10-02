@@ -580,7 +580,7 @@ def mass_check_deck(project: Project, *,
         head += [
             f"SUBCASE {_MASSSET_BAND.allocate(i)}",
             f"  LABEL = {loading.name}",
-            f"  TITLE = mass check, Nz={nz:g} (SF={sf_str(1.0)}, no load cards)",
+            f"  TITLE = mass check, Nz={nz:g} (SF={sf_str(1.0)}, no load cards)",  # note 65 exempt: solver channel
             f"  MASSSET = {_MASSSET_BAND.allocate(i)}",
             f"  LOAD = {_GRAV_BAND.allocate(i)}",
             "$",
@@ -595,7 +595,7 @@ def mass_check_deck(project: Project, *,
     # The SPC1 went with it -- there is nothing to constrain.
     bulk: List[str] = [
         "$ ------------------------------------------------------ ACCELERATION",
-        f"$ GRAV carries Nz x g = {nz:g} x {g:.4f} = {nz * g:.4f} "
+        f"$ GRAV carries Nz x g = {nz:g} x {g:.4f} = {nz * g:.4f} "  # note 65 exempt: solver channel
         f"{u.length.label}/s^2, down (-z).",
         "$ Translational only: sbeam has no RFORCE, so pitch/yaw angular",
         "$ acceleration inertia is NOT recoverable from this set and stays",

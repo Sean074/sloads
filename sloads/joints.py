@@ -65,7 +65,7 @@ from .models import Project
 from .modules.tail_span import ATTACH_STRIP_PAIR, ATTACH_VTAIL_TIP, htail_attachment
 from .modules.wing_geometry import chord_fraction_x
 from .tail_geometry import HTAIL, VTAIL, h_tail_waterline, resolve_tail_planform
-from .units import NO_TEXT, Quantity, UnitText, unit_text
+from .units import NO_TEXT, Quantity, UnitText, format_value, unit_text
 
 Vec3 = Tuple[float, float, float]
 
@@ -415,10 +415,10 @@ def _wing_joints(project: Project, joints: List[Joint],
         post_grid = (x_w, 0.0, lra.z_at(x_w))
         if not (ct.x_f < x_w < ct.x_r):
             refusals.append(Refusal(JointName.WING_POST, (
-                f"the wing station FS {x_w:.1f} -- the side of body's own "
+                f"the wing station FS {format_value(x_w, 'in')} -- the side of body's own "
                 "fuselage station, where the wing post stands (note 64 "
-                f"D-64.3) -- is not between the front spar FS {ct.x_f:.1f} "
-                f"and the rear spar FS {ct.x_r:.1f}. Enter spar stations "
+                f"D-64.3) -- is not between the front spar FS {format_value(ct.x_f, 'in')} "
+                f"and the rear spar FS {format_value(ct.x_r, 'in')}. Enter spar stations "
                 "that bracket the wing, or a side of body that lies between "
                 "them")))
             post_grid = None

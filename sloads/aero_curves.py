@@ -333,7 +333,7 @@ def _points_of(env: EnvelopeResult, config_name: str) -> List[VnPoint]:
 
 
 def _label(p: VnPoint) -> str:
-    return f"{p.condition} / {p.cg} / {p.altitude_ft:,.0f} ft"
+    return f"{p.condition} / {p.cg} / {p.altitude_ft:,.0f} ft"  # note 65 exempt: an identifier, as the run key
 
 
 def operating_points(env: EnvelopeResult, config_name: str, *,

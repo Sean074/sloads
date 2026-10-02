@@ -51,6 +51,7 @@ from sloads.units import (
     Channel,
     UnitSystem,
     deliverable_units,
+    format_value,
 )
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -354,7 +355,7 @@ def test_an_entered_ballast_is_not_gated_by_the_credibility_fraction():
     fraction = 500.0 / ld.weight_lb
     assert fraction > md.BALLAST_CREDIBLE_FRACTION       # a solved one would be refused
     assert ld.derivable and ld.ballast_fraction == pytest.approx(fraction)
-    assert "entered ballast" in ld.note and f"{fraction * 100:.0f} %" in ld.note
+    assert "entered ballast" in ld.note and f"{format_value(fraction * 100, '%')} %" in ld.note
 
 
 @pytest.mark.parametrize("loading, message", [

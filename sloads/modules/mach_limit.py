@@ -115,7 +115,7 @@ def mach_limit_lines(inp: MachLimitInput, mc: float, md: float,
         a, sigma = standard_atmosphere(h)
         rs = math.sqrt(sigma)
         results.append(ConditionResult(
-            title=f"Mach limit line at {h:g} ft",
+            title=f"Mach limit line at {h:g} ft",  # note 65 exempt: an identifier (a line is looked up by it)
             far_reference=_FAR,
             values=[
                 LoadValue("Altitude", h, "ft", key="altitude"),

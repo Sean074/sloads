@@ -817,7 +817,7 @@ def test_below_energy_caution_fires_below_the_energy_value_not_above():
     lowered = copy.deepcopy(ga6)
     lowered.landing.airplane_load_factor = 2.90
     caution = below_energy_caution(lowered)
-    assert caution is not None and "2.9000" in caution and "3.0970" in caution
+    assert caution is not None and "N = 2.90 " in caution and "N = 3.10" in caution   # the g row (#312)
 
 
 def test_the_lift_factor_caption_has_one_owner_and_the_page_consumes_it():

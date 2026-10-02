@@ -124,7 +124,8 @@ class WingVariant:
     @property
     def run_key(self) -> str:
         """The D-63.11 run key, the same text ``CaseRef.run_key`` prints."""
-        return f"{self.run}, {self.cg or '--'}, {self.altitude_ft:.0f} ft, {self.config or '--'}"
+        return (f"{self.run}, {self.cg or '--'}, {self.altitude_ft:.0f} ft, "  # note 65 exempt: an identifier
+                f"{self.config or '--'}")
 
 
 @dataclass

@@ -30,6 +30,7 @@ from ...models import (
     WingLoadCase,
 )
 from ...tail_geometry import HTAIL, VTAIL
+from ...units import format_value
 from ..rolling import complete_rolling_case
 from ..select import default_critical, default_envelope
 from ..tail_span import build_tail_span
@@ -148,8 +149,8 @@ def assemble(project: Project, condition: str, vn: VnPoint,
         applied_ht = math.fsum(ld.fz for ld in htail)
         notes.append(
             f"UNSYMMETRICAL (FAR 23.427(a)): the applied tail load is SELECT's "
-            f"own left/right split, {applied_ht:+.0f} lb, and it REPLACES the "
-            f"trim tail load {vn.lt:+.0f} lb this V-n point balances at. The "
+            f"own left/right split, {format_value(applied_ht, 'lb', signed=True)} lb, and it REPLACES the "
+            f"trim tail load {format_value(vn.lt, 'lb', signed=True)} lb this V-n point balances at. The "
             f"difference is the maneuver -- 23.427(a) distributes a maneuver "
             f"tail load, and the airplane is not in trim under it -- so the "
             f"pre-closure Fz and My are that difference in full and are NOT a "
@@ -193,7 +194,7 @@ def assemble(project: Project, condition: str, vn: VnPoint,
     if unb:
         loads.append(BalancedLoad(x=wr.xw, y=0.0, z=wr.zw, mx=-unb,
                                   source="aileron-roll", side="C"))
-        notes.append(f"aileron rolling moment {-unb:+.0f} lb-in applied as a "
+        notes.append(f"aileron rolling moment {format_value(-unb, 'lb-in', signed=True)} lb-in applied as a "
                      f"lumped free couple: {AILERON_COUPLE_NOTE}")
 
     body_side_force = body_yaw_moment_ref = 0.0

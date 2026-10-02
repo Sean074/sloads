@@ -71,6 +71,7 @@ from ..models import (
     WingStationLoad,
 )
 from ..registry import register
+from ..units import format_value
 from .rolling import complete_rolling_case
 from .select import default_critical, default_envelope
 from .wing_geometry import interp_x
@@ -674,7 +675,7 @@ def run(project: Project) -> ModuleResult:
     for r in results:
         root = r.stations[0]
         conditions.append(ConditionResult(
-            title=f"Wing inertia loads: {r.case} (Nz={r.nz:g}, Nx={r.nx:g})",
+            title=f"Wing inertia loads: {r.case} (Nz={format_value(r.nz, 'g')}, Nx={format_value(r.nx, 'g')})",
             far_reference="23.301(b)",
             values=[
                 LoadValue("Root shear Sz", root.sz, "lb", key="root_shear_sz"),

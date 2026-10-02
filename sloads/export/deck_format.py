@@ -59,7 +59,7 @@ def fmt(val: float) -> str:
     prints two ways for one load. :func:`sloads.units.canonical` is the owner of
     that rule for every channel -- see it for the two cases that earned it.
     """
-    return f"{canonical(val):.6E}"
+    return f"{canonical(val):.6E}"  # note 65 exempt: solver channel
 
 
 def fmt3(x: float, y: float, z: float) -> str:
@@ -108,8 +108,8 @@ def sf_str(sf: float) -> str:
     """``SF`` as it appears on a deliverable: ``1.0``/``1.5``/``1.25`` — always
     with a decimal point (``SF=1`` reads poorly on an engineering document,
     M4-16)."""
-    s = f"{sf:g}"
-    return s if "." in s else f"{sf:.1f}"
+    s = f"{sf:g}"  # note 65 exempt: solver channel
+    return s if "." in s else f"{sf:.1f}"  # note 65 exempt: solver channel
 
 
 # --------------------------------------------------------------------------- #

@@ -53,6 +53,7 @@ from ..models import (
 )
 from ..models.enums import RotorDirection
 from ..registry import register
+from ..units import format_value
 
 # --------------------------------------------------------------------------- #
 # Derived / shared quantities
@@ -781,15 +782,13 @@ def condition_25_371(inp: EngineInput) -> ConditionResult:
     # reported moment is unchanged (advisory rates, not a re-derivation).
     exceed = []
     if inp.design_yaw_rate_rad_s is not None and inp.design_yaw_rate_rad_s > YAW_RATE:
-        exceed.append(
-            f"yaw {inp.design_yaw_rate_rad_s:g} > {YAW_RATE:g} rad/s "
-            f"(Myy x{inp.design_yaw_rate_rad_s / YAW_RATE:.2f})"
-        )
+        # The declared rate and 23.371(b)'s are echoed as entered/stated (rad/s has no row).
+        rates = f"yaw {inp.design_yaw_rate_rad_s:g} > {YAW_RATE:g} rad/s"  # note 65 exempt: an entered value's echo
+        exceed.append(f"{rates} (Myy x{format_value(inp.design_yaw_rate_rad_s / YAW_RATE)})")
     if inp.design_pitch_rate_rad_s is not None and inp.design_pitch_rate_rad_s > PITCH_RATE:
-        exceed.append(
-            f"pitch {inp.design_pitch_rate_rad_s:g} > {PITCH_RATE:g} rad/s "
-            f"(Mzz x{inp.design_pitch_rate_rad_s / PITCH_RATE:.2f})"
-        )
+        rates = (f"pitch {inp.design_pitch_rate_rad_s:g} > {PITCH_RATE:g} "  # note 65 exempt: an entered value's echo
+                 "rad/s")
+        exceed.append(f"{rates} (Mzz x{format_value(inp.design_pitch_rate_rad_s / PITCH_RATE)})")
     if exceed:
         note = (
             "WARNING -- gyroscopic loads UNDER-PREDICTED: declared concept rate(s) "

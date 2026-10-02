@@ -31,6 +31,7 @@ from ..cg_cases import flight_cases
 from ..derived_geometry import require_wing_reference, sync_geometry_derived
 from ..models import CgCase, ConditionResult, LoadValue, MissingInputError, ModuleResult, Project, VnPoint
 from ..registry import register
+from ..units import format_value
 from .select import default_envelope, effective_tail_inputs, elevator_load, flaps_by_config_name, htail_balance
 
 MODULE_NAME = "balloads"
@@ -90,7 +91,8 @@ def verify_balancing(project: Project) -> List[Dict[str, Any]]:
 def _condition(row: Dict[str, Any], note: str) -> ConditionResult:
     p: VnPoint = row["point"]
     return ConditionResult(
-        title=f"Balanced tail load {p.condition} (case {p.case}, {p.cg}, {p.altitude_ft:.0f} ft)",
+        title=(f"Balanced tail load {p.condition} (case {p.case}, {p.cg}, "
+               f"{format_value(p.altitude_ft, 'ft')} ft)"),
         far_reference="23.421",
         values=[
             LoadValue("Total balancing load LT", row["LT"], "lb", key="total_balancing_load_lt"),

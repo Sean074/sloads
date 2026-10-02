@@ -135,7 +135,7 @@ def _node_key(load: BalancedLoad) -> Tuple[str, float, float, float]:
     relief and its pitch relief -- and they must share one node or the deck grows
     three coincident grids per item.
     """
-    return (load.side, round(load.x, 6), round(load.y, 6), round(load.z, 6))
+    return (load.side, round(load.x, 6), round(load.y, 6), round(load.z, 6))  # note 65 exempt: arithmetic, not text
 
 
 def deck_nodes(cases: Sequence[BalancedCaseResult],
@@ -301,7 +301,7 @@ def _header(case: BalancedCaseResult, u: DeliverableUnits) -> List[str]:
     d_nx, d_ny, d_n = _closure_n(case)
     sentences = [
         f"Balanced case {case.label}{hand} -- {case_source_name(case)}, "
-        f"loading {case.cg}, Nz = {case.nz:g}",
+        f"loading {case.cg}, Nz = {case.nz:g}",  # note 65 exempt: solver channel
         f"Case ID: {case.case_ref.case_id if case.case_ref else '(none)'}",
         basis_sentence(case.safety_factor),
         "FULL SPAN, free-free: aero and inertia together, both wings.",
@@ -321,7 +321,7 @@ def _header(case: BalancedCaseResult, u: DeliverableUnits) -> List[str]:
         # apportion: printing "0 lb-in" beside a sentence about the trim solve
         # would describe machinery this case does not use.
         sentences.insert(-1, (
-            f"Lumped fuselage Cm moment applied: {cm_my:.0f} {u.moment.label} "
+            f"Lumped fuselage Cm moment applied: {cm_my:.0f} {u.moment.label} "  # note 65 exempt: solver channel
             "(the trim's airplane-less-tail Cm that the distributed wing does "
             "not carry; it has no distributed form until the body aero moment "
             "lands)."))
@@ -341,7 +341,7 @@ def _header(case: BalancedCaseResult, u: DeliverableUnits) -> List[str]:
         _, vtail_fy, _ = to_force(0.0, vtail_load(case), 0.0, u)
         _, _, res_mz = to_moment(0.0, 0.0, case.residual_mz, u)
         sentences.append(
-            f"LATERAL case: applied fin side load {vtail_fy:.1f} {u.force.label} "
+            f"LATERAL case: applied fin side load {vtail_fy:.1f} {u.force.label} "  # note 65 exempt: solver channel
             f"LIMIT -- like the residuals above and the cards below, which "
             f"are LIMIT too (note 49 OR-116) -- "
             f"distributed over the fin span from its root waterline. The "
@@ -361,7 +361,7 @@ def _header(case: BalancedCaseResult, u: DeliverableUnits) -> List[str]:
         # add the LIMIT/ULTIMATE reading as well, back when this number and the
         # cards below it were on different bases; under OR-116 they are not.
         sentences.append(
-            f"UNSYMMETRICAL h-tail case (FAR 23.427(a)): applied tail load "
+            f"UNSYMMETRICAL h-tail case (FAR 23.427(a)): applied tail load "  # note 65 exempt: solver channel
             f"{ht_total:.1f} {u.force.label} LIMIT -- like the residuals "
             f"above and the cards below -- split {ht_rh:.1f} starboard / "
             f"{ht_lh:.1f} port and distributed over the full-span tail rather "
@@ -370,7 +370,7 @@ def _header(case: BalancedCaseResult, u: DeliverableUnits) -> List[str]:
     if case.unbal_moment:
         _, roll_my, _ = to_moment(0.0, case.residual_mx, 0.0, u)
         sentences.append(
-            f"ROLLING case: applied aileron couple {roll_my:.0f} "
+            f"ROLLING case: applied aileron couple {roll_my:.0f} "  # note 65 exempt: solver channel
             f"{u.moment.label} (FAR 23.349), reacted entirely by roll "
             f"acceleration ({case.roll_moment_fraction * 100:.2f} % of "
             "n*W*b/2). That is the physics of an accelerated roll, not an "
@@ -483,7 +483,7 @@ def balanced_deck(project: Project, *,
                  f" -- {case.label}"
                  f"{'-' + case.hand if case.hand else ''} -- "
                  f"{case_source_name(case, short=True)}"
-                 f" -- {case.cg} -- Nz {case.nz:g}"
+                 f" -- {case.cg} -- Nz {case.nz:g}"  # note 65 exempt: solver channel
                  f"{' -- run ' + run_key if run_key else ''}")
         head += [f"$ {ln}" for ln in textwrap.wrap(entry, width=70,
                                                    subsequent_indent="    ")]
@@ -493,7 +493,7 @@ def balanced_deck(project: Project, *,
         head += [
             f"SUBCASE {sid}",
             f"  LABEL = {case.case_ref.case_id if case.case_ref else case.label}",
-            f"  TITLE = {case.label} balanced free-free (Nz={case.nz:g}, {case.cg})",
+            f"  TITLE = {case.label} balanced free-free (Nz={case.nz:g}, {case.cg})",  # note 65 exempt: solver channel
             "  SPC = 1",
             f"  LOAD = {sid}",
             "  DISPLACEMENT = ALL",
@@ -552,7 +552,7 @@ def balanced_case_rows(cases: Sequence[BalancedCaseResult]) -> List[Dict[str, st
         p_dot, q_dot, r_dot = (_deg(v) for v in
                                radians_per_s2((c.p_dot, c.q_dot, c.r_dot)))
         _, d_ny, d_n = _closure_n(c)
-        rows.append({
+        rows.append({  # note 65 exempt: the case header's companion, its digits (#324)
             # The assembled deck's own identity for this case (design note 17):
             # the id is the deck's LABEL, LOAD its SUBCASE/SID integer -- minted
             # in the per-hand block, so the twins differ by their thousands digit.

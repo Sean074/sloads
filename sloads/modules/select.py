@@ -120,6 +120,7 @@ from ..models import (
 from ..picks import extreme
 from ..registry import register
 from ..selectors import keyed
+from ..units import format_value
 from ._vtail import large_deflection_factor, lift_curve_slope, rudder_effectiveness
 from .flight_envelope import build_envelope, density_ratio, design_inputs
 from .rolling import ACCEL_ROLL_SLOTS, STEADY_ROLL_SLOTS, steady_roll_deflection, steady_roll_schedule
@@ -616,10 +617,10 @@ def select_wing(project: Project, envelope: Optional[EnvelopeResult] = None) -> 
             notes.append(_accel_roll_tie_note(env.vn, a))
         if a is not None and a.case != p.case:
             notes.append(f"net-governing run (design note 63 D-63.7): root Mxx "
-                         f"{governing[label].root_mxx:,.0f} lb-in at '{p.cg}' against "
-                         f"{_air_mxx(table, label, a.case):,.0f} lb-in at SELECT's air "
+                         f"{format_value(governing[label].root_mxx, 'lb-in')} lb-in at '{p.cg}' against "
+                         f"{format_value(_air_mxx(table, label, a.case), 'lb-in')} lb-in at SELECT's air "
                          f"pick, V-n case {a.case} ({a.condition}, {a.cg}, "
-                         f"{a.altitude_ft:.0f} ft, {a.config})")
+                         f"{format_value(a.altitude_ft, 'ft')} ft, {a.config})")
         c.note = "  ".join(n for n in notes if n)
         out.append(c)
     return out
@@ -633,11 +634,11 @@ def _accel_roll_tie_note(vn: List[VnPoint], pick: VnPoint, refused: str = "") ->
         return ""
     cases = ", ".join(str(p.case) for p in band)
     head = (f"accelerated-roll tie (#320): V-n cases {cases} lie within "
-            f"{LZW_TIE_REL:.1%} of the largest wing lift (case {band[0].case})")
+            f"{format_value(LZW_TIE_REL * 100, '%')}% of the largest wing lift (case {band[0].case})")
     if refused:
         return (f"{head}; the wing analysis cannot run ({refused}), so SELECT.BAS's "
                 "largest wing lift takes the slot")
-    return (f"{head}; case {pick.case} ({pick.altitude_ft:.0f} ft) delivers the "
+    return (f"{head}; case {pick.case} ({format_value(pick.altitude_ft, 'ft')} ft) delivers the "
             "largest net root Mxx and takes the slot")
 
 

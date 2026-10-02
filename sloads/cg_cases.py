@@ -465,7 +465,7 @@ def seed_flight_cases(project: Project) -> Tuple[List[CgCase], List[str]]:
     )
     assert tuple(n for n, _, _ in seeds) == FLIGHT_CASE_NAMES[:len(seeds)]
     cases = [CgCase(name=name, weight_lb=round(w, 2), xcg=round(x, 2),
-                    zcg=round(z_all, 2), analyses={AnalysisKind.FLIGHT})
+                    zcg=round(z_all, 2), analyses={AnalysisKind.FLIGHT})  # note 65 exempt: arithmetic, not text
              for name, w, x in seeds]
     _echo_loading_waterlines(project, cases)
 
@@ -488,7 +488,7 @@ def seed_flight_cases(project: Project) -> Tuple[List[CgCase], List[str]]:
                 continue
             cases.append(CgCase(name=name, weight_lb=round(found.weight_lb, 2),
                                 xcg=round(found.cg_x, 2), zcg=found.cg_z,
-                                analyses={AnalysisKind.FLIGHT}, loading=found.loading))
+                                analyses={AnalysisKind.FLIGHT}, loading=found.loading))  # note 65 exempt: arithmetic
     return cases, []
 
 

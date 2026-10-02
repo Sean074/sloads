@@ -37,6 +37,7 @@ from sloads.modules.balance.engine_cases import (
 )
 from sloads.modules.flight_envelope import build_envelope
 from sloads.report.render import load_cases_to_rows
+from sloads.units import format_value
 
 _EXAMPLES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")
 _ENGINE_FIXTURES = ("ga6_normal", "baron_58", "atr42_100", "concept_regional_jet")
@@ -361,7 +362,7 @@ def test_a_gyroscopic_case_thrusts_every_engine_and_yaws_on_none(name):
         yaw = math.fsum(ld.x * ld.fy - ld.y * ld.fx for ld in thrusts)
         assert abs(yaw) <= 1e-9 * max(one, 1.0), (c.label, yaw)
         net = abs(math.fsum(ld.fx for ld in thrusts))
-        assert any(n.startswith("GYROSCOPIC") and f"{net:,.0f} lb" in n for n in c.notes), c.label
+        assert any(n.startswith("GYROSCOPIC") and f"{format_value(net, 'lb')} lb" in n for n in c.notes), c.label
 
 
 def test_a_sub_case_is_the_airplanes_rates_on_every_engine():

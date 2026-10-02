@@ -474,7 +474,7 @@ def test_the_panel_override_validator_names_the_gap_and_the_remedy():
     project.wing_mass.panel_weight_override_lb = 150.0
     (w,) = [w for w in consistency_warnings(project) if w.code == "wing_panel_override_open"]
     assert w.page == "weight_mass"
-    assert "150.0 lb" in w.message and "165.0 lb" in w.message
+    assert "150 lb" in w.message and "165 lb" in w.message     # the lb row (#312)
     assert "Clear the override" in w.message
     project.wing_mass.panel_weight_override_lb = 165.5     # inside the 1 % gate
     assert "wing_panel_override_open" not in _codes(project)
@@ -551,7 +551,7 @@ def test_a_fuselage_override_is_named_when_the_loadings_differ_in_body_mass():
     assert "fuselage_override_varies_by_case" not in _codes(project)
     project.fuselage_mass.stations_are_override = True
     (w,) = [w for w in consistency_warnings(project) if w.code == "fuselage_override_varies_by_case"]
-    assert "1,733 lb" in w.message and "3,070 lb" in w.message
+    assert "1733 lb" in w.message and "3070 lb" in w.message     # the delivered row, no separator (#312)
 
 
 def test_wing_fraction_entry_rules():
@@ -765,7 +765,7 @@ def test_a_disagreeing_rudder_area_warns():
     p = sloads_io.load_project(_GA)
     p.geometry.empennage.vtail.rudder_area_sqft = 8.0      # halves sum 5.2
     hits = [w for w in consistency_warnings(p) if w.code == "rudder_area_mismatch"]
-    assert len(hits) == 1 and "5.2" in hits[0].message and "8" in hits[0].message
+    assert len(hits) == 1 and "5.2" in hits[0].message and "8.0" in hits[0].message   # the ft^2 row, 0.1 (#312)
 
 
 if __name__ == "__main__":

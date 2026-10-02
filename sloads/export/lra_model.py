@@ -1229,7 +1229,7 @@ def _closure_sentence(case: BalancedCaseResult) -> str:
                 "the member that carries it; no residual remains.")
     if residual_gate_applies(case):
         return (f"Closure field = the pre-closure residual, "
-                f"{100.0 * case.force_residual_fraction:.2f} % of n*W, spread "
+                f"{100.0 * case.force_residual_fraction:.2f} % of n*W, spread "  # note 65 exempt: solver channel
                 "over the masses as a rigid-body relief field on the members "
                 f"that carry them (ceiling {100.0 * FORCE_RESIDUAL_ACCEPTANCE:.1f} %).")
     return ("Closure field = the applied maneuver load's rigid-body relief, "
@@ -1313,7 +1313,7 @@ def lra_model_bdf(project: Project, *,
         entry = (f"SUBCASE {sid} = "
                  f"{case.case_ref.case_id if case.case_ref else '(no id)'}"
                  f" -- {case.label}{('-' + case.hand) if case.hand else ''}"
-                 f" -- {case.cg} -- Nz {case.nz:g}"
+                 f" -- {case.cg} -- Nz {case.nz:g}"  # note 65 exempt: solver channel
                  f"{' -- run ' + run_key if run_key else ''}")
         head += [f"$ {ln}" for ln in textwrap.wrap(entry, width=70,
                                                    subsequent_indent="    ")]
@@ -1323,7 +1323,7 @@ def lra_model_bdf(project: Project, *,
         head += [
             f"SUBCASE {sid}",
             f"  LABEL = {case.case_ref.case_id if case.case_ref else case.label}",
-            f"  TITLE = {case.label} on the LRA model (Nz={case.nz:g}, {case.cg})",
+            f"  TITLE = {case.label} on the LRA model (Nz={case.nz:g}, {case.cg})",  # note 65 exempt: solver channel
             "  SPC = 1",
             f"  LOAD = {sid}",
             "  DISPLACEMENT = ALL",

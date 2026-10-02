@@ -338,7 +338,7 @@ def test_an_entered_dihedral_is_stated_and_warned_but_scales_nothing():
     for label, m_r in before.items():
         i = after[label].tip_transfer.induced
         assert i.m_r == m_r and i.dihedral_deg == 6.0, label
-        assert any("dihedral 6 deg" in n for n in after[label].notes), label
+        assert any("dihedral 6.00 deg" in n for n in after[label].notes), label   # the deg row (#312)
     assert [w for w in consistency_warnings(tilted) if w.code == "ttail_htail_dihedral"]
     assert not [w for w in consistency_warnings(project) if w.code == "ttail_htail_dihedral"]
 

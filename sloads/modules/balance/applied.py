@@ -50,6 +50,7 @@ from ...models import (
     WingMassInput,
 )
 from ...tail_geometry import HTAIL, VTAIL
+from ...units import format_value
 from ..airloads import air_load_distribution
 from ..wing_inertia import inertia_units, resolve_wing_cases
 from .constants import BODY_INERTIA_SOURCE, HANDEDNESS_TOL
@@ -254,9 +255,9 @@ def place_wing_inertia(loads: Sequence[BalancedLoad], loading: CaseLoading,
                      "no distributed wing inertia")
     elif abs(scale - 1.0) > 1e-6:
         notes.append(
-            f"wing inertia scaled x{scale:.4f} onto the loading's WING PANEL items "
-            f"({scale * panel_both:.0f} lb); WINGINER's integrated panel mass is "
-            f"{panel_both:.0f} lb")
+            f"wing inertia scaled x{format_value(scale)} onto the loading's WING PANEL items "
+            f"({format_value(scale * panel_both, 'lb')} lb); WINGINER's integrated panel mass is "
+            f"{format_value(panel_both, 'lb')} lb")
     panel_items = wing_parts(loading.items, project, WingCarriage.PANEL)
     w_wing = math.fsum(it.weight_lb for it in panel_items)
     x_wing = (math.fsum(it.weight_lb * it.x for it in panel_items) / w_wing) if w_wing else 0.0
@@ -272,7 +273,7 @@ def place_wing_inertia(loads: Sequence[BalancedLoad], loading: CaseLoading,
     if points:
         notes.append(
             f"{len(points)} wing POINT mass(es) applied at their own stations, "
-            f"{2.0 * math.fsum(p.weight_lb for p in points):,.0f} lb both sides "
+            f"{format_value(2.0 * math.fsum(p.weight_lb for p in points), 'lb')} lb both sides "
             "(design note 63 D-63.3)")
     return placed + points, notes
 
@@ -425,18 +426,21 @@ def body_axial_set(loads: Sequence[BalancedLoad], project: Project,
         if not polar_alpha_trusted(vn.alpha_deg):
             side = "above" if vn.alpha_deg > hi else "below"
             notes.append(
-                f"the non-wing axial force comes out FORWARD ({total:+,.0f} lb; "
-                f"dCD = {delta_cd:+.5f}) at alpha {vn.alpha_deg:+.1f} deg, "
-                f"{side} the polar's trusted window ({lo:+.0f}, {hi:+.0f}) deg, "
+                f"the non-wing axial force comes out FORWARD ({format_value(total, 'lb', signed=True)} lb; "
+                f"dCD = {format_value(delta_cd, signed=True)}) at alpha "
+                f"{format_value(vn.alpha_deg, 'deg', signed=True)} deg, "
+                f"{side} the polar's trusted window ({format_value(lo, 'deg', signed=True)}, "
+                f"{format_value(hi, 'deg', signed=True)}) deg, "
                 f"where the airplane-less-tail polar and the strip model are "
                 f"not both trusted: NOT applied (dCD reported unclamped; "
                 f"residual_fx re-opens by this amount) -- design note 20 D-4 "
                 f"as revised 2026-08-17")
             return 0.0, delta_cd, True, [], notes
         notes.append(
-            f"the non-wing axial force is FORWARD ({total:+,.0f} lb; dCD = "
-            f"{delta_cd:+.5f}) INSIDE the polar's trusted window "
-            f"({lo:+.0f}, {hi:+.0f}) deg -- the fixture's aero data is "
+            f"the non-wing axial force is FORWARD ({format_value(total, 'lb', signed=True)} lb; dCD = "
+            f"{format_value(delta_cd, signed=True)}) INSIDE the polar's trusted window "
+            f"({format_value(lo, 'deg', signed=True)}, {format_value(hi, 'deg', signed=True)}) deg "
+            f"-- the fixture's aero data is "
             f"inconsistent where both drag models are trusted; applied as "
             f"computed and flagged (D-4)")
 
@@ -445,8 +449,9 @@ def body_axial_set(loads: Sequence[BalancedLoad], project: Project,
         return total, delta_cd, False, [], [
             *notes, "the non-wing drag has no body station to act at and is NOT applied"]
     notes.append(
-        f"non-wing drag {total:+,.0f} lb applied at waterline {wl.z:.1f} "
-        f"({wl.basis}) over {len(stations)} body station(s); dCD = {delta_cd:+.5f}")
+        f"non-wing drag {format_value(total, 'lb', signed=True)} lb applied at waterline "
+        f"{format_value(wl.z, 'in')} ({wl.basis}) over {len(stations)} body station(s); "
+        f"dCD = {format_value(delta_cd, signed=True)}")
     return total, delta_cd, False, [
         BalancedLoad(x=x, y=0.0, z=wl.z, fx=total * frac,
                      source="body-axial", side="C")
@@ -596,8 +601,8 @@ def hub_thrust_set(project: Project, cg: CgCase, replaced: Collection[str] = ()
                                   source=HUB_THRUST_SOURCE,
                                   side="R" if y > 0 else "L" if y < 0 else "C",
                                   carrier=engine_member(i + 1)))
-        applied.append(f"engine {i + 1} {thrust:+,.0f} lb at "
-                       f"({x:,.1f}, {y:,.1f}, {z:,.1f})")
+        applied.append(f"engine {i + 1} {format_value(thrust, 'lb', signed=True)} lb at "
+                       f"({format_value(x, 'in')}, {format_value(y, 'in')}, {format_value(z, 'in')})")
     replaced_note = ([
         f"the entered thrust of {', '.join(skipped)} is NOT applied: this "
         f"condition prescribes the thrust itself, and one hub carries one "
@@ -622,7 +627,7 @@ def hub_thrust_set(project: Project, cg: CgCase, replaced: Collection[str] = ()
     if abs(yaw) > HANDEDNESS_TOL * max(abs(total) * arm, 1.0):
         notes.append(
             f"the entered thrust is ASYMMETRIC: it yaws the airplane "
-            f"{yaw:+,.0f} lb-in about the CG, carried in full by the closure's "
+            f"{format_value(yaw, 'lb-in', signed=True)} lb-in about the CG, carried in full by the closure's "
             f"yaw acceleration. Two consequences are stated rather than "
             f"handled, both owned by design note 21 section 4.4 (reflection "
             f"with engine loads): the asymmetry mints NO port twin of its own "
@@ -635,12 +640,13 @@ def hub_thrust_set(project: Project, cg: CgCase, replaced: Collection[str] = ()
             f"wanted")
     return loads, [
         f"engine thrust APPLIED at the hub: {'; '.join(applied)} -- "
-        f"{total:+,.0f} lb forward in total (fx = {-total:+,.0f} lb; "
+        f"{format_value(total, 'lb', signed=True)} lb forward in total "
+        f"(fx = {format_value(-total, 'lb', signed=True)} lb; "
         f"CONVENTIONS.md section 1, x is +aft), taken axial (the thrust-line "
         f"incidence and toe angles stay parked with design note 21). The V-n "
         f"trim this case is assembled at is thrust-free, so NOTHING balances "
         f"it: the pre-closure Fx and its couple about the CG "
-        f"({couple:+,.0f} lb-in) are carried in full by the closure's "
+        f"({format_value(couple, 'lb-in', signed=True)} lb-in) are carried in full by the closure's "
         f"longitudinal and pitch degrees of freedom -- nx = (D - sum T)/W is "
         f"the carrier the assembled model has always lacked -- and the 1 % "
         f"residual gate does not apply to a powered case's My, the same "
