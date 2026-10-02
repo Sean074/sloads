@@ -40,6 +40,7 @@ branch is exercised directly in :func:`test_the_already_ultimate_sentence_is_rea
 rather than left to a fixture that may never grow the case.
 """
 
+import copy
 import csv
 import io as _io
 import functools
@@ -160,9 +161,11 @@ def _try(fn, *args, **kwargs):
 
 def _pairs(example: str):
     """Memoised per test process (#308): the build is pure and was repeated per
-    test; a fresh container each call, so no test edits another's view."""
+    test; a deep copy each call, so no test edits another's view -- the
+    results inside are mutable dataclasses, which a shallow copy would share
+    across every test in the worker (#322)."""
     built = _pairs_built(example)
-    return type(built)(built)
+    return copy.deepcopy(built)
 
 
 @functools.lru_cache(maxsize=None)
@@ -205,9 +208,11 @@ def _pairs_built(example: str):
 
 def _documents(example: str):
     """Memoised per test process (#308): the build is pure and was repeated per
-    test; a fresh container each call, so no test edits another's view."""
+    test; a deep copy each call, so no test edits another's view -- the
+    results inside are mutable dataclasses, which a shallow copy would share
+    across every test in the worker (#322)."""
     built = _documents_built(example)
-    return type(built)(built)
+    return copy.deepcopy(built)
 
 
 @functools.lru_cache(maxsize=None)
@@ -332,9 +337,11 @@ def test_every_document_states_the_factor_it_did_not_apply(example):
 
 def _package_data_files(example: str):
     """Memoised per test process (#308): the build is pure and was repeated per
-    test; a fresh container each call, so no test edits another's view."""
+    test; a deep copy each call, so no test edits another's view -- the
+    results inside are mutable dataclasses, which a shallow copy would share
+    across every test in the worker (#322)."""
     built = _package_data_files_built(example)
-    return type(built)(built)
+    return copy.deepcopy(built)
 
 
 @functools.lru_cache(maxsize=None)
@@ -479,6 +486,17 @@ def test_the_gate_would_catch_an_unstated_or_wrong_block():
                "$   factor SF=1.5 is NOT applied here -- apply it in the\n"
                "$   sizing analysis.\n")
     assert deck_statements(wrapped)[0] == {"W-01": 1.5}
+
+
+def test_no_test_can_edit_the_results_another_test_reads():
+    """The memoised builders hand out a deep copy (#322): a test that edits a
+    result it was given leaves the next caller's result as it was built."""
+    example = EXAMPLES[0]
+    for fetch in (_pairs, _documents):
+        results = fetch(example)[0][-1]
+        before = results[0].safety_factor
+        results[0].safety_factor = -1.0
+        assert fetch(example)[0][-1][0].safety_factor == before, fetch.__name__
 
 
 if __name__ == "__main__":

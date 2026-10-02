@@ -274,4 +274,4 @@ def test_the_page_states_that_it_is_an_extension_and_not_a_program():
 if __name__ == "__main__":  # zero-dependency self-runner
     import sys
 
-    sys.exit(pytest.main([__file__, "-p", "no:xdist", "-q"]))
+    sys.exit(pytest.main([__file__, "-n", "0", "-q"]))

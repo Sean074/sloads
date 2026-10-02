@@ -316,3 +316,9 @@ def test_later_page_reads_resolves_against_a_project():
     stripped = dataclasses.replace(project, engines=[])
     assert wf.later_page_reads(stripped, wf.BY_KEY["flap_loads"])[0].present is False
     assert wf.later_page_reads(project, wf.BY_KEY["aileron_loads"]) == []
+
+
+if __name__ == "__main__":
+    import pytest
+
+    raise SystemExit(pytest.main([__file__, "-q"]))

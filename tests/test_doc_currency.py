@@ -537,4 +537,4 @@ def test_the_module_citation_guard_would_catch_an_unregistered_module():
 
 
 if __name__ == "__main__":  # zero-dependency self-runner
-    sys.exit(pytest.main([__file__, "-p", "no:xdist", "-q"]))
+    sys.exit(pytest.main([__file__, "-n", "0", "-q"]))

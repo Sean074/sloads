@@ -410,3 +410,7 @@ def test_a_case_scaled_by_zero_is_recorded_not_shipped(monkeypatch):
     assert {s.label for s in skipped if s.code == "unscalable"} == {
         c.title for cid, c in _by_id(_project("ga6_normal")).items()
         if c.far_reference in EM_BALANCED}
+
+
+if __name__ == "__main__":
+    raise SystemExit(pytest.main([__file__, "-q"]))

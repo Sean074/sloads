@@ -636,5 +636,63 @@ def test_the_tag_step_names_the_green_main_check_and_the_script_offers_it():
     )
 
 
+
+def _ci_pytest_commands():
+    """Every ``pytest`` invocation a ``run:`` step of ``ci.yml`` makes."""
+    return [ln.split("run:", 1)[1].strip() for ln in _read(_CI).splitlines()
+            if "run:" in ln and re.search(r"\bpytest\b", ln.split("run:", 1)[1])]
+
+
+def test_ci_runs_the_slow_lane():
+    """The per-item gate deselects ``slow`` (#308); CI is where those tests --
+    the PDF compiles, the GUI journeys -- still run. A ``-m "not slow"`` added
+    to a CI step would drop them from every check in silence (#322). The one
+    marker CI selects is ``roundtrip``, the solver job's own subset."""
+    commands = _ci_pytest_commands()
+    assert commands, "no pytest step found in ci.yml -- the guard would pass vacuously"
+    for cmd in commands:
+        assert "slow" not in cmd, f"ci.yml deselects the slow lane: {cmd!r}"
+        for selected in re.findall(r"-m\s+(\S+)", cmd):
+            assert selected.strip("'\"") == "roundtrip", (
+                f"ci.yml selects marker {selected} -- only the roundtrip job "
+                f"selects a subset; the test job runs everything: {cmd!r}")
+
+
+def test_a_misspelt_marker_is_an_error():
+    """``--strict-markers`` (#322): without it ``@pytest.mark.slwo`` is a
+    warning, and the test it was meant to move out of the fast lane stays in."""
+    import tomllib
+    with open(os.path.join(_ROOT, "pyproject.toml"), "rb") as fh:
+        addopts = tomllib.load(fh)["tool"]["pytest"]["ini_options"]["addopts"]
+    assert "--strict-markers" in addopts.split(), addopts
+
+
+def _test_files():
+    tests_dir = os.path.join(_ROOT, "tests")
+    return [os.path.join(tests_dir, n) for n in sorted(os.listdir(tests_dir))
+            if n.startswith("test_") and n.endswith(".py")]
+
+
+def test_every_test_file_runs_on_its_own():
+    """Each test file has a ``__main__`` self-runner (CLAUDE.md), and that
+    runner starts: ``-p no:xdist`` unloads the plugin that owns ``addopts``'
+    ``-n auto``, so 26 runners failed at startup with "unrecognized arguments:
+    -n" before #322 moved them to ``-n 0``."""
+    import ast
+    missing, broken = [], []
+    for path in _test_files():
+        text = _read(path)
+        tree = ast.parse(text)
+        if not any(isinstance(node, ast.If)
+                   and ast.unparse(node.test) in ("__name__ == '__main__'",
+                                                  "'__main__' == __name__")
+                   for node in tree.body):
+            missing.append(os.path.basename(path))
+        if re.search(r"pytest\.main\([^)]*no:xdist", text):
+            broken.append(os.path.basename(path))
+    assert len(_test_files()) > 100, "the walk found too few test files"
+    assert not missing, f"test files with no __main__ self-runner: {missing}"
+    assert not broken, f"self-runners passing -p no:xdist (use -n 0): {broken}"
+
 if __name__ == "__main__":  # zero-dependency self-runner
-    sys.exit(pytest.main([__file__, "-p", "no:xdist", "-q"]))
+    sys.exit(pytest.main([__file__, "-n", "0", "-q"]))

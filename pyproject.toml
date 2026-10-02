@@ -204,10 +204,13 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 # Parallel by default (CH-1): the full suite is minutes instead of ~18 with the
-# solver leg. Debugging with `-s`/pdb: pass `-p no:xdist` (or `-n 0`).
+# solver leg. Debugging with `-s`/pdb: pass `-n 0` (not
+# `-p no:xdist`: it unloads the plugin that owns the `-n` below).
 # Coverage is CI's concern -- the flags live in ci.yml, not here, so local runs
 # skip the instrumentation cost; opt in with `--cov=sloads`.
-addopts = "-n auto"
+# `--strict-markers` (#322): a misspelt `slow` is an error, not a warning that
+# leaves the test in the per-item gate's fast lane.
+addopts = "-n auto --strict-markers"
 markers = [
     # The sbeam round-trip gate. Selected by its own CI job (`pytest -m roundtrip`,
     # decision S-8) so the failure is named in the PR check list rather than

@@ -98,4 +98,4 @@ def test_every_write_wrapper_in_sloads_has_a_caller() -> None:
 
 
 if __name__ == "__main__":  # zero-dependency self-runner
-    sys.exit(pytest.main([__file__, "-p", "no:xdist", "-q"]))
+    sys.exit(pytest.main([__file__, "-n", "0", "-q"]))

@@ -196,4 +196,4 @@ def test_the_oracle_status_section_points_at_this_manifest():
 
 
 if __name__ == "__main__":  # zero-dependency self-runner
-    sys.exit(pytest.main([__file__, "-p", "no:xdist", "-q"]))
+    sys.exit(pytest.main([__file__, "-n", "0", "-q"]))

@@ -446,4 +446,4 @@ def test_a_zero_roll_inertia_is_refused_not_a_zero_acceleration():
         roll_acceleration(-149043.0, 0.0)
 
 if __name__ == "__main__":  # zero-dependency self-runner
-    sys.exit(pytest.main([__file__, "-p", "no:xdist", "-q"]))
+    sys.exit(pytest.main([__file__, "-n", "0", "-q"]))

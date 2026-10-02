@@ -259,3 +259,9 @@ def test_no_input_data_written_outside_project_session_state():
     assert not offenders_variable, (
         f"session_state written under a non-literal key outside the Project Editor: "
         f"{sorted(offenders_variable)}")
+
+
+if __name__ == "__main__":
+    import pytest
+
+    raise SystemExit(pytest.main([__file__, "-q"]))

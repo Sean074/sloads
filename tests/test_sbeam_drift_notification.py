@@ -180,4 +180,4 @@ def test_the_pin_procedure_tells_the_reader_the_issue_exists():
 
 
 if __name__ == "__main__":  # zero-dependency self-runner
-    sys.exit(pytest.main([__file__, "-p", "no:xdist", "-q"]))
+    sys.exit(pytest.main([__file__, "-n", "0", "-q"]))

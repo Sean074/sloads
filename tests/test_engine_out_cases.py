@@ -321,3 +321,7 @@ def test_a_hub_off_the_engines_butt_line_is_recorded():
     off = [s for s in skipped if s.code == "hub-off-arm"]
     assert off and all("(engine 1)" in s.label for s in off)
     assert all("(engine 1)" not in c.label or c.hand for c in cases)
+
+
+if __name__ == "__main__":
+    raise SystemExit(pytest.main([__file__, "-q"]))

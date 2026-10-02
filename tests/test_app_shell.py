@@ -1091,4 +1091,4 @@ def test_the_streamlit_floor_admits_the_layout_api_the_front_ends_use():
 if __name__ == "__main__":  # zero-dependency self-runner
     import sys
 
-    sys.exit(pytest.main([__file__, "-p", "no:xdist", "-q"]))
+    sys.exit(pytest.main([__file__, "-n", "0", "-q"]))

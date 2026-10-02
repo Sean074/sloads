@@ -128,4 +128,4 @@ def test_normalized_slices_are_input_slices_not_result_slices():
 if __name__ == "__main__":  # zero-dependency self-runner
     import sys
 
-    sys.exit(pytest.main([__file__, "-p", "no:xdist", "-q"]))
+    sys.exit(pytest.main([__file__, "-n", "0", "-q"]))

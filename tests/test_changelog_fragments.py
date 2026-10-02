@@ -243,4 +243,4 @@ def test_live_record_size_is_within_the_roll_threshold_or_warns(path):
 
 
 if __name__ == "__main__":  # zero-dependency self-runner
-    sys.exit(pytest.main([__file__, "-p", "no:xdist", "-q"]))
+    sys.exit(pytest.main([__file__, "-n", "0", "-q"]))
