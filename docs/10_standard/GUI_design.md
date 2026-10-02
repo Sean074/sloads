@@ -914,7 +914,7 @@ it is outside the certificated band — never blocking. The design:
   assumed when no weight-estimation slice is present). The commuter tier is dormant
   until a distinct Commuter category exists (backlog).
 - **A pure `far23_applicability(project)` helper** (`sloads/applicability.py`)
-  returns the structured exceedances (`Exceedance(field, value, limit, label)`); no
+  returns the structured exceedances (`Exceedance(field, value, limit, label, dim)`, worded once by `report.methods.exceedance_statement` in the display system); no
   Streamlit, unit-testable, and yields *no* exceedances on Appendix-A GA inputs.
   The MTOW check reads `speeds.weight_lb`, falling back to the Weight DB total; the
   seat check compares `passenger seats = effective_occupants − effective_crew`

@@ -24,12 +24,16 @@ class Exceedance:
 
     ``field`` is the ``Project`` quantity ("weight_lb" / "occupants"); ``value`` is
     the airplane's figure; ``limit`` is the FAR 23 ceiling; ``label`` is a
-    human-readable description for the GUI banner.
+    human-readable description for the GUI banner. ``dim`` is the report
+    dimension ``value`` and ``limit`` are stored in (Imperial), ``None`` for a
+    count, so every renderer states the unit in its own system (#321) --
+    :func:`sloads.report.methods.exceedance_statement` is the one that does.
     """
     field: str
     value: float
     limit: float
     label: str
+    dim: Optional[str] = None
 
 
 def effective_occupants(project: Project) -> Optional[int]:
@@ -192,6 +196,7 @@ def far23_applicability(project: Project) -> List[Exceedance]:
             value=weight,
             limit=C.FAR23_MAX_WEIGHT_LB,
             label="Max takeoff weight (FAR 23)",
+            dim="mass",
         ))
 
     occupants = effective_occupants(project)

@@ -403,7 +403,7 @@ def build_balanced_cases(
     # balance". ``default_envelope`` rebuilds in that case; ``default_critical``
     # applies the same rule to the critical set.
     envelope = default_envelope(project)
-    critical = default_critical(project)
+    critical = default_critical(project, envelope)
     vn = {p.case: p for p in envelope.vn}
     cgs = {c.name: c for c in flight_cases(project)}
     loadings = {ld.name: ld for ld in derive_case_loadings(project)}

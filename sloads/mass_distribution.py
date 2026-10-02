@@ -461,6 +461,10 @@ class MassCheck:
     #: Imperial ``detail`` sentence verbatim (#232). Empty for checks whose
     #: ``got`` is not a sum.
     parts: Tuple[Tuple[str, float], ...] = ()
+    #: The CG case a per-case check is about, so a consumer groups checks by
+    #: case without parsing ``detail``, a display string (#321). ``None`` for
+    #: a check about the whole airplane.
+    case: Optional[str] = None
 
     @property
     def gap(self) -> float:
@@ -616,9 +620,17 @@ def _mirrors(a: MassItem, b: MassItem) -> bool:
     station and waterline and the opposite butt line."""
     return (abs(a.weight_lb - b.weight_lb)
             <= RECONCILE_REL_TOL * max(a.weight_lb, b.weight_lb, 1.0)
-            and abs(a.x - b.x) <= _CG_MATCH_TOL
-            and abs(a.y + b.y) <= _CG_MATCH_TOL
-            and abs(a.z - b.z) <= _CG_MATCH_TOL)
+            and abs(a.x - b.x) <= _MIRROR_POSITION_TOL
+            and abs(a.y + b.y) <= _MIRROR_POSITION_TOL
+            and abs(a.z - b.z) <= _MIRROR_POSITION_TOL)
+
+
+#: How near two WING parts' stations, |butt lines| and waterlines must sit to
+#: be one mirror pair. A pair is entered by hand, side by side, to the
+#: drawing's half-inch, so the band is that entry resolution -- not the CG
+#: search's ``_CG_MATCH_TOL``, which answers whether a loading is a case and
+#: only happens to share the value (#321).
+_MIRROR_POSITION_TOL = 0.5   # in
 
 
 def _unmirrored(items: Sequence[MassItem], project: Project) -> List[str]:
@@ -1484,6 +1496,12 @@ def echo_weight_tolerance(weight_lb: float) -> float:
     return max(_ECHO_WEIGHT_ABS, _ECHO_WEIGHT_REL * abs(weight_lb))
 
 
+def echo_weight_rel() -> float:
+    """The relative half of the D-25a weight band (``_ECHO_WEIGHT_REL``), read
+    by name -- for a document that states the rule in words (#321)."""
+    return _ECHO_WEIGHT_REL
+
+
 def cg_match_tolerance() -> float:
     """The search's CG match tolerance (``_CG_MATCH_TOL``), read by name."""
     return _CG_MATCH_TOL
@@ -1515,7 +1533,7 @@ def case_loading_checks(project: Project) -> List[MassCheck]:
     for case, loading in zip(cases, derive_case_loadings(project, cases)):
         if not loading.derivable:
             continue
-        w_tol = max(_ECHO_WEIGHT_ABS, _ECHO_WEIGHT_REL * abs(case.weight_lb))
+        w_tol = echo_weight_tolerance(case.weight_lb)
         for got, want, label, tol in (
                 (loading.weight_lb, case.weight_lb, "weight", w_tol),
                 (loading.cg_x, case.xcg, "xcg", _CG_MATCH_TOL),
@@ -1529,7 +1547,7 @@ def case_loading_checks(project: Project) -> List[MassCheck]:
             route = "entered loading" if loading.entered else "no ballast"
             unit = "lb" if label == "weight" else "in"
             out.append(MassCheck(
-                code=f"mass_case_{label}", ok=ok, got=got, want=want,
+                code=f"mass_case_{label}", ok=ok, got=got, want=want, case=loading.name,
                 detail=(f"{loading.name} {label} {format_value(got, unit)} against {format_value(want, unit)}"
                         + (f" ({route}, tolerance {format_value(tol, unit)})" if banded else "")),
             ))
@@ -2020,6 +2038,7 @@ __all__ = [
     "derived_panel_weight",
     "derived_tail_surface_weight",
     "distribution",
+    "echo_weight_rel",
     "echo_weight_tolerance",
     "entered_loading",
     "fuselage_beam_stations",

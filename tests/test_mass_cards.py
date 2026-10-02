@@ -236,7 +236,7 @@ def test_a_derived_loading_reproduces_its_case(example):
             assert loading.cg_x == pytest.approx(case.xcg, rel=1e-12)
             assert loading.cg_z == pytest.approx(case.zcg, rel=1e-12)
         else:
-            assert abs(loading.cg_x - case.xcg) <= md._CG_MATCH_TOL
+            assert abs(loading.cg_x - case.xcg) <= md.cg_match_tolerance()
 
 
 @pytest.mark.parametrize("example", EXAMPLES)
@@ -327,13 +327,25 @@ def test_the_echo_check_fires_when_the_case_disagrees_with_its_loading():
     assert all(c.ok for c in md.case_loading_checks(p))     # as shipped
     was = next(ld for ld in md.derive_case_loadings(p) if ld.name == case.name).cg_x
 
-    case.xcg += 2.0 * md._CG_MATCH_TOL
+    case.xcg += 2.0 * md.cg_match_tolerance()
     bad = [c for c in md.case_loading_checks(p) if not c.ok]
     assert [c.code for c in bad] == ["mass_case_xcg"]
+    assert bad[0].case == "CGmax"      # named by field, not parsed from detail (#321)
     assert "entered loading" in bad[0].detail
     # the loading itself is untouched -- it is the authority, not the echo
     got = next(ld for ld in md.derive_case_loadings(p) if ld.name == case.name)
     assert got.cg_x == pytest.approx(was, rel=1e-12)
+
+
+def test_every_case_check_names_its_case_by_field():
+    """#321: the report grouped the checks by ``rsplit``-parsing ``detail``, a
+    display string. Each per-case check carries its case, three per case."""
+    for path in EXAMPLES:
+        p = _project(path)
+        checks = md.case_loading_checks(p)
+        cases = list(p.weight.cg_cases)
+        names = [ld.name for ld in md.derive_case_loadings(p, cases) if ld.derivable]
+        assert [c.case for c in checks] == [n for n in names for _ in range(3)], path
 
 
 def test_an_entered_ballast_is_not_gated_by_the_credibility_fraction():
