@@ -363,7 +363,12 @@ from .results import EnvelopeResult, LoadsResult, MassResult
 # v72 (design note 51 §9, #328): ``TipTransfer`` gains ``mxx`` (the roll at the
 # fin tip), ``paired_case`` and ``induced`` (an ``InducedRoll``, new). Result
 # fields with defaults, all additive, so ``_hop_71`` is an identity.
-SCHEMA_VERSION = 72
+# v73 (design note 67 D-67.10, #283): ``MassItem.usable_fuel``, the typed tag the
+# operating-empty-weight partition reads (fuel the engines can draw, reserve
+# included; unusable fuel and oil is not). Additive with a ``False`` default and
+# no inference, so ``_hop_72`` is an identity; the five fixtures are tagged by
+# hand. No load reads it.
+SCHEMA_VERSION = 73
 
 
 @dataclass

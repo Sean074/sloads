@@ -107,6 +107,7 @@ from ..joints import JointName, wing_lra_point
 from ..joints import joints as joint_register
 from ..models import BalancedCaseResult, BalancedLoad, LraMeshInput, Project
 from ..models.enums import GearCarrier
+from ..models.inputs import LRA_DEFAULT_GRIDS
 from ..modules.balance import (
     SkippedCondition,
     build_balanced_cases,
@@ -212,6 +213,56 @@ _ENGINE_BAND = band("lra-engine")
 _GEAR_BAND = band("lra-gear")
 _CBAR_BAND = band("lra-cbar")
 _RBE2_BAND = band("lra-rbe2")
+
+
+#: The surfaces whose beam runs on an **entered** loads reference axis: the
+#: exporter refuses each one that is present with its axis unset (R-7c), and
+#: the Beam Model page lists each with its axis (note 67 D-67.2). One tuple, so
+#: the refusal and the table cannot name different surfaces.
+LRA_SURFACES: Tuple[str, ...] = ("wing", HTAIL, VTAIL)
+
+#: What the axes table calls each member.
+_AXIS_MEMBER_NAMES = {"wing": "Wing", HTAIL: "Horizontal tail", VTAIL: "Fin"}
+
+
+def reference_axis_rows(project: Project,
+                        system: UnitSystem = UnitSystem.IMPERIAL,
+                        ) -> List[Dict[str, str]]:
+    """Each member's loads reference axis, as the beam is built on it.
+
+    One row per member, rendered in ``system``: the three surfaces' entered
+    chord fractions -- the ones :func:`build_lra_model` refuses when unset --
+    and the fuselage beam's waterline from :func:`fuselage_lra`, the owner the
+    builder reads. The Beam Model page shows this read-only (note 67 D-67.2):
+    the surfaces' axes are entered on Geometry, where the torsion that also
+    reads them is computed, and this is where they are seen beside the beam.
+    """
+    from ..units import format_value
+
+    geom = project.geometry
+    rows: List[Dict[str, str]] = []
+    for name in LRA_SURFACES:
+        surf = geom.by_name(name) if geom is not None else None
+        if surf is None:
+            continue
+        if surf.ref_axis_pct is None:
+            axis, source = "not entered", "enter it on Geometry -- the model is refused"
+        else:
+            axis = f"{format_value(surf.ref_axis_pct * 100.0, '%')} % chord"
+            source = "entered (Geometry)"
+        rows.append({"Member": _AXIS_MEMBER_NAMES[name],
+                     "Loads reference axis": axis, "Source": source})
+    lra = fuselage_lra(project)
+    if lra.basis == "entered":
+        axis = unit_text("waterline ", Quantity(lra.entered_z, "in")).render(system)
+        source = "entered (fuselage_mass.ref_waterline)"
+    elif lra.basis == "centre-line":
+        axis, source = "the fuselage section-centre line", "derived from the outline"
+    else:
+        axis, source = "not resolvable", "enter a fuselage outline or ref_waterline"
+    rows.append({"Member": "Fuselage", "Loads reference axis": axis,
+                 "Source": source})
+    return rows
 
 
 def sob_gid() -> int:
@@ -595,7 +646,7 @@ def build_lra_model(project: Project) -> LraModel:
     geom = project.geometry
     if geom is None:
         raise LraRefusal("the LRA beam model needs Project.geometry")
-    for name in ("wing", HTAIL, VTAIL):
+    for name in LRA_SURFACES:
         surf = geom.by_name(name)
         if surf is not None and surf.ref_axis_pct is None:
             raise LraRefusal(
@@ -660,6 +711,16 @@ def build_lra_model(project: Project) -> LraModel:
 
     pending_body_ties: List[Tuple[float, List[int], str]] = []
     mesh = project.lra_mesh or LraMeshInput()
+    # A count outside LRA_GRID_BOUNDS is refused here, by name, before any chain
+    # is meshed (note 67 D-67.12, #244): the GUI's widget cannot enter one, but
+    # a project file can carry one, and a 4,501-grid wing is not a model anyone
+    # asked for. Said as this exporter's refusal, so the CLI's error line and
+    # the Beam Model page both print the field to fix.
+    for member in LRA_DEFAULT_GRIDS:
+        try:
+            mesh.count(member)
+        except ValueError as exc:
+            raise LraRefusal(f"lra_mesh.{member}_grids: {exc}") from exc
 
     # ------------------------------------------------------------- wing chains
     # **The beam is meshed from the geometry, not from the load stations**
@@ -1409,21 +1470,8 @@ def lra_model_bdf(project: Project, *,
     return stamped(header_comment, "\n".join(head + bulk + ["ENDDATA"]) + "\n")
 
 
-def write_lra_model_bdf(project: Project, path: str, *,
-                        header_comment: str = "",
-                        system: UnitSystem = UnitSystem.IMPERIAL,
-                        cases: Sequence[BalancedCaseResult] = (),
-                        skipped: Optional[Sequence[SkippedCondition]] = None) -> None:
-    # Rendered before the file opens: this exporter legitimately refuses (an
-    # LraRefusal names the missing datum), and a failed export must leave no
-    # partial artifact.
-    text = lra_model_bdf(project, header_comment=header_comment, system=system,
-                         cases=cases, skipped=skipped)
-    with open(path, "w", encoding="utf-8") as fh:
-        fh.write(text)
-
-
 __all__ = [
+    "LRA_SURFACES",
     "SECTION_FAMILIES",
     "STIFFNESS_NOTE",
     "LraModel",
@@ -1431,7 +1479,7 @@ __all__ = [
     "LraRefusal",
     "build_lra_model",
     "lra_model_bdf",
+    "reference_axis_rows",
     "section_id",
     "transferred_case_loads",
-    "write_lra_model_bdf",
 ]

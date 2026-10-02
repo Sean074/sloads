@@ -802,7 +802,8 @@ def test_every_sbeam_writer_takes_a_system():
     import inspect
 
     from sloads.export.balanced_deck import balanced_deck
-    from sloads.export.lra_model import lra_model_bdf, write_lra_model_bdf
+    from sloads.export import deliverables
+    from sloads.export.lra_model import lra_model_bdf
 
     # Seventeen writers became four at note 56 D-56.2: the per-component deck
     # families are deleted and what ships is the applied load set, the balanced
@@ -811,7 +812,8 @@ def test_every_sbeam_writer_takes_a_system():
     # defaulting to Imperial.
     writers = [
         ap.applied_load_csv, ap.write_applied_load_csv,
-        balanced_deck, lra_model_bdf, write_lra_model_bdf,
+        balanced_deck, lra_model_bdf, deliverables.render,
+        deliverables.render_set,
     ]
     for fn in writers:
         param = inspect.signature(fn).parameters.get("system")

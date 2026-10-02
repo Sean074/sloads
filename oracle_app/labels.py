@@ -17,6 +17,7 @@ from typing import Dict
 #: hyphenated surface names, and the aerodynamic coefficients.
 SPELLING: Dict[str, str] = {
     "htail": "H-tail", "vtail": "V-tail", "cg": "CG", "mac": "MAC", "le": "LE",
+    "lra": "LRA",
     "cl": "CL", "cm": "CM", "clmax": "CLmax", "xcg": "XCG", "zcg": "ZCG",
     "xlemac": "XLEMAC", "rpm": "RPM", "hp": "hp", "eas": "EAS", "vn": "V-n",
     "ixx": "IXX", "iyy": "IYY", "izz": "IZZ", "wrp": "WRP", "sob": "SOB",

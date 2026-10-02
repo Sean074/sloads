@@ -143,13 +143,13 @@ def _xy(series: Series) -> Tuple[List[float], List[float]]:
 def is_to_scale(data: PlotData) -> bool:
     """Whether this figure is a *drawing* and must keep its aspect ratio.
 
-    True when every series bounds a region: that is what a planform, a side view
-    and a control-surface locator have in common, and what a load distribution
-    never has. Derived from the data rather than from a flag on the family --
-    ``Series.closed`` already carries the fact, and a second declaration beside
-    it would be free to disagree with it.
+    The producer's statement, :attr:`PlotData.to_scale` -- read here and by the
+    printed emitter alike, so the screen and the page cannot disagree about it
+    (note 67 §10). It was derived from ``Series.closed`` until then, and that
+    drew every drawing with an open line on it -- an engine's thrust arrow, a
+    beam -- on free axes.
     """
-    return bool(data.series) and all(s.closed for s in data.series)
+    return data.to_scale
 
 
 def plot(data: PlotData, *, height: int = 420) -> go.Figure:
@@ -168,6 +168,7 @@ def plot(data: PlotData, *, height: int = 420) -> go.Figure:
             labels = list(series.labels)
             fig.add_trace(go.Scatter(
                 x=x, y=y, name=series.name, mode="markers",
+                showlegend=bool(series.name),
                 text=labels or None,
                 marker={"size": 9, "color": colour,
                         "symbol": _symbol(series.style),
@@ -175,8 +176,12 @@ def plot(data: PlotData, *, height: int = 420) -> go.Figure:
                 hovertemplate=(("%{text}<br>" if labels else f"{series.name}<br>")
                                + "%{x}, %{y}<extra></extra>")))
             continue
+        # An unnamed series is the same thing as a named one beside it -- a
+        # mirrored half, the second segment of a beam -- and takes no legend
+        # row, exactly as ``plot_tex`` draws it ``forget plot``.
         fig.add_trace(go.Scatter(
             x=x, y=y, name=series.name, mode="lines",
+            showlegend=bool(series.name),
             line=_line(series.style, colour),
             fill="toself" if fill else None,
             fillcolor=fill,

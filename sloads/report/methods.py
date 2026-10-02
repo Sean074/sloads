@@ -2,9 +2,10 @@
 
 A loads deliverable that leaves this tool must carry its own basis. A CSV of
 span loads forwarded to a stress engineer, a BDF handed to sbeam, a PDF filed in
-a design review — each one has to say, *in band*, that the numbers are ULTIMATE,
-what category they were computed under, how the tool is verified, and what it
-does not do. An on-page caption does not travel with a downloaded file.
+a design review — each one has to say, *in band*, that the numbers are LIMIT
+and which factor they do not carry, what category they were computed under, how
+the tool is verified, and what it does not do. An on-page caption does not
+travel with a downloaded file.
 
 So the statement is built **once**, here, and wrapped for each channel
 (decision G8-3):
@@ -31,7 +32,7 @@ Pure: no I/O, no Streamlit. See ``docs/25_notes/13_step_g8_summary_report_plan.m
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from ..applicability import far23_applicability
 from ..constants import ULTIMATE_FACTOR
@@ -660,6 +661,38 @@ def bdf_comment_block(project: Project, **kwargs) -> str:
     their basis nor their units.
     """
     return _prefixed(methods_statement(project, **kwargs), "$")
+
+
+def bundle_stamps(project: Project, system: UnitSystem, generated: str = "",
+                  csv_channel: LoadChannel = LoadChannel.LIMIT) -> Tuple[str, str]:
+    """``(csv_stamp, bdf_stamp)`` for one export -- the one place a bundle's pair is built.
+
+    Built once per export from the *resolved* unit system and handed to every
+    writer, so the files of one export cannot disagree with each other -- or
+    with their own numbers -- about their basis or their units (L-8g / review
+    F-D3). The CLI and the Beam Model page both call this (note 67 D-67.6); it
+    lived in ``cli.py`` as ``_stamps`` until then, where a second front-end
+    could only have copied it.
+
+    ``scope`` is always the full case set: no export route filters cases, so
+    there is nothing to warn a recipient about. ``generated`` is the caller's
+    timestamp and defaults to absent, which keeps two headless runs of one
+    project byte-identical (nothing here reads the clock -- see the module
+    docstring). ``csv_channel`` is the CSV stamp's basis; since note 49 OR-116
+    every delivered file is LIMIT, the deck included, and the default says so.
+
+    The version is :mod:`sloads._version`'s, the single owner, never
+    ``importlib.metadata`` -- which reads an install-time snapshot that goes
+    stale in an editable checkout the moment the version is bumped (the reason
+    ``report_package.tool_version`` reads the same owner).
+    """
+    from .._version import __version__
+
+    kwargs: Dict[str, object] = {"tool_version": __version__,
+                                 "scope": "full case set", "system": system,
+                                 "generated": generated or None}
+    return (csv_comment_block(project, channel=csv_channel, **kwargs),
+            bdf_comment_block(project, **kwargs))
 
 
 def strip_comment_lines(csv_text: str) -> str:

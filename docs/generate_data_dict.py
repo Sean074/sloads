@@ -211,7 +211,11 @@ def _owning_page(slice_attr):
             if step.produces == slice_attr:
                 return step.title
         return "(unattributed)"
-    return " / ".join(sorted(w.BY_KEY[k].title for k in pages))
+    # A page that is not a step -- the Beam Model page (note 67 D-67.3) -- is
+    # named by its ``NON_STEP_PAGES`` row, the owner of its title.
+    return " / ".join(sorted(
+        w.BY_KEY[k].title if k in w.BY_KEY else w.non_step_page(k).title
+        for k in pages))
 
 
 def _consuming_modules(slice_attr):

@@ -1,5 +1,5 @@
 {
-  "schema_version": 72,
+  "schema_version": 73,
   "name": "GA 6-place single (Appendix A) \u2014 Continental IO-520-BB",
   "engines": [
     {
@@ -79,6 +79,7 @@
         "kind": "empty",
         "component": "wing",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -94,6 +95,7 @@
         "kind": "empty",
         "component": "htail",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -109,6 +111,7 @@
         "kind": "empty",
         "component": "vtail",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -124,6 +127,7 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -139,6 +143,7 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -154,6 +159,7 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -169,6 +175,7 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -184,6 +191,7 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -199,6 +207,7 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -214,6 +223,7 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -229,6 +239,7 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -244,6 +255,7 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -259,6 +271,7 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -274,6 +287,7 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -289,6 +303,7 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -304,6 +319,7 @@
         "kind": "minimum",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -319,6 +335,7 @@
         "kind": "minimum",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": true,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -334,6 +351,7 @@
         "kind": "discretionary",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -349,6 +367,7 @@
         "kind": "discretionary",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -364,6 +383,7 @@
         "kind": "discretionary",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -379,6 +399,7 @@
         "kind": "discretionary",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -394,6 +415,7 @@
         "kind": "discretionary",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -409,6 +431,7 @@
         "kind": "discretionary",
         "component": "fuselage",
         "consumable": true,
+        "usable_fuel": true,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -424,6 +447,7 @@
         "kind": "discretionary",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       }

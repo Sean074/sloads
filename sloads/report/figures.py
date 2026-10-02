@@ -91,7 +91,8 @@ class FigureFamily:
     #: How a page names it. Not the figure's own title -- an instance carries
     #: that, and where a family is a run the instances differ by it.
     title: str
-    #: The :func:`sloads.workflow.oracle_steps` key of the page that shows it.
+    #: The :func:`sloads.workflow.gui_pages` key of the page that shows it --
+    #: an analysis step's, or ``beam_model``'s (note 67 D-67.4a).
     step: str
     stage: Stage
     #: The one function that constructs it. Shared where one producer emits
@@ -184,6 +185,10 @@ def _catalogue() -> Tuple[FigureFamily, ...]:
                 ("oei_load", "Fin load history"))
     out += rows("landing_loads", osx.attitude_figures, post,
                 ("ground_attitude", "Ground attitudes"))
+    # The one family on a page that is not an analysis step (note 67 D-67.4a):
+    # the deliverable built from the analysis, drawn where it is written.
+    out += rows("beam_model", osx.beam_model_figures, pre,
+                (osx.BEAM_FAMILY, "The LRA beam model"))
     return tuple(out)
 
 
@@ -231,6 +236,10 @@ def results_for_step(project: Project, step: str,
     from ..workflow import BY_KEY, step_modules
 
     out: Dict[str, Optional[ModuleResult]] = {}
+    if step not in BY_KEY:
+        # A page that is not an analysis step (note 67 D-67.4a) runs no
+        # program, so there is nothing to run for it; its families are pre-run.
+        return out
     modules = step_modules(step)
     primary = BY_KEY[step].module if step in BY_KEY else None
     for name in modules:

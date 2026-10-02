@@ -98,6 +98,7 @@ def test_the_export_menu_is_the_deliverable_menu():
     ("gear", ["out.gear_loads.csv"]),
     ("lra", ["out.lra_model.bdf"]),
     ("mass", ["out_mass.bdf", "out_mass_check.bdf"]),
+    ("oew", ["out.oew_mass.bdf"]),
 ])
 def test_every_export_target_writes_its_artifacts(tmp_path, target, expected):
     """Each target writes its files, non-empty, on the Appendix A airplane."""
@@ -176,6 +177,46 @@ def _project_with_lra(tmp_path, pct: float) -> str:
 
 
 
+
+
+# --------------------------------------------------------------------------- #
+# Note 67 D-67.6 / D-67.8 — the CLI is a route, not an owner
+# --------------------------------------------------------------------------- #
+def test_the_cli_builds_no_stamp_and_spells_no_file_name():
+    """The Beam Model page writes the same deck, so the CLI may own neither half.
+
+    The stamp pair is ``report.bundle_stamps`` and the names are
+    ``export.deliverables`` (note 67 D-67.6/D-67.8): a stamp builder or an
+    f-string ending in ``.bdf``/``.csv`` back in ``cli.py`` is a second owner the
+    page cannot see. ``importlib.metadata`` is refused by name because the CLI's
+    copy of the stamp read the version from it -- the install-time snapshot that
+    ``sloads/_version.py`` exists to replace.
+    """
+    import ast
+
+    with open(cli.__file__, encoding="utf-8") as fh:
+        tree = ast.parse(fh.read())
+    defined = {n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
+    assert not defined & {"_stamps", "_tool_version"}, sorted(defined & {"_stamps", "_tool_version"})
+    imported = {(n.module or "") for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)}
+    imported |= {a.name for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names}
+    assert "importlib.metadata" not in imported
+    spelled = [part.value for node in ast.walk(tree) if isinstance(node, ast.JoinedStr)
+               for part in node.values
+               if isinstance(part, ast.Constant) and isinstance(part.value, str)
+               and part.value.endswith((".bdf", ".csv"))]
+    assert not spelled, f"cli.py spells a deliverable's name itself: {spelled}"
+
+
+def test_the_stamp_carries_the_version_owners_version():
+    """``bundle_stamps`` states the build ``sloads/_version.py`` names, in both channels."""
+    from sloads._version import __version__
+    from sloads.report import bundle_stamps
+    from sloads.units import UnitSystem
+
+    csv_stamp, bdf_stamp = bundle_stamps(sloads_io.load_project(GA6), UnitSystem.IMPERIAL)
+    assert __version__ in csv_stamp and __version__ in bdf_stamp
+    assert csv_stamp.startswith("#") and bdf_stamp.startswith("$")
 
 
 # --------------------------------------------------------------------------- #

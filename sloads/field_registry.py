@@ -826,6 +826,9 @@ _SLDS = Origin.SLOADS
 
 # Editing-page keys, short so a 323-row table stays one row per line.
 _GEO = "configuration_layout"
+#: The Beam Model page -- not an analysis step, the one non-step page whose
+#: form renders registry rows (note 67 D-67.3, ``workflow.NON_STEP_PAGES``).
+_BEAM = "beam_model"
 _WT = "weight_mass"
 _SPD = "structural_speeds"
 _AERO = "aero_coefficients"
@@ -1209,6 +1212,10 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("weight.items[].consumable", _WT, _SLDS,
        "marks the item consumable so sloads can build fuel-burn loading states from the weight database; the original "
        "suite took one weight statement and no loading model (decision D-25)"),
+    _E("weight.items[].usable_fuel", _WT, _SLDS,
+       "marks fuel the engines can draw, reserve included, so the operating empty "
+       "weight can leave it out (design note 67 D-67.10); the original suite wrote "
+       "no mass model, so it never had to say which rows of the database were fuel"),
     _E("weight.items[].wing_fraction", _WT, _SLDS,
        "wing/body split of one row (plan 11, note 29 WF-2): `component` at finer grain, the "
        "same which-beam question BODYLOAD asked by position. Load-bearing (G5, #62): the "
@@ -1291,6 +1298,9 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        _BALLAST_BASIS + " -- the component that carries it, the fuselage as a rule"),
     _E("weight.cg_cases[].loading.ballast.consumable", _WT, _SLDS,
        _BALLAST_BASIS + " -- whether it burns off, which ballast does not"),
+    _E("weight.cg_cases[].loading.ballast.usable_fuel", _WT, _SLDS,
+       _BALLAST_BASIS + " -- whether it is usable fuel, which ballast is not "
+       "(design note 67 D-67.10)"),
     _E("weight.cg_cases[].loading.ballast.wing_fraction", _WT, _SLDS,
        _BALLAST_BASIS + " -- the share of it the wing carries (design note 29 WF-3)"),
     _E("weight.cg_cases[].loading.ballast.carriage", _WT, _SLDS,
@@ -1794,22 +1804,23 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "original suite printed loads and built no structural model (note 56)"),
 
     # --- The LRA beam mesh (note 56 D-56.4) -------------------------------- #
-    # On the geometry page rather than the export page: the mesh is a
-    # discretisation of the airframe's own beam geometry, decided from the
-    # planform and the joint register and from nothing the load model states --
-    # which is the whole content of D-56.4. Filing it under `export_report`
-    # would also strand it outside the oracle GUI, and that page is retiring
-    # (note 57 D-57.6 / #270).
-    _E("lra_mesh.wing_grids", _GEO, _SLDS,
+    # On the Beam Model page (note 67 D-67.3), beside the drawing of the mesh it
+    # sets. It sat on Geometry from D-56.4 until then, because the export page
+    # was retiring and Geometry was the nearest page that survived; the
+    # reasoning that it is a discretisation of the airframe's own beam
+    # geometry, decided from nothing the load model states, is unchanged. Only
+    # the LRA exporter reads it, so the counts and the picture of what they do
+    # are now one page.
+    _E("lra_mesh.wing_grids", _BEAM, _SLDS,
        "LRA beam mesh: nodes per wing side, side of body -> tip (note 56 "
        "D-56.4). Blank = the default 20"),
-    _E("lra_mesh.fuselage_grids", _GEO, _SLDS,
+    _E("lra_mesh.fuselage_grids", _BEAM, _SLDS,
        "LRA beam mesh: nodes per fuselage cantilever, i.e. each side of the "
        "carry-through (note 56 D-56.4). Blank = the default 12"),
-    _E("lra_mesh.htail_grids", _GEO, _SLDS,
+    _E("lra_mesh.htail_grids", _BEAM, _SLDS,
        "LRA beam mesh: nodes per h-tail side (note 56 D-56.4). Blank = the "
        "default 12"),
-    _E("lra_mesh.vtail_grids", _GEO, _SLDS,
+    _E("lra_mesh.vtail_grids", _BEAM, _SLDS,
        "LRA beam mesh: nodes on the fin, root -> tip (note 56 D-56.4). "
        "Blank = the default 10"),
 )
@@ -2103,3 +2114,41 @@ def entering_step(slice_name: str) -> Optional[str]:
         if step.key in pages:
             return step.key
     return None
+
+
+# --------------------------------------------------------------------------- #
+# Counts a keystroke can blow up (note 67 D-67.12, #244)
+# --------------------------------------------------------------------------- #
+#: The most rows a list's row counter takes. One mistyped digit committed 4,501
+#: weight items in the 2026-09-08 GUI review (G4); 500 is fourteen times the
+#: largest shipped table (``baron_58``'s 36 items) and still a table a person
+#: could have meant.
+ROW_COUNT_CAP = 500
+
+#: An increase larger than this, in one edit, waits for a named click. Above
+#: every batch a user types by hand, below every accident with a held key.
+COUNT_CONFIRM_JUMP = 10
+
+
+class CountRule(typing.NamedTuple):
+    """The range an integer count may take, and what blank means."""
+
+    floor: int
+    cap: int
+    #: The count a blank field stands for, or ``None`` where blank is not allowed.
+    default: Optional[int]
+
+
+def _lra_count_rules() -> Dict[str, CountRule]:
+    from sloads.models.inputs import LRA_DEFAULT_GRIDS, LRA_GRID_BOUNDS
+
+    floor, cap = LRA_GRID_BOUNDS
+    return {f"lra_mesh.{member}_grids": CountRule(floor, cap, default)
+            for member, default in LRA_DEFAULT_GRIDS.items()}
+
+
+#: Integer fields rendered through the bounded count widget, by registry path.
+#: The LRA mesh counts, whose bounds are the exporter's own
+#: (``models.inputs.LRA_GRID_BOUNDS``), so the widget cannot enter what the
+#: exporter would refuse.
+COUNT_RULES: Dict[str, CountRule] = _lra_count_rules()

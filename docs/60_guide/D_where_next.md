@@ -18,10 +18,13 @@ The task-oriented guide to the whole application is
   configuration sketches — the pictures this guide's tables imply. They are on
   the pages that produce them, in two marked blocks: what is entered, and what
   was computed.
-- **The sbeam export decks.** Distributed per-component loads on a load
-  reference axis and the solver decks (`FORCE`/`MOMENT` bulk data with verified
-  equilibrium) — the bridge from loads to structural sizing. Headless:
-  `sloads --export-sbeam out --export-target lra <project.json>`.
+- **The beam model and its deck.** The **Beam Model** page draws the LRA
+  free-free beam every applied load is stated on and writes its solver deck
+  (`FORCE`/`MOMENT` bulk data with verified equilibrium) and the operating empty
+  weight's mass set into a folder you choose — the bridge from loads to
+  structural sizing. Headless, the same files:
+  `sloads --export-sbeam out --export-target lra <project.json>` (and
+  `--export-target oew`).
 - **The report.** The **Report** page renders the formatted loads report and
   writes it as an issue package, whose `data/` folder carries every module's
   load cases, the applied load sets, the case index and the governing

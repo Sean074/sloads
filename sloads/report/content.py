@@ -168,6 +168,18 @@ class PlotData:
     #: printed figure and the screen figure stop being the same picture.
     log_x: bool = False
     log_y: bool = False
+    #: Whether the figure is a **drawing** -- both axes positions in one length
+    #: unit, held to equal scale. Stated by the producer, on ``log_x``'s
+    #: reasoning: it is a property of what is plotted, and both renderers must
+    #: answer it the same way (note 67 §10). It used to be derived from
+    #: ``Series.closed`` ("every series bounds a region"), and measured against
+    #: the catalogue that rule was wrong both ways: an engine view or a ground
+    #: attitude draws open thrust arrows and axis keys beside closed outlines,
+    #: and the fuselage side view draws no closed series at all, so every one of
+    #: them printed and displayed on free axes under a caption saying "to scale
+    #: on equal axes". ``tests/test_figures.py`` holds this flag and that
+    #: caption together.
+    to_scale: bool = False
     #: The legend entry :attr:`points` are drawn under.
     #:
     #: Defaulted to the weight/CG figure's wording, which was the only user when

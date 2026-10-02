@@ -31,7 +31,6 @@ from sloads.export.lra_model import (
     build_lra_model,
     lra_model_bdf,
     transferred_case_loads,
-    write_lra_model_bdf,
 )
 from sloads.export.mass_cards import mass_check_deck
 from sloads.report.applied import wing_nodal_loads
@@ -858,7 +857,9 @@ def test_the_lra_deck_states_what_it_does_not_cover(example, tmp_path):
     supplied = lra_model_bdf(project, cases=build_balanced_cases(project),
                              skipped=record)
     assert _skip_block_of(supplied) == block
-    path = os.path.join(tmp_path, "m.bdf")
-    write_lra_model_bdf(project, path)
+    from sloads.export import deliverables
+
+    path, = deliverables.write_set(deliverables.render_set(
+        project, os.path.join(tmp_path, "m"), ("lra",)))
     with open(path, encoding="utf-8") as fh:
         assert _skip_block_of(fh.read()) == block

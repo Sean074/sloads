@@ -2,7 +2,7 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: AGREED 2026-10-01** (owner, in session, under the solo profile — rule 1's working-alone branch). PROPOSED the same day; the owner ruled Q1–Q3 of §2.2 **as recommended**, so D-67.1…D-67.12 stand as written (§9). Drafted for band B9 row 9, **#283** (the
+**Status: SHIPPED 2026-10-01 — #283 with #244 riding (§11).** AGREED 2026-10-01 (owner, in session, under the solo profile — rule 1's working-alone branch). PROPOSED the same day; the owner ruled Q1–Q3 of §2.2 **as recommended**, so D-67.1…D-67.12 stand as written (§9). Drafted for band B9 row 9, **#283** (the
 beam-model page), with row 10, **#244** (the grid row-counter), riding it as the
 owner placed it on 2026-09-28. The six design questions of the 2026-10-01 review
 were **ruled in session before drafting** (§2); this note writes them down as
@@ -400,3 +400,95 @@ reachability: the primary deliverable could not be produced from the GUI. The
 rows and a mesh count at 200 per member, with a floor of 2 (D-67.12). The `oew`
 target writes the fragment alone, with no GPWG check deck, and gate 7 is its
 check. No decision changed at AGREED.
+
+## 10. Amendments at implementation (2026-10-01)
+
+**D-67.5 amended (owner ruling A, in session):** the oracle report **prints** the beam-model
+family. Note 60 D-60.1's parity gate
+(`test_figures.py::test_g_fig_5_every_gui_figure_has_a_report_producer`) holds
+that no figure is shown in the GUI that the report does not print, and the
+owner kept it whole rather than exempt the page. The four views open Appendix
+G, the appendix that already states what the beam model's grids cost the
+distribution, so the delivered model is drawn where it is described. The script's
+three PNGs in `examples/` (`*_lra_views.png`, linked from nowhere) retire with
+it.
+
+**D-67.4b replaced: the producer states whether a figure is to scale** *(raised in session at step 3; the owner kept it in this item at closure, 2026-10-01)*.
+"Any series closed" was measured against every figure the catalogue builds,
+and it was not the rule either. `body_side_view` is captioned "to scale on equal
+axes" and carries no closed series. The engine views, the ground attitudes and
+the two tail LRA planforms carry open lines beside closed outlines, so the
+GUI's "every series closed" drew them on free axes. In print, `plot_tex` never
+set equal axes for any figure outside the four planform keys, so every one of
+these printed to the wrong shape. The amendment: `PlotData.to_scale`,
+stated by the producer on the same reasoning as `log_x` (a property of the
+quantity, which both renderers must answer the same way). `app_shell.plots`
+and `plot_tex` both read it. A guard holds the flag and any caption that says
+"to scale" together. The printed engine views, attitudes, side view and
+LRA planforms move as a result, and the history fragment says so.
+
+**D-67.4 refined: outlines come from the report's own owner.** The three
+orthographic views draw the airframe through `oracle_sections._airframe_series`,
+the owner the engine views already use, instead of porting the script's
+`collect_outlines`. That drawing therefore has one owner rather than two. The
+iso view draws the beam, the ties, the owned nodes and the fuselage side
+profile. It does not drape the planforms, which was the script's own "picture
+convention, not geometry".
+
+## 11. Implementation record — #283 and #244 (2026-10-01)
+
+Built in six steps on `dev/v0.8.8`, the full suite green after each. Where the
+build departed from §3, it is said here. The owner confirmed §10's to-scale
+amendment at closure, kept in this item.
+
+- **D-67.6–D-67.8 (owners first).** `report.bundle_stamps`,
+  `app_shell/folder_picker.folder_picker` and `export/deliverables` moved the
+  stamp, the picker and the file names out of `cli.py` and the Report page. The
+  CLI's copy of the stamp read the version from `importlib.metadata`, the
+  install-time snapshot `sloads/_version.py` replaced; the owner reads
+  `_version`. **Departure:** `lra_model.write_lra_model_bdf` is retired rather
+  than kept beside the new path. The CLI's `lra`/`oew` targets and the page
+  render through `deliverables.render_set` and write through `write_set`, so a
+  set is rendered whole before any file opens.
+- **D-67.10/D-67.11.** Schema v73 and its identity hop. The five fixtures are
+  tagged: 13 usable-fuel rows, reserve and mission. Unusable fuel, unusable
+  fuel and oil, and the Baron's fuel system stay untagged. ATR OEW 22,674 lb
+  with both reserve tanks left out. sbeam's GPWG recovers each OEW to about
+  1e-7. One new digest channel per example (`sbeam/oew_mass`, 258 → 263); no
+  existing channel moved.
+- **D-67.4/D-67.5 (as amended in §10).**
+  - `oracle_sections.beam_model_figures` builds the family from
+    `build_lra_model`.
+  - The orthographic outlines come from `_airframe_series`. The script, its
+    test and its three PNGs are deleted.
+  - `PlotData.to_scale` is set on seven existing drawing producers. Drawings
+    place their legend in baselines, as the planform emitter does.
+  - **Found at implementation:** an engine side view on equal axes is a thin
+    strip, and the axis-relative legend offset then sat on its x label.
+- **D-67.1–D-67.3 (the page).** **Departure:** `form.render_page_inputs`
+  renders a non-step page's registry rows by sharing `render_step`'s group
+  loop rather than copying it. **Found at implementation:** the deck itself
+  raises a plain `ValueError` when no balanced case can be assembled. The page's
+  write catches `ValueError` (an `LraRefusal` is one), or such a project would
+  have crashed it.
+- **D-67.12 (#244).** `app_shell.components.count_input`, with
+  `field_registry.ROW_COUNT_CAP`, `COUNT_CONFIRM_JUMP`, `COUNT_RULES` and
+  `models.inputs.LRA_GRID_BOUNDS`. **Departure:** a mesh count out of range in a
+  loaded file is refused by the **exporter**, as an `LraRefusal` naming
+  `lra_mesh.<member>_grids`, and not by `validation`. Validation's warnings
+  target analysis-step pages only, and the Beam Model page already states
+  refusals verbatim. `LraMeshInput.count` enforces the cap too.
+  - The oracle journey's typing harness clicks the held-jump button, as it
+    clicks the #143 Add gestures: typing a 24-row table from blank now asks
+    once.
+  - "LRA" joined the label spelling table (so the record reads "LRA Mesh"),
+    since `DISPLAY_GROUPS` titles are reserved for original-suite fields.
+- **Gates:**
+  - `tests/test_beam_model_page.py`: gates 1, 2 and 4, the page under AppTest,
+    and the one-picker guard.
+  - `tests/test_figures.py`: gate 5 and the to-scale pair.
+  - `tests/test_field_registry.py` and `tests/test_workflow.py`: gate 6.
+  - `tests/test_mass_cards.py` and `tests/test_sbeam_roundtrip.py`: gate 7.
+  - `tests/test_migrations.py`: gate 8.
+  - `tests/test_bounded_count.py`: gate 9.
+  - Gate 10 is the unchanged suite and digests.

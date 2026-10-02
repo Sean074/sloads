@@ -397,7 +397,11 @@ def fields_hash() -> str:
 #: windmilling propeller's disc drag coefficient. Additive with a ``None``
 #: default that means exactly the v70 state, so ``_hop_70`` is an identity --
 #: the first hop after a released schema.
-EXPECTED_FIELDS_HASH = "69410e1aa5b84ca8"
+#: v73 (design note 67 D-67.10, #283): ``MassItem.usable_fuel``, the tag the
+#: operating-empty-weight partition reads. Additive with a ``False`` default and
+#: no inference, so ``_hop_72`` is an identity; no load reads it, so the
+#: Imperial digests do not move (the OEW mass set's channel is new, gate 10).
+EXPECTED_FIELDS_HASH = "c067a2968cfb244f"
 
 
 def test_persisted_dataclass_shapes_are_unchanged():

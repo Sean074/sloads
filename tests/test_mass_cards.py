@@ -25,6 +25,7 @@ grid-point-weight generator on 2026-08-08 and is recorded in the history entry -
 the same precedent as C4's "the deck parses and solves in sbeam".
 """
 
+import math
 import os
 import sys
 
@@ -595,6 +596,102 @@ def test_a_project_with_no_derivable_case_refuses_a_check_deck():
         case.xcg = min(it.x for it in p.weight.items) - 40.0
     with pytest.raises(ValueError, match="no payload case is derivable"):
         mc.mass_check_deck(p)
+
+
+# --------------------------------------------------------------------------- #
+# Note 67 D-67.9-D-67.11 -- the operating empty weight's mass set
+# --------------------------------------------------------------------------- #
+#: The rows each shipped fixture tags ``usable_fuel`` (§1.3 of the note). Pinned
+#: by name here, the one place a name may decide anything: the tag is the input,
+#: and this is the record of what was entered.
+_USABLE_FUEL = {
+    "atr42_100.project.json": {"Reserve fuel, left", "Reserve fuel, right",
+                               "Wing fuel, left", "Wing fuel, right"},
+    "baron_58.project.json": {"Fuel, left wing", "Fuel, right wing"},
+    "concept_heavy.project.json": {"Reserve fuel", "Wing fuel, left",
+                                   "Wing fuel, right"},
+    "concept_regional_jet.project.json": {"Reserve fuel", "Mission fuel"},
+    "ga6_normal.project.json": {"30 min fuel", "Fuel to gross wt"},
+}
+
+
+def test_every_fixture_tags_exactly_its_usable_fuel():
+    """Gate 8's fixture half: the tags §1.3 lists, no more and no fewer.
+
+    Unusable fuel, oil and a fuel *system* are not usable fuel -- they are part
+    of the operating airplane -- so ``Unusable fuel`` (ga6, ATR), ``Unusable fuel
+    & oil`` and ``Fuel system`` (Baron) stay untagged and stay in OEW.
+    """
+    assert set(_USABLE_FUEL) == set(EXAMPLES)
+    for example, names in _USABLE_FUEL.items():
+        tagged = {it.name for it in _project(example).weight.items if it.usable_fuel}
+        assert tagged == names, example
+
+
+@pytest.mark.parametrize("example", EXAMPLES)
+def test_the_oew_is_empty_plus_minimum_less_usable_fuel(example):
+    """Gate 7, the partition: the kind sums, computed here independently, exactly."""
+    items = _project(example).weight.items
+    oew = md.oew_items(_project(example))
+    by_kind = {k: math.fsum(it.weight_lb for it in items if it.kind == k)
+               for k in MassItemKind}
+    fuel_out = math.fsum(it.weight_lb for it in items
+                         if it.kind != MassItemKind.DISCRETIONARY and it.usable_fuel)
+    want = by_kind[MassItemKind.EMPTY] + by_kind[MassItemKind.MINIMUM] - fuel_out
+    assert math.fsum(it.weight_lb for it in oew.kept) == pytest.approx(want, abs=1e-9)
+    assert not any(it.usable_fuel or it.kind == MassItemKind.DISCRETIONARY
+                   for it in oew.kept)
+    assert all(it.usable_fuel for it in oew.fuel)
+
+
+@pytest.mark.parametrize("example", EXAMPLES)
+@pytest.mark.parametrize("system", _SYSTEMS)
+def test_the_oew_set_carries_one_card_per_kept_row_and_no_massset(example, system):
+    """Gate 7, the file: one CONM2 per OEW row at the summed mass, and no case."""
+    p = _project(example)
+    u = deliverable_units(system, Channel.SOLVER)
+    text = mc.oew_fragment(p, system=system)
+    kept = md.oew_items(p).kept
+    conm2 = [ln for ln in text.splitlines() if ln.startswith("CONM2,")]
+    assert len(conm2) == len(kept)
+    printed = math.fsum(float(ln.split(",")[4]) for ln in conm2)
+    assert printed == pytest.approx(math.fsum(it.weight_lb for it in kept)
+                                    * u.mass.factor, rel=1e-6)
+    assert "MASSSET" not in text.replace("no MASSSET", "")
+    assert not any(ln.startswith(("GRAV", "SUBCASE", "FORCE", "MOMENT"))
+                   for ln in text.splitlines())
+
+
+@pytest.mark.parametrize("example", EXAMPLES)
+def test_the_oew_header_names_every_minimum_row_on_its_side(example):
+    """D-67.11: every MINIMUM row is named, kept or left out -- never silent."""
+    p = _project(example)
+    text = mc.oew_fragment(p)
+    included = next(ln for ln in text.splitlines() if "rows INCLUDED:" in ln)
+    left_out = next(ln for ln in text.splitlines() if "rows LEFT OUT:" in ln)
+    for it in p.weight.items:
+        if it.kind != MassItemKind.MINIMUM:
+            continue
+        assert it.name in (left_out if it.usable_fuel else included), (example, it.name)
+
+
+def test_an_untagged_reserve_tank_is_kept_and_named():
+    """A migrated project's reserve fuel reads ``False``: it rides in, by name."""
+    p = _project("concept_regional_jet.project.json")
+    for it in p.weight.items:
+        it.usable_fuel = False
+    text = mc.oew_fragment(p)
+    included = next(ln for ln in text.splitlines() if "rows INCLUDED:" in ln)
+    assert "Reserve fuel" in included
+    assert "LEFT OUT: none" in text
+
+
+def test_a_database_with_no_operating_rows_is_refused():
+    p = _project("ga6_normal.project.json")
+    p.weight.items = [it for it in p.weight.items
+                      if it.kind == MassItemKind.DISCRETIONARY]
+    with pytest.raises(ValueError, match="operating empty weight"):
+        mc.oew_fragment(p)
 
 
 if __name__ == "__main__":

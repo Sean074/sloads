@@ -1728,14 +1728,19 @@ the applied load set (`applied_loads("htail"|"vtail", ...)`), GID bands `4001+`
   as a pinned optional extra, `pip install -e '.[solver]'`.
 - **CLI — the whole deliverable menu is headless (0.5.0 row 1, review F-D1).**
   `python cli.py --export-sbeam <prefix> <project.json> --export-target <t>`,
-  where `<t>` is one of `lra` (default — the LRA beam model, the mission's
-  primary deliverable, optionally onto an imported model with `--lra-import`),
-  `gear` (the landing gear interface load definition, a **document** since
-  D-56.1 and this its only headless route) or `mass` (the CONM2/MASSSET model;
-  the same owner and the same file names as `--export-conm2`, which is kept
-  because it shipped first). **Ten targets became three:** D-56.2 deleted the
-  six that wrote per-component decks (`wing`, `body`, `tail`, `htail-span`,
-  `vtail-span`, `control`) and D-56.8 unshipped `balanced`.
+  where `<t>` is one of `lra` (the LRA beam model, the mission's primary
+  deliverable, optionally onto an imported model with `--lra-import`), `oew`
+  (the operating empty weight's CONM2 set — no payload, no fuel, no `MASSSET`;
+  note 67 D-67.9), `gear` (the landing gear interface load definition, a
+  **document** since D-56.1 and this its only headless route) or `mass` (the
+  CONM2/MASSSET model; the same owner and the same file names as
+  `--export-conm2`, which is kept because it shipped first). There is no default
+  target. **Ten targets became three, then four:** D-56.2 deleted the six that
+  wrote per-component decks (`wing`, `body`, `tail`, `htail-span`, `vtail-span`,
+  `control`), D-56.8 unshipped `balanced`, and note 67 added `oew` so the Beam
+  Model page writes nothing the CLI cannot. Every file name is
+  `export/deliverables.SUFFIXES`', and the `lra`/`oew` texts are rendered and
+  written by the same `deliverables.render_set`/`write_set` the page calls.
   `cli.EXPORT_TARGETS` is the single list, handed to argparse and pinned against
   the CLI docstring by
   `tests/test_cli.py::test_the_export_menu_is_the_deliverable_menu`.
@@ -1831,9 +1836,11 @@ the applied load set (`applied_loads("htail"|"vtail", ...)`), GID bands `4001+`
   register's owned locations on it, and `n` grids laid at equal spacing
   *between* consecutive owned points — so no grid can land beside a joint and
   note 55's sliver class cannot arise. `n` is per component and settable
-  (`Project.lra_mesh`, schema v66), defaulting to **wing 20 per side, fuselage
-  12 per cantilever, h-tail 12 per side, fin 10**; blank means the default, and
-  every bundled example is blank. Before this the beam *was* the load mesh —
+  (`Project.lra_mesh`, schema v66; entered on the Beam Model page since note 67
+  D-67.3), defaulting to **wing 20 per side, fuselage 12 per cantilever, h-tail
+  12 per side, fin 10**; blank means the default, and every bundled example is
+  blank. A count runs 2–200 (`LRA_GRID_BOUNDS`); a file carrying one outside it
+  is refused by name (`LraRefusal`, `lra_mesh.<member>_grids`). Before this the beam *was* the load mesh —
   the WINGGEOM strips outboard of the side of body and the spanwise tail
   stations — which made the spanwise half of the LM-1 transfer an identity on
   every CI fixture, so the arbitrary-grid path a user hits first was the least
@@ -1958,9 +1965,19 @@ the applied load set (`applied_loads("htail"|"vtail", ...)`), GID bands `4001+`
   axis, closing the torsion-reference question (R-7d).
 - **CLI:** `--export-target lra` (`<prefix>.lra_model.bdf`); with
   `--lra-import MODEL.bdf` the loads land on the imported model instead
-  (`<prefix>.lra_loads.bdf`). The Export page bundles `lra_model.bdf` when it
-  builds, and Appendix A of the summary report names it there with its basis
-  (solver units, LIMIT, torsion about each surface's LRA).
+  (`<prefix>.lra_loads.bdf`).
+- **GUI: the Beam Model page** (note 67; a `NON_STEP_PAGES` row, not an
+  analysis step). It shows each member's loads reference axis read-only
+  (`lra_model.reference_axis_rows`, the same `LRA_SURFACES` the exporter
+  refuses on), renders the `lra_mesh` counts (moved from Geometry, D-67.3;
+  bounded 2–200, `LRA_GRID_BOUNDS`), draws the model in four views (the
+  `lra_beam_model` figure family, which the oracle report also prints at the
+  head of Appendix G), and writes `<stem>.lra_model.bdf` and
+  `<stem>.oew_mass.bdf` into a chosen folder, stamped by
+  `report.bundle_stamps`, byte-identical to the CLI's for the same `generated`
+  (gate 1). A refused model is stated verbatim and nothing is drawn or written.
+  The report package does not carry the deck (owner, 2026-09-14): the page and
+  the CLI are its two routes.
   `lra_loads.bdf` is a **CLI-only** artifact on the same basis: it never rides
   the bundle, so it is named here and not in the bundle manifest — a manifest
   row for a file the zip does not contain is the same conformance defect
@@ -2062,6 +2079,7 @@ Derived from **User's Guide Table 2.2** (the authoritative input→output map):
 | `envelope.vn / tail_balance` | FLTLOADS | SELECT, WINGINER |
 | `weight.cg_cases[].loading` (the case's mass state, D-25 / note 63 D-63.1) | the Payload Cases group of the Weight & Mass Properties page — the loading editor inside the case's row (#290, D-63.9: aboard, fractions, ballast, the D-25a echo; *Add loading* enters the searched one as found), else derived by `mass_distribution.derive_case_loadings` | WINGINER, NETLOADS (`wing_mass_state` per wing case), `body_loads` (per fuselage condition), `balance` (per assembled case), the CONM2 overlay cards |
 | `weight.items[].carriage` (PANEL / POINT, note 63 D-63.3) | Weight & Mass Properties page | `mass_distribution.wing_parts` — WINGINER's panel and point lists, the balanced deck's wing set |
+| `weight.items[].usable_fuel` (fuel the engines can draw, reserve included; unusable fuel and oil is not — note 67 D-67.10, schema v73) | Weight & Mass Properties page | `mass_distribution.oew_items` — the operating empty weight (`EMPTY` + `MINIMUM` less usable fuel), read by `mass_cards.oew_fragment`, the OEW mass set the Beam Model page and `--export-target oew` write. No load reads it; orthogonal to `consumable` (reserve fuel is usable and not consumable) |
 | `envelope.critical` | SELECT | AIRLOADS, AIRLOAD4, WINGINER, TAILDIST |
 | `envelope.critical.selected_case_ids` (opt-out GUI selection, Step D5) | Flight Envelope (V-n) page, Critical Loads tab (Step G3) | Results Review page (display filter only); Export page (fuselage/tail sbeam artifacts + case index only, Step D8.3 — structural calc modules keep reading `envelope.critical.conditions` unfiltered) |
 | `loads.wing_inertia` | WINGINER | NETLOADS |

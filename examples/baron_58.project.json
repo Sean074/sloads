@@ -1,5 +1,5 @@
 {
-  "schema_version": 72,
+  "schema_version": 73,
   "name": "Beechcraft Baron 58 — two Continental IO-550-C",
   "description": "Guide worked example (design note 34 UG-9): FAA Aircraft Spec 3A16 Rev 82, Model 58 S/N TH-1396–TH-2124. Certified data cited, everything else estimated — sources: examples/baron_58.sources.md",
   "engines": [
@@ -129,6 +129,7 @@
         "kind": "empty",
         "component": "wing",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -144,6 +145,7 @@
         "kind": "empty",
         "component": "htail",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -159,6 +161,7 @@
         "kind": "empty",
         "component": "vtail",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -174,6 +177,7 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -189,6 +193,7 @@
         "kind": "empty",
         "component": "wing",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point"
       },
@@ -204,6 +209,7 @@
         "kind": "empty",
         "component": "wing",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point"
       },
@@ -219,6 +225,7 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -234,6 +241,7 @@
         "kind": "empty",
         "component": "wing",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point"
       },
@@ -249,6 +257,7 @@
         "kind": "empty",
         "component": "wing",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point"
       },
@@ -264,6 +273,7 @@
         "kind": "empty",
         "component": "wing",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point"
       },
@@ -279,6 +289,7 @@
         "kind": "empty",
         "component": "wing",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point"
       },
@@ -294,6 +305,7 @@
         "kind": "empty",
         "component": "wing",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point"
       },
@@ -309,6 +321,7 @@
         "kind": "empty",
         "component": "wing",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point"
       },
@@ -324,6 +337,7 @@
         "kind": "empty",
         "component": "wing",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point"
       },
@@ -339,6 +353,7 @@
         "kind": "empty",
         "component": "wing",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point"
       },
@@ -354,6 +369,7 @@
         "kind": "empty",
         "component": "wing",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point"
       },
@@ -369,6 +385,7 @@
         "kind": "empty",
         "component": "wing",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point"
       },
@@ -384,6 +401,7 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -399,6 +417,7 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -414,6 +433,7 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -429,6 +449,7 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -444,6 +465,7 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -459,6 +481,7 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -474,6 +497,7 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -489,6 +513,7 @@
         "kind": "empty",
         "component": "wing",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point"
       },
@@ -504,6 +529,7 @@
         "kind": "empty",
         "component": "wing",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point"
       },
@@ -519,6 +545,7 @@
         "kind": "empty",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -534,6 +561,7 @@
         "kind": "minimum",
         "component": "wing",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point"
       },
@@ -549,6 +577,7 @@
         "kind": "minimum",
         "component": "wing",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point"
       },
@@ -564,6 +593,7 @@
         "kind": "discretionary",
         "component": "wing",
         "consumable": true,
+        "usable_fuel": true,
         "wing_fraction": 0.0,
         "carriage": "point"
       },
@@ -579,6 +609,7 @@
         "kind": "discretionary",
         "component": "wing",
         "consumable": true,
+        "usable_fuel": true,
         "wing_fraction": 0.0,
         "carriage": "point"
       },
@@ -594,6 +625,7 @@
         "kind": "discretionary",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -609,6 +641,7 @@
         "kind": "discretionary",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -624,6 +657,7 @@
         "kind": "discretionary",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -639,6 +673,7 @@
         "kind": "discretionary",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       },
@@ -654,6 +689,7 @@
         "kind": "discretionary",
         "component": "fuselage",
         "consumable": false,
+        "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel"
       }
