@@ -16,6 +16,7 @@ from ...constants import dynamic_pressure_psf
 from ...derived_geometry import fuselage_centreline, fuselage_width_at, require_wing_reference
 from ...lateral_body_aero import LateralBodyAeroEstimate
 from ...models import BalancedLoad, CriticalCondition, Project, VnPoint
+from ...units import format_value
 from .constants import BODY_AERO_SOURCE
 
 
@@ -194,19 +195,21 @@ def lateral_aero_case_note(terms: LateralAeroTerms) -> str:
     stability = ""
     if terms.cn_beta_net is not None and terms.cn_beta_fin is not None:
         verdict = "restoring" if terms.cn_beta_net < 0.0 else "NOT RESTORING -- DIRECTIONALLY UNSTABLE (FAR 23.177)"
-        stability = (f"; static directional stability: fin {terms.cn_beta_fin:+.5f} + "
-                     f"body {terms.cn_beta:+.5f} = net Cn_beta {terms.cn_beta_net:+.5f}/deg "
+        stability = (f"; static directional stability: fin {format_value(terms.cn_beta_fin, signed=True)} + "
+                     f"body {format_value(terms.cn_beta, signed=True)} = net Cn_beta "
+                     f"{format_value(terms.cn_beta_net, signed=True)}/deg "
                      f"about xw, {verdict}")
     if terms.enabled and terms.available:
         if terms.beta_deg == 0.0:
             return ("lateral body aero (L-7) ENABLED but beta = 0 on this case: no "
                     "wing-body sideslip load exists and none is applied" + stability)
-        return (f"lateral body aero (L-7) APPLIED: Cy_beta {terms.cy_beta:+.5f}/deg, "
-                f"Cn_beta {terms.cn_beta:+.5f}/deg about xw ({terms.basis}); at "
-                f"beta {terms.beta_deg:+.2f} deg the wing-body side force is "
-                f"{terms.side_force:+.0f} lb at FS {terms.x_force:.1f} (side-area "
+        return (f"lateral body aero (L-7) APPLIED: Cy_beta {format_value(terms.cy_beta, signed=True)}/deg, "
+                f"Cn_beta {format_value(terms.cn_beta, signed=True)}/deg about xw ({terms.basis}); at "
+                f"beta {format_value(terms.beta_deg, 'deg', signed=True)} deg the wing-body side force is "
+                f"{format_value(terms.side_force, 'lb', signed=True)} lb at FS "
+                f"{format_value(terms.x_force, 'in')} (side-area "
                 f"centroid) with a free couple closing the yawing moment to "
-                f"{terms.yaw_moment_ref:+.0f} lb-in about xw; versus the fin-only "
+                f"{format_value(terms.yaw_moment_ref, 'lb-in', signed=True)} lb-in about xw; versus the fin-only "
                 f"case |n_y| is raised (the side force adds to the fin's) and the "
                 f"yaw acceleration lowered (the couple opposes the fin's)"
                 + stability)
@@ -215,8 +218,9 @@ def lateral_aero_case_note(terms: LateralAeroTerms) -> str:
                 + terms.reason)
     state = "DISABLED" if not terms.enabled else "NOT applied"
     return (f"lateral body aero (L-7) {state} -- estimated for this case: "
-            f"Cy_beta {terms.cy_beta:+.5f}/deg, Cn_beta {terms.cn_beta:+.5f}/deg "
-            f"about xw ({terms.basis}), i.e. {terms.side_force:+.0f} lb side force "
-            f"and {terms.yaw_moment_ref:+.0f} lb-in yawing moment at beta "
-            f"{terms.beta_deg:+.2f} deg NOT carried; enabling it raises |n_y| and "
+            f"Cy_beta {format_value(terms.cy_beta, signed=True)}/deg, "
+            f"Cn_beta {format_value(terms.cn_beta, signed=True)}/deg "
+            f"about xw ({terms.basis}), i.e. {format_value(terms.side_force, 'lb', signed=True)} lb side force "
+            f"and {format_value(terms.yaw_moment_ref, 'lb-in', signed=True)} lb-in yawing moment at beta "
+            f"{format_value(terms.beta_deg, 'deg', signed=True)} deg NOT carried; enabling it raises |n_y| and "
             f"lowers the yaw acceleration" + stability)

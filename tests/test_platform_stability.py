@@ -380,11 +380,13 @@ if __name__ == "__main__":
 # renderer in ``sloads/report/`` writing a digit count of its own.
 # --------------------------------------------------------------------------- #
 _EXAMPLES_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(sloads.__file__))), "examples")
-# D-65.7's renderers: the report package and the two GUI packages (note 65 §4
-# gate 4 names all three; until #302 the walk read the first alone).
+# D-65.7's scope: every package that turns a number into text -- the whole
+# calc package (its result notes, warnings and deck comments are text as much
+# as a report cell is, #312) and the two GUI packages. Until #302 the walk read
+# ``sloads/report/`` alone, and until #312 ``sloads/report/`` and the GUI.
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(sloads.__file__)))
 _RENDERER_SOURCES = sorted(
-    path for package in ("sloads/report", "app_shell", "oracle_app")
+    path for package in ("sloads", "app_shell", "oracle_app")
     for path in glob.glob(os.path.join(_REPO, package, "**", "*.py"), recursive=True))
 
 
@@ -411,7 +413,7 @@ def test_every_delivered_cell_prints_at_its_units_precision():
         # loads, moments, areas, inertias: the whole unit
         (13360.4, "lb", "13360"), (243800.2, "lb-in", "243800"), (-10937.6, "ft-lb", "-10938"),
         (13259.29, "in^2", "13259"), (5566065.78, "lb-in^2", "5566066"),
-        (232252.63, "slug-ft^2", "232253"), (586.6, "ft^2", "587"), (1.4, "lb", "1"),
+        (232252.63, "slug-ft^2", "232253"), (586.6, "ft^2", "586.6"), (5.24, "ft^2", "5.2"), (1.4, "lb", "1"),
         # lengths and altitude: one decimal (§8 Q2)
         (112.46, "in", "112.5"), (-99636.97, "in", "-99637.0"), (12000.0, "ft", "12000.0"),
         # speeds
@@ -448,7 +450,7 @@ def test_every_delivered_cell_prints_at_its_units_precision():
         (1628.66, "kg·m²", "1628.6600"), (74.57, "kW", "74.6"),
         # the scalar converter's spellings (the GUI station tables, #302) and
         # the fleet view's power loading take the rows of the units they spell
-        (13360.4, "lbf", "13360"), (3.1234, "psi", "3.12"), (586.6, "sqft", "587"),
+        (13360.4, "lbf", "13360"), (3.1234, "psi", "3.12"), (586.6, "sqft", "586.6"),
         (11.674, "lb/hp", "11.67"),
     ]
     for value, units, expected in cases:
@@ -577,7 +579,7 @@ def test_every_unit_string_a_fixture_emits_has_a_precision_row():
     assert {"kg", "N·m", "m²", "m^2", "kg·m²", "kg*m^2", "kW", "kN/m²"} <= set(needed), sorted(needed)
     for label, decimals in needed.items():
         assert DELIVERED_PRECISION_SI[label] == decimals, (label, DELIVERED_PRECISION_SI[label], decimals)
-    assert si_decimals("ft^2", HUMAN_SI["area_sqft"].factor) == 2      # 1 ft² = 0.093 m²: two decimals
+    assert si_decimals("ft^2", HUMAN_SI["area_sqft"].factor) == 3      # 1 ft² = 0.093 m²: the 0.1 row plus two
     assert si_decimals("in^2", HUMAN_SI["area_sqin"].factor) == 4      # 1 in² = 6.5e-4 m²: the label's row
     assert si_decimals("lb-in^2", HUMAN_SI["inertia_lbin2"].factor) == 4
     assert si_decimals("in", HUMAN_SI["length_in"].factor) == 1        # 0.1 in = 2.54 mm: the row stays
@@ -661,15 +663,26 @@ def test_no_si_document_cell_is_in_exponent_form(example):
 @pytest.mark.parametrize("path", _RENDERER_SOURCES, ids=lambda p: os.path.relpath(p, _REPO))
 def test_no_renderer_writes_a_digit_count_of_its_own(path):
     """D-65.7: precision is the unit's, read through ``format_value``. In
-    ``sloads/report/``, ``app_shell/`` and ``oracle_app/`` a float format fails
+    ``sloads/``, ``app_shell/`` and ``oracle_app/`` a float format fails
     unless a line of its statement states ``note 65 exempt`` and why --
-    a TikZ coordinate, a LaTeX length, the solver channel's companion CSV, an
-    entered value's echo, a percentage the prose composes.
+    a solver deck's comment (the solver channel, D-65.8), a TikZ coordinate,
+    a LaTeX length, an identifier a number is part of, a rounding that is
+    arithmetic rather than text, an entered value's echo, a percentage the
+    prose composes.
+
+    **An exception's message is exempt by rule, not by line** (#312): a
+    ``raise`` statement is skipped whole. It is an error for the author, not
+    a delivered cell, and it states the offending value at whatever precision
+    shows why it was refused. A message built into a variable first is not a
+    ``raise`` and is judged like any other line.
 
     A float format is an f-string spec or a ``%`` format with a precision *or*
     a float presentation type -- a bare ``:g`` or ``:,.0f`` is a digit count as
     much as ``:.3f`` is (#302 found the safety factor printed ``1.5`` through
-    one the old pattern could not see) -- or a ``round`` to a digit count."""
+    one the old pattern could not see) -- or a ``round`` to a digit count.
+    Each expression is judged once, by the innermost statement it belongs to
+    (#312: the walk used to read a nested expression again under every
+    enclosing statement)."""
     with open(path, encoding="utf-8") as fh:
         source = fh.read()
     lines = source.splitlines()
@@ -677,29 +690,34 @@ def test_no_renderer_writes_a_digit_count_of_its_own(path):
     percent = re.compile(r"%[-+ 0#]*\d*(\.\d+)?[fFeEgG]")
 
     def exempt(stmt):
-        # The marker anywhere on the statement's own lines (an f-string's
-        # FormattedValue reports the enclosing string's line on 3.10/3.11).
         return any("note 65 exempt" in lines[i - 1]
                    for i in range(stmt.lineno, (stmt.end_lineno or stmt.lineno) + 1))
 
+    def own_expressions(stmt):
+        """The expression nodes of ``stmt`` itself, stopping at a nested statement."""
+        stack = list(ast.iter_child_nodes(stmt))
+        while stack:
+            node = stack.pop()
+            if isinstance(node, ast.stmt):
+                continue
+            yield node
+            stack.extend(ast.iter_child_nodes(node))
+
     offenders = []
     for stmt in ast.walk(ast.parse(source)):
-        if not isinstance(stmt, ast.stmt) or exempt(stmt):
+        if not isinstance(stmt, ast.stmt) or isinstance(stmt, ast.Raise) or exempt(stmt):
             continue
-        for node in ast.iter_child_nodes(stmt):
-            for sub in ast.walk(node):
-                if isinstance(sub, ast.stmt):
-                    continue        # a nested statement is judged on its own lines
-                if isinstance(sub, ast.FormattedValue) and sub.format_spec is not None:
-                    text = "".join(v.value for v in sub.format_spec.values
-                                   if isinstance(v, ast.Constant) and isinstance(v.value, str))
-                    if spec.search(text):
-                        offenders.append((sub.lineno, text))
-                elif (isinstance(sub, ast.BinOp) and isinstance(sub.op, ast.Mod)
-                      and isinstance(sub.left, ast.Constant) and isinstance(sub.left.value, str)
-                      and percent.search(sub.left.value)):
-                    offenders.append((sub.lineno, sub.left.value))
-                elif (isinstance(sub, ast.Call) and isinstance(sub.func, ast.Name)
-                      and sub.func.id == "round" and len(sub.args) == 2):
-                    offenders.append((sub.lineno, "round(value, digits)"))
+        for sub in own_expressions(stmt):
+            if isinstance(sub, ast.FormattedValue) and sub.format_spec is not None:
+                text = "".join(v.value for v in sub.format_spec.values
+                               if isinstance(v, ast.Constant) and isinstance(v.value, str))
+                if spec.search(text):
+                    offenders.append((sub.lineno, text))
+            elif (isinstance(sub, ast.BinOp) and isinstance(sub.op, ast.Mod)
+                  and isinstance(sub.left, ast.Constant) and isinstance(sub.left.value, str)
+                  and percent.search(sub.left.value)):
+                offenders.append((sub.lineno, sub.left.value))
+            elif (isinstance(sub, ast.Call) and isinstance(sub.func, ast.Name)
+                  and sub.func.id == "round" and len(sub.args) == 2):
+                offenders.append((sub.lineno, "round(value, digits)"))
     assert not offenders, f"{os.path.relpath(path, _REPO)}: {sorted(set(offenders))} -- call format_value(value, units)"

@@ -71,6 +71,7 @@ from ..models import (
     Project,
 )
 from ..registry import register
+from ..units import format_value
 from .flight_envelope import gust_at_vf
 from .structural_speeds import _wing_area_sqft, design_speed_values
 
@@ -338,7 +339,7 @@ def run(project: Project) -> ModuleResult:
             "taper LE -> half at TE. Slipstream FAR 23.457(b), gust FAR 23.345(c)(1).")
     ng_used, ng_derived = resolved_ng(project)
     if ng_derived:
-        note += (f" NG {ng_used:.3f} derived from the flight envelope's GUST VF "
+        note += (f" NG {format_value(ng_used, 'g')} derived from the flight envelope's GUST VF "
                  "corner (blank gust_load_factor, note 36 OV-6).")
     if project.is_concept:
         note += " Concept mode -- unverified extrapolation past the FAR23 band."

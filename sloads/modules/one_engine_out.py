@@ -72,6 +72,7 @@ from ..models import (
 )
 from ..picks import extreme
 from ..registry import register
+from ..units import format_value
 from ._vtail import large_deflection_factor, lift_curve_slope, rudder_effectiveness
 
 MODULE_NAME = "one_engine_out"
@@ -416,7 +417,8 @@ def _load_cases(project: Project, oeo: OneEngineOutInput) -> List[_LoadCase]:
     sp = project.speeds
     if oeo.speeds_kt:
         return [_LoadCase(f"V={v:g} kt", "23.367", "LIMIT", ULTIMATE_FACTOR,
-                          float(v), float(v), _BASIS_OVERRIDE) for v in oeo.speeds_kt]
+                          float(v), float(v), _BASIS_OVERRIDE)  # note 65 exempt: an identifier (the case label)
+                for v in oeo.speeds_kt]
     if sp is None:
         raise MissingInputError("one_engine_out needs Project.speeds (or OneEngineOutInput.speeds_kt)")
     # VS (the VMC substitute / shared low end of both cases' speed ranges) is derived
@@ -769,7 +771,7 @@ def vtail_conditions(project: Project) -> List[CriticalCondition]:
             delta_deg=sense * fc.peak.rudder_deg,
             q_psf=q,
             note=(f"{fc.load_case.basis} Distributed from the instant of peak total "
-                  f"load, t = {fc.peak.time:g} s. The fin's own lateral inertia "
+                  f"load, t = {format_value(fc.peak.time, 's')} s. The fin's own lateral inertia "
                   f"relief is not applied: this condition names no V-n point, so "
                   f"its case weight is zero and the relief -- which is "
                   f"unconservative -- is switched off rather than guessed at."),
@@ -820,6 +822,8 @@ def run(project: Project) -> ModuleResult:
     conditions: List[ConditionResult] = []
     for fc in _vtail_cases(project):
         c, s = fc.inputs, fc.summary
+        # The butt line as entered, signed: echoed at the entry's own spelling (#231).
+        butt_line = f"{fc.sense * c.bleng:g}"  # note 65 exempt: an entered value's echo
         conditions.append(ConditionResult(
             title=fc.title,
             far_reference=fc.load_case.far_reference,
@@ -851,10 +855,11 @@ def run(project: Project) -> ModuleResult:
                   # publishes the side through ``sense``, so the entered butt
                   # line is recovered the same way the report recovers it.
                   f"Failed engine {fc.engine_index + 1} at butt line "
-                  f"{fc.sense * c.bleng:g} in; "
-                  f"IZZ {c.izz:g} slug-ft^2. Peak total load at t = {fc.peak.time:g} s."
+                  f"{butt_line} in; "
+                  f"IZZ {format_value(c.izz, 'slug-ft^2')} slug-ft^2. "
+                  f"Peak total load at t = {format_value(fc.peak.time, 's')} s."
                   + ("" if s.recovered else
-                     f" NOT recovered within {_MAX_SIM_TIME_S:g} s — the airplane is "
+                     f" NOT recovered within {format_value(_MAX_SIM_TIME_S, 's')} s — the airplane is "
                      "uncontrollable at this speed (likely below VMC); the tail load and "
                      "yaw rate are the values at the simulation limit. This case is "
                      "referred to stability and control for assessment and is EXCLUDED "

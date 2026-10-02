@@ -173,7 +173,7 @@ def validate_imported_model(project: Project,
                 "loads onto the wrong structure")
         checked += 1
     notes.append(f"{checked} tagged node(s) validated against the "
-                 f"geometry-derived positions at +-{LRA_IMPORT_TOL_IN:.1f} in")
+                 f"geometry-derived positions at +-{LRA_IMPORT_TOL_IN:.1f} in")  # note 65 exempt: solver channel
     missing = sorted(set(reference) - set(imported.tags))
     if missing:
         notes.append(

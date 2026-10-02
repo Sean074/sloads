@@ -717,8 +717,9 @@ def _point_conditions(env: EnvelopeResult, concept: bool) -> List[ConditionResul
             "envelope uses the user load factors." if concept else "")
     out: List[ConditionResult] = []
     for p in env.vn:
+        # The title is a key: report.oracle_sections._split_case parses it into the envelope's block.
         out.append(ConditionResult(
-            title=f"{p.config} {p.cg} @ {p.altitude_ft:.0f} ft, case {p.case}: {p.condition}",
+            title=f"{p.config} {p.cg} @ {p.altitude_ft:.0f} ft, case {p.case}: {p.condition}",  # note 65 exempt: a key
             far_reference=_FAR,
             values=[
                 LoadValue("V (EAS)", p.v_eas_kt, "kt(EAS)", key="v_eas"),

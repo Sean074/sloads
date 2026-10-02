@@ -154,7 +154,7 @@ from ..models import (
 from ..picks import extreme
 from ..registry import register
 from ..tail_geometry import HTAIL, VTAIL, TailPlanform, h_tail_waterline, is_t_tail, resolve_tail_planform
-from ..units import NO_TEXT, Quantity, UnitSystem, UnitText, unit_text
+from ..units import NO_TEXT, Quantity, UnitSystem, UnitText, format_value, unit_text
 from .select import default_critical, vn_points
 
 MODULE_NAME = "tail_span"
@@ -1015,19 +1015,19 @@ def ttail_transfer(project: Project, cond: CriticalCondition,
             mxx=m_r, induced=induced,
             note=("T-tail: no 1 g pairing resolves for this condition, so the "
                   "fin tip carries the AC 23-9 induced rolling moment alone "
-                  f"({m_r:+,.0f} lb-in) and no balancing load"))
+                  f"({format_value(m_r, 'lb-in', signed=True)} lb-in) and no balancing load"))
     weight = _surface_weight(project, HTAIL)
     x_air, cp_assumed = _tail_cp_station(project, point.case)
     x_mass = mid_chord_centroid(htail)
     air, inertia = point.lt, -point.nz * weight
     how = (f"V-n case {point.case}" if cond.case is not None else
            f"the one-engine-out case's 1 g parent, V-n case {point.case} "
-           f"({point.condition}, {point.cg}, {point.altitude_ft:.0f} ft), the "
+           f"({point.condition}, {point.cg}, {format_value(point.altitude_ft, 'ft')} ft), the "
            "point the balanced deck assembles it on (note 51 D-51.1a)")
     note = (f"T-tail: the horizontal tail's concurrent load rides this fin's tip "
-            f"(T-5 pairing -- the balancing load {air:+.0f} lb at {how}, "
-            f"n = {point.nz:.2f}, plus its own inertia "
-            f"{inertia:+.0f} lb at {weight:.0f} lb of surface mass)")
+            f"(T-5 pairing -- the balancing load {format_value(air, 'lb', signed=True)} lb at {how}, "
+            f"n = {format_value(point.nz, 'g')}, plus its own inertia "
+            f"{format_value(inertia, 'lb', signed=True)} lb at {format_value(weight, 'lb')} lb of surface mass)")
     if cp_assumed:
         note += (". Its chordwise station is ASSUMED as the 25 % tail MAC -- the "
                  "V-n point publishes no balanced tail CP")
@@ -1150,13 +1150,13 @@ def induced_roll_moment(project: Project, cond: CriticalCondition,
     if cond.label in _GUST_CONDITIONS:
         beta = AC23_9_GUST_BETA_FACTOR * gust_ude_fps("C", alt) / (v_eas * KT_TO_FPS)
         basis = (f"AC 23-9 ¶5a lateral gust, beta = 1.2 U/V "
-                 f"(U {gust_ude_fps('C', alt):g} ft/s at {alt:.0f} ft)")
+                 f"(U {format_value(gust_ude_fps('C', alt), 'ft/s')} ft/s at {format_value(alt, 'ft')} ft)")
     else:
         slope = _avt(vt) / DEG_PER_RAD
         load = (cond.lt25 or 0.0) + (cond.lt50 or 0.0)
         beta = abs(load) / (slope * q * vt.vtail_area_sqft) / DEG_PER_RAD if q else 0.0
         basis = ("the fin's own side load as an angle on SELECT's slope, "
-                 f"|LT25 + LT50| = {abs(load):,.0f} lb over AVT/57.3 q S_V")
+                 f"|LT25 + LT50| = {format_value(abs(load), 'lb')} lb over AVT/57.3 q S_V")
     s_h = htail.area / IN2_PER_FT2
     b_h = 2.0 * htail.span / IN_PER_FT
     magnitude = AC23_9_ROLL_COEFF * q * s_h * b_h * beta * IN_PER_FT
@@ -1205,7 +1205,7 @@ def check_htail_under_induced_roll(htails: Sequence[TailSpanResult],
         t.induced.htail_ratio = ratio
         r.notes.append(
             f"horizontal-tail check (note 51 D-51.7): M_r/2 per side is "
-            f"{100.0 * ratio:.1f} % of the horizontal tail's governing root "
+            f"{format_value(100.0 * ratio, '%')} % of the horizontal tail's governing root "
             "bending, both on their own factors -- "
             + ("ABOVE 100 %: the assumption that the moment sizes the fin and not "
                "the horizontal tail FAILS here, and the horizontal tail's own "
@@ -1240,7 +1240,7 @@ def _htail_unsym_vtail(unsym: TailSpanResult,
         air_lb=air, inertia_lb=inertia, x_tip=x_tip, n_case=unsym.n_case,
         surface_weight_lb=unsym.surface_weight_lb,
         note=("T-tail, 23.427(c): the horizontal tail's 23.427(a) case "
-              f"({unsym.case}, RH x{unsym.rh_scale:.3f} / LH x{unsym.lh_scale:.3f}) "
+              f"({unsym.case}, RH x{format_value(unsym.rh_scale)} / LH x{format_value(unsym.lh_scale)}) "
               "reacted through the fin -- its table's own stations summed about "
               "the fin tip, the net roll included; the fin's own air load is zero "
               "in this condition (design note 51 D-51.2a)"))
@@ -1257,7 +1257,7 @@ def _htail_unsym_vtail(unsym: TailSpanResult,
         attachment_y=[], planform_assumed=vtail.assumed,
         tip_transfer=transfer, inertia_modelled=weight > 0.0,
         case_ref=case_ref, safety_factor=unsym.safety_factor,
-        torsion_axis=f"LRA {vtail.ref_axis_pct * 100:.0f}% chord",
+        torsion_axis=f"LRA {vtail.ref_axis_pct * 100:.0f}% chord",  # note 65 exempt: an identifier
         notes=imperial_notes(vtail.notes) + [transfer.note])
 
 
@@ -1380,15 +1380,15 @@ def build_tail_span(project: Project) -> Dict[str, List[TailSpanResult]]:
             control_load = math.fsum(p.f_normal for p in control_loads)
             hinge_arm = hinge_moment / control_load if control_load else 0.0
             notes.append(
-                f"control load DISCRETE: {control_load:+.1f} lb "
+                f"control load DISCRETE: {format_value(control_load, 'lb', signed=True)} lb "
                 f"({control_basis}) is OUT of the strips over the "
-                f"{lo:.1f}-{hi:.1f} in control span and applied at "
+                f"{format_value(lo, 'in')}-{format_value(hi, 'in')} in control span and applied at "
                 f"{len(attachment.hinges)} hinge stations per side, with the "
-                f"hinge moment {hinge_moment:+.0f} lb-in reacted as a couple at "
-                f"the actuator ({attachment.actuator:.1f} in)")
+                f"hinge moment {format_value(hinge_moment, 'lb-in', signed=True)} lb-in reacted as a couple at "
+                f"the actuator ({format_value(attachment.actuator, 'in')} in)")
             notes.append(
-                f"hinge moment arm {hinge_arm:.2f} in = a third of the "
-                f"aft-of-hinge chord ({fraction * 100:.1f} % of chord), the "
+                f"hinge moment arm {format_value(hinge_arm, 'in')} in = a third of the "
+                f"aft-of-hinge chord ({format_value(fraction * 100, '%')} % of chord), the "
                 "centroid of TAILDIST's aft-of-hinge pressure block")
         else:
             notes.append(
@@ -1397,10 +1397,10 @@ def build_tail_span(project: Project) -> Dict[str, List[TailSpanResult]]:
         if not from_vn:
             notes.append(
                 f"condition names no V-n point -- load factor defaulted to "
-                f"{DEFAULT_LOAD_FACTOR:g} for the inertia term")
+                f"{format_value(DEFAULT_LOAD_FACTOR, 'g')} for the inertia term")
         if component == VTAIL:
             notes.append(
-                f"fin root waterline {planform.root_z:.1f} in "
+                f"fin root waterline {format_value(planform.root_z, 'in')} in "
                 f"({'ASSUMED, ' if planform.root_z_assumed else ''}"
                 f"basis '{planform.root_z_basis}') -- the stations run from there "
                 "to the tip, so the deck's roll arm about the airplane CG is this "
@@ -1413,16 +1413,16 @@ def build_tail_span(project: Project) -> Dict[str, List[TailSpanResult]]:
                 "surface's mass items on the Weights page")
         else:
             notes.append(
-                f"surface mass {weight:.1f} lb, {_weight_basis(project, component)}, "
+                f"surface mass {format_value(weight, 'lb')} lb, {_weight_basis(project, component)}, "
                 "smeared as a uniform area density over the planform (T-3)")
         if component == VTAIL and weight > 0.0:
             if case_weight:
                 notes.append(
-                    f"fin side inertia at n_y = {n_normal:+.4f} g "
-                    f"(= side load / {case_weight:.0f} lb case weight): the "
+                    f"fin side inertia at n_y = {format_value(n_normal, 'g', signed=True)} g "
+                    f"(= side load / {format_value(case_weight, 'lb')} lb case weight): the "
                     "free-free lateral response to the fin's own load, the only "
                     "lateral aero this suite models. It RELIEVES the surface "
-                    f"total by exactly W_vt/W = {100.0 * weight / case_weight:.2f} %"
+                    f"total by exactly W_vt/W = {format_value(100.0 * weight / case_weight, '%')} %"
                     " -- and because no fuselage or wing sideslip force exists "
                     "(plan 13 L-7), the real airplane's n_y is smaller and that "
                     "relief is an upper bound on itself")
@@ -1431,13 +1431,13 @@ def build_tail_span(project: Project) -> Dict[str, List[TailSpanResult]]:
                     "fin side inertia omitted: the condition names no V-n point, "
                     "so there is no case weight to form n_y from")
             notes.append(
-                f"fin axial inertia {-n_axial * weight:+.1f} lb total at "
-                f"n_z = {n_axial:.3f} g -- the fin spans in Z, so the vertical "
+                f"fin axial inertia {format_value(-n_axial * weight, 'lb', signed=True)} lb total at "
+                f"n_z = {format_value(n_axial, 'g')} g -- the fin spans in Z, so the vertical "
                 "acceleration that bends an h-tail compresses this surface; it "
                 "is an axial column, and it makes no bending")
         if rh_scale != lh_scale:
             notes.append(
-                f"UNSYMMETRICAL (23.427(a)): RH x{rh_scale:.3f}, LH x{lh_scale:.3f} "
+                f"UNSYMMETRICAL (23.427(a)): RH x{format_value(rh_scale)}, LH x{format_value(lh_scale)} "
                 "of the half-surface load, read from SELECT's own split")
 
         stations = distribute(
@@ -1481,7 +1481,7 @@ def build_tail_span(project: Project) -> Dict[str, List[TailSpanResult]]:
             tip_transfer=transfer,
             inertia_modelled=inertia_modelled,
             case_ref=cond.case_ref, safety_factor=cond.safety_factor,
-            torsion_axis=f"LRA {planform.ref_axis_pct * 100:.0f}% chord",
+            torsion_axis=f"LRA {planform.ref_axis_pct * 100:.0f}% chord",  # note 65 exempt: an identifier
             notes=notes,
         ))
     vtail_planform = planforms.get(VTAIL)
@@ -1498,15 +1498,16 @@ def induced_roll_note(induced: InducedRoll) -> str:
     """The in-band statement every T-tail fin condition's induced moment
     carries (design note 51 D-51.3a, D-51.8)."""
     return (f"T-tail induced rolling moment (AC 23-9 ¶5a): M_r = 0.3 q S_H b_H beta "
-            f"= {induced.m_r:+,.0f} lb-in at the fin tip, q {induced.q_psf:.1f} psf, "
-            f"beta {induced.beta_deg:.2f} deg ({induced.basis}); its sense is the "
+            f"= {format_value(induced.m_r, 'lb-in', signed=True)} lb-in at the fin tip, "
+            f"q {format_value(induced.q_psf, 'lb/ft^2')} psf, "
+            f"beta {format_value(induced.beta_deg, 'deg')} deg ({induced.basis}); its sense is the "
             "fin's own root rolling moment's (¶5d). Static strength only, not a "
             f"flutter input. The method has no compressibility (Mach "
-            f"{induced.mach:.3f} here"
-            + (f", ABOVE the {AC23_9_MACH_WARN:g} warning threshold"
+            f"{format_value(induced.mach)} here"
+            + (f", ABOVE the {format_value(AC23_9_MACH_WARN)} warning threshold"
                if induced.mach > AC23_9_MACH_WARN else "")
             + f") and no dihedral effect (stabilizer dihedral "
-            f"{induced.dihedral_deg:g} deg entered; ¶5a p4: 6 deg can raise the "
+            f"{format_value(induced.dihedral_deg, 'deg')} deg entered; ¶5a p4: 6 deg can raise the "
             "moment 50 %)")
 
 

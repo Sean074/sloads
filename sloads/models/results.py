@@ -64,7 +64,8 @@ class CaseRef:
         """
         if not self.run:
             return ""
-        alt = f"{self.altitude_ft:.0f} ft" if self.altitude_ft is not None else "-- ft"
+        alt = (f"{self.altitude_ft:.0f} ft"  # note 65 exempt: an identifier (D-63.11)
+               if self.altitude_ft is not None else "-- ft")
         return f"{self.run}, {self.cg or '--'}, {alt}, {self.config or '--'}"
 
 

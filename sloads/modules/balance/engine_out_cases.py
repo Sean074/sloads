@@ -55,6 +55,7 @@ from ...models import (
     VnPoint,
 )
 from ...picks import extreme
+from ...units import format_value
 from .applied import engine_member
 from .skipped import SkippedCondition, _skip
 
@@ -194,14 +195,14 @@ def _windmill_note(project: Project, fc: "VtailCase") -> str:
     if eng.windmill_drag_cd is None:
         return ("WINDMILL DRAG (design note 66 D-66.12a): the failed engine's "
                 "windmilling drag at its hub is the upper bound of the method, the "
-                f"Glauert disc drag coefficient {bound_cd:.2f} (manual Ch 11 p88: the "
+                f"Glauert disc drag coefficient {format_value(bound_cd)} (manual Ch 11 p88: the "
                 "drag \"can not be more than\" this), delivered as a conservative "
                 "bound on the mount and hub loads. Enter the propeller's own "
                 "windmilling disc drag coefficient to deliver its own drag.")
     return ("WINDMILL DRAG (design note 66 D-66.12a): the failed engine's "
             "windmilling drag at its hub is its entered disc drag coefficient "
-            f"{eng.windmill_drag_cd:.3g}, on the transient's own ramp. The fin load "
-            f"is the one-engine-out march's, forced by the bound ({bound_cd:.2f}), "
+            f"{format_value(eng.windmill_drag_cd)}, on the transient's own ramp. The fin load "
+            f"is the one-engine-out march's, forced by the bound ({format_value(bound_cd)}), "
             "so the yaw this case closes with differs from the march's by the "
             "drag difference times the engine arm.")
 
@@ -283,10 +284,10 @@ def build_engine_out_cases(project: Project, conditions: Sequence[CriticalCondit
                        notes=list(case.notes) + [
                            OEI_L7_NOTE,
                            _windmill_note(project, fc),
-                           f"The instant of peak total fin load, t = {fc.peak.time:g} s "
+                           f"The instant of peak total fin load, t = {format_value(fc.peak.time, 's')} s "
                            f"(ONENGOUT OR-175), on the 1 g point {point.case} "
-                           f"({point.condition}, {point.cg}, {point.altitude_ft:.0f} ft) "
-                           f"against ONENGOUT's {fc.inputs.alt_ft:.0f} ft; the live "
+                           f"({point.condition}, {point.cg}, {format_value(point.altitude_ft, 'ft')} ft) "
+                           f"against ONENGOUT's {format_value(fc.inputs.alt_ft, 'ft')} ft; the live "
                            "engine's thrust and the failed engine's remaining thrust "
                            "and windmill drag at that instant are applied at the hubs."])
         out.append(case)

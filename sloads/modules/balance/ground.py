@@ -19,6 +19,7 @@ from ...derived_geometry import wing_plane, wing_reference
 from ...gear_loads import GearCaseLoads, applied_wheels, gear_case_loads
 from ...mass_distribution import CaseLoading, derive_case_loadings
 from ...models import BalancedCaseResult, BalancedLoad, CgCase, LandingInput, MissingInputError, Project
+from ...units import format_value
 from ..airloads import air_load_distribution
 from ..landing import BALANCED_GROUND_CASES, GROUND_LIFT_CASES, GROUND_ONE_WHEEL_CASES, GROUND_SIDE_CASES
 from .air import _handed_ref, handed_twin
@@ -198,8 +199,9 @@ def assemble_ground(project: Project, gear: "GearCaseLoads", wheels: Sequence,
     lift_lb = lift_factor * gear.weight_lb if gear.case in GROUND_LIFT_CASES else 0.0
     if lift_lb:
         wing_r = list(wing_r) + ground_lift_sets(project, lift_lb, rotation_deg)
-        notes.append(f"applied wing lift {lift_lb:+.0f} lb (L = {lift_factor:g} x "
-                     f"{gear.weight_lb:,.0f} lb, FAR 23.473(a)): {GROUND_LIFT_NOTE}")
+        notes.append(f"applied wing lift {format_value(lift_lb, 'lb', signed=True)} lb "
+                     f"(L = {format_value(lift_factor)} x "
+                     f"{format_value(gear.weight_lb, 'lb')} lb, FAR 23.473(a)): {GROUND_LIFT_NOTE}")
     else:
         notes.append(GROUND_NO_LIFT_NOTE)
 
@@ -214,7 +216,7 @@ def assemble_ground(project: Project, gear: "GearCaseLoads", wheels: Sequence,
     entered = math.fsum(e.thrust_lb or 0.0 for e in (project.engines or []))
     if entered:
         notes.append(
-            f"the project enters {entered:+,.0f} lb of engine thrust; it is NOT "
+            f"the project enters {format_value(entered, 'lb', signed=True)} lb of engine thrust; it is NOT "
             "applied to a ground case -- a ground condition's thrust rating is "
             "design note 21's parked power-policy table, and this step (#10) "
             "carries one user-entered value with no per-family rating. The "
@@ -294,7 +296,7 @@ def _ground_target(base: CgCase, weight_lb: float) -> CgCase:
     """
     if abs(weight_lb - base.weight_lb) <= 1e-6:
         return base
-    return replace(base, name=f"{base.name} at {weight_lb:,.0f} lb",
+    return replace(base, name=f"{base.name} at {weight_lb:,.0f} lb",  # note 65 exempt: an identifier
                    weight_lb=weight_lb, loading=None)
 
 

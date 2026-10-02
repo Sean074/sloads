@@ -8,8 +8,9 @@ owner, in session, under the solo profile, `DEVELOPMENT_PROCESS.md` §0; rule
 written into D-65.4 and D-65.6; **§7b** is the implementation record, and it
 **amends D-65.3** (the floor is one significant figure, not three), D-65.2's
 `int` clause, and — at #298, 2026-09-23 — **D-65.5** (an SI row resolves no
-coarser than the Imperial cell it converted from). Read a decision with its
-§7b amendment.)
+coarser than the Imperial cell it converted from) — and, at #312
+(2026-10-01), **D-65.7** (gate 4 scans the whole calc package, §7c). Read a
+decision with its §7b/§7c amendment.)
 Filed against **#161** (band B7, 0.8.6, tier M): the 2026-09-01 owner PDF
 review's OR-14 finding that `format_value` prints inconsistent precision and
 flips notation on integral values, held until the 0.8.2 freeze lifted and
@@ -357,3 +358,50 @@ on shipped content (every delivered table cell) outranks every fidelity row.
   strings among them and the dimensions the report prints, and asserts
   the row equals it — a converter row no producer emits would not set a
   row.
+
+## 7c. Amendment at #312 (2026-10-01): the calc package writes no digit count either
+
+- **D-65.7 widened to `sloads/`.** Gate 4 read `sloads/report/` and the two
+  GUI packages, and 388 hand-written digit counts sat in the rest of the
+  calc package (`:,.0f`, `:.1f`, `:g`, `:+.4g`, `round(x, n)`): result notes,
+  validation warnings, condition titles, the WTENV and mass-model detail,
+  the case notes the balanced deck echoes. They are text a person reads as
+  much as a report cell is, and printed at a precision each line chose. The
+  gate now walks every `.py` under `sloads/`, `app_shell/` and `oracle_app/`.
+- **A `raise` is exempt by rule, not by line.** 52 of the 388 were the
+  message of an exception: the author's diagnosis of a refusal, stating the
+  offending value at whatever precision shows why it was refused, never a
+  delivered cell. The walk skips a `raise` statement whole; a message built
+  into a variable first is judged like any other line.
+- **Every other site was read and routed or exempted on the statement.**
+  About 235 were routed through `units.format_value` with the Imperial unit
+  string the number is in (the text is Imperial-built; its SI channel is
+  #339's question, and #338's SI gate shows none of it reaches an SI
+  artifact). `format_value` gained `signed=` for a sentence that states a
+  direction by its sign. The exemptions, each with its reason on the line:
+  the solver channel's text (deck `$` comments, TITLE cards, `deck_format`,
+  and the balanced-case summary rows, which must print what the case
+  header prints, #324 — D-65.8); an **identifier** whose digits are part of
+  it (the D-63.11 run key, a re-weighted ground case named at its weight,
+  a V-n point's title, which the report parses, a Mach-limit line's title, which is looked up by it, the `LRA 40% chord`
+  torsion-axis label, ONENGOUT's speed-case label); an arithmetic
+  `round` (a stored seed weight, a sort key, a node key); and an entered
+  value's echo (a failed engine's butt line, a declared gyroscopic rate).
+- **The walk judges each expression once.** It used to re-read a nested
+  expression under every enclosing statement, so a site counted once per
+  level of nesting; it now stops at a nested statement.
+- **What moved**: thousands separators leave the prose (`13,360 lb` reads
+  `13360 lb`, as a table cell does), and each number takes its unit's row —
+  a landing load factor `3.10`, not `3.0970`; a station `236.0 in`, not
+  `236.00`; an area in ft² to 0.1 (below). 70 Imperial
+  digests moved across the five fixtures, all human channels plus the
+  internal balanced deck's echoed `$ NOTE:` lines; no shipped solver
+  digest moved (the LRA deck and both mass decks are byte-identical).
+- **D-65.4 amended at #312 (owner, 2026-10-01): an area in ft² prints to
+  0.1 ft²**, not the whole foot (`sqft`, the GUI spelling, with it). The
+  sweep routed the elevator and rudder area-mismatch warning through the
+  `ft^2` row, and a 5.2 ft² rudder printed `5` — a control surface is a few
+  square feet, so the whole foot lost the gap the warning exists to show.
+  An area in in² stays whole: one in² is 0.007 ft², already finer than the
+  new row. The SI `m²` row does not move: it takes the larger need of its
+  two sources, and in²'s (four decimals) still governs ft²'s (now three).

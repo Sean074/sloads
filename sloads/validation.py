@@ -97,6 +97,7 @@ from .models import (
 )
 from .modules.wing_geometry import interp_x
 from .picks import extreme
+from .units import format_value
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from .models import GearReactionCase
@@ -169,7 +170,7 @@ def _check_taper(project: Project) -> List[ConsistencyWarning]:
     if cfg is not None and cfg.taper_ratio and cfg.taper_ratio > 1.0:
         out.append(ConsistencyWarning(
             "taper_gt_1",
-            f"Wing taper ratio {cfg.taper_ratio:.3f} is greater than 1 (tip chord "
+            f"Wing taper ratio {format_value(cfg.taper_ratio)} is greater than 1 (tip chord "
             "exceeds root chord). Taper ratio is tip/root chord and is normally "
             "0 < λ ≤ 1 (WINGGEOM/TAU).",
             PAGE_CONFIGURATION))
@@ -178,7 +179,7 @@ def _check_taper(project: Project) -> List[ConsistencyWarning]:
             if s.taper_ratio and s.taper_ratio > 1.0:
                 out.append(ConsistencyWarning(
                     "taper_gt_1",
-                    f"Aero surface '{s.name}' taper ratio {s.taper_ratio:.3f} is "
+                    f"Aero surface '{s.name}' taper ratio {format_value(s.taper_ratio)} is "
                     "greater than 1 (tip chord exceeds root chord).",
                     PAGE_CONFIGURATION))
     return out
@@ -246,8 +247,8 @@ def _check_area_mismatch(project: Project) -> List[ConsistencyWarning]:
     if rel > _AREA_MISMATCH_TOL:
         msg = (
             f"Wing area mismatch: Configuration & Layout has "
-            f"{cfg.wing_area_sqft:,.1f} ft² but the WINGGEOM planform is "
-            f"{geo_area:,.1f} ft² ({rel * 100:.0f}% apart). They should agree.")
+            f"{format_value(cfg.wing_area_sqft, 'ft^2')} ft² but the WINGGEOM planform is "
+            f"{format_value(geo_area, 'ft^2')} ft² ({format_value(rel * 100, '%')}% apart). They should agree.")
         # Both pages, once each. It was PAGE_CONFIGURATION twice, so Configuration
         # & Layout printed the same sentence twice and Design Speeds -- where the
         # disagreement decides which number STRSPEED integrates -- printed it not
@@ -389,8 +390,8 @@ def _check_cg_envelope(project: Project) -> List[ConsistencyWarning]:
     if xbar < fwd - 1e-6 or xbar > aft + 1e-6:
         return [ConsistencyWarning(
             "cg_outside_envelope",
-            f"Loading CG at station {xbar:,.1f} in is outside the WTENV structural "
-            f"CG envelope ({fwd:,.1f}–{aft:,.1f} in). Adjust the loading or the "
+            f"Loading CG at station {format_value(xbar, 'in')} in is outside the WTENV structural "
+            f"CG envelope ({format_value(fwd, 'in')}–{format_value(aft, 'in')} in). Adjust the loading or the "
             "envelope limits (14 CFR 23.23).",
             PAGE_WEIGHT_CG)]
     return []
@@ -482,9 +483,9 @@ def _check_mass_items_in_body(project: Project) -> List[ConsistencyWarning]:
         if item.x < nose - 1e-6 or item.x > tail + 1e-6:
             out.append(ConsistencyWarning(
                 "mass_item_outside_body",
-                f"Weight item '{item.name}' at station {item.x:,.1f} in lies "
+                f"Weight item '{item.name}' at station {format_value(item.x, 'in')} in lies "
                 f"{'ahead of the nose' if item.x < nose else 'behind the tail'} of "
-                f"the fuselage outline ({nose:,.1f}–{tail:,.1f} in). A fuselage-"
+                f"the fuselage outline ({format_value(nose, 'in')}–{format_value(tail, 'in')} in). A fuselage-"
                 "carried mass belongs inside the body it is carried by: move the "
                 "item, extend the outline, or tag it to the surface that carries it.",
                 PAGE_WEIGHT_CG))
@@ -516,11 +517,13 @@ def _check_operational_targets(project: Project) -> List[ConsistencyWarning]:
     out: List[ConsistencyWarning] = []
     for c in operational_target_checks(speeds, ds):
         if not c.feasible:
+            # A Mach target is dimensionless; a speed is in knots EAS.
+            u = "" if c.units == "Mach" else c.units
             out.append(ConsistencyWarning(
                 "operational_target_infeasible",
-                f"Operational target {c.target_label} = {c.target:g} {c.units} needs "
-                f"{c.driver_label} ≥ {c.required:.4g} {c.units}, but the chosen "
-                f"{c.driver_label.split(' ')[0]} = {c.actual:.4g} {c.units}. Raise the "
+                f"Operational target {c.target_label} = {format_value(c.target, u)} {c.units} needs "
+                f"{c.driver_label} ≥ {format_value(c.required, u)} {c.units}, but the chosen "
+                f"{c.driver_label.split(' ')[0]} = {format_value(c.actual, u)} {c.units}. Raise the "
                 "design speed or lower the target (advisory only — 14 CFR 23.1505/"
                 "23.335(b)(4); design speeds and loads are unchanged).",
                 PAGE_STRUCTURAL_SPEEDS))
@@ -561,7 +564,7 @@ def _check_dive_speed_basis(project: Project) -> List[ConsistencyWarning]:
         if ds.mach_margin_reduced:
             out.append(ConsistencyWarning(
                 "mach_margin_reduced",
-                f"The MC→MD Mach margin is set to {ds.mach_margin_required:.4g} M, "
+                f"The MC→MD Mach margin is set to {format_value(ds.mach_margin_required)} M, "
                 f"below the {MACH_MARGIN_DEFAULT} M default. 14 CFR 25.335(b)(2) "
                 "permits this only on a rational analysis including the effects of "
                 "automatic systems (a credited high-speed protection function): it "
@@ -573,8 +576,8 @@ def _check_dive_speed_basis(project: Project) -> List[ConsistencyWarning]:
         if ds.vd < ds.vd_ratio_floor - 1e-9:
             out.append(ConsistencyWarning(
                 "mach_margin_below_ratio_floor",
-                f"VD = {ds.vd:.4g} kt sits below the 1.25·VC speed-ratio floor "
-                f"({ds.vd_ratio_floor:.4g} kt) because the Mach-margin route was "
+                f"VD = {format_value(ds.vd, 'kt(EAS)')} kt sits below the 1.25·VC speed-ratio floor "
+                f"({format_value(ds.vd_ratio_floor, 'kt(EAS)')} kt) because the Mach-margin route was "
                 "selected. 14 CFR 25.335(b) offers the two routes disjunctively, so "
                 "this is expected — but note the margin check covers only the "
                 "(b)(2) Mach term, not the (b)(1) upset criterion, which this suite "
@@ -583,8 +586,8 @@ def _check_dive_speed_basis(project: Project) -> List[ConsistencyWarning]:
     if speeds.vb_kt and speeds.vb_kt >= ds.vc:
         out.append(ConsistencyWarning(
             "vb_above_vc",
-            f"The rough-air speed VB = {speeds.vb_kt:.4g} kt is at or above "
-            f"VC = {ds.vc:.4g} kt. 14 CFR 25.335(a)(2) requires VC ≥ VB + 1.32·U_ref, "
+            f"The rough-air speed VB = {format_value(speeds.vb_kt, 'kt(EAS)')} kt is at or above "
+            f"VC = {format_value(ds.vc, 'kt(EAS)')} kt. 14 CFR 25.335(a)(2) requires VC ≥ VB + 1.32·U_ref, "
             "so VC must exceed VB. (Only the ordering is checked here — the "
             "1.32·U_ref term needs the 25.341 reference gust schedule, which is not "
             "yet implemented.)",
@@ -632,11 +635,11 @@ def _check_safety_factors(project: Project) -> List[ConsistencyWarning]:
             out.append(ConsistencyWarning(
                 "safety_factor_out_of_range",
                 f"Load case '{name}' has safety_factor = {sf!r}, outside the legal "
-                f"[1.0, {ULTIMATE_FACTOR:g}] band (14 CFR 23.303; the factor is set "
+                f"[1.0, {format_value(ULTIMATE_FACTOR)}] band (14 CFR 23.303; the factor is set "
                 "by the load-case definition). Below 1.0 the factor stated "
                 "against the exported loads is too small to reach ultimate, so a "
                 "sizing analysis that applies it under-designs. A corrupt value "
-                f"in a saved project.json is reset to {ULTIMATE_FACTOR:g} on load; "
+                f"in a saved project.json is reset to {format_value(ULTIMATE_FACTOR)} on load; "
                 "re-run the producing module to restore the case's own factor.",
                 PAGE_REPORT))
     return out
@@ -685,14 +688,14 @@ def _check_safety_factor_overrides(project: Project) -> List[ConsistencyWarning]
             out.append(ConsistencyWarning(
                 "safety_factor_override_out_of_range",
                 f"Safety-factor override on '{ov.family}' is {ov.factor!r}, outside "
-                f"the legal [1.0, {ULTIMATE_FACTOR:g}] band (14 CFR 23.303).",
+                f"the legal [1.0, {format_value(ULTIMATE_FACTOR)}] band (14 CFR 23.303).",
                 PAGE_REPORT))
     for row in GoverningTable.for_project(project).overrides:
         if row.below_regulation:
             out.append(ConsistencyWarning(
                 "safety_factor_below_regulation",
                 f"CERTIFICATION RISK: '{row.label}' ({row.far_reference}) is "
-                f"overridden to SF = {row.factor:g}, below the {row.derived_factor:g} "
+                f"overridden to SF = {format_value(row.factor)}, below the {format_value(row.derived_factor)} "
                 "the regulation derives for it. A sizing analysis applying the "
                 "stated factor to loads exported under this row will not reach "
                 "ultimate by 14 CFR 23.303/25.303. "
@@ -741,8 +744,8 @@ def _check_landing_hierarchy(project: Project) -> List[ConsistencyWarning]:
     if w_land > 0 and fwd_light.weight_lb > w_land + 1e-6:
         out.append(ConsistencyWarning(
             "landing_light_le_max",
-            f"The '{fwd_light.name}' loading weighs {fwd_light.weight_lb:,.0f} lb, more "
-            f"than the max landing weight {w_land:,.0f} lb. It is the *light* corner of "
+            f"The '{fwd_light.name}' loading weighs {format_value(fwd_light.weight_lb, 'lb')} lb, more "
+            f"than the max landing weight {format_value(w_land, 'lb')} lb. It is the *light* corner of "
             "the landing envelope (UG fig 18.2).",
             PAGE_LANDING))
     elif w_land > 0 and abs(fwd_light.weight_lb - w_land) <= 1e-6:
@@ -753,7 +756,7 @@ def _check_landing_hierarchy(project: Project) -> List[ConsistencyWarning]:
         out.append(ConsistencyWarning(
             "landing_light_not_lighter",
             f"The '{fwd_light.name}' loading is tagged `fwd_light` but weighs the max "
-            f"landing weight {w_land:,.0f} lb exactly. The role claims the light corner "
+            f"landing weight {format_value(w_land, 'lb')} lb exactly. The role claims the light corner "
             "of the landing envelope (UG fig 18.2) -- LANDLOAD will consume it in the "
             "light-forward slot while its numbers answer the heavy case.",
             PAGE_LANDING))
@@ -763,15 +766,15 @@ def _check_landing_hierarchy(project: Project) -> List[ConsistencyWarning]:
             out.append(ConsistencyWarning(
                 "landing_case_weight_is_mlw",
                 "The max-landing loadings must weigh exactly the max landing weight "
-                f"{w_land:,.0f} lb (weight.max_landing_weight_lb, the single owner "
+                f"{format_value(w_land, 'lb')} lb (weight.max_landing_weight_lb, the single owner "
                 "since decision G-4 -- only their CG station is entered): "
-                + ", ".join(f"'{c.name}' {c.weight_lb:,.0f} lb" for c in off) + ".",
+                + ", ".join(f"'{c.name}' {format_value(c.weight_lb, 'lb')} lb" for c in off) + ".",
                 PAGE_LANDING))
     if aft.xcg <= max(fwd_max.xcg, fwd_light.xcg):
         out.append(ConsistencyWarning(
             "landing_cg_ordering",
-            f"The aft loading '{aft.name}' is at station {aft.xcg:,.2f} in, not aft of "
-            f"the forward loadings ({fwd_max.xcg:,.2f} / {fwd_light.xcg:,.2f} in). The "
+            f"The aft loading '{aft.name}' is at station {format_value(aft.xcg, 'in')} in, not aft of "
+            f"the forward loadings ({format_value(fwd_max.xcg, 'in')} / {format_value(fwd_light.xcg, 'in')} in). The "
             "AP/BP/CP lever arms are formed about xcg, so a fwd/aft swap mis-assigns "
             "the nose-gear and braked-roll reactions.",
             PAGE_LANDING))
@@ -784,8 +787,8 @@ def _check_landing_hierarchy(project: Project) -> List[ConsistencyWarning]:
                 out.append(ConsistencyWarning(
                     "landing_cg_below_axle",
                     "Landing CG waterline at or below the static main-axle waterline "
-                    f"({axle_wl:,.1f} in) for: "
-                    + ", ".join(f"'{c.name}' zcg={c.zcg:,.1f} in" for c in low)
+                    f"({format_value(axle_wl, 'in')} in) for: "
+                    + ", ".join(f"'{c.name}' zcg={format_value(c.zcg, 'in')} in" for c in low)
                     + ". A CG at or below the axle is geometrically impossible for a "
                     "tricycle airplane; a zero waterline puts the CG on the ground "
                     "line and inverts the nose-gear reaction (M4-17c).",
@@ -815,8 +818,8 @@ def landing_reaction_warnings(cases: "List[GearReactionCase]") -> List[Consisten
         out.append(ConsistencyWarning(
             "landing_negative_vertical",
             f"{len(negative)} ground case(s) have a **negative vertical reaction** "
-            f"(worst: case {worst.case}, {worst.description}, VMP {worst.vmp:,.0f} / "
-            f"VNP {worst.vnp:,.0f} lb). A wheel cannot pull the airplane down -- check "
+            f"(worst: case {worst.case}, {worst.description}, VMP {format_value(worst.vmp, 'lb')} / "
+            f"VNP {format_value(worst.vnp, 'lb')} lb). A wheel cannot pull the airplane down -- check "
             "the CG waterlines and stations against the axle geometry (a zero "
             "waterline is the usual cause). Cases: "
             + ", ".join(str(c.case) for c in negative) + ".",
@@ -862,7 +865,7 @@ def _check_aero_coefficients(project: Project) -> List[ConsistencyWarning]:
     if aero.clmax_clean_neg > 0.0:
         out.append(ConsistencyWarning(
             "aero_clmax_neg_sign",
-            f"Clean negative CLmax = {aero.clmax_clean_neg:+.4g} is positive; the "
+            f"Clean negative CLmax = {format_value(aero.clmax_clean_neg, signed=True)} is positive; the "
             "negative maximum lift coefficient caps the *negative* balancing "
             "solution and is normally negative (e.g. −0.59 on the Appendix A GA "
             "example). Check the sign.",
@@ -875,7 +878,7 @@ def _check_aero_coefficients(project: Project) -> List[ConsistencyWarning]:
         if cfg.lift[1] <= 0.0:
             out.append(ConsistencyWarning(
                 "aero_lift_slope_sign",
-                f"{name}: the lift-curve slope C1 = {cfg.lift[1]:+.4g} is not positive. "
+                f"{name}: the lift-curve slope C1 = {format_value(cfg.lift[1], signed=True)} is not positive. "
                 "CL = C0 + C1·α + … expects α in **degrees** (a per-radian slope "
                 "entered here would be ~57× too large; a transposed row can flip the "
                 "sign). The balance will not converge sensibly.",
@@ -892,9 +895,10 @@ def _check_aero_coefficients(project: Project) -> List[ConsistencyWarning]:
             if cl_max_on_curve < cfg.stall_cl:
                 out.append(ConsistencyWarning(
                     "aero_clmax_unreachable",
-                    f"{name}: the lift polynomial peaks at CL = {cl_max_on_curve:.4g} "
-                    f"between α = {ALPHA_LO_DEG:g}° and {ALPHA_HI_DEG:g}°, below the "
-                    f"stall CL = {cfg.stall_cl:.4g} the balance clamps to. The "
+                    f"{name}: the lift polynomial peaks at CL = {format_value(cl_max_on_curve)} "
+                    f"between α = {format_value(ALPHA_LO_DEG, 'deg')}° and "
+                    f"{format_value(ALPHA_HI_DEG, 'deg')}°, below the "
+                    f"stall CL = {format_value(cfg.stall_cl)} the balance clamps to. The "
                     "FLTLOADS dynamic-pressure iteration cannot reach the stall line, "
                     "so the stall-limited corners will not converge. Check the lift "
                     "coefficients against the CLmax entered above.",
@@ -912,7 +916,7 @@ def _check_aero_coefficients(project: Project) -> List[ConsistencyWarning]:
             out.append(ConsistencyWarning(
                 "aero_flap_neg_stall_unset",
                 f"{name}: no negative stall CL. The balance clamps CL to "
-                f"[{cfg.neg_stall_cl:+.4g}, {cfg.stall_cl:.4g}], so the negative "
+                f"[{format_value(cfg.neg_stall_cl, signed=True)}, {format_value(cfg.stall_cl)}], so the negative "
                 "side of the flaps-extended envelope — the 0-g point and the "
                 "down gust at VF — is limited at CL = 0 and reports less load "
                 "than the airplane sees. Enter this set's negative stall CL; it "
@@ -929,9 +933,10 @@ def _check_aero_coefficients(project: Project) -> List[ConsistencyWarning]:
             if worst[0] <= 0.0:
                 out.append(ConsistencyWarning(
                     "aero_drag_negative",
-                    f"{name}: the drag polar gives CD = {worst[0]:+.4g} at "
-                    f"CL = {worst[1]:+.4g}, inside the operating band "
-                    f"({lo_cl:+.4g} … {hi_cl:+.4g}). Drag cannot be zero or negative; "
+                    f"{name}: the drag polar gives CD = {format_value(worst[0], signed=True)} at "
+                    f"CL = {format_value(worst[1], signed=True)}, inside the operating band "
+                    f"({format_value(lo_cl, signed=True)} … {format_value(hi_cl, signed=True)}). "
+                    "Drag cannot be zero or negative; "
                     "the balance rotates it into the airplane axes (DX), so a negative "
                     "CD corrupts the balancing tail load. Check D0…D4 "
                     "(CD = D0 + D1·CL + D2·CL² + …).",
@@ -943,7 +948,7 @@ def _check_aero_coefficients(project: Project) -> List[ConsistencyWarning]:
         if cfg.drag[2] <= 0.0 and not any(cfg.drag[3:]) and any(cfg.drag):
             out.append(ConsistencyWarning(
                 "aero_drag_polar_shape",
-                f"{name}: the drag polar's CL² term D2 = {cfg.drag[2]:+.4g} is not "
+                f"{name}: the drag polar's CL² term D2 = {format_value(cfg.drag[2], signed=True)} is not "
                 "positive with no higher-order terms entered, so drag does not grow "
                 "with lift — the induced-drag term is missing or inverted "
                 "(CD = D0 + D1·CL + D2·CL²; the Appendix A GA example uses "
@@ -1040,11 +1045,12 @@ def _check_weight_case_model(project: Project) -> List[ConsistencyWarning]:
             w_tol = max(mass_distribution._ECHO_WEIGHT_ABS,
                         mass_distribution._ECHO_WEIGHT_REL * abs(case.weight_lb))
             if abs(ld.weight_lb - case.weight_lb) > w_tol:
-                gaps.append(f"weight {ld.weight_lb:,.1f} lb against {case.weight_lb:,.1f}")
+                gaps.append(f"weight {format_value(ld.weight_lb, 'lb')} lb against "
+                            f"{format_value(case.weight_lb, 'lb')}")
             for got, want, label in ((ld.cg_x, case.xcg, "xcg"),
                                      (ld.cg_z, case.zcg, "zcg")):
                 if abs(got - want) > mass_distribution._CG_MATCH_TOL:
-                    gaps.append(f"{label} {got:.2f} in against {want:.2f}")
+                    gaps.append(f"{label} {format_value(got, 'in')} in against {format_value(want, 'in')}")
             if gaps:
                 out.append(ConsistencyWarning(
                     "cg_case_loading_echo",
@@ -1070,7 +1076,7 @@ def _check_weight_case_model(project: Project) -> List[ConsistencyWarning]:
     for (lo_label, lo), (hi_label, hi) in breaks:
         out.append(ConsistencyWarning(
             "weight_order_chain",
-            f"{lo_label} {lo:,.0f} lb exceeds {hi_label} {hi:,.0f} lb. The design "
+            f"{lo_label} {format_value(lo, 'lb')} lb exceeds {hi_label} {format_value(hi, 'lb')} lb. The design "
             "weights must satisfy empty weight <= MZFW <= MLW <= MTOW <= the item total -- "
             "you must be able to land with reserves, and you cannot weigh more than "
             "everything you have (decisions G-4 / G-14; MZFW note 63 D-63.5).",
@@ -1080,8 +1086,8 @@ def _check_weight_case_model(project: Project) -> List[ConsistencyWarning]:
     if mlw > 0 and floor is not None and mlw < floor - 1e-6:
         out.append(ConsistencyWarning(
             "mlw_below_landing_estimate",
-            f"Max landing weight {mlw:,.0f} lb is below OEW + max payload + reserve "
-            f"fuel ({floor:,.0f} lb), so this airplane cannot land at MLW with full "
+            f"Max landing weight {format_value(mlw, 'lb')} lb is below OEW + max payload + reserve "
+            f"fuel ({format_value(floor, 'lb')} lb), so this airplane cannot land at MLW with full "
             "payload and reserves -- some payload has to be left behind on every "
             "flight that lands heavy. Confirm the MLW, the payload rows, or which "
             "fuel rows are consumable mission fuel (14 CFR 23.473(b)/(c)).",
@@ -1099,8 +1105,8 @@ def _check_weight_case_model(project: Project) -> List[ConsistencyWarning]:
         if drift:
             out.append(ConsistencyWarning(
                 "mtow_representation_drift",
-                f"Max take-off weight is {mtow:,.0f} lb, but "
-                + "; ".join(f"{label} says {v:,.0f} lb" for label, v in drift)
+                f"Max take-off weight is {format_value(mtow, 'lb')} lb, but "
+                + "; ".join(f"{label} says {format_value(v, 'lb')} lb" for label, v in drift)
                 + ". Decision G-14 made weight.max_takeoff_weight_lb the single "
                 "owner and the others derived reads of it.",
                 PAGE_WEIGHT_CG))
@@ -1123,7 +1129,7 @@ def _check_wing_fraction(project: Project) -> List[ConsistencyWarning]:
         if not (0.0 <= it.wing_fraction <= 1.0):
             out.append(ConsistencyWarning(
                 "wing_fraction_out_of_range",
-                f"Item '{it.name}': wing_fraction {it.wing_fraction:g} is outside "
+                f"Item '{it.name}': wing_fraction {format_value(it.wing_fraction)} is outside "
                 "[0, 1]. It is the fraction of the row's weight reacted by the wing "
                 "(both sides together); the remainder is reacted by the row's "
                 "component (design note 29).",
@@ -1132,7 +1138,7 @@ def _check_wing_fraction(project: Project) -> List[ConsistencyWarning]:
             out.append(ConsistencyWarning(
                 "wing_fraction_on_wing_row",
                 f"Item '{it.name}' is tagged wing and also carries wing_fraction "
-                f"{it.wing_fraction:g}. A wing row is wholly wing-carried already; "
+                f"{format_value(it.wing_fraction)}. A wing row is wholly wing-carried already; "
                 "set the fraction on the fuselage (or other) row that the wing "
                 "carries part of, or clear it here (design note 29).",
                 PAGE_WEIGHT_CG))
@@ -1277,7 +1283,7 @@ def _check_case_loading_missing(project: Project) -> List[ConsistencyWarning]:
         aboard = [it.name for it in ld.items
                   if it.kind == MassItemKind.DISCRETIONARY and it is not ld.ballast]
         what = (f"the search derives one -- {len(aboard)} discretionary row(s) "
-                f"aboard" + (f", solved ballast {ld.ballast.weight_lb:,.0f} lb"
+                f"aboard" + (f", solved ballast {format_value(ld.ballast.weight_lb, 'lb')} lb"
                              if ld.ballast is not None else "")
                 + " -- and nothing on the case says so")
         out.append(ConsistencyWarning(
@@ -1324,21 +1330,21 @@ def _check_envelope_reach(project: Project) -> List[ConsistencyWarning]:
     out: List[ConsistencyWarning] = []
     for r in reach:
         what = ("structural limit" if r.kind == "limit" else "weight/CG case")
-        head = (f"The {what} '{r.name}' ({r.weight_lb:,.0f} lb at station "
-                f"{r.xcg:,.2f} in)")
+        head = (f"The {what} '{r.name}' ({format_value(r.weight_lb, 'lb')} lb at station "
+                f"{format_value(r.xcg, 'in')} in)")
         if not r.reachable:
             if r.weight_lb < w_base:
                 why = (f"weighs less than the minimum flight weight "
-                       f"({w_base:,.0f} lb)")
+                       f"({format_value(w_base, 'lb')} lb)")
             elif r.ballast_lb is None:
                 why = ("is reached by no loading within every row's limits, and "
                        "no ballast inside the fuselage closes it")
             else:
-                why = (f"needs {r.ballast_lb:,.0f} lb of ballast "
-                       f"({100 * (r.ballast_fraction or 0.0):.1f} % of its weight), "
-                       f"past the {100 * BALLAST_CREDIBLE_FRACTION:g} % credibility gate")
+                why = (f"needs {format_value(r.ballast_lb, 'lb')} lb of ballast "
+                       f"({format_value(100 * (r.ballast_fraction or 0.0), '%')} % of its weight), "
+                       f"past the {format_value(100 * BALLAST_CREDIBLE_FRACTION, '%')} % credibility gate")
             span = (f"; at that weight the loadings span stations "
-                    f"{r.fwd_x:,.2f} to {r.aft_x:,.2f} in"
+                    f"{format_value(r.fwd_x, 'in')} to {format_value(r.aft_x, 'in')} in"
                     if r.fwd_x is not None and r.aft_x is not None else "")
             out.append(ConsistencyWarning(
                 "envelope_point_unreachable",
@@ -1359,11 +1365,11 @@ def _check_envelope_reach(project: Project) -> List[ConsistencyWarning]:
         if not found or found[0].derivable:
             continue
         if r.fractions is not None:
-            rows = ", ".join(f"'{n}' {f:.3f}" for n, f in r.fractions.items())
+            rows = ", ".join(f"'{n}' {format_value(f)}" for n, f in r.fractions.items())
             how = (f"with no ballast; one such loading is {rows} "
                    "(fractions of each row, 1 = whole)")
         else:
-            how = (f"with {r.ballast_lb or 0.0:,.0f} lb of ballast inside the "
+            how = (f"with {format_value(r.ballast_lb or 0.0, 'lb')} lb of ballast inside the "
                    "fuselage")
         out.append(ConsistencyWarning(
             "case_loading_search_missed",
@@ -1406,8 +1412,8 @@ def _check_fuselage_override_per_case(project: Project) -> List[ConsistencyWarni
     return [ConsistencyWarning(
         "fuselage_override_varies_by_case",
         f"The fuselage stations are an entered override, one table for every "
-        f"condition, but the FLIGHT loadings' body mass runs from {lo[1]:,.0f} lb "
-        f"('{lo[0]}') to {hi[1]:,.0f} lb ('{hi[0]}'). The derived table follows "
+        f"condition, but the FLIGHT loadings' body mass runs from {format_value(lo[1], 'lb')} lb "
+        f"('{lo[0]}') to {format_value(hi[1], 'lb')} lb ('{hi[0]}'). The derived table follows "
         "each case's loading; the override cannot. Clear "
         "`stations_are_override` to integrate each condition at its own mass "
         "(design note 63 D-63.8).",
@@ -1504,18 +1510,18 @@ def _check_gear_carrier(project: Project) -> List[ConsistencyWarning]:
         if abs(y) < 1e-9:
             why = "on the centreline, where there is no wing structure to carry it"
         elif abs(y) > tip_y + 1e-9:
-            why = f"outboard of the tip (butt line {tip_y:,.1f} in)"
+            why = f"outboard of the tip (butt line {format_value(tip_y, 'in')} in)"
         else:
             le = interp_x(wing.leading_edge, abs(y))
             te = interp_x(wing.trailing_edge, abs(y))
             if not (min(le, te) - 1e-9 <= x <= max(le, te) + 1e-9):
-                why = (f"outside the chord at butt line {abs(y):,.1f} in "
-                       f"({min(le, te):,.1f} to {max(le, te):,.1f} in)")
+                why = (f"outside the chord at butt line {format_value(abs(y), 'in')} in "
+                       f"({format_value(min(le, te), 'in')} to {format_value(max(le, te), 'in')} in)")
         if why:
             out.append(ConsistencyWarning(
                 "gear_attach_off_the_wing",
                 f"The {name} gear is carried by the WING but its attachment node "
-                f"({x:,.1f}, {y:,.1f}) is {why}. The export transfers the "
+                f"({format_value(x, 'in')}, {format_value(y, 'in')}) is {why}. The export transfers the "
                 "contact-patch reaction to this point and resolves it onto the "
                 "wing loads reference axis (G-2/G-12).",
                 PAGE_CONFIGURATION))
@@ -1615,8 +1621,8 @@ def _check_derive_overrides(project: Project) -> List[ConsistencyWarning]:
             and abs(si.full_down_aileron_deg - ail.down_deflection_deg) > 1e-6):
         out.append(ConsistencyWarning(
             "aileron_deflection_mismatch",
-            f"SELECT's full-down aileron is {si.full_down_aileron_deg:g} deg but the "
-            f"aileron's own down-deflection limit is {ail.down_deflection_deg:g} deg. "
+            f"SELECT's full-down aileron is {format_value(si.full_down_aileron_deg, 'deg')} deg but the "
+            f"aileron's own down-deflection limit is {format_value(ail.down_deflection_deg, 'deg')} deg. "
             "Both reach the calc -- the 23.349(b) steady-roll torsion scores the "
             "first, the aileron loads the second. Blank the SELECT field to derive "
             "it from the aileron (note 36), or confirm the difference is intended.",
@@ -1648,8 +1654,9 @@ def _check_derive_overrides(project: Project) -> List[ConsistencyWarning]:
         if total and halves and abs(total - halves) > 0.01 * max(abs(total), abs(halves)):
             out.append(ConsistencyWarning(
                 code,
-                f"The typed {what} is {total:g} sq ft but its hinge halves sum "
-                f"to {fwd:g} + {aft:g} = {halves:g} sq ft. Both reach SELECT "
+                f"The typed {what} is {format_value(total, 'ft^2')} sq ft but its hinge halves sum "
+                f"to {format_value(fwd, 'ft^2')} + {format_value(aft, 'ft^2')} = "
+                f"{format_value(halves, 'ft^2')} sq ft. Both reach SELECT "
                 "as views of one surface. Blank the total to derive it from "
                 "the halves (#95), or fix whichever is wrong.",
                 PAGE_CONFIGURATION))
@@ -1668,12 +1675,12 @@ def _check_derive_overrides(project: Project) -> List[ConsistencyWarning]:
                 continue  # the calc refuses this by name; nothing to compare
             drift = []
             if weight_lb and abs(weight_lb - row.weight_lb) > 1e-6:
-                drift.append(f"weight {weight_lb:,.6g} lb vs the row's "
-                             f"{row.weight_lb:,.6g} lb")
+                drift.append(f"weight {format_value(weight_lb, 'lb')} lb vs the row's "
+                             f"{format_value(row.weight_lb, 'lb')} lb")
             if any(cg) and any(abs(a - b) > 1e-6
                                for a, b in zip(cg, (row.x, row.y, row.z))):
                 drift.append(f"CG {tuple(cg)} vs the row's "
-                             f"({row.x:g}, {row.y:g}, {row.z:g})")
+                             f"({format_value(row.x, 'in')}, {format_value(row.y, 'in')}, {format_value(row.z, 'in')})")
             if drift:
                 out.append(ConsistencyWarning(
                     "engine_mass_row_mismatch",
@@ -1726,7 +1733,7 @@ def _check_ttail_induced_roll(project: Project) -> List[ConsistencyWarning]:
             out.append(ConsistencyWarning(
                 "ttail_induced_roll_sizes_htail",
                 f"{r.case}: half the T-tail induced rolling moment per side "
-                f"({0.5 * abs(i.m_r):,.0f} lb-in) is {100.0 * i.htail_ratio:.1f} % "
+                f"({format_value(0.5 * abs(i.m_r), 'lb-in')} lb-in) is {format_value(100.0 * i.htail_ratio, '%')} % "
                 "of the horizontal tail's governing root bending on one factor "
                 "basis. The moment is carried by the fin; the horizontal tail's "
                 "own loads do not include it, so the assumption that it does not "
@@ -1736,14 +1743,14 @@ def _check_ttail_induced_roll(project: Project) -> List[ConsistencyWarning]:
             out.append(ConsistencyWarning(
                 "ttail_induced_roll_mach",
                 f"{r.case}: the AC 23-9 induced rolling moment is formed at Mach "
-                f"{i.mach:.3f}, above {AC23_9_MACH_WARN:g}. The method has no "
+                f"{format_value(i.mach)}, above {format_value(AC23_9_MACH_WARN)}. The method has no "
                 "compressibility effect (AC 23-9 ¶5a p4); a rational analysis is "
                 "the upgrade (design note 51 D-51.8).",
                 PAGE_TAIL))
     if dihedral > 0.0:
         out.append(ConsistencyWarning(
             "ttail_htail_dihedral",
-            f"The T-tail's horizontal stabilizer has {dihedral:g} deg of dihedral "
+            f"The T-tail's horizontal stabilizer has {format_value(dihedral, 'deg')} deg of dihedral "
             "entered. AC 23-9's induced rolling moment has no dihedral effect, and "
             "6 deg can raise it by 50 % (¶5a p4); the delivered moment is not "
             "scaled for it (design note 51 D-51.8).",

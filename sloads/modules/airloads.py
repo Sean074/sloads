@@ -72,6 +72,7 @@ from ..models import (
     same_name,
 )
 from ..registry import register
+from ..units import format_value
 from .wing_geometry import interp_x
 
 _FAR = "23.301"  # airload distribution basis (Schrenk)
@@ -460,16 +461,16 @@ def spanwise_distribution(geom: SurfaceInput, aero: AeroSurfaceInput) -> Conditi
         LoadValue("Recovered CL (closure)", t.recovered_cl, key="recovered_cl_closure"),
     ]
     for i, (ye, ccl, cl) in enumerate(zip(t.ye, t.ccl_total, t.cl_total), start=1):
-        values.append(LoadValue(f"Elem {i} (Y={ye:.3f}) c*cl", ccl, "in",
+        values.append(LoadValue(f"Elem {i} (Y={format_value(ye, 'in')}) c*cl", ccl, "in",
                                 key=f"elem{i}_ccl"))
-        values.append(LoadValue(f"Elem {i} (Y={ye:.3f}) cl", cl, key=f"elem{i}_cl"))
+        values.append(LoadValue(f"Elem {i} (Y={format_value(ye, 'in')}) cl", cl, key=f"elem{i}_cl"))
     method = ("Schrenk + AIRLOAD4 sweep correction (Ref 1 Ch 12)"
               if t.airload4 else "Schrenk method (Ref 1 Ch 7)")
     return ConditionResult(
         title=f"Spanwise airload distribution: {geom.name}",
         far_reference=_FAR,
         values=values,
-        note=f"{method}; span load c*cl at CL={t.target_cl:g}.",
+        note=f"{method}; span load c*cl at CL={format_value(t.target_cl)}.",
     )
 
 

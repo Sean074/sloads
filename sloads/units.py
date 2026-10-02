@@ -818,9 +818,11 @@ def display_format(unit: FieldUnit) -> str:
 #: (``tests/test_platform_stability.py``), so a report never crashes on a new
 #: unit and a new unit never ships without a row (§8 Q3).
 DELIVERED_PRECISION: Dict[str, Optional[int]] = {
-    # loads, moments, areas, inertias: to the whole unit
+    # loads, moments, inertias and areas in in^2: to the whole unit
     "lb": 0, "lb-in": 0, "ft-lb": 0, "in^2": 0, "lb-in^2": 0, "slug-ft^2": 0,
-    "ft^2": 0,
+    # an area in ft^2 to 0.1: a control surface is a few square feet, and a
+    # whole foot printed a 5.2 ft^2 rudder as 5 (#312, owner 2026-10-01)
+    "ft^2": 1,
     # lengths: stations and arms to 0.1 in; altitude to 0.1 ft (§8 Q2)
     "in": 1, "ft": 1,
     # speeds
@@ -839,7 +841,7 @@ DELIVERED_PRECISION: Dict[str, Optional[int]] = {
     "": None, "1/deg": None, "/rad": None, "s": None,
     # the scalar converter's own spellings of rows above (``_SCALAR_TO_SI``:
     # the GUI station tables label a force ``lbf``), at the same precision
-    "lbf": 0, "psi": 2, "sqft": 0,
+    "lbf": 0, "psi": 2, "sqft": 1,
 }
 
 #: The same table under the SI labels a converted ``LoadValue`` carries
@@ -1266,7 +1268,7 @@ def canonical(value: float) -> float:
     The residual knife edge is a value within an ulp of a *twelfth*-digit
     boundary, which no quantization removes and no deliverable distinguishes.
     """
-    return float(f"{value:.{CANONICAL_SIG}g}")
+    return float(f"{value:.{CANONICAL_SIG}g}")  # note 65 exempt: the quantization owner, arithmetic
 
 
 # --------------------------------------------------------------------------- #
@@ -1295,7 +1297,7 @@ class NonFiniteValue(Exception):
 
 
 
-def format_value(value: float, units: str = "") -> str:
+def format_value(value: float, units: str = "", *, signed: bool = False) -> str:
     """Format one numeric cell for a table, a CSV or the text report.
 
     Public since G8.1 (it was ``_fmt``; ``tests/test_results_review.py``
@@ -1330,7 +1332,16 @@ def format_value(value: float, units: str = "") -> str:
     **A NaN or an infinity is refused** with :class:`NonFiniteValue` naming the
     unit, rather than printed as ``nan``/``inf`` or failing inside the
     quantization (#303).
+
+    ``signed`` writes ``+`` before a non-negative cell, for a sentence that
+    states a direction by its sign (a closure increment, a residual); the
+    digits are the row's either way (#312).
     """
+    text = _unsigned_format(value, units)
+    return "+" + text if signed and not text.startswith("-") else text
+
+
+def _unsigned_format(value: float, units: str) -> str:
     decimals = delivered_precision(units)
     if isinstance(value, int) and not isinstance(value, bool) and decimals is None:
         return str(value)            # a count, a case number

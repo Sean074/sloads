@@ -84,6 +84,7 @@ from ..models import (
     normalise_code,
 )
 from ..registry import register
+from ..units import format_value
 
 _FAR = "23.335/23.337"
 _KT = "kt(EAS)"
@@ -152,7 +153,7 @@ def resolve_mach_margin(inp: StructuralSpeedsInput) -> MachMargin:
             "23.335(b)(4)(ii) says the same. This floor is not an input."
         )
     if declared >= MACH_MARGIN_DEFAULT:
-        return MachMargin(declared, f"declared {declared:.4g} M", False)
+        return MachMargin(declared, f"declared {format_value(declared)} M", False)
 
     basis = (inp.mach_margin_basis or "").strip()
     if not basis:
@@ -406,21 +407,22 @@ def _margin_route_note(inp: StructuralSpeedsInput, sv: DesignSpeeds) -> str:
     mm = resolve_mach_margin(inp)
     parts = [
         f"Dive speed on the 25.335(b) Mach-margin route ({mm.basis}): "
-        f"MD = {sv.md:.4f} against MC = {sv.mc:.4f}, margin {sv.mach_margin:+.4f} "
-        f"vs the required {sv.mach_margin_required:.4f}."
+        f"MD = {format_value(sv.md)} against MC = {format_value(sv.mc)}, "
+        f"margin {format_value(sv.mach_margin, signed=True)} "
+        f"vs the required {format_value(sv.mach_margin_required)}."
     ]
     if inp.chosen_vd is not None and sv.vd > inp.chosen_vd * (1 + 1e-9):
         parts.append(
-            f"The chosen VD {inp.chosen_vd:.4g} kt did not clear that margin and was "
-            f"RAISED to {sv.vd:.4g} kt."
+            f"The chosen VD {format_value(inp.chosen_vd, _KT)} kt did not clear that margin and was "
+            f"RAISED to {format_value(sv.vd, _KT)} kt."
         )
     parts.append(
-        f"The 1.25*VC speed-ratio floor ({sv.vd_ratio_floor:.4g} kt) does not apply "
+        f"The 1.25*VC speed-ratio floor ({format_value(sv.vd_ratio_floor, _KT)} kt) does not apply "
         "on this route -- 25.335(b) offers the two disjunctively."
     )
     if sv.mach_margin_reduced:
         parts.append(
-            f"REDUCED MARGIN: {sv.mach_margin_required:.4g} M is below the "
+            f"REDUCED MARGIN: {format_value(sv.mach_margin_required)} M is below the "
             f"{MACH_MARGIN_DEFAULT} M default. 25.335(b)(2) allows this only on a "
             "rational analysis including the effects of automatic systems; it "
             "requires significant justification and carries certification risk "
@@ -476,7 +478,7 @@ def design_speeds(project: Project, inp: StructuralSpeedsInput) -> List[Conditio
     notes = []
     if ws > 100.0:
         notes.append(
-            f"OUT-OF-BAND: W/S = {ws:.1f} lb/ft^2 exceeds the FAR 23.335 coefficient "
+            f"OUT-OF-BAND: W/S = {format_value(ws, 'lb/ft^2')} lb/ft^2 exceeds the FAR 23.335 coefficient "
             "schedule (tabulated to W/S = 100). Kc/Kd are held at their W/S = 100 "
             "values (28.6 / 1.35); VC(min)/VD(min) are GA-extrapolated advisories -- "
             "supply chosen VC/VD."
@@ -598,6 +600,12 @@ def operational_target_checks(inp: StructuralSpeedsInput, ds: DesignSpeeds) -> L
     return out
 
 
+def _check_units(check: TargetCheck) -> str:
+    """The tabled precision unit of a target check's numbers: a speed in
+    knots, a Mach number dimensionless (``"Mach"`` labels it, it is no row)."""
+    return check.units if check.units == _KT else ""
+
+
 def operational_implications(project: Project, inp: StructuralSpeedsInput) -> List[ConditionResult]:
     """Advisory operating-limitation placards + optional target feasibility.
 
@@ -621,12 +629,12 @@ def operational_implications(project: Project, inp: StructuralSpeedsInput) -> Li
     if inp.shoulder_altitude_ft:
         if implied_margin < MACH_MARGIN_FLOOR:
             margin_note = (
-                f" The implied MC->MD margin is {implied_margin:+.4f} M, BELOW the "
+                f" The implied MC->MD margin is {format_value(implied_margin, signed=True)} M, BELOW the "
                 f"{MACH_MARGIN_FLOOR} M absolute floor of 25.335(b)(2)/23.335(b)(4)(ii)."
             )
         elif implied_margin < MACH_MARGIN_DEFAULT:
             margin_note = (
-                f" The implied MC->MD margin is {implied_margin:+.4f} M, below the "
+                f" The implied MC->MD margin is {format_value(implied_margin, signed=True)} M, below the "
                 f"{MACH_MARGIN_DEFAULT} M default -- for a transport that needs the "
                 "25.335(b)(2) rational-analysis route (automatic systems credited), "
                 "which carries certification risk."
@@ -665,17 +673,20 @@ def operational_implications(project: Project, inp: StructuralSpeedsInput) -> Li
             mark = "" if c.feasible else "  <-- INFEASIBLE"
             # The label is a whole sentence (target, driver, actual, feasibility);
             # the key is the check's position in the ordered check list.
+            u = _check_units(c)
             values.append(LoadValue(
-                f"{c.target_label} target {c.target:g} => {c.driver_label} >= "
-                f"{c.required:.4g} (have {c.actual:.4g}){mark}", c.required, c.units,
+                f"{c.target_label} target {format_value(c.target, u)} => {c.driver_label} >= "
+                f"{format_value(c.required, u)} (have {format_value(c.actual, u)}){mark}", c.required, c.units,
                 key=f"target_check_{i}"))
         infeasible = [c for c in checks if not c.feasible]
         note = (
             "All operational targets are achievable with the chosen design speeds."
             if not infeasible else
             "INFEASIBLE target(s): " + "; ".join(
-                f"{c.target_label} {c.target:g} needs {c.driver_label} >= {c.required:.4g} "
-                f"but {c.driver_label.split(' ')[0]} = {c.actual:.4g}" for c in infeasible)
+                f"{c.target_label} {format_value(c.target, _check_units(c))} needs {c.driver_label} >= "
+                f"{format_value(c.required, _check_units(c))} "
+                f"but {c.driver_label.split(' ')[0]} = {format_value(c.actual, _check_units(c))}"
+                for c in infeasible)
             + ". Raise the driving design speed(s) or lower the target. "
             "Targets never change the design speeds or any load (display/validation only)."
         )

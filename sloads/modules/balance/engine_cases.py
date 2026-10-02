@@ -87,6 +87,7 @@ from ...models import (
     Project,
     VnPoint,
 )
+from ...units import format_value
 from ..wing_inertia import WingCaseSources
 from .applied import (
     ENGINE_GYRO_SOURCE,
@@ -221,8 +222,8 @@ def _gyro_notes(index: int, partners: Sequence[Tuple[int, EngineInput, Condition
     notes = [
         f"GYROSCOPIC (design note 66 D-66.4a): every engine's max-continuous "
         f"thrust and gyroscopic couples at one airplane yaw and pitch rate -- "
-        f"{pairs}. The net axial force, {abs(fx):,.0f} lb "
-        f"({abs(fx) / weight_lb:.2f} g), is reacted by the airplane's "
+        f"{pairs}. The net axial force, {format_value(abs(fx), 'lb')} lb "
+        f"({format_value(abs(fx) / weight_lb, 'g')} g), is reacted by the airplane's "
         "longitudinal inertia." if weight_lb else "",
     ]
     from ..engine import angular_momentum
@@ -392,7 +393,7 @@ def build_engine_cases(project: Project, critical: Sequence[CriticalCondition],
             notes = list(case.notes) + [
                 f"ENGINE MOUNT (design note 66): engine {index}, "
                 f"{cond.far_reference}, on the V-n point {point.case} "
-                f"({point.condition}) scaled x{k:.4f} to n = {target:.4f}. The "
+                f"({point.condition}) scaled x{format_value(k)} to n = {format_value(target, 'g')}. The "
                 "engine's own inertia is the parent's, at the parent's n -- "
                 "ENGLOADS's vertical load is not re-applied.",
                 ("Thrust axis ASSUMED airplane-forward (no thrust line entered)."

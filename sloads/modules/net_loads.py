@@ -38,6 +38,7 @@ from ..models import (
     WingStationLoad,
 )
 from ..registry import register
+from ..units import format_value
 from .airloads import air_load_distribution
 from .rolling import steady_roll_aero
 from .wing_geometry import chord_fraction_x
@@ -97,7 +98,7 @@ def torsion_axis_label(pct: float) -> str:
     The original suite's quarter chord stays ``"25% chord"``; anything else is
     the surface's loads reference axis, e.g. ``"LRA 40% chord"``.
     """
-    return "25% chord" if pct == 0.25 else f"LRA {pct * 100:g}% chord"
+    return "25% chord" if pct == 0.25 else f"LRA {pct * 100:g}% chord"  # note 65 exempt: an identifier
 
 
 def to_loads_ref_axis(results: List[WingLoadResult],
@@ -312,7 +313,7 @@ def run(project: Project) -> ModuleResult:
                       symbol="Mzz"),
         ]
         conditions.append(ConditionResult(
-            title=f"Net wing loads: {r.case} (Nz={r.nz:g}, Nx={r.nx:g})",
+            title=f"Net wing loads: {r.case} (Nz={format_value(r.nz, 'g')}, Nx={format_value(r.nx, 'g')})",
             far_reference="23.301",
             values=values,
             case_ref=r.case_ref,

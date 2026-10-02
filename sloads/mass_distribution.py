@@ -105,6 +105,7 @@ from .models import (
     WingCarriage,
 )
 from .models.inputs import TAIL_SURFACES, require_surface
+from .units import format_value
 
 #: Two stations closer than this (in) are one beam node. Sized so the itemized
 #: data base's hand-entered stations (whole inches, occasionally one decimal --
@@ -486,8 +487,8 @@ def partition_closes(project: Project) -> MassCheck:
         code="mass_partition",
         ok=_close(wing + beam, total),
         got=wing + beam, want=total,
-        detail=(f"wing {wing:.1f} + fuselage beam {beam:.1f} = {wing + beam:.1f} lb "
-                f"against {total:.1f} lb of items"),
+        detail=(f"wing {format_value(wing, 'lb')} + fuselage beam {format_value(beam, 'lb')} = "
+                f"{format_value(wing + beam, 'lb')} lb against {format_value(total, 'lb')} lb of items"),
         parts=(("wing", wing), ("fuselage beam", beam)),
     )
 
@@ -749,9 +750,9 @@ def wing_mass_tie(project: Project) -> Optional[MassCheck]:
         code="mass_wing_tie",
         ok=abs(got - want) <= FUSELAGE_GAP_WARN_FRACTION * max(abs(want), 1.0),
         got=got, want=want,
-        detail=(f"entered wing panel override {got:.1f} lb per side against "
-                f"{want:.1f} lb derived from the WING-tagged PANEL items "
-                f"({got - want:+.1f} lb); the override is what WINGINER integrates"),
+        detail=(f"entered wing panel override {format_value(got, 'lb')} lb per side against "
+                f"{format_value(want, 'lb')} lb derived from the WING-tagged PANEL items "
+                f"({format_value(got - want, 'lb', signed=True)} lb); the override is what WINGINER integrates"),
     )
 
 
@@ -769,9 +770,9 @@ def wing_state_tie(state: WingMassState) -> MassCheck:
     got = state.wing_weight_lb
     return MassCheck(
         code="mass_wing_tie_case", ok=_close(got, want), got=got, want=want,
-        detail=(f"{state.label}: WING parts sum to {got:.1f} lb against 2 x "
-                f"(panel {state.panel_weight_lb:.1f} + points {points:.1f}) = "
-                f"{want:.1f} lb distributed"),
+        detail=(f"{state.label}: WING parts sum to {format_value(got, 'lb')} lb against 2 x "
+                f"(panel {format_value(state.panel_weight_lb, 'lb')} + points {format_value(points, 'lb')}) = "
+                f"{format_value(want, 'lb')} lb distributed"),
         parts=(("panel per side", state.panel_weight_lb), ("points per side", points)),
     )
 
@@ -855,8 +856,9 @@ def tail_reconciliation(project: Project, component: str) -> Optional[MassCheck]
         code=f"mass_{component}_reconcile",
         ok=abs(got - want) <= TAIL_GAP_WARN_FRACTION * abs(want),
         got=got, want=want,
-        detail=(f"entered {component} weight {got:.1f} lb against {want:.1f} lb "
-                f"of {component}-tagged items ({got - want:+.1f} lb)"
+        detail=(f"entered {component} weight {format_value(got, 'lb')} lb against "
+                f"{format_value(want, 'lb')} lb of {component}-tagged items "
+                f"({format_value(got - want, 'lb', signed=True)} lb)"
                 + ("; the entered value is the explicit override and is what the "
                    "distribution uses" if entered.weight_is_override else
                    "; the derived value is what the distribution uses")),
@@ -895,8 +897,8 @@ def fuselage_reconciliation(project: Project) -> Optional[MassCheck]:
         code="mass_fuselage_reconcile",
         ok=abs(got - want) <= FUSELAGE_GAP_WARN_FRACTION * abs(want),
         got=got, want=want,
-        detail=(f"entered fuselage stations total {got:.0f} lb against "
-                f"{want:.0f} lb of non-wing items ({got - want:+.0f} lb; "
+        detail=(f"entered fuselage stations total {format_value(got, 'lb')} lb against "
+                f"{format_value(want, 'lb')} lb of non-wing items ({format_value(got - want, 'lb', signed=True)} lb; "
                 f"{len(fm.stations)} entered stations vs {len(derived)} derived)"),
     )
 
@@ -1047,7 +1049,7 @@ def entered_loading(items: Sequence[MassItem], case: CgCase) -> CaseLoading:
         fraction = ballast.weight_lb / w
         # No weight in the sentence (#338): the loading carries its ballast,
         # and a writer states that weight in its own unit system.
-        note = (f"the entered ballast is {fraction * 100:.0f} % of the "
+        note = (f"the entered ballast is {format_value(fraction * 100, '%')} % of the "
                 "loading weight")
     return CaseLoading(name=case.name, items=loading, weight_lb=w, cg_x=cx, cg_z=cz,
                        ballast=ballast, derivable=True, note=note, entered=True)
@@ -1221,8 +1223,8 @@ def derive_case_loadings(project: Project,
         fraction = wb / case.weight_lb if case.weight_lb else 0.0
         credible = fraction <= BALLAST_CREDIBLE_FRACTION
         note = "" if credible else (
-            f"the closing ballast is {fraction * 100:.0f} % of the case weight "
-            f"(gate {BALLAST_CREDIBLE_FRACTION * 100:.0f} %) -- this is not a "
+            f"the closing ballast is {format_value(fraction * 100, '%')} % of the case weight "
+            f"(gate {format_value(BALLAST_CREDIBLE_FRACTION * 100, '%')} %) -- this is not a "
             "loading, it is a CG point the database cannot reach"
         )
         w, cx, cz = _wx(loading)
@@ -1354,10 +1356,10 @@ def seed_loading_search(project: Project, *, fuel: str, cap_lb: float, edge: str
 
     def key(w: float, x: float) -> Tuple[float, float]:
         if edge == "aft":
-            return (-round(w, 6), -x)
+            return (-round(w, 6), -x)  # note 65 exempt: arithmetic, not text
         fwd = fwd_limit_at(w)
         band = 0.0 if fwd is None else math.floor((x - fwd) / _CG_MATCH_TOL)
-        return (band, -round(w, 6))
+        return (band, -round(w, 6))  # note 65 exempt: arithmetic, not text
 
     best: Optional[Tuple[Tuple[float, float], List[MassItem], Optional[MassItem], float]] = None
 
@@ -1416,7 +1418,8 @@ def seed_loading_search(project: Project, *, fuel: str, cap_lb: float, edge: str
     trimmed = ""
     if best_row is not None:
         fractions_out[best_row.name] = fraction
-        trimmed = f"{best_row.name} to {best_row.weight_lb * fraction:.0f} lb ({fraction:.3f})"
+        trimmed = (f"{best_row.name} to {format_value(best_row.weight_lb * fraction, 'lb')} lb "
+                   f"({format_value(fraction)})")
     loading = list(fixed) + [
         dataclasses.replace(it, weight_lb=it.weight_lb * fraction) if it is best_row else it
         for it in sub]
@@ -1491,10 +1494,11 @@ def case_loading_checks(project: Project) -> List[MassCheck]:
                                          and label != "weight")
             ok = abs(got - want) <= tol if banded else _close(got, want, 1e-9)
             route = "entered loading" if loading.entered else "no ballast"
+            unit = "lb" if label == "weight" else "in"
             out.append(MassCheck(
                 code=f"mass_case_{label}", ok=ok, got=got, want=want,
-                detail=(f"{loading.name} {label} {got:.4f} against {want:.4f}"
-                        + (f" ({route}, tolerance {tol:g})" if banded else "")),
+                detail=(f"{loading.name} {label} {format_value(got, unit)} against {format_value(want, unit)}"
+                        + (f" ({route}, tolerance {format_value(tol, unit)})" if banded else "")),
             ))
     return out
 
@@ -1949,10 +1953,10 @@ def component_summary(project: Project) -> List[Dict[str, str]]:
         rows.append({
             "Component": comp.value,
             "Items": str(len(items)),
-            "Weight (lb)": f"{w:.1f}",
-            "% of W": f"{100.0 * w / total:.1f}" if total else "",
-            "X cg (in)": f"{dist.cg('x', comp):.2f}",
-            "Z cg (in)": f"{dist.cg('z', comp):.2f}",
+            "Weight (lb)": format_value(w, "lb"),
+            "% of W": format_value(100.0 * w / total, "%") if total else "",
+            "X cg (in)": format_value(dist.cg('x', comp), "in"),
+            "Z cg (in)": format_value(dist.cg('z', comp), "in"),
         })
     return rows
 

@@ -82,6 +82,7 @@ from ..models import (
 )
 from ..picks import extreme
 from ..registry import register
+from ..units import format_value
 
 if TYPE_CHECKING:            # pragma: no cover - typing only
     from ..gear_loads import DeliveredLeg
@@ -156,9 +157,9 @@ def far23_473g_floor_violations(n: float, nlg: float) -> List[str]:
     """
     floors = []
     if n < FAR23_473G_N_FLOOR:
-        floors.append(f"N={n:.3f} < {FAR23_473G_N_FLOOR}")
+        floors.append(f"N={format_value(n, 'g')} < {FAR23_473G_N_FLOOR}")
     if nlg < FAR23_473G_NLG_FLOOR:
-        floors.append(f"NLG={nlg:.3f} < {FAR23_473G_NLG_FLOOR}")
+        floors.append(f"NLG={format_value(nlg, 'g')} < {FAR23_473G_NLG_FLOOR}")
     return floors
 
 
@@ -906,8 +907,8 @@ def below_energy_caution(project: Project) -> Optional[str]:
     est = energy_load_factor_estimate(project)
     if est is None or inp.airplane_load_factor >= est.airplane_load_factor:
         return None
-    return (f"Entered N = {inp.airplane_load_factor:.4f} is below LGFACTOR's "
-            f"computed (energy) N = {est.airplane_load_factor:.4f}: the reactions "
+    return (f"Entered N = {format_value(inp.airplane_load_factor, 'g')} is below LGFACTOR's "
+            f"computed (energy) N = {format_value(est.airplane_load_factor, 'g')}: the reactions "
             "run below the drop-test work-energy estimate for this gear.")
 
 
@@ -1098,8 +1099,8 @@ def run(project: Project) -> ModuleResult:
     n_gov, nlg_gov = governing_load_factors(inp, lf)
     note = "Tricycle gear only (UG Table 2.1)."
     if inp.airplane_load_factor is not None:
-        note += (f" The reactions run at the entered N = {n_gov:.4f} "
-                 f"(NLG = N - L = {nlg_gov:.4f}); the energy N/NLG rows are "
+        note += (f" The reactions run at the entered N = {format_value(n_gov, 'g')} "
+                 f"(NLG = N - L = {format_value(nlg_gov, 'g')}); the energy N/NLG rows are "
                  "LGFACTOR's drop-test estimate.")
     if project.is_concept:
         note += " Concept mode -- unverified extrapolation past the FAR23 band."
