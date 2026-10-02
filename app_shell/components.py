@@ -36,6 +36,7 @@ from sloads import (
 from sloads import workflow as wf
 from sloads.applicability import design_weight_lb
 from sloads.modules.structural_speeds import maneuver_load_factors
+from sloads.report.methods import exceedance_statement
 from sloads.units import (
     KEAS,  # noqa: F401 -- re-exported as this layer's fixed_unit constant
     labels_for,
@@ -187,10 +188,9 @@ def render_applicability_banner(project: Project, *, switch_action: bool = True)
         "band the FAR 23 replication is calibrated to; results are a **concept-mode "
         "extrapolation**, not a certified analysis."
     )
+    system = active_system()
     for exc in exceedances:
-        st.markdown(
-            f"- **{exc.label}:** {exc.value:,.0f} exceeds the limit of {exc.limit:,.0f}"  # note 65 exempt: mixed units
-        )
+        st.markdown(f"- **{exc.label}:** {exceedance_statement(exc, system)}")
     if not switch_action:
         return
     if st.button("Switch to Concept", key="switch_to_concept"):

@@ -818,9 +818,9 @@ def _case_loading_statement(project: Project, u: Units) -> str:
     case the data base cannot produce has no loading and is not checked.
     """
     from ..mass_distribution import (
-        _ECHO_WEIGHT_REL,
         case_loading_checks,
         cg_match_tolerance,
+        echo_weight_rel,
         echo_weight_tolerance,
     )
 
@@ -830,14 +830,11 @@ def _case_loading_statement(project: Project, u: Units) -> str:
         return ""
     if not checks:
         return ""
-    # Three checks per case, each ``detail`` led by the case name and then
-    # the quantity, so the name is read back through the quantity it names --
-    # from the right, since a case may be called ``min weight``.
+    # Three checks per case, grouped by the case each one names.
     cases: Dict[str, List[str]] = {}
     for check in checks:
         label = check.code.rsplit("_", 1)[1]
-        name = check.detail.rsplit(f" {label} ", 1)[0]
-        gaps = cases.setdefault(name, [])
+        gaps = cases.setdefault(check.case or "", [])
         if not check.ok:
             dim = "mass" if label == "weight" else "length"
             quantity = "weight" if label == "weight" else label.capitalize()
@@ -853,7 +850,7 @@ def _case_loading_statement(project: Project, u: Units) -> str:
         f"weighs the case and sits within {band} of it on Xcg and Zcg; an "
         "entered loading is held to the greater of "
         f"{u.plain(echo_weight_tolerance(0.0), 'mass')} {u.label('mass')} and "
-        f"{100 * _ECHO_WEIGHT_REL:g} % on weight and {band} on each "  # note 65 exempt: a stated tolerance, prose
+        f"{100 * echo_weight_rel():g} % on weight and {band} on each "  # note 65 exempt: a stated tolerance, prose
         "coordinate. ")
     if not failed:
         return rule + ("The one checked case holds." if len(cases) == 1
@@ -7548,14 +7545,23 @@ def _oei_figures(cases: Sequence["VtailCase"], system: UnitSystem
             title=f"Yaw response — {tag} ({fc.case_id})",
             data=PlotData(
                 x_label="Time (s)", y_label="Yaw angle (deg), rate (deg/s), rudder (deg)",
-                series=[Series("Yaw angle", t, [r.theta for r in rows]),
-                        Series("Yaw rate", t, [r.theta_dot for r in rows],
+                # Signed in the airplane's frame, as the fin load beside it is
+                # (#321): the march's own angles are magnitudes toward the
+                # failed engine. Yaw reads in SELECT's beta sense (nose to port
+                # positive, ``beta_deg = -sense * theta``), the rudder in its
+                # own (+ loads the fin +y, CONVENTIONS.md §1).
+                series=[Series("Yaw angle", t, [-fc.sense * r.theta for r in rows]),
+                        Series("Yaw rate", t, [-fc.sense * r.theta_dot for r in rows],
                                style="dashed"),
-                        Series("Rudder deflection", t, [r.rudder_deg for r in rows],
+                        Series("Rudder deflection", t,
+                               [fc.sense * r.rudder_deg for r in rows],
                                style="dotted")],
                 vlines=marks),
             caption=("The airplane yaws under the asymmetry until the rudder "
-                     "takes effect. " + ("The march reached the 60 s bound "
+                     "takes effect. Yaw angle and rate are positive nose to "
+                     "port; the rudder is positive in the sense that loads the "
+                     "fin to starboard, the sense of the fin load in the next "
+                     "figure. " + ("The march reached the 60 s bound "
                      "without the yaw returning through zero: this case did not "
                      "recover." if not fc.recovered else
                      f"Recovery is complete at {format_value(fc.summary.time_to_recovery_s, 's')} s."))))

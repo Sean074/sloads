@@ -188,6 +188,28 @@ def test_no_si_issue_package_states_an_imperial_number(example):
     assert not leaks, leaks
 
 
+@pytest.mark.parametrize("example", EXAMPLES)
+def test_every_si_package_data_file_states_the_system_it_is_written_in(example):
+    """#321: ``data_header`` built each file's methods block without the
+    document's system, so every ``data/`` file of an SI package said
+    "UNITS: Imperial (lb, in, lb-in, lb/in^2) throughout" above SI numbers. The
+    leak scan above reads numbers with a unit after them and could not see it;
+    the FAR 23 exceedance line, once it carried a unit, was the first number
+    the stale block printed."""
+    from sloads.models.report import default_spec
+    from sloads.report.oracle_content import build_oracle_document
+    from sloads.report.package_data import data_files
+
+    for system in UnitSystem:
+        doc = build_oracle_document(_project(example),
+                                    dataclasses.replace(default_spec(), unit_system=system))
+        word = "SI." if system == UnitSystem.SI else "Imperial"
+        for f in data_files(doc):
+            units = [ln for ln in f.content.splitlines() if ln.startswith("# UNITS:")]
+            assert units and all(ln.startswith(f"# UNITS: {word}") for ln in units), (
+                system, f.name, units)
+
+
 def test_the_wing_station_reaches_the_document_in_its_channel():
     """D2: ``concept_heavy``'s assumed wing station is persisted as a clause
     with no number in it, and section 8 states the station from ``x_wing``."""
@@ -209,7 +231,8 @@ if __name__ == "__main__":
         test_every_provenance_note_a_deck_reads_is_a_unit_text,
         test_the_si_lra_deck_states_its_case_names_are_identifiers,
         test_the_wing_station_reaches_the_document_in_its_channel,
-    ] + [lambda e=e: test_no_si_solver_file_states_an_imperial_number(e) for e in EXAMPLES] \
+    ] + [lambda e=e: test_every_si_package_data_file_states_the_system_it_is_written_in(e)
+         for e in EXAMPLES] + [lambda e=e: test_no_si_solver_file_states_an_imperial_number(e) for e in EXAMPLES] \
       + [lambda e=e: test_no_si_issue_package_states_an_imperial_number(e) for e in EXAMPLES]
     for t in tests:
         try:

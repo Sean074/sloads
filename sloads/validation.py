@@ -1042,14 +1042,13 @@ def _check_weight_case_model(project: Project) -> List[ConsistencyWarning]:
         for ld in [ld for ld in loadings.values() if ld.entered]:
             case = next(c for c in cases if c.name == ld.name)
             gaps = []
-            w_tol = max(mass_distribution._ECHO_WEIGHT_ABS,
-                        mass_distribution._ECHO_WEIGHT_REL * abs(case.weight_lb))
+            w_tol = mass_distribution.echo_weight_tolerance(case.weight_lb)
             if abs(ld.weight_lb - case.weight_lb) > w_tol:
                 gaps.append(f"weight {format_value(ld.weight_lb, 'lb')} lb against "
                             f"{format_value(case.weight_lb, 'lb')}")
             for got, want, label in ((ld.cg_x, case.xcg, "xcg"),
                                      (ld.cg_z, case.zcg, "zcg")):
-                if abs(got - want) > mass_distribution._CG_MATCH_TOL:
+                if abs(got - want) > mass_distribution.cg_match_tolerance():
                     gaps.append(f"{label} {format_value(got, 'in')} in against {format_value(want, 'in')}")
             if gaps:
                 out.append(ConsistencyWarning(

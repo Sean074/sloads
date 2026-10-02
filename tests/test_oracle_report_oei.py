@@ -398,6 +398,34 @@ def test_the_plotted_series_state_the_factor_of_the_case_they_draw():
         "no figure states that the 23.367(a)(2) case is prescribed ultimate")
 
 
+def test_the_yaw_figure_is_signed_in_the_frame_of_the_fin_load_beside_it():
+    """#321: the yaw figure drew the march's magnitudes, the rudder unsigned
+    beside a fin load signed by the failed engine's side. Now the rudder takes
+    the fin load's sign (+ loads the fin +y) and yaw is SELECT's beta, nose to
+    port positive -- so on every case the rudder and the fin load agree at the
+    peak, and the yaw opposes them. (A mirrored twin is not drawn twice.)"""
+    from sloads.report.oracle_sections import oei_figures
+    from sloads.units import UnitSystem
+
+    for name in _TWINS:
+        figures = {f.key: f for f in oei_figures(_project(name),
+                                                 system=UnitSystem.IMPERIAL)}
+        sides = set()
+        for key, yaw in figures.items():
+            if not key.endswith("-yaw"):
+                continue
+            load = figures[key[:-len("-yaw")] + "-load"]
+            angle, _, rudder = yaw.data.series
+            total = load.data.series[-1]
+            i = max(range(len(total.y)), key=lambda k: abs(total.y[k]))
+            assert math.copysign(1, rudder.y[i]) == math.copysign(1, total.y[i]), key
+            j = max(range(len(angle.y)), key=lambda k: abs(angle.y[k]))
+            assert math.copysign(1, angle.y[j]) == -math.copysign(1, total.y[i]), key
+            sides.add(math.copysign(1, total.y[i]))
+            assert "nose to port" in yaw.caption, key
+        assert sides, (name, "no yaw figure drawn")
+
+
 # --------------------------------------------------------------------------- #
 # G-OR-120 -- "not applicable" is not "not analysed"
 # --------------------------------------------------------------------------- #

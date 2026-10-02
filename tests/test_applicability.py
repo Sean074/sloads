@@ -51,6 +51,32 @@ def test_beyond_far23_normal_flags_weight_and_seats():
     assert fields["occupants"].limit == 9
 
 
+def test_the_exceedance_line_states_its_unit_in_the_system_it_is_written_in():
+    """#321: the methods block and the GUI banner printed ``20,000 exceeds the
+    limit of 12,500`` with no unit, in an SI file as well. One renderer, the
+    weight in the system's mass unit, the seat count bare."""
+    from sloads.report.methods import exceedance_statement, methods_statement
+    from sloads.units import UnitSystem
+
+    project = io.load_project(GA6)
+    project.speeds.category = "C"
+    project.weight.max_takeoff_weight_lb = 20000.0
+    project.speeds.weight_lb = 20000.0
+    project.speeds.occupants = 12
+    fields = {e.field: e for e in far23_applicability(project)}
+    assert fields["weight_lb"].dim == "mass" and fields["occupants"].dim is None
+    w = fields["weight_lb"]
+    assert (exceedance_statement(w, UnitSystem.IMPERIAL)
+            == "20000 lb exceeds the limit of 12500 lb")
+    assert (exceedance_statement(w, UnitSystem.SI)
+            == "9071.8 kg exceeds the limit of 5669.9 kg")
+    assert (exceedance_statement(fields["occupants"], UnitSystem.SI)
+            == "11 exceeds the limit of 9")
+    for system in UnitSystem:
+        text = methods_statement(project, system=system)
+        assert exceedance_statement(w, system) in text, system
+
+
 def test_crew_field_reduces_passenger_seats():
     # With 12 occupants and 3 crew -> 9 passenger seats == the limit (not over).
     project = io.load_project(GA6)

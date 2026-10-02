@@ -34,7 +34,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple
 
-from ..applicability import far23_applicability
+from ..applicability import Exceedance, far23_applicability
 from ..constants import ULTIMATE_FACTOR
 from ..models import SCHEMA_VERSION, Project
 from ..safety_factors import ENGINE_FAILURE_NOUN
@@ -351,7 +351,7 @@ def _safety_factor_block(project: Project) -> List[str]:
     return out
 
 
-def _category_block(project: Project) -> List[str]:
+def _category_block(project: Project, system: UnitSystem) -> List[str]:
     """Category, or the concept-mode caveat with its specific exceedances."""
     speeds = project.speeds
     category = (speeds.category if speeds is not None else "") or "(not set)"
@@ -370,11 +370,29 @@ def _category_block(project: Project) -> List[str]:
     exceedances = far23_applicability(project)
     if exceedances:
         out.append("  FAR 23 applicability exceeded on:")
-        out.extend(  # note 65 exempt: a sentence in the CSV comment block, thousands-separated, mixed units
-            f"    - {e.label}: {e.value:,.0f} exceeds the limit of {e.limit:,.0f}"
-            for e in exceedances
-        )
+        out.extend(f"    - {e.label}: {exceedance_statement(e, system)}"
+                   for e in exceedances)
     return out
+
+
+def exceedance_statement(e: Exceedance, system: UnitSystem) -> str:
+    """``"<value> <unit> exceeds the limit of <limit> <unit>"`` in ``system`` --
+    the one wording the methods block and the GUI banner both print (#321).
+
+    Until #321 both spelled ``{value:,.0f}`` with no unit at all, so an SI
+    file's comment block stated a pound figure as a bare number under a
+    "mixed units" exemption from note 65. A count (``dim is None``) prints as
+    the integer it is.
+    """
+    from .content import Units
+
+    if e.dim is None:
+        return (f"{format_value(round(e.value))} exceeds the limit of "
+                f"{format_value(round(e.limit))}")
+    u = Units(system)
+    unit = u.label(e.dim)
+    return (f"{u.plain(e.value, e.dim)} {unit} exceeds the limit of "
+            f"{u.plain(e.limit, e.dim)} {unit}")
 
 
 def _closure_block(project: Project) -> List[str]:
@@ -558,7 +576,7 @@ def methods_statement(
     L.append("")
 
     # 2. Category ------------------------------------------------------------ #
-    L.extend(_category_block(project))
+    L.extend(_category_block(project, system))
     L.append("")
 
     # 3. Verification status ------------------------------------------------- #

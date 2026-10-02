@@ -665,5 +665,43 @@ def test_a_mirrored_pair_is_accepted_and_one_short_image_is_not():
     assert not md.wing_symmetric(project.weight.items, project)
 
 
+
+def test_no_module_reads_the_mass_tolerances_but_through_their_owners():
+    """#321: ``validation`` rebuilt the D-25a weight band from the two private
+    halves and read ``_CG_MATCH_TOL`` directly, and the report imported
+    ``_ECHO_WEIGHT_REL`` -- three copies of a rule ``echo_weight_tolerance``
+    says it owns. Every reader outside ``mass_distribution`` goes through the
+    named accessors, so a change to the band reaches all of them."""
+    import ast
+    import pathlib
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    private = {"_ECHO_WEIGHT_ABS", "_ECHO_WEIGHT_REL", "_CG_MATCH_TOL",
+               "_MIRROR_POSITION_TOL"}
+    owner = root / "sloads" / "mass_distribution.py"
+    files = [p for d in ("sloads", "app_shell", "oracle_app", "scripts", "tests")
+             for p in (root / d).rglob("*.py")] + [root / "cli.py"]
+    found = []
+    for path in files:
+        if path == owner:
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and node.attr in private:
+                found.append(f"{path.relative_to(root)}:{node.lineno} {node.attr}")
+            elif isinstance(node, ast.ImportFrom):
+                found += [f"{path.relative_to(root)}:{node.lineno} {a.name}"
+                          for a in node.names if a.name in private]
+    assert not found, found
+
+
+def test_a_mirror_pair_is_matched_to_the_entry_resolution():
+    """#321: the pair test has its own band, half an inch, not the CG search's."""
+    from sloads.models import MassItem
+    a = MassItem(name="L", weight_lb=10.0, x=100.0, y=-50.0, z=10.0)
+    assert md._mirrors(a, MassItem(name="R", weight_lb=10.0, x=100.4, y=50.4, z=10.4))
+    assert not md._mirrors(a, MassItem(name="R", weight_lb=10.0, x=100.6, y=50.0, z=10.0))
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([os.path.abspath(__file__), "-q"]))

@@ -146,8 +146,10 @@ def data_header(doc: "OracleDocument", *, name: str, step_key: str,
         # registry, which the CLI path can do).
         lines.append("# ANALYSIS FINGERPRINT: not computed for this build")
     lines.append("#")
+    # In the document's own system (#321): without it every data file of an SI
+    # package was stamped as the Imperial bundle it is not.
     return "\n".join(lines) + "\n" + csv_comment_block(
-        doc.project if doc.project is not None else Project())
+        doc.project if doc.project is not None else Project(), system=doc.system)
 
 
 # --------------------------------------------------------------------------- #
