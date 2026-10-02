@@ -332,4 +332,4 @@ def test_a_freshly_added_record_leaves_the_report_building(prefix):
 
 
 if __name__ == "__main__":  # zero-dependency self-runner
-    sys.exit(pytest.main([__file__, "-p", "no:xdist", "-q"]))
+    sys.exit(pytest.main([__file__, "-n", "0", "-q"]))

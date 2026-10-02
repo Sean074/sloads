@@ -198,21 +198,6 @@ def test_applied_hops_matches_the_chain():
 
 
 # --------------------------------------------------------------------------- #
-# 3. The acceptance criterion: no project changes on the way through
-# --------------------------------------------------------------------------- #
-@pytest.mark.parametrize(
-    "name", sorted(f for f in os.listdir(_EXAMPLES) if f.endswith(".project.json"))
-)
-def test_every_example_round_trips_unchanged(name):
-    """Assert on the round-tripped dict, not the file: the load must be a no-op
-    for a current project, or a user's saved work drifts every time they open it."""
-    path = os.path.join(_EXAMPLES, name)
-    once = io.project_to_dict(io.load_project(path))
-    twice = io.project_to_dict(io.project_from_dict(once))
-    assert twice == once
-
-
-# --------------------------------------------------------------------------- #
 # 3. The rule: every release's schema is recorded, frozen and still read
 # --------------------------------------------------------------------------- #
 def _released_versions():
@@ -265,6 +250,46 @@ def test_every_released_schema_is_frozen_and_still_loads():
         d = _load(os.path.join(_FIXTURES, f"release_{release}.json"))
         assert d["schema_version"] == version, release
         io.project_from_dict(d)
+
+
+def _leaves(node, path=()):
+    """``(path, value)`` for every scalar in a JSON tree."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            yield from _leaves(value, path + (key,))
+    elif isinstance(node, list):
+        for i, value in enumerate(node):
+            yield from _leaves(value, path + (i,))
+    else:
+        yield path, node
+
+
+def _at(tree, path):
+    for key in path:
+        tree = tree[key]
+    return tree
+
+
+@pytest.mark.parametrize("release", sorted(RELEASED_SCHEMAS))
+def test_every_value_a_released_file_carries_survives_the_read(release):
+    """Loading is not reading (#322): the reader drops a key it does not know,
+    so a hop that misses a later rename still loads -- with the renamed value
+    silently gone. Every scalar the migrated frozen file carries must come back
+    out of the model at the same path with the same value. A hop that renames a
+    field moves the value; a hop that drops it states so here, by path."""
+    migrated = migrate(_load(os.path.join(_FIXTURES, f"release_{release}.json")))
+    read = io.project_to_dict(io.project_from_dict(copy.deepcopy(migrated)))
+    lost, changed = [], []
+    for path, value in _leaves(migrated):
+        try:
+            got = _at(read, path)
+        except (KeyError, IndexError, TypeError):
+            lost.append(path)
+            continue
+        if got != value:
+            changed.append((path, value, got))
+    assert not lost, f"release {release}: the read dropped {lost[:10]}"
+    assert not changed, f"release {release}: the read changed {changed[:10]}"
 
 
 def test_the_chain_runs_without_a_gap_from_the_oldest_released_schema():

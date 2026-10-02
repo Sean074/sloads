@@ -349,4 +349,4 @@ def test_the_issue_map_agrees_with_the_numbers_the_backlog_states(bi, backlog_te
         assert number == item.existing, (title[:60], number, item.existing)
 
 if __name__ == "__main__":  # zero-dependency self-runner
-    sys.exit(pytest.main([__file__, "-p", "no:xdist", "-q"]))
+    sys.exit(pytest.main([__file__, "-n", "0", "-q"]))

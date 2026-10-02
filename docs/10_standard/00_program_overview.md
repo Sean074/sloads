@@ -351,7 +351,8 @@ floor against the layout parameter the front-end passes).
 - **Parallel by default (CH-1).** `addopts` in `pyproject.toml` carries
   `-n auto` (`pytest-xdist`), so every `pytest` invocation — local and CI —
   runs across all cores. To debug with `-s`/pdb, disable workers with
-  `-p no:xdist` (or `-n 0`).
+  `-n 0` — not `-p no:xdist`, which unloads the plugin that owns the `-n`
+  in `addopts` and fails at startup.
 - **Coverage floor.** Coverage is **CI's concern**: the `test` job passes
   `--cov=sloads --cov-report=term-missing --cov-fail-under=80` explicitly
   (`.github/workflows/ci.yml`), so coverage cannot silently regress while local

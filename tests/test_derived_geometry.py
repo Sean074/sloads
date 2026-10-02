@@ -964,3 +964,7 @@ def test_no_fixture_places_its_body_beam_outside_its_body(example):
     lra = fuselage_lra(_example(example))
     assert lra.basis == "entered" and not lra.assumed, example
     assert not _imp(lra.note), f"{example}: {_imp(lra.note)}"
+
+
+if __name__ == "__main__":
+    raise SystemExit(pytest.main([__file__, "-q"]))

@@ -331,4 +331,4 @@ def test_a_red_close_needs_a_reason_and_the_reason_is_recorded():
 
 
 if __name__ == "__main__":  # zero-dependency self-runner
-    sys.exit(pytest.main([__file__, "-p", "no:xdist", "-q"]))
+    sys.exit(pytest.main([__file__, "-n", "0", "-q"]))

@@ -2027,7 +2027,7 @@ def test_the_gui_renders_the_producers_figure_and_derives_none_of_its_own():
 if __name__ == "__main__":  # zero-dependency self-runner
     import sys
 
-    sys.exit(pytest.main([__file__, "-p", "no:xdist", "-q"]))
+    sys.exit(pytest.main([__file__, "-n", "0", "-q"]))
 
 
 def test_grid_pages_carry_the_commit_hint():

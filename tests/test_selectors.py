@@ -259,4 +259,4 @@ def test_the_category_widget_offers_codes_and_keeps_an_unknown_one_visible():
 if __name__ == "__main__":  # zero-dependency self-runner
     import sys
 
-    sys.exit(pytest.main([__file__, "-p", "no:xdist", "-q"]))
+    sys.exit(pytest.main([__file__, "-n", "0", "-q"]))

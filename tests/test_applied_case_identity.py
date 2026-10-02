@@ -214,4 +214,4 @@ def test_the_identity_columns_lead_the_delivered_row():
 
 
 if __name__ == "__main__":
-    sys.exit(pytest.main([__file__, "-p", "no:xdist", "-q"]))
+    sys.exit(pytest.main([__file__, "-n", "0", "-q"]))
