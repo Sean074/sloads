@@ -64,6 +64,7 @@ from .coverage import (
 )
 from .methods import (
     bdf_comment_block,
+    bundle_stamps,
     csv_comment_block,
     methods_statement,
     strip_comment_lines,
@@ -103,6 +104,7 @@ __all__ = [
     "Series",
     "Table",
     "bdf_comment_block",
+    "bundle_stamps",
     # --- G8.4-G8.5: the summary report document ----------------------------- #
     "component_loads",
     # --- G8.4: FAR 23 Subpart C coverage ----------------------------------- #

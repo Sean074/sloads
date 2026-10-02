@@ -135,8 +135,9 @@ order. Fourteen analysis pages in four phases:
 | **Other loads** | Aileron Loads · Flap Loads · Tab Loads · Engine Mount Loads · One Engine Out | Control-surface and engine-mount loads. |
 | **Landing loads** | Landing Loads | Ground/landing gear loads. |
 
-Then three pages that are not analysis steps, and say so: the **Project JSON
-Editor**, the **✦ Aircraft Comparison** and the **Report** page. The page set is
+Then four pages that are not analysis steps, and say so: the **Project JSON
+Editor**, the **✦ Aircraft Comparison**, the **Beam Model** and the **Report**
+page. The page set is
 `workflow.gui_pages()` — derived from the step graph, not a list anyone
 maintains — so a step that gains a `.BAS` gains a page with no edit to the GUI.
 
@@ -225,6 +226,20 @@ page takes the engine/propeller weights, CG, power/torque, and rotor data.
 
 **Landing Loads.** Gear geometry (axle positions, strut stroke, tire/hub sizes)
 and the landing load factor.
+
+**Beam Model.** The deliverable itself: the LRA free-free beam model every
+applied load is stated on. It shows each member's loads reference axis
+(entered on Geometry; a surface with none entered is why the model is refused),
+takes the four **LRA Mesh** counts (blank = the default, 2–200), draws the model
+in four views — the same figures the report prints in Appendix G — and writes
+the solver deck and the operating empty weight's CONM2 mass set (no payload, no
+fuel) into a folder you choose. Both files are named after the saved project
+(`atr42_100.lra_model.bdf`, `atr42_100.oew_mass.bdf`) and are byte-identical to
+`python cli.py --export-sbeam <folder>/atr42_100 --export-target lra` (and
+`oew`) on the same project. An existing file is replaced only after you tick
+the box that names it. Mark the fuel rows of the weight database **Usable
+fuel** (reserve included; unusable fuel and oil are not) — the OEW set leaves
+them out, and its header names every minimum-weight row it kept.
 
 **Report.** Renders the controlling document of the whole deliverable — the
 airplane, its axes and sign conventions, the governing safety-factor table, the

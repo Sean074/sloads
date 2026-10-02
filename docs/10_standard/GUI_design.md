@@ -74,8 +74,24 @@ else:
     4 · Landing loads
 
 The pages that are not analysis steps — the Project JSON Editor, the Aircraft
-Comparison and the Report — are declared in `workflow.NON_STEP_PAGES`, each
-stating why it is not a step, and appended to the navigation after them. They
+Comparison, the Beam Model and the Report — are declared in
+`workflow.NON_STEP_PAGES`, each stating why it is not a step, and appended to
+the navigation after them. The **Beam Model** page (note 67) is the route to the
+primary deliverable: each member's loads reference axis read-only (entered on
+Geometry, where the torsion that also reads it is computed), the `lra_mesh`
+counts — the one non-step page whose form renders registry rows, through
+`form.render_page_inputs` — the model drawn in four views (the
+`lra_beam_model` figure family, also printed in the oracle report's Appendix G),
+and a write block that puts the deck and the OEW mass set in a folder chosen
+with the shared `app_shell.folder_picker`. A refused model is stated verbatim
+and nothing is drawn or written.
+
+**Counts a keystroke can blow up** (#244, note 67 D-67.12): every row counter
+and the mesh counts are one widget, `app_shell.components.count_input`. A list
+takes at most 500 rows and a mesh count 2–200; an increase of more than 10 in
+one edit is held until its named button (*Set Items rows to 74*) is pressed —
+so typing a long table from blank asks once; and the spinner re-reads the
+project's count whenever the project changed underneath it. They
 are deliberately absent from the mapping cross-page links resolve against, so a
 non-step can never be reached as a step (note 44 OR-16, restated at D-57.1).
 

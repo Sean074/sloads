@@ -17,7 +17,7 @@ deferred the rename mechanics.
 :func:`sloads.workflow.oracle_steps` -- *runs a ``.BAS`` program, or produces a
 slice such a step requires* -- so adding a ``bas`` to a workflow step adds a page
 here with no edit to this file. Its stated half is
-:data:`sloads.workflow.NON_STEP_PAGES`, the three pages that are not steps of the
+:data:`sloads.workflow.NON_STEP_PAGES`, the four pages that are not steps of the
 analysis at all, each declaring why. There are no per-page view files either:
 every analysis page is :func:`oracle_app.form.render_step` bound to a step key,
 and what it shows comes from :mod:`sloads.field_registry` -- which is why
@@ -68,6 +68,8 @@ from app_shell.project_editor import (
 )
 from app_shell.project_state import ensure_project
 from app_shell.sidebar import render_shell_sidebar
+from oracle_app.beam_model import PAGE_TITLE as BEAM_MODEL_TITLE
+from oracle_app.beam_model import render_beam_model_page
 from oracle_app.fleet import PAGE_TITLE as FLEET_TITLE
 from oracle_app.fleet import render_fleet_page
 from oracle_app.form import render_step
@@ -122,9 +124,11 @@ register_pages(_pages)
 _RENDERERS = {
     EDITOR_URL_PATH: render_project_editor,
     "fleet": render_fleet_page,
+    "beam_model": render_beam_model_page,
     "report": render_report_page,
 }
-_TITLES = {EDITOR_URL_PATH: EDITOR_TITLE, "fleet": FLEET_TITLE, "report": REPORT_TITLE}
+_TITLES = {EDITOR_URL_PATH: EDITOR_TITLE, "fleet": FLEET_TITLE,
+           "beam_model": BEAM_MODEL_TITLE, "report": REPORT_TITLE}
 _extra_pages = [
     st.Page(_RENDERERS[page.key], title=_TITLES[page.key], url_path=page.key)
     for page in wf.NON_STEP_PAGES

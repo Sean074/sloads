@@ -640,7 +640,8 @@ def _planform_figure(project: Project, key: str, parent: str, title: str,
     return Figure(
         key=key, title=title,
         data=PlotData(f"{x_label} ({length_units})",
-                      f"{y_label} ({length_units})", series, points),
+                      f"{y_label} ({length_units})", series, points,
+                      to_scale=True),
         caption=" ".join(caption))
 
 
@@ -1713,7 +1714,7 @@ def _lra_planform_figure(project: Project, net: Sequence[object],
                       # and this figure's stations are legended "Design CG
                       # cases" -- a legend naming a different figure entirely,
                       # which is the defect ``points_label`` was added for.
-                      points_label="Load stations"),
+                      points_label="Load stations", to_scale=True),
         caption=(f"The wing as {word}, with the loads reference axis of this "
                  f"analysis ({axis}) drawn through the load stations every "
                  "distributed load in this section is stated at. The marked "
@@ -3315,7 +3316,7 @@ def _body_side_view(project: Project, system: UnitSystem) -> Figure:
         data=PlotData(f"Fuselage station X ({length})",
                       f"Waterline Z ({length})", series,
                       points=points, vlines=vlines,
-                      points_label="Body mass stations"),
+                      points_label="Body mass stations", to_scale=True),
         caption=(
             f"The airplane in side view, to scale on equal axes. Each marker is "
             f"one beam station at the waterline its mass acts at, labelled with "
@@ -4304,7 +4305,7 @@ def _tail_lra_planform_figure(project: Project, component: str,
         data=PlotData(f"{x_label} ({length_units})",
                       f"{y_label} ({length_units})", series,
                       [("", x, y) for x, y in points],
-                      points_label="Load stations"),
+                      points_label="Load stations", to_scale=True),
         caption=(f"The {names['surface']} and its {names['control']} as "
                  f"{word}, with the loads reference axis of this analysis "
                  f"({axis}) drawn through the load stations every distributed "
@@ -5819,7 +5820,7 @@ def _control_locator_figure(project: Project, *, key: str, title: str,
     return Figure(
         key=key, title=title,
         data=PlotData(f"{x_label} ({length_units})",
-                      f"{y_label} ({length_units})", series),
+                      f"{y_label} ({length_units})", series, to_scale=True),
         caption=" ".join(caption))
 
 
@@ -7200,7 +7201,8 @@ def _engine_view_figure(project: Project, records: Sequence[_EngineRecord], *,
         key=key, title=title,
         data=PlotData(f"{x_label} ({length_units})",
                       f"{y_label} ({length_units})", series,
-                      points=points, points_label="Application points"),
+                      points=points, points_label="Application points",
+                      to_scale=True),
         caption=" ".join(caption))
 
 
@@ -8152,7 +8154,8 @@ def _attitude_figure(project: Project, index: int, *,
         title=f"{title} attitude ({state} axle)",
         data=PlotData(f"{x_label} ({length_units})",
                       f"{y_label} ({length_units})", series,
-                      points=points, points_label="Landing CG loadings"),
+                      points=points, points_label="Landing CG loadings",
+                      to_scale=True),
         caption=" ".join(caption))
 
 
@@ -8497,9 +8500,14 @@ def _lumping_appendix(project: Project, *, system: UnitSystem,
             "rises, and both are the tool doing what it was asked. An analyst "
             "who needs it smaller than it is should raise the counts for the "
             "member in question and rerun.",
+            "The model itself is drawn first, in the four views that follow: "
+            "the grids, the elements between them and the rigid ties, exactly "
+            "as the delivered deck states them. It is the beam every applied "
+            "load in this report is stated on.",
         ],
         tables=[t for t in [table] if t is not None],
-        figures=lumping_figures(project, system=system))
+        figures=(beam_model_figures(project, system=system)
+                 + lumping_figures(project, system=system)))
 
 
 # --------------------------------------------------------------------------- #
@@ -9389,6 +9397,212 @@ def attitude_figures(project: Project, *, system: UnitSystem,
     """Section 12's three ground attitudes."""
     return [_attitude_figure(project, index, system=system)
             for index in range(len(_GROUND_ATTITUDES))]
+
+
+# --------------------------------------------------------------------------- #
+# The beam model drawn -- Appendix G and the Beam Model page (note 67 D-67.4)
+# --------------------------------------------------------------------------- #
+#: The four views, in page order: ``(frame, key, title, view)``. The three
+#: orthographic frames are the engine views' (:data:`_PLANFORM_AXES`), so the
+#: two drawings of the airplane in this document share their axes and their
+#: outlines; ``iso`` is this figure's own.
+_BEAM_VIEWS: Tuple[Tuple[str, str, str, str], ...] = (
+    ("iso", "lra_beam_iso", "The beam model, isometric",
+     "Seen from above, ahead and to the left"),
+    ("butt", "lra_beam_plan", "The beam model in plan view",
+     "Looking down on the airplane"),
+    ("water", "lra_beam_side", "The beam model in side view",
+     "Looking at the left-hand side of the airplane"),
+    ("front", "lra_beam_front", "The beam model in front view",
+     "Looking aft, from ahead of the airplane"),
+)
+
+#: The family every view belongs to (note 60 D-60.2): one kind of drawing at
+#: four keys.
+BEAM_FAMILY = "lra_beam_model"
+
+#: Each CBAR section family's legend name and line. Weight and dash rather than
+#: colour, for §4.3's greyscale rule; the wing heaviest, because it is the
+#: member the deliverable is first read for.
+_BEAM_STYLES = {
+    "wing": ("Wing beam", "very thick"),
+    "fuselage": ("Fuselage beam", "thick"),
+    "htail": ("Horizontal tail beam", "thick, densely dashed"),
+    "vtail": ("Fin beam", "thick, dashdotted"),
+}
+
+#: The owned nodes drawn, grouped so the legend stays readable: tag -> group.
+#: Chain ends (the tips) are not marked -- the line ends there.
+_BEAM_NODE_GROUPS = {
+    "lra-sob": "Side of body and wing centre",
+    "lra-centre": "Side of body and wing centre",
+    "lra-post": "Wing post",
+    "lra-fin-root": "Tail joints",
+    "lra-attach": "Tail joints",
+    "lra-gear": "Gear trunnions",
+    "lra-engine-mount": "Engine mount and hub",
+    "lra-engine-hub": "Engine mount and hub",
+    "lra-hinge": "Hinges and actuators",
+    "lra-actuator": "Hinges and actuators",
+}
+
+#: Each node group's mark, distinct in greyscale; ``PlotData.points`` (the
+#: support) keeps the filled diamond the emitter gives it.
+_BEAM_NODE_MARKS = {
+    "Side of body and wing centre": "mark=square*",
+    "Wing post": "mark=square",
+    "Tail joints": "mark=triangle*",
+    "Gear trunnions": "mark=triangle",
+    "Engine mount and hub": "mark=*",
+    "Hinges and actuators": "mark=o",
+}
+
+#: The isometric projection: azimuth and elevation, degrees -- the view the
+#: retired ``scripts/plot_lra_model.py`` drew, kept so a reader who knew that
+#: picture recognises this one.
+_ISO_AZIM_DEG, _ISO_ELEV_DEG = -125.0, 22.0
+
+
+def _iso(point: Sequence[float], scale: float) -> Tuple[float, float]:
+    """An airplane ``(x, y, z)`` point projected onto the isometric view."""
+    x, y, z = (float(v) * scale for v in point)
+    azim, elev = math.radians(_ISO_AZIM_DEG), math.radians(_ISO_ELEV_DEG)
+    across = -x * math.sin(azim) + y * math.cos(azim)
+    up = -(x * math.cos(azim) + y * math.sin(azim)) * math.sin(elev) + z * math.cos(elev)
+    return across, up
+
+
+def _beam_view_point(frame: str, point: Sequence[float],
+                     scale: float) -> Tuple[float, float]:
+    if frame == "iso":
+        return _iso(point, scale)
+    return _oriented(frame, *_projected(frame, point, scale))
+
+
+def _beam_chains(model) -> List[Tuple[str, List[int]]]:
+    """The CBARs joined into polylines, each with its section family.
+
+    ``add_chain`` appends a chain's elements in order, so consecutive elements
+    of one family that share a grid are one drawn line; a line is broken where
+    the next element does not start where the last ended.
+    """
+    chains: List[Tuple[str, List[int]]] = []
+    for (a, b), family in zip(model.cbars, model.cbar_families):
+        if chains and chains[-1][0] == family and chains[-1][1][-1] == a:
+            chains[-1][1].append(b)
+        else:
+            chains.append((family, [a, b]))
+    return chains
+
+
+def _beam_view_figure(project: Project, model, *, frame: str, key: str,
+                      title: str, view: str, system: UnitSystem) -> Figure:
+    """One view of the LRA beam model: the airframe, the beam, its owned nodes."""
+    from ..derived_geometry import fuselage_outline
+    from .planform_tex import OUTLINE_STYLE
+
+    scale, length_units = _length_channel(system)
+    position = {n.gid: n.pos for n in model.nodes}
+    series: List[Series] = []
+    drawn: List[str] = []
+    if frame == "iso":
+        body = fuselage_outline(project, "water")
+        if body:
+            projected = [_iso((x, 0.0, z), 1.0) for x, z in body]
+            series.append(Series("Fuselage side profile",
+                                 [px * scale for px, _ in projected],
+                                 [py * scale for _, py in projected],
+                                 OUTLINE_STYLE, closed=True))
+            drawn.append("the fuselage side profile")
+    else:
+        series, drawn = _airframe_series(project, frame, scale)
+    # The airframe is context here, not the subject: thinned and dotted so the
+    # beam reads first, in either renderer.
+    series = [replace(s, style="densely dotted") for s in series]
+
+    named = set()
+    for family, gids in _beam_chains(model):
+        name, style = _BEAM_STYLES.get(family, (f"{family} beam", "thick"))
+        xy = [_beam_view_point(frame, position[g], scale) for g in gids]
+        series.append(Series("" if name in named else name,
+                             [p[0] for p in xy], [p[1] for p in xy], style))
+        named.add(name)
+    tie_named = False
+    for independent, _dof, dependents, _label in model.rbe2s:
+        for dependent in dependents:
+            a = _beam_view_point(frame, position[independent], scale)
+            b = _beam_view_point(frame, position[dependent], scale)
+            series.append(Series("" if tie_named else "Rigid ties (RBE2)",
+                                 [a[0], b[0]], [a[1], b[1]], "dashed"))
+            tie_named = True
+    groups: Dict[str, List[Tuple[float, float]]] = {}
+    for node in model.nodes:
+        group = _BEAM_NODE_GROUPS.get(node.family)
+        if group is not None:
+            groups.setdefault(group, []).append(
+                _beam_view_point(frame, node.pos, scale))
+    for group, mark in _BEAM_NODE_MARKS.items():
+        if group in groups:
+            series.append(Series(group, [p[0] for p in groups[group]],
+                                 [p[1] for p in groups[group]], mark,
+                                 marker=True))
+    support = _beam_view_point(frame, position[model.support_gid], scale)
+    points = [("", support[0], support[1])]
+
+    if frame == "iso":
+        x_label = y_label = "Projected distance"
+    else:
+        x_label, y_label = _PLANFORM_AXES[frame]
+    outlines = (", ".join(drawn[:-1]) + " and " + drawn[-1]) if len(drawn) > 1 else (
+        drawn[0] if drawn else "")
+    caption = [
+        f"{view}, to scale on equal axes. The model is the delivered deck's own "
+        "grid set: each member is a chain of CBAR elements on its loads "
+        "reference axis, the legend naming each member's line and the rigid "
+        "ties', and the point marked as the support is the one grid clamped in "
+        "six degrees of freedom, whose reaction is the case residual, close to "
+        "zero.",
+        (f"The airplane is drawn dotted, from {outlines}, through the same "
+         "owners the engine views use, so no shape here is this figure's own."
+         if drawn else
+         "The project enters no airframe outline this view can draw, so the "
+         "beam is drawn alone."),
+        "Nothing here is a load: no value is scaled and none carries a safety "
+        "factor.",
+    ]
+    if frame == "iso":
+        caption.append("The isometric view is a projection, so its axes carry "
+                       f"a distance in {length_units} and no station; the three "
+                       "views after it are read on the airplane's own axes.")
+    return Figure(
+        key=key, family=BEAM_FAMILY, title=title,
+        data=PlotData(f"{x_label} ({length_units})",
+                      f"{y_label} ({length_units})", series, points=points,
+                      points_label="Support (SPC)", to_scale=True),
+        caption=" ".join(caption))
+
+
+def beam_model_figures(project: Project, *, system: UnitSystem,
+                       results: Optional[Mapping[str, Optional[ModuleResult]]] = None,  # noqa: ARG001
+                       ) -> List[Figure]:
+    """The LRA beam model in four views (note 67 D-67.4).
+
+    Built from :func:`sloads.export.lra_model.build_lra_model`, the deck's own
+    builder, so the drawing is of the model that ships and not a re-derivation.
+    A model the exporter refuses is drawn by none of the four, each stating the
+    refusal verbatim -- the datum it names is the one to enter.
+    """
+    from ..export.lra_model import LraRefusal, build_lra_model
+
+    try:
+        model = build_lra_model(project)
+    except LraRefusal as exc:
+        return [Figure(key=key, family=BEAM_FAMILY, title=title,
+                       absent_reason=str(exc))
+                for _frame, key, title, _view in _BEAM_VIEWS]
+    return [_beam_view_figure(project, model, frame=frame, key=key, title=title,
+                              view=view, system=system)
+            for frame, key, title, view in _BEAM_VIEWS]
 
 
 def lumping_figures(project: Project, *, system: UnitSystem,

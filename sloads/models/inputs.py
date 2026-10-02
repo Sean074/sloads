@@ -253,6 +253,23 @@ class MassItem:
     #: estimate, which has to tell mission fuel from reserve fuel.
     #: ``False`` is today's behaviour, so no flight case moves by a pound.
     consumable: bool = False
+    #: Fuel the engines can draw -- mission fuel **and reserve fuel** alike
+    #: (design note 67 D-67.10). It is what the operating empty weight leaves
+    #: out: :func:`sloads.mass_distribution.oew_items` is the ``EMPTY`` and
+    #: ``MINIMUM`` rows less these. **Unusable fuel and oil is not usable fuel**
+    #: -- it is part of the operating airplane and stays in OEW, which is why
+    #: the tag is named for what it excludes and not just "fuel".
+    #:
+    #: Orthogonal to ``consumable``, which says what G-5 may *burn down*:
+    #: reserve fuel is usable and deliberately not consumable (G-4 has to tell
+    #: it from mission fuel), mission fuel is both, and a non-fuel expendable
+    #: is consumable and not fuel. No implication between them is enforced.
+    #: An **input**, never a name match (note 63 OV-1): the v73 hop infers
+    #: nothing, so a migrated row reads ``False`` until someone tags it, and the
+    #: OEW mass set names every ``MINIMUM`` row it kept so an untagged reserve
+    #: tank is visible rather than silently aboard. Read by the OEW partition
+    #: only; no load reads it.
+    usable_fuel: bool = False
     #: Fraction of this row -- its weight **and** its own ``ixx``/``iyy``/``izz``
     #: -- reacted by the **wing (both sides together)**; the remainder by
     #: ``component`` (design note 29, decision WF-2). Both parts share the row's
@@ -1954,6 +1971,14 @@ class SafetyFactorPolicyInput:
 #: are free to disagree and a project that changes either does not move the
 #: other. The rest are chosen to give each member a comparable element length
 #: on the shipped fixtures; none is an oracle number.
+#: The range a per-member LRA grid count may take, ends included (note 67
+#: D-67.12, #244). Two is the fewest nodes a beam can have -- its own two ends.
+#: Two hundred is ten times the wing's default and past any count the LM-1
+#: transfer gains from; the cap exists because one stray keystroke committed
+#: 4,501 rows to a grid in the 2026-09-08 GUI review, and a 4,501-node wing is a
+#: deck nobody asked for. The widget and the exporter read this one pair.
+LRA_GRID_BOUNDS = (2, 200)
+
 LRA_DEFAULT_GRIDS = {
     "wing": 20,        # per side, side of body -> tip
     "fuselage": 12,    # per cantilever, i.e. each side of the carry-through
@@ -2018,10 +2043,15 @@ class LraMeshInput:
         n = getattr(self, f"{member}_grids")
         if n is None:
             return LRA_DEFAULT_GRIDS[member]
-        if int(n) < 2:
+        floor, cap = LRA_GRID_BOUNDS
+        if int(n) < floor:
             raise ValueError(
                 f"LRA grid count for {member!r} is {n}: a beam needs at least "
-                "2 nodes (its own two ends)")
+                f"{floor} nodes (its own two ends)")
+        if int(n) > cap:
+            raise ValueError(
+                f"LRA grid count for {member!r} is {n}: the most a member takes "
+                f"is {cap} (note 67 D-67.12)")
         return int(n)
 
 

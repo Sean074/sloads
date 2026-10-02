@@ -11,7 +11,7 @@ Or export the solver deliverables. ``--export-target`` is the whole menu --
 every artifact the Export & Report page writes is reachable headless, because
 the concept-loads -> sbeam sizing loop is meant to be scripted.
 
-**Note 56 cut this menu from ten targets to three.** The six that went with
+**Note 56 cut this menu from ten targets to three** (note 67 then added ``oew``). The six that went with
 D-56.2
 (``wing``, ``body``, ``tail``, ``htail-span``, ``vtail-span``, ``control``)
 wrote *per-component* decks: each one a separate structural model of one piece
@@ -37,6 +37,10 @@ target           what it writes
                  at the gear reference point
 ``mass``         the CONM2/MASSSET mass model (same artifacts, same owner and
                  same names as ``--export-conm2``)
+``oew``          the operating empty weight's CONM2 set -- the EMPTY and
+                 MINIMUM rows less usable fuel; no payload, no fuel, no
+                 MASSSET (note 67 D-67.9). The Beam Model page writes the same
+                 file beside the deck
 ===============  ===========================================================
 
 There is no default target any more: ``wing`` was the default because it was
@@ -60,8 +64,10 @@ N*m a report uses (M4-20 D-19).
 
 **Every file written here carries the Step G8.3 methods & limitations stamp**
 (``#`` on a CSV, ``$`` on a deck), exactly as the GUI bundle does: a headless
-export states its ULTIMATE basis, its category and its approved corrections
-in-band, so a file forwarded on its own is still self-describing (L-8g).
+export states its LIMIT basis and the factor it did not apply, its category and
+its approved corrections in-band, so a file forwarded on its own is still
+self-describing (L-8g; note 49 OR-116). The pair is built by
+:func:`sloads.report.bundle_stamps`, the owner the GUI calls too.
 
 **Error contract** (one, for every export route): an absent input slice or an
 invalid input is reported as ``error: <message>`` on stderr with exit status 1 --
@@ -78,7 +84,9 @@ import argparse
 import sys
 
 from sloads import MissingInputError, io, registry
-from sloads.report import LoadChannel, module_text_report, text_report
+from sloads.export import deliverables
+from sloads.export.deliverables import deliverable_path
+from sloads.report import LoadChannel, bundle_stamps, module_text_report, text_report
 from sloads.units import UnitSystem, convert_results, unit_system_from
 
 #: Every headless export target, in the order the module docstring lists them.
@@ -99,8 +107,9 @@ from sloads.units import UnitSystem, convert_results, unit_system_from
 #: **document**, not a deck, and moved it to ``report.tables``; it ships in the
 #: bundle and this is the only headless route to it. Dropping it on the strength
 #: of a count would remove a live deliverable ahead of its replacement, which is
-#: #245's channel and not this note's.
-EXPORT_TARGETS = ("gear", "mass", "lra")
+#: #245's channel and not this note's. ``oew`` joined at note 67 D-67.9, so the
+#: page's second file has a headless route too (gate 1).
+EXPORT_TARGETS = ("gear", "mass", "lra", "oew")
 
 
 def resolve_units(project, flag=None) -> UnitSystem:
@@ -113,36 +122,6 @@ def resolve_units(project, flag=None) -> UnitSystem:
     if flag:
         return unit_system_from(flag)
     return unit_system_from(getattr(project, "unit_system", None))
-
-
-def _stamps(project, system: UnitSystem, generated: str = "",
-            csv_channel: LoadChannel = LoadChannel.LIMIT):
-    """``(csv_stamp, bdf_stamp)`` -- the Step G8.3 methods & limitations block.
-
-    The headless counterpart of the Export & Report page's one-stamp-per-bundle
-    build (L-8g / review F-D3): built once per run from the *resolved* unit
-    system, then handed to every writer, so the files of one export cannot
-    disagree with each other -- or with their own numbers -- about their basis
-    or their units.
-
-    ``scope`` is always the full case set: the Critical Loads opt-out selection
-    is a GUI session state, so a headless export has nothing to filter and
-    nothing to warn a recipient about. ``generated`` is the caller's timestamp
-    and defaults to absent, which keeps two headless runs of one project
-    byte-identical (the renderer never reads the clock -- see
-    ``report.methods``).
-
-    ``csv_channel`` is the basis of the CSV stamp alone (design note 48): the
-    sbeam export's companion CSVs are ULTIMATE like the deck they describe,
-    while the per-module ``-o`` CSV is the LIMIT channel and its stamp must say
-    so. The BDF stamp is always ULTIMATE — a deck has no other basis.
-    """
-    from sloads.report.methods import bdf_comment_block, csv_comment_block
-
-    kwargs = {"tool_version": _tool_version(), "scope": "full case set",
-                  "system": system, "generated": generated or None}
-    return (csv_comment_block(project, channel=csv_channel, **kwargs),
-            bdf_comment_block(project, **kwargs))
 
 
 def _export_conm2(project, prefix: str,
@@ -172,7 +151,7 @@ def _export_conm2(project, prefix: str,
 
     label = "Imperial" if system == UnitSystem.IMPERIAL else "SI"
     written = []
-    path = f"{prefix}_mass.bdf"
+    path = deliverable_path(prefix, "mass")
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(fragment)
     written.append(path)
@@ -185,7 +164,7 @@ def _export_conm2(project, prefix: str,
         except ValueError as exc:
             print(f"note: no {name} deck -- {exc}", file=sys.stderr)
             continue
-        path = f"{prefix}_{name}.bdf"
+        path = deliverable_path(prefix, name)
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(text)
         written.append(path)
@@ -216,11 +195,19 @@ def _export_sbeam(project, prefix: str, target: str,
         # model**, so it reaches airplanes the assembled ground cases do not --
         # which is why it is its own target rather than a file the balanced
         # target happens to drop beside its deck.
-        csv_path = f"{prefix}.gear_loads.csv"
+        csv_path = deliverable_path(prefix, "gear")
         rt.write_gear_report_csv(project, csv_path, header_comment=csv_stamp,
                                  system=system)
         rows = rt.gear_report_rows(project)
         print(f"Wrote {len(rows)} gear interface load row(s) to: {csv_path}")
+        return 0
+
+    if target == "oew":
+        # The Beam Model page's second file, through the same render and write
+        # (note 67 D-67.9, gate 1). Rendered before any file opens.
+        path, = deliverables.write_set(deliverables.render_set(
+            project, prefix, ("oew",), system=system, header_comment=bdf_stamp))
+        print(f"Wrote the operating empty weight's mass set to: {path}")
         return 0
 
     if target == "lra":
@@ -231,36 +218,22 @@ def _export_sbeam(project, prefix: str, target: str,
         if lra_import:
             from sloads.export.lra_import import write_lra_loads_on_imported_model
 
-            out_path = f"{prefix}.lra_loads.bdf"
+            out_path = deliverable_path(prefix, "lra_import")
             write_lra_loads_on_imported_model(project, lra_import, out_path,
                                               header_comment=bdf_stamp,
                                               system=system)
             print(f"Wrote balanced-case loads on the imported model "
                   f"{lra_import} to: {out_path}")
             return 0
-        from sloads.export.lra_model import write_lra_model_bdf
-
-        bdf_path = f"{prefix}.lra_model.bdf"
-        write_lra_model_bdf(project, bdf_path, header_comment=bdf_stamp,
-                            system=system)
+        # The same render and write the Beam Model page calls (note 67 gate 1).
+        bdf_path, = deliverables.write_set(deliverables.render_set(
+            project, prefix, ("lra",), system=system, header_comment=bdf_stamp))
         print(f"Wrote the LRA beam model to: {bdf_path}")
         return 0
 
     raise MissingInputError(
         f"unknown export target {target!r} -- expected one of "
         + ", ".join(EXPORT_TARGETS))
-
-
-def _tool_version() -> str:
-    """The installed package version, for the report's provenance block."""
-    try:
-        from importlib.metadata import PackageNotFoundError, version
-    except ImportError:  # pragma: no cover - Python < 3.8
-        return ""
-    try:
-        return version("sloads")
-    except PackageNotFoundError:  # pragma: no cover - source checkout without install
-        return ""
 
 
 def _write_report(project, path: str, system: UnitSystem, generated: str = "") -> int:
@@ -410,7 +383,7 @@ def _run(argv=None) -> int:
             parser.error("--export-sbeam requires a project.json path")
         project = _load(project_path)
         system = resolve_units(project, args.units)
-        csv_stamp, bdf_stamp = _stamps(project, system, args.generated)
+        csv_stamp, bdf_stamp = bundle_stamps(project, system, args.generated)
         # One error contract for every export route (review m2): an absent or
         # invalid input is a one-line `error:` on stderr and status 1, never a
         # traceback. The routes themselves catch nothing.
@@ -435,7 +408,7 @@ def _run(argv=None) -> int:
             parser.error("--export-conm2 requires a project.json path")
         project = _load(project_path)
         system = resolve_units(project, args.units)
-        _, bdf_stamp = _stamps(project, system, args.generated)
+        _, bdf_stamp = bundle_stamps(project, system, args.generated)
         try:
             return _export_conm2(project, args.export_conm2, system, bdf_stamp)
         except ValueError as exc:
@@ -473,8 +446,8 @@ def _run(argv=None) -> int:
     # the system -- handing it ``conditions`` would be a double conversion.
     # All three render on the LIMIT channel (design note 48, OR-76/OR-79): the
     # CLI's per-module output is an analysis surface, so it states the calc's own
-    # loads and names the factor without applying it. The ULTIMATE deliverables
-    # are ``sloads export``'s deck and the technical report.
+    # loads and names the factor without applying it -- as every delivered file
+    # does since note 49 OR-116, the deck and the technical report included.
     conditions = convert_results(result.conditions, system)
     label = "Imperial" if system == UnitSystem.IMPERIAL else "SI"
 
@@ -482,8 +455,8 @@ def _run(argv=None) -> int:
         # A downloaded CSV leaves the tool, so it owes the same G8.3 basis
         # statement the GUI's does -- the text report to stdout does not, being
         # a terminal view rather than an artifact.
-        csv_stamp, _ = _stamps(project, system, args.generated,
-                               csv_channel=LoadChannel.LIMIT)
+        csv_stamp, _ = bundle_stamps(project, system, args.generated,
+                                     csv_channel=LoadChannel.LIMIT)
         io.write_load_cases_csv(result.conditions, args.output,
                                 header_comment=csv_stamp, system=system,
                                 channel=LoadChannel.LIMIT)

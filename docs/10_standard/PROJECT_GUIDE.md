@@ -249,10 +249,11 @@ FAR23LOADS/
 │   │   ├── bands.py              # THE GID/EID/SID band registry: one owner per id run, disjointness proved by test
 │   │   ├── coordinates.py        # SLOADS axes -> sbeam CID 0 map + the reflection operator (single edit-point)
 │   │   ├── deck_format.py        # THE deck-writing primitives: card number format, dust snapping, `$` comment wrapping, the `$`-block stamp, placeholder section properties (CH-4)
-│   │   ├── mass_cards.py         # CONM2/MASSSET mass model for sbeam (C1–C5): a GRID at each item's own CG, unconnected by design, read by GPWG not by a solve (note 56 D-56.6)
+│   │   ├── mass_cards.py         # CONM2/MASSSET mass model for sbeam (C1–C5): a GRID at each item's own CG, unconnected by design, read by GPWG not by a solve (note 56 D-56.6); and the OEW set alone, no payload and no fuel (note 67 D-67.9)
 │   │   ├── balanced_deck.py      # the assembled full-span free-free set — an internal producer since note 56 D-56.8: the un-aggregated reference resultant the beam deck's transfer is gated against (B5)
 │   │   ├── lra_model.py          # the LRA beam model — the third deliverable (step 12): skeleton + transferred balanced cases
 │   │   ├── lra_import.py         # loads onto an imported GRID/CBAR beam model, mapped by the $ SLOADS-NODE contract
+│   │   ├── deliverables.py       # THE delivered file names, one per artifact, for the CLI and the Beam Model page alike (note 67 D-67.8)
 │   │   ├── equilibrium.py        # deck-derived force/moment resultants: the export-boundary closure gate
 │   │   ├── roundtrip.py          # hand a deck to the real sbeam and read back what it says (step 2; test-only use). The stick-model wrapper retired with the last elementless deck (note 56 D-56.8)
 │   │   ├── report_package.py     # ⚠ impure: writes the oracle report's issue package to disk and discovers existing ones (note 44, OR-22/OR-29)
@@ -302,6 +303,7 @@ FAR23LOADS/
 │   ├── project_editor.py         # the Project JSON Editor page body (note 57, D-57.3)
 │   ├── nav.py                    # which page a step key is in the running GUI — links resolve to a page, not a path (OG-F)
 │   ├── limit_csv.py              # the analysis pages' LIMIT station tables (pure, no Streamlit)
+│   ├── folder_picker.py          # the folder a page writes into: OS dialog first, in-app browser as fallback, one state key per page (note 67 D-67.7)
 │   ├── fleet_view.py             # the fleet comparison's readout, tabs and fleet table — one rendering (#268)
 │   └── plots.py                  # the SCREEN renderer of a PlotData: Plotly. Decides how a line looks and nothing else — no project, no calc (note 60, D-60.1)
 ├── oracle_app/                   # THE GUI — the original suite's fields first, sloads' own marked (note 32 OG-D/OG-E, note 57 D-57.1/D-57.2)

@@ -72,13 +72,19 @@ def _report_figures(project):
     return out
 
 
+def _figure_pages():
+    """Every GUI page the catalogue places a family on, in navigation order --
+    the analysis steps and, since note 67 D-67.4a, the Beam Model page."""
+    return [key for key in wf.gui_pages() if fx.families_for_step(key)]
+
+
 def _built(project, system=UnitSystem.IMPERIAL):
     """Every figure the catalogue builds for ``project``, page by page."""
     out = []
-    for step in wf.oracle_steps():
-        results = fx.results_for_step(project, step.key)
-        out += [(step.key, family, figure) for family, figure
-                in fx.build_step_figures(step.key, project, system=system,
+    for key in _figure_pages():
+        results = fx.results_for_step(project, key)
+        out += [(key, family, figure) for family, figure
+                in fx.build_step_figures(key, project, system=system,
                                          results=results)]
     return out
 
@@ -123,12 +129,12 @@ def test_g_fig_3_an_empty_project_draws_no_traceback():
     from sloads.models import Project
 
     project = Project(name="")
-    for step in wf.oracle_steps():
-        results = fx.results_for_step(project, step.key)
+    for key in _figure_pages():
+        results = fx.results_for_step(project, key)
         for _family, figure in fx.build_step_figures(
-                step.key, project, system=UnitSystem.IMPERIAL, results=results):
+                key, project, system=UnitSystem.IMPERIAL, results=results):
             assert figure.data is not None or figure.absent_reason.strip(), (
-                step.key, figure.key)
+                key, figure.key)
 
 
 # --------------------------------------------------------------------------- #
@@ -187,9 +193,10 @@ def test_g_fig_5_every_gui_figure_has_a_report_producer():
 
 def test_g_fig_6_every_family_is_classified_and_placed():
     """D-60.4: the stage is stated per family, and the page that shows it is a
-    real oracle step -- so a family cannot be parked on a page that does not
-    exist or left for a reader to classify."""
-    steps = {s.key for s in wf.oracle_steps()}
+    real GUI page -- so a family cannot be parked on a page that does not exist
+    or left for a reader to classify. A page, not only a step, since note 67
+    D-67.4a placed the beam model on the Beam Model page."""
+    steps = set(wf.gui_pages())
     keys = [f.key for f in fx.catalogue()]
     assert len(keys) == len(set(keys)), (
         "a figure family is declared twice: "
@@ -281,12 +288,83 @@ def test_a_drawing_is_rendered_to_scale_and_a_graph_is_not():
     """A planform stretched to fill a widget is a drawing of a different
     airplane; a shear distribution held to a 1:1 aspect is unreadable."""
     planform = PlotData("BL", "FS", [
-        Series("wing", [0.0, 10.0, 8.0], [0.0, 1.0, 4.0], closed=True)])
+        Series("wing", [0.0, 10.0, 8.0], [0.0, 1.0, 4.0], closed=True)],
+        to_scale=True)
     graph = PlotData("BL", "Sz", [Series("Sz", [0.0, 10.0], [0.0, 500.0])])
     assert plots.is_to_scale(planform)
     assert not plots.is_to_scale(graph)
     assert plots.plot(planform).layout.yaxis.scaleanchor == "x"
     assert plots.plot(graph).layout.yaxis.scaleanchor is None
+
+
+def test_both_renderers_read_the_producers_to_scale_statement():
+    """Note 67 §10: one statement, two renderers -- the printed axis is equal
+    exactly where the screen's is anchored, and an open line on a drawing (a
+    thrust arrow, a beam) does not take the drawing off scale."""
+    from sloads.report.plots_tex import plot_tex
+
+    drawing = PlotData("X", "Z", [Series("beam", [0.0, 10.0], [0.0, 1.0])],
+                       to_scale=True)
+    graph = PlotData("X", "Sz", [Series("Sz", [0.0, 10.0], [0.0, 500.0])])
+    assert plots.is_to_scale(drawing) and not plots.is_to_scale(graph)
+    assert "axis equal image" in plot_tex(drawing)
+    assert "axis equal image" not in plot_tex(graph)
+
+
+def test_a_caption_that_says_to_scale_is_drawn_to_scale():
+    """The defect note 67 §10 measured: five figures captioned "to scale on
+    equal axes" were drawn on free axes in print, and four of them on screen.
+    The caption is the claim; the flag is what both renderers obey."""
+    for name in _BUNDLED:
+        for step, _family, figure in _built(_project(name)):
+            if figure.data is not None and "to scale" in figure.caption:
+                assert figure.data.to_scale, (name, step, figure.key)
+
+
+def test_the_beam_model_is_drawn_from_the_deck_it_ships():
+    """Note 67 gate 5: every element, tie and owned node of the delivered model
+    is in the plan view -- the drawing is of the model, not of a re-derivation."""
+    from sloads.export.lra_model import build_lra_model
+    from sloads.report import oracle_sections as osx
+
+    project = _project("atr42_100.project.json")
+    model = build_lra_model(project)
+    figures = {f.key: f for f in osx.beam_model_figures(project,
+                                                         system=UnitSystem.IMPERIAL)}
+    assert list(figures) == ["lra_beam_iso", "lra_beam_plan", "lra_beam_side",
+                             "lra_beam_front"]
+    assert all(f.family == osx.BEAM_FAMILY and f.data.to_scale
+               for f in figures.values())
+    plan = figures["lra_beam_plan"].data
+    beam = [s for s in plan.series
+            if not s.marker and s.style not in ("densely dotted", "dashed")]
+    assert sum(len(s.x) - 1 for s in beam) == len(model.cbars)
+    ties = [s for s in plan.series if s.style == "dashed"]
+    assert len(ties) == sum(len(deps) for _i, _d, deps, _l in model.rbe2s)
+    marked = sum(len(s.x) for s in plan.series if s.marker)
+    owned = sum(1 for n in model.nodes if n.family in osx._BEAM_NODE_GROUPS)
+    assert marked == owned
+    assert len(plan.points) == 1, "the support is the one marked point"
+
+
+def test_a_refused_beam_model_is_stated_verbatim_and_drawn_nowhere():
+    """Note 67 gate 4's figure half: the exporter's refusal, word for word."""
+    from sloads.export.lra_model import LraRefusal, build_lra_model
+    from sloads.report import oracle_sections as osx
+
+    project = _project("atr42_100.project.json")
+    for surface in project.geometry.surfaces:
+        if surface.name == "wing":
+            surface.ref_axis_pct = None
+    try:
+        build_lra_model(project)
+    except LraRefusal as exc:
+        reason = str(exc)
+    else:
+        raise AssertionError("an unset wing axis no longer refuses")
+    figures = osx.beam_model_figures(project, system=UnitSystem.IMPERIAL)
+    assert len(figures) == 4
+    assert all(f.data is None and f.absent_reason == reason for f in figures)
 
 
 def test_markers_and_reference_lines_are_annotations_not_series():

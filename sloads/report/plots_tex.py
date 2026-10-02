@@ -318,7 +318,11 @@ def plot_tex(data: PlotData, *, width: str = "0.86\\textwidth",
     lines = [
         r"\begin{tikzpicture}",
         r"\begin{axis}[",
-        f"  width={width}, height={height},",
+        # A drawing keeps its shape (``PlotData.to_scale``, note 67 §10): the
+        # height is derived from the width and the data, as the planform
+        # emitter does, because a fixed height would fight the constraint.
+        (f"  width={width}, axis equal image," if data.to_scale
+         else f"  width={width}, height={height},"),
         f"  xlabel={{{escape(data.x_label)}}}, ylabel={{{escape(data.y_label)}}},",
         r"  grid=both, grid style={gray!25}, axis lines=box,",
         # A log axis is the producer's statement about the quantity (#268), and
@@ -335,8 +339,17 @@ def plot_tex(data: PlotData, *, width: str = "0.86\\textwidth",
         (r"  scaled ticks=false, x tick label style={/pgf/number format/fixed, "
          r"/pgf/number format/1000 sep={,}}, y tick label style="
          r"{/pgf/number format/fixed, /pgf/number format/1000 sep={,}},"),
-        (r"  legend style={font=\footnotesize, at={(0.5,-0.24)}, anchor=north, "
-         f"legend columns={legend_columns}, draw=gray!50}},"),
+        # A drawing's axis height is whatever its proportions make it -- an
+        # engine side view is a thin strip -- so its legend is offset in
+        # baselines from the axis's bottom edge, as the planform emitter's is;
+        # an axis-relative offset clears the x label on a 7.2 cm graph and sits
+        # on top of it on a 2 cm drawing (note 67 §10).
+        ((r"  legend style={font=\footnotesize, at={(0.5,0)}, anchor=north, "
+          r"yshift=-3\baselineskip, "
+          f"legend columns={legend_columns}, draw=gray!50}},")
+         if data.to_scale else
+         (r"  legend style={font=\footnotesize, at={(0.5,-0.24)}, anchor=north, "
+          f"legend columns={legend_columns}, draw=gray!50}},")),
         r"]",
     ]
     for s, pts in drawable:

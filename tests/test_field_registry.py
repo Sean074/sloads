@@ -109,9 +109,23 @@ def test_every_row_cites_a_basis():
     )
 
 
-def test_every_page_is_a_real_workflow_step():
-    unknown = sorted({e.page for e in REGISTRY if e.page not in wf.BY_KEY})
-    assert not unknown, f"registry rows name pages that are not workflow steps: {unknown}"
+def test_every_page_is_a_gui_page():
+    """Every row names a page the GUI carries -- an analysis step, or the one
+    non-step page that renders registry rows (note 67 D-67.3)."""
+    unknown = sorted({e.page for e in REGISTRY if e.page not in wf.gui_pages()})
+    assert not unknown, f"registry rows name pages the GUI does not carry: {unknown}"
+    off_step = {e.page for e in REGISTRY if e.page not in wf.BY_KEY}
+    assert off_step <= {"beam_model"}, (
+        "a non-step page renders registry rows without saying so in its "
+        f"GuiPage reason: {sorted(off_step)}")
+    for key in off_step:
+        assert "registry" in wf.non_step_page(key).reason, key
+
+
+def test_the_lra_mesh_renders_on_the_beam_model_page_and_nowhere_else():
+    """Note 67 gate 6: the counts sit beside the drawing of what they set."""
+    pages = {e.page for e in REGISTRY if e.path.startswith("lra_mesh.")}
+    assert pages == {"beam_model"}
 
 
 def test_control_surface_planform_geometry_renders_on_the_geometry_page():

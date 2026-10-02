@@ -77,11 +77,20 @@ def _hop_71(d: Dict[str, Any]) -> Dict[str, Any]:
     return d
 
 
+def _hop_72(d: Dict[str, Any]) -> Dict[str, Any]:
+    """v72 -> v73 (design note 67 D-67.10, #283): ``MassItem`` gains
+    ``usable_fuel``, defaulted ``False``. An identity, and deliberately so: which
+    rows are fuel is an input (note 63 OV-1), so the hop names no tank by its
+    name -- the OEW mass set states every row it kept instead."""
+    return d
+
+
 #: ``{from_version: hop}`` -- applied in ascending order, each turning a file of
 #: version *n* into version *n+1* shape.
 MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     70: _hop_70,
     71: _hop_71,
+    72: _hop_72,
 }
 
 #: The oldest project version this build reads: the oldest released schema, or

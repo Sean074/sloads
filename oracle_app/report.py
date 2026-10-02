@@ -26,11 +26,11 @@ import pandas as pd
 import streamlit as st
 
 from app_shell.components import active_project, gate
+from app_shell.folder_picker import folder_picker
 from app_shell.project_state import saved_path
 from app_shell.widget_keys import widget_key
 from sloads import io as sloads_io
 from sloads import workflow as wf
-from sloads.export import directory_dialog as dialog
 from sloads.export import report_package as pkg
 from sloads.models.report import (
     DATE_MAX,
@@ -113,94 +113,6 @@ def _text(label: str, value: str, key: str, *, help_text: str = "",
     return widget(label, value=value, key=widget_key(key), help=help_text or None)
 
 
-def _browse_block() -> str:
-    """Choose the folder reports are written to.
-
-    **The OS dialog is the control; the in-app browser is the fallback.** The
-    oracle GUI runs locally, so the machine serving this page is the machine the
-    user is sitting at (OR-22) and the operating system's own folder chooser is
-    reachable through :mod:`sloads.export.directory_dialog`. It is what the user
-    already knows how to drive, and it can reach anywhere on the disk in one
-    gesture rather than one directory per click.
-
-    The click-through browser stays for the machine that has no dialog, and for
-    the case where the dialog cannot be raised. It is not dead code: a folder
-    chooser that silently does nothing would leave no way to set the location at
-    all, and this page's whole job is to write somewhere.
-
-    The page holds only the current path as a string. Every question about what
-    that string *means* -- does it exist, what is inside it, may we read it --
-    is answered in :mod:`sloads.export`, because this page may not import ``os``
-    (gate G1).
-    """
-    anchors = pkg.location_anchors(saved_path())
-    if _ROOT not in st.session_state:
-        st.session_state[_ROOT] = pkg.browse_start(anchors[0][1])
-    here = st.session_state[_ROOT]
-
-    shown, chooser = st.columns([3, 1])
-    shown.markdown(f"**Saving reports to**  \n`{here}`")
-    if chooser.button("📂 Choose folder…", key=widget_key("report_pick_btn"),
-                      width="stretch", disabled=not dialog.native_picker_available()):
-        picked = dialog.choose_directory(
-            here, prompt="Choose the folder to write report packages into")
-        if picked:
-            st.session_state[_ROOT] = picked
-            st.rerun()
-        # No message on ``None``: Cancel is a normal answer, and saying
-        # "no folder chosen" to someone who deliberately pressed Cancel is noise.
-
-    with st.expander("Or browse to it here", expanded=False):
-        labels = [label for label, _path in anchors]
-        jump = st.selectbox("Start from", labels, key=widget_key("report_anchor"))
-        if st.button("Go", key=widget_key("report_anchor_btn"), width="stretch"):
-            st.session_state[_ROOT] = pkg.browse_start(dict(anchors)[jump])
-            st.rerun()
-
-        up, into = st.columns([1, 2])
-        with up:
-            if st.button("⬆ Up one level", key=widget_key("report_up_btn"),
-                         width="stretch", disabled=pkg.is_root(here)):
-                st.session_state[_ROOT] = pkg.parent_of(here)
-                st.rerun()
-        subdirs = pkg.list_subdirs(here)
-        with into:
-            chosen = st.selectbox("Folders here", subdirs or ["(no subfolders)"],
-                                  key=widget_key("report_subdir"),
-                                  disabled=not subdirs, label_visibility="collapsed")
-            if st.button("Open folder ▶", key=widget_key("report_down_btn"),
-                         width="stretch", disabled=not subdirs):
-                st.session_state[_ROOT] = pkg.child_of(here, chosen)
-                st.rerun()
-
-        made = st.text_input("New folder here", key=widget_key("report_mkdir"),
-                             placeholder="e.g. Programme-X")
-        if st.button("Create and use", key=widget_key("report_mkdir_btn"),
-                     width="stretch", disabled=not made.strip()):
-            # A folder name, not a path -- ``create_subdir`` refuses a separator
-            # rather than normalising one, so this control cannot walk out of
-            # the folder it is displayed in.
-            try:
-                st.session_state[_ROOT] = pkg.create_subdir(here, made)
-            except (ValueError, OSError) as exc:
-                st.error(str(exc))
-            else:
-                st.rerun()
-
-    if not pkg.is_writable(here):
-        # Choosing a folder is not being granted it: macOS keeps ~/Desktop and
-        # friends behind TCC, and the OS dialog hands back a path this process
-        # may still not be allowed to write. Said here, before the build, rather
-        # than as a failure after the user has filled the whole page in.
-        st.warning(
-            f"`{here}` cannot be written to by this app. On macOS, Desktop, "
-            "Documents and Downloads need permission granted to the terminal "
-            "running sloads (System Settings ▸ Privacy & Security ▸ Files and "
-            "Folders, or Full Disk Access). Choose another folder, or grant it "
-            "and reopen this page.")
-    return st.session_state[_ROOT]
-
-
 def _date(label: str, value: str, key: str, *, help_text: str = "") -> str:
     """A date picker that stores an ISO string -- and starts **empty**.
 
@@ -238,7 +150,9 @@ def _location_block() -> None:
         "spec you are editing, the data behind the document and the project it "
         "was built from -- so an issue can be archived and reopened as one thing."
     )
-    root = _browse_block()
+    root = folder_picker(_ROOT, key_prefix="report", label="Saving reports to",
+                         prompt="Choose the folder to write report packages into",
+                         anchors=pkg.location_anchors(saved_path()))
 
     found = pkg.discover_packages(root)
     options = [_NEW] + found

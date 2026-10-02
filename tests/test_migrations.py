@@ -143,6 +143,18 @@ def test_a_registered_hop_still_runs():
     assert applied_hops(SCHEMA_VERSION) == [], "the chain did not reset"
 
 
+def test_the_v73_hop_reads_every_row_as_not_usable_fuel():
+    """Gate 8's hop half (note 67 D-67.10): a v72 file loads, and the hop infers
+    no tank from its name -- every row, and every entered ballast, reads False."""
+    d = _load()
+    d["schema_version"] = 72
+    for item in d["weight"]["items"]:
+        item.pop("usable_fuel", None)
+    project = io.project_from_dict(d)
+    assert project.weight.items
+    assert not any(it.usable_fuel for it in project.weight.items)
+
+
 def test_a_hops_note_reaches_the_project_and_is_stated_once():
     """A hop that changes an entered value says so through ``migration_notes``,
     which the reader carries onto the project (never persisted) and

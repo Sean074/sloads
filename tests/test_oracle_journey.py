@@ -154,6 +154,16 @@ def _type_page(key: str, typed: Project, answer_at: AppTest) -> Project:
             at.run()
             assert not at.exception, f"[{key}] {[e.message for e in at.exception]}"
             continue
+        confirms = [b for b in at.button
+                    if (unstamped(b.key) or "").endswith(".__confirm")]
+        if confirms:
+            # A count raised by more than COUNT_CONFIRM_JUMP waits for a named
+            # click (#244, note 67 D-67.12): typing a 24-row table from blank is
+            # one such raise, and the click is the user's gesture, made here.
+            confirms[0].click()
+            at.run()
+            assert not at.exception, f"[{key}] {[e.message for e in at.exception]}"
+            continue
         present = _widgets(at)
         unknown = sorted(set(present) - set(wanted))
         assert not unknown, f"[{key}] widgets on the blank page the answer never showed: {unknown}"

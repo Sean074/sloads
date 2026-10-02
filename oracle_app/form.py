@@ -67,6 +67,7 @@ from app_shell.components import (
     LANDING_L_FAR_CAPTION,
     active_system,
     clear_number_input,
+    count_input,
     page_header,
     unit_number_input,
 )
@@ -956,6 +957,31 @@ def render_scalar(record: Any, path: str, *, key: str, container: Any = None,
     # return leg is the clear button below (#72): once filled, the widget itself
     # can never come back empty.
     unit = field_unit(name)
+    rule = fr.COUNT_RULES.get(path)
+    if inner is int and rule is not None and not disabled:
+        # A count a stray keystroke can blow up (#244, note 67 D-67.12): bounded
+        # by the exporter's own range, a large jump confirmed. Blank keeps its
+        # meaning -- the member's default -- which is the baseline a jump is
+        # measured from.
+        counted = count_input(
+            where, label, value, key=key, floor=rule.floor, cap=rule.cap,
+            baseline=value if value is not None else (rule.default or rule.floor),
+            noun=label.lower(),
+            placeholder=(EMPTY_NUMBER_PLACEHOLDER if optional and value is None
+                         else None))
+        if counted is None:
+            # Cleared -- or blank and a jump still held (``count_input``
+            # returns the count in force until it is confirmed). Only a value
+            # that was entered has anything to clear.
+            if value is not None:
+                _clear_optional(record, name, optional=optional)
+            return
+        _offer_clear(where, key, None, path=path, optional=optional)
+        if optional and value is None:
+            _set_entered(record, name, int(counted))
+        else:
+            _persist(record, name, int(counted))
+        return
     if inner is int:
         entered = where.number_input(
             f"{label} ({_unit_label(unit, active_system())})".replace(" ()", ""),
@@ -1850,9 +1876,12 @@ def render_table(project: Project, prefix: str, paths: Sequence[str]) -> None:
         return
 
     label = pretty(prefix.rstrip(fr.LIST_MARKER).rsplit(".", 1)[-1])
-    count = st.number_input(
-        f"{label} — rows", min_value=0, value=len(rows), step=1,
-        key=widget_key(f"{prefix}.count"))
+    # Bounded, a large jump confirmed, re-seeded when the model moved (#244):
+    # ``count_input`` is the one owner, shared with the LRA mesh counts.
+    count = count_input(st, f"{label} — rows", len(rows), key=f"{prefix}.count",
+                        floor=0, cap=fr.ROW_COUNT_CAP, baseline=len(rows),
+                        noun=f"{label} rows")
+    count = len(rows) if count is None else count
     while len(rows) < count:
         rows.append(seeded(cls, prefix, len(rows),
                            taken=[getattr(r, "name", "") for r in rows]))
@@ -2207,6 +2236,56 @@ def _page_has_grid(groups: Sequence[Tuple[str, Sequence[str]]]) -> bool:
     return False
 
 
+def _render_groups(project: Project, groups: List[Tuple[str, List[str]]],
+                   system: Any) -> None:
+    """Each registry group of a page: heading, schema path, note, widgets."""
+    for prefix, paths in groups:
+        # The display-group title wins over the record name (#95, C210-6):
+        # page_groups splits titled paths into their own group, so one
+        # lookup on the group's first path names the whole section.
+        st.subheader(fr.DISPLAY_GROUPS.get(paths[0])
+                     or pretty(prefix.rstrip(fr.LIST_MARKER).rsplit(".", 1)[-1] or "Project"))
+        # The caption is the schema path, as code. The root group has no
+        # path, so it says what it is instead of rendering ``(project)`` in
+        # backticks -- which reads as a path, and there is no such path
+        # (PB-22).
+        st.caption(f"`{prefix}`" if prefix
+                   else "Fields held on the project itself, not in a slice")
+        group_note = GROUP_NOTES.get(prefix)
+        if group_note is not None:
+            note_text = group_note(project)
+            if note_text:
+                st.caption(note_text)
+        if prefix.endswith(fr.LIST_MARKER):
+            render_table(project, prefix, paths)
+        else:
+            render_record(project, prefix, paths)
+        render_group_table(project, prefix, system)
+        st.divider()
+
+
+def render_page_inputs(project: Project, key: str, system: Any) -> None:
+    """The registry's rows for a page that is not an analysis step.
+
+    The Beam Model page renders the ``lra_mesh`` counts (note 67 D-67.3) with
+    the same widgets, the same extension mark and the same attach-on-touch rule
+    an analysis page gives its fields: nothing here is a second form. What it
+    leaves out is the analysis -- no run, no results, no selector checks --
+    because the page has none.
+    """
+    _PENDING.clear()
+    _reset_frame_cache(key)
+    groups = page_groups(key)
+    if any(fr.tier_of(p) is fr.Tier.EXTENSION
+           for _prefix, paths in groups for p in paths):
+        st.caption(EXTENSION_NOTE)
+    _render_groups(project, groups, system)
+    # Attach what the widgets were given, only if something was (OG-F), and
+    # bring derived slices up to date -- both idempotent, as on every page.
+    commit_pending()
+    refresh_derived(project)
+
+
 def render_step(key: str) -> None:
     """Render the oracle GUI page for workflow step ``key``."""
     _PENDING.clear()
@@ -2273,29 +2352,7 @@ def render_step(key: str) -> None:
                 "the project as soon as it appears, blank or not: fill it in, or "
                 "count back down and delete it."
             )
-        for prefix, paths in groups:
-            # The display-group title wins over the record name (#95, C210-6):
-            # page_groups splits titled paths into their own group, so one
-            # lookup on the group's first path names the whole section.
-            st.subheader(fr.DISPLAY_GROUPS.get(paths[0])
-                         or pretty(prefix.rstrip(fr.LIST_MARKER).rsplit(".", 1)[-1] or "Project"))
-            # The caption is the schema path, as code. The root group has no
-            # path, so it says what it is instead of rendering ``(project)`` in
-            # backticks -- which reads as a path, and there is no such path
-            # (PB-22).
-            st.caption(f"`{prefix}`" if prefix
-                       else "Fields held on the project itself, not in a slice")
-            group_note = GROUP_NOTES.get(prefix)
-            if group_note is not None:
-                note_text = group_note(ctx.project)
-                if note_text:
-                    st.caption(note_text)
-            if prefix.endswith(fr.LIST_MARKER):
-                render_table(ctx.project, prefix, paths)
-            else:
-                render_record(ctx.project, prefix, paths)
-            render_group_table(ctx.project, prefix, ctx.system)
-            st.divider()
+        _render_groups(ctx.project, groups, ctx.system)
 
     # Records the widgets were given are attached only now, and only if the pass
     # put something in them (OG-F): visiting a page must not dirty a project.
@@ -2359,6 +2416,6 @@ __all__ = [
     "NESTED_SEEDS", "blank", "commit_pending", "group_prefix", "is_composite",
     "nested_prefix", "nested_record_class", "optional_steps", "page_groups",
     "record_at", "render_field", "render_fraction_map", "render_group_table",
-    "render_name_set", "render_nested", "render_record", "render_scalar",
-    "render_step", "render_table", "row_class", "rows_at", "seeded",
+    "render_name_set", "render_nested", "render_page_inputs", "render_record",
+    "render_scalar", "render_step", "render_table", "row_class", "rows_at", "seeded",
 ]

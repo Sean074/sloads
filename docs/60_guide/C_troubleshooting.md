@@ -66,6 +66,10 @@ generate most first-session confusion:
 - **A blank row appeared and the page complains** — a **row counter** adds
   the row to the project the moment it appears, blank or not. Fill it in, or
   count back down to delete it.
+- **I raised a row count and nothing happened** — an increase of more than 10
+  at once is held: a warning names it and a **Set … rows to N** button commits
+  it. Set the count back instead to drop it. A counter stops at 500 rows (an LRA
+  mesh count at 200), and it always shows the rows the project actually holds.
 - **The fields I need are not on the page** — an optional section is off the
   page until you add it: look for the caption naming the missing fields and
   the **➕ Add** button above it. Sections your airplane does not have stay

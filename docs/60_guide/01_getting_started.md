@@ -90,6 +90,8 @@ immediately, all stated on the pages themselves:
 - **Grid rows with an empty cell are not saved** — fill every column to keep
   the row. A row added with a **row counter** is part of the project as soon
   as it appears, blank or not: fill it in, or count back down to delete it.
+  A counter takes at most 500 rows, and raising it by more than 10 in one go
+  waits for its **Set … rows to N** button, so a mistyped digit adds nothing.
 - **Some blocks start off the page, behind an "Add" button** — a section your
   airplane may simply not have (a flaps-down coefficient set, a Mach limit, a
   weight envelope) shows a caption naming the fields it holds and an **➕ Add**

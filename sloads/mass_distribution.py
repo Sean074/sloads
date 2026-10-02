@@ -89,7 +89,7 @@ from __future__ import annotations
 import dataclasses
 import math
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Callable, Dict, List, NamedTuple, Optional, Sequence, Tuple
 
 from .cg_cases import flight_cases
 from .models import (
@@ -673,6 +673,39 @@ def half_span(items: Sequence[MassItem], project: Project) -> HalfSpan:
         elif it.y == 0.0:
             points.append(dataclasses.replace(it, weight_lb=0.5 * it.weight_lb))
     return HalfSpan(panel_lb=derived_panel_weight(project, items), points=points)
+
+
+class OewPartition(NamedTuple):
+    """The operating empty weight as rows: what is in it, and what was left out.
+
+    ``kept`` is the OEW itself. ``fuel`` is the ``MINIMUM`` rows tagged
+    ``usable_fuel`` that it leaves out. Both are stated -- the mass set's header
+    and the Beam Model page name every ``MINIMUM`` row on either side -- because
+    the partition reads a tag a migrated project has not set yet, and an
+    untagged reserve tank must show up *by name* in the OEW rather than ride in
+    unseen.
+    """
+
+    kept: List[MassItem]
+    fuel: List[MassItem]
+
+
+def oew_items(project: Project) -> OewPartition:
+    """The operating empty weight's rows -- the one partition (note 67 D-67.11).
+
+    OEW is the ``EMPTY`` rows plus the ``MINIMUM`` rows (crew, unusable fuel and
+    oil) **less usable fuel**, which ``MassItem.usable_fuel`` marks. No payload
+    and no fuel, the owner's ruling for the mass set the Beam Model page writes
+    beside the deck. Kind and tag only, never a name: which rows are fuel is an
+    input (note 63 OV-1). A ``DISCRETIONARY`` row is never in it, tagged or not.
+    An ``EMPTY`` row tagged as usable fuel is left out too -- the tag means
+    "drawable fuel" wherever it sits -- and listed in ``fuel`` with the rest.
+    Returns two empty lists for a project with no weight database.
+    """
+    items = project.weight.items if project.weight is not None else []
+    operating = [it for it in items if it.kind != MassItemKind.DISCRETIONARY]
+    return OewPartition(kept=[it for it in operating if not it.usable_fuel],
+                        fuel=[it for it in operating if it.usable_fuel])
 
 
 def database_mass_state(project: Project, reason: str = "",
@@ -1973,6 +2006,7 @@ __all__ = [
     "MassCaseSummary",
     "MassCheck",
     "MassDistribution",
+    "OewPartition",
     "SeedLoading",
     "WingMassState",
     "WingPartRow",
@@ -1994,6 +2028,7 @@ __all__ = [
     "loading_definition_of",
     "loading_mass_state",
     "mass_case_summary",
+    "oew_items",
     "panel_weight",
     "partition_closes",
     "seed_loading_search",

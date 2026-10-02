@@ -156,6 +156,20 @@ regulation, not the manual, so they are cited here rather than page-matched:
 | The gear reaction is computed at the **ground contact point** and any transfer to an airframe node is the tool's, not the regulation's | **14 CFR 23.485(d)**: "The side loads … are assumed to be applied at the ground contact point and the drag loads may be assumed to be zero." | It is why `LandingGearInput.attach` is an input with a resultant-preserving transfer rather than a place to compute the reaction. |
 | The wing lift factor `L` is a certification-basis choice, not a physical cap: FAR 23 assumes wing lift **not exceeding two-thirds of the weight** through impact, FAR 25 permits **lift equal to the weight** | **14 CFR 23.473(g)** ("wing lift not exceeding two-thirds of the weight of the airplane … may be assumed"); **14 CFR 25.473(a)(2)** ("a wing lift not exceeding the airplane weight may be assumed to exist throughout the landing impact") | Note 37 (LF-4, #123): the former hard `L ≤ 0.667` refusal could not serve a FAR 25-basis concept; `L` is now a free input, both GUIs caption the two bases as guidance, and the honest bound is the 23.473(g) floors (`N ≥ 2.67`, `NLG ≥ 2.0` — refused in a FAR 23 category, warned in concept; `landing.far23_473g_floor_violations`, floors in `constants.py`). |
 
+**The operating empty weight's mass set (note 67 D-67.9/D-67.10).** The Beam
+Model page writes, beside the deck, the CONM2 set of the airplane before
+anything is loaded into it: OEW = the `EMPTY` rows + the `MINIMUM` rows (the
+crew, the project's convention since WTESTIMA's `OEW = empty + crew×170`) less
+every row tagged `MassItem.usable_fuel` — mission and **reserve** fuel alike.
+Unusable fuel and oil stay in, on the regulation's own definition of what an
+airplane is weighed with: **14 CFR 23.29(a)** (pre-Amdt 23-64) determines the
+empty weight with "unusable fuel determined under § 23.959" and "full operating
+fluids, including oil". `consumable` cannot draw this line, because reserve fuel
+is deliberately not consumable (G-4 must tell it from mission fuel), so the
+partition is its own typed tag (note 63 OV-1). It is a closure gate, not an
+oracle: the partition sums exactly to the kind totals and sbeam's GPWG recovers
+its weight and CG (`tests/test_mass_cards.py`, `tests/test_sbeam_roundtrip.py`).
+
 **Stated assumption (G-14):** MTOW is a **single scalar, constant between the
 forward and aft CG limits**. On some airplanes it varies with CG (the 777 among
 them) — a weight-dependent *upper* boundary of the weight-CG envelope, in

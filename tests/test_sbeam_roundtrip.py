@@ -584,6 +584,36 @@ def test_gpwg_recovers_each_payload_case_from_the_shipped_mass_deck(
             "per-case mass model is not reaching sbeam")
 
 
+@pytest.mark.roundtrip
+@pytest.mark.parametrize("example", MASS_MATRIX)
+@pytest.mark.parametrize("system", SYSTEMS)
+def test_gpwg_recovers_the_operating_empty_weight(sbeam, example, system):
+    """**Gate 7**, sbeam's half: the OEW mass set reads back as the OEW.
+
+    The set has no case control of its own (one mass state, no ``MASSSET``), so
+    it is wrapped in the least a reader needs -- ``SOL`` and ``BEGIN BULK`` --
+    and GPWG reads the baseline. Same tolerance as gate 6 and for the same
+    reason: seven printed figures bound the agreement.
+    """
+    import math
+
+    from sbeam.gpwg import compute_gpwg
+
+    from sloads import mass_distribution as md
+    from sloads.export.deck_format import solver_units
+
+    project, _, _, _ = _components(example)
+    deck = "SOL 101\nBEGIN BULK\n" + mc.oew_fragment(project, system=system) + "ENDDATA\n"
+    got = compute_gpwg(_bulk_of(deck))
+    kept = md.oew_items(project).kept
+    u = solver_units(system)
+    weight = math.fsum(it.weight_lb for it in kept)
+    assert got.total_mass == pytest.approx(weight * u.mass.factor, rel=1e-6)
+    for axis, attr in (("cg_x", "x"), ("cg_z", "z")):
+        want = math.fsum(it.weight_lb * getattr(it, attr) for it in kept) / weight
+        assert getattr(got, axis) == pytest.approx(want * u.length.factor, rel=1e-6, abs=1e-6)
+
+
 # --------------------------------------------------------------------------- #
 # The negative tests -- a gate nobody has seen fail is a gate nobody knows works
 # --------------------------------------------------------------------------- #

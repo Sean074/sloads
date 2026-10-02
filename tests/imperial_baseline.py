@@ -204,8 +204,14 @@ def _build_artifacts(example: str) -> Dict[str, str]:
     # is what a recipient splices, the check deck is what a GPWG reads.
     from sloads.export.mass_cards import conm2_fragment, mass_check_deck
 
+    # The OEW mass set (note 67 D-67.9) is a third view of the same database,
+    # written beside the deck by the Beam Model page and the CLI's ``oew``
+    # target -- new bytes, so its channel is new rather than moved (gate 10).
+    from sloads.export.mass_cards import oew_fragment
+
     for name, build in (("mass_model", conm2_fragment),
-                        ("mass_check", mass_check_deck)):
+                        ("mass_check", mass_check_deck),
+                        ("oew_mass", oew_fragment)):
         deck = _try(build, project)
         if deck:
             out[f"sbeam/{name}"] = deck

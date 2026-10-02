@@ -450,8 +450,8 @@ class GuiPage:
 
 
 #: The pages that are not analysis steps. Two are D-57.1's *ported pages* -- they
-#: were steps of the retired front-end and are carried by the survivor -- and one
-#: is OR-16's original exception.
+#: were steps of the retired front-end and are carried by the survivor -- one is
+#: OR-16's original exception, and one is note 67's route to the deliverable.
 NON_STEP_PAGES: Tuple[GuiPage, ...] = (
     GuiPage("project_editor", "Project JSON Editor",
             "It edits the project every step reads, rather than entering one "
@@ -466,6 +466,13 @@ NON_STEP_PAGES: Tuple[GuiPage, ...] = (
             "``aircraft_comparison`` was the retired front-end's step key and a "
             "URL that collides with a step key makes a non-step reachable as a "
             "step link."),
+    GuiPage("beam_model", "Beam Model",
+            "It is the deliverable built from the analysis, not a step of it: "
+            "the LRA free-free beam model drawn, its mesh set and its deck and "
+            "OEW mass set written. It runs no ``.BAS`` program and fills no "
+            "slice any computation reads, and it renders the registry's "
+            "``lra_mesh`` rows, which nothing else reads either (note 67 "
+            "D-67.1/D-67.3; it reopens note 57 D-57.6 for the deliverable alone)."),
     GuiPage("report", "Report",
             "It is a document *about* the analysis, generated from the steps "
             "rather than being one of them, and written as an issue package "

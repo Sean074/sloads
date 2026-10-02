@@ -419,6 +419,62 @@ LANDING_L_FAR_CAPTION = (
     "L = 0.667 (FAR 23.473) · L = 1.0 (FAR 25.473(a)(2)).")
 
 
+def count_input(where, label: str, current: Optional[int], *, key: str,
+                floor: int, cap: int, baseline: int, noun: str,
+                jump: Optional[int] = None, **kwargs) -> Optional[int]:
+    """A bounded integer count -- the one owner of #244's three guards.
+
+    Returns the count the caller should commit: the widget's value once it is
+    allowed, else ``current`` (``None`` where an Optional count is cleared).
+    Used by the row counter and by every :data:`~sloads.field_registry.COUNT_RULES`
+    field, so the LRA mesh counts were born with it (note 67 D-67.12).
+
+    * **Capped.** ``min_value``/``max_value`` are ``floor``/``cap``, so a value
+      outside them never commits; ``help`` says why. A loaded value already past
+      the cap widens the cap to itself rather than crashing the widget -- the
+      model's own refusal states it.
+    * **A large jump waits.** An increase of more than ``jump`` over
+      ``baseline`` (the count in force) is held, with one named button to commit
+      it. Below ``jump`` it commits as any widget does; counting down is the
+      caller's business, as before.
+    * **Re-seeded from state.** A widget's state outlives its seed, so a model
+      that changed underneath it -- a seed button, a project load -- left the
+      spinner showing 1 beside 4,501 rows. The model's count at the last render
+      is remembered, and when the model has moved since, the widget is set to it
+      before it is drawn.
+    """
+    from sloads.field_registry import COUNT_CONFIRM_JUMP
+
+    jump = COUNT_CONFIRM_JUMP if jump is None else jump
+    name = widget_key(key)
+    seen = widget_key(f"{key}.__model")
+    if st.session_state.get(seen, current) != current and name in st.session_state:
+        st.session_state[name] = current
+    st.session_state[seen] = current
+    top = max(cap, current or 0)
+    kwargs.setdefault("help", f"{floor} to {top:,}. An increase of more than "
+                      f"{jump} at once asks first (#244).")
+    if name in st.session_state:
+        entered = where.number_input(label, min_value=floor, max_value=top,
+                                     step=1, key=widget_key(key), **kwargs)
+    else:
+        entered = where.number_input(label, value=current, min_value=floor,
+                                     max_value=top, step=1, key=widget_key(key),
+                                     **kwargs)
+    if entered is None:
+        return None
+    entered = int(entered)
+    if entered - baseline > jump:
+        where.warning(f"{label}: {entered:,} is {entered - baseline:,} more than "
+                      f"the {baseline:,} in force. Nothing changes until you "
+                      "confirm it -- or set the count back.")
+        if where.button(f"Set {noun} to {entered:,}",
+                        key=widget_key(f"{key}.__confirm")):
+            return entered
+        return current
+    return entered
+
+
 def _seeded_number(where, label: str, seed: Optional[float],
                    name: Optional[str], **kwargs) -> Optional[float]:
     """``st.number_input`` seeded with ``seed`` -- pinned to it when disabled.

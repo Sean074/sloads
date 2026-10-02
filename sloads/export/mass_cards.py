@@ -67,8 +67,9 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from ..mass_distribution import (
     CaseLoading,
     derive_case_loadings,
+    oew_items,
 )
-from ..models import MassItem, Project
+from ..models import MassItem, MassItemKind, Project
 from ..units import DeliverableUnits, Quantity, UnitSystem, unit_text
 from .bands import band
 from .coordinates import SBEAM_CID, to_grid
@@ -177,8 +178,6 @@ def mass_cards(project: Project) -> Tuple[List[MassCard], List[CaseLoading]]:
     if not items:
         return [], []
     loadings = [ld for ld in derive_case_loadings(project) if ld.derivable]
-
-    from ..models import MassItemKind
 
     # The overlay set is built from what the loadings actually carry, not from
     # "every discretionary item" -- and that is structural, not tidiness.
@@ -505,6 +504,68 @@ def conm2_fragment(project: Project, *,
     return stamped(header_comment, "\n".join(out) + "\n")
 
 
+def oew_fragment(project: Project, *,
+                 header_comment: str = "",
+                 system: UnitSystem = UnitSystem.IMPERIAL) -> str:
+    """``GRID`` + ``CONM2`` for the operating empty weight alone -- no payload, no fuel.
+
+    The mass set the Beam Model page writes beside the deck (note 67 D-67.9,
+    owner's ruling): the airplane a sizing model is built around, before
+    anything is loaded into it. One mass state, so there is no ``MASSSET`` and
+    no case control. Every other rule is :func:`conm2_fragment`'s and is reached
+    through the same pieces -- the ``mass-cg`` grid per card at the item's own
+    CG, :func:`_conm2_line`, the ``mass-baseline`` EID band, D-56.6's
+    unconnected grids -- so this is a second *selection*, not a second writer.
+
+    The rows are :func:`sloads.mass_distribution.oew_items`'. The header names
+    every ``MINIMUM`` row on each side of the partition, so a reserve tank that
+    nobody has tagged ``usable_fuel`` is visible in the file rather than
+    silently aboard.
+    """
+    u = _checked_mass_units(solver_units(system))
+    oew = oew_items(project)
+    if not oew.kept:
+        raise ValueError(
+            "Project has no empty or minimum-flight-weight rows in "
+            "'weight.items' to export as the operating empty weight")
+    cards = [MassCard(eid=_BASELINE_BAND.allocate(i), gid=mass_cg_gid(i),
+                      item=it, overlay=False)
+             for i, it in enumerate(oew.kept)]
+    total = math.fsum(it.weight_lb for it in oew.kept)
+    minimum = [it.name for it in oew.kept if it.kind == MassItemKind.MINIMUM]
+    out = [
+        "$ ================================================ SLOADS OEW MASS SET",
+        "$ CONM2 mass of the operating empty weight: the EMPTY rows and the",
+        "$ MINIMUM rows of the itemized weight database, less every row tagged",
+        "$ usable fuel. NO PAYLOAD AND NO FUEL (design note 67 D-67.9). One mass",
+        "$ state, so no MASSSET; add payload and fuel in your own model.",
+        f"$ Mass in {u.mass.label}; inertia in {u.mass_inertia.label}; "
+        f"grid coordinates in {u.length.label}.",
+        "$ Operating empty weight: "
+        + unit_text(Quantity(total, "lb", "mass"), ".").render(u.system),
+        "$ Minimum-flight-weight rows INCLUDED: "
+        + ("; ".join(minimum) if minimum else "none"),
+        "$ Usable-fuel rows LEFT OUT: "
+        + ("; ".join(it.name for it in oew.fuel) if oew.fuel else "none"),
+        "$",
+        "$ DO NOT apply this set together with the FORCE/MOMENT load deck: those",
+        "$ cards are the TOTAL applied load and already contain inertia.",
+        "$",
+        "$ THESE GRIDS ARE UNCONNECTED, ON PURPOSE (note 56 D-56.6). One GRID per",
+        "$ item, at that item's own CG, with a zero CONM2 offset. A stiffness",
+        "$ solve over them alone is singular; RBE2 each grid to your own model.",
+        "$ Products of inertia I21/I31/I32 are 0: the database carries none.",
+        "$ ----------------------------------------------------------------------",
+        "$ ------------------------------------------------- GRIDS (one per item CG)",
+    ]
+    out += [f"GRID, {c.gid}, {SBEAM_CID}, "
+            f"{fmt3(*to_grid(c.item.x, c.item.y, c.item.z, units=u))}"
+            for c in cards]
+    out += ["$ ---------------------------------------------------- OPERATING EMPTY"]
+    out += [_conm2_line(c, u) for c in cards]
+    return stamped(header_comment, "\n".join(out) + "\n")
+
+
 def mass_properties(project: Project, loading: CaseLoading,  # noqa: ARG001  -- public signature (project reserved for the LRA transfer)
                     system: UnitSystem = UnitSystem.IMPERIAL) -> Dict[str, float]:
     """``{weight/mass/cg_x/cg_z/iyy}`` of one loading, in deck units.
@@ -639,5 +700,6 @@ __all__ = [
     "mass_properties",
     "massset_identity",
     "massset_labels",
+    "oew_fragment",
     "unreferenced_overlay_eids",
 ]
