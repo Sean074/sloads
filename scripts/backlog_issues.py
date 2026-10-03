@@ -56,7 +56,7 @@ MAP = os.path.join(ROOT, ".github", "backlog_issue_map.json")
 # every 0.9.0 row inherited the previous header's band and was labelled
 # `band:B` -- the band an issue is filed under is exactly what the milestone
 # check below compares, so the parser has to see the band before anything can.
-BAND_ROW = re.compile(r"^\|\s*\*\*([A-Z]\d?)\s+[—-]\s*(.*?)\*\*\s*\|")
+BAND_ROW = re.compile(r"^\|\s*\*\*([A-Z]\d{0,2})\s+[—-]\s*(.*?)\*\*\s*\|")
 ITEM_ROW = re.compile(r"^\|\s*(\d+)\s*\|")
 DETAIL_HEADING = re.compile(r"^### \[([EVM])\]\s+(.*)$")
 #: A bullet in the open-defects index. The heading is read across the wrap by

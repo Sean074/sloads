@@ -119,8 +119,14 @@ def test_every_band_header_is_parsed_including_the_two_character_one(bi, backlog
     (0.9.0) never matched and every row beneath it inherited band **B** — the
     0.8.0 label — with no gate seeing it. The band an issue is filed under is
     what the milestone check compares, so a band the parser cannot see is a
-    milestone check that cannot work."""
-    headers = [ln for ln in backlog_text.splitlines() if re.match(r"^\|\s*\*\*[A-Z]\d?\s+[—-]", ln)]
+    milestone check that cannot work.
+
+    The same defect recurred one digit wider on 2026-10-03: `\\d?` stopped at
+    **B9**, so the **B10** header (0.8.9) fell through and its eight rows
+    inherited B9 — caught by `check`'s band/milestone comparison at the B10
+    chartering, exactly the gate the first occurrence built. Both regexes
+    (`BAND_ROW` and this test's) now read `\\d{0,2}`."""
+    headers = [ln for ln in backlog_text.splitlines() if re.match(r"^\|\s*\*\*[A-Z]\d{0,2}\s+[—-]", ln)]
     parsed = bi.band_milestones(backlog_text)
     assert len(parsed) == len(headers) > 0, (
         f"{len(headers)} band header row(s) in the file, {len(parsed)} parsed: {sorted(parsed)}"
