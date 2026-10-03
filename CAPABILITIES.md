@@ -6,8 +6,9 @@ the 22-program package that computes the structural design loads a small
 aircraft must sustain under **14 CFR Part 23 Subpart C — Structure** — extended
 into an **initial-concept distributed-loads tool**. A concept configuration
 (which may exceed the FAR 23 weight/seat caps) goes in; per-component and
-full-airframe distributed **ULTIMATE** loads come out, ready for beam-model
-structural sizing in the sbeam solver. All 22 original suite programs are
+full-airframe distributed **LIMIT** loads come out — the 14 CFR 23.303 factor
+stated per case and applied nowhere, the sizing step applies it — ready for
+beam-model structural sizing in the sbeam solver. All 22 original suite programs are
 ported, plus modern modules for configuration assessment, fuselage net loads,
 and the balanced free-free airframe. The package is pure calculation with three
 interchangeable front-ends: a multi-page Streamlit GUI, a CLI, and the test
@@ -110,29 +111,30 @@ speeds) that reduces exactly to the core on GA inputs.
 
 ## 2. Outputs
 
-**Everything deliverable is ULTIMATE.** Internal calculation stays LIMIT (the
-oracle basis), and the safety factor is applied once at the render/export
-boundary. Every case states its factor (a governing safety-factor table with a
-FAR basis per condition family is the single authority), the `-ULT` marker is
-part of every load's units string, and per-module analysis pages may show LIMIT
-only when explicitly marked. Results present in Imperial or SI at the user's
-selection; solver decks use a consistent N/mm/MPa channel.
+**Everything deliverable is LIMIT.** The 14 CFR 23.303 safety factor is
+**stated per case and applied nowhere** — the statement replaces the multiply,
+in band and per subcase, and the sizing analysis applies the factor. A
+governing safety-factor table with a FAR basis per condition family is the
+single authority; the `-ULT` marker survives only on the two families the
+regulation prescribes already ultimate (23.367(a)(2), 23.561(b) — `ULT SF=1.0`,
+apply nothing further), and a condition that prescribes no factor states
+`N/A`. Results present in Imperial or SI at the user's selection; solver decks
+use a consistent N/mm/MPa channel.
 
 - **Load-case CSV files** — one per module, one row per case with the case ID,
   the load quantities, and the `SF` column; station-distribution CSVs for wing
-  and fuselage (LIMIT-basis files carry the basis in-band and pair with an
-  ULTIMATE twin).
-- **sbeam bulk-data decks** — `GRID`/`FORCE`/`MOMENT` cards per component
-  (wing, body, h-tail, v-tail, control surfaces) and the assembled balanced
-  full-span deck, plus **`CONM2`/`MASSSET` distributed-mass decks** per payload
-  case with a gravity-based independent inertia check. Case identity is
+  and fuselage, every file stating its LIMIT basis in-band.
+- **The sbeam bulk-data deck** — the LRA beam model of the full-span free-free
+  airplane (`GRID`/`FORCE`/`MOMENT` cards, aero and inertia applied together,
+  left and right cases), plus **`CONM2`/`MASSSET` distributed-mass decks** per
+  payload case with a gravity-based independent inertia check. Case identity is
   joinable end-to-end: report case ID ↔ deck `LABEL` ↔ `LOAD`/`SUBCASE`
   integer. Every deck carries a **global-equilibrium invariant**, and a pinned
   **sbeam round-trip harness in CI** proves the exported decks actually solve.
 - **Consolidated loads summary report** — a self-contained LaTeX/PDF document
   written for a structural analyst who did not run the analysis: airplane
-  identity, flight envelope, governing ULTIMATE loads with location and safety
-  factor, axes/sign-convention section with figures, an explicit
+  identity, flight envelope, governing LIMIT loads with location and the
+  stated safety factor, axes/sign-convention section with figures, an explicit
   statement-of-limitations section, and an index of the companion data files.
   Deterministic (same project + units → byte-identical output).
 - **Gear load report** — the stamped free-body companion CSV, report section,
