@@ -22,6 +22,7 @@ not (see their docstrings and ``tests/test_platform_stability.py``).
 
 from __future__ import annotations
 
+import math
 import textwrap
 from typing import List, Optional, Tuple, Union
 
@@ -36,6 +37,7 @@ from ..models import (
 from ..units import (
     Channel,
     DeliverableUnits,
+    NonFiniteValue,
     UnitSystem,
     canonical,
     deliverable_units,
@@ -58,7 +60,16 @@ def fmt(val: float) -> str:
     reproducible across platforms, and a value on the tie of its seventh digit
     prints two ways for one load. :func:`sloads.units.canonical` is the owner of
     that rule for every channel -- see it for the two cases that earned it.
+
+    A non-finite component **refuses by name** instead of printing: ``%E`` of a
+    NaN is the string ``NAN``, so without this the solver channel was the one
+    delivered channel that would ship the upstream defect
+    :class:`~sloads.units.NonFiniteValue` exists to stop (#316 class --
+    ``format_value`` guards every human/CSV cell, and the ``.bdf`` writers all
+    format through here, so this is the deck's single choke point).
     """
+    if not math.isfinite(val):
+        raise NonFiniteValue(f"a bulk-data card component is {val!r}")
     return f"{canonical(val):.6E}"  # note 65 exempt: solver channel
 
 
@@ -78,7 +89,15 @@ def fmt3(x: float, y: float, z: float) -> str:
     component, or absolute for an all-tiny card), so a real small component on a
     light airplane is never masked -- and a card whose components are *all* under
     the emitter's threshold is not emitted at all, as before.
+
+    Refused **before** the snap: an infinite component is also the card's scale,
+    so ``snap_zero`` would floor every component against it and the card would
+    print all zeros -- the one way :func:`fmt`'s own guard could be reached too
+    late (a NaN passes through, every comparison with it being false).
     """
+    for v in (x, y, z):
+        if not math.isfinite(v):
+            raise NonFiniteValue(f"a bulk-data card component is {v!r}")
     scale = max(abs(x), abs(y), abs(z), 1.0)
     return ", ".join(fmt(snap_zero(v, scale)) for v in (x, y, z))
 
