@@ -304,6 +304,27 @@ def test_the_deck_formatter_still_prints_what_it_used_to():
         assert fmt(value) == expected, (value, fmt(value), expected)
 
 
+def test_a_non_finite_card_component_refuses_by_name():
+    """A NaN cannot reach a delivered deck: ``%E`` of one is the string ``NAN``,
+    so ``fmt`` -- the single choke point every ``.bdf`` writer formats through --
+    raises :class:`NonFiniteValue` like every other delivered channel (#316
+    class; found by the 0.8.8 pre-release review). ``fmt3`` inherits the guard
+    through ``fmt``, a NaN *scale* included (``snap_zero`` propagates it)."""
+    import pytest
+
+    from sloads.export.deck_format import fmt, fmt3
+    from sloads.units import NonFiniteValue
+
+    for bad in (math.nan, math.inf, -math.inf):
+        with pytest.raises(NonFiniteValue):
+            fmt(bad)
+    with pytest.raises(NonFiniteValue):
+        fmt3(1.0, math.nan, 0.0)
+    with pytest.raises(NonFiniteValue):
+        fmt3(math.inf, 0.0, 0.0)   # the non-finite component is also the scale
+    assert fmt3(1.0, 0.0, -2.5) == "1.000000E+00, 0.000000E+00, -2.500000E+00"
+
+
 def test_a_zero_closure_load_factor_prints_unsigned_whatever_the_residue_sign():
     """#324: ``dny`` of a symmetric case is zero by construction and lands on
     solve residue whose sign differs between Python 3.11 and 3.12, so the
