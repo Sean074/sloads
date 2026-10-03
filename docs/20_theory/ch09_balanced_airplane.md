@@ -29,7 +29,7 @@ and the ground/landing families of FAR 23.471–23.499.
   `tests/test_balance.py`, `tests/test_rigid_body.py`,
   `tests/test_gear_report.py` (§10 maps figure → test).
 - **Units:** Imperial internal (lb, in, lb-in); loads in this document are
-  **LIMIT** (the ×1.5 ultimate factor is applied once at the export boundary,
+  **LIMIT** (the 14 CFR 23.303 factor is stated per case and applied nowhere,
   per the load-output contract). Frame: `x` +aft, `y` +starboard, `z` +up;
   moments by the right-hand formulas of `balance.resultant6`.
 - **Status:** every family in this document is **shipped and gated** — the wing

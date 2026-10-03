@@ -79,6 +79,46 @@ def test_standard_doc_states_no_volatile_literal(rel):
     )
 
 
+# --- The retired ULTIMATE-deliverable contract -----------------------------
+
+#: (name, pattern) — each is a sentence of the contract note 49 OR-116
+#: *reversed*: every delivered load is LIMIT with the factor stated and applied
+#: nowhere. These exact claims survived the OR-116 sweep in `CAPABILITIES.md`
+#: and `SUMMARY_REPORT.md` for a year because no guard read them (found by the
+#: 0.8.8 pre-release review) — a capability summary stating the old basis tells
+#: an analyst *not* to apply the factor the deck did not apply. `90_record/` is
+#: outside the scope on purpose: there the sentences state what was true on a
+#: date.
+RETIRED_CONTRACT = [
+    ("the pre-OR-116 basis claim", re.compile(r"(?i)deliverable is ultimate")),
+    ("ULTIMATE as what comes out", re.compile(r"(?i)ultimate\W{1,4}loads come out")),
+    ("the factor applied at a render/export boundary",
+     re.compile(r"(?i)factor is applied (?:once\s+)?at the")),
+    ("governing loads called ultimate", re.compile(r"(?i)governing ultimate loads")),
+    ("the retired ULTIMATE-twin pairing", re.compile(r"(?i)pairs? with an ultimate twin")),
+]
+
+#: `CAPABILITIES.md` is where the class was found, and it sits outside
+#: `_STANDARD_DOCS`' volatile-number scope; the contract scan reads it too.
+_CONTRACT_DOCS = [d for d in _STANDARD_DOCS if d not in _GENERATED] + [
+    "CAPABILITIES.md", "CONTRIBUTING.md",
+]
+
+
+@pytest.mark.parametrize("rel", _CONTRACT_DOCS)
+def test_no_current_truth_doc_states_the_retired_ultimate_contract(rel):
+    hits = []
+    for n, line in enumerate(_lines(rel), 1):
+        for name, pat in RETIRED_CONTRACT:
+            if pat.search(line):
+                hits.append(f"{rel}:{n}: {name} — {line.strip()[:100]}")
+    assert not hits, (
+        "the retired ULTIMATE-deliverable contract in a current-truth doc — every "
+        "delivered load is LIMIT with the factor stated, never applied (note 49 "
+        "OR-116; CLAUDE.md §Load-output contract):\n  " + "\n  ".join(hits)
+    )
+
+
 # --- INDEX ↔ tree ---------------------------------------------------------
 
 _INDEX_LINK = re.compile(r"\]\(((?:[0-9]{2}_[a-z_]+|\.\.)/[^)#]+\.md)\)")

@@ -172,10 +172,11 @@ fixed to the calc's internal Imperial units. The rule and its consequences:
   (a header comment for the BDF, a header row or column-header unit for a CSV).
   A deliverable whose unit system must be inferred from the numbers is
   non-conforming.
-- **Markers convert with the unit.** In SI, loads carry the SI marker —
-  `N-ULT`, `Nm-ULT`, `kPa-ULT` — exactly as Imperial carries `lbs-ULT`,
-  `ft-lb-ULT`, `lb-in-ULT`, `lb/in^2-ULT`. "Limit vs. ultimate" remains a property
-  of the units string (§3.1) in both systems.
+- **Markers convert with the unit.** Where a load carries the `-ULT` marker
+  (only the already-ultimate families, §3.1), the SI rendering carries the SI
+  marker — `N-ULT`, `Nm-ULT`, `kPa-ULT` — exactly as Imperial carries
+  `lbs-ULT`, `ft-lb-ULT`, `lb-in-ULT`, `lb/in^2-ULT`. "Limit vs. ultimate"
+  remains a property of the units string (§3.1) in both systems.
 - **Single system, no dual display.** A figure SHALL NOT be shown in one system
   with the other in parentheses. One unit per dimension throughout the document
   (no mixing `in` and `ft`, or `mm` and `m`, for the same quantity in adjacent
@@ -388,8 +389,9 @@ results summary, containing:
 
 The section that governs how much weight the analysis can bear. SHALL contain:
 
-1. **Load basis** — ultimate, per-case safety factor, the governing regulation for
-   the factor, and that load factors are limit.
+1. **Load basis** — LIMIT with the factor not applied, the per-case safety
+   factor, the governing regulation for the factor, and that load factors are
+   limit.
 2. **Certification basis** — the category; or, in concept mode, the caveat that
    results are an **unverified extrapolation** above the calibrated band, listing
    each specific applicability exceedance with its value and limit.
@@ -488,8 +490,8 @@ reason is what a reviewer applies to a case not listed here.
 
 | Excluded | Why |
 |----------|-----|
-| **Bare limit loads** | The deliverable is ultimate throughout; a limit number sitting in a deliverable will be used as if it were ultimate. |
-| **Unmarked loads** (no `-ULT`, no `SF`) | Marking is what makes the basis unambiguous at the point of use. |
+| **Factored (ultimate) loads** | The deliverable is LIMIT throughout with the factor stated, never applied (note 49 OR-116, §3.1); a pre-multiplied number sitting in a deliverable invites the sizing analysis to apply the factor twice. |
+| **Unmarked loads** (no stated basis, no `SF`) | Marking is what makes the basis unambiguous at the point of use; `-ULT` survives only on the already-ultimate families (§3.1). |
 | **Full station-by-station distributions for every case** | They belong in the companion CSV/BDF files. Inlining them buries the governing cases in hundreds of pages and makes the document unreadable — the failure mode this standard exists to prevent. |
 | **Raw input echo dumps** (whole-JSON listings) | §4.2 is a curated identity summary, not a serialization. A dump obscures the few numbers that matter. |
 | **Stress, margin-of-safety, sizing or material content** | The report delivers loads. Sizing is the analyst's work and depends on inputs this tool does not hold; implying otherwise invites loads and margins to be confused. |
