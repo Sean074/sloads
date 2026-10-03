@@ -25,6 +25,7 @@ Pure: strings in, strings out.
 from __future__ import annotations
 
 import math
+from dataclasses import replace
 from typing import Iterable, List, Optional, Sequence, Tuple
 
 from .content import Figure, PlotData, Series
@@ -303,6 +304,23 @@ def _label_anchors(data: PlotData,
     return placed
 
 
+#: The longest legend entry two columns can hold side by side, in characters of
+#: ``\footnotesize``: half the text width less the swatch and the column gap.
+#: Past it the legend is one column (#256: two 52-character engine entries side
+#: by side were a 167 pt overfull box on every engine view of the ATR).
+_LEGEND_TWO_COLUMN_CHARS = 36
+
+
+def _legend_columns(data: PlotData, requested: int) -> int:
+    """``requested``, or one column where an entry is too long to sit beside
+    another -- a legend is never wider than the text."""
+    names = [s.name for s in data.series if s.name]
+    if data.points:
+        names.append(data.points_label)
+    longest = max((len(name) for name in names), default=0)
+    return 1 if longest > _LEGEND_TWO_COLUMN_CHARS else requested
+
+
 def plot_tex(data: PlotData, *, width: str = "0.86\\textwidth",
              height: str = "7.2cm", legend_columns: int = 2) -> str:
     """One :class:`PlotData` as a standalone ``tikzpicture``.
@@ -314,6 +332,9 @@ def plot_tex(data: PlotData, *, width: str = "0.86\\textwidth",
     drawable = [(s, pts) for s, pts in drawable if len(pts) >= 1]
     if not drawable and not data.points:
         return ""
+    # Coincident points share a marker and a label, as on screen (#256).
+    data = replace(data, points=data.marked_points())
+    legend_columns = _legend_columns(data, legend_columns)
 
     lines = [
         r"\begin{tikzpicture}",

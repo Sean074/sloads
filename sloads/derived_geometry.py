@@ -643,8 +643,11 @@ def engine_thrust_segments(project: Project) -> List[ThrustSegment]:
         else:
             start = tuple(engine.thrust_line_aft)
             end = tuple(engine.thrust_line_fwd)
-        name = engine.engine_designation or f"Engine {index}"
-        label = f"{name} thrust line" + (" (ASSUMED)" if assumed else "")
+        # Named by number, as its application-point marker is (#256): a
+        # designation is long (a 167 pt overfull legend on the ATR) and two
+        # engines of one type share it, so it named neither arrow. The figure
+        # states each designation once, against its number.
+        label = f"Engine {index} thrust line" + (" (ASSUMED)" if assumed else "")
         out.append(ThrustSegment(label, assumed, start, end))  # type: ignore[arg-type]
     return out
 

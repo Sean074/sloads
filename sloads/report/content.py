@@ -189,6 +189,41 @@ class PlotData:
     #: how that showed up (GUI review, 2026-08-30).
     points_label: str = "Design CG cases"
 
+    def marked_points(self) -> List[Tuple[str, float, float]]:
+        """:attr:`points` as the renderers draw them: points that coincide on
+        this figure share one marker and one label, ``"1 / 2"`` (#256).
+
+        Both engines of a twin sit at one (x, z) in side view, and two labels
+        at one coordinate printed "2" over an unreadable "1". Coincident means
+        within :data:`COINCIDENT_REL` of the figure's own span, so a merge is a
+        property of the drawing, not of either renderer: the screen and the page
+        mark the same points. First-in-order keeps its position; labels join in
+        order. The one owner of the merge: the weight/CG envelope's own copy
+        ("CG3 / fwd light") retired into this at #256, and its separator is the
+        one kept.
+        """
+        xs = [x for s in self.series for x in s.x] + [x for _l, x, _y in self.points]
+        ys = [y for s in self.series for y in s.y] + [y for _l, _x, y in self.points]
+        xs = [v for v in xs if v == v and abs(v) != float("inf")]
+        ys = [v for v in ys if v == v and abs(v) != float("inf")]
+        tol_x = COINCIDENT_REL * ((max(xs) - min(xs)) if xs else 0.0)
+        tol_y = COINCIDENT_REL * ((max(ys) - min(ys)) if ys else 0.0)
+        merged: List[Tuple[List[str], float, float]] = []
+        for label, x, y in self.points:
+            for labels, mx, my in merged:
+                if abs(x - mx) <= tol_x and abs(y - my) <= tol_y:
+                    labels.append(label)
+                    break
+            else:
+                merged.append(([label], x, y))
+        return [(" / ".join(labels), x, y) for labels, x, y in merged]
+
+
+#: Two :attr:`PlotData.points` closer than this fraction of the figure's span on
+#: both axes are one marker (#256): a tenth of a percent is under a printed
+#: marker's own size on any figure the report draws.
+COINCIDENT_REL = 1e-3
+
 
 @dataclass(frozen=True)
 class Figure:
@@ -613,17 +648,14 @@ def weight_cg_plot_data(project: Project, u: Units) -> Optional[PlotData]:
     if polygon is not None:
         series.append(polygon)
 
-    # Cases sharing a point are one marker with both names: on the GA6 the
-    # forward-light landing case and CG3 are the same loading, and two labels
-    # stacked on one diamond is a smudge, not information.
-    marked: Dict[Tuple[float, float], List[str]] = {}
-    for c in (weight.cg_cases if weight is not None else []):
-        marked.setdefault((c.xcg * len_f, c.weight_lb * mass_f), []).append(c.name)
-    points_marked = [(" / ".join(names), x, y)
-                     for (x, y), names in marked.items()]
+    # Cases sharing a point are one marker with both names -- on the GA6 the
+    # forward-light landing case and CG3 are the same loading -- which both
+    # renderers draw through ``PlotData.marked_points`` (#256).
+    points = [(c.name, c.xcg * len_f, c.weight_lb * mass_f)
+              for c in (weight.cg_cases if weight is not None else [])]
 
     return PlotData(f"Fuselage station ({L})", f"Weight ({W})", series,
-                    points=points_marked)
+                    points=points)
 
 
 #: The marker shape each loading kind is drawn with, and the order the legend

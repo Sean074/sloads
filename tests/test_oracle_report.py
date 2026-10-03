@@ -2098,14 +2098,15 @@ def test_the_weight_cg_figure_marks_every_entered_case_once():
     """Every CG case is marked; cases sharing a point share one marker.
 
     On the GA6 ``fwd light`` and ``CG3`` are the same loading (2800 lb @ 72.64),
-    and two labels on one diamond is a smudge rather than information."""
+    and two labels on one diamond is a smudge rather than information. The
+    merge is ``PlotData.marked_points``, which both renderers draw (#256)."""
     project = reduce_to_oracle_inputs(io.load_project(_GA))
-    data = _weight_cg(_doc()).data
+    marked = _weight_cg(_doc()).data.marked_points()
     entered = {(c.xcg, c.weight_lb) for c in project.weight.cg_cases}
-    assert len(data.points) == len(entered)
-    named = {n for label, _x, _y in data.points for n in label.split(" / ")}
+    assert len(marked) == len(entered)
+    named = {n for label, _x, _y in marked for n in label.split(" / ")}
     assert named == {c.name for c in project.weight.cg_cases}
-    assert any(" / " in label for label, _x, _y in data.points)
+    assert any(" / " in label for label, _x, _y in marked)
 
 
 def test_the_envelope_vertex_table_is_wtenv_s_own_result():
