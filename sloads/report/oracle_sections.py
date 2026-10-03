@@ -7180,7 +7180,13 @@ def _engine_view_figure(project: Project, records: Sequence[_EngineRecord], *,
         "is the thrust line the torque and the thrust act about, pointing "
         "forward. Each numbered marker is that engine's application point -- the "
         "combined engine and propeller CG -- which is where every component in "
-        "the table above acts.",
+        "the table above acts; engines whose points coincide in this view share "
+        "one marker, labelled with both numbers.",
+        # The legend names each engine by number (#256); its designation is
+        # stated here once rather than in every legend row.
+        "; ".join(f"Engine {record.number} is the "
+                  f"{record.engine.engine_designation or 'undesignated engine'}"
+                  for record in records) + ".",
         f"The two arrows in the corner are the positive senses of this view's "
         f"axes, {x_label} and {y_label}, both in {length_units}. A moment is "
         "positive right-handed about its axis, so a positive torque about a "

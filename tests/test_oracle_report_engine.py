@@ -449,6 +449,29 @@ def test_the_three_views_are_built_and_name_what_they_drew():
             assert figure.data.points, (name, key)
 
 
+def test_each_twin_s_legend_names_its_engines_apart_and_fits_the_text():
+    """#256. A thrust line is named by its engine's number, as its marker is:
+    the designation made each entry 52 characters on the ATR (a 167 pt
+    overfull box) and named neither arrow on the Baron, whose two engines
+    share one. The caption states each designation once, against its number,
+    and the side view's coincident application points are one marker."""
+    from sloads.report.plots_tex import _LEGEND_TWO_COLUMN_CHARS
+
+    for name in ("atr42_100", "baron_58", "concept_regional_jet"):
+        project = _project(name)
+        section = _section(_doc(project=project))
+        figures = {f.key: f for sub in section.subsections for f in sub.figures}
+        for key, figure in figures.items():
+            arrows = [s.name for s in figure.data.series if "thrust line" in s.name]
+            assert len(arrows) == len(set(arrows)) == 2, (name, key, arrows)
+            assert all(len(a) <= _LEGEND_TWO_COLUMN_CHARS for a in arrows), arrows
+            for number, engine in enumerate(project.engines, start=1):
+                assert (f"Engine {number} is the {engine.engine_designation}"
+                        in figure.caption), (name, key)
+        side = figures["engine_side_view"].data.marked_points()
+        assert [label for label, _x, _y in side] == ["1 / 2"], (name, side)
+
+
 def test_a_project_with_no_outline_still_draws_its_engines():
     """G-OR-111. The engines are the subject and the airframe is context, so a
     project that enters no drawable geometry gets the figures anyway -- and the

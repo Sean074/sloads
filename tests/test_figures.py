@@ -311,6 +311,42 @@ def test_both_renderers_read_the_producers_to_scale_statement():
     assert "axis equal image" not in plot_tex(graph)
 
 
+def test_coincident_points_share_one_marker_on_screen_and_on_the_page():
+    """#256. A twin's two engines sit at one (x, z) in side view; two labels at
+    one coordinate printed "2" over "1". Both renderers draw
+    ``PlotData.marked_points``: one marker, labelled in order."""
+    from sloads.report.plots_tex import plot_tex
+
+    data = PlotData("X", "Z", [Series("body", [0.0, 1000.0], [0.0, 100.0])],
+                    points=[("1", 353.2, 60.0), ("2", 353.2, 60.0),
+                            ("3", 700.0, 60.0)], to_scale=True)
+    assert [label for label, _x, _y in data.marked_points()] == ["1 / 2", "3"]
+    tex = plot_tex(data)
+    assert tex.count("{1 / 2};") == 1 and "{1};" not in tex and "{2};" not in tex
+    trace = next(t for t in plots.plot(data).data if t.name == data.points_label)
+    assert list(trace.text) == ["1 / 2", "3"]
+
+
+def test_points_apart_on_the_drawing_keep_their_own_markers():
+    data = PlotData("Y", "Z", [Series("wing", [-500.0, 500.0], [170.0, 190.0])],
+                    points=[("1", -161.0, 160.0), ("2", 161.0, 160.0)])
+    assert data.marked_points() == data.points
+
+
+def test_a_legend_entry_too_long_to_share_a_row_takes_one_column():
+    """#256. Two long entries side by side overran the text width; a legend
+    whose longest entry cannot sit beside another is one column."""
+    from sloads.report.plots_tex import _LEGEND_TWO_COLUMN_CHARS, plot_tex
+
+    short = PlotData("X", "Y", [Series("a", [0.0, 1.0], [0.0, 1.0]),
+                                Series("b", [0.0, 1.0], [1.0, 0.0])])
+    long_name = "x" * (_LEGEND_TWO_COLUMN_CHARS + 1)
+    long = PlotData("X", "Y", [Series(long_name, [0.0, 1.0], [0.0, 1.0]),
+                               Series("b", [0.0, 1.0], [1.0, 0.0])])
+    assert "legend columns=2" in plot_tex(short)
+    assert "legend columns=1" in plot_tex(long)
+
+
 def test_a_caption_that_says_to_scale_is_drawn_to_scale():
     """The defect note 67 §10 measured: five figures captioned "to scale on
     equal axes" were drawn on free axes in print, and four of them on screen.

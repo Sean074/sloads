@@ -186,11 +186,13 @@ def plot(data: PlotData, *, height: int = 420) -> go.Figure:
             fill="toself" if fill else None,
             fillcolor=fill,
             hovertemplate=f"{series.name}<br>%{{x}}, %{{y}}<extra></extra>"))
-    if data.points:
+    # Coincident points share a marker and a label, as on the page (#256).
+    marked = data.marked_points()
+    if marked:
         fig.add_trace(go.Scatter(
-            x=[x for _label, x, _y in data.points],
-            y=[y for _label, _x, y in data.points],
-            text=[label for label, _x, _y in data.points],
+            x=[x for _label, x, _y in marked],
+            y=[y for _label, _x, y in marked],
+            text=[label for label, _x, _y in marked],
             name=data.points_label, mode="markers+text",
             textposition="top center",
             textfont={"size": 10, "color": _ANNOTATION},
