@@ -61,6 +61,7 @@ class SchemaVersionError(ValueError):
 #: (#310). A row is added at the release cut, never on a development branch.
 RELEASED_SCHEMAS: Dict[str, int] = {
     "0.8.7": 70,
+    "0.8.8": 73,
 }
 
 def _hop_70(d: Dict[str, Any]) -> Dict[str, Any]:

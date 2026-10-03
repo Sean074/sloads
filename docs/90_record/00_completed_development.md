@@ -35,6 +35,405 @@ written directly, by the release manager.
 
 ---
 
+## Release cut: **sloads 0.8.8** (the deck's delivered loads are right, and the user can reach them — the beam model in the GUI, the T-tail fin's asymmetry, the engine axial loads, refusals by name), tag `v0.8.8`, 2026-10-03
+
+**Objective.** Close band **B9**, re-chartered on 2026-09-28 by the 0.8.8
+planning review as *the deck's delivered loads are right, and the user can
+reach them*. Three rows were the milestone: the beam model reaching the GUI
+(#283 with #244, note 67), the T-tail fin carrying the horizontal tail's
+asymmetry (#328, note 51) and the engine axial loads of both deck families
+(#319, note 66 D-66.12a/D-66.4a). The rest were the refusal sweep that keeps a
+NaN or a calc defect from shipping as a silent absence (#316, #330), the
+residues of the 0.8.7 release review (#318–#322), the interpreter pin (#327),
+the CI read in `solo_close.sh` (#329), and the polish that had waited behind
+#283 (#240, #243, #256). The band emptied on 2026-10-02; the pre-release
+review found two MAJOR (#341, #342), both closed on the branch before the
+cut, and the owner split 0.9.0 by chartering **B10 (0.8.9)** for the
+ATR-class correctness rows the review measured.
+
+**Deliverables** (the `[0.8.8]` changelog section is the release note):
+- **The beam model reaches the GUI (#283, #244, note 67, tier L).** A Beam
+  Model page shows the axes, owns the mesh, draws it to scale and writes the
+  deck with the operating empty weight's mass set beside it; a row counter is
+  bounded everywhere.
+- **A T-tail's fin carries the horizontal tail's asymmetry (#328, note 51,
+  tier L).** The AC 23-9 induced rolling moment in every fin condition,
+  one-engine-out included, and the 23.427 case through the fin.
+- **The engine axial loads of both deck families (#319, note 66, tier L).**
+  The one-engine-out hub carries the propeller's windmill drag when entered
+  and the stated Glauert bound otherwise; every gyroscopic case applies every
+  engine.
+- **Refusals by name (#316, #330, #341, tier S/M).** A half-entered input is
+  refused by name rather than raising a bare `ZeroDivisionError`; no handler
+  in `sloads/` swallows a calc defect; a NaN or an infinity cannot reach a
+  report section, a package file or a deck card.
+- **Mass and envelope (#309, #312, #320, #321, tier M/S).** An envelope point
+  no loading can produce is flagged; the calc package writes no digit count
+  of its own; SELECT's roll pick is decided outside the balance tolerance.
+- **Units, gates and tooling (#318, #322, #327, #329, #338, #342, tier S/M).**
+  SI artifacts state every number in SI, their prose included; the note 66/52
+  gates compare against independent figures; sloads requires Python 3.12 on
+  every gate; `solo_close.sh` refuses a close while the branch's CI is red;
+  the current-truth docs state the LIMIT basis the code ships.
+- **Report polish (#240, #243, #256, tier S).**
+- **Version** `0.8.7` → **`0.8.8`**. Schema **v70 → v73**: v71 at #319
+  (`EngineInput.windmill_drag_cd`), v72 at #328 (`TipTransfer` gains `mxx`,
+  `paired_case`, `induced`), v73 at #283 (`MassItem`'s usable-fuel tag), each
+  with an identity hop. **`RELEASED_SCHEMAS` gains `"0.8.8": 73`**, frozen as
+  `tests/fixtures_schema/release_0.8.8.json` (a copy of
+  `examples/ga6_normal.project.json`).
+- **Changelog cut** — `scripts/build_changelog.py 0.8.8 --date 2026-10-03`:
+  **19 fragments** consumed — 11 into `## [0.8.8]` directly and **8 history
+  entries** rolled to the top of this file, their changelog bullets derived
+  from their leads — and a fresh empty `[Unreleased]` opened.
+- **Record roll** (`RELEASE_PROCESS.md` §4 step 3): no note moves (note 61
+  CV-3). This file stood at 611 lines before the cut and 923 after the
+  fragments; the changelog at 1,139 and 1,415. Both are under 1,500; neither
+  rolled.
+- **Verification baseline** (§4 step 5): unchanged from the 0.8.7 cut —
+  [`36_verification_baseline_0.7.0.md`](36_verification_baseline_0.7.0.md)
+  plus the one 23.349(a)(2) correction registered at 0.8.7. No entry was added
+  to `02_approved_corrections.md` this cycle, and every Appendix A assertion
+  is the same test on the same printed number.
+- **Gates at cut:** `pytest` **4,267 passed / 13 skipped / 2 xfailed / 0
+  failed** (3,901 passed / 11 skipped / 2 xfailed at the 0.8.7 cut) on
+  `c7a8ccf`, the tip before the cut commits; `ruff` clean, `mypy` clean
+  (`sloads/`, 114 source files), `scripts/smoke_test.sh` **PASS**,
+  `scripts/build_changelog.py --dry-run` clean,
+  `scripts/backlog_issues.py check` clean,
+  `scripts/branch_protection_snapshot.py --check` matches on 7 tracked keys,
+  the §3.5 by-hand walk done by the owner (2026-10-03);
+  the cut's own guards (migrations, doc currency, links, fragments, backlog,
+  version owner) re-run green after the cut commits. Of the 0.8.8 pre-release
+  review's findings, both MAJOR (#341, #342) closed on the branch; no
+  CRITICAL or MAJOR is open, and its minors are filed — #343 and #344 in
+  B10, #345 and #346 on milestone 0.9.0.
+
+**Key decisions.** *A delivered load the user cannot reach is not
+delivered.* The band was re-chartered on that sentence, and its first row put
+the primary deliverable — the LRA beam model — on a page for the first time.
+The second decision repeats the last two cuts': an emptied band is not a
+release until a critical read of the whole branch says so. This one found two
+MAJOR and closed both before the cut, with no round trip back into the band.
+The third is the split: the review measured the open 0.9.0 work at twice the
+§2 cadence, so its near-term correctness half became its own milestone (B10,
+0.8.9) instead of a release that would have carried a month of unreleased
+work.
+
+---
+
+## Step — The beam model reaches the GUI: a Beam Model page shows its axes, owns its mesh, draws it and writes the deck with the operating empty weight's mass set beside it, every drawing is drawn to scale, and a stray keystroke can no longer commit 4,501 rows (#283 with #244 riding, design note 67 D-67.1–D-67.12, tier L, 2026-10-01)
+
+**Objective.** Close #283 and #244. The LRA free-free beam model is the primary deliverable, and the GUI had no route to it:
+
+- the deck was written only by `cli.py --export-target lra`;
+- the model was drawn only by `scripts/plot_lra_model.py`;
+- note 57 D-57.6 had retired the export page without a port.
+
+Measured first (note 67 §1):
+
+- **The stamp was CLI-private.** It read the tool version from `importlib.metadata`, the install-time snapshot `sloads/_version.py` exists to replace.
+- **The folder picker was private to the Report page.**
+- **The axis and the mesh were already editable on Geometry.** The backlog row said otherwise.
+- **"OEW" had no typed partition.** Four of five fixtures keep reserve fuel in `MINIMUM` with `consumable` False, by G-4's design.
+- **#244's counter lived in `oracle_app/form.py`,** not in `app_shell`. Nothing bounded the mesh counts either.
+
+**Deliverables.**
+- **One owner each for the stamp, the names and the picker (D-67.6–D-67.8).**
+  - `report.bundle_stamps` reads the version from `_version`.
+  - `export/deliverables` holds the file names and the one render-then-write both routes take. `render_set` renders a whole set before `write_set` opens a file, and `write_lra_model_bdf` retires.
+  - `app_shell/folder_picker.folder_picker` keeps one session key per page.
+  - The stale "the BDF stamp is always ULTIMATE" prose in `cli.py` and `report.methods` is corrected.
+- **The OEW mass set (D-67.9–D-67.11).**
+  - `MassItem.usable_fuel` (schema v73, identity `_hop_72`). Mission and reserve fuel are usable; unusable fuel and oil are not, per 14 CFR 23.29(a).
+  - `mass_distribution.oew_items`: `EMPTY` + `MINIMUM` less usable fuel.
+  - `mass_cards.oew_fragment`: GRID + CONM2, no MASSSET. Its header names every `MINIMUM` row it kept and every fuel row it left out.
+  - The CLI gains `--export-target oew`.
+  - The five fixtures tag 13 rows. The ATR's OEW is 22,674 lb with both reserve tanks left out.
+- **The drawing (D-67.4/D-67.5, amended in §10).**
+  - `oracle_sections.beam_model_figures`: four views (iso, plan, side, front), drawn from `build_lra_model`, the deck's own builder.
+  - The orthographic outlines come from `_airframe_series`, the engine views' owner. A refusal is stated verbatim in each view.
+  - Catalogued on the `beam_model` page, and printed at the head of the oracle report's Appendix G, so note 60's parity holds.
+  - The script, its test and `examples/*_lra_views.png` are deleted.
+- **Drawings to scale (§10, owner-confirmed).**
+  - `PlotData.to_scale` is stated by the producer, and both renderers read it.
+  - Before, the screen derived it from "every series closed", and print never set it outside the four planform keys. The engine views, ground attitudes, tail LRA planforms and fuselage side view were drawn on free axes under captions saying "to scale on equal axes".
+  - Seven producers set the flag.
+  - A drawing's printed legend is offset in baselines, so a thin drawing's legend clears its axis label.
+  - Unnamed series take no legend row on screen, as in print.
+- **The page (D-67.1–D-67.3).**
+  - `NON_STEP_PAGES` gains `beam_model`.
+  - The axes are shown read-only by `lra_model.reference_axis_rows`, over the same `LRA_SURFACES` the exporter refuses on.
+  - The four `lra_mesh` rows move from Geometry, rendered through `form.render_page_inputs`, which shares `render_step`'s group loop.
+  - The write needs a named confirmation before replacing a file. The page catches the deck's own `ValueError`, not only `LraRefusal`.
+  - The registry and figure-family guards widen from analysis steps to GUI pages.
+- **The bounded count (D-67.12, #244).** `app_shell.components.count_input` covers every row counter and every `field_registry.COUNT_RULES` field:
+  - rows are capped at 500, and mesh counts run 2–200 (`LRA_GRID_BOUNDS`, the exporter's own range);
+  - an increase of more than 10 is held until its named button is pressed;
+  - the widget re-seeds whenever the model moved underneath it;
+  - a file carrying an out-of-range mesh count is refused by the exporter, naming the field.
+- **Docs:**
+  - `PROGRAM_SPEC.md`: the export menu (stale "default" and "Export page bundles" text removed), the Beam Model page, the `usable_fuel` consumer row, the mesh range.
+  - `CONVENTIONS.md` §7: six owner rows.
+  - `theory_sources.md`: the OEW definition.
+  - `GUI_design.md` and `GUI_USER_GUIDE.md`.
+  - The guide's getting-started, troubleshooting and where-next chapters.
+  - `PROJECT_GUIDE.md` §4.
+  - `DATA_DICTIONARY.md` and the guide's generated tables, regenerated.
+- **Digests.** One new channel per example, `sbeam/oew_mass` (258 → 263). No existing channel moved. The oracle report has no digest channel.
+
+**Test.**
+- `tests/test_beam_model_page.py` (new):
+  - gate 1: page and CLI byte-identical, four airplanes, both systems;
+  - a refusal writes nothing and is stated verbatim on the page;
+  - the file prefix rule and replace detection;
+  - the page under AppTest: shipped airplane, blank project, write click;
+  - one picker owner.
+- `tests/test_bounded_count.py` (new), gate 9:
+  - the cap, a held jump, a small step committing normally, the re-seed;
+  - the mesh bounds equal the exporter's;
+  - a blank mesh count's jump is measured from its default;
+  - a file count of 1 or 4,501 is refused by name.
+- `tests/test_figures.py`:
+  - the beam model's plan view carries every CBAR, tie and owned node;
+  - a refusal is stated verbatim;
+  - both renderers honour `to_scale`, and a caption claiming "to scale" carries the flag;
+  - G-FIG-1/3/6 walk GUI pages.
+- `tests/test_mass_cards.py`: the fixture tags, the exact partition, one card per kept row, the header naming every `MINIMUM` row, an untagged reserve kept by name.
+- `tests/test_sbeam_roundtrip.py`: GPWG recovers the OEW in both systems.
+- `tests/test_migrations.py`: the v73 hop.
+- `tests/test_cli.py`:
+  - the `oew` target;
+  - the CLI builds no stamp and spells no file name;
+  - the stamp carries `_version`'s version.
+- Re-cut:
+  - `test_field_registry.py`: pages are GUI pages, and the mesh renders on the beam page alone.
+  - `test_lra_model.py` and `test_deliverable_units.py`: the writer moved to `deliverables`.
+  - `test_oracle_report.py`: picker keys.
+  - `test_schema_guards.py`: the v73 hash.
+  - `test_oracle_journey.py`: the harness clicks a held jump, as it clicks the #143 Add gestures.
+
+**Key decisions.**
+1. **A non-step page, not a fifth phase.** The model is the deliverable built from the analysis. Its page runs no `.BAS` program and fills no slice a computation reads, and `workflow.py` already said deliverables are not steps.
+2. **The axis stays where its other consumer is.** `net_loads` and `tail_span` torsion read `ref_axis_pct`, so it is entered on Geometry and shown on the beam page. The mesh, which only the exporter reads, moved beside its own drawing.
+3. **OEW is a typed partition, never a name match.** `consumable` already means "G-5 may burn it down", and reserve fuel is deliberately not consumable. Unusable fuel and oil stay in OEW on the regulation's own empty-weight definition.
+4. **The report prints the beam model (owner ruling A).** This keeps note 60 D-60.1 whole, so the GUI shows no figure the document lacks, rather than carving out the first exemption.
+5. **"To scale" is the producer's statement.** It is a property of what is drawn, like `log_x`, and both renderers must answer it alike. Deriving it from closed outlines was wrong in both directions on the shipped catalogue.
+6. **A file's out-of-range mesh count is the exporter's refusal, not a validation warning.** Validation warnings target analysis-step pages only, and the refusal reaches both the CLI and the beam page verbatim.
+
+- **The calc package writes no digit count of its own: every number in a result note, a validation warning or a condition title prints at its unit's row, and note 65's gate scans all of `sloads/` (#312, tier M, 2026-10-01)** — note 65's gate 4 read `sloads/report/` and the two GUI packages, and 388 hand-written float formats sat in the rest of the calc package, each line choosing its own precision (`:,.0f`, `:.4f`, `:g`). About 235 now go through `units.format_value` with the Imperial unit the number is in, which gained `signed=` for a sentence that states a direction by its sign. The rest are exempt, each with its reason on the statement: the solver channel's text, including the balanced-case summary rows that must print what the case header prints (#324); an identifier whose digits are part of it, such as the D-63.11 run key, a re-weighted ground case or a V-n point's title; an arithmetic `round`; and an entered value's echo. The 52 that were exception messages are exempt by one rule: the walk skips a `raise` statement whole. The walk also judges each expression once now; it used to re-read a nested expression under every enclosing statement. An area in ft² now prints to 0.1 ft² rather than the whole foot (owner ruling, amending D-65.4): a 5.2 ft² rudder had printed `5`, and an area in in² stays whole, so the SI m² row does not move. Thousands separators leave the prose, and a number reads at its row (a landing load factor `3.10`, not `3.0970`). 70 Imperial digests moved across the five fixtures, all on human channels plus the internal balanced deck's echoed notes. No shipped solver digest moved. The SI rendering of this text stays #339's question, and #338's SI gate shows none of it reaches an SI artifact. Note 65 §7c records the amendment; `CONVENTIONS.md` §7's precision row now names the wider scope.
+
+## Step — The engine axial loads of both deck families: the one-engine-out hub carries the propeller's own windmill drag when entered and the stated Glauert bound otherwise, and every gyroscopic case applies every engine at one airplane state (#319, design note 66 D-66.12a/D-66.4a, tier L, 2026-09-29)
+
+**Objective.** Close #319, the 0.8.7 release review's question whether the axial loads the two new families put at the hubs stand as LIMIT loads. The one-engine-out case delivered ONENGOUT's Glauert windmill drag (on the ATR +13,004 lb at VC and +20,319 lb at VD at the failed hub), a term the method used only as a yaw forcing and the manual calls the most the drag "can not be more than" (Ch 11 p88); nothing said it was a bound. Each 23.371(b)/25.371 case thrust its own engine alone, so on the ATR 10,865 lb at y = ±161 in, a 1.75 M lb-in yaw that the closure reacted with an acceleration no part of the airplane produced.
+
+**Deliverables.**
+- **The windmill drag (D-66.12a).** A new optional input, `EngineInput.windmill_drag_cd`: the windmilling propeller's disc drag coefficient, from the maker's data or the 23.367(a)(3) history. Schema v71; `_hop_70` is an identity and the first hop after a released schema.
+  - When it is entered, the failed hub carries `C_D · q · πD²/4` on the march's own ramp. The owner is `one_engine_out.windmill_drag_from_cd`. `disc_drag_coefficient` reads the bound back from the Glauert term (0.502), so the coefficient is never restated.
+  - When it is blank, the hub carries the Glauert term, and every case states it as the method's conservative upper bound and names the input that replaces it.
+  - The ONENGOUT march and the fin loads always use the bound.
+  - A twin is reflected only when both engines enter the same coefficient.
+- **The gyroscopic cases (D-66.4a).**
+  - Every engine's ENGLOADS thrust and couples are applied at the same sub-case, and every entered hub thrust is replaced.
+  - ENGLOADS now signs the propeller's spin by `prop_direction` (`engine.spin_sense`, `engine.angular_momentum`), as it already signed a turbine rotor's by its `max_rpm`. A sub-case's signs are therefore the airplane's rates on every engine. This amends note 53 D-53.6. No ENGLOADS number moves, because every fixture propeller is clockwise.
+  - The case keeps its engine's EM id. It states the net axial force the `n_x` relief reacts, and whether the engines spin together.
+  - On the ATR, co-rotating: the couples add, `ṙ` goes from −0.0022 to ±0.0004 (in the closure's per-inch units), and `Δn_x` from −0.79 to −1.12.
+  - On the RJ, whose fans counter-rotate: the couples cancel.
+  - The report's §10 rotation statement is corrected to match.
+- **The #321 engine riders.**
+  - `IN_PER_FT` and `VERTICAL_KEYS` are used instead of local copies.
+  - `ROTATION_FIXED_SOURCES` and `engine_member` have one owner, in `balance.applied`, which `lra_model` uses too. The restatement and its guard are gone.
+  - `coordinates.side_of` is the one side tag.
+  - `_MIRROR_TOL` is split into a length tolerance and a load tolerance.
+  - Two cases are now recorded instead of shipped: a case scaled by zero (`unscalable`) and a hub off the engine's butt line (`hub-off-arm`).
+  - The missing type hints are added.
+- **The digest wave: 10 Imperial channels.**
+  - `atr42_100` and `concept_regional_jet`: the balance CSV and text, the balanced deck and the LRA deck, from the gyroscopic cases.
+  - `baron_58`: the balanced deck and the balance text, from the one-engine-out statement alone. No OEI number moves.
+  - `ga6_normal` and `concept_heavy` are unchanged.
+
+**Test.**
+- `tests/test_engine_mount_cases.py`:
+  - G-66.4 carries every engine's increment at its own nodes.
+  - G-66.5 builds the parent without every entered thrust.
+  - G-66.17: every gyroscopic case thrusts every engine and, on a symmetric installation, yaws on none.
+  - The sub-case is the airplane's rates on every engine: the ATR's couples add, the RJ's cancel, and a counter-clockwise propeller's are reversed.
+  - A zero scale is recorded.
+- `tests/test_engine_out_cases.py`:
+  - The entered coefficient is delivered and the bound is stated.
+  - G-66.9 as amended: `[I]{Δω̇} = ΔM` of the drag difference.
+  - A twin needs both engines' coefficients to agree.
+  - A hub off the arm is recorded.
+- `tests/test_hub_thrust.py`: G-12b as amended.
+
+**Key decisions.**
+1. **The pairing rule was re-ruled in the build.** Note 66 §12 as first agreed paired counter-rotating engines by flipping both signs, keyed on `prop_direction`. The RJ showed that ENGLOADS already signed a rotor's spin and not a propeller's. The owner ruled (a): sign the propeller's spin too, and pair sub-case k with k. `Rotor.direction`, which no code reads while the sign lives in `max_rpm`, is filed as #332.
+2. **The fin load keeps the bound's forcing.** An entered coefficient moves only the hub load and the closure's yaw, by exactly its own moment. Owner ruling (a′).
+
+- **An envelope point no loading can produce is flagged: every entered CG limit and weight/CG case is tested against the loadings the database can hold, `baron_58`'s forward-regardless limit is the one that fails, and its `fwd gross` reaches the deck as an entered loading (#309, tier M, 2026-09-29)** —
+  The owner ruled on 2026-09-27 that an envelope point no loading can produce within the database's limits makes the envelope not valid, and must be flagged rather than dropped or ballasted over. Nothing tested it. `baron_58`'s two forward limits sat outside the balanced deck, and the only sign was a searched loading marked not derivable.
+  `mass_distribution.envelope_point_reach` is the one owner of the test. It checks each entered structural limit (`weight_envelope.structural_limit_points`, which WTENV's limits table now reads too) and each case against every loading within the rows' limits: discretionary rows at any fraction, and ballast only inside the fuselage and within the 10 % credibility gate.
+  At one weight the reachable CGs are exactly the interval between WTENV's two edges filled to that weight (`weight_envelope.sweep_order` owns the sort). The least closing ballast is then solved segment by segment.
+  Credible ballast counts because the Appendix A airplane needs it: its 3,400 lb gross is above its heaviest loading. Measured on all five fixtures, a no-ballast rule would have flagged four of them, ga6 included. With the gate, the only point flagged is Baron's `fwd regardless` (4,200 lb at 74.0 in), 2.85 in forward of the most-forward 4,200 lb loading, which no ballast closes.
+  It warns `envelope_point_unreachable`, as the limit and as the case, and the 2.2 case table names it from the same owner.
+  A case the whole-row search misses, but part-filled rows reach, warns `case_loading_search_missed` with a loading to enter. The search is unchanged.
+  Baron's database now carries its [A] baggage: nose 300 lb, where it had 150, and a new 400 lb rear row at +150 (waterline [E]). The loadings entered before the correction carry the nose hold at 0.5, so they are unchanged.
+  `fwd gross` is entered as a no-ballast loading: pilot row, full fuel, nose hold 0.4881, mid passengers 0.5693. Its waterline is its own 95.75, where the case had an unsourced 100.0, and it is now an assembled flight state of the deck.
+  The corrected payload also raises `mlw_below_landing_estimate` on Baron (OEW + max payload + reserve 5,820 lb against a 5,400 lb MLW), which is true of the airplane.
+  Rider (rule 4): both seeds wrote each case's waterline rounded to 0.01 in, and a small solved ballast re-solved from it moves by the rounding times `W / ballast`. Re-seeding Baron's corrected database gave a 20 lb ballast 1 in off its loading's line, breaking #314's fixed point. `cg_cases` now writes the loading's own waterline unrounded. No shipped case is a fresh seed, so nothing delivered moves.
+  **Delivered effect, Baron only** (30 Imperial channels; `ga6_normal`, `atr42_100`, `concept_regional_jet` and `concept_heavy` are byte-identical):
+  - `fwd gross` assembles SIDE GUST L/R at 1,015.6 lb of fin load. The pre-closure force residual is 0.376 %, so the lateral ratchet is re-pinned to 0.40 %. Izz at `fwd gross` is 7,136.3 slug-ft².
+  - SELECT's NHAA (STALL −N at `fwd gross`) goes from 8,011 to 7,978 lb (−0.4 %) with the waterline correction.
+  - ONENGOUT reads WTONECG's all-items loading, which now carries 550 lb more baggage: 6,540 lb against 5,990, both above the 5,500 lb MTOW. Its fin load rises 2.1 % (VD 2,159 → 2,205 lb, VS 676 → 702 lb).
+  - `fwd regardless` still supplies SELECT's NMAA, NLAA and PNZ air picks; their delivered runs are re-pointed to `mzfw fwd` (D-63.7). The warning now says the point they come from is not a loading.
+  Filed from here as #337: Baron has no minimum-crew row, and its `aft max landing` flies without a pilot.
+
+- **sloads requires Python 3.12, and the developer's gate, every pull request and the push to `main` run that one interpreter (#327, tier M, 2026-09-28)** —
+  The package declared `>=3.10`, a floor taken from streamlit (#132) rather
+  than from anything the code needs, and CI carried 3.10/3.11 legs that ran
+  only on the push to `main`, while the developer's `.venv` was 3.11 and every
+  pull request and `dev/**` push ran 3.12. 0.8.7 paid for that split twice: a
+  deck byte that differed between 3.11 and 3.12 kept `dev/v0.8.7`'s CI red
+  from #286 to the cut while every local gate passed (#324), and a 3.11-only
+  regex failed the 3.10 leg after the milestone had merged (#325). Now
+  `requires-python` is `>=3.12`, the 3.10/3.11 classifiers are gone, and the
+  `test` and `sbeam-roundtrip` jobs run `["3.12"]` on every event, so the push
+  to `main` adds only the coverage measurement. `tests/test_ci_conformance.py`
+  holds two new rules: a pull request runs every interpreter the push to `main`
+  runs, and the suite fails when it runs on an interpreter the `ci.yml` `test`
+  job does not, which makes a stale `.venv` one named failure instead of a
+  gate that silently differs from CI. The asymmetry guard it replaces and the
+  doc-wording check for the three-version list retire with the matrix. ruff's
+  py312 target raises no new finding. Installing on 3.10 or 3.11 is refused
+  from 0.8.8. `CLAUDE.md`, `README.md`, `CONTRIBUTING.md` (the venv command),
+  `00_program_overview.md`, `DEVELOPMENT_PROCESS.md` §0/§2, `RELEASE_PROCESS.md`
+  §4 and `WORKFLOW_COMMANDS.txt` state the one interpreter.
+
+- **A half-entered h-tail, landing gear or negative stall CL is refused by name instead of stopping the report with a bare ZeroDivisionError, and no handler in `sloads/` swallows a calc defect (#330, tier M, 2026-09-28)** —
+  #316 narrowed the report's handlers to the two refusals, `MissingInputError`
+  and a plain `ValueError`, and left two catch-alls outside its scope:
+  `fleet._wtestima_value`, which turned any WTESTIMA failure into a quiet change
+  of source on the fleet chart, and `validation`'s mass-state check, which
+  dropped its warning on any exception. Measuring what the second one caught
+  over the whole suite found two `ZeroDivisionError`s, and building the report
+  over every Optional record the GUI can add, at its blank defaults, on all five
+  examples found the rest: three divisors an input can zero, each raising a bare
+  `ZeroDivisionError` — SELECT's rational h-tail balance on a freshly added
+  h-tail record (elevator effectiveness 0), LANDLOAD's ground angle on a freshly
+  added gear record (main and nose axles both at the datum), and the flight
+  envelope's STALL −N / STALL −1G on a flaps-up set with no negative stall CL.
+  Since #316 each stopped the whole report with a message that named nothing,
+  where before it printed as an absent section. Each is now refused where it
+  divides, by `MissingInputError` naming the field (`select.htail_balance`,
+  `landing.ground_angles`, `flight_envelope.balance_configs`); no number moves
+  on a valid project. `REFUSALS` moved from `report/render.py` to
+  `sloads.models`, beside `MissingInputError`, because the calc layer never
+  imports `report`; the two handlers catch it and nothing wider, and a defect in
+  either now raises. `tests/test_report_absence.py`'s scan covers all of
+  `sloads/`, with the registry's run-all and the three typing-introspection
+  handlers exempted on their lines by `# broad-except: <reason>`, and a slow-lane
+  sweep builds the document and package over every blank record. The rule — a
+  divisor an input can zero is refused by name where it divides — is a row of
+  `00_program_overview.md` §Error handling; the three refusals are stated in
+  `PROGRAM_SPEC.md` under FLTLOADS, SELECT and LANDLOAD.
+
+- **An SI artifact states every number in SI, its prose included: provenance notes carry their quantities live and render in the channel written to, a persisted record keeps its numbers in values, and case names stay identifiers (#338, tier M, 2026-09-30)** —
+  #312's SI check came first, as its row asked, and found the defect. `units.convert_results` converts values and never text, so a number a calc builder formatted into a string stayed in inches and pounds in an SI artifact. Measured on the five fixtures:
+  - the SI LRA deck said "side of body ASSUMED at BL 23.00 in" beside GRIDs in mm (8–13 `$` lines per fixture);
+  - both SI mass decks captioned every MASSSET in lb and in;
+  - `concept_heavy`'s SI document placed its wing station "at FS 236.0 in";
+  - Baron's SI WTENV table had "station -105 in" inside a label.
+
+  Each named its unit, so nothing was mislabelled; the artifacts mixed units.
+  **The owner (D1).** `units.UnitText` (built with `unit_text`/`Quantity`) is a sentence whose numbers stay Imperial values until a writer calls `render(system)`. It converts them through the tables a `LoadValue` goes through and prints them through `format_value`, which moved into `units.py` for it (`report/render.py` re-exports it). It has no implicit `str()`. These provenance records carry it:
+  - `SobStation`, `FuselageCentreline`, `FuselageLra`, `VtailRoot`, `HTailWaterline`, `HTailAttachment`;
+  - the planform notes;
+  - `Joint.note`;
+  - the LRA model's `assumed_notes`, including its gear-carrier and engine-mount sentences.
+
+  The LRA deck renders them in its own system, and both mass decks' captions render in theirs. `BodyDragWaterline` keeps a plain `str`: its notes state no quantity.
+  **Persisted records keep the number in a value (D2).**
+  - The body result's `wing_station_note` is now a clause with no number in it (`joints.WING_STATION_CENTRELINE_REASON`), and §8 states the station from the result's `x_wing`.
+  - WTENV's `(none -- ...)` ballast marker names no station. The moment-balance station and the fuselage nose and tail stations are value rows of their own.
+  - The derived loading notes drop their ballast weight, which the loading carries.
+  - A result's persisted `notes` render in Imperial (`tail_span.imperial_notes`); the rest of that class is #312's and #339's.
+
+  **Case names are identifiers (D3).** A re-weighted ground case keeps "at 36,817 lb" in every system, and the SI LRA deck says so once above its case map.
+  **Gate** (`tests/test_si_artifacts.py`):
+  - SA-1, the rule;
+  - SA-2, every provenance record a deck reads types `note` as `UnitText`;
+  - SA-3, no Imperial-unit number in the SI LRA and mass decks of any fixture, or (slow lane) in the SI document and its `data/`, once identifiers are removed. The scan names the words that make `in` a preposition, so "-105 in is outside" counts as a station and is caught.
+
+  **Delivered effect.** No load, card or GRID moves. Text moves in Imperial as well, because the notes now print at their units' precision (note 65): "BL 23.00 in" becomes "BL 23.0 in", and the spar fractions print through `format_value`. Imperial digests moved on 15 channels:
+  - every fixture's `sbeam/mass_model` and `sbeam/mass_check` (caption text only);
+  - the `sbeam/lra_model` of `ga6_normal`, `baron_58` and `concept_regional_jet` (`ASSUMED:` text only; the ATR's notes state no quantity);
+  - Baron's `csv/weight_envelope` and `txt/weight_envelope` (the forward-regardless and aft-gross markers lose their stations and gain the station rows).
+
+  No load-case channel moved.
+
+## Step — A T-tail's fin carries the horizontal tail's asymmetry: the AC 23-9 induced rolling moment in every fin condition, one-engine-out included, and the 23.427(a) case through the fin, with the horizontal-tail assumption checked (#328, design note 51 D-51.1a–D-51.11, tier L, 2026-09-29)
+
+**Objective.** Close #328. Note 51 had been AGREED since 2026-09-06 with no issue and no code, and was written against the per-component fin deck note 56 deleted. It was re-scoped against the LRA deck and re-AGREED in session (§9). What the tree did on the two shipped T-tails, measured first:
+
+- **The 23.427(a) roll.** It reached the fin root in the deck exactly (RJ ±72,547, ATR ±30,622 lb-in), but no gate asserted it and the fin view never showed it.
+- **The AC 23-9 ¶5a induced rolling moment.** It was absent everywhere. On the RJ it is 27–73 % of the fin's root bending.
+- **The ATR's one-engine-out cases.** They govern its fin (889,475 lb-in, 3.6× the four 23.441/23.443 conditions), which meets the trigger note 51 §8 had set for adding them.
+
+**Deliverables.**
+- **The induced rolling moment (D-51.3a/D-51.3b).** `tail_span.induced_roll_moment` computes `M_r = 0.3 q S_H b_H β` and returns an `InducedRoll` record: the moment, β, q, Mach, altitude, basis and dihedral.
+  - **β.** The fin's own side load, expressed as an angle on SELECT's AVT. This reproduces `RD·EFV·EFFECTV`, the owner's net 19.5° − that, and 15° exactly, and gives each engine-out case its peak fin load as an angle. The side gust takes the AC's `1.2 U/V`.
+  - **Sense.** The moment has the sign of the fin's own root rolling moment (AC ¶5d).
+  - **Magnitudes.** RJ 137–374k lb-in. ATR 54–162k lb-in in the four fin conditions, and 329k (VC, ultimate) and 459k (VD) lb-in in the engine-out cases.
+- **The fin view (D-51.1, D-51.1a, D-51.10).**
+  - `TipTransfer.mxx` carries the induced moment, along with its record (`induced`) and the pairing point (`paired_case`). T-16 is narrowed to the symmetric pairing.
+  - An engine-out fin result is paired at the 1 g parent the deck assembles it on. That lookup now has one owner, `engine_out_cases.oei_parent_point`, and the march altitude has one owner, `one_engine_out.case_altitude_ft`.
+  - `ttail_transfer_to_airplane` passes `mxx` through, and the applied-load row carries it.
+  - Each fin result publishes its root rolling moment including the tip set (`vtail_root_mxx_with_tip`).
+- **`HTAIL UNSYM` (D-51.2a).** A new fin condition, VT-20, in a new band `VTAIL_BAND_TTAIL` (23.427(c)).
+  - Its tip carries the 23.427(a) table's own stations: `fz`, `myy` about the tip, and the net roll `mxx`. The fin carries no air load of its own in it.
+  - It is in the fin view only. The deck's 23.427(a) case already carries the roll, as strips (D-51.5a).
+- **The deck (D-51.4a).** Each T-tail lateral and one-engine-out case carries one free couple at the fin tip, source `vtail-induced-roll`, read from the transfer's `induced` record and never from `mxx`.
+  - The closure's roll acceleration ṗ reacts it, and the case states it in band (`INDUCED_ROLL_NOTE`).
+  - The deck's fin-root moment goes up by exactly `M_r`: RJ yaw 15° from 522,579 to 833,148 lb-in; ATR engine-out VD from 889,475 to 1,348,459 lb-in.
+- **The stated limits (D-51.7, D-51.8).**
+  - `check_htail_under_induced_roll` compares `M_r/2` per side with the horizontal tail's governing root bending, on one factor basis, and states the ratio on each result. RJ ≤ 53.4 %; ATR VC 67.9 %. The ATR's VD engine-out case is **142.2 %**, so its warning fires on the shipped fixture.
+  - `validation._check_ttail_induced_roll` raises three warnings on the Tail Loads page: `ttail_induced_roll_sizes_htail`, `ttail_induced_roll_mach` (above 0.6, owner Q2; the RJ's side gust is Mach 0.692) and `ttail_htail_dihedral`.
+- **The report (D-51.11).**
+  - A T-tail's fin is no longer withheld: 6.5 and Appendix E publish, and 6.5 states the three tip sets and each condition's numbers.
+  - Section 5's pointer says the horizontal tail's loads exclude the induced moment.
+  - A V-tail and a cruciform still withhold. The dead T-tail branches of the withholding text are removed.
+- **Rider (rule 4).** The 23.333(c) gust velocity had four copies (`flight_envelope`, `vn_diagram`, and SELECT's lateral and h-tail gusts). It now has one owner, `constants.gust_ude_fps`, and no conventional fixture's digest moved.
+- **Schema v72, with an identity `_hop_71`.** `TipTransfer` is persisted, so the new fields (`mxx`, `paired_case` and `induced`, which holds an `InducedRoll`) change a persisted shape. Note 51 D-51.1's "no hop" predated #310's released-schema rule and is corrected in §9.7. The five examples are re-stamped.
+- **Note 21 §5** now letters the fin-with-horizontal case 23.427(c).
+- **The digest wave: 16 Imperial channels**, the same 8 on each T-tail (`concept_regional_jet`, `atr42_100`): the case index, the balance CSV and text, the tail-span CSV and text, the balanced deck, the LRA deck, and the fin's applied deck. `ga6_normal`, `baron_58` and `concept_heavy` do not move.
+
+**Test.**
+- `tests/test_ttail_induced_roll.py` (new) covers G-51.1 to G-51.11:
+  - the (b) roll at the deck's fin root;
+  - the engine-out pairing is the deck's own;
+  - `HTAIL UNSYM` is its table's own set;
+  - the deck carries one couple and never the lumped set, and its fin root equals the fin's own load plus `M_r`;
+  - the formula identity and the note's measured figures;
+  - the sense;
+  - the fin view's root with the tip set;
+  - the AC's own 4–6× band (RJ 4.28×/5.15×, ATR 4.18×/5.29×);
+  - the h-tail check warns on the ATR's VD engine-out case alone;
+  - the Mach warning fires on the RJ side gust alone;
+  - an entered dihedral is warned and scales nothing;
+  - a conventional layout carries none of it;
+  - the gust rule has one owner (an AST check).
+- Re-cut tests:
+  - `test_balance.py`: the fin set includes the couple, and the lateral pins moved (ṗ +27–83 %, ṙ < 4 %; fin load and Ny unchanged).
+  - `test_tail_span.py`: `HTAIL UNSYM` is excepted from the SELECT-pairing and chordwise gates.
+  - `test_oracle_report_vtail.py`: a V-tail and a cruciform withhold and a T-tail publishes, and the case-keyed tables allow VT-20 in the spanwise pair.
+  - `test_lumping.py` and `test_tail_transforms.py`.
+
+**Key decisions.**
+1. **One β rule instead of four.** Expressing each condition's own fin load as an angle makes the owner's net-β ruling (D-51.3a) fall out with no special case, and gives the engine-out cases a β without a second model.
+2. **The couple is read from `induced`, never from `mxx`.** `mxx` also carries the 23.427(a) roll on `HTAIL UNSYM`, which the deck already has as strips. Reading `mxx` would count it twice.
+3. **The h-tail check is on one factor basis.** The engine-out VC case is ultimate (SF 1.0) and the horizontal tail's governing case is limit. Compared raw, it would read 101.8 %; on one basis it is 67.9 %.
+4. **Open: D-51.9, the ATR's tailplane dihedral.** No citable value was found in session (neither Jane's [C] nor a measurable [A] three-view was available), so the fixture still enters 0. The guard is gated on a constructed project. **Deferred with its trigger met:** the ATR's VD engine-out case puts `M_r/2` at 142 % of the horizontal tail's root bending, and the horizontal tail's own loads do not carry it. That is filed as its own issue.
+
 ## Release cut: **sloads 0.8.7** (the deck carries what the airplane carries — the engine, the one-engine-out fin, the complete rolling conditions), tag `v0.8.7`, 2026-09-27
 
 **Objective.** Close band **B8**, re-chartered on 2026-09-22 as *the deck
