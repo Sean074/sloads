@@ -502,7 +502,9 @@ def design_speeds(project: Project, inp: StructuralSpeedsInput) -> List[Conditio
         far_reference="23.335(b)",
         values=[
             LoadValue("Shoulder altitude", inp.shoulder_altitude_ft, "ft", key="shoulder_altitude"),
-            LoadValue("Speed of sound", a, _KT, key="speed_of_sound"),
+            # A true airspeed: the speed of sound is not an equivalent one
+            # (#240 R20).
+            LoadValue("Speed of sound", a, "kt(TAS)", key="speed_of_sound"),
             LoadValue("Density ratio sigma", sigma, key="density_ratio_sigma"),
             LoadValue("Cruise Mach MC", mc, key="cruise_mach_mc"),
             LoadValue("Dive Mach MD", md, key="dive_mach_md"),
