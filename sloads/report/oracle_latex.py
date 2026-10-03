@@ -193,6 +193,18 @@ def _limitations_tex(doc: OracleDocument) -> str:
     ])
 
 
+def _references_tex() -> str:
+    """The references the document cites by number (#240 R22), from their one
+    owner, :data:`sloads.report.methods.REFERENCES`."""
+    from .methods import REFERENCES
+
+    rows = [r"\noindent " + escape(name) + r": " + escape(entry)
+            for name, entry in REFERENCES]
+    return "\n\n".join([r"\subsection*{References}",
+                         r"\addcontentsline{toc}{subsection}{References}",
+                         *rows])
+
+
 def title_page_tex(doc: OracleDocument) -> str:
     """The cover: marking, identity, document control, signatures, distribution.
 
@@ -315,7 +327,8 @@ def render_oracle_document(doc: OracleDocument) -> str:
     for index, section in enumerate(doc.sections):
         parts.append(section_tex(section, 0))
         if index == 0:
-            parts += [_provenance_block(doc), _limitations_tex(doc)]
+            parts += [_provenance_block(doc), _limitations_tex(doc),
+                      _references_tex()]
     parts.append(r"\end{document}")
     return "\n\n".join(p for p in parts if p).rstrip() + "\n"
 

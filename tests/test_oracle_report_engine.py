@@ -41,6 +41,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # tests/helpers
 from dataclasses import replace
 
 from sloads import io
+from sloads.constants import IN_PER_FT
 from sloads.export.coordinates import engine_applied_load, engine_thrust_axis
 from sloads.load_keys import FY_SIDE, FZ_VERTICAL, MX_MOUNT_TORQUE, gyro_key
 from sloads.models.report import ReportSpec
@@ -165,8 +166,9 @@ def test_the_printed_components_are_the_resolution_of_the_printed_scalars():
         assert len(cases) == len(components.rows), name
         first = _column(components, "Fx")
         for row, (force, moment) in zip(components.rows, cases):
+            # The module's ft-lb, in the document's lb-in (#240 R13).
             want = ([format_value(v, "lb") for v in force]
-                    + [format_value(v, "lb-in") for v in moment])
+                    + [format_value(v * IN_PER_FT, "lb-in") for v in moment])
             assert row[first:first + 6] == want, (name, row[1], want)
 
 
@@ -201,10 +203,15 @@ def test_the_document_and_the_csv_carry_opposite_torque_signs():
             printed = csv.get(row[ids], {}).get(column, "")
             if printed in ("", None) or float(printed) == 0.0:
                 continue
-            reaction, applied = float(printed), float(row[mx])
+            # The CSV keeps the module's ft-lb; the document states lb-in
+            # (#240 R13).
+            reaction, applied = float(printed) * IN_PER_FT, float(row[mx])
             assert reaction * applied < 0.0, (name, row[ids], reaction, applied)
             if cosine[row[0]] == -1.0:
-                assert row[mx] == format_value(-reaction, "lb-in"), (name, row[ids])
+                # Equal magnitudes, to the rounding of the CSV's whole ft-lb
+                # (half of one, twelve-fold) and of the document's whole lb-in.
+                assert abs(applied + reaction) <= 0.5 * IN_PER_FT + 0.5, (
+                    name, row[ids], applied, reaction)
             else:
                 assert abs(applied) < abs(reaction), (name, row[ids])
             checked += 1
@@ -246,8 +253,10 @@ def test_the_appendix_a_engine_reaches_the_document():
     # from, which is where the oracle's own number is.
     scalars = _table(section, "Engine torque and thrust")
     torque = _column(scalars, "Torque about thrust line")
-    assert math.isclose(float(scalars.rows[0][torque]), -737.34, rel_tol=1e-3)
-    assert math.isclose(float(scalars.rows[1][torque]), -740.4412, rel_tol=1e-3)
+    # The oracle's ft-lb, in the document's one moment unit (#240 R13).
+    assert "(lb-in)" in scalars.columns[torque]
+    assert math.isclose(float(scalars.rows[0][torque]), -737.34 * 12, rel_tol=1e-3)
+    assert math.isclose(float(scalars.rows[1][torque]), -740.4412 * 12, rel_tol=1e-3)
     assert float(take_off[mx]) > 0.0 and float(continuous[mx]) > 0.0
 
 

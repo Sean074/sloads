@@ -173,6 +173,15 @@ _LABEL_GAP = 0.012
 #: genuinely obstructed, and only then goes looking.
 _LABEL_MIN_CLEARANCE = 0.012
 
+#: How far out a label may step, in multiples of :data:`_LABEL_GAP`: beside its
+#: marker first, then on a leader line when three markers inside one label's
+#: width leave none of the eight places beside any of them clear (#240 R16).
+_LABEL_RINGS: Tuple[float, ...] = (1.0, 3.0, 5.0, 8.0)
+
+#: The default graph's height over its width -- 7.2 cm over 0.86 of the A4 text
+#: width at 22 mm margins -- the proportions the label footprint is stated in.
+_GRAPH_ASPECT = 7.2 / (0.86 * 16.6)
+
 
 def _segment_distance(px: float, py: float,
                       ax: float, ay: float, bx: float, by: float) -> float:
@@ -209,6 +218,13 @@ def _point_box_distance(px: float, py: float,
     return math.hypot(max(x0 - px, 0.0, px - x1), max(y0 - py, 0.0, py - y1))
 
 
+def _box_box_distance(a: Tuple[float, float, float, float],
+                      b: Tuple[float, float, float, float]) -> float:
+    """Distance between two boxes -- ``0`` when they overlap."""
+    return math.hypot(max(b[0] - a[2], 0.0, a[0] - b[2]),
+                      max(b[1] - a[3], 0.0, a[1] - b[3]))
+
+
 def _segment_box_distance(seg: Tuple[float, float, float, float],
                           box: Tuple[float, float, float, float]) -> float:
     """Distance from a segment to a box -- ``0`` when they meet.
@@ -227,9 +243,11 @@ def _segment_box_distance(seg: Tuple[float, float, float, float],
                   for cx, cy in ((x0, y0), (x1, y0), (x1, y1), (x0, y1))])
 
 
-def _label_anchors(data: PlotData,
-                   drawable: Sequence[tuple]) -> List[Tuple[str, str, float, float]]:
-    """``(anchor, label, x, y)`` for every marker, placed clear of the ink.
+def _label_anchors(data: PlotData, drawable: Sequence[tuple],
+                   ) -> List[Tuple[str, str, float, float, float, float]]:
+    """``(anchor, label, x, y, lx, ly)`` for every marker, placed clear of the
+    ink: the label's node sits at ``(lx, ly)``, which is the marker itself
+    unless the label had to step out onto a leader line (#240 R16).
 
     Every marker label used to be emitted ``anchor=south`` -- directly above its
     point -- so any marker sitting on or near a line had its label written
@@ -253,7 +271,7 @@ def _label_anchors(data: PlotData,
     """
     x_range, y_range = _x_range(data), _y_range(data)
     if x_range is None or y_range is None:
-        return [("south", label, x, y) for label, x, y in data.points]
+        return [("south", label, x, y, x, y) for label, x, y in data.points]
     x0, x1 = x_range
     y0, y1 = y_range
     xs, ys = (x1 - x0) or 1.0, (y1 - y0) or 1.0
@@ -272,35 +290,64 @@ def _label_anchors(data: PlotData,
         segments.append((ax, 0.0, ax, 1.0))
     markers = [norm(x, y) for _label, x, y in data.points]
 
+    # A drawing is not the 7.2 cm graph the footprint was measured on: its
+    # height is whatever its proportions make it, so a line of text is a larger
+    # fraction of a short axis. The y footprint is scaled by the two aspects.
+    stretch = 1.0
+    if data.to_scale and xs > 0 and ys > 0:
+        stretch = min(max(_GRAPH_ASPECT / (ys / xs), 0.25), 4.0)
+
     placed = []
+    # The boxes of the labels already placed: a label is scored against them as
+    # against a marker, or three close markers stack three words into one smudge
+    # (#240 R16, the landing-CG labels of the ground attitudes).
+    taken: List[Tuple[float, float, float, float]] = []
     for index, (label, x, y) in enumerate(data.points):
         px, py = norm(x, y)
         others = [m for i, m in enumerate(markers) if i != index]
         half_w = 0.5 * max(len(label), 1) * _LABEL_CHAR_WIDTH
-        half_h = 0.5 * _LABEL_HEIGHT
-        best, best_score = _LABEL_ANCHORS[0][0], None
-        for anchor, dx, dy in _LABEL_ANCHORS:
-            cx = px + dx * (_LABEL_GAP + half_w)
-            cy = py + dy * (_LABEL_GAP + half_h)
-            # The clearance that matters is the whole word's, not the end of it
-            # nearest the marker, so the label is scored as the box it occupies.
-            box = (cx - half_w, cy - half_h, cx + half_w, cy + half_h)
-            score = min([_segment_box_distance(seg, box) for seg in segments]
-                        + [_point_box_distance(mx, my, *box)
-                           for mx, my in others]
-                        + [1.0])
-            # Never place a label off the axis: a corner marker has no room on
-            # two of its four sides, and half a word outside the frame is worse
-            # than a word over a grid line.
-            if not (box[0] >= 0.0 and box[1] >= 0.0
-                    and box[2] <= 1.0 and box[3] <= 1.0):
-                score -= 1.0
-            if best_score is None or score > best_score:
-                best, best_score = anchor, score
-            if score >= _LABEL_MIN_CLEARANCE:
-                best, best_score = anchor, score
+        half_h = 0.5 * _LABEL_HEIGHT * stretch
+        gap_y = _LABEL_GAP * stretch
+        best = (_LABEL_ANCHORS[0][0], 1.0)
+        best_score: Optional[float] = None
+        best_box = (px, py, px, py)
+        found = False
+        # Beside the marker first; only a label with no clear place beside it
+        # steps out, ring by ring, on a leader line back to its marker.
+        for ring in _LABEL_RINGS:
+            for anchor, dx, dy in _LABEL_ANCHORS:
+                cx = px + dx * (_LABEL_GAP * ring + half_w)
+                cy = py + dy * (gap_y * ring + half_h)
+                # The clearance that matters is the whole word's, not the end of
+                # it nearest the marker, so the label is scored as its box.
+                box = (cx - half_w, cy - half_h, cx + half_w, cy + half_h)
+                score = min([_segment_box_distance(seg, box) for seg in segments]
+                            + [_point_box_distance(mx, my, *box)
+                               for mx, my in others]
+                            + [_box_box_distance(box, other) for other in taken]
+                            + [1.0])
+                # Never place a label off the axis: a corner marker has no room
+                # on two of its four sides, and half a word outside the frame is
+                # worse than a word over a grid line.
+                if not (box[0] >= 0.0 and box[1] >= 0.0
+                        and box[2] <= 1.0 and box[3] <= 1.0):
+                    score -= 1.0
+                if best_score is None or score > best_score:
+                    best, best_score, best_box = (anchor, ring), score, box
+                if score >= _LABEL_MIN_CLEARANCE:
+                    best, best_score, best_box = (anchor, ring), score, box
+                    found = True
+                    break
+            if found:
                 break
-        placed.append((best, label, x, y))
+        anchor, ring = best
+        direction = next((dx, dy) for a, dx, dy in _LABEL_ANCHORS if a == anchor)
+        # The node's own anchor sits at the marker on the first ring; further
+        # out it sits at the stepped point, in data units.
+        lx = x + direction[0] * _LABEL_GAP * (ring - 1.0) * xs
+        ly = y + direction[1] * gap_y * (ring - 1.0) * ys
+        placed.append((anchor, label, x, y, lx, ly))
+        taken.append(best_box)
     return placed
 
 
@@ -416,9 +463,12 @@ def plot_tex(data: PlotData, *, width: str = "0.86\\textwidth",
                      "coordinates {"
                      + _coordinates((x, y) for _l, x, y in data.points) + "};")
         lines.append("\\addlegendentry{" + escape(data.points_label) + "}")
-        for anchor, label, x, y in _label_anchors(data, drawable):
+        for anchor, label, x, y, lx, ly in _label_anchors(data, drawable):
+            if (lx, ly) != (x, y):
+                lines.append(f"\\draw[gray, very thin] (axis cs:{_num(x)},{_num(y)}) "
+                             f"-- (axis cs:{_num(lx)},{_num(ly)});")
             lines.append(f"\\node[anchor={anchor}, font=\\tiny] at "
-                         f"(axis cs:{_num(x)},{_num(y)}) {{{escape(label)}}};")
+                         f"(axis cs:{_num(lx)},{_num(ly)}) {{{escape(label)}}};")
     lines += [r"\end{axis}", r"\end{tikzpicture}"]
     return "\n".join(lines)
 

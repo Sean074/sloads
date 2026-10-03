@@ -484,6 +484,19 @@ def _tail_planform_block(project: Project) -> List[str]:
     return out
 
 
+#: The documents' numbered references, ``(name, entry)`` (#240 R22): the oracle
+#: report cited "Reference 1 page 103" and "page 198" with no list saying what
+#: Reference 1 is. The one owner; ``tests/test_oracle_report.py`` refuses a
+#: "Reference N" in the rendered document that this does not define.
+REFERENCES: Tuple[Tuple[str, str], ...] = (
+    ("Reference 1",
+     "McMaster, H. C., FAR 23 LOADS: structural design loads for small "
+     "airplanes under 14 CFR Part 23 Subpart C, theory manual and program "
+     "listings, Aero Science Software. Its Appendix A is the printed example "
+     "this analysis is checked against, and page numbers cited are its own."),
+)
+
+
 def methods_statement(
     project: Project,
     *,

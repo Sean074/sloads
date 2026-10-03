@@ -47,7 +47,7 @@ from typing import TYPE_CHECKING, Dict, List, Mapping, NamedTuple, Optional, Seq
 from .. import csv_text
 from ..aero_curves import inertia_drag_factor
 from ..cg_cases import flight_case_ids, flight_cases
-from ..constants import IN2_PER_FT2
+from ..constants import IN2_PER_FT2, IN_PER_FT
 from ..derived_geometry import (
     MacReference,
     mac_reference,
@@ -2955,6 +2955,25 @@ def _cumulative_table(net: Sequence[WingLoadResult], system: UnitSystem,
               "factor it does not apply."))
 
 
+def _wing_hosted_id_sentence() -> str:
+    """Why a W- case id from 50 up is not in Appendix B (#240 R19).
+
+    The aileron, flap and wing-tab conditions take the wing's prefix because
+    the wing hosts them, so a reader searching this appendix for W-50 finds
+    nothing and is not told why. The bands are read from their owner,
+    :mod:`sloads.case_ids`, so the sentence cannot drift from the ids minted."""
+    from ..case_ids import WING_BAND_AILERON, WING_BAND_FLAP, WING_BAND_TAB
+
+    return (
+        f"A wing case id from W-{WING_BAND_AILERON} up is not a wing load "
+        f"distribution and does not appear here: W-{WING_BAND_AILERON} to "
+        f"W-{WING_BAND_FLAP - 1} are the aileron's conditions, "
+        f"W-{WING_BAND_FLAP} to W-{WING_BAND_TAB - 1} the flap's and "
+        f"W-{WING_BAND_TAB} on a wing tab's. They share the wing's prefix "
+        "because the wing carries the surface, and their loads are stated in "
+        "that surface's own section.")
+
+
 def _station_appendix(project: Project, *, system: UnitSystem,
                       plan: Sequence[SectionPlan]) -> Section:
     """Appendix B's content: the applied set, then the cumulative one."""
@@ -2981,6 +3000,7 @@ def _station_appendix(project: Project, *, system: UnitSystem,
         "is given. The second is the load carried across each station -- what "
         "that model should return. The symbols and the relation between them "
         "are stated in " + notation + ".",
+        _wing_hosted_id_sentence(),
     ]
     body = [paragraph for paragraph in body if paragraph]
     if applied is None or carried is None:
@@ -3992,10 +4012,10 @@ def _body_distribution_figure(net: Sequence[BodyLoadResult], key: str, attr: str
         key=key, title=f"{title} (LIMIT)",
         data=PlotData(f"Fuselage station X ({u.label('length')})",
                       f"{title} ({u.ult_label(dim)})", series),
-        caption=(f"{title} along the fuselage, every fuselage case on one axes. "
+        caption=(f"{title} along the fuselage, every fuselage case on one set of axes. "
                  "The quantity is cumulative: it is accumulated nose to tail, "
                  "so a value is what the body carries across that station and "
-                 "not the load applied at it. Both curves return to zero at the "
+                 "not the load applied at it. Every curve returns to zero at the "
                  "aft end, which is the closure the beam is held to. All values "
                  "are LIMIT, each case stating the safety factor it does not "
                  f"apply, as set out in {critical}."))
@@ -4672,7 +4692,8 @@ def _tail_state_table(project: Project, component: str,
 
 
 def _inertia_basis(project: Project, component: str) -> str:
-    """Whether the inertia in the state table was entered or estimated (OR-135).
+    """Whether the inertia in the state table was entered or estimated (OR-135),
+    for the vertical tail's yaw inertia and the horizontal tail's pitch inertia.
 
     Provenance in the same visual field as the value (OR-97): the rod estimate
     measured **49 per cent** over WTONECG's database value on the Cessna 210
@@ -4684,10 +4705,20 @@ def _inertia_basis(project: Project, component: str) -> str:
     provenance and asking it is not a second derivation of one.
     """
     if component != "vtail":
-        # The horizontal tail's checked pair states its own pitch inertia, which
-        # SELECT takes from the weight data base in every case; there is no
-        # second route for it to have come by, so there is nothing to state.
-        return ""
+        # The horizontal tail's checked pair reads SELECT's own pitch inertia,
+        # which is the rod estimate in every case (``select.py``, ``iyy``) and
+        # never the weight data base's IYY. An earlier comment here said the
+        # reverse and suppressed the statement; on the GA6 the two differ by
+        # about a factor of two (#240 R21).
+        return (
+            "The pitch inertia beside the checked manoeuvres is SELECT's own "
+            "estimate, made the same way in every case: the airplane taken as a "
+            "uniform rod of its fuselage length at that case's weight, times "
+            "0.44. It is not the IYY the weight data base computes from the "
+            "entered items under Weight and Mass Properties, and it can differ "
+            "from it by a factor "
+            "of two; the checked-manoeuvre increment of 14 CFR 23.423(b) is in "
+            "proportion to it. ")
     vtail = getattr(project, "vtail_loads", None)
     entered = float(getattr(vtail, "izz_slugft2", 0.0) or 0.0) > 0.0
     if entered:
@@ -5432,6 +5463,8 @@ def _tail_station_appendix(project: Project, component: str, *,
     the exported deck uses (``export.coordinates.tail_station_to_airplane``), so
     a row here and a card in the deck place the same load at the same point.
     """
+    from ..tail_geometry import is_t_tail
+
 
     names = _TAIL_SURFACES[component]
     if _vtail_withheld(project, component):
@@ -5511,10 +5544,18 @@ def _tail_station_appendix(project: Project, component: str, *,
         f"row here and the card that carries it are the same load -- every "
         f"card, not the normal force alone: the strip torsion is a MOMENT card "
         f"at the same grid, and its column is beside the forces here.",
-        "The rows are the surface's strips, in span order, followed by any "
-        "discrete control-surface node and, on a T-tail, the transfer node "
-        "where the horizontal tail sits on the fin. All six components are "
-        "printed for every row, so that a zero cannot be read as an omission. "
+        # The rows are the deck's grids since note 56 D-56.9; a control-surface
+        # load and the T-tail transfer are summed into a grid, never rows of
+        # their own, and the sentence used to promise rows that never appeared
+        # (#240 R19). The T-tail clause is stated only on a T-tail.
+        "The rows are the grids of the beam the deck is written at, in span "
+        "order. A discrete control-surface load"
+        + (" and the horizontal tail's transfer onto the fin are"
+           if is_t_tail(project) else " is")
+        + " not a row of its own: each is moved to the nearest grid of its "
+        "member with the couple that keeps it exact, and is part of that "
+        "grid's row. All six components are printed for every row, so that a "
+        "zero cannot be read as an omission. "
         + absent.split(". ", 1)[0] + ".",
         "What the structure carries across each station -- shear, bending and "
         "torsion -- is not repeated here. It is stated at the root, where each "
@@ -6861,8 +6902,14 @@ def _engine_moment_channel(records: Sequence[_EngineRecord],
     its 1.5 in the SF column. The check is written anyway, because a column
     header that cannot become ``-ULT`` is a header that will be wrong the day a
     condition prescribing an already-ultimate load joins the set.
+
+    The module states its moments in ft-lb, as ENGLOADS prints them; the
+    document states every other moment in lb-in, so these are taken there too
+    (#240 R13) -- one moment unit per document, and the SI channel follows.
     """
-    scale, label = _scalar_channel("ft-lb", system)
+    to_lb_in = IN_PER_FT  # the module's ft-lb into the document's lb-in
+    scale, label = _scalar_channel("lb-in", system)
+    scale *= to_lb_in
     factors = {case.sf for record in records for case in record.cases}
     return scale, (ultimate_units(label) if factors == {1.0} else label)
 
@@ -6912,7 +6959,7 @@ def _engine_thrust_line_table(records: Sequence[_EngineRecord],
     scale, moment_label = _engine_moment_channel(records, system)
     rows = [[str(case.engine), case.case_id or "--",
              _engine_short_name(case.far, case.condition),
-             format_value(case.torque * scale, "ft-lb"),
+             format_value(case.torque * scale, "lb-in"),
              u.load(case.thrust, "force", case.sf),
              sf_cell(case.sf)]
             for record in records for case in record.cases]
@@ -6927,8 +6974,13 @@ def _engine_thrust_line_table(records: Sequence[_EngineRecord],
               "torque positive clockwise from the pilot's seat. These are the "
               "two scalars the table above was resolved from, printed so the "
               "resolution can be repeated with the direction cosines of the "
-              "previous subsection rather than taken on trust; they are also "
-              "the numbers the oracle prints, unchanged. A conventional "
+              "previous subsection rather than taken on trust. The torque is "
+              "the oracle's own number in this document's moment unit"
+              # Named only in the Imperial issue: an SI document states no
+              # Imperial unit, its prose included (#338).
+              + (": the original analysis prints it in ft-lb, twelve times "
+                 "smaller. " if system is UnitSystem.IMPERIAL else ". ")
+              + "A conventional "
               "propeller's torque on the airframe is counter-clockwise from the "
               "seat, so this column is negative where the Mx beside it is "
               "positive: the same load, once about a forward-pointing axis and "
@@ -7176,9 +7228,10 @@ def _engine_view_figure(project: Project, records: Sequence[_EngineRecord], *,
            " The project enters no airframe outline this view can draw, so the "
            "engines are drawn alone; the loads and the stations above are "
            "unaffected, since neither is read from a drawn shape."),
-        "Each arrow runs from the engine's mount node to its propeller hub and "
-        "is the thrust line the torque and the thrust act about, pointing "
-        "forward. Each numbered marker is that engine's application point -- the "
+        "Each arrow is the thrust line the torque and the thrust act about, "
+        "pointing forward: an entered line is drawn between its two entered "
+        "points, and an ASSUMED one from the propeller hub forward. Each "
+        "numbered marker is that engine's application point -- the "
         "combined engine and propeller CG -- which is where every component in "
         "the table above acts; engines whose points coincide in this view share "
         "one marker, labelled with both numbers.",
@@ -7197,7 +7250,7 @@ def _engine_view_figure(project: Project, records: Sequence[_EngineRecord], *,
         caption.append(
             "A thrust line marked ASSUMED is not entered geometry: its "
             "direction is the airplane's forward axis and its length is drawn, "
-            "not stated. Enter the propeller CG to replace it.")
+            "not stated. Enter the thrust line's two points to replace it.")
     caption.append("Nothing here is a load: no value is scaled and none carries "
                    "a safety factor.")
     return Figure(
@@ -7876,6 +7929,8 @@ def _landing_case_table(cases: Sequence[_GroundCase]) -> Optional[Table]:
 def _landing_reaction_table(cases: Sequence[_GroundCase],
                             system: UnitSystem) -> Optional[Table]:
     """The per-wheel reactions, in the ground-line frame the manual prints."""
+    from ..modules.landing import GROUND_SIDE_CASES
+
     if not cases:
         return None
     u = Units(system)
@@ -7897,7 +7952,20 @@ def _landing_reaction_table(cases: Sequence[_GroundCase],
               "datum set a structures model applies is in the appendix. A zero "
               "is a wheel this case lifts clear, not a missing value. Every "
               "reaction is LIMIT and states the 14 CFR 23.303 factor of 1.5, "
-              "which is applied to none of them."))
+              "which is applied to none of them."
+              + (_SIDE_PAIR_NOTE if any(g.reaction.case in GROUND_SIDE_CASES
+                                        for g in cases) else "")))
+
+
+#: The 23.485 pairs print one SMP per case, though the two mains of one airplane
+#: carry different side loads (#240 R14): the row names one wheel, and which.
+_SIDE_PAIR_NOTE = (
+    " The side-load conditions of 23.485 are printed as pairs (cases 19 and 20, "
+    "21 and 22, 23 and 24), one row per main wheel, because the two mains carry "
+    "different side loads: 0.5 W on the wheel loaded inboard, the odd case, and "
+    "0.33 W on the wheel loaded outboard, the even case. A row's SMP is that "
+    "wheel's alone; the other wheel's is its partner's, and the appendix states "
+    "both wheels of each case at once.")
 
 
 def _landing_moment_table(cases: Sequence[_GroundCase],
@@ -8836,6 +8904,12 @@ def _vn_appendix(project: Project, *, system: UnitSystem,
         "The inputs this matrix was balanced from are not echoed here: the "
         "project file the analysis was run from is the record of them, exact "
         "and complete, and a table transcribing it could only disagree with it.",
+        # The single nineteen-column set OR-196 asked for is split here only to
+        # be typesettable, and the page says so (#240 R23).
+        "The matrix is one set of nineteen columns, printed as two tables "
+        "because it does not fit the page as one: the flight state, then the "
+        "balancing loads, row for row in the same order. The data file "
+        "vn_conditions.csv carries all nineteen in one flat row.",
     ], tables=tables, page_break=True, landscape=True)
 
 

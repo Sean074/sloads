@@ -281,7 +281,9 @@ _RESULT_TO_SI = _view(**{
 })
 # Airspeed and altitude are deliberately absent: they are aviation-standard
 # (KEAS / ft) in both systems and are never converted. The calc emits them as
-# ``kt(EAS)`` and ``ft``; a ``"knot"`` row lived here until M4-20 and converted
+# ``kt(EAS)`` and ``ft`` -- and ``kt(TAS)`` for the one true airspeed it states,
+# the speed of sound at the Mach shoulder (#240 R20, which printed "633 kt(EAS)");
+# a ``"knot"`` row lived here until M4-20 and converted
 # nothing (no producer has ever emitted that string), but it would have silently
 # broken the carve-out the day one did.
 
@@ -826,7 +828,7 @@ DELIVERED_PRECISION: Dict[str, Optional[int]] = {
     # lengths: stations and arms to 0.1 in; altitude to 0.1 ft (§8 Q2)
     "in": 1, "ft": 1,
     # speeds
-    "kt(EAS)": 1, "ft/s": 1,
+    "kt(EAS)": 1, "kt(TAS)": 1, "ft/s": 1,
     # angles, rates, pressures, percentages, load factors
     "deg": 2, "deg/s": 2, "deg/s^2": 2,
     # the roll acceleration WINGINER prints to three places (p. 219, note 52)
