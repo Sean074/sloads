@@ -204,6 +204,7 @@ FAR23LOADS/
 │   ├── case_ids.py               # structured load-case / subcase / deck LOAD id allocation (D1, M4-2)
 │   ├── csv_text.py               # THE delivered CSV's line terminator and its two writer constructions (#242)
 │   ├── safety_factors.py         # THE governing safety-factor table: one row per condition family (M4-8 / G-11)
+│   ├── cross_check.py            # THE override cross-check: when a typed value and its owner disagree (`CROSS_CHECK_REL`), and printing an exact-equality drift apart (#243)
 │   ├── picks.py                  # THE platform-stable keyed pick (`extreme`): ties go first-in-order, no built-in keyed max/min in the package (CONVENTIONS §7)
 │   ├── cg_cases.py               # the one resolver for weight/CG cases and the two design weights (step 10 piece 2)
 │   ├── mass_distribution.py      # MASS SSOT: weight.items -> per-component station inertia (B1/B-2)

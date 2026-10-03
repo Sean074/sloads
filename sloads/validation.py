@@ -85,6 +85,7 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional
 
 from . import cg_cases, mass_distribution
 from .constants import ULTIMATE_FACTOR
+from .cross_check import cross_check_disagrees, shown_apart
 from .models import (
     GROUND_CASE_ROLE_ORDER,
     REFUSALS,
@@ -763,12 +764,15 @@ def _check_landing_hierarchy(project: Project) -> List[ConsistencyWarning]:
     if w_land > 0:
         off = [c for c in (aft, fwd_max) if abs(c.weight_lb - w_land) > 1e-6]
         if off:
+            # Exact by contract: any difference is the defect, so the numbers
+            # print apart however small it is (#243).
+            mlw, *weights = shown_apart([w_land] + [c.weight_lb for c in off], "lb")
             out.append(ConsistencyWarning(
                 "landing_case_weight_is_mlw",
                 "The max-landing loadings must weigh exactly the max landing weight "
-                f"{format_value(w_land, 'lb')} lb (weight.max_landing_weight_lb, the single owner "
+                f"{mlw} lb (weight.max_landing_weight_lb, the single owner "
                 "since decision G-4 -- only their CG station is entered): "
-                + ", ".join(f"'{c.name}' {format_value(c.weight_lb, 'lb')} lb" for c in off) + ".",
+                + ", ".join(f"'{c.name}' {w} lb" for c, w in zip(off, weights)) + ".",
                 PAGE_LANDING))
     if aft.xcg <= max(fwd_max.xcg, fwd_light.xcg):
         out.append(ConsistencyWarning(
@@ -1102,10 +1106,13 @@ def _check_weight_case_model(project: Project) -> List[ConsistencyWarning]:
                            weight.envelope.gross_weight))
         drift = [(label, v) for label, v in others if abs(v - mtow) > 1e-6]
         if drift:
+            # Exact by contract (G-14): the numbers print apart (#243).
+            shown_mtow, *shown = shown_apart([mtow] + [v for _, v in drift], "lb")
             out.append(ConsistencyWarning(
                 "mtow_representation_drift",
-                f"Max take-off weight is {format_value(mtow, 'lb')} lb, but "
-                + "; ".join(f"{label} says {format_value(v, 'lb')} lb" for label, v in drift)
+                f"Max take-off weight is {shown_mtow} lb, but "
+                + "; ".join(f"{label} says {text} lb"
+                            for (label, _), text in zip(drift, shown))
                 + ". Decision G-14 made weight.max_takeoff_weight_lb the single "
                 "owner and the others derived reads of it.",
                 PAGE_WEIGHT_CG))
@@ -1603,8 +1610,8 @@ def _check_derive_overrides(project: Project) -> List[ConsistencyWarning]:
       vs ``aileron_loads.down_deflection_deg`` (C210-38: the 23.349(b) torsion
       and the aileron loads each read their own copy).
     * ``engine_mass_row_mismatch`` -- a typed engine/prop weight or CG against
-      the weight-database row its ``*_mass_item`` selector names (OV-7; the
-      > 1e-6 disagreement channel). A selector naming **no** row is refused by
+      the weight-database row its ``*_mass_item`` selector names (OV-7; a
+      disagreement as ``cross_check.cross_check_disagrees`` judges it, #243). A selector naming **no** row is refused by
       name in the calc (``engine.selected_mass_row``), not warned here -- the
       C210-21 split between a wrong linkage and a disagreeing override.
 
@@ -1617,7 +1624,8 @@ def _check_derive_overrides(project: Project) -> List[ConsistencyWarning]:
     si, ail = project.select_input, project.aileron_loads
     if (si is not None and ail is not None and si.full_down_aileron_deg
             and ail.down_deflection_deg
-            and abs(si.full_down_aileron_deg - ail.down_deflection_deg) > 1e-6):
+            and cross_check_disagrees(si.full_down_aileron_deg, ail.down_deflection_deg,
+                                      lambda v: format_value(v, 'deg'))):
         out.append(ConsistencyWarning(
             "aileron_deflection_mismatch",
             f"SELECT's full-down aileron is {format_value(si.full_down_aileron_deg, 'deg')} deg but the "
@@ -1673,10 +1681,11 @@ def _check_derive_overrides(project: Project) -> List[ConsistencyWarning]:
             if row is None:
                 continue  # the calc refuses this by name; nothing to compare
             drift = []
-            if weight_lb and abs(weight_lb - row.weight_lb) > 1e-6:
+            if weight_lb and cross_check_disagrees(weight_lb, row.weight_lb,
+                                                   lambda v: format_value(v, 'lb')):
                 drift.append(f"weight {format_value(weight_lb, 'lb')} lb vs the row's "
                              f"{format_value(row.weight_lb, 'lb')} lb")
-            if any(cg) and any(abs(a - b) > 1e-6
+            if any(cg) and any(cross_check_disagrees(a, b, lambda v: format_value(v, 'in'))
                                for a, b in zip(cg, (row.x, row.y, row.z))):
                 drift.append(f"CG {tuple(cg)} vs the row's "
                              f"({format_value(row.x, 'in')}, {format_value(row.y, 'in')}, {format_value(row.z, 'in')})")

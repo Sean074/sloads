@@ -121,7 +121,7 @@ Four rulings, and the costs they book:
 The efficiency claim is stated narrowly, because it was measured: the
 convergence saves **one** tier-S row of duplicated effort (#255). `format_value`
 (the precision row, closed at #161) has **zero** `app/` call sites — 164 in `sloads/report/`, three in
-`oracle_app/` — the override cross-check (#243) lives at `oracle_app/form.py`,
+`oracle_app/` — the override cross-check of #243 lived at `oracle_app/form.py`,
 #177 and #239 are on the survivor, and D-56.2's seven `app/views/` consumers
 were already paid on 2026-09-10/11. The gain is not avoided rework: it is that
 an AGREED note stops waiting on unrelated polish, each milestone carries one
@@ -453,7 +453,6 @@ keeps its body in *Open defects*, and the [E]/[V] detail sections hold the rest.
 | Pri | Item (detail below / in its plan) | What ships | Tag | Tier / effort | Depends on |
 |---|---|---|---|---|---|
 | **B9 — 0.8.8: the deck's delivered loads are right, and the user can reach them (re-chartered 2026-09-28)** ||||||
-| 13 | **Override cross-check warnings fire below display precision and print two identical numbers** *(2026-09-08 review G6)* (#243) | One owner for the comparison tolerance (display precision or a stated rel-tol) so every cross-check warning behaves the same | V | S / S | — |
 | 14 | **Engine-installation figure legends overflow the margin on long twin designations; coincident point labels overprint** — invisible on GA6, guaranteed on any real twin *(2026-09-09 review A3)* (#256) | Legend entries wrapped or stacked inside the text width; shared-coordinate labels offset or combined *(beside #240's polish)* | V | S / S | — |
 | 15 | **Report polish rollup from the 2026-09-08 review** — ten tier-S presentation items in one issue so none is lost *(R13–R23)* (#240) | The ten items closed or individually declined with a reason | V | S / S–M | — |
 | **B2 — 0.9.0: calc, report and process work (re-chartered 2026-09-11 — the “main-GUI development” it was named for retires with #270)** ||||||
