@@ -81,6 +81,7 @@ from oracle_app.results import render_results
 from sloads import field_registry as fr
 from sloads import workflow as wf
 from sloads.applicability import step_not_applicable
+from sloads.cross_check import cross_check_disagrees
 from sloads.derived import refresh_derived
 from sloads.derived_geometry import tail_cp_suggestion
 from sloads.mass_distribution import (
@@ -387,9 +388,10 @@ def _collapsed_note(row: Any, value: Any, project: Any, where: Any,
     the widget stays live both ways, and what the caption says tracks the
     stored value: blank shows the derived number the calc will use (the same
     resolver the calc calls -- ``EXTERNAL_VALUES``); typed shows the override
-    with the owner's number beside it, and a > 1e-9 disagreement warns (the
-    ``_copy_note`` pattern). ``record`` is the row instance for a ``[]`` path
-    (which engine, which aero surface).
+    with the owner's number beside it, and a disagreement warns as
+    ``cross_check.cross_check_disagrees`` judges it (the ``_copy_note`` pattern,
+    #243). ``record`` is the row instance for a ``[]`` path (which engine,
+    which aero surface).
     """
     governing = fr.external_value(row.path, project, record) if project is not None else None
     owner = (f"**{row.external_owner}**" if row.owner_is_external
@@ -412,7 +414,8 @@ def _collapsed_note(row: Any, value: Any, project: Any, where: Any,
         + " — the value entered here is what the analysis uses. Clear it to derive.")
     if (isinstance(governing, (int, float)) and isinstance(value, (int, float))
             and not isinstance(governing, bool) and not isinstance(value, bool)
-            and abs(float(governing) - float(value)) > 1e-9):
+            and cross_check_disagrees(float(value), float(governing),
+                                      lambda v: _shown(row.path, v))):
         where.warning(
             f"This is {_shown(row.path, value)} but {owner} says "
             f"{_shown(row.path, governing)}. The typed value governs — confirm "
@@ -464,7 +467,9 @@ def _copy_note(path: str, value: Any, project: Any, where: Any,
                   + " — a value entered here is what the analysis uses.")
     if (isinstance(owner_value, (int, float)) and isinstance(value, (int, float))
             and not isinstance(owner_value, bool) and not isinstance(value, bool)
-            and owner_value and value and abs(float(owner_value) - float(value)) > 1e-9):
+            and owner_value and value
+            and cross_check_disagrees(float(value), float(owner_value),
+                                      lambda v: _shown(path, v))):
         where.warning(
             f"This is {_shown(path, value)} but {owner_label} says "
             f"{_shown(owner, owner_value)}. Both reach the calc, on different "
