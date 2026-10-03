@@ -428,6 +428,15 @@ clause, which knew of no milestone between.
 > Renumbered densely, **Pri 1–24**: B9 0 (empty — the 0.8.8 cut is next, the
 > header retires with it), B10 8, B2 8, C 8. **Cut 0.8.8 now, 0.8.9 when B10
 > is empty, then 0.9.0 when B2 is.**
+>
+> **B9 is retired: 0.8.8 was cut on 2026-10-03** (tag `v0.8.8`; the release-cut
+> block in
+> [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md)
+> is the record). The band emptied with #240 and the pre-release review's two
+> MAJOR (#341, #342) closed before the cut. **Band B10 (0.8.9 — the ATR-class
+> deck delivers correct loads) is the milestone in flight**; B2 (0.9.0)
+> follows it. Cut rule unchanged: 0.8.9 when B10 is empty, then 0.9.0 when B2
+> is.
 
 
 **System of record (design note 28 MD-5, 2026-08-16):** open work is **GitHub
@@ -470,7 +479,6 @@ keeps its body in *Open defects*, and the [E]/[V] detail sections hold the rest.
 
 | Pri | Item (detail below / in its plan) | What ships | Tag | Tier / effort | Depends on |
 |---|---|---|---|---|---|
-| **B9 — 0.8.8: the deck's delivered loads are right, and the user can reach them (re-chartered 2026-09-28)** ||||||
 | **B10 — 0.8.9: the ATR-class deck delivers correct loads — twin turboprop, T-tail (chartered 2026-10-03)** ||||||
 | 1 | **The 23.367 low-speed case has no VMC input, runs at the shoulder altitude, and an unrecovered case vanishes from every output** — and the ONENGOUT mass state rides the same ruling (recorded on the issue: `_heaviest_case` is the all-items loading, above MTOW on every twin fixture; the ATR's OEI governs its fin) *(filed at #328, 2026-09-29)* (#333) | The low-speed floor ruled (a VMC input or the stated substitution), an unrecovered case **stated** wherever it would have appeared instead of vanishing, and the mass state ruled with it (options (a)/(b)/(c) on the issue, measured first) | E | M / M | owner rulings first — they move the OEI forcing #334's note measures against |
 | 2 | **baron_58 engine-mount cases fly the airplane at the engine's LIMNZ (4.2) instead of condition A's n₁ (3.648)** — ~15 % over on EM-01/02/04/05, conservative today *(found at the #318 close)* (#331) | The ruling (amend D-66.4, fix the fixture's `limit_load_factor`, or both) and a warning when a typed LIMNZ disagrees with the airplane's own n₁ | E | M / S | owner ruling |
