@@ -3,7 +3,8 @@
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
 **Status: SHIPPED 2026-09-26 — #286 (§10) and #285 (§11).** **§12 (#319, the
-engine axial loads of both families) AGREED and SHIPPED 2026-09-29.**
+engine axial loads of both families) AGREED and SHIPPED 2026-09-29.** **§13
+(#334, the march reads an entered windmill coefficient) AGREED 2026-10-04.**
 AGREED 2026-09-25 (owner, in session). PROPOSED the same
 day; the owner ruled Q1–Q7 of §2 **as recommended**, so D-66.1…D-66.16 stand as
 written (§9). Drafted for one design pass over two band-B8 rows the 2026-09-22
@@ -448,3 +449,24 @@ first hop after a released schema. The #321 riders as listed, the two new
 records `unscalable` and `hub-off-arm`. Gates: G-66.4/G-66.5 as amended, the
 entered-coefficient delivery and statement, G-66.9's `[I]{Δω̇} = ΔM` identity,
 the twin rule, G-66.17, the sub-case/spin identity, the two records.
+
+## 13. Amendment — the march reads the entered windmill coefficient (#334, AGREED 2026-10-04)
+
+**Owner ruling, in session 2026-10-04: ruling (a′) of D-66.12a is reversed.**
+D-66.12a kept the ONENGOUT march on the Glauert bound, so that no fin load
+moved. That leaves a cited coefficient unable to reach the fin, the AC 23-9
+`M_r` built on it (note 51 D-51.3b), or the horizontal tail that now carries
+it (note 51 §10). 23.367(a) prescribes the drag with "a single malfunction
+of the propeller drag limiting system", substantiated by data under (a)(3).
+The bound stays the stated fallback.
+
+| # | Decision | Alternative rejected |
+|---|---|---|
+| D-66.12b *(amends D-66.12a)* | **The march's windmill drag is the entered coefficient's when entered**, `C_D·q·πD²/4` at the case's true airspeed and density, read through the one owner `one_engine_out.entered_windmill_cd` (#343), on the same ramp. Blank, it is the bound, stated as today. The hub drag and the march forcing are then one number. The statement "a case with an entered coefficient states that its fin load is the bound's" retires | An autofeather switch (an uncited factor; the single-malfunction clause makes the limiter the failed item); scaling power to max-continuous at VC/VD (under 1 % at ATR VD, parked with that number) |
+
+**Gates.**
+- Blank on every fixture: every fin load, deck and digest is identical. No
+  shipped fixture enters a coefficient; the ATR keeps the bound (owner).
+- On a constructed ATR copy with `windmill_drag_cd = 0.25`, the VD peak fin
+  load is 11,196 lb (bound: 16,040; at 0.10: 8,314), to ±0.1 %.
+- G-66.9's yaw identity holds with no `ΔM` term when a coefficient is entered.
