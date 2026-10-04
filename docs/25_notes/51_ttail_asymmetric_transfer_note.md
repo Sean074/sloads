@@ -9,7 +9,9 @@ describes (note 56). It holds the measurements, the owner's rulings of
 2026-09-28 and 2026-09-29, and the decisions and gates the code is built to;
 where §9 and §1–§8 differ, §9 governs. D-51.3a (net β) and D-51.6 (yaw
 parked) stand. **D-51.9 closed 2026-10-04 (#336):** the ATR's tailplane
-dihedral is 0°, owner-supplied (§9.7).
+dihedral is 0°, owner-supplied (§9.7). **§10 AGREED 2026-10-04 (#334,
+#335):** the horizontal tail carries `M_r`; D-51.4a, D-51.7 and D-51.10 are
+amended there, and §10 governs where it differs.
 
 **Tier L** (new load case, new physics on the fin deck). The T-tail transfer sits in
 the review-§3 frozen list; this note is the owner's explicit admission reopening
@@ -460,3 +462,96 @@ Filing it as a backlog issue is part of this step's closure (rule 5).
   cross-check, draws no tailplane dihedral. The dihedral guard stays gated on
   a constructed project (G-51.10).
 
+
+## 10. Amendment — the horizontal tail carries `M_r` (#334, #335, AGREED 2026-10-04)
+
+**Owner rulings, in session 2026-10-04.** The owner's Q4/Q5 assumption of
+§9 (that `M_r` sizes the fin and not the horizontal tail) does not hold on
+the ATR, so the horizontal tail carries every induced moment, at the trim
+solution of its fin condition:
+
+- Q1: `M_r` is spread chord-proportionally, the 23.427(a) case's own shape.
+- Q2: every T-tail fin condition carrying `M_r` gets its horizontal-tail
+  condition, both engines' one-engine-out cases included.
+- Q3: the D-51.7 check, its warning and `InducedRoll.htail_ratio` retire.
+- Q4: the one-engine-out march reads an entered windmill drag coefficient
+  (note 66 §13); the ATR keeps the Glauert bound (no cited value).
+- #335: (a) — T-5 stays the only pairing policy.
+
+**Conventions:** `CONVENTIONS.md` §3 (LIMIT, SF stated per case and applied
+nowhere), §4 (case identity), §7 (one owner per quantity), §7.1 (handedness).
+
+### 10.1 What the tree does today (measured at `dev/v0.8.9`, 2026-10-04)
+
+The fin carries `M_r` (D-51.4a); the horizontal tail does not, and D-51.7
+warns. With the proposed condition built (the fin condition's T-5 trim load
+at its published CP, the tail's inertia at the pair's load factor, plus the
+antisymmetric `M_r` set of D-51.12), the per-side root bending is:
+
+| Fin condition | SF | Pair (V-n) | Trim load (lb) | `M_r` (lb-in) | Per-side root bending, larger side (lb-in) | Of today's governing |
+|---|---|---|---|---|---|---|
+| **ATR** — today's governing: GUST DN RETRACTED **161,404** (SF 1.5) ||||||
+| SUDDEN RUDDER | 1.5 | 14 | +777.0 | −112,543 | 66,980 | 41.5 % |
+| YAW TO SIDESLIP | 1.5 | 14 | +777.0 | +53,894 | 37,655 | 23.3 % |
+| YAW 15 NEUTRAL | 1.5 | 14 | +777.0 | +128,028 | 74,723 | 46.3 % |
+| SIDE GUST | 1.5 | 195 | −871.5 | −162,118 | 110,703 | 68.6 % |
+| ONE ENGINE OUT VC, each engine | **1.0** | 175 | +703.0 | ±329,944 | 173,864 | 71.8 % on one basis (107.7 % raw) |
+| **ONE ENGINE OUT VD, each engine** | 1.5 | 176 | +459.3 | ±460,327 | **233,122** | **144.4 %** |
+| **RJ** — today's governing: GUST DN RETRACTED **349,920** (SF 1.5) ||||||
+| SUDDEN RUDDER | 1.5 | 14 | +6.3 | −266,727 | 148,657 | 42.5 % |
+| YAW TO SIDESLIP | 1.5 | 14 | +6.3 | +137,013 | 83,801 | 23.9 % |
+| YAW 15 NEUTRAL | 1.5 | 14 | +6.3 | +310,569 | 170,579 | 48.7 % |
+| SIDE GUST | 1.5 | 175 | −2,973.0 | −373,565 | 291,033 | 83.2 % |
+
+The ATR's governing horizontal-tail root bending moves to the one-engine-out
+VD condition, 161,404 → 233,122 lb-in (+44.4 %, LIMIT). The RJ's does not
+move. "One basis" is `safety_factors.ultimate_basis`, the comparison key and
+never a delivered value.
+
+**Why the one-engine-out case dominates.** On the ATR its fin load is about
+3.6× the rudder conditions', and about two thirds of it is the Glauert
+windmill-drag bound, which assumes no propeller drag limiting at all.
+23.367(a) asks for "a single malfunction of the propeller drag limiting
+system" and (a)(3) for drag "substantiated by test or other data". Measured
+at ATR VD, failed engine 1: the peak fin load is 16,040 lb on the bound,
+11,196 lb at `C_D,disc` 0.25 and 8,314 lb at 0.10. The power level is under
+1 % (max-continuous 15,984 lb, and 15,669 lb with no thrust). The march
+cannot read a cited coefficient today (note 66 D-66.12a ruling (a′)), so
+note 66 §13 changes that. The ATR keeps the bound until a source exists.
+
+### 10.2 Decisions
+
+| # | Decision | Alternative rejected |
+|---|---|---|
+| D-51.12 | **One horizontal-tail condition per T-tail fin condition carrying `M_r`.** That covers the four 23.441/23.443 conditions and every delivered one-engine-out case, each engine. Its stations are (i) the fin condition's T-5 trim load, read from the owner the fin transfer reads (`ttail_transfer`'s pair: `point.lt` at its published CP `_tail_cp_station`, split into `lt25`/`lt50` so the CP is exact); (ii) the tail's inertia at the pair's load factor; and (iii) the induced set: `distribute(h, k, 0, rh_scale=+1, lh_scale=−1)` with `k` such that `Σ fz·y = M_r`. That is chord-proportional, at 25 % chord, zero net lift, and `M_r/2` at each root. The SF is the fin condition's own (one-engine-out VC stays `ULT SF=1.0`). The label is `INDUCED ROLL — <fin condition>`, FAR `23.427(c)`, and the ID comes from a new band, `HTAIL_BAND_TTAIL = 20` (**HT-20**…HT-49). It reaches the h-tail CSV, the case index and the report. This is HTAIL UNSYM's mirror (D-51.2a) | One governing condition only (each side needs its own envelope, and the engines load opposite sides); a linear antisymmetric shape (a second shape owner, where 23.427(a)'s chord shape already exists); pairing with the critical h-tail load (#335 (b), below) |
+| D-51.4b *(replaces D-51.4a)* | **The deck carries `M_r` on the horizontal tail, not at the fin tip.** Each T-tail lateral and one-engine-out balanced case swaps the `vtail-induced-roll` couple for D-51.12's induced strips (iii) only, `source = "htail-induced-roll"`, `side` R/L, routed to the h-tail member. The case already carries the trim tail load lumped, so (i)–(ii) are not added again. The set has `Σ fz = 0`, `Σ fz·y = M_r` and `Σ fz·x = 0` (`x` is symmetric about the centreline), so the closure is unchanged: `ṗ`, `ṙ`, `q̇` and the inertia field are identical. The h-tail centreline is rigid to the fin tip, so the fin root `Mx` is unchanged. The port twin reflects it through `reflect_load` | Keeping the couple and adding the strips (double-counts the roll); the strips on the h-tail view only (the deck would still not size the stabiliser) |
+| D-51.7a *(retires D-51.7)* | **The check retires.** With the load carried, `M_r/2` against a governing it can itself become is circular. `check_htail_under_induced_roll`, `ttail_induced_roll_sizes_htail` and `InducedRoll.htail_ratio` go. Schema **v76**, with `_hop_75` dropping the field | Keeping the ratio as a statement (a number with no consumer — the consolidation ruling) |
+| D-51.13 | **#335 ruled (a): T-5 is the only pairing policy.** AC 23-9 ¶5d p5 names the pairing ("combined with the applicable level flight balancing load"). Plan 09 §8's superposed-critical option closes on that citation, and §8's parked row with it | (b) a selectable superposed policy (pairs loads the airplane never sees together; the AC prescribes the rational pairing) |
+| D-51.10a *(amends D-51.10)* | The fin view is unchanged: the tip transfer still carries `mxx = M_r`, and the root rolling moment with the tip set (G-51.7) does not move | — |
+
+### 10.3 Gates (no printed oracle — rule 2's second branch)
+
+| Gate | What is asserted | Expected (RJ / ATR) | Tolerance |
+|---|---|---|---|
+| G-51.12 | Each induced set: `Σ fz = 0`, `Σ fz·y = M_r`, and each root carries `±M_r/2` | — | 1e-9 |
+| G-51.13 | Each D-51.12 condition's per-side root bending | §10.1 table | ±0.1 % |
+| G-51.14 | The ATR's governing h-tail root bending is ONE ENGINE OUT VD; the RJ's is unchanged | ATR 233,122 · RJ 349,920 | ±0.1 % |
+| G-51.15 | In every T-tail lateral and one-engine-out balanced case, `ṗ`, `ṙ`, `q̇` and the fin root `Mx` equal their pre-change values; no `vtail-induced-roll` load remains; exactly one induced set per case | — | 1e-9 |
+| G-51.16 | The D-51.12 condition's trim part equals the fin transfer's `fz`/`myy` about the tip (one pairing owner) | — | 1e-9 |
+| G-51.9 *(retired)* | Replaced by G-51.14 | — | — |
+| G-51.11 *(extended)* | Conventional isolation: no `INDUCED ROLL` condition and no `htail-induced-roll` load off a T-tail; ga6, the Baron and concept_heavy are digest-identical | — | exact |
+
+### 10.4 Effect vs error bar (rule 6)
+
+ATR horizontal-tail governing root bending +44.4 % (LIMIT), against the base
+method's ±5–10 %: it ranks. The RJ does not move. The fin does not move on
+either fixture.
+
+### 10.5 Closure obligations (tier L)
+
+`PROGRAM_SPEC.md` (tail-span, balance, export); `CONVENTIONS.md` §7 (the
+D-51.12 owner; the check row removed); `case_ids.py` (`HTAIL_BAND_TTAIL`);
+`theory_sources.md` (the 23.427 row: the h-tail carries ¶5a's moment, ¶5d's
+pairing); the report's 6.5 and the h-tail sections; `INDUCED_ROLL_NOTE`
+rewritten; schema v76 and its hop; the digests regenerated (RJ and ATR only);
+plan 09 §8 closed; note 66 §13; one history fragment in full step format.
