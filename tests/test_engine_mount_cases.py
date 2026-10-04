@@ -418,5 +418,24 @@ def test_a_case_scaled_by_zero_is_recorded_not_shipped(monkeypatch):
         if c.far_reference in EM_BALANCED}
 
 
+def test_a_refused_engine_family_is_recorded_not_swallowed():
+    """#344. ENGLOADS refusing a present-but-invalid input used to empty the
+    engine-mount family with nothing said, so the deck shipped without it. It
+    is now one ``family-refused`` entry in the record of conditions not
+    assembled, quoting the refusal; a project that runs records none."""
+    project = _project("atr42_100")
+    bad = replace(project, engines=[replace(project.engines[0], stop_time_s=-1.0),
+                                    *project.engines[1:]])
+    skipped = []
+    cases = build_balanced_cases(bad, skipped)
+    assert not [c for c in cases if is_engine_mount(c)]
+    refused = [s for s in skipped if s.code == "family-refused"]
+    assert len(refused) == 1 and refused[0].component == "engine", refused
+    assert "stop_time_s" in refused[0].name and "must be positive" in refused[0].name
+    clean = []
+    build_balanced_cases(project, clean)
+    assert not [s for s in clean if s.code == "family-refused"]
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

@@ -318,6 +318,7 @@ def gust_at_vf(project: Project) -> Optional[float]:
         return None
     try:
         di = design_inputs(project)
+    # refusal: no design inputs, no derived NG; FLAPLOAD's own STRSPEED read raises
     except (MissingInputError, ValueError):
         return None
     best: Optional[float] = None

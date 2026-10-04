@@ -598,10 +598,10 @@ def boundary_derived_scalars(project: Project, component: str) -> Dict[str, floa
     out: Dict[str, float] = {}
     surf = geometry.by_name(component)
     if surf is not None and len(surf.leading_edge) >= 2 and len(surf.trailing_edge) >= 2:
-        try:
-            vals = {v.key: v.value for v in surface_properties(surf).values}
-        except (ValueError, ZeroDivisionError):
-            vals = {}
+        # A present outline that does not integrate refuses by name (#344), as
+        # ``validate_tail_planform`` does on typed scalars -- it read as "no
+        # planform entered" and the surface's spanwise set went missing unstated.
+        vals = {v.key: v.value for v in surface_properties(surf).values}
         if vals:
             aps, span, mac = vals["area_per_side"], vals["span"], vals["mac"]
             x25 = vals["xle_mac_station_of_mac_le"] + 0.25 * mac
@@ -626,11 +626,10 @@ def boundary_derived_scalars(project: Project, component: str) -> Dict[str, floa
     control = resolved_control_surface(geometry, TAIL_CONTROL[component])
     if (control is not None and len(control.leading_edge) >= 2
             and len(control.trailing_edge) >= 2):
-        try:
-            c_aps = float(next(v.value for v in surface_properties(control).values
-                               if v.key == "area_per_side"))
-        except (ValueError, ZeroDivisionError, StopIteration):
-            c_aps = 0.0
+        # Refused by name like the surface above (#344): an elevator outline
+        # that does not integrate sized the elevator load on an area of 0.
+        c_aps = float(next(v.value for v in surface_properties(control).values
+                           if v.key == "area_per_side"))
         both = 2.0 if component == HTAIL else 1.0
         if c_aps > 0.0:
             key = "elevator_area_sqft" if component == HTAIL else "rudder_area_sqft"
@@ -1125,6 +1124,16 @@ def is_t_tail(project: Project) -> bool:
     geometry = project.geometry
     layout = geometry.parametric if geometry is not None else None
     return layout is not None and layout.tail_type == TailType.T_TAIL
+
+
+def htail_dihedral_deg(project: Project) -> float:
+    """The horizontal stabilizer's entered dihedral, deg, or 0.0 with no layout
+    -- the one typed reader (#344): ``tail_span``'s induced-roll record and the
+    D-51.8 dihedral warning both read it, so a T-tail with dihedral entered is
+    warned whether or not any fin condition resolves."""
+    geometry = project.geometry
+    layout = geometry.parametric if geometry is not None else None
+    return float(layout.htail_dihedral_deg) if layout is not None else 0.0
 
 
 def tail_layout(project: Project) -> Optional[TailType]:

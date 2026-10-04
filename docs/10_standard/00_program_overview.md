@@ -153,6 +153,18 @@ introspection, where no calc runs — and `NonFiniteValue` is named only to
 re-raise it (guard `tests/test_report_absence.py`, which also builds the report
 over every Optional record the GUI can add, at its blank defaults).
 
+**A refusal turned into silence says why (#344).** Where a caller turns a
+`ValueError` into nothing — an empty list, `None`, `""`, a `continue` — its
+`except` line, or the line above it, says why silence is right there:
+`# refusal: <why>` (guard `tests/test_silent_refusals.py`, AST over `sloads/`).
+Two places may not be silent at all: a **deck family** whose producing module
+refuses is recorded as one `family-refused` entry in the record of conditions not
+assembled, quoting the refusal (`balance.skipped.family_refused`); and a
+**consistency check** whose upstream build refuses states that it could not run
+(`ttail_induced_roll_unchecked`) rather than withholding the warnings it exists
+to give. A `MissingInputError` — the chain does not exist yet — stays silent in
+both.
+
 **No silent defaults at a read (CH-2, 2026-08-16).** `getattr(obj, name, default)`
 is the shape that hides a missing attribute behind a quiet fallback; a value the
 exporters read is a declared field on a typed result and is read as one, an

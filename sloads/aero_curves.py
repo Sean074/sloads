@@ -347,6 +347,7 @@ def operating_points(env: EnvelopeResult, config_name: str, *,
     for p in _points_of(env, config_name):
         try:
             c_l, c_d, c_m = recovered_coefficients(p, wing_area_sqft, mac_in)
+        # refusal: a zero-speed point has no coefficients to overlay
         except ValueError:
             continue
         alpha.append(p.alpha_deg)
@@ -374,6 +375,7 @@ def curve_closure(env: EnvelopeResult, config: AeroCoeffSet, *,
     for p in _points_of(env, config.name):
         try:
             rec = recovered_cl(p, wing_area_sqft)
+        # refusal: a zero-speed point has no CL to close; n_points counts the rest
         except ValueError:
             continue
         n += 1

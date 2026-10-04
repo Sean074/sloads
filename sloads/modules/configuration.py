@@ -174,6 +174,7 @@ def parametric_wing_seed(project, _record: object = None) -> Dict[str, float]:
         return {}
     try:
         return wing_layout_from_surface(surf)
+    # refusal: an unintegrable wing offers no seed; the fields stay blank
     except (ValueError, ZeroDivisionError, IndexError):
         return {}
 
@@ -358,6 +359,7 @@ def lra_overlays(
         # every shipped fixture surface passes (checked 2026-09-08).
         try:
             require_integrable_planform(s)
+        # refusal: a half-entered planform has no LRA to draw yet
         except ValueError:
             continue
         spans = sorted({p[1] for p in s.leading_edge} | {p[1] for p in s.trailing_edge})

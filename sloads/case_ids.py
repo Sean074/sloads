@@ -335,6 +335,7 @@ def deck_load_id(case_id: str, family: str = COMPONENT_DECK, hand: str = "") -> 
         if hand or case_id[-1:] in HANDS:
             return ""
         return str(subcase_id(case_id))
+    # refusal: a string that is not a case id has no number in this deck
     except ValueError:
         return ""
 

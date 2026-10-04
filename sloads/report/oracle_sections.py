@@ -373,6 +373,7 @@ def _tail_table(title: str, project: Project, component: str, source: object,
 
     try:
         planform = resolve_tail_planform(project, component)
+    # refusal: an unresolvable tail planform has no basis row to state
     except (ValueError, AttributeError):
         planform = None
     if planform is not None:
@@ -598,6 +599,7 @@ def _planform_figure(project: Project, key: str, parent: str, title: str,
             child_series = _region_series(project, child, style,
                                           _region_label(child, areas.get(child)),
                                           mirror, frame, scale)
+        # refusal: a half-entered control surface is not shaded; the caption names what is
         except ValueError:
             # A control surface mid-entry costs the reader the shading, not the
             # parent's planform, which is the figure they came for.
@@ -826,6 +828,7 @@ def _case_loading_statement(project: Project, u: Units) -> str:
 
     try:
         checks = case_loading_checks(project)
+    # refusal: no loading checks to state; the case table stands as entered
     except (MissingInputError, ValueError):
         return ""
     if not checks:
@@ -876,6 +879,7 @@ def _envelope_reach_statement(project: Project, u: Units) -> str:
 
     try:
         reach = envelope_point_reach(project)
+    # refusal: no reach to state; the reach warning owns the finding
     except (MissingInputError, ValueError):
         return ""
     if not reach:
@@ -1020,6 +1024,7 @@ def _envelope_vertex_table(result: Optional[ModuleResult],
                 continue
             try:
                 index = int(stem[len(prefix) + 1:])
+            # refusal: a key without an integer suffix is not a vertex
             except ValueError:
                 continue
             by_index.setdefault(index, {})[field] = value.value
@@ -3106,6 +3111,7 @@ def _fuselage_lra(project: Project):
 
     try:
         return fuselage_lra(project)
+    # refusal: an unresolvable body axis; the table and figure say so
     except (ValueError, TypeError, ZeroDivisionError):
         return None
 
@@ -3282,6 +3288,7 @@ def _carry_through(project: Project):
 
     try:
         return carry_through(project)
+    # refusal: no carry-through, no spar lines; the caption drops the clause
     except (ValueError, TypeError, ZeroDivisionError):
         return None
 
@@ -4218,6 +4225,7 @@ def _tail_critical(project: Project, component: str) -> List[CriticalCondition]:
     try:
         return [c for c in default_critical(project).conditions
                 if c.component == component]
+    # refusal: no tail conditions; the section states the absence
     except (ValueError, TypeError, ZeroDivisionError):
         return []
 
@@ -4228,6 +4236,7 @@ def _tail_chordwise(project: Project, component: str) -> List[TailChordResult]:
 
     try:
         return [r for r in build_tail_chordwise(project) if r.component == component]
+    # refusal: no chordwise sets; the section states the absence
     except (ValueError, TypeError, ZeroDivisionError, KeyError):
         return []
 
@@ -4246,6 +4255,7 @@ def _tail_spanwise(project: Project, component: str) -> List[TailSpanResult]:
 
     try:
         return list(build_tail_span(project).get(component, []))
+    # refusal: no spanwise sets; the section and package manifest omit them
     except (ValueError, TypeError, ZeroDivisionError, KeyError):
         return []
 
@@ -4884,6 +4894,7 @@ def _tail_constants_table(project: Project, component: str) -> Optional[Table]:
 
     try:
         constants = component_constants(project, component)
+    # refusal: no surface constants; the table is omitted
     except (ValueError, TypeError, ZeroDivisionError):
         constants = None
     if constants is None or not constants.values:
@@ -5245,6 +5256,7 @@ def _control_load_mode_sentence(project: Project, component: str) -> str:
     names = _TAIL_SURFACES[component]
     try:
         mode = control_load_mode(project, component)
+    # refusal: an unknown mode refuses build_tail_span before this sentence
     except (ValueError, TypeError):
         mode = ""
     if mode == "discrete":
@@ -5692,6 +5704,7 @@ def _control_records(project: Project, kind: str) -> List[ControlSurfaceLoadResu
     builders = {"aileron": build_aileron, "flap": build_flap, "tab": build_tabs}
     try:
         return list(builders[kind](project))
+    # refusal: no control records; the section states the absence
     except (MissingInputError, ValueError, TypeError, ZeroDivisionError,
             AttributeError, IndexError):
         # G-OR-7: a half-filled project still builds a complete document. The
@@ -5789,6 +5802,7 @@ def _outline_series(project: Project, name: str, style: str, mirror: bool,
         return _region_series(project, name, style,
                               _REGION_NAMES.get(name, name), mirror, frame,
                               scale)
+    # refusal: a half-entered outline is not drawn; the figure says so
     except ValueError:
         return []
 
@@ -5878,6 +5892,7 @@ def _area_discrepancy(project: Project, surface: str, entered_sqft: float,
         return ""
     try:
         drawn = planform_area_sqft(project, surface)
+    # refusal: an undrawable outline has no area to compare
     except (ValueError, TypeError, ZeroDivisionError):
         drawn = None
     if drawn is None or drawn <= 0:
@@ -7112,6 +7127,7 @@ def _tail_view_series(project: Project, frame: str, scale: float) -> List[Series
         return []
     try:
         panels = tail_planform(layout, geometry.empennage, project)
+    # refusal: an unresolvable empennage is not drawn; the caption names what is
     except (ValueError, TypeError, ZeroDivisionError, AttributeError):
         return []
     view = _TAIL_VIEW_OF_FRAME[frame]
@@ -7338,6 +7354,7 @@ def _oei_cases(project: Project) -> List["VtailCase"]:
 
     try:
         return list(_vtail_cases(project))
+    # refusal: no OEI cases; the section states ONENGOUT's refusal
     except (MissingInputError, ValueError, ZeroDivisionError, KeyError, IndexError):
         return []
 
@@ -8652,6 +8669,7 @@ def _vn_envelope(project: Project) -> Optional["EnvelopeResult"]:
     try:
         env = default_envelope(project)
         default_critical(project, env)
+    # refusal: no V-n matrix; Appendix A and its CSV state the absence
     except (MissingInputError, ValueError):
         return None
     return env if env.vn else None

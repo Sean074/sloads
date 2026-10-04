@@ -73,6 +73,7 @@ def parse_date(text: str) -> Optional[date]:
     """
     try:
         return date.fromisoformat(text.strip())
+    # refusal: a string that is not an ISO date is not a date
     except (AttributeError, TypeError, ValueError):
         return None
 

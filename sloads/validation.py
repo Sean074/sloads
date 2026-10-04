@@ -166,6 +166,7 @@ def _wing_geometry_area_sqft(project: Project) -> Optional[float]:
     from .derived_geometry import planform_area_sqft
     try:
         return planform_area_sqft(project, "wing")
+    # refusal: a half-entered planform has nothing to compare; WINGGEOM names it
     except ValueError:
         # Half-entered planform: nothing to compare, not a warning. Narrowed
         # with #71 -- the refusal is a named `ValueError` at every sweep now.
@@ -279,6 +280,7 @@ def _wtenv_stations(project: Project) -> Optional[Dict[str, float]]:
     from .modules.weight_envelope import envelope as compute_envelope
     try:
         results = compute_envelope(project, project.weight.envelope)
+    # refusal: WTENV refuses; its own page names why
     except (ValueError, ZeroDivisionError, KeyError):
         return None
     return {v.label: v.value for r in results for v in r.values}
@@ -390,6 +392,7 @@ def _check_cg_envelope(project: Project) -> List[ConsistencyWarning]:
     from .modules.weight_onecg import weights_and_inertia
     try:
         result = weights_and_inertia(project.weight.items)
+    # refusal: WTONECG refuses; its own page names why
     except (ValueError, ZeroDivisionError):
         return []
     xbar = next((v.value for v in result.values if v.key == "xbar_fus_station"), None)
@@ -520,6 +523,7 @@ def _check_operational_targets(project: Project) -> List[ConsistencyWarning]:
     )
     try:
         ds = design_speed_values(project, speeds)
+    # refusal: STRSPEED refuses; the Design Speeds page names why
     except (ValueError, ZeroDivisionError, KeyError):
         return []
     out: List[ConsistencyWarning] = []
@@ -564,6 +568,7 @@ def _check_dive_speed_basis(project: Project) -> List[ConsistencyWarning]:
 
     try:
         ds = design_speed_values(project, speeds)
+    # refusal: STRSPEED refuses; the Design Speeds page names why
     except (ValueError, ZeroDivisionError, KeyError):
         return []
 
@@ -743,6 +748,7 @@ def _check_landing_hierarchy(project: Project) -> List[ConsistencyWarning]:
     """
     try:
         cgs = cg_cases.landing_role_cases(project)
+    # refusal: no landing role set; LANDLOAD's own run names why
     except (MissingInputError, ValueError):
         return []
     out: List[ConsistencyWarning] = []
@@ -1233,6 +1239,7 @@ def _check_wing_mass_states(project: Project) -> List[ConsistencyWarning]:
     for case in cg_cases.flight_cases(project):
         try:
             state = mass_distribution.wing_mass_state(project, case.name)
+        # refusal: a malformed loading; cg_case_loading_invalid names it
         except ValueError:
             continue                  # a malformed entered loading: named above
         if state.source == "database":
@@ -1336,6 +1343,7 @@ def _check_envelope_reach(project: Project) -> List[ConsistencyWarning]:
     from .mass_distribution import BALLAST_CREDIBLE_FRACTION
     try:
         reach = mass_distribution.envelope_point_reach(project)
+    # refusal: no reach to test; WTENV / the loading owner names why
     except (MissingInputError, ValueError):
         return []
     base = [it for it in weight.items if it.kind != MassItemKind.DISCRETIONARY]
@@ -1409,6 +1417,7 @@ def _check_fuselage_override_per_case(project: Project) -> List[ConsistencyWarni
     totals = []
     try:
         loadings = mass_distribution.derive_case_loadings(project)
+    # refusal: a malformed loading; cg_case_loading_invalid names it
     except ValueError:
         return []                     # a malformed entered loading: named elsewhere
     for ld in loadings:
@@ -1510,6 +1519,7 @@ def _check_gear_carrier(project: Project) -> List[ConsistencyWarning]:
         # yet (#71) -- the same posture `_wing_geometry_area_sqft` takes.
         try:
             require_integrable_planform(wing)
+        # refusal: a half-entered wing has no gear placement to check yet
         except ValueError:
             wing = None
     for name, g in legs:
@@ -1720,6 +1730,7 @@ def _check_derive_overrides(project: Project) -> List[ConsistencyWarning]:
         from .modules.structural_speeds import design_speed_values
         try:
             n1 = design_speed_values(project, project.speeds).n
+        # refusal: STRSPEED refuses; there is no n1 to compare LIMNZ against
         except (ValueError, ZeroDivisionError, KeyError):
             n1 = None
         for label, limnz in typed:
@@ -1753,28 +1764,43 @@ def _check_ttail_induced_roll(project: Project) -> List[ConsistencyWarning]:
       increase the stabilizer rolling moment by 50 %". Any entered dihedral on
       a T-tail is warned; the moment is not scaled, since the AC gives no method.
 
+    * ``ttail_induced_roll_unchecked`` -- #344: the spanwise build refused its
+      input, so the two per-case checks above could not run. Stated with the
+      refusal rather than going silent -- the check that exists to flag must
+      not switch itself off. A ``MissingInputError`` (no chain yet) is silent.
+
     Read from ``tail_span``'s own records, so the warning and the result that
-    states the same number cannot disagree. Silent off a T-tail and on a
-    project the spanwise build refuses.
+    states the same number cannot disagree. The dihedral warning reads the
+    entered field (``tail_geometry.htail_dihedral_deg``), so it does not wait
+    on a resolved fin condition. Silent off a T-tail. The build costs 0.15 s on
+    the ATR (2026-10-04) -- the whole of ``consistency_warnings`` -- so it is
+    not memoised.
     """
     from .constants import AC23_9_MACH_WARN
-    from .tail_geometry import is_t_tail
+    from .tail_geometry import htail_dihedral_deg, is_t_tail
 
     if not is_t_tail(project):
         return []
     from .modules.tail_span import build_tail_span
+    out: List[ConsistencyWarning] = []
     try:
         vtails = build_tail_span(project)["vtail"]
-    except (MissingInputError, ValueError):
-        return []
-    out: List[ConsistencyWarning] = []
-    dihedral = 0.0
+    except MissingInputError:   # refusal: no spanwise chain yet -- nothing to check per case
+        vtails = []
+    except ValueError as exc:   # refusal: stated, not swallowed (#344)
+        vtails = []
+        out.append(ConsistencyWarning(
+            "ttail_induced_roll_unchecked",
+            f"The T-tail induced rolling moment checks could not run: the spanwise "
+            f"tail build refused its input ({exc}). Whether the moment sizes the "
+            "horizontal tail, and whether its Mach is inside AC 23-9's method, is "
+            "unknown until that input is corrected (design note 51 §9).",
+            PAGE_TAIL))
     for r in vtails:
         t = r.tip_transfer
         if t is None or t.induced is None:
             continue
         i = t.induced
-        dihedral = i.dihedral_deg
         if i.htail_ratio is not None and i.htail_ratio > 1.0:
             out.append(ConsistencyWarning(
                 "ttail_induced_roll_sizes_htail",
@@ -1793,6 +1819,7 @@ def _check_ttail_induced_roll(project: Project) -> List[ConsistencyWarning]:
                 "compressibility effect (AC 23-9 ¶5a p4); a rational analysis is "
                 "the upgrade (design note 51 D-51.8).",
                 PAGE_TAIL))
+    dihedral = htail_dihedral_deg(project)
     if dihedral > 0.0:
         out.append(ConsistencyWarning(
             "ttail_htail_dihedral",
@@ -1863,6 +1890,7 @@ def _check_oei_not_recovered(project: Project) -> List[ConsistencyWarning]:
         return []
     try:
         cases = vtail_cases(project)
+    # refusal: ONENGOUT refuses; its own page names why
     except (MissingInputError, ValueError):
         return []
     return [ConsistencyWarning(

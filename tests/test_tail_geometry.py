@@ -1114,5 +1114,22 @@ def test_the_declared_dihedral_carries_no_load():
     assert channels(after_project) == channels(before_project)
 
 
+def test_a_present_outline_that_does_not_integrate_refuses(monkeypatch):
+    """#344. A tail outline entered but not integrable read as "no planform
+    entered": the surface's spanwise set went missing, or the elevator load was
+    sized on an area of 0, with nothing said. It now refuses by name."""
+    from sloads.modules import wing_geometry
+    from sloads.tail_geometry import boundary_derived_scalars
+
+    project = _project("atr42_100.project.json")
+    assert boundary_derived_scalars(project, "htail")
+
+    def refuse(_surf):
+        raise ValueError("a stubbed planform refusal")
+    monkeypatch.setattr(wing_geometry, "surface_properties", refuse)
+    with pytest.raises(ValueError, match="a stubbed planform refusal"):
+        boundary_derived_scalars(project, "htail")
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([os.path.abspath(__file__), "-q"]))
