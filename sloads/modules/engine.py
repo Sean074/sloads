@@ -351,9 +351,27 @@ def _required(value: Optional[float], name: str) -> float:
     at the arithmetic. Which fields a condition needs follows the engine type
     (hp/cylinders for reciprocating, torques for turboprop); ``run`` selects the
     conditions per type, so on a well-formed input this never fires.
+
+    Every field it reads is a magnitude, so it is :func:`_positive` too.
     """
     if value is None:
         raise ValueError(f"EngineInput.{name} is required for this condition")
+    return _positive(value, name)
+
+
+def _positive(value: float, name: str, zero_ok: bool = False) -> float:
+    """An entered ``EngineInput`` magnitude, refused by name unless positive
+    (#343). Each is a power, a torque, a time or an inertia whose sign the
+    engine's own convention supplies (``torque_sense``, ``spin_momentum``), so a
+    negative entry reverses a delivered load as cleanly as a right one closes,
+    and a zero stoppage time divides by zero. ``zero_ok`` admits a zero that
+    means *none* -- a measured propeller inertia of 0 on a fan with no propeller.
+    """
+    if value < 0.0 or (value == 0.0 and not zero_ok):
+        raise ValueError(
+            f"EngineInput.{name} is {format_value(value)}: it is a magnitude and must "
+            f"be {'zero or ' if zero_ok else ''}positive -- the engine's convention "
+            "supplies every load's sign (#343)")
     return value
 
 
@@ -394,7 +412,7 @@ def _prop_inertia(inp: EngineInput) -> float:
     taken as the prop radius.
     """
     if inp.prop_inertia is not None:
-        return inp.prop_inertia
+        return _positive(inp.prop_inertia, "prop_inertia", zero_ok=True)
     blade_weight = inp.prop_weight_lb - (inp.hub_weight_lb or 0.0)
     radius_ft = inp.prop_diameter_in / 2 / IN_PER_FT
     val = blade_weight / G * radius_ft ** 2 / 3
@@ -713,7 +731,7 @@ def condition_25_361_a3ii(inp: EngineInput) -> ConditionResult:
     cg = combined_cg(inp)
     defaulted = inp.max_accel_torque is None
     accel_torque = (_required(inp.max_engine_torque, "max_engine_torque") if inp.max_accel_torque is None
-                    else inp.max_accel_torque)
+                    else _positive(inp.max_accel_torque, "max_accel_torque"))
     note = ""
     if defaulted:
         note = "Max accelerating torque defaulted to max engine torque (no separate value supplied)."

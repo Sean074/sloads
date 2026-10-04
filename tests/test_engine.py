@@ -202,6 +202,44 @@ def test_a_rotors_spin_sense_has_one_reader():
     assert readers == {"spin_momentum"}, readers
 
 
+# --------------------------------------------------------------------------- #
+# #343 sweep -- an entered engine magnitude is refused by name unless positive
+# --------------------------------------------------------------------------- #
+def test_an_entered_engine_magnitude_must_be_positive():
+    """#343 sweep (rule 4, the windmill coefficient's class). Each of these is a
+    magnitude the engine's convention signs (``torque_sense``,
+    ``spin_momentum``): a negative entry reversed a delivered mount load as
+    cleanly as a right one closes, and a zero stoppage time divided by zero.
+    Each is refused by name -- through ``_required`` for the fields a condition
+    needs, ``_positive`` for the two entered overrides."""
+    import re
+    from dataclasses import replace
+
+    cases = [("stop_time_s", calc.condition_361_b1, turboprop),
+             ("max_engine_torque", calc.condition_361_a3, turboprop),
+             ("cruise_torque", calc.condition_361_a2, turboprop),
+             ("max_accel_torque", calc.condition_25_361_a3ii, turboprop),
+             ("takeoff_hp", calc.condition_361_a1, io520bb)]
+    for field, condition, make in cases:
+        condition(make())                                  # the entered value runs
+        for bad in (0.0, -1.0):
+            try:
+                condition(replace(make(), **{field: bad}))
+            except ValueError as err:
+                assert re.search(rf"EngineInput\.{field} is .*must be positive", str(err)), err
+            else:
+                raise AssertionError(f"{field}={bad} was not refused")
+    # A measured propeller inertia is refused only below zero: 0 is a fan with
+    # no propeller (the regional jet enters it so).
+    calc.condition_361_b1(replace(turboprop(), prop_inertia=0.0))
+    try:
+        calc.condition_361_b1(replace(turboprop(), prop_inertia=-1.0))
+    except ValueError as err:
+        assert "prop_inertia is -1.000: it is a magnitude and must be zero or positive" in str(err), err
+    else:
+        raise AssertionError("prop_inertia=-1 was not refused")
+
+
 def test_measured_prop_inertia_overrides_geometry():
     from dataclasses import replace
     inp = replace(turboprop(), prop_inertia=12.5)

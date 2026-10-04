@@ -1724,7 +1724,8 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "the windmilling propeller's disc drag coefficient, from the maker's data or the 23.367(a)(3) history "
        "(design note 66 D-66.12a). Delivered as the failed engine's hub drag in the balanced one-engine-out cases; "
        "blank delivers ONENGOUT's Glauert term, the manual's upper bound (C_D,disc 0.50), stated as that bound. "
-       "The ONENGOUT march and the fin loads always use the bound"),
+       "The ONENGOUT march and the fin loads always use the bound. Must be positive (refused otherwise); "
+       "above the bound it is delivered and warned (#343)"),
     _E("engines[].rotors[].rotor_type", _ENG, _SLDS, "turbine rotor model, Step C9"),
     _E("engines[].rotors[].weight_lb", _ENG, _SLDS, "turbine rotor model, Step C9"),
     _E("engines[].rotors[].diameter_in", _ENG, _SLDS, "turbine rotor model, Step C9"),
