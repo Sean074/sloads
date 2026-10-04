@@ -36,6 +36,7 @@ from sloads.modules.balance.engine_cases import (
     _scaled,
 )
 from sloads.modules.flight_envelope import build_envelope
+from sloads.modules.structural_speeds import design_speed_values
 from sloads.report.render import load_cases_to_rows
 from sloads.units import format_value
 
@@ -160,12 +161,17 @@ def test_the_case_flies_at_the_load_factor_engloads_states(name):
     (:func:`_pinned_n`) -- so a wrong ENGLOADS vertical fails here -- and the
     engine's mass, already in the parent's inertia, is loaded at that ``n``
     with no vertical re-applied. The factor is the engine's own
-    ``limit_load_factor``: on ``baron_58`` that is the entered 4.2 against the
-    airplane's 23.337 n1 of 3.648, a disagreement filed for the owner's ruling
-    rather than pinned here (#318 ruling 1a)."""
+    ``limit_load_factor`` (#318 ruling 1a), and on every fixture it is the
+    airplane's own n1 -- the condition A the parent flew. On ``baron_58``
+    both are the POH's 4.2, entered as STRSPEED's chosen n (#331 ruling (d));
+    before #331 n1 fell to the 23.337 minimum of 3.648 and the torque cases
+    flew 15 % above condition A."""
     project, cases, _ = _built(name)
+    n1 = design_speed_values(project, project.speeds).n
     for c in _em(cases):
         eng, _ = _engine_of(c, project)
+        assert math.isclose(eng.limit_load_factor, n1, rel_tol=1e-9), (
+            c.label, eng.limit_load_factor, n1)
         want = _pinned_n(c.case_ref.far_reference, eng.limit_load_factor)
         assert math.isclose(c.nz, want, rel_tol=1e-9), (c.label, c.nz, want)
         # ...and no load in the case is a re-applied engine vertical.

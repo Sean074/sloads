@@ -359,6 +359,35 @@ def test_engine_mass_row_mismatch_warns():
     assert warnings and row.name in warnings[0].message
 
 
+_EXAMPLES = os.path.dirname(_GA)
+
+
+@pytest.mark.parametrize("name", ("ga6_normal", "baron_58", "atr42_100",
+                                  "concept_regional_jet"))
+def test_engine_load_factor_mismatch_is_silent_on_every_engine_fixture(name):
+    """#331: every shipped engine's LIMNZ is its airplane's n1 -- the Baron's
+    POH 4.2 entered as STRSPEED's chosen n, not as LIMNZ alone."""
+    p = io.load_project(os.path.join(_EXAMPLES, f"{name}.project.json"))
+    assert "engine_load_factor_mismatch" not in {
+        w.code for w in consistency_warnings(p)}
+
+
+def test_engine_load_factor_mismatch_warns_with_both_numbers():
+    """#331: the pre-ruling Baron -- POH 4.2 typed as LIMNZ, chosen n blank so
+    n1 falls to the 23.337 minimum 2.1 + 24000/(5500 + 10000) = 3.648 -- warns
+    once per engine, naming both numbers; a blank LIMNZ derives and is silent."""
+    p = io.load_project(os.path.join(_EXAMPLES, "baron_58.project.json"))
+    p.speeds = replace(p.speeds, chosen_n=None)
+    warnings = [w for w in consistency_warnings(p)
+                if w.code == "engine_load_factor_mismatch"]
+    assert [w.message.split(":")[0] for w in warnings] == [
+        "engine 1 (CONTINENTAL IO-550-C)", "engine 2 (CONTINENTAL IO-550-C)"]
+    assert "4.200 g" in warnings[0].message and "3.648 g" in warnings[0].message
+    p.engines = [replace(e, limit_load_factor=0.0) for e in p.engines]
+    assert "engine_load_factor_mismatch" not in {
+        w.code for w in consistency_warnings(p)}
+
+
 def test_a_selector_naming_no_row_is_refused_by_name():
     p = _ga6()
     p.engines[0].engine_mass_item = "no such row"

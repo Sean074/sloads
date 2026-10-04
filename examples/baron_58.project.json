@@ -1115,7 +1115,7 @@
     "chosen_vd": 248.0,
     "chosen_va": null,
     "chosen_vf": null,
-    "chosen_n": null,
+    "chosen_n": 4.2,
     "chosen_nneg": null,
     "mach_limit": {
       "max_operating_altitude_ft": 20000,

@@ -116,7 +116,9 @@ _FROZEN_PICKS = {
         # #309 (2026-09-29): `fwd gross` took its loading's own waterline
         # 95.75 for the unsourced 100.0 -- the trim's drag arm -- and NHAA's
         # resultant fell 8,011 -> 7,978 lb (-0.4 %).
-        "NHAA": ("STALL -N", -1.46, 134.2, "fwd gross", 0.0, 7978),
+        # #331 (2026-10-03): the POH's 4.2 entered as chosen n, so 23.337's
+        # negative factor is -0.4 x 4.2; NHAA 7,978 -> 9,216 lb (+15.5 %).
+        "NHAA": ("STALL -N", -1.68, 143.35, "fwd gross", 0.0, 9216),
         "NMAA": ("GUST -C", -2.35, 195.0, "fwd regardless", 10000.0, 9844),
         "NLAA": ("GUST -D", -1.21, 248.0, "fwd regardless", 10000.0, 4884),
         "PNZ": ("GUST +C", +4.34, 195.0, "fwd regardless", 10000.0, 18961),

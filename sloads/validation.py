@@ -1615,6 +1615,8 @@ def _check_derive_overrides(project: Project) -> List[ConsistencyWarning]:
       disagreement as ``cross_check.cross_check_disagrees`` judges it, #243). A selector naming **no** row is refused by
       name in the calc (``engine.selected_mass_row``), not warned here -- the
       C210-21 split between a wrong linkage and a disagreeing override.
+    * ``engine_load_factor_mismatch`` -- a typed ``limit_load_factor`` (LIMNZ)
+      against the airplane's 23.337 n1 it derives from when blank (#331).
 
     ``gross_weight`` vs MTOW keeps its existing ``mtow_representation_drift``
     warning (:func:`_check_weight_case_model`).
@@ -1697,6 +1699,35 @@ def _check_derive_overrides(project: Project) -> List[ConsistencyWarning]:
                     + f" disagree with weight-database row '{row.name}' named by "
                     f"{which}_mass_item. The typed value governs -- blank it to "
                     "derive from the row (note 36 OV-7), or fix the row.",
+                    PAGE_ENGINE))
+
+    # A typed LIMNZ that disagrees with the airplane's own n1 (#331): the
+    # engine-mount cases scale condition A to LIMNZ (note 66 D-66.4), so a
+    # disagreement loads the whole airplane at a factor its V-n does not fly.
+    # Blank LIMNZ derives from this same n (C210-41).
+    typed = [(f"engine {i}" + (f" ({eng.engine_designation})"
+                               if eng.engine_designation else ""),
+              eng.limit_load_factor)
+             for i, eng in enumerate(project.engines, start=1)
+             if eng.limit_load_factor]
+    if typed and project.speeds is not None:
+        from .modules.structural_speeds import design_speed_values
+        try:
+            n1 = design_speed_values(project, project.speeds).n
+        except (ValueError, ZeroDivisionError, KeyError):
+            n1 = None
+        for label, limnz in typed:
+            if n1 is not None and cross_check_disagrees(
+                    limnz, n1, format_value):
+                out.append(ConsistencyWarning(
+                    "engine_load_factor_mismatch",
+                    f"{label}: the typed limit load factor (LIMNZ) is "
+                    f"{format_value(limnz)} g but the airplane's 23.337 limit "
+                    f"maneuver load factor n1 is {format_value(n1)} g. The "
+                    "engine-mount cases scale condition A to LIMNZ, so they "
+                    "load the whole airplane at a factor its V-n does not "
+                    "fly. Blank LIMNZ to derive it from n1, or enter the "
+                    "airplane's declared limit as the speeds' chosen n (#331).",
                     PAGE_ENGINE))
     return out
 

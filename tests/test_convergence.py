@@ -148,6 +148,13 @@ _CLAMPED: dict = {
     # type's 586 sq ft (it was 18 % small), and at the true wing loading none
     # of its 25,000 ft manoeuvre points is Mach-capped any more. The clamped
     # state is exercised on ``_clamped_atr()`` below instead.
+    # #331 (2026-10-03): the Baron at its POH limit of 4.2 g cannot reach
+    # corner A at 20,000 ft at `fwd gross` -- the Mach cap pins the speed and
+    # the point is stall-limited, D-30's ordinary flight (V-n cases 223/224,
+    # CL 1.274). SELECT governs on neither.
+    "baron_58.project.json": {
+        ("MAN A", "fwd gross", 20000.0), ("MAN C", "fwd gross", 20000.0),
+    },
 }
 _CLAMPED_BEFORE_260 = {
     "atr42_100.project.json": {

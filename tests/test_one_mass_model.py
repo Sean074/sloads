@@ -438,10 +438,15 @@ def test_a_repointed_slot_says_so_and_a_project_without_a_wing_keeps_its_air_pic
     assert not table.variants and "wing_mass" in table.reason
     delivered = {c.label: c.case for c in build_critical(bare, envelope).conditions
                  if c.component == "wing"}
-    # The air picks, with D-62.8's coincidence rule applied at delivery
-    # (#294): NNZ shares NMAA's point and nothing re-points, so it is empty.
-    assert delivered == {k: v for k, v in picks.items() if k != "NNZ"}
-    assert picks["NNZ"] == picks["NMAA"]
+    # The bare project's own air picks, with D-62.8's coincidence rule applied
+    # at delivery (#294): NNZ shares NMAA's point and nothing re-points, so it
+    # is empty. They are the bare project's, not ``picks``: ACRL's #320 tie is
+    # broken on the wing's root Mxx, which a project without ``wing_mass``
+    # cannot run, so it keeps SELECT.BAS's largest LZW -- at the POH's 4.2
+    # (#331) the Baron's AC ROLL points tie and the two differ.
+    bare_picks = {c.label: c.case for c in air_picks(bare, envelope)}
+    assert delivered == {k: v for k, v in bare_picks.items() if k != "NNZ"}
+    assert bare_picks["NNZ"] == bare_picks["NMAA"]
 
 
 def test_the_wing_register_states_what_it_cannot_build_rather_than_dropping_it():
