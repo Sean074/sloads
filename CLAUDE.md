@@ -129,14 +129,21 @@ Additional rules (rationale in `docs/50_reviews/`):
   collaboration is explicitly in play: `scripts/solo_start.sh dev/vX.Y.Z` opens the
   milestone branch; every item closes with `scripts/solo_close.sh` (gate → commit →
   push → issue close → verify) — never by hand-run equivalents.
-- **Git is the user's to run.** ANY and ALL git and `gh` usage — `commit`, `add`,
-  `push`, `branch`, `merge`, `checkout`, `tag`, `rebase`, `reset`, etc., and the
-  solo scripts (they run git/gh internally) — SHALL be performed by the user, NOT by
-  Claude, UNLESS the user explicitly requests that specific action. Make the file
-  changes and present the exact command **ONE AT A TIME**: give one command, stop the
-  turn, and wait for the user's pasted output before offering the next — never a
-  batched list. The AI never pushes, opens or merges a PR; the developer is the
-  author of record.
+- **Git that changes state is the user's to run; Claude may read.** Read-only
+  commands Claude runs freely: git `status`, `log`, `diff`, `show`, `blame`,
+  `branch --list`, `rev-parse`, `ls-files`; gh `issue view|list`,
+  `pr view|list|diff`, `run view|list`, `api` (GET only). Everything that changes
+  a repo, a remote or GitHub — git `add`, `commit`, `push`, `pull`, `fetch`,
+  `merge`, `rebase`, `reset`, `checkout`/`switch`, `stash`, `tag`, `cherry-pick`,
+  `revert`, `clean`, branch create/delete/rename, any `config` write; gh
+  `issue create|close|edit|comment`, `pr create|merge|review`, `release`,
+  `label`, `api` writes; and the solo scripts or any script that runs git/gh
+  internally — SHALL be run by the user, UNLESS the user explicitly requests that
+  specific action. A command chained with `&&`, `;` or `|` is state-changing if
+  any part is. Present each state-changing command **ONE AT A TIME**, on one
+  line: give it, stop the turn, and wait for the user's pasted output before
+  offering the next — never a batched list. The AI never pushes, opens or merges
+  a PR; the developer is the author of record.
 
 ## Commands
 
