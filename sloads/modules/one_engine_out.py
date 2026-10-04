@@ -251,11 +251,40 @@ def simulate(c: CaseInputs) -> Tuple[List[HistoryRow], CaseSummary]:
     return rows, summary
 
 
+#: The Glauert term's disc drag coefficient, ``0.85 * 0.232 * 8 / pi = 0.502``
+#: at every speed and altitude: the manual's "can not be more than" (Ch 11 p88).
+#: A blank ``EngineInput.windmill_drag_cd`` delivers it, stated as that bound;
+#: an entered one above it is warned with both numbers (#343).
+GLAUERT_DISC_CD_BOUND = 0.85 * 0.232 * 8.0 / math.pi
+
+
+def entered_windmill_cd(eng: EngineInput, index: int) -> Optional[float]:
+    """Engine ``index``'s entered windmilling disc drag coefficient, or ``None``
+    for the Glauert bound -- the one reader of ``EngineInput.windmill_drag_cd``
+    in the calc (D-66.12a).
+
+    A coefficient that is not positive is refused by name (#343): a negative
+    one turns the failed hub's drag into a forward thrust and zero delivers no
+    drag at all, and either closes as cleanly as a right one. Blank is the way
+    to the bound. A value above the bound is legal (conservative) and warned,
+    ``validation.windmill_drag_cd_range``.
+    """
+    cd = eng.windmill_drag_cd
+    if cd is not None and cd <= 0.0:
+        raise ValueError(
+            f"engines[{index}].windmill_drag_cd is {format_value(cd)}: a windmilling "
+            "propeller's disc drag coefficient must be positive -- a negative one "
+            "delivers a forward thrust at the failed hub, zero delivers no drag. "
+            "Enter the propeller's own value, or blank it to deliver the Glauert "
+            f"bound {format_value(GLAUERT_DISC_CD_BOUND)} (#343).")
+    return cd
+
+
 def disc_drag_coefficient(c: CaseInputs, drag_lb: float) -> float:
     """The disc drag coefficient ``drag_lb`` is at the case's speed: the drag
     over the true dynamic pressure times the disc area ``pi * D^2 / 4``.
 
-    Of the Glauert term it is ``0.85 * 0.232 * 8 / pi = 0.502``, the manual's
+    Of the Glauert term it is :data:`GLAUERT_DISC_CD_BOUND`, the manual's
     "can not be more than" (Ch 11 p88), which the balanced case states; its
     inverse is :func:`windmill_drag_from_cd`. Both read the density and true
     airspeed :func:`engine_thrust_and_drag` does, so neither restates them.

@@ -313,6 +313,67 @@ def test_a_twin_needs_both_engines_to_windmill_alike():
         assert _pair(c).fx == pytest.approx(-remaining + windmill, rel=1e-9), c.label
 
 
+@pytest.mark.parametrize("bad", [0.0, -0.25])
+@pytest.mark.parametrize("index", [0, 1])
+def test_a_windmill_coefficient_that_is_not_positive_is_refused_by_name(bad, index):
+    """#343. A negative coefficient turned the failed hub's drag into a forward
+    thrust and zero delivered none, and either closed as cleanly as a right
+    one. Refused by name out of the balanced build -- not swallowed into an
+    empty family by the march's ``except`` -- and warned on the engine page."""
+    from sloads.validation import consistency_warnings
+
+    cds = [None, None]
+    cds[index] = bad
+    project = _with_cd(_project("baron_58"), cds)
+    with pytest.raises(ValueError, match=rf"engines\[{index}\]\.windmill_drag_cd is .*must be positive"):
+        build_balanced_cases(project)
+    warned = [w for w in consistency_warnings(project) if w.code == "windmill_drag_cd_range"]
+    assert len(warned) == 1 and warned[0].page == "engine_mount"
+    assert warned[0].message.startswith(f"engines[{index}]") and "refuse" in warned[0].message
+
+
+def test_a_windmill_coefficient_above_the_bound_is_delivered_and_warned():
+    """#343. Above the Glauert bound the manual says the drag cannot exceed,
+    an entry is legal -- it only adds drag at the failed hub -- so it is
+    delivered as entered and warned with both numbers. Inside the bound, and
+    blank, nothing is said."""
+    from sloads.modules.one_engine_out import GLAUERT_DISC_CD_BOUND, disc_drag_coefficient
+    from sloads.validation import consistency_warnings
+
+    def warned(project):
+        return [w.message for w in consistency_warnings(project) if w.code == "windmill_drag_cd_range"]
+
+    base = _project("baron_58")
+    fc = vtail_cases(base)[0]
+    assert GLAUERT_DISC_CD_BOUND == pytest.approx(
+        disc_drag_coefficient(fc.inputs, engine_thrust_and_drag(fc.inputs)[1]), rel=1e-12)
+    high = _with_cd(base, [0.6, 0.6])
+    assert {c.label for c in _oei(build_balanced_cases(high))} == {c.label for c in _oei(build_balanced_cases(base))}
+    messages = warned(high)
+    assert len(messages) == 2
+    assert all("0.600" in m and "0.502" in m and "delivered as entered" in m for m in messages)
+    assert warned(base) == [] and warned(_with_cd(base, [0.25, GLAUERT_DISC_CD_BOUND])) == []
+
+
+def test_the_windmill_coefficient_has_one_reader_in_the_calc():
+    """#343 drift guard. Inside ``sloads/modules`` the entered coefficient is
+    read only by ``one_engine_out.entered_windmill_cd``, the function that
+    refuses it -- so no load can reach the hub around the refusal."""
+    import ast
+    import pathlib
+
+    root = pathlib.Path(__file__).resolve().parents[1] / "sloads" / "modules"
+    readers = set()
+    for path in root.rglob("*.py"):
+        tree = ast.parse(path.read_text())
+        for fn in ast.walk(tree):
+            if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                for node in ast.walk(fn):
+                    if isinstance(node, ast.Attribute) and node.attr == "windmill_drag_cd":
+                        readers.add(f"{path.relative_to(root)}::{fn.name}")
+    assert readers == {"one_engine_out.py::entered_windmill_cd"}, readers
+
+
 def test_a_hub_off_the_engines_butt_line_is_recorded():
     """#321 (note 66 §12 riders): the march's arm is the engine's butt line and
     the pair lands at the hub, so a hub off that line is recorded by name

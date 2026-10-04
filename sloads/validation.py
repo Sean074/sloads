@@ -64,6 +64,12 @@ Checks (14 CFR / Reference-1 context in each predicate):
                              to drive the term, so the slipstream case is skipped
                              and the flap is sized on the gust-combined load alone
                              (#83; Ref 1 Ch 17). See ``_check_flap_slipstream``.
+- ``windmill_drag_cd_range`` -- an entered windmilling disc drag coefficient
+                             that is not positive (refused by name in the
+                             one-engine-out cases, ``one_engine_out.entered_windmill_cd``)
+                             or above the Glauert bound the manual says it
+                             cannot exceed (delivered as entered). See
+                             ``_check_windmill_drag_cd`` (#343).
 - ``gross_ge_max_landing`` / ``landing_light_le_max`` / ``landing_cg_ordering`` /
   ``landing_cg_below_axle`` / ``landing_cg_names`` -- the LANDLOAD weight/CG
                              hierarchy (M4-17d; 14 CFR 23.473-23.499). See
@@ -1798,6 +1804,47 @@ def _check_ttail_induced_roll(project: Project) -> List[ConsistencyWarning]:
     return out
 
 
+def _check_windmill_drag_cd(project: Project) -> List[ConsistencyWarning]:
+    """``windmill_drag_cd_range`` -- an entered windmilling disc drag
+    coefficient out of its range (#343).
+
+    Not positive: the balanced one-engine-out cases refuse it by name
+    (``one_engine_out.entered_windmill_cd``); warned here too so the engine page
+    says so before a deck is asked for -- the ``tail_cp_station_unset`` shape.
+    Above the Glauert bound: legal, since it only adds drag at the failed hub,
+    but the manual (Ch 11 p88) says the drag "can not be more than" the bound,
+    so a larger entry is most likely a slip; delivered as entered, warned with
+    both numbers.
+    """
+    from .modules.one_engine_out import GLAUERT_DISC_CD_BOUND
+
+    out: List[ConsistencyWarning] = []
+    for i, eng in enumerate(project.engines):
+        cd = eng.windmill_drag_cd
+        if cd is None:
+            continue
+        label = f"engines[{i}]" + (f" ({eng.engine_designation})" if eng.engine_designation else "")
+        if cd <= 0.0:
+            out.append(ConsistencyWarning(
+                "windmill_drag_cd_range",
+                f"{label}: the windmilling disc drag coefficient is {format_value(cd)}. "
+                "A windmilling propeller drags, so it must be positive -- a negative "
+                "one is a forward thrust at the failed hub, zero is no drag. The "
+                "one-engine-out cases refuse it. Enter the propeller's own value, or "
+                f"blank it to deliver the Glauert bound {format_value(GLAUERT_DISC_CD_BOUND)}.",
+                PAGE_ENGINE))
+        elif cd > GLAUERT_DISC_CD_BOUND:
+            out.append(ConsistencyWarning(
+                "windmill_drag_cd_range",
+                f"{label}: the windmilling disc drag coefficient {format_value(cd)} is above "
+                f"the Glauert bound {format_value(GLAUERT_DISC_CD_BOUND)}, which the manual "
+                "(Ch 11 p88) says the drag can not be more than. It is delivered as "
+                "entered, a larger drag at the failed hub than the method allows -- "
+                "check the entry against the propeller maker's data.",
+                PAGE_ENGINE))
+    return out
+
+
 def _check_oei_not_recovered(project: Project) -> List[ConsistencyWarning]:
     """``oei_case_not_recovered`` -- a 23.367 speed the regulation requires that
     did not recover within the simulated time (#333 ruling 2).
@@ -1871,4 +1918,5 @@ def consistency_warnings(project: Project) -> List[ConsistencyWarning]:
     out += _check_derive_overrides(project)
     out += _check_ttail_induced_roll(project)
     out += _check_oei_not_recovered(project)
+    out += _check_windmill_drag_cd(project)
     return out

@@ -427,7 +427,10 @@ clause, which knew of no milestone between.
 > and mostly costs a ruling; #337 is Baron-only data with no ATR trace.
 > Renumbered densely, **Pri 1–24**: B9 0 (empty — the 0.8.8 cut is next, the
 > header retires with it), B10 8, B2 8, C 8. **Cut 0.8.8 now, 0.8.9 when B10
-> is empty, then 0.9.0 when B2 is.**
+> is empty, then 0.9.0 when B2 is.** *(Recounted 2026-10-04 at the #343
+> closure: note 68's re-cut, 2026-10-03, put #354 in B10 at Pri 9 and #355–#359
+> in B2 at Pri 18–22 — B10 9 rows at the re-cut (2 L, 3 M, 4 S), B2 13, C 8,
+> **Pri 1–30**.)*
 >
 > **B9 is retired: 0.8.8 was cut on 2026-10-03** (tag `v0.8.8`; the release-cut
 > block in
@@ -480,7 +483,6 @@ keeps its body in *Open defects*, and the [E]/[V] detail sections hold the rest.
 | Pri | Item (detail below / in its plan) | What ships | Tag | Tier / effort | Depends on |
 |---|---|---|---|---|---|
 | **B10 — 0.8.9: the ATR-class deck delivers correct loads — twin turboprop, T-tail (chartered 2026-10-03)** ||||||
-| 4 | **`EngineInput.windmill_drag_cd` has no range validation** — a negative entered coefficient delivers a phantom forward thrust at the failed hub, silently *(0.8.8 pre-release review)* (#343) | A non-positive coefficient refused by name in the OEI assembly path; a value above the stated Glauert bound warned with both numbers; guard beside the #319 gates | V | S / S | — |
 | 5 | **The T-tail induced-roll check swallows any `ValueError` from the whole tail-span build, and the dihedral warning is unreachable without an induced record** *(0.8.8 pre-release review)* (#344) | The except narrowed to input-shaped refusals, the dihedral warning read from the typed field unconditionally, guards for both | V | S / S | — |
 | 6 | **atr42_100 enters no tailplane dihedral, so the T-tail dihedral guard never fires on the one fixture it exists for** — D-51.9 open: no citable source found at #328 (#336) | The cited value entered on the fixture and the guard firing where it was built to; D-51.9 closes | V | S / S | a citable source |
 | 7 | **The ATR's horizontal tail is not sized for the T-tail induced rolling moment** — M_r/2 is 143 % of its governing root bending on the OEI VD case (142.6 % since #333), warned but not carried (note 51 §8's deferred case, trigger met at ship) (#334) | Note 51 §8 designed at AGREED first; the h-tail carrying its share of M_r in deck, CSV and report; the `ttail_induced_roll_sizes_htail` warning retiring where the load is carried | E | L / M | #336's dihedral first (#333's rulings landed 2026-10-03); design note at AGREED before code |
