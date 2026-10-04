@@ -281,7 +281,8 @@ Two PRs with digest waves serialize: the second rebases and regenerates.
   `.claude/settings.local.json` (git-ignored); the shared allowlist is
   `.claude/settings.json`.
 - **The AI never pushes, opens, or merges a PR.** The developer does and is the
-  author of record ("Git is the user's to run", unchanged).
+  author of record (`CLAUDE.md` "Git that changes state is the user's to
+  run"; read-only git/gh is the AI's to run).
 - A PR whose diff is substantially AI-generated says so in the template's
   `AI-assisted:` line; the reviewer reads accordingly.
 - "Agreed in chat" is retired: the AI's design-note check is "the note is
