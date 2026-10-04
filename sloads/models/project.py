@@ -372,7 +372,11 @@ from .results import EnvelopeResult, LoadsResult, MassResult
 # optional; blank keeps VS as the manual's stated substitute) and
 # ``takeoff_altitude_ft`` (the low-end case's altitude, default 0). Additive,
 # so ``_hop_73`` is an identity.
-SCHEMA_VERSION = 74
+# v75 (#332): ``Rotor.direction`` retired -- read by nothing; a rotor's spin
+# sense is its signed ``max_rpm``, the one owner. ``_hop_74`` drops the key and
+# states any file whose retired field said counter-clockwise against a positive
+# rpm (the rpm always governed, so no load moves on the hop).
+SCHEMA_VERSION = 75
 
 
 @dataclass

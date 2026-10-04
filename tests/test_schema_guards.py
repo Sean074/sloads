@@ -405,7 +405,11 @@ def fields_hash() -> str:
 #: with defaults meaning "VS substituted, flown at sea level", so ``_hop_73`` is
 #: an identity. The digests *do* move, by the ruling and not the hop: the low
 #: end leaves the shoulder altitude and the march leaves the all-items loading.
-EXPECTED_FIELDS_HASH = "35b81fce2145a641"
+#: v75 (#332): ``Rotor.direction`` removed -- read by nothing; the signed
+#: ``max_rpm`` is the rotor's one spin owner. ``_hop_74`` drops the key. The
+#: digests move by the stoppage fix, not the hop: the RJ's counter-rotating
+#: fan publishes +50,577 ft-lb, the mirror of its twin, where it had +50,576.
+EXPECTED_FIELDS_HASH = "4e7f9394f67856d4"
 
 
 def test_persisted_dataclass_shapes_are_unchanged():

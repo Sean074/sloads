@@ -169,6 +169,24 @@ def test_the_v74_hop_reads_a_v73_one_engine_out_slice_as_vs_at_sea_level():
     assert project.one_engine_out.takeoff_altitude_ft == 0.0
 
 
+def test_the_v74_hop_drops_the_retired_rotor_direction():
+    """v74 -> v75 (#332): ``Rotor.direction`` is dropped; the signed
+    ``max_rpm`` is kept as entered, since it always governed. A rotor whose
+    retired field said counter-clockwise against a positive rpm is stated,
+    naming the rotor; the writer's default ``CW`` against a negative rpm
+    carries no intent and passes silently."""
+    path = os.path.join(os.path.dirname(_CURRENT), "concept_regional_jet.project.json")
+    d = _load(path)
+    d["schema_version"] = 74
+    d["engines"][0]["rotors"][0]["direction"] = "CC"     # against +8,500 rpm
+    d["engines"][1]["rotors"][0]["direction"] = "CW"     # against -8,500 rpm
+    project = io.project_from_dict(d)
+    assert [r.max_rpm for e in project.engines for r in e.rotors] == [8500, -8500]
+    assert len(project.migration_notes) == 1
+    assert project.migration_notes[0].startswith("engines[0].rotors[0]:")
+    assert "direction" not in io.project_to_dict(project)["engines"][0]["rotors"][0]
+
+
 def test_a_hops_note_reaches_the_project_and_is_stated_once():
     """A hop that changes an entered value says so through ``migration_notes``,
     which the reader carries onto the project (never persisted) and

@@ -337,7 +337,6 @@ def _rotor_from_dict(d: Dict[str, Any]) -> Rotor:
         weight_lb=d["weight_lb"],
         max_rpm=d["max_rpm"],
         rotor_type=RotorType(d.get("rotor_type", "T")),
-        direction=RotorDirection(d.get("direction", "CW")),
         inertia=d.get("inertia"),
     )
 
@@ -388,7 +387,6 @@ def engine_to_dict(inp: EngineInput) -> Dict[str, Any]:
         {
             **asdict(r),
             "rotor_type": r.rotor_type.value,
-            "direction": r.direction.value,
         }
         for r in inp.rotors
     ]

@@ -95,6 +95,32 @@ def _hop_73(d: Dict[str, Any]) -> Dict[str, Any]:
     return d
 
 
+def _hop_74(d: Dict[str, Any]) -> Dict[str, Any]:
+    """v74 -> v75 (#332): ``Rotor.direction`` is retired; a rotor's spin
+    sense is its signed ``max_rpm`` alone. The key is dropped.
+
+    No delivered number moves: the field was read by nothing, so every load
+    a v74 file produced already followed the sign of ``max_rpm``. A rotor
+    whose retired field said ``CC`` against a positive rpm is the one case
+    where the file disagreed with itself; the hop keeps the rpm -- what the
+    loads were always computed from -- and says so, naming the rotor, rather
+    than refusing a file a release wrote. ``CW`` (the default the writer
+    stamped on every rotor) against a negative rpm carries no intent and is
+    dropped silently.
+    """
+    for e_i, engine in enumerate(d.get("engines") or []):
+        for r_i, rotor in enumerate(engine.get("rotors") or []):
+            direction = rotor.pop("direction", None)
+            rpm = rotor.get("max_rpm")
+            if direction == "CC" and isinstance(rpm, (int, float)) and rpm > 0:
+                d.setdefault("migration_notes", []).append(
+                    f"engines[{e_i}].rotors[{r_i}]: the retired rotor direction "
+                    f"said counter-clockwise but max_rpm is +{rpm}; the rotor "
+                    "spins clockwise, as every earlier load assumed. Enter a "
+                    "negative max_rpm if it counter-rotates (#332).")
+    return d
+
+
 #: ``{from_version: hop}`` -- applied in ascending order, each turning a file of
 #: version *n* into version *n+1* shape.
 MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
@@ -102,6 +128,7 @@ MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     71: _hop_71,
     72: _hop_72,
     73: _hop_73,
+    74: _hop_74,
 }
 
 #: The oldest project version this build reads: the oldest released schema, or
