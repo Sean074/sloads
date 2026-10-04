@@ -155,6 +155,20 @@ def test_the_v73_hop_reads_every_row_as_not_usable_fuel():
     assert not any(it.usable_fuel for it in project.weight.items)
 
 
+def test_the_v74_hop_reads_a_v73_one_engine_out_slice_as_vs_at_sea_level():
+    """#333: a v73 ``one_engine_out`` slice loads with no VMC (VS stands in,
+    stated) and the low end at sea level -- the hop adds nothing, the
+    dataclass defaults are the meaning."""
+    path = os.path.join(os.path.dirname(_CURRENT), "atr42_100.project.json")
+    d = _load(path)
+    d["schema_version"] = 73
+    d["one_engine_out"].pop("vmc_kt", None)
+    d["one_engine_out"].pop("takeoff_altitude_ft", None)
+    project = io.project_from_dict(d)
+    assert project.one_engine_out.vmc_kt is None
+    assert project.one_engine_out.takeoff_altitude_ft == 0.0
+
+
 def test_a_hops_note_reaches_the_project_and_is_stated_once():
     """A hop that changes an entered value says so through ``migration_notes``,
     which the reader carries onto the project (never persisted) and

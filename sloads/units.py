@@ -604,7 +604,8 @@ KEAS = "KEAS"
 AVIATION_STANDARD: Dict[str, str] = {
     "altitude_ft": "ft", "altitudes_ft": "ft", "increment_ft": "ft",
     "max_operating_altitude_ft": "ft", "shoulder_altitude_ft": "ft",
-    "speeds_kt": KEAS, "v_eas_kt": KEAS, "vb_kt": KEAS, "vh_kt": KEAS,
+    "takeoff_altitude_ft": "ft",
+    "speeds_kt": KEAS, "vmc_kt": KEAS, "v_eas_kt": KEAS, "vb_kt": KEAS, "vh_kt": KEAS,
     # The design speeds and the concept speed targets: KEAS, entered and
     # reported as such (CONVENTIONS.md, "airspeed is always KEAS").
     "chosen_va": KEAS, "chosen_vc": KEAS, "chosen_vd": KEAS, "chosen_vf": KEAS,

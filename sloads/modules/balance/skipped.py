@@ -45,8 +45,12 @@ SKIP_REASONS = {
         # here so the deck states it.
         "a one-engine-out case whose yaw transient did not recover within the "
         "simulated time: its fin load is where the integration stopped, not a "
-        "design load, so it is not assembled -- the report states it with the "
-        "uncontrollability finding for stability and control"),
+        "design load, so it is not assembled -- each is named with its speed, "
+        "altitude and the fin incidence it reached, and the report states it "
+        "with its fin load and the uncontrollability finding for "
+        "stability and control. A speed below the airplane's minimum control "
+        "speed is the usual cause: enter the cited minimum control speed, or "
+        "check the rudder power"),
     "mount-local": (
         # Design note 66 Q1 (#286): the engine conditions the regulation does
         # not pair with a flight state of the whole airplane.
@@ -142,19 +146,24 @@ class SkippedCondition:
     #: defaulted to the flight family because that is what a skip minted from a
     #: SELECT condition is.
     ground: bool = False
+    #: What this one condition reached, stated after its name (#333 ruling 2:
+    #: an unrecovered march's speed, altitude and fin incidence). Not identity
+    #: -- ``label`` is -- and in units every deck channel may carry (KEAS, ft,
+    #: deg), because the record is rendered into the SI deck unchanged.
+    detail: str = ""
 
     @property
     def name(self) -> str:
         """The condition, named as the family that produced it names it."""
         where = (f" ({source_case_name(self.case, self.ground, short=True)})"
                  if self.case is not None else "")
-        return f"{self.component} {self.label}{where}"
+        return f"{self.component} {self.label}{where}{self.detail}"
 
 
-def _skip(cond, code: str) -> SkippedCondition:
+def _skip(cond, code: str, detail: str = "") -> SkippedCondition:
     return SkippedCondition(component=cond.component, label=cond.label,
                             case=cond.case, code=code, reason=SKIP_REASONS[code],
-                            ground=isinstance(cond, _GroundCondition))
+                            ground=isinstance(cond, _GroundCondition), detail=detail)
 
 
 @dataclass(frozen=True)

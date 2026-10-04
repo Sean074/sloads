@@ -64,7 +64,9 @@ _T_TAILS = ("concept_regional_jet", "atr42_100")
 
 #: Design note 51 §9.1: ``M_r`` per fin condition (lb-in, magnitude), the
 #: measured table the note agreed. The RJ reproduces §4's original figures to
-#: within 0.05 %.
+#: within 0.05 %. The ATR's engine-out rows re-pinned at #333 (ruling 4): the
+#: march now sizes on the ``aft gross`` FLIGHT loading, not WTONECG's all-items
+#: one, +0.36 % (VC 328,765 -> 329,944) and +0.29 % (VD 458,984 -> 460,327).
 _M_R = {
     "concept_regional_jet": {
         "SUDDEN RUDDER": 266_727, "YAW TO SIDESLIP": 137_013,
@@ -73,14 +75,16 @@ _M_R = {
     "atr42_100": {
         "SUDDEN RUDDER": 112_543, "YAW TO SIDESLIP": 53_894,
         "YAW 15 NEUTRAL": 128_028, "SIDE GUST": 162_118,
-        "ONE ENGINE OUT — VC (ultimate) (engine 1)": 328_765,
-        "ONE ENGINE OUT — VD (limit) (engine 1)": 458_984,
-        "ONE ENGINE OUT — VC (ultimate) (engine 2)": 328_765,
-        "ONE ENGINE OUT — VD (limit) (engine 2)": 458_984,
+        "ONE ENGINE OUT — VC (ultimate) (engine 1)": 329_944,
+        "ONE ENGINE OUT — VD (limit) (engine 1)": 460_327,
+        "ONE ENGINE OUT — VC (ultimate) (engine 2)": 329_944,
+        "ONE ENGINE OUT — VD (limit) (engine 2)": 460_327,
     },
 }
 
 #: G-51.7: the fin view's root rolling moment with the tip set, airplane axes.
+#: The ATR's engine-out rows re-pinned at #333 (1,348,459 -> 1,352,404, the
+#: mass basis above).
 _ROOT_WITH_TIP = {
     "concept_regional_jet": {
         "SUDDEN RUDDER": -706_830, "YAW TO SIDESLIP": +363_087,
@@ -89,8 +93,8 @@ _ROOT_WITH_TIP = {
     "atr42_100": {
         "SUDDEN RUDDER": -328_155, "YAW TO SIDESLIP": +157_144,
         "YAW 15 NEUTRAL": +373_307, "SIDE GUST": -389_728,
-        "ONE ENGINE OUT — VD (limit) (engine 1)": +1_348_459,
-        "ONE ENGINE OUT — VD (limit) (engine 2)": -1_348_459,
+        "ONE ENGINE OUT — VD (limit) (engine 1)": +1_352_404,
+        "ONE ENGINE OUT — VD (limit) (engine 2)": -1_352_404,
     },
 }
 
@@ -292,8 +296,9 @@ def test_the_pure_attitude_moments_sit_in_the_acs_band(name):
 # G-51.9 / G-51.10 -- the stated limits
 # --------------------------------------------------------------------------- #
 def test_the_htail_check_warns_on_the_atrs_vd_engine_out_alone():
-    """G-51.9 (D-51.7): 142.2 % on the VD engine-out case, on one factor basis;
-    the VC case is ultimate (SF 1.0) and so sits at 67.9 %, not 101.8 %."""
+    """G-51.9 (D-51.7): 142.6 % on the VD engine-out case, on one factor basis;
+    the VC case is ultimate (SF 1.0) and so sits at 68.1 %, not 102.2 %.
+    (142.2 % / 67.9 % until #333 moved the march to the ``aft gross`` loading.)"""
     ratios = {}
     for name in _T_TAILS:
         for label, r in _fins(name).items():
@@ -301,9 +306,9 @@ def test_the_htail_check_warns_on_the_atrs_vd_engine_out_alone():
             if i is not None:
                 ratios[(name, label)] = i.htail_ratio
     assert ratios[("atr42_100", "ONE ENGINE OUT — VD (limit) (engine 1)")] == \
-        pytest.approx(1.422, rel=1e-3)
+        pytest.approx(1.426, rel=1e-3)
     assert ratios[("atr42_100", "ONE ENGINE OUT — VC (ultimate) (engine 1)")] == \
-        pytest.approx(0.679, rel=1e-3)
+        pytest.approx(0.681, rel=1e-3)
     over = {k for k, v in ratios.items() if v > 1.0}
     assert over == {("atr42_100", "ONE ENGINE OUT — VD (limit) (engine 1)"),
                     ("atr42_100", "ONE ENGINE OUT — VD (limit) (engine 2)")}

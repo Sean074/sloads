@@ -29,7 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sloads import EngineLayout, OneEngineOutInput, io
 from sloads.constants import FT_LB_S_PER_HP, KT_TO_FPS, RHO_SL, standard_atmosphere
-from sloads.models import MassCase, MassResult
+from sloads.models import MassCase, MassResult, MissingInputError
 from sloads.modules import one_engine_out as oeo
 from sloads.modules import select as sel
 from sloads.modules._vtail import (
@@ -422,6 +422,129 @@ def test_io_roundtrip():
     assert p2.one_engine_out.thrust_decay_time_s == 0.5
     assert p2.one_engine_out.failed_engine_index == 1
     assert p2.vtail_loads.xv50 == 270.0
+
+
+# --------------------------------------------------------------------------- #
+# #333: the low end, its altitude, the mass state, and the unrecovered statement
+# --------------------------------------------------------------------------- #
+def test_an_entered_vmc_replaces_vs_as_the_low_end():
+    """#333 ruling 1: a cited VMC is the low end of both 23.367(a) ranges and
+    its own LIMIT case, labelled VMC; blank keeps VS and the basis says it is
+    the Method's substitute (Ref 1 Ch 11 p87)."""
+    p = _twin()
+    blank = {lc.label: lc for lc in oeo._load_cases(p, p.one_engine_out)}
+    assert "VS" in blank and blank["VS"].low_end
+    assert "substituted for VMC" in blank["VS"].basis
+    p.one_engine_out.vmc_kt = 72.0
+    cases = {lc.label: lc for lc in oeo._load_cases(p, p.one_engine_out)}
+    assert set(cases) == {"VC (ultimate)", "VD (limit)", "VMC"}
+    assert cases["VMC"].v_hi_kt == 72.0 and cases["VMC"].low_end
+    assert cases["VMC"].safety_factor == 1.5
+    assert cases["VC (ultimate)"].v_lo_kt == cases["VD (limit)"].v_lo_kt == 72.0
+
+
+def test_a_non_positive_vmc_is_refused_by_name():
+    p = _twin()
+    for bad in (0.0, -80.0):
+        p.one_engine_out.vmc_kt = bad
+        try:
+            oeo._load_cases(p, p.one_engine_out)
+        except ValueError as exc:
+            assert "minimum control speed" in str(exc)
+        else:
+            raise AssertionError(f"vmc_kt={bad} was accepted")
+
+
+def test_the_low_end_flies_at_the_takeoff_altitude():
+    """#333 ruling 1: VC/VD at the shoulder (Ref 1 p87), the low end at the
+    take-off altitude -- and each condition states its own on ``CaseRef``,
+    which is what ``tail_span`` and the deck read."""
+    p = _twin()
+    p.speeds.shoulder_altitude_ft = 8000.0
+    p.one_engine_out.takeoff_altitude_ft = 1500.0
+    for fc in oeo.vtail_cases(p):
+        want = 1500.0 if fc.load_case.low_end else 8000.0
+        assert fc.inputs.alt_ft == want, fc.title
+    for c in oeo.run(p).conditions:
+        want = 1500.0 if c.title.startswith("One engine out — VS") else 8000.0
+        assert c.case_ref.altitude_ft == want, c.title
+    for cond in oeo.vtail_conditions(p):
+        assert oeo.condition_altitude_ft(cond) == cond.case_ref.altitude_ft
+
+
+def test_the_mass_basis_is_the_heaviest_flight_loading_aft_most_among_ties():
+    """#333 ruling 4, on the ATR: eight FLIGHT cases, four at MTOW; the march
+    takes ``aft gross`` (the aft-most of those), and its IZZ and CG are
+    WTONECG's inertia of that loading's items -- not the all-items loading,
+    17.6 % over MTOW."""
+    from sloads.modules.weight_onecg import weights_and_inertia
+
+    p = io.load_project(os.path.join(_EXAMPLES, "atr42_100.project.json"))
+    cg, loading = oeo.mass_basis(p)
+    assert cg.name == "aft gross"
+    v = {lv.key: lv.value for lv in weights_and_inertia(list(loading.items)).values}
+    for fc in oeo.vtail_cases(p):
+        assert fc.mass_case == "aft gross"
+        assert math.isclose(fc.inputs.izz, v["izz"], rel_tol=1e-12)
+        assert math.isclose(fc.inputs.xcg, v["xbar_fus_station"], rel_tol=1e-12)
+    assert loading.weight_lb < p.mass.cases[0].weight_lb  # the all-items state it replaced
+
+
+def test_the_march_and_the_deck_parent_share_one_mass_basis():
+    """One airplane state: the balanced deck's OEI parent CG case is the
+    march's mass basis (``engine_out_cases._heaviest_derivable`` delegates)."""
+    from sloads.cg_cases import flight_cases
+    from sloads.mass_distribution import derive_case_loadings
+    from sloads.modules.balance.engine_out_cases import _heaviest_derivable
+
+    for name in ("atr42_100", "baron_58"):
+        p = io.load_project(os.path.join(_EXAMPLES, f"{name}.project.json"))
+        loadings = {ld.name: ld for ld in derive_case_loadings(p)}
+        cgs = {c.name: c for c in flight_cases(p)}
+        assert _heaviest_derivable(p, loadings, cgs).name == oeo.mass_basis(p)[0].name
+
+
+def test_no_derivable_flight_loading_is_refused_not_sized_on_all_items():
+    """#333 ruling 4: with no FLIGHT case there is no stated airplane state, and
+    falling back to the all-items loading would size above MTOW silently."""
+    from sloads.models.enums import AnalysisKind
+
+    p = _twin()
+    for c in p.weight.cg_cases:
+        c.analyses = {a for a in c.analyses if a != AnalysisKind.FLIGHT} or {AnalysisKind.GROUND}
+    try:
+        oeo.run(p)
+    except MissingInputError as exc:
+        assert "FLIGHT" in str(exc)
+    else:
+        raise AssertionError("ONENGOUT ran with no FLIGHT loading")
+    p.one_engine_out.izz_slugft2, p.one_engine_out.xcg_in = 2000.0, 85.0
+    assert oeo.run(p).conditions  # both entered: no mass basis needed
+
+
+def test_an_unrecovered_case_is_stated_on_every_surface():
+    """#333 ruling 2: the ATR's VS cases (no cited VMC) do not recover. Each is
+    warned by name with its speed, altitude, fin incidence and load, and the
+    deck's record names it with the same numbers in deck-safe units."""
+    from sloads.modules.balance import build_balanced_cases
+    from sloads.validation import consistency_warnings
+
+    p = io.load_project(os.path.join(_EXAMPLES, "atr42_100.project.json"))
+    lost = [fc for fc in oeo.vtail_cases(p) if not fc.recovered]
+    assert [fc.load_case.label for fc in lost] == ["VS", "VS"]
+    warned = [w for w in consistency_warnings(p) if w.code == "oei_case_not_recovered"]
+    assert len(warned) == len(lost)
+    for w, fc in zip(warned, lost):
+        assert w.page == "one_engine_out"
+        assert "KEAS at 0 ft" in w.message.replace("0.0 ft", "0 ft")
+        assert "enter the cited VMC" in w.message
+    skipped = []
+    build_balanced_cases(p, skipped)
+    record = [s for s in skipped if s.code == "not-recovered"]
+    assert len(record) == len(lost)
+    for s in record:
+        assert "KEAS at" in s.name and "deg fin incidence" in s.name
+        assert " lb" not in s.detail  # rendered into the SI deck as written
 
 
 if __name__ == "__main__":

@@ -1754,7 +1754,14 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("one_engine_out.time_step_s", _OEI, _ORIG, "ONENGOUT DT (Euler step)"),
     _E("one_engine_out.use_takeoff_power", _OEI, _ORIG, "ONENGOUT MAXHP selector"),
     _E("one_engine_out.speeds_kt", _OEI, _ORIG, "ONENGOUT evaluation speeds"),
-    _E("one_engine_out.altitude_ft", _OEI, _ORIG, "ONENGOUT altitude"),
+    _E("one_engine_out.altitude_ft", _OEI, _ORIG, "ONENGOUT altitude (VC and VD; the manual's shoulder point)"),
+    _E("one_engine_out.vmc_kt", _OEI, _SLDS,
+       "the minimum control speed, cited to the AFM or TCDS, that 23.367(a) starts both failure cases at: "
+       "ONENGOUT took whatever speeds it was typed and the manual let Vs stand in for VMC, which holds only "
+       "when Vs is at or above VMC (#333)"),
+    _E("one_engine_out.takeoff_altitude_ft", _OEI, _SLDS,
+       "the altitude the low-end (VMC or VS) case is flown at: VMC is a take-off condition, where ONENGOUT "
+       "ran every speed at one altitude (#333)"),
     _E("one_engine_out.izz_slugft2", _OEI, _ORIG, "ONENGOUT IZZ (0 -> from mass)"),
     _E("one_engine_out.xcg_in", _OEI, _ORIG, "ONENGOUT XCG (0 -> from mass)"),
 

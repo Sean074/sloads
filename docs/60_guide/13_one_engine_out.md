@@ -20,9 +20,10 @@ is no condition to analyse ([Appendix C](C_troubleshooting.md)).
 
 [Engine Mount](12_engine_mount.md) must carry the engines — the failed
 engine's power, propeller disc and butt line are the forcing function — and
-the yaw inertia and CG default from the
-[Weight & Mass Properties](02_weight_mass.md) database. The speeds evaluated
-come from [Structural Speeds](04_structural_speeds.md).
+the yaw inertia and CG default from the heaviest FLIGHT loading on
+[Weight & Mass Properties](02_weight_mass.md) (the aft-most, where several
+tie at the design weight). The speeds evaluated come from
+[Structural Speeds](04_structural_speeds.md).
 
 ## The inputs
 
@@ -44,10 +45,21 @@ installations, fail the critical one (and run both to prove which that is).
 power — the regulation's condition is at takeoff power; the choice is
 yours to state, not the tool's to assume.
 
+**The low end.** The minimum control speed, KEAS, cited to the flight
+manual or type certificate. 23.367(a) considers both failure cases from VMC
+upward, so it is the low-end case. Blank, the derived clean stall speed
+stands in for it, which the manual permits and the case states. The
+substitution only holds where the stall speed is at or above VMC. The
+take-off altitude is where the low end is flown (blank: sea level), because
+minimum control is a take-off condition.
+
 **State overrides.** Evaluation speeds (blank runs the design-speed set),
-altitude, and the yaw inertia and CG — blank derives both from the weight
-database, which is why the database's inertias matter
-([Weight & Mass Properties](02_weight_mass.md)).
+the altitude VC and VD are flown at (blank: the shoulder), and the yaw
+inertia and CG. Blank derives both from the heaviest FLIGHT loading, which
+is why the database's inertias matter
+([Weight & Mass Properties](02_weight_mass.md)). With no FLIGHT case whose
+loading the database can produce, the page refuses rather than size the
+condition on every item at once.
 
 ## Screenshots
 
@@ -65,11 +77,11 @@ skips it accordingly.
 Timing at the customary values — half-second thrust decay, two-second
 windmill build, 0.3-second rudder travel, 0.05-second step — failing the
 left engine at takeoff power, speeds left to the design set, inertia and CG
-left to derive from the database. The results run the condition at VC and
-VD and at the stall-speed floor: the derived clean stall stands in for the
-minimum control speed per the manual's method, and on this airplane the
-stall-speed case reports the transient honestly at the edge of
-controllability. The published rudder-load history is where you see the
+left to derive from the `aft gross` loading. The results run the condition
+at VC and VD at the shoulder altitude and at the stall-speed floor at sea
+level. No minimum control speed is cited, so the derived clean stall stands
+in for it per the manual's method, and on this airplane the stall-speed case
+recovers at the edge of controllability. The published rudder-load history is where you see the
 regulation's story frame by frame: thrust gone, drag grown, rudder in,
 yaw rate peaked and recovered.
 
@@ -80,8 +92,9 @@ this page mixes them deliberately, and each case's note states its basis:
 the failure cases the regulation defines at ultimate are **already ultimate
 at SF = 1.0** and carry the `-ULT` marker; the ones it defines as limit are
 delivered **LIMIT, stating SF = 1.5**, like every other load in the tool;
-the stall-floor case is a stated substitution (clean stall for minimum
-control speed) per the manual's method. Each case carries the
+the low-end case is the entered minimum control speed, or a stated
+substitution (clean stall for minimum control speed) per the manual's
+method. Each case carries the
 evaluated speed, the peak windmill drag and thrust asymmetry, the yaw-rate
 peak and the vertical-tail loads of the transient and recovery.
 
@@ -89,8 +102,10 @@ Sanity checks: the asymmetric thrust at a given speed is roughly
 `power × 0.85 / speed` in consistent units (the program's own relation);
 the yaw forcing scales with the failed engine's butt line — a doubled arm
 doubles the couple; and a "not recovered" verdict at a speed near stall is
-the condition being genuinely below the controllable floor, stated in
-band, not a crash.
+the condition being genuinely below the controllable floor, not a crash. Such
+a case delivers no load, and it is stated rather than dropped: in band, in
+the page's warnings with its speed, altitude, fin incidence and load, and in
+the exported deck's record of conditions not assembled.
 
 ## Common mistakes
 
@@ -99,6 +114,9 @@ band, not a crash.
 - **Zero or placeholder inertias in the weight database.** The yaw
   transient divides by Izz; garbage in, garbage rate out. Enter the heavy
   items' inertias before trusting the time history.
+- **Leaving the minimum control speed blank on an airplane whose VMC is
+  above its stall speed.** The stall-floor case then runs below VMC and does
+  not recover; the warning says so. Enter the cited VMC.
 - **Reading every case as SF = 1.5.** The mixed classifications are the
   regulation's own; the note on each case says which you are looking at.
 - **A propeller with no disc.** The windmill-drag model is propeller

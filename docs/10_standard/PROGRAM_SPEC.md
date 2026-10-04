@@ -163,7 +163,7 @@ chart + tables.
 - **Reads:** `Project.weight` items (component weights + x,y,z locations). Computed at the **4 CG locations** of the structural-limits diagram (aft gross, fwd gross, most-fwd reduced, minimum weight) — ×2 (gear up/down) for retractable gear, so up to 8 loadings, not one.
 - **Writes:** total weight, CG (x,y,z), and mass moments of inertia (Ixx, Iyy, Izz, products), output in **both slug-ft² and lb-in²** → `Project.mass`.
 - **Validation:** Appendix A/B — CG and inertia for the example loadings.
-- **Notes:** **`Project.mass` is produced by the GUI (M4-17a).** `weight_onecg.build_mass` had **zero callers** — no page, no CLI path and no example produced the slice — so the `weight_mass` step's `produces="mass"` never turned ✅, the dashboard blocked Landing Loads on every shipped example, and the One Engine Out gate was unsatisfiable. The **Weight, CG & Inertia** tab's `Apply weight items` handler now persists `project.mass = build_mass(project)`, and every bundled example carries a regenerated `mass` block. Consequence to expect: `configuration.cg_estimate` flips from the 25%-MAC fallback to its `"Weight DB"` branch, sharpening the tip-back / overturn / static-margin figures on the Geometry page and in the example outputs. Per UG Table 2.2 / §4.5 the outputs split: **weight & CG → FLTLOADS** (LANDLOAD reads the three roled `GROUND` weight/CG cases, **not** `mass` — M2-8/M4-17a/G-3; `cg_cases.seed_landing_cases` uses `mass.cases[0].cg_z` only as the placeholder the waterline is searched from, then writes back the waterline of the loading that closes each row, as the flight seed does — D-26a, #300); **inertia → SELECT, ONENGOUT** (maneuver/gust balancing and unbalanced landing). Component inertia = transfer (parallel-axis) of each item about the airplane CG. Conceptually the same machinery as the engine/rotor inertia in `engloads`, at airplane scale — but ENGLOADS does **not** read `Project.mass` (it is standalone, UG Table 2.2).
+- **Notes:** **`Project.mass` is produced by the GUI (M4-17a).** `weight_onecg.build_mass` had **zero callers** — no page, no CLI path and no example produced the slice — so the `weight_mass` step's `produces="mass"` never turned ✅, the dashboard blocked Landing Loads on every shipped example, and the One Engine Out gate was unsatisfiable. The **Weight, CG & Inertia** tab's `Apply weight items` handler now persists `project.mass = build_mass(project)`, and every bundled example carries a regenerated `mass` block. Consequence to expect: `configuration.cg_estimate` flips from the 25%-MAC fallback to its `"Weight DB"` branch, sharpening the tip-back / overturn / static-margin figures on the Geometry page and in the example outputs. Per UG Table 2.2 / §4.5 the outputs split: **weight & CG → FLTLOADS** (LANDLOAD reads the three roled `GROUND` weight/CG cases, **not** `mass` — M2-8/M4-17a/G-3; `cg_cases.seed_landing_cases` uses `mass.cases[0].cg_z` only as the placeholder the waterline is searched from, then writes back the waterline of the loading that closes each row, as the flight seed does — D-26a, #300); **inertia → SELECT** (maneuver/gust balancing and unbalanced landing; ONENGOUT takes its inertia from the mass-basis FLIGHT loading instead, #333). Component inertia = transfer (parallel-axis) of each item about the airplane CG. Conceptually the same machinery as the engine/rotor inertia in `engloads`, at airplane scale — but ENGLOADS does **not** read `Project.mass` (it is standalone, UG Table 2.2).
 - **Implementation notes:** modules stay pure (`run → ModuleResult`); the persisted `Project.mass` slice (added at Step C6 with SELECT/LANDLOAD) holds the weight/CG/inertia results. `WTESTIMA`/`WTONECG` results are a **property table**, so they render via `report.results_to_rows` / `module_text_report` (not the engine-specific `load_cases_to_rows`). The UI offers an SI **output** toggle: a weight is pounds-*mass* and converts to kg, distinguished from a pounds-*force* load (→ N) by `LoadValue.quantity="mass"`; inertia (slug-ft²/lb-in²) → kg·m², CG positions in→mm, angle (deg) unchanged. Inputs are entered in Imperial. See `units.py`. **`Project.weight` merge-write rule (fixed Step D4.7; extended Step D5):** `WeightInput` bundles `estimation`/`items`/`envelope`/`cg_cases`; every page that owns only one of the four (Weight Estimate → `estimation`, Weight/CG/Inertia → `items`, `configuration_layout`'s station-seed button → `items`, Weight/CG Grid & Payload Cases → `cg_cases`) must reconstruct `WeightInput` with the *other three* read from the current `project.weight` and passed through unchanged, never omitted — an omitted field silently resets to its dataclass default (`None`/`[]`) on save. Only `weight_envelope.py` (the `envelope` owner) sets all four explicitly by design.
 
 ---
@@ -419,8 +419,8 @@ approved-corrections register [`../20_theory/02_approved_corrections.md`](../20_
 ### ONENGOUT — One-engine-out loads ✅ DONE (C9)
 - **FAR §:** 23.367 (unsymmetrical loads due to engine failure), multi-engine.
 - **Source:** Ch 11, `ONENGOUT.BAS`. Implemented in `sloads/modules/one_engine_out.py` (registers `"one_engine_out"`).
-- **Reads:** `Project.one_engine_out` (`OneEngineOutInput` — the failure-transient timing: thrust-decay / windmill-drag / rudder-travel times, Euler step, failed-engine index); the failed `Project.engines[i]` (HP, prop diameter, butt line); `Project.vtail_loads` (ARVT, areas, rudder deflection, `xv25`/`xv50`); `Project.mass` (WTONECG — `IZZ`, CG, heaviest case); `Project.speeds` (VC/VD/VS, shoulder altitude). The 25%/50% MAC v-tail stations are the `xv25`/`xv50` of `VTailLoadsInput` (`xv50` added in C9).
-- **Writes:** the maximum asymmetric **vertical-tail** load per speed (VC ultimate / VD limit / VS) — a `ModuleResult` with one `ConditionResult` each (engine thrust, windmill drag, max yaw rate, **max tail load**, 25%/50% MAC loads at peak, time to recovery). Non-recovery (below VMC) is flagged. The full time history is available on demand (`time_history`) for the Streamlit re-run; it is not persisted.
+- **Reads:** `Project.one_engine_out` (`OneEngineOutInput` — the failure-transient timing: thrust-decay / windmill-drag / rudder-travel times, Euler step, failed-engine index); the failed `Project.engines[i]` (HP, prop diameter, butt line); `Project.vtail_loads` (ARVT, areas, rudder deflection, `xv25`/`xv50`); the **mass-basis FLIGHT loading** (`one_engine_out.mass_basis` — `IZZ` and CG through WTONECG's `weights_and_inertia` on that loading's items; see below); `Project.speeds` (VC/VD, VS when no VMC is entered, shoulder altitude). The 25%/50% MAC v-tail stations are the `xv25`/`xv50` of `VTailLoadsInput` (`xv50` added in C9).
+- **Writes:** the maximum asymmetric **vertical-tail** load per speed (VC ultimate / VD limit / the low end, VMC or VS) — a `ModuleResult` with one `ConditionResult` each (engine thrust, windmill drag, max yaw rate, **max tail load**, 25%/50% MAC loads at peak, time to recovery). Non-recovery (below VMC) is flagged. The full time history is available on demand (`time_history`) for the Streamlit re-run; it is not persisted.
 - **Safety factor is a case-definition attribute (M1-5, review T7).** The SF is owned by the **load-case definition**, not the speed: how the governing regulation *classifies* the load (LIMIT vs ULTIMATE) sets the factor, and the same case definition also fixes the **speed range** it is considered over (evaluated at the range's critical high end). Being a *failure* case does not by itself reduce the factor. 23.367(a) (turbopropeller; Ref 1 Ch 11 p87; VMC = minimum control speed, Method allows VS/VSF substituted for VMC) defines two cases: **(a)(1)** power failure from **fuel-flow interruption** — **LIMIT → SF 1.5**, considered VMC→VD (a failure case that keeps the full factor); **(a)(2)** **compressor-from-turbine disconnection / turbine-blade loss** — **ULTIMATE → SF 1.0**, considered VMC→VC (a "limit treated as ultimate" value; the previous default 1.5 double-factored it). The **VS** point (VS substituted for VMC, the shared floor) is reported as a **LIMIT** design point (**SF 1.5**, decided 2026-07-20). Each case declares its `load_class`/`safety_factor`, speed range and basis as a row in the `_load_cases` table (`_LoadCase`), carried onto the `ConditionResult` (`safety_factor` + `note`), so the deliverable renders `lbs-ULT` with the correct `SF`. (23.367(a) is turbopropeller-specific — the `is_turboprop` gate and the VSF alternative VMC substitute are backlog M4-3.)
 - **Method:** a **time-marching yaw simulation** (Euler), reusing the shared v-tail aero helpers (`sloads/modules/_vtail.py`: AVT lift slope, EFFECTV, the EF large-deflection chart) that SELECT also uses.
 - **Validation:** **sub-formula exactness** vs `ONENGOUT.BAS` (thrust, windmill drag, AVT, EFFECTV, EF, density ratio) + integration/physics closure (recovery, yaw-rate peak, time-step convergence) + refactor-parity with SELECT. The printed **Appendix B twin oracle is unavailable** — Appendix B is absent from the bundled `reference/FAR23Loads_Code.pdf` (only the Appendix A GA single is present) and the FAA User's Guide Ch 22 gives partial inputs/no outputs; recorded as a deferred item. **Fixture coverage (2026-08-13):** the module was registered but **unrunnable on every shipped fixture** — `atr42_100`/`dhc8_dash8` entered the `one_engine_out` slice with no engine horsepower, the other four entered no slice, so the whole simulation path was exercised only on constructed inputs (same class as the `tail_mass` gap). The shipped turboprop enters **take-off and max-continuous shaft power** — PW120 2000/1700 shp, converted from the certificated kW in **EASA TCDS IM.E.041 issue 07 (20 Dec 2023) §5**; `dhc8_dash8` carried the PW121 pair (2150/1950 shp) until #264 retired it — and `tests/test_one_engine_out.py::test_the_shipped_turboprops_execute_onengout` is the standing gate. Both fields are entered deliberately rather than left to `_engine_power`'s one-sided fallback: `use_takeoff_power` is the user's choice of rating and a fallback would make it silently. Its **VS cases do not recover** (full asymmetric power at the clean stall speed is below VMC) and say so in band.
@@ -453,12 +453,46 @@ approved-corrections register [`../20_theory/02_approved_corrections.md`](../20_
   with the 1 g parent point the balanced deck assembles the case on
   (`engine_out_cases.oei_parent_point`, design note 51 D-51.1a), and carries the
   AC 23-9 induced rolling moment of the case (D-51.3b).
-- **A case that does not recover is published and excluded (OR-174).** The march
-  bounds itself at 60 s; a load at that bound is where the integration stopped,
-  not a design load. `run` reports such a case in full with the uncontrollability
-  statement and a referral to stability and control, and `vtail_conditions` omits
-  it — so it reaches no envelope, no distribution, no appendix and no deck. On
-  `atr42_100` that is the VS case on both engines.
+- **The low end is VMC when entered, else VS as the stated substitute, and it
+  flies at the take-off altitude (#333 ruling 1).** `OneEngineOutInput.vmc_kt`
+  (KEAS, cited to the AFM or TCDS; non-positive is refused by name) replaces VS
+  as the shared low end of both speed ranges, labelled `VMC`. When it is blank,
+  VS stands and the case's basis says it is the Method's substitute (Ref 1 Ch 11
+  p87), which holds only where VS ≥ VMC. The low-end case runs at
+  `takeoff_altitude_ft` (default 0) because VMC is a take-off condition and the
+  live engine's thrust at one power is higher at sea level's lower true airspeed;
+  VC and VD stay at `altitude_ft`, else the shoulder (Ref 1 p87). One owner,
+  `one_engine_out.load_case_altitude_ft`. The march stamps each condition's
+  altitude on `CaseRef.altitude_ft`, so the case index states it per subcase and
+  `tail_span` (the T-tail Mach) and the deck's parent search read it there
+  (`condition_altitude_ft`) rather than deriving it again. The deck assembles
+  VMC, like VS, on `STALL 1G`.
+- **The airplane state is the heaviest derivable FLIGHT loading, aft-most among
+  ties (#333 ruling 4).** `one_engine_out.mass_basis` is the one owner. The march
+  takes `IZZ` and CG from that loading through WTONECG's `weights_and_inertia`,
+  and the balanced deck assembles the case on the same CG case's 1 g point
+  (`engine_out_cases._heaviest_derivable` delegates to it), so the transient and
+  the airplane it is applied to are one state. On the shipped twins that is
+  `aft gross` at MTOW. A project with no derivable FLIGHT loading is refused by
+  name, never sized on WTONECG's all-items loading (which sits 17.6 % above MTOW
+  on `atr42_100`). `izz_slugft2`/`xcg_in` still override. The step requires
+  `weight`, not `mass`. Measured against the all-items state: `atr42_100` VD
+  +0.3 %, `baron_58` VD −1.6 % (the fin load is driven by `IZZ` and the tail
+  arm, and the all-items loading's extra mass sits near the CG).
+- **A case that does not recover is stated wherever it would have appeared
+  (OR-174; #333 ruling 2).** The march bounds itself at 60 s; a load at that
+  bound is where the integration stopped, not a design load, so
+  `vtail_conditions` omits it and it reaches no envelope, distribution, appendix
+  or deck. It is stated instead: `run` reports it in full with the
+  uncontrollability statement; the balanced deck's record of conditions not
+  assembled names it (`not-recovered`) with its speed, altitude and the fin
+  incidence it reached (`SkippedCondition.detail`, from
+  `engine_out_cases.unrecovered_detail` — KEAS, ft and deg only, because the
+  record is written into the SI deck as it stands); and the validation warning
+  `oei_case_not_recovered` carries the same numbers, the fin load at the bound
+  and the fix (enter the cited VMC, or check the rudder power). On `atr42_100`,
+  which cites no VMC yet, that is the VS case on both engines. A recovered case
+  whose fin incidence is past stall is not flagged: that is parked at #353.
 - **The headline load is keyed `fy_side`.** It is the fin's side load and the
   case index maps loads by key; under `max_tail_load` every 23.367 row reached
   the published case file with an ID, a regulation, a speed, a factor and no load
@@ -1071,8 +1105,9 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   **The one-engine-out family** (design note 66, #285;
   `balance.engine_out_cases`) follows it: each recovered ONENGOUT condition at
   its instant of peak total fin load (OR-175), assembled on a 1 g parent —
-  `BAL C` / `BAL D` / `STALL 1G` for VC / VD / VS at the heaviest derivable
-  FLIGHT CG case and the V-n altitude nearest ONENGOUT's — with the fin
+  `BAL C` / `BAL D` / `STALL 1G` for VC / VD / VMC or VS at ONENGOUT's mass
+  basis (`one_engine_out.mass_basis`) and the V-n altitude nearest the case's
+  own march altitude — with the fin
   distribution `tail_span` builds and the engine pair at that instant from
   `one_engine_out.engine_forces_at` (live thrust at the mirror of the failed
   hub; the failed engine's remaining thrust and windmill drag at its hub) —
@@ -2070,7 +2105,7 @@ Derived from **User's Guide Table 2.2** (the authoritative input→output map):
 | `weight.cg_cases` (named loading scenarios, each tagged with the `analyses` it is run for) | Weight & Mass Properties page, Payload Cases tab — the **sole** editor (Step G3; Step D5; decision **G-3**) | **everything, through `sloads.cg_cases`**: FLTLOADS/SELECT/WINGINER/NETLOADS/BALLOADS take the `FLIGHT` set, LANDLOAD the three roled `GROUND` cases, weight_envelope the chart overlay |
 | `weight.max_landing_weight_lb` / `.max_takeoff_weight_lb` (MLW / MTOW) | Weight & Mass Properties page, Weight / CG Envelope tab (decisions **G-4** / **G-14**) | LGFACTOR + LANDLOAD (`WR = MTOW/MLW`, `K0` from MLW); `select` (fin design weight, fuselage wing weight); the FAR 23 applicability gate |
 | `weight.envelope` (useful-load envelope) | WTENV | FLTLOADS |
-| `mass` (weight/CG + inertias) | WTONECG `build_mass`, via the Weight & Mass **Apply weight items** handler (M4-17a) | FLTLOADS (weight/CG); SELECT, ONENGOUT (inertia); `configuration.cg_estimate` ("Weight DB" branch); the Payload Cases tab's landing seed — waterline only (**LANDLOAD itself reads the roled `GROUND` cases, not `mass`**) |
+| `mass` (weight/CG + inertias) | WTONECG `build_mass`, via the Weight & Mass **Apply weight items** handler (M4-17a) | FLTLOADS (weight/CG); SELECT (inertia); `configuration.cg_estimate` ("Weight DB" branch); the Payload Cases tab's landing seed — waterline only (**LANDLOAD itself reads the roled `GROUND` cases, not `mass`**) |
 | `geometry.surfaces[<surface>]` | WINGGEOM | STRSPEED, AIRLOADS, AIRLOAD4, FLTLOADS, SELECT, ONENGOUT |
 | `geometry.parametric` (`LayoutInput`: fuselage/wing/tail/gear) + `geometry.fuselage` (`FuselageOutline` station-area table, Step G1) | configuration (modern; no `.BAS`) — the one **Geometry** page | seeds WINGGEOM (`geometry.surfaces[wing]`); reads `weight.envelope`, `engine`; `fuselage` → Step G4 estimator |
 | `speeds` (V_A/C/D, n, mach) | STRSPEED, MACHLIM | FLTLOADS, AILERON, FLAPLOAD |

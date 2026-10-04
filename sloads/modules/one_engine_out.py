@@ -41,7 +41,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import List, NamedTuple, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, NamedTuple, Optional, Tuple
 
 from ..applicability import engine_failure_not_applicable
 from ..case_ids import VTAIL_BAND_ONENGOUT, CaseIdAllocator
@@ -74,6 +74,10 @@ from ..picks import extreme
 from ..registry import register
 from ..units import format_value
 from ._vtail import large_deflection_factor, lift_curve_slope, rudder_effectiveness
+
+if TYPE_CHECKING:
+    from ..cg_cases import CgCase
+    from ..mass_distribution import CaseLoading
 
 MODULE_NAME = "one_engine_out"
 
@@ -327,14 +331,6 @@ def _moment(time: float, c: CaseInputs, mom_eng: float, mom_windmill: float,
 # --------------------------------------------------------------------------- #
 # Project plumbing
 # --------------------------------------------------------------------------- #
-def _heaviest_case(project: Project) -> MassCase:
-    if project.mass is None or not project.mass.cases:
-        raise MissingInputError("one_engine_out needs Project.mass (run WTONECG first)")
-    # Two mass cases weighing the same is ordinary input, and the pick selects a
-    # published case -- so it takes the tie rule (CR-B-1; ``picks.extreme``).
-    return extreme(project.mass.cases, lambda m: m.weight_lb)
-
-
 def _engine_power(eng: EngineInput, use_takeoff: bool) -> float:
     """Max horsepower of one engine (MAXHP). Prefers take-off or max-continuous per
     ``use_takeoff``, falling back to the other when one is unset."""
@@ -375,6 +371,11 @@ class _LoadCase(NamedTuple):
     v_lo_kt: float           # speed range the case is considered over: low end (~VMC) ...
     v_hi_kt: float           # ... to high end = the critical, evaluated speed
     basis: str
+    #: The shared low end of both failure cases (VMC, or VS standing in for
+    #: it). Flown at the take-off altitude rather than the shoulder (#333
+    #: ruling 1): VMC is a take-off condition, and the live engine's thrust at
+    #: one power is higher at the lower true airspeed of sea level.
+    low_end: bool = False
 
 
 # 23.367(a) (TURBOPROPELLER airplanes -- gating on is_turboprop is backlog M4-3;
@@ -385,8 +386,10 @@ class _LoadCase(NamedTuple):
 #   (a)(1) power failure from FUEL-FLOW INTERRUPTION -- LIMIT (SF 1.5), VMC->VD
 #   (a)(2) COMPRESSOR-FROM-TURBINE DISCONNECTION / TURBINE-BLADE LOSS
 #                                                   -- ULTIMATE (SF 1.0), VMC->VC
-# The VMC-floor point (VS substituted for VMC) is reported as a LIMIT design point
-# (SF 1.5, decided 2026-07-20) -- the shared low end of both ranges.
+# The VMC-floor point is reported as a LIMIT design point (SF 1.5, decided
+# 2026-07-20) -- the shared low end of both ranges. It is the entered VMC when
+# the project cites one, else VS as the Method's substitute (#333 ruling 1),
+# and it is flown at the take-off altitude.
 _BASIS_VC = ("Case: disconnection of the engine compressor from the turbine or loss of "
              "the turbine blades (23.367(a)(2)). The case definition classifies these "
              "loads as ULTIMATE, so SF=1.0 (limit treated as ultimate -- the factor is "
@@ -397,8 +400,15 @@ _BASIS_VD = ("Case: power failure from fuel-flow interruption (23.367(a)(1)). Th
              "failure case that keeps the full factor. Considered from VMC up to VD; "
              "critical at VD.")
 _BASIS_VS = ("VMC floor of the engine-failure cases: VS (clean 1-g stall, from CLmax per "
-             "M1-1b) substituted for VMC (minimum control speed) per Ref 1 Ch 11 Method; "
-             "reported as a LIMIT design point, SF=1.5.")
+             "M1-1b) substituted for VMC (minimum control speed) per Ref 1 Ch 11 Method, "
+             "because no minimum control speed is entered for this airplane. The "
+             "substitution holds only where VS is at or above VMC. Flown at the "
+             "take-off altitude, since VMC is a take-off condition; reported as a "
+             "LIMIT design point, SF=1.5.")
+_BASIS_VMC = ("VMC floor of the engine-failure cases: the entered minimum control speed "
+              "(cited to the flight manual or type certificate), the low end of both "
+              "23.367(a) speed ranges. Flown at the take-off altitude, since VMC is a "
+              "take-off condition; reported as a LIMIT design point, SF=1.5.")
 _BASIS_OVERRIDE = ("Explicit user-supplied speed; the case is taken as LIMIT (SF=1.5) "
                    "absent a failure-condition classification.")
 
@@ -421,50 +431,141 @@ def _load_cases(project: Project, oeo: OneEngineOutInput) -> List[_LoadCase]:
                 for v in oeo.speeds_kt]
     if sp is None:
         raise MissingInputError("one_engine_out needs Project.speeds (or OneEngineOutInput.speeds_kt)")
-    # VS (the VMC substitute / shared low end of both cases' speed ranges) is derived
-    # from CLmax (M1-1b); available only when Project.aero_coeffs is present.
-    try:
-        from .structural_speeds import design_speed_values
-        vs = design_speed_values(project, sp).vs
-    except (ValueError, ZeroDivisionError):
-        vs = 0.0
+    # The shared low end of both cases' speed ranges: the entered VMC, else VS
+    # as the Method's substitute (Ref 1 Ch 11 p87; #333 ruling 1). VS is
+    # derived from CLmax (M1-1b), available only when Project.aero_coeffs is.
+    if oeo.vmc_kt is not None:
+        if not oeo.vmc_kt > 0.0:
+            raise ValueError(
+                f"one_engine_out: the minimum control speed must be positive, "
+                f"got {oeo.vmc_kt!r} kt; leave it blank to substitute VS")
+        floor, floor_label, floor_basis = float(oeo.vmc_kt), "VMC", _BASIS_VMC
+    else:
+        try:
+            from .structural_speeds import design_speed_values
+            vs = design_speed_values(project, sp).vs
+        except (ValueError, ZeroDivisionError):
+            vs = 0.0
+        floor, floor_label, floor_basis = float(vs or 0.0), "VS", _BASIS_VS
     cases: List[_LoadCase] = []
     if sp.chosen_vc:
         v_hi = float(sp.chosen_vc)
         cases.append(_LoadCase("VC (ultimate)", "23.367(a)(2)", "ULTIMATE", 1.0,
-                               vs or v_hi, v_hi, _BASIS_VC))
+                               floor or v_hi, v_hi, _BASIS_VC))
     if sp.chosen_vd:
         v_hi = float(sp.chosen_vd)
         cases.append(_LoadCase("VD (limit)", "23.367(a)(1)", "LIMIT", ULTIMATE_FACTOR,
-                               vs or v_hi, v_hi, _BASIS_VD))
-    if vs:
-        cases.append(_LoadCase("VS", "23.367", "LIMIT", ULTIMATE_FACTOR,
-                               float(vs), float(vs), _BASIS_VS))
+                               floor or v_hi, v_hi, _BASIS_VD))
+    if floor:
+        cases.append(_LoadCase(floor_label, "23.367", "LIMIT", ULTIMATE_FACTOR,
+                               floor, floor, floor_basis, low_end=True))
     if not cases:
         raise MissingInputError("one_engine_out found no speeds; set chosen_vc/chosen_vd on Project.speeds")
     return cases
 
 
 def case_altitude_ft(project: Project) -> float:
-    """The altitude every ONENGOUT case is marched at: the entered one, else
-    the shoulder altitude (Ref 1 Ch 11 p87, "VC and VD at shoulder point"), else
-    sea level. One owner: the march, the balanced deck's parent search and the
-    T-tail induced moment's Mach (design note 51 D-51.3b) all read it."""
+    """The altitude the VC and VD cases (and an entered speed list) are marched
+    at: the entered one, else the shoulder altitude (Ref 1 Ch 11 p87, "VC and
+    VD at shoulder point"), else sea level. The low end has its own altitude --
+    :func:`load_case_altitude_ft` is the one owner of which a case flies at."""
     oeo = project.one_engine_out
     if oeo is not None and oeo.altitude_ft is not None:
         return float(oeo.altitude_ft)
     return float(project.speeds.shoulder_altitude_ft) if project.speeds else 0.0
 
 
+def load_case_altitude_ft(project: Project, lc: _LoadCase) -> float:
+    """The altitude one 23.367 case is marched at (#333 ruling 1): the low end
+    (VMC, or VS standing in for it) at the take-off altitude, every other case
+    at :func:`case_altitude_ft`. The march stamps it on each condition's
+    ``CaseRef.altitude_ft``, which is what the balanced deck's parent search
+    and the T-tail induced moment's Mach (design note 51 D-51.3b) read, so no
+    consumer re-derives it."""
+    oeo = project.one_engine_out
+    if lc.low_end and oeo is not None:
+        return float(oeo.takeoff_altitude_ft)
+    return case_altitude_ft(project)
+
+
+def condition_altitude_ft(cond: CriticalCondition) -> float:
+    """The altitude a 23.367 fin condition was marched at, as its march stamped
+    it on ``CaseRef.altitude_ft`` -- what a consumer reads instead of asking
+    which case flies where a second time."""
+    ref = cond.case_ref
+    if ref is None or ref.altitude_ft is None:
+        raise ValueError(f"{cond.label}: a one-engine-out condition with no march altitude")
+    return float(ref.altitude_ft)
+
+
+def mass_basis(project: Project,
+               loadings: Optional[Dict[str, CaseLoading]] = None,
+               ) -> Optional[Tuple[CgCase, CaseLoading]]:
+    """The airplane state every 23.367 case is sized at (#333 ruling 4).
+
+    The heaviest FLIGHT weight/CG case whose loading the weight database can
+    produce, and the aft-most of those that tie on weight -- the shorter fin
+    arm, so the larger fin load for one yawing moment. **One owner**: the march
+    takes its IZZ and CG from this loading, and the balanced deck assembles the
+    case on this CG case's 1 g point (D-66.11), so the transient and the
+    airplane it is applied to are one state. Until #333 the march read WTONECG's
+    all-items loading instead, 17.6 % above MTOW on the ATR.
+
+    ``loadings`` is the caller's ``{name: CaseLoading}`` when it has them;
+    ``None`` when no derivable FLIGHT case exists.
+    """
+    from ..cg_cases import flight_cases
+    from ..mass_distribution import derive_case_loadings
+    from ..picks import TIE_REL
+
+    cases = flight_cases(project)
+    if loadings is None:
+        loadings = {ld.name: ld for ld in derive_case_loadings(project, cases)}
+    usable = [(c, loadings[c.name]) for c in cases
+              if loadings.get(c.name) is not None and loadings[c.name].derivable]
+    if not usable:
+        return None
+    heaviest = max(ld.weight_lb for _, ld in usable)
+    tied = [u for u in usable if u[1].weight_lb >= heaviest - TIE_REL * abs(heaviest)]
+    return extreme(tied, lambda u: u[1].cg_x)
+
+
+def _mass_state(project: Project) -> MassCase:
+    """The mass-basis loading's weight, CG and inertia, through WTONECG's own
+    :func:`~sloads.modules.weight_onecg.weights_and_inertia` -- the inertia
+    owner, applied to that loading's items rather than to every database row.
+    Refused by name when no FLIGHT loading is derivable: the state the failure
+    cases are sized at is then undefined, and falling back to the all-items
+    loading would size them above MTOW without saying so (#333 ruling 4)."""
+    from .weight_onecg import weights_and_inertia
+
+    basis = mass_basis(project)
+    if basis is None:
+        raise MissingInputError(
+            "one_engine_out: no FLIGHT weight/CG case has a loading the weight "
+            "database can produce, so the airplane state the engine-failure "
+            "cases are sized at is not defined -- add a FLIGHT case at the "
+            "design weight, or enter its loading")
+    cg, loading = basis
+    v = {lv.key: lv.value for lv in weights_and_inertia(list(loading.items)).values}
+    return MassCase(name=cg.name, weight_lb=v["weight"], cg_x=v["xbar_fus_station"],
+                    cg_z=v["zbar_waterline"], ixx=v["ixx_lb_in_2"],
+                    iyy=v["iyy_lb_in_2"], izz=v["izz_lb_in_2"], ixz=v["ixz_lb_in_2"])
+
+
 def _case_inputs(project: Project, v_kt: float,
-                 engine_index: Optional[int] = None) -> CaseInputs:
+                 engine_index: Optional[int] = None, *,
+                 alt_ft: Optional[float] = None,
+                 mass: Optional[MassCase] = None) -> CaseInputs:
     """Assemble the scalar simulation inputs for one speed from the project slices.
 
     ``engine_index`` selects which engine fails; ``None`` takes the input slice's
     ``failed_engine_index``, which is what every single-case caller wants. It is
     passed explicitly by :func:`run`, which fails **each** entered engine in turn
     (note 44 OR-173): one engine gives the fin one sense of load, and a fin is
-    sized for both.
+    sized for both. ``alt_ft`` is the case's :func:`load_case_altitude_ft`
+    (``None``: :func:`case_altitude_ft`); ``mass`` is :func:`_mass_state`,
+    passed by a caller marching several cases so the loading is derived once.
     """
     oeo = project.one_engine_out
     # Through SELECT's effective v-tail inputs (#95, C210-5): a blank rudder
@@ -499,12 +600,15 @@ def _case_inputs(project: Project, v_kt: float,
             f"({eng.engine_designation or 'unnamed'}) has no propeller diameter -- "
             + PROPELLER_ONLY_NOTE)
 
-    case = _heaviest_case(project)
-    izz = oeo.izz_slugft2 or (case.izz / LBIN2_PER_SLUGFT2)
-    xcg = oeo.xcg_in or case.cg_x
-    alt = case_altitude_ft(project)
+    if oeo.izz_slugft2 and oeo.xcg_in:
+        izz, xcg = oeo.izz_slugft2, oeo.xcg_in
+    else:
+        case = mass if mass is not None else _mass_state(project)
+        izz = oeo.izz_slugft2 or (case.izz / LBIN2_PER_SLUGFT2)
+        xcg = oeo.xcg_in or case.cg_x
+    alt = case_altitude_ft(project) if alt_ft is None else float(alt_ft)
     if izz <= 0:
-        raise MissingInputError("one_engine_out needs a non-zero IZZ (Project.mass or izz_slugft2)")
+        raise MissingInputError("one_engine_out needs a non-zero IZZ (the mass-basis FLIGHT loading or izz_slugft2)")
 
     return CaseInputs(
         arvt=vt.aspect_ratio_vtail,
@@ -566,10 +670,26 @@ class VtailCase(NamedTuple):
     peak: HistoryRow
     sense: float
     case_id: str
+    #: The FLIGHT case the march's IZZ and CG come from (:func:`mass_basis`);
+    #: ``""`` when both are entered on the input slice.
+    mass_case: str = ""
 
     @property
     def recovered(self) -> bool:
         return self.summary.recovered
+
+    @property
+    def vtail_alpha_deg(self) -> float:
+        """The effective fin angle of attack at the peak load, a magnitude: the
+        yaw angle plus the damping angle the yaw rate makes at the 25 % station.
+        Taken back out of ``LT25`` rather than recomputed from the history row,
+        and exactly: the march stores each row *after* its Euler update, so the
+        stored theta and theta-dot are not the pair the load was formed from.
+        Dividing the load by its own coefficient cannot disagree with it."""
+        c = self.inputs
+        denom = (lift_curve_slope(c.arvt) / DEG_PER_RAD * dynamic_pressure_psf(c.v_kt)
+                 * c.svt_in2 / IN2_PER_FT2)
+        return self.summary.lt25_at_peak_lb / denom if denom else 0.0
 
     @property
     def title(self) -> str:
@@ -657,6 +777,12 @@ def _vtail_cases(project: Project) -> List[VtailCase]:
     allocator.seed("vtail", VTAIL_BAND_ONENGOUT)
     from .engine import effective_engine
 
+    # One mass state for every case, derived once (#333 ruling 4); an airplane
+    # with no engine-failure case is left to :func:`_case_inputs` to refuse.
+    mass = (_mass_state(project)
+            if not (oeo.izz_slugft2 and oeo.xcg_in)
+            and not engine_failure_not_applicable(project) else None)
+
     cases: List[VtailCase] = []
     for index in indices:
         label = _engine_label(project, index, len(indices))
@@ -666,7 +792,8 @@ def _vtail_cases(project: Project) -> List[VtailCase]:
         except ValueError:
             sense = 1.0
         for lc in _load_cases(project, oeo):
-            c = _case_inputs(project, lc.v_hi_kt, index)
+            c = _case_inputs(project, lc.v_hi_kt, index,
+                             alt_ft=load_case_altitude_ft(project, lc), mass=mass)
             rows, summary = simulate(c)
             # OR-175: the chordwise split is the pair standing together at the
             # instant of greatest *total* load, not each quantity's own maximum
@@ -677,7 +804,8 @@ def _vtail_cases(project: Project) -> List[VtailCase]:
             cases.append(VtailCase(
                 engine_index=index, engine_label=label, load_case=lc, inputs=c,
                 summary=summary, peak=peak, sense=sense,
-                case_id=allocator.next_id("vtail")))
+                case_id=allocator.next_id("vtail"),
+                mass_case=mass.name if mass is not None else ""))
     return cases
 
 
@@ -719,16 +847,8 @@ def vtail_conditions(project: Project) -> List[CriticalCondition]:
         s, c = fc.summary, fc.inputs
         sense = fc.sense
         q = dynamic_pressure_psf(c.v_kt)
-        sv_sqft = c.svt_in2 / IN2_PER_FT2
-        slope = lift_curve_slope(c.arvt) / DEG_PER_RAD
-        # The **effective fin angle of attack** the method actually used: the yaw
-        # angle plus the damping angle the yaw rate makes at the 25 % station.
-        # Taken back out of ``LT25`` rather than recomputed from the history row,
-        # and exactly: the march stores each row *after* its Euler update, so the
-        # stored theta and theta-dot are not the pair the load was formed from.
-        # Dividing the load by its own coefficient cannot disagree with it.
-        denom = slope * q * sv_sqft
-        alpha = (s.lt25_at_peak_lb / denom) if denom else 0.0
+        # The effective fin angle of attack the method actually used.
+        alpha = fc.vtail_alpha_deg
         # OR-132/G-OR-86: what the rudder itself carries, through SELECT's own
         # producer and not a second copy of the arithmetic. The split is the same
         # shape -- a camber term from the rudder load and an angle-of-attack term
@@ -764,7 +884,8 @@ def vtail_conditions(project: Project) -> List[CriticalCondition]:
             case_ref=CaseRef(
                 case_id=fc.case_id, component="vtail",
                 condition=f"one engine out — {fc.load_case.label}{fc.engine_label}",
-                speed_kt=c.v_kt, far_reference=fc.load_case.far_reference),
+                speed_kt=c.v_kt, altitude_ft=c.alt_ft,
+                far_reference=fc.load_case.far_reference),
             safety_factor=fc.load_case.safety_factor,
             beta_deg=-sense * fc.peak.theta,      # nose toward the failed engine
             alpha_tail_deg=sense * alpha,
@@ -794,7 +915,8 @@ def time_history(project: Project, speed_label: str,
     wanted = speed_label.strip()
     for lc in _load_cases(project, oeo):
         if lc.label == wanted and engine_index is None:
-            return simulate(_case_inputs(project, lc.v_hi_kt))[0]
+            return simulate(_case_inputs(
+                project, lc.v_hi_kt, alt_ft=load_case_altitude_ft(project, lc)))[0]
     for fc in _vtail_cases(project):
         if engine_index is not None and fc.engine_index != engine_index:
             continue
@@ -831,7 +953,8 @@ def run(project: Project) -> ModuleResult:
             case_ref=CaseRef(
                 case_id=fc.case_id, component="vtail",
                 condition=f"one engine out — {fc.load_case.label}{fc.engine_label}",
-                speed_kt=c.v_kt, far_reference=fc.load_case.far_reference),
+                speed_kt=c.v_kt, altitude_ft=c.alt_ft,
+                far_reference=fc.load_case.far_reference),
             values=[
                 LoadValue("V (EAS)", c.v_kt, "kt(EAS)", key="v_eas"),
                 LoadValue("Engine thrust", s.thrust_lb, "lb", key="engine_thrust"),
@@ -856,11 +979,17 @@ def run(project: Project) -> ModuleResult:
                   # line is recovered the same way the report recovers it.
                   f"Failed engine {fc.engine_index + 1} at butt line "
                   f"{butt_line} in; "
-                  f"IZZ {format_value(c.izz, 'slug-ft^2')} slug-ft^2. "
+                  f"IZZ {format_value(c.izz, 'slug-ft^2')} slug-ft^2"
+                  + (f" and CG of the FLIGHT loading '{fc.mass_case}'" if fc.mass_case else
+                     " and CG as entered")
+                  + f"; marched at {format_value(c.alt_ft, 'ft')} ft. "
                   f"Peak total load at t = {format_value(fc.peak.time, 's')} s."
                   + ("" if s.recovered else
                      f" NOT recovered within {format_value(_MAX_SIM_TIME_S, 's')} s — the airplane is "
-                     "uncontrollable at this speed (likely below VMC); the tail load and "
+                     "uncontrollable at this speed"
+                     + (" (VS stands in for VMC here, and is likely below it)"
+                        if fc.load_case.label == "VS" else "")
+                     + "; the tail load and "
                      "yaw rate are the values at the simulation limit. This case is "
                      "referred to stability and control for assessment and is EXCLUDED "
                      "from the vertical-tail design envelope, its load distributions and "

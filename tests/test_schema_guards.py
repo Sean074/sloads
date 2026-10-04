@@ -401,7 +401,11 @@ def fields_hash() -> str:
 #: operating-empty-weight partition reads. Additive with a ``False`` default and
 #: no inference, so ``_hop_72`` is an identity; no load reads it, so the
 #: Imperial digests do not move (the OEW mass set's channel is new, gate 10).
-EXPECTED_FIELDS_HASH = "c067a2968cfb244f"
+#: v74 (#333): ``OneEngineOutInput.vmc_kt`` and ``takeoff_altitude_ft``. Additive
+#: with defaults meaning "VS substituted, flown at sea level", so ``_hop_73`` is
+#: an identity. The digests *do* move, by the ruling and not the hop: the low
+#: end leaves the shoulder altitude and the march leaves the all-items loading.
+EXPECTED_FIELDS_HASH = "35b81fce2145a641"
 
 
 def test_persisted_dataclass_shapes_are_unchanged():

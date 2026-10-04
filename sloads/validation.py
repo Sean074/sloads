@@ -129,6 +129,7 @@ PAGE_FLAP = "flap_loads"
 PAGE_FLIGHT = "flight_envelope"
 PAGE_ENGINE = "engine_mount"
 PAGE_TAIL = "tail_loads"
+PAGE_ONE_ENGINE_OUT = "one_engine_out"
 
 # The three canonical LANDLOAD loadings, in the order LANDLOAD consumes them (UG
 # fig 18.2). Since decision G-3a the *contract* is ``CgCase.role``, not the name --
@@ -1766,6 +1767,42 @@ def _check_ttail_induced_roll(project: Project) -> List[ConsistencyWarning]:
     return out
 
 
+def _check_oei_not_recovered(project: Project) -> List[ConsistencyWarning]:
+    """``oei_case_not_recovered`` -- a 23.367 speed the regulation requires that
+    did not recover within the simulated time (#333 ruling 2).
+
+    Such a case reaches no envelope, distribution or deck (OR-174): its load
+    is where the integration stopped, not a design load. Without this warning
+    the only trace was a line in the one-engine-out section, and a required
+    speed was absent with nothing said. Named with the same numbers the deck's
+    record carries (``engine_out_cases.unrecovered_detail``) and the fix.
+    Silent where ONENGOUT does not run.
+    """
+    from .modules.balance.engine_out_cases import ENGINE_OUT_PREFIX, unrecovered_detail
+    from .modules.one_engine_out import vtail_cases
+
+    if project.one_engine_out is None:
+        return []
+    try:
+        cases = vtail_cases(project)
+    except (MissingInputError, ValueError):
+        return []
+    return [ConsistencyWarning(
+        "oei_case_not_recovered",
+        f"{ENGINE_OUT_PREFIX} — {fc.load_case.label}{fc.engine_label}"
+        f"{unrecovered_detail(fc)}, with "
+        f"{format_value(fc.summary.max_tail_load_lb, 'lb')} lb on the fin: the yaw "
+        "transient did not recover within the "
+        "simulated time, so this 23.367 case delivers no load -- it is stated in "
+        "the one-engine-out section and the deck's record of conditions not "
+        "assembled. "
+        + ("The speed is VS standing in for the minimum control speed; enter the "
+           "cited VMC, which is the speed the regulation names. "
+           if fc.load_case.label == "VS" else "")
+        + "If the speed is right, check the rudder power.",
+        PAGE_ONE_ENGINE_OUT) for fc in cases if not fc.recovered]
+
+
 def consistency_warnings(project: Project) -> List[ConsistencyWarning]:
     """All input-consistency warnings for ``project`` (each tagged with its page).
 
@@ -1802,4 +1839,5 @@ def consistency_warnings(project: Project) -> List[ConsistencyWarning]:
     out += _check_flap_slipstream(project)
     out += _check_derive_overrides(project)
     out += _check_ttail_induced_roll(project)
+    out += _check_oei_not_recovered(project)
     return out

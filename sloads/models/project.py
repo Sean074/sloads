@@ -368,7 +368,11 @@ from .results import EnvelopeResult, LoadsResult, MassResult
 # included; unusable fuel and oil is not). Additive with a ``False`` default and
 # no inference, so ``_hop_72`` is an identity; the five fixtures are tagged by
 # hand. No load reads it.
-SCHEMA_VERSION = 73
+# v74 (#333): ``OneEngineOutInput.vmc_kt`` (the cited minimum control speed,
+# optional; blank keeps VS as the manual's stated substitute) and
+# ``takeoff_altitude_ft`` (the low-end case's altitude, default 0). Additive,
+# so ``_hop_73`` is an identity.
+SCHEMA_VERSION = 74
 
 
 @dataclass

@@ -7402,24 +7402,30 @@ def _oei_input_table(project: Project, cases: Sequence["VtailCase"],
             u.plain(c.dia_ft * 12.0, "length"),
             _scalar_cell(c.izz, i_scale, "slug-ft^2"),
             u.plain(c.xcg, "length"),
-            format_value(c.alt_ft, "ft"),
         ])
     if not rows:
         return None
+    basis = next((fc.mass_case for fc in cases if fc.mass_case), "")
+    mass_note = (f"The moment of inertia and the CG station are those of the "
+                 f"FLIGHT loading '{basis}' -- the heaviest loading the weight "
+                 f"database produces, aft-most among those that tie -- which is "
+                 f"also the airplane the exported deck assembles these cases on. "
+                 if basis else
+                 "The moment of inertia and the CG station are entered for this "
+                 "analysis. ")
     return Table(
         title="One-engine-inoperative input data",
         columns=["Failed engine", f"Butt line ({u.label('length')})", "Max SHP",
                  f"Propeller diameter ({u.label('length')})", f"IZZ ({i_units})",
-                 f"CG station ({u.label('length')})", "Altitude (ft)"],
+                 f"CG station ({u.label('length')})"],
         rows=rows,
         note=("Every entered engine whose failure produces a yawing moment is "
               "marched in turn (design note 44 OR-173); an engine on the "
               "centreline has no arm and is not. The butt line is signed, "
               "positive to starboard, because which side the failed engine "
               "sits on sets the sign of its fin loads. "
-              "The moment of inertia and the "
-              "CG station are the heaviest mass case's unless the analysis "
-              "overrides them. Max SHP is the take-off or max-continuous shaft "
+              + mass_note +
+              "Max SHP is the take-off or max-continuous shaft "
               "power, per the input slice's selector."))
 
 
@@ -7462,6 +7468,7 @@ def _oei_case_list_table(cases: Sequence["VtailCase"]) -> Optional[Table]:
             fc.load_case.label,
             fc.load_case.far_reference,
             format_value(fc.inputs.v_kt, "kt(EAS)"),
+            format_value(fc.inputs.alt_ft, "ft"),
             format_value(fc.load_case.safety_factor),
             "recovered" if fc.recovered else "NOT recovered",
         ])
@@ -7469,12 +7476,17 @@ def _oei_case_list_table(cases: Sequence["VtailCase"]) -> Optional[Table]:
         return None
     return Table(
         title="Load cases assessed",
-        columns=["Case ID", "Engine", "Case", "FAR", "V (kt EAS)", "SF", "Outcome"],
+        columns=["Case ID", "Engine", "Case", "FAR", "V (kt EAS)", "Altitude (ft)",
+                 "SF", "Outcome"],
         rows=rows,
         status_column="Outcome",
         note=("Each case is considered over a speed range and evaluated at its "
               "critical (high) end, because the tail load grows with dynamic "
-              "pressure. The factor is the one the regulation prescribes for the "
+              "pressure. VC and VD are flown at the shoulder altitude unless another is entered; the low "
+              "end -- the minimum control speed, or the stall speed standing in "
+              "for it where none is entered -- at the take-off altitude, because "
+              "minimum control is a take-off condition. "
+              "The factor is the one the regulation prescribes for the "
               "case, not for the speed: 23.367(a)(2) classifies its loads as "
               "ULTIMATE, so it carries SF 1.0 while every case beside it carries "
               "1.5 (design note 44 OR-176). Every load in this section is LIMIT "
