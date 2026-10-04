@@ -2137,8 +2137,9 @@ class LayoutInput:
     # physics is deferred with a stated upgrade path (AC 23-9 ¶4b warns ~+50 %
     # on the T-tail induced roll moment at 6 deg; DATCOM carryover is note
     # 51's stated method). The field exists so note 51's dihedral guard has
-    # something to read: the real ATR 42 and Dash 8 both carry visible
-    # tailplane dihedral, and a guard with no input never fires.
+    # something to read. The shipped ATR enters 0, owner-supplied (#336,
+    # ``atr42_100.sources.md``), so the guard is gated on a constructed
+    # project (G-51.10).
     htail_dihedral_deg: float = 0.0  # declared stabilizer dihedral, deg (physics deferred, D-54.8)
     # Landing-gear geometry moved to the single-source GeometryInput.landing_gear
     # (Step G6b): the three-view and the tip-back/overturn/clearance estimate derive

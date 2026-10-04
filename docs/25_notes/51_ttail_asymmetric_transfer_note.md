@@ -8,8 +8,8 @@ re-scopes the note against the LRA deck that replaced the fin deck §1
 describes (note 56). It holds the measurements, the owner's rulings of
 2026-09-28 and 2026-09-29, and the decisions and gates the code is built to;
 where §9 and §1–§8 differ, §9 governs. D-51.3a (net β) and D-51.6 (yaw
-parked) stand. **D-51.9 is open:** no citable source for the ATR's tailplane
-dihedral was found, so the fixture still enters 0 (§9.7).
+parked) stand. **D-51.9 closed 2026-10-04 (#336):** the ATR's tailplane
+dihedral is 0°, owner-supplied (§9.7).
 
 **Tier L** (new load case, new physics on the fin deck). The T-tail transfer sits in
 the review-§3 frozen list; this note is the owner's explicit admission reopening
@@ -313,8 +313,8 @@ ATR 161,404 lb-in, both LIMIT):
 **AC limits.**
 - Mach: the RJ's side gust is at 0.692.
 - Dihedral: every fixture enters `htail_dihedral_deg = 0`, including the ATR,
-  whose real tailplane has visible dihedral (`inputs.py`'s comment on the
-  field). The guard therefore has nothing to fire on.
+  whose 0 is owner-supplied (D-51.9, closed at #336). The guard therefore has
+  nothing to fire on in a fixture.
 
 ### 9.2 Governing basis, added to §2
 
@@ -349,7 +349,7 @@ ATR 161,404 lb-in, both LIMIT):
 | D-51.6 *(stands)* | Yaw transfer zero, parked with its numbers | — |
 | D-51.7 | **The h-tail assumption, checked** (Q5). For every `M_r` on a T-tail, the check is `(M_r/2 · SF_case) / (M_h · SF_h)`, where `M_h` is the governing per-side h-tail root bending over the h-tail's conditions, and `SF_case`/`SF_h` bring both to one basis. Above 100 %: a validation warning and an in-band statement on the case and in the report, never a refusal. At or below: the margin is stated. Shipped consequence: **the ATR warns on its one-engine-out VD case (142.2 %)** | Refusing (the owner ruled warn); `M_r/2` against a limit figure while the case is ultimate (compares unlike bases) |
 | D-51.8 | **The AC's limits, stated and guarded.** (i) **Mach** at the condition's speed and altitude is stated on every `M_r` subcase; a warning above `AC23_9_MACH_WARN = 0.6`, an engineering threshold the AC does not give (owner, Q2). The RJ's side gust (0.692) fires it. (ii) **Dihedral:** the entered `htail_dihedral_deg` is stated on every `M_r` subcase, with a warning when it is above 0: AC ¶5a p4, "6° dihedral can increase the stabilizer rolling moment by 50 %". `M_r` is not scaled, because the AC gives no method. (iii) **Static only:** the deck header and the report say `M_r` is not a flutter input (¶5a p4) | Scaling `M_r` by dihedral (no source method); a Mach refusal |
-| D-51.9 | **The ATR's tailplane dihedral is entered from a cited source** (Q3 (a)): Jane's [C] if it states a value, else measured off the [A] three-view's front elevation and tagged [E] in `atr42_100.sources.md`. No load reads the field, so only statements move | Leaving 0.0 with a stated gap |
+| D-51.9 | **The ATR's tailplane dihedral is entered from a cited source** (Q3 (a)): Jane's [C] if it states a value, else measured off the [A] three-view's front elevation and tagged [E] in `atr42_100.sources.md`. No load reads the field, so only statements move. **Closed 2026-10-04 (#336):** no published value was found; the owner supplied 0°, cross-checked against ATR's 42-300/-320 front elevation (`atr42_100.sources.md` [F]), which draws none. G-51.10's constructed project is the guard's gate | Leaving 0.0 with a stated gap |
 | D-51.10 | **The fin view states its root bending with the tip set.** Station columns stay the fin's own loads (T7's split, unchanged). Each T-tail fin result publishes one more value, the root rolling moment including the transfer's `mxx`, so a reader of the fin view sees the number the deck's fin root carries | Adding the transfer into every station column (moves the T7 split for every existing reader) |
 | D-51.11 | **The report's 6.5 is rewritten for a T-tail.** With both paths carried, the statement "never reacted through the vertical tail" is false on a `T_TAIL`, and the OR-133 withholding of the fin's spanwise loads rests on nothing on that arrangement. It lifts for `T_TAIL` only, read off `is_t_tail`. V-tail and cruciform keep it | Keeping the withholding (states an omission the code no longer has) |
 
@@ -367,7 +367,7 @@ ATR 161,404 lb-in, both LIMIT):
 | G-51.7 | Fin-view root rolling moment with the tip set (D-51.10), airplane axes | RJ: SR −706,830, YTS +363,087, Y15 +823,013, SG −824,818 · ATR: SR −328,155, YTS +157,144, Y15 +373,307, SG −389,728, OEI VC ±965,886, OEI VD ±1,348,459 | ±0.1 % |
 | G-51.8 | AC ¶5d band: 4–6× the (b) roll on the two pure-attitude cases; the rudder-affected and one-engine-out ratios are stated, not gated | RJ 4.28× / 5.15× · ATR 4.18× / 5.29× | band |
 | G-51.9 | D-51.7: the ATR's one-engine-out VD warns (142.2 %); no other case on either fixture warns; the ratios are stated | RJ max 53.4 % · ATR VC 67.9 % | ±0.1 % |
-| G-51.10 | D-51.8: the RJ side gust's Mach warning fires (0.692) and nothing else does; the ATR's dihedral statement and warning fire once D-51.9 enters it | — | exact |
+| G-51.10 | D-51.8: the RJ side gust's Mach warning fires (0.692) and nothing else does; the ATR enters 0 (D-51.9, owner-supplied), so the dihedral warning is gated on the constructed project | — | exact |
 | G-51.11 | Conventional isolation: flipping `tail_type` removes every new load, row, value and warning (the existing isolation test, extended) | — | exact |
 
 ### 9.5 Effect vs error bar (rule 6), and what moves
@@ -454,8 +454,9 @@ Filing it as a backlog issue is part of this step's closure (rule 5).
   bump. The new fields are `mxx`, `paired_case` and `induced`; the record
   type `InducedRoll` is new. Since 0.8.7 released v70 (#310), a bump gets a
   registered hop: v72, with an identity `_hop_71`.
-- **D-51.9 is not done.** Neither Jane's [C] nor a measurable [A] three-view
-  was available in session, and a web search found no ATR-specific tailplane
-  dihedral. The ATR still enters 0, so the dihedral guard is gated on a
-  constructed project (G-51.10). The value waits for the owner's source.
+- **D-51.9 was not done at ship; closed 2026-10-04 (#336).** Neither Jane's
+  [C] nor a measurable [A] three-view was available at ship. At #336 the owner
+  supplied 0°, and ATR's 42-300/-320 brochure front elevation, measured as a
+  cross-check, draws no tailplane dihedral. The dihedral guard stays gated on
+  a constructed project (G-51.10).
 
