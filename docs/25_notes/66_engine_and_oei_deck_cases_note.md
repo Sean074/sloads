@@ -216,10 +216,10 @@ gyroscopic case), scales it by hand, and finds it load for load at the head of
 the EM case, with only the increment and its relief after it (exact on all four
 engine fixtures). **G-66.3**'s load factor is pinned from the rule and the
 engine's entered `limit_load_factor` (0.75·LIMNZ, LIMNZ, 1, 2.5, A2 = LIMNZ),
-not from ENGLOADS's vertical ÷ PPWT; on `baron_58` that LIMNZ (4.2) disagrees
-with the airplane's 23.337 n₁ (3.648), so its (a)(1)/(a)(2) cases fly at 3.15 /
-4.2 g against "75 % / 100 % of condition A" — filed for the owner at the #318
-close, not pinned. **G-66.1** pins 1.0 on 23.367(a)(2) and 1.5 elsewhere rather
+not from ENGLOADS's vertical ÷ PPWT, and LIMNZ is pinned equal to the
+airplane's n₁ on every engine fixture. (`baron_58`'s POH 4.2 had been entered as
+LIMNZ only, against a derived n₁ of 3.648; #331 entered it as the speeds' chosen
+n, and a typed LIMNZ that disagrees with n₁ warns `engine_load_factor_mismatch`.) **G-66.1** pins 1.0 on 23.367(a)(2) and 1.5 elsewhere rather
 than asking the table the stamp asks. **G-66.10** compares the reflected twin,
 load for load at rel 1e-9, with the mirrored engine's case built directly from
 its own march, and its engine pair with `engine_forces_at` of that march.

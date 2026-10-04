@@ -41,7 +41,7 @@ the guide enters and reads this example in **SI** (UG-12).
 | Usable fuel (standard) | 136 US gal at arm +82 | [A] |
 | Seats / occupant arms | 6 (2 at +75, 2 at +117, 2 at +150) | [A] |
 | Baggage | 300 lb at +15 (nose); 400 lb at +150 (rear) | [A] |
-| Limit maneuver load factor | +4.2 g flaps up (POH figure at 5,400 lb; entered as ENGLOADS' LIMNZ — FLTLOADS derives its own 23.337 value) | [C] |
+| Limit maneuver load factor | +4.2 g flaps up (POH figure at 5,400 lb; entered as STRSPEED's chosen n, so condition A flies at it, and as ENGLOADS' LIMNZ, which agrees with it — #331; the 23.337 minimum at 5,500 lb would be 3.648) | [C] |
 | Airfoils | NACA 23016.5 root / 23010.5 tip (UIUC airfoil-usage guide, secondary) | [E]-class |
 | Engine dry weight | 433 lb (IO-550 family, secondary reference — not read from TCDS E3SO) | [E]-class |
 

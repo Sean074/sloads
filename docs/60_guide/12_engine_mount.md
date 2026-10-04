@@ -70,7 +70,9 @@ Two identical records — Continental IO-550-C, 300 hp at 2,700 rpm for all
 operations (the certificate's single rating), six cylinders, 433-lb engine
 (a secondary-source weight, marked), the certificate's 77-in McCauley
 three-blade at 82.5 lb — at butt lines ±66 in, mounted on the wing. The
-limit load factor is the POH's published +4.2. In SI display the weights
+limit load factor is the POH's published +4.2, which the Structural Speeds
+page also carries as the airplane's chosen n, so condition A flies at it.
+In SI display the weights
 read in kilograms and the torques in newton-metres; the stored file is
 unchanged. Each engine yields its own condition set, and on an identical
 pair the two sets mirror.
@@ -96,9 +98,12 @@ records genuinely differ.
 - **Propeller weight or diameter from the wrong propeller.** The certificate
   lists approved propellers; the gyro case scales with the disc you enter.
 - **A limit load factor that disagrees with the envelope.** Left blank it
-  derives the 23.337 value and cannot drift; typed (as both examples type
-  it), it is your responsibility to keep it consistent with the Flight
-  Envelope page after a weight or category change.
+  derives the 23.337 value and cannot drift. Typed, it is checked: a value
+  that differs from the airplane's own n₁ raises a warning naming both,
+  because the torque cases scale condition A to it and would load the
+  whole airplane at a factor its V-n does not fly. If the airplane is
+  designed above the 23.337 minimum (a POH figure, say), enter that limit
+  as the chosen n on the Structural Speeds page, not here alone.
 - **Expecting the book's unfactored takeoff torque.** See the approved
   correction above — the tool is deliberately more conservative than the
   printed oracle on that one case.

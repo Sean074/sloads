@@ -301,10 +301,15 @@ quantity is published, reading `EnvelopeResult.is_clamped` (#33's owner).
 clamped state at all — the small wing was what put the ATR's 25,000 ft
 manoeuvre points on the cap — and D-30's clamped state is exercised by
 `tests/test_convergence.py` on the same airplane balanced at 35,000 ft, a test
-case and not a deliverable. Effect on shipped content: none. **Activation:** a
-fixture, or a user project the owner wants in the examples, whose balanced
-points clamp; the marker is then tier M / S as the row stated, and the design
-is unchanged (`is_clamped` read, never re-derived).
+case and not a deliverable. **Restated 2026-10-03 (#331, owner):** the first
+trigger fired -- with the POH's 4.2 g entered as its chosen n, `baron_58`
+clamps two rows, MAN A and MAN C at 20,000 ft at `fwd gross` (V-n cases
+223/224, CL 1.274) -- and the owner kept the item parked on the new number:
+**2 published BALLOADS rows unmarked, 0 governing, 0 deck loads**. SELECT
+governs on neither, so no critical-condition table, deck or exported load
+carries the extrapolation. **Activation:** a clamped row SELECT governs on, or
+the owner's request; the marker is then tier M / S as the row stated, and the
+design is unchanged (`is_clamped` read, never re-derived).
 
 ### [V] Fin-stall flag on a delivered 23.367 case (#353) *(parked 2026-10-03, owner ruling 3 on #333)*
 

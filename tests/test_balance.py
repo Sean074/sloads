@@ -423,7 +423,8 @@ FORCE_RESIDUAL_CEILING = FORCE_RESIDUAL_ACCEPTANCE
 _CLAMPED_BODY_AXIAL = {
     # atr42_100 re-measured 2026-09-21 (#260): NMAA no longer clamps.
     "atr42_100.project.json": {"NHAA": (0.0020, 0.0150)},
-    "baron_58.project.json": {"NHAA": (0.0020, 0.0005)},
+    # baron_58 dropped 2026-10-03 (#331): at the POH's 4.2 its NHAA moved to
+    # STALL -1G at 20,000 ft, alpha -11.8 deg, aft (dCD -0.0011), unclamped.
     "concept_heavy.project.json": {"NHAA": (0.0030, 0.0070)},
     # concept_regional_jet ACRL re-measured 2026-09-29 (#320): the tie moved the
     # slot to sea level (V-n case 40), force 0.451 %, pitch 0.346 %.
@@ -1175,7 +1176,9 @@ _DELTA_CD_BAND = {
     # the seeded MZFW loadings (PHAA -0.0726 at `mzfw aft`, NMAA -0.0086 at
     # `mzfw fwd`; the clamped NHAA -0.0002); before, only TORS and the
     # lateral cases at `aft gross`.
-    'baron_58.project.json': (-0.0727, -0.0001),
+    # #331 (2026-10-03): condition A at the POH's 4.2 -- PHAA -0.0739 at
+    # `mzfw aft`; NHAA (STALL -1G, 20,000 ft) no longer clamps, -0.0011.
+    'baron_58.project.json': (-0.0740, -0.0010),
     'dhc8_dash8.project.json': (-0.1061, -0.0018),
     # concept_heavy re-pinned 2026-09-20 (#291): polar re-entered with its
     # minimum at the zero-alpha CL; PHAA -0.0898, the clamped NHAA +0.0084
@@ -2099,7 +2102,8 @@ def test_a_symmetric_case_reduces_to_three_dof(example):
 _ACRL_LATERAL = {
     'ga6_normal.project.json': {"companion_fy_lb": 77.83, "r_dot_deg_s2": 16.402},
     'atr42_100.project.json': {"companion_fy_lb": 455.59, "r_dot_deg_s2": 6.255},
-    'baron_58.project.json': {"companion_fy_lb": 25.68, "r_dot_deg_s2": 4.663},
+    # #331: ACRL flies at VA, 161.0 -> 172.8 KEAS with the POH's 4.2 (x1.151).
+    'baron_58.project.json': {"companion_fy_lb": 29.56, "r_dot_deg_s2": 5.369},
     'concept_heavy.project.json': {"companion_fy_lb": 274.78, "r_dot_deg_s2": 2.637},
     'concept_regional_jet.project.json': {"companion_fy_lb": 307.46, "r_dot_deg_s2": 4.394},
 }
@@ -2277,9 +2281,11 @@ _LATERAL_CASE_NUMBERS = {
     # rose by the reciprocal.
     'baron_58.project.json': {
         'SIDE GUST': (1015.6257, +0.184659, +149.735407, -40.737848),
-        'SUDDEN RUDDER': (1287.5019, +0.234091, +188.790473, -50.516764),
-        'YAW 15 NEUTRAL': (-1357.1866, -0.246761, -187.122729, +53.493268),
-        'YAW TO SIDESLIP': (-476.8407, -0.086698, -54.469075, +19.024485),
+        # #331 (2026-10-03): the three VA cases move x1.151 = (172.8/161.0)^2
+        # with the POH's 4.2 entered as chosen n; SIDE GUST (VC) is unmoved.
+        'SUDDEN RUDDER': (1482.1640, +0.269484, +217.334390, -58.154577),
+        'YAW 15 NEUTRAL': (-1562.3846, -0.284070, -215.414495, +61.581110),
+        'YAW TO SIDESLIP': (-548.9359, -0.099807, -62.704453, +21.900866),
     },
     # The three fixtures with a published fuselage outline (T-8a). Backlog Pri 1
     # gave the "fuselage-top" branch of vtail_root_waterline its body datum --
