@@ -43,7 +43,6 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Set, Tuple
 
-from ...cg_cases import flight_cases
 from ...mass_distribution import CaseLoading
 from ...models import (
     BalancedCaseResult,
@@ -64,7 +63,11 @@ if TYPE_CHECKING:
     from ..wing_inertia import WingCaseSources
 
 #: The 1 g parent point of each ONENGOUT speed case, by its label's speed.
-OEI_PARENT: Dict[str, str] = {"VC": "BAL C", "VD": "BAL D", "VS": "STALL 1G"}
+#: The low end -- VMC when entered, else VS standing in for it (#333) -- is
+#: assembled on the 1 g stall point either way: the nearest 1 g flight state of
+#: the airplane at low speed that the V-n set carries.
+OEI_PARENT: Dict[str, str] = {"VC": "BAL C", "VD": "BAL D", "VS": "STALL 1G",
+                              "VMC": "STALL 1G"}
 
 #: The label prefix SELECT gives an ONENGOUT fin condition.
 ENGINE_OUT_PREFIX = "ONE ENGINE OUT"
@@ -152,12 +155,25 @@ def speed_label_of(cond: CriticalCondition) -> str:
 
 def _heaviest_derivable(project: Project, loadings: Dict[str, CaseLoading],
                         cgs: Dict[str, CgCase]) -> Optional[CgCase]:
-    """The heaviest FLIGHT CG case whose loading the database can produce --
-    ONENGOUT's own mass basis (its Izz is the heaviest mass case's)."""
-    usable = [c for c in flight_cases(project)
-              if c.name in cgs and loadings.get(c.name) is not None
-              and loadings[c.name].derivable]
-    return extreme(usable, lambda c: c.weight_lb) if usable else None
+    """ONENGOUT's own mass basis (:func:`~sloads.modules.one_engine_out.mass_basis`,
+    #333 ruling 4), so the deck assembles the case on the CG case the march
+    took its IZZ and CG from -- one airplane state, not two."""
+    from ..one_engine_out import mass_basis
+
+    basis = mass_basis(project, loadings)
+    return cgs.get(basis[0].name) if basis is not None else None
+
+
+def unrecovered_detail(fc: "VtailCase") -> str:
+    """What an unrecovered case reached, so its record is a statement rather
+    than an absence (#333 ruling 2): its speed and altitude, and the fin
+    incidence when the march stopped. KEAS, ft and deg only -- the deck's
+    record carries it into the SI deck as written. The validation warning
+    adds the fin load in its own units."""
+    c = fc.inputs
+    return (f" ({format_value(c.v_kt, 'kt')} KEAS at {format_value(c.alt_ft, 'ft')} ft, "
+            f"{format_value(fc.vtail_alpha_deg, 'deg')} deg fin incidence at the "
+            f"{format_value(fc.summary.time_to_recovery_s, 's')} s bound)")
 
 
 def _nearest_altitude(points: Sequence[VnPoint], altitude_ft: float) -> VnPoint:
@@ -252,7 +268,7 @@ def build_engine_out_cases(project: Project, conditions: Sequence[CriticalCondit
         if not fc.recovered:
             record.append(_skip(_MarchCondition(f"{ENGINE_OUT_PREFIX} — "
                                                 f"{fc.load_case.label}{fc.engine_label}"),
-                                "not-recovered"))
+                                "not-recovered", unrecovered_detail(fc)))
     out: List[BalancedCaseResult] = []
     done: Set[str] = set()
     engines = resolved_engines(project)

@@ -172,6 +172,11 @@ def test_an_unrecovered_march_is_recorded():
     _, _, skipped = _built("atr42_100")
     recorded = [s.label for s in skipped if s.code == "not-recovered"]
     assert recorded == ["ONE ENGINE OUT — VS (engine 1)", "ONE ENGINE OUT — VS (engine 2)"]
+    # #333 ruling 2: and with what it reached -- speed, take-off altitude and
+    # fin incidence after the name, never in the label (the label is identity).
+    for s in (s for s in skipped if s.code == "not-recovered"):
+        assert s.detail.startswith(" (101.5 KEAS at 0") and "deg fin incidence" in s.detail
+        assert s.detail in s.name
 
 
 @pytest.mark.parametrize("name", _TWINS)

@@ -86,12 +86,22 @@ def _hop_72(d: Dict[str, Any]) -> Dict[str, Any]:
     return d
 
 
+def _hop_73(d: Dict[str, Any]) -> Dict[str, Any]:
+    """v73 -> v74 (#333): ``OneEngineOutInput`` gains ``vmc_kt`` (blank: VS
+    stands as the substitute, the v73 low end) and ``takeoff_altitude_ft``
+    (default 0). An identity -- but not a no-op on loads: the low-end case
+    moves from the shoulder altitude to the take-off altitude, which is the
+    ruling, not the hop's doing."""
+    return d
+
+
 #: ``{from_version: hop}`` -- applied in ascending order, each turning a file of
 #: version *n* into version *n+1* shape.
 MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     70: _hop_70,
     71: _hop_71,
     72: _hop_72,
+    73: _hop_73,
 }
 
 #: The oldest project version this build reads: the oldest released schema, or

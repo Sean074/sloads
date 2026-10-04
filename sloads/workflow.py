@@ -222,8 +222,11 @@ STEPS: Tuple[WorkflowStep, ...] = (
                  module="engine", requires=("engines",), produces=None,
                  edits=("engines",), bas="ENGLOADS",
                  summary="Engine-mount reaction loads (incl. gyroscopic)."),
+    # requires ``weight``, not ``mass``, since #333: the march's IZZ and CG are
+    # the mass-basis FLIGHT loading's, derived from the weight database and the
+    # CG cases -- WTONECG's all-items ``Project.mass`` is no longer read.
     WorkflowStep("one_engine_out", "One Engine Out", OTHER_LOADS,
-                 module="one_engine_out", requires=("mass", "vtail_loads"),
+                 module="one_engine_out", requires=("weight", "vtail_loads"),
                  produces="one_engine_out", bas="ONENGOUT",
                  summary="One-engine-out vertical-tail loads."),
 

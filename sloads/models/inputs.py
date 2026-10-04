@@ -1758,9 +1758,14 @@ class OneEngineOutInput:
         (max-continuous HP, propeller diameter, engine butt line ``y``);
       * vertical-tail geometry (ARVT, area, rudder area, full deflection, 25%/50% MAC
         stations) <- ``Project.vtail_loads`` (the ``xv50`` station added with this step);
-      * yaw inertia ``IZZ`` and the CG station <- ``Project.mass`` (WTONECG), heaviest
-        loading, unless overridden here;
-      * the speeds and altitude <- ``Project.speeds`` (VC ultimate / VD limit / VS).
+      * yaw inertia ``IZZ`` and the CG station <- the heaviest derivable FLIGHT
+        loading, aft-most among ties (#333 ruling 4; WTONECG's inertia of that
+        loading's items), unless overridden here;
+      * the speeds <- ``Project.speeds`` (VC ultimate / VD limit) and the low
+        end: ``vmc_kt`` when entered, else VS as the manual's substitute (Ref 1
+        Ch 11 p87). VC and VD run at ``altitude_ft`` (blank: the shoulder); the
+        low end runs at ``takeoff_altitude_ft``, because VMC is a take-off
+        condition (#333 ruling 1).
 
     Time history (engine thrust schedule): thrust ramps to zero over
     ``thrust_decay_time_s``, windmill drag ramps up over
@@ -1773,10 +1778,12 @@ class OneEngineOutInput:
     time_step_s: float = 0.05                  # DT (Euler step; program suggests 0.05)
     failed_engine_index: int = 0               # which Project.engines[] entry fails
     use_takeoff_power: bool = False            # MAXHP = take-off HP (else max-continuous)
-    altitude_ft: Optional[float] = None        # default: Project.speeds.shoulder_altitude_ft
-    speeds_kt: List[float] = field(default_factory=list)  # default: [VC, VD, VS] from speeds
-    izz_slugft2: float = 0.0                   # 0 -> from Project.mass (heaviest case)
-    xcg_in: float = 0.0                        # 0 -> from Project.mass (heaviest case)
+    altitude_ft: Optional[float] = None        # VC/VD; default: Project.speeds.shoulder_altitude_ft
+    speeds_kt: List[float] = field(default_factory=list)  # default: [VC, VD, VMC or VS] from speeds
+    izz_slugft2: float = 0.0                   # 0 -> from the mass-basis FLIGHT loading
+    xcg_in: float = 0.0                        # 0 -> from the mass-basis FLIGHT loading
+    vmc_kt: Optional[float] = None             # minimum control speed, KEAS, cited; blank -> VS substituted
+    takeoff_altitude_ft: float = 0.0           # the low-end (VMC/VS) case's altitude
 
 
 # --------------------------------------------------------------------------- #

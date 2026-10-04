@@ -13,8 +13,10 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `one_engine_out.rudder_travel_time_s` | `float` | INCTIMERUD (time to full rudder) | `0.0` | original | ONENGOUT INCTIMERUD |
 | `one_engine_out.time_step_s` | `float` | DT (Euler step; program suggests 0.05) | `0.05` | original | ONENGOUT DT (Euler step) |
 | `one_engine_out.use_takeoff_power` | `bool` | MAXHP = take-off HP (else max-continuous) | `False` | original | ONENGOUT MAXHP selector |
-| `one_engine_out.speeds_kt` | `List[float]` | default: [VC, VD, VS] from speeds | `[] (factory)` | original | ONENGOUT evaluation speeds |
-| `one_engine_out.altitude_ft` | `Optional[float]` | default: Project.speeds.shoulder_altitude_ft | `None` | original | ONENGOUT altitude |
-| `one_engine_out.izz_slugft2` | `float` | 0 -> from Project.mass (heaviest case) | `0.0` | original | ONENGOUT IZZ (0 -> from mass) |
-| `one_engine_out.xcg_in` | `float` | 0 -> from Project.mass (heaviest case) | `0.0` | original | ONENGOUT XCG (0 -> from mass) |
+| `one_engine_out.speeds_kt` | `List[float]` | default: [VC, VD, VMC or VS] from speeds | `[] (factory)` | original | ONENGOUT evaluation speeds |
+| `one_engine_out.altitude_ft` | `Optional[float]` | VC/VD; default: Project.speeds.shoulder_altitude_ft | `None` | original | ONENGOUT altitude (VC and VD; the manual's shoulder point) |
+| `one_engine_out.vmc_kt` | `Optional[float]` | minimum control speed, KEAS, cited; blank -> VS substituted | `None` | sloads | the minimum control speed, cited to the AFM or TCDS, that 23.367(a) starts both failure cases at: ONENGOUT took whatever speeds it was typed and the manual let Vs stand in for VMC, which holds only when Vs is at or above VMC (#333) |
+| `one_engine_out.takeoff_altitude_ft` | `float` | the low-end (VMC/VS) case's altitude | `0.0` | sloads | the altitude the low-end (VMC or VS) case is flown at: VMC is a take-off condition, where ONENGOUT ran every speed at one altitude (#333) |
+| `one_engine_out.izz_slugft2` | `float` | 0 -> from the mass-basis FLIGHT loading | `0.0` | original | ONENGOUT IZZ (0 -> from mass) |
+| `one_engine_out.xcg_in` | `float` | 0 -> from the mass-basis FLIGHT loading | `0.0` | original | ONENGOUT XCG (0 -> from mass) |
 

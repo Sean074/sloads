@@ -1091,15 +1091,16 @@ def vtail_root_roll_with_tip(result: TailSpanResult) -> float:
     return vtail_root_roll(result.stations) + (t.mxx if t is not None else 0.0)
 
 
-def _condition_state(project: Project, cond: CriticalCondition,
+def _condition_state(cond: CriticalCondition,
                      points: Sequence["VnPoint"]) -> Optional[Tuple[float, float, str]]:
     """``(V EAS kt, altitude ft, where)`` a fin condition is flown at, or ``None``.
 
     A SELECT condition's own V-n point; a one-engine-out condition's ONENGOUT
-    speed at ONENGOUT's altitude (``one_engine_out.case_altitude_ft``).
+    speed at the altitude its march stamped on the condition
+    (``one_engine_out.load_case_altitude_ft``, #333).
     """
     from .balance.engine_out_cases import is_engine_out_condition
-    from .one_engine_out import case_altitude_ft
+    from .one_engine_out import condition_altitude_ft
 
     if cond.case is not None:
         point = next((p for p in points if p.case == cond.case), None)
@@ -1107,7 +1108,7 @@ def _condition_state(project: Project, cond: CriticalCondition,
             return None
         return point.v_eas_kt, point.altitude_ft, f"V-n case {point.case}"
     if is_engine_out_condition(cond) and cond.case_ref is not None and cond.case_ref.speed_kt:
-        return (float(cond.case_ref.speed_kt), case_altitude_ft(project),
+        return (float(cond.case_ref.speed_kt), condition_altitude_ft(cond),
                 "the ONENGOUT speed at its march altitude")
     return None
 
@@ -1141,7 +1142,7 @@ def induced_roll_moment(project: Project, cond: CriticalCondition,
 
     if htail is None or not is_t_tail(project) or not stations:
         return None
-    state = _condition_state(project, cond, points)
+    state = _condition_state(cond, points)
     vt = effective_vtail_inputs(project)
     if state is None or vt is None or vt.vtail_area_sqft <= 0.0:
         return None
@@ -1302,7 +1303,7 @@ def build_tail_span(project: Project) -> Dict[str, List[TailSpanResult]]:
             oei_parent_point,
             speed_label_of,
         )
-        from .one_engine_out import case_altitude_ft
+        from .one_engine_out import condition_altitude_ft
 
         if not is_engine_out_condition(cond):
             return None
@@ -1313,7 +1314,7 @@ def build_tail_span(project: Project) -> Dict[str, List[TailSpanResult]]:
                      {ld.name: ld for ld in derive_case_loadings(project)}))
             cgs, loadings = mass_basis[0]
             parents[cond.label] = oei_parent_point(
-                project, speed_label_of(cond), case_altitude_ft(project),
+                project, speed_label_of(cond), condition_altitude_ft(cond),
                 vn_points, cgs, loadings)[0]
         return parents[cond.label]
 
