@@ -1729,8 +1729,9 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("engines[].rotors[].weight_lb", _ENG, _SLDS, "turbine rotor model, Step C9"),
     _E("engines[].rotors[].diameter_in", _ENG, _SLDS, "turbine rotor model, Step C9"),
     _E("engines[].rotors[].inertia", _ENG, _SLDS, "turbine rotor model, Step C9"),
-    _E("engines[].rotors[].max_rpm", _ENG, _SLDS, "turbine rotor model, Step C9"),
-    _E("engines[].rotors[].direction", _ENG, _SLDS, "turbine rotor model, Step C9"),
+    _E("engines[].rotors[].max_rpm", _ENG, _SLDS,
+       "turbine rotor model, Step C9 -- signed, clockwise from the pilot's seat positive: "
+       "the one owner of the rotor's spin sense (#332)"),
     # C210-44 (owner directive): layout is Step C5 *configuration*, not a
     # mount-load input -- its one calc consumer is WINGGEOM's engine stations --
     # so it renders on the Geometry page. The page set is registry-derived, so

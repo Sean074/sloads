@@ -42,7 +42,6 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `engines[].rotors[].weight_lb` | `float` | rotor weight, lb | `**required**` | sloads | turbine rotor model, Step C9 |
 | `engines[].rotors[].diameter_in` | `float` | rotor diameter, inches | `**required**` | sloads | turbine rotor model, Step C9 |
 | `engines[].rotors[].inertia` | `Optional[float]` | measured polar inertia, slug-ft^2 (overrides geometry) | `None` | sloads | turbine rotor model, Step C9 |
-| `engines[].rotors[].max_rpm` | `float` | signed; clockwise (pilot's view) is positive | `**required**` | sloads | turbine rotor model, Step C9 |
-| `engines[].rotors[].direction` | `RotorDirection` |  | `RotorDirection.CLOCKWISE` | sloads | turbine rotor model, Step C9 |
+| `engines[].rotors[].max_rpm` | `float` | signed; clockwise (pilot's view) is positive | `**required**` | sloads | turbine rotor model, Step C9 -- signed, clockwise from the pilot's seat positive: the one owner of the rotor's spin sense (#332) |
 | `include_far25` | `bool` |  | `False` | sloads | opts this project into sloads' FAR 25 supplemental cases, which sit outside the FAR 23 suite this GUI replicates (F25-2) |
 

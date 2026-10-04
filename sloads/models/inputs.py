@@ -71,12 +71,16 @@ class Rotor:
     Provide ``inertia`` directly when a measured polar moment of inertia is
     known; otherwise it is approximated as a solid disk from ``diameter_in`` and
     ``weight_lb``.
+
+    ``max_rpm`` is **signed** and is the one owner of the rotor's spin sense:
+    clockwise from the pilot's seat (viewed from the rear, looking forward) is
+    positive -- ENGLOADS's own input convention. There is no separate direction
+    field; the one that existed was read by nothing and retired at #332.
     """
     diameter_in: float          # rotor diameter, inches
     weight_lb: float            # rotor weight, lb
     max_rpm: float              # signed; clockwise (pilot's view) is positive
     rotor_type: RotorType = RotorType.TURBINE
-    direction: RotorDirection = RotorDirection.CLOCKWISE
     inertia: Optional[float] = None  # measured polar inertia, slug-ft^2 (overrides geometry)
 
 

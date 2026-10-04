@@ -1,5 +1,5 @@
 {
-  "schema_version": 74,
+  "schema_version": 75,
   "name": "RJ-50 concept \u2014 50-seat regional jet (concept mode, Part 25)",
   "engines": [
     {
@@ -37,7 +37,6 @@
           "weight_lb": 520.0,
           "max_rpm": 8500,
           "rotor_type": "C",
-          "direction": "CW",
           "inertia": null
         }
       ],
@@ -95,7 +94,6 @@
           "weight_lb": 520.0,
           "max_rpm": -8500,
           "rotor_type": "C",
-          "direction": "CC",
           "inertia": null
         }
       ],

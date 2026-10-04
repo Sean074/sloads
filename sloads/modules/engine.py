@@ -8,13 +8,13 @@ Sign convention: the engine-mount torque is reported in the sense
 "clockwise from the pilot's view is positive", which is also the sense used for
 rotor RPM and stoppage torque. It is **negative for a propeller turning
 clockwise from that seat**, because that is the torque the engine delivers to
-the airframe -- see :func:`torque_sense`, which is the one place
-``EngineInput.prop_direction`` reaches a published load (design note 53, under
-the owner's OR-15 admission of 2026-09-07, scoped to this sign and nothing
-else). The gyroscopic conditions read the rotation too, through
-:func:`angular_momentum` (note 53 D-53.6 as amended at #319): the spin is
-signed so that a gyroscopic sub-case names the airplane's rates on every
-engine.
+the airframe -- see :func:`torque_sense`, which signs every torque the engine
+**drives** (design note 53, under the owner's OR-15 admission of 2026-09-07).
+The torques that come from the **spin** -- the gyroscopic couples and the
+sudden-stoppage torque -- read the rotation through :func:`spin_momentum`, the
+one owner of the engine's spin sense: the propeller signed by
+``prop_direction``, each rotor by its signed ``max_rpm`` (note 53 D-53.6 as
+amended at #319; #332).
 """
 
 from __future__ import annotations
@@ -204,8 +204,10 @@ def torque_sense(inp: EngineInput) -> float:
     ``-1`` for every project written before the field existed and no shipped
     load moves by a pound-foot.
 
-    The 23.371(b) / 25.371 gyroscopic condition does not call this: it reads
-    the rotation through :func:`spin_sense` and :func:`angular_momentum`.
+    The torques that come from the spin -- the 23.371(b) / 25.371 gyroscopic
+    couples and the sudden-stoppage torque -- do not call this: they read the
+    rotation through :func:`spin_momentum`, and a stoppage's sign follows the
+    momentum shed, not the drive (#332).
     """
     return -1.0 if inp.prop_direction is RotorDirection.CLOCKWISE else 1.0
 
@@ -233,29 +235,49 @@ def angular_momentum(inp: EngineInput) -> float:
     for both conditions and for the balanced case's statement of which engines
     spin together.
     """
-    h = spin_sense(inp) * _prop_inertia(inp) * _omega(inp.max_cont_rpm)
+    return spin_momentum(inp, inp.max_cont_rpm)
+
+
+def spin_momentum(inp: EngineInput, prop_rpm: float) -> float:
+    """The engine's signed spin angular momentum with the propeller at
+    ``prop_rpm``, slug-ft^2/s, positive clockwise from the pilot's seat.
+
+    **The one owner of the engine's spin sense** (#332): the propeller's term is
+    signed by :func:`spin_sense` (``prop_direction``), each rotor's by its own
+    signed ``max_rpm`` -- the only rotor field that says which way it turns.
+    The gyroscopic conditions read it at max-continuous rpm
+    (:func:`angular_momentum`); the sudden-stoppage torque at take-off rpm
+    (:func:`_stoppage_torque`). Until #332 the stoppage summed the propeller
+    unsigned against signed rotors, so an engine entered counter-rotating
+    throughout lost the rotors' share twice over (an ATR-42 engine mirrored:
+    +17,333 ft-lb against the +24,473 its mirror image publishes).
+    """
+    h = spin_sense(inp) * _prop_inertia(inp) * _omega(prop_rpm)
     for rotor in inp.rotors:
         h += _rotor_inertia(rotor) * _omega(rotor.max_rpm)
     return h
 
 
-def _floored_torque(inp: EngineInput, magnitude: float) -> float:
-    """A stoppage torque published as the oracle's floored whole number.
+def _floored_torque(spin_torque: float) -> float:
+    """The mount torque a stoppage publishes, as the oracle's floored whole number.
+
+    ``spin_torque`` is the signed spin momentum shed per second
+    (:func:`spin_momentum` over ``stop_time_s``, clockwise positive). The mount
+    reacts it, so the published torque carries the **opposite** sign -- read
+    from the total itself, never from a second direction field (#332: the
+    rotors' sign used to be applied here and again by ``torque_sense``).
 
     ``ENGLOADS.BAS`` line 944 prints ``INT(-TORQSUDSTOP)``, and BASIC's ``INT``
-    **floors** -- it does not truncate toward zero. So the sign cannot be applied
-    inside the flooring: ``floor(-6824.6)`` is ``-6825`` while
-    ``floor(+6824.6)`` is ``+6824``, and a counter-clockwise engine would
-    otherwise publish a torque 1 ft-lb smaller in magnitude than the same engine
-    turning the other way -- a difference in the rounding, presented as a
-    difference in the load (found by G-53.1, 2026-09-07).
-
-    The oracle's own value is the clockwise one. A counter-clockwise engine
-    publishes its exact negative, so the two are mirrors and the printed
-    Appendix B figure is untouched.
+    **floors** -- it does not truncate toward zero. So the floor is taken on
+    the clockwise reading of the **magnitude** and the sign applied after:
+    ``floor(-6824.6)`` is ``-6825`` while ``floor(+6824.6)`` is ``+6824``, and
+    flooring the signed value would publish a counter-clockwise engine 1 ft-lb
+    lighter than its mirror (G-53.1, 2026-09-07; the RJ's fans at #332). The
+    oracle's own value is the clockwise one, so Appendix B is untouched and a
+    counter-clockwise engine publishes its exact negative.
     """
-    clockwise = basic_int(-magnitude)
-    return clockwise if torque_sense(inp) < 0 else -clockwise
+    clockwise = basic_int(-abs(spin_torque))
+    return clockwise if spin_torque >= 0 else -clockwise
 
 
 def combined_weight(inp: EngineInput) -> float:
@@ -533,26 +555,10 @@ def condition_361_a3(inp: EngineInput) -> ConditionResult:
 
 def condition_361_b1(inp: EngineInput) -> ConditionResult:
     """FAR 23.361(b)(1): torque from sudden engine stoppage (turboprop only)."""
-    iprop = _prop_inertia(inp)
-    omega_prop = _omega(inp.takeoff_rpm)
-    dt = _required(inp.stop_time_s, "stop_time_s")
-    torq_prop = iprop * (omega_prop / dt)
-
-    torq_rotors = 0.0
-    rotor_values: List[LoadValue] = []
-    for i, rotor in enumerate(inp.rotors, start=1):
-        irotor = _rotor_inertia(rotor)
-        torq_rotors += irotor * (_omega(rotor.max_rpm) / dt)
-        rotor_values.append(LoadValue(f"Ixx rotor({i})", irotor, "slug-ft^2", key=f"ixx_rotor_{i}"))
-
-    torq_total = torq_prop + torq_rotors
-    cg = combined_cg(inp)
-    values = [LoadValue("Ixx propeller", iprop, "slug-ft^2", key="ixx_propeller")]
-    values.extend(rotor_values)
-    values.append(LoadValue("Time to stop", dt, "s", key="time_to_stop"))
-    values.extend(_applied_at(cg))
+    torq_total, values = _stoppage_torque(inp)
+    values.extend(_applied_at(combined_cg(inp)))
     values.append(LoadValue("Engine mount torque",
-                            _floored_torque(inp, torq_total), "ft-lb",
+                            _floored_torque(torq_total), "ft-lb",
                             key="mx_mount_torque"))
     return ConditionResult(
         title="Torque for sudden stoppage due to malfunction or structural failure",
@@ -654,20 +660,20 @@ def condition_371_b(inp: EngineInput) -> ConditionResult:
 
 
 def _stoppage_torque(inp: EngineInput) -> Tuple[float, List[LoadValue]]:
-    """Total sudden-stoppage reaction torque (ft-lb) + per-rotor inertia detail.
+    """Signed sudden-stoppage spin torque (ft-lb, clockwise positive) + the
+    per-rotor inertia detail.
 
-    The prop + rotor angular momentum shed over ``stop_time_s``. Shared by the
-    FAR 25 sudden-deceleration case; FAR 23.361(b)(1) keeps its own inline copy so
-    its oracle output stays byte-identical.
+    The engine's :func:`spin_momentum` at take-off rpm shed over
+    ``stop_time_s`` (ENGLOADS.BAS 853-926). The one copy, read by 23.361(b)(1)
+    and the FAR 25 sudden-deceleration case alike (#332 retired the inline
+    duplicate 23.361(b)(1) kept).
     """
-    iprop = _prop_inertia(inp)
     dt = _required(inp.stop_time_s, "stop_time_s")
-    torq = iprop * (_omega(inp.takeoff_rpm) / dt)
-    detail = [LoadValue("Ixx propeller", iprop, "slug-ft^2", key="ixx_propeller")]
-    for i, rotor in enumerate(inp.rotors, start=1):
-        irotor = _rotor_inertia(rotor)
-        torq += irotor * (_omega(rotor.max_rpm) / dt)
-        detail.append(LoadValue(f"Ixx rotor({i})", irotor, "slug-ft^2", key=f"ixx_rotor_{i}"))
+    torq = spin_momentum(inp, inp.takeoff_rpm) / dt
+    detail = [LoadValue("Ixx propeller", _prop_inertia(inp), "slug-ft^2", key="ixx_propeller")]
+    detail.extend(LoadValue(f"Ixx rotor({i})", _rotor_inertia(rotor), "slug-ft^2",
+                            key=f"ixx_rotor_{i}")
+                  for i, rotor in enumerate(inp.rotors, start=1))
     detail.append(LoadValue("Time to stop", dt, "s", key="time_to_stop"))
     return torq, detail
 
@@ -686,7 +692,7 @@ def condition_25_361_a3i(inp: EngineInput) -> ConditionResult:
         LoadValue("Vertical load factor", 1.0, key="vertical_load_factor"),
         LoadValue("Vertical down load", 1.0 * ppwt, "lb", key="fz_vertical"),
         *_applied_at(cg),
-        LoadValue("Engine mount torque", _floored_torque(inp, torq_total),
+        LoadValue("Engine mount torque", _floored_torque(torq_total),
                   "ft-lb", key="mx_mount_torque"),
     ])
     return ConditionResult(

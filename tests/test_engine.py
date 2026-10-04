@@ -124,6 +124,84 @@ def test_361_b1_torque_is_floored_as_basic_int_did():
     assert int(-6824.624095864674) == -6824  # what the port used to report
 
 
+# --------------------------------------------------------------------------- #
+# #332 -- one spin-sign owner for the stoppage torque
+# --------------------------------------------------------------------------- #
+def _mirrored(inp):
+    """The same engine turning the other way: propeller and every rotor."""
+    from dataclasses import replace
+
+    from sloads.models.enums import RotorDirection
+    flip = (RotorDirection.COUNTERCLOCKWISE
+            if inp.prop_direction is RotorDirection.CLOCKWISE else RotorDirection.CLOCKWISE)
+    return replace(inp, prop_direction=flip,
+                   rotors=[replace(r, max_rpm=-r.max_rpm) for r in inp.rotors])
+
+
+def _stoppages(inp):
+    return {c.far_reference: value_of(c, "mx_mount_torque")
+            for c in (calc.condition_361_b1(inp), calc.condition_25_361_a3i(inp))}
+
+
+def test_a_mirrored_engine_publishes_the_exact_negative_stoppage():
+    """#332 gate. A mirrored engine publishes its twin's stoppage torque
+    negated, to the pound-foot, on both the 23.361(b)(1) and 25.361(a)(3)(i)
+    cases: the floor is taken on the magnitude, the sign read from the shed
+    momentum. Before #332 the RJ's fans published -50,577 / +50,576, and an
+    ATR-42 engine mirrored lost 29 % of its torque (+17,333 against 24,473)."""
+    from sloads import io
+    examples = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            "examples")
+    atr = io.load_project(os.path.join(examples, "atr42_100.project.json")).engines[0]
+    rj = io.load_project(os.path.join(examples, "concept_regional_jet.project.json")).engines
+    for engine in (turboprop(), atr):
+        a, b = _stoppages(engine), _stoppages(_mirrored(engine))
+        for far, value in a.items():
+            assert b[far] == -value, far
+    assert _stoppages(atr)["23.361(b)(1)"] == -24473.0  # unchanged by #332
+    left, right = (_stoppages(e)["23.361(b)(1)"] for e in rj)
+    assert (left, right) == (-50577.0, 50577.0)
+
+
+def test_the_stoppage_signs_the_propeller_as_the_gyro_does():
+    """#332 gate. A clockwise propeller and a clockwise rotor shed momentum the
+    same way, so their torques add; reversing the propeller alone subtracts it.
+    The stoppage total is the signed spin momentum at take-off rpm over the
+    stop time -- the owner the gyroscopic conditions read at max-continuous."""
+    from dataclasses import replace
+
+    from sloads.models.enums import RotorDirection
+    base = turboprop()
+    dt = base.stop_time_s
+    prop = calc._prop_inertia(base) * calc._omega(base.takeoff_rpm) / dt
+    rotors = sum(calc._rotor_inertia(r) * calc._omega(r.max_rpm) / dt for r in base.rotors)
+    ccw_prop = replace(base, prop_direction=RotorDirection.COUNTERCLOCKWISE)
+    torque, _ = calc._stoppage_torque(ccw_prop)
+    assert math.isclose(torque, -prop + rotors, rel_tol=1e-12)
+    assert math.isclose(torque * dt, calc.spin_momentum(ccw_prop, base.takeoff_rpm),
+                        rel_tol=1e-12)
+    assert math.isclose(calc.angular_momentum(ccw_prop),
+                        calc.spin_momentum(ccw_prop, base.max_cont_rpm), rel_tol=1e-12)
+
+
+def test_a_rotors_spin_sense_has_one_reader():
+    """#332 drift guard. ``Rotor`` carries no direction field (the signed
+    ``max_rpm`` is the one owner), and inside the engine module a rotor's rpm
+    is read only by ``spin_momentum`` -- so the stoppage and the gyro cannot
+    drift onto two readings of the spin again."""
+    import ast
+    import dataclasses
+    import inspect
+
+    from sloads.models.inputs import Rotor
+    assert "direction" not in {f.name for f in dataclasses.fields(Rotor)}
+    tree = ast.parse(inspect.getsource(calc))
+    readers = {fn.name for fn in ast.walk(tree) if isinstance(fn, ast.FunctionDef)
+               for node in ast.walk(fn)
+               if isinstance(node, ast.Attribute) and node.attr == "max_rpm"}
+    assert readers == {"spin_momentum"}, readers
+
+
 def test_measured_prop_inertia_overrides_geometry():
     from dataclasses import replace
     inp = replace(turboprop(), prop_inertia=12.5)

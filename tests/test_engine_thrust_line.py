@@ -78,10 +78,15 @@ def _torques(engine, **kw):
 # --------------------------------------------------------------------------- #
 def test_a_counter_clockwise_engine_reverses_every_torque():
     """G-53.1. Exactly the negative, condition for condition, both engine types
-    and the FAR 25 cases with them."""
+    and the FAR 25 cases with them. The counter-clockwise engine is the whole
+    engine mirrored -- propeller *and* rotors (#332): the Appendix B turboprop
+    carries signed rotors, and flipping the propeller alone is a different
+    engine, not its mirror image (it passed as one only while the stoppage
+    applied the rotors' sign twice)."""
     for base in (io520bb(), turboprop()):
         cw = replace(base, prop_direction=RotorDirection.CLOCKWISE)
-        ccw = replace(base, prop_direction=RotorDirection.COUNTERCLOCKWISE)
+        ccw = replace(base, prop_direction=RotorDirection.COUNTERCLOCKWISE,
+                      rotors=[replace(r, max_rpm=-r.max_rpm) for r in base.rotors])
         clockwise = _torques(cw, include_far25=True)
         counter = _torques(ccw, include_far25=True)
         assert set(clockwise) == set(counter) and clockwise
