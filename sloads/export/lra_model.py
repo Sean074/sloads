@@ -599,6 +599,7 @@ def _refuse_unsolvable_skeleton(model: LraModel, mesh: LraMeshInput) -> None:
         member = "wing" if family.startswith("wing") else family
         try:
             count = mesh.count(member)
+        # refusal: a gear or engine family is a tie, not a meshed chain
         except ValueError:                  # gear / engine: ties, not chains
             continue
         floor = _MIN_ELEMENT_FRACTION * length / max(1, count - 1)
@@ -795,6 +796,7 @@ def build_lra_model(project: Project) -> LraModel:
     # any more, so that class cannot arise (see _MIN_ELEMENT_FRACTION).
     try:
         spans = build_tail_span(project)
+    # refusal: no tail spans, no fittings; the case assembly raises the same refusal
     except (ValueError, KeyError):
         spans = {}
     vtail_chain: List[LraNode] = []

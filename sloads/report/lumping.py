@@ -325,6 +325,7 @@ def compare(project: Project, component: str,
         return None
     try:
         model = build_lra_model(project)
+    # refusal: no beam, no lumping; the section states the absence
     except ValueError:
         # The same refusal ``applied_loads`` absorbs: with no beam there are no
         # grids, the delivered set is the station set, and the lumping costs

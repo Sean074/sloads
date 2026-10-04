@@ -283,7 +283,8 @@ def _with_engine_failure(project: Project, critical: CriticalLoadSet) -> Critica
         return critical
     try:
         extra = vtail_conditions(project)
-    except (MissingInputError, ValueError, ZeroDivisionError, KeyError, IndexError):
+    # refusal: stated by applicability and by the deck's family-refused record (#344)
+    except (MissingInputError, ValueError, ZeroDivisionError):
         return critical
     if not extra:
         return critical
@@ -1405,6 +1406,7 @@ def default_side_gust_izz(project: Project) -> Optional[float]:
         return None
     try:
         return _default_izz(vt, gw, airplane_length_in(project))
+    # refusal: no rod-estimate IZZ to show; the search raises the same refusal
     except (ValueError, ZeroDivisionError):
         return None
 

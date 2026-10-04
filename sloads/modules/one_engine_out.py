@@ -470,10 +470,13 @@ def _load_cases(project: Project, oeo: OneEngineOutInput) -> List[_LoadCase]:
                 f"got {oeo.vmc_kt!r} kt; leave it blank to substitute VS")
         floor, floor_label, floor_basis = float(oeo.vmc_kt), "VMC", _BASIS_VMC
     else:
+        from .structural_speeds import design_speed_values
         try:
-            from .structural_speeds import design_speed_values
             vs = design_speed_values(project, sp).vs
-        except (ValueError, ZeroDivisionError):
+        # refusal: no aero coefficients, no VS -- the documented low-end gap; a
+        # present-but-invalid STRSPEED input refuses here, by name, rather than
+        # dropping the 23.367 low-end case unstated (#344)
+        except MissingInputError:
             vs = 0.0
         floor, floor_label, floor_basis = float(vs or 0.0), "VS", _BASIS_VS
     cases: List[_LoadCase] = []
@@ -816,10 +819,9 @@ def _vtail_cases(project: Project) -> List[VtailCase]:
     for index in indices:
         label = _engine_label(project, index, len(indices))
         entered = project.engines[index] if 0 <= index < len(project.engines or []) else None
-        try:
-            sense = _vtail_sense(effective_engine(project, entered).engine_cg[1]) if entered else 1.0
-        except ValueError:
-            sense = 1.0
+        # A refused engine refuses the march by name (#344): it flew with the
+        # right-hand fin sense before, masked only by ``_case_inputs`` refusing next.
+        sense = _vtail_sense(effective_engine(project, entered).engine_cg[1]) if entered else 1.0
         for lc in _load_cases(project, oeo):
             c = _case_inputs(project, lc.v_hi_kt, index,
                              alt_ft=load_case_altitude_ft(project, lc), mass=mass)

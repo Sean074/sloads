@@ -1771,6 +1771,7 @@ def envelope_point_reach(project: Project) -> List[PointReach]:
     if env is not None:
         try:
             limits = structural_limit_points(project, env)
+        # refusal: no structural limits to test; WTENV's own run raises the refusal
         except (MissingInputError, ValueError):
             limits = []
         for p in limits:
@@ -1974,6 +1975,7 @@ def wing_parts_summary(project: Project) -> List[WingPartRow]:
     for case in flight_cases(project):
         try:
             state = wing_mass_state(project, case.name)
+        # refusal: a malformed loading has no row; cg_case_loading_invalid names it
         except ValueError:
             continue                  # a malformed entered loading: validation names it
         out.append(WingPartRow(

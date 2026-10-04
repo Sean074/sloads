@@ -341,6 +341,7 @@ def reference_fleet(path: Optional[str] = None) -> List[FleetPoint]:
         raw = (row.get(key) or "").strip()
         try:
             return float(raw) if raw else None
+        # refusal: a cell that is not a number is not a value
         except ValueError:
             return None
 
@@ -415,6 +416,7 @@ def _planform(project: "Project") -> Dict[str, Optional[float]]:
         return {}
     try:
         area = planform_area_sqft(project)
+    # refusal: a half-entered planform puts no point on the fleet scatter
     except (ValueError, ZeroDivisionError):
         return {}
     return {"area_sqft": area,

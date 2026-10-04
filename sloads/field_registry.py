@@ -470,6 +470,7 @@ def _speeds_wing_area(project: Project, _record: object = None) -> Optional[floa
     surface = getattr(getattr(project, "speeds", None), "wing_surface", None) or "wing"
     try:
         return planform_area_sqft(project, surface)
+    # refusal: a half-entered planform has no governing area yet
     except ValueError:
         # A half-entered planform. Narrowed from (ValueError, ZeroDivisionError,
         # StopIteration) when #71 gave every planform sweep one precondition and
@@ -572,6 +573,7 @@ def _limnz(project: Project, _record: object = None) -> Optional[float]:
         return None
     try:
         return design_speed_values(project, project.speeds).n or None
+    # refusal: no derivable n1 leaves LIMNZ's mark blank; STRSPEED names why
     except (MissingInputError, ValueError):
         return None
 

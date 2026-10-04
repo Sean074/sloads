@@ -153,7 +153,15 @@ from ..models import (
 )
 from ..picks import extreme
 from ..registry import register
-from ..tail_geometry import HTAIL, VTAIL, TailPlanform, h_tail_waterline, is_t_tail, resolve_tail_planform
+from ..tail_geometry import (
+    HTAIL,
+    VTAIL,
+    TailPlanform,
+    h_tail_waterline,
+    htail_dihedral_deg,
+    is_t_tail,
+    resolve_tail_planform,
+)
 from ..units import NO_TEXT, Quantity, UnitSystem, UnitText, format_value, unit_text
 from .select import default_critical, vn_points
 
@@ -1163,8 +1171,7 @@ def induced_roll_moment(project: Project, cond: CriticalCondition,
     magnitude = AC23_9_ROLL_COEFF * q * s_h * b_h * beta * IN_PER_FT
     sense = math.copysign(1.0, vtail_root_roll(stations, air_only=True))
     a_kt, sigma = standard_atmosphere(alt)
-    geo = project.geometry
-    dihedral = float(getattr(getattr(geo, "parametric", None), "htail_dihedral_deg", 0.0) or 0.0)
+    dihedral = htail_dihedral_deg(project)
     return InducedRoll(
         m_r=sense * magnitude, beta_deg=beta * DEG_PER_RAD, q_psf=q,
         mach=eas_to_mach(v_eas, a_kt, sigma), altitude_ft=alt,

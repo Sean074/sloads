@@ -547,6 +547,28 @@ def test_an_unrecovered_case_is_stated_on_every_surface():
         assert " lb" not in s.detail  # rendered into the SI deck as written
 
 
+def test_a_refused_vs_refuses_rather_than_dropping_the_low_end_case():
+    """#344. With no VMC entered the low end is VS. A STRSPEED refusal of a
+    present-but-invalid input used to read as "no VS", and the 23.367 low-end
+    case vanished with nothing said; it now refuses by name. No aero (a
+    ``MissingInputError``) is the documented gap and still runs without it."""
+    from unittest import mock
+
+    p = io.load_project(os.path.join(_EXAMPLES, "baron_58.project.json"))
+    p = replace(p, one_engine_out=replace(p.one_engine_out, vmc_kt=None))
+    where = "sloads.modules.structural_speeds.design_speed_values"
+    with mock.patch(where, side_effect=ValueError("a stubbed STRSPEED refusal")):
+        try:
+            oeo.vtail_cases(p)
+        except ValueError as err:
+            assert "a stubbed STRSPEED refusal" in str(err)
+        else:
+            raise AssertionError("a refused VS was read as no VS")
+    with mock.patch(where, side_effect=MissingInputError("no aero coefficients")):
+        labels = {c.load_case.label for c in oeo.vtail_cases(p)}
+    assert labels and "VS" not in labels, labels
+
+
 if __name__ == "__main__":
     import traceback
 

@@ -117,6 +117,12 @@ SKIP_REASONS = {
         # own name, beside it in the record, says which table it numbers into.
         "its source case names a loading this project does not define, so the "
         "case has no weight or CG"),
+    "family-refused": (
+        # #344: the producing module's refusal was swallowed into an empty
+        # family, and the deck shipped without it and said nothing.
+        "the module that produces this whole family refused its input, so none "
+        "of its cases could be assembled; its refusal is quoted after the name. "
+        "Correct that input and the family returns"),
     "loading-not-derivable": (
         "its payload loading is not derivable from the itemized weight "
         "database -- a CG the items cannot actually produce has no honest "
@@ -164,6 +170,16 @@ def _skip(cond, code: str, detail: str = "") -> SkippedCondition:
     return SkippedCondition(component=cond.component, label=cond.label,
                             case=cond.case, code=code, reason=SKIP_REASONS[code],
                             ground=isinstance(cond, _GroundCondition), detail=detail)
+
+
+def family_refused(component: str, family: str, exc: ValueError) -> SkippedCondition:
+    """A whole family the producing module refused, as one record entry (#344):
+    a present-but-invalid input stated where the family is missing, not
+    swallowed into an empty family. A ``MissingInputError`` -- the chain does
+    not exist -- stays silent, the "whole chain must exist" rule."""
+    return SkippedCondition(component=component, label=family, case=None,
+                            code="family-refused", reason=SKIP_REASONS["family-refused"],
+                            detail=f" -- {exc}")
 
 
 @dataclass(frozen=True)

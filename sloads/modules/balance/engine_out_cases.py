@@ -56,7 +56,7 @@ from ...models import (
 from ...picks import extreme
 from ...units import format_value
 from .applied import engine_member
-from .skipped import SkippedCondition, _skip
+from .skipped import SkippedCondition, _skip, family_refused
 
 if TYPE_CHECKING:
     from ..one_engine_out import VtailCase
@@ -262,7 +262,10 @@ def build_engine_out_cases(project: Project, conditions: Sequence[CriticalCondit
     by_label = {c.label: c for c in conditions}
     try:
         marches = vtail_cases(project)
-    except (MissingInputError, ValueError):   # ONENGOUT refuses: no family
+    except MissingInputError:   # refusal: no 23.367 condition (absent slice, or not applicable)
+        return []
+    except ValueError as exc:   # refusal: recorded, not swallowed into an empty family (#344)
+        record.append(family_refused("vtail", f"{ENGINE_OUT_PREFIX} cases", exc))
         return []
     for fc in marches:
         if not fc.recovered:

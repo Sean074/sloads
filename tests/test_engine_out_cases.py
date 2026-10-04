@@ -374,6 +374,33 @@ def test_the_windmill_coefficient_has_one_reader_in_the_calc():
     assert readers == {"one_engine_out.py::entered_windmill_cd"}, readers
 
 
+def test_a_refused_engine_out_family_is_recorded_not_swallowed(monkeypatch):
+    """#344. ONENGOUT refusing a present-but-invalid input used to empty the
+    one-engine-out family with nothing said. It is now one ``family-refused``
+    entry quoting the refusal; a 23.367 condition that does not exist (a
+    ``MissingInputError``) stays silent."""
+    from sloads.models import MissingInputError
+    from sloads.modules import one_engine_out
+
+    project = _project("baron_58")
+
+    def refuse(_project):
+        raise ValueError("a stubbed ONENGOUT refusal")
+    monkeypatch.setattr(one_engine_out, "vtail_cases", refuse)
+    skipped = []
+    assert not _oei(build_balanced_cases(project, skipped))
+    refused = [s for s in skipped if s.code == "family-refused"]
+    assert len(refused) == 1 and refused[0].component == "vtail", refused
+    assert "a stubbed ONENGOUT refusal" in refused[0].name
+
+    def absent(_project):
+        raise MissingInputError("one_engine_out needs the 'one_engine_out' input slice")
+    monkeypatch.setattr(one_engine_out, "vtail_cases", absent)
+    skipped = []
+    build_balanced_cases(project, skipped)
+    assert not [s for s in skipped if s.code == "family-refused"]
+
+
 def test_a_hub_off_the_engines_butt_line_is_recorded():
     """#321 (note 66 §12 riders): the march's arm is the engine's butt line and
     the pair lands at the hub, so a hub off that line is recorded by name

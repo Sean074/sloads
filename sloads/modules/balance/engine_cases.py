@@ -98,7 +98,7 @@ from .applied import (
 )
 from .closure import _closure, resultant6
 from .queries import point_mass_self_inertia
-from .skipped import SkippedCondition, _skip
+from .skipped import SkippedCondition, _skip, family_refused
 
 #: How each ENGLOADS condition is assembled, by FAR reference (note 66 Q1):
 #: ``(parent V-n condition or None for condition A itself, the kind)``.
@@ -313,7 +313,10 @@ def build_engine_cases(project: Project, critical: Sequence[CriticalCondition],
     try:
         engines = resolved_engines(project)
         delivered = engine_run(project).conditions
-    except (MissingInputError, ValueError):
+    except MissingInputError:   # refusal: the chain does not exist -- no family to state
+        return []
+    except ValueError as exc:   # refusal: recorded, not swallowed into an empty family (#344)
+        record.append(family_refused("engine", "ENGINE MOUNT cases", exc))
         return []
 
     phaa = next((c for c in critical if c.component == "wing" and c.label == "PHAA"

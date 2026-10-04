@@ -889,6 +889,7 @@ def energy_load_factor_estimate(project: Project) -> Optional[LoadFactorResult]:
             _wing_area(project), max_landing_weight(project), inp.strut_stroke_in,
             inp.tire_od_in, inp.hub_diameter_in, inp.lift_factor,
             normalise_code(gear.main_gear.strut, STRUT_TYPES, "main-gear strut type") == "O")
+    # refusal: an uncomputable LGFACTOR leaves the seed and the caution blank
     except (MissingInputError, ValueError, ZeroDivisionError):
         return None
 

@@ -169,6 +169,7 @@ def wing_reference(project: Project, surface_name: str = "wing") -> Optional[Win
     from .modules.wing_geometry import surface_properties
     try:
         vals = {v.label: v.value for v in surface_properties(surf).values}
+    # refusal: an unintegrable planform has no reference; WINGGEOM's run names why
     except (ValueError, ZeroDivisionError):
         return None
     mac = vals["MAC"]
@@ -316,6 +317,7 @@ def wing_aspect_ratio(project: Project, surface_name: str = "wing") -> Optional[
     try:
         return next(v.value for v in surface_properties(surf).values
                     if v.key == "aspect_ratio")
+    # refusal: an unintegrable planform has no AR; the consumer refuses the blank
     except (ValueError, ZeroDivisionError):
         return None
 
@@ -339,6 +341,7 @@ def wing_span_in(project: Project, surface_name: str = "wing") -> Optional[float
     try:
         return next(v.value for v in surface_properties(surf).values
                     if v.key == "span")
+    # refusal: an unintegrable planform has no span; the typed value stands
     except (ValueError, ZeroDivisionError):
         return None
 
@@ -363,6 +366,7 @@ def taper_ratio_from_planform(surf: SurfaceInput) -> Optional[float]:
     """
     try:
         require_integrable_planform(surf)
+    # refusal: an unintegrable planform derives no taper; the typed value stands
     except ValueError:
         return None
     y_root = max(surf.leading_edge[0][1], surf.trailing_edge[0][1])
@@ -495,6 +499,7 @@ def planform_geometry_condition(project: Project,
     from .modules.wing_geometry import surface_properties
     try:
         condition = surface_properties(surf)
+    # refusal: an unintegrable planform has no WINGGEOM statement to print
     except ValueError:
         return None
     keep = ("mac", "yle_mac_butt_line_of_mac", "xle_mac_station_of_mac_le",

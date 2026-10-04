@@ -348,6 +348,33 @@ def test_an_entered_dihedral_is_stated_and_warned_but_scales_nothing():
     assert not [w for w in consistency_warnings(project) if w.code == "ttail_htail_dihedral"]
 
 
+def test_a_refused_build_is_stated_and_the_dihedral_still_warns():
+    """#344. The spanwise build refusing a present-but-invalid input used to
+    switch all three T-tail warnings off. It is now stated, quoting the
+    refusal, and the dihedral warning -- read from the entered field, not from
+    a resolved fin condition -- still fires. A chain that does not exist yet
+    (``MissingInputError``) adds nothing."""
+    from unittest import mock
+
+    from sloads.models import MissingInputError
+    tilted = copy.deepcopy(_project("atr42_100"))
+    tilted.geometry.parametric.htail_dihedral_deg = 3.0
+
+    def codes(side_effect=None, value=None):
+        with mock.patch("sloads.modules.tail_span.build_tail_span",
+                        side_effect=side_effect, return_value=value):
+            return {w.code: w.message for w in consistency_warnings(tilted)
+                    if w.code.startswith("ttail_")}
+
+    refused = codes(side_effect=ValueError("a stubbed tail-span refusal"))
+    assert "a stubbed tail-span refusal" in refused["ttail_induced_roll_unchecked"]
+    assert "ttail_htail_dihedral" in refused
+    absent = codes(side_effect=MissingInputError("no flight envelope"))
+    assert set(absent) == {"ttail_htail_dihedral"}
+    unresolved = codes(value={"vtail": [], "htail": []})     # no fin condition resolves
+    assert set(unresolved) == {"ttail_htail_dihedral"}
+
+
 # --------------------------------------------------------------------------- #
 # G-51.11 -- isolation
 # --------------------------------------------------------------------------- #
