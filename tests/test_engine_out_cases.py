@@ -334,11 +334,11 @@ def test_a_windmill_coefficient_that_is_not_positive_is_refused_by_name(bad, ind
     cds = [None, None]
     cds[index] = bad
     project = _with_cd(_project("baron_58"), cds)
-    with pytest.raises(ValueError, match=rf"engines\[{index}\]\.windmill_drag_cd is .*must be positive"):
+    with pytest.raises(ValueError, match=rf"engine {index + 1}.*: windmill_drag_cd is .*must be positive"):
         build_balanced_cases(project)
     warned = [w for w in consistency_warnings(project) if w.code == "windmill_drag_cd_range"]
     assert len(warned) == 1 and warned[0].page == "engine_mount"
-    assert warned[0].message.startswith(f"engines[{index}]") and "refuse" in warned[0].message
+    assert warned[0].message.startswith(f"engine {index + 1}") and "refuse" in warned[0].message
 
 
 def test_a_windmill_coefficient_above_the_bound_is_delivered_and_warned():
@@ -424,6 +424,27 @@ def test_a_hub_off_the_engines_butt_line_is_recorded():
     assert off and all("(engine 1)" in s.label for s in off)
     assert all("(engine 1)" not in c.label or c.hand for c in cases)
 
+
+
+def test_an_entered_vmc_reaches_the_deck_on_the_stall_point():
+    """#367 (from #333's closure): an entered ``vmc_kt`` was tested at the
+    module, never through the deck. On the Baron (published VMC 84 KIAS) it
+    replaces VS as the low-end case, both engines recover, and each pair is
+    assembled on the same 1 g stall point VS was -- ``_parent_name`` matches
+    ``"VMC"`` by ``startswith``, so it must not fall to ``"VC"``'s BAL C -- and
+    the deck carries it."""
+    from sloads.export.balanced_deck import balanced_deck
+
+    blank = _project("baron_58")
+    project = replace(blank, one_engine_out=replace(blank.one_engine_out, vmc_kt=84.0))
+    cases = _oei(build_balanced_cases(project))
+    vmc = [c for c in cases if " — VMC " in c.label]
+    vs = [c for c in _oei(build_balanced_cases(blank)) if " — VS " in c.label]
+    assert len(vmc) == len(vs) == 2 and not [c for c in cases if " — VS " in c.label]
+    assert {(c.vn_case, c.cg) for c in vmc} == {(c.vn_case, c.cg) for c in vs}
+    assert OEI_PARENT["VMC"] == OEI_PARENT["VS"] != OEI_PARENT["VC"]
+    deck = balanced_deck(project, cases=build_balanced_cases(project))
+    assert sum("ONE ENGINE OUT — VMC" in line for line in deck.splitlines()) >= 2
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

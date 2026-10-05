@@ -11,6 +11,10 @@ warnings on the Appendix-A GA fixture). Each :class:`ConsistencyWarning` carries
 ``page`` tag so a view renders only the subset it owns (see
 ``consistency_warnings`` below and ``GUI_design.md`` §8.3).
 
+A warning that names an engine names it through
+:func:`sloads.modules.engine.engine_name` -- ``engine 1``, numbered from 1 as
+the engine-loads section and the case labels number it (#367).
+
 Checks (14 CFR / Reference-1 context in each predicate):
 - ``taper_gt_1``          -- taper ratio (tip/root chord) above 1 (WINGGEOM/TAU).
 - ``nonpositive_area``    -- a wing/reference area that is zero or negative.
@@ -1693,8 +1697,9 @@ def _check_derive_overrides(project: Project) -> List[ConsistencyWarning]:
                 "the halves (#95), or fix whichever is wrong.",
                 PAGE_CONFIGURATION))
 
-    for i, eng in enumerate(project.engines, start=1):
-        label = eng.engine_designation or f"engine {i}"
+    from .modules.engine import engine_name
+    for i, eng in enumerate(project.engines):
+        label = engine_name(i, eng)
         for which, selector, weight_lb, cg in (
             ("engine", eng.engine_mass_item, eng.engine_weight_lb, eng.engine_cg),
             ("prop", eng.prop_mass_item, eng.prop_weight_lb, eng.prop_cg),
@@ -1727,10 +1732,9 @@ def _check_derive_overrides(project: Project) -> List[ConsistencyWarning]:
     # engine-mount cases scale condition A to LIMNZ (note 66 D-66.4), so a
     # disagreement loads the whole airplane at a factor its V-n does not fly.
     # Blank LIMNZ derives from this same n (C210-41).
-    typed = [(f"engine {i}" + (f" ({eng.engine_designation})"
-                               if eng.engine_designation else ""),
-              eng.limit_load_factor)
-             for i, eng in enumerate(project.engines, start=1)
+    from .modules.engine import engine_name
+    typed = [(engine_name(i, eng), eng.limit_load_factor)
+             for i, eng in enumerate(project.engines)
              if eng.limit_load_factor]
     if typed and project.speeds is not None:
         from .modules.structural_speeds import design_speed_values
@@ -1855,6 +1859,7 @@ def _check_windmill_drag_cd(project: Project) -> List[ConsistencyWarning]:
     so a larger entry is most likely a slip; delivered as entered, warned with
     both numbers.
     """
+    from .modules.engine import engine_name
     from .modules.one_engine_out import GLAUERT_DISC_CD_BOUND
 
     out: List[ConsistencyWarning] = []
@@ -1862,7 +1867,7 @@ def _check_windmill_drag_cd(project: Project) -> List[ConsistencyWarning]:
         cd = eng.windmill_drag_cd
         if cd is None:
             continue
-        label = f"engines[{i}]" + (f" ({eng.engine_designation})" if eng.engine_designation else "")
+        label = engine_name(i, eng)
         if cd <= 0.0:
             out.append(ConsistencyWarning(
                 "windmill_drag_cd_range",
@@ -1893,7 +1898,10 @@ def _check_oei_not_recovered(project: Project) -> List[ConsistencyWarning]:
     the only trace was a line in the one-engine-out section, and a required
     speed was absent with nothing said. Named with the same numbers the deck's
     record carries (``engine_out_cases.unrecovered_detail``) and the fix.
-    Silent where ONENGOUT does not run.
+    Silent where ONENGOUT does not run. The march is re-run here rather than
+    read from a published result, because ``Project`` carries none: it costs
+    5 ms on the ATR and 9 ms on the Baron (2026-10-04, #367), against 0.27 s
+    and 0.14 s for the whole of ``consistency_warnings``, so it is not memoised.
     """
     from .modules.balance.engine_out_cases import ENGINE_OUT_PREFIX, unrecovered_detail
     from .modules.one_engine_out import vtail_cases
