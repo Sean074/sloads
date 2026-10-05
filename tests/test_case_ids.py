@@ -547,6 +547,66 @@ def test_allocator_is_a_pure_per_call_counter():
     assert ids_a == ids_b == ["W-01", "W-02", "W-03"]
 
 
+
+def test_a_full_band_is_refused_by_name_not_spilled_into_the_next():
+    """#366. ``tail_span`` minted ``HT-{20+k}`` per T-tail induced-roll carrier
+    with ``k`` unbounded, so a 31st carrier would have minted ``HT-50`` -- the
+    tab band's first id, silently. Every band's top edge is now ``BAND_LAST``,
+    and both mint paths (the allocator and a positional ``band_case_id``)
+    refuse past it by name."""
+    from sloads.case_ids import HTAIL_BAND_TAB, HTAIL_BAND_TTAIL, band_case_id
+
+    assert band_case_id("htail", HTAIL_BAND_TTAIL, 29) == "HT-49"
+    with pytest.raises(ValueError, match=r"HT-20\.\.HT-49 is full: case 31 would mint HT-50"):
+        band_case_id("htail", HTAIL_BAND_TTAIL, 30)
+
+    allocator = CaseIdAllocator()
+    allocator.seed("htail", HTAIL_BAND_TTAIL)
+    minted = [allocator.next_id("htail") for _ in range(30)]
+    assert minted[0] == "HT-20" and minted[-1] == "HT-49"
+    with pytest.raises(ValueError, match=r"HT-20\.\.HT-49 is full"):
+        allocator.next_id("htail")
+    assert HTAIL_BAND_TAB == 50
+
+    # An unbanded component's one band ends where its deck subcase block does.
+    allocator = CaseIdAllocator()
+    assert [allocator.next_id("engine_mount") for _ in range(99)][-1] == "EM-99"
+    with pytest.raises(ValueError, match=r"EM-01\.\.EM-99 is full"):
+        allocator.next_id("engine_mount")
+
+
+def test_the_band_table_is_disjoint_and_inside_the_subcase_block():
+    """#366: ``BAND_LAST`` is the one owner of the band edges, so it is checked
+    against itself -- each band ends before the next starts, and none passes
+    the 100-wide deck subcase block (``W-100`` would be subcase 200, ``HT-00``)."""
+    from sloads.case_ids import BAND_LAST
+
+    for component, bands in BAND_LAST.items():
+        starts = sorted(bands)
+        assert starts[0] == 1, component
+        for start, nxt in zip(starts, starts[1:] + [100]):
+            assert start <= bands[start] < nxt, (component, start, bands[start])
+
+
+def test_every_case_id_is_minted_through_the_band_owner():
+    """#366 drift guard: an id formatted by hand from ``COMPONENT_PREFIX`` skips
+    ``BAND_LAST``'s edge -- the shape both unbounded mints had (``tail_span``'s
+    induced-roll band, ``wing_inertia``'s extra band). Outside ``case_ids``,
+    nothing indexes ``COMPONENT_PREFIX``."""
+    import ast
+    import pathlib
+
+    root = pathlib.Path(__file__).resolve().parents[1] / "sloads"
+    offenders = []
+    for path in root.rglob("*.py"):
+        if path.name == "case_ids.py":
+            continue
+        for node in ast.walk(ast.parse(path.read_text())):
+            if (isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name)
+                    and node.value.id == "COMPONENT_PREFIX"):
+                offenders.append(f"{path.relative_to(root)}:{node.lineno}")
+    assert not offenders, offenders
+
 if __name__ == "__main__":
     import traceback
 

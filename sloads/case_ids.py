@@ -44,13 +44,13 @@ physical cases (an outright collision, not merely a divergent sequence):
   extra condition SELECT does not emit)
 * ``W-50``..``W-59`` -- AILERON
 * ``W-60``..``W-69`` -- FLAPLOAD
-* ``W-70``+          -- a wing-hosted tab (TABLOADS)
-* ``HT-01``..        -- SELECT's rational h-tail conditions
+* ``W-70``..``W-99`` -- a wing-hosted tab (TABLOADS)
+* ``HT-01``..``HT-19`` -- SELECT's rational h-tail conditions
 * ``HT-20``..``HT-49`` -- :data:`HTAIL_BAND_TTAIL`: a T-tail h-tail condition
   carrying a fin condition's AC 23-9 induced rolling moment (``INDUCED ROLL --
   <fin condition>``, design note 51 D-51.12). Minted by ``tail_span``.
-* ``HT-50``+         -- a horizontal-tail-hosted tab
-* ``VT-01``..        -- SELECT's rational v-tail conditions
+* ``HT-50``..``HT-99`` -- a horizontal-tail-hosted tab
+* ``VT-01``..``VT-19`` -- SELECT's rational v-tail conditions
 * ``VT-20``..``VT-29`` -- :data:`VTAIL_BAND_TTAIL`: a T-tail fin condition
   that reacts a horizontal-tail case at the fin tip (``HTAIL UNSYM``, design
   note 51 D-51.2a). Minted by ``tail_span``, not SELECT.
@@ -59,11 +59,12 @@ physical cases (an outright collision, not merely a divergent sequence):
   different case object with its own ID -- banded rather than sharing SELECT's
   counter, which would need cross-module allocator state and make IDs depend on
   module run order (M4-2 decision 5).
-* ``VT-50``+         -- a vertical-tail-hosted tab
+* ``VT-50``..``VT-99`` -- a vertical-tail-hosted tab
 
 ``tests/test_case_ids.py`` is the drift guard: it asserts every minted ID across
 a full run is unique, so a new minter that forgets its band fails there rather
-than in a deck.
+than in a deck. Each band's top edge is :data:`BAND_LAST`, and a band that
+fills is refused by name at the mint (#366) rather than spilling into the next.
 
 Deck subcase numbering (M4-2 decision 8)
 ----------------------------------------
@@ -142,6 +143,45 @@ VTAIL_BAND_TTAIL = 20
 HTAIL_BAND_TTAIL = 20
 VTAIL_BAND_ONENGOUT = 30
 
+#: The last sequence number of each band, by component and band start -- **the
+#: one owner of every band's top edge** (#366). A band ends where the next one
+#: starts, and the last band where the component's 100-wide deck subcase block
+#: does (:data:`SUBCASE_BLOCK`); a component with no row here has one band,
+#: ``01``..``99``. :class:`CaseIdAllocator` and :func:`band_case_id` both read
+#: it, so a band that fills is refused by name instead of minting the next
+#: band's first id -- a silent collision that would corrupt the case index and
+#: the deck's subcase numbering.
+BAND_LAST: Dict[str, Dict[int, int]] = {
+    "wing": {WING_BAND_SLOTS: WING_BAND_EXTRA - 1, WING_BAND_EXTRA: 39,
+             WING_BAND_AILERON: WING_BAND_FLAP - 1, WING_BAND_FLAP: WING_BAND_TAB - 1,
+             WING_BAND_TAB: 99},
+    "htail": {1: HTAIL_BAND_TTAIL - 1, HTAIL_BAND_TTAIL: HTAIL_BAND_TAB - 1,
+              HTAIL_BAND_TAB: 99},
+    "vtail": {1: VTAIL_BAND_TTAIL - 1, VTAIL_BAND_TTAIL: VTAIL_BAND_ONENGOUT - 1,
+              VTAIL_BAND_ONENGOUT: VTAIL_BAND_TAB - 1, VTAIL_BAND_TAB: 99},
+}
+
+
+def band_last(component: str, band_start: int) -> int:
+    """The last sequence number the band starting at ``band_start`` may mint."""
+    return BAND_LAST.get(component, {}).get(band_start, 99)
+
+
+def band_case_id(component: str, band_start: int, k: int) -> str:
+    """The ``k``-th (0-based) id of a band, refused by name past its top edge.
+
+    For the ids a module mints by position rather than through an allocator
+    (``tail_span``'s T-tail bands)."""
+    n = band_start + k
+    last = band_last(component, band_start)
+    if not 0 <= k <= last - band_start:
+        prefix = COMPONENT_PREFIX[component]
+        raise ValueError(
+            f"case id band {prefix}-{band_start:02d}..{prefix}-{last:02d} is full: "
+            f"case {k + 1} would mint {prefix}-{n:02d}, beyond the band's "
+            f"{last - band_start + 1} ids, which belongs to the next band (#366)")
+    return f"{COMPONENT_PREFIX[component]}-{n:02d}"
+
 
 class CaseIdAllocator:
     """A per-call-site sequential allocator: one counter per component.
@@ -153,17 +193,21 @@ class CaseIdAllocator:
 
     def __init__(self) -> None:
         self._counters: Dict[str, int] = {}
+        self._starts: Dict[str, int] = {}
 
     def seed(self, component: str, start_before: int) -> None:
         """Pre-seed a component's counter so the next ``next_id`` call yields
         ``start_before`` (used to start a band at 20/30/50/60/70)."""
         self._counters[component] = start_before - 1
+        self._starts[component] = start_before
 
     def next_id(self, component: str) -> str:
-        prefix = COMPONENT_PREFIX[component]
+        """The component's next id, refused by name once its band is full
+        (:data:`BAND_LAST`, #366)."""
+        start = self._starts.get(component, 1)
         n = self._counters.get(component, 0) + 1
         self._counters[component] = n
-        return f"{prefix}-{n:02d}"
+        return band_case_id(component, start, n - start)
 
 
 def wing_case_id(label: str) -> str:
