@@ -342,7 +342,18 @@ def _resolve_vd(inp: StructuralSpeedsInput, cat: str, vc: float, vc_min: float,
 
 
 def design_speed_values(project: Project, inp: StructuralSpeedsInput) -> DesignSpeeds:
-    """Compute the scalar STRSPEED design speeds + maneuver load factors."""
+    """Compute the scalar STRSPEED design speeds + maneuver load factors.
+
+    Refuses only by name -- ``MissingInputError`` for an absent input,
+    ``ValueError`` for a present one that cannot be used -- and never divides
+    by zero (#365): the weight is refused at ``<= 0``; the wing area is the
+    WINGGEOM integral, which refuses a degenerate or zero-area planform before
+    it divides (``require_integrable_planform`` /
+    ``require_positive_planform_area``), else a truthy typed area, which
+    ``stall_speed_kt`` refuses when negative; and the standard atmosphere's
+    speed of sound and density ratio are positive at every altitude. Callers
+    catch those two and nothing wider.
+    """
     w = inp.weight_lb
     if w <= 0:
         raise ValueError("STRSPEED needs a positive design weight")

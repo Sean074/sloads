@@ -494,7 +494,8 @@ def _load_cases(project: Project, oeo: OneEngineOutInput) -> List[_LoadCase]:
             vs = design_speed_values(project, sp).vs
         # refusal: no aero coefficients, no VS -- the documented low-end gap; a
         # present-but-invalid STRSPEED input refuses here, by name, rather than
-        # dropping the 23.367 low-end case unstated (#344)
+        # dropping the 23.367 low-end case unstated (#344); no third kind
+        # escapes, since the derivation never divides by zero (#365)
         except MissingInputError:
             vs = 0.0
         floor, floor_label, floor_basis = float(vs or 0.0), "VS", _BASIS_VS
