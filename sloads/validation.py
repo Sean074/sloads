@@ -70,6 +70,12 @@ Checks (14 CFR / Reference-1 context in each predicate):
                              or above the Glauert bound the manual says it
                              cannot exceed (delivered as entered). See
                              ``_check_windmill_drag_cd`` (#343).
+- ``flap_ng_fallback``    -- the flaps-extended gust load factor fell back to 0
+                             (blank ``gust_load_factor`` and no envelope answer),
+                             so the 23.345 gust at VF condition is not critical;
+                             the reason named, the same sentence the flap result
+                             states (``flap.ng_fallback_reason``). See
+                             ``_check_flap_ng_fallback`` (#361).
 - ``gross_ge_max_landing`` / ``landing_light_le_max`` / ``landing_cg_ordering`` /
   ``landing_cg_below_axle`` / ``landing_cg_names`` -- the LANDLOAD weight/CG
                              hierarchy (M4-17d; 14 CFR 23.473-23.499). See
@@ -1820,6 +1826,23 @@ def _check_ttail_induced_roll(project: Project) -> List[ConsistencyWarning]:
     return out
 
 
+def _check_flap_ng_fallback(project: Project) -> List[ConsistencyWarning]:
+    """``flap_ng_fallback`` -- FLAPLOAD's gust factor NG fell back to 0 (#361).
+
+    ``flap.resolved_ng`` promised this check for as long as the fallback has
+    existed, and none was written, so a project with a blank NG and no
+    flaps-down coefficient set (``atr42_100``) delivered the gust at VF
+    condition at NG = 0 in silence. On that airplane the 2g condition at VF
+    governs either way; on another it need not.
+    """
+    from .modules.flap import ng_fallback_reason
+
+    reason = ng_fallback_reason(project)
+    if reason is None:
+        return []
+    return [ConsistencyWarning("flap_ng_fallback", f"Flap loads: {reason}.", PAGE_FLAP)]
+
+
 def _check_windmill_drag_cd(project: Project) -> List[ConsistencyWarning]:
     """``windmill_drag_cd_range`` -- an entered windmilling disc drag
     coefficient out of its range (#343).
@@ -1936,4 +1959,5 @@ def consistency_warnings(project: Project) -> List[ConsistencyWarning]:
     out += _check_ttail_induced_roll(project)
     out += _check_oei_not_recovered(project)
     out += _check_windmill_drag_cd(project)
+    out += _check_flap_ng_fallback(project)
     return out

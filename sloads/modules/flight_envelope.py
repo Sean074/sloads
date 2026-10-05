@@ -305,22 +305,43 @@ def gust_at_vf(project: Project) -> Optional[float]:
     note cures. ``None`` -- and the consumer's blank field then stays 0, the
     pre-note behaviour -- when there is no flaps-down coefficient set, no
     sea-level altitude in play, or the inputs the balance itself needs are
-    absent.
+    absent. :func:`gust_at_vf_absence` says which.
     """
+    return _gust_at_vf(project)[0]
+
+
+def gust_at_vf_absence(project: Project) -> Optional[str]:
+    """Why :func:`gust_at_vf` has no answer, as a clause, or ``None`` when it
+    has one (#361). Read from the same precondition walk, so the stated reason
+    and the ``None`` cannot disagree."""
+    return _gust_at_vf(project)[1]
+
+
+def _gust_at_vf(project: Project) -> "tuple[Optional[float], Optional[str]]":
+    """``(NG, None)``, or ``(None, reason)`` -- :func:`gust_at_vf`'s one walk."""
     fl = project.flight_loads
+    if fl is None:
+        return None, "there is no flight-loads input"
+    if project.speeds is None:
+        return None, "there are no design speeds"
     wr = wing_reference(project)
-    if fl is None or wr is None or project.speeds is None:
-        return None
+    if wr is None:
+        return None, "there is no integrable wing planform"
     flapped = [c for c in balance_configs(project.aero_coeffs) if c.flaps_down]
+    if not flapped:
+        return None, "the project has no flaps-down aerodynamic coefficient set"
     cgs = flight_cases(project)
+    if not cgs:
+        return None, "there is no flight CG case"
     alts = [a for a in fl.altitudes_ft if a <= 0.0]
-    if not flapped or not cgs or not alts:
-        return None
+    if not alts:
+        return None, "no sea-level altitude is analysed (flaps are balanced at sea level only)"
     try:
         di = design_inputs(project)
-    # refusal: no design inputs, no derived NG; FLAPLOAD's own STRSPEED read raises
-    except (MissingInputError, ValueError):
-        return None
+    # refusal: no design inputs, no derived NG; the reason names the refusal,
+    # and FLAPLOAD's own STRSPEED read raises it
+    except (MissingInputError, ValueError) as exc:
+        return None, f"the design speeds cannot be resolved ({exc})"
     best: Optional[float] = None
     for alt in alts:
         for config in flapped:
@@ -330,7 +351,9 @@ def gust_at_vf(project: Project) -> Optional[float]:
                 n = _gust_load_factor(1, di.vf, di.mc, "F", config, cg, fl, wr, alt)
                 if best is None or n > best:
                     best = n
-    return best
+    if best is None:
+        return None, "no flight CG case has a positive weight"
+    return best, None
 
 
 # --------------------------------------------------------------------------- #

@@ -47,7 +47,7 @@ x1.301; combined 819 lb).
 from __future__ import annotations
 
 import math
-from typing import List, NamedTuple
+from typing import List, NamedTuple, Optional
 
 from ..case_ids import WING_BAND_FLAP, CaseIdAllocator
 from ..constants import (
@@ -72,7 +72,7 @@ from ..models import (
 )
 from ..registry import register
 from ..units import format_value
-from .flight_envelope import gust_at_vf
+from .flight_envelope import gust_at_vf, gust_at_vf_absence
 from .structural_speeds import _wing_area_sqft, design_speed_values
 
 # Upper bound on the slipstream-velocity search, and the trip count it implies at
@@ -235,9 +235,11 @@ def resolved_ng(project: Project) -> "tuple[float, bool]":
     from the envelope's own GUST VF corner factor
     (:func:`~sloads.modules.flight_envelope.gust_at_vf` -- the single source,
     bit-for-bit the envelope's number). When neither answers, 0 stands -- the
-    pre-note behaviour, which makes the gust condition non-critical and which
-    ``validation`` flags rather than guesses. ``derived`` is True only when the
-    envelope supplied the value, so the result can state which it used.
+    pre-note behaviour, which makes the gust condition non-critical. It is
+    stated, never silent (#361): :func:`ng_fallback_reason` names why, the
+    result's note says so in band, and ``validation`` warns
+    (``flap_ng_fallback``). ``derived`` is True only when the envelope supplied
+    the value, so the result can state which it used.
     """
     inp = project.flap_loads
     typed = inp.gust_load_factor if inp is not None else 0.0
@@ -245,6 +247,22 @@ def resolved_ng(project: Project) -> "tuple[float, bool]":
         return typed, False
     ng = gust_at_vf(project)
     return (ng, True) if ng is not None else (0.0, False)
+
+
+def ng_fallback_reason(project: Project) -> Optional[str]:
+    """Why :func:`resolved_ng` fell back to 0, or ``None`` when NG was typed or
+    derived (#361). The one owner of the sentence the flap result and the
+    ``flap_ng_fallback`` warning both state."""
+    inp = project.flap_loads
+    if inp is None or inp.gust_load_factor:
+        return None
+    reason = gust_at_vf_absence(project)
+    if reason is None:
+        return None
+    return ("the flaps-extended gust load factor NG is 0, so the 23.345 gust at VF "
+            "condition is not critical: gust_load_factor is blank and the flight "
+            f"envelope cannot derive it because {reason}. Enter the airplane's NG, "
+            "or a flaps-down coefficient set so the envelope derives it")
 
 
 def _compute(project: Project) -> FlapResult:
@@ -341,6 +359,9 @@ def run(project: Project) -> ModuleResult:
     if ng_derived:
         note += (f" NG {format_value(ng_used, 'g')} derived from the flight envelope's GUST VF "
                  "corner (blank gust_load_factor, note 36 OV-6).")
+    fallback = ng_fallback_reason(project)
+    if fallback is not None:
+        note += f" Stated: {fallback} (#361)."
     if project.is_concept:
         note += " Concept mode -- unverified extrapolation past the FAR23 band."
     built = build_flap(project)
