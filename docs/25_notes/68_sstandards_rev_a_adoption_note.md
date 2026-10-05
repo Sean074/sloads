@@ -6,7 +6,10 @@
 rule 1's working-alone branch). PROPOSED the same day; the owner ruled **Q1 and
 Q2 of §5 as recommended** (the `moment_transfer` block is a skip, not a
 deviation, and the vendored vectors live at `tests/data/sstandards_rev_A.json`),
-so D-68.1…D-68.7 stand as written. Drafted for **#354** (tier L, milestone 0.8.9),
+so D-68.1…D-68.7 stand as written. **Amended at AGREED 2026-10-04
+(owner): the step adopts Rev B**, issued the day after this note was agreed —
+§6 carries the delta (D-68.8…D-68.10); where §§1–5 say Rev A, read Rev B.
+**SHIPPED 2026-10-04 (#354).** Drafted for **#354** (tier L, milestone 0.8.9),
 filed from the 2026-10-03 sconfig/sstandards process review. sstandards Rev A
 (issued 2026-10-03, `../../../sstandards/CONVENTIONS.md`) is the shared
 frames/signs/units standard for the sconfig → sloads → sbeam chain; its §8
@@ -135,3 +138,44 @@ source), one `changes/<slug>.history.md` fragment in full step format
 - **Q2 — the vendored vectors live at `tests/data/sstandards_rev_A.json`.**
   The sstandards README's own path, kept for cross-project likeness over
   house fixture naming. D-68.2 stands as written.
+
+## 6. Amendment — Rev B (owner, 2026-10-04)
+
+sstandards issued **Rev B** on 2026-10-04, after this note was agreed. It
+changes no frame, sign or internal unit. It adds SI input and output files
+(§5.1, §5.2, §5.5, §5.8–§5.11) and five constants to the `constants` block
+(§5.7: `lbm_to_kg`, `hp_to_W`, `psi_to_Pa`, `us_gal_to_L`, `kt_to_m_s`). Its
+changelog says §5.1 and §5.8–§5.11 record practice sloads already follows.
+Certifying against a superseded revision on the day its successor issued
+would file #354's own follow-on at once, so the owner ruled that the step
+adopts Rev B.
+
+Measured at `46f9709` (rel. error against the Rev B values):
+
+| Rev B constant | sloads owner | rel. error |
+|---|---|---|
+| `lbm_to_kg` | `units.LB_TO_KG` | 0 |
+| `hp_to_W` | `units.HP_TO_KW × 1000` | 5.6e-10 |
+| `psi_to_Pa` | `units.PSI_TO_MPA × 1e6` (derived); `units.PSI_TO_KPA × 1000` (quoted) | 0; 4.3e-8 |
+| `lbf_to_N / lbm_to_kg = g0_m_s2` (§5.5) | `units.LBF_TO_N / units.LB_TO_KG` against `units.G_MM_S2 / 1000` | 0 |
+| `us_gal_to_L` | none — sloads states no volume | — |
+| `kt_to_m_s` | none — airspeed stays kt in every system (§5.8; `CONVENTIONS.md` §2's carve-out) | — |
+
+- **D-68.8 — the vendored file is Rev B.** D-68.2 applies with the
+  revision letter changed: `tests/data/sstandards_rev_B.json`. No Rev A copy
+  is kept; the compliance statement names one revision.
+- **D-68.9 — every constant is bound or declared ownerless.** The
+  `constants` test enumerates the block's keys. Each key either has a sloads
+  owner (D-68.3, extended by the table above) or is listed as having none,
+  with the reason. A key added by a later revision then fails the test until
+  it is decided, as a new block already does. D-SL1 and D-SL2 stay the only
+  deviations.
+- **D-68.10 — Rev B's practice clauses are cited, not re-tested.** §5.1
+  (one owner per direction), §5.6 (every file states its units and frame),
+  §5.9 (two channels, derived units checked), §5.10 (no Imperial number in
+  an SI output) and §5.11 (precision per quantity) each already has a gate.
+  The conformance test names those gates, and asserts each one still exists
+  under that name, so a renamed or deleted gate breaks the compliance claim
+  rather than leaving it silently unsupported. §5.3's sea-level clause does
+  not bind: sloads works at altitude and states every airspeed as KEAS.
+- §8's row (D-68.6) reads **B / conformant / D-SL1, D-SL2**, citing #354.
