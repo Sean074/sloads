@@ -19,9 +19,14 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Every job runs on a PINNED image and every action on a Node 24 major (#363):
+# `ubuntu-latest` moved to Ubuntu 26 on 2026-10-19 with no commit here to point
+# at, and checkout@v4 / setup-python@v5 ran on the deprecated Node 20 runtime.
+# Moving the image is a deliberate edit; tests/test_ci_conformance.py refuses a
+# floating label and an action below its runtime floor in every workflow.
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -45,10 +50,10 @@ jobs:
         include: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && fromJSON('[{"python-version":"3.12","coverage":"--cov=sloads --cov-report=term-missing --cov-fail-under=80"}]') || fromJSON('[]') }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
@@ -82,11 +87,11 @@ jobs:
   # default mode is the gate; the per-package strictness ratchet lives in
   # pyproject.toml [[tool.mypy.overrides]].
   typecheck:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: "pip"
@@ -107,7 +112,7 @@ jobs:
   # scipy` off the three existing legs, and names the failure ("sbeam round
   # trip") in the PR check list instead of burying it in a 1000-test run.
   sbeam-roundtrip:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -115,10 +120,10 @@ jobs:
         python-version: ["3.12"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
