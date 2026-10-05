@@ -35,6 +35,191 @@ written directly, by the release manager.
 
 ---
 
+## Release cut: **sloads 0.8.9** (the ATR-class deck delivers correct loads — the twin turboprop's one-engine-out low end, the T-tail's horizontal tail, the spin sign, refusals stated as refusals, sstandards Rev B), tag `v0.8.9`, 2026-10-04
+
+**Objective.** Close band **B10**, chartered on 2026-10-03 by the 0.8.8
+pre-release review as the near-term correctness half of the 0.9.0 split:
+*the ATR-class deck delivers correct loads — twin turboprop, T-tail*. The
+decisions and data came first (#333's VMC and mass-state rulings, #331's
+chosen n, #336's dihedral), then the tier-L they fed (#334 with #335 riding,
+notes 51 §10 and 66 §13). Note 68's re-cut added #354, sstandards compliance,
+adopted at Rev B. The rest were the refusal sweep's residues (#343, #344,
+#361), the spin-sign owner (#332) and the CI image pin (#363). The band
+emptied on 2026-10-04; the pre-release review filed four findings (#364–#367),
+the owner banded all four into B10, and all four closed on the branch before
+the cut.
+
+**Deliverables** (the `[0.8.9]` changelog section is the release note):
+- **A T-tail's horizontal tail carries the AC 23-9 induced rolling moment
+  (#334 with #335, notes 51 and 66, tier L).** Each fin condition carrying it
+  gets its own horizontal-tail condition, the deck applies the moment on the
+  horizontal tail rather than as a fin-tip couple, and the one-engine-out
+  march reads an entered windmill drag coefficient.
+- **sloads complies with sstandards Rev B (#354, note 68, tier L).** A
+  conformance test checks sloads' own owners against the vendored vectors;
+  `CONVENTIONS.md` states compliance with deviations D-SL1 and D-SL2.
+- **The one-engine-out low end (#333, tier M).** An entered VMC, the take-off
+  altitude, an unrecovered case stated wherever it would have appeared, and
+  every 23.367 case sized at the heaviest FLIGHT loading.
+- **The Baron's chosen n and the spin sign (#331, #332, tier M).** The POH's
+  4.2 g is the Baron's chosen n, and a typed LIMNZ that disagrees with n₁
+  warns; a rotor's spin sense is its signed rpm alone, so a mirrored engine
+  publishes the exact negative.
+- **Refusals by name, stated as refusals (#343, #344, #361, #364, #365,
+  tier S).** Every entered engine magnitude — rpm, weight and diameter
+  included — is refused by name unless positive (zero where it means
+  *none*); no `ValueError` catch goes silent without a stated reason; a
+  broken wing is not reported as a missing one; the speed derivation never
+  divides by zero.
+- **Data, bands, CI and nits (#336, #363, #366, #367, tier S).** The ATR's
+  tailplane dihedral is 0°, owner-supplied; CI runs on a pinned
+  `ubuntu-24.04` image and the Node 24 action majors; every case-id band has
+  a stated top edge; warnings number engines from 1.
+- **Version** `0.8.8` → **`0.8.9`**. Schema **v73 → v76**: v74 at #333
+  (`OneEngineOutInput.vmc_kt`, `takeoff_altitude_ft`; identity hop), v75 at
+  #332 (`Rotor.direction` retired; the hop drops the key), v76 at #334
+  (`InducedRoll` result fields; identity hop). **`RELEASED_SCHEMAS` gains
+  `"0.8.9": 76`**, frozen as `tests/fixtures_schema/release_0.8.9.json` (a
+  copy of `examples/ga6_normal.project.json`).
+- **Changelog cut** — `scripts/build_changelog.py 0.8.9 --date 2026-10-04
+  --roll`: **14 fragments** consumed — 9 into `## [0.8.9]` directly and **5
+  history entries** rolled to the top of this file, their changelog bullets
+  derived from their leads — and a fresh empty `[Unreleased]` opened.
+- **Record roll** (`RELEASE_PROCESS.md` §4 step 3): no note moves (note 61
+  CV-3). This file stood at 1,010 lines before the cut and 1,109 after the
+  fragments, under 1,500; it did not roll. The changelog stood at 1,415 and
+  crossed 1,500 with the new section, so it rolled in the same pass: the
+  0.8.7, 0.8.6, 0.8.5 and 0.8.4 blocks are frozen verbatim in
+  [`CHANGELOG_to_0.8.7.md`](CHANGELOG_to_0.8.7.md), and the live file keeps
+  `[Unreleased]`, `[0.8.9]` and `[0.8.8]` (428 lines).
+- **Verification baseline** (§4 step 5): unchanged from the 0.8.8 cut —
+  [`36_verification_baseline_0.7.0.md`](36_verification_baseline_0.7.0.md)
+  plus the one 23.349(a)(2) correction registered at 0.8.7. No entry was added
+  to `02_approved_corrections.md` this cycle, and every Appendix A assertion
+  is the same test on the same printed number.
+- **Gates at cut:** `pytest` **4,344 passed / 13 skipped / 2 xfailed / 0
+  failed** (4,267 passed / 13 skipped /
+  2 xfailed at the 0.8.8 cut) on the cut tree; `ruff` clean, `mypy` clean
+  (`sloads/`, 114 source files), `scripts/smoke_test.sh` **PASS**,
+  `scripts/build_changelog.py --dry-run` clean,
+  `scripts/backlog_issues.py check` clean,
+  `scripts/branch_protection_snapshot.py --check` matches on 7 tracked keys,
+  the §3.5 by-hand walk done by the owner (2026-10-05). Of the 0.8.9
+  pre-release review's findings, all four (#364–#367) closed on the branch;
+  none is open.
+
+**Key decisions.** *Rule before code.* Every physics row in the band waited
+on an owner ruling that moved the forcing the next row measured against:
+#333's VMC and mass state, #331's chosen n and #336's dihedral all landed
+before note 51 §10 was agreed, so #334 was built once. The second decision
+repeats the last three cuts': an emptied band is not a release until a
+critical read of the whole branch says so. This one found four, none of
+them MAJOR, and the owner folded all four into the band rather than carry
+them into 0.9.0, because each was a residue of a B10 row — the #343 sweep
+one field short, the #334 band minting past its edge, the #344 guard's
+blind spot.
+
+---
+
+- **The Baron's POH limit load factor of 4.2 is entered as its chosen n, so condition A flies at the factor its engine-mount cases scale to, and a typed LIMNZ that disagrees with the airplane's n₁ now warns (#331, tier M, 2026-10-03)** — Found at the #318 close: `baron_58` entered the POH's +4.2 g (58-590000-21, source [C]) only as the engines' LIMNZ and left `speeds.chosen_n` blank, so STRSPEED fell to the 23.337 minimum of 3.648 at 5,500 lb while note 66 D-66.4 scaled the four 23.361(a)(1)/(a)(2) torque cases to LIMNZ — 15 % above the condition A the regulation pairs them with. The owner ruled (d), none of the issue's three options as written (ruling on the issue, 2026-10-03): the 4.2 is cited, not a data error, so it is entered as `chosen_n` and condition A runs at the airplane's declared limit. D-66.4 and G-66.3 stand; G-66.3 now also pins LIMNZ = n₁ on every engine fixture. `validation` warns `engine_load_factor_mismatch` on a typed LIMNZ that disagrees with n₁, once per engine with both numbers. Only the Baron moves: VA 161.0 → 172.8 KEAS, peak wing lift (MAN D) 20,577 → 23,660 lb (+15.0 %), peak balancing tail down load −781 → −841 lb (+7.7 %); the envelope's peak nz stays the gust line's 4.343, and the torque cases keep their 3.15 g / 4.2 g, now on a condition A that flies there. The VA-flown cases move by (172.8/161.0)² = 1.151 (sudden rudder 1,287.5 → 1,482.2 lb, the yaw cases and ACRL's roll with it), NHAA follows 23.337's −0.4·n to −1.68 g (resultant 7,978 → 9,216 lb), and the Baron's NHAA leaves the clamped body-axial record. Corners A and C at 20,000 ft at `fwd gross` now reach D-30's clamped state, Mach-capped and stall-limited; SELECT governs on neither, and CONVENTIONS §7 and the STRSPEED/FLTLOADS convergence bullet name the shipped clamped set. That fires parked #32's trigger; the owner kept it parked, restated on 2 published rows, 0 governing, 0 deck loads.
+
+- **The one-engine-out low end takes an entered VMC and flies at the take-off altitude, an unrecovered case is stated wherever it would have appeared, and every 23.367 case is sized at the heaviest FLIGHT loading instead of the all-items one (#333, tier M, 2026-10-03)** — Found at #328: the low end was always VS, which stands in for VMC only where VS ≥ VMC, and on `atr42_100` it does not recover; it ran at the 12,000 ft shoulder; and the dropped case had no trace beyond the one-engine-out section. A comment from #309 added the mass state: `_heaviest_case` read WTONECG's all-items loading, 17.6 % over MTOW on the ATR and 18.9 % on the Baron. The owner ruled the two together after measuring (rulings on the issue, 2026-10-03). (1) `OneEngineOutInput.vmc_kt` is optional and cited. When it is blank, VS stands and says so. The low end runs at the new `takeoff_altitude_ft` (default 0; schema v74, identity hop `_hop_73`). (2) An unrecovered case is named in the deck's not-assembled record with its speed, altitude and fin incidence (`SkippedCondition.detail`, a new field; KEAS, ft and deg only, because the record goes into the SI deck as written), and the warning `oei_case_not_recovered` carries the same numbers plus the fin load at the bound and the fix. (3) The fin-stall flag is parked at #353; the Baron's delivered VS case reaches 19.7° fin incidence. (4) `one_engine_out.mass_basis` is the heaviest derivable FLIGHT loading, aft-most among ties, and one owner for both the march's IZZ and CG and the deck's parent CG case, which already picked `aft gross`. With no derivable loading the module refuses by name instead of falling back. Measured against the all-items state: ATR VD +0.3 %, Baron VD −1.6 %. Option (c), a cap at MTOW, was ruled out because each fixture carries one mass case, so the cap would refuse both. The step now requires `weight`, not `mass`. Each condition stamps its march altitude on `CaseRef.altitude_ft`, which `tail_span` and the deck read instead of a project-wide altitude. The ATR's VS case still delivers no load: neither fixture cites a VMC yet.
+
+- **A rotor's spin sense is its signed rpm alone, and the sudden-stoppage torque reads the same signed spin momentum the gyroscopic cases do, so a mirrored engine publishes the exact negative (#332, tier M, 2026-10-03)** — Found at #319 and measured by the 0.8.8 review: `Rotor.direction` was read by nothing while a rotor's spin lived in the sign of `max_rpm`, and `condition_361_b1` summed a signed rotor with an unsigned propeller, then applied the rotors' sign a second time through `torque_sense(prop_direction)`. The RJ's counter-rotating fans published −50,577 / +50,576 ft-lb (the floor taken on the signed value), and an engine entered counter-rotating throughout lost its rotors' share twice over — an ATR-42 engine mirrored published +17,333 ft-lb against the +24,473 of its mirror image, 29 % low and non-conservative; no shipped fixture was mirrored, so only the RJ's 1 ft-lb was live. The owner ruled the signed `max_rpm` the owner and retired `Rotor.direction`: schema v74 → v75, `_hop_74` drops the key and states, naming the rotor, any file whose retired field said counter-clockwise against a positive rpm (the rpm always governed, so the hop moves no load). `engine.spin_momentum` is the one owner of the engine's spin — the propeller signed by `prop_direction`, each rotor by its `max_rpm` — read by `angular_momentum` at max-continuous rpm and by the one `_stoppage_torque` (the inline 23.361(b)(1) copy retired) at take-off rpm; `_floored_torque` floors the magnitude and takes the published sign from the total. Gates: a mirrored engine publishes the exact negative stoppage on 23.361(b)(1) and 25.361(a)(3)(i); the stoppage signs the propeller as the gyro does; a drift guard that `Rotor` has no direction field and only `spin_momentum` reads a rotor's rpm. G-53.1's reversal test mirrors the rotors with the propeller — it passed on a propeller-only flip only through the double negation. Every clockwise engine and Appendix B are unchanged; the RJ's counter-rotating left fan moves +50,576 → +50,577 ft-lb on EM-20 and EM-25, and its deck MOMENT cards 606,912 → 606,924 lb-in.
+
+## Step — sloads complies with sstandards Rev B: a conformance test checks sloads' own owners against the vendored vectors, `CONVENTIONS.md` states compliance with the deviations D-SL1 and D-SL2, and the standard's §8 row cites #354 (#354, design note 68 D-68.1…D-68.10, tier L, 2026-10-04)
+
+**Objective.** Close #354. sstandards is the shared standard for frames, signs and units across sconfig → sloads → sbeam. Its §8 listed sloads as "pending (sloads backlog R5)", and no such item had been filed. Note 68 was agreed against Rev A on 2026-10-03. Rev B issued the next day: it changes no frame, sign or internal unit, adds the SI input and output files, and adds five constants. The owner ruled that the step adopts Rev B (note 68 §6).
+
+**No delivered load moves.** No calc module, constant or digest changes. The two places where sloads differs from the standard are recorded as deviations and not edited.
+
+**Deliverables.**
+- **The vendored vectors.** `tests/data/sstandards_rev_B.json` is a byte-identical copy of the issued Rev B `conventions_vectors.json`. It is copied, never imported or fetched (D-68.2/D-68.8).
+- **The conformance test, `tests/test_sstandards.py`.**
+  - Four blocks are tested against their owners, at each block's own tolerance:
+    - `constants` against `constants.py` and `units.py`;
+    - `angles` against `RAD_PER_DEG`, `DEG_PER_RAD` and `math.radians`;
+    - `mac` against WINGGEOM's closed-form `surface_properties`;
+    - `percent_mac` against `pct_mac_to_station` and `station_to_pct_mac`.
+  - Two blocks are skipped, each with its reason: `frame_A_to_B` and `moment_transfer` (D-68.4).
+  - Every `constants` key is decided (D-68.9). It is bound to an owner, recorded as a deviation, or declared ownerless with its reason. The ownerless keys are `rho0_kg_m3`, `us_gal_to_L` and `kt_to_m_s`.
+  - §5.5's `lbf_to_N / lbm_to_kg = g0` holds exactly.
+  - Rev B's practice clauses (§5.1, §5.6, §5.9–§5.11 and §6) name the existing gates that hold them, and the test asserts that each gate still exists (D-68.10).
+- **The statement.** `CONVENTIONS.md` opens with `Complies with sstandards Rev B` and the deviations table. A §7 row records the conformance owner and its gates.
+- **The deviations (D-68.5).**
+  - **D-SL1:** `RHO_SL = 0.002378`, which is +0.047 % from ISA.
+  - **D-SL2:** `KT_TO_FPS_SUITE = 1.15·88/60`, which is −0.068 % from exact and serves `VSF` only.
+  - Both are kept so the ported programs reproduce their printed oracles. Both are asserted at their recorded values and outside tolerance, so a deviation that is ever made to conform has to be retired by name.
+- **Docs:** `theory_sources.md` cites sstandards Rev B. Note 68 is amended with §6 and marked SHIPPED.
+- **sstandards (separate repository, the owner's commit):**
+  - §8's sloads row reads `B / conformant / D-SL1, D-SL2`, citing #354.
+  - The README status table follows it.
+  - "backlog R5" is gone.
+
+**Test.** `tests/test_sstandards.py` has ten tests, all green. The rest of the suite is unchanged.
+
+**Key decisions.**
+1. **Rev B, not Rev A.** Certifying against a revision that was superseded the day before would have filed this step's own follow-on.
+2. **Totality over the constants.** sconfig's precedent bound a subset of the constants block and passed over the rest. Here every key needs a decision, so a constant added by a later revision fails the test until it is decided, the same way a new block does.
+3. **Cite the gates, do not duplicate them.** The §5.9–§5.11 and §6 boundary already has its own gates. The conformance test checks that they exist, and does not re-run their checks.
+
+## Step — A T-tail's horizontal tail carries the AC 23-9 induced rolling moment: each fin condition carrying it gets its own horizontal-tail condition, the deck applies the moment on the horizontal tail rather than as a fin-tip couple, and the one-engine-out march reads an entered windmill drag coefficient (#334 with #335 riding, design note 51 D-51.12/D-51.4b/D-51.7a/D-51.13 and design note 66 D-66.12b, tier L, 2026-10-04)
+
+**Objective.** Close #334 and #335. Note 51 §9 sized the induced moment for the fin on the owner's assumption that it does not size the horizontal tail, and D-51.7 checked that assumption. On the ATR it failed: on the one-engine-out VD case, half the moment per side was 142.6 % of the horizontal tail's governing root bending, warned and not carried.
+
+Measured first (note 51 §10.1, note 66 §13):
+
+- **The ATR's governing h-tail root bending moves** with the moment carried, from GUST DN RETRACTED's 161,404 lb-in to ONE ENGINE OUT VD's 233,122 (+44.4 %, LIMIT). The RJ's stays at 349,920.
+- **About two thirds of the ATR's one-engine-out fin load is the Glauert windmill bound,** which assumes no propeller drag limiting at all. The march could not read a cited coefficient (D-66.12a ruling (a′)). At ATR VD the peak fin load is 16,040 lb on the bound, and 11,196 / 8,314 lb at 0.25 / 0.10.
+
+**Deliverables.**
+- **The march reads the entered coefficient (D-66.12b).**
+  - `CaseInputs.windmill_cd` carries it from `one_engine_out.entered_windmill_cd`.
+  - `one_engine_out.windmill_drag` is the one drag owner: the entered coefficient's `C_D·q·πD²/4`, else the Glauert term.
+  - `simulate` and `engine_forces_at` both read it, and `engine_forces_at`'s `windmill_cd` parameter retires. The hub drag, the fin load and the closure's yaw are one airplane state.
+  - The balanced case's statement that its fin load is the bound's retires. The family refuses a non-positive coefficient by name before the march runs (#343 kept).
+  - The ATR keeps the bound: no cited value (owner).
+- **The horizontal tail carries `M_r` (D-51.12).**
+  - `tail_span.induced_roll_stations`: the 23.427(a) case's chord-proportional shape at 25 % chord, antisymmetric, scaled so that `Σ fz·y = M_r`. Stored on `InducedRoll.stations`.
+  - One h-tail condition per T-tail fin condition carrying it, `INDUCED ROLL — <fin condition>`, built by `_induced_roll_htail`. It is the fin transfer's T-5 trim load (split into `LT25`/`LT50` so its centre of pressure is the published `x_air`), plus the tail's inertia at the pair's load factor, plus the induced strips.
+  - The condition takes the fin condition's safety factor (one-engine-out VC stays `ULT SF=1.0`) and FAR 23.427(c), with IDs from `case_ids.HTAIL_BAND_TTAIL` (HT-20…HT-49).
+  - It reaches the h-tail table, the applied CSV, the case index and the report's h-tail section. `tail_span.chord_centroid` generalises `mid_chord_centroid`.
+- **The deck (D-51.4b).**
+  - `balance.applied.vtail_sets` applies the induced strips on the h-tail member, `source` `htail-induced-roll`, sides R/L, where it applied a fin-tip couple. The trim load is already in the case, lumped.
+  - `INDUCED_ROLL_NOTE` is rewritten. The port twin reflects the strips through `reflect_load`.
+- **The check retires (D-51.7a).**
+  - `check_htail_under_induced_roll`, `InducedRoll.htail_ratio`, the `induced_roll_htail_pct` result row and the `ttail_induced_roll_sizes_htail` warning go.
+  - Schema v76, with an identity `_hop_75`: result fields only, written to no file. The examples are restamped.
+- **#335 ruled (a) (D-51.13).** T-5 is the only pairing policy, on AC 23-9 ¶5d p5. Plan 09 §8's row closes.
+- **Docs:**
+  - `PROGRAM_SPEC.md`: the T-tail fin, the new h-tail condition, the deck's lateral and one-engine-out cases, ONENGOUT's reads.
+  - `CONVENTIONS.md` §7: the induced-moment row and the one-engine-out row.
+  - `theory_sources.md`: the 23.427 row (¶5a, ¶5d's pairing) and the OEI windmill row (23.367(a)'s single-malfunction clause).
+  - Plan 09 §8 closed. Notes 51 §10 and 66 §13 marked SHIPPED.
+  - `DATA_DICTIONARY.md` regenerated.
+- **Digests.** The RJ and ATR each move seven channels: `case_index`, `csv/tail_span`, `txt/tail_span`, `txt/balance`, `sbeam/htail_applied`, `sbeam/balanced_deck` and `sbeam/lra_model`. ga6, the Baron and concept_heavy are byte-identical (G-51.11).
+
+**Test.**
+- `tests/test_ttail_induced_roll.py`:
+  - G-51.12: each induced set has `Σ fz = 0`, `Σ fz·y = M_r`, and each root carries `M_r/2` (1e-9).
+  - G-51.13: each `INDUCED ROLL` condition's per-side root bending, all twelve rows of §10.1, plus its factor, reference and HT-20 band (±0.1 %).
+  - G-51.14: the governing h-tail root bending, ATR 233,122 and RJ 349,920 (±0.1 %).
+  - G-51.15: the deck rebuilt with the retired fin-tip couple gives the same `ṗ`, `q̇`, `ṙ` and fin-root `Mx` (1e-9).
+  - G-51.16: the trim part is the fin transfer's `fz` and trim moment about the tip (1e-9).
+  - G-51.3/G-51.6 re-cut to one induced set on the h-tail member. G-51.9 retired. G-51.11 extended to the new condition.
+- `tests/test_engine_out_cases.py`:
+  - D-66.12b delivery: the march's drag, the hub pair and a smaller fin load with a coefficient entered.
+  - G-66.9 holds on an entered coefficient with no `ΔM` term.
+  - The ATR VD fin load is 16,040 / 11,196 / 8,314 lb (±0.1 %).
+- `tests/test_tail_span.py`: the root-bending and centreline-roll closures add `±M_r/2` and `M_r` on an `INDUCED ROLL` condition. The span/chord parity states the new condition beside `HTAIL UNSYM`.
+- `tests/test_schema_guards.py`: the v76 hash. `tests/fixtures_imperial/digests.json` is regenerated.
+
+**Key decisions.**
+1. **One shape owner.** The induced set is `distribute`'s own chord-proportional strips with the 23.427(a) side scales, not a second linear antisymmetric shape.
+2. **The deck carries the strips, not the condition.** The balanced case already holds the trim tail load lumped, so only the induced set is added. Adding the strips beside the couple would have double-counted the roll.
+3. **The inertia lever is the h-tail's own convention.** G-51.16 gates the trim part's total `fz` and its air moment about the fin tip. The inertia is smeared at each strip's reference axis, as on every h-tail condition and HTAIL UNSYM, not at the transfer's lumped mid-chord station.
+4. **The bound stays the ATR's fallback.** An autofeather switch would be an uncited factor, and 23.367(a)'s single-malfunction clause makes the limiter the failed item. The power-level question is under 1 % at ATR VD and stays parked.
+
 ## Release cut: **sloads 0.8.8** (the deck's delivered loads are right, and the user can reach them — the beam model in the GUI, the T-tail fin's asymmetry, the engine axial loads, refusals by name), tag `v0.8.8`, 2026-10-03
 
 **Objective.** Close band **B9**, re-chartered on 2026-09-28 by the 0.8.8

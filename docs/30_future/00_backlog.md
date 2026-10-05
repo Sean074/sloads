@@ -440,6 +440,14 @@ clause, which knew of no milestone between.
 > deck delivers correct loads) is the milestone in flight**; B2 (0.9.0)
 > follows it. Cut rule unchanged: 0.8.9 when B10 is empty, then 0.9.0 when B2
 > is.
+>
+> **B10 is retired: 0.8.9 was cut on 2026-10-04** (tag `v0.8.9`; the release-cut
+> block in
+> [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md)
+> is the record). The band emptied with #367; the pre-release review's four
+> findings (#364–#367) were banded into B10 at Pri 31–34 and closed before the
+> cut. **Band B2 (0.9.0) is the milestone in flight.** Cut rule: 0.9.0 when B2
+> is empty.
 
 
 **System of record (design note 28 MD-5, 2026-08-16):** open work is **GitHub
@@ -482,7 +490,6 @@ keeps its body in *Open defects*, and the [E]/[V] detail sections hold the rest.
 
 | Pri | Item (detail below / in its plan) | What ships | Tag | Tier / effort | Depends on |
 |---|---|---|---|---|---|
-| **B10 — 0.8.9: the ATR-class deck delivers correct loads — twin turboprop, T-tail (chartered 2026-10-03)** ||||||
 | **B2 — 0.9.0: calc, report and process work (re-chartered 2026-09-11 — the “main-GUI development” it was named for retires with #270)** ||||||
 | 10 | **GUI review resumption, on the converged surface** — the review the 0.8.0 pass left unswept (Flight, Other, Ground, Plotting, Export), now against the one front-end left by #270: the fourteen pages of the generic renderer, the figure blocks of #267, the Report page and the JSON editor; findings filed at close (rule 5); re-cut follows. It inherits the one open class the #270 closures left standing — **L-8d's mutation half**, a widget that goes stale while the project is *mutated* underneath it (a seed chain, a cross-page write), which no generation bump covers and which the 2026-08-24 review and the 0.8.4 closure review (the seed button's row counter) both showed is a live mechanism *(re-scoped 2026-09-14 — the `app/views/` rows #148, #247–#252 and #259 closed with the tree they named)* (#29) | The review body completed against the surviving GUI; a reviewed list of findings, not a rework | V | S (review) / M | 0.8.4 cut |
 | 11 | **`solo_close.sh` verifies fragment existence, not tier content** — nothing checks a tier-M closure touched `PROGRAM_SPEC.md`, a tier-L closure cited `theory_sources.md`, or that a physics change had a note at AGREED; hand-git bypasses are degrading the commit-subject record. The checkable subset gets scripted; the rest is named as discipline in `DEVELOPMENT_PROCESS.md` *(review R-15)* (#185) | The preflight enforcing the checkable closure obligations and validating the subject it writes | V | M / M | — |
