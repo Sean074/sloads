@@ -42,7 +42,7 @@ import io as _io
 import math
 import re
 from dataclasses import replace
-from typing import TYPE_CHECKING, Dict, List, Mapping, NamedTuple, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Callable, Dict, List, Mapping, NamedTuple, Optional, Sequence, Tuple, Type
 
 from .. import csv_text
 from ..aero_curves import inertia_drag_factor
@@ -91,6 +91,7 @@ from .oracle_content import (
     GEAR_LOAD_CASES,
     HTAIL_LOAD_STATIONS,
     LUMPING_COMPARISON,
+    REFUSED_REASON,
     VN_CONDITIONS,
     VTAIL_LOAD_STATIONS,
     WING_LOAD_STATIONS,
@@ -828,9 +829,14 @@ def _case_loading_statement(project: Project, u: Units) -> str:
 
     try:
         checks = case_loading_checks(project)
-    # refusal: no loading checks to state; the case table stands as entered
-    except (MissingInputError, ValueError):
+    # refusal: no weight data base, no loading checks to state; the case table
+    # stands as entered
+    except MissingInputError:
         return ""
+    except ValueError as exc:
+        # Present and refused: the statement says so rather than vanishing (#361).
+        return ("Whether each case is a loading of the weight data base is not "
+                f"stated: the check refused its inputs ({str(exc).rstrip('.')}).")
     if not checks:
         return ""
     # Three checks per case, grouped by the case each one names.
@@ -879,9 +885,14 @@ def _envelope_reach_statement(project: Project, u: Units) -> str:
 
     try:
         reach = envelope_point_reach(project)
-    # refusal: no reach to state; the reach warning owns the finding
-    except (MissingInputError, ValueError):
+    # refusal: no weight data base, no reach to state
+    except MissingInputError:
         return ""
+    except ValueError as exc:
+        # Present and refused: the statement says so rather than vanishing (#361).
+        return ("Whether each entered CG limit and case is a loading of the weight "
+                f"data base is not stated: the reach test refused its inputs "
+                f"({str(exc).rstrip('.')}).")
     if not reach:
         return ""
     gate = f"{100 * BALLAST_CREDIBLE_FRACTION:g} %"  # note 65 exempt: a stated gate, prose
@@ -4212,6 +4223,36 @@ _TAIL_SURFACES = {
 }
 
 
+def _refusal(build: Callable[[], object],
+             catches: Tuple[Type[Exception], ...] = (ValueError,)) -> Optional[str]:
+    """The message of the refusal ``build`` raises, or ``None`` (#361).
+
+    For the sections whose builder helpers hand back an empty set on any
+    refusal: asked only once a set has come back empty, so the absence can say
+    *why*. A :class:`MissingInputError` is an absence -- the section's own "not
+    entered" wording is then true -- and answers ``None``; any other caught
+    refusal answers its own message, which the section states in place of a
+    "not entered" that would be false.
+    """
+    try:
+        build()
+    except MissingInputError:
+        return None
+    except catches as exc:
+        return str(exc).rstrip(".") or type(exc).__name__
+    return None
+
+
+def _absence(absent: str, refused: Optional[str]) -> str:
+    """An ``absent_reason``: the section's "not entered" clause, or -- when the
+    inputs were present and refused -- the refusal, in the #316 shape (#361)."""
+    return absent if refused is None else f"{REFUSED_REASON} {refused}."
+
+
+_TAIL_REFUSALS = (ValueError, TypeError, ZeroDivisionError, KeyError)
+_CONTROL_REFUSALS = (ValueError, TypeError, ZeroDivisionError, AttributeError, IndexError)
+
+
 def _tail_critical(project: Project, component: str) -> List[CriticalCondition]:
     """The critical conditions for one surface, from SELECT's single owner.
 
@@ -4917,10 +4958,12 @@ def _tail_chordwise_section(project: Project, component: str, *,
     names = _TAIL_SURFACES[component]
     results = _tail_chordwise(project, component)
     if not results:
-        return Section("", absent_reason=(
+        from ..modules.taildist import build_tail_chordwise
+        return Section("", absent_reason=_absence(
             f"the {names['surface']} chordwise distributions were not produced "
             "for this project: no design condition carries the load split they "
-            "are built from, or the surface's chordwise geometry is not entered."))
+            "are built from, or the surface's chordwise geometry is not entered.",
+            _refusal(lambda: build_tail_chordwise(project), _TAIL_REFUSALS)))
     tables = [t for t in (_tail_chord_stations_table(results, system),
                           _tail_pressure_table(results, system)) if t is not None]
     return Section("", body=[
@@ -5400,10 +5443,12 @@ def _tail_span_section(project: Project, component: str, *,
                        absent_lead="Not supported")
     results = _tail_spanwise(project, component)
     if not results:
-        return Section("", absent_reason=(
+        from ..modules.tail_span import build_tail_span
+        return Section("", absent_reason=_absence(
             f"the {names['surface']} spanwise loads were not produced for this "
             "project: the surface has no entered planform, or no design "
-            "condition carries the load split they are distributed from."))
+            "condition carries the load split they are distributed from.",
+            _refusal(lambda: build_tail_span(project), _TAIL_REFUSALS)))
     table = _tail_span_root_table(results, component, system)
     body = [
         f"Each design condition's total load is distributed along the "
@@ -5530,9 +5575,11 @@ def _tail_station_appendix(project: Project, component: str, *,
             absent_lead="Not supported", page_break=True)
     results = _tail_spanwise(project, component)
     if not results:
-        return Section("", absent_reason=(
+        from ..modules.tail_span import build_tail_span
+        return Section("", absent_reason=_absence(
             f"the {names['surface']} spanwise loads were not produced for this "
-            "project, so there are no stations to list."), page_break=True)
+            "project, so there are no stations to list.",
+            _refusal(lambda: build_tail_span(project), _TAIL_REFUSALS)), page_break=True)
     from .applied import applied_loads
 
     torsion = "My" if component == "htail" else "Mz"
@@ -5748,6 +5795,17 @@ def _control_records(project: Project, kind: str) -> List[ControlSurfaceLoadResu
         # G-OR-7: a half-filled project still builds a complete document. The
         # section states the absence; it does not raise through the builder.
         return []
+
+
+def _control_refusal(project: Project, kind: str) -> Optional[str]:
+    """Why :func:`_control_records` came back empty, when the cause was a
+    refusal rather than an absent input (#361)."""
+    from ..modules.aileron import build_aileron
+    from ..modules.flap import build_flap
+    from ..modules.tab import build_tabs
+
+    builders = {"aileron": build_aileron, "flap": build_flap, "tab": build_tabs}
+    return _refusal(lambda: builders[kind](project), _CONTROL_REFUSALS)
 
 
 def _profile_centroid(stations: Sequence[ControlSurfaceStation]) -> Optional[float]:
@@ -6003,10 +6061,11 @@ def _aileron_loads(project: Project,
     records = _control_records(project, "aileron")
     inputs = project.aileron_loads
     if not records or inputs is None:
-        return Section("", absent_reason=(
+        return Section("", absent_reason=_absence(
             "the aileron loads were not produced for this project: the aileron "
             "geometry or the design speeds they are computed at are not "
-            "entered."))
+            "entered.",
+            _control_refusal(project, "aileron")))
     geometry_ref = section_ref(plan, "configuration_layout")
     entered_area = float(inputs.area_fwd_hinge_sqft or 0.0) + float(
         inputs.area_aft_hinge_sqft or 0.0)
@@ -6146,10 +6205,11 @@ def _flap_loads(project: Project,
     inputs = project.flap_loads
     result = results.get("flap_loads")
     if not records or inputs is None:
-        return Section("", absent_reason=(
+        return Section("", absent_reason=_absence(
             "the flap loads were not produced for this project: the flap "
             "geometry, the design speeds or the flaps-extended lift "
-            "coefficients they are computed from are not entered."))
+            "coefficients they are computed from are not entered.",
+            _control_refusal(project, "flap")))
     geometry_ref = section_ref(plan, "configuration_layout")
     conditions = list(getattr(result, "conditions", ()) or ())
     critical = conditions[0] if conditions else None
@@ -6324,9 +6384,10 @@ def _tab_loads(project: Project,
     records = _control_records(project, "tab")
     specs = list(getattr(project.tab_loads, "tabs", ()) or ())
     if not records or not specs:
-        return Section("", absent_reason=(
+        return Section("", absent_reason=_absence(
             "no control-surface tab is entered for this project, so there is "
-            "no tab load to state."))
+            "no tab load to state.",
+            _control_refusal(project, "tab")))
     geometry_ref = section_ref(plan, "configuration_layout")
     result = results.get("tab_loads")
     scale, _length = _length_channel(system)
@@ -8713,6 +8774,26 @@ def _vn_envelope(project: Project) -> Optional["EnvelopeResult"]:
     return env if env.vn else None
 
 
+def _vn_refusal(project: Project) -> Optional[str]:
+    """Why :func:`_vn_envelope` has no matrix, naming which owner refused (#361).
+
+    The envelope and the critical-condition selection that stamps its ids are
+    two owners. Appendix A used to blame "the flight envelope" for either, so a
+    refusal of ``default_critical`` alone read as an envelope that was never
+    produced.
+    """
+    from ..modules.select import default_critical, default_envelope
+
+    env_refused = _refusal(lambda: default_envelope(project))
+    if env_refused is not None:
+        return f"the flight envelope refused its inputs ({env_refused})"
+    critical_refused = _refusal(lambda: default_critical(project))
+    if critical_refused is not None:
+        return ("the flight envelope was balanced, and the critical-condition "
+                f"selection that stamps its case identities refused ({critical_refused})")
+    return None
+
+
 def _vn_mass_case_table(project: Project, u: Units) -> Optional[Table]:
     """The mass cases the matrix is balanced over -- the manual's p179 block.
 
@@ -8941,9 +9022,9 @@ def _vn_appendix(project: Project, *, system: UnitSystem,
     del plan
     env = _vn_envelope(project)
     if env is None:
-        return Section("", absent_reason=(
+        return Section("", absent_reason=_absence(
             "the flight envelope was not produced for this project, so there "
-            "are no balanced conditions to list."), page_break=True)
+            "are no balanced conditions to list.", _vn_refusal(project)), page_break=True)
     u = Units(system)
     rows = _vn_rows(project, env, u)
     tables = [t for t in (_vn_mass_case_table(project, u),

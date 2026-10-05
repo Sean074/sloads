@@ -160,6 +160,18 @@ def wing_reference(project: Project, surface_name: str = "wing") -> Optional[Win
     parametric slice, so ``zw`` degrades to the centreline waterline). Returns ``None``
     when there is no geometry slice, no matching wing surface, or the surface is
     degenerate (fewer than two strips / points)."""
+    try:
+        return _wing_reference(project, surface_name)
+    # require_wing_reference re-raises this rather than calling the wing absent.
+    # refusal: an unintegrable planform has no reference; WINGGEOM's run names why
+    except ValueError:
+        return None
+
+
+def _wing_reference(project: Project, surface_name: str) -> Optional[WingReference]:
+    """:func:`wing_reference` with its two outcomes kept apart (#361): ``None``
+    when the surface is **absent**, and the planform's own ``ValueError`` when it
+    is present but cannot be integrated."""
     geom = project.geometry
     if geom is None:
         return None
@@ -169,9 +181,8 @@ def wing_reference(project: Project, surface_name: str = "wing") -> Optional[Win
     from .modules.wing_geometry import surface_properties
     try:
         vals = {v.label: v.value for v in surface_properties(surf).values}
-    # refusal: an unintegrable planform has no reference; WINGGEOM's run names why
-    except (ValueError, ZeroDivisionError):
-        return None
+    except ZeroDivisionError as exc:
+        raise ValueError(f"surface {surface_name!r} cannot be integrated: {exc}") from exc
     mac = vals["MAC"]
     xlemac = vals["XLE(MAC) station of MAC LE"]
     y_mac = vals["YLE(MAC) butt line of MAC"]
@@ -408,8 +419,16 @@ def require_wing_reference(project: Project, surface_name: str = "wing") -> Wing
     run. With the copies gone (DS-1) there is nothing to fall back to, so an
     absent or degenerate wing is an error at the point of use rather than a
     silent set of zeros propagating into a balance.
+
+    **Absent and broken are different refusals (#361).** A wing that is
+    present but cannot be integrated refuses with the planform's own
+    ``ValueError`` (for example "needs >= 2 LE and TE points"); only a wing
+    that is not there raises :class:`MissingInputError`, which every consumer
+    reads as "this chain is absent". The broken wing used to raise the absent
+    one's "add the surface", so the report said "not present" for a wing the
+    user had entered.
     """
-    ref = wing_reference(project, surface_name)
+    ref = _wing_reference(project, surface_name)
     if ref is None:
         raise MissingInputError(
             f"this analysis needs the {surface_name!r} wing planform: add the "
