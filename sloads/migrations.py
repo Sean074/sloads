@@ -62,6 +62,7 @@ class SchemaVersionError(ValueError):
 RELEASED_SCHEMAS: Dict[str, int] = {
     "0.8.7": 70,
     "0.8.8": 73,
+    "0.8.9": 76,
 }
 
 def _hop_70(d: Dict[str, Any]) -> Dict[str, Any]:
