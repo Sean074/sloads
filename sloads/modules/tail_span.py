@@ -117,10 +117,10 @@ layouts are untouched, to the byte.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, fields, replace
 from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple
 
-from ..case_ids import COMPONENT_PREFIX, VTAIL_BAND_TTAIL
+from ..case_ids import COMPONENT_PREFIX, HTAIL_BAND_TTAIL, VTAIL_BAND_TTAIL
 from ..cg_cases import flight_cases
 from ..constants import (
     AC23_9_GUST_BETA_FACTOR,
@@ -950,20 +950,26 @@ def control_load_mode(project: Project, component: str) -> str:
 # it -- is pre-scoped in plan §8 as a selectable policy and deliberately not the
 # default, because it pairs loads the airplane never sees together.
 
-def mid_chord_centroid(planform: TailPlanform) -> float:
-    """Area-weighted mean chord station of the surface's mid-chord line (in).
+def chord_centroid(planform: TailPlanform, pct: float) -> float:
+    """Area-weighted mean station of the surface's ``pct``-chord line (in).
 
-    Where a uniformly-smeared surface mass acts chordwise (T-3 spreads it by
-    area, so its centroid is the planform's). Integrated over the same strips the
-    loads use, so a tapered or swept h-tail moves this station the way it moves
-    every other one.
+    Integrated over the same strips the loads use, so a tapered or swept
+    h-tail moves this station the way it moves every other one. At 50 % it is
+    where a uniformly-smeared surface mass acts chordwise (T-3 spreads it by
+    area); at 25 % and 50 % it is where :func:`distribute` puts a whole
+    ``LT25`` and ``LT50``.
     """
     area = moment = 0.0
     for s, ds in strip_spans(planform):
         da = planform.chord(s) * ds
         area += da
-        moment += da * planform.x_at(s, 0.5)
+        moment += da * planform.x_at(s, pct)
     return moment / area if area else 0.0
+
+
+def mid_chord_centroid(planform: TailPlanform) -> float:
+    """:func:`chord_centroid` at mid-chord: the smeared surface mass's station."""
+    return chord_centroid(planform, X50_PCT)
 
 
 def _tail_cp_station(project: Project, case: Optional[int]) -> Tuple[float, bool]:
@@ -1187,39 +1193,108 @@ def htail_root_bending(result: TailSpanResult) -> float:
     return max(abs(stbd), abs(port))
 
 
-def check_htail_under_induced_roll(htails: Sequence[TailSpanResult],
-                                   vtails: Sequence[TailSpanResult]) -> None:
-    """Fill each induced moment's ``htail_ratio`` (D-51.7, owner Q5).
+#: The label prefix of the horizontal-tail condition that carries a T-tail fin
+#: condition's induced rolling moment (note 51 D-51.12): ``INDUCED ROLL — <fin
+#: condition>``, the mirror of ``HTAIL UNSYM`` (D-51.2a).
+INDUCED_ROLL_LABEL = "INDUCED ROLL"
 
-    ``(|M_r|/2 SF_case) / (M_h SF_h)``: half the induced moment per side against
-    the governing per-side h-tail root bending over the h-tail's own
-    conditions, compared on the owner's comparison key
-    (``safety_factors.ultimate_basis``, a key and never a delivered value) -- a
-    23.367(a)(2) case is already ultimate (SF 1.0) while the h-tail's are
-    limit. It checks the owner's assumption that the moment sizes the fin and
-    not the horizontal tail; above 1.0 that assumption fails and is warned.
+
+def induced_roll_label(vtail_case: str) -> str:
+    """The D-51.12 h-tail condition's label for fin condition ``vtail_case``."""
+    return f"{INDUCED_ROLL_LABEL} — {vtail_case}"
+
+
+def induced_roll_stations(htail: TailPlanform, m_r: float,
+                          z_offset: float) -> List[WingStationLoad]:
+    """Where the horizontal tail carries ``m_r`` (note 51 D-51.12 (iii)).
+
+    The 23.427(a) case's own shape -- chord-proportional, at 25 % chord --
+    antisymmetric (``rh_scale=+1``, ``lh_scale=-1``), so ``Σ fz = 0``,
+    ``Σ fz·x = 0`` and each root carries ``±m_r/2``; scaled so that
+    ``Σ fz·y = m_r``. Air only, no inertia: the moment is an aerodynamic one.
+    Empty for a zero moment.
     """
-    from ..safety_factors import ultimate_basis
+    unit = distribute(htail, 1.0, 0.0, rh_scale=1.0, lh_scale=-1.0, z_offset=z_offset)
+    per_unit = math.fsum(st.fz * st.y for st in unit)
+    if not m_r or not per_unit:
+        return []
+    return distribute(htail, m_r / per_unit, 0.0, rh_scale=1.0, lh_scale=-1.0,
+                      z_offset=z_offset)
 
-    governing = max((ultimate_basis(htail_root_bending(r), r.safety_factor)
-                     for r in htails), default=0.0)
-    if governing <= 0.0:
-        return
-    for r in vtails:
-        t = r.tip_transfer
-        if t is None or t.induced is None:
-            continue
-        ratio = ultimate_basis(0.5 * t.induced.m_r, r.safety_factor) / governing
-        t.induced.htail_ratio = ratio
-        r.notes.append(
-            f"horizontal-tail check (note 51 D-51.7): M_r/2 per side is "
-            f"{format_value(100.0 * ratio, '%')} % of the horizontal tail's governing root "
-            "bending, both on their own factors -- "
-            + ("ABOVE 100 %: the assumption that the moment sizes the fin and not "
-               "the horizontal tail FAILS here, and the horizontal tail's own "
-               "loads do not carry it (warned)" if ratio > 1.0 else
-               "the assumption that it sizes the fin and not the horizontal tail "
-               "holds"))
+
+#: The station fields that place a strip rather than load it.
+_PLACE = ("x", "y", "z")
+
+
+def _superpose(a: Sequence[WingStationLoad],
+               b: Sequence[WingStationLoad]) -> List[WingStationLoad]:
+    """Two station tables of one planform, summed strip for strip.
+
+    Every load column of :func:`distribute` is linear in its loads, the
+    cumulative ones included, so the sum is the table of the summed loads.
+    """
+    if len(a) != len(b):
+        raise ValueError("superposing station tables of different planforms")
+    out: List[WingStationLoad] = []
+    for p, q in zip(a, b):
+        if (p.x, p.y) != (q.x, q.y):
+            raise ValueError("superposing station tables of different planforms")
+        out.append(replace(p, **{f.name: getattr(p, f.name) + getattr(q, f.name)
+                                 for f in fields(p) if f.name not in _PLACE}))
+    return out
+
+
+def _induced_roll_htail(project: Project, vtail: TailSpanResult,
+                        htail: TailPlanform, weight: float, z_offset: float,
+                        case_id: str) -> TailSpanResult:
+    """The h-tail condition carrying ``vtail``'s induced moment (note 51 D-51.12).
+
+    (i) the fin condition's T-5 trim load, read from the transfer the fin
+    already carries (one pairing owner, G-51.16), split into ``LT25``/``LT50``
+    so its centre of pressure is the transfer's published ``x_air`` exactly;
+    (ii) the tail's inertia at the pair's load factor; (iii) the induced set,
+    :func:`induced_roll_stations`. The safety factor is the fin condition's
+    own; HTAIL UNSYM is the mirror (D-51.2a).
+    """
+    t = vtail.tip_transfer
+    assert t is not None and t.induced is not None
+    induced = t.induced
+    lt25 = lt50 = 0.0
+    if t.paired_case is not None:
+        x25, x50 = chord_centroid(htail, X25_PCT), chord_centroid(htail, X50_PCT)
+        lt50 = t.air_lb * (t.x_air - x25) / (x50 - x25)
+        lt25 = t.air_lb - lt50
+    trim = distribute(htail, lt25, lt50, n_case=t.n_case,
+                      surface_weight_lb=weight if t.paired_case is not None else 0.0,
+                      z_offset=z_offset)
+    stations = _superpose(trim, induced.stations) if induced.stations else trim
+    label = induced_roll_label(vtail.case)
+    note = (f"T-tail, 23.427(c) (design note 51 D-51.12): the fin condition "
+            f"{vtail.case}'s AC 23-9 induced rolling moment "
+            f"{format_value(induced.m_r, 'lb-in', signed=True)} lb-in, carried by the "
+            "horizontal tail chord-proportionally at 25 % chord, antisymmetric "
+            "(no net lift, half the moment at each root)")
+    if t.paired_case is not None:
+        note += (f", with the fin condition's T-5 trim load "
+                 f"{format_value(t.air_lb, 'lb', signed=True)} lb at its published "
+                 f"centre of pressure ({format_value(t.x_air, 'in')} in, V-n case "
+                 f"{t.paired_case}) and the tail's inertia at "
+                 f"n = {format_value(t.n_case, 'g')}")
+    else:
+        note += "; no 1 g pairing resolves for this condition, so no trim load or inertia"
+    attach = htail_attachment(project, htail)
+    ref = vtail.case_ref
+    return TailSpanResult(
+        case=label, component=HTAIL, stations=stations, lt25=lt25, lt50=lt50,
+        n_case=t.n_case, surface_weight_lb=weight,
+        attachment_y=attach.y, attachment_assumed=attach.assumed,
+        attachment_basis=attach.basis, planform_assumed=htail.assumed,
+        inertia_modelled=weight > 0.0 and t.paired_case is not None,
+        case_ref=(replace(ref, case_id=case_id, component=HTAIL, condition=label,
+                          far_reference="23.427(c)") if ref is not None else None),
+        safety_factor=vtail.safety_factor,
+        torsion_axis=f"LRA {htail.ref_axis_pct * 100:.0f}% chord",  # note 65 exempt: an identifier
+        notes=imperial_notes(htail.notes) + [note])
 
 
 def _htail_unsym_vtail(unsym: TailSpanResult,
@@ -1460,6 +1535,11 @@ def build_tail_span(project: Project) -> Dict[str, List[TailSpanResult]]:
         if component == VTAIL and stations and is_t_tail(project):
             induced = induced_roll_moment(project, cond, stations,
                                           planforms.get(HTAIL), vn_points)
+            h_planform = planforms.get(HTAIL)
+            if induced is not None and h_planform is not None:
+                induced.stations = induced_roll_stations(
+                    h_planform, induced.m_r,
+                    _h_tail_waterline(project, planforms.get(VTAIL)))
             parent = (oei_parent(cond) if cond.case is None else None)
             transfer = ttail_transfer(project, cond, planforms.get(HTAIL),
                                       stations[-1].x, vn_points,
@@ -1498,7 +1578,16 @@ def build_tail_span(project: Project) -> Dict[str, List[TailSpanResult]]:
         if unsym is not None:
             out[VTAIL].append(_htail_unsym_vtail(
                 unsym, vtail_planform, _surface_weight(project, VTAIL)))
-        check_htail_under_induced_roll(out[HTAIL], out[VTAIL])
+        htail_planform = planforms.get(HTAIL)
+        if htail_planform is not None:
+            weight = _surface_weight(project, HTAIL)
+            z_htail = _h_tail_waterline(project, vtail_planform)
+            carriers = [r for r in out[VTAIL] if r.tip_transfer is not None
+                        and r.tip_transfer.induced is not None]
+            for k, carrier in enumerate(carriers):
+                out[HTAIL].append(_induced_roll_htail(
+                    project, carrier, htail_planform, weight, z_htail,
+                    f"{COMPONENT_PREFIX[HTAIL]}-{HTAIL_BAND_TTAIL + k:02d}"))
     return out
 
 
@@ -1605,10 +1694,6 @@ def run(project: Project) -> ModuleResult:
                     LoadValue("Mach (AC 23-9 limit)", i.mach, "",
                               key="induced_roll_mach"),
                 ]
-                if i.htail_ratio is not None:
-                    extra.append(LoadValue(
-                        "M_r/2 against the h-tail's governing root bending",
-                        100.0 * i.htail_ratio, "%", key="induced_roll_htail_pct"))
         conditions.append(ConditionResult(
             title=f"{r.component} spanwise load -- {r.case}",
             # The case's own reference, not a label for the component (#177).
@@ -1656,6 +1741,7 @@ __all__ = [
     "DEFAULT_CONTROL_MODE",
     "DEFAULT_LOAD_FACTOR",
     "HINGE_BLOCK_CENTROID",
+    "INDUCED_ROLL_LABEL",
     "MODULE_NAME",
     "X25_PCT",
     "X50_PCT",
@@ -1666,6 +1752,7 @@ __all__ = [
     "attachment_stations",
     "axial_total",
     "build_tail_span",
+    "chord_centroid",
     "control_attachment",
     "control_centre_of_pressure",
     "control_load_mode",
@@ -1676,6 +1763,8 @@ __all__ = [
     "free_torsion_total",
     "hinge_chord_fraction",
     "htail_attachment",
+    "induced_roll_label",
+    "induced_roll_stations",
     "inertia_total",
     "lateral_load_factor",
     "mid_chord_centroid",

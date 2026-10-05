@@ -376,7 +376,12 @@ from .results import EnvelopeResult, LoadsResult, MassResult
 # sense is its signed ``max_rpm``, the one owner. ``_hop_74`` drops the key and
 # states any file whose retired field said counter-clockwise against a positive
 # rpm (the rpm always governed, so no load moves on the hop).
-SCHEMA_VERSION = 75
+# v76 (design note 51 D-51.7a/D-51.12, #334): ``InducedRoll.htail_ratio``
+# retired with the D-51.7 check it held -- the horizontal tail now carries the
+# moment -- and ``InducedRoll.stations`` added, the h-tail strips that carry it.
+# Result fields only, written to no project file, so ``_hop_75`` is an
+# identity; the loads move by the ruling, not the hop.
+SCHEMA_VERSION = 76
 
 
 @dataclass

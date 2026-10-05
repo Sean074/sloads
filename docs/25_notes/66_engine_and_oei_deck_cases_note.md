@@ -4,7 +4,8 @@
 
 **Status: SHIPPED 2026-09-26 — #286 (§10) and #285 (§11).** **§12 (#319, the
 engine axial loads of both families) AGREED and SHIPPED 2026-09-29.** **§13
-(#334, the march reads an entered windmill coefficient) AGREED 2026-10-04.**
+(#334, the march reads an entered windmill coefficient) AGREED and SHIPPED
+2026-10-04.**
 AGREED 2026-09-25 (owner, in session). PROPOSED the same
 day; the owner ruled Q1–Q7 of §2 **as recommended**, so D-66.1…D-66.16 stand as
 written (§9). Drafted for one design pass over two band-B8 rows the 2026-09-22
@@ -450,7 +451,7 @@ records `unscalable` and `hub-off-arm`. Gates: G-66.4/G-66.5 as amended, the
 entered-coefficient delivery and statement, G-66.9's `[I]{Δω̇} = ΔM` identity,
 the twin rule, G-66.17, the sub-case/spin identity, the two records.
 
-## 13. Amendment — the march reads the entered windmill coefficient (#334, AGREED 2026-10-04)
+## 13. Amendment — the march reads the entered windmill coefficient (#334, AGREED and SHIPPED 2026-10-04)
 
 **Owner ruling, in session 2026-10-04: ruling (a′) of D-66.12a is reversed.**
 D-66.12a kept the ONENGOUT march on the Glauert bound, so that no fin load

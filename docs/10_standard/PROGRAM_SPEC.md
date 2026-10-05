@@ -421,7 +421,7 @@ approved-corrections register [`../20_theory/02_approved_corrections.md`](../20_
 ### ONENGOUT — One-engine-out loads ✅ DONE (C9)
 - **FAR §:** 23.367 (unsymmetrical loads due to engine failure), multi-engine.
 - **Source:** Ch 11, `ONENGOUT.BAS`. Implemented in `sloads/modules/one_engine_out.py` (registers `"one_engine_out"`).
-- **Reads:** `Project.one_engine_out` (`OneEngineOutInput` — the failure-transient timing: thrust-decay / windmill-drag / rudder-travel times, Euler step, failed-engine index); the failed `Project.engines[i]` (HP, prop diameter, butt line); `Project.vtail_loads` (ARVT, areas, rudder deflection, `xv25`/`xv50`); the **mass-basis FLIGHT loading** (`one_engine_out.mass_basis` — `IZZ` and CG through WTONECG's `weights_and_inertia` on that loading's items; see below); `Project.speeds` (VC/VD, VS when no VMC is entered, shoulder altitude). The 25%/50% MAC v-tail stations are the `xv25`/`xv50` of `VTailLoadsInput` (`xv50` added in C9).
+- **Reads:** `Project.one_engine_out` (`OneEngineOutInput` — the failure-transient timing: thrust-decay / windmill-drag / rudder-travel times, Euler step, failed-engine index); the failed `Project.engines[i]` (HP, prop diameter, butt line, and the entered windmilling disc drag coefficient `windmill_drag_cd` — the march's windmill drag is `C_D·q·πD²/4` when it is entered, else the Glauert bound, through `one_engine_out.windmill_drag`, design note 66 D-66.12b); `Project.vtail_loads` (ARVT, areas, rudder deflection, `xv25`/`xv50`); the **mass-basis FLIGHT loading** (`one_engine_out.mass_basis` — `IZZ` and CG through WTONECG's `weights_and_inertia` on that loading's items; see below); `Project.speeds` (VC/VD, VS when no VMC is entered, shoulder altitude). The 25%/50% MAC v-tail stations are the `xv25`/`xv50` of `VTailLoadsInput` (`xv50` added in C9).
 - **Writes:** the maximum asymmetric **vertical-tail** load per speed (VC ultimate / VD limit / the low end, VMC or VS) — a `ModuleResult` with one `ConditionResult` each (engine thrust, windmill drag, max yaw rate, **max tail load**, 25%/50% MAC loads at peak, time to recovery). Non-recovery (below VMC) is flagged. The full time history is available on demand (`time_history`) for the Streamlit re-run; it is not persisted.
 - **Safety factor is a case-definition attribute (M1-5, review T7).** The SF is owned by the **load-case definition**, not the speed: how the governing regulation *classifies* the load (LIMIT vs ULTIMATE) sets the factor, and the same case definition also fixes the **speed range** it is considered over (evaluated at the range's critical high end). Being a *failure* case does not by itself reduce the factor. 23.367(a) (turbopropeller; Ref 1 Ch 11 p87; VMC = minimum control speed, Method allows VS/VSF substituted for VMC) defines two cases: **(a)(1)** power failure from **fuel-flow interruption** — **LIMIT → SF 1.5**, considered VMC→VD (a failure case that keeps the full factor); **(a)(2)** **compressor-from-turbine disconnection / turbine-blade loss** — **ULTIMATE → SF 1.0**, considered VMC→VC (a "limit treated as ultimate" value; the previous default 1.5 double-factored it). The **VS** point (VS substituted for VMC, the shared floor) is reported as a **LIMIT** design point (**SF 1.5**, decided 2026-07-20). Each case declares its `load_class`/`safety_factor`, speed range and basis as a row in the `_load_cases` table (`_LoadCase`), carried onto the `ConditionResult` (`safety_factor` + `note`), so the deliverable renders `lbs-ULT` with the correct `SF`. (23.367(a) is turbopropeller-specific — the `is_turboprop` gate and the VSF alternative VMC substitute are backlog M4-3.)
 - **Method:** a **time-marching yaw simulation** (Euler), reusing the shared v-tail aero helpers (`sloads/modules/_vtail.py`: AVT lift slope, EFFECTV, the EF large-deflection chart) that SELECT also uses.
@@ -803,7 +803,7 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   fin. `ConditionResult`s report the air and inertia totals, root
   `Sz`/`Mxx`/`Myy` with its stated torsion axis, and the hinge/transfer values.
   Feeds the empennage decks and, through `balance`, the assembled airplane.
-- **The T-tail fin (design note 51 §9, #328).** On a `T_TAIL` the fin is the
+- **The T-tail fin (design note 51 §9, #328; §10, #334).** On a `T_TAIL` the fin is the
   horizontal tail's supporting structure (23.427(c)), and its tip carries three
   horizontal-tail sets:
   - **The balancing pairing (T-5).** The balancing tail load and the h-tail's
@@ -816,9 +816,10 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
     - β is the fin's own side load as an angle on SELECT's slope; the side
       gust takes the AC's `1.2 U/V` instead.
     - Its sense is the fin's own root rolling moment's (¶5d).
-    - It is sized for the fin. `check_htail_under_induced_roll` states `M_r/2`
-      per side against the horizontal tail's governing root bending on one
-      factor basis, and `validation` warns above 100 %, never refusing.
+    - `InducedRoll.stations` is where the horizontal tail carries it
+      (`induced_roll_stations`, D-51.12): the 23.427(a) case's own
+      chord-proportional shape at 25 % chord, antisymmetric, so `Σ fz = 0`,
+      `Σ fz·y = M_r` and each root carries `±M_r/2`.
     - Mach is stated, with a warning above `AC23_9_MACH_WARN`. The entered
       stabilizer dihedral is stated and warned. `M_r` is scaled for neither
       (D-51.8).
@@ -830,6 +831,17 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   Each fin result publishes `vtail_root_mxx_with_tip`, the root rolling moment
   including the tip set (D-51.10); the station columns stay the fin's own
   loads.
+- **The T-tail horizontal tail carries `M_r` (design note 51 D-51.12, #334).**
+  For each fin condition carrying an induced moment, the horizontal tail has
+  its own condition `INDUCED ROLL — <fin condition>` (HT-20…HT-49,
+  `case_ids.HTAIL_BAND_TTAIL`; 23.427(c)): the fin condition's T-5 trim load,
+  read from its `TipTransfer` and split into `LT25`/`LT50` so its centre of
+  pressure is the transfer's `x_air` exactly; the tail's inertia at the pair's
+  load factor; and `InducedRoll.stations` on top. It takes the fin
+  condition's safety factor (a 23.367(a)(2) case stays `ULT SF=1.0`) and
+  reaches the h-tail table, the applied CSV, the case index and the report's
+  h-tail section like any h-tail condition. It is the mirror of `HTAIL UNSYM`.
+  T-5 is the only pairing policy (D-51.13, AC 23-9 ¶5d p5).
 - **Validation:** **no printed oracle.** Chordwise placement is TAILDIST's
   unchanged (`LT25` at 25 %, `LT50` at 50 %), which makes every target
   closed-form, and those closed forms **are** the gate (`CLAUDE.md` practice 2)
@@ -1019,10 +1031,14 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   rudder kick or an abrupt elevator input, and the pre-closure `Fy`/`Mz`,
   `Fz`/`My` **are** the applied load, by construction. Each is gated instead on
   the case's symmetric (or trim) half, with the defining set removed, still
-  closing inside 1 %. On a T-tail the lateral and one-engine-out cases' fin set
-  also carries the AC 23-9 induced rolling moment as a free couple at the fin
-  tip (`source` `vtail-induced-roll`, design note 51 D-51.4a). It is part of the
-  defining set, and the closure's `ṗ` reacts it; the case states it in band
+  closing inside 1 %. On a T-tail the lateral and one-engine-out cases also
+  carry the AC 23-9 induced rolling moment where the horizontal tail carries
+  it: `InducedRoll.stations`, the induced strips alone, on the h-tail member
+  (`source` `htail-induced-roll`, side R/L, design note 51 D-51.4b; the trim
+  tail load is already in the case, lumped). `Σ fz = 0`, `Σ fz·y = M_r`,
+  `Σ fz·x = 0`, so `ṗ`, `q̇`, `ṙ` and the fin root `Mx` are what a fin-tip
+  couple gave; the port twin reflects them. It is part of the defining set,
+  and the closure's `ṗ` reacts it; the case states it in band
   (`INDUCED_ROLL_NOTE`). The deck's 23.427(a) case carries the horizontal
   tail's unsymmetrical roll at the fin root exactly, as strips, and gets no
   lumped set on top (D-51.5a). Stated in full in
@@ -1118,7 +1134,10 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   engine's own when `EngineInput.windmill_drag_cd` is entered —
   `C_D · q · πD²/4` on the march's ramp — and otherwise ONENGOUT's Glauert term,
   the method's upper bound (C_D,disc 0.50, manual Ch 11 p88), delivered as that
-  bound and stated so per case; the march and the fin load always use the bound.
+  bound and stated so per case. The march is forced by the same drag
+  (`CaseInputs.windmill_cd`, `one_engine_out.windmill_drag`, design note 66
+  D-66.12b, #334), so the hub drag, the fin load and the closure's yaw are one
+  airplane state either way.
   The coefficient is read through `one_engine_out.entered_windmill_cd` alone
   (#343): one that is not positive is refused by name before any case is
   assembled (a negative one was a forward thrust at the failed hub), one above

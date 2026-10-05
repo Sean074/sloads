@@ -302,7 +302,7 @@ substitute (R10); `cspell.json` for new terms.
 | Scalar-vs-polyline geometry drift (two representations of tail area/span) | The 1 % T1 validator is loud; scalars stay oracle-authoritative; backlog M4-3(a) (v-tail geometry provenance) is subsumed here — close or re-scope it at T1 |
 | V-tail axis mapping hand-rolled at a call site | `coordinates.py` single owner + drift guard, written in T2/T4, per CONVENTIONS §7 |
 | `n` for tail inertia not defined for every case | Explicit per-case source table in T2's design review; documented `1.0` fallback, printed in-band |
-| T-tail concurrency assumption challenged later | T-5 pairing stated in the deck header; conservative superposed policy pre-scoped in §8 |
+| T-tail concurrency assumption challenged later | T-5 pairing stated in the deck header; the superposed policy of §8 closed on AC 23-9 ¶5d p5 (note 51 D-51.13) |
 | Chord-proportional shape questioned vs Schrenk | Recorded as decision T-2 with rationale; upgrading the shape later changes only the `w_j` line in §4 — closures re-derive |
 | **Full-span h-tail is a new beam topology** (T-8): fuselage-attachment supports have no wing analogue, and getting them wrong makes the T4 invariant unclosable | Attachment stations are defined and gated in **T2**, before any deck exists; the centreline rolling closure is the specific test that catches a mis-placed support |
 | **Double-count with `body_loads`' point tail-load station** (GID 1001 band) in a combined-airframe sum | T-11: the plan-07 checker declares the authoritative tail representation; T4 restates it in the deck `$` header. Do not defer this to L-1's assembled-airframe export |
@@ -315,7 +315,10 @@ substitute (R10); `cspell.json` for new terms.
 - V-tail lateral inertia (needs a lateral load factor in the case data).
 - Tapered/concentrated tail mass (upgrade `TailMassInput` toward
   `WingMassInput` parity).
-- Conservative superposed-critical-HT T-tail pairing as a selectable policy.
+- ~~Conservative superposed-critical-HT T-tail pairing as a selectable
+  policy.~~ **Closed 2026-10-04 (note 51 D-51.13, #335):** AC 23-9 ¶5d p5
+  names the pairing ("combined with the applicable level flight balancing
+  load"), so T-5 is the only policy.
 - Gust-specific tail spanwise shape (pairs with the existing `[V]` gust
   spanwise-distribution decision).
 - Hinge-moment deliverable as a reported load case in its own right (T6 emits

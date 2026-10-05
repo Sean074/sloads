@@ -16,6 +16,7 @@ EF; see :mod:`sloads.modules._vtail`). Per ONENGOUT.BAS, with ``Q = V^2/295``:
     VTFPS     = (V/sqrt(sigma)) * 1.15 * 88/60           # true airspeed, ft/s
     THRUST    = MAXHP*550*.85 / VTFPS                    # engine thrust, lb
     DRAG      = .85*.232*(.002378*sigma)*VTFPS^2*DIA^2   # windmill drag, lb (Glauert)
+                # -- or C_D*q*pi*DIA^2/4 with an entered C_D (note 66 D-66.12b)
     LT25 = (THETA + damp)*SLOPELT25*Q*SVT/144            # angle-of-attack load (25% MAC)
     LT50 = EF*EFFECTV*SLOPELT25*RUD*Q*SVT/144            # camber/rudder load (50% MAC)
     MOM  = thrust/windmill schedule - LT25*(XT25-XCG) - LT50*(XT50-XCG)
@@ -145,6 +146,10 @@ class CaseInputs:
     time2drag: float
     inctimerud: float
     dt: float
+    #: The failed engine's entered windmilling disc drag coefficient, or
+    #: ``None`` for the Glauert bound (note 66 D-66.12b): the drag the march is
+    #: forced by and the balanced case applies at the hub, one number.
+    windmill_cd: Optional[float] = None
 
 
 @dataclass
@@ -179,7 +184,8 @@ def simulate(c: CaseInputs) -> Tuple[List[HistoryRow], CaseSummary]:
 
     Returns the full time history and the case summary (max tail load, max yaw rate,
     time to recovery). Mirrors the BASIC statement order exactly."""
-    thrust, drag, _ = engine_thrust_and_drag(c)
+    thrust, _, _ = engine_thrust_and_drag(c)
+    drag = windmill_drag(c)
     mom_eng = thrust * c.bleng
     mom_windmill = drag * c.bleng
     slope_lt25 = lift_curve_slope(c.arvt) / DEG_PER_RAD          # per deg
@@ -299,6 +305,21 @@ def windmill_drag_from_cd(c: CaseInputs, cd: float) -> float:
     return cd * _disc_q_area(c)
 
 
+def windmill_drag(c: CaseInputs) -> float:
+    """The failed engine's full windmill drag, lb, at the case's speed -- the
+    one owner of the drag the march is forced by (:func:`simulate`) and the
+    balanced case applies at the hub (:func:`engine_forces_at`).
+
+    The entered coefficient's :func:`windmill_drag_from_cd` when
+    ``c.windmill_cd`` is set (note 66 D-66.12b, #334: 23.367(a) prescribes the
+    drag of "a single malfunction of the propeller drag limiting system",
+    substantiated under (a)(3)), else ONENGOUT's Glauert term, the bound.
+    """
+    if c.windmill_cd is not None:
+        return windmill_drag_from_cd(c, c.windmill_cd)
+    return engine_thrust_and_drag(c)[1]
+
+
 def _disc_q_area(c: CaseInputs) -> float:
     """True dynamic pressure (psf) times the propeller disc area (ft^2)."""
     sigma = standard_atmosphere(c.alt_ft)[1]
@@ -306,8 +327,7 @@ def _disc_q_area(c: CaseInputs) -> float:
     return 0.5 * RHO_SL * sigma * vtfps ** 2 * math.pi * c.dia_ft ** 2 / 4.0
 
 
-def engine_forces_at(time: float, c: CaseInputs,
-                     windmill_cd: Optional[float] = None) -> Tuple[float, float, float]:
+def engine_forces_at(time: float, c: CaseInputs) -> Tuple[float, float, float]:
     """``(live thrust, failed engine's remaining thrust, failed engine's windmill
     drag)`` in lb at ``time`` -- the one owner of the schedule :func:`_moment`
     turns into a yawing moment (ONENGOUT.BAS 282-286) and the balanced
@@ -318,13 +338,12 @@ def engine_forces_at(time: float, c: CaseInputs,
     holds. The live engine gives full thrust throughout. ``_moment`` is this
     times the engine arm: ``(live - remaining + drag) * bleng``.
 
-    ``windmill_cd`` is an entered disc drag coefficient (D-66.12a): the full
-    drag is then :func:`windmill_drag_from_cd`'s, on the same ramp. ``None`` is
-    the Glauert bound, the march's own forcing.
+    The full drag is :func:`windmill_drag`'s, the march's own forcing: the
+    entered coefficient's when ``c.windmill_cd`` is set, else the Glauert bound
+    (D-66.12b).
     """
-    thrust, drag, _ = engine_thrust_and_drag(c)
-    if windmill_cd is not None:
-        drag = windmill_drag_from_cd(c, windmill_cd)
+    thrust = engine_thrust_and_drag(c)[0]
+    drag = windmill_drag(c)
     if time <= 0.0:
         return thrust, thrust, 0.0
     remaining = thrust * (c.time2decay - time) / c.time2decay if time < c.time2decay else 0.0
@@ -660,6 +679,7 @@ def _case_inputs(project: Project, v_kt: float,
         time2drag=oeo.windmill_drag_time_s,
         inctimerud=oeo.rudder_travel_time_s,
         dt=oeo.time_step_s,
+        windmill_cd=entered_windmill_cd(eng, index),
     )
 
 

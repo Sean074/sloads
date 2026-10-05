@@ -1,4 +1,5 @@
-"""The T-tail's horizontal-tail asymmetry at the fin (design note 51 §9, #328).
+"""The T-tail's horizontal-tail asymmetry at the fin (design note 51 §9, #328;
+§10, #334).
 
 No printed oracle covers a T-tail (Appendix A is a conventional empennage; AC
 23-9 ¶3), so rule 2's second branch applies: every gate here is an identity or a
@@ -10,15 +11,20 @@ closure, with the note's expected figures pinned beside it.
 * **G-51.2** ``HTAIL UNSYM``'s tip roll is its h-tail table's ``Σ fz·y``, and
   the applied-load row carries it.
 * **G-51.3** the deck never carries ``HTAIL UNSYM``, and carries exactly one
-  induced couple per T-tail lateral or one-engine-out case.
+  induced set per T-tail lateral or one-engine-out case (G-51.15).
 * **G-51.4** ``M_r = 0.3 q S_H b_H beta`` (AC 23-9 ¶5a p3) and its beta rule.
 * **G-51.5** its sense is the fin's own root rolling moment's (¶5d p5-6).
 * **G-51.6** the deck's fin root carries its own load plus ``M_r``, exactly.
 * **G-51.7** the fin view's root rolling moment with the tip set.
 * **G-51.8** the AC's own 4-6x band on the pure-attitude conditions.
-* **G-51.9** the horizontal-tail check (D-51.7): the ATR's VD engine-out warns.
+* **G-51.9** retired with D-51.7 (D-51.7a): replaced by G-51.14.
 * **G-51.10** the Mach and dihedral limits (D-51.8).
 * **G-51.11** a conventional tail is untouched by all of it.
+* **G-51.12** each induced set: ``Σ fz = 0``, ``Σ fz·y = M_r``, ``±M_r/2`` a root.
+* **G-51.13** each ``INDUCED ROLL`` h-tail condition's per-side root bending.
+* **G-51.14** the ATR's governing h-tail root bending is ONE ENGINE OUT VD.
+* **G-51.15** the deck's strips close exactly as the retired fin-tip couple did.
+* **G-51.16** the h-tail condition's trim part is the fin transfer's pairing.
 """
 
 import copy
@@ -51,7 +57,9 @@ from sloads.modules.select import (
 )
 from sloads.modules.tail_span import (
     HTAIL_UNSYM_LABEL,
+    INDUCED_ROLL_LABEL,
     build_tail_span,
+    htail_root_bending,
     vtail_root_roll,
     vtail_root_roll_with_tip,
 )
@@ -96,6 +104,31 @@ _ROOT_WITH_TIP = {
         "ONE ENGINE OUT — VD (limit) (engine 1)": +1_352_404,
         "ONE ENGINE OUT — VD (limit) (engine 2)": -1_352_404,
     },
+}
+
+#: G-51.13 (note 51 §10.1): each ``INDUCED ROLL`` h-tail condition's larger
+#: per-side root bending (lb-in, LIMIT), measured 2026-10-04; the ATR's
+#: engine-out rows hold for each engine.
+_INDUCED_BENDING = {
+    "concept_regional_jet": {
+        "SUDDEN RUDDER": 148_657, "YAW TO SIDESLIP": 83_801,
+        "YAW 15 NEUTRAL": 170_579, "SIDE GUST": 291_033,
+    },
+    "atr42_100": {
+        "SUDDEN RUDDER": 66_980, "YAW TO SIDESLIP": 37_655,
+        "YAW 15 NEUTRAL": 74_723, "SIDE GUST": 110_703,
+        "ONE ENGINE OUT — VC (ultimate) (engine 1)": 173_864,
+        "ONE ENGINE OUT — VD (limit) (engine 1)": 233_122,
+        "ONE ENGINE OUT — VC (ultimate) (engine 2)": 173_864,
+        "ONE ENGINE OUT — VD (limit) (engine 2)": 233_122,
+    },
+}
+
+#: G-51.14: the governing per-side h-tail root bending (raw LIMIT, lb-in) and
+#: the condition it comes from. The RJ's does not move with D-51.12.
+_GOVERNING = {
+    "concept_regional_jet": ("GUST DN RETRACTED", 349_920),
+    "atr42_100": (f"{INDUCED_ROLL_LABEL} — ONE ENGINE OUT — VD (limit) (engine 1)", 233_122),
 }
 
 #: G-51.1 / G-51.2: the 23.427(a) case's net roll about the centreline.
@@ -143,8 +176,10 @@ def test_the_deck_carries_the_unsymmetrical_roll_at_the_fin_root(name):
 
 
 @pytest.mark.parametrize("name", _T_TAILS)
-def test_the_deck_carries_one_induced_couple_and_never_the_lumped_set(name):
-    """G-51.3 and G-51.6, on every lateral and engine-out case."""
+def test_the_deck_carries_one_induced_set_and_never_the_lumped_set(name):
+    """G-51.3, G-51.6 and G-51.15's shape (D-51.4b), on every lateral and
+    engine-out case: exactly one induced set, on the h-tail member, with no net
+    lift, no pitch and the fin condition's ``M_r`` as its roll."""
     project = _project(name)
     model = build_lra_model(project)
     fins = {r.case: r for r in build_tail_span(project)["vtail"]}
@@ -152,16 +187,21 @@ def test_the_deck_carries_one_induced_couple_and_never_the_lumped_set(name):
     assert not any(c.label == HTAIL_UNSYM_LABEL for c in cases), name
     seen = 0
     for c in cases:
-        couples = [ld for ld in c.loads if ld.source == INDUCED_ROLL_SOURCE]
+        strips = [ld for ld in c.loads if ld.source == INDUCED_ROLL_SOURCE]
         if not (is_lateral(c) or is_engine_out(c)):
-            assert not couples, (name, c.label)
+            assert not strips, (name, c.label)
             continue
-        assert len(couples) == 1, (name, c.label, c.hand)
-        m_r = couples[0].mx
         fin = fins[c.label]
+        assert len(strips) == len(fin.tip_transfer.induced.stations), (name, c.label, c.hand)
+        assert {_member_key(ld, model.members) for ld in strips} == {"htail"}
+        assert not [ld for ld in c.loads if ld.source == "vtail-induced-roll"]
+        assert math.fsum(ld.fz for ld in strips) == pytest.approx(0.0, abs=1e-6)
+        assert math.fsum(ld.fz * ld.x for ld in strips) == pytest.approx(0.0, abs=1e-3)
+        assert math.fsum(ld.my for ld in strips) == pytest.approx(0.0, abs=1e-3)
+        m_r = math.fsum(ld.fz * ld.y for ld in strips)
         # The computed hand is the fin result's own; the twin is its mirror.
-        sign = 1.0 if abs(m_r - fin.tip_transfer.induced.m_r) < 1e-6 else -1.0
-        assert m_r == pytest.approx(sign * fin.tip_transfer.induced.m_r, rel=1e-12)
+        sign = math.copysign(1.0, m_r * fin.tip_transfer.induced.m_r)
+        assert m_r == pytest.approx(sign * fin.tip_transfer.induced.m_r, rel=1e-9)
         own = _fin_root_mx(c, model) - m_r
         assert own == pytest.approx(sign * vtail_root_roll(fin.stations, air_only=True),
                                     rel=1e-9), (name, c.label, c.hand)
@@ -295,28 +335,138 @@ def test_the_pure_attitude_moments_sit_in_the_acs_band(name):
 # --------------------------------------------------------------------------- #
 # G-51.9 / G-51.10 -- the stated limits
 # --------------------------------------------------------------------------- #
-def test_the_htail_check_warns_on_the_atrs_vd_engine_out_alone():
-    """G-51.9 (D-51.7): 142.6 % on the VD engine-out case, on one factor basis;
-    the VC case is ultimate (SF 1.0) and so sits at 68.1 %, not 102.2 %.
-    (142.2 % / 67.9 % until #333 moved the march to the ``aft gross`` loading.)"""
-    ratios = {}
+def test_the_htail_check_is_retired():
+    """G-51.9 retired (D-51.7a, #334): the horizontal tail carries the moment,
+    so no ratio is formed and no fixture warns that the moment sizes it."""
     for name in _T_TAILS:
-        for label, r in _fins(name).items():
+        for r in _fins(name).values():
             i = r.tip_transfer.induced if r.tip_transfer else None
-            if i is not None:
-                ratios[(name, label)] = i.htail_ratio
-    assert ratios[("atr42_100", "ONE ENGINE OUT — VD (limit) (engine 1)")] == \
-        pytest.approx(1.426, rel=1e-3)
-    assert ratios[("atr42_100", "ONE ENGINE OUT — VC (ultimate) (engine 1)")] == \
-        pytest.approx(0.681, rel=1e-3)
-    over = {k for k, v in ratios.items() if v > 1.0}
-    assert over == {("atr42_100", "ONE ENGINE OUT — VD (limit) (engine 1)"),
-                    ("atr42_100", "ONE ENGINE OUT — VD (limit) (engine 2)")}
-    assert max(v for (n, _), v in ratios.items() if n == "concept_regional_jet") == \
-        pytest.approx(0.534, rel=1e-3)
-    warned = [w for w in consistency_warnings(_project("atr42_100"))
-              if w.code == "ttail_induced_roll_sizes_htail"]
-    assert len(warned) == 2 and all("VD" in w.message for w in warned)
+            assert i is None or not hasattr(i, "htail_ratio"), (name, r.case)
+        assert not [w for w in consistency_warnings(_project(name))
+                    if w.code == "ttail_induced_roll_sizes_htail"], name
+
+
+# --------------------------------------------------------------------------- #
+# G-51.12 ... G-51.16 -- the horizontal tail carries M_r (note 51 §10)
+# --------------------------------------------------------------------------- #
+def _induced_htails(spans):
+    """``{fin condition: its INDUCED ROLL h-tail result}``."""
+    prefix = f"{INDUCED_ROLL_LABEL} — "
+    return {r.case[len(prefix):]: r for r in spans["htail"] if r.case.startswith(prefix)}
+
+
+@pytest.mark.parametrize("name", _T_TAILS)
+def test_each_induced_set_carries_m_r_and_no_lift(name):
+    """G-51.12 (D-51.12 (iii)): ``Σ fz = 0``, ``Σ fz·y = M_r``, and each root
+    carries ``M_r/2`` -- chord-proportional at 25 % chord, antisymmetric."""
+    spans = build_tail_span(_project(name))
+    carriers = [r for r in spans["vtail"] if r.tip_transfer and r.tip_transfer.induced]
+    assert carriers, name
+    for fin in carriers:
+        i = fin.tip_transfer.induced
+        st = i.stations
+        assert st, (name, fin.case)
+        assert math.fsum(s.fz for s in st) == pytest.approx(0.0, abs=1e-9 * abs(i.m_r))
+        assert math.fsum(s.fz * s.y for s in st) == pytest.approx(i.m_r, rel=1e-9)
+        stbd = math.fsum(s.fz * s.y for s in st if s.y > 0.0)
+        port = math.fsum(s.fz * s.y for s in st if s.y < 0.0)
+        assert stbd == pytest.approx(0.5 * i.m_r, rel=1e-9), (name, fin.case)
+        assert port == pytest.approx(0.5 * i.m_r, rel=1e-9), (name, fin.case)
+        assert all(s.f_inertia == 0.0 for s in st)
+
+
+@pytest.mark.parametrize("name", _T_TAILS)
+def test_each_induced_roll_condition_bends_the_htail_as_measured(name):
+    """G-51.13 (note 51 §10.1, ±0.1 %): one ``INDUCED ROLL`` h-tail condition
+    per fin condition carrying ``M_r``, with that fin condition's factor, the
+    23.427(c) reference and an id in the HT-20 band."""
+    from sloads.case_ids import HTAIL_BAND_TTAIL
+
+    spans = build_tail_span(_project(name))
+    fins = {r.case: r for r in spans["vtail"]}
+    htails = _induced_htails(spans)
+    assert set(htails) == set(_INDUCED_BENDING[name]), name
+    ids = []
+    for fin_case, want in _INDUCED_BENDING[name].items():
+        r = htails[fin_case]
+        assert htail_root_bending(r) == pytest.approx(want, rel=1e-3), (name, fin_case)
+        assert r.safety_factor == fins[fin_case].safety_factor, (name, fin_case)
+        assert r.case_ref.far_reference == "23.427(c)"
+        assert r.case_ref.component == "htail"
+        ids.append(r.case_ref.case_id)
+    assert sorted(ids) == [f"HT-{HTAIL_BAND_TTAIL + k:02d}" for k in range(len(ids))]
+
+
+@pytest.mark.parametrize("name", _T_TAILS)
+def test_the_governing_htail_bending_moves_on_the_atr_alone(name):
+    """G-51.14 (replaces G-51.9): the ATR's governing per-side h-tail root
+    bending is ONE ENGINE OUT VD's 233,122 lb-in (+44.4 % on GUST DN
+    RETRACTED's 161,404); the RJ's stays GUST DN RETRACTED's 349,920."""
+    spans = build_tail_span(_project(name))
+    label, want = _GOVERNING[name]
+    governing = max(spans["htail"], key=htail_root_bending)
+    assert governing.case == label, name
+    assert htail_root_bending(governing) == pytest.approx(want, rel=1e-3), name
+
+
+@pytest.mark.parametrize("name", _T_TAILS)
+def test_the_strips_close_exactly_as_the_fin_tip_couple_did(name, monkeypatch):
+    """G-51.15 (D-51.4b): rebuild the deck with D-51.4a's fin-tip couple in
+    place of the strips, and every lateral and engine-out case's ``p_dot``,
+    ``q_dot`` and ``r_dot`` -- and the fin-root rolling moment -- are the
+    same. Moving the moment onto the horizontal tail moves no closure."""
+    from sloads.export.coordinates import tail_station_to_airplane
+    from sloads.models import BalancedLoad
+    from sloads.modules.balance import air
+    from sloads.tail_geometry import VTAIL
+
+    project = _project(name)
+    model = build_lra_model(project)
+    after = {(c.label, c.hand): c for c in build_balanced_cases(project)
+             if is_lateral(c) or is_engine_out(c)}
+    real = air.vtail_sets
+
+    def with_couple(result):
+        loads = [ld for ld in real(result) if ld.source != INDUCED_ROLL_SOURCE]
+        t = result.tip_transfer
+        if t is not None and t.induced is not None and result.stations:
+            tip = result.stations[-1]
+            x, y, z = tail_station_to_airplane(tip.x, tip.y, VTAIL, root_z=tip.z)
+            loads.append(BalancedLoad(x=x, y=y, z=z, mx=t.induced.m_r,
+                                      source="vtail-induced-roll", side="C"))
+        return loads
+
+    monkeypatch.setattr(air, "vtail_sets", with_couple)
+    before = {(c.label, c.hand): c for c in build_balanced_cases(project)
+              if is_lateral(c) or is_engine_out(c)}
+    assert before.keys() == after.keys() and after, name
+    for key, a in after.items():
+        b = before[key]
+        for q in ("p_dot", "q_dot", "r_dot"):
+            assert getattr(a, q) == pytest.approx(getattr(b, q), rel=1e-9, abs=1e-12), (key, q)
+        assert _fin_root_mx(a, model) == pytest.approx(_fin_root_mx(b, model), rel=1e-9), key
+
+
+@pytest.mark.parametrize("name", _T_TAILS)
+def test_the_trim_part_is_the_fin_transfers_pairing(name):
+    """G-51.16 (one pairing owner): take the induced set out of an ``INDUCED
+    ROLL`` condition and what is left is the fin transfer's own -- its total
+    ``fz`` (trim plus inertia) and its trim load's moment about the fin tip at
+    the published centre of pressure. The inertia is smeared at each strip's
+    reference axis, as on every h-tail condition and HTAIL UNSYM (D-51.2a),
+    not at the transfer's mid-chord lumped station."""
+    spans = build_tail_span(_project(name))
+    fins = {r.case: r for r in spans["vtail"]}
+    for fin_case, r in _induced_htails(spans).items():
+        t = fins[fin_case].tip_transfer
+        induced = {(s.x, s.y): s for s in t.induced.stations}
+        trim = [(s, induced[(s.x, s.y)]) for s in r.stations]
+        fz = math.fsum(s.fz - i.fz for s, i in trim)
+        assert fz == pytest.approx(t.fz, rel=1e-9), (name, fin_case)
+        air_myy = math.fsum((t.x_tip - s.x) * (s.fz - s.f_inertia - i.fz)
+                            + s.myy_free - i.myy_free for s, i in trim)
+        assert air_myy == pytest.approx((t.x_tip - t.x_air) * t.air_lb, rel=1e-9), \
+            (name, fin_case)
 
 
 def test_the_mach_limit_warns_on_the_rjs_side_gust_alone():
@@ -386,6 +536,7 @@ def test_a_conventional_tail_carries_none_of_it(name):
     fins = build_tail_span(project)["vtail"]
     assert all(r.tip_transfer is None for r in fins), name
     assert not any(r.case == HTAIL_UNSYM_LABEL for r in fins), name
+    assert not _induced_htails(build_tail_span(project)), name
     for c in build_balanced_cases(project):
         assert not any(ld.source == INDUCED_ROLL_SOURCE for ld in c.loads), (name, c.label)
     assert not [w for w in consistency_warnings(project) if w.code.startswith("ttail_")]

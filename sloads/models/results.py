@@ -655,10 +655,12 @@ class InducedRoll:
     produced it (D-51.3a), and ``mach``/``dihedral_deg`` carry the two limits
     the AC states for itself (D-51.8).
 
-    ``htail_ratio`` is D-51.7's check of the owner's assumption that the moment
-    does not size the horizontal tail: ``(m_r/2 * SF) / (M_h * SF_h)``, with
-    ``M_h`` the governing per-side h-tail root bending over the h-tail's own
-    conditions. ``None`` when the h-tail has no conditions to compare with.
+    ``stations`` is where the horizontal tail carries it (note 51 D-51.12,
+    D-51.4b): the h-tail's own strips, chord-proportional at 25 % chord,
+    antisymmetric, ``Σ fz = 0`` and ``Σ fz·y = m_r`` -- the induced set alone,
+    LIMIT, in the h-tail's frame (the airplane's). The deck applies these and
+    no fin-tip couple; the h-tail's ``INDUCED ROLL`` condition adds them to the
+    fin condition's trim pairing. Empty off a T-tail with no h-tail planform.
     """
     m_r: float
     beta_deg: float
@@ -667,7 +669,7 @@ class InducedRoll:
     altitude_ft: float
     basis: str
     dihedral_deg: float = 0.0
-    htail_ratio: Optional[float] = None
+    stations: List[WingStationLoad] = field(default_factory=list)
 
 
 @dataclass

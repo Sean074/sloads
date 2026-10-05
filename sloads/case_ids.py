@@ -46,6 +46,9 @@ physical cases (an outright collision, not merely a divergent sequence):
 * ``W-60``..``W-69`` -- FLAPLOAD
 * ``W-70``+          -- a wing-hosted tab (TABLOADS)
 * ``HT-01``..        -- SELECT's rational h-tail conditions
+* ``HT-20``..``HT-49`` -- :data:`HTAIL_BAND_TTAIL`: a T-tail h-tail condition
+  carrying a fin condition's AC 23-9 induced rolling moment (``INDUCED ROLL --
+  <fin condition>``, design note 51 D-51.12). Minted by ``tail_span``.
 * ``HT-50``+         -- a horizontal-tail-hosted tab
 * ``VT-01``..        -- SELECT's rational v-tail conditions
 * ``VT-20``..``VT-29`` -- :data:`VTAIL_BAND_TTAIL`: a T-tail fin condition
@@ -134,6 +137,9 @@ VTAIL_BAND_TAB = 50
 # ONENGOUT's own VT- band, below the tab band (M4-2 decision 5).
 # The T-tail fin conditions tail_span mints (note 51 D-51.2a), below ONENGOUT's.
 VTAIL_BAND_TTAIL = 20
+# The T-tail h-tail conditions tail_span mints, one per fin condition carrying
+# the AC 23-9 induced moment (note 51 D-51.12): HT-20..HT-49, below the tab band.
+HTAIL_BAND_TTAIL = 20
 VTAIL_BAND_ONENGOUT = 30
 
 
