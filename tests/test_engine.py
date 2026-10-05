@@ -240,6 +240,57 @@ def test_an_entered_engine_magnitude_must_be_positive():
         raise AssertionError("prop_inertia=-1 was not refused")
 
 
+
+def test_the_rpm_weight_and_diameter_reads_are_refused_by_name():
+    """#364, the #343 sweep finished. A negative rpm reversed the stoppage
+    torque and the gyroscopic couples -- a second spin-sign owner beside
+    ``prop_direction`` (the #332 class) -- and a zero one divided by zero in
+    ``torque_from_hp``; a negative weight reversed the inertia load, and a hub
+    heavier than its propeller gave the blades a negative inertia. Zero stays
+    admissible wherever it means *none* (the regional jet's fans enter no
+    propeller), except where the rpm divides."""
+    import re
+    from dataclasses import replace
+
+    def refused(condition, inp, pattern):
+        try:
+            condition(inp)
+        except ValueError as err:
+            assert re.search(pattern, str(err)), err
+        else:
+            raise AssertionError(f"{pattern!r} was not refused")
+
+    # Where the rpm divides (reciprocating torque from hp), zero is refused too.
+    for field, condition in (("takeoff_rpm", calc.condition_361_a1),
+                             ("max_cont_rpm", calc.condition_361_a2)):
+        for bad in (0.0, -1.0):
+            refused(condition, replace(io520bb(), **{field: bad}),
+                    rf"EngineInput\.{field} is .*must be positive")
+    # Elsewhere a magnitude is refused only below zero.
+    tp = turboprop()
+    rotor = tp.rotors[0]
+    cases = [(calc.condition_361_b1, replace(tp, takeoff_rpm=-1.0), "takeoff_rpm"),
+             (calc.condition_371_b, replace(tp, max_cont_rpm=-1.0), "max_cont_rpm"),
+             (calc.condition_25_371, replace(tp, max_cont_rpm=-1.0), "max_cont_rpm"),
+             (calc.condition_361_a3, replace(tp, prop_weight_lb=-1.0), "prop_weight_lb"),
+             (calc.condition_361_a3, replace(tp, engine_weight_lb=-1.0), "engine_weight_lb"),
+             (calc.condition_361_b1, replace(tp, hub_weight_lb=-1.0), "hub_weight_lb"),
+             (calc.condition_361_b1, replace(tp, prop_diameter_in=-1.0), "prop_diameter_in"),
+             (calc.condition_361_b1, replace(tp, rotors=[replace(rotor, weight_lb=-1.0)]),
+              r"rotors\[\]\.weight_lb"),
+             (calc.condition_361_b1, replace(tp, rotors=[replace(rotor, diameter_in=-1.0)]),
+              r"rotors\[\]\.diameter_in"),
+             (calc.condition_361_b1, replace(tp, rotors=[replace(rotor, inertia=-1.0)]),
+              r"rotors\[\]\.inertia")]
+    for condition, inp, field in cases:
+        refused(condition, inp, rf"EngineInput\.{field} is .*must be zero or positive")
+    refused(calc.condition_361_b1, replace(tp, hub_weight_lb=tp.prop_weight_lb + 1.0),
+            r"hub_weight_lb .* exceeds prop_weight_lb")
+    # A fan with no propeller: every prop magnitude zero, and it still runs.
+    calc.condition_361_b1(replace(tp, takeoff_rpm=0.0, max_cont_rpm=0.0, prop_weight_lb=0.0,
+                                  hub_weight_lb=0.0, prop_diameter_in=0.0))
+    calc.condition_371_b(replace(tp, max_cont_rpm=0.0))
+
 def test_measured_prop_inertia_overrides_geometry():
     from dataclasses import replace
     inp = replace(turboprop(), prop_inertia=12.5)
