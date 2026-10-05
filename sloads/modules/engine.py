@@ -235,7 +235,7 @@ def angular_momentum(inp: EngineInput) -> float:
     for both conditions and for the balanced case's statement of which engines
     spin together.
     """
-    return spin_momentum(inp, inp.max_cont_rpm)
+    return spin_momentum(inp, _positive(inp.max_cont_rpm, "max_cont_rpm", zero_ok=True))
 
 
 def spin_momentum(inp: EngineInput, prop_rpm: float) -> float:
@@ -281,8 +281,10 @@ def _floored_torque(spin_torque: float) -> float:
 
 
 def combined_weight(inp: EngineInput) -> float:
-    """PPWT -- combined propeller + engine weight, lb."""
-    return inp.prop_weight_lb + inp.engine_weight_lb
+    """PPWT -- combined propeller + engine weight, lb (each refused by name
+    unless zero or positive, #364: a negative weight reverses the inertia load)."""
+    return (_positive(inp.prop_weight_lb, "prop_weight_lb", zero_ok=True)
+            + _positive(inp.engine_weight_lb, "engine_weight_lb", zero_ok=True))
 
 
 def combined_cg(inp: EngineInput) -> Vec3:
@@ -382,12 +384,14 @@ def torque_from_hp(hp: float, rpm: float) -> float:
 
 def takeoff_torque(inp: EngineInput) -> float:
     """TOTORQ for reciprocating engines."""
-    return torque_from_hp(_required(inp.takeoff_hp, "takeoff_hp"), inp.takeoff_rpm)
+    return torque_from_hp(_required(inp.takeoff_hp, "takeoff_hp"),
+                          _positive(inp.takeoff_rpm, "takeoff_rpm"))
 
 
 def max_cont_torque(inp: EngineInput) -> float:
     """CONTTORQ for reciprocating engines."""
-    return torque_from_hp(_required(inp.max_cont_hp, "max_cont_hp"), inp.max_cont_rpm)
+    return torque_from_hp(_required(inp.max_cont_hp, "max_cont_hp"),
+                          _positive(inp.max_cont_rpm, "max_cont_rpm"))
 
 
 def torque_factor(inp: EngineInput) -> float:
@@ -409,12 +413,21 @@ def _prop_inertia(inp: EngineInput) -> float:
 
     Uses the measured ``prop_inertia`` when supplied; otherwise approximates the
     blades only (PROPWT - HUBWT) as thin rods, I = m*L^2/3 with the blade length
-    taken as the prop radius.
+    taken as the prop radius. A hub heavier than the propeller it is part of
+    would give the blades a negative weight and the engine a negative spin
+    inertia, so it is refused by name with the other magnitudes (#364).
     """
     if inp.prop_inertia is not None:
         return _positive(inp.prop_inertia, "prop_inertia", zero_ok=True)
-    blade_weight = inp.prop_weight_lb - (inp.hub_weight_lb or 0.0)
-    radius_ft = inp.prop_diameter_in / 2 / IN_PER_FT
+    prop_weight = _positive(inp.prop_weight_lb, "prop_weight_lb", zero_ok=True)
+    hub_weight = _positive(inp.hub_weight_lb or 0.0, "hub_weight_lb", zero_ok=True)
+    if hub_weight > prop_weight:
+        raise ValueError(
+            f"EngineInput.hub_weight_lb ({format_value(hub_weight)} lb) exceeds "
+            f"prop_weight_lb ({format_value(prop_weight)} lb): the hub is part of "
+            "the propeller, so the blades would weigh less than nothing (#364)")
+    blade_weight = prop_weight - hub_weight
+    radius_ft = _positive(inp.prop_diameter_in, "prop_diameter_in", zero_ok=True) / 2 / IN_PER_FT
     val = blade_weight / G * radius_ft ** 2 / 3
     return basic_trunc3(val)  # BASIC truncated to 3 decimals
 
@@ -423,12 +436,13 @@ def _rotor_inertia(rotor: Rotor) -> float:
     """IROTOR -- rotor polar inertia, slug-ft^2.
 
     Uses the rotor's measured ``inertia`` when supplied; otherwise approximates a
-    solid disk, I = 0.5*m*r^2.
+    solid disk, I = 0.5*m*r^2. Each is a magnitude, refused by name unless
+    zero or positive (#364); the signed ``max_rpm`` alone carries the spin.
     """
     if rotor.inertia is not None:
-        return rotor.inertia
-    radius_ft = rotor.diameter_in / 2 / IN_PER_FT
-    return 0.5 * rotor.weight_lb / G * radius_ft ** 2
+        return _positive(rotor.inertia, "rotors[].inertia", zero_ok=True)
+    radius_ft = _positive(rotor.diameter_in, "rotors[].diameter_in", zero_ok=True) / 2 / IN_PER_FT
+    return 0.5 * _positive(rotor.weight_lb, "rotors[].weight_lb", zero_ok=True) / G * radius_ft ** 2
 
 
 # --------------------------------------------------------------------------- #
@@ -603,7 +617,7 @@ def condition_371_b(inp: EngineInput) -> ConditionResult:
     against a clockwise one's -- the same airplane state (note 53 D-53.6 as
     amended at #319).
     """
-    omega_prop = _omega(inp.max_cont_rpm)
+    omega_prop = _omega(_positive(inp.max_cont_rpm, "max_cont_rpm", zero_ok=True))
     tpitch = angular_momentum(inp)
 
     m_yaw = YAW_RATE * tpitch     # Myy due to 2.5 rad/s yaw
@@ -687,7 +701,7 @@ def _stoppage_torque(inp: EngineInput) -> Tuple[float, List[LoadValue]]:
     duplicate 23.361(b)(1) kept).
     """
     dt = _required(inp.stop_time_s, "stop_time_s")
-    torq = spin_momentum(inp, inp.takeoff_rpm) / dt
+    torq = spin_momentum(inp, _positive(inp.takeoff_rpm, "takeoff_rpm", zero_ok=True)) / dt
     detail = [LoadValue("Ixx propeller", _prop_inertia(inp), "slug-ft^2", key="ixx_propeller")]
     detail.extend(LoadValue(f"Ixx rotor({i})", _rotor_inertia(rotor), "slug-ft^2",
                             key=f"ixx_rotor_{i}")
@@ -763,7 +777,7 @@ def condition_25_371(inp: EngineInput) -> ConditionResult:
     load uses the project's actual A2 limit load factor (25.333(b)) rather than the
     fixed 2.5g, so it is not under-conservative when A2 > 2.5.
     """
-    omega_prop = _omega(inp.max_cont_rpm)
+    omega_prop = _omega(_positive(inp.max_cont_rpm, "max_cont_rpm", zero_ok=True))
     tpitch = angular_momentum(inp)
 
     # Fixed FAR 23.371(b) stand-in rates -- the moment is ALWAYS computed at these
