@@ -162,6 +162,58 @@ def test_every_interpreter_ci_names_is_the_test_jobs():
         f"ci.yml names {sorted(found - test)} outside the `test` job's {sorted(test)} (#329)")
 
 
+# --- the runner image and the action runtime (#363) --------------------------
+
+_WORKFLOWS = os.path.join(_ROOT, ".github", "workflows")
+_RUNS_ON = re.compile(r"^\s+runs-on:\s*(?P<label>\S+)\s*$", re.M)
+_USES = re.compile(r"^\s+(?:-\s+)?uses:\s*(?P<action>[^@\s]+)@v(?P<major>\d+)\s*$", re.M)
+#: A pinned GitHub-hosted image: ``ubuntu-24.04``, never ``ubuntu-latest``.
+_PINNED_RUNNER = re.compile(r"^ubuntu-\d{2}\.04$")
+
+#: The lowest major of each action that runs on a supported Node runtime
+#: (Node 24; the Node 20 majors -- checkout@v4, setup-python@v5 -- are
+#: deprecated). Total: an action a workflow uses that is not listed here fails
+#: until its runtime is checked and it is added.
+_ACTION_MIN_MAJOR = {
+    "actions/checkout": 5,
+    "actions/setup-python": 6,
+}
+
+
+def _workflow_texts():
+    names = sorted(n for n in os.listdir(_WORKFLOWS) if n.endswith((".yml", ".yaml")))
+    return {n: _read(os.path.join(_WORKFLOWS, n)) for n in names}
+
+
+def test_every_job_runs_on_a_pinned_image():
+    """#363. ``ubuntu-latest`` moved to Ubuntu 26 on 2026-10-19 with no commit
+    in this repository to point at, so a red after that date could not be told
+    from a code regression -- and the first run to land on the new image would
+    have been the release cut's push to ``main``. A pinned image makes the move
+    a deliberate edit, and that edit fails here until it names an image."""
+    labels = {(name, m.group("label")) for name, text in _workflow_texts().items()
+              for m in _RUNS_ON.finditer(text)}
+    assert labels, "no runs-on parsed out of .github/workflows -- re-check this guard"
+    floating = sorted(f"{n}: {lab}" for n, lab in labels if not _PINNED_RUNNER.match(lab))
+    assert not floating, f"jobs on a floating or unrecognised runner image: {floating} (#363)"
+
+
+def test_every_action_runs_on_a_supported_node_runtime():
+    """#363. Every run since the 0.8.8 cut carried a deprecation annotation for
+    the Node 20 runtime of checkout@v4/setup-python@v5, and nothing read it. The
+    floor is per action and the table is total, so an action added to any
+    workflow has to be decided here."""
+    uses = [(name, m.group("action"), int(m.group("major")))
+            for name, text in _workflow_texts().items() for m in _USES.finditer(text)]
+    assert uses, "no uses: parsed out of .github/workflows -- re-check this guard"
+    unknown = sorted({f"{n}: {a}" for n, a, _ in uses if a not in _ACTION_MIN_MAJOR})
+    assert not unknown, f"actions with no runtime floor in _ACTION_MIN_MAJOR: {unknown}"
+    old = sorted(f"{n}: {a}@v{v}" for n, a, v in uses if v < _ACTION_MIN_MAJOR[a])
+    assert not old, f"actions below their supported-runtime major: {old} (#363)"
+    every = sum(len(re.findall(r"^\s+(?:-\s+)?uses:", t, re.M)) for t in _workflow_texts().values())
+    assert every == len(uses), "a uses: line is not pinned to a @vN major -- re-check this guard"
+
+
 #: Where the current truth lives (``CLAUDE.md`` "Where to look"): the standard
 #: and theory trees and the three front-door files. ``docs/90_record/`` is the
 #: record, and a dated line there may name any interpreter it was true of.
