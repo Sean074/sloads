@@ -28,17 +28,23 @@ def _catches_value_error(node: ast.ExceptHandler) -> bool:
     return any(isinstance(t, ast.Name) and t.id == "ValueError" for t in types)
 
 
-def _is_silent(body) -> bool:
-    if len(body) != 1:
-        return False
-    stmt = body[0]
-    if isinstance(stmt, (ast.Pass, ast.Continue)):
+def _says_nothing(stmt) -> bool:
+    if isinstance(stmt, (ast.Pass, ast.Continue, ast.Break)):
         return True
     if isinstance(stmt, ast.Return):
         return stmt.value is None or ast.unparse(stmt.value) in _EMPTY
-    if isinstance(stmt, ast.Assign):
-        return ast.unparse(stmt.value) in _EMPTY
+    if isinstance(stmt, (ast.Assign, ast.AnnAssign)):
+        return stmt.value is not None and ast.unparse(stmt.value) in _EMPTY
     return False
+
+
+def _is_silent(body) -> bool:
+    """Every statement of the handler says nothing -- however many there are.
+    Until #367 only a one-statement body was scanned, so ``x = []`` then
+    ``continue`` was a silent catch the guard could not see. A body that
+    raises, calls anything (a record, a warning) or computes a value is not
+    silent; the reason is then the code's own."""
+    return all(_says_nothing(stmt) for stmt in body)
 
 
 def silent_value_error_catches():
@@ -72,6 +78,23 @@ def test_the_guard_sees_the_catches_it_exists_for():
     assert len(found) > 40
     assert ("sloads/modules/select.py", True) in found
     assert ("sloads/validation.py", True) in found
+
+
+def test_a_multi_statement_silent_body_is_seen():
+    """#367: the two-statement blind spot, probed so it stays closed (the
+    #345 class -- a structural gate is only as good as its probed edges)."""
+    source = ("for v in values:\n"
+              "    try:\n"
+              "        f(v)\n"
+              "    except ValueError:\n"
+              "        out = []\n"
+              "        continue\n")
+    handler = next(n for n in ast.walk(ast.parse(source)) if isinstance(n, ast.ExceptHandler))
+    assert _is_silent(handler.body)
+    recorded = ast.parse("try:\n    f()\nexcept ValueError as exc:\n    out = []\n"
+                         "    record.append(exc)\n")
+    handler = next(n for n in ast.walk(recorded) if isinstance(n, ast.ExceptHandler))
+    assert not _is_silent(handler.body)
 
 
 if __name__ == "__main__":

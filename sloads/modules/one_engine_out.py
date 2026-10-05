@@ -277,8 +277,9 @@ def entered_windmill_cd(eng: EngineInput, index: int) -> Optional[float]:
     """
     cd = eng.windmill_drag_cd
     if cd is not None and cd <= 0.0:
+        from .engine import engine_name
         raise ValueError(
-            f"engines[{index}].windmill_drag_cd is {format_value(cd)}: a windmilling "
+            f"{engine_name(index, eng)}: windmill_drag_cd is {format_value(cd)}: a windmilling "
             "propeller's disc drag coefficient must be positive -- a negative one "
             "delivers a forward thrust at the failed hub, zero delivers no drag. "
             "Enter the propeller's own value, or blank it to deliver the Glauert "

@@ -212,6 +212,20 @@ def torque_sense(inp: EngineInput) -> float:
     return -1.0 if inp.prop_direction is RotorDirection.CLOCKWISE else 1.0
 
 
+def engine_name(index: int, inp: EngineInput) -> str:
+    """How a warning or a refusal names engine ``index`` (0-based position in
+    ``project.engines``): ``engine 1``, with its designation when it has one.
+
+    **1-based, everywhere a user reads it** -- the engine-loads section and the
+    one-engine-out case labels number the same engines from 1, and one physical
+    engine must not answer to two numbers on one page (#231, #367). Only a
+    migration note, which quotes a path into the project file, keeps the
+    0-based ``engines[0]``.
+    """
+    name = f"engine {index + 1}"
+    return f"{name} ({inp.engine_designation})" if inp.engine_designation else name
+
+
 def spin_sense(inp: EngineInput) -> float:
     """``+1`` for a propeller turning clockwise from the pilot's seat, ``-1``
     counter-clockwise: the sense a rotor's signed ``max_rpm`` already carries.
