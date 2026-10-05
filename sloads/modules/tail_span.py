@@ -120,7 +120,7 @@ import math
 from dataclasses import dataclass, fields, replace
 from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple
 
-from ..case_ids import COMPONENT_PREFIX, HTAIL_BAND_TTAIL, VTAIL_BAND_TTAIL
+from ..case_ids import HTAIL_BAND_TTAIL, VTAIL_BAND_TTAIL, band_case_id
 from ..cg_cases import flight_cases
 from ..constants import (
     AC23_9_GUST_BETA_FACTOR,
@@ -1331,7 +1331,7 @@ def _htail_unsym_vtail(unsym: TailSpanResult,
     case_ref = None
     if ref is not None:
         case_ref = replace(
-            ref, case_id=f"{COMPONENT_PREFIX[VTAIL]}-{VTAIL_BAND_TTAIL:02d}",
+            ref, case_id=band_case_id(VTAIL, VTAIL_BAND_TTAIL, 0),
             component=VTAIL, condition=HTAIL_UNSYM_LABEL,
             far_reference="23.427(c)")
     return TailSpanResult(
@@ -1587,7 +1587,7 @@ def build_tail_span(project: Project) -> Dict[str, List[TailSpanResult]]:
             for k, carrier in enumerate(carriers):
                 out[HTAIL].append(_induced_roll_htail(
                     project, carrier, htail_planform, weight, z_htail,
-                    f"{COMPONENT_PREFIX[HTAIL]}-{HTAIL_BAND_TTAIL + k:02d}"))
+                    band_case_id(HTAIL, HTAIL_BAND_TTAIL, k)))
     return out
 
 

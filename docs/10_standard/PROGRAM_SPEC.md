@@ -2225,10 +2225,13 @@ shipped); summary for anyone adding a new module:
   cases before this was caught). `case_ids.py` reserves: `W-01..19` the fixed
   `WING_SLOTS` conditions (SELECT **and** the WINGINER/NETLOADS results derived
   from them — the same case, the same id), `W-20..39` a hand-authored wing case
-  outside `WING_SLOTS`, `W-50..59` AILERON, `W-60..69` FLAPLOAD, `W-70+` a
+  outside `WING_SLOTS`, `W-50..59` AILERON, `W-60..69` FLAPLOAD, `W-70..99` a
   wing-hosted tab; `VT-30..49` ONENGOUT (23.367 — a different case from
   SELECT's v-tail picks, so its own band rather than SELECT's counter);
-  `HT-50+`/`VT-50+` for TABLOADS' htail/vtail-hosted tabs. A new module minting
+  `HT-50..99`/`VT-50..99` for TABLOADS' htail/vtail-hosted tabs. Each band's
+  top edge is `case_ids.BAND_LAST`, and every id is minted through it (the
+  allocator or `band_case_id`), so a band that fills is refused by name rather
+  than spilling into the next band's ids (#366). A new module minting
   into an existing prefix must claim its own band here, and
   `tests/test_case_ids.py` is the drift guard.
 - **`WingMassInput.cases` derives from SELECT when empty (M4-2).**

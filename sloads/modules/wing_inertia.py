@@ -47,7 +47,7 @@ from typing import Dict, List, NamedTuple, Optional, Sequence
 
 from ..aero_curves import inertia_drag_factor
 from ..basic import basic_trunc3
-from ..case_ids import COMPONENT_PREFIX, WING_BAND_EXTRA, WING_SLOTS, wing_case_id
+from ..case_ids import WING_BAND_EXTRA, WING_SLOTS, band_case_id, wing_case_id
 from ..cg_cases import flight_cases
 from ..constants import DEG_PER_RAD, IN2_PER_FT2
 from ..convergence import solver_failure
@@ -564,8 +564,8 @@ def wing_case_ref(project: Project, index: int, case: WingLoadCase,
         # adding a slot case in front of one does not renumber it.
         cases = resolve_wing_cases(project, project.wing_mass or WingMassInput(), src)
         extras = [i for i, c in enumerate(cases) if c.name not in WING_SLOTS]
-        seq = WING_BAND_EXTRA + (extras.index(index) if index in extras else index)
-        case_id = f"{COMPONENT_PREFIX['wing']}-{seq:02d}"
+        k = extras.index(index) if index in extras else index
+        case_id = band_case_id("wing", WING_BAND_EXTRA, k)
     return CaseRef(
         case_id=case_id,
         component="wing",
