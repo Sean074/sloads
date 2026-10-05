@@ -9,8 +9,8 @@ describes (note 56). It holds the measurements, the owner's rulings of
 2026-09-28 and 2026-09-29, and the decisions and gates the code is built to;
 where §9 and §1–§8 differ, §9 governs. D-51.3a (net β) and D-51.6 (yaw
 parked) stand. **D-51.9 closed 2026-10-04 (#336):** the ATR's tailplane
-dihedral is 0°, owner-supplied (§9.7). **§10 AGREED 2026-10-04 (#334,
-#335):** the horizontal tail carries `M_r`; D-51.4a, D-51.7 and D-51.10 are
+dihedral is 0°, owner-supplied (§9.7). **§10 AGREED and SHIPPED 2026-10-04
+(#334, #335):** the horizontal tail carries `M_r`; D-51.4a, D-51.7 and D-51.10 are
 amended there, and §10 governs where it differs.
 
 **Tier L** (new load case, new physics on the fin deck). The T-tail transfer sits in
@@ -463,7 +463,7 @@ Filing it as a backlog issue is part of this step's closure (rule 5).
   a constructed project (G-51.10).
 
 
-## 10. Amendment — the horizontal tail carries `M_r` (#334, #335, AGREED 2026-10-04)
+## 10. Amendment — the horizontal tail carries `M_r` (#334, #335, AGREED and SHIPPED 2026-10-04)
 
 **Owner rulings, in session 2026-10-04.** The owner's Q4/Q5 assumption of
 §9 (that `M_r` sizes the fin and not the horizontal tail) does not hold on
@@ -537,7 +537,7 @@ note 66 §13 changes that. The ATR keeps the bound until a source exists.
 | G-51.13 | Each D-51.12 condition's per-side root bending | §10.1 table | ±0.1 % |
 | G-51.14 | The ATR's governing h-tail root bending is ONE ENGINE OUT VD; the RJ's is unchanged | ATR 233,122 · RJ 349,920 | ±0.1 % |
 | G-51.15 | In every T-tail lateral and one-engine-out balanced case, `ṗ`, `ṙ`, `q̇` and the fin root `Mx` equal their pre-change values; no `vtail-induced-roll` load remains; exactly one induced set per case | — | 1e-9 |
-| G-51.16 | The D-51.12 condition's trim part equals the fin transfer's `fz`/`myy` about the tip (one pairing owner) | — | 1e-9 |
+| G-51.16 | The D-51.12 condition's trim part equals the fin transfer's `fz` and its trim air load's `myy` about the tip (one pairing owner). *Narrowed at build, owner ruling 2026-10-04:* the inertia is smeared at each strip's reference axis, the convention of every h-tail condition and HTAIL UNSYM, not at the transfer's lumped mid-chord station, so the inertia's `myy` is not gated | — | 1e-9 |
 | G-51.9 *(retired)* | Replaced by G-51.14 | — | — |
 | G-51.11 *(extended)* | Conventional isolation: no `INDUCED ROLL` condition and no `htail-induced-roll` load off a T-tail; ga6, the Baron and concept_heavy are digest-identical | — | exact |
 

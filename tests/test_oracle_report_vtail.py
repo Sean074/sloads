@@ -52,7 +52,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # tests/helpers
 
 from sloads import io  # noqa: E402
-from sloads.case_ids import VTAIL_BAND_TTAIL  # noqa: E402
+from sloads.case_ids import HTAIL_BAND_TTAIL, VTAIL_BAND_TTAIL  # noqa: E402
 from sloads.models import TailType  # noqa: E402
 from sloads.models.report import ReportSpec  # noqa: E402
 from sloads.modules.select import default_critical  # noqa: E402
@@ -738,9 +738,11 @@ def test_every_case_keyed_table_in_the_section_names_the_same_conditions():
             # design note 51 D-51.2a), which has no SELECT total, no aero state
             # and no chordwise profile -- the fin carries no air load in it.
             assert len(tables) >= 4, (name, step, sorted(tables))
-            derived = {f"VT-{VTAIL_BAND_TTAIL:02d}"}
-            tables = {t: (ids - derived if step == "vtail_loads" else ids)
-                      for t, ids in tables.items()}
+            # Its h-tail mirror is the same kind: each fin condition's INDUCED
+            # ROLL condition (HT-20 band, D-51.12), spanwise only.
+            derived = ({f"VT-{VTAIL_BAND_TTAIL:02d}"} if step == "vtail_loads" else
+                       {f"HT-{HTAIL_BAND_TTAIL + k:02d}" for k in range(30)})
+            tables = {t: ids - derived for t, ids in tables.items()}
             sets = list(tables.values())
             assert all(ids == sets[0] for ids in sets), (
                 name, step, {t: sorted(ids) for t, ids in tables.items()})

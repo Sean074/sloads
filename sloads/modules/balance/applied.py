@@ -691,34 +691,41 @@ def vtail_sets(result: TailSpanResult) -> List[BalancedLoad]:
         loads.append(BalancedLoad(x=x, y=y, z=z, fx=fx, fy=fy, fz=fz,
                                   mx=mx, my=my, mz=mz,
                                   source="vtail-air", side="C"))
-    # On a T-tail, the AC 23-9 induced rolling moment the horizontal tail puts
-    # on the fin tip (design note 51 D-51.4a): a free couple at the tip station,
-    # read from the transfer's own record -- never ``mxx``, which on HTAIL UNSYM
-    # is the h-tail case the deck already carries as strips (D-51.5a). Applied
-    # before the residual is summed, so the closure's roll degree of freedom
-    # reacts it, as it reacts the aileron couple.
+    # On a T-tail, the AC 23-9 induced rolling moment, where the horizontal
+    # tail carries it (design note 51 D-51.4b, replacing D-51.4a's fin-tip
+    # couple): the induced strips alone, read from the transfer's own record --
+    # never ``mxx``, which on HTAIL UNSYM is the h-tail case the deck already
+    # carries as strips (D-51.5a). The case already carries the trim tail load
+    # lumped, so no trim or inertia is added. ``Σ fz = 0``, ``Σ fz·x = 0`` and
+    # ``Σ fz·y = M_r``: the closure reacts the same roll the couple made, and
+    # the h-tail member, rigid to the fin tip, passes it to the fin root.
     t = result.tip_transfer
-    if t is not None and t.induced is not None and t.induced.m_r and result.stations:
-        tip = result.stations[-1]
-        x, y, z = tail_station_to_airplane(tip.x, tip.y, VTAIL, root_z=tip.z)
-        loads.append(BalancedLoad(x=x, y=y, z=z, mx=t.induced.m_r,
-                                  source=INDUCED_ROLL_SOURCE, side="C"))
+    if t is not None and t.induced is not None:
+        for st in t.induced.stations:
+            x, y, z = tail_station_to_airplane(st.x, st.y, HTAIL, root_z=st.z)
+            fx, fy, fz = tail_force_to_airplane(st.fz, HTAIL)
+            mx, my, mz = tail_torsion_to_airplane(st.myy_free, HTAIL)
+            loads.append(BalancedLoad(x=x, y=y, z=z, fx=fx, fy=fy, fz=fz,
+                                      mx=mx, my=my, mz=mz, source=INDUCED_ROLL_SOURCE,
+                                      side="R" if y > 0 else "L"))
     return loads
 
 
-#: The ``source`` of the T-tail induced rolling moment's couple (note 51
-#: D-51.4a). Starts ``vtail`` so the deck routes it to the fin member, and is
-#: not ``vtail-air``, so it is not counted as fin side load.
-INDUCED_ROLL_SOURCE = "vtail-induced-roll"
+#: The ``source`` of the T-tail induced rolling moment's strips (note 51
+#: D-51.4b). Starts ``htail`` so the deck routes it to the horizontal-tail
+#: member, and is not ``htail-air``, so it is not counted as the tail's trim
+#: load.
+INDUCED_ROLL_SOURCE = "htail-induced-roll"
 
 #: The statement a balanced case carrying that couple states in band.
 INDUCED_ROLL_NOTE = (
     "T-TAIL (design note 51, 23.427(c)): the horizontal tail's induced rolling "
-    "moment, AC 23-9 ¶5a M_r = 0.3 q S_H b_H beta, is applied as a free couple "
-    "at the fin tip in the sense of the fin's own root rolling moment (¶5d); "
-    "the closure's roll acceleration reacts it. The horizontal tail is sized "
-    "without it -- the owner's assumption, checked per case in the tail-span "
-    "results. Static strength only, not a flutter input.")
+    "moment, AC 23-9 ¶5a M_r = 0.3 q S_H b_H beta, is applied on the "
+    "horizontal tail in the sense of the fin's own root rolling moment (¶5d): "
+    "chord-proportional at 25 % chord, upward on one side and downward on the "
+    "other, no net lift and half the moment at each root (design note 51 "
+    "D-51.4b); the closure's roll acceleration reacts it. Static strength "
+    "only, not a flutter input.")
 
 
 def htail_sets(result: TailSpanResult) -> List[BalancedLoad]:

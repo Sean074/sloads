@@ -4998,6 +4998,43 @@ def _vtail_withheld(project: Project, component: str) -> bool:
             and not is_t_tail(project))
 
 
+def _ttail_htail_paragraphs(project: Project, results: Sequence["TailSpanResult"],
+                            system: UnitSystem) -> List[str]:
+    """What a T-tail's horizontal tail carries for the fin (note 51 D-51.12).
+
+    One condition per fin condition carrying the AC 23-9 induced rolling
+    moment, read from the h-tail results themselves (their notes and stations),
+    so the document states what the applied table and the deck carry.
+    """
+    from ..modules.tail_span import INDUCED_ROLL_LABEL, htail_root_bending
+    from ..safety_factors import ultimate_basis
+    from ..tail_geometry import is_t_tail
+
+    induced = [r for r in results if r.case.startswith(INDUCED_ROLL_LABEL)]
+    if not is_t_tail(project) or not induced:
+        return []
+    u = Units(system)
+    governing = extreme(results, lambda r: ultimate_basis(htail_root_bending(r),
+                                                          r.safety_factor))
+    label = u.ult_label("moment", governing.safety_factor)
+    return [
+        "This airplane is a T-tail, so the rolling moment the fin's side load "
+        "induces on the horizontal tail (FAA AC 23-9 paragraph 5a) is carried "
+        "by the horizontal tail as well as by the fin (14 CFR 23.427(c)). Each "
+        f"fin condition that carries it has a condition here, {INDUCED_ROLL_LABEL} "
+        "followed by the fin condition's name, with the fin condition's own "
+        "safety factor: the horizontal tail's balancing load at that fin "
+        "condition's flight state, its own inertia, and the moment spread in "
+        "proportion to the local chord at the quarter chord, upward on one side "
+        "and downward on the other, so that it adds no lift and each root "
+        f"carries half of it ({len(induced)} conditions; design note 51 D-51.12).",
+        f"The governing per-side root bending of the horizontal tail, compared "
+        f"on one safety-factor basis, is {governing.case}: "
+        f"{u.load(htail_root_bending(governing), 'moment', governing.safety_factor)} "
+        f"{label}.",
+    ]
+
+
 def _ttail_vtail_paragraphs(project: Project, results: Sequence["TailSpanResult"],
                           system: UnitSystem) -> List[str]:
     """What a T-tail's fin carries from the surface above it (note 51 §9).
@@ -5006,7 +5043,11 @@ def _ttail_vtail_paragraphs(project: Project, results: Sequence["TailSpanResult"
     numbers the applied table and the deck carry, and nothing re-derived.
     """
     from ..constants import AC23_9_MACH_WARN
-    from ..modules.tail_span import HTAIL_UNSYM_LABEL, vtail_root_roll_with_tip
+    from ..modules.tail_span import (
+        HTAIL_UNSYM_LABEL,
+        INDUCED_ROLL_LABEL,
+        vtail_root_roll_with_tip,
+    )
     from ..tail_geometry import is_t_tail
 
     if not is_t_tail(project):
@@ -5031,14 +5072,10 @@ def _ttail_vtail_paragraphs(project: Project, results: Sequence["TailSpanResult"
         dihedral = i.dihedral_deg
         if i.mach > AC23_9_MACH_WARN:
             over_mach.append(f"{r.case} (Mach {format_value(i.mach, '')})")
-        check = ("" if i.htail_ratio is None else
-                 f"; half of it per side is {format_value(100.0 * i.htail_ratio, '%')} % "
-                 "of the horizontal tail's governing root bending"
-                 + (", ABOVE 100 %" if i.htail_ratio > 1.0 else ""))
         rows.append(f"{r.case}: induced rolling moment "
                     f"{u.load(i.m_r, 'moment', r.safety_factor)} {label} at "
                     f"sideslip {format_value(i.beta_deg, 'deg')} deg; fin root "
-                    f"rolling moment with the tip set {root}{check}")
+                    f"rolling moment with the tip set {root}")
     if not rows:
         return []
     lead = (
@@ -5052,11 +5089,11 @@ def _ttail_vtail_paragraphs(project: Project, results: Sequence["TailSpanResult"
         f"condition {HTAIL_UNSYM_LABEL}, with no air load on the fin of its "
         "own. And in every condition that loads the fin sideways, the rolling "
         "moment the fin's side load induces on the horizontal tail, by FAA AC "
-        "23-9 paragraph 5a, in the sense of the fin's own bending. That moment "
-        "is sized for the fin: the horizontal tail's own loads do not include "
-        "it, and each condition states how near it comes to sizing that "
-        "surface. The station columns above are the fin's own loads; the "
-        "numbers below include the tip set.")
+        "23-9 paragraph 5a, in the sense of the fin's own bending. The "
+        "horizontal tail carries that moment too, as its own condition "
+        f"{INDUCED_ROLL_LABEL} for each fin condition (design note 51 D-51.12), "
+        "stated with the horizontal tail's loads. The station columns above are "
+        "the fin's own loads; the numbers below include the tip set.")
     limits = (
         "The AC's method is for static strength only and is not a flutter "
         "input, and it includes neither compressibility nor stabilizer "
@@ -5386,7 +5423,8 @@ def _tail_span_section(project: Project, component: str, *,
         _tail_mass_provenance(project, component, system),
         _control_load_mode_sentence(project, component),
         *(_ttail_vtail_paragraphs(project, results, system)
-          if component == "vtail" else []),
+          if component == "vtail" else
+          _ttail_htail_paragraphs(project, results, system)),
     ]
     body = [paragraph for paragraph in body if paragraph]
     tables = [_tail_span_notation_table(system, component)]

@@ -79,13 +79,10 @@ def test_an_airplane_without_a_failure_case_has_none():
         assert not _oei(cases), name
 
 
-@pytest.mark.parametrize("name", _TWINS)
-def test_the_closure_yaw_is_onengouts(name):
-    """**G-66.9** (D-66.12): with the engine pair beside the fin, the closure's
-    yaw acceleration is ONENGOUT's at the peak -- fin moment less engine moment
-    -- after the Izz ratio, inside :data:`_YAW_BAND`, and with its sign."""
-    project, cases, _ = _built(name)
+def _assert_closure_yaw_is_the_marchs(project):
+    cases = build_balanced_cases(project)
     marches = _marches(project)
+    assert _oei(cases)
     for c in _oei(cases):
         if c.label not in marches:
             continue            # a twin, checked through its computed case
@@ -96,6 +93,14 @@ def test_the_closure_yaw_is_onengouts(name):
         march = -fc.sense * fc.peak.theta_2dot        # airplane axes, nose sense
         assert math.copysign(1.0, scaled) == math.copysign(1.0, march), c.label
         assert abs(scaled - march) <= _YAW_BAND * abs(march), (c.label, scaled, march)
+
+
+@pytest.mark.parametrize("name", _TWINS)
+def test_the_closure_yaw_is_onengouts(name):
+    """**G-66.9** (D-66.12): with the engine pair beside the fin, the closure's
+    yaw acceleration is ONENGOUT's at the peak -- fin moment less engine moment
+    -- after the Izz ratio, inside :data:`_YAW_BAND`, and with its sign."""
+    _assert_closure_yaw_is_the_marchs(_project(name))
 
 
 @pytest.mark.parametrize("name", _TWINS)
@@ -245,57 +250,61 @@ def _pair(case):
 
 @pytest.mark.parametrize("name", _TWINS)
 def test_an_entered_windmill_coefficient_is_delivered_and_the_bound_otherwise(name):
-    """**D-66.12a** (#319): blank, the failed hub carries ONENGOUT's Glauert
+    """**D-66.12b** (#334): blank, the failed hub carries ONENGOUT's Glauert
     drag and the case states it as the method's upper bound (C_D,disc 0.50,
     manual Ch 11 p88); entered, it carries ``C_D * q * pi D^2 / 4`` on the same
-    ramp, stated as the entered coefficient. The fin load is the march's either
-    way, so no ``vtail-air`` load moves."""
-    from sloads.modules.one_engine_out import disc_drag_coefficient
+    ramp, stated as the entered coefficient -- and the march that sets the fin
+    load is forced by that same drag, so the fin load is smaller with it."""
+    from sloads.modules.one_engine_out import disc_drag_coefficient, windmill_drag
 
     project = _project(name)
+    with_cd = _with_cd(project, [0.25, 0.25])
     bound = {c.label: c for c in _oei(build_balanced_cases(project))}
-    entered = {c.label: c for c in _oei(build_balanced_cases(_with_cd(project, [0.25, 0.25])))}
-    marches = _marches(project)
+    entered = {c.label: c for c in _oei(build_balanced_cases(with_cd))}
+    marches, marches_cd = _marches(project), _marches(with_cd)
     assert bound.keys() == entered.keys()
     for label, b in bound.items():
         e = entered[label]
         assert any("upper bound" in n and "0.50" in n and "can not be more than" in n
                    for n in b.notes), label
-        assert any("entered disc drag coefficient 0.25" in n for n in e.notes), label
-        fc = marches.get(label)
+        assert any("entered disc drag coefficient 0.25" in n and "same drag" in n
+                   for n in e.notes), label
+        fc, fc_cd = marches.get(label), marches_cd.get(label)
         if fc is not None:
-            live, remaining, windmill = engine_forces_at(fc.peak.time, fc.inputs)
-            full = engine_thrust_and_drag(fc.inputs)[1]
-            assert disc_drag_coefficient(fc.inputs, full) == pytest.approx(0.502, abs=5e-4)
-            assert _pair(b).fx == pytest.approx(-remaining + windmill, rel=1e-12)
-            assert _pair(e).fx == pytest.approx(-remaining + windmill * 0.25
-                                                / disc_drag_coefficient(fc.inputs, full),
-                                                rel=1e-9)
-        fin_b = [ld for ld in b.loads if ld.source == "vtail-air"]
-        fin_e = [ld for ld in e.loads if ld.source == "vtail-air"]
-        assert [(ld.fy, ld.y) for ld in fin_b] == [(ld.fy, ld.y) for ld in fin_e], label
+            assert fc.inputs.windmill_cd is None and fc_cd.inputs.windmill_cd == 0.25
+            assert disc_drag_coefficient(fc.inputs, windmill_drag(fc.inputs)) == pytest.approx(
+                0.502, abs=5e-4)
+            assert disc_drag_coefficient(fc_cd.inputs, windmill_drag(fc_cd.inputs)) == pytest.approx(
+                0.25, rel=1e-12)
+            assert fc_cd.summary.windmill_drag_lb == pytest.approx(windmill_drag(fc_cd.inputs))
+            for case, march in ((b, fc), (e, fc_cd)):
+                live, remaining, windmill = engine_forces_at(march.peak.time, march.inputs)
+                assert _pair(case).fx == pytest.approx(-remaining + windmill, rel=1e-12)
+            assert fc_cd.summary.max_tail_load_lb < fc.summary.max_tail_load_lb, label
+        fin_b = sum(ld.fy for ld in b.loads if ld.source == "vtail-air")
+        fin_e = sum(ld.fy for ld in e.loads if ld.source == "vtail-air")
+        assert abs(fin_e) < abs(fin_b), label
 
 
 @pytest.mark.parametrize("name", _TWINS)
-def test_an_entered_coefficient_moves_the_closure_yaw_by_its_own_moment(name):
-    """**G-66.9** as amended (#319, D-66.12a): with the bound the closure's yaw
-    is ONENGOUT's (above); with an entered coefficient it differs by exactly the
-    drag difference's moment through the case's own inertia tensor --
-    ``[I]{delta omega_dot} = delta M`` about the CG -- and by nothing else."""
-    project = _project(name)
-    bound = {c.label: c for c in _oei(build_balanced_cases(project))}
-    entered = {c.label: c for c in _oei(build_balanced_cases(_with_cd(project, [0.25, 0.25])))}
-    for label, b in bound.items():
-        e = entered[label]
-        ref = (b.cg_x, 0.0, b.cg_z)
-        dm = [x - y for x, y in zip(resultant6([_pair(e)], ref)[3:],
-                                    resultant6([_pair(b)], ref)[3:], strict=True)]
-        dw = (e.p_dot - b.p_dot, e.q_dot - b.q_dot, e.r_dot - b.r_dot)
-        got = [math.fsum(row[i] * dw[i] for i in range(3)) for row in b.closure_inertia.matrix()]
-        scale = max(abs(v) for v in dm)
-        assert scale > 0, label
-        for g, want in zip(got, dm, strict=True):
-            assert g == pytest.approx(want, abs=1e-3 * scale), label
+def test_an_entered_coefficient_keeps_the_closure_yaw_onengouts(name):
+    """**G-66.9** as amended (D-66.12b, #334): the march is forced by the
+    entered drag too, so the closure's yaw is ONENGOUT's with no ``delta M``
+    term -- the same band and sign as on the bound."""
+    _assert_closure_yaw_is_the_marchs(_with_cd(_project(name), [0.25, 0.25]))
+
+
+@pytest.mark.parametrize("cd, want", [(None, 16_040.0), (0.25, 11_196.0), (0.10, 8_314.0)])
+def test_the_atr_vd_fin_load_follows_the_entered_coefficient(cd, want):
+    """Note 66 §13's gate (D-66.12b): on a constructed ATR copy the VD peak fin
+    load, each engine, is the bound's 16,040 lb blank and 11,196 / 8,314 lb at
+    an entered C_D,disc of 0.25 / 0.10 -- measured 2026-10-04, ±0.1 %. The
+    shipped ATR enters none (owner: no cited value), so its own loads hold."""
+    project = _with_cd(_project("atr42_100"), [cd, cd])
+    vd = [fc for fc in vtail_cases(project) if fc.load_case.label.startswith("VD")]
+    assert len(vd) == 2
+    for fc in vd:
+        assert fc.summary.max_tail_load_lb == pytest.approx(want, rel=1e-3), fc.title
 
 
 def test_a_twin_needs_both_engines_to_windmill_alike():
@@ -308,8 +317,8 @@ def test_a_twin_needs_both_engines_to_windmill_alike():
     assert {c.label for c in cases} == set(marches)     # the Baron recovers at every speed
     for c in cases:
         fc = marches[c.label]
-        live, remaining, windmill = engine_forces_at(
-            fc.peak.time, fc.inputs, windmill_cd=project.engines[fc.engine_index].windmill_drag_cd)
+        assert fc.inputs.windmill_cd == project.engines[fc.engine_index].windmill_drag_cd
+        live, remaining, windmill = engine_forces_at(fc.peak.time, fc.inputs)
         assert _pair(c).fx == pytest.approx(-remaining + windmill, rel=1e-9), c.label
 
 

@@ -26,9 +26,9 @@ quasi-statically, which is what every other fin condition is. Each case is
   large. **The windmill drag is the failed engine's own when entered**
   (``EngineInput.windmill_drag_cd``, D-66.12a, #319), else ONENGOUT's Glauert
   term, which the manual calls the most it can be -- delivered as that bound
-  and stated so in band. The march, and so the fin load, always uses the bound;
-  with an entered coefficient the closure's yaw differs from the march's by
-  the drag difference times the arm, and the case says so;
+  and stated so in band. The march is forced by the same drag (D-66.12b,
+  #334), so the hub drag, the fin load and the closure's yaw are one airplane
+  state whichever it is;
 * **no L-7 term** (D-66.15): ONENGOUT's angle is a yaw angle, not a sideslip.
 
 One engine's failure is computed per speed; the mirrored engine's is its
@@ -41,7 +41,7 @@ The 23.367(a)(2) cases state ``ULT SF=1.0`` through the D-66.1 stamp.
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Set, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Set, Tuple
 
 from ...mass_distribution import CaseLoading
 from ...models import (
@@ -203,10 +203,10 @@ def _hub(eng) -> Tuple[float, float, float]:
 
 def _windmill_note(project: Project, fc: "VtailCase") -> str:
     """What the failed hub's drag is, stated per case (D-66.12a)."""
-    from ..engine import resolved_engines
-    from ..one_engine_out import GLAUERT_DISC_CD_BOUND, entered_windmill_cd
+    from ..one_engine_out import GLAUERT_DISC_CD_BOUND
 
-    cd = entered_windmill_cd(resolved_engines(project)[fc.engine_index], fc.engine_index)
+    del project
+    cd = fc.inputs.windmill_cd
     bound_cd = GLAUERT_DISC_CD_BOUND
     if cd is None:
         return ("WINDMILL DRAG (design note 66 D-66.12a): the failed engine's "
@@ -215,23 +215,20 @@ def _windmill_note(project: Project, fc: "VtailCase") -> str:
                 "drag \"can not be more than\" this), delivered as a conservative "
                 "bound on the mount and hub loads. Enter the propeller's own "
                 "windmilling disc drag coefficient to deliver its own drag.")
-    return ("WINDMILL DRAG (design note 66 D-66.12a): the failed engine's "
+    return ("WINDMILL DRAG (design note 66 D-66.12b): the failed engine's "
             "windmilling drag at its hub is its entered disc drag coefficient "
-            f"{format_value(cd)}, on the transient's own ramp. The fin load "
-            f"is the one-engine-out march's, forced by the bound ({format_value(bound_cd)}), "
-            "so the yaw this case closes with differs from the march's by the "
-            "drag difference times the engine arm.")
+            f"{format_value(cd)}, on the transient's own ramp, and the one-engine-out "
+            "march that sets the fin load is forced by the same drag "
+            f"(the Glauert bound, {format_value(bound_cd)}, is not used).")
 
 
 def _engine_pair(project: Project, fc: "VtailCase") -> List[BalancedLoad]:
     """The engine loads at the peak instant, at the hubs (D-66.12, D-66.12a)."""
     from ..engine import resolved_engines
-    from ..one_engine_out import engine_forces_at, entered_windmill_cd
+    from ..one_engine_out import engine_forces_at
 
-    eng = resolved_engines(project)[fc.engine_index]
-    hub = _hub(eng)
-    live, remaining, windmill = engine_forces_at(
-        fc.peak.time, fc.inputs, windmill_cd=entered_windmill_cd(eng, fc.engine_index))
+    hub = _hub(resolved_engines(project)[fc.engine_index])
+    live, remaining, windmill = engine_forces_at(fc.peak.time, fc.inputs)
     side = "R" if hub[1] > 0 else "L"
     other = "L" if side == "R" else "R"
     return [
@@ -260,6 +257,11 @@ def build_engine_out_cases(project: Project, conditions: Sequence[CriticalCondit
 
     record: List[SkippedCondition] = skipped if skipped is not None else []
     by_label = {c.label: c for c in conditions}
+    # Refused here, outside the march's ``except`` below, so a coefficient that
+    # cannot be right stops the family by name rather than vanishing into a
+    # ``family-refused`` record (#343); the march reads the same owner.
+    for index, eng in enumerate(project.engines or []):
+        entered_windmill_cd(eng, index)
     try:
         marches = vtail_cases(project)
     except MissingInputError:   # refusal: no 23.367 condition (absent slice, or not applicable)
@@ -275,11 +277,6 @@ def build_engine_out_cases(project: Project, conditions: Sequence[CriticalCondit
     out: List[BalancedCaseResult] = []
     done: Set[str] = set()
     engines = resolved_engines(project)
-    # Refused here, outside the march's ``except`` above and before any case is
-    # skipped, so a coefficient that cannot be right stops the family by name
-    # rather than vanishing with it or riding only the cases that assemble (#343).
-    for fc in marches:
-        entered_windmill_cd(engines[fc.engine_index], fc.engine_index)
     for fc in marches:
         label = f"{ENGINE_OUT_PREFIX} — {fc.load_case.label}{fc.engine_label}"
         cond = by_label.get(label)
@@ -316,7 +313,7 @@ def build_engine_out_cases(project: Project, conditions: Sequence[CriticalCondit
                            "and windmill drag at that instant are applied at the hubs."])
         out.append(case)
         done.add(label)
-        twin = _mirror_of(fc, marches, by_label, engines)
+        twin = _mirror_of(fc, marches, by_label)
         if twin is not None:
             out.append(replace(handed_twin(case, case_ref=twin.case_ref),
                                label=twin.label))
@@ -325,14 +322,12 @@ def build_engine_out_cases(project: Project, conditions: Sequence[CriticalCondit
 
 
 def _mirror_of(fc: "VtailCase", marches: Sequence["VtailCase"],
-               by_label: Dict[str, CriticalCondition],
-               engines: Sequence[Any]) -> Optional[CriticalCondition]:
+               by_label: Dict[str, CriticalCondition]) -> Optional[CriticalCondition]:
     """The other engine's condition at the same speed, when its march is the
     mirror image of ``fc``'s -- the case :func:`handed_twin` reproduces. The
     two engines' entered windmill drag coefficients must agree too (D-66.12a):
-    the twin reflects the failed hub's drag, not recomputes it."""
-    from ..one_engine_out import entered_windmill_cd
-
+    the twin reflects the failed hub's drag and the fin load it forced, not
+    recomputes them."""
     for other in marches:
         if other is fc or other.load_case.label != fc.load_case.label:
             continue
@@ -340,7 +335,6 @@ def _mirror_of(fc: "VtailCase", marches: Sequence["VtailCase"],
                 and abs(other.inputs.bleng - fc.inputs.bleng) <= _MIRROR_ARM_TOL_IN
                 and abs(other.summary.max_tail_load_lb - fc.summary.max_tail_load_lb)
                 <= _MIRROR_LOAD_REL * max(1.0, fc.summary.max_tail_load_lb)
-                and entered_windmill_cd(engines[other.engine_index], other.engine_index)
-                == entered_windmill_cd(engines[fc.engine_index], fc.engine_index)):
+                and other.inputs.windmill_cd == fc.inputs.windmill_cd):
             return by_label.get(f"{ENGINE_OUT_PREFIX} — {other.load_case.label}{other.engine_label}")
     return None

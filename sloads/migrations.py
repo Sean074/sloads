@@ -121,6 +121,14 @@ def _hop_74(d: Dict[str, Any]) -> Dict[str, Any]:
     return d
 
 
+def _hop_75(d: Dict[str, Any]) -> Dict[str, Any]:
+    """v75 -> v76 (design note 51 D-51.7a/D-51.12, #334): ``InducedRoll``
+    drops ``htail_ratio`` and gains ``stations``. Both are result fields no
+    project file carries, so there is no key to drop. An identity -- the
+    horizontal tail's new conditions are the ruling's, not the hop's."""
+    return d
+
+
 #: ``{from_version: hop}`` -- applied in ascending order, each turning a file of
 #: version *n* into version *n+1* shape.
 MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
@@ -129,6 +137,7 @@ MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     72: _hop_72,
     73: _hop_73,
     74: _hop_74,
+    75: _hop_75,
 }
 
 #: The oldest project version this build reads: the oldest released schema, or

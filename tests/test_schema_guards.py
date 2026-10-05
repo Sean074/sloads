@@ -409,7 +409,13 @@ def fields_hash() -> str:
 #: ``max_rpm`` is the rotor's one spin owner. ``_hop_74`` drops the key. The
 #: digests move by the stoppage fix, not the hop: the RJ's counter-rotating
 #: fan publishes +50,577 ft-lb, the mirror of its twin, where it had +50,576.
-EXPECTED_FIELDS_HASH = "4e7f9394f67856d4"
+#: v76 (design note 51 D-51.7a/D-51.12, #334): ``InducedRoll.htail_ratio``
+#: removed with the D-51.7 check, ``InducedRoll.stations`` added (the h-tail
+#: strips that carry the induced moment). Result fields no file carries, so
+#: ``_hop_75`` is an identity. The digests move by the ruling: the RJ and ATR
+#: gain their ``INDUCED ROLL`` h-tail conditions and the deck's fin-tip couple
+#: becomes h-tail strips.
+EXPECTED_FIELDS_HASH = "8b6759f9e1db6650"
 
 
 def test_persisted_dataclass_shapes_are_unchanged():

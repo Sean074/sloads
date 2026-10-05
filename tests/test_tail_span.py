@@ -48,6 +48,7 @@ from sloads.modules.tail_span import (
     ATTACH_OUTLINE,
     ATTACH_STRIP_PAIR,
     HTAIL_UNSYM_LABEL,
+    INDUCED_ROLL_LABEL,
     X25_PCT,
     X50_PCT,
     air_total,
@@ -153,6 +154,16 @@ def test_the_air_only_distribution_sums_to_the_select_total(example):
         assert inertia_total(r) == 0.0
 
 
+def _induced_m_r(spans, r):
+    """The AC 23-9 moment a T-tail's ``INDUCED ROLL`` h-tail condition carries
+    on top of its symmetric trim part (note 51 D-51.12), else zero: read from
+    the fin condition it was built for."""
+    if r.component != HTAIL or not r.case.startswith(INDUCED_ROLL_LABEL):
+        return 0.0
+    fin = next(f for f in spans[VTAIL] if r.case == f"{INDUCED_ROLL_LABEL} — {f.case}")
+    return fin.tip_transfer.induced.m_r
+
+
 # --------------------------------------------------------------------------- #
 # Bending closure
 # --------------------------------------------------------------------------- #
@@ -163,11 +174,14 @@ def test_the_root_bending_is_the_half_load_times_the_area_centroid(example):
     ``ybar`` is the half-planform **area centroid**, which for the chord-
     proportional distribution is also the load centroid; the target is therefore
     analytic and is computed here from the planform, not from the load table the
-    module built.
+    module built. A T-tail's ``INDUCED ROLL`` condition adds ``±M_r/2`` at each
+    root (G-51.12), its induced set's whole share.
     """
     project = _project(example, weight=0.0)
-    for r in build_tail_span(project)[HTAIL] + build_tail_span(project)[VTAIL]:
+    spans = build_tail_span(project)
+    for r in spans[HTAIL] + spans[VTAIL]:
         planform = resolve_tail_planform(project, r.component)
+        half_m_r = 0.5 * _induced_m_r(spans, r)
         ybar = half_area_centroid(planform)
         # The h-tail's polyline is one side of a symmetric surface, so a half
         # carries half the both-sides total; the fin is a single surface and
@@ -178,7 +192,7 @@ def test_the_root_bending_is_the_half_load_times_the_area_centroid(example):
         for side, scale in (("R", r.rh_scale), ("L", r.lh_scale)):
             if r.component == VTAIL and side == "L":
                 continue
-            want = scale * side_air * ybar
+            want = scale * side_air * ybar + (half_m_r if side == "R" else -half_m_r)
             outer = [st for st in r.stations
                      if (st.y > 0 if side == "R" else st.y < 0)]
             if not outer:
@@ -198,7 +212,8 @@ def test_the_root_bending_is_the_half_load_times_the_area_centroid(example):
 @pytest.mark.parametrize("example", EXAMPLES)
 def test_the_symmetric_cases_roll_the_centreline_by_nothing(example):
     """Net moment about the centreline = ``(L_RH − L_LH)·ybar`` — zero when
-    symmetric, and the asymmetry moment for 23.427(a).
+    symmetric, and the asymmetry moment for 23.427(a). A T-tail's ``INDUCED
+    ROLL`` condition adds its fin condition's ``M_r`` exactly (G-51.12).
 
     A per-side deck cannot state this at all; it is the specific check that a
     mis-placed attachment or a mirrored-wrong half would fail.
@@ -209,11 +224,12 @@ def test_the_symmetric_cases_roll_the_centreline_by_nothing(example):
         planform = resolve_tail_planform(project, HTAIL)
         ybar = half_area_centroid(planform)
         half_air = 0.5 * (r.lt25 + r.lt50)
-        want = (r.rh_scale - r.lh_scale) * half_air * ybar
+        m_r = _induced_m_r(spans, r)
+        want = (r.rh_scale - r.lh_scale) * half_air * ybar + m_r
         got = sum(st.fz * st.y for st in r.stations)
         assert got == pytest.approx(want, rel=1e-6, abs=1e-6), \
             f"{example} {r.case}"
-        if r.rh_scale == r.lh_scale:
+        if r.rh_scale == r.lh_scale and not m_r:
             assert got == pytest.approx(0.0, abs=1e-6), f"{example} {r.case}"
 
 
@@ -630,14 +646,17 @@ def test_the_spanwise_and_chordwise_views_cover_the_same_conditions(example):
     appears in one and not the other is a routing defect, not a modelling choice.
 
     With one stated exception: a T-tail's ``HTAIL UNSYM`` (note 51 D-51.2a) puts
-    no air load on the fin, so there is no chordwise profile of it to draw."""
+    no air load on the fin, so there is no chordwise profile of it to draw; and
+    its h-tail mirror, ``INDUCED ROLL`` (D-51.12), is no SELECT condition --
+    its chordwise shape is the 23.427(a) case's own, stated not profiled."""
     from sloads.modules.taildist import build_tail_chordwise
 
     project = _project(example, weight=0.0)
     spans = build_tail_span(project)
     chord_cases = {(r.component, r.case) for r in build_tail_chordwise(project)}
     span_cases = {(r.component, r.case) for r in spans[HTAIL] + spans[VTAIL]
-                  if r.case != HTAIL_UNSYM_LABEL}
+                  if r.case != HTAIL_UNSYM_LABEL
+                  and not r.case.startswith(INDUCED_ROLL_LABEL)}
     assert span_cases == chord_cases, example
 
 

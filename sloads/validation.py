@@ -1750,13 +1750,12 @@ def _check_derive_overrides(project: Project) -> List[ConsistencyWarning]:
 
 
 def _check_ttail_induced_roll(project: Project) -> List[ConsistencyWarning]:
-    """The T-tail induced rolling moment's three stated limits (note 51 §9).
+    """The T-tail induced rolling moment's two stated limits (note 51 §9).
 
-    * ``ttail_induced_roll_sizes_htail`` -- D-51.7 (owner ruling Q5): the
-      moment is sized for the fin on the owner's assumption that it does not
-      size the horizontal tail. Where half of it per side exceeds the h-tail's
-      governing root bending (on one factor basis) the assumption fails, and
-      the h-tail's own deliverables do not carry it. Warned, never refused.
+    D-51.7's horizontal-tail check retired at D-51.7a (#334): the horizontal
+    tail now carries the moment (D-51.12), so there is no assumption left to
+    check.
+
     * ``ttail_induced_roll_mach`` -- D-51.8: AC 23-9's method "does not include
       the effects of compressibility" (¶5a p4); above
       :data:`~sloads.constants.AC23_9_MACH_WARN` the subcase is warned.
@@ -1765,7 +1764,7 @@ def _check_ttail_induced_roll(project: Project) -> List[ConsistencyWarning]:
       a T-tail is warned; the moment is not scaled, since the AC gives no method.
 
     * ``ttail_induced_roll_unchecked`` -- #344: the spanwise build refused its
-      input, so the two per-case checks above could not run. Stated with the
+      input, so the per-case Mach check above could not run. Stated with the
       refusal rather than going silent -- the check that exists to flag must
       not switch itself off. A ``MissingInputError`` (no chain yet) is silent.
 
@@ -1792,25 +1791,15 @@ def _check_ttail_induced_roll(project: Project) -> List[ConsistencyWarning]:
         out.append(ConsistencyWarning(
             "ttail_induced_roll_unchecked",
             f"The T-tail induced rolling moment checks could not run: the spanwise "
-            f"tail build refused its input ({exc}). Whether the moment sizes the "
-            "horizontal tail, and whether its Mach is inside AC 23-9's method, is "
-            "unknown until that input is corrected (design note 51 §9).",
+            f"tail build refused its input ({exc}). Whether the moment's Mach is "
+            "inside AC 23-9's method is unknown until that input is corrected "
+            "(design note 51 §9).",
             PAGE_TAIL))
     for r in vtails:
         t = r.tip_transfer
         if t is None or t.induced is None:
             continue
         i = t.induced
-        if i.htail_ratio is not None and i.htail_ratio > 1.0:
-            out.append(ConsistencyWarning(
-                "ttail_induced_roll_sizes_htail",
-                f"{r.case}: half the T-tail induced rolling moment per side "
-                f"({format_value(0.5 * abs(i.m_r), 'lb-in')} lb-in) is {format_value(100.0 * i.htail_ratio, '%')} % "
-                "of the horizontal tail's governing root bending on one factor "
-                "basis. The moment is carried by the fin; the horizontal tail's "
-                "own loads do not include it, so the assumption that it does not "
-                "size the horizontal tail fails here (design note 51 D-51.7).",
-                PAGE_TAIL))
         if i.mach > AC23_9_MACH_WARN:
             out.append(ConsistencyWarning(
                 "ttail_induced_roll_mach",
