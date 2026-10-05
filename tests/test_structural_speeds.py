@@ -473,6 +473,47 @@ def test_the_reduced_margin_reaches_the_dashboard():
         "than left for a reviewer to trip over")
 
 
+
+def test_the_speed_derivation_refuses_by_name_and_never_divides_by_zero():
+    """#365. ONENGOUT's VS read catches only ``MissingInputError`` and lets a
+    ``ValueError`` become the family's ``family-refused`` record (#344); a
+    ``ZeroDivisionError`` would escape both and crash the deck build. Every
+    divisor here is refused upstream by name, so the narrow catch is complete:
+    each degenerate wing area below is a named refusal, not a traceback."""
+    import copy
+
+    from sloads.models import MissingInputError
+
+    base = io.load_project(os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), "examples", "baron_58.project.json"))
+
+    def refusal(edit):
+        project = copy.deepcopy(base)
+        edit(project)
+        try:
+            calc.design_speed_values(project, project.speeds)
+        except (MissingInputError, ValueError) as exc:
+            return exc
+        raise AssertionError("a degenerate wing area was not refused")
+
+    def zero_area(p):
+        wing = p.geometry.by_name("wing")
+        wing.trailing_edge = list(wing.leading_edge)
+
+    def no_wing(area):
+        def edit(p):
+            p.geometry.surfaces = [s for s in p.geometry.surfaces if s.name != "wing"]
+            p.speeds.wing_area_sqft = area
+        return edit
+
+    assert "no planform area" in str(refusal(zero_area))
+    assert isinstance(refusal(no_wing(0.0)), MissingInputError)
+    assert "positive CLmax and wing area" in str(refusal(no_wing(-100.0)))
+    for altitude in (-2.0e4, 1.0e6):   # the atmosphere stays positive
+        project = copy.deepcopy(base)
+        project.speeds.shoulder_altitude_ft = altitude
+        assert calc.design_speed_values(project, project.speeds).mc > 0
+
 if __name__ == "__main__":
     import traceback
 

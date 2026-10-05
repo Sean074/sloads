@@ -530,7 +530,7 @@ def _check_operational_targets(project: Project) -> List[ConsistencyWarning]:
     try:
         ds = design_speed_values(project, speeds)
     # refusal: STRSPEED refuses; the Design Speeds page names why
-    except (ValueError, ZeroDivisionError, KeyError):
+    except (ValueError, KeyError):
         return []
     out: List[ConsistencyWarning] = []
     for c in operational_target_checks(speeds, ds):
@@ -575,7 +575,7 @@ def _check_dive_speed_basis(project: Project) -> List[ConsistencyWarning]:
     try:
         ds = design_speed_values(project, speeds)
     # refusal: STRSPEED refuses; the Design Speeds page names why
-    except (ValueError, ZeroDivisionError, KeyError):
+    except (ValueError, KeyError):
         return []
 
     out: List[ConsistencyWarning] = []
@@ -1737,7 +1737,7 @@ def _check_derive_overrides(project: Project) -> List[ConsistencyWarning]:
         try:
             n1 = design_speed_values(project, project.speeds).n
         # refusal: STRSPEED refuses; there is no n1 to compare LIMNZ against
-        except (ValueError, ZeroDivisionError, KeyError):
+        except (ValueError, KeyError):
             n1 = None
         for label, limnz in typed:
             if n1 is not None and cross_check_disagrees(
