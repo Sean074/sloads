@@ -511,7 +511,10 @@ def test_the_moved_select_rows_render_with_their_quantity():
     assert fr.entry("geometry.empennage.htail.wing_lift_slope_per_rad").page == "aero_coefficients"
     assert fr.entry("geometry.empennage.htail.aspect_ratio_wing").page == "aero_coefficients"
     assert fr.entry("select_input.basic_airfoil_cm").page == "aero_coefficients"
-    assert fr.entry("select_input.full_down_aileron_deg").page == "aileron_loads"
+    # #374: with the aileron travel it overrides, not alone on the Aileron
+    # page where it read as the input that drives the aileron pressures.
+    assert fr.entry("select_input.full_down_aileron_deg").page == "configuration_layout"
+    assert fr.entry("aileron_loads.down_deflection_deg").page == "configuration_layout"
     assert fr.entry("select_input.wing_weight_lb").page == "weight_mass"
 
 

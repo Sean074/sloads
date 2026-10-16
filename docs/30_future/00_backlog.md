@@ -544,29 +544,7 @@ bold heading wrapping onto a second line.
 - #18 — Review 2026-08-10 unscheduled findings [Minor/NIT].
 - #217 — An entered thrust line does not steer the thrust in the balanced cases.
 
-- **No control-surface hinge moment is computed anywhere — in sloads or in the
-  suite it replicates.** Checked against the source 2026-09-07: `AILERON.BAS`,
-  `FLAPLOAD.BAS` and `TABLOADS.BAS` each end after printing their loads and
-  chordwise pressures; chapter 16 (p105–106) claims only the constant pressure
-  forward of the hinge line; and the words *hinge moment* occur once in the
-  whole manual, in the quoted CAM 3.224-1(a) tab-deflection limit, which
-  chapter 18 (p113) then declines to apply — *"the computer program for surface
-  loads for the aileron, elevator and rudder are not limited to pilot effort."*
-  So this is **not a replication gap**: note 44 §19 OR-154 states the *sense* of
-  the moment as the sign convention and derives no magnitude. Whether sloads
-  should produce one as a modern addition — it is what a control-surface
-  attachment and its actuator are sized to, and `AileronLoadsInput.hinges_span_in`
-  and `actuator_span_in` are already entered-never-invented and unconsumed — is a
-  **scope question for a later milestone**, and one that needs a method the
-  oracle cannot supply (a chordwise centre of pressure per throw, and a hinge
-  line the schema does not carry as geometry). **Filed 2026-09-07.** Tier L if
-  taken. **Unfiled by choice**: the scope question is the work, and it is not this
-  milestone's — on scope alone since 2026-09-22; the OR-13 freeze this entry
-  once also cited lifted at the 0.8.2 cut and is no reason. *(Re-verified 2026-09-15 at the #280 closure: no hinge moment is
-  computed for an aileron, elevator or rudder — `tail_span`'s `hinge_moment` is
-  the tail attachment chain's actuator couple — and
-  `AileronLoadsInput.hinges_span_in` and `actuator_span_in` are still read by
-  `io`, `units` and `field_registry` and by no calc.)*
+- #375 — Aileron hinge moment: integrate the hinge moment for every wing load case and for the two AILERON pressure cases (owner ruled the 2026-09-07 scope question *yes*, 2026-10-15; tier L, design note first).
 
 - #305 — The oracle prints an aileron deflection schedule the module does not publish *(filed 2026-09-07; held on the OR-13 freeze, which lifted at the 0.8.2 cut; issued to band C on 2026-09-22, the body moved to the issue)*.
 

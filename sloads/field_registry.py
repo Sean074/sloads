@@ -754,8 +754,20 @@ DISPLAY_GROUPS: Dict[str, str] = {
         "Wing aerodynamics (SELECT tail balance)",
     "select_input.basic_airfoil_cm":
         "Wing section pitching moment (SELECT roll torsion)",
+    # #374: the aileron record on the Geometry page is titled with what
+    # consumes it -- the whole record, since splitting one record into two
+    # sections renders its add/remove controls twice. The SELECT override is
+    # a separate record, so it takes its own title directly below.
+    "aileron_loads.area_aft_hinge_sqft":
+        "Aileron planform and travel (AILERON 23.455 loads; ADEG also the roll-torsion default)",
+    "aileron_loads.area_fwd_hinge_sqft":
+        "Aileron planform and travel (AILERON 23.455 loads; ADEG also the roll-torsion default)",
+    "aileron_loads.up_deflection_deg":
+        "Aileron planform and travel (AILERON 23.455 loads; ADEG also the roll-torsion default)",
+    "aileron_loads.down_deflection_deg":
+        "Aileron planform and travel (AILERON 23.455 loads; ADEG also the roll-torsion default)",
     "select_input.full_down_aileron_deg":
-        "SELECT steady-roll torsion",
+        "Steady-roll torsion aileron override (SELECT 23.349(b) only)",
     "select_input.wing_weight_lb":
         "Wing weight (SELECT fuselage conditions)",
 }
@@ -1113,9 +1125,27 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     # planform forms in registry order.
     _E("aileron_loads.area_aft_hinge_sqft", _GEO, _ORIG, "AILERON SAAFT"),
     _E("aileron_loads.area_fwd_hinge_sqft", _GEO, _ORIG, "AILERON SAFWD"),
-    _E("aileron_loads.up_deflection_deg", _GEO, _ORIG, "AILERON AUPDEG"),
-    _E("aileron_loads.down_deflection_deg", _GEO, _ORIG, "AILERON ADEG",
+    # The aileron travel, all three deflections in one place (#374): the
+    # SELECT DN override sat alone on the Aileron page, where the only
+    # deflection widget was the one the aileron pressures never read.
+    _E("aileron_loads.up_deflection_deg", _GEO, _ORIG, "AILERON AUPDEG. Drives the "
+       "AILERON up-aileron load and pressure (23.455, deflection scheduled to VC/VD "
+       "per CAM 3.222)"),
+    _E("aileron_loads.down_deflection_deg", _GEO, _ORIG, "AILERON ADEG. Drives the "
+       "AILERON down-aileron load and pressure (23.455, deflection scheduled to "
+       "VC/VD per CAM 3.222), and is the default full-down deflection for the "
+       "SELECT/ROLLING 23.349(b) steady-roll wing torsion when the SELECT field "
+       "below is blank",
        "full-down aileron deflection"),
+    _E("select_input.full_down_aileron_deg", _GEO, _ORIG, "SELECT full-down "
+       "aileron DN, Ch 9. Used only by the SELECT/ROLLING 23.349(b) steady-roll "
+       "wing torsion -- never by the aileron loads, which read ADEG above. Leave "
+       "blank to follow ADEG; a typed value overrides the roll torsion only "
+       "(#95, C210-22; #374)",
+       "full-down aileron deflection",
+       "aileron_loads.down_deflection_deg (blank derives from the AILERON travel; "
+       "note 36 OV-2, C210-38 -- a typed disagreement warns, aileron_deflection_mismatch)",
+       governs=True),
     _E("flap_loads.flap_area_one_side_sqft", _GEO, _ORIG, "FLAPLOAD SF"),
     _E("flap_loads.flap_chord_ratio", _GEO, _ORIG, "FLAPLOAD E"),
     _E("flap_loads.flap_deflection_deg", _GEO, _ORIG, "FLAPLOAD DELTA"),
@@ -1474,17 +1504,12 @@ REGISTRY: Tuple[FieldEntry, ...] = (
 
     # select_input -- SELECT beyond the V-n matrix. All three rows moved off
     # the V-n page to the page their *quantity* belongs to (#95, C210-22
-    # display groups): the section cm with the aero data, the aileron travel
-    # with the aileron record, the wing weight with the weight data.
+    # display groups): the section cm with the aero data, the wing weight with
+    # the weight data. The full-down aileron sits with the aileron travel on
+    # the Geometry page (#374), not here.
     _E("select_input.basic_airfoil_cm", _AERO, _ORIG, "SELECT basic airfoil CM, Ch 9 "
        "(the bare section cm at zero aileron for the 23.349(b) roll torsion -- "
        "not the airplane-less-tail M0 beside it; #95, C210-22)"),
-    _E("select_input.full_down_aileron_deg", _AIL, _ORIG, "SELECT full-down aileron, "
-       "Ch 9; control geometry, edited with the aileron record (#95, C210-22)",
-       "full-down aileron deflection",
-       "aileron_loads.down_deflection_deg (blank derives from the AILERON travel; "
-       "note 36 OV-2, C210-38 -- a typed disagreement warns, aileron_deflection_mismatch)",
-       governs=True),
     _E("select_input.wing_weight_lb", _WT, _ORIG, "SELECT wing weight, Ch 9; a weight "
        "quantity, edited with the weight data (#95, C210-22 -- the 0 -> 0.09*MTOW "
        "fallback was undisclosed on the page)",
