@@ -29,7 +29,7 @@ The top-level `Project` fields. `name`/`engineer`/`date` are free-text metadata;
 | `wing_mass` | `?` | Wing Loads | `balance`, `net_loads`, `rolling`, `wing_inertia`, `wing_variants` | Wing-mass distribution & load cases (WINGINER) |
 | `fuselage_mass` | `?` | Fuselage Loads | `body_loads` | Fuselage mass distribution (SELECT / Ch 15) |
 | `tail_mass` | `List[TailMassInput]` | Weight & Mass Properties | `tail_span` | Empennage surface mass override — derived from the component-tagged weight.items by default (plan 09 T-3) |
-| `select_input` | `?` | Aerodynamic Data / Aileron Loads / Weight & Mass Properties | `select` | Critical-load selection inputs (SELECT) |
+| `select_input` | `?` | Aerodynamic Data / Geometry / Weight & Mass Properties | `select` | Critical-load selection inputs (SELECT) |
 | `tail_loads` | `TailLoadsInput` | Aerodynamic Data / Geometry | `balloads`, `body_loads`, `select`, `tail_span`, `taildist` | Rational horizontal-tail inputs (via geometry.empennage) |
 | `vtail_loads` | `VTailLoadsInput` | Geometry | `balance`, `one_engine_out`, `select`, `tail_span`, `taildist` | Rational vertical-tail inputs (via geometry.empennage) |
 | `aileron_loads` | `?` | Aileron Loads / Geometry | `aileron`, `rolling`, `select` | Aileron simplified loads (AILERON) |

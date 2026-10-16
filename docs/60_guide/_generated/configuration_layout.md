@@ -67,8 +67,9 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `geometry.empennage.vtail.vtail_root_waterline_z` | `float` | 0 -> derived, marked assumed | `0.0` | sloads | v-tail root waterline: where the fin meets the body, needed to build the tail's beam span; the original suite took tail loads with no tail geometry (plan 09, tail_span) |
 | `aileron_loads.area_aft_hinge_sqft` | `float` | SAAFT | `0.0` | original | AILERON SAAFT |
 | `aileron_loads.area_fwd_hinge_sqft` | `float` | SAFWD | `0.0` | original | AILERON SAFWD |
-| `aileron_loads.up_deflection_deg` | `float` | AUPDEG (full trailing-edge-up, magnitude) | `0.0` | original | AILERON AUPDEG |
-| `aileron_loads.down_deflection_deg` | `float` | ADEG (full trailing-edge-down, +) | `0.0` | original | AILERON ADEG; quantity: *full-down aileron deflection* |
+| `aileron_loads.up_deflection_deg` | `float` | AUPDEG (full trailing-edge-up, magnitude) | `0.0` | original | AILERON AUPDEG. Drives the AILERON up-aileron load and pressure (23.455, deflection scheduled to VC/VD per CAM 3.222) |
+| `aileron_loads.down_deflection_deg` | `float` | ADEG (full trailing-edge-down, +) | `0.0` | original | AILERON ADEG. Drives the AILERON down-aileron load and pressure (23.455, deflection scheduled to VC/VD per CAM 3.222), and is the default full-down deflection for the SELECT/ROLLING 23.349(b) steady-roll wing torsion when the SELECT field below is blank; quantity: *full-down aileron deflection* |
+| `select_input.full_down_aileron_deg` | `float` | deg | `0.0` | original | SELECT full-down aileron DN, Ch 9. Used only by the SELECT/ROLLING 23.349(b) steady-roll wing torsion -- never by the aileron loads, which read ADEG above. Leave blank to follow ADEG; a typed value overrides the roll torsion only (#95, C210-22; #374); quantity: *full-down aileron deflection*; override of `aileron_loads.down_deflection_deg (blank derives from the AILERON travel; note 36 OV-2, C210-38 -- a typed disagreement warns, aileron_deflection_mismatch)` |
 | `flap_loads.flap_area_one_side_sqft` | `float` | SF | `0.0` | original | FLAPLOAD SF |
 | `flap_loads.flap_chord_ratio` | `float` | E = flap chord / wing chord | `0.0` | original | FLAPLOAD E |
 | `flap_loads.flap_deflection_deg` | `float` | DELTA | `0.0` | original | FLAPLOAD DELTA |

@@ -298,8 +298,10 @@ read through `derived_geometry.airplane_length_in` — since schema v55 (#52)
 each tail no longer carries its own copy. **M2R-5:** the
 `select_input` search fields — `full_down_aileron_deg` / `basic_airfoil_cm` (the
 23.349(b) steady-roll wing-torsion drivers) and `wing_weight_lb` (the critical
-fuselage's reacted wing weight, 0 → 0.09·MTOW) — are editable on the Critical Loads
-tab (previously project-JSON only, defaulting silently). **Known limits**
+fuselage's reacted wing weight, 0 → 0.09·MTOW) — are editable on the page their
+quantity belongs to (placement owned by `sloads/field_registry.py`); the full-down
+aileron renders with the aileron travel it overrides, never on the Aileron page,
+whose pressures read `aileron_loads.down_deflection_deg` only (#374). **Known limits**
 (see backlog): the flaps-extended SELECT→TAILDIST path is closure-validated (the
 landing-config aero polynomials are now in the `flight_envelope` test fixture and
 oracle-match FLTLOADS' `BAL 1.4VSF` at Appendix A p181 — M1-2; wiring the printed
