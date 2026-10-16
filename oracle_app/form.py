@@ -68,6 +68,7 @@ from app_shell.components import (
     active_system,
     clear_number_input,
     count_input,
+    number_input_name,
     page_header,
     unit_number_input,
 )
@@ -1548,10 +1549,26 @@ def _offer_record_seed(project: Project, prefix: str, record: Any) -> None:
         return
     shown = ", ".join(f"{_field_label(f'{prefix}.{name}')} {_shown(f'{prefix}.{name}', value)}"
                       for name, value in values.items())
-    if st.button(f"Seed from the wing planform \u2192 {shown}",
-                 key=widget_key(f"_seed.{prefix}")):
-        for name, value in values.items():
-            _set_entered(record, name, float(value))
+    st.button(f"Seed from the wing planform \u2192 {shown}",
+              key=widget_key(f"_seed.{prefix}"),
+              on_click=_seed_record, args=(record, prefix, dict(values)))
+
+
+def _seed_record(record: Any, prefix: str, values: Dict[str, float]) -> None:
+    """Write the seeded values and retire their widgets' state (#376).
+
+    An ``on_click`` callback for the reason :func:`_seed_rows` is one. The
+    block's number widgets were drawn on the pass before the click, so their
+    retained state (the ``0.0`` they showed) outvotes ``value=`` on the next
+    render, and :func:`render_scalar` persists what they return -- written in
+    the button's ``if`` body, every seeded value was overwritten with ``0.0``
+    in the same rerun, and the user had to type what the button's own label
+    showed. Dropping each widget's state makes it re-seed from the record.
+    """
+    for name, value in values.items():
+        _set_entered(record, name, float(value))
+        st.session_state.pop(
+            widget_key(number_input_name(f"{prefix}.{name}", field_unit(name).kind)), None)
 
 
 def optional_steps(prefix: str) -> List[str]:
