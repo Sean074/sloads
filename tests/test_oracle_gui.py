@@ -607,6 +607,38 @@ def test_deleting_surplus_rows_takes_a_deliberate_click():
     assert len(at.session_state["project"].weight.items) == before - 2
 
 
+@pytest.mark.parametrize("system", [UnitSystem.IMPERIAL, UnitSystem.SI])
+def test_the_record_seed_keeps_the_values_it_offers(system):
+    """#376: the parametric-wing seed button showed the planform's values and
+    left every field at 0. The block's widgets were drawn on the pass before the
+    click, their retained ``0.0`` outvoted ``value=``, and the render persisted
+    it over the seed in the same rerun. Clicked here on a drawn block, in both
+    systems -- ``le_root_x`` is a converted length, so its widget name carries
+    the system and the callback must drop that one -- and checked again one
+    rerun later, where a stale widget would have won."""
+    from sloads.modules.configuration import parametric_wing_seed
+
+    project = _seeded()
+    project.unit_system = system.value
+    project.geometry.parametric.wing_area_sqft = 0.0
+    project.geometry.parametric.aspect_ratio = 0.0
+    expected = parametric_wing_seed(project)
+    assert set(expected) == {"wing_area_sqft", "aspect_ratio", "taper_ratio",
+                             "le_sweep_deg", "le_root_x"}
+    at = _render("configuration_layout", project)
+
+    button = next(b for b in at.button if "Seed from the wing planform" in b.label)
+    button.click().run()
+    for _ in range(2):
+        held = at.session_state["project"].geometry.parametric
+        for name, value in expected.items():
+            assert getattr(held, name) == pytest.approx(value, rel=1e-6), name
+        assert not at.exception, [e.message for e in at.exception]
+        at.run()
+    assert not any("Seed from the wing planform" in b.label for b in at.button), (
+        "a seeded block is typed, so the seed offer is withdrawn")
+
+
 # --------------------------------------------------------------------------- #
 # An override is not a one-way door, and a row is deleted where it sits (#72)
 # --------------------------------------------------------------------------- #
