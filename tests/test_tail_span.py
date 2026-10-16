@@ -578,9 +578,10 @@ def test_the_attachment_interpolates_the_body_at_the_htail_and_never_its_maximum
     """T-8a: the h-tail reacts into the tail cone, not into the widest frame.
 
     ``atr42_100`` is the sharpest statement of why the maximum is the wrong
-    number: 106.3 in of published max diameter against ~22 in of body at the
-    h-tail's own station. Taking the maximum would put the attachments five times
-    too far outboard — outboard of a fifth of the semispan. The fixture is a
+    number: 106.3 in of published max diameter against ~34 in of tail cone at
+    the h-tail's own station (note 69 D-69.11's outline; the straight cone it
+    replaced gave ~22 in). Taking the maximum would put the attachments three
+    times too far outboard. The fixture is a
     T-tail since backlog Pri 1 (2026-08-16), so the conventional branch is
     exercised on it by resetting the layout — the outline is what is under test.
     """
@@ -594,7 +595,7 @@ def test_the_attachment_interpolates_the_body_at_the_htail_and_never_its_maximum
     width = fuselage_width_at(project.geometry.fuselage, x_lra)
     assert attach.y == pytest.approx([-width / 2, width / 2])
     # ...and that is emphatically not half the maximum section.
-    assert width < 0.25 * project.geometry.parametric.fuselage_width
+    assert width < 0.4 * project.geometry.parametric.fuselage_width
     # Marked assumed even though the outline is entered: no shipped outline
     # resolves the tail cone, so the shape factor — not the published diameter —
     # sets this number. The in-band note has to say so on every case.

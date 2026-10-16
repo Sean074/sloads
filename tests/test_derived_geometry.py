@@ -942,9 +942,11 @@ def test_a_waterline_outside_its_own_body_says_so():
     owner exists to end.
     """
     project = _example("atr42_100.project.json")
-    project.fuselage_mass.ref_waterline = 100.0
+    # Above the crown: the outline spans WL 57.1-163.4 since note 69 D-69.11.
+    # (The pre-D-69.11 ATR sat its body at WL 126-233, which 100.0 was below.)
+    project.fuselage_mass.ref_waterline = 179.6
     lra = fuselage_lra(project)
-    assert lra.z_at(0.0) == pytest.approx(100.0), "the entered value still leads"
+    assert lra.z_at(0.0) == pytest.approx(179.6), "the entered value still leads"
     assert "OUTSIDE the fuselage" in _imp(lra.note)
     assert "placeholder" in _imp(lra.note)
 

@@ -536,6 +536,14 @@ def test_the_outline_branch_states_its_datum_and_a_pointed_cone_falls_through():
     project.geometry.parametric.h_tail_z = 0.0   # entered since #260; the T-tail branch would fire first
     planform = resolve_tail_planform(project, VTAIL)
     note = next(n for n in _imps(planform.notes) if "local fuselage top" in n)
+    # The outline enters its centre line since note 69 D-69.11, so the note
+    # carries the formula and no defaulted-centreline provenance...
+    assert "z_centre" in note and "ASSUMED" in note and "fuselage centre line" not in note
+    # ...and blanking it brings that provenance back into the same note.
+    for section in project.geometry.fuselage.sections:
+        section.z_centre = None
+    planform = resolve_tail_planform(project, VTAIL)
+    note = next(n for n in _imps(planform.notes) if "local fuselage top" in n)
     assert "z_centre" in note and "fuselage centre line ASSUMED" in note
 
     # Pinch the outline: zero height everywhere aft of the nose section.
