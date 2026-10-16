@@ -979,19 +979,109 @@
           "x": 0.0,
           "width": 0.0,
           "height": 0.0,
-          "z_centre": null
+          "z_centre": 110.2
         },
         {
-          "x": 312.47999999999996,
+          "x": 3.07,
+          "width": 20.72,
+          "height": 20.72,
+          "z_centre": 110.2
+        },
+        {
+          "x": 12.18,
+          "width": 40.68,
+          "height": 40.68,
+          "z_centre": 110.2
+        },
+        {
+          "x": 26.96,
+          "width": 59.05,
+          "height": 59.05,
+          "z_centre": 110.2
+        },
+        {
+          "x": 46.86,
+          "width": 75.16,
+          "height": 75.16,
+          "z_centre": 110.2
+        },
+        {
+          "x": 71.11,
+          "width": 88.39,
+          "height": 88.39,
+          "z_centre": 110.2
+        },
+        {
+          "x": 98.77,
+          "width": 98.21,
+          "height": 98.21,
+          "z_centre": 110.2
+        },
+        {
+          "x": 128.79,
+          "width": 104.26,
+          "height": 104.26,
+          "z_centre": 110.2
+        },
+        {
+          "x": 160.0,
           "width": 106.3,
           "height": 106.3,
-          "z_centre": null
+          "z_centre": 110.2
+        },
+        {
+          "x": 658.94,
+          "width": 106.3,
+          "height": 106.3,
+          "z_centre": 110.2
+        },
+        {
+          "x": 688.17,
+          "width": 94.34,
+          "height": 98.02,
+          "z_centre": 112.81
+        },
+        {
+          "x": 717.41,
+          "width": 82.38,
+          "height": 89.74,
+          "z_centre": 115.42
+        },
+        {
+          "x": 746.64,
+          "width": 70.42,
+          "height": 81.46,
+          "z_centre": 118.03
+        },
+        {
+          "x": 775.87,
+          "width": 58.47,
+          "height": 73.18,
+          "z_centre": 120.63
+        },
+        {
+          "x": 805.1,
+          "width": 46.51,
+          "height": 64.9,
+          "z_centre": 123.24
+        },
+        {
+          "x": 834.34,
+          "width": 34.55,
+          "height": 56.61,
+          "z_centre": 125.85
+        },
+        {
+          "x": 863.57,
+          "width": 22.59,
+          "height": 48.33,
+          "z_centre": 128.46
         },
         {
           "x": 892.8,
           "width": 10.63,
-          "height": 15.944999999999999,
-          "z_centre": null
+          "height": 40.05,
+          "z_centre": 131.07
         }
       ]
     },
@@ -1077,7 +1167,7 @@
         "attach": [
           95.0,
           0.0,
-          50.0
+          62.0
         ],
         "weight_lb": 260.0
       },
@@ -1223,7 +1313,7 @@
   },
   "fuselage_mass": {
     "stations": [],
-    "ref_waterline": 179.6,
+    "ref_waterline": 110.2,
     "stations_are_override": false
   },
   "select_input": {
