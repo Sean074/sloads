@@ -229,6 +229,12 @@ def test_missing_data_refuses_with_the_datum_named():
         build_lra_model(_project("concept_heavy.project.json"))
     ga = _project("ga6_normal.project.json")
     ga.geometry.fuselage = None
+    # Since v77 the side of body resolves from the outline's width (note 69
+    # D-69.3), so an entered sob_y_in is what lets the refusal reach the
+    # outline datum itself.
+    with pytest.raises(LraRefusal, match="side of body"):
+        build_lra_model(ga)
+    ga.geometry.by_name("wing").sob_y_in = 21.0
     with pytest.raises(LraRefusal, match="no fuselage outline"):
         build_lra_model(ga)
 

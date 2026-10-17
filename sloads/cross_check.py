@@ -30,19 +30,21 @@ CROSS_CHECK_REL = 1e-3
 
 
 def cross_check_disagrees(a: float, b: float,
-                          shown: Callable[[float], str]) -> bool:
+                          shown: Callable[[float], str],
+                          rel: float = CROSS_CHECK_REL) -> bool:
     """Whether an override cross-check warns that ``a`` and ``b`` disagree.
 
     The one owner of the comparison every override cross-check makes (#243):
-    the two differ by more than :data:`CROSS_CHECK_REL` of the larger, **and**
-    ``shown`` -- the formatter the warning prints them with -- writes them
-    differently, so a warning can never print one number twice. A check with
-    a stated reason for its own band (the wing-area and hinge-halves checks)
-    keeps it; a check whose contract is *exact* equality prints its values
-    through :func:`shown_apart` instead.
+    the two differ by more than ``rel`` of the larger -- :data:`CROSS_CHECK_REL`
+    unless the field states its own band (``FieldEntry.band``, design note 69
+    D-69.10) -- **and** ``shown`` -- the formatter the warning prints them with
+    -- writes them differently, so a warning can never print one number twice.
+    A check with a stated reason for its own band (the hinge-halves check)
+    passes it here; a check whose contract is *exact* equality prints its
+    values through :func:`shown_apart` instead.
     """
     scale = max(abs(a), abs(b))
-    if scale == 0.0 or abs(a - b) <= CROSS_CHECK_REL * scale:
+    if scale == 0.0 or abs(a - b) <= rel * scale:
         return False
     return shown(a) != shown(b)
 

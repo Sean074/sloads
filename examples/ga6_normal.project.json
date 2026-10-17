@@ -1,5 +1,5 @@
 {
-  "schema_version": 76,
+  "schema_version": 77,
   "name": "GA 6-place single (Appendix A) \u2014 Continental IO-520-BB",
   "engines": [
     {
@@ -49,7 +49,8 @@
         0.0
       ],
       "prop_direction": "CW",
-      "mounted_on": "fuselage"
+      "mounted_on": "fuselage",
+      "windmill_drag_cd": null
     }
   ],
   "engine_layout": "1N",
@@ -815,14 +816,8 @@
     ],
     "parametric": {
       "datum_x": 0.0,
-      "wing_area_sqft": 184.12113907866492,
-      "aspect_ratio": 6.095171937430409,
-      "taper_ratio": 0.43564356435643564,
       "dihedral_deg": 6.0,
-      "le_sweep_deg": 7.650650955359411,
-      "le_root_x": 45,
       "root_waterline_z": 78.5,
-      "body_drag_waterline_z": 0.0,
       "tail_type": "conventional",
       "h_tail_z": 32.5,
       "htail_dihedral_deg": 0.0
@@ -847,7 +842,9 @@
           "height": 10.3,
           "z_centre": null
         }
-      ]
+      ],
+      "body_drag_waterline_z": 0.0,
+      "airplane_length_in": 318.264
     },
     "empennage": {
       "htail": {
@@ -885,8 +882,7 @@
         "rudder_large_deflection_factor": 1.0,
         "izz_slugft2": 0.0,
         "vtail_root_waterline_z": 0.0
-      },
-      "airplane_length_in": 318.264
+      }
     },
     "landing_gear": {
       "main_gear": {

@@ -76,6 +76,7 @@ from sloads.models import (
     MassItemKind,
     MissingInputError,
 )
+from sloads.models.inputs import FuselageOutline
 from sloads.modules import balance as balance_module
 from sloads.modules import one_engine_out
 from sloads.modules.balance import (
@@ -1415,11 +1416,13 @@ def test_the_body_drag_waterline_is_stated_and_is_the_only_free_parameter(exampl
     assert resolved.z == pytest.approx(require_wing_reference(project).zw, rel=1e-12)
 
     before = {(c.label, c.hand): c for c in _flight_cases(project)}
+    # v77 (note 69 D-69.4): the waterline lives on the outline; an example with
+    # no outline (concept_heavy) gets an empty one that carries only the scalar.
+    outline = project.geometry.fuselage or FuselageOutline(sections=[])
     moved = replace(
         project,
-        geometry=replace(project.geometry, parametric=replace(
-            project.geometry.parametric,
-            body_drag_waterline_z=resolved.z + 10.0)))
+        geometry=replace(project.geometry, fuselage=replace(
+            outline, body_drag_waterline_z=resolved.z + 10.0)))
     assert body_drag_waterline(moved) == (resolved.z + 10.0, False, "entered", "")
 
     for case in _flight_cases(moved):
@@ -2496,7 +2499,10 @@ _UNSYMMETRICAL_SPLIT = {
     'cessna_210.project.json': (-687.2978354106667, -494.85444149568, 72.0),
     'atr42_100.project.json': (-3127.8358046094277, -2502.2686436875424, 80.0),   # #260
     'dhc8_dash8.project.json': (-3302.095528143376, -2641.6764225147012, 80.0),
-    'concept_regional_jet.project.json': (6076.817597362804, 4861.454077890244, 80.0),
+    # D-69.17: the RJ's elevator is now an entered polyline whose integrated
+    # hinge areas land on the former typed 4.0/30.0 within the construction
+    # residual (0.02 %); the pin follows that residual (#378).
+    'concept_regional_jet.project.json': (6076.819609699751, 4861.455687759801, 80.0),
 }
 
 

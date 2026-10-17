@@ -415,7 +415,18 @@ def fields_hash() -> str:
 #: ``_hop_75`` is an identity. The digests move by the ruling: the RJ and ATR
 #: gain their ``INDUCED ROLL`` h-tail conditions and the deck's fin-tip couple
 #: becomes h-tail strips.
-EXPECTED_FIELDS_HASH = "8b6759f9e1db6650"
+#: v77 (design note 69 D-69.2/D-69.3/D-69.4/D-69.12, #377/#378/#379):
+#: ``LayoutInput`` loses ``wing_area_sqft``, ``aspect_ratio``, ``taper_ratio``,
+#: ``le_sweep_deg``, ``le_root_x`` (the stored ``wing`` surface is the planform)
+#: and ``fuselage_length``/``_width``/``_height`` (readers call
+#: ``fuselage_summary``); ``FuselageOutline`` gains ``body_drag_waterline_z``
+#: (moved from ``LayoutInput``) and ``airplane_length_in`` (SELECT LF, moved
+#: from ``EmpennageInput``, now a collapsed override of the outline length).
+#: ``_hop_76`` moves the two values and drops the five keys. The digests move on
+#: ``atr42_100``, ``baron_58`` and ``concept_regional_jet`` by D-69.17's data
+#: (elevator and rudder polylines entered, the six SELECT scalars blanked), not
+#: by the hop.
+EXPECTED_FIELDS_HASH = "aa14f4fea74e3b25"
 
 
 def test_persisted_dataclass_shapes_are_unchanged():

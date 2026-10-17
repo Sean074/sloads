@@ -183,10 +183,17 @@ pages can be run in any order.
 A compact tour. Field-level detail (type, units, default, owning page) is in
 [`DATA_DICTIONARY.md`](DATA_DICTIONARY.md); this is the orientation.
 
-**Geometry.** The wing (and other lifting-surface) planforms as leading/trailing
-edge point lists, the parametric fuselage/wing/tail/gear layout, the fuselage
-station-area outline, and the single-source empennage (h-tail + v-tail +
-elevator + rudder). Everything geometric starts here.
+**Geometry.** In page order: the lifting-surface planforms as leading/trailing
+edge point lists (with a control surface's hinge line where known); the
+fuselage — its station-area outline, the body-drag waterline and the airplane
+length; the engines — the arrangement and every engine's location, thrust line
+and propeller diameter (engines are added and removed here; their powerplant
+data is on Engine Mount Loads); the wing's placement (root waterline, dihedral)
+and the tail arrangement; the single-source empennage (h-tail + v-tail +
+elevator + rudder); the aileron and flap areas; the gear. A quantity the
+drawn geometry determines is derived when left blank and marked when typed,
+and the page draws the airplane's plan, side and front views from what is
+entered. Everything geometric starts here.
 
 **Weight & Mass Properties.** The mission inputs for the statistical weight
 estimate (seats, crew, power, hours, baggage), the itemized mass database

@@ -795,7 +795,11 @@ def test_the_one_engine_out_rudder_is_selects_rudder():
     ci = _case_inputs(p, 180.0)
     from sloads.constants import IN2_PER_FT2
 
-    halves = vt.rudder_fwd_hinge_sqft + vt.rudder_aft_hinge_sqft
+    # The halves derive from the rudder polyline since design note 69 D-69.17
+    # (the typed scalars are blank), so the comparison is against the resolved
+    # inputs SELECT itself reads.
+    resolved = select.effective_vtail_inputs(p)
+    halves = resolved.rudder_fwd_hinge_sqft + resolved.rudder_aft_hinge_sqft
     assert halves > 0 and math.isclose(ci.sr_in2, halves * IN2_PER_FT2)
 
 

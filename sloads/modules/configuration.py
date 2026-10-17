@@ -30,10 +30,11 @@ unverified extrapolation, consistent with the Phase-C validation contract.
 
 from __future__ import annotations
 
+import contextlib
 import math
 from typing import Dict, List, Optional, Tuple
 
-from ..constants import IN2_PER_FT2, IN_PER_FT
+from ..constants import IN2_PER_FT2
 from ..derived_geometry import MacReference, pct_mac_to_station, require_integrable_planform
 from ..models import (
     ConditionResult,
@@ -70,113 +71,8 @@ _H_AC_WING = 0.25          # wing aerodynamic centre, fraction of MAC
 _LIFT_SLOPE_RATIO = 1.0    # a_t / a_w
 _DOWNWASH_FACTOR = 0.6     # (1 - dε/dα)
 
-# Integration strip count for the generated-polyline WINGGEOM cross-check. A pure
-# trapezoid is exact in the limit; 40 strips is well inside the ±0.1% sanity band.
-_STRIPS = 40
-
-
-def wing_planform(layout: LayoutInput) -> Tuple[float, float, float, float]:
-    """Span, root chord, tip chord and semi-span (all inches) of the trapezoid.
-
-    From the parametric wing (area ``S`` ft², aspect ratio ``AR``, taper ``λ``):
-    ``b = √(AR·S)``; ``c_root = 2·S / (b·(1+λ))``; ``c_tip = λ·c_root`` -- the
-    standard trapezoidal-wing relations, returned in inches.
-    """
-    if layout.wing_area_sqft <= 0 or layout.aspect_ratio <= 0:
-        raise ValueError("configuration wing needs positive area and aspect ratio")
-    area_in2 = layout.wing_area_sqft * IN2_PER_FT2
-    taper = layout.taper_ratio
-    span_in = math.sqrt(layout.aspect_ratio * layout.wing_area_sqft) * IN_PER_FT
-    c_root = 2.0 * area_in2 / (span_in * (1.0 + taper))
-    c_tip = taper * c_root
-    return span_in, c_root, c_tip, span_in / 2.0
-
-
-def wing_polylines(layout: LayoutInput) -> Tuple[List[Tuple[float, float]], List[Tuple[float, float]]]:
-    """WINGGEOM leading-/trailing-edge polylines for the parametric wing.
-
-    ``(X, Y)`` points inboard -> outboard (fuselage station, butt line, inches),
-    in the exact shape :class:`SurfaceInput` expects, so the page can seed
-    ``Project.geometry`` from the layout. The LE runs from the root station at the
-    given sweep; the TE is the LE plus the local chord.
-    """
-    _span, c_root, c_tip, semi = wing_planform(layout)
-    tan_sweep = math.tan(math.radians(layout.le_sweep_deg))
-    x_le_tip = layout.le_root_x + semi * tan_sweep
-    leading_edge = [(layout.le_root_x, 0.0), (x_le_tip, semi)]
-    trailing_edge = [(layout.le_root_x + c_root, 0.0), (x_le_tip + c_tip, semi)]
-    return leading_edge, trailing_edge
-
-
-def wing_surface(layout: LayoutInput) -> SurfaceInput:
-    """The generated WINGGEOM ``SurfaceInput`` for the parametric wing."""
-    le, te = wing_polylines(layout)
-    return SurfaceInput(name="wing", leading_edge=le, trailing_edge=te,
-                        symmetric=True, elements=_STRIPS)
-
-
-def wing_layout_from_surface(surf: SurfaceInput) -> Dict[str, float]:
-    """Best-effort parametric wing scalars, backed out of a WINGGEOM surface.
-
-    The inverse of :func:`wing_polylines`: area and aspect ratio come straight
-    from WINGGEOM (:func:`wing_geometry.surface_properties`);
-    root/tip chord and LE sweep are read from the leading-/trailing-edge
-    polyline's root (first) and tip (last) points. Exact when the surface is the
-    two-point trapezoid ``wing_polylines`` generates; a root/tip-only first-cut
-    for a multi-point (e.g. cranked) polyline.
-
-    Lets a project that already has a "wing" surface (imported ``project.json``,
-    or a project built surface-first on the Wing Geometry page) seed the
-    Configuration & Layout page's parametric wing fields instead of starting
-    from blank defaults. ``root_waterline_z``/``dihedral_deg`` are not returned --
-    a WINGGEOM surface carries no Z data to derive them from.
-    """
-    props = surface_properties(surf)
-    values = {v.label: v.value for v in props.values}
-    xf_root, yroot = surf.leading_edge[0]
-    xf_tip, ytip = surf.leading_edge[-1]
-    xa_root, _ = surf.trailing_edge[0]
-    xa_tip, _ = surf.trailing_edge[-1]
-    root_chord = xa_root - xf_root
-    tip_chord = xa_tip - xf_tip
-    taper_ratio = tip_chord / root_chord if root_chord else 1.0
-    sweep_deg = math.degrees(math.atan2(xf_tip - xf_root, ytip - yroot)) if ytip != yroot else 0.0
-    return {
-        "wing_area_sqft": values["Total area"] / IN2_PER_FT2,
-        "aspect_ratio": values["Aspect ratio"],
-        "taper_ratio": taper_ratio,
-        "le_sweep_deg": sweep_deg,
-        "le_root_x": xf_root,
-    }
-
-
-def parametric_wing_seed(project, _record: object = None) -> Dict[str, float]:
-    """The parametric-wing scalars a seed button would write, or ``{}`` (#95).
-
-    C210-1 / the GR-GEOM-3 ruling: a project that already carries an
-    integrable ``wing`` planform (imported, or built surface-first) should
-    seed the five scalars the polylines determine -- area, AR, taper, LE
-    sweep, LE root station -- instead of asking for them from blank. Answers
-    only while the parametric wing is **not entered** (area or AR still 0,
-    the :func:`wing_planform` gate): once the block is typed, the typed block
-    governs whole and the seed offer is withdrawn. Empty when there is no
-    usable ``wing`` surface either. Consumed by the oracle Geometry page
-    through ``field_registry.RECORD_SEEDS`` (the same
-    :func:`wing_layout_from_surface` the retired front-end's seed button
-    called), so the behaviour has one owner (the C210-1 OG-4/G8 class).
-    """
-    geom = project.geometry
-    layout = geom.parametric if geom is not None else None
-    surf = geom.by_name("wing") if geom is not None else None
-    if layout is None or surf is None:
-        return {}
-    if layout.wing_area_sqft > 0 and layout.aspect_ratio > 0:
-        return {}
-    try:
-        return wing_layout_from_surface(surf)
-    # refusal: an unintegrable wing offers no seed; the fields stay blank
-    except (ValueError, ZeroDivisionError, IndexError):
-        return {}
+#: The planform ``_wing_geometry`` integrates: the stored ``wing`` surface.
+_WING = "wing"
 
 
 # V-tail panels have no dedicated dihedral field (Step: tail-type usability pass);
@@ -227,6 +123,14 @@ def tail_planform(layout: LayoutInput,
     """
     ht = empennage.htail if empennage is not None else None
     vt = empennage.vtail if empennage is not None else None
+    if project is not None:
+        # The resolved records (note 36 OV-1; design note 69 D-69.17): a blank
+        # hinge half derives from the control's boundary lines, and the band
+        # this sketch shades is the aft share SELECT loads.
+        from .select import effective_tail_inputs, effective_vtail_inputs
+        with contextlib.suppress(ValueError):    # the ARW refusal is SELECT's to make
+            ht = effective_tail_inputs(project) or ht
+        vt = effective_vtail_inputs(project) or vt
     h_area = ht.htail_area_sqft if ht is not None else 0.0
     h_span_in = 2.0 * ht.htail_semispan_in if ht is not None else 0.0
     v_area = vt.vtail_area_sqft if vt is not None else 0.0
@@ -384,14 +288,36 @@ def lra_overlays(
     return out
 
 
-def _wing_geometry(layout: LayoutInput) -> dict:
-    """Wing MAC/XLEMAC/Y_MAC/AR/span via WINGGEOM's planform integration.
+def _wing_geometry(project: Project) -> dict:
+    """The stored wing's MAC/XLEMAC/Y_MAC/AR/span/area, by WINGGEOM's label.
 
-    Reads them straight out of :func:`wing_geometry.surface_properties` so
-    WINGGEOM stays the single owner of the integration.
+    Design note 69 D-69.2: the planform this module reports is the one the
+    analysis integrates -- the ``wing`` entry of ``geometry.surfaces``, read
+    through :func:`wing_geometry.surface_properties` so WINGGEOM stays the
+    single owner of the integration. Until v77 it integrated a two-point
+    trapezoid regenerated from five parametric scalars, which on ``ga6_normal``
+    put XLEMAC 7 in off the planform the loads were computed on. The root and
+    tip chords are the polylines' own, at their innermost and outermost butt
+    lines. A project with no ``wing`` surface is not ready, by name.
     """
-    result = surface_properties(wing_surface(layout))
-    return {v.label: v.value for v in result.values}
+    geometry = project.geometry
+    surf = geometry.by_name(_WING) if geometry is not None else None
+    if surf is None:
+        raise MissingInputError(
+            f"Project has no '{_WING}' surface in geometry.surfaces: the "
+            "configuration module integrates the stored planform (design note 69 D-69.2)")
+    result = surface_properties(surf)
+    geom = {v.label: v.value for v in result.values}
+    y_root = max(surf.leading_edge[0][1], surf.trailing_edge[0][1])
+    y_tip = min(surf.leading_edge[-1][1], surf.trailing_edge[-1][1])
+    geom["Root chord"] = interp_x(surf.trailing_edge, y_root) - interp_x(surf.leading_edge, y_root)
+    geom["Tip chord"] = interp_x(surf.trailing_edge, y_tip) - interp_x(surf.leading_edge, y_tip)
+    return geom
+
+
+def _wing_area_sqft(geom: dict) -> float:
+    """The planform's total (both-sides) area in ft², from WINGGEOM's in²."""
+    return geom["Total area"] / IN2_PER_FT2
 
 
 # --------------------------------------------------------------------------- #
@@ -442,35 +368,44 @@ def gear_stations(layout: LayoutInput, landing_gear: Optional[LandingGearGeometr
             "gear_height": layout.root_waterline_z - ground_z, "ground_z": ground_z}
 
 
-def component_stations(layout: LayoutInput,
-                       empennage: Optional[EmpennageInput] = None,
-                       landing_gear: Optional[LandingGearGeometry] = None) -> Dict[str, Vec3]:
+def component_stations(project: Project) -> Dict[str, Vec3]:
     """Approximate ``(x, y, z)`` station (fuselage station / butt line / waterline,
-    inches) for each named airframe component, derived from ``LayoutInput``'s
-    coarse scalars -- a rough first-cut for seeding the Weight DB (WTONECG), not a
+    inches) for each named airframe component, derived from the entered geometry
+    -- a rough first-cut for seeding the Weight DB (WTONECG), not a
     new schema field (Step D4.3; no per-component station sub-model was added --
     see the D-5 decision in ``docs/25_notes/05_phase_d_gui_workflow_plan.md``). A seeded
     ``MassItem.x/y/z`` is always overridable by hand afterward.
 
-    Keys present depend on which scalars are set: ``"wing"`` (25% MAC, matching the
-    CG first-cut used elsewhere in this module), ``"fuselage"`` (length midpoint),
+    Keys present depend on what is entered: ``"wing"`` (25% MAC of the stored
+    ``wing`` planform, matching the CG first-cut used elsewhere in this module),
+    ``"fuselage"`` (the outline's length midpoint, design note 69 D-69.3),
     ``"h_tail"``/``"v_tail"`` (the 25%-tail-MAC station ``xt25``/``xv25`` from the
     Step-G6 single-source ``empennage``), ``"tail"`` (area-weighted h/v average, for
     a single lumped "Tail" item), ``"main_gear"``/``"nose_gear"`` (gear station,
     strut mid-height) and ``"landing_gear"`` (weight-weighted ~3:1 main:nose
     average). All at butt line ``y=0`` (centreline).
     """
+    from ..derived_geometry import fuselage_summary
+
+    geometry = project.geometry
+    layout = (geometry.parametric if geometry is not None else None) or LayoutInput()
+    empennage = geometry.empennage if geometry is not None else None
+    landing_gear = geometry.landing_gear if geometry is not None else None
     ht = empennage.htail if empennage is not None else None
     vt = empennage.vtail if empennage is not None else None
     stations: Dict[str, Vec3] = {}
-    wing_x = layout.le_root_x
-    if layout.wing_area_sqft > 0 and layout.aspect_ratio > 0:
-        geom = _wing_geometry(layout)
+    try:
+        geom = _wing_geometry(project)
+    # refusal: no integrable wing, no wing station -- the seed leaves the item alone
+    except (MissingInputError, ValueError, ZeroDivisionError):
+        geom = None
+    if geom is not None:
         wing_x = geom["XLE(MAC) station of MAC LE"] + 0.25 * geom["MAC"]
         stations["wing"] = (wing_x, 0.0, layout.root_waterline_z)
-    if layout.fuselage_length > 0:
+    summary = fuselage_summary(geometry.fuselage if geometry is not None else None)
+    if summary is not None and summary[0] > 0:
         stations["fuselage"] = (
-            layout.datum_x + layout.fuselage_length / 2.0, 0.0, layout.root_waterline_z,
+            layout.datum_x + summary[0] / 2.0, 0.0, layout.root_waterline_z,
         )
     if ht is not None and ht.xt25 > 0:
         stations["h_tail"] = (ht.xt25, 0.0, layout.root_waterline_z)
@@ -519,15 +454,15 @@ def match_component_station(name: str, stations: Dict[str, Vec3]) -> Optional[Ve
     return None
 
 
-def _planform_condition(layout: LayoutInput, geom: dict) -> ConditionResult:
-    span, c_root, c_tip, _semi = wing_planform(layout)
+def _planform_condition(geom: dict) -> ConditionResult:
     return ConditionResult(
-        title="Wing planform (parametric -> WINGGEOM)",
+        title="Wing planform (WINGGEOM)",
         far_reference=_FAR,
         values=[
-            LoadValue("Span", span, _IN, key="span"),
-            LoadValue("Root chord", c_root, _IN, key="root_chord"),
-            LoadValue("Tip chord", c_tip, _IN, key="tip_chord"),
+            LoadValue("Reference area S", _wing_area_sqft(geom), "ft^2", key="wing_area_s"),
+            LoadValue("Span", geom["Span"], _IN, key="span"),
+            LoadValue("Root chord", geom["Root chord"], _IN, key="root_chord"),
+            LoadValue("Tip chord", geom["Tip chord"], _IN, key="tip_chord"),
             LoadValue("MAC", geom["MAC"], _IN, key="mac"),
             LoadValue("XLE(MAC) station of MAC LE", geom["XLE(MAC) station of MAC LE"], _IN,
                 key="xle_mac_station_of_mac_le"),
@@ -535,22 +470,27 @@ def _planform_condition(layout: LayoutInput, geom: dict) -> ConditionResult:
                 key="yle_mac_butt_line_of_mac"),
             LoadValue("Aspect ratio", geom["Aspect ratio"], key="aspect_ratio"),
         ],
-        note="MAC/XLEMAC/AR via WINGGEOM's planform integration on the generated polylines.",
+        note=("S/MAC/XLEMAC/AR via WINGGEOM's planform integration of the stored "
+              "wing surface (design note 69 D-69.2); the chords are the polylines' "
+              "own at the root and tip butt lines."),
     )
 
 
-def _stability_condition(project: Project, layout: LayoutInput, geom: dict) -> Optional[ConditionResult]:
+def _stability_condition(project: Project, geom: dict) -> Optional[ConditionResult]:
     """Tail-volume neutral point + static margin (Ref 1 Ch 8 first-cut).
 
     Reads the h-tail area and 25%-MAC station from the Step-G6 single-source
     ``geometry.empennage.htail``; the tail arm is derived as ``xt25`` minus the 25%
-    wing-MAC station (``XLEMAC + 0.25*MAC``), so it is not stored twice.
+    wing-MAC station (``XLEMAC + 0.25*MAC``), so it is not stored twice. The wing
+    area and MAC frame are the stored planform's (D-69.2), as ``MacReference``
+    below has always claimed.
     """
     emp = project.geometry.empennage if project.geometry is not None else None
     ht = emp.htail if emp is not None else None
     mac = geom["MAC"]
     xlemac = geom["XLE(MAC) station of MAC LE"]
-    if ht is None or ht.htail_area_sqft <= 0 or layout.wing_area_sqft <= 0 or mac <= 0:
+    wing_area_sqft = _wing_area_sqft(geom)
+    if ht is None or ht.htail_area_sqft <= 0 or wing_area_sqft <= 0 or mac <= 0:
         return None
     # The MAC frame is one relation (#80): the 25%-MAC station and the neutral
     # point below are both a percentage of MAC off XLEMAC, and both read the
@@ -560,7 +500,7 @@ def _stability_condition(project: Project, layout: LayoutInput, geom: dict) -> O
     h_arm = ht.xt25 - pct_mac_to_station(25.0, mac_ref)
     if h_arm <= 0:
         return None
-    v_h = (ht.htail_area_sqft * h_arm) / (layout.wing_area_sqft * mac)
+    v_h = (ht.htail_area_sqft * h_arm) / (wing_area_sqft * mac)
     h_n = _H_AC_WING + v_h * _LIFT_SLOPE_RATIO * _DOWNWASH_FACTOR
     np_station = pct_mac_to_station(h_n * 100.0, mac_ref)
 
@@ -681,9 +621,9 @@ def configuration_properties(project: Project) -> List[ConditionResult]:
     layout = project.geometry.parametric if project.geometry is not None else None
     if layout is None:
         raise MissingInputError("Project has no 'geometry.parametric' slice for the configuration module")
-    geom = _wing_geometry(layout)
-    results = [_planform_condition(layout, geom)]
-    for cond in (_stability_condition(project, layout, geom),
+    geom = _wing_geometry(project)
+    results = [_planform_condition(geom)]
+    for cond in (_stability_condition(project, geom),
                  _gear_condition(project, layout, geom)):
         if cond is not None:
             results.append(cond)

@@ -101,7 +101,7 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional
 
 from . import cg_cases, mass_distribution
 from .constants import ULTIMATE_FACTOR
-from .cross_check import cross_check_disagrees, shown_apart
+from .cross_check import CROSS_CHECK_REL, cross_check_disagrees, shown_apart
 from .models import (
     GROUND_CASE_ROLE_ORDER,
     REFUSALS,
@@ -153,10 +153,6 @@ PAGE_ONE_ENGINE_OUT = "one_engine_out"
 # source the v46 migration reads a legacy file's roles from.
 LANDING_CG_NAMES = ("aft max landing", "fwd max landing", "fwd light")
 
-# Fractional tolerance for the Configuration-vs-WINGGEOM wing-area agreement check.
-_AREA_MISMATCH_TOL = 0.05
-
-
 @dataclass(frozen=True)
 class ConsistencyWarning:
     """One input-consistency finding.
@@ -185,14 +181,6 @@ def _wing_geometry_area_sqft(project: Project) -> Optional[float]:
 
 def _check_taper(project: Project) -> List[ConsistencyWarning]:
     out: List[ConsistencyWarning] = []
-    cfg = project.geometry.parametric if project.geometry is not None else None
-    if cfg is not None and cfg.taper_ratio and cfg.taper_ratio > 1.0:
-        out.append(ConsistencyWarning(
-            "taper_gt_1",
-            f"Wing taper ratio {format_value(cfg.taper_ratio)} is greater than 1 (tip chord "
-            "exceeds root chord). Taper ratio is tip/root chord and is normally "
-            "0 < λ ≤ 1 (WINGGEOM/TAU).",
-            PAGE_CONFIGURATION))
     if project.aero is not None:
         for s in project.aero.surfaces:
             if s.taper_ratio and s.taper_ratio > 1.0:
@@ -206,15 +194,6 @@ def _check_taper(project: Project) -> List[ConsistencyWarning]:
 
 def _check_area(project: Project) -> List[ConsistencyWarning]:
     out: List[ConsistencyWarning] = []
-    cfg = project.geometry.parametric if project.geometry is not None else None
-    # Only warn once a layout is being defined (non-default fuselage/aspect).
-    if (cfg is not None and cfg.wing_area_sqft is not None and cfg.wing_area_sqft <= 0.0
-            and (cfg.aspect_ratio or cfg.taper_ratio or cfg.fuselage_length)):
-        out.append(ConsistencyWarning(
-            "nonpositive_area",
-            "Wing reference area S is zero or negative. It drives the wing "
-            "loading W/S and every downstream load (14 CFR 23.335).",
-            PAGE_CONFIGURATION))
     geo_area = _wing_geometry_area_sqft(project)
     if geo_area is not None and geo_area <= 0.0:
         out.append(ConsistencyWarning(
@@ -253,28 +232,6 @@ def _check_le_te_ordering(project: Project) -> List[ConsistencyWarning]:
                 "(butt line |Y| should increase).",
                 PAGE_CONFIGURATION))
     return out
-
-
-def _check_area_mismatch(project: Project) -> List[ConsistencyWarning]:
-    cfg = project.geometry.parametric if project.geometry is not None else None
-    if cfg is None or not cfg.wing_area_sqft or cfg.wing_area_sqft <= 0.0:
-        return []
-    geo_area = _wing_geometry_area_sqft(project)
-    if geo_area is None or geo_area <= 0.0:
-        return []
-    rel = abs(cfg.wing_area_sqft - geo_area) / cfg.wing_area_sqft
-    if rel > _AREA_MISMATCH_TOL:
-        msg = (
-            f"Wing area mismatch: Configuration & Layout has "
-            f"{format_value(cfg.wing_area_sqft, 'ft^2')} ft² but the WINGGEOM planform is "
-            f"{format_value(geo_area, 'ft^2')} ft² ({format_value(rel * 100, '%')}% apart). They should agree.")
-        # Both pages, once each. It was PAGE_CONFIGURATION twice, so Configuration
-        # & Layout printed the same sentence twice and Design Speeds -- where the
-        # disagreement decides which number STRSPEED integrates -- printed it not
-        # at all (#70, alongside PB-17).
-        return [ConsistencyWarning("area_mismatch", msg, PAGE_CONFIGURATION),
-                ConsistencyWarning("area_mismatch", msg, PAGE_STRUCTURAL_SPEEDS)]
-    return []
 
 
 def _wtenv_stations(project: Project) -> Optional[Dict[str, float]]:
@@ -1697,6 +1654,48 @@ def _check_derive_overrides(project: Project) -> List[ConsistencyWarning]:
                 "the halves (#95), or fix whichever is wrong.",
                 PAGE_CONFIGURATION))
 
+    # A typed wing-control area against the drawn control (design note 69
+    # D-69.7/D-69.8): AILERON's SAFWD + SAAFT is one aileron and FLAPLOAD's SF
+    # one flap, each a collapsed override of the ``aileron`` / ``flap``
+    # surface's one-side area (tail_geometry.control_surface_areas, the one
+    # integrator). The band is the field's own (D-69.10, read from the
+    # registry), the hinge-halves 1 % above: the Appendix A airplane's printed
+    # inputs sit 0.2 % off its drawn planform.
+    from . import field_registry as fr
+    from .tail_geometry import control_surface_areas
+    ail, fl = project.aileron_loads, project.flap_loads
+    for code, what, path, typed_sqft, control, program in (
+        ("aileron_area_mismatch", "aileron area SAFWD + SAAFT",
+         "aileron_loads.area_fwd_hinge_sqft",
+         (ail.area_fwd_hinge_sqft + ail.area_aft_hinge_sqft) if ail else 0.0,
+         "aileron", "AILERON"),
+        ("flap_area_mismatch", "flap area SF", "flap_loads.flap_area_one_side_sqft",
+         fl.flap_area_one_side_sqft if fl else 0.0, "flap", "FLAPLOAD"),
+    ):
+        if not typed_sqft:
+            continue
+        try:
+            areas = control_surface_areas(project, control)
+        # refusal: a control that does not integrate is refused by name elsewhere
+        except ValueError:
+            continue
+        if areas is None or not areas.one_side_sqft:
+            continue
+        drawn_sqft = areas.one_side_sqft
+        entry = fr.entry(path)
+        band = entry.band if entry is not None and entry.band else CROSS_CHECK_REL
+        if cross_check_disagrees(typed_sqft, drawn_sqft,
+                                 lambda v: format_value(v, 'ft^2'), rel=band):
+            out.append(ConsistencyWarning(
+                code,
+                f"The typed {what} is {format_value(typed_sqft, 'ft^2')} sq ft but the drawn "
+                f"{control} surface integrates to {format_value(drawn_sqft, 'ft^2')} "
+                f"sq ft one side ({format_value(abs(typed_sqft - drawn_sqft) / drawn_sqft * 100, '%')} % "
+                f"apart, band {format_value(band * 100, '%')} %). {program} reads the typed value. "
+                "Blank it to derive from the drawn surface (design note 69), or fix "
+                "whichever is wrong.",
+                PAGE_CONFIGURATION))
+
     from .modules.engine import engine_name
     for i, eng in enumerate(project.engines):
         label = engine_name(i, eng)
@@ -1942,7 +1941,6 @@ def consistency_warnings(project: Project) -> List[ConsistencyWarning]:
     out += _check_taper(project)
     out += _check_area(project)
     out += _check_le_te_ordering(project)
-    out += _check_area_mismatch(project)
     out += _check_cg_envelope(project)
     out += _check_cg_cases_have_weight(project)
     out += _check_tail_cp_stations(project)

@@ -510,12 +510,16 @@ def test_the_t_tail_branch_puts_the_fin_tip_at_the_horizontal_tail():
     places a T-tail's horizontal surface at the fin tip. Solving it for the root
     is what keeps the two surfaces in contact when ``h_tail_z`` is entered rather
     than defaulted — the fuselage-top formula leaves them 18 in apart on the RJ."""
+    from sloads.derived_geometry import fuselage_summary
+
     project = _project("concept_regional_jet.project.json")
     layout = project.geometry.parametric
     planform = resolve_tail_planform(project, VTAIL)
     vtail_tip = planform.root_z + planform.span
     assert vtail_tip == pytest.approx(layout.root_waterline_z + layout.h_tail_z)
-    fuselage_top = layout.root_waterline_z + layout.fuselage_height / 2.0
+    # The old fuselage-top formula, from the outline's maximum height (the
+    # summary scalar it read until design note 69 D-69.3).
+    fuselage_top = layout.root_waterline_z + fuselage_summary(project.geometry.fuselage)[2] / 2.0
     assert fuselage_top - planform.root_z == pytest.approx(18.0)
 
 
@@ -546,15 +550,14 @@ def test_the_outline_branch_states_its_datum_and_a_pointed_cone_falls_through():
     note = next(n for n in _imps(planform.notes) if "local fuselage top" in n)
     assert "z_centre" in note and "fuselage centre line ASSUMED" in note
 
-    # Pinch the outline: zero height everywhere aft of the nose section.
+    # Pinch the outline: zero height everywhere aft of the nose section. With
+    # no body top to sit on the wing root alone stands in (design note 69
+    # D-69.3 removed the half-height the fallback used to add).
     for section in project.geometry.fuselage.sections[1:]:
         section.height = 0.0
-    from sloads.derived_geometry import sync_geometry_derived
-    sync_geometry_derived(project)   # fuselage_height follows the outline
     fallback = resolve_tail_planform(project, VTAIL)
     layout = project.geometry.parametric
-    assert fallback.root_z == pytest.approx(
-        layout.root_waterline_z + layout.fuselage_height / 2.0)
+    assert fallback.root_z == pytest.approx(layout.root_waterline_z)
     assert any("WING root stands in" in n for n in _imps(fallback.notes))
 
 

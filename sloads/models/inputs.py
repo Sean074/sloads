@@ -578,9 +578,31 @@ class FuselageOutline:
 
     A station-area table (:class:`FuselageSection` list) that gives both the
     three-view body profile and the cross-sectional-area distribution the G4
-    fuselage pitching-moment estimator consumes.
+    fuselage pitching-moment estimator consumes, and -- since v77 (design note
+    69 D-69.4) -- the two body scalars that belong with it:
+
+    ``body_drag_waterline_z`` is the waterline the airplane's NON-WING drag is
+    applied at in the assembled model (in). **0 -> derive it**
+    (:func:`sloads.derived_geometry.body_drag_waterline`): the derived value is
+    the wing reference plane ``zw``, marked assumed and stated in-band. Note 24
+    D-1: the height this load acts at is the *only* free parameter in the
+    body-axial carrier, so it is stated, not guessed from geometry that does
+    not mean what it looks like. It also defaults the section centre line
+    (:func:`~sloads.derived_geometry.fuselage_centreline`) where ``z_centre``
+    is blank, which is why it lives on the outline it defaults. Moved here
+    from ``LayoutInput`` at v77 with unchanged semantics.
+
+    ``airplane_length_in`` is SELECT's LF, the whole-airplane length (in) both
+    tail inertia defaults use -- the 23.423(b) pitch inertia
+    ``Iyy = W*LF^2/g/12*0.44`` and the 23.441 default ``IZZ``. A **collapsed
+    override** (note 39 OV-1): blank derives from the outline's own length
+    (:func:`~sloads.derived_geometry.airplane_length_in`, the one read point),
+    a typed value governs and is marked. An original SELECT input, so Appendix
+    A types it. One home since v55 (#52); on ``EmpennageInput`` until v77.
     """
     sections: List[FuselageSection] = field(default_factory=list)
+    body_drag_waterline_z: float = 0.0   # 0 -> derived (zw), marked assumed
+    airplane_length_in: float = 0.0      # LF; 0 -> derived from the outline length
 
 
 @dataclass
@@ -1631,14 +1653,12 @@ class EmpennageInput:
     exactly one place. The tail *arm* is derived where needed (25% tail MAC station
     ``xt25``/``xv25`` minus the 25% wing MAC station), not stored twice.
 
-    ``airplane_length_in`` (SELECT's LF, inches) is the one whole-airplane
-    length both tails' inertia defaults use -- the 23.423(b) pitch inertia
-    ``Iyy = W*LF^2/g/12*0.44`` and the 23.441 default ``IZZ``. Until schema v55
-    each tail carried its own copy (#52, note 33 DS-7); it is stored here, once.
+    SELECT's LF, the whole-airplane length, was stored here from v55 (#52) to
+    v76; since v77 it is :attr:`FuselageOutline.airplane_length_in` (design
+    note 69 D-69.4), the outline being the length's owner.
     """
     htail: Optional[TailLoadsInput] = None
     vtail: Optional[VTailLoadsInput] = None
-    airplane_length_in: float = 0.0            # LF (inches; LF_ft = LF_in/12 in the inertias)
 
 
 # --------------------------------------------------------------------------- #
@@ -2069,57 +2089,33 @@ class LraMeshInput:
 # --------------------------------------------------------------------------- #
 @dataclass
 class LayoutInput:
-    """General configuration & layout: the geometric source of truth.
+    """General configuration & layout: what the polylines cannot carry.
 
-    A modern addition (no original ``.BAS``; **no manual regression oracle** --
-    Appendix A/B geometry is used only as a *sanity* fixture, asserting the derived
-    ``MAC``/``XLEMAC`` match what WINGGEOM reproduces). This slice owns the
-    high-level parametric geometry the configuration page edits, then *seeds*
-    downstream pages (WINGGEOM polylines, WTENV/STRSPEED ``XLEMAC``/``MAC``,
-    WTONECG component stations).
+    A modern addition (no original ``.BAS``; **no manual regression oracle**).
+    Since v77 (design note 69 D-69.2/D-69.3) this slice holds only the
+    geometry the ``geometry.surfaces`` planforms and the ``geometry.fuselage``
+    outline do not: the wing's vertical placement (``root_waterline_z``,
+    ``dihedral_deg``), the nose datum, and the empennage *arrangement*
+    (``tail_type``, ``h_tail_z``, ``htail_dihedral_deg``). The parametric wing
+    scalars (area, AR, taper, LE sweep, LE root station) are gone: the
+    configuration module integrates the stored ``wing`` surface through the
+    planform owners, so the page's planform is the analysis's. The fuselage
+    summaries (length, width, height) are gone too: readers call
+    :func:`sloads.derived_geometry.fuselage_summary` on the outline.
 
     Coordinates are inches in the airplane axes used throughout the suite:
     fuselage station ``X`` (aft positive from the datum), butt line ``Y`` and
     waterline ``Z``. Engine positions are **not** stored here -- they stay owned by
-    ``EngineInput.engine_cg`` (the page reads them for drawing and writes back on a
-    move), per the ownership rule in ``PROGRAM_SPEC.md``.
-
-    The wing is parametric (area, aspect ratio, taper, sweep, dihedral); the
-    configuration module turns it into the WINGGEOM ``leading_edge``/
-    ``trailing_edge`` polylines and the trapezoidal-wing ``MAC``/``XLEMAC``/
-    ``Y_MAC`` (cross-checked against WINGGEOM's planform integration). The empennage
-    (tail + elevator/rudder) geometry lives in the single-source
+    ``EngineInput.engine_cg``, per the ownership rule in ``PROGRAM_SPEC.md``.
+    The empennage (tail + elevator/rudder) geometry lives in the single-source
     ``GeometryInput.empennage`` (Step G6) and the landing-gear geometry in
-    ``GeometryInput.landing_gear`` (Step G6b); this slice keeps only the empennage
-    *arrangement* (``tail_type``) and h-tail drawing offset (``h_tail_z``).
+    ``GeometryInput.landing_gear`` (Step G6b).
     """
-    # Fuselage. Step M2-6: the station-area ``GeometryInput.fuselage`` outline is the
-    # sole editable shape source; these three scalars are a **derived read-only
-    # summary** of it (length = station span, width/height = max section), kept in
-    # sync by sloads.derived_geometry.sync_geometry_derived and NOT persisted. The
-    # GUI shows them read-only.
-    fuselage_length: float = 0.0     # overall length, in -- derived summary (M2-6)
-    fuselage_width: float = 0.0      # max width, in -- derived summary (M2-6)
-    fuselage_height: float = 0.0     # max height, in -- derived summary (M2-6)
     datum_x: float = 0.0             # fuselage station of the nose datum reference, in
-    # Wing (parametric planform)
-    wing_area_sqft: float = 0.0      # reference (total) wing area S, ft^2
-    aspect_ratio: float = 0.0        # AR = b^2 / S
-    taper_ratio: float = 1.0         # tip chord / root (centreline) chord
+    # Wing vertical placement -- the two scalars a planform polyline (X, Y)
+    # cannot carry; ``derived_geometry.wing_reference`` is their one reader.
     dihedral_deg: float = 0.0        # geometric dihedral
-    le_sweep_deg: float = 0.0        # leading-edge sweep
-    le_root_x: float = 0.0           # fuselage station of the LE at the centreline, in
     root_waterline_z: float = 0.0    # waterline of the root chord (25% MAC reference), in
-    # Waterline the airplane's NON-WING drag is applied at in the assembled model
-    # (in). **0 -> derive it** (see ``derived_geometry.body_drag_waterline``); the
-    # derived value is the wing reference plane ``zw`` and is marked ``assumed``
-    # and stated in-band. Design note ``docs/25_notes/24_body_drag_carrier_note.md``
-    # decision D-1: the height this load acts at is the *only* free parameter in
-    # the body-axial carrier, and the suite has no body-centreline datum to derive
-    # one from -- ``root_waterline_z`` is the WING root, and using it would put
-    # ``ga6_normal``'s pitch residual over the gate. So it is stated, not guessed
-    # from geometry that does not mean what it looks like.
-    body_drag_waterline_z: float = 0.0   # 0 -> derived (zw), marked assumed
     # Empennage arrangement + vertical placement. The tail area/span/arm moved to
     # the single-source GeometryInput.empennage (Step G6); the three-view and the
     # stability estimate read the analysis-native values there (htail/vtail area,

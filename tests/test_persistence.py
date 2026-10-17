@@ -77,11 +77,10 @@ DERIVED_NOT_PERSISTED = {
     # (derived_geometry.wing_plane, landing.gear_geometry), so there is nothing left
     # here to allow. ``LandingInput.wing_area_sqft`` and ``FlightLoadsInput``'s
     # mac/wing_area_sqft/xw/zw went the same way: they are read from the planform
-    # at the point of use, with no slice copy to hold a second opinion. What is
-    # left is the fuselage summary, a derived *record* rather than a scalar copy.
-    ("LayoutInput", "fuselage_length"),   # M2-6: derived summary of the outline
-    ("LayoutInput", "fuselage_width"),
-    ("LayoutInput", "fuselage_height"),
+    # at the point of use, with no slice copy to hold a second opinion. The last
+    # entries -- the fuselage summary on ``LayoutInput`` -- went at design note
+    # 69 D-69.3 (readers call ``fuselage_summary``), so the set is empty: every
+    # persisted field round-trips, and the guard below keeps it that way.
 }
 
 # Each input slice with its io (from_dict, to_dict) pair. geometry_from_dict's legacy

@@ -51,7 +51,7 @@ from ..case_ids import WING_BAND_EXTRA, WING_SLOTS, band_case_id, wing_case_id
 from ..cg_cases import flight_cases
 from ..constants import DEG_PER_RAD, IN2_PER_FT2
 from ..convergence import solver_failure
-from ..derived_geometry import require_integrable_planform, sync_geometry_derived, wing_plane
+from ..derived_geometry import require_integrable_planform, wing_plane
 from ..mass_distribution import WingMassState, panel_weight, wing_mass_state
 from ..models import (
     CaseRef,
@@ -637,7 +637,6 @@ MODULE_NAME = "wing_inertia"
 
 def build_wing_inertia(project: Project) -> List[WingLoadResult]:
     """Compute the wing inertia distribution for every configured load case."""
-    sync_geometry_derived(project)
     wm = project.wing_mass
     if wm is None:
         raise MissingInputError("Project has no 'wing_mass' inputs for the wing_inertia module")

@@ -531,18 +531,23 @@ def test_the_download_and_the_dirty_flag_describe_this_reruns_edit():
 
     at = _oracle_entry_point()
     assert _dirty_caption(at) == "⚪ No unsaved changes"
-    ar = next(w for w in at.number_input if w.key.endswith("geometry.parametric.aspect_ratio"))
+    # The wing dihedral: a plain parametric scalar still on the page after v77
+    # deleted the parametric wing five (note 69 D-69.2).
+    ar = next(w for w in at.number_input if w.key.endswith("geometry.parametric.dihedral_deg"))
     ar.set_value(ar.value + 1).run()
     assert not at.exception, [e.message for e in at.exception]
 
     project = at.session_state["project"]
-    assert json.loads(at.session_state["_payload"])["geometry"]["parametric"]["aspect_ratio"] \
-        == project.geometry.parametric.aspect_ratio
+    assert json.loads(at.session_state["_payload"])["geometry"]["parametric"]["dihedral_deg"] \
+        == project.geometry.parametric.dihedral_deg
     assert _dirty_caption(at) == "🟠 Unsaved changes"
 
     name = next(w for w in at.text_input if w.key.endswith("geometry.surfaces[].0.name"))
     name.set_value("mainplane").run()
-    assert [e.label for e in at.expander if e.label.startswith("1 · ")] == ["1 · mainplane"]
+    # The Geometry page holds the engines' row expanders too since #380, so the
+    # check is on the surface's own title, not every first row on the page.
+    labels = [e.label for e in at.expander if e.label.startswith("1 · ")]
+    assert "1 · mainplane" in labels and "1 · wing" not in labels, labels
 
 
 _STOPPING_PAGE = '''

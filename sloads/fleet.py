@@ -449,7 +449,6 @@ def subject_from_project(project: "Project") -> Optional[Subject]:
 
     speeds = project.speeds
     weight = project.weight
-    config = project.geometry.parametric if project.geometry is not None else None
     planform = _planform(project)
 
     direct = weight.database_totals() if (weight and weight.items) else None
@@ -468,10 +467,10 @@ def subject_from_project(project: "Project") -> Optional[Subject]:
     oew: Optional[float] = (float(direct[1]) if direct and direct[1]
                             else _wtestima_value(project, "empty_weight"))
 
+    # The planform only (design note 69 D-69.2): the parametric copy it used
+    # to prefer is gone, and on ga6_normal it disagreed with the integral.
     wing_area: Optional[float] = None
-    if config and config.wing_area_sqft:
-        wing_area = float(config.wing_area_sqft)
-    elif planform.get("area_sqft"):
+    if planform.get("area_sqft"):
         wing_area = float(planform["area_sqft"] or 0.0)
     elif speeds and speeds.wing_area_sqft:
         wing_area = float(speeds.wing_area_sqft)
@@ -483,9 +482,7 @@ def subject_from_project(project: "Project") -> Optional[Subject]:
         power = float(weight.estimation.max_continuous_hp)
 
     aspect_ratio: Optional[float] = None
-    if config and config.aspect_ratio:
-        aspect_ratio = float(config.aspect_ratio)
-    elif planform.get("aspect_ratio"):
+    if planform.get("aspect_ratio"):
         aspect_ratio = float(planform["aspect_ratio"] or 0.0)
 
     # Span from the surface planform (full span, inches) when available;

@@ -380,10 +380,19 @@ def test_the_supplied_set_stays_small_against_the_asked_set():
     is the tag that makes a WING row a WINGINER concentrated mass instead of
     panel mass (D-63.3), and the reduction dropping it would smear the Baron's
     engines, gear and fuel along the span -- the closure-locked twin's wing
-    loads would not reproduce. The dial has moved three times in the project's
-    life, each time with a class of field behind it and never to close a
-    failure."""
-    assert len(supplied_paths()) < 0.17 * len(original_paths())
+    loads would not reproduce.
+
+    **18 % since design note 69** (2026-10-16), for one field and a smaller
+    denominator: ``geometry.surfaces[].hinge_line`` is the boundary line the
+    blank SELECT hinge areas derive from, and three examples now enter their
+    elevator and rudder with it and type no scalar (D-69.17), so a reduction
+    that dropped it would size every tail hinge area at 0; and the same note
+    deleted six ORIGINAL rows (the five parametric wing scalars and the
+    fuselage length, D-69.2/D-69.3), which the original asked for and the
+    stored planform now answers. The dial has moved four times in the
+    project's life, each time with a class of field behind it and never to
+    close a failure."""
+    assert len(supplied_paths()) < 0.18 * len(original_paths())
 
 
 def test_every_shipped_example_is_classified():

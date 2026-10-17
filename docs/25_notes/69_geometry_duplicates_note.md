@@ -2,15 +2,19 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: AGREED 2026-10-16 — no code** (owner, in session, under the solo
-profile — rule 1's working-alone branch). PROPOSED the same day; the owner ruled
+**Status: SHIPPED 2026-10-16** (#377–#381 closed in one tier-L step on
+`dev/v0.9.0`; D-69.11 landed first as ce02934). AGREED the same day (owner, in
+session, under the solo profile — rule 1's working-alone branch). PROPOSED the same day; the owner ruled
 Q1–Q4 of §3 **as recommended** (Q1 delete, Q2 move, Q3 accept, Q4 park), so
 D-69.1…D-69.12 stand as written. Drafted for #377, #378 and #379, which share one
 defect class: the Geometry page asks for a quantity that the geometry entered on
 the same page already determines, stores both, and ties them together loosely or
 not at all. This note sets one rule for the class (D-69.1) and applies it field by
-field. Implementation is one tier-L step on `dev/v0.9.0`; D-69.11 (data only) may
-land first.
+field. Implementation is one tier-L step on `dev/v0.9.0`; D-69.11 (data only)
+landed first (ce02934). **Extended the same day (§5, D-69.13…D-69.18, Q5–Q7)**
+to cover #380 (the Engines section) and #381 (the airplane three-view), which the
+owner ruled close in the same step; Q5–Q7 ruled **as recommended** the same day,
+so D-69.13…D-69.18 stand as written.
 
 **Tier L.** Schema change (v76 → v77: fields removed from `LayoutInput`, two
 moved to `FuselageOutline`), and the page sections are restructured.
@@ -205,3 +209,84 @@ Benchmark-first (rule 2). Identities exact (`rel_tol=1e-9`) unless stated.
 **Sequencing.** D-69.11 (data only) may land first, alone, as #378 part 1. The rest
 is one step. #380 (Engines section) slots into D-69.5's order when it lands, and
 #381's three-view draws the corrected outline.
+## 5. Extension (2026-10-16): the Engines section (#380) and the airplane three-view (#381)
+
+**Why here.** The owner ruled on 2026-10-16 that #377–#381 close as one step, so
+the two issues note 69 did not cover take their design here rather than in a
+note 70. Both are page and figure work on the same Geometry page; neither moves
+a delivered load by mechanism. #381 step 4 (elevator and rudder entered on three
+examples, their SELECT scalars blanked) moves those examples' tail loads by
+**data**, as D-69.11 did for `atr42_100`'s fuselage, and is gated the same way.
+
+### 5.1 Measurements
+
+**The engine fields (#380).** `engines[]` has 42 registry rows, all tagged
+`_ENG` (the Engine Mount page); `engine_layout` alone is tagged `_GEO`
+(`field_registry.py:1768`, C210-44), which is why the page shows a "Project"
+heading over one field. Of the location fields, `engine_cg` and `prop_cg` are
+already collapsed overrides (`EXTERNAL_VALUES`, `field_registry.py:690-692`):
+with a mass-item selector set they derive from the weight database row's
+`(x, y, z)`, and a typed value governs and is cross-checked
+(`engine_mass_row_mismatch`). Moving their page tag changes none of that. The
+renderer groups a page's rows by record prefix (`form.page_groups`), so tagging
+some `engines[]` rows `_GEO` renders an `engines[]` table on both pages, each
+with the row counter and per-row delete `render_table` gives every list — two
+places to add or delete an engine.
+
+**The figures (#381).** The Engine Mount report section already draws the
+airframe in all three frames: `oracle_sections._airframe_series` (`:7244`)
+composes `derived_geometry.fuselage_outline` (every frame), `_wing_view_series`
+(the planform in plan, the reference plane in side and front, through
+`wing_reference`) and `_tail_view_series` (both panels through
+`configuration.tail_planform`). `_engine_view_figure` (`:7304`) adds
+`engine_thrust_segments` and the application points, post-run, because the
+points come from the module's conditions. Nothing draws a propeller disc, a
+gear leg or a control surface in these views; the planforms (`_PLANFORM_FIGURES`,
+`:399`) shade a control only where a surface *named* for it is entered. The
+caption at `:638` says the analysis carries "no hinge geometry"; false since
+D-54.1 (`SurfaceInput.hinge_line`, `control_hinge_areas`).
+
+**The tail controls on the examples.** Only `ga6_normal` enters `elevator` and
+`rudder` surfaces (leading edge only; the trailing edge derives from the parent
+per D-54.1, no `hinge_line`). The other three carry the controls as SELECT
+scalars alone:
+
+| Example | SE fwd / aft (sq ft) | ST | SE / ST | SR fwd / aft | SV | SR / SV |
+|---|---|---|---|---|---|---|
+| `atr42_100` | 3.0 / 23.0 | 85.0 | 0.306 | 2.5 / 19.5 | 70.0 | 0.314 |
+| `baron_58` | 2.1 / 18.9 | 53.0 | 0.396 | 0.9 / 8.1 | 24.3 | 0.370 |
+| `concept_regional_jet` | 4.0 / 30.0 | 120.0 | 0.283 | 4.0 / 29.0 | 110.0 | 0.300 |
+
+All [E] on every file (`*.sources.md`); none is a published value, so a
+polyline constructed to integrate to them is the same estimate drawn.
+
+### 5.2 Decisions (D-69.13 … D-69.18)
+
+| # | Decision | Rationale |
+|---|---|---|
+| **D-69.13** | **An Engines section on Geometry** holds `engine_layout` and, per engine, `mounted_on`, `engine_cg`, `prop_cg`, `thrust_line_fwd`, `thrust_line_aft` and `prop_diameter_in`: these seven rows are retagged `_GEO`, with `DISPLAY_GROUPS["engine_layout"] = "Engines"` so the heading is the section's name and the "Project" heading is gone. Every other `engines[]` row stays `_ENG`. The paths do not change (no schema effect); `engine_cg` / `prop_cg` keep their collapsed-override derivation from the mass item. `include_far25` (`_ENG`, project root) is untouched: it renders under Engine Mount's own root group, which is the one remaining root field and gets the title "FAR 25 supplement". | #380 as filed: an engine exists where it is placed, and the figure of D-69.15 draws these seven fields. |
+| **D-69.14** | **One list, one owner of its rows.** The registry gains `LIST_ROW_OWNER: Dict[str, str]` — list prefix → the page that adds and deletes its rows — with `"engines[]": "configuration_layout"` its one entry. `render_table` on any other page renders **rows only**: no row counter, no surplus-delete, no per-row delete, and a caption naming the owning page ("Engines are added and removed on the Geometry page"). Each row is headed `Engine n — <designation> (left|right|centre)`, the side from the sign of the resolved `engine_cg` y, so `baron_58`'s two IO-550s are told apart. A list with no entry behaves as today. Guard: a `test_oracle_gui` render of Engine Mount asserts no add/delete widget key under the `engines[]` prefix, and of Geometry asserts the counter is present. | #380's design question, decided as it proposed. Rows-only is a renderer mode, not a second form: the same `render_table`, one flag. |
+| **D-69.15** | **A pre-run airplane three-view on Geometry**: three new figure families `airplane_plan_view`, `airplane_side_view`, `airplane_front_view` on step `configuration_layout`, stage PRE_RUN, built by one new `oracle_sections.airplane_view_figures`, to scale on equal axes (`PlotData.to_scale`), each frame's axes from `_PLANFORM_AXES`. What it draws, every element from an existing owner and left out (and named in the caption) when not entered: <ul><li>the airframe — `_airframe_series` as the Engine Mount views draw it, plus the `fuselage_centreline` as a dashed line in side view where it is `CENTRELINE_ENTERED`, and the **control surfaces** (`aileron`, `flap`, `elevator`, `rudder`) through `resolved_control_surface`, shaded in the frame their parent is a shape in, with the `hinge_line` drawn where entered;</li><li>the **engines** — `engine_thrust_segments` as today (ASSUMED marker kept), plus a **propeller disc**: in front view a circle of `prop_diameter_in` centred on the resolved `prop_cg`, in side and plan a line of that diameter through it. No `prop_diameter_in` or no `prop_cg`: no disc, named;</li><li>the **gear** — from `geometry.landing_gear`: each leg a strut line from `attach` to the static axle `(x, z)`, the wheel a circle of `rolling_radius_in` at the axle in side view, and in front and plan view the main wheels at `±tread_in/2` and the nose wheel at the attach butt line. Main and nose each only when its static axle is non-zero.</li></ul> The report's §2.1 gains the same three figures after the planforms. The `configuration.tail_planform` rectangular sketch is **not** a source; it stays what it is. | #381 as filed. Every shape comes from an owner Section 2 or Section 10 already uses (rule 3), so the two cannot disagree about where the airplane is. |
+| **D-69.16** | **The Engine Mount installation views stay** post-run and unchanged. The three planform figures stay. **The stale caption at `:638` is corrected**: it says the hinge line is drawn where entered and "not entered" where it is not. | #381 items 2, 3 and 5. |
+| **D-69.17** | **`elevator` and `rudder` surfaces are entered on `atr42_100`, `baron_58` and `concept_regional_jet`** (#381 step 4), each with a leading edge, a `hinge_line` and a blank trailing edge (derived from the parent, D-54.1). Construction [E]: a constant chord fraction of the parent, chosen so the one-side areas integrate to the typed SE and SR within **0.1 %**, with the hinge placed so the forward share matches the typed fwd / (fwd + aft) ratio (ATR 11.5 % / 11.4 %; Baron 10 % / 10 %; CRJ 11.8 % / 12.1 %). Then the six typed scalars (`elevator_fwd_hinge_sqft`, `elevator_aft_hinge_sqft`, `rudder_fwd_hinge_sqft`, `rudder_aft_hinge_sqft`, and `elevator_area_sqft` / `rudder_area_sqft` where typed) are **blanked** on those three files, so they derive through the D-54.1 path (`control_hinge_areas`), as `ga6_normal` already does. Each `*.sources.md` states the construction, its anchor (the former typed value) and that the scalars now derive. | Owner ruling 2026-10-16: blank, per D-69.1. The construction reproduces the typed estimate, so the derived scalars differ from the typed ones by under 0.1 % and the tail loads move by that residual only — but the digests of those three examples change and are regenerated deliberately, listed. |
+| **D-69.18** | **Page order, settled once** (supersedes D-69.5's list): Surfaces, Fuselage, Engines, Parametric, Empennage, aileron, flap, gear. Registry order is the page order, so this is the order the `_GEO` rows are declared in, guarded (G-69.6). | #380's "settled once". |
+
+### 5.3 Questions for the owner (Q5 … Q7)
+
+| # | Question | Recommendation |
+|---|---|---|
+| **Q5** | Geometry owns the `engines[]` rows (D-69.14), Engine Mount edits rows-only — as #380 proposed? | **Accept.** |
+| **Q6** | The elevator/rudder [E] polylines are constructed to reproduce the former typed SE / SR (D-69.17), rather than read off a published three-view? The ATR factsheet [A] shows the tail in profile but not the hinge line, so a traced value would also be [E]. | **Accept** — the anchor is stated, and the loads move by the construction residual only. |
+| **Q7** | The three-view's gear wheel in front and plan view sits at `±tread_in/2` (the wheel) rather than at the leg's `attach` butt line (the trunnion)? Both are entered; the issue asks for the gear, not the structure. | **Wheel at the tread**, strut drawn from the attach to it, so the figure shows both points. |
+
+### 5.4 Closure gates (G-69.8 … G-69.12)
+
+| Gate | Statement | Expected numbers |
+|---|---|---|
+| **G-69.8** (the engine move is a page move) | Every `engines[]` path exists before and after; the oracle reduction (`oracle_input_paths`, G5) keeps the same set; `engine_layout_problem`'s message resolves to the Geometry page. Every delivered load of every example is bit-identical to G-69.1's baseline. | Zero diffs on the engine-mount CSVs and the LRA deck of all five examples. |
+| **G-69.9** (one row owner) | Rendering Engine Mount produces no widget key matching `engines[].*.delete`, `engines[].delete_surplus` or the row counter; rendering Geometry produces the counter. | Guarded in `test_oracle_gui`. |
+| **G-69.10** (the three-view) | For every bundled example the three families build (G-FIG-1), are pre-run (G-FIG-8), and are produced by the report (G-FIG-4/5). `atr42_100`'s three views carry series named for the fuselage, the wing, the empennage, the four controls, two propeller discs and both gear legs; `concept_heavy`'s carry the wing only and the caption names the fuselage, engines and gear as not entered. No series is a load; the caption says so. | 3 new families; catalogue 47 → 50. |
+| **G-69.11** (tail scalars derive) | On the three files, blank SE/SR/fwd/aft resolve through `control_hinge_areas` to within 0.1 % of the former typed values, and `elevator_area_mismatch` / `rudder_area_mismatch` are silent. The planform figures shade the elevator and rudder on all four examples with tails. | ATR: SE 26.0 → 25.97–26.03; SR 22.0 → 21.98–22.02. Baron: 21.0, 9.0. CRJ: 34.0, 33.0. Tail loads of the three move by ≤ 0.1 %; their digests are regenerated and listed. |
+| **G-69.12** (the stale caption) | No figure caption in `oracle_sections.py` says the analysis carries no hinge geometry. | A grep guard in `test_oracle_report.py`. |
+
+**Closure, revised:** still one tier-L step. In addition to §4's list: `PROGRAM_SPEC.md` (the Geometry page's Engines section and the three-view, the Engine Mount page's rows-only table), `theory_sources.md` (no new physics: the three-view is drawn from existing owners), the three `*.sources.md`, and the Imperial digests regenerated for the four examples whose data changed.

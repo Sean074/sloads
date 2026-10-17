@@ -18,15 +18,21 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import pytest
+
 from sloads import (
     EmpennageInput,
+    FuselageOutline,
+    FuselageSection,
     GeometryInput,
     LandingGearGeometry,
     LandingGearInput,
     LayoutInput,
     MassCase,
     MassResult,
+    MissingInputError,
     Project,
+    SurfaceInput,
     TailLoadsInput,
     TailType,
     VTailLoadsInput,
@@ -61,7 +67,6 @@ from sloads.modules.configuration import (  # noqa: E402
     configuration_properties,
     match_component_station,
     tail_planform,
-    wing_planform,
 )
 
 
@@ -76,57 +81,87 @@ def _labels(project):
 
 
 def _trapezoid(area_ft2=174.0, ar=6.0, taper=0.5, sweep_deg=3.0, le_root_x=45.0):
-    return LayoutInput(
-        wing_area_sqft=area_ft2, aspect_ratio=ar, taper_ratio=taper,
-        le_sweep_deg=sweep_deg, le_root_x=le_root_x,
-    )
+    """A two-point trapezoid ``wing`` surface from the parametric relations
+    (``b = sqrt(AR S)``, ``c_root = 2S / (b (1 + taper))``): what the retired
+    parametric block generated, now entered as the planform itself (design note
+    69 D-69.2)."""
+    area_in2 = area_ft2 * 144.0
+    span = math.sqrt(ar * area_ft2) * 12.0
+    c_root = 2.0 * area_in2 / (span * (1.0 + taper))
+    c_tip = taper * c_root
+    semi = span / 2.0
+    x_tip = le_root_x + semi * math.tan(math.radians(sweep_deg))
+    return SurfaceInput(name="wing", symmetric=True, elements=40,
+                        leading_edge=[(le_root_x, 0.0), (x_tip, semi)],
+                        trailing_edge=[(le_root_x + c_root, 0.0), (x_tip + c_tip, semi)])
+
+
+def _geometry(wing=None, layout=None, **kw):
+    """A geometry slice around one wing planform and the parametric remainder."""
+    return GeometryInput(surfaces=[wing or _trapezoid()],
+                         parametric=layout or LayoutInput(), **kw)
 
 
 def test_mac_matches_closed_form():
-    layout = _trapezoid()
-    span, c_root, c_tip, semi = wing_planform(layout)
-    taper = layout.taper_ratio
+    taper, sweep_deg, le_root_x = 0.5, 3.0, 45.0
+    wing = _trapezoid(taper=taper, sweep_deg=sweep_deg, le_root_x=le_root_x)
+    c_root = wing.trailing_edge[0][0] - wing.leading_edge[0][0]
+    semi = wing.leading_edge[-1][1]
     mac_cf = (2.0 / 3.0) * c_root * (1 + taper + taper**2) / (1 + taper)
     ymac_cf = (semi / 3.0) * (1 + 2 * taper) / (1 + taper)
-    xlemac_cf = layout.le_root_x + ymac_cf * math.tan(math.radians(layout.le_sweep_deg))
+    xlemac_cf = le_root_x + ymac_cf * math.tan(math.radians(sweep_deg))
 
-    vals = _props(Project(name="t", geometry=GeometryInput(parametric=layout)))
+    vals = _props(Project(name="t", geometry=_geometry(wing)))
     assert math.isclose(vals["mac"], mac_cf, rel_tol=1e-3)
     assert math.isclose(vals["yle_mac_butt_line_of_mac"], ymac_cf, rel_tol=1e-3)
     assert math.isclose(vals["xle_mac_station_of_mac_le"], xlemac_cf, rel_tol=1e-3)
+    assert math.isclose(vals["root_chord"], c_root, rel_tol=1e-9)
+    assert math.isclose(vals["tip_chord"], taper * c_root, rel_tol=1e-9)
 
 
 def test_area_aspect_ratio_recovered():
-    # The generated planform must round-trip back to the input S and AR (WINGGEOM).
-    layout = _trapezoid(area_ft2=200.0, ar=8.0, taper=0.4)
-    vals = _props(Project(name="t", geometry=GeometryInput(parametric=layout)))
+    # The planform's S and AR come back out of WINGGEOM's integration (D-69.2:
+    # the condition reports the stored planform, nothing else).
+    wing = _trapezoid(area_ft2=200.0, ar=8.0, taper=0.4)
+    vals = _props(Project(name="t", geometry=_geometry(wing)))
     assert math.isclose(vals["aspect_ratio"], 8.0, rel_tol=1e-3)
+    assert math.isclose(vals["wing_area_s"], 200.0, rel_tol=1e-9)
     span = vals["span"]
     assert math.isclose(span, math.sqrt(8.0 * 200.0) * 12.0, rel_tol=1e-3)
 
 
-def test_appendix_a_sanity():
-    # Appendix A wing: area/side 13257 in^2 -> total 184.1 ft^2; AR 6.095; root
-    # chord 101 in / tip 44 in -> taper ~0.436 (p141). The strake makes this only a
-    # plausibility band against the manual MAC 69.246 and MAC butt line 87.854.
-    # (XLEMAC's absolute station depends on the real, strake-swept LE shape, which a
-    # pure trapezoid cannot reproduce, so it is not asserted here.)
-    layout = LayoutInput(
-        wing_area_sqft=2 * 13257 / 144.0, aspect_ratio=6.095, taper_ratio=44.0 / 101.0,
-        le_sweep_deg=4.0, le_root_x=45.0,
-    )
-    vals = _props(Project(name="appA", geometry=GeometryInput(parametric=layout)))
-    assert math.isclose(vals["mac"], 69.246, rel_tol=0.10)
-    assert math.isclose(vals["yle_mac_butt_line_of_mac"], 87.854, rel_tol=0.10)
+def test_the_planform_reported_is_the_stored_wings():
+    """G-69.2: the Appendix A airplane's own planform, not a trapezoid regenerated
+    from scalars -- XLEMAC 63.62 (the strake-swept polyline's, p141) where the
+    parametric block put it at 56.73."""
+    from sloads import io as sloads_io
+    from sloads.modules.wing_geometry import surface_properties
+
+    ga = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                      "examples", "ga6_normal.project.json")
+    project = sloads_io.load_project(ga)
+    vals = _props(project)
+    own = {v.key: v.value for v in surface_properties(project.geometry.by_name("wing")).values}
+    assert vals["xle_mac_station_of_mac_le"] == own["xle_mac_station_of_mac_le"]
+    assert math.isclose(vals["xle_mac_station_of_mac_le"], 63.62, abs_tol=0.01)
+    assert math.isclose(vals["mac"], 69.246, rel_tol=1e-3)     # p141
+    assert math.isclose(vals["aspect_ratio"], 6.095, rel_tol=1e-3)
+    assert math.isclose(vals["wing_area_s"], own["total_area"] / 144.0, rel_tol=1e-12)
+    title = configuration_properties(project)[0].title
+    assert title == "Wing planform (WINGGEOM)"
+
+
+def test_a_project_with_no_wing_surface_is_not_ready_by_name():
+    with pytest.raises(MissingInputError, match="'wing' surface"):
+        configuration_properties(Project(name="t", geometry=GeometryInput(parametric=LayoutInput())))
 
 
 def test_stability_and_gear_present_when_data_given():
-    layout = _trapezoid()
-    layout.root_waterline_z = 40.0
+    layout = LayoutInput(root_waterline_z=40.0)
     # Step G6: h-tail area + 25%-MAC station (xt25 well aft -> positive derived arm).
     emp = EmpennageInput(htail=TailLoadsInput(htail_area_sqft=30.0, xt25=250.0))
-    vals = _props(Project(name="t", geometry=GeometryInput(
-        parametric=layout, empennage=emp, landing_gear=_gear_geom(115.0, 20.0))))
+    vals = _props(Project(name="t", geometry=_geometry(
+        layout=layout, empennage=emp, landing_gear=_gear_geom(115.0, 20.0))))
     assert vals["horizontal_tail_volume_v_h"] > 0
     assert "neutral_point_pct_mac" in vals
     assert "tip_back_angle" in vals
@@ -134,20 +169,18 @@ def test_stability_and_gear_present_when_data_given():
 
 
 def _gear_layout():
-    layout = _trapezoid()
-    layout.root_waterline_z = 40.0
-    return layout
+    return LayoutInput(root_waterline_z=40.0)
 
 
 def _gear_project(layout, **kw):
-    return Project(name="t", geometry=GeometryInput(
-        parametric=layout, landing_gear=_gear_geom(115.0, 20.0)), **kw)
+    return Project(name="t", geometry=_geometry(
+        layout=layout, landing_gear=_gear_geom(115.0, 20.0)), **kw)
 
 
 def test_cg_estimate_falls_back_to_quarter_mac_without_mass():
     # Step D4.5: no Project.mass -> the pre-D4.5 25%-MAC / wing-waterline first cut.
     layout = _gear_layout()
-    project = Project(name="t", geometry=GeometryInput(parametric=layout))
+    project = Project(name="t", geometry=_geometry(layout=layout))
     geom = _props(project)
     x_cg, z_cg, source = cg_estimate(project, layout, geom["mac"],
                                      geom["xle_mac_station_of_mac_le"])
@@ -160,7 +193,7 @@ def test_cg_estimate_uses_mass_when_present():
     # Step D4.5: Project.mass (WTONECG's itemized loading) is the true CG.
     layout = _gear_layout()
     mass = MassResult(cases=[MassCase(name="itemized loading", weight_lb=2000.0, cg_x=123.4, cg_z=56.7)])
-    project = Project(name="t", geometry=GeometryInput(parametric=layout), mass=mass)
+    project = Project(name="t", geometry=_geometry(layout=layout), mass=mass)
     geom = _props(project)
     x_cg, z_cg, source = cg_estimate(project, layout, geom["mac"],
                                      geom["xle_mac_station_of_mac_le"])
@@ -178,28 +211,38 @@ def test_gear_condition_label_reflects_cg_source():
     assert _props(_gear_project(layout, mass=mass))["cg_station"] == 123.4
 
 
-def _full_layout():
-    return LayoutInput(
-        fuselage_length=300.0, fuselage_width=48.0, fuselage_height=60.0, datum_x=0.0,
-        wing_area_sqft=174.0, aspect_ratio=6.0, taper_ratio=0.6,
-        le_sweep_deg=2.0, le_root_x=90.0, root_waterline_z=40.0,
-    )
+#: The outline every ``component_stations`` test puts a body on: 300 in long
+#: from the datum (design note 69 D-69.3: the length is the outline's own).
+_OUTLINE = FuselageOutline(sections=[
+    FuselageSection(x=0.0, width=10.0, height=10.0),
+    FuselageSection(x=150.0, width=48.0, height=60.0),
+    FuselageSection(x=300.0, width=8.0, height=8.0)])
+
+
+def _full_project(empennage=None, landing_gear=None, fuselage=_OUTLINE):
+    """A wing (root at FS 90), the wing placement, and a 300-in body."""
+    layout = LayoutInput(datum_x=0.0, root_waterline_z=40.0)
+    wing = _trapezoid(area_ft2=174.0, ar=6.0, taper=0.6, sweep_deg=2.0, le_root_x=90.0)
+    return Project(name="t", geometry=GeometryInput(
+        surfaces=[wing], parametric=layout, fuselage=fuselage,
+        empennage=empennage, landing_gear=landing_gear))
 
 
 def test_component_stations_wing_and_fuselage():
-    # Step D4.3: approximate stations derived from LayoutInput's coarse scalars.
-    layout = _full_layout()
-    stations = component_stations(layout)
+    # Step D4.3: approximate stations derived from the entered geometry.
+    project = _full_project()
+    layout = project.geometry.parametric
+    stations = component_stations(project)
     wing_x, wing_y, wing_z = stations["wing"]
-    assert layout.le_root_x < wing_x < layout.le_root_x + 60.0   # inside the root chord
+    assert 90.0 < wing_x < 90.0 + 60.0   # inside the root chord
     assert wing_y == 0.0 and wing_z == layout.root_waterline_z
     assert stations["fuselage"] == (150.0, 0.0, 40.0)   # datum + length/2
 
 
 def test_component_stations_tail_stations_and_lumped_average():
     # Step G6: the h-/v-tail stations are the empennage 25%-MAC stations xt25/xv25.
-    layout = _full_layout()
-    stations = component_stations(layout, _emp(h_area=30.0, v_area=18.0, xt25=270.0, xv25=265.0))
+    stations = component_stations(_full_project(
+        _emp(h_area=30.0, v_area=18.0, xt25=270.0, xv25=265.0)))
     assert math.isclose(stations["h_tail"][0], 270.0)
     assert math.isclose(stations["v_tail"][0], 265.0)
     # Area-weighted average (h_area=30, v_area=18) sits between the two, closer to h.
@@ -212,8 +255,9 @@ def test_component_stations_tail_stations_and_lumped_average():
 def test_component_stations_gear_and_lumped_average():
     # Step G6b: gear stations from the single-source axle geometry. _gear_geom puts the
     # ground line at WL 5, so gear_height = 40 - 5 = 35 and strut mid-height = 40 - 35/2.
-    layout = _full_layout()
-    stations = component_stations(layout, None, _gear_geom(150.0, 30.0))
+    project = _full_project(None, _gear_geom(150.0, 30.0))
+    layout = project.geometry.parametric
+    stations = component_stations(project)
     gear_z = layout.root_waterline_z - 35.0 / 2.0
     assert stations["main_gear"] == (150.0, 0.0, gear_z)
     assert stations["nose_gear"] == (30.0, 0.0, gear_z)
@@ -223,19 +267,20 @@ def test_component_stations_gear_and_lumped_average():
 
 
 def test_component_stations_omits_ungiven_components():
-    # A bare wing-only layout must not fabricate tail/gear/fuselage stations.
-    layout = LayoutInput(wing_area_sqft=174.0, aspect_ratio=6.0, le_root_x=90.0)
-    stations = component_stations(layout)
+    # A bare wing-only project must not fabricate tail/gear/fuselage stations.
+    stations = component_stations(_full_project(fuselage=None))
     assert set(stations) == {"wing"}
 
 
+def test_component_stations_without_a_wing_omit_the_wing():
+    # D-69.2: no integrable ``wing`` surface, no wing station -- never a guess.
+    project = _full_project()
+    project.geometry.surfaces = []
+    assert set(component_stations(project)) == {"fuselage"}
+
+
 def _tail_layout(tail_type=TailType.CONVENTIONAL, **overrides):
-    kwargs = dict(
-        fuselage_length=300.0, fuselage_width=48.0, fuselage_height=60.0, datum_x=0.0,
-        wing_area_sqft=174.0, aspect_ratio=6.0, taper_ratio=0.6,
-        le_sweep_deg=2.0, le_root_x=90.0, root_waterline_z=40.0,
-        tail_type=tail_type,
-    )
+    kwargs = dict(datum_x=0.0, root_waterline_z=40.0, tail_type=tail_type)
     kwargs.update(overrides)
     return LayoutInput(**kwargs)
 
@@ -247,7 +292,7 @@ def _tail_e(**overrides):
 
 def test_tail_planform_empty_when_no_empennage():
     # No empennage geometry -> nothing drawn (backward-compatible).
-    layout = _full_layout()
+    layout = _tail_layout()
     assert layout.tail_type == TailType.CONVENTIONAL
     assert tail_planform(layout, None) == {}
 
@@ -256,7 +301,10 @@ def test_tail_planform_conventional_draws_h_and_v_tail_near_fuselage():
     layout = _tail_layout(TailType.CONVENTIONAL)
     panels = tail_planform(layout, _tail_e())
     assert set(panels) == {"h_tail", "v_tail"}
-    vtail_root_z = layout.root_waterline_z + layout.fuselage_height / 2.0
+    # With no outline the fin root sits at the wing root waterline (design note
+    # 69 D-69.3: the half body height the sketch used to add was the outline's
+    # summary scalar, and there is no outline here).
+    vtail_root_z = layout.root_waterline_z
     # No explicit h_tail_z -> conventional tail sits at the fuselage waterline.
     h_z = panels["h_tail"]["side"][0][1]
     assert math.isclose(h_z, layout.root_waterline_z)
@@ -278,7 +326,7 @@ def test_tail_planform_draws_elevator_and_rudder_when_hinge_areas_set():
 def test_tail_planform_t_tail_places_h_tail_atop_fin():
     layout = _tail_layout(TailType.T_TAIL)
     panels = tail_planform(layout, _tail_e())
-    vtail_root_z = layout.root_waterline_z + layout.fuselage_height / 2.0
+    vtail_root_z = layout.root_waterline_z
     v_span_in = 48.0
     h_z = panels["h_tail"]["side"][0][1]
     assert math.isclose(h_z, vtail_root_z + v_span_in)
@@ -294,7 +342,7 @@ def test_tail_planform_t_tail_respects_explicit_h_tail_z():
 def test_tail_planform_cruciform_places_h_tail_mid_fin():
     layout = _tail_layout(TailType.CRUCIFORM)
     panels = tail_planform(layout, _tail_e())
-    vtail_root_z = layout.root_waterline_z + layout.fuselage_height / 2.0
+    vtail_root_z = layout.root_waterline_z
     v_span_in = 48.0
     h_z = panels["h_tail"]["side"][0][1]
     assert math.isclose(h_z, vtail_root_z + v_span_in * 0.5)
@@ -311,8 +359,8 @@ def test_tail_planform_v_tail_draws_two_diagonal_panels_not_h_v():
 
 
 def test_match_component_station_prefers_specific_over_lumped():
-    layout = _full_layout()
-    stations = component_stations(layout, _emp(xt25=270.0, xv25=265.0), _gear_geom(150.0, 30.0))
+    stations = component_stations(_full_project(_emp(xt25=270.0, xv25=265.0),
+                                                _gear_geom(150.0, 30.0)))
     assert match_component_station("Wing", stations) == stations["wing"]
     assert match_component_station("Fuselage", stations) == stations["fuselage"]
     assert match_component_station("Horizontal tail", stations) == stations["h_tail"]
@@ -321,54 +369,6 @@ def test_match_component_station_prefers_specific_over_lumped():
     assert match_component_station("Tail", stations) == stations["tail"]
     assert match_component_station("Landing gear", stations) == stations["landing_gear"]
     assert match_component_station("Nacelle", stations) is None
-
-
-# --------------------------------------------------------------------------- #
-# #95 (C210-1): the parametric-wing seed from a typed planform
-# --------------------------------------------------------------------------- #
-def test_the_seed_offers_the_planforms_own_scalars_only_while_untyped():
-    from sloads import io as sloads_io
-    from sloads.modules.configuration import (
-        parametric_wing_seed,
-        wing_layout_from_surface,
-    )
-
-    ga = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                      "examples", "ga6_normal.project.json")
-    p = sloads_io.load_project(ga)
-    # ga6 has the parametric block typed: nothing to offer, the typed block
-    # governs whole (GR-GEOM-3 -- seeded *and overridable*, never overwritten).
-    assert parametric_wing_seed(p) == {}
-    p.geometry.parametric.wing_area_sqft = 0.0
-    p.geometry.parametric.aspect_ratio = 0.0
-    seed = parametric_wing_seed(p)
-    assert seed == wing_layout_from_surface(p.geometry.by_name("wing"))
-    assert set(seed) == {"wing_area_sqft", "aspect_ratio", "taper_ratio",
-                         "le_sweep_deg", "le_root_x"}
-    assert seed["wing_area_sqft"] > 0 and seed["aspect_ratio"] > 0
-
-
-def test_the_seed_is_registered_for_the_oracle_geometry_page():
-    """Rule 3: the seed reaches the GUI through the registry, not a page-coded
-    button -- RECORD_SEEDS names the record, and the resolver is the module's
-    own (the same wing_layout_from_surface the main GUI's button calls)."""
-    from sloads import field_registry as fr
-
-    seed = fr.RECORD_SEEDS["geometry.parametric"]
-    prefix_paths = [e.path for e in fr.REGISTRY
-                    if e.path.startswith("geometry.parametric.")]
-    assert prefix_paths, "the seeded record has no registered fields"
-    from sloads import io as sloads_io
-
-    ga = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                      "examples", "ga6_normal.project.json")
-    p = sloads_io.load_project(ga)
-    p.geometry.parametric.wing_area_sqft = 0.0
-    p.geometry.parametric.aspect_ratio = 0.0
-    values = seed(p)
-    leaves = {path.rsplit(".", 1)[-1] for path in prefix_paths}
-    assert values and set(values) <= leaves, (
-        "the seed writes a field the registry does not put on the page")
 
 
 def test_lra_overlay_puts_a_waterline_span_surface_in_the_side_view():

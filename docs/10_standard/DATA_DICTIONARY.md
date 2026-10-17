@@ -2,7 +2,7 @@
 
 > **Generated file — do not edit by hand.** Produced by [`docs/generate_data_dict.py`](../generate_data_dict.py) from `sloads/models.py`. Regenerate after any schema change: `.venv/bin/python docs/generate_data_dict.py`.
 
-Schema version: **76**.
+Schema version: **77**.
 
 This dictionary covers the **input** slices of `Project` (`sloads/models.py`) — the fields that make up a `project.json`. The result slices (`envelope`, `mass`, `loads`) are computed outputs and are out of scope.
 
@@ -18,7 +18,7 @@ The top-level `Project` fields. `name`/`engineer`/`date` are free-text metadata;
 
 | Slice | Type | Owning page | Consumed by | Role |
 | --- | --- | --- | --- | --- |
-| `engines` | `List[EngineInput]` | Engine Mount Loads | `balance`, `engine`, `flap`, `one_engine_out`, `weight_estimate`, `wing_geometry` | Engine-mount inputs (one per engine) |
+| `engines` | `List[EngineInput]` | Engine Mount Loads / Geometry | `balance`, `engine`, `flap`, `one_engine_out`, `weight_estimate`, `wing_geometry` | Engine-mount inputs (one per engine) |
 | `engine_layout` | `EngineLayout (enum)` | Geometry | `wing_geometry` | Engine layout constraint (enum) |
 | `weight` | `?` | Weight & Mass Properties | `configuration`, `engine`, `weight_envelope`, `weight_estimate`, `weight_onecg` | Weight database (WTESTIMA / WTONECG / WTENV) |
 | `geometry` | `?` | Aerodynamic Data / Geometry | `airloads`, `balance`, `configuration`, `flap`, `landing`, `net_loads`, `rolling`, `tail_span`, `weight_envelope`, `wing_geometry`, `wing_inertia`, `wing_variants` | Geometry single-source (WINGGEOM + fuselage + empennage) |

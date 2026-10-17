@@ -16,7 +16,7 @@ from typing import Collection, Dict, List, Optional, Sequence
 from ... import safety_factors
 from ...case_ids import handed_case_id
 from ...cg_cases import flight_cases
-from ...derived_geometry import require_wing_reference, sync_geometry_derived
+from ...derived_geometry import require_wing_reference
 from ...export.coordinates import reflect_side
 from ...mass_distribution import CaseLoading, derive_case_loadings
 from ...models import (
@@ -393,7 +393,6 @@ def build_balanced_cases(
     silence, and only the shipped fixtures' drop set was pinned. Callers that
     want the record alone use :func:`skipped_conditions`.
     """
-    sync_geometry_derived(project)
     if project.flight_loads is None or project.wing_mass is None:
         raise MissingInputError("balance needs 'flight_loads' and 'wing_mass'")
     # Both through their single owners (review F-C6). ``project.envelope or

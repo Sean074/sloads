@@ -402,6 +402,15 @@ class FieldEntry:
     #: but seeding a field the user then edits is not writing it behind their
     #: back, and a mark that claimed otherwise invited a GUI that hid them.
     supplied: bool = False
+    #: A collapsed override's own disagreement band (design note 69 D-69.10):
+    #: the relative difference past which a typed value and its owner are
+    #: warned apart on the page. ``0.0`` means the default,
+    #: :data:`sloads.cross_check.CROSS_CHECK_REL` (the oracle's 0.1 %). Set
+    #: only where the owner's own precedent states a wider band -- the control
+    #: areas take the hinge-halves check's 1 % (``validation.py``), because the
+    #: Appendix A airplane's printed inputs sit 0.2 % off the drawn planform
+    #: and a warning on the oracle's own data calls the manual wrong.
+    band: float = 0.0
 
     @property
     def slice(self) -> str:
@@ -578,9 +587,9 @@ def _limnz(project: Project, _record: object = None) -> Optional[float]:
         return None
 
 
-def _fuselage_length(project: Project, _record: object = None) -> Optional[float]:
-    """The outline's own length -- what ``sync_geometry_derived`` overwrites the
-    ``fuselage_length`` scalar with on every run (#95, C210-2)."""
+def _outline_length(project: Project, _record: object = None) -> Optional[float]:
+    """The outline's own length -- what a blank LF derives (design note 69
+    D-69.4, ``derived_geometry.airplane_length_in``)."""
     from sloads.derived_geometry import fuselage_summary
 
     fus = project.geometry.fuselage if project.geometry is not None else None
@@ -588,6 +597,22 @@ def _fuselage_length(project: Project, _record: object = None) -> Optional[float
         return None
     summary = fuselage_summary(fus)
     return summary[0] if summary else None
+
+
+def _control_area(name: str, pick):
+    """A resolver over the drawn control's areas (design note 69 D-69.6/7/8):
+    ``pick`` chooses the one-side area or a hinge half, which is ``None`` with
+    no hinge line -- the caption then says the owner cannot answer yet."""
+    def resolver(project: Project, _record: object = None) -> Optional[float]:
+        from sloads.tail_geometry import control_surface_areas
+
+        try:
+            areas = control_surface_areas(project, name)
+        # refusal: an unintegrable control leaves the mark blank; the page names why
+        except ValueError:
+            return None
+        return None if areas is None else pick(areas)
+    return resolver
 
 
 def _elevator_area(project: Project, _record: object = None) -> Optional[float]:
@@ -690,9 +715,15 @@ EXTERNAL_VALUES: Dict[str, "typing.Callable[..., object]"] = {
     "engines[].engine_cg": _mass_row_value("engine_mass_item", lambda r: (r.x, r.y, r.z)),
     "engines[].prop_weight_lb": _mass_row_value("prop_mass_item", lambda r: r.weight_lb),
     "engines[].prop_cg": _mass_row_value("prop_mass_item", lambda r: (r.x, r.y, r.z)),
-    # The #95 additions (C210-2/3/5/22/25): the SELECT copies and derivable
+    # The #95 additions (C210-3/5/22/25): the SELECT copies and derivable
     # geometry the C210 build was asked to type by hand.
-    "geometry.parametric.fuselage_length": _fuselage_length,
+    # Design note 69: LF derives from the outline length (D-69.4); the wing
+    # controls' areas from the drawn aileron and flap (D-69.7/D-69.8), the
+    # halves only where the aileron carries a hinge line.
+    "geometry.fuselage.airplane_length_in": _outline_length,
+    "aileron_loads.area_fwd_hinge_sqft": _control_area("aileron", lambda a: a.fwd_sqft),
+    "aileron_loads.area_aft_hinge_sqft": _control_area("aileron", lambda a: a.aft_sqft),
+    "flap_loads.flap_area_one_side_sqft": _control_area("flap", lambda a: a.one_side_sqft),
     # The wing panel weight (note 63 D-63.2): the derived value a blank
     # override runs on, so the page shows the number WINGINER integrates.
     "wing_mass.panel_weight_override_lb": _derived_panel_weight,
@@ -711,14 +742,10 @@ EXTERNAL_VALUES: Dict[str, "typing.Callable[..., object]"] = {
 #: typed-means-override** (OV-1). Enumerated once, here, and guarded by
 #: OV-11's drift test: every member carries a non-empty ``derived_from`` and a
 #: resolver above, and the GUI renders the resolver's value beside the field.
-#: Two resolver-backed rows are **not** overrides and stand outside the set:
+#: One resolver-backed row is **not** an override and stands outside the set:
 #: ``speeds.wing_area_sqft`` (the consumer resolves the planform; the widget
-#: goes live only when there is none) and ``geometry.parametric.fuselage_length``
-#: (a derived outline summary ``sync_geometry_derived`` overwrites -- #95,
-#: C210-2 -- so it renders disabled once an outline exists, never as an
-#: override).
-_NOT_COLLAPSED: Tuple[str, ...] = (
-    "speeds.wing_area_sqft", "geometry.parametric.fuselage_length")
+#: goes live only when there is none).
+_NOT_COLLAPSED: Tuple[str, ...] = ("speeds.wing_area_sqft",)
 COLLAPSED_OVERRIDES: Tuple[str, ...] = tuple(
     path for path in EXTERNAL_VALUES if path not in _NOT_COLLAPSED)
 
@@ -770,23 +797,36 @@ DISPLAY_GROUPS: Dict[str, str] = {
         "Steady-roll torsion aileron override (SELECT 23.349(b) only)",
     "select_input.wing_weight_lb":
         "Wing weight (SELECT fuselage conditions)",
+    # Design note 69 D-69.5: the outline record's two scalars and its
+    # sections[] table are one Fuselage section (two prefixes, one title; the
+    # renderer merges adjacent groups sharing a title, owner ruling Q3).
+    "geometry.fuselage.body_drag_waterline_z": "Fuselage",
+    "geometry.fuselage.airplane_length_in": "Fuselage",
+    "geometry.fuselage.sections[].x": "Fuselage",
+    "geometry.fuselage.sections[].width": "Fuselage",
+    "geometry.fuselage.sections[].height": "Fuselage",
+    "geometry.fuselage.sections[].z_centre": "Fuselage",
+    # D-69.13 (#380): the arrangement and every engine's location, one section.
+    "engine_layout": "Engines",
+    "engines[].mounted_on": "Engines",
+    "engines[].engine_cg": "Engines",
+    "engines[].prop_cg": "Engines",
+    "engines[].thrust_line_fwd": "Engines",
+    "engines[].thrust_line_aft": "Engines",
+    "engines[].prop_diameter_in": "Engines",
+    # The one root-level field left on the Engine Mount page, named for what it
+    # is rather than rendered under the page renderer's "Project" heading.
+    "include_far25": "FAR 25 supplement",
 }
 
 
-def _parametric_seed(project: Project, record: object = None) -> Dict[str, float]:
-    from sloads.modules.configuration import parametric_wing_seed
-
-    return parametric_wing_seed(project, record)
-
-
-#: ``{record prefix: seed}`` -- records whose blank form can be filled from
-#: values the project already holds, behind an explicit button (#95, C210-1 /
-#: GR-GEOM-3). The seed answers ``{}`` when there is nothing to offer (the
-#: block is already typed, or the source is absent), and the button writes the
-#: returned fields through the normal entry path -- a page visit alone must
-#: not dirty a project (OG-F), which is why this is a button and not a derive.
-RECORD_SEEDS: Dict[str, "typing.Callable[..., Dict[str, float]]"] = {
-    "geometry.parametric": _parametric_seed,
+#: ``{list prefix: page key}`` -- the page that adds and deletes a list's rows,
+#: for a list whose fields render on more than one page (design note 69
+#: D-69.14, #380). Every other page renders the rows it edits and no row
+#: controls, so an engine exists where it is placed. A list with no entry is
+#: owned by the one page its fields are on, as before.
+LIST_ROW_OWNER: Dict[str, str] = {
+    "engines[]": "configuration_layout",
 }
 
 
@@ -827,10 +867,10 @@ SUPPLIED_RULE = "structurally required (no default), or demonstrably load-bearin
 
 def _E(path: str, page: str, origin: Origin, basis: str,
        quantity: str = "", derived_from: str = "", supplied: bool = False,
-       governs: bool = False, resolves: str = "") -> FieldEntry:
+       governs: bool = False, resolves: str = "", band: float = 0.0) -> FieldEntry:
     # Keywords, not position: ``governs`` sits before ``supplied`` on the
     # dataclass, and a positional call here would have bound one to the other.
-    return FieldEntry(path=path, page=page, origin=origin, basis=basis,
+    return FieldEntry(path=path, page=page, origin=origin, basis=basis, band=band,
                       quantity=quantity, derived_from=derived_from,
                       governs=governs, supplied=supplied, resolves=resolves)
 
@@ -965,17 +1005,98 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "cannot carry; aero.surfaces[].tip_ratio falsy-derives from it / semi-span"),
     _E("geometry.surfaces[].hinge_line", _GEO, _SLDS,
        "control-surface aerodynamic hinge axis, note 54 D-54.1 (#25 step 2): the boundary "
-       "line the blank hinge-area scalars (SEFWDHL/SEAFTHL, SRFWDHL/SRAFTHL) derive from "
-       "(tail_geometry.control_hinge_areas); empty = not entered, the scalars stay typed"),
-    # The five scalars a typed ``wing`` planform determines are seedable from
-    # it behind a button (#95, C210-1 / GR-GEOM-3): RECORD_SEEDS above offers
-    # ``configuration.parametric_wing_seed`` while the block is not yet typed.
-    _E("geometry.parametric.wing_area_sqft", _GEO, _ORIG, "WINGGEOM reference area S", "wing reference area"),
-    _E("geometry.parametric.aspect_ratio", _GEO, _ORIG, "WINGGEOM AR = b^2/S"),
-    _E("geometry.parametric.taper_ratio", _GEO, _ORIG, "WINGGEOM tip/root chord"),
+       "line the blank hinge-area scalars (SEFWDHL/SEAFTHL, SRFWDHL/SRAFTHL, SAFWD/SAAFT) "
+       "derive from (tail_geometry.control_hinge_areas); empty = not entered, the scalars "
+       "stay typed. Load-bearing (G5, design note 69 D-69.17, 2026-10-16): atr42_100, "
+       "baron_58 and concept_regional_jet enter their elevator and rudder with it and "
+       "type no scalar, so omitting it leaves every tail hinge area at 0",
+       supplied=True),
+    # ----------------------------------------------------------------- #
+    # geometry.fuselage -- the body outline and its two scalars
+    # (design note 69 D-69.4/D-69.5: the Fuselage section, before Engines
+    # and Parametric; registry order is page order)
+    # ----------------------------------------------------------------- #
+    _E("geometry.fuselage.body_drag_waterline_z", _GEO, _SLDS,
+       "body-drag line: the waterline sloads applies fuselage drag at when it balances the airplane as a free body, "
+       "which the suite never formed (Step G4). 0 derives the wing reference plane, marked ASSUMED "
+       "(derived_geometry.body_drag_waterline, note 24 D-1); it also defaults the section centre line "
+       "where z_centre is blank. On geometry.parametric until v77 (D-69.4)"),
+    _E("geometry.fuselage.airplane_length_in", _GEO, _ORIG,
+       "SELECT LF (Iyy and default IZZ); blank derives the outline's own length, a typed value "
+       "governs and is marked (design note 69 D-69.4; on geometry.empennage until v77)",
+       "airplane length",
+       derived_from=EXTERNAL + "the fuselage outline's length, last section station minus first "
+       "(derived_geometry.airplane_length_in over fuselage_summary; a typed LF governs)",
+       governs=True),
+    # The outline itself is sloads (Step G1), but a section cannot be constructed
+    # without all three, so a project that has one at all has these (G5 rule 1).
+    _E("geometry.fuselage.sections[].x", _GEO, _SLDS,
+       "body outline model, Step G1; structurally required", supplied=True),
+    _E("geometry.fuselage.sections[].width", _GEO, _SLDS,
+       "body outline model, Step G1; structurally required", supplied=True),
+    _E("geometry.fuselage.sections[].height", _GEO, _SLDS,
+       "body outline model, Step G1; structurally required", supplied=True),
+    _E("geometry.fuselage.sections[].z_centre", _GEO, _SLDS,
+       "body outline model: the section's waterline centre, which sloads needs to place fuselage mass and drag in "
+       "three dimensions (Step G1)"),
+
+    # ----------------------------------------------------------------- #
+    # Engines -- the arrangement and every engine's location (design note 69
+    # D-69.13, #380). The rest of ``engines[]`` stays on Engine Mount below;
+    # Geometry owns the list's rows (LIST_ROW_OWNER, D-69.14).
+    # ----------------------------------------------------------------- #
+    # C210-44 (owner directive): layout is Step C5 *configuration*, not a
+    # mount-load input -- its one calc consumer is WINGGEOM's engine stations --
+    # so it renders on the Geometry page. The page set is registry-derived, so
+    # the move is this tag; the Engine Mount page's layout-consistency message
+    # resolves the owning page from this entry and follows automatically.
+    _E("engine_layout", _GEO, _SLDS,
+       "multi-engine layout constraint, Step C5 -- the arrangement the entered engines already "
+       "describe, where the original ran one program per fixed layout. Load-bearing (G5): "
+       "omitting it moves the twins' nacelle geometry", supplied=True),
+    _E("engines[].mounted_on", _GEO, _SLDS,
+       "which structure carries the engine, fuselage or wing, so sloads can route the mount loads into the right beam; "
+       "the suite took mount loads and carried them nowhere (Step C5)"),
+    _E("engines[].engine_cg", _GEO, _ORIG, "ENGLOADS XENG/YENG/ZENG", "engine station",
+       EXTERNAL + "the weight database (decision D-25 mass SSOT; review N1 instance 5: regional jet 130 in apart)",
+       governs=True),
+    _E("engines[].prop_cg", _GEO, _ORIG, "ENGLOADS XPROP/YPROP/ZPROP", "propeller station",
+       EXTERNAL + "the weight database (the prop_mass_item row; note 36 OV-7, C210-41)",
+       governs=True),
+    # All three are ``supplied``: without them the oracle projection strips the
+    # fields, and OR-21 makes the report a function of that projection -- so a
+    # thrust line the user entered would be invisible to the very section that
+    # exists to resolve loads about it, and a counter-rotating engine's report
+    # would state the wrong rotation. The two points are also sentinel defaults
+    # (registered above): absent means assumed-with-a-note, which is exactly the
+    # class #98 refuses to filter off an oracle page.
+    # G-53.7 -- stated where entered. The one thing a reader cannot check on a
+    # results page is which way round "clockwise" was meant, and which axis a
+    # moment was resolved about, so the row the value is entered against says
+    # both. It was a caption on the retired front-end's engine page until #270;
+    # here the field's own provenance line carries it, which is the statement's
+    # one owner in the surviving GUI (the figure's ASSUMED marker is
+    # ``derived_geometry.thrust_line_label``'s, on the three-view).
+    _E("engines[].thrust_line_fwd", _GEO, _SLDS,
+       "thrust line, forward point (design note 53, D-53.1). Enter both points "
+       "or neither -- one point does not define a line, and a half-entered pair "
+       "is read as no line at all. G5: omitted, every engine-mount moment "
+       "resolves about the ASSUMED forward axis rather than the entered line, "
+       "and the three-view marks the line it drew ASSUMED", supplied=True),
+    _E("engines[].thrust_line_aft", _GEO, _SLDS,
+       "thrust line, aft point (design note 53, D-53.1). Enter both points or "
+       "neither -- one point does not define a line, and a half-entered pair is "
+       "read as no line at all. G5: omitted, every engine-mount moment resolves "
+       "about the ASSUMED forward axis rather than the entered line, and the "
+       "three-view marks the line it drew ASSUMED", supplied=True),
+    _E("engines[].prop_diameter_in", _GEO, _ORIG,
+       "ENGLOADS PROPDIA; geometry (D-69.13): it places the disc in the three-view "
+       "and the propeller ground clearance"),
+
+    # ----------------------------------------------------------------- #
+    # geometry.parametric -- what the polylines cannot carry (D-69.2/D-69.5)
+    # ----------------------------------------------------------------- #
     _E("geometry.parametric.dihedral_deg", _GEO, _ORIG, "WINGGEOM geometric dihedral"),
-    _E("geometry.parametric.le_sweep_deg", _GEO, _ORIG, "WINGGEOM/AIRLOAD4 leading-edge sweep"),
-    _E("geometry.parametric.le_root_x", _GEO, _ORIG, "WINGGEOM centreline LE station"),
     _E("geometry.parametric.root_waterline_z", _GEO, _ORIG, "WINGGEOM root-chord waterline"),
     _E("geometry.parametric.datum_x", _GEO, _ORIG, "WINGGEOM nose datum reference"),
     _E("geometry.parametric.h_tail_z", _GEO, _ORIG, "h-tail waterline offset (Ch 9; places load stations, #236)"),
@@ -998,44 +1119,6 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "it, and atr42_100's Appendix E printed 40 rows of loads OR-133 "
        "withholds -- the reduction moved a deliverable, not a sketch",
        supplied=True),
-    _E("geometry.parametric.body_drag_waterline_z", _GEO, _SLDS,
-       "body-drag line: the waterline sloads applies fuselage drag at when it balances the airplane as a free body, "
-       "which the suite never formed (Step G4)"),
-    # Candidate 19th duplicate, NOT declared: this and SELECT's LF
-    # (geometry.empennage.airplane_length_in, one field since v55 / #52)
-    # are plausibly one dimension, but nothing in the repo says so and the two
-    # are not held equal on any fixture. Declaring it would assert a defect that
-    # has not been demonstrated; it is raised in the OG-C closure instead.
-    _E("geometry.parametric.fuselage_length", _GEO, _ORIG,
-       "overall length; summarised from geometry.fuselage.sections[].x when entered "
-       "(Step M2-6; #95, C210-2: rendered disabled once an outline exists -- "
-       "sync_geometry_derived overwrites it on every run)",
-       derived_from=EXTERNAL + "the fuselage outline (derived_geometry."
-       "fuselage_summary; sync_geometry_derived keeps this scalar equal to it)",
-       resolves="With no fuselage outline entered yet, a typed length stands "
-       "(and seeds the outline when an older file loads); once outline "
-       "sections exist, the outline governs and this is its read-only summary."),
-    _E("geometry.parametric.fuselage_width", _GEO, _SLDS,
-       "overall fuselage outline summary, carried because sloads models the body as sections and the original suite "
-       "modelled no body at all (Step M2-6)"),
-    _E("geometry.parametric.fuselage_height", _GEO, _SLDS,
-       "overall fuselage outline summary, carried because sloads models the body as sections and the original suite "
-       "modelled no body at all (Step M2-6)"),
-    # The outline itself is sloads (Step G1), but a section cannot be constructed
-    # without all three, so a project that has one at all has these (G5 rule 1).
-    _E("geometry.fuselage.sections[].x", _GEO, _SLDS,
-       "body outline model, Step G1; structurally required", supplied=True),
-    _E("geometry.fuselage.sections[].width", _GEO, _SLDS,
-       "body outline model, Step G1; structurally required", supplied=True),
-    _E("geometry.fuselage.sections[].height", _GEO, _SLDS,
-       "body outline model, Step G1; structurally required", supplied=True),
-    _E("geometry.fuselage.sections[].z_centre", _GEO, _SLDS,
-       "body outline model: the section's waterline centre, which sloads needs to place fuselage mass and drag in "
-       "three dimensions (Step G1)"),
-
-    # geometry.empennage -- the whole-airplane length both tail inertias use
-    # (one home since v55, #52; each tail carried a copy before)
-    _E("geometry.empennage.airplane_length_in", _GEO, _ORIG, "SELECT LF (Iyy and default IZZ)"),
 
     # geometry.empennage.htail -- SELECT's rational h-tail inputs (Ch 9)
     _E("geometry.empennage.htail.aspect_ratio_htail", _GEO, _ORIG, "SELECT ARHT"),
@@ -1123,8 +1206,22 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     # the load pages keep their per-page condition inputs (flap NG and the
     # slipstream band). Placed here so the sections sit with the other
     # planform forms in registry order.
-    _E("aileron_loads.area_aft_hinge_sqft", _GEO, _ORIG, "AILERON SAAFT"),
-    _E("aileron_loads.area_fwd_hinge_sqft", _GEO, _ORIG, "AILERON SAFWD"),
+    # Collapsed overrides of the drawn aileron (design note 69 D-69.7): each
+    # half derives only where the ``aileron`` surface carries a hinge_line (the
+    # split needs it); typed, the pair is warned apart from the drawn area past
+    # the 1 % band (D-69.10, the hinge-halves precedent in validation.py).
+    _E("aileron_loads.area_aft_hinge_sqft", _GEO, _ORIG,
+       "AILERON SAAFT; blank derives from the aileron surface's hinge split "
+       "(design note 69 D-69.7)", "aileron area aft of the hinge",
+       derived_from=EXTERNAL + "the drawn aileron aft of its hinge_line "
+       "(tail_geometry.control_surface_areas; aileron.aileron_hinge_areas)",
+       governs=True, band=0.01),
+    _E("aileron_loads.area_fwd_hinge_sqft", _GEO, _ORIG,
+       "AILERON SAFWD; blank derives from the aileron surface's hinge split "
+       "(design note 69 D-69.7)", "aileron area forward of the hinge",
+       derived_from=EXTERNAL + "the drawn aileron forward of its hinge_line "
+       "(tail_geometry.control_surface_areas; aileron.aileron_hinge_areas)",
+       governs=True, band=0.01),
     # The aileron travel, all three deflections in one place (#374): the
     # SELECT DN override sat alone on the Aileron page, where the only
     # deflection widget was the one the aileron pressures never read.
@@ -1146,7 +1243,14 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "aileron_loads.down_deflection_deg (blank derives from the AILERON travel; "
        "note 36 OV-2, C210-38 -- a typed disagreement warns, aileron_deflection_mismatch)",
        governs=True),
-    _E("flap_loads.flap_area_one_side_sqft", _GEO, _ORIG, "FLAPLOAD SF"),
+    # A collapsed override of the drawn flap (design note 69 D-69.8); E is
+    # not derived -- parked with its number (D-69.9, 02_parked.md).
+    _E("flap_loads.flap_area_one_side_sqft", _GEO, _ORIG,
+       "FLAPLOAD SF; blank derives from the flap surface's one-side area "
+       "(design note 69 D-69.8)", "flap area, one side",
+       derived_from=EXTERNAL + "the drawn flap's one-side planform area "
+       "(tail_geometry.control_surface_areas; flap.flap_area_one_side_sqft)",
+       governs=True, band=0.01),
     _E("flap_loads.flap_chord_ratio", _GEO, _ORIG, "FLAPLOAD E"),
     _E("flap_loads.flap_deflection_deg", _GEO, _ORIG, "FLAPLOAD DELTA"),
 
@@ -1665,35 +1769,11 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("engines[].engine_type", _ENG, _ORIG,
        "ENGLOADS reciprocating/turbine branch; every field of both branches (ENGTORQ, CRUZTORQ, "
        "DT, CYL) is ORIGINAL here, so the switch between them is -- corrected building G5"),
-    _E("engines[].mounted_on", _ENG, _SLDS,
-       "which structure carries the engine, fuselage or wing, so sloads can route the mount loads into the right beam; "
-       "the suite took mount loads and carried them nowhere (Step C5)"),
-    # All three are ``supplied``: without them the oracle projection strips the
-    # fields, and OR-21 makes the report a function of that projection -- so a
-    # thrust line the user entered would be invisible to the very section that
-    # exists to resolve loads about it, and a counter-rotating engine's report
-    # would state the wrong rotation. The two points are also sentinel defaults
-    # (registered above): absent means assumed-with-a-note, which is exactly the
-    # class #98 refuses to filter off an oracle page.
-    # G-53.7 -- stated where entered. The one thing a reader cannot check on a
-    # results page is which way round "clockwise" was meant, and which axis a
-    # moment was resolved about, so the row the value is entered against says
-    # both. It was a caption on the retired front-end's engine page until #270;
-    # here the field's own provenance line carries it, which is the statement's
-    # one owner in the surviving GUI (the figure's ASSUMED marker is
-    # ``derived_geometry.thrust_line_label``'s, on the three-view).
-    _E("engines[].thrust_line_aft", _ENG, _SLDS,
-       "thrust line, aft point (design note 53, D-53.1). Enter both points or "
-       "neither -- one point does not define a line, and a half-entered pair is "
-       "read as no line at all. G5: omitted, every engine-mount moment resolves "
-       "about the ASSUMED forward axis rather than the entered line, and the "
-       "three-view marks the line it drew ASSUMED", supplied=True),
-    _E("engines[].thrust_line_fwd", _ENG, _SLDS,
-       "thrust line, forward point (design note 53, D-53.1). Enter both points "
-       "or neither -- one point does not define a line, and a half-entered pair "
-       "is read as no line at all. G5: omitted, every engine-mount moment "
-       "resolves about the ASSUMED forward axis rather than the entered line, "
-       "and the three-view marks the line it drew ASSUMED", supplied=True),
+    # The location fields -- mounted_on, engine_cg, prop_cg, the thrust line
+    # and prop_diameter_in -- render on the Geometry page's Engines section
+    # (design note 69 D-69.13, #380) and are declared there, in page order.
+    # ``prop_direction`` is a sense, not a place, so it stays here (G-53.7's
+    # provenance line carries the sign convention where it is entered).
     _E("engines[].prop_direction", _ENG, _SLDS,
        "propeller rotation: positive is clockwise seen from the pilot's seat "
        "(design note 53, D-53.4). A propeller turning clockwise from the seat "
@@ -1703,14 +1783,8 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("engines[].engine_weight_lb", _ENG, _ORIG, "ENGLOADS ENGWT", "engine mass",
        EXTERNAL + "the weight database (decision D-25 mass SSOT; review N1 instance 5: regional jet 300 lb apart)",
        governs=True),
-    _E("engines[].engine_cg", _ENG, _ORIG, "ENGLOADS XENG/YENG/ZENG", "engine station",
-       EXTERNAL + "the weight database (decision D-25 mass SSOT; review N1 instance 5: regional jet 130 in apart)",
-       governs=True),
     _E("engines[].hub_weight_lb", _ENG, _ORIG, "ENGLOADS HUBWT"),
     _E("engines[].prop_weight_lb", _ENG, _ORIG, "ENGLOADS PROPWT", "propeller mass",
-       EXTERNAL + "the weight database (the prop_mass_item row; note 36 OV-7, C210-41)",
-       governs=True),
-    _E("engines[].prop_cg", _ENG, _ORIG, "ENGLOADS XPROP/YPROP/ZPROP", "propeller station",
        EXTERNAL + "the weight database (the prop_mass_item row; note 36 OV-7, C210-41)",
        governs=True),
     _E("engines[].engine_mass_item", _ENG, _SLDS,
@@ -1719,7 +1793,6 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("engines[].prop_mass_item", _ENG, _SLDS,
        "weight-database row selector, note 36 OV-7 (the propeller half of the linkage)"),
     _E("engines[].prop_designation", _ENG, _ORIG, "ENGLOADS propeller designation"),
-    _E("engines[].prop_diameter_in", _ENG, _ORIG, "ENGLOADS PROPDIA"),
     _E("engines[].prop_blades", _ENG, _ORIG, "ENGLOADS NOBLADES"),
     _E("engines[].prop_inertia", _ENG, _SLDS,
        "measured propeller polar inertia, overriding the value sloads estimates from weight and diameter; the original "
@@ -1760,15 +1833,6 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("engines[].rotors[].max_rpm", _ENG, _SLDS,
        "turbine rotor model, Step C9 -- signed, clockwise from the pilot's seat positive: "
        "the one owner of the rotor's spin sense (#332)"),
-    # C210-44 (owner directive): layout is Step C5 *configuration*, not a
-    # mount-load input -- its one calc consumer is WINGGEOM's engine stations --
-    # so it renders on the Geometry page. The page set is registry-derived, so
-    # the move is this tag; the Engine Mount page's layout-consistency message
-    # resolves the owning page from this entry and follows automatically.
-    _E("engine_layout", _GEO, _SLDS,
-       "multi-engine layout constraint, Step C5 -- the arrangement the entered engines already "
-       "describe, where the original ran one program per fixed layout. Load-bearing (G5): "
-       "omitting it moves the twins' nacelle geometry", supplied=True),
     _E("include_far25", _ENG, _SLDS,
        "opts this project into sloads' FAR 25 supplemental cases, which sit outside the FAR 23 suite this GUI "
        "replicates (F25-2)"),
@@ -2129,16 +2193,22 @@ def stale() -> Set[str]:
     return set(BY_PATH) - schema_paths()
 
 
-def entering_step(slice_name: str) -> Optional[str]:
+def entering_step(slice_name: str, after: Optional[str] = None) -> Optional[str]:
     """The workflow step whose form enters ``slice_name``, or ``None``.
 
     The registry is what knows this: every input row names the ``page`` — a
     workflow step key — it is entered on, so "which page fills this slice"
     needs no second list to drift from. A slice split across pages answers with
     the **earliest** in workflow order, which is the one a user reaches first
-    and so the one a "fill this first" pointer must name (#69).
+    and so the one a "fill this first" pointer must name (#69) — unless
+    ``after`` names a step, when it answers with the earliest page **after**
+    that step: the later page a dependency statement is about. The
+    ``engines`` slice is the case (design note 69 D-69.13): its locations are
+    entered on Geometry and its powerplant data on Engine Mount, and the Flap
+    page's slipstream reads the power, which is the later of the two.
 
-    ``None`` for a slice no form enters (a result slice, or one derived only).
+    ``None`` for a slice no form enters (a result slice, or one derived only),
+    or none after ``after``.
     """
     from sloads import workflow as wf  # local: workflow must not import upward
 
@@ -2146,9 +2216,12 @@ def entering_step(slice_name: str) -> Optional[str]:
     # Walked in workflow order rather than picked with a keyed ``min``: the
     # order is the answer, and a keyed built-in pick is what
     # ``tests/test_platform_stability.py`` exists to keep out of this package.
+    passed = after is None
     for step in wf.STEPS:
-        if step.key in pages:
+        if passed and step.key in pages:
             return step.key
+        if step.key == after:
+            passed = True
     return None
 
 

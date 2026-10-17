@@ -121,6 +121,12 @@ def _catalogue() -> Tuple[FigureFamily, ...]:
                 ("planform_wing", "Wing planform"),
                 ("planform_htail", "Horizontal tail planform"),
                 ("planform_vtail", "Vertical tail planform"))
+    # The airplane three-view (design note 69 D-69.15): entered geometry from
+    # every owner Section 2 and Section 10 read, drawn before anything runs.
+    out += rows("configuration_layout", osx.airplane_view_figures, pre,
+                ("airplane_plan_view", "The airplane in plan view"),
+                ("airplane_side_view", "The airplane in side view"),
+                ("airplane_front_view", "The airplane in front view"))
     out += rows("weight_mass", osx.weight_cg_figures, pre,
                 ("weight_cg", "Weight and centre-of-gravity envelope"))
     out += rows("weight_mass", osx.item_station_figures, pre,

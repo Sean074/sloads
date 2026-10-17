@@ -34,7 +34,7 @@ from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
 
 from ..aero_curves import inertia_drag_factor
 from ..cg_cases import flight_cases
-from ..derived_geometry import require_integrable_planform, sync_geometry_derived, wing_plane
+from ..derived_geometry import require_integrable_planform, wing_plane
 from ..mass_distribution import WingMassState, panel_weight, wing_mass_state
 from ..models import (
     AeroSurfaceInput,
@@ -211,7 +211,6 @@ class _WingModel(NamedTuple):
 
 def _wing_model(project: Project) -> Union[_WingModel, str]:
     """The wing model, or the reason the wing analysis cannot run on ``project``."""
-    sync_geometry_derived(project)
     wm = project.wing_mass
     if wm is None:
         return "the project has no 'wing_mass' inputs"

@@ -550,6 +550,41 @@ def _region_series(project: Project, name: str, style: str, label: str,
     return series
 
 
+def _joined(names: Sequence[str]) -> str:
+    """``a``, ``a and b``, ``a, b and c`` -- one spelling of a list in prose."""
+    if len(names) <= 1:
+        return names[0] if names else ""
+    return ", ".join(names[:-1]) + " and " + names[-1]
+
+
+def _hinge_series(project: Project, name: str, mirror: bool, frame: str,
+                  scale: float) -> List[Series]:
+    """The control's entered hinge line as drawn, or ``[]`` (note 69 D-69.16).
+
+    ``SurfaceInput.hinge_line`` is the aerodynamic hinge axis as an
+    ``(X, span)`` polyline (D-54.1), the same line ``control_hinge_areas``
+    splits the control's area at -- so what is drawn is what the fwd/aft
+    areas derive from, never a chord station inferred from them. Empty means
+    not entered, and the caller says so rather than drawing nothing silently.
+    The mirror carries no name, as the region's mirror does not.
+    """
+    from .planform_tex import HINGE_STYLE
+
+    surface = project.geometry.by_name(name) if project.geometry else None
+    points = _edge_points(surface.hinge_line) if surface is not None else []
+    if len(points) < 2:
+        return []
+    label = f"{_REGION_NAMES.get(name, name)} hinge line"
+    sides = ((1.0, label), (-1.0, "")) if mirror else ((1.0, label),)
+    out: List[Series] = []
+    for sign, series_label in sides:
+        oriented = [_oriented(frame, x * scale, sign * y * scale)
+                    for x, y in points]
+        out.append(Series(series_label, [x for x, _y in oriented],
+                          [y for _x, y in oriented], HINGE_STYLE))
+    return out
+
+
 def _planform_figure(project: Project, key: str, parent: str, title: str,
                      children: Sequence[str], frame: str,
                      areas: Mapping[str, LoadValue],
@@ -608,6 +643,15 @@ def _planform_figure(project: Project, key: str, parent: str, title: str,
         if child_series:
             drawn.append(child)
             series += child_series
+    # The hinge line where one is entered (D-69.16): drawn on the control it
+    # belongs to, and only for a control that is itself drawn -- a hinge on a
+    # control whose outline was refused would be a line through nothing.
+    hinged = []
+    for child in drawn:
+        hinge = _hinge_series(project, child, mirror, frame, scale)
+        if hinge:
+            hinged.append(child)
+            series += hinge
 
     x_label, y_label = _PLANFORM_AXES[frame]
     entered = list(surface.leading_edge) + list(surface.trailing_edge)
@@ -622,10 +666,8 @@ def _planform_figure(project: Project, key: str, parent: str, title: str,
         f"integrated, and the marked points are the {word} vertices.",
     ]
     if drawn:
-        names = [_REGION_NAMES.get(c, c).lower() for c in drawn]
-        named = (names[0] if len(names) == 1
-                 else ", ".join(names[:-1]) + " and " + names[-1])
-        caption.append(f"The {named} is shaded on it." if len(names) == 1
+        named = _joined([_REGION_NAMES.get(c, c).lower() for c in drawn])
+        caption.append(f"The {named} is shaded on it." if len(drawn) == 1
                        else f"The {named} are shaded on it.")
     caption.append(
         "Areas are the values tabulated above, not measured off the drawing. "
@@ -634,11 +676,23 @@ def _planform_figure(project: Project, key: str, parent: str, title: str,
     if mirror:
         caption.append("The surface is symmetric about the airplane centre "
                        "plane and both sides are drawn.")
-    caption.append(
-        "The hinge line is not drawn: the analysis carries the control "
-        "surface's areas forward and aft of the hinge as scalars and no hinge "
-        "geometry, so a line here would be an inference rather than the "
-        "configuration.")
+    # The hinge line is entered geometry since D-54.1 (``hinge_line``, the
+    # line the fwd/aft areas derive from), so the caption states per control
+    # whether it is drawn, and never that the analysis has no hinge (D-69.16).
+    def _names(keys: Sequence[str]) -> str:
+        return _joined([_REGION_NAMES.get(c, c).lower() for c in keys])
+
+    if hinged:
+        caption.append(
+            f"The hinge line of the {_names(hinged)} is entered and drawn "
+            "dashed: it is the line the areas forward and aft of the hinge "
+            "are integrated either side of.")
+    unhinged = [c for c in drawn if c not in hinged]
+    if unhinged:
+        caption.append(
+            f"The hinge line of the {_names(unhinged)} is not entered, so "
+            "none is drawn: a line placed from the area split would be an "
+            "inference rather than the configuration.")
 
     return Figure(
         key=key, title=title,
@@ -726,13 +780,20 @@ def _geometry(project: Project,
             "is not the surface's own. Entering the polylines removes the "
             "assumption.")
 
+    # The **resolved** tail records (note 36 OV-1; design note 69 D-69.17): a
+    # blank SELECT scalar derives from the boundary lines, and the table states
+    # the data the load cases were run from, not the blank it was typed as.
+    from ..modules.select import effective_tail_inputs, effective_vtail_inputs
     empennage = getattr(project.geometry, "empennage", None) if project.geometry else None
+    try:
+        htail = effective_tail_inputs(project)
+    except ValueError:
+        htail = getattr(empennage, "htail", None)   # the ARW refusal is SELECT's
     tables = [table]
     tables.append(_tail_table("Horizontal tail and elevator", project, "htail",
-                              getattr(empennage, "htail", None),
-                              _HTAIL_ROWS, system))
+                              htail, _HTAIL_ROWS, system))
     tables.append(_tail_table("Vertical tail and rudder", project, "vtail",
-                              getattr(empennage, "vtail", None),
+                              effective_vtail_inputs(project),
                               _VTAIL_ROWS, system))
     tables.append(_input_table("Aileron", project.aileron_loads,
                                _AILERON_ROWS, system))
@@ -744,11 +805,13 @@ def _geometry(project: Project,
             f"Trim tab, {surface}" if surface else "Trim tab",
             tab, _TAB_ROWS, system))
 
-    # One planform per main surface (OR-45). The renderer puts a section's
-    # figures ahead of its tables, so the three drawings open 2.1 and the tables
-    # that state their numbers follow -- the reader sees the airplane before the
-    # arithmetic, which is the order the section was asked for in.
-    figures = geometry_figures(project, system=system, results=results)
+    # One planform per main surface (OR-45), then the airplane three-view
+    # (note 69 D-69.15). The renderer puts a section's figures ahead of its
+    # tables, so the drawings open 2.1 and the tables that state their numbers
+    # follow -- the reader sees the airplane before the arithmetic, which is
+    # the order the section was asked for in.
+    figures = (geometry_figures(project, system=system, results=results)
+               + airplane_view_figures(project, system=system, results=results))
     return Section("", body=body, figures=figures,
                    tables=[t for t in tables if t is not None])
 
@@ -7241,9 +7304,97 @@ def _tail_view_series(project: Project, frame: str, scale: float) -> List[Series
     return series
 
 
-def _airframe_series(project: Project, frame: str,
-                     scale: float) -> Tuple[List[Series], List[str]]:
-    """Every airframe outline this view can draw, and the names of the ones drawn."""
+def _tail_entered_series(project: Project, frame: str,
+                         scale: float) -> Tuple[List[Series], List[str]]:
+    """Both tails from their **entered** polylines, and the names of those drawn.
+
+    The airplane three-view's empennage (design note 69 D-69.15): the
+    horizontal tail is a shape in plan and the vertical tail a shape in side
+    view, each the closed outline Section 2's planform figures draw through
+    :func:`_outline_series`; in the other two frames each is the line that
+    view sees -- the horizontal tail's root chord or span at the waterline
+    :func:`sloads.tail_geometry.h_tail_waterline` owns, the fin's root chord
+    on the centre plane or its height, read off its own polyline whose second
+    coordinate is a waterline. The ``configuration.tail_planform`` rectangle
+    the Engine Mount views draw is **not** a source here: a tail with no
+    polylines is not drawn and the caption names it.
+    """
+    from ..tail_geometry import h_tail_waterline
+    from .planform_tex import OUTLINE_STYLE
+
+    geometry = project.geometry
+    series: List[Series] = []
+    drawn: List[str] = []
+    if geometry is None:
+        return series, drawn
+
+    htail = geometry.by_name("htail")
+    if htail is not None:
+        if frame == "butt":
+            panel = _outline_series(project, "htail", OUTLINE_STYLE,
+                                    bool(htail.symmetric), frame, scale)
+        else:
+            panel = []
+            leading = _edge_points(htail.leading_edge)
+            trailing = _edge_points(htail.trailing_edge)
+            try:
+                waterline = h_tail_waterline(project).z if leading and trailing else None
+            # refusal: a tail the owner cannot place is not drawn; the caption names it
+            except (ValueError, TypeError, ZeroDivisionError, AttributeError):
+                waterline = None
+            if waterline is not None:
+                if frame == "water":
+                    root_le = extreme(leading, key=lambda p: abs(p[1]), largest=False)[0]
+                    root_te = extreme(trailing, key=lambda p: abs(p[1]), largest=False)[0]
+                    pairs = [(root_le, waterline), (root_te, waterline)]
+                else:
+                    tip = max(abs(p[1]) for p in leading + trailing)
+                    pairs = [(-tip, waterline), (tip, waterline)]
+                points = [_oriented(frame, a * scale, b * scale) for a, b in pairs]
+                panel = [Series("Horizontal tail", [p[0] for p in points],
+                                [p[1] for p in points], OUTLINE_STYLE)]
+        if panel:
+            series += panel
+            drawn.append("the horizontal tail")
+
+    vtail = geometry.by_name("vtail")
+    if vtail is not None:
+        if frame == "water":
+            panel = _outline_series(project, "vtail", OUTLINE_STYLE, False,
+                                    frame, scale)
+        else:
+            panel = []
+            leading = _edge_points(vtail.leading_edge)
+            trailing = _edge_points(vtail.trailing_edge)
+            if leading and trailing:
+                if frame == "butt":
+                    # The root chord, on the centre plane: the lowest-waterline
+                    # point of each edge, through the tie owner.
+                    root_le = extreme(leading, key=lambda p: p[1], largest=False)[0]
+                    root_te = extreme(trailing, key=lambda p: p[1], largest=False)[0]
+                    pairs = [(root_le, 0.0), (root_te, 0.0)]
+                else:
+                    waterlines = [p[1] for p in leading + trailing]
+                    pairs = [(0.0, min(waterlines)), (0.0, max(waterlines))]
+                points = [_oriented(frame, a * scale, b * scale) for a, b in pairs]
+                panel = [Series("Vertical tail", [p[0] for p in points],
+                                [p[1] for p in points], OUTLINE_STYLE)]
+        if panel:
+            series += panel
+            drawn.append("the vertical tail")
+    return series, drawn
+
+
+def _airframe_series(project: Project, frame: str, scale: float, *,
+                     entered_tails: bool = False,
+                     ) -> Tuple[List[Series], List[str]]:
+    """Every airframe outline this view can draw, and the names of the ones drawn.
+
+    ``entered_tails`` chooses the empennage's source: the Engine Mount views
+    (default) draw ``configuration.tail_planform``'s panels, the airplane
+    three-view draws the entered tail polylines and nothing else
+    (:func:`_tail_entered_series`, note 69 D-69.15).
+    """
     from ..derived_geometry import fuselage_outline
     from .planform_tex import OUTLINE_STYLE
 
@@ -7259,6 +7410,11 @@ def _airframe_series(project: Project, frame: str,
     if wing:
         series += wing
         drawn.append("the wing")
+    if entered_tails:
+        tails, tail_names = _tail_entered_series(project, frame, scale)
+        series += tails
+        drawn += tail_names
+        return series, drawn
     tails = _tail_view_series(project, frame, scale)
     if tails:
         series += tails
@@ -7386,6 +7542,315 @@ def _projected(frame: str, point: Sequence[float],
     if frame == "front":
         return y, z
     return x, y
+
+
+# --------------------------------------------------------------------------- #
+# The airplane three-view -- 2.1's pre-run views (design note 69 D-69.15)
+# --------------------------------------------------------------------------- #
+#: ``(frame, figure key, title, what the view is)`` in page order. The frames
+#: are :data:`_PLANFORM_AXES`' own, as the Engine Mount views' are, so the two
+#: drawings of the airplane in this document share their axes and their
+#: outlines.
+_AIRPLANE_VIEWS: Tuple[Tuple[str, str, str, str], ...] = (
+    ("butt", "airplane_plan_view", "The airplane in plan view",
+     "Looking down on the airplane"),
+    ("water", "airplane_side_view", "The airplane in side view",
+     "Looking at the left-hand side of the airplane"),
+    ("front", "airplane_front_view", "The airplane in front view",
+     "Looking aft, from ahead of the airplane"),
+)
+
+#: The control surfaces shaded in each frame: the frame their parent is a
+#: shape in (D-69.15). In front view every parent is a line, so nothing is.
+_CONTROLS_IN_FRAME: Dict[str, Tuple[str, ...]] = {
+    "butt": ("aileron", "flap", "elevator"),
+    "water": ("rudder",),
+    "front": (),
+}
+
+#: Which of :data:`planform_tex.REGION_STYLES` each control takes. The two
+#: fills tell the two controls of one parent apart (the aileron from the flap);
+#: a control on another parent reuses the first, told apart by where it sits.
+_CONTROL_FILL: Dict[str, int] = {"aileron": 0, "flap": 1, "elevator": 0,
+                                 "rudder": 0}
+
+def _view_point(frame: str, point: Sequence[float], scale: float,
+                ) -> Tuple[float, float]:
+    """An airplane ``(x, y, z)`` point on the frame's plotted axes."""
+    return _oriented(frame, *_projected(frame, point, scale))
+
+
+def _diameter_series(frame: str, label: str, centre: Sequence[float],
+                     radius_in: float, scale: float, style: str,
+                     *, edge_on_axis: str) -> Series:
+    """A circle of ``radius_in`` about ``centre`` as this frame sees it.
+
+    Face-on it is the circle; edge-on it is a line of the diameter through the
+    centre along ``edge_on_axis`` (``"y"`` lateral, ``"z"`` vertical, ``"x"``
+    along the airplane). A propeller disc lies across the thrust axis, so it
+    is face-on in front view and a line elsewhere; a wheel lies in the plane
+    of symmetry, so it is face-on in side view. The circle is the ground
+    attitudes' own :func:`_circle`, so a wheel is drawn one way in both.
+    """
+    x, y, z = (float(v) for v in centre)
+    if edge_on_axis == "":
+        cx, cy = _view_point(frame, centre, scale)
+        xs, ys = _circle(cx, cy, radius_in * scale)
+        return Series(label, xs, ys, style, closed=True)
+    offset = {"x": (radius_in, 0.0, 0.0), "y": (0.0, radius_in, 0.0),
+              "z": (0.0, 0.0, radius_in)}[edge_on_axis]
+    ends = [(x - offset[0], y - offset[1], z - offset[2]),
+            (x + offset[0], y + offset[1], z + offset[2])]
+    points = [_view_point(frame, p, scale) for p in ends]
+    return Series(label, [p[0] for p in points], [p[1] for p in points], style)
+
+
+def _view_engines(project: Project) -> List[EngineInput]:
+    """The engines as the mount loads resolve them, else as entered.
+
+    ``resolved_engines`` fills ``prop_cg`` from the propeller's mass item where
+    the engine names one (the collapsed override, D-69.13); a selector that
+    cannot resolve, or a half-entered wing the load-factor derive refuses
+    (#122), leaves the typed values, which is all a pre-run drawing can read.
+    """
+    from ..modules.engine import resolved_engines
+
+    try:
+        return resolved_engines(project)
+    # refusal: a pre-run drawing falls back to the entered engine rows
+    except REFUSALS:
+        return list(project.engines or [])
+
+
+def _engine_view_series(project: Project, frame: str, scale: float,
+                        ) -> Tuple[List[Series], bool, List[str], bool]:
+    """The thrust lines and propeller discs in one view.
+
+    Returns ``(series, any engine entered, engines whose disc is not drawn,
+    any thrust line ASSUMED)``. The thrust lines are
+    :func:`sloads.derived_geometry.engine_thrust_segments`' as the Engine Mount
+    views draw them; the disc is a circle of ``prop_diameter_in`` about the
+    resolved ``prop_cg``, face-on in front view and a line of that diameter
+    through the propeller CG in side and plan view. No diameter or no
+    propeller CG: no disc, and the engine is named.
+    """
+    from ..derived_geometry import engine_thrust_segments
+
+    series: List[Series] = []
+    segments = engine_thrust_segments(project)
+    for segment in segments:
+        start = _view_point(frame, segment.start, scale)
+        end = _view_point(frame, segment.end, scale)
+        arrow_x, arrow_y = _arrow(start[0], start[1], end[0] - start[0],
+                                  end[1] - start[1])
+        series.append(Series(segment.label, arrow_x, arrow_y, "dashed"))
+    engines = _view_engines(project)
+    undrawn: List[str] = []
+    for index, engine in enumerate(engines, start=1):
+        diameter = float(engine.prop_diameter_in or 0.0)
+        if diameter <= 0 or not any(engine.prop_cg):
+            undrawn.append(f"engine {index}")
+            continue
+        series.append(_diameter_series(
+            frame, f"Engine {index} propeller disc", engine.prop_cg,
+            diameter / 2.0, scale, "thick",
+            edge_on_axis={"front": "", "water": "z", "butt": "y"}[frame]))
+    return (series, bool(engines), undrawn,
+            any(segment.assumed for segment in segments))
+
+
+def _gear_view_series(project: Project, frame: str, scale: float,
+                      ) -> Tuple[List[Series], List[str], List[str]]:
+    """Each landing-gear leg in one view: ``(series, legs drawn, legs not)``.
+
+    From ``geometry.landing_gear``, the single stored home of the legs (Step
+    G6b): a strut from ``attach`` to the static axle ``(x, z)``, the wheel a
+    circle of ``rolling_radius_in`` at the axle in side view and a line of
+    the tyre's diameter elsewhere. In front and plan view the main wheels sit
+    at ``+-tread_in/2`` and the nose wheel at its attach butt line, each strut
+    drawn from the attach point to its wheel so the figure shows both points
+    (owner ruling, note 69 Q7). A leg whose static axle is ``(0, 0)`` is not
+    entered and is not drawn.
+    """
+    from .planform_tex import OUTLINE_STYLE
+
+    gear = project.geometry.landing_gear if project.geometry else None
+    series: List[Series] = []
+    drawn: List[str] = []
+    if gear is None:
+        return series, drawn, ["the landing gear"]
+    absent: List[str] = []
+    tread = float(gear.tread_in)
+    legs = (
+        ("main", gear.main_gear, sorted({0.5 * tread, -0.5 * tread})),
+        ("nose", gear.nose_gear, [float(gear.nose_gear.attach[1])]),
+    )
+    for name, leg, butt_lines in legs:
+        axle_x, axle_z = (float(v) for v in leg.axle_static)
+        if not (axle_x or axle_z):
+            absent.append(f"the {name} gear")
+            continue
+        attach = tuple(float(v) for v in leg.attach)
+        radius = float(leg.rolling_radius_in)
+        # In side view both main wheels project onto one; the leg is one
+        # strut and one wheel there, drawn at the attach butt line.
+        wheels = ([(axle_x, attach[1], axle_z)] if frame == "water"
+                  else [(axle_x, b, axle_z) for b in butt_lines])
+        label = f"{name.capitalize()} gear"
+        for wheel in wheels:
+            strut = [_view_point(frame, attach, scale),
+                     _view_point(frame, wheel, scale)]
+            series.append(Series(label, [p[0] for p in strut],
+                                 [p[1] for p in strut], OUTLINE_STYLE))
+            label = ""
+            if radius > 0:
+                series.append(_diameter_series(
+                    frame, "", wheel, radius, scale, "thick",
+                    edge_on_axis={"water": "", "front": "z", "butt": "x"}[frame]))
+        drawn.append(f"the {name} gear")
+    return series, drawn, absent
+
+
+def _airplane_view_figure(project: Project, *, frame: str, key: str,
+                          title: str, view: str, system: UnitSystem) -> Figure:
+    """One of the three pre-run views of the airplane (note 69 D-69.15).
+
+    Everything drawn comes from an owner Section 2 or Section 10 already
+    reads -- the fuselage outline and centre line, the wing and tail
+    polylines, the control-surface resolver, the thrust-line owner, the
+    engine resolver and the gear slice -- so this figure and those sections
+    cannot disagree about where the airplane is. What is not entered is left
+    out and named in the caption; nothing is assumed in its place.
+    """
+    from ..derived_geometry import CENTRELINE_ENTERED, fuselage_centreline
+    from ..tail_geometry import CONTROL_PARENT
+    from .planform_tex import REGION_STYLES
+
+    scale, length_units = _length_channel(system)
+    series, drawn = _airframe_series(project, frame, scale, entered_tails=True)
+    absent = [name for name in ("the fuselage", "the wing",
+                                "the horizontal tail", "the vertical tail")
+              if name not in drawn]
+
+    # The fuselage centre line, side view only, and only where every section
+    # enters its ``z_centre``: a defaulted line is the body-drag waterline
+    # assumption, which this figure will not draw as geometry.
+    if frame == "water" and "the fuselage" in drawn:
+        centreline = fuselage_centreline(project)
+        if centreline is not None and centreline.basis == CENTRELINE_ENTERED:
+            points = [_oriented(frame, x * scale, z * scale)
+                      for x, z in centreline.points]
+            series.append(Series("Fuselage centre line", [p[0] for p in points],
+                                 [p[1] for p in points], "dashed"))
+            drawn.append("the fuselage centre line")
+        else:
+            absent.append("the fuselage centre line (no z_centre per section)")
+
+    # The control surfaces, each in the frame its parent is a shape in, through
+    # the D-54.1 resolver the planform figures read; the hinge line where one is
+    # entered (D-69.16).
+    controls: List[str] = []
+    hinged: List[str] = []
+    geometry = project.geometry
+    for name in _CONTROLS_IN_FRAME[frame]:
+        parent = geometry.by_name(CONTROL_PARENT[name]) if geometry else None
+        mirror = frame == "butt" and bool(parent is not None and parent.symmetric)
+        region = _outline_series(project, name, REGION_STYLES[_CONTROL_FILL[name]],
+                                 mirror, frame, scale)
+        if not region:
+            # Named only where its parent is drawn: an absent parent is already
+            # named, and its controls are not a second absence.
+            if parent is not None:
+                absent.append(f"the {_REGION_NAMES[name].lower()}")
+            continue
+        series += region
+        controls.append(_REGION_NAMES[name].lower())
+        hinge = _hinge_series(project, name, mirror, frame, scale)
+        if hinge:
+            series += hinge
+            hinged.append(_REGION_NAMES[name].lower())
+
+    engine_series, any_engine, discs_undrawn, assumed_any = _engine_view_series(
+        project, frame, scale)
+    series += engine_series
+    if not any_engine:
+        absent.append("the engines")
+    gear_series, gear_drawn, gear_absent = _gear_view_series(project, frame, scale)
+    series += gear_series
+    absent += gear_absent
+
+    if not series:
+        return Figure(key=key, title=title, absent_reason=(
+            "the project enters no geometry this view can draw: no fuselage "
+            "outline, no wing or tail polylines, no engine and no landing gear."))
+    series += _axis_key_series(series, [])
+    x_label, y_label = _PLANFORM_AXES[frame]
+
+    if any_engine:
+        drawn.append("the engines")
+    drawn += gear_drawn
+    caption = [
+        f"{view}, to scale on equal axes, drawn from what is entered -- "
+        f"{_joined(drawn)} -- through the owners Section 2 and the Engine "
+        "Mount views read them with, so no shape here is this figure's own.",
+    ]
+    if controls:
+        caption.append(
+            f"The {_joined(controls)} {'is' if len(controls) == 1 else 'are'} "
+            "shaded on the parent surface.")
+        if hinged:
+            caption.append(f"The hinge line of the {_joined(hinged)} is entered "
+                           "and drawn dashed.")
+        unhinged = [c for c in controls if c not in hinged]
+        if unhinged:
+            caption.append(f"The hinge line of the {_joined(unhinged)} is not "
+                           "entered, so none is drawn.")
+    if any_engine:
+        disc_where = {
+            "front": "a circle of the entered propeller diameter about the "
+                     "propeller CG",
+            "water": "a vertical line of the entered propeller diameter "
+                     "through the propeller CG",
+            "butt": "a lateral line of the entered propeller diameter through "
+                    "the propeller CG",
+        }[frame]
+        caption.append(
+            "Each dashed arrow is an engine's thrust line, pointing forward; "
+            f"each propeller disc is {disc_where}.")
+        if discs_undrawn:
+            caption.append(
+                f"No propeller disc is drawn for {_joined(discs_undrawn)}: the "
+                "propeller diameter or the propeller CG is not entered.")
+        if assumed_any:
+            caption.append(
+                "A thrust line marked ASSUMED is not entered geometry: its "
+                "direction is the airplane's forward axis and its length is "
+                "drawn, not stated. Enter the thrust line's two points to "
+                "replace it.")
+    if gear_drawn:
+        caption.append(
+            "Each landing-gear leg is a strut from its attachment point to its "
+            "static axle, with the wheel of its rolling radius there"
+            + ("." if frame == "water" else
+               "; the main wheels sit at half the tread either side of the "
+               "centre plane and the nose wheel at its attachment butt line, "
+               "so both the trunnion and the wheel are shown."))
+    if absent:
+        caption.append(f"Not entered, so not drawn: {_joined(absent)}.")
+    caption.append(
+        "The rectangular tail sketch of the configuration module is not a "
+        "source of this figure: a tail is drawn from its entered leading- and "
+        "trailing-edge polylines or not at all.")
+    caption.append(
+        f"The two arrows in the corner are the positive senses of this view's "
+        f"axes, {x_label} and {y_label}, both in {length_units}.")
+    caption.append("Nothing here is a load: no value is scaled and none carries "
+                   "a safety factor.")
+    return Figure(
+        key=key, title=title,
+        data=PlotData(f"{x_label} ({length_units})",
+                      f"{y_label} ({length_units})", series, to_scale=True),
+        caption=" ".join(caption))
 
 
 # --- the section ------------------------------------------------------------- #
@@ -9246,6 +9711,20 @@ def geometry_figures(project: Project, *, system: UnitSystem,
     return [_planform_figure(project, key, parent, figure_title, children,
                              frame, areas, system)
             for key, parent, figure_title, children, frame in _PLANFORM_FIGURES]
+
+
+def airplane_view_figures(project: Project, *, system: UnitSystem,
+                          results: Optional[Mapping[str, Optional[ModuleResult]]] = None,  # noqa: ARG001
+                          ) -> List[Figure]:
+    """2.1's airplane three-view, after the planforms (design note 69 D-69.15).
+
+    Pre-run: every element is entered geometry read through its owner, and
+    ``results`` is not consulted -- the drawing is the configuration before
+    any program has run on it.
+    """
+    return [_airplane_view_figure(project, frame=frame, key=key, title=title,
+                                  view=view, system=system)
+            for frame, key, title, view in _AIRPLANE_VIEWS]
 
 
 def weight_cg_figures(project: Project, *, system: UnitSystem,

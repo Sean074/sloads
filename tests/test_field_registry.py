@@ -436,9 +436,10 @@ def test_slice_of_handles_list_hops():
 STILL_DUPLICATED = {
     # Class B (note 33 §1, DS-6) -- a genuine override of its owner.
     "max take-off weight",
-    "wing reference area",
     # Class C (DS-7) -- "airplane length" and "shoulder altitude" were here
     # until the v55 hop (#52, note 33 §8) left each one field. DG-2 shrunk.
+    # "wing reference area" left at design note 69 D-69.2 (v77): the parametric
+    # copy is deleted, so STRSPEED's resolves-row is the one field. DG-2 shrunk.
     # Note 36 (OV-1, #97) -- collapsed overrides: the copy stays a field
     # because the oracle deck can legitimately clamp/score at a different
     # value, but blank now derives from the owner and a typed disagreement is
@@ -487,15 +488,17 @@ def test_the_consolidated_quantities_have_exactly_one_field():
 # #95: display groups and the fuselage-length summary
 # --------------------------------------------------------------------------- #
 def test_every_display_group_path_is_registered_and_rendered():
-    """A DISPLAY_GROUPS path that is not a rendered oracle input is a section
-    title for a widget that never appears -- and paths sharing one (page,
-    record) must share one title, or page_groups' split becomes ambiguous."""
-    keep = fr.oracle_input_paths()
+    """A DISPLAY_GROUPS path that no widget renders is a section title for a
+    widget that never appears -- and paths sharing one (page, record) must
+    share one title, or page_groups' split becomes ambiguous. Both tiers render
+    since #266 (note 57 D-57.2), so the one unrendered class is a record inside
+    a list row (``JSON_ONLY``)."""
     titles: dict = {}
     for path, title in fr.DISPLAY_GROUPS.items():
         entry = fr.entry(path)
         assert entry is not None, f"{path}: DISPLAY_GROUPS names an unregistered path"
-        assert path in keep, f"{path}: titled but filtered off its page"
+        assert fr.tier_of(path) is not fr.Tier.JSON_ONLY, (
+            f"{path}: titled but filtered off its page")
         assert title.strip(), f"{path}: blank display-group title"
         key = (entry.page, fr.record_of(path))
         assert titles.setdefault(key, title) == title, (
@@ -518,26 +521,59 @@ def test_the_moved_select_rows_render_with_their_quantity():
     assert fr.entry("select_input.wing_weight_lb").page == "weight_mass"
 
 
-def test_the_fuselage_length_summary_is_display_only_once_an_outline_exists():
-    """C210-2: sync_geometry_derived overwrites the scalar on every run, so the
-    widget renders disabled exactly when the outline it summarises exists --
-    and stays live on a project with no outline yet."""
-    entry = fr.entry("geometry.parametric.fuselage_length")
-    assert entry.owner_is_external and not entry.governs and entry.display_only
-    assert "geometry.parametric.fuselage_length" not in fr.COLLAPSED_OVERRIDES, (
-        "a derived summary is not an override -- the OV-1 contract does not apply")
+def test_the_airplane_length_is_a_collapsed_override_of_the_outline():
+    """Design note 69 D-69.4 (G-69.3): SELECT's LF lives on the outline and
+    falsy-derives the outline's own length; typed, it governs and is marked.
+    The ``fuselage_length`` summary it replaces (C210-2) is gone with the field."""
+    import math
     import os
 
     from sloads import io as sloads_io
+    from sloads.derived_geometry import airplane_length_in
 
+    assert fr.entry("geometry.parametric.fuselage_length") is None
+    entry = fr.entry("geometry.fuselage.airplane_length_in")
+    assert entry.owner_is_external and entry.governs
+    assert "geometry.fuselage.airplane_length_in" in fr.COLLAPSED_OVERRIDES
     ga = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                       "examples", "ga6_normal.project.json")
     project = sloads_io.load_project(ga)
     fus = project.geometry.fuselage
-    length = fr.external_value("geometry.parametric.fuselage_length", project)
+    length = fr.external_value("geometry.fuselage.airplane_length_in", project)
     assert length == max(s.x for s in fus.sections) - min(s.x for s in fus.sections)
+    # ga6 types Appendix A's 318.264 against an outline of 318.26: the typed
+    # value governs, 0.0013 % inside the 0.1 % band (no mark on the oracle's data).
+    assert fus.airplane_length_in == 318.264
+    assert airplane_length_in(project) == 318.264
+    fus.airplane_length_in = 0.0
+    assert math.isclose(airplane_length_in(project), length)
     project.geometry.fuselage = None
-    assert fr.external_value("geometry.parametric.fuselage_length", project) is None
+    assert fr.external_value("geometry.fuselage.airplane_length_in", project) is None
+    assert airplane_length_in(project) == 0.0
+
+
+def test_the_control_areas_derive_from_the_drawn_surfaces_at_their_own_band():
+    """Design note 69 D-69.7/D-69.8/D-69.10 (G-69.4): the aileron halves and the
+    flap SF are collapsed overrides of the drawn control, and each row states
+    the 1 % band the page warns at -- read from the registry, not spelled in
+    ``form.py``. The aileron's halves answer only with a hinge line."""
+    import os
+
+    from sloads import io as sloads_io
+
+    for path in ("aileron_loads.area_fwd_hinge_sqft", "aileron_loads.area_aft_hinge_sqft",
+                 "flap_loads.flap_area_one_side_sqft"):
+        entry = fr.entry(path)
+        assert entry.owner_is_external and entry.governs and entry.band == 0.01, path
+        assert path in fr.COLLAPSED_OVERRIDES, path
+    assert fr.entry("geometry.fuselage.airplane_length_in").band == 0.0, "LF keeps the oracle band"
+    ga = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                      "examples", "ga6_normal.project.json")
+    project = sloads_io.load_project(ga)
+    sf = fr.external_value("flap_loads.flap_area_one_side_sqft", project)
+    assert sf is not None and abs(sf - 10.721) < 0.01
+    # No shipped aileron carries a hinge line, so the halves cannot answer yet.
+    assert fr.external_value("aileron_loads.area_fwd_hinge_sqft", project) is None
 
 
 # --- The two field tiers (#266, design note 57 D-57.2) ---------------------- #

@@ -53,6 +53,17 @@ fixtures. Also fold in the LEV LAND balanced point (Appendix A case 90, the
 sink-speed/attitude iteration `FLTLOADS.BAS` lines 3410–3600) — currently
 omitted from the flap corner set and undocumented.
 
+### Flap chord ratio E derived from the drawn flap *(parked 2026-10-16, design note 69 D-69.9)*
+FLAPLOAD's E stays a typed input while SF (D-69.8) and the aileron halves
+(D-69.7) derive from their polylines. The drawn flap's chord fraction at
+mid-span gives **0.245–0.252 on the Appendix A airplane against the printed
+0.27** (7–9 % off) and 0.279–0.286 against `atr42_100`'s 0.30: the polylines do
+not carry E as Abbott & von Doenhoff Fig 98 uses it (the reference chord, or the
+extended chord of a slotted or Fowler flap), so a derived E would contradict the
+oracle's own input by more than the method's sensitivity. It stays typed, with
+no derivation and no marking. Reopen only with a flap-type model that states
+the chord E is a fraction of.
+
 ### L-3 — V-tail large-deflection factor EFV → SELECT ⚠️
 **Not a simple wire-in — the naive fix breaks the 591-lb oracle by −47%**
 (investigated 2026-07-16: `large_deflection_factor(30°, 0.353)=0.53`, not

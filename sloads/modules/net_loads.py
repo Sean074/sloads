@@ -23,7 +23,7 @@ from __future__ import annotations
 from typing import Dict, List, Optional
 
 from ..constants import ULTIMATE_FACTOR
-from ..derived_geometry import require_integrable_planform, sync_geometry_derived, wing_plane
+from ..derived_geometry import require_integrable_planform, wing_plane
 from ..mass_distribution import panel_weight
 from ..models import (
     ConditionResult,
@@ -180,7 +180,6 @@ def loads_ref_axis_results(project: Project,
 
 def build_net_loads(project: Project) -> LoadsResult:
     """Compute the air, inertia and net wing-load distributions for every case."""
-    sync_geometry_derived(project)
     wm = project.wing_mass
     if wm is None:
         raise MissingInputError("Project has no 'wing_mass' inputs for the net_loads module")

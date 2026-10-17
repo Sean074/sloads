@@ -9,6 +9,8 @@ inconsistent.
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sloads import (
@@ -21,7 +23,16 @@ from sloads import (
 )
 from sloads.validation import PAGE_WEIGHT_CG
 from sloads import io as sloads_io
-from sloads.models import AnalysisKind, GeometryInput, GroundCaseRole, MassComponent
+from sloads.models import (  # noqa: E402
+    AeroInput,
+    AeroSurfaceInput,
+    AileronLoadsInput,
+    AnalysisKind,
+    FlapLoadsInput,
+    GeometryInput,
+    GroundCaseRole,
+    MassComponent,
+)
 
 _EXAMPLES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                          "examples")
@@ -41,21 +52,17 @@ def test_ga_fixture_is_clean():
 
 
 def test_taper_gt_1_fires():
-    project = Project(name="t", geometry=GeometryInput(parametric=LayoutInput(
-        wing_area_sqft=150.0, aspect_ratio=7.0, taper_ratio=1.4, fuselage_length=300.0)))
+    # The one typed taper left is TAU's, on the aero surface (design note 69
+    # D-69.2 retired the parametric wing's copy).
+    project = Project(name="t", aero=AeroInput(
+        surfaces=[AeroSurfaceInput(name="wing", taper_ratio=1.4)]))
     assert "taper_gt_1" in _codes(project)
 
 
 def test_taper_le_1_silent():
-    project = Project(name="t", geometry=GeometryInput(parametric=LayoutInput(
-        wing_area_sqft=150.0, aspect_ratio=7.0, taper_ratio=0.5, fuselage_length=300.0)))
+    project = Project(name="t", aero=AeroInput(
+        surfaces=[AeroSurfaceInput(name="wing", taper_ratio=0.5)]))
     assert "taper_gt_1" not in _codes(project)
-
-
-def test_nonpositive_area_fires():
-    project = Project(name="t", geometry=GeometryInput(parametric=LayoutInput(
-        wing_area_sqft=0.0, aspect_ratio=7.0, taper_ratio=0.5, fuselage_length=300.0)))
-    assert "nonpositive_area" in _codes(project)
 
 
 def test_le_te_ordering_fires_when_le_behind_te():
@@ -75,29 +82,6 @@ def test_le_te_ordering_silent_when_well_formed():
         trailing_edge=[(120.0, 0.0), (118.0, 100.0)])
     project = Project(name="t", geometry=GeometryInput(surfaces=[surf]))
     assert "le_te_ordering" not in _codes(project)
-
-
-def test_area_mismatch_fires():
-    # WINGGEOM planform ~ (120 in chord * 400 in span)/144 = 333 ft^2, well away
-    # from the 150 ft^2 claimed on Configuration & Layout.
-    surf = SurfaceInput(
-        name="wing",
-        leading_edge=[(0.0, 0.0), (0.0, 200.0)],
-        trailing_edge=[(120.0, 0.0), (120.0, 200.0)])
-    project = Project(
-        name="t",
-        geometry=GeometryInput(
-            parametric=LayoutInput(wing_area_sqft=150.0, aspect_ratio=7.0, fuselage_length=300.0),
-            surfaces=[surf]))
-    assert "area_mismatch" in _codes(project)
-    # Once on each page that can act on it, never twice on one (#70). Design
-    # Speeds is where the disagreement decides which number STRSPEED integrates,
-    # so a warning that only reaches Configuration & Layout is a warning the
-    # reader of the affected result never sees.
-    from sloads.validation import PAGE_CONFIGURATION, PAGE_STRUCTURAL_SPEEDS
-
-    pages = [w.page for w in consistency_warnings(project) if w.code == "area_mismatch"]
-    assert sorted(pages) == sorted([PAGE_CONFIGURATION, PAGE_STRUCTURAL_SPEEDS])
 
 
 def test_no_warning_is_raised_twice_for_one_page():
@@ -128,29 +112,52 @@ def _contradictory():
         name="wing",
         leading_edge=[(0.0, 0.0), (0.0, 200.0)],
         trailing_edge=[(120.0, 0.0), (120.0, 200.0)])
+    # A typed flap area well off the drawn flap (design note 69 D-69.8) and an
+    # aero taper over 1 trip two more checks on one project.
+    flap = SurfaceInput(
+        name="flap", symmetric=True,
+        leading_edge=[(100.0, 10.0), (100.0, 150.0)],
+        trailing_edge=[(120.0, 10.0), (120.0, 150.0)])
     return Project(
         name="t",
-        geometry=GeometryInput(
-            parametric=LayoutInput(wing_area_sqft=150.0, aspect_ratio=7.0,
-                                   taper_ratio=1.5, fuselage_length=300.0),
-            surfaces=[surf]))
+        geometry=GeometryInput(parametric=LayoutInput(), surfaces=[surf, flap]),
+        flap_loads=FlapLoadsInput(flap_area_one_side_sqft=50.0),
+        aero=AeroInput(surfaces=[AeroSurfaceInput(name="wing", taper_ratio=1.5)]))
 
 
-def test_area_match_silent():
-    # Planform (120 in * 200 in half-span, symmetric)/144 -> match config area.
-    surf = SurfaceInput(
-        name="wing",
-        leading_edge=[(0.0, 0.0), (0.0, 200.0)],
-        trailing_edge=[(120.0, 0.0), (120.0, 200.0)])
-    from sloads.modules.wing_geometry import surface_properties
-    area_ft2 = next(v.value for v in surface_properties(surf).values
-                    if v.key == "total_area") / 144.0
-    project = Project(
-        name="t",
-        geometry=GeometryInput(
-            parametric=LayoutInput(wing_area_sqft=area_ft2, aspect_ratio=7.0, fuselage_length=300.0),
-            surfaces=[surf]))
-    assert "area_mismatch" not in _codes(project)
+def test_a_typed_control_area_is_warned_apart_from_the_drawn_control_past_one_percent():
+    """Design note 69 D-69.7/D-69.8/D-69.10 (G-69.4): the typed SF and the aileron
+    pair are overrides of the drawn control; a disagreement past the field's
+    own 1 % band warns on the Geometry page, inside it stays silent, and a
+    blank derives (no warning, nothing to compare)."""
+    from sloads.modules.flap import flap_area_one_side_sqft
+    from sloads.tail_geometry import control_surface_areas
+    from sloads.validation import PAGE_CONFIGURATION
+
+    project = _contradictory()
+    drawn = control_surface_areas(project, "flap").one_side_sqft
+    assert drawn == pytest.approx(20.0 * 140.0 / 144.0)
+    warnings = [w for w in consistency_warnings(project) if w.code == "flap_area_mismatch"]
+    assert len(warnings) == 1 and warnings[0].page == PAGE_CONFIGURATION
+    assert "FLAPLOAD reads the typed value" in warnings[0].message
+    project.flap_loads.flap_area_one_side_sqft = drawn * 1.005   # inside the 1 % band
+    assert "flap_area_mismatch" not in _codes(project)
+    project.flap_loads.flap_area_one_side_sqft = 0.0            # blank derives
+    assert "flap_area_mismatch" not in _codes(project)
+    assert flap_area_one_side_sqft(project) == pytest.approx(drawn)
+    # The aileron pair: typed against a drawn aileron, 2 % apart.
+    aileron = SurfaceInput(
+        name="aileron", symmetric=True,
+        leading_edge=[(100.0, 150.0), (100.0, 200.0)],
+        trailing_edge=[(120.0, 150.0), (120.0, 200.0)])
+    project.geometry.surfaces.append(aileron)
+    one_side = 20.0 * 50.0 / 144.0
+    project.aileron_loads = AileronLoadsInput(area_fwd_hinge_sqft=0.1 * one_side * 1.02,
+                                              area_aft_hinge_sqft=0.9 * one_side * 1.02)
+    assert "aileron_area_mismatch" in _codes(project, page=PAGE_CONFIGURATION)
+    project.aileron_loads.area_aft_hinge_sqft = 0.9 * one_side
+    project.aileron_loads.area_fwd_hinge_sqft = 0.1 * one_side
+    assert "aileron_area_mismatch" not in _codes(project)
 
 
 def test_cg_outside_envelope_fires():

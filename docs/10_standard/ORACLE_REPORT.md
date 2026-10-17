@@ -411,14 +411,33 @@ Properties, 2.3 Structural Design Speeds, 2.4 Flight Envelope.
   planform is a closed polygon, so the properties the rule protects —
   deterministic, diffable, unit-testable as text, vector in the document's own
   fonts — cost nothing to keep here.
-- **A planform figure SHALL NOT draw a hinge line** while the analysis carries
-  no hinge geometry. The suite holds a control surface's areas forward and aft
-  of its hinge as scalars, from which `taildist` derives a chord *station* on the
-  average chord (`CEAFTHL = (S_aft/S)·CAVE`); a line drawn from that would be an
-  inference on a rectangle-equivalent, printed with the standing of entered
-  geometry. The caption **SHALL** say the line is absent and why. It arrives with
-  **#156** (band B4), which makes the hinge polyline an input and the two areas
-  derived.
+- **A planform figure draws a control's hinge line where one is entered, and
+  only there** (design note 69 D-69.16). `SurfaceInput.hinge_line` is the
+  aerodynamic hinge axis as an entered polyline (note 54 D-54.1), the line
+  `control_hinge_areas` splits the fwd/aft areas at, so what is drawn is what
+  the areas derive from. A control without one gets no line — a station placed
+  from the area split would be an inference printed with the standing of entered
+  geometry — and the caption **SHALL** say, per control, whether its hinge line
+  is drawn or not entered. No caption may say the analysis carries no hinge
+  geometry (`tests/test_oracle_report.py`, G-69.12).
+- **2.1 closes with the airplane three-view** — plan, side and front, after the
+  planforms (design note 69 D-69.15; families `airplane_plan_view`,
+  `airplane_side_view`, `airplane_front_view`, pre-run, on the Geometry page).
+  Every element is read through an owner Section 2 or Section 10 already uses
+  and is left out and named in the caption where it is not entered: the
+  fuselage outline and, in side view, its centre line where every section
+  enters `z_centre`; the wing and the two tails from their **entered**
+  polylines (the configuration module's rectangular tail sketch is **not** a
+  source); the control surfaces shaded in the frame their parent is a shape
+  in, with the hinge line where entered; each engine's thrust line as Section
+  10 draws it (ASSUMED marker kept) and a propeller disc of `prop_diameter_in`
+  about the resolved `prop_cg`, face-on in front view and a line of the
+  diameter elsewhere; and each landing-gear leg whose static axle is entered,
+  a strut from `attach` to the axle with the wheel of its rolling radius, the
+  main wheels at `±tread_in/2` in front and plan view and the nose wheel at its
+  attach butt line (owner ruling, note 69 Q7). Drawn to scale on equal axes;
+  the frames are `_PLANFORM_AXES`' own. Nothing in it is a load and the
+  caption says so.
 - **A region's area is the value tabulated beside it**, read from the same owner
   — the "printed once" rule below, extended to the figures. A region whose total
   area no table states (the aileron: `AileronInput` carries its areas forward and
