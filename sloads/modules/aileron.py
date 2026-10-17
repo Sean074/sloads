@@ -28,7 +28,7 @@ Appendix A "Critical Aileron Loads" p200 (down 271.44 lb @170 kt, up -180.96 lb
 
 from __future__ import annotations
 
-from typing import List, NamedTuple
+from typing import List, NamedTuple, Tuple
 
 from ..case_ids import WING_BAND_AILERON, CaseIdAllocator
 from ..constants import IN2_PER_FT2, ULTIMATE_FACTOR, dynamic_pressure_psf
@@ -125,6 +125,32 @@ def _stations(pressure_psi: float, hinge_fraction: float) -> List[ControlSurface
     ]
 
 
+def aileron_hinge_areas(project: Project) -> Tuple[float, float]:
+    """AILERON's ``(SAFWD, SAAFT)``: each the typed value, else the drawn split.
+
+    Collapsed overrides (design note 69 D-69.7, note 39 OV-1): a blank half
+    derives from the ``aileron`` surface **only when it carries a
+    ``hinge_line``** -- the split needs it -- through the one control-area
+    integrator (``tail_geometry.control_surface_areas``, D-69.6), the same
+    path SELECT's SEFWDHL/SEAFTHL take from the elevator (D-54.1). With no
+    hinge line a blank half stays ``0.0``, which is the refusal
+    :func:`aileron_loads` already makes of a zero area. A typed half governs
+    and the pair is warned apart from the drawn aileron past 1 %
+    (``validation.aileron_area_mismatch``).
+    """
+    from ..tail_geometry import control_surface_areas
+
+    inp = project.aileron_loads
+    fwd = float(inp.area_fwd_hinge_sqft) if inp is not None else 0.0
+    aft = float(inp.area_aft_hinge_sqft) if inp is not None else 0.0
+    if fwd and aft:
+        return fwd, aft
+    areas = control_surface_areas(project, "aileron")
+    if areas is None or areas.fwd_sqft is None or areas.aft_sqft is None:
+        return fwd, aft
+    return fwd or float(areas.fwd_sqft), aft or float(areas.aft_sqft)
+
+
 def build_aileron(project: Project) -> List[ControlSurfaceLoadResult]:
     """The critical up/down aileron loads as control-surface result records."""
     if project.aileron_loads is None:
@@ -133,9 +159,9 @@ def build_aileron(project: Project) -> List[ControlSurfaceLoadResult]:
         raise MissingInputError("aileron needs 'speeds' (STRSPEED VA/VC/VD)")
     inp = project.aileron_loads
     sv = design_speed_values(project, project.speeds)
+    fwd_sqft, aft_sqft = aileron_hinge_areas(project)
     r = aileron_loads(sv.va, sv.vc, sv.vd, inp.down_deflection_deg,
-                      inp.up_deflection_deg, inp.area_fwd_hinge_sqft,
-                      inp.area_aft_hinge_sqft)
+                      inp.up_deflection_deg, fwd_sqft, aft_sqft)
     # W- ids from the AILERON band (case_ids.WING_BAND_AILERON..59) -- aileron/
     # flap/wing-tab are separate modules from WINGINER/NETLOADS with no shared
     # allocator state, so they're banded apart within the shared "wing" prefix.

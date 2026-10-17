@@ -468,8 +468,9 @@ never entered twice.)
   property that makes a seed safe to offer beside half-finished work. The
   answer lives with the calc (`weight_estimate.SEED_CONTRACT` / `SeedPlan`), not
   in the page, so no two callers can give different answers; the oracle
-  form reaches it through `field_registry.TABLE_SEEDS`, the `…[]` analogue of
-  `RECORD_SEEDS`.
+  form reaches it through `field_registry.TABLE_SEEDS` (the record-seed
+  analogue, `RECORD_SEEDS`, retired with the parametric wing scalars it seeded,
+  design note 69 D-69.2).
 
 - **And a seeded row says what it still owes, for as long as it owes it**
   (#269). WTESTIMA supplies component *weights* and nothing else, so a seeded

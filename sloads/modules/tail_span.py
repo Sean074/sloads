@@ -250,8 +250,8 @@ def htail_attachment(project: Project, planform: TailPlanform) -> HTailAttachmen
     horizontal tail attaches to the body at its own station -- in the tail cone --
     so the width that matters is :func:`~sloads.derived_geometry.fuselage_width_at`
     evaluated at the h-tail *root LRA* station, the same axis the beam model puts
-    the node on (F6). ``parametric.fuselage_width`` is the **maximum** section and
-    is deliberately not used: on ``atr42_100`` it is 106 in against 22 in at the
+    the node on (F6). The outline's **maximum** width (``fuselage_summary``) is
+    deliberately not used: on ``atr42_100`` it is 106 in against 22 in at the
     tail, which would put the attachments five times too far outboard.
 
     That branch is marked **assumed even for an entered outline**, and the reason
@@ -636,10 +636,9 @@ def control_load_parts(project: Project, cond: CriticalCondition,
     that is the part the control surface's deflection produces and there is
     nothing in a derived scalar to split.
     """
-    from dataclasses import replace
 
     from .select import (
-        derived_elevator_area,
+        effective_tail_inputs,
         effective_vtail_inputs,
         elevator_load_parts,
         rudder_load_parts,
@@ -648,14 +647,14 @@ def control_load_parts(project: Project, cond: CriticalCondition,
     published = _value(cond, "elevator_load" if component == HTAIL
                        else "load_on_rudder")
     if published is not None:
-        # With the derived SE/SR, not the raw slice (#95, C210-5): a blank
-        # SE/SR derives from its hinge halves for SELECT, so the split read
-        # back out here must see the same areas SELECT computed with.
+        # With the resolved SE/SR and hinge halves, not the raw slice (#95,
+        # C210-5; design note 69 D-69.17): a blank scalar derives from the
+        # boundary lines for SELECT, so the split read back out here must see
+        # the same areas SELECT computed with.
         if component == HTAIL and project.tail_loads is not None:
-            ti = project.tail_loads
-            cam, att = elevator_load_parts(
-                cond.lt50 or 0.0, cond.lt25 or 0.0,
-                replace(ti, elevator_area_sqft=derived_elevator_area(ti)))
+            ti = effective_tail_inputs(project)
+            assert ti is not None  # guarded by the if above
+            cam, att = elevator_load_parts(cond.lt50 or 0.0, cond.lt25 or 0.0, ti)
         elif component == VTAIL and project.vtail_loads is not None:
             vt = effective_vtail_inputs(project)
             assert vt is not None  # guarded by the elif above

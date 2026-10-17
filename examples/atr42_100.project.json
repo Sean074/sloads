@@ -1,5 +1,5 @@
 {
-  "schema_version": 76,
+  "schema_version": 77,
   "name": "ATR 42-300 (\"ATR 42-100\" prototype designation never entered production; -300 is the closest PW120-powered production analog) \u2014 2x PW120 (concept, category C)",
   "description": "ATR 42-300, 48-seat regional turboprop twin (concept mode, category C). Published data cited, everything else estimated -- sources: examples/atr42_100.sources.md (#260)",
   "engines": [
@@ -58,7 +58,8 @@
         0.0
       ],
       "prop_direction": "CW",
-      "mounted_on": "wing"
+      "mounted_on": "wing",
+      "windmill_drag_cd": null
     },
     {
       "engine_designation": "PRATT & WHITNEY CANADA PW120 (RH)",
@@ -115,7 +116,8 @@
         0.0
       ],
       "prop_direction": "CW",
-      "mounted_on": "wing"
+      "mounted_on": "wing",
+      "windmill_drag_cd": null
     }
   ],
   "engine_layout": "2W",
@@ -957,18 +959,74 @@
         "rear_spar_x_in": null,
         "sob_y_in": null,
         "hinge_line": []
+      },
+      {
+        "name": "elevator",
+        "leading_edge": [
+          [
+            856.909,
+            0.0
+          ],
+          [
+            842.755,
+            110.0
+          ]
+        ],
+        "trailing_edge": [],
+        "symmetric": true,
+        "elements": 20,
+        "tip_cap_width_in": 0.0,
+        "ref_axis_pct": null,
+        "front_spar_x_in": null,
+        "rear_spar_x_in": null,
+        "sob_y_in": null,
+        "hinge_line": [
+          [
+            859.527,
+            0.0
+          ],
+          [
+            844.064,
+            110.0
+          ]
+        ]
+      },
+      {
+        "name": "rudder",
+        "leading_edge": [
+          [
+            840.698,
+            191.2
+          ],
+          [
+            876.014,
+            316.2
+          ]
+        ],
+        "trailing_edge": [],
+        "symmetric": false,
+        "elements": 20,
+        "tip_cap_width_in": 0.0,
+        "ref_axis_pct": null,
+        "front_spar_x_in": null,
+        "rear_spar_x_in": null,
+        "sob_y_in": null,
+        "hinge_line": [
+          [
+            844.539,
+            191.2
+          ],
+          [
+            877.933,
+            316.2
+          ]
+        ]
       }
     ],
     "parametric": {
       "datum_x": 0.0,
-      "wing_area_sqft": 586.5990277777778,
-      "aspect_ratio": 11.07736595578136,
-      "taper_ratio": 0.594059405940594,
       "dihedral_deg": 2.5,
-      "le_sweep_deg": 3.2802039095689737,
-      "le_root_x": 365.0,
       "root_waterline_z": 170.0,
-      "body_drag_waterline_z": 0.0,
       "tail_type": "t_tail",
       "h_tail_z": 146.2,
       "htail_dihedral_deg": 0.0
@@ -1083,7 +1141,9 @@
           "height": 40.05,
           "z_centre": 131.07
         }
-      ]
+      ],
+      "body_drag_waterline_z": 0.0,
+      "airplane_length_in": 892.8000000000001
     },
     "empennage": {
       "htail": {
@@ -1093,9 +1153,9 @@
         "htail_semispan_in": 110.0,
         "xt25": 825.0,
         "xt50": 842.0,
-        "elevator_area_sqft": 26.0,
-        "elevator_fwd_hinge_sqft": 3.0,
-        "elevator_aft_hinge_sqft": 23.0,
+        "elevator_area_sqft": 0.0,
+        "elevator_fwd_hinge_sqft": 0.0,
+        "elevator_aft_hinge_sqft": 0.0,
         "tail_incidence_deg": 1.0,
         "wing_zero_lift_cruise_deg": 3.0,
         "wing_zero_lift_enroute_deg": 0.0,
@@ -1112,17 +1172,16 @@
         "aspect_ratio_vtail": 1.6,
         "xv25": 820.0,
         "xv50": 835.0,
-        "rudder_area_sqft": 22.0,
-        "rudder_fwd_hinge_sqft": 2.5,
-        "rudder_aft_hinge_sqft": 19.5,
+        "rudder_area_sqft": 0.0,
+        "rudder_fwd_hinge_sqft": 0.0,
+        "rudder_aft_hinge_sqft": 0.0,
         "wing_span_in": 0.0,
         "rudder_deflection_deg": 25.0,
         "gross_weight_lb": 36817.0,
         "rudder_large_deflection_factor": 1.0,
         "izz_slugft2": 0.0,
         "vtail_root_waterline_z": 0.0
-      },
-      "airplane_length_in": 892.8000000000001
+      }
     },
     "landing_gear": {
       "main_gear": {
@@ -1367,7 +1426,9 @@
     "altitude_ft": null,
     "speeds_kt": [],
     "izz_slugft2": 0.0,
-    "xcg_in": 0.0
+    "xcg_in": 0.0,
+    "vmc_kt": null,
+    "takeoff_altitude_ft": 0.0
   },
   "landing": {
     "strut_stroke_in": 12,

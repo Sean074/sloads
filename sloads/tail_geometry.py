@@ -75,7 +75,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, NamedTuple, Optional, Tuple
 
 from .constants import IN2_PER_FT2
 from .derived_geometry import FuselageCentreline, fuselage_centreline, fuselage_height_at, require_integrable_planform
@@ -623,27 +623,64 @@ def boundary_derived_scalars(project: Project, component: str) -> Dict[str, floa
                     "xv25": x25,
                     "xv50": x50,
                 })
-    control = resolved_control_surface(geometry, TAIL_CONTROL[component])
-    if (control is not None and len(control.leading_edge) >= 2
-            and len(control.trailing_edge) >= 2):
-        # Refused by name like the surface above (#344): an elevator outline
-        # that does not integrate sized the elevator load on an area of 0.
-        c_aps = float(next(v.value for v in surface_properties(control).values
-                           if v.key == "area_per_side"))
+    areas = control_surface_areas(project, TAIL_CONTROL[component])
+    if areas is not None:
         both = 2.0 if component == HTAIL else 1.0
-        if c_aps > 0.0:
+        if areas.one_side_sqft > 0.0:
             key = "elevator_area_sqft" if component == HTAIL else "rudder_area_sqft"
-            out[key] = both * c_aps / IN2_PER_FT2
-        halves = control_hinge_areas(control)
-        if halves is not None:
-            fwd, aft = halves
+            out[key] = both * areas.one_side_sqft
+        if areas.fwd_sqft is not None and areas.aft_sqft is not None:
             if component == HTAIL:
-                out["elevator_fwd_hinge_sqft"] = both * fwd / IN2_PER_FT2
-                out["elevator_aft_hinge_sqft"] = both * aft / IN2_PER_FT2
+                out["elevator_fwd_hinge_sqft"] = both * areas.fwd_sqft
+                out["elevator_aft_hinge_sqft"] = both * areas.aft_sqft
             else:
-                out["rudder_fwd_hinge_sqft"] = fwd / IN2_PER_FT2
-                out["rudder_aft_hinge_sqft"] = aft / IN2_PER_FT2
+                out["rudder_fwd_hinge_sqft"] = areas.fwd_sqft
+                out["rudder_aft_hinge_sqft"] = areas.aft_sqft
     return out
+
+
+class ControlAreas(NamedTuple):
+    """One control surface's integrated areas, **one side**, in ft² (D-69.6).
+
+    ``fwd_sqft``/``aft_sqft`` are the halves either side of the entered
+    ``hinge_line`` (:func:`control_hinge_areas`), or ``None`` where no hinge
+    line is entered -- the split needs it, the whole does not.
+    """
+    one_side_sqft: float
+    fwd_sqft: Optional[float]
+    aft_sqft: Optional[float]
+
+
+def control_surface_areas(project: Project, name: str) -> Optional[ControlAreas]:
+    """The one-side area, and the hinge split where there is a hinge line, of
+    any :data:`CONTROL_PARENT` member -- **the one integrator** of a drawn
+    control's area (design note 69 D-69.6).
+
+    Written as a function over the control's name rather than left inside
+    :func:`boundary_derived_scalars` because the wing controls now read it too:
+    AILERON's SAFWD/SAAFT (D-69.7) and FLAPLOAD's SF (D-69.8) falsy-derive from
+    the ``aileron`` / ``flap`` surfaces exactly as SELECT's SE/SR do from the
+    ``elevator`` / ``rudder`` (D-54.1), through the same resolved planform
+    (:func:`resolved_control_surface`, the TE derived from the parent where
+    blank) and the same strip integrator. Refuses by name through
+    ``surface_properties`` where an entered outline does not integrate (#344).
+    ``None`` where the surface is absent or has no two-edge planform.
+    """
+    geometry = project.geometry
+    if geometry is None or name not in CONTROL_PARENT:
+        return None
+    from .modules.wing_geometry import surface_properties
+
+    control = resolved_control_surface(geometry, name)
+    if (control is None or len(control.leading_edge) < 2
+            or len(control.trailing_edge) < 2):
+        return None
+    one_side = float(next(v.value for v in surface_properties(control).values
+                          if v.key == "area_per_side")) / IN2_PER_FT2
+    halves = control_hinge_areas(control)
+    if halves is None:
+        return ControlAreas(one_side, None, None)
+    return ControlAreas(one_side, halves[0] / IN2_PER_FT2, halves[1] / IN2_PER_FT2)
 
 
 # --------------------------------------------------------------------------- #
@@ -808,14 +845,15 @@ def vtail_root_waterline(layout: Optional["LayoutInput"], vtail_span_in: float =
             if centreline.assumed and centreline.note:
                 note += " " + centreline.note
             return VtailRoot(z, True, "fuselage-top", note)
-    if layout.root_waterline_z or layout.fuselage_height:
-        z = layout.root_waterline_z + layout.fuselage_height / 2.0
+    # With no outline there is no body height either (the summary scalar this
+    # branch used to add half of was the outline's own, design note 69 D-69.3),
+    # so the wing root alone stands in.
+    if layout.root_waterline_z:
+        z = layout.root_waterline_z
         return VtailRoot(z, True, "fuselage-top", unit_text(
-            "vtail root waterline ", Quantity(z, "in"), " ASSUMED as the fuselage "
-            "top (root_waterline_z ", Quantity(layout.root_waterline_z, "in"),
-            " + fuselage_height ", Quantity(layout.fuselage_height, "in"),
-            " / 2) -- with no fuselage outline the "
-            "WING root stands in for the body centreline. Enter "
+            "vtail root waterline ", Quantity(z, "in"), " ASSUMED at the wing "
+            "root waterline (root_waterline_z) -- with no fuselage outline the "
+            "WING root stands in for the body top. Enter "
             "vtail_root_waterline_z or a fuselage outline to state it."))
     return VtailRoot(0.0, True, "none", unit_text(_VTAIL_ROOT_UNKNOWN))
 

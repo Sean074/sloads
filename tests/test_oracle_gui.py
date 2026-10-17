@@ -311,28 +311,30 @@ def test_every_oracle_page_renders(key):
 def test_a_widget_that_flips_disabled_is_pinned_to_the_governing_value():
     """A display-only widget shows the value that governs, not stale state.
 
-    The #95 fuselage-length CI find (0b38c8a): the Geometry page renders
-    ``fuselage_length`` live while no outline exists and disabled -- showing
-    the outline's own length -- once one does. Streamlit keeps a keyed
-    widget's state across reruns and lets that state outvote ``value=``, so
-    the live->disabled flip left the stale typed number on the disabled
-    widget: the page said one length while the analysis read another.
-    ``app_shell.components._seeded_number`` pins a disabled widget's state to
-    its governing seed; this walks the exact flip within one session.
+    The #95 fuselage-length CI find (0b38c8a), walked today on the one
+    ``resolves`` row left (the fuselage summary went at design note 69
+    D-69.3): the Design Speeds page renders ``speeds.wing_area_sqft`` live
+    while no wing planform exists and disabled -- showing the planform's own
+    area -- once one does. Streamlit keeps a keyed widget's state across
+    reruns and lets that state outvote ``value=``, so the live->disabled flip
+    left the stale typed number on the disabled widget: the page said one
+    area while the analysis read another. ``app_shell.components._seeded_number``
+    pins a disabled widget's state to its governing seed; this walks the exact
+    flip within one session.
     """
     from dataclasses import replace
 
     from app_shell.widget_keys import unstamped
 
     full = io.load_project(_EXAMPLE)
-    derived = fr.external_value("geometry.parametric.fuselage_length", full)
-    assert derived == pytest.approx(318.26)
-    with_stale = replace(full.geometry.parametric, fuselage_length=999.0)
-    no_outline = replace(full, geometry=replace(
-        full.geometry, fuselage=None, parametric=with_stale))
-    at = _render("configuration_layout", no_outline)
+    derived = fr.external_value("speeds.wing_area_sqft", full)
+    assert derived == pytest.approx(184.157, abs=0.01)   # the planform's own, not the typed 184.125
+    with_stale = replace(full.speeds, wing_area_sqft=999.0)
+    no_planform = replace(full, speeds=with_stale, geometry=replace(
+        full.geometry, surfaces=[s for s in full.geometry.surfaces if s.name != "wing"]))
+    at = _render("structural_speeds", no_planform)
     assert not at.exception, [e.message for e in at.exception]
-    key = "geometry.parametric.fuselage_length_imperial"
+    key = "speeds.wing_area_sqft_imperial"
 
     def shown():
         for w in at.number_input:
@@ -341,11 +343,10 @@ def test_a_widget_that_flips_disabled_is_pinned_to_the_governing_value():
         raise AssertionError(f"{key} not rendered")
 
     assert shown() == pytest.approx(999.0)   # live: the stored (stale) copy
-    at.session_state["project"] = replace(full, geometry=replace(
-        full.geometry, parametric=with_stale))
+    at.session_state["project"] = replace(full, speeds=with_stale)
     at.run()
     assert not at.exception, [e.message for e in at.exception]
-    assert shown() == pytest.approx(derived)  # disabled: the outline's length
+    assert shown() == pytest.approx(derived)  # disabled: the planform's area
 
 
 @pytest.mark.parametrize("key", sorted(wf.oracle_step_keys()))
@@ -607,36 +608,56 @@ def test_deleting_surplus_rows_takes_a_deliberate_click():
     assert len(at.session_state["project"].weight.items) == before - 2
 
 
-@pytest.mark.parametrize("system", [UnitSystem.IMPERIAL, UnitSystem.SI])
-def test_the_record_seed_keeps_the_values_it_offers(system):
-    """#376: the parametric-wing seed button showed the planform's values and
-    left every field at 0. The block's widgets were drawn on the pass before the
-    click, their retained ``0.0`` outvoted ``value=``, and the render persisted
-    it over the seed in the same rerun. Clicked here on a drawn block, in both
-    systems -- ``le_root_x`` is a converted length, so its widget name carries
-    the system and the callback must drop that one -- and checked again one
-    rerun later, where a stale widget would have won."""
-    from sloads.modules.configuration import parametric_wing_seed
+# --------------------------------------------------------------------------- #
+# Design note 69: the Geometry page's sections and the engine rows' one owner
+# --------------------------------------------------------------------------- #
+def test_g_69_6_the_geometry_page_reads_in_the_agreed_order_with_one_heading_each():
+    """G-69.6 (D-69.5/D-69.18): Surfaces, Fuselage, Engines, Parametric, then
+    the empennage and the controls. The Fuselage section is two record prefixes
+    (the outline's scalars and its sections[] table) and the Engines section
+    two more (the root engine_layout and the engines[] locations), each under
+    **one** heading (owner ruling Q3); no heading on the page says "Project"."""
+    at = _render("configuration_layout")
+    assert not at.exception, [e.message for e in at.exception]
+    headings = [s.value for s in at.subheader]
+    assert headings[:4] == ["Surfaces", "Fuselage", "Engines", "Parametric"], headings
+    assert headings.count("Fuselage") == 1 and headings.count("Engines") == 1
+    assert "Project" not in headings
+    assert not any(p.startswith("geometry.parametric.") and p.rsplit(".", 1)[-1] in
+                   ("wing_area_sqft", "aspect_ratio", "taper_ratio", "le_sweep_deg",
+                    "le_root_x", "fuselage_length", "fuselage_width", "fuselage_height",
+                    "body_drag_waterline_z")
+                   for p in (r.path for r in fr.REGISTRY))
+    assert fr.entry("geometry.empennage.airplane_length_in") is None
+
+
+def test_g_69_9_geometry_owns_the_engine_rows_and_engine_mount_edits_them():
+    """G-69.9 (D-69.13/D-69.14, #380): the engines[] row counter and the row
+    deletes render on the Geometry page only; the Engine Mount page renders the
+    rows it edits, says where they are added, and offers no add or delete."""
+    from app_shell.widget_keys import unstamped
 
     project = _seeded()
-    project.unit_system = system.value
-    project.geometry.parametric.wing_area_sqft = 0.0
-    project.geometry.parametric.aspect_ratio = 0.0
-    expected = parametric_wing_seed(project)
-    assert set(expected) == {"wing_area_sqft", "aspect_ratio", "taper_ratio",
-                             "le_sweep_deg", "le_root_x"}
-    at = _render("configuration_layout", project)
+    assert project.engines, "the fixture enters an engine"
+    at = _render("engine_mount", project)
+    assert not at.exception, [e.message for e in at.exception]
+    keys = ({unstamped(w.key) for w in at.number_input if w.key}
+            | {unstamped(b.key) for b in at.button if b.key})
+    assert "engines[].count" not in keys
+    assert not any(k.startswith("engines[].") and k.endswith((".delete", "delete_surplus"))
+                   for k in keys), sorted(k for k in keys if k.startswith("engines[]"))
+    captions = " ".join(c.value or "" for c in at.caption)
+    assert "added and removed on the **Geometry** page" in captions
+    assert any(unstamped(w.key).startswith("engines[].0.takeoff_hp") for w in at.number_input if w.key), (
+        "Engine Mount still edits the engine's powerplant data")
+    assert "Project" not in [s.value for s in at.subheader]
 
-    button = next(b for b in at.button if "Seed from the wing planform" in b.label)
-    button.click().run()
-    for _ in range(2):
-        held = at.session_state["project"].geometry.parametric
-        for name, value in expected.items():
-            assert getattr(held, name) == pytest.approx(value, rel=1e-6), name
-        assert not at.exception, [e.message for e in at.exception]
-        at.run()
-    assert not any("Seed from the wing planform" in b.label for b in at.button), (
-        "a seeded block is typed, so the seed offer is withdrawn")
+    at = _render("configuration_layout", project)
+    assert not at.exception, [e.message for e in at.exception]
+    keys = {unstamped(w.key) for w in at.number_input if w.key}
+    assert "engines[].count" in keys
+    assert any(k.startswith("engines[].0.engine_cg") for k in keys), "the location is entered on Geometry"
+    assert not any(k.startswith("engines[].0.takeoff_hp") for k in keys), "the power is not"
 
 
 # --------------------------------------------------------------------------- #
@@ -1814,9 +1835,9 @@ def test_the_wing_area_widget_shows_the_area_that_governs():
     project = sloads_io.load_project(
         os.path.join(_EXAMPLES, "concept_regional_jet.project.json"))
     governing = _wing_area_sqft(project, project.speeds)
-    assert governing != pytest.approx(project.geometry.parametric.wing_area_sqft), (
-        "this example no longer distinguishes the planform from the parametric "
-        "area, so it cannot show which one the widget displays")
+    assert governing != pytest.approx(project.speeds.wing_area_sqft or 0.0), (
+        "this example no longer distinguishes the planform from the typed "
+        "speeds area, so it cannot show which one the widget displays")
     assert reg.external_value("speeds.wing_area_sqft", project) == pytest.approx(governing)
 
     at = _render("structural_speeds", project)

@@ -130,6 +130,65 @@ def _hop_75(d: Dict[str, Any]) -> Dict[str, Any]:
     return d
 
 
+#: The five parametric wing scalars v77 drops (design note 69 D-69.2): copies
+#: of the stored ``wing`` planform that nothing reads for a load.
+_PARAMETRIC_WING_KEYS = ("wing_area_sqft", "aspect_ratio", "taper_ratio",
+                         "le_sweep_deg", "le_root_x")
+
+
+def _hop_76(d: Dict[str, Any]) -> Dict[str, Any]:
+    """v76 -> v77 (design note 69 D-69.12, #377/#378): one owner per geometry
+    quantity on the Geometry page.
+
+    * ``geometry.parametric.body_drag_waterline_z`` moves to
+      ``geometry.fuselage.body_drag_waterline_z`` (unchanged meaning);
+    * ``geometry.empennage.airplane_length_in`` (SELECT LF) moves to
+      ``geometry.fuselage.airplane_length_in``, where it is now a collapsed
+      override of the outline's own length;
+    * the five parametric wing keys are dropped -- the stored ``wing`` surface
+      is the planform, and ``configuration`` integrates it directly;
+    * ``geometry.fuselage`` is created with an empty section table when a
+      moved value is non-zero and the file had no outline, so the value is
+      kept.
+
+    No delivered load moves: a typed LF stays typed (it governs as before), the
+    drag waterline keeps its value, and the dropped keys fed no load. A dropped
+    wing value that is non-zero is stated once in the migration notes, so the
+    user knows the file carried one.
+    """
+    geometry = d.get("geometry")
+    if not isinstance(geometry, dict):
+        return d
+    moved: Dict[str, float] = {}
+    parametric = geometry.get("parametric")
+    if isinstance(parametric, dict):
+        bdw = parametric.pop("body_drag_waterline_z", None)
+        if bdw:
+            moved["body_drag_waterline_z"] = bdw
+        dropped = {k: parametric.pop(k) for k in _PARAMETRIC_WING_KEYS
+                   if k in parametric}
+        stated = {k: v for k, v in dropped.items()
+                  if v and not (k == "taper_ratio" and v == 1.0)}
+        if stated:
+            d.setdefault("migration_notes", []).append(
+                "geometry.parametric: the parametric wing scalars "
+                + ", ".join(f"{k}={v}" for k, v in stated.items())
+                + " were dropped at v77 (design note 69 D-69.2); the stored "
+                "wing surface is the planform the analysis integrates.")
+    empennage = geometry.get("empennage")
+    if isinstance(empennage, dict):
+        lf = empennage.pop("airplane_length_in", None)
+        if lf:
+            moved["airplane_length_in"] = lf
+    if moved:
+        fuselage = geometry.get("fuselage")
+        if not isinstance(fuselage, dict):
+            fuselage = {"sections": []}
+            geometry["fuselage"] = fuselage
+        fuselage.update(moved)
+    return d
+
+
 #: ``{from_version: hop}`` -- applied in ascending order, each turning a file of
 #: version *n* into version *n+1* shape.
 MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
@@ -139,6 +198,7 @@ MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     73: _hop_73,
     74: _hop_74,
     75: _hop_75,
+    76: _hop_76,
 }
 
 #: The oldest project version this build reads: the oldest released schema, or

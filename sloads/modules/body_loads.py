@@ -69,7 +69,6 @@ from ..derived_geometry import (
     CarryThrough,
     carry_through,
     require_wing_reference,
-    sync_geometry_derived,
 )
 from ..joints import wing_station
 from ..mass_distribution import WingMassState, fuselage_beam_stations, wing_mass_state
@@ -284,7 +283,6 @@ def case_list_source(project: Project) -> str:
 
 def build_body_loads(project: Project) -> List[BodyLoadResult]:
     """Net fuselage load distribution for each critical fuselage condition."""
-    sync_geometry_derived(project)
     fl = project.flight_loads
     # The station table is the mass SSOT's (step B1): derived from ``weight.items``
     # unless the project explicitly overrides it. Before B1 this read

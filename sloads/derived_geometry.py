@@ -8,12 +8,14 @@ and the fuselage ``LayoutInput.fuselage_length``/``_width``/``_height`` are now
 surface + the parametric wing + the fuselage outline).
 
 :func:`wing_reference` computes the wing quantities from geometry; :func:`fuselage_summary`
-the fuselage length/width/height from the outline. :func:`sync_geometry_derived` writes
-the derived values onto the consuming slices; every module that reads them calls it first.
+the fuselage length/width/height from the outline. Nothing is written back onto a
+slice: since v77 (design note 69 D-69.3) every reader calls the owner at the point
+of use, and the ``sync_geometry_derived`` pass that used to copy the fuselage
+summary onto ``LayoutInput`` is gone with the fields it filled.
 (Landing gear was a sibling of this pattern until M2R-4 made it pure: `landing.build_landing`
 now resolves ``geometry.landing_gear`` onto a local effective-input copy instead of writing
 onto ``Project.landing``.) When the wing/parametric/outline
-geometry is absent (a directly-constructed test project) the sync is a no-op, so an
+geometry is absent (a directly-constructed test project) each owner answers ``None``, so an
 explicitly-set slice value still flows through -- exactly the STRSPEED wing-area fallback.
 
 The derived values are deliberately **not** serialized (see ``io.py``); the GUI shows them
@@ -556,15 +558,24 @@ def station_to_pct_mac(station_in: float, ref: MacReference) -> float:
 
 
 def airplane_length_in(project: Project) -> float:
-    """SELECT's LF, the whole-airplane length (inches), from its single home
-    ``geometry.empennage.airplane_length_in`` (#52, note 33 §8); ``0.0`` when no
-    empennage is defined. Both tail inertia defaults -- the 23.423(b) pitch
-    inertia and the 23.441 default IZZ -- read it from here; until schema v55
-    each tail carried its own copy and nothing reconciled them.
+    """SELECT's LF, the whole-airplane length (inches) -- the one read point.
+
+    A collapsed override on the fuselage outline (design note 69 D-69.4, note
+    39 OV-1): a typed ``geometry.fuselage.airplane_length_in`` governs; blank
+    derives the outline's own length from :func:`fuselage_summary`; ``0.0``
+    when the project has neither. Both tail inertia defaults -- the 23.423(b)
+    pitch inertia and the 23.441 default IZZ -- read it from here. Until v55
+    each tail carried its own copy (#52); until v77 it lived on the empennage
+    record, typed on every example beside an outline that already knew it.
     """
     geom = project.geometry
-    emp = geom.empennage if geom is not None else None
-    return float(emp.airplane_length_in) if emp is not None else 0.0
+    outline = geom.fuselage if geom is not None else None
+    if outline is None:
+        return 0.0
+    if outline.airplane_length_in:
+        return float(outline.airplane_length_in)
+    summary = fuselage_summary(outline)
+    return float(summary[0]) if summary is not None else 0.0
 
 
 def wing_plane(project: Project, surface_name: str = "wing") -> Tuple[float, float]:
@@ -804,7 +815,7 @@ def sob_station(project: Project, surface_name: str = "wing") -> Optional[SobSta
     **The single owner of the SOB source** (decision BM-1, note 24 R-3)::
 
         entered SurfaceInput.sob_y_in      -> its value        (assumed False)
-        geometry.parametric.fuselage_width -> width / 2        (assumed True)
+        the outline's maximum width        -> width / 2        (assumed True)
         neither                            -> None
 
     The fallback is half the fuselage **maximum** width -- for the wing that is
@@ -826,10 +837,8 @@ def sob_station(project: Project, surface_name: str = "wing") -> Optional[SobSta
             float(surf.sob_y_in), False, SOB_ENTERED,
             unit_text("side of body at BL ", Quantity(float(surf.sob_y_in), "in"),
                       " (entered sob_y_in)"))
-    width = geom.parametric.fuselage_width if geom.parametric is not None else 0.0
-    if not width:
-        summary = fuselage_summary(geom.fuselage)
-        width = summary[1] if summary is not None else 0.0
+    summary = fuselage_summary(geom.fuselage)
+    width = summary[1] if summary is not None else 0.0
     if width:
         return SobStation(
             0.5 * width, True, SOB_HALF_WIDTH,
@@ -957,9 +966,9 @@ def body_drag_waterline(project: Project) -> BodyDragWaterline:
     on ``concept_regional_jet``, +/-8.0 in on ``ga6_normal``. A later measured
     waterline can replace it without re-baselining anything.
     """
-    par = project.geometry.parametric if project.geometry is not None else None
-    if par is not None and par.body_drag_waterline_z:
-        return BodyDragWaterline(par.body_drag_waterline_z, False, "entered")
+    outline = project.geometry.fuselage if project.geometry is not None else None
+    if outline is not None and outline.body_drag_waterline_z:
+        return BodyDragWaterline(outline.body_drag_waterline_z, False, "entered")
     ref = wing_reference(project)
     if ref is not None:
         return BodyDragWaterline(ref.zw, True, "wing-plane", _BODY_DRAG_ASSUMED)
@@ -1067,28 +1076,6 @@ def fuselage_lra(project: Project) -> FuselageLra:
     if centreline is not None:
         return FuselageLra(0.0, centreline, True, "centre-line", centreline.note)
     return FuselageLra(0.0, None, True, "none", unit_text(_FUSELAGE_LRA_UNKNOWN))
-
-
-def sync_geometry_derived(project: Project) -> None:
-    """Fill the derived geometry copies on the consuming slices from ``project.geometry``.
-
-    Idempotent and cheap; called at the top of every consuming module's ``run`` (and by
-    ``io`` after a project loads) so the calc always reads the single-source value. A
-    no-op for any slice whose backing geometry is absent, so a directly-constructed test
-    project that set the value on the slice keeps working."""
-    geom = project.geometry
-    # No wing scalars are written onto any slice any more (note 33, DS-1/DS-2):
-    # ``flight_loads``' mac/S/xw/zw and ``wing_mass``' dihedral/wrp were copies
-    # filled here, and their consumers now read :func:`require_wing_reference` /
-    # :func:`wing_plane` at the point of use. What is left below is the fuselage
-    # summary, which is a genuine derived *record* rather than a scalar copy.
-    # Fuselage length/width/height: a derived read-only summary of the outline.
-    geom = project.geometry
-    if geom is not None and geom.parametric is not None:
-        summary = fuselage_summary(geom.fuselage)
-        if summary is not None:
-            geom.parametric.fuselage_length, geom.parametric.fuselage_width, \
-                geom.parametric.fuselage_height = summary
 
 
 def tail_cp_suggestion(project: Project) -> Optional[Tuple[float, float]]:

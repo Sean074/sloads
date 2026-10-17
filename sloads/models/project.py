@@ -381,7 +381,15 @@ from .results import EnvelopeResult, LoadsResult, MassResult
 # moment -- and ``InducedRoll.stations`` added, the h-tail strips that carry it.
 # Result fields only, written to no project file, so ``_hop_75`` is an
 # identity; the loads move by the ruling, not the hop.
-SCHEMA_VERSION = 76
+# v77 (design note 69 D-69.2/D-69.3/D-69.4/D-69.12, #377/#378/#379): one owner
+# per geometry quantity. ``LayoutInput`` loses the five parametric wing scalars
+# (the stored ``wing`` surface is the planform) and the three fuselage
+# summaries (readers call ``fuselage_summary``); ``FuselageOutline`` gains
+# ``body_drag_waterline_z`` (moved from ``LayoutInput``) and
+# ``airplane_length_in`` (SELECT LF, moved from ``EmpennageInput``, now a
+# collapsed override of the outline length). ``_hop_76`` moves the two values,
+# drops the five keys and states any non-zero dropped value once.
+SCHEMA_VERSION = 77
 
 
 @dataclass

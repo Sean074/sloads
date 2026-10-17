@@ -476,11 +476,17 @@ one, so it is resolved once, with the provenance (`assumed`) carried into the
 result and the deck header:
 
 ```
-vtail root waterline:
-  explicit input        →  use it                                    (assumed = False)
-  T-tail with h_tail_z  →  root_waterline_z + h_tail_z − vtail_span  (assumed = True)
-  otherwise             →  root_waterline_z + fuselage_height / 2    (assumed = True)
+vtail root waterline (tail_geometry.vtail_root_waterline):
+  entered vtail polyline   →  its own root waterline                    (assumed = False)
+  explicit input           →  use it                                    (assumed = False)
+  T-tail with h_tail_z     →  root_waterline_z + h_tail_z − vtail_span  (assumed = True)
+  fuselage outline present →  z_centre(x_vtail) + height(x_vtail) / 2   (assumed = True)
+  otherwise                →  root_waterline_z                          (assumed = True)
 ```
+
+(The last branch added half a body height until design note 69 D-69.3 removed
+the `fuselage_height` summary scalar; with no outline there is no height, so
+the wing root alone stands in, stated.)
 
 The conventional branch is the suite's established "top of the fuselage" (the
 three-view has drawn every fin from it since step G6); the T-tail branch is the

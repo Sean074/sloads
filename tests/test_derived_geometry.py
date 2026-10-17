@@ -33,7 +33,6 @@ from sloads.derived_geometry import (
     require_wing_reference,
     sob_station,
     station_to_pct_mac,
-    sync_geometry_derived,
     wing_plane,
     wing_reference,
 )
@@ -130,7 +129,6 @@ def test_no_geometry_leaves_explicit_slice_values_untouched():
                 flight_loads=FlightLoadsInput(),
                 wing_mass=WingMassInput(),
                 landing=LandingInput())
-    sync_geometry_derived(p)
     # The wing plane has no slice copy to keep (note 33, DS-1/DS-3): with no
     # parametric wing it degrades to the centreline plane, which is what the
     # removed fields defaulted to -- an absent plane, not a remembered one.
@@ -263,7 +261,6 @@ def test_sob_station_entered_wins_and_is_not_assumed():
         FuselageSection(x=0.0, width=10.0, height=10.0),
         FuselageSection(x=100.0, width=96.0, height=90.0),
         FuselageSection(x=300.0, width=8.0, height=9.0)])
-    sync_geometry_derived(p)
     sob = sob_station(p)
     assert sob is not None and not sob.assumed
     assert sob.y == 40.0 and sob.basis == SOB_ENTERED

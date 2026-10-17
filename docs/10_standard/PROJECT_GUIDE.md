@@ -496,15 +496,14 @@ So that every module is copy-of-the-pattern, these are fixed once:
   best-effort. Engine order `tectonic` → `latexmk` → `pdflatex`, overridden by
   the `SLOADS_TEX_ENGINE` environment variable.
 - **Constants centralized** in `sloads/constants.py` so Decision 3 (and any future "go back to exact") is a one-file change.
-- **Call `sync_geometry_derived(project)` first inside `run()`** — not in the
-  caller, not at import. Any module that reads geometry-derived quantities
-  (MAC/span/areas/stations resolved from the Step-G1 single-source geometry)
-  opens `run()`/its build function with it, so the module is correct whether it
-  is reached through the registry, the CLI, a view, or a test that hand-builds a
-  `Project`. Seven sites do this today (`body_loads`, `wing_inertia`, `select`,
-  `net_loads`, `flight_envelope` ×2, `balloads`, plus `io.py` on load); it was
-  convention-by-imitation until M4-12b wrote it down. It is idempotent — calling
-  it twice is free, forgetting it is a silent wrong answer.
+- **Read a geometry-derived quantity from its owner at the point of use** —
+  `derived_geometry.wing_reference` / `wing_plane` / `fuselage_summary` /
+  `airplane_length_in`, `tail_geometry.control_surface_areas`, and so on —
+  never from a copy on a consuming slice. The `sync_geometry_derived(project)`
+  pass that every `run()` used to open with (M4-12b) copied the fuselage
+  summary onto `LayoutInput`; design note 69 D-69.3 deleted the copied fields
+  and the pass with them, so a module is correct however it is reached because
+  it asks the owner, not because something wrote to it first.
 - **Public surface is explicit; the app layer never imports an underscored name
   from `sloads`** (M4-12b / D-14). A leading underscore means module-private, and
   cross-module use of one is a defect, not a shortcut — the fix is to promote the

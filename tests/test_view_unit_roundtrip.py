@@ -82,22 +82,23 @@ def _oracle_number(at, path: str):
 def test_an_oracle_scalar_is_stored_imperial_from_either_system(system):
     """A plain number: type 100 in, get 100 in; type 2540 mm, get the same 100 in.
 
-    Driven on the wing area's **owner**. It used to type into
+    Driven on an area's **owner**, SELECT's h-tail area ST. It used to type into
     ``speeds.wing_area_sqft``, which #36 established is display-only — STRSPEED
     resolves the planform and ignores that field — so it now renders disabled and
-    a test that typed into it was asserting a conversion no user can perform.
+    a test that typed into it was asserting a conversion no user can perform;
+    the parametric wing area it then used went at design note 69 D-69.2.
     """
     from sloads import io
 
     project = io.load_project(_GA6)
     at = _run_oracle("configuration_layout", system, project)
-    field = _oracle_number(at, "geometry.parametric.wing_area_sqft")
+    field = _oracle_number(at, "geometry.empennage.htail.htail_area_sqft")
     assert (UNIT_LABELS[system]["area_sqft"] in (field.label or "")), (
         f"{system.value}: {field.label!r} does not state the active area unit")
 
     typed = to_display(150.0, "area_sqft", system)
     field.set_value(typed).run()
-    stored = at.session_state["project"].geometry.parametric.wing_area_sqft
+    stored = at.session_state["project"].geometry.empennage.htail.htail_area_sqft
     assert math.isclose(stored, 150.0, rel_tol=1e-9), (
         f"{system.value}: typed {typed} and stored {stored}, expected 150.0 sq ft")
 

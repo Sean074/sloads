@@ -128,10 +128,10 @@ GATES: Dict[str, Gate] = {
 
     # -- Closure-locked: no printed figure exists (rule 2's substitute) ----- #
     "configuration": Gate(
-        CLOSURE, ("test_mac_matches_closed_form", "test_appendix_a_sanity"),
-        "a modern addition with no manual oracle: the generated polygon's MAC/XLEMAC/"
+        CLOSURE, ("test_mac_matches_closed_form", "test_the_planform_reported_is_the_stored_wings"),
+        "a modern addition with no manual oracle: the stored planform's MAC/XLEMAC/"
         "Y_MAC equal the trapezoid closed form, and Appendix A p141's wing is "
-        "reproduced to a stated plausibility band"),
+        "reported from its own polylines (note 69 D-69.2), XLEMAC 63.62"),
     "body_loads": Gate(
         CLOSURE, ("test_the_two_cantilevers_and_the_box_close_the_free_body",
                   "test_a_positive_load_factor_bends_both_bodies_down"),

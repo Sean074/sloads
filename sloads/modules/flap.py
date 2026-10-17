@@ -265,6 +265,26 @@ def ng_fallback_reason(project: Project) -> Optional[str]:
             "or a flaps-down coefficient set so the envelope derives it")
 
 
+def flap_area_one_side_sqft(project: Project) -> float:
+    """FLAPLOAD's SF: the typed value, else the ``flap`` surface's one-side area.
+
+    A collapsed override (design note 69 D-69.8, note 39 OV-1): a blank
+    ``flap_loads.flap_area_one_side_sqft`` derives from the drawn flap through
+    the one control-area integrator (``tail_geometry.control_surface_areas``,
+    D-69.6); a typed value governs and is warned apart past 1 %
+    (``validation.flap_area_mismatch``). ``0.0`` where neither is entered,
+    which is the refusal ``flap_loads`` already makes of a zero SF.
+    """
+    from ..tail_geometry import control_surface_areas
+
+    inp = project.flap_loads
+    typed = inp.flap_area_one_side_sqft if inp is not None else 0.0
+    if typed:
+        return float(typed)
+    areas = control_surface_areas(project, "flap")
+    return float(areas.one_side_sqft) if areas is not None else 0.0
+
+
 def _compute(project: Project) -> FlapResult:
     if project.flap_loads is None:
         raise MissingInputError("flap needs the 'flap_loads' input slice")
@@ -278,7 +298,7 @@ def _compute(project: Project) -> FlapResult:
     ng, _ = resolved_ng(project)
     return flap_loads(
         vs=sv.vs, vsf=sv.vsf, vf=sv.vf, weight=sp.weight_lb,
-        ng=ng, sf=inp.flap_area_one_side_sqft, sw=sw,
+        ng=ng, sf=flap_area_one_side_sqft(project), sw=sw,
         delta_deg=inp.flap_deflection_deg, e=inp.flap_chord_ratio,
         maxhp=maxhp, pdia_in=pdia, blprop=inp.engine_butt_line_in,
         af_sqft=inp.nacelle_frontal_area_sqft,
@@ -316,7 +336,7 @@ def build_flap(project: Project) -> List[ControlSurfaceLoadResult]:
 
     def _case(name: str, lb: float) -> ControlSurfaceLoadResult:
         """One flap case with the Ch 17 chordwise taper (LE -> half at TE)."""
-        le = lb / 0.75 / inp.flap_area_one_side_sqft / IN2_PER_FT2
+        le = lb / 0.75 / flap_area_one_side_sqft(project) / IN2_PER_FT2
         ref = CaseRef(case_id=allocator.next_id("wing"), component="wing",
                       condition=name, far_reference="23.345/23.457")
         # Minted here (flap owns its conditions); run() copies each onto its

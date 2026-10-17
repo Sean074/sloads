@@ -28,8 +28,8 @@ The renderer is asserted on the Plotly figure object, never on a screenshot:
 that the producer's stated line style survived the translation.
 """
 
-import math
 import functools
+import math
 import os
 import sys
 
@@ -519,6 +519,101 @@ def test_a_marker_shape_survives_both_renderers():
     assert "only marks" in tex
     for series in data.series:
         assert series.style in tex, series.style
+
+
+# --------------------------------------------------------------------------- #
+# The airplane three-view (design note 69 D-69.15, gate G-69.10)
+# --------------------------------------------------------------------------- #
+_AIRPLANE_VIEWS = ("airplane_plan_view", "airplane_side_view",
+                   "airplane_front_view")
+
+
+def _airplane_views(name):
+    """The three views of one example, built pre-run on the Geometry page."""
+    built = fx.build_step_figures("configuration_layout", _project(name),
+                                  system=UnitSystem.IMPERIAL, results=None)
+    views = {figure.key: figure for family, figure in built
+             if family.key in _AIRPLANE_VIEWS}
+    assert tuple(views) == _AIRPLANE_VIEWS, sorted(views)
+    return views
+
+
+def test_g_69_10_the_three_view_is_catalogued_pre_run_after_the_planforms():
+    """D-69.15: three families on the Geometry page, pre-run, one builder."""
+    rows = list(fx.families_for_step("configuration_layout"))
+    keys = [f.key for f in rows]
+    assert keys[:3] == ["planform_wing", "planform_htail", "planform_vtail"]
+    assert keys[3:6] == list(_AIRPLANE_VIEWS)
+    builders = {id(f.build) for f in rows if f.key in _AIRPLANE_VIEWS}
+    assert len(builders) == 1, "one builder serves the three views"
+    for family in rows:
+        if family.key in _AIRPLANE_VIEWS:
+            assert family.stage is fx.Stage.PRE_RUN, family.key
+
+
+def test_g_69_10_the_atr_three_view_draws_every_owner_it_has():
+    """G-69.10: the ATR's views carry the fuselage, the wing, both tails, the
+    wing controls, both propeller discs and both gear legs, each as a named
+    series read from its owner; the elevator and rudder are not asserted,
+    since the example enters neither yet (D-69.17 adds them)."""
+    views = _airplane_views("atr42_100.project.json")
+    names = {series.name for figure in views.values()
+             for series in figure.data.series}
+    for wanted in ("Fuselage", "Fuselage centre line", "Wing",
+                   "Horizontal tail", "Vertical tail", "Aileron", "Flap",
+                   "Engine 1 propeller disc", "Engine 2 propeller disc",
+                   "Main gear", "Nose gear"):
+        assert wanted in names, (wanted, sorted(names))
+    for figure in views.values():
+        assert figure.data.to_scale, figure.key
+        assert "drawn from what is entered" in figure.caption
+        assert "rectangular tail sketch" in figure.caption
+        assert figure.caption.endswith(
+            "Nothing here is a load: no value is scaled and none carries a "
+            "safety factor.")
+        assert "no hinge geometry" not in figure.caption
+    # The disc is a circle only where it is face-on; the owner's diameter
+    # (156 in) is the span of the line it is elsewhere.
+    front = next(s for s in views["airplane_front_view"].data.series
+                 if s.name == "Engine 1 propeller disc")
+    assert front.closed and len(front.x) > 8
+    side = next(s for s in views["airplane_side_view"].data.series
+                if s.name == "Engine 1 propeller disc")
+    assert not side.closed
+    assert math.isclose(max(side.y) - min(side.y), 156.0)
+    # Q7: the main wheels sit at half the tread in front and plan view.
+    tread = _project("atr42_100.project.json").geometry.landing_gear.tread_in
+    main = [s for s in views["airplane_front_view"].data.series
+            if s.name == "Main gear"]
+    assert main and math.isclose(abs(main[0].x[-1]), tread / 2.0)
+
+
+def test_g_69_10_a_wing_alone_is_drawn_and_the_rest_is_named_absent():
+    """G-69.10: ``concept_heavy`` enters a wing and nothing else the view can
+    draw, so the wing is the only airframe series and the caption names the
+    fuselage, the engines and the gear as not entered -- never assumed."""
+    views = _airplane_views("concept_heavy.project.json")
+    for figure in views.values():
+        drawn = {s.name for s in figure.data.series if s.name}
+        assert drawn - {"Positive axes"}, figure.key
+        assert all("Wing" in name or name == "Positive axes" for name in drawn), (
+            figure.key, sorted(drawn))
+        absent = figure.caption.split("Not entered, so not drawn: ", 1)[1]
+        for name in ("the fuselage", "the engines", "the landing gear"):
+            assert name in absent, (figure.key, absent)
+
+
+def test_g_69_10_a_project_with_no_geometry_states_the_absence():
+    """A blank project returns the three figures with a reason, no axis."""
+    from sloads.models import Project
+
+    built = fx.build_step_figures("configuration_layout", Project(name=""),
+                                  system=UnitSystem.IMPERIAL, results=None)
+    reasons = {figure.key: figure.absent_reason for family, figure in built
+               if family.key in _AIRPLANE_VIEWS}
+    assert set(reasons) == set(_AIRPLANE_VIEWS)
+    for reason in reasons.values():
+        assert "no geometry this view can draw" in reason
 
 
 if __name__ == "__main__":                       # zero-dependency self-runner

@@ -68,7 +68,6 @@ from app_shell.components import (
     active_system,
     clear_number_input,
     count_input,
-    number_input_name,
     page_header,
     unit_number_input,
 )
@@ -82,7 +81,7 @@ from oracle_app.results import render_results
 from sloads import field_registry as fr
 from sloads import workflow as wf
 from sloads.applicability import step_not_applicable
-from sloads.cross_check import cross_check_disagrees
+from sloads.cross_check import CROSS_CHECK_REL, cross_check_disagrees
 from sloads.derived import refresh_derived
 from sloads.derived_geometry import tail_cp_suggestion
 from sloads.mass_distribution import (
@@ -413,10 +412,12 @@ def _collapsed_note(row: Any, value: Any, project: Any, where: Any,
         f"Overrides {owner}"
         + (f" (currently {_shown(row.path, governing)})" if governing is not None else "")
         + " — the value entered here is what the analysis uses. Clear it to derive.")
+    # The field's own band where it states one (D-69.10), else the oracle's.
     if (isinstance(governing, (int, float)) and isinstance(value, (int, float))
             and not isinstance(governing, bool) and not isinstance(value, bool)
             and cross_check_disagrees(float(value), float(governing),
-                                      lambda v: _shown(row.path, v))):
+                                      lambda v: _shown(row.path, v),
+                                      rel=row.band or CROSS_CHECK_REL)):
         where.warning(
             f"This is {_shown(row.path, value)} but {owner} says "
             f"{_shown(row.path, governing)}. The typed value governs — confirm "
@@ -1445,8 +1446,16 @@ def _to_imperial(value: Any, unit: FieldUnit) -> Any:
 _FRAME_CACHE_KEY = "_grid_frame_cache"
 
 
+#: The page being rendered, set at every page entry point beside the frame
+#: cache. Read by :func:`render_table` to tell a list's owning page (design
+#: note 69 D-69.14, ``field_registry.LIST_ROW_OWNER``) from one that only
+#: edits its rows.
+_CURRENT_PAGE: List[str] = [""]
+
+
 def _reset_frame_cache(step_key: str) -> None:
     """Drop cached grid frames when the page changes (see _FRAME_CACHE_KEY)."""
+    _CURRENT_PAGE[0] = step_key
     try:
         cache = st.session_state.get(_FRAME_CACHE_KEY)
         if not isinstance(cache, dict) or cache.get("__step") != step_key:
@@ -1528,47 +1537,6 @@ def render_field(record: Any, path: str, *, key: str, container: Any = None,
 # --------------------------------------------------------------------------- #
 #: Scalar fields shown per row of a record block.
 _COLUMNS = 3
-
-
-def _offer_record_seed(project: Project, prefix: str, record: Any) -> None:
-    """The registry's record-seed button, when it has something to offer (#95).
-
-    ``field_registry.RECORD_SEEDS`` (C210-1 / GR-GEOM-3): a record whose blank
-    block can be filled from values the project already holds -- the
-    parametric wing from a typed ``wing`` planform -- offers those values
-    behind a button naming each one. A button, not a derive: a page visit
-    must not dirty a project (OG-F), and the seeded values land through the
-    normal entry path, editable like anything typed. Withdrawn (the seed
-    answers ``{}``) once the block is typed or the source is absent.
-    """
-    seed = fr.RECORD_SEEDS.get(prefix)
-    if seed is None:
-        return
-    values = seed(project, record)
-    if not values:
-        return
-    shown = ", ".join(f"{_field_label(f'{prefix}.{name}')} {_shown(f'{prefix}.{name}', value)}"
-                      for name, value in values.items())
-    st.button(f"Seed from the wing planform \u2192 {shown}",
-              key=widget_key(f"_seed.{prefix}"),
-              on_click=_seed_record, args=(record, prefix, dict(values)))
-
-
-def _seed_record(record: Any, prefix: str, values: Dict[str, float]) -> None:
-    """Write the seeded values and retire their widgets' state (#376).
-
-    An ``on_click`` callback for the reason :func:`_seed_rows` is one. The
-    block's number widgets were drawn on the pass before the click, so their
-    retained state (the ``0.0`` they showed) outvotes ``value=`` on the next
-    render, and :func:`render_scalar` persists what they return -- written in
-    the button's ``if`` body, every seeded value was overwritten with ``0.0``
-    in the same rerun, and the user had to type what the button's own label
-    showed. Dropping each widget's state makes it re-seed from the record.
-    """
-    for name, value in values.items():
-        _set_entered(record, name, float(value))
-        st.session_state.pop(
-            widget_key(number_input_name(f"{prefix}.{name}", field_unit(name).kind)), None)
 
 
 def optional_steps(prefix: str) -> List[str]:
@@ -1709,7 +1677,6 @@ def render_record(project: Project, prefix: str, paths: Sequence[str]) -> None:
         st.warning(f"`{prefix}` cannot be created on this project.")
         return
 
-    _offer_record_seed(project, prefix, record)
     scalars = [p for p in paths if not is_composite(fr.field_type(p))]
     composites = [p for p in paths if is_composite(fr.field_type(p))]
 
@@ -1898,6 +1865,27 @@ def render_table(project: Project, prefix: str, paths: Sequence[str]) -> None:
         return
 
     label = pretty(prefix.rstrip(fr.LIST_MARKER).rsplit(".", 1)[-1])
+    # One list, one owner of its rows (design note 69 D-69.14): a list whose
+    # fields render on two pages -- ``engines[]``, its locations on Geometry and
+    # its powerplant data on Engine Mount -- adds and deletes rows on the page
+    # the registry names, and renders **rows only** everywhere else: no counter,
+    # no surplus delete, no per-row delete, each row headed by what identifies
+    # it on the owning page. Two add/delete sets for one list would be two
+    # places to lose an engine.
+    owner = fr.LIST_ROW_OWNER.get(prefix)
+    if owner is not None and owner != _CURRENT_PAGE[0]:
+        st.caption(f"{label} rows are added and removed on the "
+                   f"**{wf.BY_KEY[owner].title}** page; this page edits them.")
+        if not rows:
+            st.caption(_empty_table_note(label, paths))
+            return
+        for index, row in enumerate(rows):
+            with st.expander(f"{index + 1} · {_row_title(row, paths, f'{prefix}.{index}')}",
+                             expanded=index == 0):
+                render_record_row(row, paths, f"{prefix}.{index}", project,
+                                  prefix=prefix)
+        _warn_unplaced(project, prefix)
+        return
     # Bounded, a large jump confirmed, re-seeded when the model moved (#244):
     # ``count_input`` is the one owner, shared with the LRA mesh counts.
     count = count_input(st, f"{label} — rows", len(rows), key=f"{prefix}.count",
@@ -2260,13 +2248,29 @@ def _page_has_grid(groups: Sequence[Tuple[str, Sequence[str]]]) -> bool:
 
 def _render_groups(project: Project, groups: List[Tuple[str, List[str]]],
                    system: Any) -> None:
-    """Each registry group of a page: heading, schema path, note, widgets."""
+    """Each registry group of a page: heading, schema path, note, widgets.
+
+    Adjacent groups that share a ``DISPLAY_GROUPS`` title render under **one**
+    heading (design note 69 D-69.5, owner ruling Q3): the Fuselage section is
+    the outline record's two scalars and its ``sections[]`` table, two record
+    prefixes with one title, and the Engines section is the root
+    ``engine_layout`` beside the ``engines[]`` locations. Each group keeps its
+    own schema-path caption and its own record controls, so merging the heading
+    merges nothing else -- the table's row counter still renders once, for the
+    table.
+    """
+    previous_title: Optional[str] = None
     for prefix, paths in groups:
         # The display-group title wins over the record name (#95, C210-6):
         # page_groups splits titled paths into their own group, so one
         # lookup on the group's first path names the whole section.
-        st.subheader(fr.DISPLAY_GROUPS.get(paths[0])
-                     or pretty(prefix.rstrip(fr.LIST_MARKER).rsplit(".", 1)[-1] or "Project"))
+        title = (fr.DISPLAY_GROUPS.get(paths[0])
+                 or pretty(prefix.rstrip(fr.LIST_MARKER).rsplit(".", 1)[-1] or "Project"))
+        if title != previous_title:
+            if previous_title is not None:
+                st.divider()
+            st.subheader(title)
+        previous_title = title
         # The caption is the schema path, as code. The root group has no
         # path, so it says what it is instead of rendering ``(project)`` in
         # backticks -- which reads as a path, and there is no such path
@@ -2283,6 +2287,7 @@ def _render_groups(project: Project, groups: List[Tuple[str, List[str]]],
         else:
             render_record(project, prefix, paths)
         render_group_table(project, prefix, system)
+    if groups:
         st.divider()
 
 

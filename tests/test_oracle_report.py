@@ -980,6 +980,16 @@ def test_the_analysis_basis_records_the_tool_and_the_schema_it_read():
     assert "sloads version" not in dict(fpm.anchors(project))
     assert "Project schema" in dict(fpm.anchors(project))
 
+def test_g_69_12_no_caption_says_the_analysis_carries_no_hinge_geometry():
+    """G-69.12 (design note 69 D-69.16): the planform caption said the analysis
+    carries a control's areas as scalars and "no hinge geometry" -- false since
+    note 54 D-54.1 made ``SurfaceInput.hinge_line`` an input. A caption is a
+    claim about the calc, so the stale sentence is refused at the source."""
+    with open(osec.__file__, encoding="utf-8") as fh:
+        source = fh.read()
+    assert "no hinge geometry" not in source
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))
 
@@ -1714,13 +1724,13 @@ def test_the_planform_table_prints_the_pair_every_pct_mac_is_measured_from():
     assert ref is not None and ref.source == "planform"
     assert rows["MAC"] == format_value(ref.mac, "in")
     assert rows["XLE(MAC) station of MAC LE"] == format_value(ref.xlemac, "in")
-    # The GA-6 wing is cranked (LE break at BL 46.5), so the retired
-    # parametric-trapezoid pair genuinely differs -- the equality above cannot
-    # pass by both tables reading the trapezoid.
+    # Since design note 69 D-69.2 the configuration module integrates the same
+    # stored planform (the parametric trapezoid that used to put XLEMAC at 56.73
+    # on this cranked wing is gone), so its pair IS the printed pair.
     from sloads.modules.configuration import _wing_geometry
-    parametric = _wing_geometry(project.geometry.parametric)
-    assert (format_value(parametric["XLE(MAC) station of MAC LE"], "in")
-            != rows["XLE(MAC) station of MAC LE"])
+    own = _wing_geometry(project)
+    assert format_value(own["XLE(MAC) station of MAC LE"], "in") == rows["XLE(MAC) station of MAC LE"]
+    assert format_value(own["MAC"], "in") == rows["MAC"]
     # 2.2 prints the same pair and attributes it to the planform of 2.1.
     note = _cg_case_table(project).note or ""
     assert format_value(ref.xlemac, "in") in note and format_value(ref.mac, "in") in note
@@ -1963,8 +1973,11 @@ def test_the_vertical_tail_is_drawn_in_its_own_frame_and_never_mirrored():
     figure = _planforms(document)["planform_vtail"]
     assert "Waterline" in figure.data.y_label
     assert "Fuselage station" in figure.data.x_label
-    # One outline, not two, and every plotted waterline is on the fin.
-    assert len(figure.data.series) == 1
+    # One fin outline, not two (the rudder region beside it is its own series
+    # since design note 69 D-69.17 entered one), and every plotted waterline is
+    # on the fin.
+    outlines = [s for s in figure.data.series if s.name.startswith("Vertical tail")]
+    assert len(outlines) == 1, [s.name for s in figure.data.series]
     assert all(y >= root for series in figure.data.series for y in series.y)
 
 
@@ -2038,16 +2051,24 @@ def test_a_half_entered_planform_is_refused_rather_than_drawn():
     because it looks like an answer. G-OR-7 keeps the rest of the document
     building around it.
     """
+    from sloads.units import UnitSystem
+
     project = reduce_to_oracle_inputs(io.load_project(_GA))
     wing = project.geometry.by_name("wing")
     wing.leading_edge = wing.leading_edge[:1]
 
+    # Since design note 69 D-69.2 the configuration module integrates this same
+    # planform, so 2.1's program refuses on the same precondition and the
+    # section states that refusal by name (G-OR-7); the figures themselves,
+    # drawn from the entered data, answer for the surface that cannot be drawn.
     doc = oc.build_oracle_document(project, _spec())
-    figures = _planforms(doc)
+    geometry = next(s for s in _flat([_section_two(doc)]) if "Geometry" in s.title)
+    assert "surface 'wing' needs >= 2 LE and TE points" in geometry.absent_reason
+    figures = {f.key: f for f in osec.geometry_figures(project, system=UnitSystem.IMPERIAL)}
     assert figures["planform_wing"].data is None
     assert "cannot be drawn as entered" in figures["planform_wing"].absent_reason
     assert figure_body_tex(figures["planform_wing"]) == ""
-    # The other surfaces are untouched: one bad slice does not empty the section.
+    # The other surfaces are untouched: one bad slice does not empty the set.
     assert figures["planform_htail"].data is not None
     assert figures["planform_vtail"].data is not None
 

@@ -223,15 +223,23 @@ def surface_geom(project: Project, cond: CriticalCondition) -> Optional[tuple]:
     reacts the control surface at is TAILDIST's ``CEAFTHL``, and asking for it
     here is what keeps one hinge line in the suite instead of two.
     """
+    # The **resolved** inputs (note 36 OV-1; design note 69 D-69.17): a blank
+    # hinge half derives from the control's boundary lines for SELECT, and the
+    # chord station this geometry sets must be the one SELECT's load was
+    # computed with. Reading the raw slice sized the ATR's elevator aft area at
+    # 0 the day its scalars went blank (found at D-69.17, G-69.11).
     if cond.component == "htail":
-        ti = project.tail_loads
+        try:
+            ti = effective_tail_inputs(project)
+        except ValueError:
+            ti = project.tail_loads      # the ARW refusal is SELECT's to make
         if ti is None or ti.htail_semispan_in <= 0 or ti.htail_area_sqft <= 0:
             return None
         return (ti.htail_area_sqft * IN2_PER_FT2,
                 ti.elevator_aft_hinge_sqft * IN2_PER_FT2,
                 2.0 * ti.htail_semispan_in)
     if cond.component == "vtail":
-        vt = project.vtail_loads
+        vt = effective_vtail_inputs(project)
         if vt is None or vt.vtail_span_in <= 0 or vt.vtail_area_sqft <= 0:
             return None
         return (vt.vtail_area_sqft * IN2_PER_FT2,

@@ -97,7 +97,6 @@ from ..constants import (
 )
 from ..derived_geometry import (
     airplane_length_in,
-    sync_geometry_derived,
     wing_aspect_ratio,
     wing_reference,
     wing_span_in,
@@ -1721,7 +1720,6 @@ def build_critical(project: Project,
 
     ``envelope`` is the caller's already-resolved V-n matrix, threaded in so a
     caller that needs both the matrix and the set does not build it twice."""
-    sync_geometry_derived(project)
     # M2R-8: build the V-n envelope once and thread it into every search, instead of
     # each helper independently rebuilding it (up to 7x when nothing is persisted).
     env = _resolve_envelope(project, envelope)

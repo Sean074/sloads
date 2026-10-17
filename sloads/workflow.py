@@ -364,7 +364,7 @@ def later_page_reads(project: Project, step: WorkflowStep) -> List[PageOrderRead
     """
     from .field_registry import entering_step  # local: keep workflow a leaf
 
-    return [PageOrderRead(name, entering_step(name) or "", has(project, name))
+    return [PageOrderRead(name, entering_step(name, after=step.key) or "", has(project, name))
             for name in step.reads]
 
 

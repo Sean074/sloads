@@ -595,7 +595,9 @@ def test_the_attachment_interpolates_the_body_at_the_htail_and_never_its_maximum
     width = fuselage_width_at(project.geometry.fuselage, x_lra)
     assert attach.y == pytest.approx([-width / 2, width / 2])
     # ...and that is emphatically not half the maximum section.
-    assert width < 0.4 * project.geometry.parametric.fuselage_width
+    from sloads.derived_geometry import fuselage_summary
+
+    assert width < 0.4 * fuselage_summary(project.geometry.fuselage)[1]
     # Marked assumed even though the outline is entered: no shipped outline
     # resolves the tail cone, so the shape factor — not the published diameter —
     # sets this number. The in-band note has to say so on every case.

@@ -279,15 +279,13 @@ def test_list_saved_projects(tmp_path=None):
 
 def test_configuration_round_trip():
     # The parametric layout (unified onto geometry.parametric, v25) survives a
-    # dict round-trip. Step M2-6: the fuselage length/width/height are a derived
-    # read-only summary of the GeometryInput.fuselage outline (not persisted), so
-    # the outline is the single shape source and the scalars re-derive on load.
+    # dict round-trip. The fuselage length/width/height are the outline's own
+    # (design note 69 D-69.3: ``fuselage_summary``, no slice copy), so the
+    # outline is the single shape source.
     from sloads import FuselageOutline, FuselageSection, GeometryInput, LayoutInput
+    from sloads.derived_geometry import fuselage_summary
 
-    layout = LayoutInput(
-        wing_area_sqft=174.0, aspect_ratio=6.0, taper_ratio=0.6,
-        le_sweep_deg=2.0, le_root_x=45.0, datum_x=0.0,
-    )
+    layout = LayoutInput(root_waterline_z=40.0, dihedral_deg=2.0, datum_x=0.0)
     outline = FuselageOutline(sections=[
         FuselageSection(x=0.0, width=0.0, height=0.0),
         FuselageSection(x=120.0, width=48.0, height=52.0),
@@ -296,19 +294,17 @@ def test_configuration_round_trip():
     project = Project(name="cfg",
                       geometry=GeometryInput(parametric=layout, fuselage=outline))
     d = io.project_to_dict(project)
-    # The derived fuselage scalars are not written.
+    # No fuselage scalar is written on the parametric record.
     for k in ("fuselage_length", "fuselage_width", "fuselage_height"):
         assert k not in d["geometry"]["parametric"]
 
     again = io.project_from_dict(d)
     par = again.geometry.parametric
-    # Non-fuselage parametric fields survive unchanged.
-    assert par.wing_area_sqft == 174.0 and par.le_root_x == 45.0
-    # The fuselage summary is re-derived from the outline (length = station span,
+    # The parametric fields survive unchanged.
+    assert par.root_waterline_z == 40.0 and par.dihedral_deg == 2.0
+    # The fuselage summary is the outline's (length = station span,
     # width/height = max section).
-    assert par.fuselage_length == 300.0
-    assert par.fuselage_width == 48.0
-    assert par.fuselage_height == 52.0
+    assert fuselage_summary(again.geometry.fuselage) == (300.0, 48.0, 52.0)
 
 
 def test_c6_slices_round_trip():
@@ -563,18 +559,18 @@ def test_project_from_dict_raises_on_malformed():
 
 
 def test_the_fuselage_scalars_are_not_an_input():
-    """The fuselage length/width/height are a derived summary of the outline and
-    are never written, so a file that carries them without an outline has no
-    body: nothing is synthesized from them (#310 -- the reader used to build a
-    three-section outline for files older than it, which no release from 0.8.7
-    on can open), and the oracle-locked ``.surfaces`` consumers are untouched.
+    """The fuselage length/width/height summaries left ``LayoutInput`` at v77
+    (design note 69 D-69.3), so a current-version file that still carries them
+    is read by the tolerant reader as carrying nothing: no body is synthesized
+    from them (#310 -- the reader used to build a three-section outline for
+    files older than it), and the oracle-locked ``.surfaces`` consumers are
+    untouched.
     """
     d = {
         "schema_version": SCHEMA_VERSION,
         "geometry": {
-            "parametric": {"wing_area_sqft": 174.0, "aspect_ratio": 6.0,
-                           "fuselage_length": 300.0, "fuselage_width": 48.0,
-                           "fuselage_height": 54.0, "datum_x": 0.0},
+            "parametric": {"fuselage_length": 300.0, "fuselage_width": 48.0,
+                           "fuselage_height": 54.0, "datum_x": 12.0},
             "surfaces": [{"name": "wing",
                           "leading_edge": [[0.0, 0.0], [10.0, 100.0]],
                           "trailing_edge": [[50.0, 0.0], [55.0, 100.0]]}],
@@ -583,7 +579,8 @@ def test_the_fuselage_scalars_are_not_an_input():
     p = io.project_from_dict(d)
     assert p.geometry is not None
     assert p.geometry.parametric is not None
-    assert p.geometry.parametric.wing_area_sqft == 174.0
+    assert p.geometry.parametric.datum_x == 12.0
+    assert not hasattr(p.geometry.parametric, "fuselage_length")
     assert [s.name for s in p.geometry.surfaces] == ["wing"]
     assert p.geometry.fuselage is None
     out = io.project_to_dict(p)
@@ -594,6 +591,47 @@ def test_the_fuselage_scalars_are_not_an_input():
     again = io.project_from_dict(out)
     assert again.geometry.parametric == p.geometry.parametric
     assert again.geometry.fuselage is None
+
+
+def test_the_v77_hop_moves_the_body_scalars_and_drops_the_wing_copies():
+    """Design note 69 D-69.12 (G-69.5): a v76 file's drag waterline and LF land
+    on ``geometry.fuselage`` (created, with no sections, when the file had no
+    outline), the five parametric wing keys are gone, and a dropped non-zero
+    wing value is stated once in the migration notes. A v77 file round-trips."""
+    from sloads.migrations import applied_hops, migrate
+
+    assert applied_hops(76) == [76]
+    d = {
+        "schema_version": 76,
+        "geometry": {
+            "parametric": {"wing_area_sqft": 174.0, "aspect_ratio": 6.0,
+                           "taper_ratio": 0.5, "le_sweep_deg": 3.0, "le_root_x": 45.0,
+                           "body_drag_waterline_z": 61.5, "datum_x": 0.0},
+            "empennage": {"airplane_length_in": 318.264},
+        },
+    }
+    migrated = migrate(d)
+    assert migrated["schema_version"] == SCHEMA_VERSION
+    assert migrated["geometry"]["fuselage"] == {
+        "sections": [], "body_drag_waterline_z": 61.5, "airplane_length_in": 318.264}
+    assert "airplane_length_in" not in migrated["geometry"]["empennage"]
+    for key in ("wing_area_sqft", "aspect_ratio", "taper_ratio", "le_sweep_deg",
+                "le_root_x", "body_drag_waterline_z"):
+        assert key not in migrated["geometry"]["parametric"], key
+    notes = migrated["migration_notes"]
+    assert len(notes) == 1 and "wing_area_sqft=174.0" in notes[0] and "D-69.2" in notes[0]
+    p = io.project_from_dict(migrated)
+    assert p.geometry.fuselage.body_drag_waterline_z == 61.5
+    assert p.geometry.fuselage.airplane_length_in == 318.264
+    assert p.geometry.fuselage.sections == []
+    out = io.project_to_dict(p)
+    assert out["geometry"]["fuselage"]["airplane_length_in"] == 318.264
+    assert io.project_to_dict(io.project_from_dict(out)) == out
+    # A file with nothing to move creates no outline, and a zero drag line and a
+    # default taper are not worth a note.
+    quiet = migrate({"schema_version": 76, "geometry": {
+        "parametric": {"taper_ratio": 1.0, "body_drag_waterline_z": 0.0}}})
+    assert "fuselage" not in quiet["geometry"] and "migration_notes" not in quiet
 
 
 def test_explicit_fuselage_outline_round_trip_and_not_defaulted():
@@ -607,8 +645,7 @@ def test_explicit_fuselage_outline_round_trip_and_not_defaulted():
         FuselageSection(x=280.0, width=8.0, height=12.0),
     ])
     project = Project(name="f", geometry=GeometryInput(
-        parametric=LayoutInput(fuselage_length=300.0, fuselage_width=48.0),
-        fuselage=fuse))
+        parametric=LayoutInput(), fuselage=fuse))
     again = io.project_from_dict(io.project_to_dict(project))
     # Explicit sections preserved (not replaced by the 48-in-wide scalar default).
     assert again.geometry.fuselage == fuse

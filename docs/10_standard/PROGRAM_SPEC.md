@@ -293,9 +293,10 @@ and (4) the **fuselage** critical conditions (23.301/23.331). The fuselage *net
 distribution* (Ch 15) lives in `modules/body_loads.py`. Inputs come from
 `Project.tail_loads`/`vtail_loads`/`select_input`/`fuselage_mass`; the
 **airplane length LF** (the slender-rod length of the 23.423(b) pitch inertia
-and of the default IZZ) is one field, `geometry.empennage.airplane_length_in`,
-read through `derived_geometry.airplane_length_in` — since schema v55 (#52)
-each tail no longer carries its own copy. **M2R-5:** the
+and of the default IZZ) is one field, `geometry.fuselage.airplane_length_in`,
+read through `derived_geometry.airplane_length_in` — a collapsed override of
+the outline's own length since v77 (design note 69 D-69.4; one field since
+schema v55, #52, on the empennage record until v77). **M2R-5:** the
 `select_input` search fields — `full_down_aileron_deg` / `basic_airfoil_cm` (the
 23.349(b) steady-roll wing-torsion drivers) and `wing_weight_lb` (the critical
 fuselage's reacted wing weight, 0 → 0.09·MTOW) — are editable on the page their
@@ -373,7 +374,7 @@ approved-corrections register [`../20_theory/02_approved_corrections.md`](../20_
 ### AILERON — Aileron loads (built, Step C8)
 - **FAR §:** 23.349 (rolling), 23.455 (aileron), CAM 3.222.
 - **Source:** Ch 16, `AILERON.BAS`.
-- **Reads:** `Project.speeds` (STRSPEED VA/VC/VD via `design_speed_values`, the only upstream input per UG Table 2.2), `Project.aileron_loads` (`AileronLoadsInput`: up/down deflection, area fwd/aft of hinge).
+- **Reads:** `Project.speeds` (STRSPEED VA/VC/VD via `design_speed_values`, the only upstream input per UG Table 2.2), `Project.aileron_loads` (`AileronLoadsInput`: up/down deflection, area fwd/aft of hinge). **SAFWD/SAAFT are collapsed overrides (design note 69 D-69.7):** `aileron.aileron_hinge_areas` reads each typed half, and derives a blank one from the `aileron` surface's hinge split — only where the surface carries a `hinge_line`, through the one control-area integrator `tail_geometry.control_surface_areas` (D-69.6, the D-54.1 path SELECT's SEFWDHL/SEAFTHL take). A typed pair that disagrees with the drawn aileron past 1 % warns `aileron_area_mismatch`.
 - **Writes:** critical up/down aileron loads + forward-of-hinge pressures → `ConditionResult`; `ControlSurfaceLoadResult` (simplified chordwise profile) for `Project.loads.control_surface` + the sbeam control-surface bridge.
 - **Validation:** Appendix A "Critical Aileron Loads" p200 (down 271.44 / up −180.96 lb @170 kt; psi +0.484 / −0.323) within ±0.1% — `tests/test_aileron.py`.
 - **Notes:** Deflected (unsymmetrical) conditions only; symmetrical undeflected is never critical (Ref 1 Ch 16). The pure-function oracle uses the manual's entered VA=121; the pipeline's computed VA≈121.3 shifts the load ~0.3% (tested at 0.4%). **A slice with no aileron area stays an *invalid* input, not a missing one** (m2): the run fails rather than quietly shipping a deliverable one case short. Its CLI gate went with the `control` export target at note 56 D-56.2; the contract itself is unchanged and is held by `registry.run_all_modules_reporting`. What changed at #145 is only who has to die of it — `registry.run_all_modules_reporting` hands the failure back by name, so the Results Review and Export pages name the module instead of going down whole, which they had been doing on three of the seven bundled examples.
@@ -381,7 +382,7 @@ approved-corrections register [`../20_theory/02_approved_corrections.md`](../20_
 ### FLAPLOAD — Flap loads (built, Step C8)
 - **FAR §:** 23.345 (flaps), 23.457 (flap hinge / slipstream).
 - **Source:** Ch 17, `FLAPLOAD.BAS`.
-- **Reads:** `Project.speeds` (STRSPEED VS/VSF/VF + design weight), `Project.geometry` wing area, `Project.engines[0]` (MAXHP/prop diameter for the slipstream — MAXHP is **takeoff power** per FAR 23.457(b): `takeoff_hp`, falling back to `max_cont_hp` only when unset), `Project.flap_loads` (`FlapLoadsInput`: gust factor, flap area, deflection, chord ratio, nacelle frontal area, engine butt line).
+- **Reads:** `Project.speeds` (STRSPEED VS/VSF/VF + design weight), `Project.geometry` wing area, `Project.engines[0]` (MAXHP/prop diameter for the slipstream — MAXHP is **takeoff power** per FAR 23.457(b): `takeoff_hp`, falling back to `max_cont_hp` only when unset), `Project.flap_loads` (`FlapLoadsInput`: gust factor, flap area, deflection, chord ratio, nacelle frontal area, engine butt line). **SF is a collapsed override (design note 69 D-69.8):** `flap.flap_area_one_side_sqft` reads the typed value, else the `flap` surface's one-side area through `tail_geometry.control_surface_areas`; a typed SF that disagrees with the drawn flap past 1 % warns `flap_area_mismatch`. **E is not derived** (D-69.9): the drawn flap gives 0.245–0.252 on the Appendix A airplane against the printed 0.27, so it stays typed (`02_parked.md`).
 - **Writes:** the four-condition flap-CL/load envelope, critical load, LE pressure, head-on-gust combined load → `ConditionResult`; and, when the airplane carries propeller power, a **second** `ConditionResult` for the FAR 23.457(b) slipstream (factor, velocity, BL band, and the flap load in the slipstream). `ControlSurfaceLoadResult` **one per reported condition** for the loads slice + sbeam bridge: the gust-combined envelope (`W-60`) and the slipstream case (`W-61`).
 - **Validation:** Appendix A "Critical Flap Loads" p201 (CLf 1.7046/1.7046/1.5593/1.5476; critical 629 lb; LE 0.545 psi; slipstream ×1.407, BL 22.828…113.172; gust ×1.301; combined 819 lb) within ±0.1% — `tests/test_flap.py`. The **applied** slipstream load has no printed oracle (Appendix A prints the factor, never a load built from it), so it carries a stated closure gate instead (rule 2): the delivered load equals `factor × max(LF 2G-at-VF, LF gust-at-VF)` — 1.407 × 629 = 885 lb on the manual's airplane — it is not the two factors multiplied, and a project without propeller power exports byte-identically to before.
 - **Notes:** **The slipstream is delivered, not just printed (#85, 2026-08-24).** FLAPLOAD.BAS prints the factor and the band and leaves the application to the designer — defensible for a printed report, not for a solver deck, which shipped `max(critical, gust-combined)` uniformly and understated the flap load by the whole factor (C210: 972.8 vs 1,156.6 lbs-ULT, 19 %). The delivered load is `factor × the VF-governed condition` (2G at VF / gust at VF): the factor is `(Vss/VF)²`, a ratio of dynamic pressures *at VF*, so it may not scale a load computed at VSF — on the manual's own airplane the critical condition *is* 2G at VF, so this reduces to `factor × critical` there. It is **enveloped with, never multiplied by**, the head-on gust (owner ruling 2026-08-24): a 25 fps head-on gust and full takeoff power at VF are independent worst cases, and the governing flap load is the larger of the two cases. The factor applies over the **whole** flap, not the band alone — `ControlSurfaceLoadResult` carries chord fractions and no spanwise dimension (the deck emits no `GRID` for exactly this reason), so a partial-span distribution has nowhere to live; the whole-surface application is conservative for the flap and its attachments and is stated on the case rather than implied. A true per-strip banded envelope needs a spanwise axis on the result type — an L-tier schema change, not taken here. Slipstream is the momentum-theory sub 500 (iterate `U1` to absorb 0.85·MAXHP); computed only when engine power is present, and a project without it exports exactly the single pre-#85 case. A disk that absorbs the power at no speed **refuses** (#33) — the search used to return its own guard value, a 100,000 ft/s slipstream, and amplify the flap load by its square. Knots→ft/s is the exact `constants.KT_TO_FPS` (1.68781; the suite's `1.15·88/60` was measured 2026-08-17 to be unnecessary for the p201 oracle — it survives only as `KT_TO_FPS_SUITE` for ENGLOADS' `VSF`, issue #26).
@@ -415,7 +416,7 @@ approved-corrections register [`../20_theory/02_approved_corrections.md`](../20_
 - **23.361(b)(1) sudden stoppage — closure gate + truncation basis (CR-B-3, #40).** Turboprop-only, and Appendix B's engine-mount output is not in the bundled PDF, so the gate is the formula, not a printed figure (CONVENTIONS §6): `torque = I_prop·ω_prop/Δt + Σᵢ I_rotor(i)·ω_rotor(i)/Δt`, re-derived in `test_361_b1_closes_on_the_angular_momentum_formula` from the fixture's rotor list rather than from the module's own summation — and with a counter-rotating rotor (`max_rpm < 0`) in the fixture, so the **signed** sum is pinned, not its magnitude. The reported value is `INT(-torque)` exactly as ENGLOADS.BAS line 944 prints it, where BASIC `INT()` **floors**: the argument is negative by construction, so Python's `int()` reported 1 ft-lb *less* torque (non-conservative). Fixed via the one owner `sloads/basic.py` (CONVENTIONS §5/§7); the ATR-42 fixture moves −24472 → **−24473 ft-lb** limit, no Appendix A figure moves, and 25.361(a)(3)(i) inherits the same torque.
 - **23.361(b)(1) sudden stoppage — one spin owner (#332).** The summed `torque` is the engine's signed spin momentum at take-off rpm over `stop_time_s` (`engine.spin_momentum`, the same owner the gyroscopic conditions read at max-continuous rpm): the propeller's term signed by `prop_direction`, each rotor's by its signed `max_rpm` — the rotor's only direction input. The published mount torque is the reaction: `INT(-|torque|)` with the sign of `−torque`, so the floor is taken on the magnitude and a mirrored engine (propeller and rotors) publishes the exact negative on 23.361(b)(1) and 25.361(a)(3)(i) alike, both read from one `_stoppage_torque`. Every clockwise engine — Appendix B's fixture, the ATR-42 — publishes what it did; the RJ's counter-rotating fan publishes **+50,577 ft-lb**, the mirror of its twin's −50,577.
 - **Entered magnitudes are positive (#343).** The engine powers, torques and stoppage time a condition needs (`takeoff_hp`, `max_cont_hp`, `max_engine_torque`, `cruise_torque`, `stop_time_s`, through `engine._required`) and the two entered overrides (`max_accel_torque`; `prop_inertia`, where 0 is a fan with no propeller) are refused by name unless positive (`engine._positive`): each is a magnitude the engine's convention signs, so a negative entry reversed a mount load without a trace.
-- **Notes:** **Standalone** — no module inputs/outputs (UG Table 2.2); all data is direct input. Already supports measured-vs-approximated rotating inertia and SI/Imperial. Serves as the reference template for every other module's calc/units/report/CSV pattern. **The GUI is multi-engine:** the engine-mount page exposes the first-class multi-engine `Project` — the layout (`SINGLE_NOSE`/`TWIN_WING`/`QUAD_WING`) sets the engine count and each engine's inputs are entered against its own record. Results and exports cover every engine. A single engine reduces exactly to `run_all`. **Each engine's conditions are tagged with an identity that is unique in the installation** (`engine_tags`, #241): the designation alone where it already separates them — nothing renames on a mixed installation — and the designation plus the side, read off the engine's own butt line, where two engines share one, which is the Baron's case (two `CONTINENTAL IO-550-C`, six conditions, three titles). The tag is applied **before** the `CaseRef` is minted, so the load-case index and the applied CSV say which engine `EM-04` is instead of repeating `EM-01`'s description.
+- **Notes:** **Standalone** — no module inputs/outputs (UG Table 2.2); all data is direct input. Already supports measured-vs-approximated rotating inertia and SI/Imperial. Serves as the reference template for every other module's calc/units/report/CSV pattern. **The GUI is multi-engine:** the engine-mount page exposes the first-class multi-engine `Project` — the layout (`SINGLE_NOSE`/`TWIN_WING`/`QUAD_WING`) sets the engine count and each engine's inputs are entered against its own record. Results and exports cover every engine. A single engine reduces exactly to `run_all`. **An engine's location is Geometry-page data** (design note 69 D-69.13/D-69.14, #380): `engine_layout`, `mounted_on`, `engine_cg`, `prop_cg`, the thrust line and `prop_diameter_in` render in the Geometry page's Engines section, which owns the `engines[]` rows; this page renders every engine's powerplant data against the rows Geometry created and adds or deletes none (`field_registry.LIST_ROW_OWNER`). The paths are unchanged, so nothing the module reads moved. **Each engine's conditions are tagged with an identity that is unique in the installation** (`engine_tags`, #241): the designation alone where it already separates them — nothing renames on a mixed installation — and the designation plus the side, read off the engine's own butt line, where two engines share one, which is the Baron's case (two `CONTINENTAL IO-550-C`, six conditions, three titles). The tag is applied **before** the `CaseRef` is minted, so the load-case index and the applied CSV say which engine `EM-04` is instead of repeating `EM-01`'s description.
 - **Optional supplemental FAR 25 cases (concept superset):** `Project.include_far25` (default off → FAR 23 output byte-identical) appends the **non-duplicative 14 CFR 25.361/25.371** engine cases for **turbopropeller** engines. Because the AC 23-19A correction now factors the FAR 23 takeoff case too, for a turbopropeller the FAR 25 torque cases 25.361(a)(1)(i)/(ii)/(iii) became **bit-for-bit duplicates** of the corrected 23.361(a)(1)/(a)(2)/(a)(3) and were **removed**. Only the three genuinely additive cases remain: (a)(3)(i) `stoppage torque @ 1g` (23.361(b)(1) reports the torque alone), (a)(3)(ii) `max-accel torque @ 1g` (no FAR 23 analog), and 25.371 gyroscopic on the **A2 limit load factor** (23.371(b) fixes the vertical at 2.5g). 25.371 uses the **fixed FAR 23.371(b) rates (2.5/1.0 rad/s)** as a conservative concept stand-in for the maneuver-derived rates (the tool does not solve 25.331/341/…). These stay opt-in — *not* folded into the FAR 23 path — so the Appendix A/B oracle (locked to **6** turboprop conditions and a **2.5g** gyro vertical) is unchanged; making them unconditional would break oracle-lock. New optional input `EngineInput.max_accel_torque` (blank → `max_engine_torque`). Reciprocating/jet engines are out of scope (25.361(a)(2) defines no recip factor; the math is prop-centric) → no FAR 25 cases. Sourced from `reference/14CFR_Part25_engine_torque.md`; **formula-closure tested** (no McMaster Part-25 oracle). GUI: an "Add supplemental FAR 25 cases" checkbox in the engine-mount sidebar.
 - **25.371 gyro under-prediction guard (P1-5, D-2).** The fixed 2.5/1.0 rad/s stand-in is conservative only while the concept's real rates stay at or below it; the gyro moment is linear in body rate, so an agile concept would be under-predicted silently. Two optional advisory inputs, `EngineInput.design_yaw_rate_rad_s` / `design_pitch_rate_rad_s` (blank → no guard; **schema v22 → v23**, additive), let the engineer declare the concept's real 25.371 rates. When a declared rate **exceeds** its stand-in, `condition_25_371`'s note becomes an explicit `WARNING -- gyroscopic loads UNDER-PREDICTED …` (naming axis, rate and moment ratio) and the GUI renders it as `st.warning`. **Warn-only** by decision D-2: the declared rates are *advisory* — the reported Myy/Mzz stay at the fixed stand-in (no re-derivation; solving the real maneuver-rates is deferred). The GA/oracle path (no declared rates) is unchanged.
 - **Derive-by-default (note 36 OV-7, #97):** `engine.effective_engine`/`resolved_engines` resolve each engine onto a local copy — a blank `limit_load_factor` derives from the FAR 23.337 limit (`design_speed_values(project).n`; a 0 LIMNZ silently zeroed every mount case, C210-41) — and because that derivation reads the wing planform, a half-entered one is **refused by name out of the resolver** rather than resolving to 0 (#122, the #71 contract): only an incomplete `speeds` slice lets the blank stand. With an `engine_mass_item`/`prop_mass_item` selector set (schema v56) the engine/prop weight and CG falsy-derive from the named `weight.items` row (D-25 mass SSOT; matched with `same_name`, refused by name when no row matches, `engine_mass_row_mismatch` warns on a typed disagreement). A typed LIMNZ that disagrees with the airplane's n₁ warns `engine_load_factor_mismatch` (#331): the engine-mount cases scale condition A to LIMNZ (note 66 D-66.4), so a disagreement loads the whole airplane at a factor its V-n does not fly. An airplane whose declared limit exceeds the 23.337 minimum enters it as `speeds.chosen_n`, not as LIMNZ alone; G-66.3 pins LIMNZ = n₁ on every engine fixture. Every engine consumer — the mount loads, the LRA beam model, WINGGEOM's engine stations, the nacelle sketch, OEI and hub thrust — reads through the one resolver.
@@ -545,17 +546,30 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   folded onto `GeometryInput` alongside `.surfaces` (WINGGEOM planforms) and a new
   `.fuselage` outline (`FuselageOutline`: `FuselageSection` width/height vs. station,
   the station-area table for the three-view body profile and the Step G4 pitching-
-  moment estimator). **Step M2-6: the `.fuselage` outline is the sole editable shape
-  source; the `LayoutInput.fuselage_length`/`_width`/`_height` scalars are a derived
-  read-only summary of it (length = station span, width/height = max section), not
-  persisted, nor read** (`fuselage_summary`); a file with no outline has no body
-  (the scalar-seeded default outline went at #310). One **Geometry**
-  page owns and edits the whole slice; schema v25 at the time (v26 after Step G4's
-  `fuselage_moment`, **27** after Step G6's `empennage`, **28** after Step G6b's
-  `landing_gear`, **29** after Step M1-1b's single-source CLmax stall, **30** after
-  Step M2-6's wing/fuselage single-source, **31** after Step M2-10's operational
-  placards, **32** after Step M2R-2 removed the `LandingInput.n` write-back);
-  legacy files migrate on load.
+  moment estimator). **The `.fuselage` outline is the sole shape source** and,
+  since design note 69 (D-69.3/D-69.4), the only home of the body's scalars:
+  `FuselageOutline.body_drag_waterline_z` (0 derives the wing plane, note 24
+  D-1) and `FuselageOutline.airplane_length_in` (SELECT's LF, a collapsed
+  override: blank derives the outline's length through
+  `derived_geometry.airplane_length_in`, typed governs and is marked). The
+  length/width/height summaries `LayoutInput` carried are gone — every reader
+  calls `derived_geometry.fuselage_summary` on the outline — and so are the
+  **five parametric wing scalars** (area, AR, taper, LE sweep, LE root station,
+  D-69.2): `LayoutInput` holds only what a planform polyline cannot carry
+  (`root_waterline_z`, `dihedral_deg`, `datum_x`, `tail_type`, `h_tail_z`,
+  `htail_dihedral_deg`). One **Geometry** page owns and edits the whole slice,
+  in the section order **Surfaces, Fuselage, Engines, Parametric, Empennage,
+  aileron, flap, gear** (D-69.5/D-69.18; registry order is page order, guarded).
+  The schema ledger is the comment above `SCHEMA_VERSION` (`PROJECT_GUIDE.md`);
+  a file written by a released schema migrates on load (`sloads/migrations.py`).
+- **The planform the page reports is the analysis's (D-69.2):** `_wing_geometry`
+  integrates the stored `wing` surface through `wing_geometry.surface_properties`
+  — the condition is titled **"Wing planform (WINGGEOM)"** and carries S, span,
+  the polylines' root and tip chords, MAC, XLEMAC, YMAC and AR — and the
+  stability estimate takes the same MAC frame. Until v77 the module regenerated
+  a two-point trapezoid from the five scalars; on `ga6_normal` that put XLEMAC
+  at 56.73 against the planform's 63.62. A project with no `wing` surface is not
+  ready, by name.
 - **Single-source landing gear (Step G6b):** the tricycle-gear geometry (main/nose
   axle `(X, Z)` at compressed/static/extended, rolling radius, strut type, tread)
   lives in `Project.geometry.landing_gear` (`LandingGearGeometry`); LANDLOAD reads it
@@ -573,22 +587,25 @@ regression oracle**; Appendix A/B geometry is used only as a *sanity* fixture.
   the three-view and the tail-volume static margin read the analysis-native values
   (area/span; arm derived from `xt25`/`xv25` minus the 25% wing-MAC station). `io`
   migrates a pre-v27 file's top-level `tail_loads`/`vtail_loads` into `geometry.empennage`.
-- **The oracle Geometry page (#95, C210-1/2/6):** the five parametric-wing scalars a
-  typed `wing` planform determines (area, AR, taper, LE sweep, LE root X) are
-  **seedable from it behind a button** — `configuration.parametric_wing_seed`
-  (the same `wing_layout_from_surface` the main GUI's seed button calls), offered
-  through `field_registry.RECORD_SEEDS` only while the block is untyped
-  (area or AR still 0), so the typed block always governs whole (GR-GEOM-3:
-  seeded and overridable, never overwritten). `fuselage_length` renders
-  **disabled** exactly when an outline exists (`EXTERNAL_VALUES` resolver =
-  `fuselage_summary`; `sync_geometry_derived` overwrites the scalar on every
-  run, C210-2) and stays live on a project with no outline yet. The wing-aero
+- **The oracle Geometry page (#95, C210-6; design note 69):** the wing-aero
   fields that live on the h-tail record for SELECT's convenience (ARW, AW, the
   three IW angles) and the `select_input` trio render on the pages their
   *quantities* belong to via `field_registry.DISPLAY_GROUPS` (C210-6/22) — the
-  fields stay on their records; only the page and section title move.
-- **Reads:** `Project.geometry.parametric` (`LayoutInput`: fuselage / parametric wing /
-  tail-arrangement (`tail_type`, `h_tail_z`)); `Project.geometry.empennage`
+  fields stay on their records; only the page and section title move. The
+  **Fuselage** section is the outline record's two scalars and its `sections[]`
+  table under one heading (two prefixes, one title; `_render_groups` merges
+  adjacent groups sharing a title, owner ruling Q3). The **Engines** section
+  (D-69.13, #380) holds `engine_layout` and, per engine, `mounted_on`,
+  `engine_cg`, `prop_cg`, the thrust line and `prop_diameter_in`; **Geometry
+  owns the `engines[]` rows** (`field_registry.LIST_ROW_OWNER`, D-69.14) and the
+  Engine Mount page renders the rows it edits with no add or delete control.
+  The record-seed button (`RECORD_SEEDS`, C210-1) retired with the scalars it
+  seeded. A collapsed override may state its own disagreement band
+  (`FieldEntry.band`, D-69.10): the control areas take 1 %, everything else the
+  oracle's 0.1 %.
+- **Reads:** `Project.geometry.surfaces` (the `wing` planform); `Project.geometry.parametric`
+  (`LayoutInput`: wing placement and tail arrangement (`tail_type`, `h_tail_z`));
+  `Project.geometry.fuselage` (the outline, for the component stations); `Project.geometry.empennage`
   (tail + elevator/rudder); `Project.geometry.landing_gear` (gear axles/tread);
   `Project.weight.envelope` (aft-gross %MAC for the static
   margin, optional); `Project.engine` (prop geometry for clearance, optional);
@@ -1549,8 +1566,8 @@ the applied load set (`applied_loads("htail"|"vtail", ...)`), GID bands `4001+`
   entered `tail_type` is the whole authority (not assumed); otherwise the
   **fuselage outline** interpolated at the h-tail *root LRA station* by
   `derived_geometry.fuselage_width_at`, giving `±w(x_lra)/2`; failing both, the
-  innermost strip pair `±ds/2`. `parametric.fuselage_width` is the **maximum**
-  section and is deliberately **not** used — on `atr42_100` it is 106 in against
+  innermost strip pair `±ds/2`. The outline's **maximum** width
+  (`fuselage_summary`) is deliberately **not** used — on `atr42_100` it is 106 in against
   22 in of body at the h-tail, five times too far outboard. The outline branch is
   marked **assumed even for an entered outline**: no shipped outline resolves the
   tail cone, so the shape factor and not the published diameter sets the number,

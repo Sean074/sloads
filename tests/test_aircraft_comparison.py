@@ -72,28 +72,34 @@ def test_area_priority_surface_over_speeds():
     assert subject.wing_area_ft2 != project.speeds.wing_area_sqft
 
 
-def test_subject_geometric_axes_from_configuration():
-    # A project with a configuration slice resolves wing area + AR, and the subject's
-    # span derives from sqrt(AR * S) even with no explicitly stored span.
+def test_subject_geometric_axes_from_the_planform():
+    # A project with a wing planform resolves wing area + AR from it (design
+    # note 69 D-69.2: the parametric copy is gone), and the subject's span is
+    # the planform's own. A 180 ft^2, AR 7.5 rectangle: span sqrt(7.5*180) ft.
     from sloads import (
         EngineInput,
         GeometryInput,
-        LayoutInput,
         Project,
         StructuralSpeedsInput,
+        SurfaceInput,
     )
+    span_in = (7.5 * 180.0) ** 0.5 * 12.0
+    chord_in = 180.0 * 144.0 / span_in
+    wing = SurfaceInput(name="wing", symmetric=True,
+                        leading_edge=[(0.0, 0.0), (0.0, span_in / 2.0)],
+                        trailing_edge=[(chord_in, 0.0), (chord_in, span_in / 2.0)])
     project = Project(
         name="Synthetic",
-        geometry=GeometryInput(parametric=LayoutInput(wing_area_sqft=180.0, aspect_ratio=7.5)),
+        geometry=GeometryInput(surfaces=[wing]),
         speeds=StructuralSpeedsInput(weight_lb=2450.0),
         engines=[EngineInput(max_cont_hp=180.0)],
     )
     subject = subject_from_project(project)
     assert subject is not None
     assert subject.mtow_lb == 2450.0
-    assert subject.wing_area_ft2 == 180.0
+    assert subject.wing_area_ft2 == pytest.approx(180.0)
     assert subject.power_hp == 180.0
-    assert subject.aspect_ratio_effective == 7.5
+    assert subject.aspect_ratio_effective == pytest.approx(7.5)
     assert subject.span is not None and abs(subject.span - (7.5 * 180.0) ** 0.5) < 1e-9
 
 

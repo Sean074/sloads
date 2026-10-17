@@ -571,12 +571,18 @@ def _surface_from_dict(d: Dict[str, Any]) -> SurfaceInput:
 
 
 def _fuselage_outline_from_dict(d: Dict[str, Any]) -> FuselageOutline:
-    return FuselageOutline(sections=[
-        FuselageSection(x=s["x"], width=s["width"], height=s["height"],
-                        z_centre=_opt_float(s.get("z_centre")))
-        for s in (_reject_nulls(FuselageSection, sec, "FuselageOutline.sections[]")
-                  for sec in d.get("sections", []) or [])
-    ])
+    _reject_nulls(FuselageOutline, d)
+    return FuselageOutline(
+        sections=[
+            FuselageSection(x=s["x"], width=s["width"], height=s["height"],
+                            z_centre=_opt_float(s.get("z_centre")))
+            for s in (_reject_nulls(FuselageSection, sec, "FuselageOutline.sections[]")
+                      for sec in d.get("sections", []) or [])
+        ],
+        # v77 (design note 69 D-69.4): the two body scalars live with the outline.
+        body_drag_waterline_z=float(d.get("body_drag_waterline_z", 0.0) or 0.0),
+        airplane_length_in=float(d.get("airplane_length_in", 0.0) or 0.0),
+    )
 
 
 def _landing_gear_from_dict(d: Dict[str, Any]) -> LandingGearGeometry:
@@ -608,12 +614,11 @@ def geometry_from_dict(d: Dict[str, Any]) -> GeometryInput:
     emp_raw = d.get("empennage") or {}
     htail_raw, vtail_raw = emp_raw.get("htail"), emp_raw.get("vtail")
     empennage = None
-    if htail_raw is not None or vtail_raw is not None or emp_raw.get("airplane_length_in"):
+    if htail_raw is not None or vtail_raw is not None:
         _reject_nulls(EmpennageInput, emp_raw)
         empennage = EmpennageInput(
             htail=tail_loads_from_dict(htail_raw) if htail_raw else None,
             vtail=vtail_loads_from_dict(vtail_raw) if vtail_raw else None,
-            airplane_length_in=float(emp_raw.get("airplane_length_in") or 0.0),
         )
 
     lg_raw = d.get("landing_gear")
@@ -661,7 +666,10 @@ def geometry_to_dict(inp: GeometryInput) -> Dict[str, Any]:
                 {"x": s.x, "width": s.width, "height": s.height,
                  "z_centre": s.z_centre}
                 for s in inp.fuselage.sections
-            ]
+            ],
+            # v77 (D-69.4): written even at 0 so "derive" round-trips explicitly.
+            "body_drag_waterline_z": inp.fuselage.body_drag_waterline_z,
+            "airplane_length_in": inp.fuselage.airplane_length_in,
         }
     if inp.empennage is not None:
         emp: Dict[str, Any] = {}
@@ -669,8 +677,6 @@ def geometry_to_dict(inp: GeometryInput) -> Dict[str, Any]:
             emp["htail"] = tail_loads_to_dict(inp.empennage.htail)
         if inp.empennage.vtail is not None:
             emp["vtail"] = vtail_loads_to_dict(inp.empennage.vtail)
-        if inp.empennage.airplane_length_in:
-            emp["airplane_length_in"] = inp.empennage.airplane_length_in
         if emp:
             out["empennage"] = emp
     if inp.landing_gear is not None:
@@ -1374,37 +1380,25 @@ def loads_to_dict(inp: LoadsResult) -> Dict[str, Any]:
 # --------------------------------------------------------------------------- #
 # Configuration & layout slice <-> dict (LayoutInput)
 # --------------------------------------------------------------------------- #
-#: The ``LayoutInput`` fuselage summary, derived from the outline and never
-#: persisted either way (Step M2-6).
-_LAYOUT_DERIVED = ("fuselage_length", "fuselage_width", "fuselage_height")
-
-
 def configuration_from_dict(d: Dict[str, Any]) -> LayoutInput:
     """Build a :class:`LayoutInput` from a plain dict.
 
     Every field is an optional scalar with a default, so unknown keys are ignored
     and missing keys fall back to the dataclass default (additive forward-compat);
     a file with no ``tail_type`` defaults to ``TailType.CONVENTIONAL``. The
-    fuselage summary is not read, as it is not written: it derives from the
-    outline (Step M2-6).
+    fuselage summaries and the parametric wing scalars the slice used to carry
+    left it at v77 (design note 69 D-69.2/D-69.3); ``_hop_76`` moves or drops
+    their keys before this reader sees the dict.
     """
-    kwargs = {k: v for k, v in _filtered(LayoutInput, d).items()
-              if k not in _LAYOUT_DERIVED}
+    kwargs = dict(_filtered(LayoutInput, d))
     if "tail_type" in kwargs:
         kwargs["tail_type"] = TailType(kwargs["tail_type"])
     return LayoutInput(**kwargs)
 
 
 def configuration_to_dict(inp: LayoutInput) -> Dict[str, Any]:
-    """Serialize a :class:`LayoutInput` to JSON-friendly primitives.
-
-    Step M2-6: the fuselage ``fuselage_length``/``fuselage_width``/``fuselage_height``
-    are a derived read-only summary of the ``GeometryInput.fuselage`` outline and are
-    not written; the loader re-derives them from the outline."""
-    out = {**asdict(inp), "tail_type": inp.tail_type.value}
-    for key in _LAYOUT_DERIVED:
-        out.pop(key, None)
-    return out
+    """Serialize a :class:`LayoutInput` to JSON-friendly primitives."""
+    return {**asdict(inp), "tail_type": inp.tail_type.value}
 
 
 # --------------------------------------------------------------------------- #
@@ -1494,12 +1488,6 @@ def project_from_dict(d: Dict[str, Any]) -> Project:
             loads=loads_from_dict(loads) if loads else None,
             include_far25=bool(d.get("include_far25", False)),
         )
-        # Step M2-6: fill the derived geometry copies (wing mac/S/xw/zw, wing-mass
-        # dihedral/wrp, landing wing area, fuselage L/W/H summary) from the single
-        # source now that every slice is present, so a freshly-loaded project reads
-        # them correctly before any module runs (each module re-syncs defensively).
-        from .derived_geometry import sync_geometry_derived
-        sync_geometry_derived(project)
         # A layout/count disagreement is flagged, not refused: the file still
         # loads so the page it came from can fix it (#66, PB-7). The GUI's load
         # path shows the warning as a toast.

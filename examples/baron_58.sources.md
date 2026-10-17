@@ -55,6 +55,15 @@ the guide enters and reads this example in **SI** (UG-12).
 - **Tail areas**: h-tail 53 ft² on the published 191-in span; v-tail 24.3 ft²,
   66-in span. Statistical GA-twin proportions; tail stations placed against
   the published 358-in length [B].
+- **Elevator and rudder** (design note 69 D-69.17, 2026-10-16): `elevator` and
+  `rudder` surfaces entered as constant-chord-fraction polylines with a
+  `hinge_line` (the trailing edge derives from the parent, D-54.1), constructed
+  to integrate to the former typed SELECT scalars within 0.1 % -- SE fwd/aft
+  **2.1 / 18.9** ft² (both sides) and SR fwd/aft **0.9 / 8.1** ft² -- with the
+  hinge placed to the typed fwd/aft ratio. The six SELECT scalars (SE, SEFWDHL,
+  SEAFTHL, SR, SRFWDHL, SRAFTHL) are now blank and derive from the polylines.
+  [E], anchored on the former estimate; the tail loads move by the construction
+  residual only (under 0.02 %).
 - **Nacelle butt line ±66 in**: outboard of the 57.5-in gear half-track [B]
   (the mains retract into the nacelles), giving the 77-in prop [A] ~28 in of
   fuselage clearance.

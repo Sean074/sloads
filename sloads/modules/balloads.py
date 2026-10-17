@@ -28,7 +28,7 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from ..cg_cases import flight_cases
-from ..derived_geometry import require_wing_reference, sync_geometry_derived
+from ..derived_geometry import require_wing_reference
 from ..models import CgCase, ConditionResult, LoadValue, MissingInputError, ModuleResult, Project, VnPoint
 from ..registry import register
 from ..units import format_value
@@ -56,7 +56,6 @@ def verify_balancing(project: Project) -> List[Dict[str, Any]]:
     ``CP``), the elevator load, the rational station ``XT`` and the approximate
     ``XTC`` FLTLOADS assumed, plus their difference ``DXT``.
     """
-    sync_geometry_derived(project)
     ti, fl = project.tail_loads, project.flight_loads
     if ti is None or fl is None:
         raise MissingInputError("balloads needs Project.tail_loads and Project.flight_loads")

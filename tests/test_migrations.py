@@ -313,6 +313,10 @@ def test_every_value_a_released_file_carries_survives_the_read(release):
     read = io.project_to_dict(io.project_from_dict(copy.deepcopy(migrated)))
     lost, changed = [], []
     for path, value in _leaves(migrated):
+        # What the hop chain had to say is transient (``io.project_from_dict``
+        # carries it onto ``Project.migration_notes`` and never writes it back).
+        if path[0] == "migration_notes":
+            continue
         try:
             got = _at(read, path)
         except (KeyError, IndexError, TypeError):

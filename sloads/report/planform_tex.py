@@ -86,6 +86,13 @@ NOSE_UP_KEYS = frozenset({"planform_wing", "planform_htail", "planform_wing_lra"
 #: one series on these figures that is **not** a closed region.
 LRA_STYLE = "very thick, dashed"
 
+#: A control surface's entered hinge line (``SurfaceInput.hinge_line``), drawn on
+#: the planform figures and the airplane three-view where one is entered (design
+#: note 69 D-69.16). Dashed like the loads reference axis, because both are lines
+#: through a region rather than regions; lighter, so the two cannot be confused
+#: where a figure carries both.
+HINGE_STYLE = "thick, dashed"
+
 
 def planform_tex(data: PlotData, *, key: str = "",
                  width: str = "0.72\\textwidth") -> str:
@@ -159,6 +166,7 @@ def planform_tex(data: PlotData, *, key: str = "",
 
 
 __all__ = [
+    "HINGE_STYLE",
     "LRA_STYLE",
     "OUTLINE_STYLE",
     "PLANFORM_KEYS",
