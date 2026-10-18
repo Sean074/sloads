@@ -114,8 +114,12 @@ point: a file per page is a hand-maintained page list wearing a different hat.
 Since Step G3 the **Develop V-n diagram**
 section — the definition pages this doc is chiefly about — is five consolidated
 pages, several using `st.tabs` to gather formerly-separate pages: **Geometry**;
-**Weight & Mass Properties** (tabs: Estimate · Weight, CG & Inertia · Payload
-Cases · Weight / CG Envelope); **Structural Speeds** (tabs: Design Speeds ·
+**Weight & Mass Properties** (one flat page of the generic renderer's groups
+since #270 — Weight · Estimation · Items, with its totals, component partition
+and mass-model checks (#386) · Envelope · CG Cases, with the Mass cases table ·
+Wing weight · Tail Mass — and `Project.mass` re-derived on every render by
+`weight_onecg.refresh_mass`; the four tabs this sentence named until #386 were
+the retired front-end's); **Structural Speeds** (tabs: Design Speeds ·
 Speed–Altitude Envelope); **Aerodynamic Data**; and **Flight Envelope (V-n)**
 (tabs: V-n diagram · Critical Loads (SELECT) · Trim & Stability — the last, Step G5,
 plots the balancing tail load swept across the CG range and the tail-volume static

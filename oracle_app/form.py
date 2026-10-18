@@ -325,9 +325,26 @@ def _landing_group_note(project: Any) -> str:
     return text
 
 
+def _tail_mass_group_note(project: Any) -> str:
+    """What a blank Tail Mass table derives (#386, review B10): each surface's
+    weight from the rows tagged to it, the number a user wants to see before
+    deciding to override it."""
+    from sloads.mass_distribution import derived_tail_surface_weight
+
+    weight = getattr(project, "weight", None)
+    if weight is None or not weight.items:
+        return ""
+    parts = [f"{surface} {format_value(derived_tail_surface_weight(project, surface), 'lb')} lb"
+             for surface in ("htail", "vtail")]
+    return ("With no row here each surface's weight derives from the rows tagged to "
+            f"it: {', '.join(parts)} (`mass_distribution.derived_tail_surface_weight`). "
+            "Add a row only to override one.")
+
+
 GROUP_NOTES: Dict[str, Callable[[Any], str]] = {
     "flight_loads": _tail_cp_group_note,
     "landing": _landing_group_note,
+    "tail_mass[]": _tail_mass_group_note,
     "wing_mass.cases[]": lambda _project: (
         "0 rows = WINGINER runs the SELECT governing set (the derived critical "
         "wing conditions). Typed rows REPLACE that set entirely — adding one "
@@ -1395,27 +1412,130 @@ def _wing_parts_table(project: Project, system: UnitSystem
         out)
 
 
+_Table = Tuple[str, str, List[Dict[str, Any]]]
+
+
+def _mass_database_tables(project: Project, system: UnitSystem) -> Optional[List[_Table]]:
+    """The three read-only views under the Items grid (#386, review B1-B3):
+    the data base's totals with the design-weight chain, its partition by
+    component, and every mass-model check with its state -- each read from its
+    owner (``WeightInput.database_totals``, ``mass_distribution``,
+    ``validation``), nothing computed here. Until #386 the only sums were
+    WTENV's results three screens below, ``component_summary`` had no caller
+    since the front-end retired at #270, and the checks rendered on the pages
+    that *read* the mass rather than the one that edits it."""
+    from sloads import mass_distribution as md
+    from sloads.cg_cases import max_landing_weight, max_takeoff_weight, max_zero_fuel_weight
+    from sloads.validation import consistency_warnings
+
+    weight = project.weight
+    if weight is None or not weight.items:
+        return None
+    u = Units(system)
+    mass, length = u.label("mass"), u.label("length")
+
+    totals = [{"Loading": k.name, "Rows": k.rows, f"Weight ({mass})": u.plain(k.weight_lb, "mass"),
+               f"Xcg ({length})": u.plain(k.xcg, "length") if k.xcg is not None else "\u2014",
+               f"Zcg ({length})": u.plain(k.zcg, "length") if k.zcg is not None else "\u2014",
+               "Order": ""} for k in md.loading_kind_totals(project)]
+    codes = {w.code for w in consistency_warnings(project)}
+    chain_ok = "weight_order_chain" not in codes
+    for label, value in (("Max zero-fuel weight (MZFW)", max_zero_fuel_weight(project, required=False)),
+                         ("Max landing weight (MLW)", max_landing_weight(project, required=False)),
+                         ("Max take-off weight (MTOW)", max_takeoff_weight(project, required=False))):
+        totals.append({"Loading": label, "Rows": "", f"Weight ({mass})": u.plain(value, "mass") if value else "\u2014",
+                       f"Xcg ({length})": "", f"Zcg ({length})": "",
+                       "Order": ("holds" if chain_ok else "\u26a0 out of order") if value else "not entered"})
+    totals_table = (
+        "Weight data base totals",
+        "The data base summed by loading kind, with each sum's own CG, and the "
+        "three design weights beside it. The chain empty weight <= MZFW <= MLW "
+        "<= MTOW <= ceiling is the validation check `weight_order_chain` "
+        "(decisions G-4 / G-14); the ceiling is every row aboard at once, a "
+        "loading only when the data base equals one loading.",
+        totals)
+
+    dist = md.distribution(project)
+    total = dist.weight()
+    components = []
+    for comp in MassComponent:
+        rows = dist.by_component.get(comp, [])
+        if not rows:
+            continue
+        w = dist.weight(comp)
+        components.append({
+            "Component": comp.value, "Items": len(rows),
+            f"Weight ({mass})": u.plain(w, "mass"),
+            "% of total": format_value(100.0 * w / total, "%") if total else "\u2014",
+            f"Xcg ({length})": u.plain(dist.cg("x", comp), "length"),
+            f"Zcg ({length})": u.plain(dist.cg("z", comp), "length")})
+    inferred = (f" {len(dist.inferred)} row(s) carry no component tag and sit on the "
+                f"fuselage beam by inference: {', '.join(dist.inferred[:6])}"
+                f"{' \u2026' if len(dist.inferred) > 6 else ''}." if dist.inferred else "")
+    components_table = (
+        "Mass by component",
+        "The partition the structural beams read (`mass_distribution.distribution`): "
+        "which beam carries each row's weight, by its `component` tag and "
+        "`wing_fraction`." + inferred,
+        components)
+
+    checks: List[Dict[str, Any]] = []
+    def state(check: Optional[md.MassCheck], name: str) -> None:
+        if check is None:
+            checks.append({"Check": name, "State": "\u2014 (nothing to compare)", "Detail": ""})
+        else:
+            checks.append({"Check": f"{name} (`{check.code}`)" + (f" \u2014 {check.case}" if check.case else ""),
+                           "State": "holds" if check.ok else "\u26a0 differs",
+                           "Detail": check.detail})
+    state(md.wing_mass_tie(project), "Wing panel override against the WING rows")
+    state(md.fuselage_reconciliation(project), "Entered fuselage station table against the rows")
+    for surface in ("htail", "vtail"):
+        state(md.tail_reconciliation(project, surface), f"{surface} panel override against its rows")
+    state(md.partition_closes(project), "Component partition closes on the data base total")
+    for check in md.case_loading_checks(project):
+        state(check, "Case loading")
+    untagged = md.untagged_tail_surfaces(project)
+    checks.append({"Check": "Every empennage surface has a tagged row",
+                   "State": "holds" if not untagged else "\u26a0 differs",
+                   "Detail": ("" if not untagged else
+                              f"no row is tagged {' or '.join(untagged)}: that surface's "
+                              "mass rides the fuselage beam")})
+    unplaced = md.unplaced_items(project)
+    checks.append({"Check": "Every row is placed (a station and a component tag)",
+                   "State": "holds" if not unplaced else "\u26a0 differs",
+                   "Detail": "" if not unplaced else md.unplaced_warning(project)})
+    checks_table = (
+        "Mass model checks",
+        "Every reconciliation the mass model makes, stated where the mass is "
+        "edited rather than only on the pages that read it (#386). A check that "
+        "differs is also raised as a warning on its reading page.",
+        checks)
+    return [totals_table, components_table, checks_table]
+
+
 #: Read-only tables rendered under a form group, keyed by group prefix: a
 #: per-case view of what the group's inputs resolve to, in the display units.
-GROUP_TABLES: Dict[str, Callable[[Project, UnitSystem],
-                                 Optional[Tuple[str, str, List[Dict[str, Any]]]]]] = {
+#: A builder returns one table or a list of them (#386).
+GROUP_TABLES: Dict[str, Callable[[Project, UnitSystem], Any]] = {
+    "weight.items[]": _mass_database_tables,
     "weight.cg_cases[]": _mass_cases_table,
     "wing_mass.cases[]": _wing_parts_table,
 }
 
 
 def render_group_table(project: Project, prefix: str, system: UnitSystem) -> None:
-    """The :data:`GROUP_TABLES` entry for ``prefix``, if any."""
+    """The :data:`GROUP_TABLES` entry (or entries) for ``prefix``, if any."""
     build = GROUP_TABLES.get(prefix)
     if build is None:
         return
-    table = build(project, system)
-    if table is None:
+    built = build(project, system)
+    if built is None:
         return
-    title, caption, rows = table
-    st.markdown(f"**{title}**")
-    st.caption(caption)
-    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+    tables = built if isinstance(built, list) else [built]
+    for title, caption, rows in tables:
+        st.markdown(f"**{title}**")
+        st.caption(caption)
+        st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
 
 
 def _to_display(value: Any, unit: FieldUnit) -> Any:

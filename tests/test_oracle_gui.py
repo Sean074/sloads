@@ -1329,11 +1329,11 @@ def _fixture_project(example):
 
 def _data_files(example="ga6_normal", system=UnitSystem.IMPERIAL, project=None):
     """Every file the oracle GUI's one tabular channel hands the user (#245)."""
+    import dataclasses
+
     from sloads.models.report import default_spec
     from sloads.report.oracle_content import build_oracle_document
     from sloads.report.package_data import data_files
-
-    import dataclasses
 
     spec = dataclasses.replace(default_spec(), unit_system=system)
     doc = build_oracle_document(
@@ -2363,6 +2363,41 @@ def test_a_group_note_names_a_group_an_oracle_page_renders():
                 for prefix, _paths in page_groups(step.key)}
     unknown = sorted(set(GROUP_NOTES) - rendered)
     assert not unknown, f"group notes for groups no oracle page renders: {unknown}"
+
+
+def test_the_items_grid_carries_its_totals_partition_and_checks():
+    """#386 (review B1-B3): three read-only tables under the Items grid, each a
+    view of an owner -- the kind totals of ``loading_kind_totals``, the
+    partition of ``distribution`` and every mass-model check with its state --
+    and the empty Tail Mass table states each surface's derived weight (B10)."""
+    from oracle_app.form import GROUP_NOTES, GROUP_TABLES, _mass_database_tables
+    from sloads import mass_distribution as md
+
+    project = io.load_project(_EXAMPLE)
+    assert GROUP_TABLES["weight.items[]"] is _mass_database_tables
+    tables = _mass_database_tables(project, UnitSystem.IMPERIAL)
+    titles = [title for title, _caption, _rows in tables]
+    assert titles == ["Weight data base totals", "Mass by component", "Mass model checks"]
+    totals, components, checks = (rows for _t, _c, rows in tables)
+    kinds = md.loading_kind_totals(project)
+    assert [r["Loading"] for r in totals[:4]] == [k.name for k in kinds]
+    assert totals[3]["Rows"] == len(project.weight.items)
+    assert [r["Loading"] for r in totals[4:]] == [
+        "Max zero-fuel weight (MZFW)", "Max landing weight (MLW)", "Max take-off weight (MTOW)"]
+    assert totals[6]["Order"] == "holds"                      # ga6's chain holds
+    dist = md.distribution(project)
+    assert {r["Component"] for r in components} == {c.value for c in dist.by_component if dist.by_component[c]}
+    assert all(r["State"] in ("holds", "\u26a0 differs", "\u2014 (nothing to compare)") for r in checks)
+    assert any(r["Check"].startswith("Component partition closes") and r["State"] == "holds" for r in checks)
+    assert any("wing_mass_tie" in r["Check"] or r["Check"].startswith("Wing panel") for r in checks)
+    # SI: the same rows in the page's units, nothing recomputed.
+    si_totals = _mass_database_tables(project, UnitSystem.SI)[0][2]
+    assert "Weight (kg)" in si_totals[0]
+    # An empty data base draws nothing rather than three empty tables.
+    assert _mass_database_tables(Project(name="bare"), UnitSystem.IMPERIAL) is None
+    note = GROUP_NOTES["tail_mass[]"](project)
+    assert "htail" in note and "vtail" in note and "derived_tail_surface_weight" in note
+    assert GROUP_NOTES["tail_mass[]"](Project(name="bare")) == ""
 
 
 def test_the_tail_cp_suggestion_is_the_empennage_record_arithmetic():
