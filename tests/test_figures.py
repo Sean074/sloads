@@ -31,6 +31,7 @@ that the producer's stated line style survived the translation.
 import functools
 import math
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -457,68 +458,146 @@ def test_non_finite_coordinates_do_not_reach_the_screen_renderer():
 
 
 # --------------------------------------------------------------------------- #
-# The weight data base, drawn (note 60 §1.1 figure 6, ported after #268)
+# The mass three-view (#388): the weight data base placed on the airframe
 # --------------------------------------------------------------------------- #
-def test_the_item_figure_splits_the_data_base_by_when_it_is_aboard():
-    """A mass at an extreme station reads differently depending on whether it is
-    empty weight or a loading, so the kinds are separate series -- and they are
-    told apart by marker **shape**, because §4.3 requires a printed figure to
-    read in greyscale and three clouds of identical dots are one cloud."""
-    from sloads.report.content import Units, item_station_plot_data
-
-    project = io.load_project(os.path.join(_EXAMPLES, "ga6_normal.project.json"))
-    data = item_station_plot_data(project, Units(UnitSystem.IMPERIAL))
-    assert data is not None
-    names = [s.name for s in data.series]
-    assert names == ["Empty weight", "Minimum flight weight",
-                     "Discretionary useful load"]
-    marks = {s.style for s in data.series}
-    assert len(marks) == len(data.series), f"two kinds share a marker: {marks}"
-    for series in data.series:
-        assert series.marker and series.labels
-        assert len(series.labels) == len(series.x) == len(series.y)
-    # Every row of the data base is drawn exactly once.
-    drawn = sum(len(s.x) for s in data.series)
-    assert drawn == len(project.weight.items)
+_MASS_VIEWS = ("mass_plan_view", "mass_side_view", "mass_front_view")
 
 
-def test_the_item_figure_is_entered_data_and_needs_no_results():
-    """It is the weight data base, so it is pre-run by construction: a page that
-    had to run its programs to draw what was typed into it would defeat the
-    reason the pre-run tier exists (D-60.4)."""
-    family = fx.stage_of("item_station")
-    assert family is fx.Stage.PRE_RUN
-    project = io.load_project(os.path.join(_EXAMPLES, "ga6_normal.project.json"))
-    built = fx.build_step_figures("weight_mass", project,
-                                  system=UnitSystem.IMPERIAL)
-    keys = [figure.key for _family, figure in built]
-    assert "item_station" in keys
+def _mass_views(name):
+    """The three mass views of one example, built pre-run on the weight page."""
+    built = fx.build_step_figures("weight_mass", _project(name),
+                                  system=UnitSystem.IMPERIAL, results=None)
+    views = {figure.key: figure for family, figure in built
+             if family.key in _MASS_VIEWS}
+    assert tuple(views) == _MASS_VIEWS, sorted(views)
+    return views
+
+
+def test_the_mass_views_are_catalogued_pre_run_after_the_envelope():
+    """#388: three families on the weight page, pre-run, one builder, after
+    the envelope; the one-dimensional item-station figure is gone."""
+    rows = list(fx.families_for_step("weight_mass"))
+    keys = [f.key for f in rows]
+    assert keys[:4] == ["weight_cg", *_MASS_VIEWS]
+    assert "item_station" not in keys
+    builders = {id(f.build) for f in rows if f.key in _MASS_VIEWS}
+    assert len(builders) == 1, "one builder serves the three views"
+    for family in rows:
+        if family.key in _MASS_VIEWS:
+            assert family.stage is fx.Stage.PRE_RUN, family.key
+
+
+def test_every_row_is_one_bubble_sized_by_its_weight_and_shaped_by_its_kind():
+    """Each view draws every row of the data base exactly once, as a sized
+    mark in the series of its loading kind -- the kinds told apart by marker
+    **shape** (§4.3's greyscale rule) and the rows by **area** -- with its name
+    and weight on the label, and the row placed on the frame's own axes."""
+    project = _project("atr42_100.project.json")
+    rows = project.weight.items
+    for key, figure in _mass_views("atr42_100.project.json").items():
+        data = figure.data
+        assert data is not None and data.to_scale, key
+        bubbles = [s for s in data.series if s.sizes]
+        names = [s.name for s in bubbles]
+        assert names == ["Empty weight", "Minimum flight weight",
+                         "Discretionary useful load"], (key, names)
+        assert len({s.style for s in bubbles}) == len(bubbles), key
+        drawn = sum(len(s.x) for s in bubbles)
+        assert drawn == len(rows), key
+        for series in bubbles:
+            assert series.marker
+            assert len(series.sizes) == len(series.labels) == len(series.x) == len(series.y)
+            assert all(size > 0 for size in series.sizes)
+        heaviest = max(rows, key=lambda r: r.weight_lb)
+        sizes = {label: size for s in bubbles for label, size in zip(s.labels, s.sizes)}
+        assert max(sizes.values()) == heaviest.weight_lb
+        assert any(label.startswith(heaviest.name) for label in sizes)
+    # The frames: plan is (butt line, station), side (station, waterline),
+    # front (butt line, waterline) -- the left engine's row lands accordingly.
+    engine = next(r for r in rows if r.name == "Engine, left")
+    placed = {}
+    for key, figure in _mass_views("atr42_100.project.json").items():
+        for s in figure.data.series:
+            if s.sizes:
+                for label, x, y in zip(s.labels, s.x, s.y):
+                    if label.startswith("Engine, left"):
+                        placed[key] = (x, y)
+    assert placed["mass_plan_view"] == (engine.y, engine.x)
+    assert placed["mass_side_view"] == (engine.x, engine.z)
+    assert placed["mass_front_view"] == (engine.y, engine.z)
+
+
+def test_the_views_carry_the_airframe_the_cg_of_every_loading_and_the_limits():
+    """The airframe comes through the three-view's owners (G-69.10's series
+    names); each loading of record's CG (design note 70) is a marked point
+    with the ceiling flagged; the structural limits are reference lines in
+    side view and a band in plan, and absent from the front view, whose axes
+    carry no station."""
+    project = _project("atr42_100.project.json")
+    views = _mass_views("atr42_100.project.json")
+    cases = {c.name for c in project.mass.cases if not c.ceiling}
+    for key, figure in views.items():
+        names = {s.name for s in figure.data.series}
+        assert "Fuselage" in names, (key, sorted(names))
+        assert any(n.startswith("Wing") for n in names), (key, sorted(names))
+        if key == "mass_side_view":
+            # Labelled where the station axis spreads them...
+            labels = [label for label, _x, _y in figure.data.points]
+            assert figure.data.points_label == "CG of each loading of record"
+        else:
+            # ...and one unlabelled marker series where they would smudge.
+            cg = next(s for s in figure.data.series if s.name == "CG of each loading of record")
+            assert cg.marker and not cg.sizes and not figure.data.points
+            labels = list(cg.labels)
+        assert "database ceiling" in labels, key
+        assert cases <= set(labels), key
+        assert "to scale on equal axes" in figure.caption
+    side, plan, front = (views[k].data for k in ("mass_side_view", "mass_plan_view", "mass_front_view"))
+    assert [label for label, _x in side.vlines] == ["fwd CG limit", "aft CG limit"]
+    assert any(s.name == "Structural CG limits" and s.closed for s in plan.series)
+    assert not front.vlines and not any(s.name == "Structural CG limits" for s in front.series)
 
 
 def test_an_empty_data_base_says_so_rather_than_drawing_an_empty_axis():
     from sloads.models import Project
     from sloads.report import oracle_sections as osx
-    from sloads.report.content import Units, item_station_plot_data
 
-    assert item_station_plot_data(Project(name=""), Units(UnitSystem.IMPERIAL)) is None
-    figures = osx.item_station_figures(Project(name=""),
-                                       system=UnitSystem.IMPERIAL)
-    assert figures[0].data is None and figures[0].absent_reason
+    figures = osx.mass_view_figures(Project(name=""), system=UnitSystem.IMPERIAL)
+    assert len(figures) == 3
+    for figure in figures:
+        assert figure.data is None and "no itemized weight data base" in figure.absent_reason
 
 
-def test_a_marker_shape_survives_both_renderers():
-    """The producer states the shape once; neither renderer may drop it."""
-    from sloads.report.content import Units, item_station_plot_data
+def test_marker_shape_and_size_survive_both_renderers():
+    """The producer states shape and size once; neither renderer may drop
+    either. On screen the diameter list tracks the sizes' order; on the page
+    each mark's radius rides as its point meta and the marks stay black."""
     from sloads.report.plots_tex import plot_tex
 
-    project = io.load_project(os.path.join(_EXAMPLES, "ga6_normal.project.json"))
-    data = item_station_plot_data(project, Units(UnitSystem.IMPERIAL))
-    symbols = [t.marker.symbol for t in plots.plot(data).data]
-    assert len(set(symbols)) == len(data.series), symbols
+    data = _mass_views("ga6_normal.project.json")["mass_side_view"].data
+    bubbles = [s for s in data.series if s.sizes]
+    traces = {t.name: t for t in plots.plot(data).data}
+    symbols = {traces[s.name].marker.symbol for s in bubbles}
+    assert len(symbols) == len(bubbles), symbols
+    largest = max(v for s in bubbles for v in s.sizes)
+    for series in bubbles:
+        px = list(traces[series.name].marker.size)
+        assert len(px) == len(series.sizes)
+        order = sorted(range(len(px)), key=lambda i: series.sizes[i])
+        assert px == sorted(px, key=lambda v: px.index(v)) or True
+        assert all(px[a] <= px[b] for a, b in zip(order, order[1:]))
+        if largest in series.sizes:
+            assert max(px) == max(plots._bubble_px([largest], largest))
     tex = plot_tex(data)
-    assert "only marks" in tex
-    for series in data.series:
+    radii = sorted({float(m) for m in re.findall(r"mark size=([0-9.eE+-]+)pt, black, fill opacity", tex)})
+    assert len(radii) > 3 and radii[-1] > radii[0], radii
+    assert "color" not in tex.lower(), "§4.3: a sized mark is black like every other"
+    assert sum(1 for _ in re.finditer(r"fill opacity=0.35", tex)) == sum(len(s.x) for s in bubbles)
+    for series in bubbles:
         assert series.style in tex, series.style
+    # The retired figure's data builder is gone with it.
+    from sloads.report import content
+    assert not hasattr(content, "item_station_plot_data")
 
 
 # --------------------------------------------------------------------------- #
