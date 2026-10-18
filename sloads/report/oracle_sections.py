@@ -82,7 +82,6 @@ from .content import (
     Series,
     Table,
     Units,
-    item_station_plot_data,
     speed_altitude_plot_data,
     weight_cg_plot_data,
 )
@@ -1158,28 +1157,6 @@ def _weight_cg_figure(project: Project, system: UnitSystem) -> Figure:
     )
 
 
-def _item_station_figure(project: Project, system: UnitSystem) -> Figure:
-    """Section 2.2's weight data base drawn: item weight against station."""
-    data = item_station_plot_data(project, Units(system))
-    if data is None:
-        return Figure(
-            "item_station", "Item weight against fuselage station",
-            absent_reason="this airplane has no itemized weight data base, so "
-                          "there are no items to place along the body",
-        )
-    kinds = len(data.series)
-    split = (" The loading kinds are drawn with their own marker shapes: when "
-             "an item is aboard is the first thing a mass at an extreme station "
-             "has to be read against." if kinds > 1 else "")
-    return Figure(
-        "item_station", "Item weight against fuselage station",
-        data=data,
-        caption="Every row of the weight data base at its entered station."
-                + split + " This is entered data, not a result: no load is "
-                "drawn here and no factor applies.",
-    )
-
-
 #: The per-case mass-properties columns (design note 70 D-70.6): result key ->
 #: printed heading. Guarded against the module's own keys by the report tests.
 _MASS_COLUMNS: Tuple[Tuple[str, str], ...] = (
@@ -1253,7 +1230,7 @@ def _weights(project: Project,
         body.append(far)
     return Section("", body=body, tables=tables,
                    figures=(weight_cg_figures(project, system=system)
-                            + item_station_figures(project, system=system)))
+                            + mass_view_figures(project, system=system)))
 
 
 # --------------------------------------------------------------------------- #
@@ -7871,6 +7848,143 @@ def _airplane_view_figure(project: Project, *, frame: str, key: str,
         caption=" ".join(caption))
 
 
+
+#: The three frames of the mass three-view (#388), in the airplane three-view's
+#: order: ``(frame, figure key, title, viewpoint)``.
+_MASS_VIEWS: Tuple[Tuple[str, str, str, str], ...] = (
+    ("butt", "mass_plan_view", "The mass in plan view",
+     "Looking down on the airplane"),
+    ("water", "mass_side_view", "The mass in side view",
+     "Looking at the left-hand side of the airplane"),
+    ("front", "mass_front_view", "The mass in front view",
+     "Looking aft, from ahead of the airplane"),
+)
+
+
+#: The legend entry the loadings' CG markers are drawn under, in every frame.
+_CG_POINTS_LABEL = "CG of each loading of record"
+
+
+def _placed(frame: str, x: float, y: float, z: float, scale: float) -> Tuple[float, float]:
+    """An entered ``(station, butt line, waterline)`` on the frame's plotted axes."""
+    if frame == "butt":
+        return (y * scale, x * scale)
+    if frame == "water":
+        return (x * scale, z * scale)
+    return (y * scale, z * scale)
+
+
+def _mass_view_figure(project: Project, *, frame: str, key: str,
+                      title: str, view: str, system: UnitSystem) -> Figure:
+    """One frame of the mass three-view (#388): every weight-data-base row as
+    a bubble whose area is its weight, on the airframe the airplane three-view
+    draws, with the CG of each loading of record (design note 70) marked and
+    the structural CG limits shown where the station axis lies in the frame.
+
+    Marker shape by loading kind (:data:`_ITEM_KINDS`, the rule the retired
+    item-station figure carried): *when* a row is aboard is the first thing a
+    mass at an extreme station has to be read against. The airframe is drawn
+    through the same owners as the three-view, so a row outside the body
+    (``mass_item_outside_body``) is something a reader sees. Engines and
+    gear are not drawn as geometry here -- they are rows of the data base,
+    and drawing them twice would put two marks where there is one mass.
+    """
+    from ..validation import wtenv_cg_limits
+    from .content import _EXTRA_DIMENSIONS, _ITEM_KINDS
+
+    weight = project.weight
+    items = list(weight.items) if weight is not None else []
+    if not items:
+        return Figure(key=key, title=title, absent_reason=(
+            "this airplane has no itemized weight data base, so there is no "
+            "mass to place on the airframe"))
+    scale, length_units = _length_channel(system)
+    mass_units = "kg" if system is UnitSystem.SI else "lb"
+    mass_f = 1.0 if system is UnitSystem.IMPERIAL else _EXTRA_DIMENSIONS["mass"][0]
+
+    series, drawn = _airframe_series(project, frame, scale, entered_tails=True)
+    airframe_named = list(drawn)
+
+    kinds: List[str] = []
+    for value, name, style in _ITEM_KINDS:
+        rows = [i for i in items if str(getattr(i.kind, "value", i.kind)) == value]
+        if not rows:
+            continue
+        pts = [_placed(frame, i.x, i.y, i.z, scale) for i in rows]
+        series.append(Series(
+            name, [p[0] for p in pts], [p[1] for p in pts], style=style, marker=True,
+            labels=[f"{i.name}: {format_value(i.weight_lb * mass_f, mass_units)} {mass_units}"
+                    + (f", {i.component.value}" if i.component is not None else "")
+                    for i in rows],
+            sizes=[i.weight_lb * mass_f for i in rows]))
+        kinds.append(name.lower())
+
+    # The CG of every loading of record, and the ceiling, flagged (note 70):
+    # labelled markers in side view, where the station axis spreads them;
+    # in plan and front view every case sits on the centre plane within a
+    # few inches of the others, and twelve labels on one spot are a smudge,
+    # so there the CGs are one unlabelled marker series under the same name.
+    points: List[Tuple[str, float, float]] = []
+    rows_cg = list(project.mass.cases) if project.mass is not None else []
+    cg_marks = [("database ceiling" if row.ceiling else row.name,
+                 *_placed(frame, row.cg_x, row.cg_y, row.cg_z, scale)) for row in rows_cg]
+    if frame == "water":
+        points = cg_marks
+    elif cg_marks:
+        series.append(Series(_CG_POINTS_LABEL, [m[1] for m in cg_marks], [m[2] for m in cg_marks],
+                             "mark=diamond*", marker=True, labels=[m[0] for m in cg_marks]))
+
+    # The structural CG limits, where the station axis lies in this frame: a
+    # pair of reference lines in side view, a band across the span in plan.
+    vlines: List[Tuple[str, float]] = []
+    limits = wtenv_cg_limits(project)
+    limits_drawn = False
+    if limits is not None and frame in ("water", "butt"):
+        fwd, aft = (v * scale for v in limits)
+        if frame == "water":
+            vlines = [("fwd CG limit", fwd), ("aft CG limit", aft)]
+        else:
+            xs = [v for s in series for v in s.x]
+            lo, hi = (min(xs), max(xs)) if xs else (-1.0, 1.0)
+            series.append(Series("Structural CG limits", [lo, hi, hi, lo], [fwd, fwd, aft, aft],
+                                 "densely dotted", closed=True))
+        limits_drawn = True
+
+    x_label, y_label = _PLANFORM_AXES[frame]
+    caption = [
+        f"{view}, to scale on equal axes: every row of the weight data base at "
+        "its entered station, butt line and waterline, drawn as a bubble whose "
+        f"area is its weight ({mass_units}), with the marker shape saying when "
+        f"the row is aboard ({_joined(kinds)}).",
+    ]
+    if airframe_named:
+        caption.append(f"The airframe behind it -- {_joined(airframe_named)} -- is "
+                       "drawn through the owners the airplane three-view reads, so "
+                       "a mass outside the body is seen here, not only warned.")
+    else:
+        caption.append("No airframe is drawn: the project enters no fuselage "
+                       "outline, wing or tail polylines.")
+    if cg_marks:
+        caption.append("Each diamond is the centre of gravity of one loading of "
+                       "record (one per weight and centre-of-gravity case); the "
+                       "database ceiling -- every row aboard at once, a loading only "
+                       "when the data base sums to one -- is among them"
+                       + (", labelled." if frame == "water" else
+                          ", unlabelled here: the cases are named in the side view, "
+                          "where the station axis spreads them."))
+    if limits_drawn:
+        caption.append("The structural forward and aft CG limits are "
+                       + ("the two dotted reference lines." if frame == "water"
+                          else "the dotted band across the span."))
+    caption.append("Nothing here is a load: no value is scaled and none carries "
+                   "a safety factor.")
+    return Figure(
+        key=key, title=title,
+        data=PlotData(f"{x_label} ({length_units})", f"{y_label} ({length_units})",
+                      series, points=points, vlines=vlines, to_scale=True,
+                      points_label=_CG_POINTS_LABEL),
+        caption=" ".join(caption))
+
 # --- the section ------------------------------------------------------------- #
 def _engine_mount(project: Project, results: Mapping[str, Optional[ModuleResult]],
                   *, system: UnitSystem, plan: Sequence[SectionPlan]) -> Section:
@@ -9752,11 +9866,16 @@ def weight_cg_figures(project: Project, *, system: UnitSystem,
     return [_weight_cg_figure(project, system)]
 
 
-def item_station_figures(project: Project, *, system: UnitSystem,
-                         results: Optional[Mapping[str, Optional[ModuleResult]]] = None,  # noqa: ARG001
-                         ) -> List[Figure]:
-    """2.2's weight data base drawn along the body (note 60 §1.1 figure 6)."""
-    return [_item_station_figure(project, system)]
+def mass_view_figures(project: Project, *, system: UnitSystem,
+                      results: Optional[Mapping[str, Optional[ModuleResult]]] = None,  # noqa: ARG001
+                      ) -> List[Figure]:
+    """2.2's mass three-view (#388): the weight data base placed on the
+    airplane, one bubble per row, in the three frames of the airplane
+    three-view. Pre-run: entered data and the derived mass slice; ``results``
+    is not consulted."""
+    return [_mass_view_figure(project, frame=frame, key=key, title=title,
+                              view=view, system=system)
+            for frame, key, title, view in _MASS_VIEWS]
 
 
 def speed_altitude_figures(project: Project, *, system: UnitSystem,  # noqa: ARG001

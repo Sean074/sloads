@@ -101,6 +101,21 @@ def _coordinates(points: Iterable[tuple]) -> str:
     return " ".join(f"({_num(x)},{_num(y)})" for x, y in points)
 
 
+#: The mark radius range, in pt, a sized series is printed over (#388): the
+#: radius goes as the square root of the size so the mark's *area* tracks it,
+#: as the screen renderer's diameter does (``app_shell.plots._BUBBLE_PX``).
+_BUBBLE_PT = (0.8, 5.0)
+
+
+def _bubble_radii(points: Iterable[tuple], series, largest: float):
+    """``(point, mark radius in pt)`` per vertex of a sized series."""
+    lo, hi = _BUBBLE_PT
+    pts = list(points)
+    sizes = list(series.sizes)[:len(pts)]
+    return [(pt, lo + (hi - lo) * math.sqrt(max(size, 0.0) / largest) if largest > 0 else lo)
+            for pt, size in zip(pts, sizes)]
+
+
 def _y_range(data: PlotData) -> Optional[tuple]:
     ys: List[float] = []
     for s in data.series:
@@ -382,6 +397,7 @@ def plot_tex(data: PlotData, *, width: str = "0.86\\textwidth",
     # Coincident points share a marker and a label, as on screen (#256).
     data = replace(data, points=data.marked_points())
     legend_columns = _legend_columns(data, legend_columns)
+    largest = max((v for s in data.series for v in s.sizes), default=0.0)
 
     lines = [
         r"\begin{tikzpicture}",
@@ -441,6 +457,25 @@ def plot_tex(data: PlotData, *, width: str = "0.86\\textwidth",
         mark = "" if "mark=" in s.style else "mark=o, "
         options = (f"only marks, {mark}mark size=1.6pt, black, {s.style}"
                    if s.marker else f"black, {s.style}, thick, mark=none")
+        if s.marker and s.sizes:
+            # A sized cloud (#388): each mark's area tracks its size against
+            # the figure's largest, so the page shows the same bubbles the
+            # screen does. One ``\addplot`` per point, because a mark size is
+            # a plot option and the alternative -- a pgfplots scatter with its
+            # size as point meta -- colour-maps the marks, and §4.3's
+            # greyscale guard rightly refuses a ``color`` key in the document.
+            # The first point carries the legend entry; the rest forget plot.
+            for index, (point, radius) in enumerate(_bubble_radii(pts, s, largest)):
+                plot_options = (f"only marks, {mark}mark size={_num(radius)}pt, black, "
+                                f"fill opacity=0.35, {s.style}")
+                if index == 0 and s.name:
+                    lines.append(f"\\addplot[{plot_options}] coordinates "
+                                 f"{{{_coordinates([point])}}};")
+                    lines.append(f"\\addlegendentry{{{escape(s.name)}}}")
+                    continue
+                lines.append(f"\\addplot[{plot_options}, forget plot] coordinates "
+                             f"{{{_coordinates([point])}}};")
+            continue
         if not s.name:
             lines.append(f"\\addplot[{options}, forget plot] coordinates "
                          f"{{{_coordinates(pts)}}};")

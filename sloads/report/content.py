@@ -148,6 +148,15 @@ class Series:
     #: one member of the model the two renderers do not both honour, and it is
     #: allowed to be because it carries no data the figure's geometry needs.
     labels: List[str] = field(default_factory=list)
+    #: Per-vertex **marker area**, parallel to :attr:`x` and :attr:`y`, or
+    #: empty for uniform marks (#388, the mass three-view). A size is a
+    #: quantity in the figure's own terms -- a row's weight -- and both
+    #: renderers scale the mark's *area* to the largest size in the whole
+    #: figure, so a 1,000 lb item is four times the area of a 250 lb one on
+    #: the screen and on the page alike and the kinds stay comparable across
+    #: series. Area, not diameter: a bubble chart read by eye compares areas.
+    #: Read on marker series only.
+    sizes: List[float] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -660,55 +669,14 @@ def weight_cg_plot_data(project: Project, u: Units) -> Optional[PlotData]:
 
 #: The marker shape each loading kind is drawn with, and the order the legend
 #: lists them in. Shape rather than colour, for §4.3's greyscale rule: three
-#: clouds of identical dots would be one cloud on a printed page.
+#: clouds of identical dots would be one cloud on a printed page. Read by the
+#: mass three-view (``oracle_sections.mass_view_figures``, #388), which
+#: replaced the one-dimensional item-station figure that first carried it.
 _ITEM_KINDS: Tuple[Tuple[str, str, str], ...] = (
     ("empty", "Empty weight", "mark=*"),
     ("minimum", "Minimum flight weight", "mark=square*"),
     ("discretionary", "Discretionary useful load", "mark=triangle*"),
 )
-
-
-def item_station_plot_data(project: Project, u: Units) -> Optional[PlotData]:
-    """Each mass item's weight against its fuselage station, by loading kind.
-
-    The figure note 60 §1.1 counted as #6 and #267 could not port, the model
-    having had no way to say "a cloud of named points" until #268 added one.
-    It is the weight data base drawn: where the mass sits along the body, which
-    is how an item entered at the wrong station is seen rather than computed
-    around. Split by :class:`~sloads.models.enums.MassItemKind` because *when*
-    an item is aboard is the first question a reader has about a mass at an
-    extreme station -- a heavy nose item that is discretionary is a loading, a
-    heavy nose item that is empty weight is the airplane.
-
-    ``None`` when the data base is empty: there is nothing to draw, and the
-    caller says so rather than printing an empty axis.
-
-    The item names ride on :attr:`Series.labels`, so the screen names each point
-    on hover and the printed figure does not try to. A stem plot -- the shape
-    the retiring GUI drew -- would need a member of its own; a labelled point at
-    the same coordinates carries the same reading, which is why this ports now
-    and did not at #267.
-    """
-    weight = project.weight
-    items = list(weight.items) if weight is not None else []
-    if not items:
-        return None
-
-    L, W = u.label("length"), u.label("mass")
-    len_f = u.d.length.factor
-    mass_f = 1.0 if u.system == UnitSystem.IMPERIAL else _EXTRA_DIMENSIONS["mass"][0]
-
-    series = []
-    for value, name, style in _ITEM_KINDS:
-        rows = [i for i in items if str(getattr(i.kind, "value", i.kind)) == value]
-        if not rows:
-            continue
-        series.append(Series(
-            name, [i.x * len_f for i in rows], [i.weight_lb * mass_f for i in rows],
-            style=style, marker=True, labels=[i.name for i in rows]))
-    if not series:
-        return None
-    return PlotData(f"Fuselage station ({L})", f"Item weight ({W})", series)
 
 
 __all__ = [
@@ -720,7 +688,6 @@ __all__ = [
     "Table",
     "Units",
     "component_loads",
-    "item_station_plot_data",
     "speed_altitude_plot_data",
     "weight_cg_plot_data",
 ]

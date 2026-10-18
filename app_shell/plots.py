@@ -36,6 +36,7 @@ Streamlit runtime.
 
 from __future__ import annotations
 
+import math
 from typing import List, Optional, Tuple
 
 import plotly.graph_objects as go
@@ -152,10 +153,24 @@ def is_to_scale(data: PlotData) -> bool:
     return data.to_scale
 
 
+#: The marker diameter range, in pixels, a sized series is drawn over: the
+#: smallest size in the figure gets the floor, the largest the ceiling, and
+#: the diameter in between goes as the square root of the size so the mark's
+#: *area* is what tracks the quantity (:attr:`Series.sizes`).
+_BUBBLE_PX = (5.0, 30.0)
+
+
+def _bubble_px(sizes, largest: float) -> list:
+    lo, hi = _BUBBLE_PX
+    return [lo + (hi - lo) * math.sqrt(max(s, 0.0) / largest) if largest > 0 else lo
+            for s in sizes]
+
+
 def plot(data: PlotData, *, height: int = 420) -> go.Figure:
     """``data`` as a Plotly figure. No Streamlit, no project, no calc."""
     fig = go.Figure()
     colours = iter(_COLOURS * 4)
+    largest = max((s for series in data.series for s in series.sizes), default=0.0)
     for series in data.series:
         colour = next(colours)
         x, y = _xy(series)
@@ -164,14 +179,18 @@ def plot(data: PlotData, *, height: int = 420) -> go.Figure:
             # A scatter (#268). ``Series.labels`` is per-point identity and the
             # only place it is shown is the hover, which is the question a
             # scatter provokes -- which one is that? -- answered without
-            # printing a name over every point of the cloud.
+            # printing a name over every point of the cloud. A sized series
+            # (#388) draws each mark's area to its size against the figure's
+            # largest, so two kinds of the one figure stay comparable.
             labels = list(series.labels)
+            size = _bubble_px(series.sizes, largest) if series.sizes else 9
             fig.add_trace(go.Scatter(
                 x=x, y=y, name=series.name, mode="markers",
                 showlegend=bool(series.name),
                 text=labels or None,
-                marker={"size": 9, "color": colour,
+                marker={"size": size, "color": colour,
                         "symbol": _symbol(series.style),
+                        "opacity": 0.75 if series.sizes else 1.0,
                         "line": {"width": 1, "color": colour}},
                 hovertemplate=(("%{text}<br>" if labels else f"{series.name}<br>")
                                + "%{x}, %{y}<extra></extra>")))
