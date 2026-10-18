@@ -110,7 +110,7 @@
       "airplane": "BEECH BARON 58 (6-PLACE TWIN, RETRACTABLE)",
       "max_continuous_hp": 300,
       "override_max_continuous_hp": false,
-      "engine_count": 2,
+      "engine_count": 0,
       "seats": 6,
       "crew": 1,
       "cruise_hours": 5,

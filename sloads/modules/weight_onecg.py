@@ -74,6 +74,14 @@ def weights_and_inertia(items: List[MassItem]) -> ConditionResult:
            + math.fsum(it.izz for it in loaded))
     ixz = math.fsum(it.weight_lb * (it.x - xbar) * (it.z - zbar) for it in loaded)
 
+    # The share of each inertia the rows' *own* inertias supply (#385, review
+    # A5): the rest is the parallel-axis transfer alone. Appendix A's IXX
+    # 1201.527 needs the ga6 rows' own terms; an airplane whose rows carry
+    # none is a transfer-only answer, and the page says so.
+    own_ixx = math.fsum(it.ixx for it in loaded)
+    own_iyy = math.fsum(it.iyy for it in loaded)
+    own_izz = math.fsum(it.izz for it in loaded)
+
     # Convert lb-in^2 -> slug-ft^2.
     ixx_s = ixx / LBIN2_PER_SLUGFT2
     iyy_s = iyy / LBIN2_PER_SLUGFT2
@@ -109,6 +117,12 @@ def weights_and_inertia(items: List[MassItem]) -> ConditionResult:
             LoadValue("IY(P) principal", pyi, _SLUGFT2, key="iy_p_principal"),
             LoadValue("IZ(P) principal", pzi, _SLUGFT2, key="iz_p_principal"),
             LoadValue("Principal-axis angle theta", math.degrees(theta), "deg", key="principal_axis_angle_theta"),
+            LoadValue("IXX share from item own inertia", 100.0 * own_ixx / ixx if ixx else 0.0, "%",
+                      quantity="diagnostic", key="ixx_own_inertia_share"),
+            LoadValue("IYY share from item own inertia", 100.0 * own_iyy / iyy if iyy else 0.0, "%",
+                      quantity="diagnostic", key="iyy_own_inertia_share"),
+            LoadValue("IZZ share from item own inertia", 100.0 * own_izz / izz if izz else 0.0, "%",
+                      quantity="diagnostic", key="izz_own_inertia_share"),
         ],
         note="Theta measured up from the waterline and aft from the CG.",
     )

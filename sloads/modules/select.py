@@ -1592,6 +1592,50 @@ def select_vtail(project: Project, envelope: Optional[EnvelopeResult] = None) ->
 # --------------------------------------------------------------------------- #
 # Critical fuselage conditions (Ch 9; SELECT.BAS subroutine 4000)
 # --------------------------------------------------------------------------- #
+#: Ch 9's statistical wing-weight stand-in, the fraction of gross weight
+#: SELECT.BAS uses when no wing weight is known (subroutine 4000).
+WING_WEIGHT_STAND_IN_FRACTION = 0.09
+
+
+def derived_wing_weight(project: Project) -> Optional[float]:
+    """The wing group's empty weight from the weight data base (lb, both
+    sides), or ``None`` when no row is wing-carried (#385, review B9).
+
+    The ``EMPTY``-kind parts the wing reacts (``mass_distribution.wing_parts``:
+    structure, and whatever is hung on it -- engines, nacelles, a wing-mounted
+    gear -- at each row's wing fraction), **not** the fuel and payload the wing
+    may carry in a loading: Ch 9's ``WW`` is the wing's own weight, the term
+    that relieves the fuselage reaction ``LZW - NZ*WW`` in every loading
+    alike. On ``atr42_100`` this is 6,540 lb where the stand-in gives 3,314.
+    """
+    from ..mass_distribution import wing_parts
+    from ..models import MassItemKind
+
+    weight = project.weight
+    if weight is None or not weight.items:
+        return None
+    rows = [it for it in wing_parts(weight.items, project) if it.kind == MassItemKind.EMPTY]
+    if not rows:
+        return None
+    return math.fsum(it.weight_lb for it in rows)
+
+
+def resolved_wing_weight(project: Project) -> float:
+    """The ``WW`` the fuselage conditions react (note 36 OV-1, #385): the typed
+    ``select_input.wing_weight_lb`` governs; blank derives
+    :func:`derived_wing_weight`; with no wing-carried row the Ch 9 stand-in
+    ``0.09 x MTOW`` stands, as it did for every value until #385. ``ga6_normal``
+    types the stand-in (306 lb) because Appendix A's fuselage conditions are
+    computed with it; its data base's wing group is 330 lb."""
+    si = project.select_input
+    if si is not None and si.wing_weight_lb:
+        return si.wing_weight_lb
+    derived = derived_wing_weight(project)
+    if derived is not None:
+        return derived
+    return WING_WEIGHT_STAND_IN_FRACTION * max_takeoff_weight(project, required=False)
+
+
 def select_fuselage(project: Project, envelope: Optional[EnvelopeResult] = None) -> List[CriticalCondition]:
     """The critical fuselage *conditions* (Ch 9): the fuselage load reacted at the
     wing ``LZW - NZ*WW``, the aft-fuselage down/up bending (largest signed product
@@ -1612,9 +1656,7 @@ def select_fuselage(project: Project, envelope: Optional[EnvelopeResult] = None)
     vn = _resolve_envelope(project, envelope).vn
     if not vn:
         return []
-    si = project.select_input
-    mtow = max_takeoff_weight(project, required=False)
-    ww = (si.wing_weight_lb if si and si.wing_weight_lb else 0.09 * mtow)
+    ww = resolved_wing_weight(project)
 
     def fus_on_wing(p: VnPoint) -> float:      # fuselage load reacted at the wing
         return p.lzw - p.nz * ww

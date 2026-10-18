@@ -298,8 +298,12 @@ def envelope(project: Project, inp: WeightEnvelopeInput) -> List[ConditionResult
             LoadValue("Empty weight station", empty_x, _IN, key="empty_weight_station"),
             LoadValue("Minimum flight weight", min_w, _LB, quantity="mass", key="minimum_flight_weight"),
             LoadValue("Minimum flight weight station", min_x, _IN, key="minimum_flight_weight_station"),
-            LoadValue("Maximum loading weight", max_w, _LB, quantity="mass", key="maximum_loading_weight"),
-            LoadValue("Maximum loading station", max_x, _IN, key="maximum_loading_station"),
+            # The all-rows sum is the data base's ceiling (G-14), not a loading
+            # unless the data base sums to one; labelled so (#385, review A9).
+            LoadValue("Database ceiling weight (every row aboard)", max_w, _LB, quantity="mass",
+                      key="maximum_loading_weight"),
+            LoadValue("Database ceiling station (every row aboard)", max_x, _IN,
+                      key="maximum_loading_station"),
         ],
     )
 

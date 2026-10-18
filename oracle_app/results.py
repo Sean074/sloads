@@ -479,9 +479,50 @@ def rolling_couple_advisory(project: Project, system: UnitSystem) -> str:
     return text + ". The rows are the governing (100 %) side."
 
 
+def weight_onecg_advisory(project: Project, _system: UnitSystem) -> str:
+    """WTONECG's block caption: how much of each inertia the rows' own
+    inertias supply (#385, review A5).
+
+    The parallel-axis transfer is always there; the rows' own ``ixx``/``iyy``/
+    ``izz`` are entered or they are not, and the Appendix A airplane's IXX needs
+    them (1201.5 slug-ft^2 with, less without). A data base with none is a
+    transfer-only answer -- a different quality of number -- and the page says
+    so rather than printing the same table either way. Read from the module's
+    own share values, so the caption and the table cannot disagree.
+    """
+    from sloads.modules.weight_onecg import CEILING_TITLE, case_mass_properties
+
+    weight = project.weight
+    rows = list(weight.items) if weight is not None else []
+    if not rows:
+        return ""
+    with_own = sum(1 for it in rows if it.ixx or it.iyy or it.izz)
+    if not with_own:
+        return (f"**Transfer-only inertias.** None of the {len(rows)} weight rows "
+                "enters an inertia of its own (IXX/IYY/IZZ), so every moment of "
+                "inertia above is the parallel-axis transfer of point masses about "
+                "the CG and nothing else. Enter the rows' own inertias to complete it.")
+    try:
+        props = case_mass_properties(project)
+    # refusal: no mass properties; the share cannot be stated and the table says why
+    except ValueError:
+        return ""
+    ceiling = next((c for c in props.conditions if c.title == CEILING_TITLE), None)
+    if ceiling is None:
+        return ""
+    share = {v.key: v.value for v in ceiling.values}
+    return (f"{with_own} of {len(rows)} weight rows enter an inertia of their own; "
+            "over every row aboard those supply "
+            f"{format_value(share.get('ixx_own_inertia_share', 0.0), '%')} % of IXX, "
+            f"{format_value(share.get('iyy_own_inertia_share', 0.0), '%')} % of IYY and "
+            f"{format_value(share.get('izz_own_inertia_share', 0.0), '%')} % of IZZ -- "
+            "the rest is the parallel-axis transfer about the CG.")
+
+
 MODULE_ADVISORIES: Dict[str, Callable[[Project, UnitSystem], str]] = {
     "net_loads": rolling_couple_advisory,
     "weight_estimate": weight_estimate_advisory,
+    "weight_onecg": weight_onecg_advisory,
     "select": select_inertia_advisory,
     "taildist": taildist_spanwise_advisory,
     "landing": landing_frame_advisory,

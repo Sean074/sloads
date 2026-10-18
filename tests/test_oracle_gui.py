@@ -2331,8 +2331,11 @@ def test_only_the_advisory_module_carries_one():
 
     blocks = {b.module: b for b in step_results(_seeded(), "weight_mass",
                                                 UnitSystem.IMPERIAL)}
-    assert not blocks["weight_onecg"].advisory
     assert not blocks["weight_envelope"].advisory
+    # WTONECG's caption (#385) states the inertias' own-inertia share -- a
+    # fact about the numbers' quality, never a claim that nothing reads them.
+    onecg = blocks["weight_onecg"].advisory
+    assert "inertia" in onecg.lower() and "nothing reads" not in onecg.lower()
 
 
 def test_the_estimate_comparison_is_shown_in_the_page_unit_system():

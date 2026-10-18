@@ -306,9 +306,7 @@ def seed_plan(project: Project) -> SeedPlan:
         return SeedPlan(reason="The mission inputs above are not filled in yet, so "
                                "there is no estimate to seed from.")
     try:
-        candidates = estimate_to_mass_items(
-            replace(project.weight.estimation,
-                    max_continuous_hp=resolve_max_continuous_hp(project)))
+        candidates = estimate_to_mass_items(effective_estimation(project))
     except ValueError as exc:
         return SeedPlan(reason=f"The estimate cannot be built yet — {exc}.")
     entered = {_seed_key(it.name) for it in project.weight.items}
@@ -406,8 +404,7 @@ def compare_with_itemized(project: Project) -> Tuple[EstimateVsItemized, ...]:
 
     if project.weight is None or project.weight.estimation is None:
         return ()
-    summary = estimate(replace(project.weight.estimation,
-                               max_continuous_hp=resolve_max_continuous_hp(project)))[0]
+    summary = estimate(effective_estimation(project))[0]
 
     def estimated(key: str) -> float:
         return next((float(v.value) for v in summary.values if v.key == key), 0.0)
@@ -464,6 +461,31 @@ def resolve_max_continuous_hp_for(est: WeightEstimationInput,
     return engine_list_max_continuous_hp(engines) or est.max_continuous_hp
 
 
+def resolve_engine_count_for(est: WeightEstimationInput,
+                             engines: Sequence[EngineInput]) -> int:
+    """The engine count WTESTIMA correlates against (#385, note 36 OV-1).
+
+    The typed ``engine_count`` governs when it is non-zero; blank (``0``)
+    derives ``len(engines)`` -- the same quantity, held once. Until #385 the
+    count was typed beside the engine list with a caption asking the user to
+    keep the two in step, and ``concept_heavy`` carried 2 against an empty
+    list (review N1 instance 3). A project with neither is refused by
+    :func:`estimate` as before."""
+    return est.engine_count if est.engine_count else len(engines)
+
+
+def effective_estimation(project: Project) -> WeightEstimationInput:
+    """``project.weight.estimation`` with its two engine-list derives resolved
+    onto a local copy (never written back): the combined max-continuous power
+    (:func:`resolve_max_continuous_hp_for`, Step M2-6) and the engine count
+    (:func:`resolve_engine_count_for`, #385)."""
+    est = project.weight.estimation if project.weight is not None else None
+    if est is None:
+        raise MissingInputError("Project has no 'weight.estimation' inputs for the weight_estimate module")
+    return replace(est, max_continuous_hp=resolve_max_continuous_hp_for(est, project.engines),
+                   engine_count=resolve_engine_count_for(est, project.engines))
+
+
 def resolve_max_continuous_hp(project: Project) -> float:
     """Combined max-continuous power for the weight estimate (Step M2-6).
 
@@ -486,8 +508,7 @@ def run(project: Project) -> ModuleResult:
     """
     if project.weight is None or project.weight.estimation is None:
         raise MissingInputError("Project has no 'weight.estimation' inputs for the weight_estimate module")
-    est = replace(project.weight.estimation,
-                  max_continuous_hp=resolve_max_continuous_hp(project))
+    est = effective_estimation(project)
     conditions = estimate(est)
     if project.is_concept and conditions:
         conditions[0].note = _CONCEPT_NOTE

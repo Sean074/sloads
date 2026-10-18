@@ -20,7 +20,7 @@ The top-level `Project` fields. `name`/`engineer`/`date` are free-text metadata;
 | --- | --- | --- | --- | --- |
 | `engines` | `List[EngineInput]` | Engine Mount Loads / Geometry | `balance`, `engine`, `flap`, `one_engine_out`, `weight_estimate`, `wing_geometry` | Engine-mount inputs (one per engine) |
 | `engine_layout` | `EngineLayout (enum)` | Geometry | `wing_geometry` | Engine layout constraint (enum) |
-| `weight` | `?` | Weight & Mass Properties | `configuration`, `engine`, `weight_envelope`, `weight_estimate`, `weight_onecg` | Weight database (WTESTIMA / WTONECG / WTENV) |
+| `weight` | `?` | Weight & Mass Properties | `configuration`, `engine`, `select`, `weight_envelope`, `weight_estimate`, `weight_onecg` | Weight database (WTESTIMA / WTONECG / WTENV) |
 | `geometry` | `?` | Aerodynamic Data / Geometry | `airloads`, `balance`, `configuration`, `flap`, `landing`, `net_loads`, `rolling`, `tail_span`, `weight_envelope`, `wing_geometry`, `wing_inertia`, `wing_variants` | Geometry single-source (WINGGEOM + fuselage + empennage) |
 | `speeds` | `?` | Structural Speeds | `aileron`, `engine`, `flap`, `flight_envelope`, `mach_limit`, `one_engine_out`, `rolling`, `structural_speeds`, `tab` | Structural design speeds & load factors (STRSPEED) |
 | `aero` | `?` | Wing Loads | `airloads`, `balance`, `net_loads`, `rolling`, `wing_variants` | Spanwise airload inputs (AIRLOADS) |

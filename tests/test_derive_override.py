@@ -29,9 +29,9 @@ from sloads.derived_geometry import (
     tip_ratio_from_planform,
     wing_aspect_ratio,
 )
-from sloads.models import AeroCoeffSet
 from sloads.modules.airloads import _tau, resolve_aero_surfaces, resolved_tau, schrenk_distribution
-from sloads.modules.engine import effective_engine, run as engine_run, selected_mass_row
+from sloads.modules.engine import effective_engine, selected_mass_row
+from sloads.modules.engine import run as engine_run
 from sloads.modules.flap import resolved_ng
 from sloads.modules.flight_envelope import (
     _gust_load_factor,
@@ -176,6 +176,55 @@ def test_blank_gross_weight_derives_mtow_in_wtenv():
     values = {v.key: v.value for c in result.conditions for v in c.values}
     assert values["aft_gross_point_weight"] == p.weight.max_takeoff_weight_lb
     assert values["forward_gross_point_weight"] == p.weight.max_takeoff_weight_lb
+
+
+def test_blank_engine_count_derives_the_engine_lists_length():
+    """#385 (review A8): the WTESTIMA count was typed beside the engine list
+    with a caption asking the user to keep the two in step. Blank derives
+    ``len(engines)``; typed overrides it -- concept_heavy's 2 against an empty
+    list stays the override it is."""
+    from sloads.modules.weight_estimate import effective_estimation
+    from sloads.modules.weight_estimate import run as wtestima_run
+
+    p = _ga6()
+    assert p.weight.estimation.engine_count == 0, "the fixture derives"
+    assert effective_estimation(p).engine_count == len(p.engines) == 1
+    assert fr.external_value("weight.estimation.engine_count", p) == 1
+    typed = wtestima_run(p)
+    p.weight.estimation.engine_count = 2
+    assert effective_estimation(p).engine_count == 2
+    assert wtestima_run(p) != typed, "a typed count governs the estimate"
+    heavy = io.load_project(os.path.join(os.path.dirname(_GA), "concept_heavy.project.json"))
+    assert not heavy.engines and heavy.weight.estimation.engine_count == 2
+    assert effective_estimation(heavy).engine_count == 2
+
+
+def test_blank_wing_weight_derives_the_wing_groups_empty_weight():
+    """#385 (review B9): SELECT's fuselage conditions reacted ``0.09 x MTOW``
+    whatever the data base said. Blank derives the EMPTY rows the wing reacts
+    (both sides); the stand-in is the fallback with no wing-carried row; a
+    typed value governs -- ga6 types the stand-in so Appendix A's fuselage
+    conditions hold, and its data base's wing group is the number beside it."""
+    from sloads.mass_distribution import wing_parts
+    from sloads.models import MassItemKind
+    from sloads.modules.select import WING_WEIGHT_STAND_IN_FRACTION, derived_wing_weight, resolved_wing_weight
+
+    p = _ga6()
+    assert p.select_input.wing_weight_lb == WING_WEIGHT_STAND_IN_FRACTION * p.weight.max_takeoff_weight_lb
+    assert resolved_wing_weight(p) == p.select_input.wing_weight_lb
+    group = math.fsum(it.weight_lb for it in wing_parts(p.weight.items, p)
+                      if it.kind == MassItemKind.EMPTY)
+    assert group > 0 and derived_wing_weight(p) == group
+    assert fr.external_value("select_input.wing_weight_lb", p) == group
+    p.select_input.wing_weight_lb = 0.0
+    assert resolved_wing_weight(p) == group
+    atr = io.load_project(os.path.join(os.path.dirname(_GA), "atr42_100.project.json"))
+    assert atr.select_input.wing_weight_lb == 0.0
+    stand_in = WING_WEIGHT_STAND_IN_FRACTION * atr.weight.max_takeoff_weight_lb
+    assert resolved_wing_weight(atr) == derived_wing_weight(atr) > stand_in
+    bare = replace(atr, weight=replace(atr.weight, items=[]))
+    assert derived_wing_weight(bare) is None
+    assert resolved_wing_weight(bare) == WING_WEIGHT_STAND_IN_FRACTION * atr.weight.max_takeoff_weight_lb
 
 
 def test_engine_weight_and_cg_derive_from_the_selected_row():

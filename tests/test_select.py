@@ -53,7 +53,11 @@ def _ga6_three_altitudes() -> Project:
     (0/12000/18000 ft) and the loads-report steady-roll inputs are the
     fixture's own since #164."""
     p = io.load_project(_GA)
-    p.select_input = SelectInput(full_down_aileron_deg=15.0, basic_airfoil_cm=-0.03)
+    # The wing weight typed as the fixture types it (#385): Appendix A's
+    # fuselage conditions are computed with the Ch 9 stand-in 0.09 x 3400 =
+    # 306 lb, and a blank would derive the data base's 330 lb wing group.
+    p.select_input = SelectInput(full_down_aileron_deg=15.0, basic_airfoil_cm=-0.03,
+                                 wing_weight_lb=p.select_input.wing_weight_lb)
     return p
 
 
