@@ -126,7 +126,7 @@
       "airplane": "ATR 42-300 (48-PAX REGIONAL TURBOPROP TWIN)",
       "max_continuous_hp": 3400,
       "override_max_continuous_hp": false,
-      "engine_count": 2,
+      "engine_count": 0,
       "seats": 48,
       "crew": 1,
       "cruise_hours": 3,

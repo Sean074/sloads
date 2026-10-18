@@ -75,6 +75,25 @@ def test_principal_axes_match_manual():
     assert math.isclose(value_of(r, "principal_axis_angle_theta"), 4.198392, rel_tol=2e-3)
 
 
+def test_wtonecg_states_the_share_each_inertia_takes_from_the_rows_own():
+    """#385 (review A5): the ga6 oracle depends on its rows' own inertias;
+    an airplane whose rows carry none is a transfer-only answer, and the
+    module says which. The share is stated per axis, in percent."""
+    r = aft_gross_result()
+    own = {axis: value_of(r, f"{axis}_own_inertia_share") for axis in ("ixx", "iyy", "izz")}
+    assert all(0.0 < s < 100.0 for s in own.values()), own
+    project = io.load_project(_EXAMPLE)
+    rows = project.weight.items
+    expected = math.fsum(it.ixx for it in rows) / value_of(r, "ixx_lb_in_2") * 100.0
+    assert math.isclose(own["ixx"], expected, rel_tol=1e-9)
+    for it in rows:
+        it.ixx = it.iyy = it.izz = 0.0
+    bare = calc.weights_and_inertia(rows)
+    assert all(value_of(bare, f"{axis}_own_inertia_share") == 0.0 for axis in ("ixx", "iyy", "izz"))
+    # The share is a diagnostic, never a load: no factor, no -ULT marker.
+    assert all(v.quantity == "diagnostic" for v in r.values if v.key.endswith("_own_inertia_share"))
+
+
 def test_run_requires_items():
     raised = False
     try:

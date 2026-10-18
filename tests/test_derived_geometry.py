@@ -394,10 +394,12 @@ def test_no_display_module_sums_the_engine_list_for_horsepower():
     # rule worth having one of.
     from dataclasses import replace as _replace
 
-    from sloads.modules.weight_estimate import estimate
+    from sloads.modules.weight_estimate import effective_estimation, estimate
 
     def owner_total(project):
-        est = _replace(project.weight.estimation,
+        # Through the owner of both engine-list derives (#385): the fixture's
+        # engine count is blank and derives the list's length there.
+        est = _replace(effective_estimation(project),
                        max_continuous_hp=resolve_max_continuous_hp(project))
         return _powerplant_total_of(estimate(est))
 

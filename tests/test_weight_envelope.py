@@ -55,8 +55,13 @@ def test_structural_limit_stations():
 
 def test_minimum_and_maximum_loadings():
     # Min flight weight 2063 @ 73.09 (empty + pilot + 1/2 hr fuel);
-    # max loading 3322 @ 84.56 (all six occupants + fuel, no ballast).
+    # max loading 3322 @ 84.56 (all six occupants + fuel, no ballast). The
+    # all-rows sum is labelled the data base's ceiling since #385: a loading
+    # only when the data base sums to one, which on this airplane it does.
     r = results()
+    labels = {v.key: v.label for c in r for v in c.values}
+    assert labels["maximum_loading_weight"].startswith("Database ceiling weight")
+    assert labels["maximum_loading_station"].startswith("Database ceiling station")
     assert math.isclose(value_of(r, "minimum_flight_weight"), 2063, rel_tol=TOL)
     assert math.isclose(value_of(r, "minimum_flight_weight_station"), 73.09, rel_tol=TOL)
     assert math.isclose(value_of(r, "maximum_loading_weight"), 3322, rel_tol=TOL)

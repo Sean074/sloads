@@ -669,9 +669,18 @@ def _derived_panel_weight(project: Project, _record: object = None) -> Optional[
 
 def _select_wing_weight(project: Project, _record: object = None) -> Optional[float]:
     from sloads.cg_cases import max_takeoff_weight
+    from sloads.modules.select import WING_WEIGHT_STAND_IN_FRACTION, derived_wing_weight
 
+    derived = derived_wing_weight(project)
+    if derived is not None:
+        return derived
     mtow = max_takeoff_weight(project, required=False)
-    return 0.09 * mtow if mtow else None
+    return WING_WEIGHT_STAND_IN_FRACTION * mtow if mtow else None
+
+
+def _engine_count(project: Project, _record: object = None) -> Optional[int]:
+    """The engine list's length (#385): what a blank WTESTIMA count derives."""
+    return len(project.engines) or None
 
 
 def _leg_weight_from_rows(leg_name: str):
@@ -747,6 +756,8 @@ EXTERNAL_VALUES: Dict[str, "typing.Callable[..., object]"] = {
     "geometry.empennage.vtail.wing_span_in": _wing_span,
     "geometry.empennage.vtail.izz_slugft2": _side_gust_izz,
     "select_input.wing_weight_lb": _select_wing_weight,
+    # #385: the WTESTIMA engine count derives from the engine list.
+    "weight.estimation.engine_count": _engine_count,
     # note 50 OR-123: blank derives the station from the root chord, typed
     # overrides it. The resolver takes the surface row as ``record``.
     "geometry.surfaces[].front_spar_x_in": _spar_station(rear=False),
@@ -1324,8 +1335,11 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "mzfw fwd / full fuel aft with their loadings (#292). The original suite had no "
        "zero-fuel design weight"),
     _E("weight.estimation.airplane", _WT, _ORIG, "WTESTIMA airplane class"),
-    _E("weight.estimation.engine_count", _WT, _ORIG, "WTESTIMA NOENGS", "engine count",
-       EXTERNAL + "len(Project.engines) (review N1 instance 3: concept_heavy 2 vs 0)",
+    _E("weight.estimation.engine_count", _WT, _ORIG, "WTESTIMA NOENGS; 0 -> the engine list's "
+       "length (#385, note 36 OV-1): the count was typed beside the list with a caption "
+       "asking the user to keep the two in step", "engine count",
+       EXTERNAL + "len(Project.engines) (review N1 instance 3: concept_heavy 2 vs 0, which "
+       "keeps its typed 2 as the override of an empty list)",
        governs=True),
     _E("weight.estimation.max_continuous_hp", _WT, _ORIG, "WTESTIMA HP", "max continuous power",
        EXTERNAL + "sum of engines[].max_cont_hp (unless overridden -- see resolves)",
@@ -1646,9 +1660,11 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("select_input.wing_weight_lb", _WT, _ORIG, "SELECT wing weight, Ch 9; a weight "
        "quantity, edited with the weight data (#95, C210-22 -- the 0 -> 0.09*MTOW "
        "fallback was undisclosed on the page)",
-       derived_from=EXTERNAL + "the Ch 9 statistical stand-in 0.09 x MTOW "
-       "(select.select_fuselage; the items table's wing-component sum is the "
-       "better number to type -- both-sides total wing group weight)",
+       derived_from=EXTERNAL + "the weight data base's wing group empty weight -- the "
+       "EMPTY-kind rows the wing reacts, both sides (select.derived_wing_weight, "
+       "#385) -- else the Ch 9 statistical stand-in 0.09 x MTOW when no row is "
+       "wing-carried; ga6_normal types the stand-in (306 lb) because Appendix A's "
+       "fuselage conditions are computed with it",
        governs=True),
 
     # ----------------------------------------------------------------- #

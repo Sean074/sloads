@@ -125,7 +125,7 @@
       "airplane": "50-PLACE REGIONAL JET (concept)",
       "max_continuous_hp": 2800,
       "override_max_continuous_hp": false,
-      "engine_count": 2,
+      "engine_count": 0,
       "seats": 50,
       "crew": 1,
       "cruise_hours": 2,
