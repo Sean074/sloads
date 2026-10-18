@@ -1,5 +1,5 @@
 {
-  "schema_version": 77,
+  "schema_version": 78,
   "name": "ATR 42-300 (\"ATR 42-100\" prototype designation never entered production; -300 is the closest PW120-powered production analog) \u2014 2x PW120 (concept, category C)",
   "description": "ATR 42-300, 48-seat regional turboprop twin (concept mode, category C). Published data cited, everything else estimated -- sources: examples/atr42_100.sources.md (#260)",
   "engines": [
@@ -1351,7 +1351,150 @@
   "mass": {
     "cases": [
       {
-        "name": "itemized loading",
+        "name": "aft gross",
+        "weight_lb": 36817.0,
+        "cg_x": 404.11,
+        "cg_y": 0.0,
+        "cg_z": 140.93,
+        "ixx": 744078756.9710656,
+        "iyy": 379854566.3036982,
+        "izz": 1027625489.3326325,
+        "ixz": 43705565.152748264,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "fwd gross",
+        "weight_lb": 36817.0,
+        "cg_x": 386.22,
+        "cg_y": 0.0,
+        "cg_z": 140.93,
+        "ixx": 744078756.9710656,
+        "iyy": 537581264.6369578,
+        "izz": 1185352187.6658921,
+        "ixz": 43770428.377149984,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "fwd regardless",
+        "weight_lb": 30000.0,
+        "cg_x": 381.75,
+        "cg_y": 0.0,
+        "cg_z": 132.33,
+        "ixx": 160358942.23946556,
+        "iyy": 311771122.13926,
+        "izz": 396511859.89979446,
+        "ixz": 54214282.425488174,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "min weight",
+        "weight_lb": 23374.0,
+        "cg_x": 390.66890562163087,
+        "cg_y": 0.0,
+        "cg_z": 134.3090613502182,
+        "ixx": 159600021.34080604,
+        "iyy": 298663848.00141186,
+        "izz": 384163506.6606058,
+        "ixz": 51184102.82578934,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "mid gross",
+        "weight_lb": 36817.0,
+        "cg_x": 395.17,
+        "cg_y": 0.0,
+        "cg_z": 140.93,
+        "ixx": 744078756.9710656,
+        "iyy": 396636483.8847098,
+        "izz": 1044407406.9136442,
+        "ixz": 43737978.636602454,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "mzfw aft",
+        "weight_lb": 33510.0,
+        "cg_x": 403.68531781557743,
+        "cg_y": 0.0,
+        "cg_z": 130.29961205610266,
+        "ixx": 161484421.89495674,
+        "iyy": 375810288.57132196,
+        "izz": 459425546.67636526,
+        "ixz": 42099274.4091316,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "mzfw fwd",
+        "weight_lb": 28054.0,
+        "cg_x": 382.38736009125256,
+        "cg_y": 0.0,
+        "cg_z": 132.32836672132316,
+        "ixx": 160358941.0857632,
+        "iyy": 311595432.64365155,
+        "izz": 396336171.5578884,
+        "ixz": 54214732.63883938,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "full fuel aft",
+        "weight_lb": 36817.0,
+        "cg_x": 403.3052665888041,
+        "cg_y": 0.0,
+        "cg_z": 140.21232039546948,
+        "ixx": 744483311.2914686,
+        "iyy": 376693803.4002771,
+        "izz": 1024060172.1088084,
+        "ixz": 42342562.731075324,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "aft max landing",
+        "weight_lb": 36155.0,
+        "cg_x": 404.1122159886015,
+        "cg_y": 0.0,
+        "cg_z": 140.93,
+        "ixx": 744078767.6116247,
+        "iyy": 385042485.78766114,
+        "izz": 1032813398.1760365,
+        "ixz": 43698135.32397422,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "fwd max landing",
+        "weight_lb": 36155.0,
+        "cg_x": 385.7852455089465,
+        "cg_y": 0.0,
+        "cg_z": 141.56,
+        "ixx": 743290504.9169782,
+        "iyy": 590905248.1060319,
+        "izz": 1239464423.1890538,
+        "ixz": 41049936.462254584,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "fwd light",
+        "weight_lb": 30000.0,
+        "cg_x": 381.746487782406,
+        "cg_y": 0.0,
+        "cg_z": 132.33,
+        "ixx": 160358942.23946556,
+        "iyy": 311773063.7602004,
+        "izz": 396513801.52073485,
+        "ixz": 54214279.94455585,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "Database ceiling (every row aboard)",
         "weight_lb": 43308.0,
         "cg_x": 401.1613327791632,
         "cg_y": 0.0,
@@ -1360,7 +1503,8 @@
         "iyy": 395807863.2681953,
         "izz": 1041897255.767872,
         "ixz": 43543320.02770851,
-        "gear_down": true
+        "gear_down": true,
+        "ceiling": true
       }
     ]
   },

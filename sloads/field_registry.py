@@ -1190,8 +1190,10 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "with nothing saying an estimate was in play)",
        derived_from=EXTERNAL + "the rod-estimate default IZZ, two slender "
        "rods over the span and airplane length (select.default_side_gust_izz, "
-       "SELECT.BAS 8884; WTONECG's database IZZ is disclosed beside the "
-       "results, not consumed)",
+       "SELECT.BAS 8884; WTONECG's per-case database IZZ -- the mass-basis "
+       "FLIGHT loading's row, design note 70 D-70.7 -- is disclosed beside "
+       "the results, not consumed: switching the default is M4-4's oracle "
+       "deviation)",
        governs=True),
     _E("geometry.empennage.vtail.xv25", _GEO, _ORIG, "SELECT 25% v-tail MAC station"),
     _E("geometry.empennage.vtail.xv50", _GEO, _ORIG, "ONENGOUT camber-load station"),

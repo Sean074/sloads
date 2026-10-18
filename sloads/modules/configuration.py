@@ -42,6 +42,7 @@ from ..models import (
     LandingGearGeometry,
     LayoutInput,
     LoadValue,
+    MassCase,
     MissingInputError,
     ModuleResult,
     Project,
@@ -49,6 +50,7 @@ from ..models import (
     TailType,
     Vec3,
 )
+from ..picks import extreme
 from ..registry import register
 from ..tail_geometry import (
     SurfacePlane,
@@ -533,42 +535,65 @@ def cg_estimate(project: Project, layout: LayoutInput,
                 mac: float, xlemac: float) -> Tuple[float, float, str]:
     """The best available CG station/waterline, and a short label for its source.
 
-    True CG (Step D4.5): when ``Project.mass`` is populated (WTONECG has run on
-    the itemized Weight DB), use its weight-averaged station -- the same
-    ``(cg_x, cg_z)`` SELECT/FLTLOADS/LANDLOAD read. ``Project.mass.cases`` is
-    currently always a single "itemized loading" case (`weight_onecg.build_mass`
-    -- the four structural-limit loadings x gear up/down is a later
-    refinement); once that lands this should pick the representative case
-    rather than always the first.
-
-    Falls back to the 25%-MAC / wing-reference-waterline first cut (the only
-    option before a mass slice exists) -- geometric estimates, not certified
-    figures. Callers surface the returned source label so the UI/report make
-    clear which one is in play.
+    True CG (Step D4.5, re-ruled by design note 70 D-70.4): when ``Project.mass``
+    is populated, the **mass-basis FLIGHT loading's** row -- the heaviest
+    FLIGHT case, aft-most on a tie (:func:`weight_onecg.basis_row`), the same
+    pick ONENGOUT sizes at -- labelled by its case name; a slice holding only
+    the ceiling row answers with the ceiling, labelled as such, because a CG
+    the airplane cannot fly at is still better than a planform guess when it
+    is *named*. Falls back to the 25 %-MAC / wing-reference-waterline first cut
+    (the only option before a mass slice exists) -- geometric estimates, not
+    certified figures. Callers surface the returned source label so the UI and
+    report make clear which one is in play.
 
     Takes ``mac``/``xlemac`` as plain numbers rather than the geometry dict it
-    used to index by label. The caller inside this module passes
-    ``_wing_geometry``'s dict entries; the Configuration page passed its
-    *LoadValue* table, which worked only because the two dicts happened to spell
-    "MAC" the same way -- a coincidence M4-9 broke and this signature removes.
+    used to index by label (M4-9).
     """
-    if project.mass is not None and project.mass.cases:
-        case = project.mass.cases[0]
-        return case.cg_x, case.cg_z, "Weight DB"
+    from .weight_onecg import basis_row
+
+    row = basis_row(project.mass, project)
+    if row is not None:
+        return row.cg_x, row.cg_z, _cg_label(row)
     return (pct_mac_to_station(25.0, MacReference(xlemac, mac, "planform", "wing")),
             layout.root_waterline_z, "25% MAC estimate")
+
+
+def _cg_label(row: MassCase) -> str:
+    return "Weight DB, database ceiling" if row.ceiling else f"Weight DB, {row.name}"
+
+
+def _gear_angles(gc: dict, x_cg: float, z_cg: float) -> Tuple[float, Optional[float]]:
+    """Tip-back and overturn angles (deg) for one CG, from the gear geometry.
+
+    Tip-back: the angle of the main-wheel -> CG line from the vertical; CG
+    forward of the main gear (positive) is required, ~15 deg the usual minimum.
+    Overturn (turnover): from the CG to the nose-wheel / main-wheel ground line;
+    lower is more stable. ``None`` when the nose gear or track is absent.
+    """
+    h_cg = z_cg - gc["ground_z"]            # CG height above ground
+    tipback = math.degrees(math.atan2(gc["main_x"] - x_cg, h_cg))
+    if not (gc["nose_x"] and gc["track"]):
+        return tipback, None
+    xn, xm, half = gc["nose_x"], gc["main_x"], gc["track"] / 2.0
+    # Perpendicular distance (plan view) from the CG (on the centreline) to the
+    # nose-wheel -> main-wheel line.
+    dx, dy = xm - xn, half - 0.0
+    seg = math.hypot(dx, dy)
+    d = abs(dx * (0.0 - 0.0) - dy * (x_cg - xn)) / seg  # |cross| / |seg|
+    return tipback, math.degrees(math.atan2(h_cg, d))
 
 
 def _gear_condition(project: Project, layout: LayoutInput, geom: dict) -> Optional[ConditionResult]:
     """Tip-back / overturn angles + prop clearance from the gear geometry.
 
-    The CG (:func:`cg_estimate`) is the true weight-averaged station from
-    ``Project.mass`` when available (Step D4.5), else the 25%-MAC / wing-
-    reference-waterline first cut -- so the tip-back/overturn angles (the
-    tail-ground-clearance-relevant figures here) sharpen automatically once a
-    mass slice exists, with no separate refinement needed. Prop clearance does
-    not depend on the CG (it only needs the engine/gear geometry), so it is
-    unaffected either way.
+    **Per CG case (design note 70 D-70.4, C3).** When ``Project.mass`` holds
+    the per-case rows, every row that is a loading gets its own tip-back and
+    overturn value, labelled by case, and the two headline values name the
+    **governing** case: the minimum tip-back (the aft-most CG) and the maximum
+    overturn. Until note 70 both were drawn at the all-items CG -- on
+    ``atr42_100`` a 43,308 lb loading that cannot fly. Without the rows the
+    headline pair is drawn at :func:`cg_estimate`'s fallback and says so. Prop
+    clearance does not depend on the CG and is stated once.
     """
     gc = gear_stations(layout, project.geometry.landing_gear if project.geometry is not None else None)
     if gc is None or gc["main_x"] <= 0 or gc["gear_height"] <= 0:
@@ -576,27 +601,32 @@ def _gear_condition(project: Project, layout: LayoutInput, geom: dict) -> Option
     x_cg, z_cg, cg_source = cg_estimate(
         project, layout, geom["MAC"], geom["XLE(MAC) station of MAC LE"])
     ground_z = gc["ground_z"]
-    h_cg = z_cg - ground_z              # CG height above ground
 
     values: List[LoadValue] = []
-
-    # Tip-back: angle of the main-wheel -> CG line from the vertical. CG forward of
-    # the main gear (positive) is required; ~15 deg is the usual minimum.
-    tipback = math.degrees(math.atan2(gc["main_x"] - x_cg, h_cg))
-    values.append(LoadValue(f"CG station ({cg_source})", x_cg, _IN, key="cg_station"))
-    values.append(LoadValue("Tip-back angle", tipback, _DEG, key="tip_back_angle"))
-
-    # Overturn (turnover) angle: from the CG to the nose-wheel / main-wheel ground
-    # line. Lower is more stable; ~63 deg is the usual maximum.
-    if gc["nose_x"] and gc["track"]:
-        xn, xm, half = gc["nose_x"], gc["main_x"], gc["track"] / 2.0
-        # Perpendicular distance (plan view) from the CG (on the centreline) to the
-        # nose-wheel -> main-wheel line.
-        dx, dy = xm - xn, half - 0.0
-        seg = math.hypot(dx, dy)
-        d = abs(dx * (0.0 - 0.0) - dy * (x_cg - xn)) / seg  # |cross| / |seg|
-        overturn = math.degrees(math.atan2(h_cg, d))
-        values.append(LoadValue("Overturn (turnover) angle", overturn, _DEG, key="overturn_turnover_angle"))
+    rows = [c for c in (project.mass.cases if project.mass is not None else []) if not c.ceiling]
+    if rows:
+        per_case = [(c, *_gear_angles(gc, c.cg_x, c.cg_z)) for c in rows]
+        tip_case, tip_min, _ = extreme(per_case, lambda r: r[1], largest=False)
+        values.append(LoadValue(f"CG station ({cg_source})", x_cg, _IN, key="cg_station"))
+        values.append(LoadValue(f"Tip-back angle, governing ({tip_case.name})", tip_min, _DEG,
+                                key="tip_back_angle"))
+        with_over = [(c, tb, ov) for c, tb, ov in per_case if ov is not None]
+        if with_over:
+            over_case, _, over_max = extreme(with_over, lambda r: r[2])
+            values.append(LoadValue(f"Overturn (turnover) angle, governing ({over_case.name})",
+                                    over_max, _DEG, key="overturn_turnover_angle"))
+        for i, (c, tb, ov) in enumerate(per_case, start=1):
+            values.append(LoadValue(f"CG station -- {c.name}", c.cg_x, _IN, key=f"cg_station_case_{i}"))
+            values.append(LoadValue(f"Tip-back angle -- {c.name}", tb, _DEG, key=f"tip_back_angle_case_{i}"))
+            if ov is not None:
+                values.append(LoadValue(f"Overturn (turnover) angle -- {c.name}", ov, _DEG,
+                                        key=f"overturn_turnover_angle_case_{i}"))
+    else:
+        tipback, overturn = _gear_angles(gc, x_cg, z_cg)
+        values.append(LoadValue(f"CG station ({cg_source})", x_cg, _IN, key="cg_station"))
+        values.append(LoadValue("Tip-back angle", tipback, _DEG, key="tip_back_angle"))
+        if overturn is not None:
+            values.append(LoadValue("Overturn (turnover) angle", overturn, _DEG, key="overturn_turnover_angle"))
 
     # Prop ground clearance: nose engine prop tip vs ground (needs engine + prop).
     from .engine import effective_engine
@@ -606,11 +636,15 @@ def _gear_condition(project: Project, layout: LayoutInput, geom: dict) -> Option
         prop_tip_z = eng.prop_cg[2] - eng.prop_diameter_in / 2.0
         values.append(LoadValue("Prop ground clearance", prop_tip_z - ground_z, _IN, key="prop_ground_clearance"))
 
-    note = (
-        f"CG from the {cg_source}"
-        + ("." if cg_source == "Weight DB" else " (no mass slice present).")
-        + " Tip-back >= ~15 deg, overturn <= ~63 deg."
-    )
+    if rows:
+        note = (f"Angles per CG case from the Weight DB's loadings of record ({len(rows)} cases); "
+                "the governing values name their case: minimum tip-back, maximum overturn. "
+                f"The CG station row is the {cg_source}.")
+    else:
+        note = (f"CG from the {cg_source}"
+                + ("." if cg_source.startswith("Weight DB") else " (no mass slice present).")
+                + " No per-case rows in the mass slice.")
+    note += " Tip-back >= ~15 deg, overturn <= ~63 deg."
     return ConditionResult(
         title="Landing-gear geometry (estimate)", far_reference=_FAR, values=values, note=note,
     )

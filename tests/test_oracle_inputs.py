@@ -307,11 +307,11 @@ def test_appendix_a_inertias_hold_on_the_reduced_project():
     came out 66.7 — the parallel-axis transfer of a centreline point-mass
     database, which is not what WTONECG prints.
     """
-    assert math.isclose(_value("weight_onecg", "Weight, centre of gravity", "ixx"),
+    assert math.isclose(_value("weight_onecg", "Database ceiling", "ixx"),
                         1201.527, rel_tol=TOL)
-    assert math.isclose(_value("weight_onecg", "Weight, centre of gravity", "iyy"),
+    assert math.isclose(_value("weight_onecg", "Database ceiling", "iyy"),
                         2058.209, rel_tol=TOL)
-    assert math.isclose(_value("weight_onecg", "Weight, centre of gravity", "izz"),
+    assert math.isclose(_value("weight_onecg", "Database ceiling", "izz"),
                         3022.766, rel_tol=TOL)
 
 

@@ -42,7 +42,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, NamedTuple, Optional, Tuple
+from typing import TYPE_CHECKING, List, NamedTuple, Optional, Tuple
 
 from ..applicability import engine_failure_not_applicable
 from ..case_ids import VTAIL_BAND_ONENGOUT, CaseIdAllocator
@@ -75,10 +75,10 @@ from ..picks import extreme
 from ..registry import register
 from ..units import format_value
 from ._vtail import large_deflection_factor, lift_curve_slope, rudder_effectiveness
+from .weight_onecg import mass_basis
 
 if TYPE_CHECKING:
-    from ..cg_cases import CgCase
-    from ..mass_distribution import CaseLoading
+    pass
 
 MODULE_NAME = "one_engine_out"
 
@@ -551,46 +551,14 @@ def condition_altitude_ft(cond: CriticalCondition) -> float:
     return float(ref.altitude_ft)
 
 
-def mass_basis(project: Project,
-               loadings: Optional[Dict[str, CaseLoading]] = None,
-               ) -> Optional[Tuple[CgCase, CaseLoading]]:
-    """The airplane state every 23.367 case is sized at (#333 ruling 4).
-
-    The heaviest FLIGHT weight/CG case whose loading the weight database can
-    produce, and the aft-most of those that tie on weight -- the shorter fin
-    arm, so the larger fin load for one yawing moment. **One owner**: the march
-    takes its IZZ and CG from this loading, and the balanced deck assembles the
-    case on this CG case's 1 g point (D-66.11), so the transient and the
-    airplane it is applied to are one state. Until #333 the march read WTONECG's
-    all-items loading instead, 17.6 % above MTOW on the ATR.
-
-    ``loadings`` is the caller's ``{name: CaseLoading}`` when it has them;
-    ``None`` when no derivable FLIGHT case exists.
-    """
-    from ..cg_cases import flight_cases
-    from ..mass_distribution import derive_case_loadings
-    from ..picks import TIE_REL
-
-    cases = flight_cases(project)
-    if loadings is None:
-        loadings = {ld.name: ld for ld in derive_case_loadings(project, cases)}
-    usable = [(c, loadings[c.name]) for c in cases
-              if loadings.get(c.name) is not None and loadings[c.name].derivable]
-    if not usable:
-        return None
-    heaviest = max(ld.weight_lb for _, ld in usable)
-    tied = [u for u in usable if u[1].weight_lb >= heaviest - TIE_REL * abs(heaviest)]
-    return extreme(tied, lambda u: u[1].cg_x)
-
-
 def _mass_state(project: Project) -> MassCase:
-    """The mass-basis loading's weight, CG and inertia, through WTONECG's own
-    :func:`~sloads.modules.weight_onecg.weights_and_inertia` -- the inertia
-    owner, applied to that loading's items rather than to every database row.
+    """The mass-basis loading's weight, CG and inertia -- the row WTONECG's
+    one owner, :func:`~sloads.modules.weight_onecg.case_mass_properties`,
+    computes for that case (design note 70 D-70.2; G-70.3 holds the identity).
     Refused by name when no FLIGHT loading is derivable: the state the failure
     cases are sized at is then undefined, and falling back to the all-items
     loading would size them above MTOW without saying so (#333 ruling 4)."""
-    from .weight_onecg import weights_and_inertia
+    from .weight_onecg import case_mass_properties
 
     basis = mass_basis(project)
     if basis is None:
@@ -599,11 +567,12 @@ def _mass_state(project: Project) -> MassCase:
             "database can produce, so the airplane state the engine-failure "
             "cases are sized at is not defined -- add a FLIGHT case at the "
             "design weight, or enter its loading")
-    cg, loading = basis
-    v = {lv.key: lv.value for lv in weights_and_inertia(list(loading.items)).values}
-    return MassCase(name=cg.name, weight_lb=v["weight"], cg_x=v["xbar_fus_station"],
-                    cg_z=v["zbar_waterline"], ixx=v["ixx_lb_in_2"],
-                    iyy=v["iyy_lb_in_2"], izz=v["izz_lb_in_2"], ixz=v["ixz_lb_in_2"])
+    cg, _loading = basis
+    for row in case_mass_properties(project).rows:
+        if row.name == cg.name and not row.ceiling:
+            return row
+    raise MissingInputError(  # pragma: no cover -- the basis derives, so its row exists
+        f"one_engine_out: WTONECG produced no row for the mass-basis case '{cg.name}'")
 
 
 def _case_inputs(project: Project, v_kt: float,

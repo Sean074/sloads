@@ -10,15 +10,17 @@ matched within ±0.1% of the manual's printed numbers; the lb-in^2 accumulator a
 the weight are g-independent.
 """
 
+import glob
 import math
 import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import pytest
 from helpers import value_of
 
-from sloads import Project, WeightInput, io
+from sloads import MassResult, Project, WeightInput, io
 from sloads.modules import weight_onecg as calc
 
 TOL = 1e-3  # ±0.1% relative
@@ -84,11 +86,13 @@ def test_run_requires_items():
 
 def test_build_mass_persists_properties_and_round_trips():
     # build_mass emits the persisted Project.mass slice (R7): weight/CG/inertia in
-    # lb-in^2, matching the WTONECG result and surviving the io round-trip.
+    # lb-in^2, matching the WTONECG result and surviving the io round-trip. The
+    # Appendix A row is the ceiling row, last (design note 70 D-70.1/D-70.9).
     project = io.load_project(_EXAMPLE)
     mass = calc.build_mass(project)
-    assert len(mass.cases) == 1
-    c = mass.cases[0]
+    assert len(mass.cases) == len(project.weight.cg_cases) + 1
+    c = mass.cases[-1]
+    assert c.ceiling and c.name == calc.CEILING_TITLE
     assert c.weight_lb == 3400
     assert math.isclose(c.cg_x, 84.99936, rel_tol=TOL)
     assert math.isclose(c.iyy, 9534613, rel_tol=TOL)
@@ -97,7 +101,89 @@ def test_build_mass_persists_properties_and_round_trips():
     project.mass = mass
     rebuilt = io.project_from_dict(io.project_to_dict(project))
     assert rebuilt.mass is not None
-    assert math.isclose(rebuilt.mass.cases[0].iyy, c.iyy, rel_tol=1e-9)
+    assert math.isclose(rebuilt.mass.cases[-1].iyy, c.iyy, rel_tol=1e-9)
+    assert rebuilt.mass.cases[-1].ceiling and not rebuilt.mass.cases[0].ceiling
+
+
+# --------------------------------------------------------------------------- #
+# Design note 70: one row per CG case, the ceiling last
+# --------------------------------------------------------------------------- #
+_EXAMPLES = sorted(glob.glob(os.path.join(os.path.dirname(_EXAMPLE), "*.project.json")))
+
+
+def test_the_ceiling_row_run_emits_is_the_appendix_a_oracle():
+    """G-70.1: the p136 figures are the all-items sum, and that sum is the one
+    condition titled as the ceiling -- last, never first."""
+    project = io.load_project(_EXAMPLE)
+    conditions = calc.run(project).conditions
+    assert conditions[-1].title == calc.CEILING_TITLE
+    assert sum(c.title == calc.CEILING_TITLE for c in conditions) == 1
+    oracle = {v.key: v.value for v in aft_gross_result().values}
+    got = {v.key: v.value for v in conditions[-1].values}
+    for key in ("weight", "xbar_fus_station", "zbar_waterline", "ixx", "iyy", "izz", "ixz"):
+        assert got[key] == oracle[key], key
+    assert math.isclose(got["ixx"], 1201.527, rel_tol=TOL)
+
+
+@pytest.mark.parametrize("path", _EXAMPLES, ids=os.path.basename)
+def test_every_case_row_is_wtonecg_over_that_cases_loading_of_record(path):
+    """G-70.2 (identity, not closeness): each row's weight and CG are the
+    ``CaseLoading``'s own, its inertias are ``weights_and_inertia`` over that
+    loading's items, in case order; G-70.4: the ceiling is last and heaviest,
+    and a case that derives no loading is stated, never invented."""
+    from sloads.mass_distribution import derive_case_loadings
+
+    project = io.load_project(path)
+    props = calc.case_mass_properties(project)
+    rows, conditions = props.rows, props.conditions
+    assert len(rows) == len(conditions)
+    assert rows[-1].ceiling and conditions[-1].title == calc.CEILING_TITLE
+    assert all(not r.ceiling for r in rows[:-1])
+    assert all(rows[-1].weight_lb >= r.weight_lb for r in rows)
+    cases = list(project.weight.cg_cases)
+    loadings = {ld.name: ld for ld in derive_case_loadings(project, cases)}
+    expected = [c.name for c in cases if loadings[c.name].derivable]
+    assert [r.name for r in rows[:-1]] == expected
+    skipped = dict(props.skipped)
+    assert set(skipped) == {c.name for c in cases if not loadings[c.name].derivable}
+    assert all(why for why in skipped.values())
+    for row, cond in zip(rows[:-1], conditions[:-1]):
+        ld = loadings[row.name]
+        v = {x.key: x.value for x in calc.weights_and_inertia(list(ld.items)).values}
+        assert cond.title == f"Mass properties -- {row.name}"
+        assert row.weight_lb == v["weight"] and row.cg_x == v["xbar_fus_station"]
+        assert math.isclose(row.weight_lb, ld.weight_lb, rel_tol=1e-9)
+        assert math.isclose(row.cg_x, ld.cg_x, rel_tol=1e-9)
+        assert math.isclose(row.cg_z, ld.cg_z, rel_tol=1e-9)
+        assert (row.ixx, row.iyy, row.izz, row.ixz) == (
+            v["ixx_lb_in_2"], v["iyy_lb_in_2"], v["izz_lb_in_2"], v["ixz_lb_in_2"])
+        assert row.gear_down is True
+    if skipped:
+        note = calc.run(project).conditions[-1].note
+        for name in skipped:
+            assert f"'{name}'" in note
+
+
+def test_the_baron_fwd_regardless_case_derives_no_row_and_says_why():
+    """G-70.4 on the fixture that has the case: ``baron_58``'s ``fwd
+    regardless`` loading cannot be produced from its data base."""
+    project = io.load_project(os.path.join(os.path.dirname(_EXAMPLE), "baron_58.project.json"))
+    props = calc.case_mass_properties(project)
+    assert "fwd regardless" not in {r.name for r in props.rows}
+    assert "fwd regardless" in dict(props.skipped)
+    assert "not a loading this weight database can produce" in dict(props.skipped)["fwd regardless"]
+
+
+def test_the_basis_row_is_the_mass_basis_flight_case_then_a_case_then_the_ceiling():
+    """D-70.4/D-70.5: the one representative row every single-CG reader takes."""
+    project = io.load_project(os.path.join(os.path.dirname(_EXAMPLE), "atr42_100.project.json"))
+    mass = calc.build_mass(project)
+    row = calc.basis_row(mass, project)
+    assert row is not None and row.name == "aft gross" and not row.ceiling
+    only_ceiling = MassResult(cases=[c for c in mass.cases if c.ceiling])
+    assert calc.basis_row(only_ceiling, project).ceiling
+    assert calc.basis_row(None, project) is None
+    assert calc.basis_row(MassResult(cases=[]), project) is None
 
 
 if __name__ == "__main__":

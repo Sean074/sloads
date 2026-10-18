@@ -1180,31 +1180,52 @@ def _item_station_figure(project: Project, system: UnitSystem) -> Figure:
     )
 
 
+#: The per-case mass-properties columns (design note 70 D-70.6): result key ->
+#: printed heading. Guarded against the module's own keys by the report tests.
+_MASS_COLUMNS: Tuple[Tuple[str, str], ...] = (
+    ("weight", "Weight"), ("xbar_fus_station", "Xcg"), ("zbar_waterline", "Zcg"),
+    ("ixx", "Ixx"), ("iyy", "Iyy"), ("izz", "Izz"), ("ixz", "Ixz"),
+    ("principal_axis_angle_theta", "theta"),
+)
+
+
+def _mass_properties_table(conditions: Sequence[ConditionResult]) -> Optional[Table]:
+    """Section 2.2's mass table: one row per WTONECG condition -- each CG case's
+    loading of record, then the data-base ceiling, flagged (design note 70
+    D-70.6). The conditions arrive already in the document's units, so the
+    column headings take their unit from the first row's values."""
+    if not conditions:
+        return None
+    first = _by_key(conditions[0])
+    columns = ["Case"] + [
+        f"{head} ({first[key].units})" if key in first else head
+        for key, head in _MASS_COLUMNS]
+    rows = []
+    for condition in conditions:
+        by_key = _by_key(condition)
+        name = condition.title
+        if name.startswith("Mass properties -- "):
+            name = name[len("Mass properties -- "):]
+        rows.append([name] + [
+            _cell(by_key[key])[0] if key in by_key else "--"
+            for key, _ in _MASS_COLUMNS])
+    note = ("The last row is the data-base ceiling, every row aboard at once; "
+            "it is a loading only when the data base sums to one. Each other "
+            "row is computed over the items aboard in that case's loading of "
+            "record.")
+    return Table(title="Mass properties by weight and centre-of-gravity case",
+                 columns=columns, rows=rows, note=note)
+
+
 def _weights(project: Project,
              results: Mapping[str, Optional[ModuleResult]], *,
              system: UnitSystem,
              plan: Sequence[SectionPlan]) -> Section:  # noqa: ARG001
     conditions = _conditions(results.get("weight_mass"), system)
     tables = []
-    for source in conditions:
-        condition = source
-        # The module's condition title names the analysis ("...for one
-        # loading"), which is our machinery describing itself. With a single
-        # loading the document says what the table *is*; with several, the
-        # condition title is the only thing that tells them apart and is kept.
-        title = ("Mass properties" if len(conditions) == 1
-                 else f"Mass properties -- {condition.title}")
-        if system is UnitSystem.SI:
-            # The module states each inertia twice, slug-ft^2 and lb-in^2, and
-            # both convert to the same kg*m^2 -- so the second channel, whose
-            # "(lb-in^2)" is baked into its label, printed four mislabeled
-            # duplicates in the SI issue (#232). One channel per system.
-            condition = replace(condition, values=[
-                v for v in condition.values
-                if not str(getattr(v, "key", "")).endswith("_lb_in_2")])
-        table = _value_table(title, condition)
-        if table is not None:
-            tables.append(table)
+    table = _mass_properties_table(conditions)
+    if table is not None:
+        tables.append(table)
     cases = _cg_case_table(project, system)
     if cases is not None:
         tables.append(cases)
@@ -1213,21 +1234,18 @@ def _weights(project: Project,
         tables.append(vertices)
 
     inertia_sentence = (
-        # Conditioned with the table above it: the Imperial issue prints both
-        # conventions and says why; the SI issue prints one channel and must
-        # not promise the pair it does not carry (#232).
-        "The inertias are stated once, in kg*m^2: the two Imperial "
-        "conventions the database carries (slug-ft^2 and lb-in^2) convert to "
-        "the same SI value, so repeating them would print the same number "
-        "twice. " if system is UnitSystem.SI else
-        "The inertias are stated twice, in slug-ft^2 and in "
-        "lb-in^2, because the two conventions are both current and a factor of "
-        "12^2 between them is not a difference a reader should have to detect. ")
+        "The inertias are stated in kg*m^2. " if system is UnitSystem.SI else
+        "The inertias are stated in slug-ft^2; the lb-in^2 convention the "
+        "data base carries is 144 g times these and is printed in the module's "
+        "own output. ")
     body = [
-        "The weight, centre of gravity and mass moments of inertia of each "
-        "loading analysed. " + inertia_sentence +
-        "The principal-axis set and its inclination follow; the angle is "
-        "measured up from the waterline and aft from the centre of gravity.",
+        "The weight, centre of gravity and mass moments of inertia of every "
+        "loading of record -- one row per weight and centre-of-gravity case, "
+        "computed over the items aboard in that case -- and, last, the data "
+        "base ceiling: every row aboard at once, which is a loading only when "
+        "the data base sums to one (design note 70). " + inertia_sentence +
+        "The inclination of the principal axes is measured up from the "
+        "waterline and aft from the centre of gravity.",
         _ENVELOPE_NOTE,
     ]
     far = _far_note(conditions[0] if conditions else None)

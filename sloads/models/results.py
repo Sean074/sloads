@@ -206,9 +206,20 @@ class MassCase:
     The persisted form of WTONECG's per-loading output: total ``weight_lb`` at the
     CG (``cg_x``/``cg_y``/``cg_z``, in) with the moments and product of inertia
     about that CG in **lb-in^2** (the weight-database unit; convert to slug-ft^2 by
-    dividing by ``constants.LBIN2_PER_SLUGFT2``). ``name`` labels the loading
-    (e.g. "aft gross", "fwd gross", "min weight"); ``gear_down`` distinguishes the
-    gear-up/down pair for retractable gear.
+    dividing by ``constants.LBIN2_PER_SLUGFT2``). ``name`` is the CG case the
+    row is the loading of record for (design note 70 D-70.1: "aft gross",
+    "fwd max landing", ...), or the ceiling row's own title; ``gear_down`` is
+    ``True`` on every row -- the database carries no gear-up position, so the
+    gear-up variant is a stated limitation, not a pending refinement
+    (D-70.3, Q4).
+
+    ``ceiling`` (D-70.3, v78) marks the one row that is **not** a loading: the
+    sum of every database row, which G-14 names the database *ceiling* --
+    full fuel and full payload at once, 18 % over MTOW on ``atr42_100``. It
+    is kept because Appendix A p136 prints it (the ga6 database sums to its
+    aft-gross loading, so there the ceiling *is* a loading) and labelled so
+    no reader takes its inertia for a case's. A typed field, never a name
+    match (note 63 OV-1).
     """
     name: str
     weight_lb: float = 0.0
@@ -220,18 +231,24 @@ class MassCase:
     izz: float = 0.0
     ixz: float = 0.0
     gear_down: bool = True
+    ceiling: bool = False
 
 
 @dataclass
 class MassResult:
     """The persisted mass-properties slice (``Project.mass``), written by WTONECG.
 
-    Carries the weight/CG/inertia of each structural-limit loading (up to the four
-    CG cases x gear up/down). SELECT reads the inertia for the maneuver/gust
-    balancing and unbalanced-load conditions; FLTLOADS/LANDLOAD read weight & CG.
-    Introduced in Step C6 -- the point at which a consumer (SELECT) finally needs
-    the long-deferred persisted ``Project.mass`` (see the WTONECG note in
-    ``PROGRAM_SPEC.md``)."""
+    One :class:`MassCase` per ``weight.cg_cases[]`` entry whose loading of
+    record the database can produce (FLIGHT and GROUND alike, in case order),
+    then the database-ceiling row **last** (design note 70 D-70.1) -- so
+    ``cases[0]`` is the first CG case, never the sum. Derived data: WTONECG
+    over the items and the CG cases and nothing else (``derived.py``), rebuilt
+    by :func:`sloads.modules.weight_onecg.refresh_mass`. Readers: the Geometry
+    page's gear-geometry figures (per case), the landing seed's waterline
+    placeholder, the report's per-case table. No load module reads it: SELECT
+    uses the rod estimate or the typed override (disclosed against the case
+    value, D-70.7) and ONENGOUT reads its basis case's row through the one
+    owner, :func:`sloads.modules.weight_onecg.case_mass_properties`."""
     cases: List[MassCase] = field(default_factory=list)
 
 

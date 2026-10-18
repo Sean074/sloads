@@ -189,6 +189,21 @@ def _hop_76(d: Dict[str, Any]) -> Dict[str, Any]:
     return d
 
 
+def _hop_77(d: Dict[str, Any]) -> Dict[str, Any]:
+    """v77 -> v78 (design note 70 D-70.3, #382): ``MassCase`` gains
+    ``ceiling`` and ``Project.mass`` becomes one row per CG case plus the
+    labelled database-ceiling row, last. The stored v77 block is the one
+    all-items row under the name "itemized loading", which is now the
+    ceiling: it is dropped here and re-derived at the next persist (the GUI
+    calls ``refresh_derived`` after every one) -- ``Project.mass`` is derived
+    data (``derived.py``; ``refresh_mass`` is its one writer), so nothing the
+    user entered is lost and the slice cannot carry a stale shape. No
+    delivered load moves: no load module reads the slice.
+    """
+    d.pop("mass", None)
+    return d
+
+
 #: ``{from_version: hop}`` -- applied in ascending order, each turning a file of
 #: version *n* into version *n+1* shape.
 MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
@@ -199,6 +214,7 @@ MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     74: _hop_74,
     75: _hop_75,
     76: _hop_76,
+    77: _hop_77,
 }
 
 #: The oldest project version this build reads: the oldest released schema, or

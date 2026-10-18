@@ -36,6 +36,7 @@ from sloads import (
     TailLoadsInput,
     TailType,
     VTailLoadsInput,
+    io,
 )
 
 
@@ -68,6 +69,8 @@ from sloads.modules.configuration import (  # noqa: E402
     match_component_station,
     tail_planform,
 )
+
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def _props(project):
@@ -190,25 +193,75 @@ def test_cg_estimate_falls_back_to_quarter_mac_without_mass():
 
 
 def test_cg_estimate_uses_mass_when_present():
-    # Step D4.5: Project.mass (WTONECG's itemized loading) is the true CG.
+    # Step D4.5 / design note 70 D-70.4: a Project.mass row is the true CG, and
+    # the label names the case it belongs to.
     layout = _gear_layout()
-    mass = MassResult(cases=[MassCase(name="itemized loading", weight_lb=2000.0, cg_x=123.4, cg_z=56.7)])
+    mass = MassResult(cases=[MassCase(name="aft gross", weight_lb=2000.0, cg_x=123.4, cg_z=56.7)])
     project = Project(name="t", geometry=_geometry(layout=layout), mass=mass)
     geom = _props(project)
     x_cg, z_cg, source = cg_estimate(project, layout, geom["mac"],
                                      geom["xle_mac_station_of_mac_le"])
-    assert (x_cg, z_cg, source) == (123.4, 56.7, "Weight DB")
+    assert (x_cg, z_cg, source) == (123.4, 56.7, "Weight DB, aft gross")
+
+
+def test_cg_estimate_names_the_ceiling_when_that_is_all_there_is():
+    """D-70.4: a slice holding only the ceiling answers with it, *named* --
+    never silently, which is what every reader did before note 70."""
+    layout = _gear_layout()
+    mass = MassResult(cases=[MassCase(name="ceiling", weight_lb=2000.0, cg_x=123.4, cg_z=56.7, ceiling=True)])
+    project = Project(name="t", geometry=_geometry(layout=layout), mass=mass)
+    geom = _props(project)
+    assert cg_estimate(project, layout, geom["mac"], geom["xle_mac_station_of_mac_le"])[2] == (
+        "Weight DB, database ceiling")
 
 
 def test_gear_condition_label_reflects_cg_source():
     layout = _gear_layout()
-    mass = MassResult(cases=[MassCase(name="itemized loading", weight_lb=2000.0, cg_x=123.4, cg_z=56.7)])
+    mass = MassResult(cases=[MassCase(name="aft gross", weight_lb=2000.0, cg_x=123.4, cg_z=56.7)])
     # The CG source rides in the *label* (display text); the key is stable (M4-9).
     with_mass = _labels(_gear_project(layout, mass=mass))
     without_mass = _labels(_gear_project(layout))
-    assert "CG station (Weight DB)" in with_mass
+    assert "CG station (Weight DB, aft gross)" in with_mass
     assert "CG station (25% MAC estimate)" in without_mass
     assert _props(_gear_project(layout, mass=mass))["cg_station"] == 123.4
+
+
+def test_gear_angles_are_drawn_per_cg_case_and_the_governing_case_is_named():
+    """Design note 70 D-70.4 / G-70.5: one tip-back and overturn value per
+    loading of record, the headline pair naming the governing case (minimum
+    tip-back, maximum overturn), and the ceiling row never used as a CG while
+    a case row exists."""
+    layout = _gear_layout()
+    rows = [MassCase(name="aft gross", weight_lb=2000.0, cg_x=110.0, cg_z=56.7),
+            MassCase(name="fwd gross", weight_lb=2000.0, cg_x=95.0, cg_z=56.7),
+            MassCase(name="ceiling", weight_lb=2600.0, cg_x=130.0, cg_z=60.0, ceiling=True)]
+    project = _gear_project(layout, mass=MassResult(cases=rows))
+    props = _props(project)
+    labels = _labels(project)
+    assert "Tip-back angle -- aft gross" in labels and "Tip-back angle -- fwd gross" in labels
+    assert "Tip-back angle -- ceiling" not in labels
+    assert props["tip_back_angle"] == min(props["tip_back_angle_case_1"], props["tip_back_angle_case_2"])
+    assert props["tip_back_angle"] == props["tip_back_angle_case_1"]        # the aft CG governs
+    assert "Tip-back angle, governing (aft gross)" in labels
+    assert props["overturn_turnover_angle"] == max(
+        props["overturn_turnover_angle_case_1"], props["overturn_turnover_angle_case_2"])
+    assert props["cg_station"] in (110.0, 95.0)                               # a case, never 130.0
+
+
+@pytest.mark.parametrize("name", ["atr42_100", "baron_58", "ga6_normal", "concept_regional_jet"])
+def test_every_fixtures_gear_rows_name_a_case(name):
+    """G-70.5 on the shipped fixtures: every per-case value row names its case
+    and no headline value is drawn at the ceiling."""
+    project = io.load_project(os.path.join(_ROOT, "examples", f"{name}.project.json"))
+    cond = next(c for c in configuration_properties(project) if c.title.startswith("Landing-gear"))
+    cases = {c.name for c in project.mass.cases if not c.ceiling}
+    per_case = [v for v in cond.values if " -- " in v.label]
+    assert per_case, name
+    assert all(v.label.split(" -- ", 1)[1] in cases for v in per_case), name
+    governing = [v for v in cond.values if "governing (" in v.label]
+    assert governing and all(v.label.split("governing (")[1].rstrip(")") in cases for v in governing), name
+    cg = next(v for v in cond.values if v.key == "cg_station")
+    assert cg.value != next(c for c in project.mass.cases if c.ceiling).cg_x, name
 
 
 #: The outline every ``component_stations`` test puts a body on: 300 in long

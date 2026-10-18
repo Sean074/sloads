@@ -34,8 +34,8 @@ from sloads.modules import one_engine_out as oeo
 from sloads.modules import select as sel
 from sloads.modules._vtail import (
     large_deflection_factor,
-    rudder_effectiveness,
     lift_curve_slope,
+    rudder_effectiveness,
 )
 
 REL = 1e-3  # ±0.1%
@@ -487,7 +487,25 @@ def test_the_mass_basis_is_the_heaviest_flight_loading_aft_most_among_ties():
         assert fc.mass_case == "aft gross"
         assert math.isclose(fc.inputs.izz, v["izz"], rel_tol=1e-12)
         assert math.isclose(fc.inputs.xcg, v["xbar_fus_station"], rel_tol=1e-12)
-    assert loading.weight_lb < p.mass.cases[0].weight_lb  # the all-items state it replaced
+    ceiling = [c for c in p.mass.cases if c.ceiling]
+    assert len(ceiling) == 1 and loading.weight_lb < ceiling[0].weight_lb  # the all-items state it replaced
+
+
+def test_the_march_reads_its_mass_state_from_wtonecgs_one_owner():
+    """Design note 70 G-70.3: ONENGOUT's mass state *is* the WTONECG row of the
+    mass-basis case -- one owner, no second computation -- on every fixture
+    that has a FLIGHT basis."""
+    from sloads.modules.weight_onecg import case_mass_properties
+
+    for name in ("atr42_100", "baron_58", "concept_regional_jet", "ga6_normal"):
+        p = io.load_project(os.path.join(_EXAMPLES, f"{name}.project.json"))
+        basis = oeo.mass_basis(p)
+        if basis is None:
+            continue
+        state = oeo._mass_state(p)
+        rows = {r.name: r for r in case_mass_properties(p).rows if not r.ceiling}
+        assert state == rows[basis[0].name], name
+        assert not state.ceiling
 
 
 def test_the_march_and_the_deck_parent_share_one_mass_basis():
