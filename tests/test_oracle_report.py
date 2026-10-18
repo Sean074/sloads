@@ -2510,7 +2510,9 @@ def test_the_wing_cases_are_one_set_seen_four_ways():
     assert sorted({row[0] for row in stations.rows}) == sorted(cases)
     for figure in [f for s in _flat([_section_three(doc)]) for f in s.figures
                    if f.key.startswith("wing_") and f.data is not None
-                   and f.key != "wing_span_load"]:
+                   # Two input figures, not case projections: the span load
+                   # and the spanwise mass (design note 71 D-71.10).
+                   and f.key not in ("wing_span_load", "wing_mass_span")]:
         assert [s.name.split()[0] for s in figure.data.series] == cases
 
 

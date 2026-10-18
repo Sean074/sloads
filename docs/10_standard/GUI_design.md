@@ -921,7 +921,7 @@ it is outside the certificated band — never blocking. The design:
 - **A pure `far23_applicability(project)` helper** (`sloads/applicability.py`)
   returns the structured exceedances (`Exceedance(field, value, limit, label, dim)`, worded once by `report.methods.exceedance_statement` in the display system); no
   Streamlit, unit-testable, and yields *no* exceedances on Appendix-A GA inputs.
-  The MTOW check reads `speeds.weight_lb`, falling back to the Weight DB total; the
+  The MTOW check reads `cg_cases.max_takeoff_weight` (G-14; `speeds.weight_lb` is a collapsed override of it since design note 71); the
   seat check compares `passenger seats = effective_occupants − effective_crew`
   against 9, where the crew is the user-set `WeightEstimationInput.crew`.
 - **A non-blocking banner** (`app_shell.components.render_applicability_banner`) on the
@@ -1071,8 +1071,8 @@ deliberate so a pre-v44 project's tail loads do not move under it; a project tha
 entered nothing — which is *every* shipped fixture, and why every h-tail deck the
 suite produced was silently air-only — now derives the surface weight from the
 item data base and gains the inertia it should always have had; v45 plan 09 T6
-the discrete control-surface load path — `TailMassInput.hinges_span_in` and
-`.actuator_span_in`, the hinge and actuator span stations
+the discrete control-surface load path — `hinges_span_in` and
+`actuator_span_in` (on `TailMassInput` until v80, on the control surface's `SurfaceInput` row since design note 71 D-71.9), the hinge and actuator span stations
 `control_load_mode = "discrete"` requires (and refuses to run without, since a
 silent fall back to `"smeared"` would report a localized load path the deck does
 not contain). Additive with empty defaults, so no hop: absent *is* the

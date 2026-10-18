@@ -1,5 +1,5 @@
 {
-  "schema_version": 79,
+  "schema_version": 80,
   "name": "GA 6-place single (Appendix A) \u2014 Continental IO-520-BB",
   "engines": [
     {
@@ -7,13 +7,13 @@
       "prop_designation": "HARTZELL",
       "engine_type": "R",
       "limit_load_factor": 3.8,
-      "engine_weight_lb": 505.0,
+      "engine_weight_lb": 0.0,
       "engine_cg": [
         22.0,
         0.0,
         92.0
       ],
-      "prop_weight_lb": 74.0,
+      "prop_weight_lb": 0.0,
       "prop_diameter_in": 84,
       "prop_inertia": null,
       "prop_blades": 3,
@@ -595,7 +595,10 @@
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
         "sob_y_in": null,
-        "hinge_line": []
+        "hinge_line": [],
+        "control_load_mode": "smeared",
+        "hinges_span_in": [],
+        "actuator_span_in": 0.0
       },
       {
         "name": "aileron",
@@ -630,7 +633,10 @@
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
         "sob_y_in": null,
-        "hinge_line": []
+        "hinge_line": [],
+        "control_load_mode": "smeared",
+        "hinges_span_in": [],
+        "actuator_span_in": 0.0
       },
       {
         "name": "htail",
@@ -705,7 +711,10 @@
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
         "sob_y_in": null,
-        "hinge_line": []
+        "hinge_line": [],
+        "control_load_mode": "smeared",
+        "hinges_span_in": [],
+        "actuator_span_in": 0.0
       },
       {
         "name": "vtail",
@@ -736,7 +745,10 @@
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
         "sob_y_in": null,
-        "hinge_line": []
+        "hinge_line": [],
+        "control_load_mode": "smeared",
+        "hinges_span_in": [],
+        "actuator_span_in": 0.0
       },
       {
         "name": "elevator",
@@ -766,7 +778,10 @@
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
         "sob_y_in": null,
-        "hinge_line": []
+        "hinge_line": [],
+        "control_load_mode": "smeared",
+        "hinges_span_in": [],
+        "actuator_span_in": 0.0
       },
       {
         "name": "rudder",
@@ -800,7 +815,10 @@
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
         "sob_y_in": null,
-        "hinge_line": []
+        "hinge_line": [],
+        "control_load_mode": "smeared",
+        "hinges_span_in": [],
+        "actuator_span_in": 0.0
       },
       {
         "name": "flap",
@@ -835,7 +853,10 @@
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
         "sob_y_in": null,
-        "hinge_line": []
+        "hinge_line": [],
+        "control_load_mode": "smeared",
+        "hinges_span_in": [],
+        "actuator_span_in": 0.0
       }
     ],
     "parametric": {
@@ -868,7 +889,8 @@
         }
       ],
       "body_drag_waterline_z": 0.0,
-      "airplane_length_in": 318.264
+      "airplane_length_in": 318.264,
+      "beam_waterline_z": 87.7
     },
     "empennage": {
       "htail": {
@@ -902,7 +924,6 @@
         "rudder_aft_hinge_sqft": 4.63,
         "wing_span_in": 402.0,
         "rudder_deflection_deg": 30.0,
-        "gross_weight_lb": 3400.0,
         "rudder_large_deflection_factor": 1.0,
         "izz_slugft2": 0.0,
         "vtail_root_waterline_z": 0.0
@@ -958,7 +979,7 @@
   },
   "speeds": {
     "category": "N",
-    "weight_lb": 3400,
+    "weight_lb": 0.0,
     "occupants": null,
     "wing_area_sqft": null,
     "vh_kt": 190,
@@ -1226,7 +1247,6 @@
   },
   "fuselage_mass": {
     "stations": [],
-    "ref_waterline": 87.7,
     "stations_are_override": false
   },
   "select_input": {

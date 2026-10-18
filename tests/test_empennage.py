@@ -122,7 +122,7 @@ def test_the_boundary_derived_marking_partitions_the_tail_blocks():
             "elevator_te_down_deg", "wing_lift_slope_per_rad",
         },
         VTailLoadsInput: {
-            "rudder_deflection_deg", "gross_weight_lb",
+            "rudder_deflection_deg",
             "rudder_large_deflection_factor", "izz_slugft2",
             # Placement, not planform: the L-1 owner's field.
             "vtail_root_waterline_z",

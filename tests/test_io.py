@@ -331,7 +331,6 @@ def test_c6_slices_round_trip():
     ])
     fuselage_mass = FuselageMassInput(
         stations=[FuselageStation(x=20.0, weight_lb=140.0), FuselageStation(x=200.0)],
-        ref_waterline=12.0,
     )
     critical = CriticalLoadSet(conditions=[
         CriticalCondition(component="wing", label="PHAA", far_reference="23.301",
@@ -600,7 +599,7 @@ def test_the_v77_hop_moves_the_body_scalars_and_drops_the_wing_copies():
     wing value is stated once in the migration notes. A v77 file round-trips."""
     from sloads.migrations import applied_hops, migrate
 
-    assert applied_hops(76) == [76, 77, 78]  # v77: design note 70 (#382); v78: the gear tag (#384)
+    assert applied_hops(76) == [76, 77, 78, 79]  # v77: note 70 (#382); v78: the gear tag (#384); v79: note 71 (#383)
     d = {
         "schema_version": 76,
         "geometry": {

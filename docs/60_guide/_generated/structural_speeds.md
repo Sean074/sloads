@@ -8,7 +8,7 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | Field | Type | Units / notes | Default | Origin | Provenance |
 | --- | --- | --- | --- | --- | --- |
 | `speeds.category` | `str` | a CATEGORIES code; normalised in __post_init__ | `'N'` | original | STRSPEED category, UG Table 7.1 |
-| `speeds.weight_lb` | `float` | lb | `0.0` | original | STRSPEED design weight W; quantity: *max take-off weight*; override of `weight.max_takeoff_weight_lb (override, not a read-through: STRSPEED uses this value verbatim; the link back is cg_cases.max_takeoff_weight's fallback and validation's mtow_representation_drift warning -- note 33 DS-6/2.3)` |
+| `speeds.weight_lb` | `float` | lb | `0.0` | original | STRSPEED design weight W; 0 -> MTOW (design note 71 D-71.2, note 36 OV-1); a typed value governs and is warned (mtow_representation_drift); quantity: *max take-off weight*; override of `weight.max_takeoff_weight_lb (MTOW SSOT G-14; the collapsed override of it since v80 -- until then STRSPEED read this copy verbatim, note 33 DS-6/2.3)` |
 | `speeds.wing_area_sqft` | `Optional[float]` | else read from geometry wing | `None` | original | STRSPEED S (W/S); quantity: *wing reference area*; display-only copy of `external: wing planform (the WINGGEOM integral over speeds.wing_surface -- #70)` |
 | `speeds.wing_surface` | `str` |  | `'wing'` | sloads | names which surface of sloads' multi-surface planform this step reads; the original suite had one wing and needed no selector (standing ruling) |
 | `speeds.vh_kt` | `float` | max speed at sea level (KEAS) | `0.0` | original | STRSPEED VH, max level speed |

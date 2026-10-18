@@ -546,6 +546,19 @@ class SurfaceInput:
     rear_spar_x_in: Optional[float] = None   # fuselage station, in; None -> derived default (OR-121)
     sob_y_in: Optional[float] = None         # side-of-body butt line, in; None -> assumed fallback (BM-1)
     hinge_line: List[XYPoint] = field(default_factory=list)  # control hinge axis; empty = not entered (D-54.1)
+    #: How the control surface's own load enters its parent (design note 71
+    #: D-71.9, moved here from ``TailMassInput`` at v80 -- beam-model geometry,
+    #: entered with the surface it describes): ``"smeared"`` keeps the control
+    #: part inside the parent's spanwise distribution; ``"discrete"`` removes it
+    #: and re-enters it as hinge reactions plus an actuator load at the span
+    #: stations below (plan 09 T-4/T6, note 56's bridge). Read on a control
+    #: surface (elevator, rudder) through ``tail_span.control_load_mode``.
+    control_load_mode: str = "smeared"
+    #: Hinge span stations, measured from the surface root along its span (in);
+    #: at least two for ``"discrete"``.
+    hinges_span_in: List[float] = field(default_factory=list)
+    #: The actuator's span station (in), inside the span the hinges hold.
+    actuator_span_in: float = 0.0
 
     @property
     def ref_axis(self) -> float:
@@ -611,6 +624,11 @@ class FuselageOutline:
     sections: List[FuselageSection] = field(default_factory=list)
     body_drag_waterline_z: float = 0.0   # 0 -> derived (zw), marked assumed
     airplane_length_in: float = 0.0      # LF; 0 -> derived from the outline length
+    #: The waterline the fuselage beam (its loads reference axis) runs on, in;
+    #: ``0`` = not entered, the section-centre line stands in (design note 71
+    #: D-71.7, moved here from ``FuselageMassInput.ref_waterline`` at v80:
+    #: where the body beam sits is geometry, not mass).
+    beam_waterline_z: float = 0.0
 
 
 @dataclass
@@ -1335,7 +1353,8 @@ class FuselageMassInput:
     accident, and a deliberate one still can.
     """
     stations: List[FuselageStation] = field(default_factory=list)
-    ref_waterline: float = 0.0
+    # ``ref_waterline`` moved to ``geometry.fuselage.beam_waterline_z`` at v80
+    # (design note 71 D-71.7).
     stations_are_override: bool = False
 
 
@@ -1493,7 +1512,8 @@ class VTailLoadsInput:
     wing_span_in: float = 0.0                  # [D] B (inches; IZZ uses B_ft = B_in/12; from the wing planform)
     # Deflections, effectiveness, mass and inertia -- the stays-entered side:
     rudder_deflection_deg: float = 0.0         # RD (full rudder)
-    gross_weight_lb: float = 0.0               # GW (IZZ default; 0 -> use the heaviest CG case)
+    # ``gross_weight_lb`` (SELECT GW) deleted at v80 (design note 71 D-71.4):
+    # the fin's design weight is the airplane's MTOW, read from its one owner.
     rudder_large_deflection_factor: float = 1.0  # EFV (subr 10000 chart; ~1.0)
     izz_slugft2: float = 0.0                   # 0 -> compute the default IZZ
     # Waterline of the fin root (in). **0 -> derive it** (see
@@ -1587,24 +1607,6 @@ class TailMassInput:
     """
     surface: str = "htail"            # "htail" | "vtail"
     panel_weight_lb: float = 0.0      # whole surface (both sides for the h-tail)
-    #: How the control surface's own load enters the parent surface (T-4).
-    #:
-    #: ``"smeared"`` (phase 1, the default and the only mode implemented): the
-    #: control part is already *in* the spanwise distribution, because ``LT50``
-    #: **is** the camber/elevator load and it is distributed chord-proportionally
-    #: with the rest. Nothing is added or removed; the mode is a statement about
-    #: what the numbers mean, and it is printed on the deck.
-    #:
-    #: ``"discrete"`` (phase 2, T6): the control part is removed from the smeared
-    #: strips and re-enters as hinge reactions plus an actuator load at the
-    #: hinge/actuator span stations. It needs attachment geometry that does not
-    #: exist yet, so selecting it raises rather than silently falling back --
-    #: a silent fallback would report a localized load path the deck does not have.
-    #:
-    #: **Per surface** with a project-level default, per plan §3.4: an elevator may
-    #: have hinge geometry entered while the rudder does not, and one project-wide
-    #: flag would drag the whole empennage back to ``"smeared"`` for the missing one.
-    control_load_mode: str = "smeared"
     #: Take ``panel_weight_lb`` as an **explicit override** of the item data base.
     #:
     #: The surface weight is derived from the ``htail``/``vtail``-tagged
@@ -1617,23 +1619,9 @@ class TailMassInput:
     #: is old. :func:`sloads.mass_distribution.tail_reconciliation` reports the
     #: difference either way.
     weight_is_override: bool = False
-    #: Hinge span stations of this surface's control surface (in), measured along
-    #: the **surface span axis from its root** — the same coordinate the strip
-    #: stations use, so the elevator's hinges are butt lines and the rudder's are
-    #: heights above the fin root. At least two, in any order (they are sorted).
-    #:
-    #: Required by ``control_load_mode = "discrete"`` (plan 09 T6, decision T-17):
-    #: they are what the control-surface load is reacted at, and the span between
-    #: the first and the last is taken as the control surface's own span extent —
-    #: the region the load is removed from the parent surface over. For the
-    #: symmetric horizontal tail they are entered **once**, for one side, and
-    #: mirrored, exactly as the planform polylines are.
-    hinges_span_in: List[float] = field(default_factory=list)
-    #: Span station of the actuator (in), same axis as :attr:`hinges_span_in`.
-    #: The station that carries the hinge-moment couple; ``0.0`` means "not
-    #: entered", which ``"discrete"`` mode refuses rather than defaulting, since a
-    #: guessed actuator position moves a real torsion peak along the surface.
-    actuator_span_in: float = 0.0
+    # The control-load fields (``control_load_mode``, ``hinges_span_in``,
+    # ``actuator_span_in``) moved to the control surface's ``SurfaceInput`` row
+    # at v80 (design note 71 D-71.9): they are beam-model geometry.
 
     def __post_init__(self) -> None:
         # A TAIL_SURFACES name; unknown surfaces refused by name where the row

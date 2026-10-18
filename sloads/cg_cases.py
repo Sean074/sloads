@@ -233,8 +233,10 @@ def max_zero_fuel_weight_estimate(project: Project) -> Optional[float]:
 #: seeds the SSOT from ``speeds.weight_lb``); a directly-constructed test project
 #: does, which is why they stay. ``validation`` flags any that disagrees, so the
 #: chain is a compatibility path and not a second authority.
-_MTOW_FALLBACKS = ("speeds.weight_lb", "weight.envelope.gross_weight",
-                   "max FLIGHT case weight")
+_MTOW_FALLBACKS = ("weight.envelope.gross_weight", "max FLIGHT case weight")
+#: ``speeds.weight_lb`` left this chain at v80 (design note 71 D-71.2): it is
+#: a collapsed override *of* MTOW now, so reading it back as MTOW would be a
+#: circle.
 
 
 def max_takeoff_weight(project: Project, *, required: bool = True) -> float:
@@ -253,8 +255,6 @@ def max_takeoff_weight(project: Project, *, required: bool = True) -> float:
     w = _weight_slice(project)
     if w is not None and w.max_takeoff_weight_lb > 0.0:
         return w.max_takeoff_weight_lb
-    if project.speeds is not None and project.speeds.weight_lb > 0.0:
-        return project.speeds.weight_lb
     if w is not None and w.envelope is not None and w.envelope.gross_weight > 0.0:
         return w.envelope.gross_weight
     cases = flight_cases(project)

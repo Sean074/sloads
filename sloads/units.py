@@ -524,7 +524,7 @@ _PROJECT_FIELD_KIND = {
     "mac": "length_in", "xlemac": "length_in",
     "datum_x": "length_in", "le_root_x": "length_in", "h_tail_z": "length_in",
     "root_waterline_z": "length_in", "vtail_root_waterline_z": "length_in",
-    "body_drag_waterline_z": "length_in", "ref_waterline": "length_in",
+    "body_drag_waterline_z": "length_in", "beam_waterline_z": "length_in",
     "wrp_waterline": "length_in", "inboard_rib_y": "length_in",
     "fuselage_length": "length_in", "fuselage_width": "length_in",
     "fuselage_height": "length_in", "fuselage_nose_x": "length_in",

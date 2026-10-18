@@ -1,5 +1,5 @@
 {
-  "schema_version": 79,
+  "schema_version": 80,
   "name": "RJ-50 concept \u2014 50-seat regional jet (concept mode, Part 25)",
   "engines": [
     {
@@ -7,7 +7,7 @@
       "prop_designation": "",
       "engine_type": "T",
       "limit_load_factor": 2.5,
-      "engine_weight_lb": 1700.0,
+      "engine_weight_lb": 0.0,
       "engine_cg": [
         850.0,
         42.0,
@@ -65,7 +65,7 @@
       "prop_designation": "",
       "engine_type": "T",
       "limit_load_factor": 2.5,
-      "engine_weight_lb": 1700.0,
+      "engine_weight_lb": 0.0,
       "engine_cg": [
         850.0,
         -42.0,
@@ -686,7 +686,10 @@
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
         "sob_y_in": null,
-        "hinge_line": []
+        "hinge_line": [],
+        "control_load_mode": "smeared",
+        "hinges_span_in": [],
+        "actuator_span_in": 0.0
       },
       {
         "name": "aileron",
@@ -717,7 +720,10 @@
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
         "sob_y_in": null,
-        "hinge_line": []
+        "hinge_line": [],
+        "control_load_mode": "smeared",
+        "hinges_span_in": [],
+        "actuator_span_in": 0.0
       },
       {
         "name": "htail",
@@ -748,7 +754,10 @@
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
         "sob_y_in": null,
-        "hinge_line": []
+        "hinge_line": [],
+        "control_load_mode": "smeared",
+        "hinges_span_in": [],
+        "actuator_span_in": 0.0
       },
       {
         "name": "vtail",
@@ -779,7 +788,10 @@
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
         "sob_y_in": null,
-        "hinge_line": []
+        "hinge_line": [],
+        "control_load_mode": "smeared",
+        "hinges_span_in": [],
+        "actuator_span_in": 0.0
       },
       {
         "name": "elevator",
@@ -810,7 +822,10 @@
             1099.406,
             139.0
           ]
-        ]
+        ],
+        "control_load_mode": "smeared",
+        "hinges_span_in": [],
+        "actuator_span_in": 0.0
       },
       {
         "name": "rudder",
@@ -841,7 +856,10 @@
             1092.79,
             225.0
           ]
-        ]
+        ],
+        "control_load_mode": "smeared",
+        "hinges_span_in": [],
+        "actuator_span_in": 0.0
       }
     ],
     "parametric": {
@@ -874,7 +892,8 @@
         }
       ],
       "body_drag_waterline_z": 0.0,
-      "airplane_length_in": 1056.0
+      "airplane_length_in": 1056.0,
+      "beam_waterline_z": 53.3
     },
     "empennage": {
       "htail": {
@@ -908,7 +927,6 @@
         "rudder_aft_hinge_sqft": 0.0,
         "wing_span_in": 792.0,
         "rudder_deflection_deg": 25.0,
-        "gross_weight_lb": 33000.0,
         "rudder_large_deflection_factor": 1.0,
         "izz_slugft2": 0.0,
         "vtail_root_waterline_z": 0.0
@@ -964,7 +982,7 @@
   },
   "speeds": {
     "category": "C",
-    "weight_lb": 33000.0,
+    "weight_lb": 0.0,
     "occupants": null,
     "wing_area_sqft": 500.0,
     "vh_kt": 310,
@@ -1262,7 +1280,6 @@
   },
   "fuselage_mass": {
     "stations": [],
-    "ref_waterline": 53.3,
     "stations_are_override": false
   },
   "select_input": {

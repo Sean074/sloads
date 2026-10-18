@@ -151,6 +151,11 @@ def _catalogue() -> Tuple[FigureFamily, ...]:
     out += rows("wing_loads", osx.wing_span_load_figures, post,
                 ("wing_span_load", "Wing span loading"),
                 ("wing_span_load_flaps", "Wing span loading, flaps down"))
+    # The wing's spanwise mass (design note 71 D-71.10): what WINGINER spreads
+    # per strip for each FLIGHT mass state, with the point masses marked. Entered
+    # data read through the module's own ``inertia_units``, so pre-run.
+    out += rows("wing_loads", osx.wing_mass_span_figures, pre,
+                ("wing_mass_span", "Wing spanwise mass"))
     out += rows("wing_loads", osx.wing_distribution_figures, post,
                 ("wing_shear_sz", "Vertical shear Sz"),
                 ("wing_bending_mxx", "Bending moment Mxx"),

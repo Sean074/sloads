@@ -2,7 +2,7 @@
 
 > **Generated file — do not edit by hand.** Produced by [`docs/generate_data_dict.py`](../generate_data_dict.py) from `sloads/models.py`. Regenerate after any schema change: `.venv/bin/python docs/generate_data_dict.py`.
 
-Schema version: **79**.
+Schema version: **80**.
 
 This dictionary covers the **input** slices of `Project` (`sloads/models.py`) — the fields that make up a `project.json`. The result slices (`envelope`, `mass`, `loads`) are computed outputs and are out of scope.
 
@@ -21,17 +21,17 @@ The top-level `Project` fields. `name`/`engineer`/`date` are free-text metadata;
 | `engines` | `List[EngineInput]` | Engine Mount Loads / Geometry | `balance`, `engine`, `flap`, `one_engine_out`, `weight_estimate`, `wing_geometry` | Engine-mount inputs (one per engine) |
 | `engine_layout` | `EngineLayout (enum)` | Geometry | `wing_geometry` | Engine layout constraint (enum) |
 | `weight` | `?` | Weight & Mass Properties | `configuration`, `engine`, `select`, `weight_envelope`, `weight_estimate`, `weight_onecg` | Weight database (WTESTIMA / WTONECG / WTENV) |
-| `geometry` | `?` | Aerodynamic Data / Geometry | `airloads`, `balance`, `configuration`, `flap`, `landing`, `net_loads`, `rolling`, `tail_span`, `weight_envelope`, `wing_geometry`, `wing_inertia`, `wing_variants` | Geometry single-source (WINGGEOM + fuselage + empennage) |
+| `geometry` | `?` | Aerodynamic Data / Geometry / Weight & Mass Properties | `airloads`, `balance`, `configuration`, `flap`, `landing`, `net_loads`, `rolling`, `tail_span`, `weight_envelope`, `wing_geometry`, `wing_inertia`, `wing_variants` | Geometry single-source (WINGGEOM + fuselage + empennage) |
 | `speeds` | `?` | Structural Speeds | `aileron`, `engine`, `flap`, `flight_envelope`, `mach_limit`, `one_engine_out`, `rolling`, `structural_speeds`, `tab` | Structural design speeds & load factors (STRSPEED) |
 | `aero` | `?` | Wing Loads | `airloads`, `balance`, `net_loads`, `rolling`, `wing_variants` | Spanwise airload inputs (AIRLOADS) |
 | `aero_coeffs` | `?` | Aerodynamic Data | `balance`, `flight_envelope`, `one_engine_out`, `select`, `structural_speeds` | Airplane-less-tail aero coefficients (FLTLOADS input) |
 | `flight_loads` | `?` | Flight Envelope (V-n) | `balance`, `balloads`, `body_loads`, `flight_envelope`, `select`, `tail_span` | Flight envelope / balancing tail loads (FLTLOADS) |
-| `wing_mass` | `?` | Wing Loads | `balance`, `net_loads`, `rolling`, `wing_inertia`, `wing_variants` | Wing-mass distribution & load cases (WINGINER) |
-| `fuselage_mass` | `?` | Fuselage Loads | `body_loads` | Fuselage mass distribution (SELECT / Ch 15) |
+| `wing_mass` | `?` | Weight & Mass Properties / Wing Loads | `balance`, `net_loads`, `rolling`, `wing_inertia`, `wing_variants` | Wing-mass distribution & load cases (WINGINER) |
+| `fuselage_mass` | `?` | Weight & Mass Properties | `body_loads` | Fuselage mass distribution (SELECT / Ch 15) |
 | `tail_mass` | `List[TailMassInput]` | Weight & Mass Properties | `tail_span` | Empennage surface mass override — derived from the component-tagged weight.items by default (plan 09 T-3) |
 | `select_input` | `?` | Aerodynamic Data / Geometry / Weight & Mass Properties | `select` | Critical-load selection inputs (SELECT) |
 | `tail_loads` | `TailLoadsInput` | Aerodynamic Data / Geometry | `balloads`, `body_loads`, `select`, `tail_span`, `taildist` | Rational horizontal-tail inputs (via geometry.empennage) |
-| `vtail_loads` | `VTailLoadsInput` | Geometry | `balance`, `one_engine_out`, `select`, `tail_span`, `taildist` | Rational vertical-tail inputs (via geometry.empennage) |
+| `vtail_loads` | `VTailLoadsInput` | Geometry / Weight & Mass Properties | `balance`, `one_engine_out`, `select`, `tail_span`, `taildist` | Rational vertical-tail inputs (via geometry.empennage) |
 | `aileron_loads` | `?` | Aileron Loads / Geometry | `aileron`, `rolling`, `select` | Aileron simplified loads (AILERON) |
 | `flap_loads` | `?` | Flap Loads / Geometry | `flap` | Flap simplified loads (FLAPLOAD) |
 | `tab_loads` | `?` | Tab Loads | `tab` | Tab simplified loads (TABLOADS) |
@@ -85,7 +85,6 @@ Geometry/aero inputs for SELECT's rational vertical-tail loads (Ch 9).
 | `rudder_aft_hinge_sqft` | `float` | [D] SRAFTHL | `0.0` |
 | `wing_span_in` | `float` | [D] B (inches; IZZ uses B_ft = B_in/12; from the wing planform) | `0.0` |
 | `rudder_deflection_deg` | `float` | RD (full rudder) | `0.0` |
-| `gross_weight_lb` | `float` | GW (IZZ default; 0 -> use the heaviest CG case) | `0.0` |
 | `rudder_large_deflection_factor` | `float` | EFV (subr 10000 chart; ~1.0) | `1.0` |
 | `izz_slugft2` | `float` | 0 -> compute the default IZZ | `0.0` |
 | `vtail_root_waterline_z` | `float` | 0 -> derived, marked assumed | `0.0` |

@@ -717,7 +717,7 @@ EXTERNAL_VALUES: Dict[str, "typing.Callable[..., object]"] = {
     # the caption shows is the number a blank field uses. A resolver may take
     # the row instance as ``record`` when the path is a ``[]`` row.
     "weight.envelope.gross_weight": _mtow,
-    "geometry.empennage.vtail.gross_weight_lb": _mtow,
+    "speeds.weight_lb": _mtow,            # design note 71 D-71.2
     "weight.envelope.mac": _wing_ref_value("mac"),
     "weight.envelope.xlemac": _wing_ref_value("xlemac"),
     "weight.envelope.fuselage_nose_x": _fuselage_bound(min),
@@ -795,6 +795,28 @@ def external_value(path: str, project: Project, record: object = None):
 #: (page, record) must share one title (guarded in
 #: ``tests/test_field_registry.py``).
 DISPLAY_GROUPS: Dict[str, str] = {
+    # Design note 71: the moved rows join the titled sections their records
+    # already render in (D-69.5's one Fuselage section, D-69.13's Engines
+    # section); a second, untitled group would render the record twice.
+    "geometry.fuselage.beam_waterline_z": "Fuselage",
+    "engines[].engine_mass_item": "Engines",
+    "engines[].prop_mass_item": "Engines",
+    # Design note 71: the mass quantities that moved to the weight page keep
+    # their slices and gain a titled section each (D-71.5, D-71.6, D-71.8).
+    "geometry.empennage.vtail.izz_slugft2": "Yaw inertia (SELECT 23.443)",
+    "wing_mass.panel_weight_override_lb": "Wing mass",
+    "wing_mass.tip_root_density_ratio": "Wing mass",
+    "wing_mass.inboard_rib_y": "Wing mass",
+    "fuselage_mass.stations[].x": "Fuselage mass stations",
+    "fuselage_mass.stations[].weight_lb": "Fuselage mass stations",
+    "fuselage_mass.stations[].y": "Fuselage mass stations",
+    "fuselage_mass.stations[].z": "Fuselage mass stations",
+    "fuselage_mass.stations_are_override": "Fuselage mass stations",
+    # The control-load fields on ``geometry.surfaces[]`` take no title: a titled
+    # path on a *list* record splits the list into two groups and renders the
+    # table twice (the duplicate-key failure the #383 gate caught); they render
+    # inside each surface's row beside its hinge line, which is where a reader
+    # of that surface looks for them.
     "geometry.empennage.htail.aspect_ratio_wing":
         "Wing aerodynamics (SELECT tail balance)",
     "geometry.empennage.htail.wing_lift_slope_per_rad":
@@ -1065,6 +1087,19 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "baron_58 and concept_regional_jet enter their elevator and rudder with it and "
        "type no scalar, so omitting it leaves every tail hinge area at 0",
        supplied=True),
+    _E("geometry.surfaces[].control_load_mode", _GEO, _SLDS,
+       "how a control surface's own load enters its parent in the beam model: "
+       "smeared (in the parent's spanwise distribution) or discrete (hinge reactions "
+       "plus an actuator load at the stations below); plan 09 T-4, note 56's bridge; "
+       "on the control surface's own row since v80 (design note 71 D-71.9)"),
+    _E("geometry.surfaces[].hinges_span_in", _GEO, _SLDS,
+       "control-surface geometry sloads needs to bridge hinge and actuator loads onto the "
+       "sbeam beam model -- the hinge stations along the span from the root; the original "
+       "suite printed loads and built no structural model (note 56)"),
+    _E("geometry.surfaces[].actuator_span_in", _GEO, _SLDS,
+       "control-surface geometry sloads needs to bridge hinge and actuator loads onto the "
+       "sbeam beam model -- the actuator's span station; the original suite printed loads "
+       "and built no structural model (note 56)"),
     # ----------------------------------------------------------------- #
     # geometry.fuselage -- the body outline and its two scalars
     # (design note 69 D-69.4/D-69.5: the Fuselage section, before Engines
@@ -1235,10 +1270,9 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        EXTERNAL + "the wing planform span (derived_geometry.wing_span_in, the "
        "WINGGEOM strip integral's span; select.effective_vtail_inputs)",
        governs=True),
-    _E("geometry.empennage.vtail.gross_weight_lb", _GEO, _ORIG, "SELECT GW", "max take-off weight",
-       "weight.max_takeoff_weight_lb (MTOW SSOT G-14; review N1 instance 1)",
-       governs=True),
-    _E("geometry.empennage.vtail.izz_slugft2", _GEO, _ORIG,
+    # ``geometry.empennage.vtail.gross_weight_lb`` (SELECT GW) deleted at v80: the
+    # fin's design weight is MTOW, read from its one owner (design note 71 D-71.4).
+    _E("geometry.empennage.vtail.izz_slugft2", _WT, _ORIG,
        "SELECT IZZ; 0 -> the SELECT.BAS rod estimate, now disclosed (#95, "
        "C210-25: it measured +49 % over WTONECG's database IZZ on the C210 "
        "with nothing saying an estimate was in play)",
@@ -1517,10 +1551,11 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     # speeds -- STRSPEED + MACHLIM (structural_speeds)
     # ----------------------------------------------------------------- #
     _E("speeds.category", _SPD, _ORIG, "STRSPEED category, UG Table 7.1"),
-    _E("speeds.weight_lb", _SPD, _ORIG, "STRSPEED design weight W", "max take-off weight",
-       "weight.max_takeoff_weight_lb (override, not a read-through: STRSPEED uses "
-       "this value verbatim; the link back is cg_cases.max_takeoff_weight's fallback "
-       "and validation's mtow_representation_drift warning -- note 33 DS-6/2.3)",
+    _E("speeds.weight_lb", _SPD, _ORIG, "STRSPEED design weight W; 0 -> MTOW (design note 71 "
+       "D-71.2, note 36 OV-1); a typed value governs and is warned "
+       "(mtow_representation_drift)", "max take-off weight",
+       "weight.max_takeoff_weight_lb (MTOW SSOT G-14; the collapsed override of it since "
+       "v80 -- until then STRSPEED read this copy verbatim, note 33 DS-6/2.3)",
        governs=True),
     # The one conditionally-governing copy (#36, corrected by #70 / PB-17). STRSPEED
     # resolves the ``speeds.wing_surface`` **planform** and reaches this field only
@@ -1727,7 +1762,7 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("wing_mass.surface", _WING, _SLDS,
        "names which surface of sloads' multi-surface planform this step reads; the original suite had one wing and "
        "needed no selector (standing ruling)"),
-    _E("wing_mass.panel_weight_override_lb", _WING, _ORIG, "WINGINER panel weight",
+    _E("wing_mass.panel_weight_override_lb", _WT, _ORIG, "WINGINER panel weight",
        "wing panel weight",
        EXTERNAL + "half the WING-tagged PANEL items of weight.items "
        "(mass_distribution.derived_panel_weight; design note 63 D-63.2 -- the original "
@@ -1736,8 +1771,8 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        resolves="WINGINER integrates the derived value whenever this is blank, and "
                 "this field verbatim when it is set -- note 50's OV-1 override shape, "
                 "so it stays live and is never disabled."),
-    _E("wing_mass.inboard_rib_y", _WING, _ORIG, "WINGINER inboard rib station"),
-    _E("wing_mass.tip_root_density_ratio", _WING, _ORIG, "WINGINER tip/root density ratio"),
+    _E("wing_mass.inboard_rib_y", _WT, _ORIG, "WINGINER inboard rib station"),
+    _E("wing_mass.tip_root_density_ratio", _WT, _ORIG, "WINGINER tip/root density ratio"),
     _E("wing_mass.cases[].name", _WING, _ORIG,
        "WINGINER.BAS 1660-1710 case name. 0 rows = the SELECT governing set; "
        "typed rows REPLACE that set entirely (#94, C210-30)"),
@@ -1754,26 +1789,24 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "the same label. The original distributed one project-wide mass list at every case"),
 
     # fuselage_mass -- NETLOADS / Ch 15 (fuselage_loads)
-    _E("fuselage_mass.ref_waterline", _FUS, _ORIG,
+    _E("geometry.fuselage.beam_waterline_z", _GEO, _ORIG,
        "Ch 15 reference waterline -- **the fuselage LRA waterline the exported "
        "beam model runs on** (owner, 2026-09-07; `derived_geometry.fuselage_lra`, "
-       "section-centre line as the fallback). It was reserved and read by nothing "
-       "until then, so this row said any value, 0 included, was equivalent "
-       "(#94, C210-34); it no longer is, and every shipped fixture's value was "
-       "corrected in the same change -- four of six had placed the axis outside "
-       "their own fuselage. The Ch 15 vertical solve still ignores it: this "
-       "places the beam, it does not load it"),
-    _E("fuselage_mass.stations[].x", _FUS, _ORIG, "Ch 15 station"),
-    _E("fuselage_mass.stations[].weight_lb", _FUS, _ORIG, "Ch 15 station weight"),
-    _E("fuselage_mass.stations[].y", _FUS, _SLDS,
+       "section-centre line as the fallback). ``fuselage_mass.ref_waterline`` "
+       "until v80 (design note 71 D-71.7): where the body beam sits is geometry, "
+       "entered with the outline it belongs to. The Ch 15 vertical solve still "
+       "ignores it: this places the beam, it does not load it"),
+    _E("fuselage_mass.stations[].x", _WT, _ORIG, "Ch 15 station"),
+    _E("fuselage_mass.stations[].weight_lb", _WT, _ORIG, "Ch 15 station weight"),
+    _E("fuselage_mass.stations[].y", _WT, _SLDS,
        "butt line the station's lumped mass acts at (v62) -- blank derives from "
        "the item database's own weight-weighted centroid; where the mass is, not "
        "where the beam is"),
-    _E("fuselage_mass.stations[].z", _FUS, _SLDS,
+    _E("fuselage_mass.stations[].z", _WT, _SLDS,
        "waterline the station's lumped mass acts at (v62) -- blank derives from "
        "the item database's own weight-weighted centroid; distinct from "
        "ref_waterline, which places the beam that carries it"),
-    _E("fuselage_mass.stations_are_override", _FUS, _SLDS,
+    _E("fuselage_mass.stations_are_override", _WT, _SLDS,
        "override switch: lets the fuselage stations entered here govern instead of the weight database's own "
        "centroids, a derivation sloads added (v62)"),
 
@@ -1860,11 +1893,16 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("engines[].prop_weight_lb", _ENG, _ORIG, "ENGLOADS PROPWT", "propeller mass",
        EXTERNAL + "the weight database (the prop_mass_item row; note 36 OV-7, C210-41)",
        governs=True),
-    _E("engines[].engine_mass_item", _ENG, _SLDS,
+    _E("engines[].engine_mass_item", _GEO, _SLDS,
        "weight-database row selector, note 36 OV-7 (the D-25 mass SSOT linkage, stated where "
-       "it is consumed; blank = no derivation, a name matching no row is refused)"),
-    _E("engines[].prop_mass_item", _ENG, _SLDS,
-       "weight-database row selector, note 36 OV-7 (the propeller half of the linkage)"),
+       "it is consumed; blank = no derivation, a name matching no row is refused). "
+       "Load-bearing (G5) since v80 (design note 71 D-71.3): every fixture's engine weight "
+       "derives from the row, so without the link ENGLOADS has no engine mass",
+       supplied=True),
+    _E("engines[].prop_mass_item", _GEO, _SLDS,
+       "weight-database row selector, note 36 OV-7 (the propeller half of the linkage). "
+       "Load-bearing (G5) since v80 (design note 71 D-71.3): the propeller weight derives "
+       "from the row", supplied=True),
     _E("engines[].prop_designation", _ENG, _ORIG, "ENGLOADS propeller designation"),
     _E("engines[].prop_blades", _ENG, _ORIG, "ENGLOADS NOBLADES"),
     _E("engines[].prop_inertia", _ENG, _SLDS,
@@ -1966,15 +2004,8 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("tail_mass[].weight_is_override", _WT, _SLDS,
        "empennage distributed inertia -- sloads spreads tail panel mass along the beam model, where the original suite "
        "took a single tail weight (plan 09 T-3)"),
-    _E("tail_mass[].control_load_mode", _WT, _SLDS,
-       "empennage distributed inertia -- sloads spreads tail panel mass along the beam model, where the original suite "
-       "took a single tail weight (plan 09 T-3)"),
-    _E("tail_mass[].hinges_span_in", _WT, _SLDS,
-       "control-surface geometry sloads needs to bridge hinge and actuator loads onto the sbeam beam model; the "
-       "original suite printed loads and built no structural model (note 56)"),
-    _E("tail_mass[].actuator_span_in", _WT, _SLDS,
-       "control-surface geometry sloads needs to bridge hinge and actuator loads onto the sbeam beam model; the "
-       "original suite printed loads and built no structural model (note 56)"),
+    # The control-load fields moved to the control surface's geometry row at
+    # v80 (design note 71 D-71.9): see ``geometry.surfaces[].control_load_mode``.
 
     # --- The LRA beam mesh (note 56 D-56.4) -------------------------------- #
     # On the Beam Model page (note 67 D-67.3), beside the drawing of the mesh it
@@ -2146,8 +2177,15 @@ def omitted_records() -> Set[str]:
     rows: Dict[str, List[FieldEntry]] = {}
     for e in REGISTRY:
         rows.setdefault(record_of(e.path), []).append(e)
+    # A record is omitted only when **nothing under it** is in the input set:
+    # its own fields and the rows of the records nested in it. ``fuselage_mass``
+    # is the case (design note 71 D-71.7): once its one original scalar moved
+    # to the geometry slice, its own fields were all extension tier while its
+    # ``stations[]`` rows stayed original -- and a reduction that reset the
+    # record dropped the Ch 15 station table the suite asked for (#383).
     return {rec for rec, group in rows.items()
-            if rec and not any(r.path in keep for r in group)}
+            if rec and not any(r.path in keep for r in REGISTRY
+                               if record_of(r.path) == rec or r.path.startswith(rec + "."))}
 
 
 #: Fields the reduction **keeps** although they are neither original-suite nor

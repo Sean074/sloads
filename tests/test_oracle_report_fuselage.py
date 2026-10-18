@@ -285,7 +285,11 @@ def test_a_project_with_no_beam_states_the_absence_and_still_builds():
     second fact.
     """
     project = reduce_to_oracle_inputs(io.load_project(_GA))
-    project.fuselage_mass = replace(project.fuselage_mass, stations=[])
+    # The reduced ga6 carries no fuselage-mass slice at all since v80 (its one
+    # ORIGINAL scalar, the beam waterline, moved to the geometry slice --
+    # design note 71 D-71.7); a slice with no stations is the same absence.
+    if project.fuselage_mass is not None:
+        project.fuselage_mass = replace(project.fuselage_mass, stations=[])
     project.weight = replace(project.weight, items=[])
     doc = oc.build_oracle_document(project, _spec())
     section = _section_four(doc)

@@ -128,7 +128,15 @@ def test_mtow_agrees_with_every_representation_it_replaced(path):
     project = io.load_project(path)
     mtow = max_takeoff_weight(project)
     assert project.weight.max_takeoff_weight_lb == mtow
-    assert project.speeds.weight_lb == mtow
+    # ``speeds.weight_lb`` is a collapsed override of MTOW since v80 (design
+    # note 71 D-71.2): blank on every fixture, deriving the owner in STRSPEED.
+    from dataclasses import replace
+
+    from sloads.modules.structural_speeds import design_speed_values
+
+    assert project.speeds.weight_lb == 0.0
+    assert design_speed_values(project, project.speeds) == design_speed_values(
+        project, replace(project.speeds, weight_lb=mtow))
     if project.weight.envelope is not None:
         assert project.weight.envelope.gross_weight == mtow
     assert database_total(project) >= mtow - 1e-6, "the item sum is the ceiling"

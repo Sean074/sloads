@@ -73,7 +73,7 @@ from ..models import (
 from ..registry import register
 from ..units import format_value
 from .flight_envelope import gust_at_vf, gust_at_vf_absence
-from .structural_speeds import _wing_area_sqft, design_speed_values
+from .structural_speeds import _wing_area_sqft, design_speed_values, design_weight_lb
 
 # Upper bound on the slipstream-velocity search, and the trip count it implies at
 # the BAS's 0.5 ft/s step. Never reached for realistic inputs -- reaching it means
@@ -297,7 +297,7 @@ def _compute(project: Project) -> FlapResult:
     maxhp, pdia = _engine_power(project)
     ng, _ = resolved_ng(project)
     return flap_loads(
-        vs=sv.vs, vsf=sv.vsf, vf=sv.vf, weight=sp.weight_lb,
+        vs=sv.vs, vsf=sv.vsf, vf=sv.vf, weight=design_weight_lb(project, sp),
         ng=ng, sf=flap_area_one_side_sqft(project), sw=sw,
         delta_deg=inp.flap_deflection_deg, e=inp.flap_chord_ratio,
         maxhp=maxhp, pdia_in=pdia, blprop=inp.engine_butt_line_in,

@@ -3,14 +3,5 @@
 
 ### Input fields — Fuselage Loads (`fuselage_loads`)
 
-Generated from `sloads/field_registry.py` — the registry of record for where each input field is edited and where it came from. *Origin* `original` means a named `.BAS` program asked for the field; `sloads` marks capability this replication added (`supplied` = the oracle input set needs it anyway). Types, units and defaults are introspected from `sloads/models.py`.
-
-| Field | Type | Units / notes | Default | Origin | Provenance |
-| --- | --- | --- | --- | --- | --- |
-| `fuselage_mass.ref_waterline` | `float` |  | `0.0` | original | Ch 15 reference waterline -- **the fuselage LRA waterline the exported beam model runs on** (owner, 2026-09-07; `derived_geometry.fuselage_lra`, section-centre line as the fallback). It was reserved and read by nothing until then, so this row said any value, 0 included, was equivalent (#94, C210-34); it no longer is, and every shipped fixture's value was corrected in the same change -- four of six had placed the axis outside their own fuselage. The Ch 15 vertical solve still ignores it: this places the beam, it does not load it |
-| `fuselage_mass.stations[].x` | `float` |  | `**required**` | original | Ch 15 station |
-| `fuselage_mass.stations[].weight_lb` | `float` | lb | `0.0` | original | Ch 15 station weight |
-| `fuselage_mass.stations[].y` | `float` |  | `0.0` | sloads | butt line the station's lumped mass acts at (v62) -- blank derives from the item database's own weight-weighted centroid; where the mass is, not where the beam is |
-| `fuselage_mass.stations[].z` | `float` |  | `0.0` | sloads | waterline the station's lumped mass acts at (v62) -- blank derives from the item database's own weight-weighted centroid; distinct from ref_waterline, which places the beam that carries it |
-| `fuselage_mass.stations_are_override` | `bool` |  | `False` | sloads | override switch: lets the fuselage stations entered here govern instead of the weight database's own centroids, a derivation sloads added (v62) |
+This page enters no input fields of its own — every quantity it uses is entered on an earlier page (see the chapter's *Before this page* section).
 

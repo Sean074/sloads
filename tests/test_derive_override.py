@@ -244,9 +244,11 @@ def test_engine_weight_and_cg_derive_from_the_selected_row():
 def test_typed_engine_values_override_the_row():
     p = _ga6()
     row = p.weight.items[0]
-    eng = replace(p.engines[0], engine_mass_item=row.name)
+    # The fixture derives its engine weight since v80 (design note 71 D-71.3);
+    # a typed value is set here to show it governs.
+    eng = replace(p.engines[0], engine_mass_item=row.name, engine_weight_lb=505.0)
     resolved = effective_engine(p, eng)
-    assert resolved.engine_weight_lb == eng.engine_weight_lb    # typed wins
+    assert resolved.engine_weight_lb == eng.engine_weight_lb == 505.0    # typed wins
     assert resolved.engine_cg == eng.engine_cg
 
 

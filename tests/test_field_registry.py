@@ -399,8 +399,9 @@ def test_the_reviews_duplicate_instances_are_all_recorded():
     N1 instance 2 (the v-tail's ``airplane_length_in``) is no longer a
     duplicate at all: v55 (#52) left the quantity one field, which
     :func:`test_no_quantity_regains_a_second_field` holds."""
+    # N1 instance 1 (the v-tail's ``gross_weight_lb``) is no longer a
+    # duplicate at all: v80 deleted the copy (design note 71 D-71.4).
     for path in (
-        "geometry.empennage.vtail.gross_weight_lb",     # N1 instance 1
         "weight.estimation.engine_count",               # N1 instance 3
         "engines[].limit_load_factor",                  # N1 instance 4
         "engines[].engine_weight_lb",                   # N1 instance 5

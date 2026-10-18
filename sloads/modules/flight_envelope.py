@@ -96,7 +96,7 @@ from ..models import (
     normalise_code,
 )
 from ..registry import register
-from .structural_speeds import design_speeds, maneuver_load_factors
+from .structural_speeds import design_speeds, design_weight_lb, maneuver_load_factors
 
 # 23.345 = high-lift devices (the flaps-down envelope, n<=2 at sea level).
 _FAR = "23.333/23.337/23.341/23.345/23.421"
@@ -381,7 +381,7 @@ def design_inputs(project: Project) -> _DesignInputs:
         for lv in cond.values:
             vals[lv.key] = lv.value
     cat = normalise_code(sp.category, CATEGORIES, "FAR 23 category")
-    n_pos, _, n_neg, _ = maneuver_load_factors(cat, sp.weight_lb, sp.chosen_n, sp.chosen_nneg)
+    n_pos, _, n_neg, _ = maneuver_load_factors(cat, design_weight_lb(project, sp), sp.chosen_n, sp.chosen_nneg)
     return _DesignInputs(
         va=vals["maneuver_speed_va"], vc=vals["cruise_speed_vc"],
         vd=vals["dive_speed_vd"], vf=vals["flap_speed_vf"],

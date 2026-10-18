@@ -572,6 +572,10 @@ def _surface_from_dict(d: Dict[str, Any]) -> SurfaceInput:
         sob_y_in=_opt_float(d.get("sob_y_in")),
         # v65 (D-54.1): the control's hinge axis; empty = not entered.
         hinge_line=_points(d.get("hinge_line"), "SurfaceInput.hinge_line"),
+        # v80 (design note 71 D-71.9): the control-load geometry, from tail_mass.
+        control_load_mode=d.get("control_load_mode", "smeared") or "smeared",
+        hinges_span_in=[float(v) for v in d.get("hinges_span_in", []) or []],
+        actuator_span_in=float(d.get("actuator_span_in", 0.0) or 0.0),
     )
 
 
@@ -587,6 +591,8 @@ def _fuselage_outline_from_dict(d: Dict[str, Any]) -> FuselageOutline:
         # v77 (design note 69 D-69.4): the two body scalars live with the outline.
         body_drag_waterline_z=float(d.get("body_drag_waterline_z", 0.0) or 0.0),
         airplane_length_in=float(d.get("airplane_length_in", 0.0) or 0.0),
+        # v80 (design note 71 D-71.7): the body beam's waterline, from fuselage_mass.
+        beam_waterline_z=float(d.get("beam_waterline_z", 0.0) or 0.0),
     )
 
 
@@ -659,6 +665,9 @@ def geometry_to_dict(inp: GeometryInput) -> Dict[str, Any]:
                 # empty control trailing_edge is a meaningful state (derive
                 # from the parent), so the polyline trio round-trips whole.
                 "hinge_line": [list(p) for p in s.hinge_line],
+                "control_load_mode": s.control_load_mode,
+                "hinges_span_in": list(s.hinges_span_in),
+                "actuator_span_in": s.actuator_span_in,
             }
             for s in inp.surfaces
         ]
@@ -675,6 +684,7 @@ def geometry_to_dict(inp: GeometryInput) -> Dict[str, Any]:
             # v77 (D-69.4): written even at 0 so "derive" round-trips explicitly.
             "body_drag_waterline_z": inp.fuselage.body_drag_waterline_z,
             "airplane_length_in": inp.fuselage.airplane_length_in,
+            "beam_waterline_z": inp.fuselage.beam_waterline_z,
         }
     if inp.empennage is not None:
         emp: Dict[str, Any] = {}
@@ -1027,7 +1037,6 @@ def fuselage_mass_from_dict(d: Dict[str, Any]) -> FuselageMassInput:
     return FuselageMassInput(
         stations=[FuselageStation(**_filtered(FuselageStation, s))
                   for s in d.get("stations", []) or []],
-        ref_waterline=d.get("ref_waterline", 0.0),
         stations_are_override=bool(d.get("stations_are_override", False)),
     )
 

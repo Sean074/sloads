@@ -391,8 +391,15 @@ def test_the_supplied_set_stays_small_against_the_asked_set():
     fuselage length, D-69.2/D-69.3), which the original asked for and the
     stored planform now answers. The dial has moved four times in the
     project's life, each time with a class of field behind it and never to
-    close a failure."""
-    assert len(supplied_paths()) < 0.18 * len(original_paths())
+    close a failure.
+
+    **19 % since design note 71** (2026-10-18), for two fields: the engine and
+    propeller row selectors (``engines[].engine_mass_item`` /
+    ``prop_mass_item``), through which every fixture's engine and propeller
+    weight derives since the typed copies were blanked (D-71.3, the owner's
+    ruling Q2) -- a reduction that dropped the link would hand ENGLOADS an
+    engine of no mass, and the Appendix A mount loads would not reproduce."""
+    assert len(supplied_paths()) < 0.19 * len(original_paths())
 
 
 def test_every_shipped_example_is_classified():

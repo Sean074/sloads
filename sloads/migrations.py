@@ -211,6 +211,79 @@ def _hop_78(d: Dict[str, Any]) -> Dict[str, Any]:
     return d
 
 
+def _hop_79(d: Dict[str, Any]) -> Dict[str, Any]:
+    """v79 -> v80 (design note 71, #383): one owner per mass quantity.
+
+    * ``geometry.empennage.vtail.gross_weight_lb`` (SELECT GW) is **deleted**
+      (D-71.4): the fin's design weight is the airplane's MTOW. A stored value
+      that differs from the file's MTOW is stated once in the migration notes;
+      one that equals it (every shipped fixture) is dropped silently.
+    * ``fuselage_mass.ref_waterline`` **moves** to
+      ``geometry.fuselage.beam_waterline_z`` (D-71.7): the body beam's
+      waterline is geometry. The outline record is created with an empty
+      section table when the value is non-zero and the file had none.
+    * ``tail_mass[].control_load_mode`` / ``hinges_span_in`` /
+      ``actuator_span_in`` **move** to the tail's control surface row in
+      ``geometry.surfaces[]`` (D-71.9; htail -> elevator, vtail -> rudder): a
+      row with no such surface has its values stated once and dropped.
+
+    No delivered load moves: every moved value keeps its reader, and the
+    deleted one equalled MTOW on every shipped file.
+    """
+    notes: List[str] = []
+    geometry = d.get("geometry")
+    if not isinstance(geometry, dict):
+        geometry = {}
+        d["geometry"] = geometry
+    empennage = geometry.get("empennage")
+    if isinstance(empennage, dict) and isinstance(empennage.get("vtail"), dict):
+        gw = empennage["vtail"].pop("gross_weight_lb", None)
+        weight = d.get("weight") if isinstance(d.get("weight"), dict) else {}
+        mtow = weight.get("max_takeoff_weight_lb") if weight else None
+        if gw and (mtow is None or abs(float(gw) - float(mtow)) > 1e-9):
+            notes.append(
+                f"geometry.empennage.vtail.gross_weight_lb={gw} was dropped at v80 "
+                "(design note 71 D-71.4): the fin's design weight is the airplane's "
+                f"max take-off weight ({mtow if mtow is not None else 'not entered'}).")
+    fm = d.get("fuselage_mass")
+    if isinstance(fm, dict):
+        wl = fm.pop("ref_waterline", None)
+        if wl:
+            fuselage = geometry.get("fuselage")
+            if not isinstance(fuselage, dict):
+                fuselage = {"sections": []}
+                geometry["fuselage"] = fuselage
+            fuselage["beam_waterline_z"] = wl
+    raw_surfaces = geometry.get("surfaces")
+    surfaces: List[Any] = list(raw_surfaces) if isinstance(raw_surfaces, list) else []
+    by_name = {str(s.get("name", "")).strip().casefold(): s
+               for s in surfaces if isinstance(s, dict)}
+    control_of = {"htail": "elevator", "vtail": "rudder"}
+    raw_rows = d.get("tail_mass")
+    tail_rows: List[Any] = list(raw_rows) if isinstance(raw_rows, list) else []
+    for row in tail_rows:
+        if not isinstance(row, dict):
+            continue
+        moved = {k: row.pop(k) for k in ("control_load_mode", "hinges_span_in", "actuator_span_in")
+                 if k in row}
+        stated = {k: v for k, v in moved.items() if v and v != "smeared"}
+        if not stated:
+            continue
+        control = by_name.get(control_of.get(str(row.get("surface", "")), ""))
+        if control is None:
+            notes.append(
+                f"tail_mass[{row.get('surface')}]: "
+                + ", ".join(f"{k}={v}" for k, v in stated.items())
+                + " was dropped at v80 (design note 71 D-71.9): the control-load "
+                "geometry lives on the control surface's geometry.surfaces[] row, "
+                "and this file has none for that tail.")
+            continue
+        control.update(moved)
+    if notes:
+        d.setdefault("migration_notes", []).extend(notes)
+    return d
+
+
 #: ``{from_version: hop}`` -- applied in ascending order, each turning a file of
 #: version *n* into version *n+1* shape.
 MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
@@ -223,6 +296,7 @@ MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     76: _hop_76,
     77: _hop_77,
     78: _hop_78,
+    79: _hop_79,
 }
 
 #: The oldest project version this build reads: the oldest released schema, or
