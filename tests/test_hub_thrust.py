@@ -366,9 +366,13 @@ def test_thrust_without_a_station_raises_naming_the_datum():
     """G-7. The refusal rule the LRA exporter already follows: name the missing
     datum rather than place the load on an assumed one."""
     project = _project(SINGLE)
+    # Selectors blanked too (#384 links every fixture's engines to the weight
+    # rows): a blank CG beside a selector *derives* from the row (OV-7), and
+    # that is a stated station, not a missing one.
     broken = replace(project, engines=[
         replace(e, thrust_lb=THRUST, prop_cg=(0.0, 0.0, 0.0),
-                engine_cg=(0.0, 0.0, 0.0)) for e in project.engines])
+                engine_cg=(0.0, 0.0, 0.0), engine_mass_item="", prop_mass_item="")
+        for e in project.engines])
     with pytest.raises(MissingInputError) as excinfo:
         build_balanced_cases(broken)
     message = str(excinfo.value)
@@ -401,7 +405,7 @@ def test_the_station_falls_back_to_the_engine_cg_only_without_a_hub():
     is the fallback for a project that entered a mount and no propeller."""
     project = _project(TWIN)
     no_hub = replace(project, engines=[
-        replace(e, thrust_lb=THRUST, prop_cg=(0.0, 0.0, 0.0))
+        replace(e, thrust_lb=THRUST, prop_cg=(0.0, 0.0, 0.0), prop_mass_item="")
         for e in project.engines])
     case = next(c for c in build_balanced_cases(no_hub) if is_powered(c))
     applied = [(ld.x, ld.y, ld.z) for ld in case.loads

@@ -1600,6 +1600,19 @@ def _check_derive_overrides(project: Project) -> List[ConsistencyWarning]:
       C210-21 split between a wrong linkage and a disagreeing override.
     * ``engine_load_factor_mismatch`` -- a typed ``limit_load_factor`` (LIMNZ)
       against the airplane's 23.337 n1 it derives from when blank (#331).
+    * ``engine_mass_row_unlinked`` -- an engine whose ``*_mass_item`` selector
+      is blank while the weight data base holds a row that names an engine or
+      a propeller (#384): the mount is then sized to a typed mass nothing
+      reconciles, which is how ``concept_regional_jet`` sat 150 lb an engine
+      apart for two releases. Advisory -- a name is a hint, never a link.
+    * ``gear_mass_row_mismatch`` -- a typed leg weight against the half-pair
+      (main) or total (nose) of the rows tagged ``gear`` for that leg
+      (``gear_loads.derived_leg_weight``, #384; the ATR typed 525 beside a
+      1,250 lb row, the Baron both legs as one).
+    * ``gear_mass_row_unlinked`` -- a leg with no ``gear``-tagged row while a
+      weight row names the gear (#384): the leg's free body closes on a typed
+      number the data base cannot check, or stays open with the mass sitting in
+      the data base untagged.
 
     ``gross_weight`` vs MTOW keeps its existing ``mtow_representation_drift``
     warning (:func:`_check_weight_case_model`).
@@ -1726,6 +1739,58 @@ def _check_derive_overrides(project: Project) -> List[ConsistencyWarning]:
                     f"{which}_mass_item. The typed value governs -- blank it to "
                     "derive from the row (note 36 OV-7), or fix the row.",
                     PAGE_ENGINE))
+
+    # #384: a blank selector beside a row that, by its name, is the engine or
+    # the propeller. Advisory: the name is the hint, the selector is the link.
+    if project.weight is not None and project.weight.items:
+        names = [r.name.casefold() for r in project.weight.items]
+        for i, eng in enumerate(project.engines):
+            label = engine_name(i, eng)
+            for which, selector, hint in (("engine", eng.engine_mass_item, "engine"),
+                                          ("prop", eng.prop_mass_item, "prop")):
+                if selector:
+                    continue
+                hinted = [r.name for r, n in zip(project.weight.items, names) if hint in n]
+                if hinted:
+                    out.append(ConsistencyWarning(
+                        "engine_mass_row_unlinked",
+                        f"{label}: {which}_mass_item is blank, but the weight data base "
+                        f"has {len(hinted)} row(s) that name a{'n' if hint == 'engine' else ''} "
+                        f"{hint} ({', '.join(repr(n) for n in hinted[:3])}"
+                        f"{', ...' if len(hinted) > 3 else ''}). The mount is sized to the "
+                        f"typed {which} mass, which nothing reconciles against the data base; "
+                        "select the row so the two are one number (note 36 OV-7).",
+                        PAGE_ENGINE))
+
+    # #384: the leg weight the gear free body closes on (G-12a) against the
+    # rows tagged for that leg -- the typed value governs, blank derives.
+    lg = project.geometry.landing_gear if project.geometry is not None else None
+    if lg is not None and project.weight is not None and project.weight.items:
+        from .gear_loads import derived_leg_weight
+        gear_named = [r.name for r in project.weight.items if "gear" in r.name.casefold()]
+        for leg_name, leg in (("main", lg.main_gear), ("nose", lg.nose_gear)):
+            derived = derived_leg_weight(project, leg_name)
+            typed_lb = leg.weight_lb
+            if derived is not None and typed_lb and cross_check_disagrees(
+                    typed_lb, derived, lambda v: format_value(v, 'lb')):
+                what = ("half the MAIN-tagged rows' total" if leg_name == "main"
+                        else "the NOSE-tagged rows' total")
+                out.append(ConsistencyWarning(
+                    "gear_mass_row_mismatch",
+                    f"The typed {leg_name} leg weight is {format_value(typed_lb, 'lb')} lb but "
+                    f"{what} in the weight data base is {format_value(derived, 'lb')} lb. The "
+                    "gear report's free body closes on the typed value; blank it to derive "
+                    "from the rows (#384), or fix the rows.",
+                    PAGE_CONFIGURATION))
+            elif derived is None and gear_named:
+                out.append(ConsistencyWarning(
+                    "gear_mass_row_unlinked",
+                    f"No weight row is tagged gear = {leg_name}, but the data base names the "
+                    f"gear ({', '.join(repr(n) for n in gear_named[:3])}). Tag the row(s) so "
+                    f"the {leg_name} leg's free body mass derives from the data base (#384)"
+                    + (" rather than from the typed value nothing checks."
+                       if typed_lb else "; until then that free body stays open (G-12a)."),
+                    PAGE_WEIGHT_CG))
 
     # A typed LIMNZ that disagrees with the airplane's own n1 (#331): the
     # engine-mount cases scale condition A to LIMNZ (note 66 D-66.4), so a

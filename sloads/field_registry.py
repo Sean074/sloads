@@ -139,11 +139,13 @@ SENTINEL_DEFAULTS: Dict[str, str] = {
         "(0,0,0) = not entered; export/lra_model.py omits the leg's node -- "
         "no ground case is deliverable (Step 10)",
     "geometry.landing_gear.main_gear.weight_lb":
-        "0 = not stated; gear_loads.leg_weight returns None and the report "
-        "prints the inertia term blank (G-12a)",
+        "0 = derive from the MAIN-tagged weight rows (#384), else not stated: "
+        "gear_loads.leg_weight returns None and the report prints the inertia "
+        "term blank (G-12a)",
     "geometry.landing_gear.nose_gear.weight_lb":
-        "0 = not stated; gear_loads.leg_weight returns None and the report "
-        "prints the inertia term blank (G-12a)",
+        "0 = derive from the NOSE-tagged weight rows (#384), else not stated: "
+        "gear_loads.leg_weight returns None and the report prints the inertia "
+        "term blank (G-12a)",
     "engines[].thrust_line_aft":
         "(0,0,0) = not stated; export/coordinates.engine_thrust_axis assumes "
         "the airplane's forward axis and every deliverable marks it ASSUMED "
@@ -672,6 +674,16 @@ def _select_wing_weight(project: Project, _record: object = None) -> Optional[fl
     return 0.09 * mtow if mtow else None
 
 
+def _leg_weight_from_rows(leg_name: str):
+    """The gear-tagged rows' weight for one leg (#384): the same derivation
+    ``gear_loads.leg_weight`` runs when the typed value is blank."""
+    def resolver(project: Project, _record: object = None) -> Optional[float]:
+        from sloads.gear_loads import derived_leg_weight
+
+        return derived_leg_weight(project, leg_name)
+    return resolver
+
+
 def _mass_row(project: Project, record: object, selector_attr: str):
     from sloads.models import same_name
 
@@ -711,6 +723,9 @@ EXTERNAL_VALUES: Dict[str, "typing.Callable[..., object]"] = {
     "select_input.full_down_aileron_deg": _aileron_down,
     "flap_loads.gust_load_factor": _gust_at_vf,
     "engines[].limit_load_factor": _limnz,
+    # #384: a leg's weight derives from the rows tagged for it; typed overrides.
+    "geometry.landing_gear.main_gear.weight_lb": _leg_weight_from_rows("main"),
+    "geometry.landing_gear.nose_gear.weight_lb": _leg_weight_from_rows("nose"),
     "engines[].engine_weight_lb": _mass_row_value("engine_mass_item", lambda r: r.weight_lb),
     "engines[].engine_cg": _mass_row_value("engine_mass_item", lambda r: (r.x, r.y, r.z)),
     "engines[].prop_weight_lb": _mass_row_value("prop_mass_item", lambda r: r.weight_lb),
@@ -1272,9 +1287,12 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "the export assumes and warns rather than routes",
        supplied=True),
     _E("geometry.landing_gear.main_gear.weight_lb", _GEO, _SLDS,
-       "leg weight, decision G-12a; load-bearing (G5, #98, C210-49): 0 = not stated, the "
-       "gear report's free body stays open (no inertia term)",
-       supplied=True),
+       "leg weight, decision G-12a; load-bearing (G5, #98, C210-49): 0 derives half the "
+       "MAIN-tagged weight rows' total (#384), and with none tagged the gear report's "
+       "free body stays open (no inertia term)", "main leg mass",
+       EXTERNAL + "the weight database (the rows tagged gear = main; half their total "
+       "is one leg; #384)",
+       supplied=True, governs=True),
     _E("geometry.landing_gear.nose_gear.attach", _GEO, _SLDS,
        "trunnion node, gear free body Step 10; load-bearing (G5, #98, C210-49): without it "
        "the leg's node is omitted from the free-free model and no ground case is delivered",
@@ -1289,9 +1307,11 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "the export assumes and warns rather than routes",
        supplied=True),
     _E("geometry.landing_gear.nose_gear.weight_lb", _GEO, _SLDS,
-       "leg weight, decision G-12a; load-bearing (G5, #98, C210-49): 0 = not stated, the "
-       "gear report's free body stays open (no inertia term)",
-       supplied=True),
+       "leg weight, decision G-12a; load-bearing (G5, #98, C210-49): 0 derives the "
+       "NOSE-tagged weight rows' total (#384), and with none tagged the gear report's "
+       "free body stays open (no inertia term)", "nose leg mass",
+       EXTERNAL + "the weight database (the rows tagged gear = nose; #384)",
+       supplied=True, governs=True),
 
     # ----------------------------------------------------------------- #
     # weight -- WTESTIMA / WTONECG / WTENV (weight_mass)
@@ -1359,6 +1379,11 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "same which-beam question BODYLOAD asked by position. Load-bearing (G5, #62): the "
        "DHC-8 fuel row is 86 % wing, and dropped it rides the fuselage beam whole",
        supplied=True),
+    _E("weight.items[].gear", _WT, _SLDS,
+       "which landing-gear leg the row is part of (#384): MAIN rows are the pair, NOSE "
+       "rows the one leg, and the Geometry page's leg weight derives from them when it "
+       "is blank (gear_loads.leg_weight, G-12a). The original suite typed the leg's "
+       "mass nowhere; a typed tag rather than a name match (note 63 OV-1)"),
     _E("weight.items[].carriage", _WT, _SLDS,
        "how the wing reacts the row's wing-carried part (design note 63 D-63.3): PANEL is "
        "spread by WINGINER's taper, POINT is a WINGINER concentrated mass at the row's own "
@@ -1443,6 +1468,8 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        _BALLAST_BASIS + " -- the share of it the wing carries (design note 29 WF-3)"),
     _E("weight.cg_cases[].loading.ballast.carriage", _WT, _SLDS,
        _BALLAST_BASIS + " -- PANEL or POINT on the wing (design note 63 D-63.3)"),
+    _E("weight.cg_cases[].loading.ballast.gear", _WT, _SLDS,
+       _BALLAST_BASIS + " -- which gear leg it is part of, which ballast never is (#384)"),
 
     # ----------------------------------------------------------------- #
     # speeds -- STRSPEED + MACHLIM (structural_speeds)

@@ -67,6 +67,7 @@ from .models import (
     FuselageSection,
     FuselageStation,
     GearCarrier,
+    GearLeg,
     GeometryInput,
     GroundCaseRole,
     LandingGearGeometry,
@@ -463,7 +464,8 @@ def _mass_item_to_dict(it: MassItem) -> Dict[str, Any]:
     """Serialize one :class:`MassItem` row (the item list and D-25 ballast share it)."""
     return {**asdict(it), "kind": it.kind.value,
             "component": it.component.value if it.component else None,
-            "carriage": it.carriage.value}
+            "carriage": it.carriage.value,
+            "gear": it.gear.value if it.gear else None}
 
 
 def _mass_item_from_dict(d: Dict[str, Any]) -> MassItem:
@@ -481,7 +483,10 @@ def _mass_item_from_dict(d: Dict[str, Any]) -> MassItem:
     # field is not Optional, so a null is not a value and never the default.
     carriage = (WingCarriage(d.pop("carriage")) if d.get("carriage") is not None
                 else WingCarriage.PANEL)
-    return MassItem(kind=kind, component=component, carriage=carriage,
+    # ``None``/absent is "not a gear row" (#384), like ``component``.
+    raw_gear = d.pop("gear", None)
+    gear = GearLeg(raw_gear) if raw_gear else None
+    return MassItem(kind=kind, component=component, carriage=carriage, gear=gear,
                     **_filtered(MassItem, d))
 
 

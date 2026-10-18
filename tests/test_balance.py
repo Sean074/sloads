@@ -1789,7 +1789,7 @@ _WING_SPAN_ROLL_SHARE = {
     # forward and its cabin zones re-spaced, so Sum w*y^2 vs the wing's own
     # share shifted by 0.1 %. Mass layout, not physics.
     # 0.871435 -> 0.871426 on 2026-08-30 with the re-seeded CG cases.
-    "concept_regional_jet.project.json": 0.871426,
+    "concept_regional_jet.project.json": 0.831285,   # #384: the RJ's engines and gear left the centreline
     # Design note 52 (#306): these three roll for the first time -- their
     # ``ACRL`` couple is derived from condition A where none was entered.
     # Measured; the shape half of the gate holds to 1e-15 on each.
@@ -1870,9 +1870,15 @@ def test_roll_closure_reproduces_winginer(example):
         # line, off the strip grid this ratio reads, while ``Sum w*y^2`` counts
         # it: the strip ratio then understates the share by the points' part
         # (0.3-0.6 % measured). The share pin above still catches drift there.
-        if md.wing_mass_state(project, case.cg).point_masses:
-            continue
         masses = [ld for ld in case.loads if ld.weight_lb]
+        # Likewise a *fuselage*-carried mass off the centreline (the RJ's
+        # rear-mounted engines at BL +-42 and its main gear at BL +-40 since
+        # #384): relieved at its own node, counted by ``Sum w*y^2``, not a
+        # strip. The identity holds only where every off-axis mass is one.
+        off_axis_non_strip = [ld for ld in masses
+                              if ld.y and round(ld.y, 6) not in winginer]
+        if md.wing_mass_state(project, case.cg).point_masses or off_axis_non_strip:
+            continue
         span_only = sum(ld.weight_lb * ld.y ** 2 for ld in masses)
         assert ratios[0] == pytest.approx(
             case.p_dot / (case.residual_mx / span_only), rel=1e-9), (
@@ -2005,8 +2011,10 @@ _CLOSURE_IZZ = {
 #: The RJ's three moved on 2026-08-30: its CG cases were re-seeded to the
 #: WTENV limits the closed-form planform integral now gives (the stations
 #: shifted ~0.05 in), and Izz follows the CG.
-    'concept_regional_jet.project.json': {'fwd gross': 254256.5, 'min weight': 196104.9, 'aft gross': 255823.4,
-                                          'fwd regardless': 298344.4},
+    # #384: engines split L/R at BL +-42 (1,700 lb each, station 850) and the main
+    # gear at BL +-40, so the RJ's Izz gained its engine and gear terms.
+    'concept_regional_jet.project.json': {'fwd gross': 255948.2, 'min weight': 197796.5, 'aft gross': 257515.0,
+                                          'fwd regardless': 300036.1},
 }
 
 
@@ -2108,7 +2116,7 @@ _ACRL_LATERAL = {
     # #331: ACRL flies at VA, 161.0 -> 172.8 KEAS with the POH's 4.2 (x1.151).
     'baron_58.project.json': {"companion_fy_lb": 29.56, "r_dot_deg_s2": 5.369},
     'concept_heavy.project.json': {"companion_fy_lb": 274.78, "r_dot_deg_s2": 2.637},
-    'concept_regional_jet.project.json': {"companion_fy_lb": 307.46, "r_dot_deg_s2": 4.394},
+    'concept_regional_jet.project.json': {"companion_fy_lb": 293.29, "r_dot_deg_s2": 4.162},   # re-pinned at #384
 }
 
 
@@ -2353,10 +2361,12 @@ _LATERAL_CASE_NUMBERS = {
     # not the aerodynamics.
     # #328: the T-tail induced rolling moment, as for the ATR above.
     'concept_regional_jet.project.json': {
-        'SIDE GUST': (7082.5380, +0.214622, +52.012669, -112.241274),
-        'SUDDEN RUDDER': (6907.5333, +0.209319, +52.268697, -95.900408),
-        'YAW 15 NEUTRAL': (-8042.9389, -0.243725, -56.416846, +113.358986),
-        'YAW TO SIDESLIP': (-3548.2873, -0.107524, -21.073202, +51.466274),
+        # Re-pinned at #384: the RJ's engines and main gear left the centreline,
+        # so its Ixx and Izz grew and every angular acceleration fell.
+        'SIDE GUST': (7082.5380, +0.214622, +51.937891, -107.213836),
+        'SUDDEN RUDDER': (6907.5555, +0.209320, +52.152782, -91.624193),
+        'YAW 15 NEUTRAL': (-8042.9389, -0.243725, -56.315585, +108.290843),
+        'YAW TO SIDESLIP': (-3548.2651, -0.107523, -21.057479, +49.153903),
     },
 }
 

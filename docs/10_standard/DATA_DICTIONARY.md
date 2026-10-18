@@ -2,7 +2,7 @@
 
 > **Generated file — do not edit by hand.** Produced by [`docs/generate_data_dict.py`](../generate_data_dict.py) from `sloads/models.py`. Regenerate after any schema change: `.venv/bin/python docs/generate_data_dict.py`.
 
-Schema version: **78**.
+Schema version: **79**.
 
 This dictionary covers the **input** slices of `Project` (`sloads/models.py`) — the fields that make up a `project.json`. The result slices (`envelope`, `mass`, `loads`) are computed outputs and are out of scope.
 
@@ -97,6 +97,7 @@ Geometry/aero inputs for SELECT's rational vertical-tail loads (Ch 9).
 - **`EngineType`** — `RECIPROCATING` = `'R'`, `TURBOPROP` = `'T'`.
 - **`EngineWeightType`** — `RECIP_4CYCLE` = `'RF'`, `RECIP_2CYCLE` = `'RT'`, `TURBOCHARGED` = `'TC'`, `TURBOPROP` = `'TP'`, `LIQUID_COOLED` = `'LC'`. Engine family used by WTESTIMA's installed-weight correlation (WTESTIMA.BAS     lines 230-290): the two-letter codes of the original program.
 - **`GearCarrier`** — `BODY` = `'body'`, `WING` = `'wing'`. Which structure carries a landing-gear leg's reaction (decision G-2).
+- **`GearLeg`** — `MAIN` = `'main'`, `NOSE` = `'nose'`. Which landing-gear leg a weight-database row belongs to (#384).
 - **`GroundCaseRole`** — `AFT_MAX_LANDING` = `'aft_max_landing'`, `FWD_MAX_LANDING` = `'fwd_max_landing'`, `FWD_LIGHT` = `'fwd_light'`. The role a ``GROUND`` case plays in LANDLOAD's three-loading contract (G-3a).
 - **`MassComponent`** — `WING` = `'wing'`, `FUSELAGE` = `'fuselage'`, `HTAIL` = `'htail'`, `VTAIL` = `'vtail'`. Which structural component a mass item is carried by (plan 11 B-2, step B1).
 - **`MassItemKind`** — `EMPTY` = `'empty'`, `MINIMUM` = `'minimum'`, `DISCRETIONARY` = `'discretionary'`. Where a mass item sits in the loading hierarchy of WTONECG/WTENV.

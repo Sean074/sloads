@@ -204,6 +204,13 @@ def _hop_77(d: Dict[str, Any]) -> Dict[str, Any]:
     return d
 
 
+def _hop_78(d: Dict[str, Any]) -> Dict[str, Any]:
+    """v78 -> v79 (#384): ``MassItem`` gains ``gear`` (``None`` = not a gear
+    row, which is exactly the v78 meaning of every row). An identity hop: an
+    additive field whose absence is its own default (#310)."""
+    return d
+
+
 #: ``{from_version: hop}`` -- applied in ascending order, each turning a file of
 #: version *n* into version *n+1* shape.
 MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
@@ -215,6 +222,7 @@ MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     75: _hop_75,
     76: _hop_76,
     77: _hop_77,
+    78: _hop_78,
 }
 
 #: The oldest project version this build reads: the oldest released schema, or

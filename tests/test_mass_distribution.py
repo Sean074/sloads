@@ -36,6 +36,7 @@ renders still fails.
 import math
 import os
 import sys
+from dataclasses import replace
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -49,7 +50,6 @@ from sloads.modules.body_loads import build_body_loads
 from sloads.modules.flight_envelope import build_envelope
 from sloads.modules.select import build_critical
 from sloads.report.render import format_value
-from sloads.units import Channel, UnitSystem, deliverable_units
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -316,16 +316,22 @@ def test_an_explicit_override_wins_and_is_still_reconciled():
     difference from the SSOT is reported either way, so an override is a decision
     made in front of the number rather than instead of it."""
     p = _project("ga6_normal.project.json")
+    # The fixture carries no entered table since #384 (its stale one sat 492 lb
+    # short and inert); the test enters one, 16 % light, as a user would.
+    derived = md.derived_fuselage_stations(p)
+    p.fuselage_mass.stations = [replace(s, weight_lb=s.weight_lb * 0.84) for s in derived]
     p.fuselage_mass.stations_are_override = True
     assert md.fuselage_beam_stations(p) == p.fuselage_mass.stations
     check = md.fuselage_reconciliation(p)
     assert check is not None and not check.ok
-    assert check.gap == pytest.approx(2578.0 - 3070.0)
+    want = math.fsum(s.weight_lb for s in derived)
+    assert check.gap == pytest.approx(-0.16 * want)
 
 
 def test_a_project_with_no_items_falls_back_to_the_entered_table():
     """The SSOT does not strand a project that only ever had the lump table."""
     p = _project("ga6_normal.project.json")
+    p.fuselage_mass.stations = list(md.derived_fuselage_stations(p))   # a lump table, entered
     entered = list(p.fuselage_mass.stations)
     p.weight = None
     assert md.derived_fuselage_stations(p) == []
