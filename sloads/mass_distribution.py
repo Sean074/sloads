@@ -1993,6 +1993,45 @@ def wing_parts_summary(project: Project) -> List[WingPartRow]:
 # --------------------------------------------------------------------------- #
 # Reporting helper
 # --------------------------------------------------------------------------- #
+@dataclass(frozen=True)
+class KindTotal:
+    """One loading-kind sum of the weight data base (#386): the rows it
+    counts, their weight and their CG -- raw Imperial, the consumer converts."""
+
+    name: str
+    rows: int
+    weight_lb: float
+    xcg: Optional[float]
+    zcg: Optional[float]
+
+
+def loading_kind_totals(project: Project) -> List[KindTotal]:
+    """The data base summed by loading kind, in WTONECG's own partition
+    (#386, review B1): the EMPTY rows, EMPTY + MINIMUM (the minimum flight
+    weight's rows), the DISCRETIONARY rows alone, and every row -- the ceiling
+    (G-14), a loading only when the data base equals one. Empty when there is
+    no data base."""
+    weight = project.weight
+    items = list(weight.items) if weight is not None else []
+    if not items:
+        return []
+
+    def total(name: str, rows: List[MassItem]) -> KindTotal:
+        w = math.fsum(it.weight_lb for it in rows)
+        x = math.fsum(it.weight_lb * it.x for it in rows) / w if w else None
+        z = math.fsum(it.weight_lb * it.z for it in rows) / w if w else None
+        return KindTotal(name, len(rows), w, x, z)
+
+    return [
+        total("Empty weight (EMPTY rows)", [it for it in items if it.kind == MassItemKind.EMPTY]),
+        total("Minimum flight weight (EMPTY + MINIMUM rows)",
+              [it for it in items if it.kind in (MassItemKind.EMPTY, MassItemKind.MINIMUM)]),
+        total("Discretionary useful load (DISCRETIONARY rows alone)",
+              [it for it in items if it.kind == MassItemKind.DISCRETIONARY]),
+        total("Database ceiling (every row aboard)", items),
+    ]
+
+
 def component_summary(project: Project) -> List[Dict[str, str]]:
     """One row per component: item count, weight, and CG — for the Weights page."""
     dist = distribution(project)
@@ -2023,6 +2062,7 @@ __all__ = [
     "TAIL_COMPONENTS",
     "TAIL_GAP_WARN_FRACTION",
     "CaseLoading",
+    "KindTotal",
     "MassCaseSummary",
     "MassCheck",
     "MassDistribution",
@@ -2047,6 +2087,7 @@ __all__ = [
     "fuselage_reconciliation",
     "infer_component",
     "loading_definition_of",
+    "loading_kind_totals",
     "loading_mass_state",
     "mass_case_summary",
     "oew_items",

@@ -657,6 +657,36 @@ def weight_cg_plot_data(project: Project, u: Units) -> Optional[PlotData]:
     if polygon is not None:
         series.append(polygon)
 
+    # The limits in the units they are entered in (#386, review B6): a
+    # reference line per limit station, labelled in % MAC through the one
+    # resolver, so a reader checks the drawing against the entered limits.
+    from ..derived_geometry import mac_reference, station_to_pct_mac
+
+    vlines: List[Tuple[str, float]] = []
+    ref = _try(mac_reference, project)
+    if ref is not None and ref.mac:
+        for key, name in (("forward_regardless_station", "fwd regardless"),
+                          ("forward_gross_station", "fwd gross"),
+                          ("aft_gross_station", "aft gross")):
+            if key in values:
+                vlines.append((f"{name} {format_value(station_to_pct_mac(values[key], ref), '%MAC')} % MAC",
+                               values[key] * len_f))
+
+    # The CG interval the data base can actually produce at each entered
+    # weight, as a band under the limit polygon (#386, review C4): an
+    # unreachable limit is then seen, not only warned
+    # (``envelope_point_unreachable``).
+    from ..mass_distribution import envelope_point_reach
+
+    reach = [r for r in (_try(envelope_point_reach, project) or [])
+             if r.fwd_x is not None and r.aft_x is not None]
+    if polygon is not None and len(reach) >= 2:
+        reach.sort(key=lambda r: r.weight_lb)
+        xs = [r.fwd_x * len_f for r in reach] + [r.aft_x * len_f for r in reversed(reach)]
+        ws = [r.weight_lb * mass_f for r in reach] + [r.weight_lb * mass_f for r in reversed(reach)]
+        series.append(Series("Reachable CG of the data base", xs, ws,
+                             style="loosely dotted", closed=True))
+
     # Cases sharing a point are one marker with both names -- on the GA6 the
     # forward-light landing case and CG3 are the same loading -- which both
     # renderers draw through ``PlotData.marked_points`` (#256).
@@ -664,7 +694,7 @@ def weight_cg_plot_data(project: Project, u: Units) -> Optional[PlotData]:
               for c in (weight.cg_cases if weight is not None else [])]
 
     return PlotData(f"Fuselage station ({L})", f"Weight ({W})", series,
-                    points=points)
+                    points=points, vlines=vlines)
 
 
 #: The marker shape each loading kind is drawn with, and the order the legend

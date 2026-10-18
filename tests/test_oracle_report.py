@@ -22,23 +22,26 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sloads import io  # noqa: E402
-from sloads import registry  # noqa: E402
-from sloads import workflow as wf  # noqa: E402
-from sloads.cg_cases import flight_case_ids  # noqa: E402
-from sloads.derived_geometry import mac_reference, station_to_pct_mac  # noqa: E402
-from sloads.field_registry import reduce_to_oracle_inputs  # noqa: E402
-from sloads.models import MissingInputError  # noqa: E402
-from sloads.models import Project  # noqa: E402
-from sloads.models.report import ReportSpec, SignatureRow  # noqa: E402
-from sloads.report import content  # noqa: E402
-from sloads.report import oracle_content as oc  # noqa: E402
-from sloads.report import oracle_sections as osec  # noqa: E402
-from sloads.report import oracle_latex as ol  # noqa: E402
-from sloads.report.latex import section_tex  # noqa: E402
-from sloads.report.plots_tex import figure_body_tex  # noqa: E402
-from sloads.report.render import format_value  # noqa: E402
-from sloads.units import UnitSystem  # noqa: E402
+from sloads import (
+    io,
+    registry,
+)
+from sloads import workflow as wf
+from sloads.cg_cases import flight_case_ids
+from sloads.derived_geometry import mac_reference, station_to_pct_mac
+from sloads.field_registry import reduce_to_oracle_inputs
+from sloads.models import (
+    MissingInputError,
+    Project,
+)
+from sloads.models.report import ReportSpec, SignatureRow
+from sloads.report import content
+from sloads.report import oracle_content as oc
+from sloads.report import oracle_latex as ol
+from sloads.report import oracle_sections as osec
+from sloads.report.plots_tex import figure_body_tex
+from sloads.report.render import format_value
+from sloads.units import UnitSystem
 
 _EXAMPLES = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")
@@ -2113,6 +2116,33 @@ def test_the_weight_cg_figure_reaches_its_own_emitter_and_closes_its_limits():
     assert tex and tex.count("addplot") >= 4
     polygon = next(s for s in figure.data.series if s.name == "Structural limits")
     assert (polygon.x[0], polygon.y[0]) == (polygon.x[-1], polygon.y[-1])
+
+
+def test_the_weight_cg_figure_states_its_limits_in_pct_mac_and_draws_the_reach():
+    """#386 (review B6 / C4): a reference line per structural limit labelled
+    in % MAC through the one resolver, and the closed band of CG the data base
+    can reach at each entered weight, under the limit polygon."""
+    from sloads.derived_geometry import mac_reference, station_to_pct_mac
+    from sloads.mass_distribution import envelope_point_reach
+
+    project = reduce_to_oracle_inputs(io.load_project(_GA))
+    figure = _weight_cg(_doc())
+    data = figure.data
+    ref = mac_reference(project)
+    labels = {label.split(" ")[0] + " " + label.split(" ")[1]: x for label, x in data.vlines}
+    assert set(labels) == {"fwd regardless", "fwd gross", "aft gross"}
+    for label, x in data.vlines:
+        pct = float(label.split("% MAC")[0].split()[-1])
+        assert abs(station_to_pct_mac(x, ref) - pct) < 0.01, label
+    band = next(s for s in data.series if s.name == "Reachable CG of the data base")
+    assert band.closed and band.marker is False
+    reach = sorted((r for r in envelope_point_reach(project) if r.fwd_x is not None),
+                   key=lambda r: r.weight_lb)
+    assert len(band.x) == 2 * len(reach)
+    assert band.x[:len(reach)] == [r.fwd_x for r in reach]
+    assert band.y[:len(reach)] == [r.weight_lb for r in reach]
+    tex = figure_body_tex(figure)
+    assert "% MAC" in tex.replace("\\%", "%") or "MAC" in tex
 
 
 def test_the_weight_cg_figure_marks_every_entered_case_once():
