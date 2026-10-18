@@ -315,7 +315,9 @@ def test_row_resolvers_read_the_record():
     eng = replace(p.engines[0], engine_mass_item=row.name)
     assert fr.external_value("engines[].engine_weight_lb", p, eng) == row.weight_lb
     assert fr.external_value("engines[].engine_cg", p, eng) == (row.x, row.y, row.z)
-    assert fr.external_value("engines[].engine_weight_lb", p, p.engines[0]) is None
+    # The fixture links its engine since #384; an unlinked engine resolves nothing.
+    assert fr.external_value("engines[].engine_weight_lb", p,
+                             replace(p.engines[0], engine_mass_item="")) is None
     aero_wing = p.aero.by_name("wing")
     assert math.isclose(
         fr.external_value("aero.surfaces[].taper_ratio", p, aero_wing),

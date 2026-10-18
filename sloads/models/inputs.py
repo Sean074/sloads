@@ -16,6 +16,7 @@ from .enums import (
     EngineType,
     EngineWeightType,
     GearCarrier,
+    GearLeg,
     GroundCaseRole,
     MassComponent,
     MassItemKind,
@@ -297,6 +298,13 @@ class MassItem:
     #: row that predates the field; the v67 hop stamped ``POINT`` once on every
     #: off-centreline WING row, so a row hung on the wing is typed as one.
     carriage: WingCarriage = WingCarriage.PANEL
+    #: Which landing-gear leg this row is part of, if any (#384): ``MAIN`` rows
+    #: are the main-gear pair, ``NOSE`` rows the nose leg, and a leg's own mass
+    #: in the gear report's free body (G-12a) derives from them
+    #: (:func:`sloads.gear_loads.leg_weight`) unless the Geometry page types
+    #: it. ``None`` is "not a gear row". The sixth typed tag, for the same
+    #: reason as the other five: the row's name cannot be trusted to say it.
+    gear: Optional[GearLeg] = None
 
 
 @dataclass

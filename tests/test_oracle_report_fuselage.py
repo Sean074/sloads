@@ -236,10 +236,20 @@ def test_the_beam_states_how_far_the_entered_table_is_from_it():
     Mass screen states, so the page and the screen cannot disagree about the
     one number the check exists to produce.
     """
-    body = _prose(_section_four(_doc()))
+    # The fixture carries no entered table since #384 (its stale one was the
+    # 16 % short table this test was written on); enter one as a user would.
+    from dataclasses import replace as _replace
+
+    from sloads import mass_distribution as md
+
+    project = io.load_project(_GA)
+    derived = md.derived_fuselage_stations(project)
+    project.fuselage_mass.stations = [_replace(s, weight_lb=s.weight_lb * 0.84) for s in derived]
+    body = _prose(_section_four(_doc(project=project)))
     assert "not the same airplane" in body
-    assert format_value(2578.0, "lb") in body and format_value(3070.0, "lb") in body
-    assert format_value(492.0, "lb") in body and "16 %" in body
+    check = md.fuselage_reconciliation(project)
+    assert format_value(check.got, "lb") in body and format_value(check.want, "lb") in body
+    assert format_value(abs(check.gap), "lb") in body and "16 %" in body
     # And it is the gate that decides which sentence, not the sign of the gap.
     assert "1 %" in body
 

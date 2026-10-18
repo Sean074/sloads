@@ -47,7 +47,7 @@ from sloads.export.balanced_deck import (
     balanced_deck,
     deck_nodes,
 )
-from sloads.report.tables import gear_report_rows
+from sloads.frames import to_ground_line
 from sloads.gear_loads import (
     AXLE,
     GROUND_CONTACT,
@@ -58,10 +58,10 @@ from sloads.gear_loads import (
     attitude_of,
     gear_case_loads,
     ground_rotation_deg,
+    leg_weight,
     transfer_couple,
 )
-from sloads.frames import to_ground_line
-from sloads.models import MissingInputError
+from sloads.models import GearLeg, MissingInputError
 from sloads.modules.balance import (
     build_balanced_cases,
     is_ground,
@@ -80,6 +80,8 @@ from sloads.modules.landing import (
     gear_geometry,
     ground_angles,
 )
+from sloads.report.tables import gear_report_rows
+from sloads.validation import consistency_warnings
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -356,8 +358,11 @@ def test_the_leg_inertia_is_stated_or_blank_and_never_guessed():
     assert math.isclose(leg.net_of_inertia[2], leg.airplane[2] - leg.inertia_fz)
 
     # Not stated -> blank, not zero. A leg nobody weighed is not weightless.
+    # Since #384 "nobody" means by either route: the typed value blank *and*
+    # no row tagged for the leg.
     project = _project("ga6_normal.project.json")
     project.geometry.landing_gear.main_gear.weight_lb = 0.0
+    _untag(project, GearLeg.MAIN)
     unstated = next(x for x in next(
         c for c in gear_case_loads(project) if c.case == 4).legs if x.leg == MAIN)
     assert unstated.leg_weight_lb is None
@@ -404,33 +409,67 @@ def test_the_g12_inertia_notes_reach_the_delivered_file():
     assert NO_AIRPLANE_INERTIA_NOTE in closed
     assert LEG_WEIGHT_UNSET_NOTE not in closed
 
-    # Clear the nose leg's weight and G-12a's note is owed, naming the leg.
+    # Clear the nose leg's weight -- typed and tagged (#384) -- and G-12a's
+    # note is owed, naming the leg.
     project.geometry.landing_gear.nose_gear.weight_lb = 0.0
+    _untag(project, GearLeg.NOSE)
     open_body = _prose(gear_report_csv(project))
     assert LEG_WEIGHT_UNSET_NOTE in open_body
     assert "OPEN FREE BODIES (nose)" in open_body
     assert UNSPRUNG_NOTE in open_body
 
 
-def test_the_entered_leg_weights_agree_with_the_item_database():
-    """``2 x main + nose`` against the database's gear rows -- **pinned per fixture**.
-
-    Two statements of one quantity is a drift risk, and it is held the way this
-    project already holds that class (the ``unmodelled_wing_mass`` mechanism)
-    rather than by a name-matching reconciliation in the calc -- which would put
-    the very failure mode G-12a exists to avoid back into the code, where the pin
-    puts it in a test.
+def test_the_leg_weights_derive_from_the_tagged_rows_on_every_fixture():
+    """#384: the leg weight is the data base's, through the ``gear`` tag --
+    half the MAIN rows for a main leg, the NOSE rows for the nose -- and no
+    fixture types it. The pin this replaces held ``2 x main + nose`` against a
+    hand-typed "database" number: the ATR's read 1,050 lb against a 1,250 lb
+    main-gear row, and the Baron's 150 lb was both legs typed as one. A pin
+    on a copy cannot see the copy drift; a derive has nothing to drift.
     """
     expected = {
-        "ga6_normal.project.json": (77.5, 49.0, 155.0 + 49.0),
-        "atr42_100.project.json": (525.0, 260.0, 1050.0 + 260.0),
-        "concept_regional_jet.project.json": (575.0, 300.0, 1150.0 + 300.0),
+        "ga6_normal.project.json": (77.5, 49.0),            # wheel 45 + structure 110, pair; 9 + 40
+        "atr42_100.project.json": (625.0, 280.0),           # 1,250 pair; 280 (typed 525 / 260 until #384)
+        "baron_58.project.json": (75.0, 55.0),              # 75 L + 75 R; 55 (typed 150 was both legs)
+        "concept_regional_jet.project.json": (575.0, 300.0),  # 575 L + 575 R; 300
     }
-    for example, (main, nose, database) in expected.items():
-        lg = _project(example).geometry.landing_gear
-        assert lg.main_gear.weight_lb == main, example
-        assert lg.nose_gear.weight_lb == nose, example
-        assert 2 * main + nose == database, example
+    for example, (main, nose) in expected.items():
+        project = _project(example)
+        lg = project.geometry.landing_gear
+        assert lg.main_gear.weight_lb == 0.0 and lg.nose_gear.weight_lb == 0.0, example
+        assert leg_weight(project, lg.main_gear, MAIN) == main, example
+        assert leg_weight(project, lg.nose_gear, NOSE) == nose, example
+        rows = project.weight.items
+        assert main == math.fsum(r.weight_lb for r in rows if r.gear is GearLeg.MAIN) / 2, example
+        assert nose == math.fsum(r.weight_lb for r in rows if r.gear is GearLeg.NOSE), example
+        assert "gear_mass_row_mismatch" not in {w.code for w in consistency_warnings(project)}
+
+
+def test_a_typed_leg_weight_overrides_the_rows_and_a_disagreement_warns():
+    """OV-1 on the leg weight (#384): typed governs, blank derives, and a
+    typed value that disagrees with the rows is warned on the Geometry page."""
+    project = _project("atr42_100.project.json")
+    lg = project.geometry.landing_gear
+    lg.main_gear.weight_lb = 525.0                      # the value the fixture carried
+    assert leg_weight(project, lg.main_gear, MAIN) == 525.0
+    codes = {w.code: w for w in consistency_warnings(project)}
+    assert "gear_mass_row_mismatch" in codes
+    assert "525" in codes["gear_mass_row_mismatch"].message and "625" in codes["gear_mass_row_mismatch"].message
+    lg.main_gear.weight_lb = 625.0                      # agreeing: no warning
+    assert "gear_mass_row_mismatch" not in {w.code for w in consistency_warnings(project)}
+    # No tagged rows, a row that names the gear: the unlinked warning, on the
+    # page where the tag lives.
+    _untag(project, GearLeg.MAIN)
+    lg.main_gear.weight_lb = 0.0
+    assert leg_weight(project, lg.main_gear, MAIN) is None
+    codes = {w.code: w.page for w in consistency_warnings(project)}
+    assert codes.get("gear_mass_row_unlinked") == "weight_mass"
+
+
+def _untag(project, leg):
+    for row in project.weight.items:
+        if row.gear is leg:
+            row.gear = None
 
 
 # --------------------------------------------------------------------------- #

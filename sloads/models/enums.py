@@ -94,6 +94,22 @@ class MassComponent(str, Enum):
     VTAIL = "vtail"        # vertical tail
 
 
+class GearLeg(str, Enum):
+    """Which landing-gear leg a weight-database row belongs to (#384).
+
+    The gear report's free body (G-12a) needs each leg's own mass. It was a
+    typed number on the Geometry page with no link to the rows that carry the
+    same mass, and the fixtures drifted: ``atr42_100`` typed 525 lb a leg
+    beside a 1,250 lb main-gear row, ``baron_58`` typed both legs' 150 lb as
+    one. A typed tag rather than a name match (note 63 OV-1): ``MAIN`` rows
+    are the pair -- a single centreline row or a left/right pair -- and a leg
+    is half their total; ``NOSE`` rows are the one leg. The typed leg weight
+    becomes the override of that derivation (``gear_loads.leg_weight``).
+    """
+    MAIN = "main"
+    NOSE = "nose"
+
+
 class WingCarriage(str, Enum):
     """How the wing reacts a ``WING``-carried mass part (design note 63, D-63.3).
 
@@ -222,6 +238,7 @@ __all__ = [
     "EngineType",
     "EngineWeightType",
     "GearCarrier",
+    "GearLeg",
     "GroundCaseRole",
     "MassComponent",
     "MassItemKind",

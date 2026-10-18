@@ -88,6 +88,7 @@ from .frames import rotation_deg
 from .models import (
     CaseRef,
     GearCarrier,
+    GearLeg,
     GearReactionCase,
     LandingGearGeometry,
     LandingGearInput,
@@ -313,15 +314,43 @@ def transfer_couple(point: Tuple[float, float, float],
             rx * fy - ry * fx)
 
 
-def leg_weight(leg: LandingGearInput) -> Optional[float]:
-    """The entered leg weight (lb), or ``None`` when it is not stated (G-12a).
+def derived_leg_weight(project: Project, leg_name: str) -> Optional[float]:
+    """One leg's mass from the weight data base's gear-tagged rows (#384), or
+    ``None`` when no row is tagged for that leg.
 
-    ``None`` and ``0.0`` are different answers and the distinction is the point:
-    a leg whose weight nobody entered has an *unknown* inertia term, and the
-    report shows the free body open and says so, rather than closing it against a
-    leg that weighs nothing.
+    ``MAIN`` rows are the pair, whether entered as one centreline row
+    (``atr42_100``: "Main gear" 1,250 lb) or as a left/right pair
+    (``baron_58``: 75 lb each) or as parts (``ga6_normal``: wheel 45 + structure
+    110), so a main leg is **half their total**; ``NOSE`` rows are the one leg.
+    The rule is the tag's, not the name's (note 63 OV-1).
     """
-    return leg.weight_lb if leg.weight_lb > 0.0 else None
+    weight = project.weight
+    if weight is None:
+        return None
+    tag = GearLeg.MAIN if leg_name == MAIN else GearLeg.NOSE
+    rows = [it.weight_lb for it in weight.items if it.gear is tag]
+    if not rows:
+        return None
+    total = math.fsum(rows)
+    return total / 2.0 if tag is GearLeg.MAIN else total
+
+
+def leg_weight(project: Project, leg: LandingGearInput, leg_name: str) -> Optional[float]:
+    """The leg's weight (lb) for the free body, or ``None`` when it is not
+    stated (G-12a).
+
+    The typed ``weight_lb`` governs when it is non-zero; blank derives from the
+    gear-tagged rows (:func:`derived_leg_weight`, the note 36 OV-1 contract:
+    falsy means derive, typed means override -- ``validation`` warns
+    ``gear_mass_row_mismatch`` when the two disagree). ``None`` and ``0.0`` are
+    different answers and the distinction is the point: a leg whose weight
+    nobody stated, by either route, has an *unknown* inertia term, and the
+    report shows the free body open and says so, rather than closing it
+    against a leg that weighs nothing.
+    """
+    if leg.weight_lb > 0.0:
+        return leg.weight_lb
+    return derived_leg_weight(project, leg_name)
 
 
 @dataclass(frozen=True)
@@ -415,8 +444,8 @@ class GearCaseLoads:
     legs: Tuple[GearLegLoad, ...]
 
 
-def _leg_load(case: GearReactionCase, leg_name: str, leg: LandingGearInput,
-              inp: LandingInput, gear: LandingGearGeometry,
+def _leg_load(project: Project, case: GearReactionCase, leg_name: str,
+              leg: LandingGearInput, inp: LandingInput, gear: LandingGearGeometry,
               gra: Sequence[float]) -> GearLegLoad:
     state, gra_index = attitude_of(case.case)
     angle = gra[gra_index]
@@ -442,7 +471,7 @@ def _leg_load(case: GearReactionCase, leg_name: str, leg: LandingGearInput,
     point = (ax, py, az)
     node = (leg.attach[0], leg.attach[1], leg.attach[2])
     force = (fx, s, fz)
-    weight = leg_weight(leg)
+    weight = leg_weight(project, leg, leg_name)
     return GearLegLoad(
         case=case.case, description=case.description,
         far_reference=case.far_reference, cg_name=case.cg_name,
@@ -494,7 +523,7 @@ def gear_case_loads(project: Project) -> List[GearCaseLoads]:
 
     out: List[GearCaseLoads] = []
     for case in reactions:
-        legs = tuple(_leg_load(case, name, leg, inp, lg, gra)
+        legs = tuple(_leg_load(project, case, name, leg, inp, lg, gra)
                      for name, leg in ((MAIN, lg.main_gear), (NOSE, lg.nose_gear)))
         out.append(GearCaseLoads(
             case=case.case, description=case.description,

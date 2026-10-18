@@ -634,11 +634,17 @@ def test_gear_weight_default_leaves_the_free_body_open():
     term goes blank (``net_of_inertia`` is ``None``) and the two ends of the
     leg no longer reconcile."""
     from sloads.gear_loads import gear_case_loads
+    from sloads.models import GearLeg
 
     project = _load("ga6_normal.project.json")
     leg = gear_case_loads(project)[0].legs[0]
     assert leg.leg_weight_lb and leg.net_of_inertia is not None
+    # Not stated by either route (#384): the typed value blank *and* no row
+    # tagged for the leg -- the fixture derives its 77.5 lb from two tagged rows.
     project.geometry.landing_gear.main_gear.weight_lb = 0.0
+    for row in project.weight.items:
+        if row.gear is GearLeg.MAIN:
+            row.gear = None
     leg0 = gear_case_loads(project)[0].legs[0]
     assert leg0.leg_weight_lb is None and leg0.net_of_inertia is None
 

@@ -1,5 +1,5 @@
 {
-  "schema_version": 78,
+  "schema_version": 79,
   "name": "Beechcraft Baron 58 \u2014 two Continental IO-550-C",
   "description": "Guide worked example (design note 34 UG-9): FAA Aircraft Spec 3A16 Rev 82, Model 58 S/N TH-1396\u2013TH-2124. Certified data cited, everything else estimated \u2014 sources: examples/baron_58.sources.md",
   "engines": [
@@ -37,8 +37,8 @@
       "thrust_lb": null,
       "design_yaw_rate_rad_s": null,
       "design_pitch_rate_rad_s": null,
-      "engine_mass_item": "",
-      "prop_mass_item": "",
+      "engine_mass_item": "Engine, left",
+      "prop_mass_item": "Propeller, left",
       "thrust_line_aft": [
         0.0,
         0.0,
@@ -87,8 +87,8 @@
       "thrust_lb": null,
       "design_yaw_rate_rad_s": null,
       "design_pitch_rate_rad_s": null,
-      "engine_mass_item": "",
-      "prop_mass_item": "",
+      "engine_mass_item": "Engine, right",
+      "prop_mass_item": "Propeller, right",
       "thrust_line_aft": [
         0.0,
         0.0,
@@ -133,7 +133,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Horizontal tail",
@@ -149,7 +150,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Vertical tail",
@@ -165,7 +167,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Fuselage shell",
@@ -181,7 +184,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Main gear, left",
@@ -197,7 +201,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "point"
+        "carriage": "point",
+        "gear": "main"
       },
       {
         "name": "Main gear, right",
@@ -213,7 +218,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "point"
+        "carriage": "point",
+        "gear": "main"
       },
       {
         "name": "Nose gear",
@@ -229,7 +235,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": "nose"
       },
       {
         "name": "Engine, left",
@@ -245,7 +252,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "point"
+        "carriage": "point",
+        "gear": null
       },
       {
         "name": "Engine, right",
@@ -261,7 +269,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "point"
+        "carriage": "point",
+        "gear": null
       },
       {
         "name": "Propeller, left",
@@ -277,7 +286,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "point"
+        "carriage": "point",
+        "gear": null
       },
       {
         "name": "Propeller, right",
@@ -293,7 +303,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "point"
+        "carriage": "point",
+        "gear": null
       },
       {
         "name": "Nacelle, left",
@@ -309,7 +320,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "point"
+        "carriage": "point",
+        "gear": null
       },
       {
         "name": "Nacelle, right",
@@ -325,7 +337,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "point"
+        "carriage": "point",
+        "gear": null
       },
       {
         "name": "Engine accessories, left",
@@ -341,7 +354,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "point"
+        "carriage": "point",
+        "gear": null
       },
       {
         "name": "Engine accessories, right",
@@ -357,7 +371,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "point"
+        "carriage": "point",
+        "gear": null
       },
       {
         "name": "Fuel system, left",
@@ -373,7 +388,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "point"
+        "carriage": "point",
+        "gear": null
       },
       {
         "name": "Fuel system, right",
@@ -389,7 +405,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "point"
+        "carriage": "point",
+        "gear": null
       },
       {
         "name": "Flight controls",
@@ -405,7 +422,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Instruments & avionics",
@@ -421,7 +439,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Electrical",
@@ -437,7 +456,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Furnishings (6 seats)",
@@ -453,7 +473,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Air conditioning",
@@ -469,7 +490,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "De-ice & misc systems",
@@ -485,7 +507,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Hydraulics (gear actuation)",
@@ -501,7 +524,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Exhaust & engine controls, left",
@@ -517,7 +541,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "point"
+        "carriage": "point",
+        "gear": null
       },
       {
         "name": "Exhaust & engine controls, right",
@@ -533,7 +558,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "point"
+        "carriage": "point",
+        "gear": null
       },
       {
         "name": "Paint & sealant",
@@ -549,7 +575,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Unusable fuel & oil, left",
@@ -565,7 +592,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "point"
+        "carriage": "point",
+        "gear": null
       },
       {
         "name": "Unusable fuel & oil, right",
@@ -581,7 +609,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "point"
+        "carriage": "point",
+        "gear": null
       },
       {
         "name": "Fuel, left wing",
@@ -597,7 +626,8 @@
         "consumable": true,
         "usable_fuel": true,
         "wing_fraction": 0.0,
-        "carriage": "point"
+        "carriage": "point",
+        "gear": null
       },
       {
         "name": "Fuel, right wing",
@@ -613,7 +643,8 @@
         "consumable": true,
         "usable_fuel": true,
         "wing_fraction": 0.0,
-        "carriage": "point"
+        "carriage": "point",
+        "gear": null
       },
       {
         "name": "Pilot & front passenger",
@@ -629,7 +660,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Mid passengers",
@@ -645,7 +677,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Aft passengers",
@@ -661,7 +694,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Nose baggage",
@@ -677,7 +711,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Rear baggage",
@@ -693,7 +728,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       }
     ],
     "envelope": {
@@ -1133,8 +1169,7 @@
           97.0,
           57.5,
           80.0
-        ],
-        "weight_lb": 150.0
+        ]
       },
       "nose_gear": {
         "axle_compressed": [
@@ -1156,8 +1191,7 @@
           7.0,
           0.0,
           85.0
-        ],
-        "weight_lb": 55.0
+        ]
       },
       "tread_in": 115.0
     }
@@ -1413,44 +1447,7 @@
     ]
   },
   "fuselage_mass": {
-    "stations": [
-      {
-        "x": 7.0,
-        "weight_lb": 300,
-        "y": 0.0,
-        "z": 0.0
-      },
-      {
-        "x": 30.0,
-        "weight_lb": 350,
-        "y": 0.0,
-        "z": 0.0
-      },
-      {
-        "x": 75.0,
-        "weight_lb": 520,
-        "y": 0.0,
-        "z": 0.0
-      },
-      {
-        "x": 117.0,
-        "weight_lb": 560,
-        "y": 0.0,
-        "z": 0.0
-      },
-      {
-        "x": 150.0,
-        "weight_lb": 600,
-        "y": 0.0,
-        "z": 0.0
-      },
-      {
-        "x": 320.0,
-        "weight_lb": 180,
-        "y": 0.0,
-        "z": 0.0
-      }
-    ],
+    "stations": [],
     "ref_waterline": 102.6,
     "stations_are_override": false
   },

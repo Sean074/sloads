@@ -1,5 +1,5 @@
 {
-  "schema_version": 78,
+  "schema_version": 79,
   "name": "RJ-50 concept \u2014 50-seat regional jet (concept mode, Part 25)",
   "engines": [
     {
@@ -7,9 +7,9 @@
       "prop_designation": "",
       "engine_type": "T",
       "limit_load_factor": 2.5,
-      "engine_weight_lb": 1550.0,
+      "engine_weight_lb": 1700.0,
       "engine_cg": [
-        980.0,
+        850.0,
         42.0,
         70.0
       ],
@@ -20,7 +20,7 @@
       "takeoff_rpm": 0.0,
       "max_cont_rpm": 0.0,
       "prop_cg": [
-        980.0,
+        850.0,
         42.0,
         70.0
       ],
@@ -44,7 +44,7 @@
       "thrust_lb": null,
       "design_yaw_rate_rad_s": null,
       "design_pitch_rate_rad_s": null,
-      "engine_mass_item": "",
+      "engine_mass_item": "Engine, right",
       "prop_mass_item": "",
       "thrust_line_aft": [
         0.0,
@@ -65,9 +65,9 @@
       "prop_designation": "",
       "engine_type": "T",
       "limit_load_factor": 2.5,
-      "engine_weight_lb": 1550.0,
+      "engine_weight_lb": 1700.0,
       "engine_cg": [
-        980.0,
+        850.0,
         -42.0,
         70.0
       ],
@@ -78,7 +78,7 @@
       "takeoff_rpm": 0.0,
       "max_cont_rpm": 0.0,
       "prop_cg": [
-        980.0,
+        850.0,
         -42.0,
         70.0
       ],
@@ -102,7 +102,7 @@
       "thrust_lb": null,
       "design_yaw_rate_rad_s": null,
       "design_pitch_rate_rad_s": null,
-      "engine_mass_item": "",
+      "engine_mass_item": "Engine, left",
       "prop_mass_item": "",
       "thrust_line_aft": [
         0.0,
@@ -148,7 +148,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Fuselage structure",
@@ -164,7 +165,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Horiz tail",
@@ -180,7 +182,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Vert tail",
@@ -196,13 +199,14 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
-        "name": "Main gear",
-        "weight_lb": 1150.0,
+        "name": "Main gear, left",
+        "weight_lb": 575.0,
         "x": 620.0,
-        "y": 0.0,
+        "y": -40.0,
         "z": 20.0,
         "ixx": 0.0,
         "iyy": 0.0,
@@ -212,7 +216,25 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": "main"
+      },
+      {
+        "name": "Main gear, right",
+        "weight_lb": 575.0,
+        "x": 620.0,
+        "y": 40.0,
+        "z": 20.0,
+        "ixx": 0.0,
+        "iyy": 0.0,
+        "izz": 0.0,
+        "kind": "empty",
+        "component": "fuselage",
+        "consumable": false,
+        "usable_fuel": false,
+        "wing_fraction": 0.0,
+        "carriage": "panel",
+        "gear": "main"
       },
       {
         "name": "Nose gear",
@@ -228,13 +250,14 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": "nose"
       },
       {
-        "name": "Engines installed (2)",
-        "weight_lb": 3400.0,
+        "name": "Engine, left",
+        "weight_lb": 1700.0,
         "x": 850.0,
-        "y": 0.0,
+        "y": -42.0,
         "z": 70.0,
         "ixx": 0.0,
         "iyy": 0.0,
@@ -244,7 +267,25 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
+      },
+      {
+        "name": "Engine, right",
+        "weight_lb": 1700.0,
+        "x": 850.0,
+        "y": 42.0,
+        "z": 70.0,
+        "ixx": 0.0,
+        "iyy": 0.0,
+        "izz": 0.0,
+        "kind": "empty",
+        "component": "fuselage",
+        "consumable": false,
+        "usable_fuel": false,
+        "wing_fraction": 0.0,
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Systems + furnishings",
@@ -260,7 +301,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Crew (2)",
@@ -276,7 +318,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Reserve fuel",
@@ -292,7 +335,8 @@
         "consumable": false,
         "usable_fuel": true,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Passengers, fwd cabin (24)",
@@ -308,7 +352,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Passengers, aft cabin (24)",
@@ -324,7 +369,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Cargo, fwd hold",
@@ -340,7 +386,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Cargo, aft hold",
@@ -356,7 +403,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Mission fuel",
@@ -372,7 +420,8 @@
         "consumable": true,
         "usable_fuel": true,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       }
     ],
     "envelope": {
@@ -417,7 +466,8 @@
             "consumable": false,
             "usable_fuel": false,
             "wing_fraction": 0.0,
-            "carriage": "panel"
+            "carriage": "panel",
+            "gear": null
           }
         }
       },
@@ -450,7 +500,8 @@
             "consumable": false,
             "usable_fuel": false,
             "wing_fraction": 0.0,
-            "carriage": "panel"
+            "carriage": "panel",
+            "gear": null
           }
         }
       },
@@ -480,7 +531,8 @@
             "consumable": false,
             "usable_fuel": false,
             "wing_fraction": 0.0,
-            "carriage": "panel"
+            "carriage": "panel",
+            "gear": null
           }
         }
       },
@@ -523,7 +575,8 @@
             "consumable": false,
             "usable_fuel": false,
             "wing_fraction": 0.0,
-            "carriage": "panel"
+            "carriage": "panel",
+            "gear": null
           }
         }
       },
@@ -882,8 +935,7 @@
           640.0,
           40.0,
           60.0
-        ],
-        "weight_lb": 575.0
+        ]
       },
       "nose_gear": {
         "axle_compressed": [
@@ -905,8 +957,7 @@
           120.0,
           0.0,
           45.0
-        ],
-        "weight_lb": 300.0
+        ]
       },
       "tread_in": 130.0
     }
@@ -1033,9 +1084,9 @@
         "cg_x": 593.79,
         "cg_y": 0.0,
         "cg_z": 64.59,
-        "ixx": 24255154.224390246,
+        "ixx": 32092754.224390246,
         "iyy": 1062916202.6396341,
-        "izz": 1038661048.4152439,
+        "izz": 1046498648.4152439,
         "ixz": 62749089.35243907,
         "gear_down": true,
         "ceiling": false
@@ -1046,9 +1097,9 @@
         "cg_x": 573.5,
         "cg_y": 0.0,
         "cg_z": 64.59,
-        "ixx": 24255154.224390246,
+        "ixx": 32092754.224390246,
         "iyy": 1055656920.6713414,
-        "izz": 1031401766.4469512,
+        "izz": 1039239366.4469512,
         "ixz": 62788936.93292678,
         "gear_down": true,
         "ceiling": false
@@ -1059,9 +1110,9 @@
         "cg_x": 569.44,
         "cg_y": 0.0,
         "cg_z": 63.08,
-        "ixx": 23772751.323076922,
+        "ixx": 31610351.323076926,
         "iyy": 1259436151.9838462,
-        "izz": 1235663400.6607692,
+        "izz": 1243501000.6607692,
         "ixz": 62466853.461538464,
         "gear_down": true,
         "ceiling": false
@@ -1072,9 +1123,9 @@
         "cg_x": 586.6140094339622,
         "cg_y": 0.0,
         "cg_z": 64.36037735849057,
-        "ixx": 23247666.71698113,
+        "ixx": 31085266.716981135,
         "iyy": 785229648.2561793,
-        "izz": 761981981.5391982,
+        "izz": 769819581.5391982,
         "ixz": 68240362.96792454,
         "gear_down": true,
         "ceiling": false
@@ -1085,9 +1136,9 @@
         "cg_x": 583.64,
         "cg_y": 0.0,
         "cg_z": 64.59,
-        "ixx": 24255154.224390246,
+        "ixx": 32092754.224390246,
         "iyy": 994339111.5054878,
-        "izz": 970083957.2810975,
+        "izz": 977921557.2810975,
         "ixz": 62769022.96219512,
         "gear_down": true,
         "ceiling": false
@@ -1098,9 +1149,9 @@
         "cg_x": 592.4005762711864,
         "cg_y": 0.0,
         "cg_z": 64.25220338983051,
-        "ixx": 24197343.606779657,
+        "ixx": 32034943.606779657,
         "iyy": 953594380.0969831,
-        "izz": 929397036.4902034,
+        "izz": 937234636.4902034,
         "ixz": 64302233.71254237,
         "gear_down": true,
         "ceiling": false
@@ -1111,9 +1162,9 @@
         "cg_x": 593.0756666666666,
         "cg_y": 0.0,
         "cg_z": 62.63454545454545,
-        "ixx": 25219192.61818182,
+        "ixx": 33056792.61818182,
         "iyy": 935855019.7785151,
-        "izz": 910635827.1603333,
+        "izz": 918473427.1603333,
         "ixz": 61775763.54000001,
         "gear_down": true,
         "ceiling": false
@@ -1124,9 +1175,9 @@
         "cg_x": 593.79,
         "cg_y": 0.0,
         "cg_z": 61.96,
-        "ixx": 25054515.015384614,
+        "ixx": 32892115.015384614,
         "iyy": 1079169551.7192307,
-        "izz": 1054115036.7038461,
+        "izz": 1061952636.7038461,
         "ixz": 65150020.907692306,
         "gear_down": true,
         "ceiling": false
@@ -1137,9 +1188,9 @@
         "cg_x": 573.012806451613,
         "cg_y": 0.0,
         "cg_z": 64.82064516129033,
-        "ixx": 24115342.787096776,
+        "ixx": 31952942.787096776,
         "iyy": 920447133.8029355,
-        "izz": 896331791.0158386,
+        "izz": 904169391.0158386,
         "ixz": 69128228.20387097,
         "gear_down": true,
         "ceiling": false
@@ -1150,9 +1201,9 @@
         "cg_x": 569.44,
         "cg_y": 0.0,
         "cg_z": 63.08,
-        "ixx": 23772751.323076922,
+        "ixx": 31610351.323076926,
         "iyy": 1259436151.9838462,
-        "izz": 1235663400.6607692,
+        "izz": 1243501000.6607692,
         "ixz": 62466853.461538464,
         "gear_down": true,
         "ceiling": false
@@ -1163,9 +1214,9 @@
         "cg_x": 583.7211781609195,
         "cg_y": 0.0,
         "cg_z": 62.65632183908046,
-        "ixx": 25445189.6091954,
+        "ixx": 33282789.6091954,
         "iyy": 995521246.3008908,
-        "izz": 970076056.6916953,
+        "izz": 977913656.6916953,
         "ixz": 62548576.290804595,
         "gear_down": true,
         "ceiling": true
@@ -1210,62 +1261,7 @@
     ]
   },
   "fuselage_mass": {
-    "stations": [
-      {
-        "x": 60.0,
-        "weight_lb": 900.0,
-        "y": 0.0,
-        "z": 0.0
-      },
-      {
-        "x": 180.0,
-        "weight_lb": 1600.0,
-        "y": 0.0,
-        "z": 0.0
-      },
-      {
-        "x": 300.0,
-        "weight_lb": 2400.0,
-        "y": 0.0,
-        "z": 0.0
-      },
-      {
-        "x": 420.0,
-        "weight_lb": 2600.0,
-        "y": 0.0,
-        "z": 0.0
-      },
-      {
-        "x": 540.0,
-        "weight_lb": 2600.0,
-        "y": 0.0,
-        "z": 0.0
-      },
-      {
-        "x": 660.0,
-        "weight_lb": 2400.0,
-        "y": 0.0,
-        "z": 0.0
-      },
-      {
-        "x": 780.0,
-        "weight_lb": 2200.0,
-        "y": 0.0,
-        "z": 0.0
-      },
-      {
-        "x": 900.0,
-        "weight_lb": 2000.0,
-        "y": 0.0,
-        "z": 0.0
-      },
-      {
-        "x": 1020.0,
-        "weight_lb": 1300.0,
-        "y": 0.0,
-        "z": 0.0
-      }
-    ],
+    "stations": [],
     "ref_waterline": 53.3,
     "stations_are_override": false
   },

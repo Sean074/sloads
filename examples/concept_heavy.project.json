@@ -1,5 +1,5 @@
 {
-  "schema_version": 78,
+  "schema_version": 79,
   "name": "Concept commuter twin (>12,500 lb, category C)",
   "weight": {
     "estimation": {
@@ -29,7 +29,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Fuselage structure",
@@ -45,7 +46,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Tail",
@@ -61,7 +63,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Landing gear",
@@ -77,7 +80,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Engines (2)",
@@ -93,7 +97,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Systems",
@@ -109,7 +114,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Furnishings",
@@ -125,7 +131,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Pilot",
@@ -141,7 +148,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Copilot",
@@ -157,7 +165,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Reserve fuel",
@@ -173,7 +182,8 @@
         "consumable": false,
         "usable_fuel": true,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Passengers",
@@ -189,7 +199,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Baggage",
@@ -205,7 +216,8 @@
         "consumable": false,
         "usable_fuel": false,
         "wing_fraction": 0.0,
-        "carriage": "panel"
+        "carriage": "panel",
+        "gear": null
       },
       {
         "name": "Wing fuel, left",
@@ -221,7 +233,8 @@
         "consumable": true,
         "usable_fuel": true,
         "wing_fraction": 0.0,
-        "carriage": "point"
+        "carriage": "point",
+        "gear": null
       },
       {
         "name": "Wing fuel, right",
@@ -237,7 +250,8 @@
         "consumable": true,
         "usable_fuel": true,
         "wing_fraction": 0.0,
-        "carriage": "point"
+        "carriage": "point",
+        "gear": null
       }
     ],
     "cg_cases": [
