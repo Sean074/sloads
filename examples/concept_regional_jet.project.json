@@ -1,5 +1,5 @@
 {
-  "schema_version": 77,
+  "schema_version": 78,
   "name": "RJ-50 concept \u2014 50-seat regional jet (concept mode, Part 25)",
   "engines": [
     {
@@ -1028,7 +1028,137 @@
   "mass": {
     "cases": [
       {
-        "name": "itemized loading",
+        "name": "aft gross",
+        "weight_lb": 33000.0,
+        "cg_x": 593.79,
+        "cg_y": 0.0,
+        "cg_z": 64.59,
+        "ixx": 24255154.224390246,
+        "iyy": 1062916202.6396341,
+        "izz": 1038661048.4152439,
+        "ixz": 62749089.35243907,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "fwd gross",
+        "weight_lb": 33000.0,
+        "cg_x": 573.5,
+        "cg_y": 0.0,
+        "cg_z": 64.59,
+        "ixx": 24255154.224390246,
+        "iyy": 1055656920.6713414,
+        "izz": 1031401766.4469512,
+        "ixz": 62788936.93292678,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "fwd regardless",
+        "weight_lb": 24000.0,
+        "cg_x": 569.44,
+        "cg_y": 0.0,
+        "cg_z": 63.08,
+        "ixx": 23772751.323076922,
+        "iyy": 1259436151.9838462,
+        "izz": 1235663400.6607692,
+        "ixz": 62466853.461538464,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "min weight",
+        "weight_lb": 21200.0,
+        "cg_x": 586.6140094339622,
+        "cg_y": 0.0,
+        "cg_z": 64.36037735849057,
+        "ixx": 23247666.71698113,
+        "iyy": 785229648.2561793,
+        "izz": 761981981.5391982,
+        "ixz": 68240362.96792454,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "mid gross",
+        "weight_lb": 33000.0,
+        "cg_x": 583.64,
+        "cg_y": 0.0,
+        "cg_z": 64.59,
+        "ixx": 24255154.224390246,
+        "iyy": 994339111.5054878,
+        "izz": 970083957.2810975,
+        "ixz": 62769022.96219512,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "mzfw aft",
+        "weight_lb": 29500.0,
+        "cg_x": 592.4005762711864,
+        "cg_y": 0.0,
+        "cg_z": 64.25220338983051,
+        "ixx": 24197343.606779657,
+        "iyy": 953594380.0969831,
+        "izz": 929397036.4902034,
+        "ixz": 64302233.71254237,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "full fuel aft",
+        "weight_lb": 33000.0,
+        "cg_x": 593.0756666666666,
+        "cg_y": 0.0,
+        "cg_z": 62.63454545454545,
+        "ixx": 25219192.61818182,
+        "iyy": 935855019.7785151,
+        "izz": 910635827.1603333,
+        "ixz": 61775763.54000001,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "aft max landing",
+        "weight_lb": 31000.0,
+        "cg_x": 593.79,
+        "cg_y": 0.0,
+        "cg_z": 61.96,
+        "ixx": 25054515.015384614,
+        "iyy": 1079169551.7192307,
+        "izz": 1054115036.7038461,
+        "ixz": 65150020.907692306,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "fwd max landing",
+        "weight_lb": 31000.0,
+        "cg_x": 573.012806451613,
+        "cg_y": 0.0,
+        "cg_z": 64.82064516129033,
+        "ixx": 24115342.787096776,
+        "iyy": 920447133.8029355,
+        "izz": 896331791.0158386,
+        "ixz": 69128228.20387097,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "fwd light",
+        "weight_lb": 24000.0,
+        "cg_x": 569.44,
+        "cg_y": 0.0,
+        "cg_z": 63.08,
+        "ixx": 23772751.323076922,
+        "iyy": 1259436151.9838462,
+        "izz": 1235663400.6607692,
+        "ixz": 62466853.461538464,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "Database ceiling (every row aboard)",
         "weight_lb": 34800.0,
         "cg_x": 583.7211781609195,
         "cg_y": 0.0,
@@ -1037,7 +1167,8 @@
         "iyy": 995521246.3008908,
         "izz": 970076056.6916953,
         "ixz": 62548576.290804595,
-        "gear_down": true
+        "gear_down": true,
+        "ceiling": true
       }
     ]
   },

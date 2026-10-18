@@ -1,5 +1,5 @@
 {
-  "schema_version": 77,
+  "schema_version": 78,
   "name": "Concept commuter twin (>12,500 lb, category C)",
   "weight": {
     "estimation": {
@@ -408,7 +408,7 @@
   "mass": {
     "cases": [
       {
-        "name": "itemized loading",
+        "name": "CGmax",
         "weight_lb": 18000.0,
         "cg_x": 264.77777777777777,
         "cg_y": 0.0,
@@ -417,7 +417,21 @@
         "iyy": 67258055.55555555,
         "izz": 144389111.1111111,
         "ixz": 2931222.222222222,
-        "gear_down": true
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "Database ceiling (every row aboard)",
+        "weight_lb": 18000.0,
+        "cg_x": 264.77777777777777,
+        "cg_y": 0.0,
+        "cg_z": 69.05555555555556,
+        "ixx": 81268944.44444445,
+        "iyy": 67258055.55555555,
+        "izz": 144389111.1111111,
+        "ixz": 2931222.222222222,
+        "gear_down": true,
+        "ceiling": true
       }
     ]
   },

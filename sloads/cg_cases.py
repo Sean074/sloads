@@ -319,8 +319,11 @@ def seed_landing_cases(project: Project) -> Tuple[List[CgCase], List[str]]:
       weight**. Appendix A p230 reads 76.12 in at the 3230 lb landing weight, not
       the 72.64 in weight-agnostic hull value.
     * zcg -- the waterline of the loading that closes the row (D-26a, #300),
-      searched from the WTONECG waterline ``project.mass.cases[0].cg_z`` as a
-      placeholder; the placeholder stands where no loading closes it.
+      searched from the WTONECG waterline of the mass-basis FLIGHT loading
+      (``weight_onecg.basis_row`` -- the heaviest FLIGHT case, aft-most on a
+      tie; design note 70 D-70.5) as a placeholder; the placeholder stands
+      where no loading closes it. Until note 70 it was the all-items row's
+      waterline, a loading that on most fixtures cannot fly.
 
     Returns ``(cases, missing)``: an empty list and the named missing sources when
     it cannot seed. The fwd/aft station split is a seed only -- WTENV cannot
@@ -340,10 +343,12 @@ def seed_landing_cases(project: Project) -> Tuple[List[CgCase], List[str]]:
     aft_limit = limits[1] if limits is not None else None
     if limits is None:
         missing.append("the WTENV CG envelope (Weight / CG Envelope tab)")
-    zbar = (project.mass.cases[0].cg_z
-            if project.mass is not None and project.mass.cases else 0.0)
+    from .modules.weight_onecg import basis_row
+
+    row = basis_row(project.mass, project)
+    zbar = row.cg_z if row is not None else 0.0
     if not zbar:
-        missing.append("the WTONECG waterline (Weight, CG & Inertia tab -- Apply weight items)")
+        missing.append("the WTONECG waterline (Weight & Mass Properties -- a weight item data base)")
     if missing:
         return [], missing
     seeds = (

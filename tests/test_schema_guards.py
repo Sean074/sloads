@@ -426,7 +426,7 @@ def fields_hash() -> str:
 #: ``atr42_100``, ``baron_58`` and ``concept_regional_jet`` by D-69.17's data
 #: (elevator and rudder polylines entered, the six SELECT scalars blanked), not
 #: by the hop.
-EXPECTED_FIELDS_HASH = "aa14f4fea74e3b25"
+EXPECTED_FIELDS_HASH = "c55689f09e488a7d"
 
 
 def test_persisted_dataclass_shapes_are_unchanged():

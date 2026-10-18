@@ -389,7 +389,7 @@ from .results import EnvelopeResult, LoadsResult, MassResult
 # ``airplane_length_in`` (SELECT LF, moved from ``EmpennageInput``, now a
 # collapsed override of the outline length). ``_hop_76`` moves the two values,
 # drops the five keys and states any non-zero dropped value once.
-SCHEMA_VERSION = 77
+SCHEMA_VERSION = 78
 
 
 @dataclass

@@ -1,5 +1,5 @@
 {
-  "schema_version": 77,
+  "schema_version": 78,
   "name": "GA 6-place single (Appendix A) \u2014 Continental IO-520-BB",
   "engines": [
     {
@@ -1060,7 +1060,98 @@
   "mass": {
     "cases": [
       {
-        "name": "itemized loading",
+        "name": "CG1",
+        "weight_lb": 3400.0,
+        "cg_x": 85.1,
+        "cg_y": 0.0,
+        "cg_z": 93.0,
+        "ixx": 5584354.962112821,
+        "iyy": 9567192.318501282,
+        "izz": 14017176.356388463,
+        "ixz": 654639.4121153847,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "CG2",
+        "weight_lb": 3400.0,
+        "cg_x": 77.49,
+        "cg_y": 0.0,
+        "cg_z": 93.0,
+        "ixx": 5551893.39335,
+        "iyy": 9271377.048798792,
+        "izz": 13745322.65544879,
+        "ixz": 424261.234125,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "CG3",
+        "weight_lb": 2800.0,
+        "cg_x": 72.64,
+        "cg_y": 0.0,
+        "cg_z": 91.99999999999999,
+        "ixx": 5478031.417650632,
+        "iyy": 7373096.632525949,
+        "izz": 11895404.214875318,
+        "ixz": 331689.09327215166,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "CG4",
+        "weight_lb": 2063.0,
+        "cg_x": 73.09239457101309,
+        "cg_y": 0.0,
+        "cg_z": 90.72485700436258,
+        "ixx": 4854238.925132817,
+        "iyy": 7249948.846703636,
+        "izz": 11385498.921570819,
+        "ixz": 329616.2644063985,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "aft max landing",
+        "weight_lb": 3230.0,
+        "cg_x": 84.97511145510836,
+        "cg_y": 0.0,
+        "cg_z": 92.80011764705883,
+        "ixx": 5562525.533755294,
+        "iyy": 9483138.42586517,
+        "izz": 13954951.892109876,
+        "ixz": 618699.970857647,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "fwd max landing",
+        "weight_lb": 3230.0,
+        "cg_x": 76.12,
+        "cg_y": 0.0,
+        "cg_z": 93.0,
+        "ixx": 5543456.923995161,
+        "iyy": 7907858.340540726,
+        "izz": 12381740.416545564,
+        "ixz": 398406.501431452,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "fwd light",
+        "weight_lb": 2800.0,
+        "cg_x": 72.64,
+        "cg_y": 0.0,
+        "cg_z": 91.99999999999999,
+        "ixx": 5478031.417650632,
+        "iyy": 7373096.632525949,
+        "izz": 11895404.214875318,
+        "ixz": 331689.09327215166,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "Database ceiling (every row aboard)",
         "weight_lb": 3400.0,
         "cg_x": 84.99947352941177,
         "cg_y": 0.0,
@@ -1069,7 +1160,8 @@
         "iyy": 9534656.489103382,
         "izz": 14002929.711957619,
         "ixz": 622619.4856941765,
-        "gear_down": true
+        "gear_down": true,
+        "ceiling": true
       }
     ]
   },

@@ -378,13 +378,16 @@ def select_inertia_advisory(project: Project, _system: UnitSystem) -> str:
         izz_rod = default_side_gust_izz(project)
         if izz_rod is not None:
             text += f" The rod IZZ in use is {format_value(izz_rod, 'slug-ft^2')} slug-ft\u00b2."
-    mass = project.mass
-    if mass is not None and mass.cases:
-        heaviest = max(mass.cases, key=lambda c: c.weight_lb)
-        text += (" For comparison, WTONECG's item-database inertias at the "
-                 f"heaviest loading ({heaviest.name}): Iyy "
-                 f"{format_value(heaviest.iyy / LBIN2_PER_SLUGFT2, 'slug-ft^2')}, IZZ "
-                 f"{format_value(heaviest.izz / LBIN2_PER_SLUGFT2, 'slug-ft^2')} slug-ft\u00b2.")
+    from sloads.modules.weight_onecg import basis_row
+
+    row = basis_row(project.mass, project)
+    if row is not None:
+        which = ("the database ceiling, every row aboard" if row.ceiling
+                 else f"the mass-basis FLIGHT loading '{row.name}'")
+        text += (f" For comparison, WTONECG's item-database inertias for {which}: Iyy "
+                 f"{format_value(row.iyy / LBIN2_PER_SLUGFT2, 'slug-ft^2')}, IZZ "
+                 f"{format_value(row.izz / LBIN2_PER_SLUGFT2, 'slug-ft^2')} slug-ft\u00b2 "
+                 "(design note 70 D-70.7: disclosed beside the rod estimate, not consumed).")
     return text
 
 

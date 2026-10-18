@@ -1,5 +1,5 @@
 {
-  "schema_version": 77,
+  "schema_version": 78,
   "name": "Beechcraft Baron 58 \u2014 two Continental IO-550-C",
   "description": "Guide worked example (design note 34 UG-9): FAA Aircraft Spec 3A16 Rev 82, Model 58 S/N TH-1396\u2013TH-2124. Certified data cited, everything else estimated \u2014 sources: examples/baron_58.sources.md",
   "engines": [
@@ -1280,7 +1280,98 @@
   "mass": {
     "cases": [
       {
-        "name": "itemized loading",
+        "name": "aft gross",
+        "weight_lb": 5500.0,
+        "cg_x": 85.65181818181819,
+        "cg_y": 0.0,
+        "cg_z": 95.884,
+        "ixx": 22280389.492,
+        "iyy": 11890224.223818181,
+        "izz": 33228121.731818184,
+        "ixz": 483910.86,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "fwd gross",
+        "weight_lb": 5500.0,
+        "cg_x": 78.3,
+        "cg_y": 0.0,
+        "cg_z": 95.75088948306596,
+        "ixx": 22277925.868197527,
+        "iyy": 10808232.368197529,
+        "izz": 32148593.5,
+        "ixz": 363822.8264705882,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "aft max landing",
+        "weight_lb": 5400.0,
+        "cg_x": 85.71944444444445,
+        "cg_y": 0.0,
+        "cg_z": 95.95592592592592,
+        "ixx": 21376353.01037037,
+        "iyy": 11887329.468703704,
+        "izz": 32324263.458333332,
+        "ixz": 482466.22777777776,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "fwd max landing",
+        "weight_lb": 5400.0,
+        "cg_x": 79.1361111111111,
+        "cg_y": 0.0,
+        "cg_z": 96.03925925925925,
+        "ixx": 20020355.177037038,
+        "iyy": 11033346.635370368,
+        "izz": 30118778.458333332,
+        "ixz": 390238.1444444444,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "fwd light",
+        "weight_lb": 4440.0,
+        "cg_x": 78.10022522522523,
+        "cg_y": 0.0,
+        "cg_z": 96.19864864864864,
+        "ixx": 15765328.291891892,
+        "iyy": 9906985.191666666,
+        "izz": 24763943.899774775,
+        "ixz": 335420.60135135136,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "mzfw aft",
+        "weight_lb": 5270.0,
+        "cg_x": 83.45256166982922,
+        "cg_y": 0.0,
+        "cg_z": 96.6550284629981,
+        "ixx": 15774272.34174573,
+        "iyy": 12634344.482163189,
+        "izz": 27482359.140417457,
+        "ixz": 477096.7571157495,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "mzfw fwd",
+        "weight_lb": 4590.0,
+        "cg_x": 76.03812636165577,
+        "cg_y": 0.0,
+        "cg_z": 96.15947712418301,
+        "ixx": 15765536.762745097,
+        "iyy": 10484921.590631807,
+        "izz": 25341671.82788671,
+        "ixz": 346395.091503268,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "Database ceiling (every row aboard)",
         "weight_lb": 6540.0,
         "cg_x": 85.7928134556575,
         "cg_y": 0.0,
@@ -1289,7 +1380,8 @@
         "iyy": 15094039.111773701,
         "izz": 36420347.762232415,
         "ixz": 593291.9311926606,
-        "gear_down": true
+        "gear_down": true,
+        "ceiling": true
       }
     ]
   },
