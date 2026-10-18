@@ -1513,6 +1513,10 @@ def _mass_database_tables(project: Project, system: UnitSystem) -> Optional[List
     return [totals_table, components_table, checks_table]
 
 
+#: The groups whose read-only table renders *above* the editor (#387): the
+#: Mass cases summary is the overview the per-case expanders are read against.
+GROUP_TABLE_FIRST = frozenset({"weight.cg_cases[]"})
+
 #: Read-only tables rendered under a form group, keyed by group prefix: a
 #: per-case view of what the group's inputs resolve to, in the display units.
 #: A builder returns one table or a list of them (#386).
@@ -1928,7 +1932,10 @@ def _offer_table_seed(project: Project, prefix: str, rows: List[Any]) -> None:
     st.caption(plan.caption())
     if not plan.offers:
         return
-    st.button(f"Seed {len(plan.add)} row(s) from the estimate",
+    # The plan names its source where it has one (#387); the items seed
+    # predates that and keeps its wording.
+    label = getattr(plan, "button", f"Seed {len(plan.add)} row(s) from the estimate")
+    st.button(label,
               key=widget_key(f"_seed.{prefix}"),
               on_click=_seed_rows, args=(rows, list(plan.add), prefix))
 
@@ -2169,7 +2176,15 @@ def render_nested(owner: Any, prefix: str, paths: Sequence[str], key_prefix: str
                     help=f"Creates `{prefix}` on this row and puts its fields on "
                          "the page. It can be removed again.")
             return
-        render_record_row(value, own, key, project, prefix=prefix)
+        # The fields design note 25 fixes are stated, not offered (#387, B4):
+        # the ballast's seven tags render as one caption with their values.
+        fixed = [p for p in own if p in fr.FIXED_NESTED_FIELDS]
+        render_record_row(value, [p for p in own if p not in fr.FIXED_NESTED_FIELDS],
+                          key, project, prefix=prefix)
+        if fixed:
+            st.caption("Fixed by the loading model (design note 25), so not editable here: "
+                       + "; ".join(f"**{_field_label(p)}** {fr.FIXED_NESTED_FIELDS[p]}"
+                                   for p in fixed) + ".")
         for child in _child_records(prefix, under):
             render_nested(value, child, under, key, project)
         note = NESTED_NOTES.get(prefix)
@@ -2402,11 +2417,18 @@ def _render_groups(project: Project, groups: List[Tuple[str, List[str]]],
             note_text = group_note(project)
             if note_text:
                 st.caption(note_text)
+        # The CG cases' summary table reads better *above* its eleven
+        # expanders than three screens below them (#387, review B4): a
+        # group in this set renders its read-only table first.
+        table_first = prefix in GROUP_TABLE_FIRST
+        if table_first:
+            render_group_table(project, prefix, system)
         if prefix.endswith(fr.LIST_MARKER):
             render_table(project, prefix, paths)
         else:
             render_record(project, prefix, paths)
-        render_group_table(project, prefix, system)
+        if not table_first:
+            render_group_table(project, prefix, system)
     if groups:
         st.divider()
 

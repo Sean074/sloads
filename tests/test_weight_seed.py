@@ -25,7 +25,8 @@ from dataclasses import replace
 
 import pytest
 
-from sloads import io, mass_distribution as md
+from sloads import io
+from sloads import mass_distribution as md
 from sloads.field_registry import TABLE_SEEDS
 from sloads.models import MassComponent, MassItem, MassItemKind, Project
 from sloads.modules.weight_estimate import SEED_CONTRACT, seed_plan, seeded_items
@@ -134,6 +135,59 @@ def test_the_warning_says_what_the_unplaced_rows_cost():
 # --------------------------------------------------------------------------- #
 # One owner for the button's behaviour
 # --------------------------------------------------------------------------- #
+# The CG cases seeded from the envelope (#387, review B5)
+# --------------------------------------------------------------------------- #
+def test_the_cg_case_seed_adds_the_envelope_cases_and_never_rewrites_an_entered_one():
+    """The items-seed contract on the case list: a cleared ga6 is offered the
+    WTENV corner cases and the three roled landing cases; a fixture that
+    already names every one is offered nothing and says so; an entered case
+    is kept as entered, matched by name."""
+    from sloads import io as _io
+    from sloads.cg_cases import CgSeedPlan
+    from sloads.cg_cases import seed_plan as cg_seed_plan
+    from sloads.models import AnalysisKind, same_name
+
+    atr = _io.load_project(os.path.join(_ROOT, "examples", "atr42_100.project.json"))
+    full = cg_seed_plan(atr)
+    assert isinstance(full, CgSeedPlan) and not full.offers
+    assert "Nothing to seed" in full.caption() and "already entered" in full.caption()
+    assert set(full.kept) == {c.name for c in atr.weight.cg_cases}
+
+    # ga6 names its corners CG1..CG4 (Appendix A): kept by coincidence on
+    # weight and station, so only the mid-gross loading is new to it.
+    project = _project()
+    ga6 = cg_seed_plan(project)
+    assert [c.name for c in ga6.add] == ["mid gross"]
+
+    entered = list(project.weight.cg_cases)
+    project.weight.cg_cases = [entered[0]]            # keep one, by name
+    plan = cg_seed_plan(project)
+    assert plan.offers and plan.kept == (entered[0].name,)
+    names = [c.name for c in plan.add]
+    assert not any(same_name(n, entered[0].name) for n in names)
+    assert any(AnalysisKind.FLIGHT in c.analyses for c in plan.add)
+    assert any(AnalysisKind.GROUND in c.analyses for c in plan.add)
+    assert "FLIGHT" in plan.caption() and "GROUND" in plan.caption() and "never deletes" in plan.caption()
+    assert "envelope" in plan.button
+    project.weight.cg_cases.extend(plan.add)
+    again = cg_seed_plan(project)
+    assert not again.offers and project.weight.cg_cases[0] is entered[0]
+
+
+def test_the_cg_case_seed_states_why_when_it_cannot_seed():
+    from sloads.cg_cases import seed_plan as cg_seed_plan
+    from sloads.models import Project
+
+    bare = cg_seed_plan(Project(name="bare"))
+    assert not bare.offers and "no weight data base" in bare.caption()
+    project = _project()
+    project.weight.cg_cases = []
+    project.weight.envelope = None
+    refused = cg_seed_plan(project)
+    assert not refused.offers and refused.caption().startswith("Nothing to seed:")
+    assert "WTENV" in refused.caption() or "envelope" in refused.caption().lower()
+
+
 def test_the_table_seed_registry_names_a_real_list_prefix():
     """``TABLE_SEEDS`` is ``RECORD_SEEDS``' analogue and is keyed the same way."""
     assert TABLE_SEEDS

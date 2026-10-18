@@ -862,6 +862,31 @@ def _weight_items_seed(project: Project) -> object:
     return seed_plan(project)
 
 
+def _cg_cases_seed(project: Project) -> object:
+    from sloads.cg_cases import seed_plan
+
+    return seed_plan(project)
+
+
+#: The fields of a nested record whose value design note 25's semantics fix,
+#: rendered as a stated caption rather than offered as widgets (#387, review
+#: B4): ``path -> what it is fixed at, and why``. A ballast row is by
+#: definition a discretionary fuselage mass that is not fuel and rides no
+#: wing; ten of its fourteen fields were offered as editable while the
+#: loading search solved them. The registry still carries the rows (the page
+#: definition is the registry, ``tests/test_oracle_gui.py``); the form reads
+#: this map to say the value instead of asking for it.
+FIXED_NESTED_FIELDS: Dict[str, str] = {
+    "weight.cg_cases[].loading.ballast.kind": "discretionary -- ballast is useful load, never empty weight",
+    "weight.cg_cases[].loading.ballast.component": "fuselage -- the body carries it (D-25c)",
+    "weight.cg_cases[].loading.ballast.consumable": "no -- ballast is not burned",
+    "weight.cg_cases[].loading.ballast.usable_fuel": "no -- ballast is not fuel",
+    "weight.cg_cases[].loading.ballast.wing_fraction": "0 -- none of it rides the wing",
+    "weight.cg_cases[].loading.ballast.carriage": "panel -- read on WING parts only, so moot",
+    "weight.cg_cases[].loading.ballast.gear": "none -- ballast is not a gear leg",
+}
+
+
 #: ``{list prefix: plan}`` -- list tables whose rows a program the project has
 #: already run can propose (note 57 D-57.7, #78). :data:`RECORD_SEEDS`' analogue
 #: for a ``…[]`` table: the plan is built *before* the click and states what the
@@ -870,6 +895,9 @@ def _weight_items_seed(project: Project) -> object:
 #: (``weight_estimate.SEED_CONTRACT``), not the page rendering it.
 TABLE_SEEDS: Dict[str, "typing.Callable[[Project], typing.Any]"] = {
     "weight.items[]": _weight_items_seed,
+    # #387: the WTENV corner cases and the roled landing cases (note 57 D-57.7's
+    # contract: adds, never deletes, the plan stated before the click).
+    "weight.cg_cases[]": _cg_cases_seed,
 }
 
 

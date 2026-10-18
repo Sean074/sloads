@@ -28,7 +28,7 @@ Every consumer reads from here and none filters for itself.
 from __future__ import annotations
 
 import math
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, NamedTuple, Optional, Tuple
 
 from .models import (
     GROUND_CASE_ROLE_ORDER,
@@ -38,11 +38,13 @@ from .models import (
     MassItemKind,
     MissingInputError,
     Project,
+    same_name,
 )
 
 __all__ = [
     "FLIGHT_CASE_NAMES",
     "MZFW_CASE_NAMES",
+    "CgSeedPlan",
     "cases_for",
     "database_total",
     "flight_cases",
@@ -55,6 +57,7 @@ __all__ = [
     "max_zero_fuel_weight_estimate",
     "seed_flight_cases",
     "seed_landing_cases",
+    "seed_plan",
 ]
 
 #: The FLIGHT case set a WTENV envelope defines (decision D-27, 2026-08-17): the
@@ -146,7 +149,7 @@ def landing_role_cases(project: Project) -> List[CgCase]:
         raise MissingInputError(
             "landing needs three roled GROUND weight/CG cases (aft max landing, "
             "fwd max landing, fwd light) per UG fig 18.2. Tag them on the "
-            "Weight/CG page's Payload Cases tab: analyses must include GROUND and "
+            "Weight & Mass Properties page's CG Cases group: analyses must include GROUND and "
             "each must carry a role. Auto-derivation from Project.mass was removed "
             "(M2-8) -- the heaviest mass case cannot supply distinct fwd/aft CG "
             "stations.")
@@ -334,15 +337,15 @@ def seed_landing_cases(project: Project) -> Tuple[List[CgCase], List[str]]:
     missing = []
     w_land = project.weight.max_landing_weight_lb if project.weight else 0.0
     if not w_land:
-        missing.append("the max landing weight (Design weights, above)")
+        missing.append("the max landing weight (the Weight group of the Weight & Mass Properties page)")
     env = project.weight.envelope if project.weight is not None else None
     w_light = (env.fwd_regardless_weight or 0.0) if env is not None else 0.0
     if not w_light:
-        missing.append("the WTENV forward-regardless weight (Weight / CG Envelope tab)")
+        missing.append("the WTENV forward-regardless weight (the Envelope group)")
     limits = wtenv_cg_limits(project)
     aft_limit = limits[1] if limits is not None else None
     if limits is None:
-        missing.append("the WTENV CG envelope (Weight / CG Envelope tab)")
+        missing.append("the WTENV CG envelope (the Envelope group)")
     from .modules.weight_onecg import basis_row
 
     row = basis_row(project.mass, project)
@@ -391,6 +394,96 @@ def _echo_loading_waterlines(project: Project, cases: List[CgCase]) -> None:
         w = math.fsum(it.weight_lb for it in real)
         if loading.derivable and w > 0:
             case.zcg = math.fsum(it.weight_lb * it.z for it in real) / w
+
+
+class CgSeedPlan(NamedTuple):
+    """What seeding the CG cases from WTENV *would* do (#387, review B5).
+
+    The items-seed contract (note 57 D-57.7, ``weight_estimate.SeedPlan``) on
+    the case list: ``add`` are the seeded cases the list does not already
+    name, ``kept`` names every entered case the seed will not touch, and
+    ``reason`` is set only when nothing can be offered and says why -- the
+    seeders' own missing-source sentences. Built before the click so the
+    offer states it; a plan with an empty :attr:`add` is never written.
+    """
+
+    add: Tuple[CgCase, ...] = ()
+    kept: Tuple[str, ...] = ()
+    reason: str = ""
+    #: The button's text -- the plan names its source, so the one seed button
+    #: in the GUI can serve a table seeded from the estimate and one seeded
+    #: from the envelope without spelling either here.
+    button: str = "Seed the CG cases from the envelope"
+
+    @property
+    def offers(self) -> bool:
+        return bool(self.add)
+
+    def caption(self) -> str:
+        if not self.offers:
+            return self.reason
+        flight = sum(1 for c in self.add if AnalysisKind.FLIGHT in (c.analyses or ()))
+        ground = len(self.add) - flight
+        what = " and ".join(part for part in (
+            f"{flight} FLIGHT case(s) at the WTENV structural limits" if flight else "",
+            f"{ground} roled GROUND case(s) at MLW and the light weight" if ground else "") if part)
+        kept = (f"; the {len(self.kept)} case(s) already entered are kept" if self.kept
+                else "; the list is empty, so nothing is overwritten")
+        return (f"Adds {what}{kept}. The seed adds and never deletes or rewrites a "
+                "case: it matches on name, and each added case's loading is searched "
+                "from the data base (design notes 25 and 63) and may be entered on "
+                "the case afterwards.")
+
+
+def _coincides(a: CgCase, b: CgCase) -> bool:
+    from .mass_distribution import cg_match_tolerance, echo_weight_tolerance
+
+    return (abs(a.weight_lb - b.weight_lb) <= echo_weight_tolerance(b.weight_lb)
+            and abs(a.xcg - b.xcg) <= cg_match_tolerance()
+            and bool(set(a.analyses or ()) & set(b.analyses or ())))
+
+
+def seed_plan(project: Project) -> CgSeedPlan:
+    """What the two seeders would add to this project's case list (#387).
+
+    :func:`seed_flight_cases` (the WTENV corner cases, the mid-gross loading and,
+    with an MZFW entered, the three zero-fuel cases) and
+    :func:`seed_landing_cases` (the three roled landing cases), each refused
+    with its named missing sources when it cannot seed; a case the list
+    already names (``same_name``) is kept as entered. Until #387 neither
+    seeder had a caller in any front-end: the button that offered them went
+    with the front-end retired at #270, and a new project typed every case by
+    hand.
+    """
+    weight = project.weight
+    existing = list(weight.cg_cases) if weight is not None else []
+    if weight is None or not weight.items:
+        return CgSeedPlan(reason="There is no weight data base yet, so there are no "
+                                 "loadings to seed the CG cases from.")
+    add: List[CgCase] = []
+    missing: List[str] = []
+    for seeder in (seed_flight_cases, seed_landing_cases):
+        try:
+            cases, absent = seeder(project)
+        # refusal: a seeder that cannot run names what it lacks in ``absent``;
+        # one that raises is stated the same way rather than taking the page down
+        except ValueError as exc:
+            cases, absent = [], [str(exc)]
+        missing += absent
+        for case in cases:
+            # Kept by name, or by coincidence on weight and station (the D-25a
+            # band and the search's CG tolerance, as the MZFW seed already
+            # judges it): Appendix A's CG1..CG4 *are* the four WTENV corners
+            # under their own names, and a second row for each is no seed.
+            if any(same_name(case.name, c.name) or _coincides(case, c)
+                   for c in existing + add):
+                continue
+            add.append(case)
+    if not add:
+        why = "; ".join(dict.fromkeys(missing)) if missing else "every seeded case is already entered"
+        return CgSeedPlan(kept=tuple(c.name for c in existing),
+                          reason=f"Nothing to seed: {why}.")
+    return CgSeedPlan(add=tuple(add), kept=tuple(c.name for c in existing))
 
 
 def seed_flight_cases(project: Project) -> Tuple[List[CgCase], List[str]]:
@@ -443,10 +536,10 @@ def seed_flight_cases(project: Project) -> Tuple[List[CgCase], List[str]]:
     env = weight.envelope if weight is not None else None
     if env is None or not env.gross_weight or not env.fwd_regardless_weight:
         missing.append("the WTENV envelope with its gross and forward-regardless "
-                       "weights (Weight / CG Envelope tab)")
+                       "weights (the Envelope group)")
     items = weight.items if weight is not None else []
     if not items:
-        missing.append("the weight item database (Weight, CG & Inertia tab)")
+        missing.append("the weight item database (the Items grid)")
     stations = _wtenv_stations(project) if not missing else None
     if stations is None and not missing:
         missing.append("a WTENV run (wing XLEMAC/MAC and the envelope)")

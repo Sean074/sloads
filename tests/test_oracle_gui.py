@@ -2365,6 +2365,36 @@ def test_a_group_note_names_a_group_an_oracle_page_renders():
     assert not unknown, f"group notes for groups no oracle page renders: {unknown}"
 
 
+def test_the_ballast_record_states_its_fixed_tags_and_the_cases_table_leads():
+    """#387 (review B4): the Ballast record offers its mass and placement and
+    states the seven tags design note 25 fixes in one caption, never as
+    widgets; the registry rows stay, so the page definition is unchanged; the
+    Mass cases table renders above the case expanders; the CG cases' seed is
+    a registered table seed whose button names its source."""
+    from oracle_app.form import GROUP_TABLE_FIRST, page_groups
+
+    fixed = fr.FIXED_NESTED_FIELDS
+    assert set(fixed) == {f"weight.cg_cases[].loading.ballast.{f}" for f in (
+        "kind", "component", "consumable", "usable_fuel", "wing_fraction", "carriage", "gear")}
+    rendered = {p for _prefix, paths in page_groups("weight_mass") for p in paths}
+    assert set(fixed) <= rendered, "the registry still carries the rows"
+    assert "weight.cg_cases[]" in GROUP_TABLE_FIRST
+    assert "weight.cg_cases[]" in fr.TABLE_SEEDS
+    project = io.load_project(os.path.join(_EXAMPLES, "atr42_100.project.json"))
+    case = next(c for c in project.weight.cg_cases if c.loading is not None and c.loading.ballast is not None)
+    index = project.weight.cg_cases.index(case)
+    from app_shell.widget_keys import unstamped
+
+    at = _render("weight_mass", project)
+    keys = {unstamped(w.key) for kind in ("selectbox", "checkbox", "number_input", "text_input")
+            for w in getattr(at, kind) if w.key}
+    prefix = f"weight.cg_cases[].{index}.loading.ballast."
+    assert any(k.startswith(prefix + "weight_lb") for k in keys), sorted(k for k in keys if "ballast" in k)
+    assert not any(k.startswith(prefix + f) for f in ("kind", "component", "consumable") for k in keys)
+    caption = next(c.value for c in at.caption if "Fixed by the loading model" in c.value)
+    assert "discretionary" in caption and "fuselage" in caption
+
+
 def test_the_items_grid_carries_its_totals_partition_and_checks():
     """#386 (review B1-B3): three read-only tables under the Items grid, each a
     view of an owner -- the kind totals of ``loading_kind_totals``, the
