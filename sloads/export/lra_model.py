@@ -255,11 +255,11 @@ def reference_axis_rows(project: Project,
     lra = fuselage_lra(project)
     if lra.basis == "entered":
         axis = unit_text("waterline ", Quantity(lra.entered_z, "in")).render(system)
-        source = "entered (fuselage_mass.ref_waterline)"
+        source = "entered (geometry.fuselage.beam_waterline_z)"
     elif lra.basis == "centre-line":
         axis, source = "the fuselage section-centre line", "derived from the outline"
     else:
-        axis, source = "not resolvable", "enter a fuselage outline or ref_waterline"
+        axis, source = "not resolvable", "enter a fuselage outline or its beam waterline"
     rows.append({"Member": "Fuselage", "Loads reference axis": axis,
                  "Source": source})
     return rows
@@ -685,7 +685,7 @@ def build_lra_model(project: Project) -> LraModel:
             "no fuselage outline -- the fuselage beam's stations come from its "
             "sections and there are none to build them from")
     # **Where the body beam sits is its own owner** (2026-09-07): the entered
-    # ``fuselage_mass.ref_waterline`` if the project states one, else the
+    # ``geometry.fuselage.beam_waterline_z`` if the project states one, else the
     # section-centre line. Until this call the model ran the chain on the centre
     # line unconditionally and the entered waterline -- documented as this very
     # quantity -- was read by nothing, putting ``ga6_normal``'s body beam 23.5 in

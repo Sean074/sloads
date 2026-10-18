@@ -118,7 +118,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, fields, replace
-from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Dict, List, NamedTuple, Optional, Sequence, Tuple
 
 from ..case_ids import HTAIL_BAND_TTAIL, VTAIL_BAND_TTAIL, band_case_id
 from ..cg_cases import flight_cases
@@ -155,6 +155,7 @@ from ..picks import extreme
 from ..registry import register
 from ..tail_geometry import (
     HTAIL,
+    TAIL_CONTROL,
     VTAIL,
     TailPlanform,
     h_tail_waterline,
@@ -162,6 +163,9 @@ from ..tail_geometry import (
     is_t_tail,
     resolve_tail_planform,
 )
+
+if TYPE_CHECKING:
+    from ..models import SurfaceInput
 from ..units import NO_TEXT, Quantity, UnitSystem, UnitText, format_value, unit_text
 from .select import default_critical, vn_points
 
@@ -555,17 +559,18 @@ def control_attachment(project: Project, component: str,
     a station off the surface, or an actuator outside the span its own hinges
     hold.
     """
-    entry = next((tm for tm in project.tail_mass or []
-                  if tm.surface == component), None)
+    entry = control_surface_row(project, component)
     hinges = sorted(entry.hinges_span_in) if entry is not None else []
     actuator = entry.actuator_span_in if entry is not None else 0.0
     if len(hinges) < 2 or not actuator:
+        control = TAIL_CONTROL.get(component, "control surface")
         raise MissingInputError(
             f"control_load_mode='discrete' for the {component} needs hinge and "
-            "actuator span stations: set tail_mass.hinges_span_in (at least two, "
-            "measured from the surface root along its span) and "
-            "tail_mass.actuator_span_in. Use 'smeared' to keep the control load "
-            "distributed into the surface as it has been.")
+            f"actuator span stations on the {control}'s geometry.surfaces[] row: "
+            "set hinges_span_in (at least two, measured from the surface root "
+            "along its span) and actuator_span_in (design note 71 D-71.9). Use "
+            "'smeared' to keep the control load distributed into the surface as "
+            "it has been.")
     span = planform.span
     off = [h for h in hinges if h < 0.0 or h > span]
     if off:
@@ -912,6 +917,18 @@ def lateral_load_factor(project: Project, cond: CriticalCondition,
     return ((cond.lt25 or 0.0) + (cond.lt50 or 0.0)) / weight, weight
 
 
+def control_surface_row(project: Project, component: str) -> Optional["SurfaceInput"]:
+    """The ``geometry.surfaces[]`` row of a tail's control surface (htail ->
+    elevator, vtail -> rudder; ``tail_geometry.TAIL_CONTROL``), which carries
+    the control-load mode and the hinge/actuator stations since v80 (design
+    note 71 D-71.9), or ``None`` when the project enters no such surface."""
+    control = TAIL_CONTROL.get(component)
+    geometry = project.geometry
+    if control is None or geometry is None:
+        return None
+    return geometry.by_name(control)
+
+
 def control_load_mode(project: Project, component: str) -> str:
     """The control-load mode for one surface (T-4/T5/T6), validated.
 
@@ -923,9 +940,9 @@ def control_load_mode(project: Project, component: str) -> str:
     therefore raises, from :func:`control_attachment`.
     """
     mode = DEFAULT_CONTROL_MODE
-    for tm in project.tail_mass or []:
-        if tm.surface == component:
-            mode = tm.control_load_mode or DEFAULT_CONTROL_MODE
+    entry = control_surface_row(project, component)
+    if entry is not None:
+        mode = entry.control_load_mode or DEFAULT_CONTROL_MODE
     if mode not in CONTROL_MODES:
         raise ValueError(
             f"unknown control_load_mode {mode!r} for {component}; expected one of "

@@ -85,7 +85,7 @@ _VTAIL = VTailLoadsInput(
     rudder_deflection_deg=30.0, vtail_area_sqft=14.84, rudder_area_sqft=5.236,
     rudder_fwd_hinge_sqft=0.57, rudder_aft_hinge_sqft=4.63, aspect_ratio_vtail=1.52,
     vtail_mac_in=3.367 * 12.0, xv25=266.83,
-    wing_span_in=33.5 * 12.0, gross_weight_lb=3400.0,  # 3.367/33.5 ft; LF on the empennage
+    wing_span_in=33.5 * 12.0,  # 3.367/33.5 ft; LF on the empennage; GW is MTOW since v80
 )
 
 

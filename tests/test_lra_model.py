@@ -33,7 +33,6 @@ from sloads.export.lra_model import (
     transferred_case_loads,
 )
 from sloads.export.mass_cards import mass_check_deck
-from sloads.report.applied import wing_nodal_loads
 from sloads.models import LRA_DEFAULT_GRIDS, LraMeshInput
 from sloads.modules.balance import (
     build_balanced_cases,
@@ -42,6 +41,7 @@ from sloads.modules.balance import (
     skipped_conditions,
 )
 from sloads.modules.net_loads import build_net_loads, loads_ref_axis_results
+from sloads.report.applied import wing_nodal_loads
 
 _EXAMPLES = os.path.join(os.path.dirname(__file__), "..", "examples")
 
@@ -248,12 +248,12 @@ def test_discrete_control_nodes_ship_as_tagged_skeleton(monkeypatch):
     """LM-6: with T6 hinge geometry entered the elevator's hinge/actuator
     nodes appear, tagged, each rigidly tied to an inserted parent node -- and
     with no chain of their own (that would be R-12's redundant hinge set)."""
-    from sloads.models import TailMassInput
-
     project = _project("atr42_100.project.json")
-    project.tail_mass.append(TailMassInput(
-        surface="htail", control_load_mode="discrete",
-        hinges_span_in=[30.0, 90.0], actuator_span_in=55.0))
+    # On the elevator's own geometry row since v80 (design note 71 D-71.9).
+    elevator = project.geometry.by_name("elevator")
+    elevator.control_load_mode = "discrete"
+    elevator.hinges_span_in = [30.0, 90.0]
+    elevator.actuator_span_in = 55.0
     model = build_lra_model(project)
     hinges = [n for n in model.nodes if n.family == "lra-hinge"]
     actuators = [n for n in model.nodes if n.family == "lra-actuator"]

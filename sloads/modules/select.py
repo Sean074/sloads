@@ -1400,7 +1400,7 @@ def default_side_gust_izz(project: Project) -> Optional[float]:
     vt = effective_vtail_inputs(project)
     if vt is None or vt.wing_span_in <= 0:
         return None
-    gw = vt.gross_weight_lb or max_takeoff_weight(project, required=False)
+    gw = max_takeoff_weight(project, required=False)
     if not gw:
         return None
     try:
@@ -1500,11 +1500,10 @@ def select_vtail(project: Project, envelope: Optional[EnvelopeResult] = None) ->
     if not bal_a or not bal_c:
         return []
 
-    # The fin's design weight: an explicit override, else the airplane's MTOW --
-    # read from its single owner (G-14) rather than re-derived as the heaviest CG
-    # case, which is the same number on every fixture and no longer a second
-    # opinion of it.
-    gw = vt.gross_weight_lb or max_takeoff_weight(project, required=False)
+    # The fin's design weight is the airplane's MTOW, read from its single
+    # owner (G-14); the typed override every fixture carried at exactly MTOW
+    # was deleted at v80 (design note 71 D-71.4).
+    gw = max_takeoff_weight(project, required=False)
     izz = vt.izz_slugft2 or _default_izz(vt, gw, airplane_length_in(project))
     cy_vtail, cn_vtail = vtail_sideslip_derivatives(project, vt)
     out: List[CriticalCondition] = []

@@ -341,6 +341,19 @@ def _resolve_vd(inp: StructuralSpeedsInput, cat: str, vc: float, vc_min: float,
     return vd, vd_margin_floor, mm.required, mm.reduced, vd_125
 
 
+def design_weight_lb(project: Project, inp: StructuralSpeedsInput) -> float:
+    """STRSPEED's design weight ``W`` -- **the one owner** (design note 71
+    D-71.2, note 36 OV-1): the typed ``speeds.weight_lb`` governs, blank
+    derives the airplane's MTOW from its single owner
+    (:func:`sloads.cg_cases.max_takeoff_weight`). Read here, by the flap
+    module's 23.345 cases and by the V-n balance, so the three cannot fly the
+    design speeds at different weights. ``0`` when neither is entered; the
+    callers refuse that by name."""
+    from ..cg_cases import max_takeoff_weight
+
+    return inp.weight_lb or max_takeoff_weight(project, required=False)
+
+
 def design_speed_values(project: Project, inp: StructuralSpeedsInput) -> DesignSpeeds:
     """Compute the scalar STRSPEED design speeds + maneuver load factors.
 
@@ -354,7 +367,10 @@ def design_speed_values(project: Project, inp: StructuralSpeedsInput) -> DesignS
     speed of sound and density ratio are positive at every altitude. Callers
     catch those two and nothing wider.
     """
-    w = inp.weight_lb
+    # The design weight is a collapsed override of MTOW (design note 71
+    # D-71.2, note 36 OV-1): blank derives the one owner, typed governs and
+    # is warned (``mtow_representation_drift``).
+    w = design_weight_lb(project, inp)
     if w <= 0:
         raise ValueError("STRSPEED needs a positive design weight")
     s = _wing_area_sqft(project, inp)

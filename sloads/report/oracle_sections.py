@@ -42,7 +42,7 @@ import io as _io
 import math
 import re
 from dataclasses import replace
-from typing import TYPE_CHECKING, Callable, Dict, List, Mapping, NamedTuple, Optional, Sequence, Tuple, Type
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, NamedTuple, Optional, Sequence, Tuple, Type
 
 from .. import csv_text
 from ..aero_curves import inertia_drag_factor
@@ -76,6 +76,7 @@ from ..modules.select import flaps_by_config_name
 from ..picks import extreme
 from ..units import UnitSystem, convert_results
 from .content import (
+    _EXTRA_DIMENSIONS,
     Figure,
     PlotData,
     Section,
@@ -1975,6 +1976,7 @@ def _wing_inputs(project: Project, *, system: UnitSystem,
     net = _wing_net(project)
     figures = wing_axis_figures(project, system=system)
     figures += wing_span_load_figures(project, system=system)
+    figures += wing_mass_span_figures(project, system=system)
     figures += aero_curve_figures(project, system=system)
     table = _lra_station_table(net, system)
     body = [
@@ -10110,6 +10112,106 @@ def wing_span_load_figures(project: Project, *, system: UnitSystem,
     clmax = getattr(config, "stall_cl", None) or None
     return [_span_load_figure(project, clmax, system),
             _flaps_down_span_load(project)]
+
+
+def wing_mass_span_figures(project: Project, *, system: UnitSystem,
+                           results: Optional[Mapping[str, Optional[ModuleResult]]] = None,  # noqa: ARG001
+                           ) -> List[Figure]:
+    """3.1's wing spanwise mass (design note 71 D-71.10, #383)."""
+    return [_wing_mass_span_figure(project, system)]
+
+
+def _wing_mass_span_figure(project: Project, system: UnitSystem) -> Figure:
+    """The panel mass WINGINER spreads per strip, for each FLIGHT case's mass
+    state, with that state's point masses marked at their butt lines and
+    sized by weight (``Series.sizes``, #388).
+
+    Read through :func:`sloads.modules.wing_inertia.inertia_units` -- the
+    strip sweep the module integrates -- at each state's panel weight and
+    point list from :func:`sloads.mass_distribution.wing_mass_state`, so the
+    drawing and the delivered inertia loads come from one sweep. The owner
+    asked for it when the wing's mass inputs moved to the weight page (note
+    71 Q4): the analysis page shows what it spreads. Not a load: nothing is
+    scaled and no factor applies.
+    """
+    from ..cg_cases import flight_cases
+    from ..derived_geometry import wing_plane
+    from ..mass_distribution import wing_mass_state
+    from ..modules.wing_inertia import inertia_units
+
+    key, title = "wing_mass_span", "Wing spanwise mass"
+    name = _wing_surface_name(project)
+    geometry = project.geometry
+    surface = geometry.by_name(name) if geometry is not None else None
+    wm = project.wing_mass
+    if surface is None or wm is None:
+        return Figure(key=key, title=title, absent_reason=(
+            "the project carries no wing planform and wing-mass record to spread "
+            "a panel mass over"))
+    scale, length_units = _length_channel(system)
+    mass_units = "kg" if system is UnitSystem.SI else "lb"
+    mass_f = 1.0 if system is UnitSystem.IMPERIAL else _EXTRA_DIMENSIONS["mass"][0]
+    try:
+        plane = wing_plane(project, name)
+    # refusal: no wing plane, no strip sweep; the absence is stated
+    except ValueError as exc:
+        return Figure(key=key, title=title, absent_reason=f"the wing plane cannot be resolved: {exc}")
+
+    cases = flight_cases(project)
+    names: List[Optional[str]] = [c.name for c in cases] if cases else [None]
+    series: List[Series] = []
+    points: List[Tuple[str, float, float]] = []
+    styles = ("solid", "dashed", "dotted", "dashdotted", "densely dashed", "densely dotted",
+              "loosely dashed", "loosely dotted")
+    # Several cases often share one panel weight: one curve, every case named.
+    grouped: Dict[float, Tuple[List[str], Any, Any]] = {}
+    for case_name in names:
+        label = case_name if case_name is not None else "data base"
+        state = wing_mass_state(project, case_name)
+        panel = state.panel_weight_lb        # exact: one derivation, one float
+        if panel in grouped:
+            grouped[panel][0].append(label)
+            continue
+        try:
+            units = inertia_units(surface, wm, *plane, panel_weight_lb=state.panel_weight_lb,
+                                  point_masses=state.point_masses)
+        # refusal: a state the sweep cannot spread is left out
+        except ValueError:
+            continue
+        grouped[panel] = ([label], units, state)
+    for index, (labels, units, state) in enumerate(grouped.values()):
+        ye = list(units.ye)
+        w = list(units.w)
+        widths = [abs(b - a) for a, b in zip(ye, ye[1:])]
+        widths.append(widths[-1] if widths else 1.0)
+        density = [wi / dy * mass_f / scale if dy else 0.0 for wi, dy in zip(w, widths)]
+        series.append(Series(" / ".join(labels), [y * scale for y in ye], density,
+                             style=styles[index % len(styles)]))
+        for pm in state.point_masses:
+            points.append((f"{pm.name} ({labels[0]})", pm.y * scale, pm.weight_lb * mass_f))
+    if not series:
+        return Figure(key=key, title=title, absent_reason=(
+            "no FLIGHT mass state could be spread over the wing"))
+    if points:
+        series.append(Series("Point masses (weight on hover)",
+                             [p[1] for p in points], [0.0 for _ in points],
+                             style="mark=diamond*", marker=True,
+                             labels=[f"{p[0]}: {format_value(p[2], mass_units)} {mass_units}" for p in points],
+                             sizes=[p[2] for p in points]))
+    caption = (
+        f"The wing panel mass WINGINER spreads per strip, as a density ({mass_units}/"
+        f"{length_units}) against the butt line, for each FLIGHT case's mass state "
+        "-- the panel weight the case's loading gives (design note 63) over the "
+        "tip/root density ratio and inboard rib entered on the weight page -- read "
+        "through the module's own strip sweep (inertia_units), so this drawing and "
+        "the inertia loads come from one sweep. "
+        + ("Each diamond on the axis is a point mass the case hangs on the wing, "
+           "its area the weight. " if points else "")
+        + "Not a load: nothing is scaled and no factor applies.")
+    return Figure(key=key, title=title,
+                  data=PlotData(f"Butt line Y ({length_units})",
+                                f"Panel mass density ({mass_units}/{length_units})", series),
+                  caption=caption)
 
 
 def aero_curve_figures(project: Project, *, system: UnitSystem,  # noqa: ARG001

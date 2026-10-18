@@ -44,9 +44,9 @@ from sloads.modules.flight_envelope import build_envelope
 from sloads.modules.select import build_critical
 from sloads.modules.tail_span import (
     ATTACH_ENTERED,
-    ATTACH_VTAIL_TIP,
     ATTACH_OUTLINE,
     ATTACH_STRIP_PAIR,
+    ATTACH_VTAIL_TIP,
     HTAIL_UNSYM_LABEL,
     INDUCED_ROLL_LABEL,
     X25_PCT,
@@ -106,6 +106,14 @@ def _project(example: str, weight: float = _TAIL_WEIGHT):
         ]
         _CACHE[key] = p
     return copy.deepcopy(_CACHE[key])
+
+
+def _control(project, component: str):
+    """The tail's control surface row, which carries the control-load mode and
+    the hinge/actuator stations since v80 (design note 71 D-71.9)."""
+    from sloads.tail_geometry import TAIL_CONTROL
+
+    return project.geometry.by_name(TAIL_CONTROL[component])
 
 
 def _condition(project, label: str):
@@ -761,8 +769,8 @@ def test_the_smeared_mode_is_the_default_and_changes_nothing():
 
     plain = _results("ga6_normal.project.json")
     project = _project("ga6_normal.project.json")
-    for tm in project.tail_mass:
-        tm.control_load_mode = "smeared"
+    for component in (HTAIL, VTAIL):
+        _control(project, component).control_load_mode = "smeared"
     tagged = build_tail_span(project)
     tagged = tagged[HTAIL] + tagged[VTAIL]
 
@@ -779,14 +787,14 @@ def test_the_discrete_mode_refuses_rather_than_falling_back():
     reason to select ``"discrete"`` is to see the load concentrated at the hinges.
     """
     project = _project("ga6_normal.project.json")
-    project.tail_mass[0].control_load_mode = "discrete"
+    _control(project, HTAIL).control_load_mode = "discrete"
     with pytest.raises(MissingInputError, match="hinge and actuator"):
         build_tail_span(project)
 
 
 def test_an_unknown_mode_raises():
     project = _project("ga6_normal.project.json")
-    project.tail_mass[0].control_load_mode = "sideways"
+    _control(project, HTAIL).control_load_mode = "sideways"
     with pytest.raises(ValueError, match="unknown control_load_mode"):
         build_tail_span(project)
 
@@ -834,11 +842,10 @@ def _discrete(example: str = "ga6_normal.project.json", component: str = HTAIL,
 
     smeared = build_tail_span(_p())[component]
     project = _p()
-    for tm in project.tail_mass:
-        if tm.surface == component:
-            tm.control_load_mode = "discrete"
-            tm.hinges_span_in = list(hinges)
-            tm.actuator_span_in = actuator
+    control = _control(project, component)
+    control.control_load_mode = "discrete"
+    control.hinges_span_in = list(hinges)
+    control.actuator_span_in = actuator
     return smeared, build_tail_span(project)[component]
 
 
@@ -995,11 +1002,10 @@ def test_the_smeared_mode_is_untouched_when_a_surface_goes_discrete():
 
     project = _project("ga6_normal.project.json")
     plain = build_tail_span(project)[VTAIL]
-    for tm in project.tail_mass:
-        if tm.surface == HTAIL:
-            tm.control_load_mode = "discrete"
-            tm.hinges_span_in = list(_HINGES)
-            tm.actuator_span_in = _ACTUATOR
+    control = _control(project, HTAIL)
+    control.control_load_mode = "discrete"
+    control.hinges_span_in = list(_HINGES)
+    control.actuator_span_in = _ACTUATOR
     after = build_tail_span(project)[VTAIL]
     for a, b in zip(plain, after):
         assert [asdict(st) for st in a.stations] == [asdict(st) for st in b.stations]
@@ -1037,10 +1043,11 @@ def test_discrete_mode_refuses_geometry_it_cannot_believe():
         ([10.0, 40.0], 60.0, "outside the span"),
     ):
         project = _project("ga6_normal.project.json")
-        for tm in project.tail_mass:
-            tm.control_load_mode = "discrete"
-            tm.hinges_span_in = list(hinges)
-            tm.actuator_span_in = actuator
+        for component in (HTAIL, VTAIL):
+            control = _control(project, component)
+            control.control_load_mode = "discrete"
+            control.hinges_span_in = list(hinges)
+            control.actuator_span_in = actuator
         with pytest.raises((MissingInputError, ValueError), match=match):
             build_tail_span(project)
 

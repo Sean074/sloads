@@ -901,7 +901,8 @@ def _example(name):
 def test_the_fuselage_lra_leads_the_centre_line():
     """The entered waterline is a structural statement; the centre line is not.
 
-    ``FuselageMassInput.ref_waterline`` has always been documented as the
+    ``geometry.fuselage.beam_waterline_z`` (``fuselage_mass.ref_waterline``
+    until v80, design note 71 D-71.7) has always been documented as the
     waterline the body's mass distribution is carried along, and until
     2026-09-07 nothing read it: the component deck put the beam at ``z = 0`` and
     the airplane model ran it on the section-centre line. Entered leads, because
@@ -909,14 +910,14 @@ def test_the_fuselage_lra_leads_the_centre_line():
     only on a body whose structure runs down its middle.
     """
     project = _example("ga6_normal.project.json")
-    project.fuselage_mass.ref_waterline = 70.0
+    project.geometry.fuselage.beam_waterline_z = 70.0
     lra = fuselage_lra(project)
     assert lra.z_at(0.0) == pytest.approx(70.0)
     assert lra.z_at(300.0) == pytest.approx(70.0), "an entered beam is straight"
     assert not lra.assumed and lra.basis == "entered"
 
     # Blank derives: the centre line answers, station by station, and says so.
-    project.fuselage_mass.ref_waterline = 0.0
+    project.geometry.fuselage.beam_waterline_z = 0.0
     derived = fuselage_lra(project)
     assert derived.assumed and derived.basis == "centre-line"
     assert derived.z_at(150.0) == pytest.approx(
@@ -926,7 +927,7 @@ def test_the_fuselage_lra_leads_the_centre_line():
     project.geometry.fuselage = None
     floor = fuselage_lra(project)
     assert floor.z_at(150.0) == 0.0 and floor.basis == "none"
-    assert "roll" not in _imp(floor.note) and "Enter fuselage_mass.ref_waterline" in _imp(floor.note)
+    assert "roll" not in _imp(floor.note) and "Enter geometry.fuselage.beam_waterline_z" in _imp(floor.note)
 
 
 def test_a_waterline_outside_its_own_body_says_so():
@@ -943,7 +944,7 @@ def test_a_waterline_outside_its_own_body_says_so():
     project = _example("atr42_100.project.json")
     # Above the crown: the outline spans WL 57.1-163.4 since note 69 D-69.11.
     # (The pre-D-69.11 ATR sat its body at WL 126-233, which 100.0 was below.)
-    project.fuselage_mass.ref_waterline = 179.6
+    project.geometry.fuselage.beam_waterline_z = 179.6
     lra = fuselage_lra(project)
     assert lra.z_at(0.0) == pytest.approx(179.6), "the entered value still leads"
     assert "OUTSIDE the fuselage" in _imp(lra.note)
@@ -952,7 +953,7 @@ def test_a_waterline_outside_its_own_body_says_so():
     # Inside the body, and away from its centre, is a legitimate axis -- stated,
     # not warned about.
     centre = fuselage_lra(_example("atr42_100.project.json")).z_at(0.0)
-    project.fuselage_mass.ref_waterline = centre - 20.0
+    project.geometry.fuselage.beam_waterline_z = centre - 20.0
     inside = fuselage_lra(project)
     assert "OUTSIDE" not in _imp(inside.note) and "below the body centre" in _imp(inside.note)
 

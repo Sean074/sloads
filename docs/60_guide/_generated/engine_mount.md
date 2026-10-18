@@ -13,8 +13,6 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `engines[].engine_weight_lb` | `float` | ENGWT | `0.0` | original | ENGLOADS ENGWT; quantity: *engine mass*; override of `external: the weight database (decision D-25 mass SSOT; review N1 instance 5: regional jet 300 lb apart)` |
 | `engines[].hub_weight_lb` | `Optional[float]` | HUBWT | `None` | original | ENGLOADS HUBWT |
 | `engines[].prop_weight_lb` | `float` | PROPWT | `0.0` | original | ENGLOADS PROPWT; quantity: *propeller mass*; override of `external: the weight database (the prop_mass_item row; note 36 OV-7, C210-41)` |
-| `engines[].engine_mass_item` | `str` |  | `''` | sloads | weight-database row selector, note 36 OV-7 (the D-25 mass SSOT linkage, stated where it is consumed; blank = no derivation, a name matching no row is refused) |
-| `engines[].prop_mass_item` | `str` |  | `''` | sloads | weight-database row selector, note 36 OV-7 (the propeller half of the linkage) |
 | `engines[].prop_designation` | `str` | e.g. "HAM STD 1803" | `''` | original | ENGLOADS propeller designation |
 | `engines[].prop_blades` | `int` | NOBLADES | `0` | original | ENGLOADS NOBLADES |
 | `engines[].prop_inertia` | `Optional[float]` | measured propeller polar inertia, slug-ft^2 (overrides geometry) | `None` | sloads | measured propeller polar inertia, overriding the value sloads estimates from weight and diameter; the original suite asked for neither (Step C5) |

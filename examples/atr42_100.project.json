@@ -1,5 +1,5 @@
 {
-  "schema_version": 79,
+  "schema_version": 80,
   "name": "ATR 42-300 (\"ATR 42-100\" prototype designation never entered production; -300 is the closest PW120-powered production analog) \u2014 2x PW120 (concept, category C)",
   "description": "ATR 42-300, 48-seat regional turboprop twin (concept mode, category C). Published data cited, everything else estimated -- sources: examples/atr42_100.sources.md (#260)",
   "engines": [
@@ -8,13 +8,13 @@
       "prop_designation": "HAMILTON STANDARD 14SF-5 4-BLADE",
       "engine_type": "T",
       "limit_load_factor": 2.5,
-      "engine_weight_lb": 890.0,
+      "engine_weight_lb": 0.0,
       "engine_cg": [
         370.0,
         -161.0,
         160.0
       ],
-      "prop_weight_lb": 310.0,
+      "prop_weight_lb": 0.0,
       "prop_diameter_in": 156,
       "prop_inertia": null,
       "prop_blades": 4,
@@ -66,13 +66,13 @@
       "prop_designation": "HAMILTON STANDARD 14SF-5 4-BLADE",
       "engine_type": "T",
       "limit_load_factor": 2.5,
-      "engine_weight_lb": 890.0,
+      "engine_weight_lb": 0.0,
       "engine_cg": [
         370.0,
         161.0,
         160.0
       ],
-      "prop_weight_lb": 310.0,
+      "prop_weight_lb": 0.0,
       "prop_diameter_in": 156,
       "prop_inertia": null,
       "prop_blades": 4,
@@ -864,7 +864,10 @@
         "front_spar_x_in": 380.0,
         "rear_spar_x_in": 426.0,
         "sob_y_in": 53.0,
-        "hinge_line": []
+        "hinge_line": [],
+        "control_load_mode": "smeared",
+        "hinges_span_in": [],
+        "actuator_span_in": 0.0
       },
       {
         "name": "htail",
@@ -895,7 +898,10 @@
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
         "sob_y_in": null,
-        "hinge_line": []
+        "hinge_line": [],
+        "control_load_mode": "smeared",
+        "hinges_span_in": [],
+        "actuator_span_in": 0.0
       },
       {
         "name": "vtail",
@@ -926,7 +932,10 @@
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
         "sob_y_in": null,
-        "hinge_line": []
+        "hinge_line": [],
+        "control_load_mode": "smeared",
+        "hinges_span_in": [],
+        "actuator_span_in": 0.0
       },
       {
         "name": "aileron",
@@ -957,7 +966,10 @@
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
         "sob_y_in": null,
-        "hinge_line": []
+        "hinge_line": [],
+        "control_load_mode": "smeared",
+        "hinges_span_in": [],
+        "actuator_span_in": 0.0
       },
       {
         "name": "flap",
@@ -988,7 +1000,10 @@
         "front_spar_x_in": null,
         "rear_spar_x_in": null,
         "sob_y_in": null,
-        "hinge_line": []
+        "hinge_line": [],
+        "control_load_mode": "smeared",
+        "hinges_span_in": [],
+        "actuator_span_in": 0.0
       },
       {
         "name": "elevator",
@@ -1019,7 +1034,10 @@
             844.064,
             110.0
           ]
-        ]
+        ],
+        "control_load_mode": "smeared",
+        "hinges_span_in": [],
+        "actuator_span_in": 0.0
       },
       {
         "name": "rudder",
@@ -1050,7 +1068,10 @@
             877.933,
             316.2
           ]
-        ]
+        ],
+        "control_load_mode": "smeared",
+        "hinges_span_in": [],
+        "actuator_span_in": 0.0
       }
     ],
     "parametric": {
@@ -1173,7 +1194,8 @@
         }
       ],
       "body_drag_waterline_z": 0.0,
-      "airplane_length_in": 892.8000000000001
+      "airplane_length_in": 892.8000000000001,
+      "beam_waterline_z": 110.2
     },
     "empennage": {
       "htail": {
@@ -1207,7 +1229,6 @@
         "rudder_aft_hinge_sqft": 0.0,
         "wing_span_in": 0.0,
         "rudder_deflection_deg": 25.0,
-        "gross_weight_lb": 36817.0,
         "rudder_large_deflection_factor": 1.0,
         "izz_slugft2": 0.0,
         "vtail_root_waterline_z": 0.0
@@ -1263,7 +1284,7 @@
   },
   "speeds": {
     "category": "C",
-    "weight_lb": 36817,
+    "weight_lb": 0.0,
     "occupants": null,
     "wing_area_sqft": 586.6,
     "vh_kt": 265,
@@ -1544,7 +1565,6 @@
   },
   "fuselage_mass": {
     "stations": [],
-    "ref_waterline": 110.2,
     "stations_are_override": false
   },
   "select_input": {

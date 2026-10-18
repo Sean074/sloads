@@ -983,7 +983,8 @@ class FuselageLra(NamedTuple):
     """Where the fuselage beam's load reference axis runs (owner, 2026-09-07).
 
     **The single owner of "what waterline does the body beam sit on".**
-    ``FuselageMassInput.ref_waterline`` has always been documented as this --
+    ``FuselageOutline.beam_waterline_z`` (``FuselageMassInput.ref_waterline``
+    until v80, design note 71 D-71.7) has always been documented as this --
     *"the fuselage longitudinal mass distribution carried along the body axis at
     waterline ``ref_waterline``"* -- and until this existed nothing read it: the
     component deck put the body beam at ``z = 0`` (the component in isolation)
@@ -993,7 +994,7 @@ class FuselageLra(NamedTuple):
 
     Resolution order::
 
-        entered ref_waterline -> a constant waterline        (assumed False)
+        entered beam_waterline_z -> a constant waterline     (assumed False)
         fuselage centre line  -> z_centre(x), station by station (assumed True)
         neither               -> 0.0, with a loud note
 
@@ -1026,9 +1027,9 @@ class FuselageLra(NamedTuple):
 
 #: What a body beam with no stated waterline at all owes its consumer.
 _FUSELAGE_LRA_UNKNOWN = (
-    "fuselage LRA waterline is 0 -- no fuselage_mass.ref_waterline and no "
+    "fuselage LRA waterline is 0 -- no geometry.fuselage.beam_waterline_z and no "
     "fuselage outline to take a centre line from, so the body beam is placed on "
-    "the airplane centreline. Enter fuselage_mass.ref_waterline.")
+    "the airplane centreline. Enter geometry.fuselage.beam_waterline_z.")
 
 #: How far the entered waterline may sit from the derived centre line before the
 #: difference is worth a sentence (in). Below this the two are the same beam.
@@ -1037,9 +1038,9 @@ FUSELAGE_LRA_NOTE_TOL = 1.0
 
 def fuselage_lra(project: Project) -> FuselageLra:
     """The body beam's LRA waterline, from the single owner above."""
-    fm = project.fuselage_mass
+    outline = project.geometry.fuselage if project.geometry is not None else None
     centreline = fuselage_centreline(project)
-    entered = fm.ref_waterline if fm is not None else 0.0
+    entered = outline.beam_waterline_z if outline is not None else 0.0
     if entered:
         note = UnitText()
         if centreline is not None:
@@ -1064,11 +1065,11 @@ def fuselage_lra(project: Project) -> FuselageLra:
                     Quantity(mid + height / 2.0, "in"), " at mid-body). The value "
                     "is used as entered, but a body beam outside its own body is "
                     "almost certainly a placeholder: check "
-                    "fuselage_mass.ref_waterline.")
+                    "geometry.fuselage.beam_waterline_z.")
             elif abs(mid - entered) > FUSELAGE_LRA_NOTE_TOL:
                 note = unit_text(
                     "fuselage LRA waterline ", Quantity(entered, "in"), " as entered "
-                    "(fuselage_mass.ref_waterline). The body's own section-centre "
+                    "(geometry.fuselage.beam_waterline_z). The body's own section-centre "
                     "line is at ", Quantity(mid, "in"), " mid-body, so the beam is "
                     "modelled ", Quantity(abs(entered - mid), "in"),
                     f" {'below' if entered < mid else 'above'} the body centre.")

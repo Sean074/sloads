@@ -88,10 +88,16 @@ def test_subject_geometric_axes_from_the_planform():
     wing = SurfaceInput(name="wing", symmetric=True,
                         leading_edge=[(0.0, 0.0), (0.0, span_in / 2.0)],
                         trailing_edge=[(chord_in, 0.0), (chord_in, span_in / 2.0)])
+    # MTOW on its one owner (G-14): ``speeds.weight_lb`` is a collapsed
+    # override of it since v80 (design note 71 D-71.2) and no longer a
+    # representation the owner reads back.
+    from sloads.models import WeightInput
+
     project = Project(
         name="Synthetic",
         geometry=GeometryInput(surfaces=[wing]),
-        speeds=StructuralSpeedsInput(weight_lb=2450.0),
+        weight=WeightInput(max_takeoff_weight_lb=2450.0),
+        speeds=StructuralSpeedsInput(),
         engines=[EngineInput(max_cont_hp=180.0)],
     )
     subject = subject_from_project(project)

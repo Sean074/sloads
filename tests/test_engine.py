@@ -152,8 +152,12 @@ def test_a_mirrored_engine_publishes_the_exact_negative_stoppage():
     from sloads import io
     examples = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                             "examples")
-    atr = io.load_project(os.path.join(examples, "atr42_100.project.json")).engines[0]
-    rj = io.load_project(os.path.join(examples, "concept_regional_jet.project.json")).engines
+    from sloads.modules.engine import resolved_engines
+
+    # Through the resolver: the fixtures' engine and propeller weights derive
+    # from their weight rows since v80 (design note 71 D-71.3).
+    atr = resolved_engines(io.load_project(os.path.join(examples, "atr42_100.project.json")))[0]
+    rj = resolved_engines(io.load_project(os.path.join(examples, "concept_regional_jet.project.json")))
     for engine in (turboprop(), atr):
         a, b = _stoppages(engine), _stoppages(_mirrored(engine))
         for far, value in a.items():
