@@ -201,8 +201,9 @@ bundle.
 **Every artifact states the factor it did not apply**, in band and per subcase —
 the statement *replaces* the multiply, so it is gated: **G-OR-73** (decks +
 companion documents), **G-OR-74** (rendered documents), **G-OR-72** (the balanced
-deck closes against `nz × W` *without* the factor). `report.LoadChannel` has one
-member, `LIMIT` (#29 removes the parameter). A non-load condition prescribes **no**
+deck closes against `nz × W` *without* the factor). No renderer, CSV writer or
+stamp takes a basis argument (G-OR-44; the `LoadChannel` switch went at #29). A
+non-load condition prescribes **no**
 factor — `safety_factor` is `Optional`, `None` renders `N/A`, owner
 `safety_factors.prescribes_factor` (#154).
 

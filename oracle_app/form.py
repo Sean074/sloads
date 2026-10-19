@@ -1913,6 +1913,28 @@ def _empty_table_note(label: str, paths: Sequence[str]) -> str:
             f"until a row is added: {names}.")
 
 
+def _delete_surplus(rows: List[Any], count: int, prefix: str) -> None:
+    """Drop the rows past ``count`` -- and the retained state that brought them back.
+
+    The surplus button ran its ``del rows[count:]`` in the button's ``if`` body
+    and left every trace of the deleted rows in place. The flat grid's frame
+    cache and its ``st.data_editor`` state are keyed by row count, so counting
+    back up to the old count found the old frame waiting and the next render
+    persisted the deleted rows onto the blank seeds: on ``ga6_normal``, delete
+    the last two weight items, count up two, and *Fuel to gross wt* and
+    *Ballast* return as if never deleted -- the L-8d mutation half, live at the
+    tail of the table (#29, 2026-10-18). This is :func:`_delete_row`'s contract
+    for that tail: the deletion retires the state of every row at or past
+    ``count`` (:func:`_retire_renumbered_rows`, which also drops the grid's own
+    state and cached frame) so the model wins. An ``on_click`` callback for the
+    same reason as the others: widget state may only be written before its
+    widget is instantiated.
+    """
+    del rows[count:]
+    _retire_renumbered_rows(prefix, count)
+    st.session_state[widget_key(f"{prefix}.count")] = len(rows)
+
+
 def _offer_table_seed(project: Project, prefix: str, rows: List[Any]) -> None:
     """The registry's table-seed button, saying what the click does before it (#269).
 
@@ -2043,10 +2065,9 @@ def render_table(project: Project, prefix: str, paths: Sequence[str]) -> None:
             f"remove the last {surplus:,d} ({shown}), use the button below — "
             "otherwise set the count back."
         )
-        if st.button(f"🗑 Delete the last {surplus:,d} row(s) of {label}",
-                     key=widget_key(f"{prefix}.delete_surplus")):
-            del rows[count:]
-            st.rerun()
+        st.button(f"🗑 Delete the last {surplus:,d} row(s) of {label}",
+                  key=widget_key(f"{prefix}.delete_surplus"),
+                  on_click=_delete_surplus, args=(rows, count, prefix))
     _offer_table_seed(project, prefix, rows)
     if not rows:
         # An empty list used to be a bare rows counter with no trace of the

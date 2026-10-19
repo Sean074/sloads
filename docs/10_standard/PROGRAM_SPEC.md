@@ -102,11 +102,11 @@ probability-interpolated value (1.0–1.5). A condition that is not a load case
 prescribes no factor at all and its `SF` reads `N/A`
 (`safety_factors.prescribes_factor`, #154).
 
-`report.LoadChannel` now has a **single member**, `LIMIT`. Note 48 built it as a
-switch and defaulted it to ULTIMATE so the frozen `oracle_app` needed no edit
-(OR-77); the default inverted underneath that file and the `ULTIMATE` member was
-removed, so a stale caller fails at import rather than silently receiving limit
-loads. The parameter itself goes at #29. What the default inversion left behind
+There is no basis switch. Note 48 built `report.LoadChannel` as one and defaulted
+it to ULTIMATE so the frozen `oracle_app` needed no edit (OR-77); note 49 OR-116
+inverted the default and removed the `ULTIMATE` member, and #29 (2026-10-18)
+removed the type and every `channel=` parameter (G-OR-44 guards both). What the
+default inversion left behind
 was the *caption*: `oracle_app` went on telling the reader its load-case tables
 were ULTIMATE over bytes that had been LIMIT since note 48, and G-OR-74's screen
 sweep could not see it because that gate excluded the frozen tree. Closed at

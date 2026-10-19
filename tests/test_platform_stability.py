@@ -646,11 +646,10 @@ def test_no_si_load_case_cell_is_in_exponent_form(example):
     plain in SI. The text views take no unit system, so Imperial covers them;
     the SI document and its package files are the slow lane's, below."""
     from sloads import io, registry
-    from sloads.report import LoadChannel
     from sloads.units import UnitSystem
 
     project = io.load_project(os.path.join(_EXAMPLES_DIR, example))
-    csvs = {f"csv/{mr.module}": io.load_cases_csv(mr, channel=LoadChannel.LIMIT, system=UnitSystem.SI)
+    csvs = {f"csv/{mr.module}": io.load_cases_csv(mr, system=UnitSystem.SI)
             for mr in registry.run_all_modules(project)}
     assert csvs, example
     assert not _exponent_cells(csvs)

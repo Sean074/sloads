@@ -14,7 +14,6 @@ text output (see CLAUDE.md's ultimate-load contract).
 from __future__ import annotations
 
 import re
-from enum import Enum
 from typing import Callable, Dict, List, NamedTuple, Optional, Sequence
 
 from ..case_ids import NO_LOAD_ID, deck_load_id
@@ -81,21 +80,20 @@ def envelope_extremes(series: List[List[float]],
 
 
 # --------------------------------------------------------------------------- #
-# Limit -> ultimate scaling at the render/export boundary
+# The one basis at the render/export boundary (note 49 OR-116)
 # --------------------------------------------------------------------------- #
-# The calc emits LIMIT loads (oracle-locked). The rendered output reports ULTIMATE
-# loads = limit x ConditionResult.safety_factor. The factor multiplies *load*
-# quantities only -- forces, moments and design pressures -- never lengths, masses,
-# inertias, areas, speeds, angles, or the dimensionless load factors (standard
-# convention: limit load factor, ultimate load). *Which* units those are is
+# The calc emits LIMIT loads (oracle-locked) and every render states them as
+# they are: no surface scales a load, and the case's ``safety_factor`` is stated
+# in the ``SF`` column for the sizing analysis to apply. *Which* quantities are
+# loads -- forces, moments and design pressures, never lengths, masses, inertias,
+# areas, speeds, angles or the dimensionless load factors -- is
 # ``units.LOAD_UNITS`` / ``units.is_load_unit``, imported above: the rule has a
 # second consumer since note 48 (``safety_factors.prescribes_factor``), so it has
 # one owner rather than a copy here (CLAUDE.md rule 3).
 
-# The ULTIMATE-marked units string for each load unit. All load output is ULTIMATE,
-# so the ``-ULT`` marker is part of the load's units string (lbs-ULT, Nm-ULT, ...) --
-# "limit vs. ultimate" is treated as a property of the unit, like lb vs. N. See
-# CLAUDE.md "Ultimate-load output". Non-load quantities keep their plain units.
+# The ``-ULT`` marker survives on exactly the two families computed already
+# ultimate at SF = 1.0 (23.367(a)(2), 23.561(b); OR-118), as part of the load's
+# units string (lbs-ULT, Nm-ULT, ...). Non-load quantities keep their plain units.
 _ULT_UNITS = {
     "lb": "lbs-ULT",       # force (lbf)
     "ft-lb": "ft-lb-ULT",  # moment / torque
@@ -130,59 +128,23 @@ def ultimate_units(units: str, quantity: str = "") -> str:
 
 
 # --------------------------------------------------------------------------- #
-# The two channels (design note 48, OR-76 / OR-77)
+# The basis statements (note 49 OR-116; the two-channel switch is gone, #29)
 # --------------------------------------------------------------------------- #
-class LoadChannel(str, Enum):
-    """Which basis a render states its loads on -- and since note 49 OR-116
-    there is only one.
+def _basis_units(units: str, quantity: str, sf: Optional[float] = None) -> str:
+    """The units string a load is stated in.
 
-    LIMIT is every surface: the calc's own values, no factor applied, the
-    factor stated in the ``SF`` column. The ``ULTIMATE`` member is **gone**, and
-    with it the two multiplies that were the last in ``sloads/`` (G-OR-71).
-
-    The type survived with a single member rather than being deleted outright
-    because every caller in the frozen ``app/views/`` named it explicitly
-    (``channel=LoadChannel.LIMIT``, opted in by note 48 OR-77) and those files
-    could not be edited until the #29 freeze lifted. Removing the member rather
-    than the type is what makes the change loud: any code still asking for the
-    ultimate channel fails at import instead of silently getting limit loads.
-
-    **Those callers are gone** -- ``app/views/`` retired at #270 and #29 closed
-    superseded with it (note 57, R-57.4) -- so the ``channel`` parameter now has
-    no caller that passes anything but its default, and the switch it was built
-    to be has one position and no hand on it. Removing the parameter is a
-    separate sweep across ``render.py``, ``io.py`` and ``methods.py`` with its
-    own guard test (``tests/test_limit_channel.py``); it is not #270's, and
-    re-files under rule 5.
-    """
-
-    LIMIT = "limit"
-
-
-def _chan_value(value, units: str, quantity: str, sf: Optional[float],
-                channel: "LoadChannel"):
-    """One value, verbatim: no surface scales a load (note 49 OR-116)."""
-    del units, quantity, sf, channel      # one basis; nothing to dispatch on
-    return value
-
-
-def _chan_units(units: str, quantity: str, channel: "LoadChannel",
-                sf: Optional[float] = None) -> str:
-    """One units string on ``channel``.
-
-    On LIMIT -- the project's only basis since note 49 OR-116 -- a load is plain
-    and its factor is stated in the ``SF`` column. The one exception is a load
-    that is **already ultimate**: ``engine_ultimate`` (23.367(a)(2)) and
-    ``emergency`` (23.561(b)) are computed at ``SF = 1.0`` and cannot be
-    un-factored, so the ``-ULT`` marker survives on exactly those and nowhere
-    else (OR-118). The marker is now rare, which is what makes it worth having.
+    A load is plain and its factor is stated in the ``SF`` column. The one
+    exception is a load that is **already ultimate**: ``engine_ultimate``
+    (23.367(a)(2)) and ``emergency`` (23.561(b)) are computed at ``SF = 1.0``
+    and cannot be un-factored, so the ``-ULT`` marker survives on exactly those
+    and nowhere else (OR-118). The marker is now rare, which is what makes it
+    worth having.
 
     ``sf`` is the factor of the case this units string belongs to. For a
     **shared column header** spanning many cases, pass :func:`_table_sf`, which
     yields 1.0 only when every case in the table is already ultimate -- a header
     must never state a basis true of only some of its rows (OR-118a).
     """
-    del channel                             # one basis (OR-116)
     return _ult_units(units, quantity) if sf == 1.0 else units
 
 
@@ -214,22 +176,20 @@ def sf_cell(sf: Optional[float]) -> str:
     return "N/A" if sf is None else format_value(sf)
 
 
-def _channel_header(channel: "LoadChannel") -> str:
+def _basis_header() -> str:
     """The one-line basis statement at the top of a text report.
 
     It states who applies the 23.303 factor, which ``CONVENTIONS.md`` §3
     requires of every load surface now that none of them applies it.
     """
-    del channel                             # one basis (OR-116)
     return ("Loads are LIMIT: the safety factor of 14 CFR 23.303 is stated "
             "per case and applied nowhere in sloads, including the exported "
             "deck. Apply it in the sizing analysis. Load factors are limit. "
             "A load marked -ULT is already ultimate; apply nothing further.")
 
 
-def _channel_banner(channel: "LoadChannel", sf: Optional[float]) -> str:
+def _basis_banner(sf: Optional[float]) -> str:
     """The per-case basis marker in the text report."""
-    del channel                             # one basis (OR-116)
     if sf is None:
         return "[LIMIT, no safety factor applies]"
     if sf == 1.0:
@@ -237,19 +197,15 @@ def _channel_banner(channel: "LoadChannel", sf: Optional[float]) -> str:
     return f"[LIMIT, SF={format_value(sf)} — apply in the sizing analysis]"
 
 
-def results_to_rows(results: List[ConditionResult], *,
-                    channel: LoadChannel = LoadChannel.LIMIT,
-                    ) -> List[Dict[str, str]]:
+def results_to_rows(results: List[ConditionResult]) -> List[Dict[str, str]]:
     """Flatten results into rows suitable for a dataframe/table.
 
-    On the ULTIMATE channel (the default — OR-77) load quantities are reported as
-    limit x the case ``safety_factor``, carry the ``-ULT`` marker in their units
-    string and that factor in the ``SF`` column. On the LIMIT channel they are the
-    calc's own values with plain units, and the ``SF`` column states the factor
-    that will apply at the deliverable without applying it. Non-load quantities
-    (weights, positions, inertias, load factors) pass through unscaled with plain
-    units and a blank ``SF`` on both. A condition that prescribes no factor at all
-    shows ``N/A`` (#154, note 48 OR-82).
+    Load quantities are the calc's own values with plain units, and the ``SF``
+    column states the factor that will apply at the sizing analysis without
+    applying it (note 49 OR-116). Non-load quantities (weights, positions,
+    inertias, load factors) pass through with plain units and a blank ``SF``. A
+    condition that prescribes no factor at all shows ``N/A`` (#154, note 48
+    OR-82).
 
     **Data-shaped floor (#95, C210-8, owner directive):** a column that is
     empty in every row is dropped, so a property-table module (geometry, mass
@@ -283,8 +239,6 @@ def results_to_rows(results: List[ConditionResult], *,
             if is_report_only(v.frame):
                 continue
             is_load = _is_load_unit(v.units, v.quantity)
-            value = _chan_value(v.value, v.units, v.quantity,
-                                r.safety_factor, channel)
             rows.append(
                 {
                     "ID": ref.case_id if ref else "",
@@ -295,8 +249,8 @@ def results_to_rows(results: List[ConditionResult], *,
                     "Speed (kt)": format_value(ref.speed_kt, "kt(EAS)") if ref and ref.speed_kt is not None else "",
                     "Altitude (ft)": format_value(ref.altitude_ft, "ft") if ref and ref.altitude_ft is not None else "",
                     "Quantity": v.label,
-                    "Value": format_value(value, v.units),
-                    "Units": _chan_units(v.units, v.quantity, channel, r.safety_factor),
+                    "Value": format_value(v.value, v.units),
+                    "Units": _basis_units(v.units, v.quantity, r.safety_factor),
                     "SF": sf_cell(r.safety_factor) if is_load else "",
                     "Frame": v.frame,
                     "Applied at": v.point,
@@ -380,7 +334,7 @@ def governing_loads_table(
             # OR-116). The header takes the table-wide basis (OR-118a), so a set
             # mixing an already-ultimate case with limit ones stays plain and
             # the distinction is read per row.
-            u = _chan_units(lv.units, lv.quantity, LoadChannel.LIMIT, table_sf)
+            u = _basis_units(lv.units, lv.quantity, table_sf)
             header = f"{lv.label} ({u})" if u else lv.label
             if header not in seen:
                 seen.add(header)
@@ -411,19 +365,17 @@ def _union_rows(partial: List[Dict[str, object]], base_cols: List[str],
     return rows
 
 
-def critical_rows(results: List[ConditionResult], *,
-                  channel: LoadChannel = LoadChannel.LIMIT,
-                  ) -> List[Dict[str, object]]:
+def critical_rows(results: List[ConditionResult]) -> List[Dict[str, object]]:
     """One row per critical condition -- SELECT's summary shape (#95, C210-27).
 
     The owner directive ("the SELECT table should be one line per case") for
     the channels that hold :class:`ConditionResult`\\ s rather than
     :class:`CriticalCondition`\\ s -- the module CSV and the oracle results
     page. Same semantics as :func:`governing_loads_table` through the same
-    helpers (``to_ultimate`` / ``ultimate_units`` / ``deck_load_id`` /
-    :func:`_union_rows`): every *load* cell is ULTIMATE by **that row's own**
-    ``safety_factor``, stated in the trailing ``SF`` column; dimensionless and
-    speed quantities pass through unscaled. Values are rendered in whatever
+    helpers (:func:`_basis_units` / ``deck_load_id`` / :func:`_union_rows`):
+    every *load* cell is the calc's own LIMIT value with **that row's own**
+    ``safety_factor`` stated in the trailing ``SF`` column (note 49 OR-116);
+    dimensionless and speed quantities pass through. Values are rendered in whatever
     units the results already carry -- convert first, as every rows caller
     does. The stacked one-row-per-quantity shape this replaces put SELECT's 27
     conditions on ~150 rows with the per-case SF invisible wherever a wing
@@ -450,14 +402,12 @@ def critical_rows(results: List[ConditionResult], *,
             "SF": sf_cell(r.safety_factor),
         }
         for lv in r.values:
-            u = _chan_units(lv.units, lv.quantity, channel, r.safety_factor)
+            u = _basis_units(lv.units, lv.quantity, r.safety_factor)
             header = f"{lv.label} ({u})" if u else lv.label
             if header not in seen:
                 seen.add(header)
                 load_cols.append(header)
-            row[header] = format_value(
-                _chan_value(lv.value, lv.units, lv.quantity,
-                            r.safety_factor, channel), lv.units)
+            row[header] = format_value(lv.value, lv.units)
         partial.append(row)
     return _union_rows(partial, base_cols, load_cols)
 
@@ -567,23 +517,13 @@ SUMMARY_SHAPES: Dict[str, Callable[[List[ConditionResult]], List[Dict[str, objec
     "weight_envelope": weight_station_rows,
 }
 
-#: The registered shapes that render **load** values and therefore take the
-#: channel. ``weight_envelope``'s rows are weights and stations -- never loads --
-#: so it takes none rather than accepting one and ignoring it. A new shape that
-#: renders loads and is not named here would silently stay ULTIMATE on a LIMIT
-#: surface; ``tests/test_limit_channel.py`` (G-OR-47) is what catches that, by
-#: scanning every module's LIMIT render for a ``-ULT`` marker.
-_CHANNELLED_SHAPES = {"select"}
-
 #: For a one-line-per-case shape, the column the on-screen renderer may group
 #: the rows by (one sub-table per component, M2-4's Results Review layout);
 #: the CSV keeps the rows flat under the same columns.
 SUMMARY_GROUP_BY: Dict[str, str] = {"select": "Component"}
 
 
-def summary_rows(module: str, results: List[ConditionResult], *,
-                 channel: LoadChannel = LoadChannel.LIMIT,
-                 ) -> List[Dict[str, object]]:
+def summary_rows(module: str, results: List[ConditionResult]) -> List[Dict[str, object]]:
     """The one summary-table shape for a module's conditions (#95, C210-8/27).
 
     Load-case data renders through :func:`load_cases_to_rows` unchanged; a
@@ -593,13 +533,11 @@ def summary_rows(module: str, results: List[ConditionResult], *,
     renders the units the values carry.
     """
     if has_load_case_data(results):
-        return load_cases_to_rows(results, channel=channel)
+        return load_cases_to_rows(results)
     shaper = SUMMARY_SHAPES.get(module)
     if shaper is not None:
-        if module in _CHANNELLED_SHAPES:
-            return shaper(results, channel=channel)  # type: ignore[call-arg]
         return shaper(results)
-    return [dict(row) for row in results_to_rows(results, channel=channel)]
+    return [dict(row) for row in results_to_rows(results)]
 
 
 # --------------------------------------------------------------------------- #
@@ -875,9 +813,7 @@ def point_load_records(results: Sequence[ConditionResult]) -> List[PointLoadReco
     return out
 
 
-def load_cases_to_rows(results: List[ConditionResult], *,
-                       channel: LoadChannel = LoadChannel.LIMIT,
-                       ) -> List[Dict[str, object]]:
+def load_cases_to_rows(results: List[ConditionResult]) -> List[Dict[str, object]]:
     """One row per structural load case: ID, description, location, applied loads.
 
     Each row carries the load components an engine mount must react -- vertical,
@@ -887,10 +823,10 @@ def load_cases_to_rows(results: List[ConditionResult], *,
     into its four sign-combination cases. Units follow whatever the results carry
     (Imperial or SI), shown in the column headers.
 
-    Forces and moments are reported as ULTIMATE loads (= limit x the case
-    ``safety_factor``); the ``-ULT`` marker is part of the load's units string
-    (``lbs-ULT``/``Nm-ULT``/...) and the per-case factor is in the ``SF`` column.
-    Locations are geometry and are not scaled (plain units).
+    Forces and moments are the calc's own LIMIT values with the per-case factor
+    in the ``SF`` column (note 49 OR-116); the ``-ULT`` marker survives in the
+    units string only where every case in the table is already ultimate
+    (OR-118a). Locations are geometry (plain units).
     """
     force_u = _detect_unit(results, set(VERTICAL_KEYS) | {FY_SIDE, FX_THRUST}) or "lb"
     len_u = (_detect_unit(results, set(LOC_KEYS))
@@ -898,8 +834,8 @@ def load_cases_to_rows(results: List[ConditionResult], *,
     mom_u = (_detect_unit(results, {MX_MOUNT_TORQUE})
              or _detect_moment_unit(results, force_u))
     table_sf = _table_sf(results)
-    force_ult = _chan_units(force_u, "", channel, table_sf)
-    mom_ult = _chan_units(mom_u, "", channel, table_sf)
+    force_ult = _basis_units(force_u, "", table_sf)
+    mom_ult = _basis_units(mom_u, "", table_sf)
     locations = _running_locations(results)
 
     c_id = f"Loc X ({len_u})", f"Loc Y ({len_u})", f"Loc Z ({len_u})"
@@ -929,12 +865,12 @@ def load_cases_to_rows(results: List[ConditionResult], *,
             c_id[0]: _num(x, len_u),
             c_id[1]: _num(y, len_u),
             c_id[2]: _num(z, len_u),
-            c_vert: _num(_cell_value(fz, sf, channel), force_u),
-            c_side: _num(_cell_value(fy, sf, channel), force_u),
-            c_thr: _num(_cell_value(fx, sf, channel), force_u),
-            c_roll: _num(_cell_value(mx, sf, channel), mom_u),
-            c_pitch: _num(_cell_value(my, sf, channel), mom_u),
-            c_yaw: _num(_cell_value(mz, sf, channel), mom_u),
+            c_vert: _num(fz, force_u),
+            c_side: _num(fy, force_u),
+            c_thr: _num(fx, force_u),
+            c_roll: _num(mx, mom_u),
+            c_pitch: _num(my, mom_u),
+            c_yaw: _num(mz, mom_u),
         }
 
     rows: List[Dict[str, object]] = []
@@ -966,19 +902,6 @@ def load_cases_to_rows(results: List[ConditionResult], *,
     return rows
 
 
-def _cell_value(value, sf: Optional[float],
-                channel: LoadChannel = LoadChannel.LIMIT):
-    """A force/moment cell: the calc's own value; blank cells stay blank.
-
-    Was ``_scale``, and scaled. Nothing scales since note 49 OR-116 -- the
-    factor is carried by the row's ``SF`` cell instead.
-    """
-    del sf, channel                         # one basis (OR-116)
-    if value == "" or value is None:
-        return value
-    return value
-
-
 def _num(value, units: str = "") -> str:
     """Format a numeric cell at ``units``'s precision; blank for missing components."""
     if value == "" or value is None:
@@ -986,29 +909,24 @@ def _num(value, units: str = "") -> str:
     return format_value(value, units)
 
 
-def module_text_report(title: str, results: List[ConditionResult], *,
-                       channel: LoadChannel = LoadChannel.LIMIT) -> str:
+def module_text_report(title: str, results: List[ConditionResult]) -> str:
     """A clean fixed-width text report for any module's results.
 
     Module-agnostic (no engine-specific header), so the CLI can print results for
-    modules whose inputs are not the engine slice. ``channel`` has one value
-    since note 49 OR-116 and survived for the frozen ``app/views/`` callers that
-    named it; those retired at #270 and no caller passes it now
-    (see :class:`LoadChannel`).
+    modules whose inputs are not the engine slice. One basis (note 49 OR-116):
+    the values are the calc's own and each case's factor is stated beside it.
     """
     lines: List[str] = [title.upper(), "=" * 60]
-    lines.append(_channel_header(channel))
+    lines.append(_basis_header())
     lines.append("")
     for r in results:
         lines.append(f"{r.title}")
         lines.append(f"  FAR {r.far_reference}   "
-                     f"{_channel_banner(channel, r.safety_factor)}")
+                     f"{_basis_banner(r.safety_factor)}")
         for v in r.values:
-            unit_str = _chan_units(v.units, v.quantity, channel, r.safety_factor)
+            unit_str = _basis_units(v.units, v.quantity, r.safety_factor)
             unit = f" {unit_str}" if unit_str else ""
-            value = _chan_value(v.value, v.units, v.quantity,
-                                r.safety_factor, channel)
-            lines.append(f"    {v.label:<38}{format_value(value, v.units)}{unit}")
+            lines.append(f"    {v.label:<38}{format_value(v.value, v.units)}{unit}")
         if r.note:
             lines.append(f"    NOTE: {r.note}")
         lines.append("")
@@ -1017,7 +935,6 @@ def module_text_report(title: str, results: List[ConditionResult], *,
 
 def text_report(
     inp: EngineInput, results: List[ConditionResult], unit_system: str = "",
-    *, channel: LoadChannel = LoadChannel.LIMIT,
 ) -> str:
     """A clean, fixed-width text report (replaces the BASIC printout).
 
@@ -1035,19 +952,17 @@ def text_report(
     lines.append(f"Type:   {'Turboprop' if inp.is_turboprop else 'Reciprocating'}")
     if unit_system:
         lines.append(f"Units:  {unit_system}")
-    lines.append(_channel_header(channel))
+    lines.append(_basis_header())
     lines.append("")
 
     for r in results:
         lines.append(f"{r.title}")
         lines.append(f"  FAR {r.far_reference}   "
-                     f"{_channel_banner(channel, r.safety_factor)}")
+                     f"{_basis_banner(r.safety_factor)}")
         for v in r.values:
-            unit_str = _chan_units(v.units, v.quantity, channel, r.safety_factor)
+            unit_str = _basis_units(v.units, v.quantity, r.safety_factor)
             unit = f" {unit_str}" if unit_str else ""
-            value = _chan_value(v.value, v.units, v.quantity,
-                                r.safety_factor, channel)
-            lines.append(f"    {v.label:<38}{format_value(value, v.units)}{unit}")
+            lines.append(f"    {v.label:<38}{format_value(v.value, v.units)}{unit}")
         if r.note:
             lines.append(f"    NOTE: {r.note}")
         lines.append("")

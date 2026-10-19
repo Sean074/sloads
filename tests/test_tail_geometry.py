@@ -1113,10 +1113,9 @@ def test_the_declared_dihedral_carries_no_load():
     cannot leak into a load before note 51's guard and method arrive to
     spend it."""
     from sloads import registry
-    from sloads.report import LoadChannel
 
     def channels(project):
-        return {mr.module: io.load_cases_csv(mr, channel=LoadChannel.LIMIT)
+        return {mr.module: io.load_cases_csv(mr)
                 for mr in registry.run_all_modules(project)}
 
     before_project = _project("ga6_normal.project.json")

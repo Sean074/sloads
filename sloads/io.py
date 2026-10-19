@@ -125,7 +125,7 @@ from .models.report import (
     SignatureRow,
     default_spec,
 )
-from .report import LoadChannel, summary_rows
+from .report import summary_rows
 from .units import UnitSystem, convert_results, unit_system_from
 from .validation import safety_factor_valid
 
@@ -1703,7 +1703,6 @@ def load_cases_csv(
     header_comment: str = "",
     *,
     system: UnitSystem = UnitSystem.IMPERIAL,
-    channel: LoadChannel = LoadChannel.LIMIT,
 ) -> str:
     """Render module results to a CSV string.
 
@@ -1717,16 +1716,14 @@ def load_cases_csv(
 
     ``header_comment`` (Step G8.3) is prepended verbatim -- pass
     ``report.csv_comment_block(project)`` so a CSV forwarded on its own still
-    states that its loads are ULTIMATE and under what basis. The lines are
+    states that its loads are LIMIT and who applies the factor. The lines are
     ``#``-prefixed, so a reader needs ``comment="#"``; every in-repo reader was
     audited when this landed.
 
-    ``channel`` (design note 48, OR-79) is the load basis: ULTIMATE by default,
-    so the frozen oracle GUI is unchanged without an argument (OR-77); ``app/``
-    and ``cli.py`` pass ``LoadChannel.LIMIT``, which renders the calc's own
-    values with plain units and states the factor in the ``SF`` column without
-    applying it. The text report and this CSV are two renderings of one module's
-    results and always share a channel.
+    One basis (note 49 OR-116): the rows are the calc's own values with plain
+    units and the factor stated in the ``SF`` column without being applied. The
+    text report and this CSV are two renderings of one module's results; the
+    ``channel`` switch note 48 built for them went at #29.
 
     ``system`` (M4-20 step 3) is the *deliverable* unit system: pass
     :attr:`~sloads.units.UnitSystem.SI` and the whole table is converted once,
@@ -1743,8 +1740,7 @@ def load_cases_csv(
     # on-screen table shows -- re-shaping one channel alone would print the
     # same data two ways. A bare list carries no module name and gets the
     # generic shapes.
-    rows = summary_rows(getattr(results, "module", ""), conditions,
-                        channel=channel)
+    rows = summary_rows(getattr(results, "module", ""), conditions)
     if not rows:
         return ""
     import io as _io
@@ -1762,11 +1758,10 @@ def write_load_cases_csv(
     header_comment: str = "",
     *,
     system: UnitSystem = UnitSystem.IMPERIAL,
-    channel: LoadChannel = LoadChannel.LIMIT,
 ) -> None:
     with open(path, "w", encoding="utf-8", newline="") as fh:
         fh.write(load_cases_csv(results, header_comment=header_comment,
-                                system=system, channel=channel))
+                                system=system))
 
 
 # --------------------------------------------------------------------------- #

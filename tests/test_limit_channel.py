@@ -1,22 +1,21 @@
-"""The one load basis: what a render states, and what protects the frozen GUI.
+"""The one load basis: what a render states, and that nothing can ask for another.
 
 Design note 48 built ``report.LoadChannel`` as a *switch* -- an ULTIMATE channel
 (case selection, the export deck, the case index, the oracle technical report)
 and a LIMIT channel (the CLI and the GUI's per-module analysis surfaces). Note 49
-**OR-116** removes the choice: every load sloads delivers is LIMIT, on every
-surface, with its factor stated and applied nowhere. ``LoadChannel`` keeps a
-single member so that a stale caller asking for ULTIMATE fails at import instead
-of silently receiving limit loads; the parameter itself goes at #29, when the
-front-end that named it retired (#270, note 57 D-57.6) -- see
-``report.LoadChannel``, whose docstring carries what is left of the parameter's
-justification and what removing it would take.
+**OR-116** removed the choice: every load sloads delivers is LIMIT, on every
+surface, with its factor stated and applied nowhere. The enum kept a single
+member until the front-end that named it retired (#270), and the parameter
+itself went at #29 (2026-10-18): no renderer, CSV writer or stamp takes a basis
+argument, and the name ``LoadChannel`` appears in no shipped source.
 
 Gates here:
 
-* **G-OR-44** -- the default is the project's one basis, so a caller that passes
-  nothing gets it. This still keeps ``oracle_app`` correct *by
-  construction* rather than by inspection (OR-77): the file names no channel,
-  and the default inverted underneath it.
+* **G-OR-44** -- there is no basis to choose: no renderer takes a ``channel``
+  argument and no shipped source names one. A page or a writer cannot ask for
+  ULTIMATE because there is nothing to ask; the hazard the switch's default
+  used to guard against (a caller forgetting the argument) is closed by
+  construction.
 * **G-OR-47** -- a LIMIT render applies no factor, emits no ``-ULT`` marker
   except on the two already-ultimate families (OR-118), and states its basis
   with the instruction to apply the factor in the sizing analysis.
@@ -40,11 +39,15 @@ import sloads.modules  # noqa: F401
 from sloads import io
 from sloads.registry import run_all_modules
 from sloads.report import (
-    LoadChannel,
+    critical_rows,
     format_value,
+    load_cases_to_rows,
     module_text_report,
+    results_to_rows,
     summary_rows,
+    text_report,
 )
+from sloads.report.methods import bundle_stamps, csv_comment_block, methods_statement
 from sloads.safety_factors import prescribes_factor
 from sloads.units import is_load_unit
 
@@ -58,43 +61,55 @@ def _modules(path):
 
 
 # --------------------------------------------------------------------------- #
-# G-OR-44 -- the default is the project's one basis
+# G-OR-44 -- there is no basis to choose
 # --------------------------------------------------------------------------- #
-def test_the_renderers_default_to_limit():
-    """No argument means LIMIT, in every channelled renderer.
+#: Every renderer, writer and stamp that used to take the switch.
+_ONE_BASIS_SURFACES = (
+    module_text_report, text_report, summary_rows, results_to_rows,
+    critical_rows, load_cases_to_rows, io.load_cases_csv, io.write_load_cases_csv,
+    methods_statement, csv_comment_block, bundle_stamps,
+)
 
-    Inverted by note 49 OR-116: LIMIT is the project's only basis, so the
-    default states it. This was ``..._default_to_ultimate`` while note 48's
-    OR-77 kept ULTIMATE the default to leave the frozen ``oracle_app``
-    unchanged by construction; the frozen file still passes no channel, and now
-    gets the one basis the project has.
+
+def test_no_renderer_takes_a_basis_argument():
+    """The parameter is gone, not defaulted (#29, 2026-10-18).
+
+    Note 48 built ``channel=`` into every surface and note 49 OR-116 left it
+    with one legal value; a parameter with one legal value is a question with
+    one answer, and a reader who sees it asks what the other answer is. None of
+    these signatures names a channel now, and ``sloads.report`` exports no
+    ``LoadChannel``.
     """
-    mr = [m for m in _modules(_GA) if m.module == "engine"][0]
-    for default, explicit in (
-        (module_text_report("Engine", mr.conditions),
-         module_text_report("Engine", mr.conditions,
-                            channel=LoadChannel.LIMIT)),
-        (summary_rows(mr.module, mr.conditions),
-         summary_rows(mr.module, mr.conditions, channel=LoadChannel.LIMIT)),
-    ):
-        assert default == explicit
+    import inspect
+
+    import sloads.report
+
+    for fn in _ONE_BASIS_SURFACES:
+        names = set(inspect.signature(fn).parameters)
+        assert not {n for n in names if "channel" in n}, (fn.__qualname__, names)
+    assert not hasattr(sloads.report, "LoadChannel")
 
 
-def test_the_frozen_oracle_gui_passes_no_channel():
-    """OR-77 in the form that actually protects the file.
+def test_no_shipped_source_names_a_load_channel():
+    """The structural half: the switch cannot come back under its old name.
 
-    ``oracle_app/results.py`` is in the OR-13 frozen set and cannot be edited to
-    opt in. The default exists *so that* it needs no edit -- which is what let
-    OR-116 invert the basis underneath it without touching a frozen file. The
-    assertion is only meaningful while the file names no channel, which is what
-    this reads.
+    Scans the code lines (comments stripped) of every shipped Python file --
+    ``sloads/``, ``oracle_app/``, ``app_shell/``, ``scripts/``, ``cli.py``,
+    ``oracle.py`` -- for ``LoadChannel``. A render that wanted two bases again
+    would have to build the switch from nothing and say so in a design note.
     """
-    path = os.path.join(_ROOT, "oracle_app", "results.py")
-    with open(path, encoding="utf-8") as fh:
-        src = fh.read()
-    assert "LoadChannel" not in src, (
-        "oracle_app/results.py names a channel; it is frozen (OR-13) and the "
-        "ULTIMATE default exists precisely so it does not have to.")
+    offenders = []
+    roots = [os.path.join(_ROOT, d) for d in ("sloads", "oracle_app", "app_shell", "scripts")]
+    files = [os.path.join(_ROOT, "cli.py"), os.path.join(_ROOT, "oracle.py")]
+    for root in roots:
+        for dirpath, _dirs, names in os.walk(root):
+            files += [os.path.join(dirpath, n) for n in names if n.endswith(".py")]
+    for path in sorted(files):
+        with open(path, encoding="utf-8") as fh:
+            for n, line in enumerate(fh, 1):
+                if "LoadChannel" in line.split("#", 1)[0]:
+                    offenders.append(f"{os.path.relpath(path, _ROOT)}:{n}")
+    assert not offenders, offenders
 
 
 def test_the_default_render_applies_no_factor_and_states_it():
@@ -125,8 +140,7 @@ def test_the_default_render_applies_no_factor_and_states_it():
 @pytest.mark.parametrize("path", _EXAMPLES, ids=lambda p: os.path.basename(p))
 def test_a_limit_render_never_marks_a_value_ultimate(path):
     for mr in _modules(path):
-        text = module_text_report(mr.module, mr.conditions,
-                                  channel=LoadChannel.LIMIT)
+        text = module_text_report(mr.module, mr.conditions)
         assert "[ULTIMATE" not in text, f"{path}/{mr.module}"
         # OR-118: ``-ULT`` survives on the two families computed already
         # ultimate and nowhere else, so its presence is checked against the
@@ -138,8 +152,7 @@ def test_a_limit_render_never_marks_a_value_ultimate(path):
         values = "\n".join(ln for ln in text.splitlines() if ln.startswith("    "))
         if not already:
             assert "-ULT" not in values, f"{path}/{mr.module}"
-            for row in summary_rows(mr.module, mr.conditions,
-                                    channel=LoadChannel.LIMIT):
+            for row in summary_rows(mr.module, mr.conditions):
                 for key, cell in row.items():
                     assert "-ULT" not in str(key), f"{path}/{mr.module}: {key}"
 
@@ -152,8 +165,7 @@ def test_a_limit_render_states_its_basis_and_points_at_the_deliverable(path):
     at, so the pointer becomes an instruction -- apply it in the sizing
     analysis."""
     for mr in _modules(path):
-        text = module_text_report(mr.module, mr.conditions,
-                                  channel=LoadChannel.LIMIT)
+        text = module_text_report(mr.module, mr.conditions)
         assert "Loads are LIMIT" in text
         assert "applied nowhere" in text
         assert "sizing analysis" in text
@@ -163,8 +175,7 @@ def test_a_limit_render_states_its_basis_and_points_at_the_deliverable(path):
 def test_a_limit_render_reports_the_calc_value_unscaled(path):
     """The whole point: the number is the calc's own, whatever the factor is."""
     for mr in _modules(path):
-        text = module_text_report(mr.module, mr.conditions,
-                                  channel=LoadChannel.LIMIT).replace(",", "")
+        text = module_text_report(mr.module, mr.conditions).replace(",", "")
         for c in mr.conditions:
             if c.safety_factor in (None, 1.0):
                 continue        # nothing to distinguish scaled from unscaled
@@ -178,15 +189,14 @@ def test_a_limit_render_reports_the_calc_value_unscaled(path):
 # --------------------------------------------------------------------------- #
 # OR-82 -- a condition that prescribes no factor never prints one
 # --------------------------------------------------------------------------- #
-@pytest.mark.parametrize("channel", list(LoadChannel), ids=lambda c: c.value)
-def test_a_factorless_condition_prints_no_factor(channel):
+def test_a_factorless_condition_prints_no_factor():
     for mr in _modules(_GA):
         factorless = [c for c in mr.conditions if not prescribes_factor(c)]
         if not factorless:
             continue
-        text = module_text_report(mr.module, factorless, channel=channel)
+        text = module_text_report(mr.module, factorless)
         assert "SF=1.5" not in text, f"{mr.module} claims a factor it lacks"
-        for row in summary_rows(mr.module, factorless, channel=channel):
+        for row in summary_rows(mr.module, factorless):
             assert row.get("SF", "") in ("", "N/A"), (mr.module, row.get("SF"))
 
 

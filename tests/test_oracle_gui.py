@@ -608,6 +608,41 @@ def test_deleting_surplus_rows_takes_a_deliberate_click():
     assert len(at.session_state["project"].weight.items) == before - 2
 
 
+@pytest.mark.parametrize("page, path, rows_of", [
+    ("weight_mass", "weight.items", lambda p: p.weight.items),
+    ("configuration_layout", "geometry.surfaces", lambda p: p.geometry.surfaces),
+], ids=["flat grid", "expander rows"])
+def test_deleted_surplus_rows_do_not_return_when_the_count_goes_back_up(page, path, rows_of):
+    """The L-8d mutation half at the tail of a table (#29, 2026-10-18).
+
+    The surplus delete reached the project and left the grid's retained state
+    and cached frame keyed to the old row count, so counting back up found them
+    waiting and the next render persisted the deleted rows onto the blank
+    seeds: *Fuel to gross wt* and *Ballast* came back. The model wins -- a
+    deletion retires the state of every row it removes (``_delete_surplus``),
+    and a row added afterwards is the blank seed it claims to be. Both table
+    shapes, since the flat grid's state is one index-keyed map and the
+    expander rows are per-row widgets.
+    """
+    project = _seeded()
+    at = _render(page, project)
+    before = [r.name for r in rows_of(at.session_state["project"])]
+    n = len(before)
+    assert n > 2
+
+    at.number_input(key=_count_key(at, path)).set_value(n - 2).run()
+    next(b for b in at.button if "Delete the last" in b.label).click().run()
+    assert [r.name for r in rows_of(at.session_state["project"])] == before[:-2]
+
+    at.number_input(key=_count_key(at, path)).set_value(n).run()
+    assert not at.exception, [e.message for e in at.exception]
+    regrown = rows_of(at.session_state["project"])
+    assert len(regrown) == n
+    assert [r.name for r in regrown[:-2]] == before[:-2]
+    assert [r.name for r in regrown[-2:]] != before[-2:], (
+        "the deleted rows returned from retained state")
+
+
 # --------------------------------------------------------------------------- #
 # Design note 69: the Geometry page's sections and the engine rows' one owner
 # --------------------------------------------------------------------------- #

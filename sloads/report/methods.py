@@ -45,7 +45,7 @@ from ..units import (
     system_name,
     units_statement,
 )
-from .render import LoadChannel, format_value, ultimate_units
+from .render import format_value, ultimate_units
 
 #: Bumped with the tool, not the schema; stamped into every channel so a stray
 #: CSV can be traced back to the build that produced it.
@@ -505,14 +505,12 @@ def methods_statement(
     scope: str = "",
     deselected_case_ids: Optional[List[str]] = None,
     system: UnitSystem = UnitSystem.IMPERIAL,
-    channel: LoadChannel = LoadChannel.LIMIT,
 ) -> str:
     """The full methods & limitations statement for ``project``.
 
-    ``channel`` states the basis of the file this stamp is going into (design
-    note 48). Since note 49 OR-116 there is one basis and the default is it, so
-    every stamped file -- deck, case index, gear report, per-module CSV, text
-    report -- says LIMIT. A stamped file that
+    One basis (note 49 OR-116): every stamped file -- deck, case index, gear
+    report, per-module CSV, text report -- says LIMIT; the ``channel`` argument
+    note 48 gave this statement went at #29. A stamped file that
     travels on its own must state **its own** basis -- a bundle-wide sentence
     that was true of the deck and false of the CSV beside it is the F-R1 defect
     class, one level up (G8.3).
@@ -541,7 +539,6 @@ def methods_statement(
     L.append("")
 
     # 1. Basis --------------------------------------------------------------- #
-    del channel                                 # one basis (OR-116)
     L.append(
         f"BASIS: All loads reported here are LIMIT -- the safety factor is "
         f"stated but NOT applied, anywhere in sloads, including the "
@@ -673,9 +670,8 @@ def csv_comment_block(project: Project, **kwargs) -> str:
 
     A consumer must be told to skip them (``pandas.read_csv(..., comment="#")``);
     every in-repo reader was audited at G8.3. The trade is deliberate: a CSV that
-    is forwarded on its own still states its basis -- ultimate or limit, per
-    ``channel=`` (note 48) -- and which unit system it is written in
-    (``system=``, M4-20 step 5).
+    is forwarded on its own still states its basis (LIMIT, note 49 OR-116) and
+    which unit system it is written in (``system=``, M4-20 step 5).
     """
     return _prefixed(methods_statement(project, **kwargs), "#")
 
@@ -694,8 +690,8 @@ def bdf_comment_block(project: Project, **kwargs) -> str:
     return _prefixed(methods_statement(project, **kwargs), "$")
 
 
-def bundle_stamps(project: Project, system: UnitSystem, generated: str = "",
-                  csv_channel: LoadChannel = LoadChannel.LIMIT) -> Tuple[str, str]:
+def bundle_stamps(project: Project, system: UnitSystem,
+                  generated: str = "") -> Tuple[str, str]:
     """``(csv_stamp, bdf_stamp)`` for one export -- the one place a bundle's pair is built.
 
     Built once per export from the *resolved* unit system and handed to every
@@ -709,8 +705,8 @@ def bundle_stamps(project: Project, system: UnitSystem, generated: str = "",
     there is nothing to warn a recipient about. ``generated`` is the caller's
     timestamp and defaults to absent, which keeps two headless runs of one
     project byte-identical (nothing here reads the clock -- see the module
-    docstring). ``csv_channel`` is the CSV stamp's basis; since note 49 OR-116
-    every delivered file is LIMIT, the deck included, and the default says so.
+    docstring). Since note 49 OR-116 every delivered file is LIMIT, the deck
+    included, and both stamps say so.
 
     The version is :mod:`sloads._version`'s, the single owner, never
     ``importlib.metadata`` -- which reads an install-time snapshot that goes
@@ -722,7 +718,7 @@ def bundle_stamps(project: Project, system: UnitSystem, generated: str = "",
     kwargs: Dict[str, object] = {"tool_version": __version__,
                                  "scope": "full case set", "system": system,
                                  "generated": generated or None}
-    return (csv_comment_block(project, channel=csv_channel, **kwargs),
+    return (csv_comment_block(project, **kwargs),
             bdf_comment_block(project, **kwargs))
 
 
