@@ -77,8 +77,9 @@ from .models import FuselageOutline
 # --------------------------------------------------------------------------- #
 #: Figure 4.2.1.1-20, apparent-mass factor (k2 - k1) vs body fineness ratio
 #: (``X21120``/``Y21120``, datcom.f:2334-2335). Digital DATCOM's own
-#: digitisation -- distinct from Munk's TR-184 table in ``fuselage_moment``,
-#: which is the pitch estimator's owner; this one is the oracle's.
+#: digitisation -- the Munk estimator in ``fuselage_moment`` evaluates Lamb's
+#: closed form and reads this curve as one of its oracles; this copy is the
+#: DATCOM oracle's own.
 _K2K1_FINENESS = (4.0, 5.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0)
 _K2K1_VALUES = (0.77, 0.825, 0.865, 0.91, 0.94, 0.955, 0.965, 0.97, 0.973, 0.975)
 
