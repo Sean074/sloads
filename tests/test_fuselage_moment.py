@@ -7,14 +7,19 @@ into the FLTLOADS input coefficients. It is off by default: on the FAR23 GA
 Appendix A inputs (whose coefficients already include the fuselage) it is left
 disabled and the V-n oracle is bit-for-bit unchanged.
 
-Method + citation: Munk, NACA TR-184 (1924); USAF DATCOM 4.2.1.1. Derivation and
-the ``(k2-k1)`` table are in ``reference/fuselage_pitching_moment.md``.
+Method + citation: Munk, NACA TR-184 (1924), Eq. (22) p. 13; the apparent-mass
+factor ``(k2 - k1)`` is Lamb's closed form for the prolate spheroid, whose
+printed oracles are TR-184 Table I (p. 20) and DATCOM Fig. 4.2.1.1-20a
+(handbook page 4.2.1.1-20, the digitisation Digital DATCOM carries at
+``datcom.f:2334-2335``). Derivation in ``reference/fuselage_pitching_moment.md``.
 """
 
 import math
 import os
 import sys
 from dataclasses import replace
+
+import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -39,17 +44,76 @@ def _cylinder_outline(length=200.0, diameter=20.0, n=21):
     ])
 
 
-def test_k_factor_table_endpoints_and_interpolation():
-    # Clamped at the ends; linear between tabulated points (NACA TR-184).
-    assert fm.munk_k2_minus_k1(0.5) == 0.0          # l/d <= 1 -> sphere
-    assert fm.munk_k2_minus_k1(100.0) == 0.985      # clamped to table top
-    # Midpoint of the 2.0->2.5 interval (0.485 -> 0.607).
-    assert math.isclose(fm.munk_k2_minus_k1(2.25), (0.485 + 0.607) / 2, rel_tol=1e-9)
+# NACA TR-184 Table I, p. 20 (printed page; PDF p. 21): "Length (diameters)",
+# K1 (longitudinal), K2 (transverse), K2 - K1 -- Lamb's exact ellipsoid values
+# (TR-184 p. 12), printed to three decimals. Read from the page 2026-10-19.
+_TR184_TABLE_I = (
+    # l/d,  k1,    k2,    k2 - k1
+    (1.00, 0.500, 0.500, 0.000),
+    (1.50, 0.305, 0.621, 0.316),
+    (2.00, 0.209, 0.702, 0.493),
+    (2.51, 0.156, 0.763, 0.607),
+    (2.99, 0.122, 0.803, 0.681),
+    (3.99, 0.082, 0.860, 0.778),
+    (4.99, 0.059, 0.895, 0.836),
+    (6.01, 0.045, 0.918, 0.873),
+    (6.97, 0.036, 0.933, 0.897),
+    (8.01, 0.029, 0.945, 0.916),
+    (9.02, 0.024, 0.954, 0.930),
+    (9.97, 0.021, 0.960, 0.939),
+)
+
+# USAF DATCOM Fig. 4.2.1.1-20a, handbook page 4.2.1.1-20: k2 - k1 against
+# fineness ratio 4-20, as Digital DATCOM digitises it (datcom.f:2334-2335) and
+# as sloads.lateral_body_aero carries it for its own DATCOM oracle.
+_DATCOM_FIG_20A = (
+    (4.0, 0.77), (5.0, 0.825), (6.0, 0.865), (8.0, 0.91), (10.0, 0.94),
+    (12.0, 0.955), (14.0, 0.965), (16.0, 0.97), (18.0, 0.973), (20.0, 0.975),
+)
+
+
+@pytest.mark.parametrize("fineness, k1, k2, diff", _TR184_TABLE_I)
+def test_lamb_closed_form_reproduces_tr184_table_i(fineness, k1, k2, diff):
+    # Oracle: every column of Table I to within 0.0025 -- the page prints three
+    # decimals and Lamb's 1918 figures carry their own last-place rounding (the
+    # l/d 1.5 row is the widest, 0.318 against the printed .316).
+    got_k1, got_k2 = fm.prolate_spheroid_inertia_coefficients(fineness)
+    assert math.isclose(got_k1, k1, abs_tol=0.0025), (fineness, got_k1, k1)
+    assert math.isclose(got_k2, k2, abs_tol=0.0025), (fineness, got_k2, k2)
+    assert math.isclose(fm.munk_k2_minus_k1(fineness), diff, abs_tol=0.0025)
+
+
+@pytest.mark.parametrize("fineness, diff", _DATCOM_FIG_20A)
+def test_lamb_closed_form_follows_datcom_figure_20a(fineness, diff):
+    # Oracle: the DATCOM curve is the same function read off a chart. The
+    # digitisation sits 0.6-1.2 % *below* Lamb at l/d 4-8 (0.770 against
+    # TR-184's .778 at 4; 0.825 against .836 at 5) and 0.5 % above at 20, so
+    # the gate is 1.5 %: a chart-reading band, not the closed form's.
+    assert math.isclose(fm.munk_k2_minus_k1(fineness), diff, rel_tol=1.5e-2)
+
+
+def test_datcom_oracle_rows_are_the_lateral_modules_own_copy():
+    # One digitisation of Fig. 4.2.1.1-20a in the tree: the rows above are the
+    # ones lateral_body_aero carries for the DATCOM Cn_beta oracle.
+    from sloads import lateral_body_aero as lba
+    assert tuple(zip(lba._K2K1_FINENESS, lba._K2K1_VALUES)) == _DATCOM_FIG_20A
+
+
+def test_k_factor_limits():
+    # Sphere (and anything oblate, which is not a fuselage): no free moment.
+    assert fm.munk_k2_minus_k1(0.5) == 0.0
+    assert fm.munk_k2_minus_k1(1.0) == 0.0
+    # Slender limit: k1 -> 0, k2 -> 1 (TR-184 Table I's last row), monotone.
+    assert math.isclose(fm.munk_k2_minus_k1(1e9), 1.0, abs_tol=1e-9)
+    samples = [fm.munk_k2_minus_k1(1.0 + 0.25 * i) for i in range(200)]
+    assert all(b > a for a, b in zip(samples, samples[1:]))
+    assert fm.munk_k2_minus_k1(100.0) < 1.0
 
 
 def test_estimate_matches_closed_form():
     # A 200 in long, 20 in diameter cylinder: Vol = A*L, A = pi/4*d^2; fineness
-    # 200/20 = 10 -> (k2-k1) = 0.947. dCm/dalpha = k*Vol/(S_in2*mac)/57.2958.
+    # 200/20 = 10 -> (k2-k1) = 0.9395 (TR-184 Table I prints .939 at 9.97).
+    # dCm/dalpha = k*Vol/(S_in2*mac)/57.2958.
     outline = _cylinder_outline(length=200.0, diameter=20.0)
     s_sqft, mac_in = 174.0, 58.0
     est = fm.estimate(outline, s_sqft, mac_in)
@@ -58,9 +122,10 @@ def test_estimate_matches_closed_form():
     vol = math.pi / 4.0 * 20.0 ** 2 * 200.0
     assert math.isclose(est.volume_in3, vol, rel_tol=1e-9)
     assert math.isclose(est.fineness_ratio, 10.0, rel_tol=1e-9)
-    assert math.isclose(est.k2_minus_k1, 0.947, rel_tol=1e-9)
+    assert math.isclose(est.k2_minus_k1, 0.939, abs_tol=0.0025)
+    assert est.k2_minus_k1 == fm.munk_k2_minus_k1(10.0)
 
-    expected = 0.947 * vol / (s_sqft * 144.0 * mac_in) / (180.0 / math.pi)
+    expected = est.k2_minus_k1 * vol / (s_sqft * 144.0 * mac_in) / (180.0 / math.pi)
     assert math.isclose(est.d_cm_dalpha, expected, rel_tol=1e-9)
     assert est.d_cm_dalpha > 0.0    # destabilizing (nose-up with alpha)
 

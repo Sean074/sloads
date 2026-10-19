@@ -13,8 +13,12 @@ free moment whose magnitude is
     M_fus = (k2 - k1) * q * Vol * alpha            (alpha in radians)
 
 where ``Vol`` is the body volume and ``(k2 - k1)`` is Munk's apparent-mass
-correction factor, a function of the body fineness ratio ``l/d`` (Munk's inertia
-coefficients for a prolate spheroid; the classic table below). Non-dimensionalized
+correction factor, a function of the body fineness ratio ``l/d`` alone: the
+difference of the transverse and longitudinal inertia coefficients of the
+prolate spheroid of the same length and volume, which TR-184 p. 12 takes from
+Lamb's exact computation and prints as Table I (p. 20). The module evaluates
+Lamb's closed form (:func:`munk_k2_minus_k1`); Table I and DATCOM's curve are
+its oracles (``tests/test_fuselage_moment.py``). Non-dimensionalized
 on the wing reference ``S * mac`` this is a pure slope increment, zero at
 ``alpha = 0`` for an uncambered body:
 
@@ -32,10 +36,14 @@ Sign: the increment is positive -- destabilizing, adding to the airplane-less-ta
 ``M1`` (dCm/dalpha), which is itself positive for the tail-off airplane.
 
 References:
-- Munk, M. M., "The Aerodynamic Forces on Airship Hulls," NACA TR-184 (1924).
-- USAF Stability & Control DATCOM 4.2.1.1 (fuselage pitching moment); this
-  reduces to the Munk result for the slender ideal body.
-- ``reference/fuselage_pitching_moment.md`` (bundled derivation + table).
+- Munk, M. M., "The Aerodynamic Forces on Airship Hulls," NACA TR-184 (1924):
+  the moment, Eq. (22) p. 13; ``k1``, ``k2`` and ``k2 - k1`` for ellipsoids of
+  revolution, Table I p. 20 (Lamb's values, p. 12).
+- Lamb, H., *Hydrodynamics*, 4th ed. (1916), §114 -- the inertia coefficients of
+  the prolate spheroid in closed form (TR-184 reference 4/5).
+- USAF Stability & Control DATCOM §4.2.1.1, Fig. 4.2.1.1-20a (handbook page
+  4.2.1.1-20): ``k2 - k1`` against fineness ratio 4-20, the same curve.
+- ``reference/fuselage_pitching_moment.md`` (bundled derivation).
 """
 
 from __future__ import annotations
@@ -47,43 +55,42 @@ from typing import List, Optional, Tuple
 from .constants import DEG_PER_RAD, IN2_PER_FT2
 from .models import FuselageOutline
 
-# Munk apparent-mass factor (k2 - k1) versus body fineness ratio l/d, for a
-# prolate spheroid (NACA TR-184 / DATCOM 4.2.1.1). Linearly interpolated;
-# clamped to the table ends (l/d <= 1 -> 0, sphere; l/d -> inf -> 1).
-_K_TABLE: Tuple[Tuple[float, float], ...] = (
-    (1.0, 0.000),
-    (1.5, 0.305),
-    (2.0, 0.485),
-    (2.5, 0.607),
-    (3.0, 0.681),
-    (4.0, 0.787),
-    (5.0, 0.850),
-    (6.0, 0.887),
-    (7.0, 0.911),
-    (8.0, 0.930),
-    (10.0, 0.947),
-    (14.0, 0.972),
-    (18.0, 0.985),
-)
 
+def prolate_spheroid_inertia_coefficients(fineness_ratio: float) -> Tuple[float, float]:
+    """Lamb's inertia coefficients ``(k1, k2)`` of a prolate spheroid of
+    fineness ratio ``l/d`` -- longitudinal and transverse apparent mass as
+    fractions of the displaced mass (Lamb, *Hydrodynamics* §114; NACA TR-184
+    Table I p. 20 prints them to three decimals).
+
+    With the eccentricity ``e = sqrt(1 - (d/l)^2)`` and ``L = ln((1+e)/(1-e))``::
+
+        a0 = 2 (1 - e^2) / e^3 * (L/2 - e)
+        b0 = 1/e^2 - (1 - e^2) / (2 e^3) * L
+        k1 = a0 / (2 - a0),   k2 = b0 / (2 - b0)
+
+    A sphere (``l/d = 1``) has ``k1 = k2 = 1/2``; an oblate body (``l/d < 1``)
+    is not a fuselage and is answered as the sphere. ``l/d -> inf`` gives
+    ``k1 -> 0`` and ``k2 -> 1``.
+    """
+    if fineness_ratio <= 1.0:
+        return 0.5, 0.5
+    e = math.sqrt(1.0 - 1.0 / (fineness_ratio * fineness_ratio))
+    if e >= 1.0:
+        return 0.0, 1.0
+    log_term = math.log((1.0 + e) / (1.0 - e))
+    a0 = 2.0 * (1.0 - e * e) / e ** 3 * (0.5 * log_term - e)
+    b0 = 1.0 / (e * e) - (1.0 - e * e) / (2.0 * e ** 3) * log_term
+    return a0 / (2.0 - a0), b0 / (2.0 - b0)
 
 
 def munk_k2_minus_k1(fineness_ratio: float) -> float:
-    """Munk apparent-mass factor ``(k2 - k1)`` for a body fineness ratio ``l/d``.
-
-    Linear interpolation of the prolate-spheroid table, clamped to its ends.
+    """Munk's apparent-mass factor ``(k2 - k1)`` for a body fineness ratio
+    ``l/d``: the closed form of :func:`prolate_spheroid_inertia_coefficients`,
+    zero for the sphere and ``1`` in the slender limit. Oracles: NACA TR-184
+    Table I (p. 20) and DATCOM Fig. 4.2.1.1-20a (``tests/test_fuselage_moment.py``).
     """
-    lo = _K_TABLE[0]
-    hi = _K_TABLE[-1]
-    if fineness_ratio <= lo[0]:
-        return lo[1]
-    if fineness_ratio >= hi[0]:
-        return hi[1]
-    for (x0, y0), (x1, y1) in zip(_K_TABLE, _K_TABLE[1:]):
-        if x0 <= fineness_ratio <= x1:
-            t = (fineness_ratio - x0) / (x1 - x0)
-            return y0 + t * (y1 - y0)
-    return hi[1]  # unreachable; keeps type-checkers happy
+    k1, k2 = prolate_spheroid_inertia_coefficients(fineness_ratio)
+    return k2 - k1
 
 
 def _section_area(width: float, height: float) -> float:
