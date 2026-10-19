@@ -480,11 +480,13 @@ conventions"** section (`SUMMARY_REPORT.md` §4.2.1), single-sourced in
   of the rule, because prose could not hold it: the multiply came out of 81 sites
   across 7 files, and one creeping back would be invisible to every other gate
   except G-OR-72, which sees only the balanced deck.
-- **`report.LoadChannel` has one member, `LIMIT`.** Note 48 built it as a switch
-  and defaulted it to ULTIMATE so the frozen `oracle_app` needed no edit (OR-77);
-  with the project on one basis the default inverted underneath that file and the
-  `ULTIMATE` member was **removed**, so a stale caller fails at import rather than
-  silently receiving limit loads. The parameter itself goes at #29.
+- **No render surface takes a basis argument.** Note 48 built `report.LoadChannel`
+  as a switch and defaulted it to ULTIMATE so the frozen `oracle_app` needed no
+  edit (OR-77); note 49 OR-116 put the project on one basis and removed the
+  `ULTIMATE` member, and #29 (2026-10-18) removed the type and every `channel=`
+  parameter with it. A caller that wants a second basis has nothing to ask;
+  **G-OR-44** (`tests/test_limit_channel.py`) asserts no renderer, CSV writer or
+  stamp takes one and no shipped source names `LoadChannel`.
 - **The `-ULT` marker survives on exactly two families** (**OR-118**):
   23.367(a)(2) sudden engine stoppage and 23.561(b) emergency-landing inertia are
   computed already ultimate at SF = 1.0 and cannot be un-factored. They are now

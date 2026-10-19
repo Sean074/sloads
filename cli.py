@@ -86,7 +86,7 @@ import sys
 from sloads import MissingInputError, io, registry
 from sloads.export import deliverables
 from sloads.export.deliverables import deliverable_path
-from sloads.report import LoadChannel, bundle_stamps, module_text_report, text_report
+from sloads.report import bundle_stamps, module_text_report, text_report
 from sloads.units import UnitSystem, convert_results, unit_system_from
 
 #: Every headless export target, in the order the module docstring lists them.
@@ -455,18 +455,14 @@ def _run(argv=None) -> int:
         # A downloaded CSV leaves the tool, so it owes the same G8.3 basis
         # statement the GUI's does -- the text report to stdout does not, being
         # a terminal view rather than an artifact.
-        csv_stamp, _ = bundle_stamps(project, system, args.generated,
-                                     csv_channel=LoadChannel.LIMIT)
+        csv_stamp, _ = bundle_stamps(project, system, args.generated)
         io.write_load_cases_csv(result.conditions, args.output,
-                                header_comment=csv_stamp, system=system,
-                                channel=LoadChannel.LIMIT)
+                                header_comment=csv_stamp, system=system)
         print(f"Wrote {len(conditions)} condition(s) to {args.output} ({label})")
     elif args.module == "engine" and project.engine is not None:
-        print(text_report(project.engine, conditions, unit_system=label,
-                          channel=LoadChannel.LIMIT))
+        print(text_report(project.engine, conditions, unit_system=label))
     else:
-        print(module_text_report(result.module, conditions,
-                                 channel=LoadChannel.LIMIT))
+        print(module_text_report(result.module, conditions))
 
     return 0
 

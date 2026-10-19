@@ -290,27 +290,38 @@ with no `-ULT` suffix.
 ## Entry points
 
 - **Streamlit UI (primary):** `streamlit run oracle_app/Oracle.py`, or the
-  `sloads-oracle` console script — the fourteen analysis pages in workflow
-  order, each built from one generic renderer over `sloads.field_registry`,
-  plus the three pages that are not analysis steps: the Project JSON Editor,
-  the Aircraft Comparison and the Report page, which writes the issue package.
-  The page set is `workflow.gui_pages()`, derived and not listed. The sidebar
+  `sloads-oracle` console script — the analysis pages in workflow order, each
+  built from one generic renderer over `sloads.field_registry`, plus the pages
+  that are not analysis steps (`workflow.NON_STEP_PAGES`: the Project JSON
+  Editor, the Aircraft Comparison, the Beam Model page that writes the LRA deck
+  and the OEW mass set, and the Report page that writes the issue package). The
+  page set is `workflow.gui_pages()`, derived and not listed. The sidebar
   carries the project (open, save, units) on every page. A second,
-  workflow-driven front-end (`app/Home.py`, 22 pages) shipped beside this one
-  until **#270** retired it (note 57, D-57.1).
+  workflow-driven front-end (`app/Home.py`) shipped beside this one until
+  **#270** retired it (note 57, D-57.1).
 - **CLI (secondary, batch/automation):** the `sloads` console script (from the
   editable install) or `python cli.py <module> <project.json> [-o out.csv]`;
   `--list` shows registered modules. Text report to stdout, or `-o` writes the
-  load-case CSV. `--export-sbeam PREFIX --export-target <t>` writes the sbeam
-  deck set — **every** deliverable is reachable headless (`wing`, `body`, `tail`,
-  `htail-span`, `vtail-span`, `control`, `balanced`, `mass`; see
-  `PROGRAM_SPEC.md` §sbeam bridge) — and `--report PATH` renders the technical
-  report (`.tex` always; a `.pdf` path also compiles it when a TeX engine
-  is available, `--generated` supplies the issue date). It is the headless half
-  of the Report page: the document, not the issue package the page writes
-  around it. Output units
-  follow `--units imperial|si`. Every file written carries the G8.3 methods &
-  limitations stamp; every failure is one `error:` line on stderr with status 1.
+  load-case CSV. `--export-sbeam PREFIX --export-target <t>` writes one
+  deliverable headless — the targets are `cli.EXPORT_TARGETS`: the LRA deck,
+  the OEW mass set, the full CONM2 mass model and the gear interface CSV (see
+  `PROGRAM_SPEC.md` §Export bridges) — and `--report PATH` renders the
+  technical report (`.tex` always; a `.pdf` path also compiles it when a TeX
+  engine is available, `--generated` supplies the issue date). It is the
+  headless half of the Report page: the document, not the issue package the
+  page writes around it. Output units follow `--units imperial|si`. Every file
+  written carries the G8.3 methods & limitations stamp; every failure is one
+  `error:` line on stderr with status 1.
+- **What each front-end reaches that the other does not** (#29, 2026-10-18).
+  Every registered module runs on exactly one page (`workflow.step_modules`,
+  guarded in `tests/test_workflow.py`) and from the CLI by name. Two of them,
+  `tail_span` and `balance`, have no page of their own because they are modern
+  deliverables rather than McMaster programs: their results reach the GUI
+  through the report sections and the Beam Model page, and the Tail Loads page
+  says where. The CLI alone writes the full CONM2 mass model and the gear
+  interface CSV; the GUI alone offers the Aircraft Comparison, the JSON editor
+  and the issue package. Each asymmetry is intended and stated here, not a gap
+  to close.
 - **Library:** `import sloads` — `registry.get(name)(project)` over a `Project`
   you build yourself.
 

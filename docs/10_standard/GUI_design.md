@@ -408,7 +408,11 @@ consistent:
   deletion did not move and keeps an edit typed in the same interaction as the
   click. It holds for both table shapes: the flat grid is one `st.data_editor`
   whose pending edits are an index-keyed map, so it is renumbered by the same
-  deletion its per-row siblings are. Counting up is the other half — the seeded
+  deletion its per-row siblings are. The surplus button at the tail of the table
+  is the same deletion and retires the same state (`form._delete_surplus`, #29,
+  2026-10-18): the grid's cached frame and editor state are keyed by row count,
+  so without the retirement counting back up found the old frame waiting and the
+  deleted rows returned with their data. Counting up is the other half — the seeded
   row joins the project immediately (`commit_pending`'s blank-record rule, OG-F,
   governs records a pass *creates*, not rows appended to an attached list), so a
   blank row is real, saved, and reaches the calc: a zero-weight `FLIGHT` CG case
@@ -418,6 +422,28 @@ consistent:
   refuses the degenerate row **by name** at the point that divides
   (`flight_envelope.build_envelope`), with `validation.cg_case_without_weight`
   warning before anything runs.
+- **A widget mutated underneath, not replaced, is fresh by construction** (L-8d's
+  mutation half, audited closed at #29, 2026-10-18). The generation stamp covers
+  a *replacement* only, so every writer that changes the project under a drawn
+  page uses one of four mechanisms, and a new writer picks one of them: (1) a
+  button that writes fields drawn on the same page runs as an `on_click` callback
+  that also drops the written widgets' state — seed, attach, detach, row delete,
+  surplus delete and clear (#376's class sweep; `form._seed_record`,
+  `_seed_rows`, `_delete_row`, `_delete_surplus`,
+  `components.clear_number_input`); (2) the row counter re-seeds itself from
+  the model's count whenever that count moved since its last render
+  (`components.count_input`'s model sentinel, #244); (3) a display-only or
+  derived copy renders disabled and pinned to its resolved seed on every render
+  (`components._seeded_number`), so a cross-page write to its owner shows at
+  once; (4) a results renderer never writes the project
+  (`tests/test_dirty_flag.py`), and the result slices a run refreshes
+  (`field_registry.RESULT_SLICES`) have no widgets. The six widgets that pass
+  both `key=` and `value=` were each read against this list: the three in
+  `components.py` are (2) and (3); the Report page's text and date fields hold a
+  spec that is replaced on load, whose loader drops their keys; the sidebar's
+  %MAC tool seeds a constant. The one live instance the audit found was the
+  surplus delete above. Guards: the surplus and seed click tests in
+  `tests/test_oracle_gui.py`, each failing on the body-of-`if` form.
 - **An Optional record is created and removed by name, never by touch** (#143,
   2026-08-29). The other half of the same contract, one level up from a row: an
   Optional slice — the flaps-down coefficient set, the Mach-limit block, the
@@ -597,10 +623,9 @@ The contract that makes pages copy-of-the-pattern (full list in
   sidebar's results zip retired into it), the
   sbeam cards, the case index and both reports, with the factor stated in `SF`
   and applied nowhere (design note 48 OR-76, generalised to the whole project by
-  note 49 **OR-116**). `LoadChannel` now has a single member, so a call that
-  forgets the argument gets the one basis there is — the *"a new page that
-  forgets it silently ships ULTIMATE"* hazard is closed by construction rather
-  than by review. `SF` reads `N/A` where the condition prescribes no factor. A
+  note 49 **OR-116**). No renderer takes a basis argument since #29 — the *"a
+  new page that forgets it silently ships ULTIMATE"* hazard is closed by
+  construction rather than by review, because there is nothing to forget. `SF` reads `N/A` where the condition prescribes no factor. A
   page still marks its basis (a caption + the `SF` column). See
   [`00_program_overview.md`](00_program_overview.md) and `CLAUDE.md`.
   **A download must carry the basis in-band (M4-15):** the filename ends
