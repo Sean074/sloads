@@ -76,7 +76,7 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `fuselage_mass.stations[].x` | `float` |  | `**required**` | original | Ch 15 station |
 | `fuselage_mass.stations[].weight_lb` | `float` | lb | `0.0` | original | Ch 15 station weight |
 | `fuselage_mass.stations[].y` | `float` |  | `0.0` | sloads | butt line the station's lumped mass acts at (v62) -- blank derives from the item database's own weight-weighted centroid; where the mass is, not where the beam is |
-| `fuselage_mass.stations[].z` | `float` |  | `0.0` | sloads | waterline the station's lumped mass acts at (v62) -- blank derives from the item database's own weight-weighted centroid; distinct from ref_waterline, which places the beam that carries it |
+| `fuselage_mass.stations[].z` | `float` |  | `0.0` | sloads | waterline the station's lumped mass acts at (v62) -- blank derives from the item database's own weight-weighted centroid; distinct from geometry.fuselage.beam_waterline_z, which places the beam that carries it |
 | `fuselage_mass.stations_are_override` | `bool` |  | `False` | sloads | override switch: lets the fuselage stations entered here govern instead of the weight database's own centroids, a derivation sloads added (v62) |
 | `tail_mass[].surface` | `str` | "htail" \| "vtail" | `'htail'` | sloads (supplied) | row selector -- which tail surface the row describes; load-bearing (G5, #98): an unmatched row is refused by name where it used to be silently inert |
 | `tail_mass[].panel_weight_lb` | `float` | whole surface (both sides for the h-tail) | `0.0` | sloads | empennage distributed inertia -- sloads spreads tail panel mass along the beam model, where the original suite took a single tail weight (plan 09 T-3) |

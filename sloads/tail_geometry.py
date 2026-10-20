@@ -747,7 +747,7 @@ def vtail_root_waterline(layout: Optional["LayoutInput"], vtail_span_in: float =
         explicit input           -> use it                            (assumed False)
         T-tail with h_tail_z set -> root_waterline_z + h_tail_z - span (assumed True)
         fuselage outline present -> z_centre(x_vtail) + height(x_vtail)/2
-        otherwise                -> root_waterline_z + fuselage_height/2
+        otherwise                -> root_waterline_z (the wing root stands in)
         no layout / no data      -> 0.0, with a loud note
 
     **The polyline leads (2026-09-06).** ``entered_geometry`` is the lowest point
@@ -799,11 +799,10 @@ def vtail_root_waterline(layout: Optional["LayoutInput"], vtail_span_in: float =
     non-zero -- a pointed tail cone at ``x_vtail`` states no top to sit on.
 
     The layout fallback is the branch the outline datum replaces, retained for a
-    project with no fuselage outline: ``fuselage_height / 2`` above
-    ``root_waterline_z``, which reads the **wing** root as the body centreline --
-    the substitution ``CONVENTIONS.md``'s body-drag row refuses for D-1, and on a
-    high-wing airplane it stacks half a body above the real top. Its note says
-    so.
+    project with no fuselage outline: ``root_waterline_z`` alone -- with no
+    outline there is no body height to add half of (design note 69 D-69.3) --
+    which reads the **wing** root as the body top, the substitution
+    ``CONVENTIONS.md``'s body-drag row refuses for D-1. Its note says so.
     """
     if entered_geometry:
         note = UnitText()

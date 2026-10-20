@@ -67,9 +67,10 @@ def design_weight_lb(project: Project) -> float:
 
     :func:`sloads.cg_cases.max_takeoff_weight` (decision **G-14**): the
     ``weight.max_takeoff_weight_lb`` field, else its documented fallback chain
-    (``speeds.weight_lb`` -> ``weight.envelope.gross_weight`` -> the heaviest
-    ``FLIGHT`` case). ``0.0`` when the airplane states no take-off weight at all,
-    which leaves the gate silent rather than guessing.
+    (``weight.envelope.gross_weight`` -> the heaviest ``FLIGHT`` case;
+    ``speeds.weight_lb`` left it at v80, design note 71 D-71.2). ``0.0`` when
+    the airplane states no take-off weight at all, which leaves the gate silent
+    rather than guessing.
 
     **This read the itemized database *total* until 2026-08-15**, whenever
     ``speeds.weight_lb`` was unset -- an upper bound wearing the name of a design

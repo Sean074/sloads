@@ -42,7 +42,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, NamedTuple, Optional, Tuple
+from typing import List, NamedTuple, Optional, Tuple
 
 from ..applicability import engine_failure_not_applicable
 from ..case_ids import VTAIL_BAND_ONENGOUT, CaseIdAllocator
@@ -76,9 +76,6 @@ from ..registry import register
 from ..units import format_value
 from ._vtail import large_deflection_factor, lift_curve_slope, rudder_effectiveness
 from .weight_onecg import mass_basis
-
-if TYPE_CHECKING:
-    pass
 
 MODULE_NAME = "one_engine_out"
 

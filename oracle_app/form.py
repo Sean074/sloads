@@ -334,7 +334,7 @@ def _tail_mass_group_note(project: Any) -> str:
     weight = getattr(project, "weight", None)
     if weight is None or not weight.items:
         return ""
-    parts = [f"{surface} {format_value(derived_tail_surface_weight(project, surface), 'lb')} lb"
+    parts = [f"{surface} {_shown('weight.items.weight_lb', derived_tail_surface_weight(project, surface))}"
              for surface in ("htail", "vtail")]
     return ("With no row here each surface's weight derives from the rows tagged to "
             f"it: {', '.join(parts)} (`mass_distribution.derived_tail_surface_weight`). "
@@ -1573,14 +1573,26 @@ _FRAME_CACHE_KEY = "_grid_frame_cache"
 #: The page being rendered, set at every page entry point beside the frame
 #: cache. Read by :func:`render_table` to tell a list's owning page (design
 #: note 69 D-69.14, ``field_registry.LIST_ROW_OWNER``) from one that only
-#: edits its rows.
-_CURRENT_PAGE: List[str] = [""]
+#: edits its rows. Kept in the session's state, not module state: Streamlit
+#: runs every session in one process, and a module global let one session's
+#: page entry decide another's row ownership (0.9.0 pre-release review). The
+#: module slot serves bare mode only, where there is no session.
+_CURRENT_PAGE_KEY = "_current_page"
+_BARE_PAGE: List[str] = [""]
+
+
+def _current_page() -> str:
+    try:
+        return str(st.session_state.get(_CURRENT_PAGE_KEY, ""))
+    except Exception:  # bare mode: no session state
+        return _BARE_PAGE[0]
 
 
 def _reset_frame_cache(step_key: str) -> None:
     """Drop cached grid frames when the page changes (see _FRAME_CACHE_KEY)."""
-    _CURRENT_PAGE[0] = step_key
+    _BARE_PAGE[0] = step_key
     try:
+        st.session_state[_CURRENT_PAGE_KEY] = step_key
         cache = st.session_state.get(_FRAME_CACHE_KEY)
         if not isinstance(cache, dict) or cache.get("__step") != step_key:
             st.session_state[_FRAME_CACHE_KEY] = {"__step": step_key}
@@ -2022,7 +2034,7 @@ def render_table(project: Project, prefix: str, paths: Sequence[str]) -> None:
     # it on the owning page. Two add/delete sets for one list would be two
     # places to lose an engine.
     owner = fr.LIST_ROW_OWNER.get(prefix)
-    if owner is not None and owner != _CURRENT_PAGE[0]:
+    if owner is not None and owner != _current_page():
         st.caption(f"{label} rows are added and removed on the "
                    f"**{wf.BY_KEY[owner].title}** page; this page edits them.")
         if not rows:

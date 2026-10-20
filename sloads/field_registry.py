@@ -910,8 +910,8 @@ FIXED_NESTED_FIELDS: Dict[str, str] = {
 
 
 #: ``{list prefix: plan}`` -- list tables whose rows a program the project has
-#: already run can propose (note 57 D-57.7, #78). :data:`RECORD_SEEDS`' analogue
-#: for a ``…[]`` table: the plan is built *before* the click and states what the
+#: already run can propose (note 57 D-57.7, #78). The plan is built *before*
+#: the click and states what the
 #: click will do, so the offer is never a button whose caption explains the
 #: damage afterwards. The plan owns the merge/refuse/replace answer
 #: (``weight_estimate.SEED_CONTRACT``), not the page rendering it.
@@ -1805,7 +1805,7 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("fuselage_mass.stations[].z", _WT, _SLDS,
        "waterline the station's lumped mass acts at (v62) -- blank derives from "
        "the item database's own weight-weighted centroid; distinct from "
-       "ref_waterline, which places the beam that carries it"),
+       "geometry.fuselage.beam_waterline_z, which places the beam that carries it"),
     _E("fuselage_mass.stations_are_override", _WT, _SLDS,
        "override switch: lets the fuselage stations entered here govern instead of the weight database's own "
        "centroids, a derivation sloads added (v62)"),
