@@ -290,9 +290,11 @@ def test_the_register_states_the_note_54_gate_numbers():
     figures they are compared at ``abs=0.05``, which is what a printed 1-dp
     number is worth.
     """
-    # Gate 1 -- the fin-root joint sits on the L-1 owner's resolution.
+    # Gate 1 -- the fin-root joint sits on the L-1 owner's resolution. The
+    # ATR's root moved 191.2 -> 159.9 at #389: the fin now sits on the
+    # fuselage top line (its tip stays at the note's 316.2).
     roots = {"ga6_normal": 111.5, "baron_58": 110.0,
-             "atr42_100": 191.2, "concept_regional_jet": 87.0}
+             "atr42_100": 159.9, "concept_regional_jet": 87.0}
     for name, z in roots.items():
         reg = joints(_project(name))
         joint = reg.one(JointName.VTAIL_ROOT)
@@ -309,7 +311,9 @@ def test_the_register_states_the_note_54_gate_numbers():
     # stated x-arm IS the measured LRA offset. The z member is zero by
     # construction (h_tail_waterline's fin-tip branch is that same sum), which
     # is the tell that both ends come from one owner pair.
-    tips = {"atr42_100": (316.2, -25.6),
+    # The ATR's x-arm closed -25.6 -> -4.5 at #389: the stabiliser's root
+    # leading edge now sits on the fin tip's, so the two LRAs nearly coincide.
+    tips = {"atr42_100": (316.2, -4.5),
             "concept_regional_jet": (225.0, -26.7)}
     for name, (z, dx) in tips.items():
         reg = joints(_project(name))

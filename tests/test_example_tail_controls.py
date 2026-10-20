@@ -30,8 +30,12 @@ _EXAMPLES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 #: The scalars each file typed until D-69.17 (both-sides SE halves, the fin's
 #: SR halves), from its sources register.
 FORMER = {
-    "atr42_100": {"elevator_fwd_hinge_sqft": 3.0, "elevator_aft_hinge_sqft": 23.0,
-                  "rudder_fwd_hinge_sqft": 2.5, "rudder_aft_hinge_sqft": 19.5},
+    # The ATR's controls were re-cut with its tails at #389 (the same chord
+    # fractions on the measured surfaces): the halves are the polylines' own,
+    # elevator 4.399 / 33.855 and rudder 4.509 / 35.048, where the statistical
+    # tails had 3.0 / 23.0 and 2.5 / 19.5.
+    "atr42_100": {"elevator_fwd_hinge_sqft": 4.399, "elevator_aft_hinge_sqft": 33.855,
+                  "rudder_fwd_hinge_sqft": 4.509, "rudder_aft_hinge_sqft": 35.048},
     "baron_58": {"elevator_fwd_hinge_sqft": 2.1, "elevator_aft_hinge_sqft": 18.9,
                  "rudder_fwd_hinge_sqft": 0.9, "rudder_aft_hinge_sqft": 8.1},
     "concept_regional_jet": {"elevator_fwd_hinge_sqft": 4.0, "elevator_aft_hinge_sqft": 30.0,

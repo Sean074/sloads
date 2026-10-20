@@ -72,67 +72,77 @@ _T_TAILS = ("concept_regional_jet", "atr42_100")
 
 #: Design note 51 §9.1: ``M_r`` per fin condition (lb-in, magnitude), the
 #: measured table the note agreed. The RJ reproduces §4's original figures to
-#: within 0.05 %. The ATR's engine-out rows re-pinned at #333 (ruling 4): the
-#: march now sizes on the ``aft gross`` FLIGHT loading, not WTONECG's all-items
-#: one, +0.36 % (VC 328,765 -> 329,944) and +0.29 % (VD 458,984 -> 460,327).
+#: within 0.05 %. The ATR's engine-out rows re-pinned at #333 (ruling 4: the
+#: march sizes on the ``aft gross`` FLIGHT loading), and every ATR row again at
+#: #389, when its tails became the airplane's (stabiliser 125.0 sq ft on the
+#: measured span, fin 125.5 sq ft exposed): ``M_r`` carries ``S_H b_H``, so the
+#: four 23.441/23.443 rows rose about 1.9x, the engine-out rows 1.4x, and the VS
+#: engine-out case is delivered for the first time.
 _M_R = {
     "concept_regional_jet": {
         "SUDDEN RUDDER": 266_727, "YAW TO SIDESLIP": 137_013,
         "YAW 15 NEUTRAL": 310_569, "SIDE GUST": 373_565,
     },
     "atr42_100": {
-        "SUDDEN RUDDER": 112_543, "YAW TO SIDESLIP": 53_894,
-        "YAW 15 NEUTRAL": 128_028, "SIDE GUST": 162_118,
-        "ONE ENGINE OUT — VC (ultimate) (engine 1)": 329_944,
-        "ONE ENGINE OUT — VD (limit) (engine 1)": 460_327,
-        "ONE ENGINE OUT — VC (ultimate) (engine 2)": 329_944,
-        "ONE ENGINE OUT — VD (limit) (engine 2)": 460_327,
+        "SUDDEN RUDDER": 214_395, "YAW TO SIDESLIP": 102_253,
+        "YAW 15 NEUTRAL": 243_576, "SIDE GUST": 308_431,
+        "ONE ENGINE OUT — VC (ultimate) (engine 1)": 467_119,
+        "ONE ENGINE OUT — VD (limit) (engine 1)": 650_056,
+        "ONE ENGINE OUT — VS (engine 1)": 211_411,
+        "ONE ENGINE OUT — VC (ultimate) (engine 2)": 467_119,
+        "ONE ENGINE OUT — VD (limit) (engine 2)": 650_056,
+        "ONE ENGINE OUT — VS (engine 2)": 211_411,
     },
 }
 
 #: G-51.7: the fin view's root rolling moment with the tip set, airplane axes.
 #: The ATR's engine-out rows re-pinned at #333 (1,348,459 -> 1,352,404, the
-#: mass basis above).
+#: mass basis above) and every ATR row at #389 (the airplane's tails).
 _ROOT_WITH_TIP = {
     "concept_regional_jet": {
         "SUDDEN RUDDER": -706_830, "YAW TO SIDESLIP": +363_087,
         "YAW 15 NEUTRAL": +823_013, "SIDE GUST": -824_818,
     },
     "atr42_100": {
-        "SUDDEN RUDDER": -328_155, "YAW TO SIDESLIP": +157_144,
-        "YAW 15 NEUTRAL": +373_307, "SIDE GUST": -389_728,
-        "ONE ENGINE OUT — VD (limit) (engine 1)": +1_352_404,
-        "ONE ENGINE OUT — VD (limit) (engine 2)": -1_352_404,
+        "SUDDEN RUDDER": -667_817, "YAW TO SIDESLIP": +318_507,
+        "YAW 15 NEUTRAL": +758_711, "SIDE GUST": -785_457,
+        "ONE ENGINE OUT — VD (limit) (engine 1)": +2_040_714,
+        "ONE ENGINE OUT — VD (limit) (engine 2)": -2_040_714,
     },
 }
 
 #: G-51.13 (note 51 §10.1): each ``INDUCED ROLL`` h-tail condition's larger
 #: per-side root bending (lb-in, LIMIT), measured 2026-10-04; the ATR's
-#: engine-out rows hold for each engine.
+#: engine-out rows hold for each engine. The ATR re-measured at #389 (the
+#: airplane's tails), with the VS engine-out rows new.
 _INDUCED_BENDING = {
     "concept_regional_jet": {
         "SUDDEN RUDDER": 148_657, "YAW TO SIDESLIP": 83_801,
         "YAW 15 NEUTRAL": 170_579, "SIDE GUST": 291_033,
     },
     "atr42_100": {
-        "SUDDEN RUDDER": 66_980, "YAW TO SIDESLIP": 37_655,
-        "YAW 15 NEUTRAL": 74_723, "SIDE GUST": 110_703,
-        "ONE ENGINE OUT — VC (ultimate) (engine 1)": 173_864,
-        "ONE ENGINE OUT — VD (limit) (engine 1)": 233_122,
-        "ONE ENGINE OUT — VC (ultimate) (engine 2)": 173_864,
-        "ONE ENGINE OUT — VD (limit) (engine 2)": 233_122,
+        "SUDDEN RUDDER": 121_670, "YAW TO SIDESLIP": 65_599,
+        "YAW 15 NEUTRAL": 136_261, "SIDE GUST": 194_280,
+        "ONE ENGINE OUT — VC (ultimate) (engine 1)": 245_577,
+        "ONE ENGINE OUT — VD (limit) (engine 1)": 329_026,
+        "ONE ENGINE OUT — VS (engine 1)": 109_097,
+        "ONE ENGINE OUT — VC (ultimate) (engine 2)": 245_577,
+        "ONE ENGINE OUT — VD (limit) (engine 2)": 329_026,
+        "ONE ENGINE OUT — VS (engine 2)": 109_097,
     },
 }
 
 #: G-51.14: the governing per-side h-tail root bending (raw LIMIT, lb-in) and
-#: the condition it comes from. The RJ's does not move with D-51.12.
+#: the condition it comes from. The RJ's does not move with D-51.12. The ATR's
+#: re-pinned at #389: 233,122 -> 329,026 on the airplane's tails.
 _GOVERNING = {
     "concept_regional_jet": ("GUST DN RETRACTED", 349_920),
-    "atr42_100": (f"{INDUCED_ROLL_LABEL} — ONE ENGINE OUT — VD (limit) (engine 1)", 233_122),
+    "atr42_100": (f"{INDUCED_ROLL_LABEL} — ONE ENGINE OUT — VD (limit) (engine 1)", 329_026),
 }
 
-#: G-51.1 / G-51.2: the 23.427(a) case's net roll about the centreline.
-_UNSYM_ROLL = {"concept_regional_jet": 72_547, "atr42_100": -30_622}
+#: G-51.1 / G-51.2: the 23.427(a) case's net roll about the centreline. The
+#: ATR's re-pinned at #389 (-30,622 -> -57,894 on the 125.0 sq ft stabiliser).
+_UNSYM_ROLL = {"concept_regional_jet": 72_547, "atr42_100": -57_894}
 
 
 def _project(name):
@@ -400,8 +410,9 @@ def test_each_induced_roll_condition_bends_the_htail_as_measured(name):
 @pytest.mark.parametrize("name", _T_TAILS)
 def test_the_governing_htail_bending_moves_on_the_atr_alone(name):
     """G-51.14 (replaces G-51.9): the ATR's governing per-side h-tail root
-    bending is ONE ENGINE OUT VD's 233,122 lb-in (+44.4 % on GUST DN
-    RETRACTED's 161,404); the RJ's stays GUST DN RETRACTED's 349,920."""
+    bending is ONE ENGINE OUT VD's 329,026 lb-in (+9.4 % on GUST DN
+    RETRACTED's 300,684; 233,122 on 161,404 before #389 rebuilt the tails);
+    the RJ's stays GUST DN RETRACTED's 349,920."""
     spans = build_tail_span(_project(name))
     label, want = _GOVERNING[name]
     governing = max(spans["htail"], key=htail_root_bending)

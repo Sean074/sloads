@@ -877,18 +877,18 @@
             0.0
           ],
           [
-            817.0,
-            110.0
+            820.4,
+            142.3
           ]
         ],
         "trailing_edge": [
           [
-            879.6,
+            882.1,
             0.0
           ],
           [
-            854.1,
-            110.0
+            870.2,
+            142.3
           ]
         ],
         "symmetric": true,
@@ -907,18 +907,18 @@
         "name": "vtail",
         "leading_edge": [
           [
-            767.0,
-            191.2
+            688.0,
+            159.9
           ],
           [
-            839.2,
+            805.7,
             316.2
           ]
         ],
         "trailing_edge": [
           [
-            874.5,
-            191.2
+            832.1,
+            159.9
           ],
           [
             892.9,
@@ -1009,12 +1009,12 @@
         "name": "elevator",
         "leading_edge": [
           [
-            856.909,
+            858.602,
             0.0
           ],
           [
-            842.755,
-            110.0
+            854.987,
+            142.3
           ]
         ],
         "trailing_edge": [],
@@ -1027,12 +1027,12 @@
         "sob_y_in": null,
         "hinge_line": [
           [
-            859.527,
+            861.3,
             0.0
           ],
           [
-            844.064,
-            110.0
+            856.741,
+            142.3
           ]
         ],
         "control_load_mode": "smeared",
@@ -1043,11 +1043,11 @@
         "name": "rudder",
         "leading_edge": [
           [
-            840.698,
-            191.2
+            786.679,
+            159.9
           ],
           [
-            876.014,
+            865.433,
             316.2
           ]
         ],
@@ -1061,11 +1061,11 @@
         "sob_y_in": null,
         "hinge_line": [
           [
-            844.539,
-            191.2
+            791.855,
+            159.9
           ],
           [
-            877.933,
+            868.565,
             316.2
           ]
         ],
@@ -1201,10 +1201,10 @@
       "htail": {
         "aspect_ratio_wing": 0.0,
         "aspect_ratio_htail": 4.5,
-        "htail_area_sqft": 85.0,
-        "htail_semispan_in": 110.0,
-        "xt25": 825.0,
-        "xt50": 842.0,
+        "htail_area_sqft": 125.007,
+        "htail_semispan_in": 142.3,
+        "xt25": 828.419,
+        "xt50": 844.47,
         "elevator_area_sqft": 0.0,
         "elevator_fwd_hinge_sqft": 0.0,
         "elevator_aft_hinge_sqft": 0.0,
@@ -1218,12 +1218,12 @@
         "wing_lift_slope_per_rad": 0.0
       },
       "vtail": {
-        "vtail_area_sqft": 70.0,
-        "vtail_span_in": 125.0,
-        "vtail_mac_in": 92.4,
-        "aspect_ratio_vtail": 1.6,
-        "xv25": 820.0,
-        "xv50": 835.0,
+        "vtail_area_sqft": 125.528,
+        "vtail_span_in": 156.3,
+        "vtail_mac_in": 117.983,
+        "aspect_ratio_vtail": 1.351,
+        "xv25": 771.52,
+        "xv50": 801.016,
         "rudder_area_sqft": 0.0,
         "rudder_fwd_hinge_sqft": 0.0,
         "rudder_aft_hinge_sqft": 0.0,
