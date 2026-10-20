@@ -688,6 +688,64 @@ def test_the_tag_step_names_the_green_main_check_and_the_script_offers_it():
     )
 
 
+def _snapshot_script():
+    """Import `scripts/branch_protection_snapshot.py` as a module without
+    running it (the same credential-free route `test_solo_scripts` takes to
+    `ci_state.py`)."""
+    import importlib.util
+    path = os.path.join(_ROOT, "scripts", "branch_protection_snapshot.py")
+    spec = importlib.util.spec_from_file_location("branch_protection_snapshot", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+_MAIN_TIP = "a" * 40
+
+
+def _main_run(sha=_MAIN_TIP, status="completed", conclusion="success", run_id=1):
+    return {"id": run_id, "head_sha": sha, "status": status, "conclusion": conclusion,
+            "display_title": "Changelog for X.Y.Z"}
+
+
+@pytest.mark.parametrize("runs, code", [
+    ([_main_run()], 0),
+    ([_main_run(conclusion="failure")], 1),
+    ([_main_run(status="in_progress", conclusion=None)], 1),
+    ([_main_run(status="queued", conclusion=None)], 1),
+    ([], 1),
+    # CI's newest run on `main` is an older commit's green: the tip's own run
+    # has not been listed yet, so there is nothing to tag against
+    ([_main_run(sha="f" * 40)], 1),
+], ids=["tip_green", "tip_red", "tip_in_progress", "tip_queued", "no_ci_run",
+        "older_commit_green"])
+def test_the_tag_gate_judges_ci_on_the_tip_and_nothing_else(runs, code):
+    """At the 0.8.9 tag `--check-main-run` answered "run (`sbeam drift`)
+    completed green -- clear to tag": it read the newest run of *any* workflow
+    on `main`, so a red or still-running CI could have passed behind any later
+    green run of another workflow (#370, the #184 precondition open by the
+    route it was written to close). The verdict is `judge_main_run`, fed the
+    CI workflow's newest run and the branch tip: only a completed, green run
+    **of the tip** clears it."""
+    code_got, message = _snapshot_script().judge_main_run(runs, _MAIN_TIP, "main")
+    assert code_got == code, message
+    assert "#184" in message or code == 0
+
+
+def test_the_tag_gate_reads_the_ci_workflow_not_every_workflow():
+    """The structural half of #370: the fetch names the CI workflow's own runs
+    endpoint, and that workflow file exists, so a rename of `ci.yml` or a
+    return to the all-workflows endpoint fails here before it fails at a tag."""
+    mod = _snapshot_script()
+    assert os.path.exists(os.path.join(_ROOT, ".github", "workflows", mod.CI_WORKFLOW))
+    import inspect
+    src = inspect.getsource(mod.check_main_run)
+    assert "actions/workflows/{CI_WORKFLOW}/runs" in src, src
+    assert "actions/runs?" not in src, (
+        "check_main_run reads the newest run of ANY workflow again (#370)")
+    assert "branches/{branch}" in src, "check_main_run no longer reads the branch tip (#370)"
+
+
 
 def _ci_pytest_commands():
     """Every ``pytest`` invocation a ``run:`` step of ``ci.yml`` makes."""

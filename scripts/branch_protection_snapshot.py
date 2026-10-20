@@ -111,8 +111,46 @@ def diff(snap: dict, now: dict) -> list:
     ]
 
 
+#: The workflow whose run is the gate of record. `sbeam-drift.yml` also runs on
+#: `main`, on a schedule, and its green says nothing about the suite.
+CI_WORKFLOW = "ci.yml"
+
+
+def judge_main_run(runs: list, tip: str, branch: str) -> tuple[int, str]:
+    """The ``--check-main-run`` verdict, credential-free: ``(exit code, message)``.
+
+    ``runs`` is the newest run of **the CI workflow** on ``branch`` (one
+    element, or empty) and ``tip`` is the branch's current head sha. Clear to
+    tag only when that run exists, is **the tip's own**, has completed, and
+    concluded ``success``.
+
+    Why each clause (#370, found at the 0.8.9 tag): the check used to read the
+    newest run of *any* workflow and answered "``sbeam drift`` completed green
+    — clear to tag"; a red or still-running CI could pass the gate behind any
+    later green run of another workflow. And a green CI run of an older commit
+    is not the rebased tree's: the tip must match, or a tag could sit on a
+    commit CI never ran.
+    """
+    if not runs:
+        return 1, (f"no {CI_WORKFLOW} run found on `{branch}` — nothing to tag against; "
+                   "wait for the merge push's CI run to appear (#184).")
+    run = runs[0]
+    status, conclusion = run.get("status"), run.get("conclusion")
+    sha = str(run.get("head_sha", ""))
+    label = (f"CI run {run.get('id')} (`{run.get('display_title', '')}`) on "
+             f"`{branch}` at {sha[:7]}")
+    if sha != tip:
+        return 1, (f"{label} is not the tip's: `{branch}` is at {tip[:7]} and its CI run "
+                   "has not been listed yet — wait for it before tagging (#184, #370).")
+    if status != "completed":
+        return 1, f"{label} is still {status} — wait for the full matrix before tagging (#184)."
+    if conclusion != "success":
+        return 1, f"{label} completed with {conclusion!r} — fix `{branch}` before tagging (#184)."
+    return 0, f"{label} completed green — clear to tag."
+
+
 def check_main_run(branch: str) -> int:
-    """Exit status for ``--check-main-run``: 0 iff the newest run is green.
+    """Exit status for ``--check-main-run``: 0 iff the tip's CI run is green.
 
     The tag precondition of ``RELEASE_PROCESS.md`` §4 step 4 (#184): the push
     to ``main`` that the milestone merge makes runs the suite on the rebased
@@ -120,25 +158,16 @@ def check_main_run(branch: str) -> int:
     coverage runs *only* there, "fixed forward". 0.8.0 was tagged while that run was red at
     install (#132); the classifier half was fixed then, this is the
     tag-on-red half. An **in-progress** run also refuses: tagging before the
-    matrix finishes is the same hole with better luck.
+    matrix finishes is the same hole with better luck. The verdict itself is
+    :func:`judge_main_run`; this reads the two facts it needs.
     """
     runs = _gh_json(
-        f"repos/:owner/:repo/actions/runs?branch={branch}&per_page=1"
+        f"repos/:owner/:repo/actions/workflows/{CI_WORKFLOW}/runs?branch={branch}&per_page=1"
     ).get("workflow_runs", [])
-    if not runs:
-        print(f"no workflow runs found on `{branch}` — nothing to tag against.")
-        return 1
-    run = runs[0]
-    status, conclusion = run.get("status"), run.get("conclusion")
-    label = f"run {run.get('id')} (`{run.get('display_title', '')}`) on `{branch}`"
-    if status != "completed":
-        print(f"{label} is still {status} — wait for the full matrix before tagging (#184).")
-        return 1
-    if conclusion != "success":
-        print(f"{label} completed with {conclusion!r} — fix `{branch}` before tagging (#184).")
-        return 1
-    print(f"{label} completed green — clear to tag.")
-    return 0
+    tip = str(_gh_json(f"repos/:owner/:repo/branches/{branch}").get("commit", {}).get("sha", ""))
+    code, message = judge_main_run(runs, tip, branch)
+    print(message)
+    return code
 
 
 def main(argv=None) -> int:
@@ -147,8 +176,9 @@ def main(argv=None) -> int:
     g.add_argument("--check", action="store_true", help="exit 1 if the snapshot has drifted from live")
     g.add_argument("--write", action="store_true", help="refresh the snapshot from live")
     g.add_argument("--check-main-run", action="store_true",
-                   help="exit 1 unless the newest workflow run on the protected "
-                        "branch completed green (the §4 step-4 tag precondition, #184)")
+                   help="exit 1 unless the protected branch's tip has a completed, "
+                        "green CI run (the §4 step-4 tag precondition, #184; CI's run "
+                        "of the tip, not any workflow's newest, #370)")
     ap.add_argument("--date", help="value for `captured` on --write (default: today)")
     args = ap.parse_args(argv)
 
