@@ -45,8 +45,11 @@ jobs:
         # minutes against ~2.5 uninstrumented local minutes. The 80 % floor is
         # one number a single item almost never moves; it is the one thing the
         # merge push measures that a PR does not, and it is fixed forward
-        # (DEVELOPMENT_PROCESS §0). Keeping it off `dev/**` is what holds the
-        # advisory gate at its measured ~7.3 min instead of ~27.
+        # (DEVELOPMENT_PROCESS §0). Keeping it off `dev/**` keeps the advisory
+        # gate uninstrumented: it measured ~7.3 min against ~27 instrumented
+        # when this split was made (2026-08-22), and 36–68 min a run on the
+        # 0.8.9/0.9.0 branches (2026-10) as the suite grew — the instrumented
+        # leg would be longer still.
         include: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && fromJSON('[{"python-version":"3.12","coverage":"--cov=sloads --cov-report=term-missing --cov-fail-under=80"}]') || fromJSON('[]') }}
 
     steps:

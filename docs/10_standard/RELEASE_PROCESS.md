@@ -129,9 +129,11 @@ already closed, each in its own commit, so the PR body carries **no**
    on the rebased tree with coverage, the gate of record for the whole
    milestone, and coverage runs only there — so the tag waits for it: run
    `.venv/bin/python scripts/branch_protection_snapshot.py --check-main-run`
-   and proceed only on exit 0 (it refuses a red **or still-running** newest run
-   on `main`). 0.8.0 was tagged while that run was red at install (#132); this
-   precondition is the tag-on-red half of that finding (#184). Then
+   and proceed only on exit 0 (it refuses a red **or still-running** CI run on
+   `main`'s tip, and a CI run of any older commit; the `sbeam drift` workflow's
+   runs on `main` do not count — #370). 0.8.0 was tagged while that run was red
+   at install (#132); this precondition is the tag-on-red half of that finding
+   (#184). Then
    `git tag -a vX.Y.Z -m "Release vX.Y.Z"` and `git push origin vX.Y.Z`.
    Create a GitHub Release from the tag with the changelog entry as the body.
 5. **Archive verification** — record the numerical output (module figure vs. Appendix figure) for the modules in this release under `docs/90_record/` as a permanent regression baseline.
