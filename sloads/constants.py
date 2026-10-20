@@ -591,3 +591,10 @@ def reciprocating_torque_factor(cylinders: int) -> float:
     if cylinders == 2:
         return 4.0
     raise ValueError("Reciprocating engines must have at least 2 cylinders")
+
+# --------------------------------------------------------------------------- #
+# Statistical stand-ins (used only where the project states no value)
+#: Ch 9's statistical wing-weight stand-in, the fraction of gross weight
+#: SELECT.BAS uses when no wing weight is known: the fuselage conditions'
+#: WW (subroutine 4000) and the rod-estimate IZZ's wing mass (line 8884).
+WING_WEIGHT_STAND_IN_FRACTION = 0.09

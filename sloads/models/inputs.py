@@ -1376,7 +1376,8 @@ class SelectInput:
     full_down_aileron_deg: float = 0.0
     basic_airfoil_cm: float = 0.0
     # Critical fuselage-condition search (Ch 9): the wing weight WW reacted at the
-    # wing (the fuselage load on the wing is LZW - NZ*WW). 0 -> default 0.09*MTOW.
+    # wing (the fuselage load on the wing is LZW - NZ*WW). 0 -> derived from the
+    # wing group's EMPTY rows, else the 0.09*MTOW stand-in (select.resolved_wing_weight, #385).
     wing_weight_lb: float = 0.0
 
 

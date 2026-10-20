@@ -227,3 +227,38 @@ def test_the_wing_mass_span_figure_is_catalogued_and_integrates_to_the_panel():
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+def test_the_wing_mass_span_figure_names_each_curve_only_by_cases_that_carry_it():
+    """A curve is one mass state -- panel weight AND point masses -- and every
+    case named on it carries exactly that state (0.9.0 pre-release review).
+
+    Grouped on the panel alone, ``atr42_100``'s eight FLIGHT cases (one panel,
+    two point-mass sets) drew 4,587 lb of wing fuel under the zero-fuel and
+    minimum-weight cases' names."""
+    from sloads.cg_cases import flight_cases
+    from sloads.mass_distribution import wing_mass_state
+    from sloads.report import figures as fx
+    from sloads.units import UnitSystem
+
+    def state_key(project, case):
+        state = wing_mass_state(project, case)
+        return (state.panel_weight_lb,
+                tuple(sorted((pm.name, pm.weight_lb, pm.y) for pm in state.point_masses)))
+
+    seen_split = False
+    for path in _EXAMPLES:
+        project = _project(path)
+        figure = {f.key: f for _family, f in fx.build_step_figures(
+            "wing_loads", project, system=UnitSystem.IMPERIAL, results=None)}["wing_mass_span"]
+        if figure.data is None:
+            continue
+        cases = {c.name for c in flight_cases(project)}
+        curves = [s for s in figure.data.series if not s.marker]
+        for curve in curves:
+            named = [n for n in curve.name.split(" / ") if n in cases]
+            assert len({state_key(project, n) for n in named}) <= 1, (path, curve.name)
+        panels = {state_key(project, n)[0] for n in cases}
+        if len(curves) > len(panels):
+            seen_split = True
+    assert seen_split, "no fixture splits one panel weight by point masses -- the gate is vacuous"

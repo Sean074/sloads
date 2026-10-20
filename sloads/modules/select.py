@@ -90,6 +90,7 @@ from ..constants import (
     KT_TO_FPS,
     NZ_BALANCE_TOL,
     RHO_SL,
+    WING_WEIGHT_STAND_IN_FRACTION,
     G,
     dynamic_pressure_psf,
     gust_alleviation_factor,
@@ -1380,7 +1381,7 @@ def _default_izz(vt: VTailLoadsInput, gw: float, lf_in: float) -> float:
     """Default airplane yaw inertia IZZ (slug-ft^2): wing mass on the span and the
     rest of the empty weight on the airplane length ``lf_in`` (SELECT.BAS 8884;
     LF comes from :func:`derived_geometry.airplane_length_in`, #52)."""
-    w_wing = 0.09 * gw
+    w_wing = WING_WEIGHT_STAND_IN_FRACTION * gw
     # Two slender rods, I = m*L^2/12 each (the 12 is geometric, not in/ft).
     return ((w_wing / G) * (vt.wing_span_in / IN_PER_FT) ** 2 / 12.0
             + ((0.62 * gw - w_wing) / G) * (lf_in / IN_PER_FT) ** 2 / 12.0)
@@ -1591,9 +1592,6 @@ def select_vtail(project: Project, envelope: Optional[EnvelopeResult] = None) ->
 # --------------------------------------------------------------------------- #
 # Critical fuselage conditions (Ch 9; SELECT.BAS subroutine 4000)
 # --------------------------------------------------------------------------- #
-#: Ch 9's statistical wing-weight stand-in, the fraction of gross weight
-#: SELECT.BAS uses when no wing weight is known (subroutine 4000).
-WING_WEIGHT_STAND_IN_FRACTION = 0.09
 
 
 def derived_wing_weight(project: Project) -> Optional[float]:

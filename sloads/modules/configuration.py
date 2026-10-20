@@ -119,7 +119,7 @@ def tail_planform(layout: LayoutInput,
     The vertical-tail root comes from ``tail_geometry``'s single owner -- with
     ``project`` given, the full resolution order including the fuselage-outline
     datum ``z_centre(x_vtail) + height(x_vtail)/2`` (backlog Pri 1); layout-only,
-    the ``root_waterline_z + fuselage_height / 2`` fallback. ``layout.h_tail_z``
+    the ``root_waterline_z`` fallback (the wing root stands in for the body top). ``layout.h_tail_z``
     is a further user offset; if left at ``0`` for ``T_TAIL``/``CRUCIFORM`` a
     sensible default (top of fin / mid-fin) is used instead of the fuselage
     centreline.

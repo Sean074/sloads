@@ -7867,15 +7867,6 @@ _MASS_VIEWS: Tuple[Tuple[str, str, str, str], ...] = (
 _CG_POINTS_LABEL = "CG of each loading of record"
 
 
-def _placed(frame: str, x: float, y: float, z: float, scale: float) -> Tuple[float, float]:
-    """An entered ``(station, butt line, waterline)`` on the frame's plotted axes."""
-    if frame == "butt":
-        return (y * scale, x * scale)
-    if frame == "water":
-        return (x * scale, z * scale)
-    return (y * scale, z * scale)
-
-
 def _mass_view_figure(project: Project, *, frame: str, key: str,
                       title: str, view: str, system: UnitSystem) -> Figure:
     """One frame of the mass three-view (#388): every weight-data-base row as
@@ -7912,7 +7903,7 @@ def _mass_view_figure(project: Project, *, frame: str, key: str,
         rows = [i for i in items if str(getattr(i.kind, "value", i.kind)) == value]
         if not rows:
             continue
-        pts = [_placed(frame, i.x, i.y, i.z, scale) for i in rows]
+        pts = [_view_point(frame, (i.x, i.y, i.z), scale) for i in rows]
         series.append(Series(
             name, [p[0] for p in pts], [p[1] for p in pts], style=style, marker=True,
             labels=[f"{i.name}: {format_value(i.weight_lb * mass_f, mass_units)} {mass_units}"
@@ -7929,7 +7920,7 @@ def _mass_view_figure(project: Project, *, frame: str, key: str,
     points: List[Tuple[str, float, float]] = []
     rows_cg = list(project.mass.cases) if project.mass is not None else []
     cg_marks = [("database ceiling" if row.ceiling else row.name,
-                 *_placed(frame, row.cg_x, row.cg_y, row.cg_z, scale)) for row in rows_cg]
+                 *_view_point(frame, (row.cg_x, row.cg_y, row.cg_z), scale)) for row in rows_cg]
     if frame == "water":
         points = cg_marks
     elif cg_marks:
@@ -10163,14 +10154,20 @@ def _wing_mass_span_figure(project: Project, system: UnitSystem) -> Figure:
     points: List[Tuple[str, float, float]] = []
     styles = ("solid", "dashed", "dotted", "dashdotted", "densely dashed", "densely dotted",
               "loosely dashed", "loosely dotted")
-    # Several cases often share one panel weight: one curve, every case named.
-    grouped: Dict[float, Tuple[List[str], Any, Any]] = {}
+    # Several cases often share one mass state: one curve, every case named.
+    # The state is the panel weight AND the point masses -- cases with one
+    # panel and different wing fuel are different states, and grouping on the
+    # panel alone drew one case's fuel under cases that carry none.
+    grouped: Dict[Tuple[float, Tuple[Tuple[str, float, float], ...]],
+                  Tuple[List[str], Any, Any]] = {}
     for case_name in names:
         label = case_name if case_name is not None else "data base"
         state = wing_mass_state(project, case_name)
-        panel = state.panel_weight_lb        # exact: one derivation, one float
-        if panel in grouped:
-            grouped[panel][0].append(label)
+        # exact: one derivation, one float each
+        group = (state.panel_weight_lb,
+                 tuple(sorted((pm.name, pm.weight_lb, pm.y) for pm in state.point_masses)))
+        if group in grouped:
+            grouped[group][0].append(label)
             continue
         try:
             units = inertia_units(surface, wm, *plane, panel_weight_lb=state.panel_weight_lb,
@@ -10178,7 +10175,7 @@ def _wing_mass_span_figure(project: Project, system: UnitSystem) -> Figure:
         # refusal: a state the sweep cannot spread is left out
         except ValueError:
             continue
-        grouped[panel] = ([label], units, state)
+        grouped[group] = ([label], units, state)
     for index, (labels, units, state) in enumerate(grouped.values()):
         ye = list(units.ye)
         w = list(units.w)
