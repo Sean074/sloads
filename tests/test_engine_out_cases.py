@@ -231,9 +231,12 @@ def test_the_one_g_half_closes_inside_the_gate(name):
     # parented on the 1 g stall point, where this fixture's distributed wing
     # lift closes 2.1 % short of the balanced point's (0.979 at alpha 20.7 deg
     # on every stall-parented ATR case; 0.3 % on ga6 at 14.8 deg, 1 % on the
-    # Baron at 11.9 deg) -- a fixture-wide high-alpha closure trait filed at
-    # the #389 close, not the engine-out case's own. VC and VD close at
-    # 0.1-0.5 %.
+    # Baron at 11.9 deg) -- a fixture-wide high-alpha closure trait, not the
+    # engine-out case's own. VC and VD close at 0.1-0.5 %. Measured at #391
+    # (2026-10-20) and stated in CONVENTIONS.md (the residual bullets): the
+    # strips match the point's lift; the gap is the non-wing drag's normal
+    # component (1.9 %) and the strip-vs-polar angle (0.4 %), parked under
+    # rule 6 with the number that parks it.
     known = {"atr42_100": {"ONE ENGINE OUT — VS (engine 1)": -0.0189,
                            "ONE ENGINE OUT — VS (engine 2)": -0.0189}}.get(name, {})
     assert set(over) == set(known), over

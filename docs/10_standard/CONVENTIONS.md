@@ -172,6 +172,29 @@ file + symbol is the anchor.
     against the net reads 37 % where it is 0.9 % of the loads the case carries
     (`concept_heavy`'s NLAA, a −0.024 g VD gust; re-measured at #291). Every case above 1 g is
     unchanged by the floor; the relief fraction reads the same owner.
+  - **The force residual grows with α, and that is a stated characteristic of
+    the assembly, not a defect in the strip integration** (#391, measured
+    2026-10-20). The strips integrate to the balanced point's lift to 0.1 %;
+    what differs is the resolution into body axes. The point's normal force is
+    `lz = L cos α + D sin α` with `D` the **airplane** polar's drag, while the
+    distributed set carries two things short of it: the **non-wing drag's
+    normal component** `D_nw sin α`, because `body_axial_set` applies the
+    non-wing drag along `x` alone; and the **angle difference**, because the
+    strips resolve at their own `CL/m − Awo` and the point at the polar's `α`.
+    At the stall points the shortfall is 2.2 % of `lz` on `atr42_100` (1.9 drag,
+    0.4 angle), 1.0 % on `baron_58`, 0.3 % on `ga6_normal`, and an excess of
+    1.5 % on `concept_regional_jet`, whose angle term (−3.3 %) outweighs its
+    drag term. The closure spreads it as a uniform load factor over every mass,
+    so equilibrium holds and only the wing/body split moves: carrying the drag
+    term on the body instead moves the governing wing-root bending by at most
+    0.24 % and the governing body bending by at most 0.62 % on the four
+    fixtures, and one non-governing case by 9.7 % (the ATR's VS engine-out body
+    bending). That is inside the base-method band (`theory_sources.md`
+    §Base-method uncertainty), so the carrier is parked with that number. Which
+    aerodynamic forces the body carries is the open question of the power-on
+    balance study (#226 with #218), and this term is measured there. The one
+    1 % gate it crosses, the ATR's VS engine-out cases, is pinned with its
+    number in G-66.16.
 - **A residual the airplane is not meant to balance is reported, never gated**
   (plan 11 §10, extended by plan 13 decision L-5, 2026-08-09). Two of the six DOF
   can carry an *applied* load by design: `residual_mx` on a rolling case is the
