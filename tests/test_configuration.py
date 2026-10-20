@@ -171,6 +171,57 @@ def test_stability_and_gear_present_when_data_given():
     assert "overturn_turnover_angle" in vals
 
 
+def test_the_overturn_angle_is_roskams_psi_by_hand():
+    """Hand check of the overturn geometry (issue #362): Roskam, Airplane Design
+    Pt IV Fig. 2.48a p. 76 (and Pt II Fig. 9.1a p. 219; Torenbeek Sec. 10.3.2
+    pp. 352-353) -- psi is the angle at the ground between the CG's vertical and
+    the line from the CG to the nose-wheel -> main-wheel ground line, i.e.
+    ``atan(h_cg / d)`` with ``d = l_n sin(theta)``, ``theta = atan(t/2 / wheelbase)``.
+
+    Nose at 10, mains at 110 in with a 60 in track, CG 80 in aft of the nose and
+    40 in above the ground: theta = atan(0.3) = 16.699 deg, d = 80 sin(theta) =
+    22.988 in, psi = atan(40 / 22.988) = 60.11 deg. Tip-back: atan(20 / 40) =
+    26.57 deg. The guideline owners are ``constants`` (55 deg hard surface,
+    never over 60; tip-back 15), and the note states them with their sources.
+    """
+    from sloads.constants import GEAR_OVERTURN_MAX_DEG, GEAR_OVERTURN_NEVER_DEG, GEAR_TIPBACK_MIN_DEG
+    from sloads.modules.configuration import _gear_angles, gear_guideline_note
+
+    gc = {"nose_x": 10.0, "main_x": 110.0, "track": 60.0, "ground_z": 0.0}
+    tipback, overturn = _gear_angles(gc, 90.0, 40.0)
+    theta = math.atan(30.0 / 100.0)
+    assert theta == pytest.approx(math.radians(16.699), abs=1e-4)
+    d = 80.0 * math.sin(theta)
+    assert d == pytest.approx(22.988, abs=1e-3)
+    assert overturn == pytest.approx(math.degrees(math.atan(40.0 / d)), rel=1e-12)
+    assert overturn == pytest.approx(60.11, abs=0.01)
+    assert tipback == pytest.approx(26.57, abs=0.01)
+    # Lower CG, wider track: more stable, smaller psi.
+    assert _gear_angles(gc, 90.0, 20.0)[1] < overturn
+    assert _gear_angles({**gc, "track": 120.0}, 90.0, 40.0)[1] < overturn
+    # Without a nose gear or track there is no psi.
+    assert _gear_angles({**gc, "nose_x": 0.0}, 90.0, 40.0)[1] is None
+    assert _gear_angles({**gc, "track": 0.0}, 90.0, 40.0)[1] is None
+
+    assert (GEAR_TIPBACK_MIN_DEG, GEAR_OVERTURN_MAX_DEG, GEAR_OVERTURN_NEVER_DEG) == (15.0, 55.0, 60.0)
+    note = gear_guideline_note()
+    assert "Guidelines, not requirements" in note
+    assert "overturn <= 55.00 deg" in note and "tip-back >= 15.00 deg" in note
+    for source in ("Roskam Pt IV Fig. 2.48a p. 76", "Torenbeek Sec. 10.3.2", "Raymer 4th ed."):
+        assert source in note, source
+    assert "63" not in note
+
+
+def test_the_gear_condition_states_the_guidelines():
+    """Issue #362: the page's gear condition carries the guideline sentence."""
+    from sloads.modules.configuration import configuration_properties
+
+    conds = configuration_properties(_gear_project(_gear_layout()))
+    gear = next(c for c in conds if c.title.startswith("Landing-gear"))
+    assert "overturn <= 55.00 deg on a hard surface" in gear.note
+    assert "~63" not in gear.note
+
+
 def _gear_layout():
     return LayoutInput(root_waterline_z=40.0)
 

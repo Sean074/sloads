@@ -34,7 +34,7 @@ import contextlib
 import math
 from typing import Dict, List, Optional, Tuple
 
-from ..constants import IN2_PER_FT2
+from ..constants import GEAR_OVERTURN_MAX_DEG, GEAR_OVERTURN_NEVER_DEG, GEAR_TIPBACK_MIN_DEG, IN2_PER_FT2
 from ..derived_geometry import MacReference, pct_mac_to_station, require_integrable_planform
 from ..models import (
     ConditionResult,
@@ -59,6 +59,7 @@ from ..tail_geometry import (
     vtail_root,
     vtail_root_waterline,
 )
+from ..units import format_value
 from .wing_geometry import interp_x, surface_properties
 
 _FAR = "configuration"  # modern addition; no FAR condition / no .BAS oracle
@@ -566,9 +567,13 @@ def _gear_angles(gc: dict, x_cg: float, z_cg: float) -> Tuple[float, Optional[fl
     """Tip-back and overturn angles (deg) for one CG, from the gear geometry.
 
     Tip-back: the angle of the main-wheel -> CG line from the vertical; CG
-    forward of the main gear (positive) is required, ~15 deg the usual minimum.
-    Overturn (turnover): from the CG to the nose-wheel / main-wheel ground line;
-    lower is more stable. ``None`` when the nose gear or track is absent.
+    forward of the main gear (positive) is required, ``GEAR_TIPBACK_MIN_DEG``
+    the usual minimum. Overturn (lateral tip-over, Roskam's psi): from the CG
+    to the nose-wheel -> main-wheel ground line, ``atan(h_cg / d)`` with ``d``
+    the CG's perpendicular distance to that line in plan (Roskam Pt IV
+    Fig. 2.48a p. 76; Torenbeek Sec. 10.3.2 pp. 352-353); lower is more stable,
+    ``GEAR_OVERTURN_MAX_DEG`` the hard-surface guideline. ``None`` when the
+    nose gear or track is absent.
     """
     h_cg = z_cg - gc["ground_z"]            # CG height above ground
     tipback = math.degrees(math.atan2(gc["main_x"] - x_cg, h_cg))
@@ -581,6 +586,20 @@ def _gear_angles(gc: dict, x_cg: float, z_cg: float) -> Tuple[float, Optional[fl
     seg = math.hypot(dx, dy)
     d = abs(dx * (0.0 - 0.0) - dy * (x_cg - xn)) / seg  # |cross| / |seg|
     return tipback, math.degrees(math.atan2(h_cg, d))
+
+
+def gear_guideline_note() -> str:
+    """The design guidelines the gear angles are read against, with their
+    sources (issue #362). Guidelines, not requirements: the owner of the two
+    numbers is ``constants`` and this sentence is the only place they are stated."""
+    return (f" Guidelines, not requirements: tip-back >= {format_value(GEAR_TIPBACK_MIN_DEG, 'deg')} deg "
+            "(Roskam Pt II p. 218, Fig. 9.1a p. 219; Pt IV Fig. 2.48a p. 76; Raymer 4th ed. "
+            f"Sec. 11.2 p. 265), overturn <= {format_value(GEAR_OVERTURN_MAX_DEG, 'deg')} deg on a hard surface "
+            "(Roskam Pt IV Fig. 2.48a p. 76, Pt II Fig. 9.1a p. 219; Torenbeek Sec. 10.3.2 "
+            "pp. 352-353: 55-57 deg a maximum safe limit, never over "
+            f"{format_value(GEAR_OVERTURN_NEVER_DEG, 'deg')} deg). "
+            "Exceeding one raises operational risk (tail strike, sideways turnover); it does "
+            "not fail the design.")
 
 
 def _gear_condition(project: Project, layout: LayoutInput, geom: dict) -> Optional[ConditionResult]:
@@ -644,7 +663,7 @@ def _gear_condition(project: Project, layout: LayoutInput, geom: dict) -> Option
         note = (f"CG from the {cg_source}"
                 + ("." if cg_source.startswith("Weight DB") else " (no mass slice present).")
                 + " No per-case rows in the mass slice.")
-    note += " Tip-back >= ~15 deg, overturn <= ~63 deg."
+    note += gear_guideline_note()
     return ConditionResult(
         title="Landing-gear geometry (estimate)", far_reference=_FAR, values=values, note=note,
     )
