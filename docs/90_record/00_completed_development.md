@@ -35,6 +35,311 @@ written directly, by the release manager.
 
 ---
 
+## Release cut: **sloads 0.9.0** (an ATR 42-class airplane's loads — one owner per geometry and mass quantity, per-case mass states, Lamb's apparent mass, the ATR's own tail and fuselage, the high-α residual measured), tag `v0.9.0`, 2026-10-20
+
+**Objective.** Cut 0.9.0 on its delivered-load work: it produces an ATR
+42-class airplane's loads and differs enough from 0.8.9 to release. B2's
+twelve surviving rows became band B11, milestone 0.10.0 (2026-10-20).
+
+**Deliverables** (the `[0.9.0]` changelog section is the release note):
+- **One owner per quantity (notes 69–71, #378, #382, #383, tier L).** The
+  Geometry page has no parametric-wing or fuselage-summary duplicates. Every
+  CG case reports its own loading of record, and every mass quantity has one
+  owner.
+- **The ATR's data and physics (#368 M, #389, #391, #362 S).** The Munk
+  factor is now Lamb's closed form; the old table ran 1–2 % high at the ATR's
+  l/d. The ATR's tail and fuselage are its own. The high-α lift shortfall is
+  stated and parked at ≤ 0.62 % on every governing load, and the gear angles
+  are cited.
+- **The Weight & Mass page and its figures (#384–#388).** SELECT's wing
+  weight now derives from the database (#385, tier M: the ATR's peak
+  fuselage load on the wing −9.4 %). The page also gains a mass three-view
+  and a wing spanwise-mass figure.
+- **Process (#370, #392).** The tag gate judges CI's run of the tip. The
+  pre-release review's two MAJOR and nine minor findings closed on the branch.
+- **Version** `0.8.9` → **`0.9.0`**. Schema **v76 → v80**. **`RELEASED_SCHEMAS`
+  gains `"0.9.0": 80`**, frozen as `tests/fixtures_schema/release_0.9.0.json`.
+- **Changelog cut** (`build_changelog.py 0.9.0 --date 2026-10-20`): 12
+  changelog fragments and 8 history entries. No record roll: this file has
+  fewer than 1,500 lines and the changelog has 484.
+- **Gates at cut:** `pytest` **4,439 passed / 16 skipped / 2 xfailed / 0
+  failed** (run by hand on the #392 tree). `ruff`, `mypy` (114 files),
+  `smoke_test.sh`, `build_changelog.py --dry-run`, `backlog_issues.py check`
+  and `branch_protection_snapshot.py --check` all clean. The §3.5 by-hand
+  walk is the owner's, before the tag. Verification baseline unchanged; no
+  approved correction added.
+
+- **The CG-case editor is read against its summary and the CG cases can be seeded again (#387, tier M, 2026-10-18)** — the Weight & Mass Properties page review found the case editor heavy (eleven expanders on the ATR with the Mass cases summary *after* them, and a fourteen-field Ballast record of which seven tags design note 25 fixes rendered as editable) and found that `cg_cases.seed_flight_cases` and `seed_landing_cases` had no caller in any front-end: the button that offered them went with the front-end retired at #270, and PROGRAM_SPEC §LANDLOAD still said the seed was "offered on that tab as a button". Now: the Mass cases table renders above its expanders (`oracle_app.form.GROUP_TABLE_FIRST`); the Ballast record offers name, weight, station, butt line, waterline and the three own inertias, and states its fixed tags — kind, component, consumable, usable fuel, wing fraction, carriage, gear — in one caption with their values (`field_registry.FIXED_NESTED_FIELDS`; the registry rows stay, so the page definition is unchanged); and `cg_cases.seed_plan` is a `TABLE_SEEDS` entry for `weight.cg_cases[]` on the items-seed contract (note 57 D-57.7) — the WTENV corner cases, the mid-gross loading, the MZFW trio when an MZFW is entered and the three roled landing cases, each case the list already names kept, the seeders' missing-source sentences as the stated reason when nothing can be offered, the plan's caption above a button that names its source. The fraction widgets are unchanged on inspection: a consumable EMPTY/MINIMUM row is implicitly aboard every loading and is rightly always offered one; a discretionary row is offered one only when aboard, as before. Spec §LANDLOAD corrected. No load moves; no digest moves.
+
+- **Four mass quantities the Weight & Mass Properties page derives or states instead of asking for (#385, tier M, 2026-10-18)** — The WTESTIMA engine count was typed beside the engine list with a caption asking the user to keep the two in step: blank now derives the list's length (`weight_estimate.effective_estimation`, note 36 OV-1), typed governs, and the four engined fixtures derive. SELECT's fuselage conditions reacted a wing weight of `0.09 × MTOW` whatever the data base said: blank now derives the wing group's empty weight — the `EMPTY` rows the wing reacts, both sides (`select.derived_wing_weight`; 6,540 lb on the ATR against the stand-in's 3,314) — with the stand-in as the fallback when no row is wing-carried; `ga6_normal` types the stand-in (306 lb) so Appendix A's fuselage conditions hold, with its 330 lb wing group shown beside it. WTONECG states, per axis, the share of each inertia the rows' own inertias supply (`ixx_own_inertia_share` …), and the page caption names a data base with none as transfer-only (the ATR, RJ and concept_heavy; the ga6 oracle's IXX needs its rows' own terms). WTENV's "Maximum loading weight / station" is relabelled **Database ceiling weight / station (every row aboard)** — the all-rows sum is G-14's ceiling, a loading only when the data base sums to one. **Two delivered loads move, by the wing weight and on concept fixtures only:** the ATR's critical fuselage conditions and body loads (its peak fuselage load on the wing 88,890 → 80,534 lb, −9.4 %: 6,540 lb of wing-reacted empty mass relieves the fuselage where the stand-in relieved 3,314) and concept_heavy's (1,620 → 1,800 lb wing group; −1.2 %). Digests: WTONECG and WTENV on every fixture (new values, new labels); SELECT and body_loads on the ATR and concept_heavy. No Appendix A number moves: ga6 types the stand-in, and `tests/test_select.py`'s Appendix A fuselage oracle types it with the fixture.
+
+- **Fixture mass data agrees with its own mass database, and the links that keep it so exist (#384, tier M, 2026-10-17)** — the Weight & Mass Properties page review found the fixtures' engine, gear and fuselage-station mass typed twice with no check between the copies: the OV-7 engine/prop selectors blank on every fixture (so `engine_mass_row_mismatch` could never fire, and `concept_regional_jet` sat 150 lb an engine apart with both engines on the centreline), the gear leg weight typed on Geometry with no link to the rows (`atr42_100` 525 lb a leg beside a 1,250 lb main-gear row; `baron_58`'s 150 lb was both legs typed as one), stale inert `fuselage_mass.stations[]` tables on three fixtures (ga6 −492, Baron −1,089, RJ −12,600 lb short of their items), and every butt line zero on the RJ. The gear link is a typed tag, not a name match (note 63 OV-1): `MassItem.gear` (`GearLeg.MAIN` / `NOSE`, schema v78 → v79, identity hop) and `gear_loads.derived_leg_weight` — half the MAIN rows' total for a main leg, the NOSE rows for the nose — with the typed `weight_lb` as the collapsed override (`gear_loads.leg_weight`, `field_registry` resolvers, `gear_mass_row_mismatch` / `gear_mass_row_unlinked` warnings); the engine side gains `engine_mass_row_unlinked` for a blank selector beside a row that names an engine or propeller. **Fixtures:** gear rows tagged and typed leg weights blanked on all four gear fixtures (the ATR's legs are now 625 / 280 lb, the Baron's 75 / 55; ga6 and the RJ unchanged in value); engine and prop selectors set on all four engined fixtures with the typed weights kept at the rows' values; the RJ's "Engines installed (2)" split into left/right rows of 1,700 lb at the row's station with the engine butt line (±42 in) and its main gear into left/right rows at ±40 in, and its typed engine CG moved to the rows' station (850 in; the typed 980 was 130 in aft of the mass it named) and weight to the rows' 1,700 lb; the three stale station tables deleted. **Digests:** `gear_report` on the ATR and Baron (the leg inertia term at the corrected weights) and the RJ's engine, balance, WTONECG and sbeam channels (its engines moved and gained 150 lb each, its gear and engines left the centreline). No load moves on ga6 (Appendix A) or on the Baron's and ATR's delivered loads. Spec §LANDLOAD and §ENGLOADS touched; the two tests that read ga6's entered station table now enter one; the gear pin that held `2 × main + nose` against a hand-typed total is replaced by the derive on every fixture; the RJ's balance closure pins (closure Izz per case, the wing-span roll share 0.871 → 0.831, the companion side force and the lateral angular accelerations) are re-pinned for its off-centreline engines and gear, and the roll-relief identity test now skips a fuselage-carried mass off the centreline the way it already skipped a wing point mass, since the deck relieves both at their own nodes.
+
+## Step — One owner per geometry quantity on the Geometry page: the parametric wing scalars and fuselage summaries deleted, LF and the drag waterline moved to the outline, the control areas derived from the drawn surfaces, an Engines section and a pre-run airplane three-view (#378, design note 69, tier L, 2026-10-16; closes #377, #379, #380, #381)
+
+**Objective.** The Geometry page asked for quantities the geometry entered on
+the same page already determined, stored both, and tied them together loosely
+or not at all: five parametric wing scalars that drifted from the planform (ga6
+XLEMAC 56.73 against the planform's 63.62), three fuselage summaries copied onto
+`LayoutInput` on every run, SELECT's LF typed beside an outline that knew it,
+the aileron and flap areas typed beside their polylines, the engine arrangement
+under a "Project" heading on one page and the engine locations on another, and
+no drawing of the airplane as a whole. Design note 69 sets one rule (D-69.1: a
+quantity the entered geometry determines has one owner; a stored copy is a
+collapsed override where an original-suite program reads it, and deleted
+otherwise) and applies it field by field.
+
+**Deliverables.**
+- **Schema v76 → v77** (`_hop_76`, D-69.12): `geometry.parametric` loses
+  `wing_area_sqft`, `aspect_ratio`, `taper_ratio`, `le_sweep_deg`, `le_root_x`
+  and the three fuselage summaries; `geometry.fuselage` gains
+  `body_drag_waterline_z` (moved, unchanged meaning) and `airplane_length_in`
+  (SELECT LF, moved from the empennage record, now a collapsed override of the
+  outline's length). The hop moves the two values, drops the five keys and
+  states a non-zero dropped value once. The dropped values: `ga6_normal`
+  184.12 / 6.095 / 0.436 / 7.65° / 45; `baron_58` 199.2 / 7.186 / 0.5 / 2.65° /
+  62; `concept_regional_jet` 500.0 / 8.712 / 0.25 / 27.2° / 480; `atr42_100`
+  586.6 / 11.08 / 0.594 / 3.28° / 365; `concept_heavy` 282.2 / 8.92 / 0.5 /
+  7.57° / 200. Nothing read them for a load.
+- **`configuration` integrates the stored `wing` surface** (D-69.2): the
+  condition is "Wing planform (WINGGEOM)" with S, span, the polylines' root and
+  tip chords, MAC, XLEMAC, YMAC and AR; the stability estimate takes the same
+  MAC frame; `component_stations(project)` reads the planform and the outline.
+  `wing_planform`, `wing_polylines`, `wing_surface`, `wing_layout_from_surface`,
+  `parametric_wing_seed`, `RECORD_SEEDS`, the seed button (#376's fix with it),
+  `validation._check_area_mismatch` and the parametric branches of the taper and
+  area checks are retired. `fleet` reads the planform only.
+- **The fuselage summaries are gone** (D-69.3): `sob_station`,
+  `vtail_root_waterline`'s no-outline fallback (now the wing root alone, stated)
+  and `component_stations` call `fuselage_summary`; `sync_geometry_derived` and
+  its eleven call sites are deleted.
+- **Collapsed overrides with their own band** (D-69.4/7/8/10): a blank LF
+  derives the outline length (`derived_geometry.airplane_length_in`); a blank
+  SAFWD/SAAFT derives from the `aileron` surface's hinge split, only where it
+  carries a `hinge_line` (`aileron.aileron_hinge_areas`); a blank SF derives
+  from the `flap` surface's one-side area (`flap.flap_area_one_side_sqft`); all
+  through the one integrator `tail_geometry.control_surface_areas` (D-69.6),
+  which `boundary_derived_scalars` now calls too. `FieldEntry.band` lets a row
+  state its disagreement band (`cross_check_disagrees(..., rel=)`): the control
+  areas take 1 %, everything else the oracle's 0.1 %. `aileron_area_mismatch`
+  and `flap_area_mismatch` warn on the Geometry page. Flap E is **parked** with
+  its number (D-69.9, `02_parked.md`: 0.245–0.252 against the printed 0.27).
+- **The page** (D-69.5/13/14/18, #380): Surfaces, Fuselage, Engines,
+  Parametric, Empennage, aileron, flap, gear, in registry order. The Fuselage
+  and Engines sections each span two record prefixes under one heading
+  (`_render_groups` merges adjacent groups sharing a `DISPLAY_GROUPS` title).
+  The Engines section holds `engine_layout` and, per engine, `mounted_on`,
+  `engine_cg`, `prop_cg`, the thrust line and `prop_diameter_in`; Geometry owns
+  the `engines[]` rows (`LIST_ROW_OWNER`) and the Engine Mount page renders the
+  rows it edits with no add or delete control; the "Project" heading is gone and
+  `include_far25` is titled "FAR 25 supplement". `entering_step(slice, after=)`
+  lets the Flap page's later-page mark name Engine Mount for a slice now split
+  across two pages.
+- **The airplane three-view** (D-69.15/16, #381): three pre-run figure
+  families on Geometry and in the report's §2.1 — plan, side and front, to scale
+  — drawn from the owners Section 2 and Section 10 already read: the outline and
+  its entered centre line, the wing and tails from their polylines, the four
+  controls shaded with their hinge lines where entered, each engine's thrust
+  line and a propeller disc of `prop_diameter_in`, and each gear leg with its
+  wheel (main wheels at ±tread/2, owner ruling Q7). What is not entered is
+  named, never sketched. The planform figures draw an entered `hinge_line`; the
+  caption that said the analysis carries "no hinge geometry" is corrected and
+  guarded (G-69.12).
+- **Example data** (D-69.17, #381 step 4): `atr42_100`, `baron_58` and
+  `concept_regional_jet` enter `elevator` and `rudder` surfaces with a hinge
+  line, constructed to integrate to the former typed SELECT scalars within
+  0.02 % (ATR SE 3.0/23.0, SR 2.5/19.5; Baron 2.1/18.9, 0.9/8.1; RJ 4.0/30.0,
+  4.0/29.0), and the six scalars are blanked so they derive (D-54.1). Every
+  example is rewritten at v77. **Found by G-69.11 and fixed in the same step
+  (rule 4):** `taildist.surface_geom`, `tail_span`'s hinge-moment split and
+  the `configuration` tail sketch read the raw slice's hinge halves rather than
+  the resolved inputs SELECT loads with, so the first blank scalar sized the
+  ATR's elevator aft area at 0 and moved its chordwise pressures by a factor of
+  100; every reader now goes through `select.effective_tail_inputs` /
+  `effective_vtail_inputs`, and `tests/test_example_tail_controls.py` holds
+  every tail load of the three examples to the typed scalars' within 0.1 %.
+
+**Test.** G-69.1–G-69.12 (`docs/25_notes/69_geometry_duplicates_note.md` §4,
+§5.4): the Appendix A oracle and the twin closures unchanged; `ga6_normal` and
+`concept_heavy` bit-identical on every delivered load (their only moved digest
+channels are `configuration`'s retitled condition); the Imperial digests
+regenerated deliberately for the three examples whose tail data changed
+(D-69.17): `wing_geometry` and `airloads` gain the two new surfaces' rows,
+`select`/`balloads`/`tail_span`/`taildist` move by the construction residual
+(no module value moves past 0.1 %), and the Baron's and RJ's `balance`, balanced
+deck and LRA model follow their tail loads; the v77 hop on a v76 dict and every released fixture; the
+page order and one-heading rule, the rows-only engine table, the three-view
+on every bundled example and on a wing-only project; the control-area band read
+from the registry.
+
+**Key decisions.** Delete, not derive-and-mark, for the five wing scalars
+(Q1): the only thing they fed that was not a copy of the planform was a
+different MAC frame from the analysis's. LF moves to the outline (Q2). One
+heading over two prefixes, guarded (Q3). Flap E parked with its number (Q4).
+Geometry owns the engine rows (Q5). The elevator and rudder polylines are
+constructed to the former typed estimate, not traced (Q6). The gear wheel at the
+tread, the strut from the attach (Q7).
+
+## Step — One owner per mass quantity: the fin's typed design weight deleted, STRSPEED's weight a collapsed override of MTOW, the engine masses derived from their rows on every fixture, the yaw-inertia, wing-mass and fuselage-station overrides on the weight page, the beam waterline and the control-load geometry on the Geometry page, and a wing spanwise-mass figure (#383, design note 71, tier L, 2026-10-18)
+
+**Objective.** Note 69 gave the Geometry page one owner per geometry quantity;
+this is the mass side. After #384 and #385 no mass quantity was typed apart
+from its owner on any fixture, so what remained was placement — a quantity
+edited on a page that is not its owner's — and one unguarded copy,
+`speeds.weight_lb`, held in line only by a drift warning. Design note 71 sets
+the rule (D-71.1: a quantity the weight data base or a design weight owns has
+one owner; a copy elsewhere is a collapsed override rendered beside its owner,
+a non-mass field renders on the page whose quantity it is, and a copy no
+program reads differently is deleted) and the owner ruled its six questions in
+session.
+
+**Deliverables.**
+- **Schema v79 → v80, one hop** (`_hop_79`, D-71.4/D-71.7/D-71.9, Q6):
+  `geometry.empennage.vtail.gross_weight_lb` deleted (every fixture typed it at
+  MTOW; a differing value is stated once in the migration notes);
+  `fuselage_mass.ref_waterline` moved to `geometry.fuselage.beam_waterline_z`
+  (87.7 / 102.6 / 110.2 / 53.3 in on the four fixtures that enter it);
+  `tail_mass[].control_load_mode` / `hinges_span_in` / `actuator_span_in` moved
+  to the tail's control surface row in `geometry.surfaces[]` (htail → elevator,
+  vtail → rudder; a tail row with no such surface has its values stated once).
+  `EXPECTED_FIELDS_HASH` re-pinned; the five examples re-stamped.
+- **`speeds.weight_lb` is a collapsed override of MTOW** (D-71.2, Q3):
+  `structural_speeds.design_weight_lb` is the one owner — the typed value, else
+  MTOW — read by STRSPEED, by the flap module's 23.345 cases and by the V-n
+  balance (the flap and the balance read the field directly until this step,
+  which is how a blanked fixture moved the flap digests before the owner
+  existed); `cg_cases.max_takeoff_weight` no longer falls back to the copy;
+  every fixture derives.
+- **The engine and propeller weights derive from their rows on every fixture**
+  (D-71.3, Q2): the typed copies blanked, the OV-7 selectors render in the
+  Geometry page's Engines section and are marked load-bearing (G5) since
+  without the link ENGLOADS has no engine mass; the supplied-set dial moves to
+  19 % with that reason.
+- **Page moves**: the fin yaw-inertia override (D-71.5), the wing-panel
+  override with the tip/root density ratio and the inboard rib (D-71.8, Q4,
+  overruling the draft) and the fuselage station table with its override switch
+  (D-71.6) render on the Weight & Mass Properties page in titled groups; the
+  beam waterline and the three control-load fields render on Geometry (D-71.7,
+  D-71.9, Q5, overruling the draft: "they define geometry that is to be used in
+  the beam model"). `tail_span.control_surface_row` reads the control surface's
+  row; the Tail Mass table is mass only.
+- **`wing_mass_span`** (D-71.10, Q4): a pre-run figure on the Wing Loads page
+  and in report §3.1 beside the span loads — the panel mass density WINGINER
+  spreads per strip, one curve per distinct FLIGHT mass state (cases sharing a
+  panel share a curve and are named on it), the point masses marked at their
+  butt lines and sized by weight (`Series.sizes`), read through the module's
+  own `inertia_units` so the drawing and the inertia loads come from one sweep.
+- **Docs**: PROGRAM_SPEC §STRSPEED, §WINGINER, §BODYLOAD's waterline paragraph,
+  the T6 paragraph and the slice table; GUI_design.md's two mentions;
+  CONVENTIONS.md §7's LRA-waterline row, the OV-1 row and §2's beam paragraph;
+  `theory_sources.md`'s STRSPEED row; DATA_DICTIONARY and the guide regenerated.
+
+**Test.** `tests/test_mass_owners.py`: a blank speeds weight derives MTOW
+exactly, a typed one governs and warns, and the owner no longer reads the copy
+(G-71.2); the hop deletes, moves and states on a synthetic v79 dict and the
+result loads with the values where their readers look (G-71.3); the fourteen
+moved and kept rows render on the pages the note names and the five deleted
+paths are gone (G-71.4); `fuselage_lra` reads the moved waterline on every
+fixture (G-71.5); no fixture types a mass quantity apart from its owner
+(G-71.6); the wing-mass figure is catalogued pre-run, builds on every fixture
+and its density integrates to a positive panel on each curve (G-71.8).
+`tests/test_tail_span.py` and `tests/test_lra_model.py` set the discrete
+control-load geometry on the elevator's and rudder's rows (G-71.7) and every
+delivered tail load reproduces. **G-71.1 holds: every Imperial digest is
+unchanged on every fixture**, including the flap channels once the design
+weight had its owner. Gates: ruff, mypy and the whole suite green.
+
+**Key decisions.** Q1–Q6 of note 71 §3, ruled 2026-10-18 (owner, in session):
+delete the fin's typed design weight; blank the fixtures' engine and propeller
+weights so the rows govern; STRSPEED's weight as a collapsed override rather
+than deleted; the wing mass shape to the weight page **with** a spanwise mass
+plot on the Wing Loads page (overruling the draft's "stays"); the control-load
+fields to the Geometry page as beam-model geometry (overruling the draft's
+"rename in place"); one migration hop for all three schema changes.
+
+- **The mass three-view: the weight data base placed on the airplane, one bubble per row (#388, tier M, 2026-10-18)** — there was no picture anywhere of *where* the mass is in butt line or waterline: the retired front-end's marker overlay went with it at #270, note 69's airplane three-view deliberately draws airframe, controls, engines and gear only, and the one-dimensional item-station figure plotted station against weight alone. The Weight & Mass Properties page review's fixture defects (#384: a twin's engines on the centreline, gear leg weights inverted, every butt line zero) would each have been visible at a glance. Three pre-run families on the weight page and in report §2.2 — `mass_plan_view`, `mass_side_view`, `mass_front_view` (`oracle_sections.mass_view_figures`, one builder) — draw every row as a bubble whose **area** is its weight, the marker shape by loading kind (the item-station rule carried across), on the airframe the airplane three-view draws through the same owners, with the CG of each loading of record and the database ceiling marked (design note 70's rows) and the structural CG limits as two reference lines in side view and a band in plan. `PlotData.Series` gains `sizes`, the one model addition: the screen renderer scales the mark diameter as the square root of the size against the figure's largest, the page renderer emits one black `\addplot` per point with its mark radius likewise (a pgfplots scatter would colour-map the marks, which §4.3's greyscale guard refuses). The `item_station` family, its data builder and its four tests are retired — its side frame is this figure's, and the Items grid already lists every weight; its three tests become the three-view's gates (catalogued pre-run after the envelope, every row drawn once sized and shaped and placed on the frame's own axes, airframe + CGs + limits present, shape and size surviving both renderers). Spec §WTONECG touched. No load moves; no digest moves.
+
+- **The Munk apparent-mass factor is Lamb's closed form, gated by TR-184 Table I and DATCOM Fig. 4.2.1.1-20a (#368, tier M, 2026-10-19)** — `fuselage_moment._K_TABLE` claimed to reproduce NACA TR-184 and DATCOM 4.2.1.1 and did neither: from `l/d` 4 up it ran 0.008–0.014 above Table I, its `l/d` 1.5 row was the table's `k1`, its `l/d` 8 row was Table I's value at 9.02, and its 14 and 18 rows had no source — about 1.3 % high on the fuselage `dCm/dα` and the Munk `Cn_β` cross-check at an airliner's `l/d ≈ 8.5`. TR-184 p. 12 says Table I is Lamb's exact computation for ellipsoids of revolution, so the table is replaced by that computation: `prolate_spheroid_inertia_coefficients(l/d)` returns `(k1, k2)` from the eccentricity in closed form, `munk_k2_minus_k1` is its difference, exact at the sphere and in the slender limit, with no interpolation and no clamp. Two page-cited oracles gate it: every `k1`, `k2` and `k2−k1` row of Table I (p. 20) within 0.0025 absolute, and the DATCOM curve as Digital DATCOM digitises it (`datcom.f:2334-2335`, the copy `lateral_body_aero` already carries — one guard holds the two copies equal) within 1.5 % over `l/d` 4–20. G4 is off by default and no shipped fixture enables it, so no delivered load and no digest moves; the L-7 G7 fence (Munk below DATCOM's wing-body `Cn_β` on every fixture) still holds with the lower values. Found on the way: nothing in the shipped front-end or CLI calls `fuselage_moment.estimate` — `PROGRAM_SPEC.md` and `GUI_design.md` said the Aerodynamic Data page showed and overrode it, a claim left from the retired `app/views` tree; both now state the gap, which is the Aero Coefficients page review's first item.
+
+## Step — WTONECG reports every CG case's loading of record and labels the all-items sum as the database ceiling: per-case mass properties on the page and in the report, the Geometry gear angles per case, one owner for the mass state (#382, design note 70, tier L, 2026-10-17)
+
+**Objective.** WTONECG's one condition and the persisted `Project.mass` were
+the sum of every weight-database row. On the Appendix A airplane that sum is
+the aft-gross loading (p136), which is why the oracle held and nobody looked;
+on every other bundled fixture it is the database *ceiling* (G-14), not a
+loading: 43,308 lb against an MTOW of 36,817 on `atr42_100`, 6,540 against
+5,500 on `baron_58`. The Ixx / Iyy / Izz / Ixz on the Weight & Mass Properties
+page and in report §2.2 therefore belonged to no case — the ATR's Ixx is
+160,600 slug-ft² with the wing fuel aboard and 34,600 without, and the page
+showed the first for everything — and `configuration.cg_estimate` drew the
+tip-back, overturn and static margin at a CG the airplane cannot fly at.
+Every CG case already had a loading of record (note 63 D-25), and ONENGOUT
+already computed its own per-case inertia from it (#333 ruling 4). Design
+note 70 generalizes that: one row per CG case, the ceiling labelled and last.
+
+**Deliverables.**
+- **`weight_onecg.case_mass_properties`** (D-70.1/D-70.2) — the one owner of
+  "the mass properties of case X": for every `weight.cg_cases[]` entry, FLIGHT
+  and GROUND alike, `weights_and_inertia` over the items of its loading of
+  record (`mass_distribution.derive_case_loadings`); a case whose loading does
+  not derive gets no row and one stated reason (`baron_58`'s `fwd regardless`);
+  the all-rows sum closes the list under `CEILING_TITLE` ("Database ceiling
+  (every row aboard)"). `run` emits one condition per row; `build_mass` /
+  `refresh_mass` persist the same rows. `mass_basis` (the heaviest FLIGHT case,
+  aft-most on a tie) moves here from ONENGOUT, which re-exports it;
+  `basis_row` is the one representative row every single-CG reader takes.
+- **Schema v77 → v78** (`_hop_77`, D-70.3): `MassCase.ceiling: bool` marks the
+  sum by a typed field, never a name; a v77 `mass` block (the one "itemized
+  loading" row) is dropped by the hop and re-derived — the slice is derived data
+  (`derived.py`) and no entered value is touched. `gear_down` is `True` on every
+  row: the data base carries no gear-up position, so the gear-up variant the
+  `MassResult` docstring promised is a stated limitation (Q4). The five
+  examples are re-stamped; `EXPECTED_FIELDS_HASH` re-pinned.
+- **ONENGOUT's `_mass_state`** reads its basis case's row through
+  `case_mass_properties` (one computation; G-70.3 holds the identity on every
+  fixture with a FLIGHT basis). Its deck and march numbers do not move.
+- **Geometry page gear angles per case** (D-70.4, review C3): `cg_estimate`
+  returns `basis_row`'s CG labelled by case ("Weight DB, aft gross"; the ceiling
+  only when nothing else exists, labelled "database ceiling"); the gear
+  condition emits tip-back and overturn for every case row (`… -- <case>`) and
+  names the governing case on the headline pair (minimum tip-back, maximum
+  overturn). On `atr42_100` the governing tip-back is `aft max landing` at
+  19.5° and the governing overturn `fwd max landing` at 64.1°.
+- **`cg_cases.seed_landing_cases`** seeds its waterline placeholder from the
+  basis row (D-70.5), no longer from a loading that cannot fly.
+- **Report §2.2** prints one table, one row per case and the ceiling last
+  (`oracle_sections._mass_properties_table`, D-70.6): W, Xcg, Zcg, Ixx, Iyy,
+  Izz, Ixz, θ, in the document's unit system; the SELECT inertia advisory in
+  the GUI quotes the basis row by name (D-70.7).
+- **Docs** (D-70.8): `PROGRAM_SPEC.md` §WTONECG reads/writes/notes rewritten;
+  §SELECT no longer claims to read `Project.mass` (it never did — rod estimate
+  or typed override); the configuration section's `cases[0]` sentence replaced;
+  `theory_sources.md`'s WTONECG row cites the note; `CONVENTIONS.md` §7 gains
+  the mass-properties owner row. `DATA_DICTIONARY.md` and the guide's generated
+  pages regenerated.
+
+**Test.** `tests/test_weight_onecg.py` — the Appendix A p136 pins stand
+unchanged and a new test holds that the ceiling condition `run` emits *is*
+that result (G-70.1); every fixture's rows equal `weights_and_inertia` over
+each case's loading of record, in case order, ceiling last and heaviest,
+skipped cases stated (G-70.2/G-70.4); the Baron `fwd regardless` case derives
+no row and says why; `basis_row`'s fallback order. `tests/test_one_engine_out.py`
+— the march's mass state is the WTONECG row of the same case (G-70.3).
+`tests/test_configuration.py` — the labels name the case, the per-case rows
+and the governing pair on a synthetic slice and on four fixtures, the ceiling
+never used as a CG while a case row exists (G-70.5). Imperial digests: one
+wave, `txt/csv weight_onecg` on all five fixtures and `txt/csv configuration`
+on the four with gear geometry — neither a load module; every load module's
+digest is unchanged (G-70.6). Gates: ruff, mypy and the whole suite green.
+
+**Key decisions.** Q1–Q5 of note 70 §3 ruled as recommended (owner,
+2026-10-17): GROUND cases get rows too; SELECT's blank-Izz default is **not**
+switched to the database value (rod estimate +38 % on ga6, +51 % ATR, +71 % RJ
+over the case value — conservative on every fixture and the ga6 SELECT oracle
+is computed with it; M4-4 stays parked on that pair, its prerequisite now
+delivered); gear angles per case with the governing case named; gear-up rows
+parked as a stated limitation; a typed `MassCase.ceiling` field at v78.
+
 ## Release cut: **sloads 0.8.9** (the ATR-class deck delivers correct loads — the twin turboprop's one-engine-out low end, the T-tail's horizontal tail, the spin sign, refusals stated as refusals, sstandards Rev B), tag `v0.8.9`, 2026-10-04
 
 **Objective.** Close band **B10**, chartered on 2026-10-03 by the 0.8.8
