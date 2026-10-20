@@ -65,6 +65,27 @@ ULTIMATE_FACTOR = 1.5
 FAR23_473G_N_FLOOR = 2.67
 FAR23_473G_NLG_FLOOR = 2.0
 
+# Landing-gear geometry guidelines (issue #362) -- design guidance, not
+# requirements: exceeding one raises operational risk (tail strike, sideways
+# turnover), it does not fail a design. One owner for the two numbers the
+# configuration page states beside its tip-back and overturn angles.
+#
+# Tip-back: the main wheel -> CG line at least 15 deg off the vertical, aft CG
+# (Roskam, Airplane Design Pt II p. 218 and Fig. 9.1a p. 219; Pt IV Fig. 2.48a
+# p. 76, "A >= 15 deg"; Raymer, Aircraft Design 4th ed. Sec. 11.2 p. 265: the
+# greater of the tipback angle and 15 deg, and "much over 25 deg" makes the
+# nose hard to lift).
+GEAR_TIPBACK_MIN_DEG = 15.0
+# Overturn (lateral tip-over) angle psi, from the CG to the nose-wheel ->
+# main-wheel ground line: at most 55 deg on a hard surface (Roskam Pt IV
+# Fig. 2.48a p. 76 -- 50 deg rough field, 55 deg hard surface, 54 deg carrier,
+# and the 63 deg the page once quoted is that figure's land-based US Navy
+# entry; Pt II Fig. 9.1a p. 219; Torenbeek, Synthesis of Subsonic Airplane
+# Design Sec. 10.3.2 pp. 352-353: "must never exceed 60 deg, 55 deg to 57 deg
+# probably being a maximum safe limit").
+GEAR_OVERTURN_MAX_DEG = 55.0
+GEAR_OVERTURN_NEVER_DEG = 60.0
+
 # FAR 23.349(a) accelerated rolling condition (design note 52, D-52.1/D-52.11):
 # 100 % of the semispan wing airload of symmetric condition A acts on one side
 # and ``p`` % on the other. **One owner** for ``p``: the unbalanced rolling
