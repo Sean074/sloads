@@ -2947,3 +2947,55 @@ def test_the_source_case_label_has_one_owner():
 
 if __name__ == "__main__":
     sys.exit(pytest.main([os.path.abspath(__file__), "-q"]))
+
+
+# --------------------------------------------------------------------------- #
+# The high-alpha force residual is the two resolution terms, and nothing else (#391)
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize("example", ["atr42_100.project.json", "baron_58.project.json",
+                                     "ga6_normal.project.json",
+                                     "concept_regional_jet.project.json"])
+def test_the_high_alpha_lift_shortfall_is_the_two_resolution_terms(example):
+    """``CONVENTIONS.md`` states (#391) that the distributed wing set closes
+    short of a balanced point's normal force by two terms and nothing else:
+    the non-wing drag's normal component (``body_axial_set`` applies that drag
+    along ``x`` only) and the strip-vs-polar angle difference. This holds the
+    statement true on every stall point: the strips' lift, recovered at their
+    own angle, matches ``CL q S`` to 0.1 %, and the point's normal and axial
+    forces name one and the same airplane drag, larger than the wing's own. A
+    third term appearing -- a strip that drops lift, a carry-through change, a
+    second drag in ``lzw`` -- breaks one of the two, and the parking number in
+    the convention would no longer be the measured one."""
+    from sloads.constants import dynamic_pressure_psf
+    from sloads.modules.airloads import schrenk_distribution
+    from sloads.modules.balance.applied import wing_sets
+    from sloads.modules.select import vn_points
+
+    project = _project(example)
+    wr = require_wing_reference(project)
+    wm = project.wing_mass
+    t = schrenk_distribution(project.geometry.by_name(wm.surface),
+                             project.aero.by_name(wm.surface))
+    stalls = [vn for vn in vn_points(project) if vn.condition.startswith("STALL")]
+    assert stalls, example
+    for vn in stalls:
+        air = [ld for ld in wing_sets(project, vn)[0] if ld.source == "wing-air"]
+        fz = 2.0 * math.fsum(ld.fz for ld in air)
+        fx = 2.0 * math.fsum(ld.fx for ld in air)
+        qs = dynamic_pressure_psf(vn.v_eas_kt) * wr.s_sqft
+        a = vn.alpha_deg / DEG_PER_RAD
+        an = (vn.cl / t.m_wing - t.awo) / DEG_PER_RAD
+        lift_s = fz * math.cos(an) - fx * math.sin(an)
+        drag_s = fz * math.sin(an) + fx * math.cos(an)
+        lift_b = vn.cl * qs
+        assert lift_s == pytest.approx(lift_b, rel=1e-3), (example, vn.condition)
+        # The point's two force components name one drag, the airplane polar's:
+        # the D read from ``lzw = L cos a + D sin a`` is the D read from
+        # ``dx = D cos a - L sin a``. With the strips' lift equal to ``L``, the
+        # shortfall ``lzw - Sum fz`` is therefore that drag's normal component
+        # less the wing's own, plus the angle difference -- the two terms the
+        # convention names, with no third.
+        drag_from_lz = (vn.lzw - lift_b * math.cos(a)) / math.sin(a)
+        drag_from_dx = (vn.dx + lift_b * math.sin(a)) / math.cos(a)
+        assert drag_from_lz == pytest.approx(drag_from_dx, rel=1e-6), (example, vn.condition)
+        assert drag_from_lz > drag_s, (example, vn.condition, "non-wing drag is positive")
