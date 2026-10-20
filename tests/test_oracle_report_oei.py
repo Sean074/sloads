@@ -222,14 +222,17 @@ def test_every_engine_is_failed_and_both_senses_of_fin_load_are_present():
 def test_a_case_that_does_not_recover_is_printed_and_reaches_no_envelope():
     """G-OR-116 / OR-174, in both directions on shipped data.
 
-    ``atr42_100`` and ``dhc8_dash8`` do not recover at VS on either engine: full
-    asymmetric power at the clean stall speed is below VMC. The load at the 60 s
-    bound is where the integration stopped, not a design load. It is published --
-    suppressing it would hide that the case ran -- and it reaches nothing.
+    On the ATR with its rudder throw cut to 8 deg (``fixtures.unrecovered_turboprop``)
+    the VS march does not recover on either engine while VC and VD do; the shipped
+    ATR recovers at every speed since #389 gave it the airplane's fin. The load at
+    the 60 s bound is where the integration stopped, not a design load. It is
+    published -- suppressing it would hide that the case ran -- and it reaches
+    nothing.
     """
+    from fixtures import unrecovered_turboprop
     saw_one = False
-    for name in ("atr42_100",):
-        project = _project(name)
+    for name in ("atr42_100 (rudder 8 deg)",):
+        project = unrecovered_turboprop()
         cases = _vtail_cases(project)
         stalled = [fc for fc in cases if not fc.recovered]
         recovered = [fc for fc in cases if fc.recovered]
@@ -260,8 +263,11 @@ def test_a_case_that_does_not_recover_is_printed_and_reaches_no_envelope():
 
 
 def test_the_report_states_the_exclusion_and_the_referral():
-    """OR-174's half of the statement that belongs to the document."""
-    prose = " ".join(_section_11(_doc("atr42_100")).subsections[1].body)
+    """OR-174's half of the statement that belongs to the document -- on the
+    constructed non-recovering ATR (``fixtures.unrecovered_turboprop``)."""
+    from fixtures import unrecovered_turboprop
+    doc = oc.build_oracle_document(unrecovered_turboprop(), ReportSpec())
+    prose = " ".join(_section_11(doc).subsections[1].body)
     assert "EXCLUDED" in prose
     assert "stability and control" in prose
     assert "60 s" in prose

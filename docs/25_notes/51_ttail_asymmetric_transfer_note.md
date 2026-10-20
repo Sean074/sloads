@@ -463,6 +463,19 @@ Filing it as a backlog issue is part of this step's closure (rule 5).
   a constructed project (G-51.10).
 
 
+*Re-pinned 2026-10-19 (#389): every ATR figure in §4, §9.1, §10.1 and the
+G-51.x rows was measured on the fixture's statistical tails (an 85 sq ft
+stabiliser on a 220 in span, a 70 sq ft fin). The fixture now carries the
+airplane's: the stabiliser 125.0 sq ft on its measured 7.23 m span, the fin
+125.5 sq ft exposed with its root on the fuselage top line. `M_r` carries
+`S_H b_H`, so the ATR rows rose about 1.9× (23.441/23.443) and 1.4×
+(one-engine-out); the (b) roll rose to −57,894 lb-in, so the G-51.8 band holds
+at 4.21× / 5.33×; the governing h-tail bending is ONE ENGINE OUT VD at
+329,026 lb-in (+9.4 % on GUST DN RETRACTED's 300,684); and the VS one-engine-out
+case, which ran to the march bound on the old fin, is delivered with its own
+`INDUCED ROLL` row. The current figures are the pins in
+`tests/test_ttail_induced_roll.py`; the tables below stand as agreed.*
+
 ## 10. Amendment — the horizontal tail carries `M_r` (#334, #335, AGREED and SHIPPED 2026-10-04)
 
 **Owner rulings, in session 2026-10-04.** The owner's Q4/Q5 assumption of

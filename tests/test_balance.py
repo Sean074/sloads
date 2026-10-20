@@ -2344,11 +2344,13 @@ _LATERAL_CASE_NUMBERS = {
     # the fin's own bending, so p_dot grows (ATR +27-42 %, RJ +62-83 %) and
     # r_dot moves < 4 % through the Ixz coupling. Fin load and Ny untouched --
     # the check that this added a couple and moved no aerodynamics.
+    # Re-pinned 2026-10-19 (#389): the ATR's fin is the airplane's (125.5 sq
+    # ft exposed, root on the body) where a statistical 70 sq ft sized these.
     'atr42_100.project.json': {
-        'SIDE GUST': (4139.7165, +0.112440, +27.083856, -12.022951),
-        'SUDDEN RUDDER': (3921.4912, +0.106513, +29.032081, -10.341919),
-        'YAW 15 NEUTRAL': (-4461.0653, -0.121169, -31.425702, +11.834521),
-        'YAW TO SIDESLIP': (-1877.8937, -0.051006, -11.821331, +5.042959),
+        'SIDE GUST': (6719.9326, +0.182523, +39.019113, -18.494696),
+        'SUDDEN RUDDER': (6387.4268, +0.173491, +42.963938, -15.594453),
+        'YAW 15 NEUTRAL': (-7256.7905, -0.197104, -45.135150, +17.876800),
+        'YAW TO SIDESLIP': (-3046.4009, -0.082744, -15.711757, +7.645387),
     },
     'dhc8_dash8.project.json': {
         'SIDE GUST': (4527.1258, +0.131221, +32.818008, -12.523604),
@@ -2507,7 +2509,7 @@ def test_the_symmetric_half_of_a_lateral_case_still_closes(example):
 _UNSYMMETRICAL_SPLIT = {
     'ga6_normal.project.json': (-700.2880318468195, -504.20738292971004, 72.0),
     'cessna_210.project.json': (-687.2978354106667, -494.85444149568, 72.0),
-    'atr42_100.project.json': (-3127.8358046094277, -2502.2686436875424, 80.0),   # #260
+    'atr42_100.project.json': (-4375.503788118154, -3500.4030304945236, 80.0),   # #260; re-pinned at #389 (the stabiliser is the airplane's, 125.0 sq ft)
     'dhc8_dash8.project.json': (-3302.095528143376, -2641.6764225147012, 80.0),
     # D-69.17: the RJ's elevator is now an entered polyline whose integrated
     # hinge areas land on the former typed 4.0/30.0 within the construction

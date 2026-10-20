@@ -409,7 +409,7 @@ def test_every_fixture_still_loads_and_round_trips(example):
 _FIN_ROOT = {
     "ga6_normal.project.json": (111.5, "geometry"),
     "concept_regional_jet.project.json": (87.0, "geometry"),
-    "atr42_100.project.json": (191.2, "geometry"),
+    "atr42_100.project.json": (159.9, "geometry"),   # on the fuselage top since #389
 }
 
 
@@ -1139,6 +1139,32 @@ def test_a_present_outline_that_does_not_integrate_refuses(monkeypatch):
     monkeypatch.setattr(wing_geometry, "surface_properties", refuse)
     with pytest.raises(ValueError, match="a stubbed planform refusal"):
         boundary_derived_scalars(project, "htail")
+
+
+def test_the_atr_fin_is_the_measured_airplane():
+    """#389: ``atr42_100``'s fin is the exposed part of the airplane's (125.5 sq ft
+    above the fuselage top line, [A] p. 4 side view via sconfig V1.4, +/-4 %;
+    AR 1.6 / taper 0.55 / LE sweep 37 deg to the centreline, owner 2026-10-19),
+    its root on the fuselage top line and its tip at the published height. A
+    statistical fin -- the 70 sq ft that sized every ATR fin load until #389,
+    its root 33 in above the body -- cannot return silently."""
+    import math
+    from sloads.modules.select import effective_vtail_inputs
+
+    project = _project("atr42_100.project.json")
+    fin = effective_vtail_inputs(project)
+    assert fin.vtail_area_sqft == pytest.approx(125.5, rel=2e-2)
+    surf = project.geometry.by_name(VTAIL)
+    (le_r, z_r), (le_t, z_t) = surf.leading_edge[0], surf.leading_edge[-1]
+    assert z_t == pytest.approx(316.2)                    # the published overall height
+    sweep = math.degrees(math.atan2(le_t - le_r, z_t - z_r))
+    assert sweep == pytest.approx(37.0, abs=1.0)
+    secs = sorted(project.geometry.fuselage.sections, key=lambda s: s.x)
+    x = le_r + 0.25 * (surf.trailing_edge[0][0] - le_r)
+    a, b = next((a, b) for a, b in zip(secs, secs[1:]) if a.x <= x <= b.x)
+    f = (x - a.x) / (b.x - a.x)
+    top = (a.z_centre + f * (b.z_centre - a.z_centre)) + 0.5 * (a.height + f * (b.height - a.height))
+    assert z_r == pytest.approx(top, abs=1.0)              # the root sits on the body
 
 
 if __name__ == "__main__":

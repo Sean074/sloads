@@ -294,10 +294,11 @@ def test_the_shipped_turboprops_execute_onengout():
     constructed inputs — every engine carries both ratings, every speed case produces a
     positive tail load, and the high-speed cases recover.
 
-    The VS case is expected NOT to recover on either airplane: full asymmetric power at
-    the clean stall speed is below VMC, which is a real result and is stated in band on
-    the case (``NOT recovered ... likely below VMC``) rather than suppressed. Asserted,
-    so that a change which quietly made VS recover has to say so here."""
+    Every case recovers, VS included: until #389 the ATR's VS march ran to the
+    60 s bound on a statistical fin half the airplane's (70 sq ft) and was
+    stated in band as NOT recovered; on the measured fin (125.5 sq ft) it
+    recovers at 23.6 deg of yaw. Asserted, so that a change which quietly
+    stopped a case recovering has to say so here."""
     for name, (takeoff, max_cont) in _TURBOPROP_FIXTURES.items():
         p = io.load_project(os.path.join(_EXAMPLES, name))
         for e in p.engines:
@@ -315,9 +316,7 @@ def test_the_shipped_turboprops_execute_onengout():
             assert abs(values["Max tail load"]) > 0.0, (name, cond.title)
             assert values["Engine thrust"] > 0.0 and values["Windmill drag"] > 0.0, (
                 name, cond.title)
-            recovered = "NOT recovered" not in cond.note
-            base = cond.title.split(" (engine")[0]
-            assert recovered == (not base.endswith("VS")), (name, cond.title)
+            assert "NOT recovered" not in cond.note, (name, cond.title)
         # Both senses present: the two engines sit either side of the centreline
         # and their failures load the fin opposite ways (OR-173).
         loads = [v.value for c in result.conditions for v in c.values
@@ -541,13 +540,16 @@ def test_no_derivable_flight_loading_is_refused_not_sized_on_all_items():
 
 
 def test_an_unrecovered_case_is_stated_on_every_surface():
-    """#333 ruling 2: the ATR's VS cases (no cited VMC) do not recover. Each is
-    warned by name with its speed, altitude, fin incidence and load, and the
-    deck's record names it with the same numbers in deck-safe units."""
+    """#333 ruling 2: a VS case that does not recover (here the ATR with its
+    rudder throw cut to 8 deg, ``fixtures.unrecovered_turboprop``; the shipped
+    ATR recovers at every speed since #389) is warned by name with its speed,
+    altitude, fin incidence and load, and the deck's record names it with the
+    same numbers in deck-safe units."""
+    from fixtures import unrecovered_turboprop
     from sloads.modules.balance import build_balanced_cases
     from sloads.validation import consistency_warnings
 
-    p = io.load_project(os.path.join(_EXAMPLES, "atr42_100.project.json"))
+    p = unrecovered_turboprop()
     lost = [fc for fc in oeo.vtail_cases(p) if not fc.recovered]
     assert [fc.load_case.label for fc in lost] == ["VS", "VS"]
     warned = [w for w in consistency_warnings(p) if w.code == "oei_case_not_recovered"]

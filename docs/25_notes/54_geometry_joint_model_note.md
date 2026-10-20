@@ -118,15 +118,17 @@ boundary-model scalars gate against Appendix A at ±0.1 % where printed.
 
 1. **Fin-root joint:** register location equals the L-1 owner's resolution on
    every fixture — `ga6_normal` **111.5** (geometry), `baron_58` **110.0**,
-   `cessna_210` **100.2**, `atr42_100` **191.2**, `dhc8_dash8` **203.5**,
+   `cessna_210` **100.2**, `atr42_100` **191.2** (**159.9** since #389 put
+   the fin's root on the fuselage top line, 2026-10-19), `dhc8_dash8` **203.5**,
    `concept_regional_jet` **87.0** — and the LRA-model fin-root node sits on
    it, with the vertical arm to the fuselage-LRA node stated.
 2. **T-tail tip joint:** register waterline equals fin root + fin span —
    `atr42_100` **316.2**, `dhc8_dash8` **333.5**, `concept_regional_jet`
    **225.0** — equals `h_tail_waterline`'s fin-tip branch, **and the stated
    x-arm equals the measured LRA offset**: **−25.6 / −26.1 / −26.7 in**
-   (h-tail centreline LRA forward of the fin-tip LRA). The R-6 tie spans
-   exactly that arm.
+   (h-tail centreline LRA forward of the fin-tip LRA; the ATR's **−4.5** since
+   #389 set its stabiliser root leading edge on the fin tip's, 2026-10-19).
+   The R-6 tie spans exactly that arm.
 3. **Conventional attachment joint:** register pair equals `htail_attachment`
    with its basis — `ga6_normal` ±6.7, `baron_58` ±4.6, `cessna_210`
    ±10.9 in (fuselage outline at the h-tail LRA station, ASSUMED) — and the

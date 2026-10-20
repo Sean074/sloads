@@ -67,3 +67,18 @@ def turboprop() -> EngineInput:
             Rotor(diameter_in=9, weight_lb=15.66, max_rpm=33000, rotor_type=RotorType.TURBINE),
         ],
     )
+
+
+def unrecovered_turboprop():
+    """The ATR with its rudder throw cut to 8 deg: VC and VD still recover, VS
+    does not -- the constructed non-recovering 23.367 case the OR-174 /
+    G-66.11 / #333 gates exercise since #389 gave the shipped ATR the
+    airplane's own fin (125.5 sq ft) and every shipped march recovers."""
+    import os
+    from dataclasses import replace
+    from sloads import io
+    examples = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")
+    project = io.load_project(os.path.join(examples, "atr42_100.project.json"))
+    emp = project.geometry.empennage
+    project.geometry.empennage = replace(emp, vtail=replace(emp.vtail, rudder_deflection_deg=8.0))
+    return project

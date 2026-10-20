@@ -34,7 +34,7 @@ _TWINS = ("atr42_100", "baron_58")
 #: G-66.8, measured: (computed id, twin id) per assembled speed. The ATR's VS
 #: march does not recover on either engine (OR-174); the Baron's does.
 _EXPECTED = {
-    "atr42_100": [("VT-30", "VT-33"), ("VT-31", "VT-34")],
+    "atr42_100": [("VT-30", "VT-33"), ("VT-31", "VT-34"), ("VT-32", "VT-35")],   # VS recovers since #389
     "baron_58": [("VT-30", "VT-33"), ("VT-31", "VT-34"), ("VT-32", "VT-35")],
 }
 
@@ -172,9 +172,14 @@ def test_each_twin_is_the_other_engines_own_condition(name, monkeypatch):
 
 
 def test_an_unrecovered_march_is_recorded():
-    """**G-66.11**: the ATR's VS march does not recover (OR-174); it is never a
-    SELECT condition, and the record names it for the deck."""
-    _, _, skipped = _built("atr42_100")
+    """**G-66.11**: a VS march that does not recover (OR-174) is never a
+    SELECT condition, and the record names it for the deck. On the ATR with
+    its rudder throw cut to 8 deg (``fixtures.unrecovered_turboprop``; the
+    shipped ATR recovers at every speed since #389)."""
+    from fixtures import unrecovered_turboprop
+    project = unrecovered_turboprop()
+    skipped = []
+    build_balanced_cases(project, skipped)
     recorded = [s.label for s in skipped if s.code == "not-recovered"]
     assert recorded == ["ONE ENGINE OUT — VS (engine 1)", "ONE ENGINE OUT — VS (engine 2)"]
     # #333 ruling 2: and with what it reached -- speed, take-off altitude and
@@ -210,15 +215,30 @@ def test_the_one_g_half_closes_inside_the_gate(name):
     parent closes inside :data:`RESIDUAL_GATE`; the pitch residual the case
     reports is the pair's own couple in full, hence its exemption."""
     _, cases, _ = _built(name)
+    over = {}
     for c in _oei(cases):
         assert not residual_gate_applies(c)
         half = [ld for ld in c.loads if ld.source != "vtail-air"
                 and not ld.source.startswith(("engine-out-", "closure"))]
         fx, fy, fz, mx, my, mz = resultant6(half, (c.cg_x, 0.0, c.cg_z))
         n_w = c.nz * c.weight_lb
-        assert abs(fz) / n_w < RESIDUAL_GATE, c.label
+        if abs(fz) / n_w >= RESIDUAL_GATE:
+            over[c.label] = fz / n_w
         assert abs(my) / (n_w * c.mac) < RESIDUAL_GATE, c.label
         assert c.vn_case and c.label[len("ONE ENGINE OUT — "):][:2] in OEI_PARENT
+    # The one stated exceedance, pinned so it cannot drift or spread: the ATR's
+    # VS case, delivered since #389 gave the fixture the airplane's fin, is
+    # parented on the 1 g stall point, where this fixture's distributed wing
+    # lift closes 2.1 % short of the balanced point's (0.979 at alpha 20.7 deg
+    # on every stall-parented ATR case; 0.3 % on ga6 at 14.8 deg, 1 % on the
+    # Baron at 11.9 deg) -- a fixture-wide high-alpha closure trait filed at
+    # the #389 close, not the engine-out case's own. VC and VD close at
+    # 0.1-0.5 %.
+    known = {"atr42_100": {"ONE ENGINE OUT — VS (engine 1)": -0.0189,
+                           "ONE ENGINE OUT — VS (engine 2)": -0.0189}}.get(name, {})
+    assert set(over) == set(known), over
+    for label, want in known.items():
+        assert over[label] == pytest.approx(want, abs=5e-4), (label, over[label])
 
 
 @pytest.mark.parametrize("name", _TWINS)
@@ -294,11 +314,12 @@ def test_an_entered_coefficient_keeps_the_closure_yaw_onengouts(name):
     _assert_closure_yaw_is_the_marchs(_with_cd(_project(name), [0.25, 0.25]))
 
 
-@pytest.mark.parametrize("cd, want", [(None, 16_040.0), (0.25, 11_196.0), (0.10, 8_314.0)])
+@pytest.mark.parametrize("cd, want", [(None, 19_368.0), (0.25, 14_362.0), (0.10, 11_385.0)])
 def test_the_atr_vd_fin_load_follows_the_entered_coefficient(cd, want):
     """Note 66 §13's gate (D-66.12b): on a constructed ATR copy the VD peak fin
-    load, each engine, is the bound's 16,040 lb blank and 11,196 / 8,314 lb at
-    an entered C_D,disc of 0.25 / 0.10 -- measured 2026-10-04, ±0.1 %. The
+    load, each engine, is the bound's 19,368 lb blank and 14,362 / 11,385 lb at
+    an entered C_D,disc of 0.25 / 0.10 -- measured 2026-10-19 on the airplane's
+    fin (#389; 16,040 / 11,196 / 8,314 on the statistical one), ±0.1 %. The
     shipped ATR enters none (owner: no cited value), so its own loads hold."""
     project = _with_cd(_project("atr42_100"), [cd, cd])
     vd = [fc for fc in vtail_cases(project) if fc.load_case.label.startswith("VD")]

@@ -755,7 +755,7 @@ def test_the_engine_failure_conditions_reach_every_table_on_the_twins():
     set-agreement gate that ran only on single-engine fixtures would pass while
     agreeing on the wrong set.
     """
-    for name, expected in (("baron_58", 6), ("atr42_100", 4)):
+    for name, expected in (("baron_58", 6), ("atr42_100", 6)):   # the ATR VS pair recovers since #389
         project = _project(os.path.join(_EXAMPLES, f"{name}.project.json"))
         admitted = {c.case_ref.case_id
                     for c in default_critical(project).conditions
