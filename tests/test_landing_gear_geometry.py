@@ -63,8 +63,6 @@ def test_landloads_reactions_unchanged_bit_for_bit():
 if __name__ == "__main__":
     test_gear_geometry_serializes_under_geometry_not_landing()
     print("ok serializes under geometry")
-    test_pre_v28_top_level_landing_gear_migrates()
-    print("ok pre-v28 migration")
     test_gear_stations_derives_coarse_values_from_axles()
     print("ok gear_stations derivation")
     test_landloads_reactions_unchanged_bit_for_bit()

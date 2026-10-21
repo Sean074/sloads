@@ -148,8 +148,6 @@ if __name__ == "__main__":
     print("ok property proxy")
     test_empennage_round_trips_through_io()
     print("ok io round-trip")
-    test_pre_v27_top_level_tail_slices_migrate_to_empennage()
-    print("ok pre-v27 migration")
     test_select_tail_loads_survive_round_trip_bit_for_bit()
     print("ok SELECT bit-for-bit")
     print("all empennage tests passed")
