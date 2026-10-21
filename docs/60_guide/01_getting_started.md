@@ -27,8 +27,8 @@ results at the bottom, and move to the next.
 
 Everything you type describes one airplane, held in one file:
 `<name>.project.json`. That single file is the whole analysis input —
-geometry, weights, speeds, coefficients, gear — and both this GUI and the full
-`app/` GUI read and write the same format. Values are stored in one canonical
+geometry, weights, speeds, coefficients, gear — and the GUI, the CLI and the
+report generator all read and write the same format. Values are stored in one canonical
 unit system regardless of how you chose to view them (see
 [Conventions](03_conventions.md)), so a project made in SI opens identically
 for an Imperial-minded colleague.
