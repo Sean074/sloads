@@ -258,9 +258,10 @@ def test_the_gear_appendix_and_the_gear_file_are_one_call():
 def test_the_governing_load_factor_is_printed_beside_the_energy_estimate():
     """G-OR-126. OR-187, which is OR-57's rule applied to a scalar.
 
-    ``ga6_normal`` and ``concept_regional_jet`` both enter an N the reactions run
-    at while LGFACTOR's own estimate differs; ``baron_58`` enters none. All three
-    print both pairs, and the two that override say so in words.
+    ``ga6_normal`` enters an N the reactions run at while LGFACTOR's own
+    estimate differs; ``baron_58`` and ``concept_regional_jet`` (its 2.67
+    cleared at #401, note 72 Q3) enter none. All three print both pairs, and
+    the one that overrides says so in words.
     """
     for name in _SHIPPED:
         project = _project(name)

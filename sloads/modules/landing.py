@@ -45,9 +45,11 @@ family, **and** the full 33-case reaction matrix, so the ULTIMATE deliverable
 including the unbalanced moments and the ground-line inertia factors (M4-17e).
 
 Reference: LGFACTOR.BAS (Appendix C p483), LANDLOAD.BAS (Appendix C p468); Ref 1
-Ch 20 p126-130; oracles Appendix A "Landing Load Factor" p236
-(V 9.0048 / N 3.0951 / NLG 2.4281) and "Landing Loads with Respect to Ground Line"
-p230 (K 0.324 / GAMMA 17.978 / the AP-BP-DP-CP lever-arm table).
+Ch 20 p126-130; oracles Appendix A "Landing Load Factor" p236 (V 9.0048; the
+printed N 3.0951 is the energy ratio, which is the gear factor NLG -- approved
+deviation #401, design note 72, ``02_approved_corrections.md``) and "Landing Loads
+with Respect to Ground Line" p230 (K 0.324 / GAMMA 17.978 / the AP-BP-DP-CP
+lever-arm table).
 """
 
 from __future__ import annotations
@@ -95,10 +97,40 @@ ETA_OLEO = 0.75
 
 
 class LoadFactorResult(NamedTuple):
-    """LGFACTOR output: sink rate (fps), airplane load factor N, gear factor NLG."""
+    """LGFACTOR output: sink rate (fps), airplane inertia factor N, gear factor NLG.
+
+    ``NLG`` is the drop-test energy ratio itself -- the peak gear force over the
+    weight, the ground reaction factor of 14 CFR 23.473(e) -- and ``N = NLG + L``
+    (design note 72, D-72.1). ``LGFACTOR.BAS`` prints the ratio as N and ``N - L``
+    as NLG, which subtracts the wing lift twice; the approved deviation is in
+    ``docs/20_theory/02_approved_corrections.md`` (#401).
+    """
     sink_rate_fps: float
-    airplane_load_factor: float    # N
-    gear_load_factor: float        # NLG = N - L
+    airplane_load_factor: float    # N = NLG + L (23.473(e), Ref 1 p125)
+    gear_load_factor: float        # NLG: the energy ratio, F_gear,max / W
+
+
+def drop_energy_ratio(sink_rate_fps: float, lift_factor: float, strut_stroke_in: float,
+                      tire_deflection_in: float, eta_strut: float,
+                      eta_tire: float = ETA_TIRE) -> float:
+    """LGFACTOR's work-energy balance (LGFACTOR.BAS line 120, Ref 1 p483): the
+    peak gear force over the weight.
+
+    The descent kinetic energy plus the net weight ``(1 - L) W`` working through
+    the stroke equals the gear force's work ``eta * F_max * stroke``, so the
+    ratio is ``F_max / W``: the ground reaction factor of 23.473(e), with the
+    wing lift credited once, in the numerator. The single-mass balance omits the
+    unsprung mass's kinetic energy (3-6 % low against a two-mass drop, note 72
+    §1.2) -- inside the base method's band, and 23.473(f) supersedes the
+    estimate by test. One owner, so the closure gate (``tests/test_landing.py``
+    G-72.1) and ``landing_load_factor`` run the same equation.
+    """
+    denominator = (eta_tire * tire_deflection_in + eta_strut * strut_stroke_in) / IN_PER_FT
+    if denominator <= 0:
+        raise ValueError("LGFACTOR strut/tyre stroke must be positive")
+    numerator = (sink_rate_fps ** 2 / (2.0 * G)
+                 + (1.0 - lift_factor) * (strut_stroke_in + tire_deflection_in) / IN_PER_FT)
+    return numerator / denominator
 
 
 def landing_load_factor(wing_area_sqft: float, weight_lb: float, strut_stroke_in: float,
@@ -109,21 +141,19 @@ def landing_load_factor(wing_area_sqft: float, weight_lb: float, strut_stroke_in
     ``lift_factor`` (L) is a free number (note 37, LF-4: 0.667 is the FAR 23.473
     default, 1.0 the FAR 25.473(a)(2) basis -- guidance, not a cap); the descent
     velocity is clamped to 7-10 fps per FAR 23.473(d). Returns the sink rate,
-    airplane load factor N and landing-gear factor ``NLG = N - L``."""
+    the gear factor ``NLG`` (the energy ratio: the ground reaction factor) and
+    the airplane inertia factor ``N = NLG + L`` (23.473(e), Ref 1 p125).
+    ``LGFACTOR.BAS`` labels the ratio N and prints ``N - L`` as the gear factor,
+    the wing lift subtracted twice: approved deviation #401 (design note 72)."""
     if wing_area_sqft <= 0 or weight_lb <= 0:
         raise ValueError("LGFACTOR needs positive wing area and landing weight")
     v = 4.4 * (weight_lb / wing_area_sqft) ** 0.25
     v = min(10.0, max(7.0, v))
     d_tire = (tire_od_in - hub_diameter_in) / 6.0    # flat-tyre deflection, in
     eta_strut = ETA_OLEO if main_is_oleo else ETA_SPRING
-    numerator = (weight_lb * v ** 2 / (2.0 * G)
-                 + weight_lb * (1.0 - lift_factor) * (strut_stroke_in + d_tire) / IN_PER_FT)
-    denominator = weight_lb * (ETA_TIRE * d_tire + eta_strut * strut_stroke_in) / IN_PER_FT
-    if denominator <= 0:
-        raise ValueError("LGFACTOR strut/tyre stroke must be positive")
-    n = numerator / denominator
-    return LoadFactorResult(sink_rate_fps=v, airplane_load_factor=n,
-                            gear_load_factor=n - lift_factor)
+    nlg = drop_energy_ratio(v, lift_factor, strut_stroke_in, d_tire, eta_strut)
+    return LoadFactorResult(sink_rate_fps=v, airplane_load_factor=nlg + lift_factor,
+                            gear_load_factor=nlg)
 
 
 def governing_load_factors(inp: LandingInput,
@@ -899,8 +929,10 @@ def below_energy_caution(project: Project) -> Optional[str]:
 
     Not a refusal: a rounded-down design N is legal (the floors are the hard
     bound), but running the reactions below the drop-test energy value deserves a
-    stated warning. One owner; ``cessna_210`` trips it (3.1670
-    entered vs 3.3885 computed), ``ga6_normal`` does not (3.167 vs 3.0951).
+    stated warning. One owner. ``ga6_normal`` trips it by design (note 72
+    D-72.4): McMaster's design N 3.167 sits below the energy N 3.764 once the
+    estimate is labelled as 23.473(e) reads it, and the N is kept because p230
+    reproduces at NLG 2.5 and nowhere else. ``baron_58`` enters no N and cannot.
     """
     inp = project.landing
     if inp is None or inp.airplane_load_factor is None:
@@ -1107,8 +1139,8 @@ def run(project: Project) -> ModuleResult:
         note += " Concept mode -- unverified extrapolation past the FAR23 band."
         # FAR 23.473(g) on the *governing* pair: warn-only in concept (a FAR 23
         # category refuses instead, in ``build_landing`` -- note 37, LF-6). The
-        # energy N/NLG are left untouched, so the Appendix-A oracle (N 3.0951 /
-        # NLG 2.4281) is unaffected.
+        # energy N/NLG are left untouched, so the Appendix-A oracle (p236: the
+        # printed 3.0951, locked as NLG under #401) is unaffected.
         floors = far23_473g_floor_violations(n_gov, nlg_gov)
         if floors:
             note += (" 23.473(g) floor not met (" + "; ".join(floors)

@@ -409,7 +409,7 @@ updated to the later amendment"), recorded in design note 52 D-52.11.
 
 ---
 
-### LGFACTOR's energy ratio is the gear factor, not the airplane load factor *(approved 2026-11-01, issue #401; ships with design note 72)*
+### LGFACTOR's energy ratio is the gear factor, not the airplane load factor *(approved 2026-11-01, issue #401; design note 72)*
 
 `LGFACTOR.BAS` (Ref 1 p483) computes
 
@@ -442,7 +442,12 @@ ratio equal to the gear factor:
   L = 0, 0.667 and 1.0, and the simulated `N − n_j` is 0.90–0.95 × L.
 - **sgear's Daniels A-6 rig**: −5.9 % at L = 1.0.
 
-Design note 72 §1.2 carries the numbers.
+Design note 72 §1.2 carries the numbers. **Lomax** (*Structural Loads Analysis
+for Commercial Transport Aircraft*, AIAA 1996, read 2026-11-01) states the
+relation with the gear reaction as the measured quantity: `nz = 1 + 2·VMG/MLW`
+(Eq. 6.20, p83) and `VMGr + VMGl + VNG = nz·W − L = W(nz − 1)` with `L = W`
+under 25.473(a)(2) (Eqs. 6.25–6.26, p86) — `N = n_j + L` at `L = 1`. He does
+not carry the efficiency balance itself.
 
 **Cells deviated from.** p236 only. The printed `N 3.0951` is now asserted
 against the corrected **`NLG`**. The printed `NLG 2.4281` is kept as a comment.

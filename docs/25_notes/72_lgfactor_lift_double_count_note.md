@@ -2,9 +2,10 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: AGREED 2026-11-01 — no code** (owner, in session, under the solo
-profile — rule 1's working-alone branch). PROPOSED the same day. The owner ruled
-**Q1–Q6 as recommended** (§5):
+**Status: SHIPPED 2026-11-01** (#401; closure under the #359 rules, so one
+`changes/` fragment and no history entry). AGREED 2026-11-01 — no code (owner,
+in session, under the solo profile — rule 1's working-alone branch). PROPOSED
+the same day. The owner ruled **Q1–Q6 as recommended** (§5):
 - the p236 deviation is approved;
 - `ga6_normal` keeps N = 3.167, with a fixture note;
 - the three 2.67 fixtures are cleared, so the energy value governs;
@@ -110,11 +111,15 @@ What the sgear runs show:
 These are evidence for the ruling, not CI gates: sgear is not a dependency. The
 script is reproduced in Appendix A of this note so the check can be re-run.
 
-**Textbook corroboration is pending.** Lomax (*Structural Loads Analysis for
-Commercial Transport Aircraft*, AIAA 1996) and Curry (*Aircraft Landing Gear
-Design*, AIAA 1988) are recalled to define the same balance with `N` as the
-*gear* factor. Neither is in the library. Rule 1 forbids citing either until the
-page is in hand (Q6).
+**Textbook corroboration (read 2026-11-01, at closure).** Lomax (*Structural
+Loads Analysis for Commercial Transport Aircraft*, AIAA 1996) does not carry
+McMaster's efficiency balance; it takes the peak gear reaction from the drop
+test and derives the inertia factor from it by adding the lift share: Eq. (6.20)
+`nz = 1 + 2·VMG/MLW` (p83, Table 6.3 footnote), and for three wheels
+`VMGr + VMGl + VNG = nz·W − L = W(nz − 1)` since `L = W` under 25.473(a)(2),
+Eqs. (6.25)–(6.26), p86. That is `N = n_j + L` at `L = 1`, the 23.473(e)
+relation, with the gear factor as the measured quantity. Curry (*Aircraft
+Landing Gear Design*, AIAA 1988) is still not in the library (Q6).
 
 ### 1.3 Effect on the fleet (measured 2026-11-01, `build_landing`)
 

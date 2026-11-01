@@ -152,6 +152,15 @@ APPROVED_CORRECTIONS = (
      "the roll point becomes 0.875 n1 and the unbalanced rolling moment "
      "falls to a quarter of condition A's root bending; the governing "
      "side's air load, condition A's, is unchanged."),
+    ("LGFACTOR's energy ratio is the gear factor, not the airplane load factor",
+     "23.473(e)",
+     "Landing load factor: LGFACTOR's drop-test energy ratio is the peak "
+     "gear force over the weight -- the ground reaction factor NLG -- and "
+     "the airplane inertia factor is NLG + L, per 23.473(e) and LANDLOAD's "
+     "own NAP = NLG + LF. The source prints the ratio as N and N - L as the "
+     "gear factor, subtracting the wing lift twice; Appendix A p236's "
+     "printed N is locked as NLG, and the gear reactions rise wherever the "
+     "energy value governs."),
 )
 
 #: Limitations that hold for every run, regardless of project content, as

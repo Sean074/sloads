@@ -69,8 +69,8 @@ are the ones a human can verify in a minute. (LIMIT values, as printed.)
 |---|---|---|
 | Balancing case 202 elevator angle | −5.39° | Ch 9 balancing tail loads |
 | Landing sink rate V | 9.0048 ft/s | `LGFACTOR.OUT`, Appendix A p236 |
-| Landing load factor N | 3.0951 | same |
-| Gear load factor NLG | 2.4281 | same |
+| Landing energy ratio — printed as N, reported as the gear factor NLG (deviation register, #401) | 3.0951 | same |
+| Airplane load factor N = NLG + L | 3.7621 | derived; the book's printed 2.4281 is the ratio less L |
 | Gear geometry constant K | 0.324 | `LANDLOAD.OUT`, Appendix A p230 |
 | Level-landing main-wheel vertical (case 1) | 3,144 lb | `LANDLOAD.OUT`, Appendix A p231 |
 | Takeoff-case mean engine torque | 554.39 lb-ft | `ENGLOADS`, Appendix A — **reported factored** (see the deviation register) |

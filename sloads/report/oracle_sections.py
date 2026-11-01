@@ -8607,9 +8607,13 @@ def _landing_factor_table(project: Project,
         ["Limit descent velocity", _scalar_cell(lf.sink_rate_fps, v_scale, "ft/s"),
          v_units, "23.473(d): 4.4 (W/S)^0.25, held between 7 and 10 ft/s."],
         ["Airplane load factor N (energy)", format_value(lf.airplane_load_factor, "g"),
-         "", "LGFACTOR's drop-test work-energy estimate."],
+         "", "NLG + L (23.473(e)): the inertia factor at peak gear force. "
+         "Appendix A p236 prints NLG - L here, the wing lift subtracted twice "
+         "(approved deviation #401, design note 72)."],
         ["Gear load factor NLG (energy)", format_value(lf.gear_load_factor, "g"), "",
-         "N less the wing lift factor L."],
+         "LGFACTOR's drop-test work-energy ratio: the peak gear force over the "
+         "weight, the ground reaction factor of 23.473(e). p236 prints this "
+         "value as N."],
         ["Airplane load factor N (governing)", format_value(n_gov, "g"), "",
          "Entered on the project." if entered
          else "The energy value: no N is entered."],
@@ -8621,7 +8625,10 @@ def _landing_factor_table(project: Project,
         columns=["Quantity", "Value", "Units", "Basis"], rows=rows,
         note=("The governing pair is what the 33 reaction cases below were "
               "computed at. Load factors are dimensionless and are never scaled: "
-              "they carry no safety factor and no unit."))
+              "they carry no safety factor and no unit. The energy pair deviates "
+              "from the source manual's labels: LGFACTOR.BAS prints the energy "
+              "ratio as N and N - L as NLG; the ratio is the gear factor "
+              "(02_approved_corrections.md, #401)."))
 
 
 def _landing_case_table(cases: Sequence[_GroundCase]) -> Optional[Table]:
@@ -8992,7 +8999,12 @@ def _landing_loads(project: Project,
         "The landing load factor is the drop-test work-energy balance of FAR "
         "23.473(d)-(g): the airplane arrives at the limit descent velocity and "
         "the tyre and strut absorb that energy over their deflections at their "
-        "efficiencies. It is the input the whole of the next subsection runs at.",
+        "efficiencies. It is the input the whole of the next subsection runs at. "
+        "The balance yields the ground reaction factor NLG -- the peak gear force "
+        "over the weight -- and the airplane inertia factor is N = NLG + L "
+        "(23.473(e)). The source program prints the ratio as N and subtracts the "
+        "lift a second time; sloads deviates, under the approved-corrections "
+        "register (#401, design note 72).",
     ]
     inp = project.landing
     if inp is not None and inp.airplane_load_factor is not None:
