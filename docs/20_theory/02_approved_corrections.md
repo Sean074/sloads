@@ -409,6 +409,61 @@ updated to the later amendment"), recorded in design note 52 D-52.11.
 
 ---
 
+### LGFACTOR's energy ratio is the gear factor, not the airplane load factor *(approved 2026-11-01, issue #401; ships with design note 72)*
+
+`LGFACTOR.BAS` (Ref 1 p483) computes
+
+```basic
+N = (W*V^2/(2*G) + W*(1-L)*(SSTRUT+STIRE)/12) / (W*(ETIRE*STIRE+ESTRUT*SSTRUT)/12)
+PRINT "AIRPLANE LOAD FACTOR = "; N
+PRINT "LANDING GEAR FACTOR = "; N-L
+```
+
+**What is wrong.** The denominator is the work done by the **gear force** over
+the stroke. The numerator already credits the wing lift through `(1−L)`. So the
+ratio is the peak gear force over the weight: the **ground reaction factor**
+`n_j`. Printing it as the airplane factor and then subtracting `L` counts the
+lift twice. **14 CFR 23.473(e)**, as Ref 1 prints it on p125, fixes the
+relation: *"The ground reaction load factor may be equal to the inertia load
+factor minus the ratio of the above assumed wing lift to the airplane weight"*,
+which gives `N = n_j + L`. McMaster's own `LANDLOAD.BAS` line 100,
+`NAP=NLG+LF` (Ref 1 p467), states the same relation, so the manual is
+internally inconsistent.
+
+**What sloads does instead.** `landing_load_factor` returns
+`gear_load_factor = ratio` and `airplane_load_factor = ratio + L`. The ratio's
+arithmetic is unchanged.
+
+**Why it is believed.** Three checks that do not use the equation all find the
+ratio equal to the gear factor:
+- **A closed-form single-mass drop**, an oleo-like gear integrated to first
+  maximum compression: ratio 4.9999 against `F/W` 5.000 at L = 0.667.
+- **sgear's ATR trailing-link main gear**: the ratio is within 3–6 % of `n_j` at
+  L = 0, 0.667 and 1.0, and the simulated `N − n_j` is 0.90–0.95 × L.
+- **sgear's Daniels A-6 rig**: −5.9 % at L = 1.0.
+
+Design note 72 §1.2 carries the numbers.
+
+**Cells deviated from.** p236 only. The printed `N 3.0951` is now asserted
+against the corrected **`NLG`**. The printed `NLG 2.4281` is kept as a comment.
+The corrected `N` is 3.7621. **p230 to p233 do not move**: `ga6_normal` runs
+LANDLOAD at its entered `N = 3.167` (note 40 LF-9), and the entered value
+governs.
+
+**Delivered effect.** On fixtures where the energy value governs, the gear
+reactions rise by the factor `ratio / (ratio − L)`:
+- `baron_58`: +24.7 % vertical and +16.8 % main drag;
+- the three ATR-class fixtures, cleared to the energy value by the owner's
+  ruling (note 72 Q3): +18.6 % against their former entered 2.67.
+
+Gates: design note 72 G-72.1 (energy-balance closure) and G-72.2 (p236 with the
+printed column kept).
+
+**Authority:** owner's ruling in session, 2026-11-01, recorded in design note 72
+§5 Q1.
+
+---
+
 ---
 
 ## Withdrawn from scope

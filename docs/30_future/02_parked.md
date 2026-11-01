@@ -32,11 +32,14 @@ rewritten against the direct path or deleted with the properties.
 
 ## Phase F25 deferrals
 
-(F25-0/1/2/4 remain in the backlog; details and the full gap table in
+(F25-1 and F25-4 are filed as #410 and #411 on 0.11.0, 2026-11-01; L-4's VB and
+66 fps line activated into #410. F25-0/2 remain in the backlog; details and the full gap table in
 [`04_far25_gap_analysis.md`](04_far25_gap_analysis.md).)
 
 - **F25-3 — Maneuver & tail surrogates (M).** Checked-maneuver 25.331(c)(2)
-  static evaluation; yaw overswing case; 25.427/25.349 schedule checks.
+  static evaluation; 25.427/25.349 schedule checks. *(The yaw overswing case
+  activated 2026-11-01 into #412, the ATR's Part 25 gaps; the 23.423 checked
+  coefficient is #407.)*
 - **F25-5 — Small gaps (S).** The 23.415/25.415 ground-gust module (serves both
   parts). *(The Part 25 ΔP combination rules that were the item's other half are
   out of scope as of 2026-08-14 — decision **D-24**, pressurization removed.)*
@@ -71,13 +74,15 @@ the chord E is a fraction of.
 down exactly what quantity the rudder EFV multiplies. The default-1.0
 pass-through matches the oracle and stays until then.
 
-### L-4 — Distinct Commuter category + VB
-The 19,000-lb/19-seat tier is encoded but dormant; neither VB (23.335(d)) nor
-the 66-fps rough-air gust (23.341) is computed anywhere (the BASIC suite
-predates commuter support too). Note the commuter MC→MD margin rule
-(23.335(b)(4)(iii): 0.07 / rational / 0.05 floor —
-`reference/14CFR_MC_MD_speed_margin.md`). Land as one step when a concept
-needs the tier.
+### P-5 — Standard atmosphere above the tropopause *(parked 2026-11-01, physics review P-5)*
+
+`constants.py:357` puts the tropopause at 35,332 ft (ISA: 36,089 ft) and uses an
+isothermal decay of 4.778e-5/ft (ISA: 4.806e-5). **The number that parks it:**
+below 0.5 % on the speed of sound above FL350, against the 5–10 % base-method
+band (rule 6), and zero below 35,332 ft. The ATR's ceiling is 25,000 ft and no
+shipped fixture flies above 35,000 ft. Align it with ISA/sstandards in passing
+when `constants.standard_atmosphere` is next touched, or when a fixture flies
+above FL350.
 
 ### L-5 — FLTLOADS enroute / speed-control config
 Third config — enroute (partial flaps / dive brakes / spoilers) with VPF
