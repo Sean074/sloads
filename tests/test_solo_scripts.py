@@ -95,6 +95,7 @@ def test_close_dry_run_lists_steps_3_to_7_in_order():
     res = _bash(_CLOSE, "--dry-run", "--slug", "some-slug", "27", "Subject")
     assert res.returncode == 0, res.stderr
     signatures = [
+        "backlog_issues.py render --closing 27",   # preflight: the row leaves before the gate (#359)
         "ruff check sloads/ cli.py oracle.py app_shell/ oracle_app/ scripts/",
         "mypy",
         "pytest -q -p no:cacheprovider",
@@ -103,11 +104,31 @@ def test_close_dry_run_lists_steps_3_to_7_in_order():
         "git push origin",
         "gh issue close 27 --reason completed",
         "backlog_issues.py check",
+        "backlog_issues.py render --dry-run",
         "gh run list --branch <branch> --limit 1",
     ]
     positions = [res.stdout.find(s) for s in signatures]
     assert all(p >= 0 for p in positions), dict(zip(signatures, positions))
     assert positions == sorted(positions), "steps 3–7 are out of order in the dry-run"
+
+
+def test_close_refuses_a_subject_over_100_chars():
+    """The commit subject, parenthetical included, is capped at 100 characters
+    (#359): the median subject had reached 180, a paragraph in the log."""
+    res = _bash(_CLOSE, "--dry-run", "--slug", "s", "27", "x" * 120)
+    assert res.returncode == 1 and "100" in res.stderr, res.stderr
+    assert _bash(_CLOSE, "--dry-run", "--slug", "s", "27", "x" * 50).returncode == 0
+
+
+def test_close_refuses_a_history_fragment_and_reads_one_typed_fragment():
+    """History fragments retired 2026-11-01 (#359): every tier closes with one
+    typed fragment, and a leftover .history*.md is a refusal, not a tier."""
+    res = _bash(_CLOSE, "--dry-run", "--slug", "some-slug", "27", "Subject")
+    assert "history fragments retired" in res.stdout
+    assert "the one fragment, every tier" in res.stdout
+    src = _read(_CLOSE)
+    assert "history fragments retired 2026-11-01" in src
+    assert "WORDS" in src and "-le 60" in src, "the <= 60-word fragment cap left the script"
 
 
 def test_close_no_longer_touches_main_or_deletes_a_branch():
@@ -142,7 +163,8 @@ def test_close_rejects_missing_or_empty_arguments():
 #: The `gh` work an issue number costs, per item. Omitting the issue must drop
 #: every one of them; the trailing `gh run list` CI peek is not in this set —
 #: it is a courtesy, guarded on `gh auth status` succeeding at the time.
-_ISSUE_GH_CALLS = ("gh auth status", "gh issue view", "gh issue close", "backlog_issues.py check")
+_ISSUE_GH_CALLS = ("gh auth status", "gh issue view", "gh issue close", "backlog_issues.py check",
+                   "backlog_issues.py render")
 
 
 @pytest.mark.parametrize(

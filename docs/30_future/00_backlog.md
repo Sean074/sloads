@@ -6,7 +6,7 @@ tiers, definition of done, the removal rule, naming) are in
 [`../../CLAUDE.md`](../../CLAUDE.md) and restated once above the table; they
 are not repeated here. Off-mission items live in [`02_parked.md`](02_parked.md);
 completed work in [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md)
-and [`../../CHANGELOG.md`](../90_record/CHANGELOG.md); the pre-2026-08-16 running
+and [`90_record/CHANGELOG.md`](../90_record/CHANGELOG.md); the pre-2026-08-16 running
 "current state" narrative is archived in
 [`../90_record/10_backlog_state_narrative_to_2026-08-16.md`](../90_record/10_backlog_state_narrative_to_2026-08-16.md).
 Narratives and plans: [`01_concept_loads_plan.md`](01_concept_loads_plan.md)
@@ -50,504 +50,7 @@ Reference-authority hierarchy: (1) `.BAS` listings + Appendix A printed output,
 
 ---
 
-# Priority table (re-cut 2026-09-11 — the single order of work)
-
-**Re-cut 2026-09-11 (owner, in session) — three milestones where there were
-two, and the whole table renumbered densely.** The 0.8.3 milestone's **named
-deliverable shipped with #25** (the T-tail empennage geometry model); what
-remained on it was one L-tier design note in flight (#263, note 56) plus a
-21-row defect-and-polish tail with no relation to the milestone's charter —
-while **note 57 sat AGREED, filed and sequenced, gated on "the 0.8.3 cut"**,
-i.e. gated on those 21 rows. The table is re-cut into three bands:
-
-* **B4 / 0.8.3 — the export contract closes.** #263's remaining slices
-  (D-56.9 + D-56.1, D-56.6, D-56.8 + §8), the two rows that close superseded
-  with it (#173, #176), and #16 pulled in from 0.9.0 as the pre-clean note 56
-  absorbs either way. Four rows, one work package.
-* **B5 / 0.8.4 — the two front-ends converge.** Note 57's D-57.8 sequence
-  unchanged (#265 → #266 → #267/#268/#269 → #270), with **#241, #242 and #245
-  inserted before #270** and **#255 closing superseded at it**.
-* **B6 / 0.8.5 — the defect and polish cleanup, on the converged surface.**
-  The remaining eighteen, in the 2026-09-09 working sequence: the hygiene
-  front, the safety-factor cluster, the tail-geometry cluster, the baseline
-  wave, then polish.
-
-Four rulings, and the costs they book:
-
-1. **#245 moves *forward*, not back — 0.8.3 → 0.8.4.** Its title is the
-   convergence problem verbatim (*"the files ship only from `app/`'s export
-   page"*), and note 57 §1.3 names its `data/` as `export_report`'s successor
-   channel, so **#270 cannot retire that page until #245 lands**. #241 and
-   #242 follow it into the band so `data/` is born corrected rather than
-   corrected after shipping.
-2. **The baseline wave splits, and that is the price.** It was sequenced
-   #164 → #222 → #241 → #242 → #161 so digests and report baselines
-   regenerate once; with #241/#242 in 0.8.4 it regenerates twice. Both are
-   column *additions* to files the wave already rewrites, so the second pass
-   is scripted regeneration, not rework — booked here rather than discovered
-   later. The wave that stays in B6 is **#164 → #222 → #260 → #161**.
-3. **The SF cluster — #179, #180, #177 — was correctness, not polish, and it is
-   closed.**
-   Rule 6 puts a defect with first-order effect on shipped content ahead of
-   everything; both were **latent** — #179's silently-first-match hole had no
-   current producer emitting the string, #180's `getattr` fallbacks were dead
-   defaults that would only resurrect a flat 1.5 under a future attribute
-   rename. Latent, so the deferral was lawful; named here so it was a decision
-   and not a drift. **#179 closed 2026-09-15**, and its practice-4 sweep found a
-   second latent misreading in the same classifier (a four-digit Subpart G
-   section read as a three-digit Subpart C one). **#180 closed 2026-09-15**, and
-   its sweep found the class far larger than the finding named: fifteen defaulting
-   reads on the delivery side, not two — one able to print an SF of zero, four
-   turning "this condition prescribes no factor" into a printed 1.5. Twice
-   in one day the deferred item's own neighbourhood held more than the item —
-   which is the standing argument against letting a latent defect sit: the
-   deferral is lawful, the company it keeps is never inspected. **#177 closed
-   2026-09-15** and made that three times: R-6 named one GUI surface, and the
-   sweep found five callers running modules unstamped — the oracle report's own
-   run point among them, so the shipped document printed the dataclass 1.5 on
-   every condition the governing table says prescribes no factor. The fix put
-   the stamp where the runner is handed out rather than at five call sites, and
-   the sweep turned up a producer whose stated reference and stated factor
-   contradicted each other on two shipped fixtures. The cluster's common shape,
-   across all three: the *policy* had an owner from M4-8 onward, and every
-   defect in it was a caller who never asked the owner.
-4. **Band B2 is re-chartered, not re-ordered.** It was named "main-GUI
-   development and bug correction" for a front-end #270 deletes. Its rows keep
-   their order; nine of them (#29, #148, #247–#252, and #78's re-scope) close
-   or re-scope at #270 under R-57.4, and #259 closes with the dashboard. What
-   survives is calc, report and process work, which is what the header now
-   says.
-
-The efficiency claim is stated narrowly, because it was measured: the
-convergence saves **one** tier-S row of duplicated effort (#255). `format_value`
-(the precision row, closed at #161) has **zero** `app/` call sites — 164 in `sloads/report/`, three in
-`oracle_app/` — the override cross-check of #243 lived at `oracle_app/form.py`,
-#177 and #239 are on the survivor, and D-56.2's seven `app/views/` consumers
-were already paid on 2026-09-10/11. The gain is not avoided rework: it is that
-an AGREED note stops waiting on unrelated polish, each milestone carries one
-charter, and the tail is triaged once against one front-end.
-
-**Cut 0.8.3 when band B4 is empty, 0.8.4 when B5 is, 0.8.5 when B6 is, then
-0.9.0 when B2 is** — superseding the 2026-08-29 "then 0.9.0 when band B2 is"
-clause, which knew of no milestone between.
-
-> **B4 is retired: 0.8.3 was cut on 2026-09-13** (tag `v0.8.3`; the release-cut
-> block in
-> [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md)
-> is the record). The band emptied, re-opened the same day and emptied again:
-> #263 (design note 56) closed with #173 and #176, taking the band's last three
-> rows, and the issue-bookkeeping pass that followed found statements in shipped
-> content — in the oracle report, on four GUI captions, and inside the one deck
-> that ships — describing the export package the note deleted. A defect with
-> first-order effect on shipped content is exactly what the ordering rules put
-> above every [V] item, and 0.8.3 could not knowingly cut a report that names
-> artifacts it does not build, so the band took one row for #274 rather than the
-> release carrying the statement. The round trip is the cut rule working, not
-> drift: the band is the pre-cut queue, something entered it, and the queue
-> drained before the cut instead of after it. **Band B5 (0.8.4 — the two
-> front-ends converge on one, design note 57) is the milestone in flight.**
-
-> **Band B5 re-cut 2026-09-13 (owner, in session) — design note 60.** The
-> band's critical review, taken immediately after the 0.8.3 cut, found two
-> things note 57 did not measure. The front-end carries **twenty** figures, not
-> the four D-57.4 names — and **nine of the thirteen** plot-carrying pages are
-> *shared* analysis steps, which a page-level audit cannot see going. And
-> `app/views/export_report.py` is the only production consumer of
-> `content.build_report`, so D-57.6 retires the **summary report** without
-> naming it, taking the only statement of the axis system either front-end
-> makes and the only FAR 23 Subpart C coverage matrix. The band gains two rows
-> — **#239** pulled forward from B6 (note 57's gates 4 and 5 assert through it,
-> so the band that depends on it cannot follow it) and the **report-merge**
-> row, filed new — and re-tiers one, **#267 M → L**. Note 57's D-57.8 rule is
-> unchanged and is exactly what the additions serve: the surviving GUI is
-> complete before anything is removed. The table is renumbered densely with
-> the re-cut, which owns it — **Pri 1–57**.
-
-> **B5 emptied 2026-09-13 with #270.** The band's last two rows closed together:
-> `app/views/` and `app/Home.py` were deleted — 22 pages, 8,461 lines — with
-> `content.build_report`, the summary report's LaTeX path, `report/bundle.py`
-> and the `.xlsx` workbook, and **#255** closed superseded because its fix site
-> was one of the deleted files. The page set is now `workflow.gui_pages()`: the
-> derived analysis steps plus the three declared non-step pages. The band's
-> charter is met — there is one front-end — and note 57 §6/§8's end-of-milestone
-> work is done (2026-09-13): the `app_shell/` slimming swept the five names the
-> deletion left unreachable, every statement in the code that still described two
-> front-ends is re-cut, and the release-state sentence stops naming a GUI that
-> does not exist. R-57.5's rename **executes as nothing** — the ruling took the
-> branch where the name and entry point stand, and the milestone changed the
-> argument for a rename, not the decision; if it is ever taken up it is its own
-> row with its own deprecation of the console script. What is left for the cut
-> itself is step 3 of `RELEASE_PROCESS.md` §4 (the record roll, note 61) and
-> not a row.
-> **B5 is retired: 0.8.4 was cut on 2026-09-14** (tag `v0.8.4`; the release-cut
-> block in
-> [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md)
-> is the record). The band emptied once and stayed empty — the pre-cut queue took
-> nothing back, which is what the 0.8.3 round trip was the exception to.
-> **Band B6 (0.8.5 — correctness and tooling on the converged surface) is the
-> milestone in flight**; B7, B8 and B9 (0.8.6–0.8.8) follow it in order.
-
-> **B6 re-cut 2026-09-14 (owner, in session) — the band opened against its own
-> rules.** The milestone's first read asked one question of band B2: is any row
-> there 0.8.5 work by rule 6 or by B6's charter? Four are, and they move.
-> **#272** — the row said to check whether #270 retired its consumer surface; it
-> did not (the oracle report still enumerates the v-tail set twice), and the
-> omitted case is the governing one on every shipped twin, which is first-order
-> effect on shipped content. **#257** — the deck and report ride a mass model
-> short of the item table with no statement a reader can see: the class #258
-> and #254 are already in the band for, landing in the header #275 reworks.
-> **#280** — the backlog tool has corrupted an unfiled defect's body three
-> times, and this milestone runs `check` at every closure; it goes to the
-> hygiene front so the fourth time is not scheduled. **#210** — stranded on
-> "the OR-13 freeze lifting", which happened at the 0.8.2 cut. Two drifts
-> found in the same read are corrected here: **#282** was filed to the
-> milestone after the 0.8.4 cut with no band label and no row (both added),
-> and #191 carried a band label and nothing else. **#283** is filed new to B2
-> — the beam-model page the owner asked for — with the ruling that the report
-> package does not carry the deck. Left in B2 deliberately: #29 (a review
-> produces rows, and a band does not grow mid-flight), #209 (a decision first),
-> #226 (a measurement first). The table is renumbered densely with the re-cut,
-> which owns it — **Pri 1–40**; the band is twenty-five rows, 1 L, 8 M, 16 S.
-
-> **B6 split four ways, 2026-09-14 (owner, in session) — the same twenty-five
-> rows, cut by what each touches.** One twenty-five-row band sat every row
-> behind the two decisions the owner still owes (#164's case-set shape, #275's
-> D-56.4 amendment) and held the wrong shipped statements on the dev branch for
-> the whole run. The record prices a cut at two commits and a baseline verify,
-> so the band is cut where the work changes kind, and each cut's baseline
-> regeneration is paid once. **B6 (0.8.5)** keeps the fourteen rows that need
-> no decision and move no delivered number: the hygiene front, the SF cluster,
-> the statement fixes and #216 — which cost the band's one exception, an
-> Imperial digest regeneration on 2026-09-16 for the two aileron planforms
-> WING_GEOMETRY publishes, no load or deck row among them. **B7 (0.8.6)** is
-> the baseline wave
-> (#164 → #222 → #260 → #161) with #210, the rows that move numbers and
-> regenerate digests, gated on the #164 decision alone. **B8 (0.8.7)** is the
-> polish tail (#243, #240, #256, #258, #276) — deferrable as a unit behind
-> 0.9.0 if the calendar says so. **B9 (0.8.8)** pairs **#275** with **#283**,
-> pulled forward from B2: the mesh-rule amendment and the beam-model page are
-> one subject (what the LRA mesh is, and how the user sees and exports it), the
-> page depends on the amendment, and both need a note at AGREED, so the two
-> notes are written as one design pass. The one row that could have gone
-> either way is #177, a display change to the SF band that stays in B6 — if it
-> moves a printed value, B7 regenerates what B6 regenerated, which is accepted.
-> Renumbered densely, **Pri 1–40**: B6 14 rows (2 M, 12 S), B7 5 (1 L, 3 M,
-> 1 S), B8 5 (1 M, 4 S), B9 2 (1 L, 1 M). **Cut 0.8.5 when B6 is empty, 0.8.6
-> when B7 is, 0.8.7 when B8 is, 0.8.8 when B9 is, then 0.9.0 when B2 is** —
-> superseding the 2026-09-11 cut clause above, which knew one band where there
-> are now four.
-
-> **B7 re-cut 2026-09-16 (owner, in session) — the 0.8.6 review against an
-> ATR-class aircraft sized from the LRA deck.** The review asked one question
-> of the band: does a new ATR-class project, its own data entered and the LRA
-> free-free deck as the deliverable, get what it needs from these five rows?
-> It does not, and the gaps were measured on the current tree rather than
-> quoted from the 2026-09-09 review. Two of the five rows touch the deck and
-> neither moves a deck load. Three things do. **#284** is filed to B7: the one
-> deck that ships states nothing about the 28 SELECT conditions it does not
-> assemble, and the reason it would give names the per-component decks note
-> 56 deleted — a first-order statement gap in shipped content, tier S. **#275**
-> moves B9 → B7: the carry-through mesh defect is largest on exactly the
-> high-wing fuselage the review was run against, and a deck row outranks the
-> two report rows it now precedes. **#285** and **#286** are filed to B2 as the
-> two primary twin cases the deck does not carry — the OEI fin transient, whose
-> deferral to a per-component deck became an absence at note 56, and the
-> engine-mount set, promoted from nine days in *Open defects* without a number.
-> One correction the review makes to itself: the deck's wing set comes from
-> SELECT, so the ATR's single entered wing case (now #260's E6) reaches the
-> WINGINER distributions and the report, not the deck. Renumbered densely,
-> **Pri 1–30**: B6 0 rows, B7 1 (0 L, 0 M, 1 S), B8 5, B9 1, B2 8, C 8 *(recounted 2026-09-21 at the #161 closure; superseded by the 2026-09-22 re-cut below)*.
-> Cut clause unchanged.
-
-> **B6 is retired: 0.8.5 was cut on 2026-09-16** (tag `v0.8.5`; the release-cut
-> block in
-> [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md)
-> is the record). The band emptied on 2026-09-16 with #216 and stayed empty:
-> the pre-cut review that followed found three tier-S residues and closed them
-> in one commit rather than re-opening a row, and the B7 re-cut landed on the
-> same branch before the cut. **Band B7 (0.8.6 — the baseline wave) is the
-> milestone in flight**; B8 and B9 (0.8.7, 0.8.8) follow it in order.
-
-> **B7 amended 2026-09-17 (owner, in session) — the #164 case-set ruling is taken.** The 0.8.6 review of
-> SELECT's wing search against an ATR-class airplane found the negative side carries one slot where the
-> positive side carries three, and design note 62 records the ruling: two slots added (NHAA, NLAA), NMAA
-> narrowed, filed as **#288** at the head of the band ahead of #164, whose V-n renumber would move the case
-> numbers the note's gates name. #288 shares ordinal 1 with #164 until the next re-cut (gaps and shared
-> ordinals are the rule between re-cuts; the row order is the order). The companion change — wing mass
-> states in the Wing Loads step, so a selected case runs at every disposable-mass state — is design note 63,
-> filed as **#289** behind #288 (same shared ordinal) and **shipped 2026-09-18** (`113c9cd`) as the one-model step and **#292** the variants step, **shipped 2026-09-18**: every slot runs at every FLIGHT mass state, the net-governing run is delivered, MZFW seeds the zero-fuel cases, and the fixtures' `wing_mass.cases` are filters (note 63 SHIPPED, §11).
-
-> **Re-cut 2026-09-22 (owner, in session) — the 0.8.6 pre-cut critical review.**
-> The band emptied with #210 (2026-09-22) and the review the cut rule requires
-> (`CODE_REVIEW_PROCESS.md` §0; gate green — ruff, mypy, the full suite) found
-> the cut not clean: **one CRITICAL** — `select_wing` applies the D-62.8
-> coincidence rule to the *air* picks before the D-63.7 re-pointing, so when
-> NMAA moves to another mass state the NNZ extreme it coincided with is
-> delivered by nobody (`baron_58` V-n case 153 at −2.345 g, `concept_regional_jet`
-> case 213 at −1.805 g — a 23.337/23.341 design condition silently absent from
-> the one deck that ships) — and **ten MAJOR**, six of them inside the wave's
-> own closures. Four rulings:
->
-> 1. **B7 re-opens for the pre-cut fixes** — #294 (the SELECT cluster: the
->    coincidence stage, the dead 1e-9 `nz` tie band, the `AIR_PICK_SLOTS`
->    guard), #295 (the ACRL variant omits its couple), #296 (`_hop_66` stamps
->    a converted centreline point PANEL), #297 (the LRA wing post raises
->    `KeyError`, not the refusal), #298 (SI precision rows deliver one or two
->    figures) and #299 (the doc residues, note 65's `AGREED` among them). The
->    round trip the 0.8.3 cut also took, for the same reason: a release cannot
->    knowingly carry a wrong delivered load.
-> 2. **B8 / 0.8.7 is re-chartered “the deck carries what the airplane
->    carries.”** #210 shipped and #284 stated the absences; the two cases the
->    statement names are the largest gaps in the primary deliverable and sat at
->    the bottom of B2 behind process rows, both citing dependencies that had
->    shipped. **#286 and #285 move B2 → B8** (one design pass); **#258 moves in**
->    as the deck-statement gap it is (#284's class, misfiled as polish);
->    **#221 is promoted** from *Open defects* — measured: the oracle reduction
->    resets `weight.items[].consumable`, so on `atr42_100` every case turns from
->    entered to searched and the fuel reads 0 lb on all eleven, and since notes
->    62/63 the fuel state *is* the wing case set; #300 (the Baron `aft gross`
->    loading 4.12 in from its echo and the uncalled check that hid it), #301 (the
->    search tests symmetry of the discretionary subset alone), #302 and #303
->    (the #161/#293 residues) are filed; #276 rides the first schema hop the band
->    forces. The polish rows #243, #240, #256 move to B9 behind #283, whose
->    “after #275” is cleared.
-> 3. **Rule 6 is applied to its own rows.** #226 is re-cut from a ranked
->    tier-M physics row whose body said “parked without a rank” into a tier-S
->    *measurement* row absorbing #217 and #218 (one `nx`/thrust-line study);
->    #111's park condition — the ATR point-vs-band root-bending number — was
->    never measured after the per-tank rows landed, and root bending is zero by
->    construction for a band with the same centroid, so its row asks for the
->    mid-band station shear first and claims no number; **#32 parks with the
->    number zero** — after #260 no shipped fixture reaches the Mach-capped
->    clamped state ([`02_parked.md`](02_parked.md)); #14 is labelled
->    consumer-gated, not rule-6.
-> 4. **Open defects are filed or marked.** #304 (R-4's tolerance class) and
->    #305 (the aileron deflection schedule, whose freeze reason lifted at the
->    0.8.2 cut) are issued; the hinge-moment entry is re-justified on scope
->    alone; the dependency-ceiling entry takes the option its body offered —
->    priced, not fixed — and is marked *unfiled by choice*.
->
-> Renumbered densely, **Pri 1–34**: B7 6 (0 L, 1 M, 5 S), B8 9 (2 L, 4 M, 3 S),
-> B9 4 (1 L, 0 M, 3 S), B2 7 (0 L, 3 M, 4 S), C 8 (4 L, 1 M, 3 S). **Cut 0.8.6
-> when B7 is empty again**, 0.8.7 when B8 is, 0.8.8 when B9 is, then 0.9.0 when
-> B2 is.
-
-> **#306 shipped 2026-09-25 (design note 52, tier L):** the rolling conditions arrive complete; its row left the table at the closing commit, and B8 is 8 rows (2 L, 4 M, 2 S). Two findings for the owner are recorded in note 52 §9: SELECT's ACRL pick moved to sea level on a 0.13 % LZW tie, and every fixture's ACRL is now a handed pair.
->
-> **B8 amended 2026-09-22 (owner, in session) — note 52 re-agreed and filed.** The #294 review of the ACRL chain against Reference 1 found the delivered `ACRL` variant carrying the roll point's averaged lift rather than condition A's (≈ 19 % low on the governing side's net root bending), the percentage on the manual's pre-1996 rule, and #295/#258 to be two symptoms of the one missing derivation. Design note 52 is amended in place (D-52.10–D-52.13) and its implementation enters **B8** as one tier-L row at #258's place, folding **#295** (B7) and **#258**; the 23-48 percentage is registered in `02_approved_corrections.md` at the amendment. Ordinals keep the re-cut's numbering (no renumber): **33 rows** — B7 4 (0 L, 0 M, 4 S), B8 9 (3 L, 4 M, 2 S), B9 4, B2 7, C 8. Cut rule unchanged.
-> **B7 is retired: 0.8.6 was cut on 2026-09-23** (tag `v0.8.6`; the release-cut
-> block in
-> [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md)
-> is the record). The band emptied on 2026-09-22, the pre-cut critical review
-> re-opened it for six fixes (#294–#299 above), and it emptied again on
-> 2026-09-23 with #299. **Band B8 (0.8.7 — the deck carries what the airplane
-> carries) is the milestone in flight**; B9 (0.8.8) and B2 (0.9.0) follow it in
-> order. Cut rule unchanged: 0.8.7 when B8 is empty, 0.8.8 when B9 is, then
-> 0.9.0 when B2 is.
->
-> **B8 re-opened 2026-09-27 (owner, in session) — the 0.8.7 release review.**
-> The review (`CODE_REVIEW_PROCESS.md`, full suite green) filed #313–#322; the
-> owner banded the four that block the cut into B8 at ordinals 12–15 (#313 #314
-> #315 #317, 3 M, 1 S). #316 and #318–#322 are filed unbanded. Cut rule
-> unchanged: 0.8.7 when B8 is empty again.
->
-> **B8 is retired: 0.8.7 was cut on 2026-09-27** (tag `v0.8.7`; the release-cut
-> block in
-> [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md)
-> is the record). The band emptied again with #317. **Band B9 (0.8.8 — the
-> beam-model page, with the report polish behind it) is the milestone in
-> flight**; B2 (0.9.0) follows it. #316 and #318 (MAJOR) stay open and unbanded
-> by the owner's 2026-09-27 ruling. Cut rule unchanged: 0.8.8 when B9 is empty,
-> then 0.9.0 when B2 is.
->
-> **B9 amended 2026-09-28 (owner, in session) — three rows ahead of #283.**
-> **#327** (Python 3.12 alone: the developer's gate, the PR gate and `main`'s
-> run on one interpreter) goes first, because every later item closes through
-> the gate it changes; it shipped in its own banding commit, so its row 13 never
-> stood. **#316** (a NaN still drops a delivered file silently) is a defect with
-> first-order effect on shipped content, so it outranks every [V] row
-> (ordering rule, 2026-08-16); **#318** (note 66 and 52 gates that re-derive
-> what they check) follows it. They take the free ordinals 14–15, so nothing
-> renumbers. B9 is **8 rows** (1 L, 2 M, 5 S). Cut rule unchanged.
->
-> **Re-cut 2026-09-28 (owner, in session) — the 0.8.8 planning review.** The
-> milestone's first read asked of B9 and of every unbanded issue: what does the
-> deck deliver wrong, and what can the user not reach? Band B9 is
-> **re-chartered "the deck's delivered loads are right, and the user can reach
-> them"** — the correctness items first, the beam-model page, #283, and the
-> report polish behind them. Rulings, each recorded on its issue:
->
-> 1. **#319 is banded and re-tiered M → L** (a note 66 amendment and a schema
->    field). The OEI hub axial load is an **entered** windmill drag when one is
->    given, otherwise ONENGOUT's Ch 11 p88 *bound* (C_D,disc ≈ 0.50 — the
->    manual's "can not be more than", 13.0 kip at VC and 20.3 kip at VD on the
->    ATR), stated per subcase; the 23.371 gyroscopic cases apply every engine's
->    thrust and couples, removing a 1.75 M lb-in yaw no rudder reacted.
-> 2. **Note 51 is filed as #328** — AGREED on 2026-09-06, it had no issue, no
->    row and no park entry, and note 56 had deleted the deck it was written
->    for. Basis (owner): 23.427(a) through (b) on every tail and through (c) as
->    well on a T-tail, by AC 23-9 ¶5a, sized for the fin, with the
->    horizontal-tail assumption stated and checked. Both shipped T-tails
->    (`atr42_100`, `concept_regional_jet`) carry it.
-> 3. **#320** takes a 0.5 % tie band with the net root Mxx tie-break.
-> 4. **#329 is filed** — `solo_close.sh` reads CI before it closes; #327's
->    review riders ride it. It stands third so every later closure has it.
-> 5. **#321 and #322 are banded and close by riding** #318, #319 and #320,
->    each keeping a row for its remainder; **#244 rides #283** (the page's
->    integer editors are the counter's class); **#246 gets a B2 row** (report
->    coverage, walked at the start of 0.9.0).
-> 6. **Label drift corrected on GitHub:** `band:B`/`band:D` retired from #309,
->    #312, #29, #92, #130, #18 and #19 in favour of the band each row sits in;
->    #185 labelled. The amendment above counted B9 as 1 L, 2 M, 5 S; its rows
->    were 1 L, 1 M, 6 S.
->
-> Renumbered densely, **Pri 1–31**: B9 15 (3 L, 2 M, 10 S; 4 [E]), B2 8, C 8.
-> **Cut 0.8.8 when B9 is empty**, then 0.9.0 when B2 is.
->
-> **B9 amended 2026-09-28 (owner, in session) — #330 behind #316.** The #316
-> close found two `except Exception` handlers of the same class outside the
-> report/export scope it guarded (`fleet.py:385`, `validation.py:1233`); the
-> owner banded the issue into B9, milestone 0.8.8. It shares ordinal 1 with
-> the closed #316, ahead of #318, while the census and the guard are fresh, so
-> nothing renumbers. B9 is **15 rows** (3 L, 2 M, 10 S). Cut rule unchanged.
->
-> **B10 chartered 2026-10-03 (owner, in session) — the 0.9.0 split, after the
-> 0.8.8 pre-release review.** With B9 empty and the review's two pre-cut
-> findings closed (#341, #342), 0.9.0's 23 open issues measured ≈ 4–5 weeks
-> against the §2 cadence rule's 2–3, so the near-term correctness half takes
-> its own milestone: **band B10 (0.8.9 — the ATR-class deck delivers correct
-> loads: twin turboprop, T-tail)** takes #333, #331, #332, #343, #344, #336,
-> #334 and #335 — **8 rows** (1 L, 3 M, 4 S; 5 [E]). The decisions and data
-> sit ahead of the tier-L: #333's mass-state and VMC rulings move the OEI
-> forcing #334's note must measure against, #336's dihedral feeds the same
-> note, and #335 is ruled inside it and rides it. #337, #339, #340, #345 and
-> #346 stay on milestone 0.9.0 unbanded, walked with B2 at its start. The
-> Baron rows (#331, and #337 staying behind) are the one deliberate stretch
-> and stay-behind of the charter: #331 is the twin family's EM basis question
-> and mostly costs a ruling; #337 is Baron-only data with no ATR trace.
-> Renumbered densely, **Pri 1–24**: B9 0 (empty — the 0.8.8 cut is next, the
-> header retires with it), B10 8, B2 8, C 8. **Cut 0.8.8 now, 0.8.9 when B10
-> is empty, then 0.9.0 when B2 is.** *(Recounted 2026-10-04 at the #343
-> closure: note 68's re-cut, 2026-10-03, put #354 in B10 at Pri 9 and #355–#359
-> in B2 at Pri 18–22 — B10 9 rows at the re-cut (2 L, 3 M, 4 S), B2 13, C 8,
-> **Pri 1–30**.)*
->
-> **B9 is retired: 0.8.8 was cut on 2026-10-03** (tag `v0.8.8`; the release-cut
-> block in
-> [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md)
-> is the record). The band emptied with #240 and the pre-release review's two
-> MAJOR (#341, #342) closed before the cut. **Band B10 (0.8.9 — the ATR-class
-> deck delivers correct loads) is the milestone in flight**; B2 (0.9.0)
-> follows it. Cut rule unchanged: 0.8.9 when B10 is empty, then 0.9.0 when B2
-> is.
->
-> **B10 is retired: 0.8.9 was cut on 2026-10-04** (tag `v0.8.9`; the release-cut
-> block in
-> [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md)
-> is the record). The band emptied with #367; the pre-release review's four
-> findings (#364–#367) were banded into B10 at Pri 31–34 and closed before the
-> cut. **Band B2 (0.9.0) is the milestone in flight.** Cut rule: 0.9.0 when B2
-> is empty.
-
-> **B2 re-ordered 2026-10-19 (owner, in session) — the ATR-class objective.**
-> With #29 closing, the owner set the order of the rest of B2 by one question:
-> *does the row change a load the analysis delivers for an ATR 42-class
-> airplane (twin turboprop, high wing, T-tail, wing fuel, l/d ≈ 8.5)?* Two
-> unbanded issues enter B2 at the free ordinals ahead of the process rows:
-> **#368** at Pri 9 (the Munk k2−k1 table does not match TR-184 Table I — a
-> sourced, page-cited defect 1–2 % high in exactly the ATR's l/d band, the one
-> open item with a known first-order effect and no owner decision) and **#362**
-> at Pri 10 (the overturn-angle guideline and its citations, tier S). The two
-> rule-6 measurements on `atr42_100` run next, back to back, since each decides
-> whether a tier-L physics step is scheduled or parked with its number: Pri 15
-> (#226 with #217/#218 — power-on balance and body `Fx`) and the tier-S
-> measurement named in Pri 24's dependency column (#111 — fuel point versus
-> band, mid-tank station; the row itself stays in C and ranks or parks on the
-> number). The process and hygiene rows (#185, #92, #130, #304, #209, #246,
-> #355–#359) follow in table order. #32 (nine `atr42_100` Mach-capped rows,
-> marking only) and #163 (no flaps-down span load, frozen module, effect
-> unmeasured) stay on 1.0.0. No renumber; B2 is 14 rows at the amendment.
-
-> **B2 re-chartered as B11 (0.10.0) at the 0.9.0 cut, 2026-10-20 (owner, in
-> session).** The owner asked whether 0.9.0 can produce loads for an ATR
-> 42-class airplane and is different enough from 0.8.9 to release. It can,
-> and it is, so 0.9.0 is cut on its delivered-load work rather than on an
-> empty band. That work is #368 (Lamb's apparent-mass closed form), #362,
-> #389 (the ATR tail rebuilt), notes 69–71 (one owner per geometry and mass
-> quantity, per-case mass states) and #391 (the high-α shortfall measured
-> and parked at ≤ 0.62 % on every governing load). Before the cut it closed
-> #370 (the tag gate judges CI's run of the tip) and the pre-release review
-> (#392). B2's twelve surviving rows (#185, #92, #130, #209, #226, #304,
-> #246, #355–#359) move under one header, **band B11 → milestone 0.10.0**,
-> keeping their ordinals. #226 (with #217/#218) is the first row worked,
-> because it is the rule-6 measurement that decides whether a balance
-> physics step is scheduled. The ten issues on 0.9.0 with no row (#390,
-> #337, #339, #340, #345, #346, #217, #218, #348, #351) move to milestone
-> 0.10.0 unbanded and are walked with B11 at its start, as #337–#346 were
-> at 0.8.9's. #351/#355 (sconfig's published schema) go with them, and the
-> owner's call on that dependency is still open. #111 stays in C on 1.0.0,
-> and its point-versus-band measurement remains a dependency of its row.
-
-> **B11 walked and re-cut at the band's start, 2026-10-21 (owner, in session).**
-> The ten unbanded issues are placed as recommended, and the schema group
-> stays in 0.10.0. The band is numbered densely in work order, Pri 1–20:
-> #226 first, the rule-6 measurement, with #217/#218 riding it and given no
-> rows of their own. Then #337 (a delivered-load data defect), #390 (after
-> #226's number), #339, and the sconfig schema group with #348's design note
-> first (#348, #355, #351, #356–#359). The process rows follow (#185, #92,
-> #130, #209, #304, #246), and the test hygiene last (#340, #345, #346).
-> Band C keeps its ordinals.
-
-
-> **B11 re-cut at the audit's items, 2026-10-27 (owner, in session).** The
-> October audit's four colleague-usable items (#394–#397) and two defects filed
-> since (#399, #400) enter the band at its head, ahead of the physics: no
-> colleague has yet installed sloads from the README alone, and #397 is the
-> audit's acceptance test for the band. Then #337 and #400 as the short rows,
-> then #226 — re-tiered to L now that its measurement is in — and the rest in
-> the 2026-10-21 order. Numbered densely, Pri 1–26; band C follows at 27–34.
-> No delivered load moves.
-
-> **B11 re-chartered and B12 opened after the physics review, 2026-11-01 (owner,
-> in session).** The review of 2026-11-01
-> ([`../50_reviews/2026-11-01_critical_review_physics_atr42_docs.md`](../50_reviews/2026-11-01_critical_review_physics_atr42_docs.md))
-> found a first-order unconservative defect inherited from the source (P-1,
-> **#401**, design note 72 AGREED). It also found that milestone 0.10.0, titled
-> "the ATR-class analysis", delivered only a Part 23 analysis while carrying
-> about twenty process rows. The owner's four rulings:
->
-> 1. **0.10.0 is re-chartered** as loads correctness on the Part 23 method, for
->    ATR-sized airplanes. Its order: #401 first; then the unconservative
->    documentation (#402); then the usability rows (#394–#397); then the ATR
->    fixtures (#403, #399, #337), feasibility flags (#404, absorbing #353), the
->    OEI basis (#405) and #226 (#217/#218 closed into it); then #400, the
->    per-module physics closures (#406), the citation defects (#371, #373) and
->    the small physics rows (#407–#409, #390).
-> 2. **The Part 25 basis opens a new 0.11.0 (band B12):** F25-1 (#410), F25-4
->    (#411, after #401), the remaining transport gaps (#412), #163 and #111 for
->    the ATR, the validation record (#413, #304), documentation for a reviewer
->    (#414) and the sconfig contract. The parked L-4 (VB and the 66 fps line)
->    and F25-3's overswing activate into #410 and #412.
-> 3. **The process and test-hygiene rows move to 1.0.0** (band C): #339, #357,
->    #358, #185, #92, #130, #209, #246, #340, #345 and #346, with the
->    Mach-correction owner (#415). #359 goes to B12, as the review asked it to
->    be raised.
-> 4. **The sconfig schema rows become two.** #348 absorbs #355 and #351
->    absorbs #356; both are on B12.
->
-> P-5 (the ISA tropopause) is parked with its number in `02_parked.md`. The
-> table is renumbered densely: B11 is Pri 1–20, B12 is 21–31 and C is 32–50.
-> No delivered load moves in this amendment. #401 is what moves them.
-
-**System of record (design note 28 MD-5, 2026-08-16):** open work is **GitHub
-Issues** (labels `tier:*`, `tag:*`, `band:*`, `kind:*`; a milestone per release;
-the Project board is the view). This file keeps the **plan** — mission,
-definition of done, the reference hierarchy, and this table — and each row names
-its issue as `(#N)` once `scripts/backlog_issues.py create` + `rewrite` have run
-(owner, once); item bodies then live in the issues, a PR says `Closes #N`, and
-`scripts/backlog_issues.py check` holds table ↔ open issues both ways. Until the
-migration runs, bodies stay where they are — a defect promoted into the table
-keeps its body in *Open defects*, and the [E]/[V] detail sections hold the rest.
+# Priority table (the single order of work)
 
 **Ordering rules (cumulative):**
 
@@ -567,6 +70,7 @@ keeps its body in *Open defects*, and the [E]/[V] detail sections hold the rest.
   of the two duplicate entries (v55) with a migration that takes the owner's
   value and warns on disagreement; anything else rides that hop or waits.
 
+
 > **Removal rule (hard requirement, restating the lifecycle rule).** Once a
 > step is complete it **SHALL be removed** from this table and this file in the
 > same session, with its tiered closure trail. A closing change deletes **its
@@ -575,63 +79,6 @@ keeps its body in *Open defects*, and the [E]/[V] detail sections hold the rest.
 > only at a re-cut, which owns the whole table) — and rows never cite another
 > row's ordinal (dependencies name the band or the `#N`), so two in-flight
 > changes cannot conflict on this table (`DEVELOPMENT_PROCESS.md` §0).
-
-
-| Pri | Item (detail below / in its plan) | What ships | Tag | Tier / effort | Depends on |
-|---|---|---|---|---|---|
-| **B11 — 0.10.0: loads correctness on the Part 23 method, for ATR-sized airplanes (re-chartered 2026-11-01 after the physics review)** ||||||
-| 1 | **LGFACTOR's energy ratio is the gear factor: the wing lift is subtracted twice** — the ratio is the ground reaction factor (23.473(e), Ref 1 p125), the code labels it `N` and derives `NLG = N − L`; `baron_58` gear reactions 16–25 % low, less than half at L = 1.0 *(physics review P-1, 2026-11-01; design note 72 AGREED)* (#401) | Note 72 D-72.1…D-72.8: the relabel, the p236 approved deviation (printed column kept), G-72.1 energy-balance closure, the three 2.67 fixtures cleared, the oracle report rows | E | L / M | note 72 AGREED |
-| 2 | **GUI guide §5 still teaches 'exported = ultimate', and CAPABILITIES advertises outputs retired at #270 (review D-1, D-5)** *(physics review 2026-11-01)* (#402) | §5 rewritten to the LIMIT contract, CAPABILITIES §2 resynced, a guard against the retired wording | E | S / S | — |
-| 3 | **The Python 3.12 requirement is invisible to a new clone** — #327 made the suite refuse every other interpreter, and nothing a fresh reader sees says so until the refusal fires *(Development Projects Audit, October 2026)* (#395) | README install section and `pyproject.toml` state 3.12 up front with the one-line reason; the refusal message points at it; no change to the policy | E | S / S | — |
-| 4 | **README: quickstart first, phase narrative after** — the README opens with the phase narrative before a reader can see how to install and run anything; no colleague has yet installed sloads from it alone *(audit)* (#394) | The first screen is install (one command), run the GUI, run one CLI case, where the guide lives; the narrative moves below or into `docs/` | E | S / S | #395 |
-| 5 | **Ten tags, no wheel, no GitHub release** — the only install path is a clone; the v0.9.0 release page carries no asset *(audit)* (#396) | A release workflow (or a documented manual step) that builds the wheel on tag and attaches it to a GitHub release with that version's changelog section; v0.9.0 first, retroactively | E | S / S | — |
-| 6 | **One clean install on another machine from the README alone** — the audit's acceptance test for the usability release: nothing else in the band ships until it passes once *(audit)* (#397) | On a machine that has never seen sloads (the Mini counts), follow the README on macOS and on Windows, run the GUI and one CLI case, file each break as its own issue | E | S / S | #394, #395, #396 |
-| 7 | **The ATR 42-300 seed fixture's input errors and its round-trip failures, before it is committed (review A-4, T-1)** *(physics review 2026-11-01)* (#403) | Seed corrected per the table with sources, registered in the fixture guards, the round-trip failures diagnosed and fixed at their cause, suite green with the seed committed | E | S / M | #401 (N cleared per note 72 Q3) |
-| 8 | **`atr42_100`'s `tread_in` is 150 in against the published 161.4 in** — the overturn angle on the configuration page is computed on a track 7 % narrow, the conservative direction *(found from sconfig #78, 2026-10-25)* (#399) | `tread_in` 161.4 [A] with its source line, or the reason 150 is kept recorded beside it | E | S / S | — |
-| 9 | **`baron_58` has no minimum-crew row** — its `MINIMUM` rows are unusable fuel and oil; the pilot sits inside a discretionary row, so WTENV's minimum flight weight (4,100 lb) carries no pilot and the delivered `aft max landing` case flies without one; every other fixture carries its crew as `MINIMUM` *(found at #309)* (#337) | The Baron's crew as a `MINIMUM` row, the minimum weight and the affected cases re-derived, and a guard that every fixture's minimum loading carries a crew | E | S / S | — |
-| 10 | **Balanced cases run past the elevator stop, tail stall and fin stall with no flag (review A-2; absorbs #353)** *(physics review 2026-11-01)* (#404) | Per-case feasibility flags (elevator stop, h-tail α, fin α) on every balanced family, shown in the report and the deck, with a guard test | E | M / M | #401 |
-| 11 | **OEI basis for feathering turboprops: windmill drag default, feather/autofeather, VMC–VD sweep, a distinct 23.367(a)(2) (review A-3, P-3)** *(physics review 2026-11-01)* (#405) | Design note at AGREED, then the feathering drag basis, the speed sweep and the (a)(2) schedule, with the ATR's governing fin case re-derived | E | L / L | design note; #353 class via the feasibility issue |
-| 12 | **The flight balance models no thrust — the thrust-line re-trim, ranked by its number** — `flight_envelope._balance` writes no longitudinal equation, so every balanced point is thrust-off (note 44 OR-198). **Measured 2026-10-21 (note 21 §10):** on `atr42_100` the hubs sit 19–30 in above the CG, and a power-on trim at note 21's P-2 rating moves the governing balancing tail load **+10.7 %** (+16 % at `T = D`), above the base-method band; `baron_58`'s hub runs through its CG (≤ 2 %). Wing normal loads ≤ 1 % governing; the chordwise root loads move 2–9 % governing and up to 55 % on single cases as the drag reaction leaves the mass distribution for the hubs. **#218**'s body `Fx`: ≤ 3.5 % as bending, but 8–12 klb of axial force the beam states as zero (23–35 % of the ATR's peak shear). **#217**: a 3° thrust-line incidence is ≤ 0.7 % of `lzw` and ≈ 2 % of the governing tail load *(owner's question 2026-09-07; note 44 §23)* (#226) | Note 21 §10 at AGREED (owner Q1–Q5), then one tier-L step: the policy table and `-P` identity (P-4/P-12, one additive schema hop), the thrust term in `_balance` with `nx = −(DX − ΣT)/W` and the `NX`/`T` columns, the h-tail `-P` families (P-11), the body beam's axial column (P-16, #218) and the entered line's direction (P-17, #217 — or parked with its number); the DATCOM slipstream estimator stays parked | V | L / L | note 21 §10 AGREED; re-tiered S → L 2026-10-27, the measurement done |
-| 13 | **The weekly sbeam-drift gate against sbeam `main` is red** — a notification, not a merge block: `main` and every PR gate on the pin in `pyproject.toml`; the next pin bump carries work *(filed by `sbeam-drift.yml`, 2026-10-25)* (#400) | The pin bumped per `PROJECT_GUIDE.md` "The `solver` extra and the sbeam pin", its step 3 (`pytest -m roundtrip` green before the bump is committed); the issue closes itself on the first green weekly run | V | S / S | — |
-| 14 | **Every oracle-locked module needs an independent physics closure beside its printed figure; the oracle cannot see a source error (review §1.2, the #401 class)** *(physics review 2026-11-01)* (#406) | A closure gate per oracle-locked module, recorded in module_gates.py, and a guard refusing a module with an oracle alone | E | M / M | #401 (G-72.1 is the first) |
-| 15 | **Appendix A page citations are wrong in six places, and three printed figures are compared with no page cited** — no delivered value moves, but the page a reviewer is sent to is wrong; the validation traceability a DER checks first *(citation review 2026-10-06; moved into B11 by the physics review §5.2)* (#371) | Each citation corrected against the printed page footers, the three figures given their page | V | S / S | — |
-| 16 | **Reference 1 is cited without its grant and report numbers, and the report says Appendix B is "not bundled" when the available copy lacks it** *(citation review 2026-10-06; moved into B11 by the physics review §5.2)* (#373) | The full citation (Grant 93-G-051, DOT/FAA/AR-96/46) in the theory sources and the report; Appendix B stated as absent from the available copy | V | S / S | — |
-| 17 | **Checked-manoeuvre pitch acceleration uses +39 for both directions; the 23.423 lineage has −26 nose-down (review P-2, confirm the text first)** *(physics review 2026-11-01)* (#407) | The regulation text transcribed and cited; the value kept-conservative with its number or corrected as an approved deviation | V | S / S | — |
-| 18 | **Gyroscopic thrust basis: labelled max-continuous, computed from takeoff torque at 100 % efficiency, above the ideal-disc limit on the ATR (review P-6)** *(physics review 2026-11-01)* (#408) | Thrust from max-continuous power with η (or the ideal-disc cap), the label fixed, an ideal-disc closure gate | V | S / S | — |
-| 19 | **DATA_DICTIONARY.md is broken: the generator swallows its exception and has not followed models/ becoming a package (review D-6)** *(physics review 2026-11-01)* (#409) | The generator fixed and failing loudly, the file regenerated, a guard that every input dataclass has a complete table | V | S / S | — |
-| 20 | **Directional stability and the body's share on the Aerodynamic Data page** — fin, body and Munk `Cn_β` from their owners, a credibility flag, and the engine-out sensitivity of the omitted body moment; surfaces the G4 estimate nothing calls *(owner, after #368)* (#390) | The page block, the flag primary, the OEI sensitivity term off by default; note 33's section | V | M / M | #226's number |
-| **B12 — 0.11.0: the ATR on its Part 25 basis, the validation record and the sconfig contract (opened 2026-11-01)** ||||||
-| 21 | **F25-1: the transport gust and manoeuvre envelope: VB and the 66 fps line, the 25.337 n₁ check, VC ≥ VMO (review A-1)** *(physics review 2026-11-01)* (#410) | Design note at AGREED, then VB, the VB gust line, the n₁ and VC checks, and the ATR fixtures re-derived on the transport basis | E | L / L | design note |
-| 22 | **F25-4: the Part 25 landing variant: L = 1.0, 6 fps at MTOW, the LDW/MTOW pairing (review A-1)** *(physics review 2026-11-01)* (#411) | The 25.473 case set beside the Part 23 one, selected by basis, with the pairing stated per case and a closure gate on the energy balance at each weight | E | M / M | #401 |
-| 23 | **The remaining Part 25 gaps for an ATR-class airplane: per-wheel loads, 25.343(b), transport MFC, 25.351 overswing, 25.345 flaps-down (review §2)** *(physics review 2026-11-01)* (#412) | Each gap measured and ranked by rule 6, then split into its own step or parked with its number | V | M / M | F25-1 |
-| 24 | **AIRLOADS produces no flaps-down span load (OR-53)** — a method gap, not a data gap; for the ATR the 25.345 flap cases are absent entirely *(raised to B12 by the physics review §5.2)* (#163) | The cosine fairing across the flap discontinuity (Ref 1 p47) and a flaps-down span load, with the ATR given a flaps-down coefficient set | V | L / L | #412 (25.345 ranked) |
-| 25 | **Wing fuel (and any tank/store band) is a point mass in WINGINER** — faithful to WINGINER.BAS lines 1180–1270 (every concentrated mass is a spanwise step; only the structure panel is spread), but a wet wing's fuel occupies a span band, so the point model concentrates the inertia relief and puts a fictitious jump in mid-span shear/torsion (**owner, C210 build: "fuel should be spread through the wing not just at one point mass location"**, C210-50, build review 2026-08-23) (#111) | the per-side tank item row (note 63 D-63.4, `carriage` POINT) gains a spanwise extent (`y_span`) folded into the per-strip density `w[i]`, reducing exactly to today's point when the band collapses — **not** a `WingMassInput` field, which D-63.2 empties of mass; Appendix A oracle case (concentrated gear only) untouched, lock holds. Interim: N item rows across the tank span with the same centroid — root bending and total shear identical | V | L / M | #289 and #292 shipped 2026-09-18 with the per-tank rows; **the park condition note 63 §6 set was never met** — the ATR point-vs-band number was not measured, and the metric it named (root bending) is zero by construction for a band with the same centroid. First deliverable is the tier-S measurement: mid-tank-band station shear and bending on `atr42_100`, point vs band, against the Schrenk 5–10 % datum; then rank or park on that number; design note first (physics/L). The measurement runs in B2 time, after #226's (B2 re-order 2026-10-19); the physics stays in C |
-| 26 | **No readable validation matrix (last baseline 0.7.0) and no scope-and-applicability page (review D-2, D-3)** *(physics review 2026-11-01)* (#413) | A generated VALIDATION.md, the baseline step restored at release cut, one scope page stating which way each omission errs | V | M / M | #304 |
-| 27 | **R-4's tolerance class is suite-wide, not `test_structural_speeds`'s alone** — 92 `rel_tol` values looser than Decision 3's ±0.1 %, 68 in 19 files with no justification within three lines (`test_select.py` 24, `test_landing.py` 12, `test_flap.py` 8); a passing assertion records no margin, so nothing distinguishes a rounding-limited tolerance from a disagreement nobody has looked at since *(filed 2026-09-15 from the #175 closure; issued 2026-09-22)* (#304) | Each site read and tightened or justified on its line; then the structural half — a guard refusing a tolerance looser than the file's stated band without a reason on the line | V | M / M | — |
-| 28 | **Documentation for a reviewer: ch11 deck walk-through and the stub chapters, reference access, the twin checkpoint table, results-affecting changelog, register magnitudes, fixture provenance (review D-4, D-7, D-9…D-13)** *(physics review 2026-11-01)* (#414) | ch11 written, then ch08 and a control-surface chapter; the reference-access section; D-9…D-13 each closed | V | M / L | #401 (ch08) |
-| 29 | **Document the project-file schema** — sconfig's seed export is checked against a schema sloads does not publish: `PROJECT_SCHEMA.md` with every field typed and classified (required-to-initiate / optional-with-default / derived / read-only) and a generated JSON Schema *(sconfig R1)* (#348) | The design note, then the document and the generator; #355's schema is its generated half | V | L / M | design note first |
-| 30 | **Publish the project JSON Schema with each release** — sconfig keeps a copy of the schema for the version it writes *(sconfig R4)* (#351) | `RELEASE_PROCESS.md` §4 gains the step; the published file equals the generated schema | V | S / S | #348, #355 |
-| 31 | **Work items are double-booked between this file and GitHub issues** — every closure edits a heavy table row here and closes the issue, with `backlog_issues.py` policing the drift; sconfig keeps its backlog file to mission and milestone map only *(2026-10-03 process review — the one cycle-time lever adopted)* (#359) | This file reduced to mission, invariant and a slim priority table (order, issue, title, tags, tier); issue bodies the single home; `backlog_issues.py` tightened to the new shape; `DEVELOPMENT_PROCESS.md` and `solo_close.sh` re-pointed | V | M / M | — |
-| **C — 1.0.0: additional analysis capability (consumer-gated; design notes first)** ||||||
-| 32 | **GUI validation warnings ignore the SI toggle** — warnings are built as finished Imperial sentences in `validation.py` and shown as they are, so an SI page beside kg/mm tables reads lb/in; six of the nine warnings the fixtures raise carry an Imperial number *(found at #312)* (#339) | Warnings rendered in the page's unit system, one owner for the conversion, and a guard over every warning code | V | M / M | — |
-| 33 | **The calc-purity contract is prose plus scattered guards** — "pure calc, no I/O" is stated in CLAUDE.md and `PROJECT_GUIDE.md` §4 but no test asserts it; sconfig holds the same contract with an AST gate *(2026-10-03 process review; rule 3)* (#357) | Verify no equivalent gate exists (close as no-op if one does); else an AST test over `sloads/`: no `streamlit`/`app_shell`/`oracle_app` import, no I/O outside `io.py`/`report/`/`export/`, new modules layer-assigned | V | S / S | — |
-| 34 | **`PROGRAM_SPEC.md`'s per-module I/O tables are hand-written and can go stale with CI green** — `test_spec_coverage.py` guards that a section exists per module, not what its tables say; a module can gain an input or emit a new case unnoticed *(2026-10-03 process review)* (#358) | The inputs/outputs tables generated from the code-owned field registry and result keys, with a regenerate-and-compare drift guard (the `DATA_DICTIONARY.md` posture); prose — meanings, FAR citations — stays hand-written | V | M / M | — |
-| 35 | **`solo_close.sh` verifies fragment existence, not tier content** — nothing checks a tier-M closure touched `PROGRAM_SPEC.md`, a tier-L closure cited `theory_sources.md`, or that a physics change had a note at AGREED; hand-git bypasses are degrading the commit-subject record. The checkable subset gets scripted; the rest is named as discipline in `DEVELOPMENT_PROCESS.md` *(review R-15)* (#185) | The preflight enforcing the checkable closure obligations and validating the subject it writes | V | M / M | — |
-| 36 | **Whole-pipeline-per-assertion tests, re-aimed at the coverage leg** — *moved from band D 2026-09-04* *(CR-D-6, filed from #46; hygiene; ruled 2026-08-26 (owner): option (b) — the trip figure was the coverage-instrumented run; the row is re-aimed at the run that pays for it)* (#92) | The repeated-pipeline shape gone from the coverage leg's `--durations`; the local command stays the clause's datum. **No `slow` marker** — `00_program_overview.md` §Testing states why | V | S / S–M | — |
-| 37 | **The oracle form reaches into a `field_registry` private** — `oracle_app/form.py:709` calls `fr._locate(paths[0])`, the only access to a `sloads` private from either shell package *(production-release review 2026-08-27 §3.7; moved from band D 2026-09-04 — the GUI milestone is when `field_registry` is next touched)* (#130) | `field_registry` exposes the lookup publicly and `row_class` calls it; the private stays private | V | S / S | when `field_registry` is next touched |
-| 38 | **The load-case index carries no loads for 344 of 347 rows** — its six load columns are the engine-mount shape (`render.load_cases_to_rows`' own docstring: *"the load components an engine mount must react"*, `load_keys.LOAD_CASE_KEYS`), and four of the five producers cannot express themselves in it: a landing case has three legs at three points, a wing case a distribution. Measured 2026-09-07: **344/347** rows on `ga6_normal`, **543/555** on `baron_58`, **587/617** on `concept_regional_jet` carry a blank load. Note 44 OR-186 answered the *deliverable* half — each structural element now has an applied-load CSV shaped for its own loads — and left the index itself, because removing or reshaping those columns touches every producer and every consumer of `load_cases_csv`. Either it is an index, in which case the load columns invite a reader to conclude a case carries nothing, or it is a load table, in which case most of it is missing *(note 44 §21 filed, §22 measured)* (#209) | A decision on what the file is, then the columns to match it — the candidate being that it becomes an index in name as well as in fact, with the per-element files carrying the loads. **Unchanged in substance by note 56**, but D-56.1 moved the case index out of the export bridge into `report/tables.py` (`case_index_rows`, `case_index_csv`) — arguably where a decision about what a *report* table is always belonged; its six load columns still come from `report/render.py`'s `load_cases_to_rows` and the file itself from `io.py`'s `load_cases_csv`, so the decision now touches three owners | V | M / M | note 44 §22 shipped; a decision on the file's purpose |
-| 39 | **Appendix A printed results with no home in the report and no registered exclusion** — eight items (WTESTIMA's breakdown, MNE/MFC/V(FC), the tail-off drag polar, WINGINER's split and unit cases, SELECT's h-tail CP and unbalanced moments, TAILDIST's station chords, WINGGEOM's 20-element table, LANDLOAD's ground-line moments) *(2026-09-08 review §D; given a row 2026-09-28)* (#246) | Each added or registered as an exclusion beside the others, walked with the owner at the start of 0.9.0 | V | M / S | owner decisions |
-| 40 | **130 test files carry a `sys.path.insert` shim** the editable install makes unnecessary *(found at #322)* (#340) | Every shim deleted and a guard in `test_ci_conformance.py` refusing one | V | S / S | — |
-| 41 | **The 0.8.8 structural gates have five probed blind spots** — formats the digit gate cannot see, a suppress the except guard cannot see, a scope the refusal guard does not scan, two print sites outside both *(0.8.8 pre-release review)* (#345) | Each gate widened to its blind spot, with the synthetic violation as its test | V | S / S | — |
-| 42 | **Test-debt remainder from the 0.8.8 pre-release review** — G-51.7's OEI VC figures unpinned, an orphaned decorator, three brittle guard patterns (#346) | The VC rows pinned, the decorator removed, the three patterns made exact | V | S / S | — |
-| 43 | **One Mach-correction owner for wing and tail, finite-wing form; the downwash constant 36 → 36.48 (review P-4)** *(physics review 2026-11-01)* (#415) | A single compressibility owner used by FLTLOADS and SELECT, with a guard that no module scales a slope on its own | V | M / M | — |
-| 44 | The aileron's own lift increment is not distributed *(consumer-gated, not a rule-6 park: no effect number is claimed; D-29's 19 % is the air-load divergence, not this increment)* (#14) | `ACRL` wing cards gain the aero half of the couple (~70 % span); the schema fields shipped v52 and wait for data and a consumer | V | L / M | only if a consumer sizes to `ACRL` |
-| 45 | Ground-case fuselage station distribution — the ground family has no per-station view *(from the #11 closure, D-28)* (#31) | Per-station shear/bending/torsion for the ground family on the fuselage beam, its own envelope beside the flight one and never merged with it, each station naming its ground case | V | L / M | a frame-sizing consumer; design note first |
-| 46 | Calc-side function size (CH-8) — *moved from band D 2026-09-04; re-cut with the review's numbers: `landing_reactions` now 276, plus `envelope` 195, `build_tail_span` 176, `_export_sbeam` 173, `_manifest_rows` 155 and the three `balance` assemblers (see the R-22 comment on the issue)* (#17) | Split when touched; **the view functions wait for the page-by-page GUI reviews**. **Re-measured at note 56's close (2026-09-12), and the forecast was wrong in one half**: `_export_sbeam` was not deleted — it lost its per-component branches and stands at **53**, off this list; `_manifest_rows` is **131**, not the 155 this row carried; `landing_reactions` (276), `envelope` (195) and `build_tail_span` (176 — untouched, but its deck consumer is gone) stand, as do the three `balance` assemblers | V | S / S | — |
-| 47 | Review 2026-08-10 unscheduled findings m3–m13, m15–m18 + NITs *(defect sweep; moved from band D 2026-09-04)* (#18) | Swept opportunistically (practice 4) or promoted individually | V | S / S–M | — |
-| 48 | mypy strictness ratchet — stage 2 `export/`, stage 3 `modules/`, **plus `io.py` as its own stage** (95 `Any`-typed lines, the schema boundary — the R-25 comment on the issue) *(design note 27 ST-3; moved from band D 2026-09-04)* (#19) | `sloads.export.*`, `sloads.io`, then `sloads.modules.*` added to the `[[tool.mypy.overrides]]` list and narrowed to zero under ST-4; then `warn_return_any`/`disallow_any_generics` toward `--strict` | V | S / S per stage | — |
-| 49 | **No inbound channel for an externally computed load distribution** — the survivor can write a distribution and cannot read one back, so a distribution from another model cannot be checked against this analysis. Design-note work before code: which columns, which stations, which units, and what a disagreement between the two is *said* to be. `sloads/report/lra_import.py` already reads an external GRID/CBAR **model**, so the pattern exists; #245's `data/` is the outbound direction and does not cover this *(note 60 §9, amended 2026-09-13 — the home of §1.1's figure 19, which is deferred with it rather than retiring at #270)* (#279) | An agreed import contract, the channel, and the imported-against-computed overlay as its first consumer | V | L / M | a design note at AGREED first |
-| 50 | **The oracle prints an aileron deflection schedule the module does not publish** — Appendix A p200 prints the deflections at VA, VC and VD (15.00 / 10.68 / 4.26 deg and their up throws); `aileron.aileron_loads` computes them internally and returns only the governing loads, so report §7 states the schedule in words and prints no numbers (OR-6 forbids re-deriving them) *(filed 2026-09-07, held unfiled while the OR-13 freeze stood; the freeze lifted at the 0.8.2 cut, so issued 2026-09-22)* (#305) | One `LoadValue` per deflection on `AileronResult`, the p200 figures as the oracle (±0.1 %), §7 printing them | V | M / S | — |
 
 **Frozen (review §3) — no further investment; tests and gates kept; touched
 for defects only:** the FAR 23 core; the balanced assembler + handedness;
@@ -649,81 +96,65 @@ that tree on 2026-09-14; parked **L-8d**'s keyed data-loss half shipped 2026-08-
 exactly those call sites, no layout/behaviour rework — so the freeze is whole
 again; L-8d's mutation case stays parked); F25-2.
 
----
 
-## Open defects (index)
+**The table is a generated view of the open issues** (#359): one row per
+issue, `| Pri | **title** (#N) | what ships | tag | tier / effort | depends |`,
+regenerated by `scripts/backlog_issues.py render` (run by `solo_close.sh` at
+every close) and held to the issues by `backlog_issues.py check`. The body is the
+issue; nothing lives below the table. A re-cut renumbers the table in its own
+tier-S commit and states its reasoning in the milestone description.
 
-A bullet whose body says **unfiled by choice** is a finding stated here on
-purpose and not scheduled: `scripts/backlog_issues.py` lists it under `plan`,
-never files it under `create` and never collapses it under `rewrite`. The phrase
-is the marker the tool reads — before #280 nothing in the tool knew the state
-existed, and what kept two of these unfiled was a regex that could not see a
-bold heading wrapping onto a second line.
-
-- #18 — Review 2026-08-10 unscheduled findings [Minor/NIT].
-
-- #375 — Aileron hinge moment: integrate the hinge moment for every wing load case and for the two AILERON pressure cases (owner ruled the 2026-09-07 scope question *yes*, 2026-10-15; tier L, design note first).
-
-- #305 — The oracle prints an aileron deflection schedule the module does not publish *(filed 2026-09-07; held on the OR-13 freeze, which lifted at the 0.8.2 cut; issued to band C on 2026-09-22, the body moved to the issue)*.
-
-- #304 — R-4's tolerance class is suite-wide, not `test_structural_speeds`'s alone *(filed 2026-09-15 from the #175 closure; issued to band B2 on 2026-09-22, the body moved to the issue)*.
-
-- **The unbounded dependency ceiling's early warning arrives after the push, and
-  nothing tells a developer their venv has drifted.** `pyproject.toml` states a
-  runtime floor with no upper bound and the decision is deliberate: CI installs
-  unpinned on every run, so an upstream removal fails the GUI tests here before
-  it reaches a user's fresh install (guard:
-  `tests/test_ci_conformance.py::test_the_dependency_ceiling_policy_rests_on_an_unpinned_install`).
-  What the policy does not say is where that failure lands. A developer's venv
-  holds whatever was current the day it was made — this one sat at Streamlit
-  **1.58.0 against CI's 1.64.0, six releases** — so `pytest` is green locally
-  and red on the branch, *after* the push, and on 2026-09-16 that meant two
-  consecutive red CI runs across two closures before anyone read the log. The
-  local gate cannot answer the question by itself: asking PyPI what is newest
-  needs a network the gate must not depend on. Options, cheapest first: the
-  fast gate reports the installed runtime versions in its log, so a red is read
-  against them without a second command; `solo_start.sh` refreshes the runtime
-  dependencies when it opens a milestone branch, which is the one moment the
-  cost is already being paid; or nothing changes and this entry is the note
-  that says the lag is known and priced. **Filed 2026-09-16, from the
-  1.64 `AppTest.session_state` break.** Tier S, effort S — but the choice is the
-  owner's, and "priced, not fixed" is a legitimate answer to it. **Taken
-  2026-09-22 (re-cut): priced, not fixed — unfiled by choice**; this entry is
-  the note that says the lag is known. *(2026-09-28: the interpreter half
-  closed with #327 — the suite now refuses a `.venv` on any interpreter
-  `ci.yml` does not run — and #329 makes the next close read a red run; what
-  this entry still prices is the runtime-dependency lag alone.)*
-
-Two long-standing entries left this list on 2026-08-18 at the issue #13 closure —
-**decided, not fixed**, which is why neither survives here under the removal
-rule. Both keep their pins; the decisions carry what the bodies used to:
-
-- The **derived `ACRL` air-load divergence** is **D-29**: SELECT's own
-  23.349(a)(2) pick is what the derived case names, the ~19 % difference against
-  the worked example is accepted and stated, and an `ACRL` case used for sizing is
-  **entered, never derived**. Pin:
-  `tests/test_wing_case_derivation.py::test_the_acrl_divergence_is_the_documented_one`.
-- The **ATR-42 Mach-capped stall exceedance** is **D-30**: nine of 300 points at
-  25,000 ft are ordinary stall/Mach-limited flight, not a defect — `nz = n` and
-  `n·W` are exact and the fixture is not edited to hide the corner. What is real
-  is that CM/CD are evaluated 0.9–3.1 deg past their fit there, moving the
-  published tail split by 3.3–44 % with **0 of the 9 SELECTed**, so no sizing load
-  moves: filed as **#32** (mark the rows, band B) and **#33** (the solver's own
-  silence — **closed 2026-08-22**: the nine are reported *clamped*, and #32's
-  marker reads that owner). Pin:
-  `tests/test_aero_curves.py::test_the_atr42_stall_exceedance_is_the_documented_mach_capped_one`.
-  The GA oracle and both concept fixtures close cleanly.
-
----
-
-## Open design decisions requiring user input
-
-- [ ] **D-5 — Appendix B twin fixture (blocks parked L-9).** The swept (C7) and
-  ONENGOUT (C9) printed oracles want the 10-place twin turboprop as a fixture,
-  but Appendix B is **not in the bundled PDF**. *Can the user supply a legible
-  Appendix B or the original `.INP`/`.OUT` files?* Until then
-  `examples/twin_turboprop.project.json` can't be built and these oracles stay
-  blocked. **(Reviewed 2026-07-20: keep blocked as-is.)**
-
-D-1 … D-18 (all but D-5) are answered and recorded in
-[`../25_notes/03_resolved_decisions.md`](../25_notes/03_resolved_decisions.md).
+| Pri | Item (detail below / in its plan) | What ships | Tag | Tier / effort | Depends on |
+|---|---|---|---|---|---|
+| **B11 — 0.10.0: loads correctness on the Part 23 method, for ATR-sized airplanes (re-chartered 2026-11-01 after the physics review)** ||||||
+| 2 | **LGFACTOR's energy ratio is the gear factor: the wing lift is subtracted twice** (#401) | Note 72 D-72.1…D-72.8: the relabel, the p236 approved deviation (printed column kept), G-72.1 energy-balance closure, the three 2.67 fixtures cleared, the oracle report rows | E | L / M | note 72 AGREED |
+| 3 | **GUI guide §5 still teaches 'exported = ultimate', and CAPABILITIES advertises outputs retired at #270 (review D-1, D-5)** (#402) | §5 rewritten to the LIMIT contract, CAPABILITIES §2 resynced, a guard against the retired wording | E | S / S | — |
+| 4 | **The Python 3.12 requirement is invisible to a new clone** (#395) | README install section and `pyproject.toml` state 3.12 up front with the one-line reason; the refusal message points at it; no change to the policy | E | S / S | — |
+| 5 | **README: quickstart first, phase narrative after** (#394) | The first screen is install (one command), run the GUI, run one CLI case, where the guide lives; the narrative moves below or into `docs/` | E | S / S | #395 |
+| 6 | **Ten tags, no wheel, no GitHub release** (#396) | A release workflow (or a documented manual step) that builds the wheel on tag and attaches it to a GitHub release with that version's changelog section; v0.9.0 first, retroactively | E | S / S | — |
+| 7 | **One clean install on another machine from the README alone** (#397) | On a machine that has never seen sloads (the Mini counts), follow the README on macOS and on Windows, run the GUI and one CLI case, file each break as its own issue | E | S / S | #394, #395, #396 |
+| 8 | **The ATR 42-300 seed fixture's input errors and its round-trip failures, before it is committed (review A-4, T-1)** (#403) | Seed corrected per the table with sources, registered in the fixture guards, the round-trip failures diagnosed and fixed at their cause, suite green with the seed committed | E | S / M | #401 (N cleared per note 72 Q3) |
+| 9 | **`atr42_100`'s `tread_in` is 150 in against the published 161.4 in** (#399) | `tread_in` 161.4 [A] with its source line, or the reason 150 is kept recorded beside it | E | S / S | — |
+| 10 | **`baron_58` has no minimum-crew row** (#337) | The Baron's crew as a `MINIMUM` row, the minimum weight and the affected cases re-derived, and a guard that every fixture's minimum loading carries a crew | E | S / S | — |
+| 11 | **Balanced cases run past the elevator stop, tail stall and fin stall with no flag (review A-2; absorbs #353)** (#404) | Per-case feasibility flags (elevator stop, h-tail α, fin α) on every balanced family, shown in the report and the deck, with a guard test | E | M / M | #401 |
+| 12 | **OEI basis for feathering turboprops: windmill drag default, feather/autofeather, VMC–VD sweep, a distinct 23.367(a)(2) (review A-3, P-3)** (#405) | Design note at AGREED, then the feathering drag basis, the speed sweep and the (a)(2) schedule, with the ATR's governing fin case re-derived | E | L / L | design note; #353 class via the feasibility issue |
+| 13 | **The flight balance models no thrust — the thrust-line re-trim, ranked by its number** (#226) | Note 21 §10 at AGREED (owner Q1–Q5), then one tier-L step: the policy table and `-P` identity (P-4/P-12, one additive schema hop), the thrust term in `_balance` with `nx = −(DX − ΣT)/W` and the `NX`/`T` columns, the h-tail `-P` families (P-11), the body beam's axial column (P-16, #218) and the entered line's direction (P-17, #217 — or parked with its number); the DATCOM slipstream estimator stays parked | V | L / L | note 21 §10 AGREED; re-tiered S → L 2026-10-27, the measurement done |
+| 14 | **The weekly sbeam-drift gate against sbeam `main` is red** (#400) | The pin bumped per `PROJECT_GUIDE.md` "The `solver` extra and the sbeam pin", its step 3 (`pytest -m roundtrip` green before the bump is committed); the issue closes itself on the first green weekly run | V | S / S | — |
+| 15 | **Every oracle-locked module needs an independent physics closure beside its printed figure; the oracle cannot see a source error (review §1.2, the #401 class)** (#406) | A closure gate per oracle-locked module, recorded in module_gates.py, and a guard refusing a module with an oracle alone | E | M / M | #401 (G-72.1 is the first) |
+| 16 | **Appendix A page citations are wrong in six places, and three printed figures are compared with no page cited** (#371) | Each citation corrected against the printed page footers, the three figures given their page | V | S / S | — |
+| 17 | **Reference 1 is cited without its grant and report numbers, and the report says Appendix B is "not bundled" when the available copy lacks it** (#373) | The full citation (Grant 93-G-051, DOT/FAA/AR-96/46) in the theory sources and the report; Appendix B stated as absent from the available copy | V | S / S | — |
+| 18 | **Checked-manoeuvre pitch acceleration uses +39 for both directions; the 23.423 lineage has −26 nose-down (review P-2, confirm the text first)** (#407) | The regulation text transcribed and cited; the value kept-conservative with its number or corrected as an approved deviation | V | S / S | — |
+| 19 | **Gyroscopic thrust basis: labelled max-continuous, computed from takeoff torque at 100 % efficiency, above the ideal-disc limit on the ATR (review P-6)** (#408) | Thrust from max-continuous power with η (or the ideal-disc cap), the label fixed, an ideal-disc closure gate | V | S / S | — |
+| 20 | **DATA_DICTIONARY.md is broken: the generator swallows its exception and has not followed models/ becoming a package (review D-6)** (#409) | The generator fixed and failing loudly, the file regenerated, a guard that every input dataclass has a complete table | V | S / S | — |
+| 21 | **Directional stability and the body's share on the Aerodynamic Data page** (#390) | The page block, the flag primary, the OEI sensitivity term off by default; note 33's section | V | M / M | #226's number |
+| **B12 — 0.11.0: the ATR on its Part 25 basis, the validation record and the sconfig contract (opened 2026-11-01)** ||||||
+| 22 | **F25-1: the transport gust and manoeuvre envelope: VB and the 66 fps line, the 25.337 n₁ check, VC ≥ VMO (review A-1)** (#410) | Design note at AGREED, then VB, the VB gust line, the n₁ and VC checks, and the ATR fixtures re-derived on the transport basis | E | L / L | design note |
+| 23 | **F25-4: the Part 25 landing variant: L = 1.0, 6 fps at MTOW, the LDW/MTOW pairing (review A-1)** (#411) | The 25.473 case set beside the Part 23 one, selected by basis, with the pairing stated per case and a closure gate on the energy balance at each weight | E | M / M | #401 |
+| 24 | **The remaining Part 25 gaps for an ATR-class airplane: per-wheel loads, 25.343(b), transport MFC, 25.351 overswing, 25.345 flaps-down (review §2)** (#412) | Each gap measured and ranked by rule 6, then split into its own step or parked with its number | V | M / M | F25-1 |
+| 25 | **AIRLOADS produces no flaps-down span load (OR-53)** (#163) | The cosine fairing across the flap discontinuity (Ref 1 p47) and a flaps-down span load, with the ATR given a flaps-down coefficient set | V | L / L | #412 (25.345 ranked) |
+| 26 | **Wing fuel (and any tank/store band) is a point mass in WINGINER** (#111) | the per-side tank item row (note 63 D-63.4, `carriage` POINT) gains a spanwise extent (`y_span`) folded into the per-strip density `w[i]`, reducing exactly to today's point when the band collapses — **not** a `WingMassInput` field, which D-63.2 empties of mass; Appendix A oracle case (concentrated gear only) untouched, lock holds. Interim: N item rows across the tank span with the same centroid — root bending and total shear identical | V | L / M | #289 and #292 shipped 2026-09-18 with the per-tank rows; **the park condition note 63 §6 set was never met** — the ATR point-vs-band number was not measured, and the metric it named (root bending) is zero by construction for a band with the same centroid. First deliverable is the tier-S measurement: mid-tank-band station shear and bending on `atr42_100`, point vs band, against the Schrenk 5–10 % datum; then rank or park on that number; design note first (physics/L). The measurement runs in B2 time, after #226's (B2 re-order 2026-10-19); the physics stays in C |
+| 27 | **No readable validation matrix (last baseline 0.7.0) and no scope-and-applicability page (review D-2, D-3)** (#413) | A generated VALIDATION.md, the baseline step restored at release cut, one scope page stating which way each omission errs | V | M / M | #304 |
+| 28 | **R-4's tolerance class is suite-wide, not `test_structural_speeds`'s alone** (#304) | Each site read and tightened or justified on its line; then the structural half — a guard refusing a tolerance looser than the file's stated band without a reason on the line | V | M / M | — |
+| 29 | **Documentation for a reviewer: ch11 deck walk-through and the stub chapters, reference access, the twin checkpoint table, results-affecting changelog, register magnitudes, fixture provenance (review D-4, D-7, D-9…D-13)** (#414) | ch11 written, then ch08 and a control-surface chapter; the reference-access section; D-9…D-13 each closed | V | M / L | #401 (ch08) |
+| 30 | **Document the project-file schema** (#348) | The design note, then the document and the generator; #355's schema is its generated half | V | L / M | design note first |
+| 31 | **Publish the project JSON Schema with each release** (#351) | `RELEASE_PROCESS.md` §4 gains the step; the published file equals the generated schema | V | S / S | #348, #355 |
+| **C — 1.0.0: additional analysis capability (consumer-gated; design notes first)** ||||||
+| 32 | **GUI validation warnings ignore the SI toggle** (#339) | Warnings rendered in the page's unit system, one owner for the conversion, and a guard over every warning code | V | M / M | — |
+| 33 | **The calc-purity contract is prose plus scattered guards** (#357) | Verify no equivalent gate exists (close as no-op if one does); else an AST test over `sloads/`: no `streamlit`/`app_shell`/`oracle_app` import, no I/O outside `io.py`/`report/`/`export/`, new modules layer-assigned | V | S / S | — |
+| 34 | **`PROGRAM_SPEC.md`'s per-module I/O tables are hand-written and can go stale with CI green** (#358) | The inputs/outputs tables generated from the code-owned field registry and result keys, with a regenerate-and-compare drift guard (the `DATA_DICTIONARY.md` posture); prose — meanings, FAR citations — stays hand-written | V | M / M | — |
+| 35 | **`solo_close.sh` verifies fragment existence, not tier content** (#185) | The preflight enforcing the checkable closure obligations and validating the subject it writes | V | M / M | — |
+| 36 | **Whole-pipeline-per-assertion tests, re-aimed at the coverage leg** (#92) | The repeated-pipeline shape gone from the coverage leg's `--durations`; the local command stays the clause's datum. **No `slow` marker** — `00_program_overview.md` §Testing states why | V | S / S–M | — |
+| 37 | **The oracle form reaches into a `field_registry` private** (#130) | `field_registry` exposes the lookup publicly and `row_class` calls it; the private stays private | V | S / S | when `field_registry` is next touched |
+| 38 | **The load-case index carries no loads for 344 of 347 rows** (#209) | A decision on what the file is, then the columns to match it — the candidate being that it becomes an index in name as well as in fact, with the per-element files carrying the loads. **Unchanged in substance by note 56**, but D-56.1 moved the case index out of the export bridge into `report/tables.py` (`case_index_rows`, `case_index_csv`) — arguably where a decision about what a *report* table is always belonged; its six load columns still come from `report/render.py`'s `load_cases_to_rows` and the file itself from `io.py`'s `load_cases_csv`, so the decision now touches three owners | V | M / M | note 44 §22 shipped; a decision on the file's purpose |
+| 39 | **Appendix A printed results with no home in the report and no registered exclusion** (#246) | Each added or registered as an exclusion beside the others, walked with the owner at the start of 0.9.0 | V | M / S | owner decisions |
+| 40 | **130 test files carry a `sys.path.insert` shim** (#340) | Every shim deleted and a guard in `test_ci_conformance.py` refusing one | V | S / S | — |
+| 41 | **The 0.8.8 structural gates have five probed blind spots** (#345) | Each gate widened to its blind spot, with the synthetic violation as its test | V | S / S | — |
+| 42 | **Test-debt remainder from the 0.8.8 pre-release review** (#346) | The VC rows pinned, the decorator removed, the three patterns made exact | V | S / S | — |
+| 43 | **One Mach-correction owner for wing and tail, finite-wing form; the downwash constant 36 → 36.48 (review P-4)** (#415) | A single compressibility owner used by FLTLOADS and SELECT, with a guard that no module scales a slope on its own | V | M / M | — |
+| 44 | **The aileron's own lift increment is not distributed** (#14) | `ACRL` wing cards gain the aero half of the couple (~70 % span); the schema fields shipped v52 and wait for data and a consumer | V | L / M | only if a consumer sizes to `ACRL` |
+| 45 | **Ground-case fuselage station distribution** (#31) | Per-station shear/bending/torsion for the ground family on the fuselage beam, its own envelope beside the flight one and never merged with it, each station naming its ground case | V | L / M | a frame-sizing consumer; design note first |
+| 46 | **Calc-side function size (CH-8)** (#17) | Split when touched; **the view functions wait for the page-by-page GUI reviews**. **Re-measured at note 56's close (2026-09-12), and the forecast was wrong in one half**: `_export_sbeam` was not deleted — it lost its per-component branches and stands at **53**, off this list; `_manifest_rows` is **131**, not the 155 this row carried; `landing_reactions` (276), `envelope` (195) and `build_tail_span` (176 — untouched, but its deck consumer is gone) stand, as do the three `balance` assemblers | V | S / S | — |
+| 47 | **Review 2026-08-10 unscheduled findings m3–m13, m15–m18 + NITs** (#18) | Swept opportunistically (practice 4) or promoted individually | V | S / S–M | — |
+| 48 | **mypy strictness ratchet** (#19) | `sloads.export.*`, `sloads.io`, then `sloads.modules.*` added to the `[[tool.mypy.overrides]]` list and narrowed to zero under ST-4; then `warn_return_any`/`disallow_any_generics` toward `--strict` | V | S / S per stage | — |
+| 49 | **No inbound channel for an externally computed load distribution** (#279) | An agreed import contract, the channel, and the imported-against-computed overlay as its first consumer | V | L / M | a design note at AGREED first |
+| 50 | **The oracle prints an aileron deflection schedule the module does not publish** (#305) | One `LoadValue` per deflection on `AileronResult`, the p200 figures as the oracle (±0.1 %), §7 printing them | V | M / S | — |

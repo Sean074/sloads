@@ -24,7 +24,7 @@ authority.
 | Kind | Files |
 |------|-------|
 | The changelog | `CHANGELOG.md` (live: current cycle + previous release block) and `CHANGELOG_to_<version>.md` archives (note 61 CV-5) |
-| Completed development | `00_completed_development.md` (live) and the `NN_completed_development_to_<version>.md` era archives (note 26 DV-1) |
+| Completed development | `00_completed_development.md` (frozen 2026-11-01, #359) and the `NN_completed_development_to_<version>.md` era archives (note 26 DV-1) |
 | Verification baselines | `NN_verification_baseline_<version>.md` — the per-release regression record (`RELEASE_PROCESS.md` §4.5) |
 | Backlog-state narratives | point-in-time snapshots of the backlog |
 | Executed runbooks | e.g. the M3-1 rename procedure — how a completed one-off was carried out |
@@ -35,8 +35,9 @@ authority.
   is a record, not a document (note 26 DV-1). Its links point at the tree as it
   stood when it was written, which is why `tests/test_doc_links.py` exempts this
   directory.
-- **The two live files are never hand-edited** at the top: closure writes a
-  `changes/` fragment and `scripts/build_changelog.py` assembles both at the
-  release cut (`RELEASE_PROCESS.md` §4).
-- **Both live files roll at 1,500 lines** — a threshold, not a defect;
-  `tests/test_changelog_fragments.py` warns and the release cut does the roll.
+- **`CHANGELOG.md` is never hand-edited** at the top: closure writes a
+  `changes/` fragment and `scripts/build_changelog.py` assembles it at the
+  release cut (`RELEASE_PROCESS.md` §4). It rolls at
+  `build_changelog.LIVE_LINE_THRESHOLD` — a threshold, not a defect.
+- **`00_completed_development.md` is frozen** (2026-11-01, #359): the design
+  notes, the changelog and `git log` carry the record from there.

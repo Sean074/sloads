@@ -425,11 +425,12 @@ the owner** instead of copying the value. Provenance is not volatile:
 "added at schema v46" is a fact that never rots and is written that way —
 `schema vN`, never `SCHEMA_VERSION` beside a number. Anything that *describes*
 code (the package tree, the module list, the spec sections, the nav, the data
-dictionary) is generated or drift-guarded; a doc file exists only with a
-`docs/00_INDEX.md` row. Scope: `README.md`, `CLAUDE.md`, `docs/00_INDEX.md`,
-`docs/10_standard/`, `docs/20_theory/`; plan notes, history and reviews are
-dated statements and are exempt. Guard: `tests/test_doc_currency.py` (both
-halves: literal patterns, and INDEX ↔ tree both ways). Rationale: R6-D1…D8
+dictionary) is generated or drift-guarded; `docs/00_INDEX.md` is generated from
+each file's own title (`scripts/build_index.py --write`). Scope: `README.md`,
+`CLAUDE.md`, `docs/00_INDEX.md`, `docs/10_standard/`, `docs/20_theory/`; plan
+notes, history and reviews are dated statements and are exempt. Guard:
+`tests/test_doc_currency.py` (both halves: literal patterns, and the index
+equal to its generator's output). Rationale: R6-D1…D8
 and this file's own stale schema line found 2026-08-16 (37 versions behind) —
 prose that copies a value drifts the moment the value moves.
 

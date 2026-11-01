@@ -399,7 +399,7 @@ printed factor, `tests/test_flight_envelope.py::test_ac_roll_printed_row_holds_a
 amendment; the affected `ConditionResult`s carry a `note`; `PROGRAM_SPEC.md`'s
 FLTLOADS/SELECT/WINGINER rows and
 [`00_theory_sources.md`](00_theory_sources.md)'s rolling-conditions row cite
-it; the history fragment states the digest wave. Sources: the regulation text
+it; the fragment states the digest wave. Sources: the regulation text
 as amended (`reference/` copy to be added with the implementation);
 `reference/FAR23Loads_Code.pdf` Ch 12 p. 91, Ch 13 p. 96, Appendix A pp. 219,
 225.

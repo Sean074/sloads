@@ -43,7 +43,7 @@ The gates, all local:
 2026-08-22 it is **milestone-branch shaped**: one `dev/vX.Y.Z` branch per
 release, every item committed directly onto it (one commit per closed item,
 issue closed and backlog row out in that same commit), and `main` reached by
-that milestone's single pull request, merged with a merge commit. So steps 3
+that milestone's single pull request, rebase-merged. So steps 3
 and 6–8 below collapse into `scripts/solo_start.sh` once per release and
 `scripts/solo_close.sh` once per item — the copy-paste sequences are
 [`WORKFLOW_COMMANDS.txt`](docs/10_standard/WORKFLOW_COMMANDS.txt). Steps 1–2
@@ -53,20 +53,20 @@ and 4–5 (issue, design note, tier closure, counters) apply unchanged.
    `tier:*`, `tag:*`, `band:*`, `kind:*`); the priority order is the table in
    `00_backlog.md`. Assign yourself.
 2. **Tier L or any physics change: design note first.** Open `note/NN-slug`
-   with a `PROPOSED` note in `docs/30_future/` (theory reference,
-   `CONVENTIONS.md` citations, expected numbers, tolerances); the owner reviews;
+   with a `PROPOSED` note in `docs/25_notes/` (the §5 template: status, scope,
+   decisions table, gates table, questions; ≤ ~150 lines); the owner reviews;
    merge at `AGREED`. Then implement.
 3. **Branch** `<type>/<slug>` off `main` (`step/`, `fix/`, `note/`, `docs/`, `chore/`).
 4. **Do the work at its tier**, and put the closure **in the same PR**:
 
    | Tier | Closure in the PR |
    |---|---|
-   | S — small fix, hygiene, docs, display-only | `changes/<slug>.<type>.md` + `Closes #N` |
-   | M — behaviour change to an existing capability | S + affected `PROGRAM_SPEC.md`/standard-doc sections + `changes/<slug>.history.md` (one paragraph) |
-   | L — new module / load case / physics / schema or contract change | M + `theory_sources.md` citation + note flipped to *shipped* + full-step `history.md` |
+   | S — small fix, hygiene, docs, display-only | one `changes/<slug>.<type>.md` (one bullet, ≤ 60 words) + `Closes #N` |
+   | M — behaviour change to an existing capability | S + affected `PROGRAM_SPEC.md`/standard-doc sections |
+   | L — new module / load case / physics / schema or contract change | M + `theory_sources.md` citation + the design note, flipped to *shipped* |
 
-   Fragments: [`changes/README.md`](changes/README.md). Never hand-edit
-   `CHANGELOG.md` `[Unreleased]` or the top of the history file.
+   Fragments: [`changes/README.md`](changes/README.md). There is no history
+   entry; never hand-edit `CHANGELOG.md` `[Unreleased]`.
 5. **Rebase on `main` before you regenerate anything** — `SCHEMA_VERSION`, the
    Imperial digest (one wave per PR, reviewer confirms), case-ID bands. Guards
    fail on collisions; the rule is *when* you run them.
@@ -99,7 +99,7 @@ carries a reason): `00_program_overview.md` §Static typing & lint.
 
 - Standard docs **point at owners, never copy values** (no schema numbers, test
   counts, "currently N") — `tests/test_doc_currency.py` fails on them.
-- Every file under `docs/` has a row in `docs/00_INDEX.md` (same guard).
+- `docs/00_INDEX.md` is generated from each file's title: `scripts/build_index.py --write` (same guard).
 - `PROJECT_GUIDE.md` §4's tree, `PROGRAM_SPEC.md`'s sections, `workflow.py`'s
   nav, and `DATA_DICTIONARY.md` are generated or test-guarded — edit the owner.
 - New domain terms go in `cspell.json`.

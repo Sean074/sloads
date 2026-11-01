@@ -43,12 +43,11 @@ B — PER ITEM, on the milestone branch (repeat until the milestone is empty)
 git status -sb                     # ## dev/v<X.Y.Z>...origin/dev/v<X.Y.Z>
 
 # 2. Do the work, AND the closure artefacts, before closing:
-#      tier S: changes/<slug>.<type>.md fragment + delete the item's backlog
-#              row (your own row only — no renumbering)
+#      tier S: one changes/<slug>.<type>.md fragment — one bullet, <= 60 words
+#              (the backlog row leaves by itself: solo_close.sh drops it)
 #      tier M: tier S + the affected PROGRAM_SPEC.md / standard-doc section
-#              + a one-paragraph changes/<slug>.history.md fragment
-#      tier L: tier M + theory_sources.md citation + full-format history
-#              fragment; design note agreed before code (in chat while solo)
+#      tier L: tier M + theory_sources.md citation + the design note (<= ~150
+#              lines), agreed before code (in chat while solo)
 #    The issue closes and the row leaves in THIS item's commit — that is what
 #    keeps the backlog a live view of what is still open mid-milestone.
 
@@ -78,9 +77,8 @@ C — ONCE PER RELEASE: cut it and land the milestone on main
 ---------------------------------------------------------------------------
 
 # 1. The milestone is empty (band A has no rows left). Cut the release ON this
-#    branch — RELEASE_PROCESS.md §4 steps 1-3: version bump, changelog build
-#    (which rolls the history fragments), history roll. There is no
-#    release/x.y.z branch.
+#    branch — RELEASE_PROCESS.md §4 steps 1-3: version bump, changelog build,
+#    changelog roll when it is long. There is no release/x.y.z branch.
 .venv/bin/python scripts/build_changelog.py <X.Y.Z> --date $(date +%F)
 .venv/bin/python scripts/backlog_issues.py check
 

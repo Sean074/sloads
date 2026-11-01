@@ -7,128 +7,93 @@ pointers only** — status, feature descriptions and per-module detail live in `
 ## What this project is
 
 A modern Python + Streamlit **replication** of the **FAR 23 LOADS** suite (Hal C.
-McMaster, Aero Science Software): 22 GW/QBasic programs that compute the structural
-design loads a small aircraft must sustain under FAR Part 23 Subpart C, ported into one
-shared calc package + a multi-page UI.
+McMaster): 22 GW/QBasic programs computing the structural design loads of a small
+aircraft under FAR Part 23 Subpart C, ported into one shared calc package + a UI.
 
 **Mission (Phase C):** a demonstrated **concept-loads → sbeam sizing loop** — a
-concept configuration (which may exceed the FAR23 caps) goes in, per-component
-distributed **LIMIT** loads come out as `FORCE`/`MOMENT` bulk-data cards with the
-14 CFR 23.303 factor **stated per subcase and applied nowhere** — sloads delivers
-the loads, the sizing step applies the factor (note 49 OR-116/OR-117) — and the
-exported deck solves in sbeam with verified global equilibrium, continuously in CI.
-The primary deliverable is the **LRA beam model of the full-span free-free
-airplane** (aero + inertia together, left and right cases, CONM2 mass export).
-Design note 56 reduced the package to that one solver artifact plus the mass
-model: the five per-component decks are deleted and the elementless assembled
-deck is an internal producer that no longer ships. The FAR23 replication core stays **oracle-locked** (Appendix A
-±0.1%; twin cases closure-locked); concept mode is a superset that reduces exactly to
-it on GA inputs. Plan of record: `docs/30_future/01_concept_loads_plan.md`; working
-backlog: `docs/30_future/00_backlog.md` (open items only; off-mission items in
-`02_parked.md`).
+concept configuration goes in, per-component distributed **LIMIT** loads come out as
+`FORCE`/`MOMENT` bulk-data cards with the 14 CFR 23.303 factor **stated per subcase and
+applied nowhere** (note 49), and the exported deck solves in sbeam with verified global
+equilibrium, continuously in CI. The primary deliverable is the **LRA beam model of the
+full-span free-free airplane** (note 56). The FAR23 core stays **oracle-locked**
+(Appendix A ±0.1%); concept mode is a superset that reduces exactly to it on GA inputs.
+Plan of record: `docs/30_future/01_concept_loads_plan.md`; order of work:
+`docs/30_future/00_backlog.md` (a generated view of the open issues).
 
-**Reference sources (consult when writing/modifying analysis code — never derive load
-equations from memory; cite the page in the test):**
-- `reference/FAR23Loads_Code.pdf` — McMaster's theory manual; Appendix A (p131) is the
-  printed oracle (±0.1%); Appendix B is not bundled (twin cases closure-locked, see
-  `docs/20_theory/00_theory_sources.md`); Appendix C `.BAS` source (p373).
-- `reference/FAR23Loads_UserGuide.pdf` — DOT/FAA/AR-96/46, module data-flow (Table 2.2).
+**Reference sources — never derive a load equation from memory; cite the page in the
+test:** `reference/FAR23Loads_Code.pdf` (McMaster's manual; Appendix A p131 is the
+printed oracle, Appendix C p373 the `.BAS` source; Appendix B is not bundled) and
+`reference/FAR23Loads_UserGuide.pdf` (DOT/FAA/AR-96/46, module data-flow Table 2.2).
 
 ## Authoritative single sources (never duplicate — link instead)
 
-- **Conventions (axes, signs, units channels, ULT/SF contract, case identity):**
+- **Conventions** (axes, signs, units channels, ULT/SF contract, case identity):
   `docs/10_standard/CONVENTIONS.md` — cite it in every physics/export design note.
-- **Per-module spec (inputs/outputs/FAR conditions) + module naming map:**
-  `docs/10_standard/PROGRAM_SPEC.md`
-- **Package layout, `Project` schema, porting conventions:**
-  `docs/10_standard/PROJECT_GUIDE.md`
-- **Code standard (error contract, units, entry points, testing/coverage):**
-  `docs/10_standard/00_program_overview.md`
-- **How work moves (branches, PRs, closure-in-the-PR, issues, design-note PRs, owners):**
-  `docs/10_standard/DEVELOPMENT_PROCESS.md`; human on-ramp `CONTRIBUTING.md`
-- **Equation/oracle citations per module:** `docs/20_theory/00_theory_sources.md`
-- **Approved oracle deviations (register of record):**
-  `docs/20_theory/02_approved_corrections.md`
-- **Project data model:** `docs/10_standard/DATA_DICTIONARY.md` (generated — edit the
-  generator, never the file)
-- **Design notes (the agreed rationale, and what the tests cite):**
-  `docs/25_notes/` — every note and plan, whatever its status.
-- `docs/00_INDEX.md` maps the whole tree.
+- **Per-module spec:** `PROGRAM_SPEC.md`; **package layout / `Project` schema:**
+  `PROJECT_GUIDE.md`; **code standard:** `00_program_overview.md`; **data model:**
+  `DATA_DICTIONARY.md` (generated) — all in `docs/10_standard/`.
+- **How work moves** (branches, closure, issues, design notes, where to look):
+  `docs/10_standard/DEVELOPMENT_PROCESS.md`; human on-ramp `CONTRIBUTING.md`.
+- **Equation/oracle citations:** `docs/20_theory/00_theory_sources.md`; **approved
+  oracle deviations:** `docs/20_theory/02_approved_corrections.md`.
+- **Design notes** (the agreed rationale the tests cite): `docs/25_notes/`.
+- `docs/00_INDEX.md` maps the tree (generated by `scripts/build_index.py`).
 
-**Where to look, and where not to (note 61 CV-4).** Current truth is
-`10_standard/`, `20_theory/` and `25_notes/` — search those. **`docs/90_record/`
-is the record**: the completed-development narrative and its archives, the
-changelog and its archives, the per-release verification baselines. Nothing in
-it states what is true now; every line of it states what was true on a date.
-Read it only when the question is explicitly *when did this change* or *why did
-it change*, and never to answer *how does this work*. It is ~28k lines against
-the live corpus's ~12k, so treating it as searchable makes every search worse.
+**Where to look:** current truth is `10_standard/`, `20_theory/` and `25_notes/`;
+`docs/90_record/` is the frozen record and answers only *when* and *why did this
+change* (`DEVELOPMENT_PROCESS.md` §11).
 
 ## Step Completion Requirement (tiered)
 
-**HARD REQUIREMENT — when any backlog item, defect, or step is closed, its closure tier
-must be completed in the same session — and, with branches, in the same PR
-(`DEVELOPMENT_PROCESS.md` §3). Open work is GitHub Issues; the backlog file is the plan.
-Never batch or defer closure.**
+**HARD REQUIREMENT — when any item is closed, its closure tier is completed in the same
+session and the same commit (`DEVELOPMENT_PROCESS.md` §3). Open work is GitHub Issues;
+the backlog table is a generated view of them. Never batch or defer closure.**
 
 | Tier | Applies to | Required closure |
 |------|-----------|------------------|
-| **S** | Small fix, hygiene, docs, display-only | one `changes/<slug>.<type>.md` fragment (see `changes/README.md`) + backlog removal. **No history entry.** |
-| **M** | Behavior change to an existing capability | the affected `PROGRAM_SPEC.md` / standard-doc section(s) + **one** `changes/<slug>.history.md` fragment, one paragraph, backlog removal. The changelog bullet is **derived** from its lead phrase — do not write a second fragment (note 61 CV-2) |
-| **L** | New module, new load case, new physics, schema/contract change | Tier M + `theory_sources.md` citation + the history fragment in **full step format**; design note merged at AGREED first |
+| **S** | Small fix, hygiene, docs, display-only | one `changes/<slug>.<type>.md` — **one bullet, ≤ 60 words** (`changes/README.md`) |
+| **M** | Behavior change to an existing capability | S + the affected `PROGRAM_SPEC.md` / standard-doc section(s) |
+| **L** | New module, new load case, new physics, schema/contract change | M + `theory_sources.md` citation + a design note (template, ≤ ~150 lines) merged at AGREED first |
 
-**Every tier asks one question first (note 61 CV-1): *does a reader of the code
-today need this, or only a reader asking what happened?*** Today-content goes to
-`10_standard`/`20_theory` in the present tense — that is what a new author reads
-and what the next session greps. Only the dated remainder goes to the record. A
-closure that puts durable understanding in the narrative has filed it where
-nobody looks.
-
-`docs/90_record/CHANGELOG.md` `[Unreleased]` and the top of the history file are
-never hand-edited: `scripts/build_changelog.py` assembles both at release cut
-(`RELEASE_PROCESS.md` §4).
+No history entry at any tier: `CHANGELOG.md` (built from the fragments at release cut,
+never hand-edited), the design notes and `git log` are the record. **Every closure asks
+one question (note 61 CV-1): *does a reader of the code today need this?*** If yes it
+goes to `10_standard`/`20_theory` in the present tense; if not, the fragment's sentence.
 
 Additional rules (rationale in `docs/50_reviews/`):
 
-1. **Design note before code (physics/L steps):** theory reference,
-   `CONVENTIONS.md` citations, oracle or closure target with expected numbers, and
-   acceptance tolerances — agreed before implementation: as a `note/NN-slug` PR merged
-   at AGREED (`DEVELOPMENT_PROCESS.md` §5); in chat only when working alone.
-2. **Benchmark-first definition of done:** an oracle test (±0.1%, page-cited) where a
-   printed oracle exists; otherwise a **stated physics-closure/invariant gate in CI**,
-   written with the feature — this applies to concept-mode physics with the same force
-   as the oracle rule applies to the FAR23 core.
-3. **Make it structural:** any cross-cutting convention (units, safety factors, case
-   IDs, schema, axes) gets a single-source code owner **plus a drift-guard test** the
-   first time it is needed — never a prose rule alone (SSOT table: `CONVENTIONS.md` §7;
-   the units/SI history is the cautionary precedent).
-4. **Generalize on first find:** a defect fix sweeps the same defect class across the
-   codebase in the same change and adds a guard test where feasible.
-5. **Review findings are filed with bodies** in the same session they are raised, and
-   **no new parallel ID series** — descriptive names in the backlog, plain step
-   identity at promotion.
-6. **Effect vs error bar:** a physics/fidelity item is ranked only if its stated effect
-   on a delivered load exceeds the base method's own uncertainty
-   (`theory_sources.md` §Base-method uncertainty); below that it is parked **with the
-   number that parks it**. A defect with first-order effect on shipped content outranks
-   every fidelity item regardless of mission trace.
+1. **Design note before code (physics/L):** theory reference, `CONVENTIONS.md` citations,
+   oracle or closure target with expected numbers and tolerances — agreed first
+   (in chat when working alone; `DEVELOPMENT_PROCESS.md` §5).
+2. **Benchmark-first done:** an oracle test (±0.1%, page-cited) where a printed oracle
+   exists; otherwise a **stated physics-closure/invariant gate in CI**, written with the
+   feature — concept mode and the FAR23 core alike.
+3. **Make it structural:** a cross-cutting convention (units, safety factors, case IDs,
+   schema, axes) gets a single-source code owner **plus a drift-guard test** the first
+   time it is needed — never a prose rule alone (SSOT table: `CONVENTIONS.md` §7).
+4. **Generalize on first find:** a defect fix sweeps its class across the codebase in
+   the same change and adds a guard test where feasible.
+5. **Review findings are filed as issues with bodies** in the same session; a finding
+   below rule 6's bar goes into one collector issue per review. **No new ID series.**
+6. **Effect vs error bar:** a fidelity item is ranked only if its stated effect on a
+   delivered load exceeds the base method's own uncertainty (`theory_sources.md`
+   §Base-method uncertainty); below that it is parked **with the number that parks
+   it**. A defect with first-order effect on shipped content outranks every fidelity item.
 
 ## Required practices
 
 - **Standard docs point at owners, never copy their values.** No schema number, test
   count, coverage %, or "currently N" in `README.md`/`CLAUDE.md`/`10_standard/`/`20_theory/`
   (`00_program_overview.md` §Documentation currency; guard `tests/test_doc_currency.py`).
-- **Keep the build green.** `ruff check sloads/ cli.py oracle.py app_shell/ oracle_app/ scripts/` clean, `mypy` clean (zero
-  errors on `sloads/`; strictness ratchets per package in `pyproject.toml`) and `pytest` passing
-  are the merge gate. **One interpreter, 3.12 — `ci.yml` is the authority** (guard
-  `tests/test_ci_conformance.py`, which also refuses a `.venv` on any other): PRs,
-  `dev/**` pushes and the push to `main` run `test (3.12)`, `typecheck`,
-  `sbeam-roundtrip (3.12)`; only coverage is added on the push to `main`.
-- **The git workflow is REQUIRED for all development work** — no change lands outside
-  it. The operative mode is the **solo profile** (`DEVELOPMENT_PROCESS.md` §0) unless
-  collaboration is explicitly in play: `scripts/solo_start.sh dev/vX.Y.Z` opens the
-  milestone branch; every item closes with `scripts/solo_close.sh` (gate → commit →
-  push → issue close → verify) — never by hand-run equivalents.
+- **Keep the build green.** `ruff check sloads/ cli.py oracle.py app_shell/ oracle_app/ scripts/`
+  clean, `mypy` clean (zero errors on `sloads/`) and `pytest` passing are the merge gate.
+  **One interpreter, 3.12 — `ci.yml` is the authority** (guard `tests/test_ci_conformance.py`).
+- **The git workflow is REQUIRED for all development work** — the **solo profile**
+  (`DEVELOPMENT_PROCESS.md` §0) unless collaboration is explicitly in play:
+  `scripts/solo_start.sh dev/vX.Y.Z` opens the milestone branch; every item closes with
+  `scripts/solo_close.sh` (gate → commit → push → issue close → verify; it drops the
+  item's backlog row and refuses a subject over 100 characters) — never by hand-run
+  equivalents.
 - **Git that changes state is the user's to run; Claude may read.** Read-only
   commands Claude runs freely: git `status`, `log`, `diff`, `show`, `blame`,
   `branch --list`, `rev-parse`, `ls-files`; gh `issue view|list`,
@@ -162,27 +127,16 @@ Local venv at `.venv/`; editable install (`pip install -e '.[dev]'`); no `sys.pa
 ## Architecture (summary — authoritative layout in PROJECT_GUIDE §4/§7)
 
 **Shared pure-calc package + thin I/O shells.** Calc never does I/O; GUI, CLI and tests
-are interchangeable front-ends. Data flow: `project.json` → `io.load_project` →
-`Project` → `registry.get(name)(project)` → `ModuleResult` → `report`/`io` render.
+are interchangeable front-ends: `project.json` → `io.load_project` → `Project` →
+`registry.get(name)(project)` → `ModuleResult` → `report`/`io` render. `sloads/` is the
+calc (`workflow.py` is **the** nav SSOT); `oracle_app/Oracle.py` is **the** Streamlit
+front-end over `app_shell/` (**exactly one `st.set_page_config`**; guard
+`tests/test_app_shell.py`); `cli.py` is argparse; every test file self-runs.
 
-- `sloads/` — pure calc: `models/` (`Project` bundle, result types, `SCHEMA_VERSION`),
-  `modules/<name>.py` (one per program; `run(project) -> ModuleResult`, self-registers),
-  `registry.py`, `workflow.py` (step graph — **the** nav SSOT, drift-guarded), `io.py`
-  (the only dataclass↔JSON mapping), `units.py` (Imperial-internal; convert at the
-  boundary), `report/` (limit→ultimate boundary), `export/` (sbeam bridge +
-  `coordinates.py`), `constants.py`.
-- `oracle_app/Oracle.py` — **the** Streamlit front-end, its page set derived from
-  `workflow.gui_pages()` over the shared `app_shell/`; **exactly one
-  `st.set_page_config`, none anywhere else** (guard: `tests/test_app_shell.py`).
-  The second front-end (`app/Home.py` + 21 `app/views/*.py`) retired at #270,
-  note 57 D-57.1. `cli.py` — argparse; `tests/` — pytest, each file with a
-  zero-dependency `__main__` self-runner.
-
-**Module contract** (every suite and concept module):
-pure calc, no I/O; read upstream values from the `Project` slice — never recompute
-another module's quantity; emit `LoadValue`/`ConditionResult` (set
-`safety_factor` on every case); self-register; constants in `constants.py`; one
-oracle/closure test per module.
+**Module contract** (every suite and concept module): pure calc, no I/O; read upstream
+values from the `Project` slice — never recompute another module's quantity; emit
+`LoadValue`/`ConditionResult` (set `safety_factor` on every case); self-register;
+constants in `constants.py`; one oracle/closure test per module.
 
 ## Load-output contract (summary — full rules in CONVENTIONS.md)
 
@@ -202,8 +156,7 @@ bundle.
 the statement *replaces* the multiply, so it is gated: **G-OR-73** (decks +
 companion documents), **G-OR-74** (rendered documents), **G-OR-72** (the balanced
 deck closes against `nz × W` *without* the factor). No renderer, CSV writer or
-stamp takes a basis argument (G-OR-44; the `LoadChannel` switch went at #29). A
-non-load condition prescribes **no**
+stamp takes a basis argument (G-OR-44). A non-load condition prescribes **no**
 factor — `safety_factor` is `Optional`, `None` renders `N/A`, owner
 `safety_factors.prescribes_factor` (#154).
 

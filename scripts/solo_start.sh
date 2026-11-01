@@ -20,9 +20,9 @@
 # Then: `git pull --ff-only`, `git checkout -b <branch>`, `git push -u origin`,
 # and print what the milestone loop is.
 #
-# `gh` is never called here: the issue set is opened once, by hand or by
-# `scripts/backlog_issues.py`, when the milestone is scoped — not at branch
-# time. Per item, the `gh` work belongs to solo_close.sh.
+# `gh` is never called here: the issue set is opened once, by hand, when the
+# milestone is scoped — not at branch time. Per item, the `gh` work belongs to
+# solo_close.sh.
 #
 # --dry-run prints the sequence and exits without touching git.
 # Exit 0 on success; non-zero with the reason (and the recovery) on stderr.
@@ -104,8 +104,9 @@ milestone is done; every item commits straight onto it.
             table of docs/30_future/00_backlog.md
   per item  do the work + the closure artefacts for the tier —
               fragment   changes/<slug>.<added|changed|fixed|removed|breaking>.md
-                         (tier M/L also changes/<slug>.history.md)
-              backlog    delete that item's row from the priority table
+                         (one bullet, <= 60 words; tier M adds the spec touch,
+                         tier L the design note)
+              backlog    nothing by hand — solo_close.sh drops the row
             then:
 
               scripts/solo_close.sh --slug <slug> [<issue>] "<Subject>"
