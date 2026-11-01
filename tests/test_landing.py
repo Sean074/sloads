@@ -3,10 +3,13 @@
 Two oracle bands (Reference 1 Ch 20):
 
 * **LGFACTOR is fully oracle-locked** against Appendix A "Landing Load Factor"
-  p236: descent velocity ``V = 4.4*(W/S)^0.25`` (9.0048 fps), airplane load factor
-  ``N`` (3.0951) and gear factor ``NLG = N - L`` (2.4281). N is within +0.07% of the
-  printed value -- the expected Decision-3 drift from ``G = 32.174`` vs the program's
-  ``32.2`` (still inside +-0.1%).
+  p236: descent velocity ``V = 4.4*(W/S)^0.25`` (9.0048 fps) and the energy ratio
+  (3.0951, within +0.07% -- the expected Decision-3 drift from ``G = 32.174`` vs
+  the program's ``32.2``, inside +-0.1%). The page prints the ratio as the
+  airplane load factor ``N`` and ``N - L`` (2.4281) as the gear factor; the ratio
+  is the **gear** factor ``NLG`` and ``N = NLG + L`` = 3.7621 (14 CFR 23.473(e),
+  Ref 1 p125) -- an approved deviation (#401, design note 72,
+  ``02_approved_corrections.md``), gates G-72.1 to G-72.6 below.
 
 * **LANDLOAD is fully oracle-locked** against Appendix A: p230 "Landing Loads with
   Respect to Ground Line" for the intermediates -- the drag factor ``K`` (0.324),
@@ -145,10 +148,19 @@ def _ga_gear() -> LandingGearGeometry:
 # LGFACTOR -- fully oracle-locked (Appendix A p236)
 # --------------------------------------------------------------------------- #
 def test_lgfactor_oracle():
+    """G-72.2: Appendix A p236, the printed column kept. The page prints
+    ``AIRPLANE LOAD FACTOR = 3.0951`` and ``LANDING GEAR FACTOR = 2.4281``. The
+    3.0951 is the energy ratio, and the ratio is the *gear* factor (14 CFR
+    23.473(e), Ref 1 p125; LANDLOAD.BAS line 100 ``NAP=NLG+LF``, p467), so it is
+    asserted against ``gear_load_factor`` and ``N = 3.0951 + 0.667 = 3.7621``.
+    The printed 2.4281 is the ratio less L -- the cell deviated from. Approved
+    deviation #401, design note 72 D-72.2, ``02_approved_corrections.md``."""
     r = landing_load_factor(184.125, 3230, 7, 19, 7, 0.667, main_is_oleo=True)
     assert math.isclose(r.sink_rate_fps, 9.004822, rel_tol=REL), r.sink_rate_fps
-    assert math.isclose(r.airplane_load_factor, 3.095102, rel_tol=REL), r.airplane_load_factor
-    assert math.isclose(r.gear_load_factor, 2.428102, rel_tol=REL), r.gear_load_factor
+    # printed "AIRPLANE LOAD FACTOR = 3.0951": the energy ratio, locked as NLG
+    assert math.isclose(r.gear_load_factor, 3.095102, rel_tol=REL), r.gear_load_factor
+    # printed "LANDING GEAR FACTOR = 2.4281" = 3.0951 - L: not asserted (the deviation)
+    assert math.isclose(r.airplane_load_factor, 3.095102 + 0.667, rel_tol=REL), r.airplane_load_factor
 
 
 def test_lgfactor_velocity_clamp():
@@ -164,6 +176,158 @@ def test_lgfactor_spring_vs_oleo():
     oleo = landing_load_factor(184.125, 3230, 7, 19, 7, 0.667, main_is_oleo=True)
     spring = landing_load_factor(184.125, 3230, 7, 19, 7, 0.667, main_is_oleo=False)
     assert spring.airplane_load_factor > oleo.airplane_load_factor
+
+
+# --------------------------------------------------------------------------- #
+# Design note 72 (#401): the energy ratio is the gear factor, N = NLG + L
+# --------------------------------------------------------------------------- #
+def _single_mass_drop(lift_factor, k_per_w=12.0, c_per_w=0.05, v0_fps=10.0, dt=1e-5):
+    """A rigid mass W on an oleo-like gear ``F = k*y + c*ydot*|ydot|`` under a
+    constant wing lift ``L*W``, dropped at ``v0`` and integrated to first maximum
+    compression. No energy equation is used. Returns the stroke (ft), the peak
+    gear force over W, and the gear's measured efficiency ``work / (F_max * d)``.
+    W = 1, g = 32.174."""
+    m = 1.0 / 32.174
+    y, v = 0.0, v0_fps
+    f = c_per_w * v * abs(v)
+    work, f_max = 0.0, f
+    while v > 0.0:
+        a = (1.0 - lift_factor - f) / m          # compression positive
+        y_new = y + v * dt + 0.5 * a * dt * dt
+        v_new = v + a * dt
+        f_new = k_per_w * y_new + c_per_w * v_new * abs(v_new)
+        work += 0.5 * (f + f_new) * (y_new - y)
+        f_max = max(f_max, f_new)
+        y, v, f = y_new, v_new, f_new
+    return y, f_max, work / (f_max * y)
+
+
+def test_g72_1_energy_balance_closure_the_ratio_is_the_gear_factor():
+    """G-72.1 (note 72 D-72.8): an energy-balance closure independent of the
+    equation. The stroke and efficiency *measured* from a drop go into
+    LGFACTOR's ratio, and the ratio must equal the simulated peak gear force
+    over the weight -- the ground reaction factor -- not that value less L.
+    The port's old ``NLG = ratio - L`` fails this by exactly L.
+
+    Two gears. (a) The oleo-like damped gear of the note (k = 12 W/ft,
+    c = 0.05 W/(ft/s)^2, 10 fps): F/W 5.000 and N 5.667 at L = 0.667, held to
+    1e-3 (the time step). (b) An undamped linear spring, whose efficiency is
+    exactly 0.5 = ``ETA_SPRING`` and whose stroke is closed-form, so the whole
+    ``landing_load_factor`` path is checked at 1e-9: no tyre (OD = hub) and a
+    wing loading that clamps V to 10 fps (23.473(d))."""
+    from sloads.modules.landing import ETA_SPRING, ETA_TIRE, drop_energy_ratio
+    g = 32.174
+    for lift in (0.0, 0.667, 1.0):
+        d, f_over_w, eta = _single_mass_drop(lift)
+        ratio = drop_energy_ratio(10.0, lift, d * 12.0, 0.0, eta, ETA_TIRE)
+        assert math.isclose(ratio, f_over_w, rel_tol=1e-3), (lift, ratio, f_over_w)
+        if lift == 0.667:
+            assert math.isclose(f_over_w, 5.000, rel_tol=1e-3), f_over_w
+            assert math.isclose(f_over_w + lift, 5.667, rel_tol=1e-3), f_over_w + lift
+        # (b) 0.5 (W/g) V^2 + (1 - L) W d = 0.5 k d^2, so eta = 0.5 exactly.
+        k = 12.0
+        b = 2.0 * (1.0 - lift)
+        d_spring = (b + math.sqrt(b * b + 4.0 * k * 100.0 / g)) / (2.0 * k)
+        f_spring = k * d_spring
+        r = landing_load_factor(1.0, 100.0, d_spring * 12.0, 19.0, 19.0, lift,
+                                main_is_oleo=False)
+        assert math.isclose(r.sink_rate_fps, 10.0) and ETA_SPRING == 0.5
+        assert math.isclose(r.gear_load_factor, f_spring, rel_tol=1e-9), (lift, r)
+        assert math.isclose(r.airplane_load_factor, f_spring + lift, rel_tol=1e-9), (lift, r)
+
+
+def test_g72_3_airplane_less_gear_factor_is_the_lift_factor_on_every_fixture():
+    """G-72.3: ``N - NLG == L`` exactly (23.473(e)) for every bundled fixture
+    with a landing slice, at L in {0, 0.667, 1.0}. G-LF-3 (``NVP == N`` on cases
+    4-9, ``test_landload_nvp_equals_n_on_cases_4_to_9``) is unchanged."""
+    import copy
+    from sloads.modules.landing import energy_load_factor_estimate
+    checked = 0
+    for name in sorted(os.listdir(_EXAMPLES)):
+        if not name.endswith(".project.json"):
+            continue
+        p = io.load_project(os.path.join(_EXAMPLES, name))
+        if p.landing is None:
+            continue
+        for lift in (0.0, 0.667, 1.0):
+            q = copy.deepcopy(p)
+            q.landing.lift_factor = lift
+            lf = energy_load_factor_estimate(q)
+            assert lf is not None, name
+            assert math.isclose(lf.airplane_load_factor - lf.gear_load_factor, lift,
+                                rel_tol=1e-9, abs_tol=1e-12), (name, lift, lf)
+            checked += 1
+    assert checked >= 12, "the bundled fleet shrank"
+
+
+def test_g72_4_fleet_effect_and_the_drag_peaks_that_do_not_move():
+    """G-72.4 (note 72 §1.3): the delivered effect of the relabel, per fixture.
+
+    * ``ga6_normal``: the entered N 3.167 governs, so the governing pair is the
+      p230 pair (3.167 / 2.5) and nothing delivered moves -- G-72.5 is the
+      p230-p233 locks above, which pass unmodified. The energy pair is
+      3.7640 / 3.0970.
+    * ``baron_58`` (no entered N): the energy value governs, 4.0312 / 3.3642,
+      and the four peak reactions rise to VMP 9,083 / DMP 3,418 / VNP 6,460 /
+      DNP 2,431 lb (+24.7 / +16.8 / +22.8 / +16.0 % on what shipped).
+    * ``atr42_100`` and ``concept_regional_jet`` (the entered 2.67 cleared at
+      #401, note 72 Q3): 3.0425 / 2.3755 governs.
+
+    **Why the ATR-class drag peaks did not move when N was cleared** -- the
+    question note 72 left open. The largest main drag is the braked-roll case
+    16 (23.493: ``DMP = 0.8 VMP`` with ``VMP = 0.5*1.33*W*AP/(0.8 CP + DP)``) and
+    the largest nose drag is the supplementary-nose case 28 (23.499:
+    ``DNP = 0.8 VNP`` with ``VNP = 2.25 x static``). Neither reads NLG: both are
+    fixed fractions of the weight through the geometry. They stay the peaks
+    until the level-landing drag ``K * VMP`` (case 4 main, case 2 nose), which
+    does scale with NLG, overtakes them -- as it does on ``baron_58`` at NLG
+    3.36 and not on the ATR at 2.38. Not a defect: the governing drag case is
+    named here so the number can be trusted."""
+    from sloads.modules.landing import governing_load_factors
+
+    def peaks(rx):
+        out = {}
+        for key in ("vmp", "dmp", "vnp", "dnp"):
+            top = max(rx, key=lambda c: getattr(c, key))
+            out[key] = (getattr(top, key), top.case)
+        return out
+
+    def load(name):
+        return io.load_project(os.path.join(_EXAMPLES, f"{name}.project.json"))
+
+    ga6 = load("ga6_normal")
+    lf, rx = build_landing(ga6)
+    assert math.isclose(lf.airplane_load_factor, 3.7640, rel_tol=REL), lf
+    assert math.isclose(lf.gear_load_factor, 3.0970, rel_tol=REL), lf
+    n, nlg = governing_load_factors(ga6.landing, lf)
+    assert n == 3.167 and math.isclose(nlg, 2.5, rel_tol=1e-9), (n, nlg)
+
+    baron = load("baron_58")
+    assert baron.landing.airplane_load_factor is None
+    lf, rx = build_landing(baron)
+    n, nlg = governing_load_factors(baron.landing, lf)
+    assert math.isclose(n, 4.0312, rel_tol=REL) and math.isclose(nlg, 3.3642, rel_tol=REL), (n, nlg)
+    pk = peaks(rx)
+    for key, printed, case in (("vmp", 9083, 4), ("dmp", 3418, 4),
+                               ("vnp", 6460, 2), ("dnp", 2431, 2)):
+        assert math.isclose(pk[key][0], printed, rel_tol=REL), (key, pk[key])
+        assert pk[key][1] == case, (key, pk[key])
+
+    for name in ("atr42_100", "concept_regional_jet"):
+        p = load(name)
+        assert p.landing.airplane_load_factor is None, (
+            f"{name} enters an N again; note 72 Q3 cleared it so the energy value governs")
+        lf, rx = build_landing(p)
+        n, nlg = governing_load_factors(p.landing, lf)
+        assert math.isclose(n, 3.0425, rel_tol=REL) and math.isclose(nlg, 2.3755, rel_tol=REL), (name, n, nlg)
+        pk = peaks(rx)
+        by = {c.case: c for c in rx}
+        assert pk["dmp"][1] == 16 and pk["dnp"][1] == 28, (name, pk)
+        # The NLG-independent peaks: fixed fractions of the weight.
+        assert math.isclose(by[16].dmp, 0.8 * by[16].vmp, rel_tol=1e-9), name
+        assert math.isclose(by[28].dnp, 0.8 * by[28].vnp, rel_tol=1e-9), name
+        # ... and the NLG-scaled level-landing drag has not overtaken them.
+        assert by[4].dmp < by[16].dmp and by[2].dnp < by[28].dnp, name
 
 
 # --------------------------------------------------------------------------- #
@@ -622,7 +786,7 @@ def test_landload_pipeline_and_run():
     p = io.load_project(_GA)
     lf, rx = build_landing(p)
     assert len(rx) == 33
-    assert math.isclose(lf.airplane_load_factor, 3.0951, rel_tol=2e-3)
+    assert math.isclose(lf.gear_load_factor, 3.0951, rel_tol=2e-3)   # p236's printed N (#401)
     mod = run(p)
     assert mod.module == "landing"
     titles = [c.title for c in mod.conditions]
@@ -804,20 +968,24 @@ def test_nvp_recovers_the_governing_n_on_every_example():
 
 
 def test_below_energy_caution_fires_below_the_energy_value_not_above():
-    """G-LF-6's caution half (note 37, LF-7): an entered N below the computed
-    energy value is told so; ga6 enters 3.167 above its 3.0970 and is not.
-    One owner (``below_energy_caution``) serves both GUIs. (``cessna_210``
-    was the shipped fixture that tripped it, 3.1670 vs 3.3885, until #264;
-    the below case is now constructed from ga6 with N lowered to 2.90 --
-    above the 23.473(g) floor, below the energy estimate.)"""
+    """G-LF-6's caution half (note 37, LF-7) and G-72.6 (note 72 D-72.4): an
+    entered N below the computed energy value is told so. ``ga6_normal`` enters
+    McMaster's 3.167 against an energy N of 3.764 -- the design N sits below
+    the estimate once the estimate is labelled as 23.473(e) reads it -- so the
+    caution fires on the oracle fixture by design (``examples/ga6_normal.sources.md``;
+    the N is kept because p230 reproduces at NLG 2.5 and nowhere else).
+    ``baron_58`` enters nothing and cannot trip it; ga6 raised to 3.80 does not.
+    One owner (``below_energy_caution``) serves both GUIs."""
     import copy
     from sloads.modules.landing import below_energy_caution
     ga6 = io.load_project(_GA)
-    assert below_energy_caution(ga6) is None
-    lowered = copy.deepcopy(ga6)
-    lowered.landing.airplane_load_factor = 2.90
-    caution = below_energy_caution(lowered)
-    assert caution is not None and "N = 2.90 " in caution and "N = 3.10" in caution   # the g row (#312)
+    caution = below_energy_caution(ga6)
+    assert caution is not None and "N = 3.17 " in caution and "N = 3.76" in caution, caution   # the g row (#312)
+    baron = io.load_project(os.path.join(_EXAMPLES, "baron_58.project.json"))
+    assert below_energy_caution(baron) is None
+    raised = copy.deepcopy(ga6)
+    raised.landing.airplane_load_factor = 3.80
+    assert below_energy_caution(raised) is None
 
 
 def test_the_lift_factor_caption_has_one_owner_and_the_page_consumes_it():
@@ -845,10 +1013,10 @@ def test_appendix_a_oracles_unchanged_through_the_project_pipeline():
     leaked into the math fails here and not only in the low-level helpers."""
     p = io.load_project(_GA)
     lf, rx = build_landing(p)
-    # p236 LGFACTOR.
+    # p236 LGFACTOR: the printed N is the gear factor (#401, G-72.2).
     assert math.isclose(lf.sink_rate_fps, 9.004822, rel_tol=REL), lf.sink_rate_fps
-    assert math.isclose(lf.airplane_load_factor, 3.095102, rel_tol=2e-3), lf
-    assert math.isclose(lf.gear_load_factor, 2.428102, rel_tol=2e-3), lf
+    assert math.isclose(lf.gear_load_factor, 3.095102, rel_tol=2e-3), lf
+    assert math.isclose(lf.airplane_load_factor, 3.095102 + 0.667, rel_tol=2e-3), lf
     # p230 legible wheel-load cells (the reaction table the seed feeds).
     by_case = {c.case: c for c in rx}
     assert math.isclose(by_case[1].vmp, 3144, rel_tol=3e-3), by_case[1].vmp

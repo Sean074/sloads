@@ -1877,9 +1877,11 @@ class LandingInput:
     drop-test work-energy balance: the limit descent velocity ``V = 4.4*(W/S)^0.25``
     (clamped 7-10 fps), the flat-tyre deflection ``(OD - hub)/6`` and the strut
     stroke, with tyre/strut efficiencies (0.3 tyre; 0.5 spring / 0.75 oleo). The
-    airplane load factor ``N`` is the absorbed energy ratio and the gear factor is
-    ``NLG = N - L`` (both returned on ``LoadFactorResult``; M2R-4 removed the
-    write-back ``n`` field -- rendering the page must not mutate the project).
+    energy ratio is the **gear** factor ``NLG`` (the peak gear force over the
+    weight, 23.473(e)) and the airplane inertia factor is ``N = NLG + L`` --
+    LGFACTOR.BAS labels them the other way round, an approved deviation (#401,
+    design note 72). Both are returned on ``LoadFactorResult``; M2R-4 removed
+    the write-back ``n`` field -- rendering the page must not mutate the project.
     The **governing** N may be entered on ``airplane_load_factor`` (note 37: the
     manual's LANDLOAD runs at a rounded design N, 3.167 on p230); NLG is always
     derived as ``N - L``, so a change to the wing lift factor L always moves the

@@ -57,11 +57,17 @@ inputs and the ground-case matrix](img/14_landing_loads__page-ga6-normal.png)
 Appendix A's inputs: 7-in strut stroke, 19-in tire on a 7-in hub, lift
 factor 0.667, tail-down angle 15°, and the governing airplane load factor
 **typed as 3.167** — the book's own rounded design point (its LANDLOAD runs
-at NLG 2.5 = 3.167 − 0.667, where LGFACTOR computes 2.428), and the page
-shows both pairs so the rounding is a visible decision, not a mystery.
-The three ground cases are the book's landing corners. The results
-reproduce the printed sink rate, N and NLG, and the ground-line wheel-load
-matrix — this is one of the suite's page-cited oracle locks.
+at NLG 2.5 = 3.167 − 0.667), and the page shows both pairs so the rounding
+is a visible decision, not a mystery. LGFACTOR's own energy ratio here is
+3.095, which the book prints as N and the suite reports as the gear factor
+NLG, with N = 3.762: the ratio is the peak gear force over the weight, and
+N = NLG + L (23.473(e); the approved deviation of design note 72). So the
+page's caution that the entered N sits below the computed one is expected
+on this fixture, and the N is kept because p230 reproduces at NLG 2.5 and
+nowhere else. The three ground cases are the book's landing corners. The
+results reproduce the printed sink rate, the energy ratio (as NLG) and the
+ground-line wheel-load matrix — this is one of the suite's page-cited
+oracle locks.
 
 **Two approved deviations sit in the airplane-datum half**, and are worth
 knowing before you cross-check against the book's p232 table. The manual
@@ -167,7 +173,7 @@ must show a **forward** (negative `Fx`) body drag component, never an aft one.
 - **Confusing the two load-factor pairs.** LGFACTOR's computed (energy)
   N/NLG and the governing pair both appear; the matrix runs on the
   governing pair, and NLG is always N − L — derived, never entered.
-  The single's 2.5-vs-2.428 pair is the worked illustration.
+  The single's 2.5-vs-3.095 pair is the worked illustration.
 - **A waterline-free CG.** The ground moments need the CG height; a ground
   case without a credible waterline solves to nonsense lever arms, which
   the page's warnings call out.

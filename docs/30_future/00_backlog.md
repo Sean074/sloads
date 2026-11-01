@@ -107,7 +107,6 @@ tier-S commit and states its reasoning in the milestone description.
 | Pri | Item (detail below / in its plan) | What ships | Tag | Tier / effort | Depends on |
 |---|---|---|---|---|---|
 | **B11 — 0.10.0: loads correctness on the Part 23 method, for ATR-sized airplanes (re-chartered 2026-11-01 after the physics review)** ||||||
-| 2 | **LGFACTOR's energy ratio is the gear factor: the wing lift is subtracted twice** (#401) | Note 72 D-72.1…D-72.8: the relabel, the p236 approved deviation (printed column kept), G-72.1 energy-balance closure, the three 2.67 fixtures cleared, the oracle report rows | E | L / M | note 72 AGREED |
 | 3 | **GUI guide §5 still teaches 'exported = ultimate', and CAPABILITIES advertises outputs retired at #270 (review D-1, D-5)** (#402) | §5 rewritten to the LIMIT contract, CAPABILITIES §2 resynced, a guard against the retired wording | E | S / S | — |
 | 4 | **The Python 3.12 requirement is invisible to a new clone** (#395) | README install section and `pyproject.toml` state 3.12 up front with the one-line reason; the refusal message points at it; no change to the policy | E | S / S | — |
 | 5 | **README: quickstart first, phase narrative after** (#394) | The first screen is install (one command), run the GUI, run one CLI case, where the guide lives; the narrative moves below or into `docs/` | E | S / S | #395 |

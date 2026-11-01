@@ -1984,7 +1984,7 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     # ``SLOADS``, honestly: LGFACTOR.BAS had an NLG override, never an N input.
     # The oracle GUI carries it regardless (C210-15), and the mark is earned:
     # demonstrably load-bearing (G5) -- omit it on ga6 and the p230 K/gamma/
-    # reaction table moves off the oracle (NLG 2.4281 vs the printed 2.5).
+    # reaction table moves off the oracle (the energy NLG 3.097 vs the printed 2.5).
     _E("landing.airplane_load_factor", _LAND, _SLDS,
        "governing N; None -> LGFACTOR energy value (demonstrably load-bearing, G5: "
        "ga6 p230 reproduces only at N 3.167)", supplied=True),
