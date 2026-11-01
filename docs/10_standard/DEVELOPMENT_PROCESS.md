@@ -27,8 +27,8 @@ conflicting with the next branch) is the evidence. While solo:
 |---|---|
 | Branch / PR per item (§1, §2) | **Retired — one milestone branch replaces both** (2026-08-22). `scripts/solo_start.sh dev/vX.Y.Z` opens **one** branch per release off `main`; every item of that milestone is worked and committed **directly on it** — no per-item branch, no per-item PR, **one commit per closed item** with the subject in the project style, so `git log` stays the step-per-commit record. The item's issue closes and its priority-table row leaves **in its own commit**, so the backlog is a live view of what is still open mid-milestone. Each push runs the fast gate on `dev/**` (see the CI row): **advisory** — the branch is unprotected, nothing waits on it, and it runs while the next item is already being worked. When the milestone is empty the release is cut **on this branch** (`RELEASE_PROCESS.md` §4 — there is no separate `release/x.y.z`), and it reaches `main` as **one pull request, rebase-merged** (`gh pr merge <N> --rebase`) — every per-item commit replayed onto `main` individually, and never squashed — whose push to `main` runs the full matrix. Rebase rather than a merge commit because `main` enforces linear history (corrected 2026-08-25 at the 0.7.2 cut, where the merge was refused: "This branch must not contain merge commits"); it satisfies the protection rule and keeps the step-per-commit record, at the cost of rewriting the branch's SHAs — so the milestone branch is deleted after the merge, not reused. **Why this replaced per-item PRs:** the defect class was two closing paths both claiming to close the item — #38 mixed a hand-made PR with `solo_close.sh`, and the PR body's `Closes #38` closed the issue before the script's own `gh issue close` ran; #53/#54 committed to a branch whose PR had already squash-merged (its commits then conflict with their own squashed copy on `main`, resolved by cherry-picking onto a fresh branch, never by hand-resolving the duplicate history); and the `--ff-only` push needed an admin bypass because `main` requires a PR. One path, one gate, and `main`'s protection stays fully on. |
 | Non-author review, CODEOWNERS (§2, §7) | **Not applicable** — unsatisfiable with one person. Review depth (`CODE_REVIEW_PROCESS.md` §0) is still owed; it is the AI's review in the session, and its findings are filed with bodies (rule 5). |
-| Issues as system of record (§4) | **Optional, and optional in the tooling too.** `00_backlog.md` is the record; the row leaves **in the closing commit** — on the milestone branch, at the moment the item is done, not when the milestone reaches `main`. That is the point of closing per item rather than in the milestone PR: for the whole milestone the priority table and the open issues stay a live, lock-step view of what is still open, and `backlog_issues.py check` keeps meaning something mid-flight. (No `Closes #N` in the milestone PR — it would re-close what is already closed, which is the #38 failure in a new place; no `render`, no stale-row window.) Issues may be kept for items with discussion; if kept, close them by hand with the merge SHA, or pass the number to `solo_close.sh` and it does it. The issue argument to both scripts is **optional**: omit it and neither script makes an issue call — no issue read, no `gh issue close`, no `backlog_issues.py check` (which is the table ↔ issues guard and means nothing without issues). The one `gh` call left is `solo_close.sh`'s read-only CI check, made whenever `gh` is authenticated and skipped with "CI unread" when it is not (#329). Requiring an issue in the scripts made mandatory the one mechanism this row calls optional, at four network round-trips per item. |
-| Rebase before regenerating (§6) | **Unchanged**, and the priority table is a fourth shared counter — a closing commit deletes its own row and touches nothing else (no renumbering; rows never cite another row's ordinal, dependencies name the band or the `#N`). |
+| Issues as system of record (§4) | **Unchanged, and the table is a generated view (#359, 2026-11-01).** Every item is an issue; the priority table is regenerated from the issues by `backlog_issues.py render`, which `solo_close.sh` runs in preflight with `--closing N`, so the row leaves **in the closing commit** — on the milestone branch, at the moment the item is done — and nobody edits the table by hand. (No `Closes #N` in the milestone PR — it would re-close what is already closed, the #38 failure in a new place.) The issue argument to `solo_close.sh` is **optional**: omit it and the script makes no issue call — no read, no `gh issue close`, no `render`, no `check`. The one `gh` call left is the read-only CI check, made whenever `gh` is authenticated (#329). |
+| Rebase before regenerating (§6) | **Unchanged.** The priority table is a generated view, not a counter: a close drops its own row and touches nothing else; rows never cite another row's ordinal (dependencies name the band or the `#N`). |
 | Closure tiers, fragments, design-note-before-physics, rules 1–6, release gate (§3, §5, §8, §10) | **Unchanged.** These are the quality mechanisms; none of them needs a second person. A tier-L design note is agreed in chat and merged with the work (`CLAUDE.md` rule 1); §9's "agreed in chat is retired" resumes with the second collaborator. |
 | Branch protection on `main` | **Stays fully on** (2026-08-22) — the milestone model needs no bypass, because the only thing that ever lands on `main` is the milestone PR. Owner-applied settings: PR required; required checks are the **fast gate** — `test (3.12)`, `typecheck`, `sbeam-roundtrip (3.12)`; **"Require linear history" ON**, so the milestone PR is **rebase-merged** and every per-item commit survives on `main` as its own linear commit. This row said the opposite until 2026-08-25 — "linear history off, merge commits allowed" — and the setting, not the doc, was the truth: the 0.7.2 PR was blocked with "This branch must not contain merge commits". Rebase satisfies both requirements at once, so no setting was changed to fit the doc. `dev/**` is deliberately **unprotected**: its CI is advisory. |
 | CI shape (`ci.yml`) | **One interpreter everywhere; coverage only on the merge to `main`.** Every PR, every push to a `dev/**` milestone branch *and* the push to `main` run 3.12 (**uninstrumented**, mypy, solver round-trip on 3.12) — the interpreter the developer's `.venv` must also be, which `tests/test_ci_conformance.py` enforces (#327, 2026-09-28: the 3.10/3.11 compatibility legs that ran on `main` alone retired after they and a 3.11 `.venv` let #324 and #325 through every gate before the merge) — measured 7.3 min, of which pytest is 7.2 (2026-08-22: 4 xdist workers on the public-repo runner, ~1,700 CPU-seconds of tests spread broadly — the slowest-15 are only ~13 % of it, so no slow-test split moves this number; a suite-wide fixture reduction would, and is band B). The **coverage-instrumented 3.12 leg** runs on the push to `main` alone — i.e. on the milestone merge — and is fixed forward; it moved there 2026-08-22, when the instrumented PR leg passed 27 minutes. The instrumented leg measures line coverage under `COVERAGE_CORE=sysmon` (branch measurement under `sys.monitoring` needs Python 3.14; branch figures on demand locally with `--cov-branch`). The coverage conditional therefore keys on **push-to-`main`**, never on "is this a PR" — keyed the old way a `dev/**` push would take the other arm and run the 27-minute leg (guard: `tests/test_solo_scripts.py`). A re-push cancels the run in flight (`concurrency`), so a burst of item commits leaves only the last one verified — working one item at a time, that is the intended trade. |
@@ -47,8 +47,10 @@ milestone is *scoped*, not when the branch is cut.
 `pytest`, scaled to the change set), one commit with the project-style
 parenthetical, push, `gh issue close` with the branch SHA, then
 `backlog_issues.py check` / issue state / that branch's last CI run. It refuses
-to start until the tier's fragment(s) exist, and — when an issue is given —
-until that item's `(#N)` row has left the priority table. **It reads CI before
+to start until the one fragment exists (≤ 60 words, lead naming the tier), or
+when the commit subject exceeds 100 characters; when an issue is given it drops
+that item's row itself (`backlog_issues.py render --closing N`) and warns when
+a new design note in the change set exceeds ~150 lines. **It reads CI before
 its gate** (#329): the `ci.yml` run of the branch's pushed tip, judged by
 `scripts/ci_state.py` — red (`failure`, `timed_out`, `startup_failure`) refuses
 unless `--ci-red-ok "<reason>"`, whose reason goes into the commit body (the
@@ -64,8 +66,8 @@ optional and drops every `gh` call with it, and the gate shrinks to the guard
 files for a docs-only change set.
 
 *Once per milestone, at the end* — cut the release on the branch
-(`RELEASE_PROCESS.md` §4), open one PR into `main`, merge it with a merge
-commit, tag from `main`.
+(`RELEASE_PROCESS.md` §4), open one PR into `main`, rebase-merge it
+(`gh pr merge <N> --rebase` — `main` enforces linear history), tag from `main`.
 
 The step between start and close — the work and the closure artefacts — is the
 developer's; the scripts encode nothing that this section does not already say
@@ -76,10 +78,8 @@ prose in step.
 **Switch-over is mechanical:** the day a second collaborator is added, any open
 milestone branch is finished and merged first (it is the one mechanism here
 that cannot simply be abandoned mid-flight), branch protection goes back to §2
-— linear history on, squash-merge only — `scripts/backlog_issues.py create`
-opens the issues for the rows then in the table, and this section stops
-applying. Nothing done
-under the solo profile has to be redone.
+— linear history on, squash-merge only — and this section stops applying.
+Nothing done under the solo profile has to be redone.
 
 ---
 
@@ -164,18 +164,23 @@ its tier:
 
 | Tier | In the PR |
 |---|---|
-| **S** | `changes/<slug>.<type>.md` fragment; `Closes #N` in the body |
-| **M** | S + the affected `PROGRAM_SPEC.md`/standard-doc sections + `changes/<slug>.history.md` (one paragraph) |
-| **L** | M + `theory_sources.md` citation + the design note flipped to *shipped* + `changes/<slug>.history.md` (full step format) |
+| **S** | one `changes/<slug>.<type>.md` fragment — **one bullet, ≤ 60 words**; `Closes #N` in the body |
+| **M** | S + the affected `PROGRAM_SPEC.md`/standard-doc sections |
+| **L** | M + `theory_sources.md` citation + the design note (§5 template, ≤ ~150 lines) merged at AGREED first, flipped to *shipped* |
 
-- **History entries are fragments** (`<slug>.history.md`), rolled to the top of
-  `docs/90_record/00_completed_development.md` at release cut by
-  `scripts/build_changelog.py`, so concurrent PRs never edit the same line
-  there. Until the cut, `ls changes/` is the release's history. Only the
-  release-cut block is written directly, by the release manager.
+- **There is no history entry at any tier** (#359, 2026-11-01). `CHANGELOG.md`
+  (built from the fragments at the cut), the design notes and `git log` are the
+  record; `docs/90_record/00_completed_development.md` is frozen. The one
+  question every closure asks (note 61 CV-1): *does a reader of the code today
+  need this?* If yes it goes to `10_standard`/`20_theory` in the present tense;
+  if not, the fragment's one sentence is all that is written.
+- **The commit subject is ≤ 100 characters**, parenthetical included
+  (`solo_close.sh` refuses a longer one). The subject is the change in a
+  phrase; the fragment and the issue say the rest.
 - **Backlog removal is `Closes #N`.** Merging the PR closes the issue; the
   row leaves the priority table at the next `backlog_issues.py render` (§4) —
-  the PR itself does not edit the table.
+  the PR itself does not edit the table. (Under §0 the close script runs
+  `render` itself, so the row leaves in the closing commit.)
 - "Closure in a follow-up" is a `[MAJOR]` review finding, exactly as before.
 - The PR template is the tier table as a checklist; the reviewer's approval
   gate is `CODE_REVIEW_PROCESS.md` §Approval gate.
@@ -188,45 +193,25 @@ its tier:
   `needs-design-note`, `parked`, `self-merge-ok` as apply; a **milestone per
   release** (`0.6.0`); an assignee when someone is on it. The GitHub Project
   board is the view.
-- **`docs/30_future/00_backlog.md` keeps the plan**: mission, definition of done,
-  the reference-authority hierarchy, and the **priority table** with bands —
-  each row `| Pri | title (#N) | what ships | tag | tier | depends |`. The
-  detail bodies live in the issues. `02_parked.md` retires: a parked item is an
-  issue labelled `parked` and closed as not-planned.
-- **The table is a view of the issues, not a second record.** A closing PR
-  does **not** edit the table: merging closes the issue, and
-  `scripts/backlog_issues.py render` (owner-run — at review of a backlog PR
-  and at release cut; needs `gh`) drops the rows whose issues are closed and
-  re-emits every open row from its issue body, touching nothing else. Rows
-  therefore never renumber and never cite another row's ordinal (dependencies
-  name the band or `#N`), so two PRs cannot conflict on the table.
-  `render` and `create` share one row-block writer (`row_body`) and
-  `tests/test_backlog_issues.py` round-trips the live table through it. Under
-  §0 (solo) the file is the record, the row leaves in the closing commit, and
-  `render` is not run.
-- **Guard (both ways):** every priority-table row names an open issue, and
-  every open issue labelled `band:*` appears in the table
-  (`scripts/backlog_issues.py check`; same cadence as `render` — it needs
-  `gh`, so it is a script, not a pytest).
-- Migration from the single-file backlog: `scripts/backlog_issues.py plan`
-  (prints the issue set), `create` (opens them via `gh`, records `title → #N`),
-  `rewrite` (adds `#N` to the table rows). Owner-run, once.
-- **What the tool may not destroy (#280).** `rewrite` replaces a defect bullet
-  with a one-line pointer to its issue, so the number had better be that
-  bullet's own. Two rules keep it so, and they are independent on purpose —
-  `issue_set` decides what is folded, `uncollapsible` decides what may be
-  destroyed, and a body survives unless both agree. A **defect bullet folds
-  into a table row only on an explicit `PINNED_PAIRS` entry**: the word score is
-  for detail sections, which are longer restatements of their row, and shared
-  words are not evidence that an independent finding is the same thing as a row.
-  And a **bullet with a body is never collapsed onto a number another item's
-  title also holds** — that is what an unpinned fold looks like from the
-  rewriter, and also what a stale key in `backlog_issue_map.json` looks like.
-- **Unfiled by choice.** A defect bullet whose body carries that phrase is a
-  finding the backlog states without scheduling: `plan` lists it, `create` never
-  files it, `rewrite` never collapses it. It is a state the tool holds, not a
-  convention in prose — before #280 two such findings stayed unfiled only
-  because their bold headings wrapped past the line the parser read.
+- **`docs/30_future/00_backlog.md` keeps the plan**: mission, the ordering
+  rules, and the **priority table** with bands — each row
+  `| Pri | **title** (#N) | what ships | tag | tier / effort | depends |`, and
+  nothing below the table (guard: `tests/test_backlog_issues.py`). The body
+  lives in the issue; the file carries no narrative. A re-cut's reasoning goes
+  in the GitHub milestone description and the closing fragment, not here.
+  `02_parked.md` holds the items parked with their rule-6 number.
+- **The table is a generated view of the issues (#359).** Nobody edits a row
+  by hand: `scripts/backlog_issues.py render` drops every row whose issue is
+  closed and touches nothing else (`--closing N` counts an issue as closed
+  before `gh` closes it; `--dry-run` previews). `solo_close.sh` runs it in
+  preflight, so the row leaves in the closing commit; a re-cut adds or reorders
+  rows in its own tier-S commit. Rows never cite another row's ordinal
+  (dependencies name the band or `#N`).
+- **Guard (both ways):** every priority-table row names an open issue, every
+  open issue labelled `band:*` appears in the table, and every row's issue sits
+  on the milestone its band header names (`scripts/backlog_issues.py check`;
+  it needs `gh`, so it is a script, not a pytest; `solo_close.sh` runs it at
+  every close with an issue).
 
 ## 5. Design notes and the shape of `30_future/` (MD-6)
 
@@ -236,9 +221,18 @@ its tier:
   tolerances — `CLAUDE.md` rule 1); merge at `AGREED — no code`. The
   implementing PR references it and flips it to `shipped <date>`.
 - **Numbers are claimed by opening the note PR.** Gaps and out-of-order numbers
-  are fine; `docs/00_INDEX.md` is the index (guarded both ways by
-  `tests/test_doc_currency.py`).
+  are fine; `docs/00_INDEX.md` is generated from each note's title
+  (`scripts/build_index.py`, guarded by `tests/test_doc_currency.py`).
 - Every note carries `**Owner:** @handle` and `**Reviewers:** …` under its title.
+- **The note is its tables, ≤ ~150 lines** (#359, 2026-11-01; `solo_close.sh`
+  warns past that). Template:
+  1. `**Status:**` line — PROPOSED / AGREED / SHIPPED, with dates and who ruled;
+  2. **Scope** — one paragraph: the defect or capability, and what is out;
+  3. **Decisions** — a table `| # | Decision | Rationale |` (`D-NN.k`);
+  4. **Gates** — a table `| Gate | Statement | Expected numbers |` (`G-NN.k`);
+  5. **Questions** — a table `| # | Question | Recommendation |`, ruled in place.
+  No "sources reviewed" narration, no measured-fleet prose beyond the numbers
+  the gates need, no second telling of the theory the test already cites.
 - `25_notes/` holds **every** design note and plan, whatever its status: a note
   that has shipped is still the authority for what it decided (note 61 CV-3).
   Note 26 DV-5's status-driven move to `40_history/` is retired — nothing moves
@@ -255,7 +249,9 @@ its tier:
 | Imperial digest (`tests/fixtures_imperial/digests.json`) | a PR carries **at most one** digest wave; regenerate *after* rebasing on `main`; the fragment names the wave; the reviewer confirms it (`PROJECT_GUIDE.md` §"Imperial output is frozen") | `test_imperial_output_matches_the_frozen_baseline` |
 | Case-ID bands (`sloads/case_ids.py`) | claim a new band on the branch | `tests/test_case_ids.py` uniqueness |
 
-Two PRs with digest waves serialize: the second rebases and regenerates.
+Two PRs with digest waves serialize: the second rebases and regenerates. The
+priority table is **not** a counter: it is a generated view (§4), so two closes
+cannot collide on it.
 
 ## 7. Ownership and review (MD-8)
 
@@ -271,8 +267,7 @@ Two PRs with digest waves serialize: the second rebases and regenerates.
 
 - A **release manager** is named on the milestone and rotates. They cut per
   `RELEASE_PROCESS.md` §4 on a `release/x.y.z` branch — version bump, changelog
-  build (which also rolls the history fragments), history roll, plan-note moves,
-  baseline — as one PR reviewed like any other, then tag from `main`.
+  build, baseline — as one PR reviewed like any other, then tag from `main`.
 
 ## 9. The AI with more than one developer (MD-9)
 
@@ -293,3 +288,15 @@ Two PRs with digest waves serialize: the second rebases and regenerates.
 The closure tiers, benchmark-first done, make-it-structural, generalize-on-first-find,
 the review steps and severities, the release gate, the documentation-currency rule,
 the fragment mechanism, and the AI's git rule.
+
+## 11. Where to look, and where not to (note 61 CV-4)
+
+Current truth is `10_standard/`, `20_theory/` and `25_notes/` — search those.
+**`docs/90_record/` is the record**: the frozen completed-development archives,
+the changelog and its archives, the per-release verification baselines. Nothing
+in it states what is true now; every line of it states what was true on a date.
+Read it only when the question is explicitly *when did this change* or *why did
+it change*, and never to answer *how does this work*. It is more than twice the
+size of the live corpus, so treating it as searchable makes every search worse.
+Since 2026-11-01 (#359) nothing is appended to it but the changelog: the design
+notes and `git log` carry the why.

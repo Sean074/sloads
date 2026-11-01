@@ -1,37 +1,11 @@
 # Completed Development
 
-The authoritative record of what has shipped: completed modules/phases, key
-decisions, and resolved defects. Items move here from
-[`../30_future/00_backlog.md`](../30_future/00_backlog.md) the moment they close,
-with a matching `CHANGELOG.md` entry.
-
-Each entry uses the step format: **Objective**, **Deliverables**, **Test /
-Acceptance**, **Key decisions**.
-
-**Live cycle only.** This file holds the current release cycle plus the previous
-release cut. Older blocks roll into frozen, do-not-edit archives at each release
-(`RELEASE_PROCESS.md` §4): the 0.8.6, 0.8.5 and 0.8.4 cycles with the 0.8.5,
-0.8.4 and 0.8.3 cuts are in
-[`67_completed_development_to_0.8.6.md`](67_completed_development_to_0.8.6.md),
-the 0.8.3 cycle and the 0.8.2 cut in
-[`62_completed_development_to_0.8.3.md`](62_completed_development_to_0.8.3.md),
-the 0.8.2 cycle and the 0.8.1 cut in
-[`59_completed_development_to_0.8.2.md`](59_completed_development_to_0.8.2.md),
-the 0.8.1 cycle and the 0.8.0 cut in
-[`51_completed_development_to_0.8.1.md`](51_completed_development_to_0.8.1.md),
-the 0.7.1 and 0.7.2 release cuts in
-[`41_completed_development_to_0.8.0.md`](41_completed_development_to_0.8.0.md),
-the 0.7.0 cycle and the 0.7.0 cut in
-[`37_completed_development_to_0.7.1.md`](37_completed_development_to_0.7.1.md),
-the 0.6.0 cycle and the 0.5.0 cut in
-[`35_completed_development_to_0.6.0.md`](35_completed_development_to_0.6.0.md),
-everything before 0.5.0 in
-[`11_completed_development_to_0.5.0.md`](11_completed_development_to_0.5.0.md).
-Tier S closures do not write here (a `changes/` fragment is their record); tier M
-writes one paragraph, tier L the full step format — **as a `changes/<slug>.history.md`
-fragment** (design note 28 MD-4), rolled to the top of this file at release cut, so
-concurrent PRs never edit the same line here. Only the release-cut block itself is
-written directly, by the release manager.
+**Frozen record — nothing is appended here since 2026-11-01 (#359).** The record
+of what shipped is `CHANGELOG.md` (one bullet per closed item, built from the
+`changes/` fragments at each release cut), the design notes in `docs/25_notes/`
+(the why, with their Status lines), and `git log` (one commit per closed item).
+This file and the `NN_completed_development_to_<version>.md` archives it points
+at hold the step-format narrative up to the 0.9.0 cycle and are not edited.
 
 ---
 

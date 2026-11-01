@@ -1,39 +1,25 @@
 #!/usr/bin/env python
-"""The backlog ↔ GitHub Issues bridge (design note 28 MD-5).
+"""The backlog ↔ GitHub Issues bridge (design note 28 MD-5; slimmed 2026-11-01, #359).
 
 Issues are the system of record for open work; ``docs/30_future/00_backlog.md``
-keeps the plan (mission, definition of done, the priority table with bands).
-This script does the one-off migration and the standing both-ways check:
+keeps the plan (mission, ordering rules, the priority table with bands). The
+table is a **view of the issues**: a row is one line, ``| Pri | **title** (#N) |
+what ships | tag | tier / effort | depends |``, and the body lives in the issue.
 
-    plan     parse the backlog into the issue set and print it (no gh, no writes)
-    create   open the issues with ``gh`` (labels created idempotently), record
-             ``title -> #N`` in .github/backlog_issue_map.json
-    rewrite  add ``(#N)`` to every priority-table row and replace each detail
-             section / defect bullet with a one-line pointer to its issue
-
-A defect bullet whose body says **unfiled by choice** is read, listed by ``plan``
-and then left alone by every command: not filed by ``create``, not collapsed by
-``rewrite``. The backlog states such a finding on purpose without scheduling it,
-and until #280 nothing in this file knew that state existed -- what kept two of
-them unfiled was a regex that could not see a bold heading wrapping onto a second
-line, which is not a decision anyone made.
     check    every priority-table row names an open issue, every open issue
              labelled ``band:*`` appears in the table, and every row's issue sits
              on the milestone its **band header** names — never on one already
              cut in CHANGELOG.md (needs gh; exit 1 on drift)
-    render   regenerate the priority table's item rows from the issues: a row
-             whose issue is CLOSED is dropped, an OPEN issue's row is re-emitted
-             from its body (the ``**Item.** / **What ships.** / **Tag.** /
-             **Tier / effort.** / **Depends on.**`` block ``create`` wrote), so
-             the table is a *view* of the issues and no closing PR edits it
-             (``DEVELOPMENT_PROCESS.md`` §4). Band header rows, the cut-line row
-             and everything outside the table are kept byte-for-byte. Under the
-             solo profile (§0) the file is the record and this is not run.
+    render   drop every row whose issue is CLOSED; nothing else moves. Run by
+             ``scripts/solo_close.sh`` in preflight with ``--closing N`` (the
+             issue it is about to close counts as closed), so the row leaves in
+             the closing commit and nobody hand-edits the table. ``--dry-run``
+             prints the rows it would drop and writes nothing.
 
-Pure functions (``parse_backlog``, ``issue_set``, ``rewrite_backlog``,
-``render_backlog``, ``row_from_issue``) work on strings so
-``tests/test_backlog_issues.py`` runs them on the live file without ``gh``;
-only ``create``, ``check`` and ``render`` shell out. Owner-run; never from CI.
+Pure functions (``parse_backlog``, ``render_backlog``, ``band_milestones``,
+``row_bands``) work on strings so ``tests/test_backlog_issues.py`` runs them on
+the live file without ``gh``; only ``check`` and ``render`` shell out.
+Owner-run; never from CI.
 """
 
 from __future__ import annotations
@@ -45,354 +31,72 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass, field
-from typing import AbstractSet, Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Tuple
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BACKLOG = os.path.join(ROOT, "docs", "30_future", "00_backlog.md")
-MAP = os.path.join(ROOT, ".github", "backlog_issue_map.json")
 
-# Band identifiers are not all a single letter: the 2026-08-24 re-cut added
-# **B2** (0.9.0). Matching `[A-Z]` alone silently skipped that header row, so
-# every 0.9.0 row inherited the previous header's band and was labelled
-# `band:B` -- the band an issue is filed under is exactly what the milestone
-# check below compares, so the parser has to see the band before anything can.
+# Band identifiers are not all a single letter (B2, B10, B12): matching `[A-Z]`
+# alone silently skipped those header rows, so every row beneath inherited the
+# previous band -- and the band an issue is filed under is exactly what the
+# milestone check compares.
 BAND_ROW = re.compile(r"^\|\s*\*\*([A-Z]\d{0,2})\s+[—-]\s*(.*?)\*\*\s*\|")
 ITEM_ROW = re.compile(r"^\|\s*(\d+)\s*\|")
-DETAIL_HEADING = re.compile(r"^### \[([EVM])\]\s+(.*)$")
-#: A bullet in the open-defects index. The heading is read across the wrap by
-#: :func:`_bullet_heading`, not by this: matching ``^- \*\*(.+?)\*\*`` on the
-#: first physical line alone made a bullet whose bold heading closed on the
-#: *second* line invisible to ``plan``, ``create`` and ``rewrite`` together, and
-#: two open defects with twenty-line bodies sat in that blind spot (#280).
-BULLET_START = re.compile(r"^- \*\*")
-#: The backlog's own words for a finding it states without scheduling.
-UNFILED_MARKER = re.compile(r"unfiled by choice", re.I)
 ISSUE_REF = re.compile(r"\(#(\d+)\)")
-_WORD = re.compile(r"[a-z0-9]{4,}")
 
 
 @dataclass
 class Item:
-    kind: str                       # "row" | "detail" | "defect" | "decision"
+    kind: str                       # always "row"
     title: str
-    body: str
     labels: List[str] = field(default_factory=list)
     band: str = ""
     pri: Optional[int] = None
-    number: Optional[int] = None    # issue number once created
     line: int = 0                   # 1-based line in the backlog
-    #: The ``(#N)`` the backlog line **already** carries, if any. Read at parse
-    #: time and honoured by :func:`create`, which used to consult the persisted
-    #: map alone: the map is keyed on a *truncated* title, so editing a row's
-    #: wording made its key miss and ``create`` filed the row again. That is not
-    #: hypothetical -- on 2026-09-07 one run opened **19 duplicate issues** for
-    #: rows that were plainly stamped with their own numbers in the same line it
-    #: had just parsed. ``rewrite_backlog`` has skipped stamped rows since it was
-    #: written; this is the same rule on the other half of the bridge.
-    existing: Optional[int] = None
-    merged: List[str] = field(default_factory=list)  # titles folded into this issue
-    #: The subset of :attr:`merged` folded on an explicit :data:`PINNED_PAIRS`
-    #: entry rather than on the word score -- the only folds ``rewrite`` will
-    #: let stand between a body-bearing bullet and another item's issue number.
-    folded_by_pin: List[str] = field(default_factory=list)
-
-
-def _flat(md: str) -> str:
-    """``md`` with links, emphasis and line breaks removed -- and **not** cut to
-    length, so a marker may be searched for across a wrap."""
-    t = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", md)
-    t = re.sub(r"[`*]", "", t)
-    return re.sub(r"\s+", " ", t).strip()
+    existing: Optional[int] = None  # the ``(#N)`` the row carries
 
 
 def _plain(md: str) -> str:
-    """A GitHub issue title: markdown stripped, one line, <= 120 chars."""
-    t = _flat(md)
+    """A title with markdown stripped, one line, <= 120 chars."""
+    t = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", md)
+    t = re.sub(r"[`*]", "", t)
+    t = re.sub(r"\s+", " ", t).strip()
     return t[:117] + "…" if len(t) > 120 else t
 
 
-def _bullet_heading(buf: Sequence[str]) -> Optional[str]:
-    """The bold heading of the bullet ``buf``, read across its wrap, or ``None``
-    when the bullet opens a bold run it never closes."""
-    m = re.match(r"^- \*\*(.+?)\*\*", " ".join(ln.strip() for ln in buf), re.S)
-    return m.group(1) if m else None
-
-
-def _words(s: str) -> set:
-    return set(_WORD.findall(_plain(s).lower()))
-
-
 def parse_backlog(text: str) -> List[Item]:
-    """Priority-table rows, detail sections, open defects, open decisions."""
-    lines = text.splitlines()
+    """The priority-table rows, each with the labels its cells imply."""
     items: List[Item] = []
     band = ""
-    section = ""
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        if line.startswith("## "):
-            section = line[3:].strip()
+    for i, line in enumerate(text.splitlines()):
         m = BAND_ROW.match(line)
         if m:
             band = m.group(1)
-            i += 1
             continue
-        m = ITEM_ROW.match(line)
-        if m and band:
-            cells = [c.strip() for c in line.strip().strip("|").split("|")]
-            # | Pri | Item | What ships | Tag | Tier / effort | Depends on |
-            if len(cells) >= 6:
-                pri, title, ships, tag, tier, depends = int(cells[0]), cells[1], cells[2], cells[3], cells[4], cells[5]
-                tier_letter = tier.strip().split("/")[0].strip()[:1].upper() or "M"
-                labels = [f"band:{band}", f"tier:{tier_letter}", f"tag:{tag.strip()[:1].upper()}"]
-                labels.append("kind:defect" if "defect" in title.lower() else "kind:step")
-                if "hygiene" in title.lower() or "CH-" in title:
-                    labels[-1] = "kind:hygiene"
-                body = row_body(pri, band, title, ships, tag, tier, depends)
-                refs = ISSUE_REF.findall(line)
-                items.append(Item("row", _plain(title), body, labels, band, pri,
-                                  line=i + 1,
-                                  existing=int(refs[0]) if refs else None))
-            i += 1
+        if not (ITEM_ROW.match(line) and band):
             continue
-        m = DETAIL_HEADING.match(line)
-        if m:
-            tag, heading = m.group(1), m.group(2)
-            j = i + 1
-            buf: List[str] = []
-            while j < len(lines) and not lines[j].startswith("### ") and not lines[j].startswith("## "):
-                buf.append(lines[j])
-                j += 1
-            body = "\n".join(buf).strip("\n")
-            labels = [f"tag:{tag}" if tag in "EV" else "tier:M", "kind:step"]
-            items.append(Item("detail", _plain(heading), body, labels, line=i + 1))
-            i = j
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        # | Pri | Item | What ships | Tag | Tier / effort | Depends on |
+        if len(cells) < 6:
             continue
-        if section.startswith("Open defects") and BULLET_START.match(line):
-            j = i + 1
-            buf = [line]
-            while j < len(lines) and lines[j].startswith("  "):
-                buf.append(lines[j])
-                j += 1
-            head = _bullet_heading(buf)
-            if head is None:
-                i = j
-                continue
-            # A defect bullet whose *heading* is only a reference -- "- #170 -- ..."
-            # -- is a pointer to an issue that already exists, not a new defect.
-            # Filing it opened issues literally titled "#170" and "#171"
-            # (2026-09-07). The bullet's own ``(#N)``, or a bare leading ``#N``,
-            # is that issue.
-            refs = (ISSUE_REF.findall(line)
-                    or re.findall(r"^\s*[-*]\s+\**#(\d+)\**", line))
-            # A heading ending in a colon is a lead-in to a list of issues, not
-            # the name of a defect -- "Overtaken by note 49, close on GitHub:"
-            # became an issue with exactly that title on 2026-09-07. Skipped
-            # rather than adopted: its own body's first ``(#N)`` is one of the
-            # issues it is asking to *close*, so adopting it would alias this
-            # bullet to an unrelated issue and hide it.
-            if _plain(head).rstrip().endswith(":"):
-                i = j
-                continue
-            # A finding the backlog states on purpose without scheduling it is
-            # its own kind: listed, never filed, never collapsed. Before #280 the
-            # state was real in the prose and nowhere in the tool, and the two
-            # bullets carrying it stayed unfiled only because their headings
-            # happened to wrap past the line the old regex read.
-            unfiled = UNFILED_MARKER.search(_flat("\n".join(buf))) is not None
-            items.append(Item("unfiled" if unfiled else "defect", _plain(head),
-                              "\n".join(buf),
-                              [] if unfiled else ["kind:defect", "tag:V"], line=i + 1,
-                              existing=int(refs[0]) if refs else None))
-            i = j
-            continue
-        if section.startswith("Open design decisions") and line.startswith("- [ ] **"):
-            j = i + 1
-            buf = [line]
-            while j < len(lines) and lines[j].startswith("  "):
-                buf.append(lines[j])
-                j += 1
-            head = re.match(r"^- \[ \] \*\*(.+?)\*\*", line).group(1)
-            items.append(Item("decision", _plain(head), "\n".join(buf), ["kind:decision"], line=i + 1))
-            i = j
-            continue
-        i += 1
+        pri, title, tag, tier = int(cells[0]), cells[1], cells[3], cells[4]
+        tier_letter = tier.strip().split("/")[0].strip()[:1].upper() or "M"
+        labels = [f"band:{band}", f"tier:{tier_letter}", f"tag:{tag.strip()[:1].upper()}"]
+        labels.append("kind:defect" if "defect" in title.lower() else "kind:step")
+        if "hygiene" in title.lower() or "CH-" in title:
+            labels[-1] = "kind:hygiene"
+        refs = ISSUE_REF.findall(title)
+        items.append(Item("row", _plain(ISSUE_REF.sub("", title)), labels, band, pri,
+                          line=i + 1, existing=int(refs[0]) if refs else None))
     return items
-
-
-#: Explicit row ↔ detail/defect pairs the word-overlap matcher does not reach
-#: (checked before the score; keys/values are substrings of the plain titles).
-PINNED_PAIRS: Tuple[Tuple[str, str], ...] = (
-    ("Lateral body aero", "No lateral aerodynamic load exists but the fin"),
-    ("Decisions, not effort", "The five non-oracle fixtures do not close as tightly as ga6"),
-    ("Hygiene batch", "M4-23 — flight_envelope.density_ratio duplicates"),
-    ("Hygiene batch", "Conventions-extraction findings"),
-)
-
-
-def _pinned(row_title: str, other_title: str) -> bool:
-    return any(a in row_title and b in other_title for a, b in PINNED_PAIRS)
-
-
-def _containment(a: str, b: str) -> float:
-    """Shared significant words over the smaller title -- a detail heading is
-    usually a longer restatement of its table row, so Jaccard under-scores it."""
-    aw, bw = _words(a), _words(b)
-    return len(aw & bw) / float(min(len(aw), len(bw)) or 1)
-
-
-def issue_set(items: Sequence[Item], threshold: float = 0.5) -> List[Item]:
-    """One issue per table row (its matching detail section / defect bullet
-    folded into the body), plus every detail section / defect / decision that
-    matched no row."""
-    rows = [it for it in items if it.kind == "row"]
-    others = [it for it in items if it.kind in ("detail", "defect")]
-    used = set()
-    out: List[Item] = []
-    for row in rows:
-        picks = [k for k, d in enumerate(others) if k not in used and _pinned(row.title, d.title)]
-        pinned = set(picks)
-        if not picks:
-            best, score = None, 0.0
-            for k, d in enumerate(others):
-                # **A defect bullet folds only on a pin.** The word score was
-                # written for detail sections, which really are longer
-                # restatements of their row and carry nothing the row does not.
-                # A defect bullet is an independent finding with a body of its
-                # own, and shared words are not evidence that it is the same
-                # thing as a table row: "No engine-mount case reaches the LRA
-                # deck" scores 0.60 -- over the threshold -- against "The
-                # load-case index carries no loads for 344 of 347 rows" on
-                # {case, loads, index} alone, because the denominator is the
-                # *smaller* title. That fold ran twice, and each time ``rewrite``
-                # replaced the defect's twenty-line body with a pointer to an
-                # unrelated issue (2026-09-08 07b24e2, again 2026-09-13; #280).
-                if k in used or d.kind != "detail":
-                    continue
-                sc = _containment(row.title, d.title)
-                if sc > score:
-                    best, score = k, sc
-            if best is not None and score >= threshold:
-                picks = [best]
-        for k in picks:
-            used.add(k)
-            d = others[k]
-            if k in pinned:
-                row.folded_by_pin.append(d.title)
-            row.body += f"\n---\n\n**Detail (from `{d.title}`)**\n\n{d.body}\n"
-            row.merged.append(d.title)
-            # A folded defect makes a *step* row a defect; a hygiene batch stays hygiene.
-            if "kind:defect" in d.labels and "kind:step" in row.labels:
-                row.labels = [lb for lb in row.labels if not lb.startswith("kind:")] + ["kind:defect"]
-        out.append(row)
-    out += [d for k, d in enumerate(others) if k not in used]
-    out += [it for it in items if it.kind in ("unfiled", "decision")]
-    return out
-
-
-def uncollapsible(items: Sequence[Item], numbers: Dict[str, int],
-                  folded: AbstractSet[str] = frozenset()) -> Dict[str, str]:
-    """``{title: why}`` for every defect bullet ``rewrite`` must leave standing.
-
-    Collapsing a bullet to ``- #N — head`` throws its body away, so the ``#N``
-    had better be that bullet's own issue. Two ways it is not, both of them
-    seen in this file:
-
-    * the bullet is **unfiled by choice** -- there is no issue, and the body is
-      the only statement of the finding there is;
-    * the number is shared with another item's title. That is what a fold looks
-      like from here, and a fold this run did not make on an explicit pin
-      (``folded``) is either the word score reaching across unrelated findings
-      or a stale key in the persisted map -- a map keyed on a *truncated* title
-      that a reworded row silently misses (the same key drift that opened 19
-      duplicate issues on 2026-09-07).
-
-    Independent of the matcher on purpose: :func:`issue_set` decides what to
-    fold, this decides what may be destroyed, and a body survives unless both
-    agree (#280).
-    """
-    shared: Dict[int, List[str]] = {}
-    for title, n in numbers.items():
-        shared.setdefault(n, []).append(title)
-    out: Dict[str, str] = {}
-    for it in items:
-        if it.kind == "unfiled":
-            out[it.title] = "unfiled by choice -- there is no issue to point at"
-            continue
-        if it.kind != "defect" or "\n" not in it.body or it.title in folded:
-            continue
-        n = numbers.get(it.title)
-        others = [t for t in shared.get(n, ()) if t != it.title] if n else []
-        if others:
-            out[it.title] = f"#{n} is also {others[0]!r} -- an unpinned fold, not this bullet's issue"
-    return out
-
-
-def rewrite_backlog(text: str, numbers: Dict[str, int],
-                    folded: AbstractSet[str] = frozenset()) -> str:
-    """``(#N)`` after each table row's title; detail sections and defect
-    bullets replaced by one-line pointers. Rows already carrying ``(#N)`` are left,
-    and so is every bullet :func:`uncollapsible` names."""
-    refused = uncollapsible(parse_backlog(text), numbers, folded)
-    lines = text.splitlines()
-    out: List[str] = []
-    i = 0
-    band = ""
-    while i < len(lines):
-        line = lines[i]
-        if BAND_ROW.match(line):
-            band = "x"
-        m = ITEM_ROW.match(line)
-        if m and band and not ISSUE_REF.search(line):
-            cells = line.strip().strip("|").split("|")
-            title = cells[1].strip()
-            n = numbers.get(_plain(title))
-            if n is not None:
-                cells[1] = f" {title} (#{n}) "
-                line = "|" + "|".join(cells) + "|"
-            out.append(line)
-            i += 1
-            continue
-        m = DETAIL_HEADING.match(line)
-        if m:
-            n = numbers.get(_plain(m.group(2)))
-            j = i + 1
-            while j < len(lines) and not lines[j].startswith("### ") and not lines[j].startswith("## ") \
-                    and lines[j].strip() != "---":
-                j += 1
-            if n is not None:
-                out.append(f"### [{m.group(1)}] {m.group(2)} → #{n}")
-                out.append("")
-                out.append(f"Body moved to issue #{n} (design note 28 MD-5).")
-                out.append("")
-                i = j
-                continue
-        if BULLET_START.match(line):
-            j = i + 1
-            while j < len(lines) and lines[j].startswith("  "):
-                j += 1
-            head = _bullet_heading(lines[i:j])
-            title = _plain(head) if head else ""
-            if head and title not in refused and numbers.get(title) is not None:
-                out.append(f"- #{numbers[title]} — {head}")
-                i = j
-                continue
-        out.append(line)
-        i += 1
-    return "\n".join(out) + "\n"
 
 
 def row_ref(line: str) -> Optional[int]:
     """The issue a priority-table row *is*, or ``None``.
 
-    Only the **Item** cell is read. ``rewrite`` appends ``(#N)`` to that cell, but
-    other cells cite other issues in prose -- band D's function-size row says "the
-    view functions wait for the GUI review (#29)" -- and a scan of the whole line
-    reads that cross-reference as the row's own identity. It put #29, the single
-    band-B2 (0.9.0) row, under band D, where the milestone check below would have
-    demanded it carry no milestone at all: a guard reporting a fault against the
-    row it misread. Found writing that check, 2026-08-25 (issue #46).
+    Only the **Item** cell is read: other cells cite other issues in prose
+    ("waits for the GUI review (#29)"), and a scan of the whole line reads that
+    cross-reference as the row's own identity (found 2026-08-25, #46).
     """
     if not ITEM_ROW.match(line):
         return None
@@ -409,111 +113,35 @@ def table_refs(text: str) -> List[int]:
 
 # --- render: the table as a view of the issues -------------------------------
 
-#: The row block ``parse_backlog`` writes into every row issue's body (and
-#: ``create`` posts). ``render`` reads it back; a body that does not match --
-#: hand-edited, or not a row issue -- leaves the existing table line untouched.
-ISSUE_BODY = re.compile(
-    r"\*\*Priority table row (\d+), band ([A-Z]\d?)\*\*.*?\n\n"
-    r"\*\*Item\.\*\* (.*?)\n\n\*\*What ships\.\*\* (.*?)\n\n"
-    r"\*\*Tag\.\*\* (.*?)  \*\*Tier / effort\.\*\* (.*?)  \*\*Depends on\.\*\* (.*?)\n",
-    re.S)
 
+def render_backlog(text: str, states: Dict[int, str]) -> str:
+    """``text`` with every item row whose issue is CLOSED dropped.
 
-def row_body(pri: int, band: str, title: str, ships: str, tag: str, tier: str, depends: str) -> str:
-    """The body ``create`` posts for a table row -- one writer, so ``render``'s
-    reader (:data:`ISSUE_BODY`) and this cannot drift."""
-    return (f"**Priority table row {pri}, band {band}** (`docs/30_future/00_backlog.md`).\n\n"
-            f"**Item.** {title}\n\n**What ships.** {ships}\n\n**Tag.** {tag}  "
-            f"**Tier / effort.** {tier}  **Depends on.** {depends}\n")
-
-
-def row_from_issue(number: int, body: str) -> Optional[str]:
-    """The priority-table line for issue ``number`` from its body, or ``None``
-    when the body does not carry the row block."""
-    m = ISSUE_BODY.search(body)
-    if not m:
-        return None
-    pri, _band, title, ships, tag, tier, depends = m.groups()
-    title = ISSUE_REF.sub("", title).rstrip()
-    return f"| {pri} | {title} (#{number}) | {ships} | {tag} | {tier} | {depends} |"
-
-
-def render_backlog(text: str, issues: Dict[int, Tuple[str, str]]) -> str:
-    """``text`` with every ``(#N)`` item row re-emitted from ``issues[N] =
-    (state, body)``: dropped when ``state`` is ``CLOSED``, rewritten from the
-    body when it carries the row block, left as it is otherwise (unknown issue,
-    hand-edited body). Nothing outside the item rows moves."""
+    A row is owned by the ``(#N)`` in its Item cell; a later ``(#N)`` in the
+    line is a cross-reference and never drops the row. An issue ``states`` does
+    not know leaves its row alone. Nothing outside the item rows moves.
+    """
     out: List[str] = []
     for line in text.splitlines():
-        emit = line
-        if ITEM_ROW.match(line):
-            refs = ISSUE_REF.findall(line)
-            if refs:
-                state, body = issues.get(int(refs[0]), ("", ""))
-                if state.upper() == "CLOSED":
-                    continue
-                rendered = row_from_issue(int(refs[0]), body) if body else None
-                if rendered is not None:
-                    emit = rendered
-        out.append(emit)
+        n = row_ref(line)
+        if n is not None and states.get(n, "").upper() == "CLOSED":
+            continue
+        out.append(line)
     return "\n".join(out) + "\n"
 
 
-def fetch_issues() -> Dict[int, Tuple[str, str]]:
-    """``{number: (state, body)}`` for every issue, open or closed (needs gh)."""
-    raw = json.loads(_gh("issue", "list", "--state", "all", "--limit", "500",
-                         "--json", "number,state,body"))
-    return {int(it["number"]): (it["state"], it.get("body") or "") for it in raw}
+def fetch_states() -> Dict[int, str]:
+    """``{number: state}`` for every issue, open or closed (needs gh)."""
+    raw = json.loads(_gh("issue", "list", "--state", "all", "--limit", "1000",
+                         "--json", "number,state"))
+    return {int(it["number"]): it["state"] for it in raw}
 
 
 # --- gh ----------------------------------------------------------------------
 
-LABEL_COLOURS = {"band": "1d76db", "tier": "5319e7", "tag": "0e8a16", "kind": "d93f0b"}
-
 
 def _gh(*args: str) -> str:
     return subprocess.run(["gh", *args], check=True, capture_output=True, text=True).stdout
-
-
-def ensure_labels(labels: Sequence[str]) -> None:
-    existing = {ln.split("\t")[0] for ln in _gh("label", "list", "--limit", "200").splitlines()}
-    for lab in sorted(set(labels)):
-        if lab in existing:
-            continue
-        colour = LABEL_COLOURS.get(lab.split(":")[0], "ededed")
-        subprocess.run(["gh", "label", "create", lab, "--color", colour, "--force"], check=True)
-
-
-def create(items: Sequence[Item], milestone: Optional[str]) -> Dict[str, int]:
-    ensure_labels([lab for it in items for lab in it.labels] + ["parked", "physics", "needs-design-note",
-                                                                "self-merge-ok"])
-    numbers: Dict[str, int] = {}
-    if os.path.exists(MAP):
-        with open(MAP, encoding="utf-8") as fh:
-            numbers = json.load(fh)
-    for it in items:
-        # Listed by ``plan``, filed by nobody: the backlog states this finding
-        # without scheduling it, and that is now a state the tool holds (#280).
-        if it.kind == "unfiled" or it.title in numbers:
-            continue
-        # The line already names its issue: adopt that number rather than filing
-        # a second one. The persisted map is keyed on a truncated title and a
-        # reworded row misses it, which is how 19 duplicates were opened in one
-        # run on 2026-09-07 -- for rows whose own text carried their number.
-        if it.existing is not None:
-            it.number = it.existing
-            numbers[it.title] = it.existing
-            continue
-        cmd = ["issue", "create", "--title", it.title, "--body", it.body, "--label", ",".join(it.labels)]
-        if milestone and it.band == "A":
-            cmd += ["--milestone", milestone]
-        url = _gh(*cmd).strip()
-        it.number = int(url.rstrip("/").rsplit("/", 1)[-1])
-        numbers[it.title] = it.number
-        with open(MAP, "w", encoding="utf-8") as fh:
-            json.dump(numbers, fh, indent=2, ensure_ascii=False)
-        print(f"#{it.number}  {it.title}")
-    return numbers
 
 
 #: The record corpus, out of the default search path (design note 61 CV-4).
@@ -527,11 +155,10 @@ BAND_MILESTONE = re.compile(r"(\d+\.\d+\.\d+)")
 def band_milestones(text: str) -> Dict[str, Optional[str]]:
     """{band: the release its header names}, ``None`` where it names none.
 
-    Read from the header row rather than hardcoded, because the letters move at
-    every re-cut and a hardcoded map is the drift this check exists to catch:
-    when 0.7.2 was cut, band A retired and **B** became the milestone in flight.
-    Band **D** ("maintenance and hygiene, when the module is next touched") names
-    no release by design, so its issues carry no milestone.
+    Read from the header row rather than hardcoded: the letters move at every
+    re-cut, and a hardcoded map is the drift this check exists to catch. A
+    maintenance band ("when the module is next touched") names no release by
+    design, so its issues carry no milestone.
     """
     out: Dict[str, Optional[str]] = {}
     for line in text.splitlines():
@@ -561,8 +188,8 @@ def row_bands(text: str) -> Dict[int, str]:
 def cut_milestones() -> set:
     """Releases that already have a section in ``CHANGELOG.md`` — i.e. are cut.
 
-    GitHub milestone *state* is not usable for this: every cut milestone in this
-    repository is still open on GitHub (0.6.0 … 0.7.2, checked 2026-08-25).
+    GitHub milestone *state* is not usable for this: cut milestones stay open
+    on GitHub.
     """
     with open(CHANGELOG, encoding="utf-8") as fh:
         return set(CUT_SECTION.findall(fh.read()))
@@ -572,16 +199,12 @@ def check(text: str) -> Tuple[List[int], List[Tuple[int, str]], List[str]]:
     """(table refs with no open issue, open band:* issues not in the table,
     band-vs-milestone faults).
 
-    The third list is the 2026-08-25 addition (backlog row 6 / issue #46). This
-    check proved row ↔ open-issue correspondence both ways but never requested
-    ``milestone``, so a row's **band** was never compared with its issue's
-    milestone — and #71 sat open on the already-cut **0.7.1** while its row was
-    in the 0.8.0 band, with no gate seeing it. Two faults are reported: an issue
-    whose milestone is not the one its band names, and an issue parked on a
+    Two faults are reported in the third list (issue #46): an issue whose
+    milestone is not the one its band names, and an issue parked on a
     milestone `CHANGELOG.md` shows as already cut, which can never ship.
     """
     refs = set(table_refs(text))
-    raw = _gh("issue", "list", "--state", "open", "--limit", "500",
+    raw = _gh("issue", "list", "--state", "open", "--limit", "1000",
               "--json", "number,title,labels,milestone")
     open_issues = json.loads(raw)
     open_nums = {it["number"] for it in open_issues}
@@ -614,51 +237,34 @@ def check(text: str) -> Tuple[List[int], List[Tuple[int, str]], List[str]]:
 
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("command", choices=["plan", "create", "rewrite", "check", "render"])
-    ap.add_argument("--milestone", help="milestone for band-A issues on create (e.g. 0.6.0)")
+    ap.add_argument("command", choices=["check", "render"])
+    ap.add_argument("--closing", type=int, metavar="N",
+                    help="render: treat issue N as CLOSED (solo_close.sh preflight, before gh closes it)")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="render: print the rows that would be dropped; write nothing")
     args = ap.parse_args(argv)
     with open(BACKLOG, encoding="utf-8") as fh:
         text = fh.read()
-    items = issue_set(parse_backlog(text))
 
-    if args.command == "plan":
-        for it in items:
-            print(f"[{it.kind:8}] {' '.join(it.labels) or '--':32} {it.title}")
-        n_unfiled = sum(it.kind == "unfiled" for it in items)
-        print(f"\n{len(items) - n_unfiled} issue(s) — {sum(it.kind == 'row' for it in items)} table rows, "
-              f"{sum(it.kind == 'detail' for it in items)} unmatched detail sections, "
-              f"{sum(it.kind == 'defect' for it in items)} defects, "
-              f"{sum(it.kind == 'decision' for it in items)} decisions"
-              f"; {n_unfiled} unfiled by choice (listed, never filed)")
-        return 0
-    if args.command == "create":
-        create(items, args.milestone)
-        print(f"map: {os.path.relpath(MAP, ROOT)}")
-        return 0
-    if args.command == "rewrite":
-        with open(MAP, encoding="utf-8") as fh:
-            numbers = json.load(fh)
-        for it in items:  # a folded detail section / defect bullet points at its row's issue
-            if it.title in numbers:
-                for t in it.merged:
-                    numbers.setdefault(t, numbers[it.title])
-        folded = {t for it in items for t in it.folded_by_pin}
-        refused = uncollapsible(parse_backlog(text), numbers, folded)
-        with open(BACKLOG, "w", encoding="utf-8") as fh:
-            fh.write(rewrite_backlog(text, numbers, folded))
-        print(f"rewrote {os.path.relpath(BACKLOG, ROOT)} with {len(numbers)} issue references")
-        for title, why in refused.items():
-            print(f"kept whole: {title} — {why}")
-        return 0
     if args.command == "render":
-        rendered = render_backlog(text, fetch_issues())
+        states = fetch_states()
+        if args.closing is not None:
+            states[args.closing] = "CLOSED"
+        rendered = render_backlog(text, states)
         if rendered == text:
             print("priority table already matches the issues")
             return 0
+        dropped = [ln for ln in text.splitlines() if ln not in rendered.splitlines()]
+        for ln in dropped:
+            print(f"drop: {ln[:100]}")
+        if args.dry_run:
+            print(f"[{len(dropped)} row(s) would leave; nothing written]")
+            return 0
         with open(BACKLOG, "w", encoding="utf-8") as fh:
             fh.write(rendered)
-        print(f"rendered {os.path.relpath(BACKLOG, ROOT)} from the issues -- review with git diff")
+        print(f"rendered {os.path.relpath(BACKLOG, ROOT)} from the issues: {len(dropped)} row(s) left")
         return 0
+
     dangling, missing, faults = check(text)
     for n in dangling:
         print(f"table row references #{n} but no such open issue")

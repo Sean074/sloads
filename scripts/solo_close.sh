@@ -47,14 +47,14 @@
 #
 # Preflight (nothing mutates until every check passes):
 #   * on the milestone branch (dev/vX.Y.Z) — never on main
-#   * a fragment exists and its lead names the tier: changes/<slug>.history.md
-#     (or .history-<type>.md) alone is a complete tier-M/L closure since design
-#     note 61 CV-2 — the changelog bullet is derived from its lead, not written
-#     a second time. Tier S writes changes/<slug>.<added|changed|fixed|removed|
-#     breaking>.md; tier M/L may add one when the user-facing bullet differs.
+#   * ONE fragment exists, every tier: changes/<slug>.<added|changed|fixed|
+#     removed|breaking>.md — one bullet of at most 60 words whose lead names
+#     the tier. History fragments retired 2026-11-01 (#359): a .history*.md
+#     is refused, not read.
+#   * the commit subject, parenthetical included, is at most 100 characters
 #   * with an issue number only: `gh` authenticated; the issue is OPEN; and the
-#     item's row is gone from the priority table (no "(#N)" left in
-#     docs/30_future/00_backlog.md)
+#     item's row is dropped from the priority table here, by
+#     `backlog_issues.py render --closing N` (the table is a generated view)
 #   * origin/<branch> has not moved past HEAD (else: pull --rebase first)
 #   * CI on the pushed tip (#329): `gh run list` for origin/<branch>, judged by
 #     scripts/ci_state.py — red (failure/timed_out/startup_failure) refuses
@@ -67,7 +67,7 @@
 #   4  commit  git add -A, show the list, confirm, one commit
 #   5  push    git push origin <branch>
 #   6  close   gh issue close N with the branch SHA of record   (issue only)
-#   7  verify  backlog_issues.py check, issue state, last CI run on the branch
+#   7  verify  backlog_issues.py check + render --dry-run, issue state, last CI run
 # The pre-commit/pre-push hooks are skipped for the commit and push made here
 # because the identical gate ran in step 3 (SKIP=ruff,mypy / SKIP=pytest).
 # Exit 0 on success; non-zero with the reason and the recovery on stderr.
@@ -145,9 +145,11 @@ if [[ $DRY_RUN -eq 1 ]]; then
   else
     echo "             (no issue number — no issue read, close or backlog check; the CI read below needs only gh auth)"
   fi
-  echo "             ls changes/$SLUG.history[-<type>].md             (tier M/L: the one fragment, note 61 CV-2)"
-  echo "             ls changes/$SLUG.{added,changed,fixed,removed,breaking}.md   (tier S; optional at M/L)"
-  [[ -n "$ISSUE" ]] && echo "             grep -c \"(#$ISSUE)\" docs/30_future/00_backlog.md == 0"
+  echo "             ls changes/$SLUG.{added,changed,fixed,removed,breaking}.md   (the one fragment, every tier; <= 60 words)"
+  echo "             ! ls changes/$SLUG.history*.md                       (history fragments retired, #359)"
+  DRY_MSG="$SUBJECT (${SUFFIX:-backlog Pri N, tier X, $TODAY})"
+  [[ ${#DRY_MSG} -le 100 ]] || die "commit subject is ${#DRY_MSG} chars (max 100 including the parenthetical): \"$DRY_MSG\""
+  [[ -n "$ISSUE" ]] && echo "             .venv/bin/python scripts/backlog_issues.py render --closing $ISSUE   (the row leaves here)"
   echo "             git fetch origin <branch>; git merge-base --is-ancestor origin/<branch> HEAD"
   echo "             gh run list --branch <branch> --workflow ci.yml --json status,conclusion,headSha,url"
   echo "               | scripts/ci_state.py --tip origin/<branch>   (red refuses; --ci-red-ok \"<reason>\")"
@@ -165,6 +167,7 @@ if [[ $DRY_RUN -eq 1 ]]; then
   fi
   if [[ -n "$ISSUE" ]]; then
     echo "  step 7:    .venv/bin/python scripts/backlog_issues.py check"
+    echo "             .venv/bin/python scripts/backlog_issues.py render --dry-run   (must already match)"
     echo "             gh issue view $ISSUE --json state,number"
   fi
   echo "             gh run list --branch <branch> --limit 1        (only if gh is available)"
@@ -223,6 +226,19 @@ else
 fi
 [[ $FULL_GATE -eq 1 ]] && DOCS_ONLY=0
 
+# Design-note budget (#359, DEVELOPMENT_PROCESS.md §5): a new note over ~150
+# lines is a warning, not a refusal -- the decisions and gates tables are the
+# note; the narration around them is what the budget is for.
+while IFS= read -r f; do
+  case "$f" in
+    docs/25_notes/*_note.md)
+      if [[ -f "$f" ]] && ! git cat-file -e "${BASE:-HEAD}:$f" 2>/dev/null; then
+        n="$(wc -l < "$f" | tr -d ' ')"
+        [[ "$n" -le 150 ]] || echo "solo_close: warning -- $f is $n lines (budget ~150; DEVELOPMENT_PROCESS.md §5)" >&2
+      fi ;;
+  esac
+done <<<"$CHANGED"
+
 if [[ -n "$ISSUE" ]]; then
   gh auth status >/dev/null 2>&1 || die "gh is not authenticated — run: gh auth login (or close without an issue number)"
   GH_ERR="$(mktemp)"
@@ -232,38 +248,28 @@ if [[ -n "$ISSUE" ]]; then
   [[ "$STATE" == "OPEN" ]] || die "issue #$ISSUE is already $STATE — wrong number, or already closed"
 fi
 
-# closure artefacts.
-# Design note 61 CV-2: a tier-M/L closure writes ONE fragment — the history
-# entry — and build_changelog.py derives the changelog bullet from its lead.
-# So the history fragment alone is a complete closure, and a typed fragment is
-# what tier S writes (or what tier M/L adds when the user-facing bullet differs).
-HIST=""
-for h in history history-added history-changed history-fixed history-removed history-breaking; do
-  if [[ -f "changes/$SLUG.$h.md" ]]; then HIST="changes/$SLUG.$h.md"; break; fi
+# closure artefacts: ONE typed fragment per closure, every tier (#359,
+# 2026-11-01). History fragments are retired -- CHANGELOG.md, the design notes
+# and git log are the record -- so a .history*.md is a refusal, not a tier.
+for h in changes/"$SLUG".history*.md; do
+  [[ -e "$h" ]] && die "$h: history fragments retired 2026-11-01 (#359) — the one fragment is changes/$SLUG.<added|changed|fixed|removed|breaking>.md"
 done
 
 FRAG=""
 for t in added changed fixed removed breaking; do
   if [[ -f "changes/$SLUG.$t.md" ]]; then FRAG="changes/$SLUG.$t.md"; break; fi
 done
-
-LEAD="${FRAG:-$HIST}"
-#: what the preflight and the close comment name, with either fragment absent.
-FRAGS="${FRAG:-}${FRAG:+${HIST:+ + }}${HIST:-}"
-[[ -n "$LEAD" ]] || die "no changes/$SLUG.<added|changed|fixed|removed|breaking>.md and no changes/$SLUG.history[-<type>].md — write the fragment (changes/README.md), or check --slug"
+[[ -n "$FRAG" ]] || die "no changes/$SLUG.<added|changed|fixed|removed|breaking>.md — write the fragment (changes/README.md), or check --slug"
+LEAD="$FRAG"
+FRAGS="$FRAG"
 
 TIER="$(grep -o -m1 'tier [SML]' "$LEAD" | head -1 | cut -d' ' -f2 || true)"
 [[ -n "$TIER" ]] || die "$LEAD lead does not name the tier ('tier S|M|L' — see changes/README.md)"
 PRI="$(grep -o -m1 'Pri [0-9][0-9]*' "$LEAD" | head -1 | cut -d' ' -f2 || true)"
 [[ -n "$PRI" ]] || PRI="$SUFFIX_PRI"
 
-if [[ "$TIER" != "S" && -z "$HIST" ]]; then
-  die "tier $TIER needs changes/$SLUG.history[-<type>].md (changes/README.md; CLAUDE.md tier table)"
-fi
-
-if [[ -n "$ISSUE" ]] && grep -q "(#$ISSUE)" docs/30_future/00_backlog.md; then
-  die "docs/30_future/00_backlog.md still carries (#$ISSUE) — delete the item's row (the row leaves in the closing commit)"
-fi
+WORDS="$(wc -w < "$FRAG" | tr -d ' ')"
+[[ "$WORDS" -le 60 ]] || die "$FRAG is $WORDS words (max 60): one bullet, the change in a sentence — the issue and the design note hold the rest"
 
 # the branch untouched under us
 if [[ $HAS_REMOTE -eq 1 ]] && ! git merge-base --is-ancestor "origin/$BRANCH" HEAD; then
@@ -298,6 +304,15 @@ when this change is the fix or the red is known, re-run with
   fi
 fi
 
+# The row leaves here (#359): the table is a generated view of the issues, and
+# the issue this close is about counts as closed before gh closes it, so the
+# row is gone in the closing commit. Last preflight check, so a refusal above
+# leaves the table untouched; idempotent on a re-run ("already matches").
+if [[ -n "$ISSUE" ]]; then
+  run "$PY" scripts/backlog_issues.py render --closing "$ISSUE" \
+    || die "backlog_issues.py render failed — gh unavailable, or the table is not in its generated shape"
+fi
+
 DIRTY=0
 [[ -n "$(git status --porcelain)" ]] && DIRTY=1
 AHEAD=0
@@ -312,6 +327,7 @@ if [[ -z "$SUFFIX" ]]; then
   else SUFFIX="tier $TIER, $TODAY"; fi
 fi
 MSG="$SUBJECT ($SUFFIX)"
+[[ ${#MSG} -le 100 ]] || die "commit subject is ${#MSG} chars (max 100 including the parenthetical): \"$MSG\""
 
 echo "solo_close: ${ISSUE:+issue #$ISSUE · }milestone $BRANCH · slug $SLUG · tier $TIER${PRI:+ · Pri $PRI}"
 echo "            fragment $FRAGS"
@@ -345,7 +361,7 @@ if [[ $SKIP_GATE -eq 0 ]]; then
   if [[ $RC -ne 0 ]]; then
     cat >&2 <<EOF
 solo_close: pytest failed. Known closure-time causes:
-  test_backlog_issues (render round-trip) — a table row without '(#N)' (parentheses!)
+  test_backlog_issues                    — a table row without '(#N)', or prose below the table
   test_changelog_fragments               — fragment name/body not in changes/README.md form
   test_schema_guards / digests           — SCHEMA_VERSION or digest not re-pinned
   test_doc_currency                      — a number copied into a standard doc
@@ -401,6 +417,7 @@ fi
 say "step 7 — verify"
 if [[ -n "$ISSUE" ]]; then
   run "$PY" scripts/backlog_issues.py check
+  run "$PY" scripts/backlog_issues.py render --dry-run
   run gh issue view "$ISSUE" --json state,number -q '"#\(.number) \(.state)"'
 fi
 if gh auth status >/dev/null 2>&1; then

@@ -69,7 +69,7 @@ Complete before reading a single line of diff:
 - [ ] Read the commit/PR intent.
 - [ ] Open the module's section in [`PROGRAM_SPEC.md`](PROGRAM_SPEC.md) and the relevant Reference 1 chapter (`reference/FAR23Loads_Code.pdf`).
 - [ ] Confirm the diff includes documentation updates (`docs/`) — flag immediately if absent.
-- [ ] Confirm [`../30_future/00_backlog.md`](../30_future/00_backlog.md) was updated (item removed) and [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md) + `CHANGELOG.md` updated if a module/step closed.
+- [ ] Confirm the item's `changes/` fragment exists (the backlog row leaves by `solo_close.sh`; `CHANGELOG.md` is built at the cut).
 - [ ] Confirm a `tests/test_<module>.py` exists with Appendix A and/or B assertions.
 
 ---
@@ -84,12 +84,11 @@ Per `CLAUDE.md`, every code change updates `docs/` in the same session. Check:
 - [ ] No standard doc states a volatile number (schema version, test count, coverage %, "currently N") — it points at the owner (`00_program_overview.md` §Documentation currency; `tests/test_doc_currency.py` fails on the known patterns, but a reviewer catches the shape the regex does not).
 - [ ] `docs/10_standard/PROJECT_GUIDE.md` — any change to package layout, the `Project` schema, or a porting convention is reflected.
 - [ ] `docs/20_theory/00_theory_sources.md` — the module has a per-module equation-citation row.
-- [ ] `docs/30_future/00_backlog.md` — the ported module is **removed** from the backlog.
-- [ ] `docs/90_record/00_completed_development.md` — the module is **added** with its full step record.
-- [ ] `changes/` — a `<slug>.<type>.md` fragment exists (`CHANGELOG.md` `[Unreleased]` is never hand-edited; `changes/README.md`).
+- [ ] `docs/30_future/00_backlog.md` — the item's row is gone (`solo_close.sh` drops it; the table is a generated view).
+- [ ] `changes/` — a `<slug>.<type>.md` fragment exists, one bullet of ≤ 60 words (`CHANGELOG.md` `[Unreleased]` is never hand-edited; `changes/README.md`).
 
 The required depth follows the S/M/L closure tier in `CLAUDE.md` — a Tier-S change needs
-the fragment + backlog removal only (no history entry), not the full sweep above.
+the fragment only, not the full sweep above.
 **Raise as `[MAJOR]`** (blocking) if the closure tier was not completed; documentation
 drift blocks approval but is not the same severity class as a wrong load value.
 

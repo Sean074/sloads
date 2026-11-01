@@ -1,27 +1,20 @@
 #!/usr/bin/env python
-"""Assemble ``changes/*.md`` fragments into ``CHANGELOG.md`` and the history file.
+"""Assemble ``changes/*.md`` fragments into ``CHANGELOG.md`` at release cut.
 
-Design notes 26 (changelog fragments, 2026-08-16) and 28 MD-4 (history
-fragments, 2026-08-16). Fragment contract: ``changes/README.md``. Run at
-release cut only (``RELEASE_PROCESS.md`` §4); ``--dry-run`` previews without
-writing.
+Design note 26 (changelog fragments, 2026-08-16). Fragment contract:
+``changes/README.md``. Run at release cut only (``RELEASE_PROCESS.md`` §4);
+``--dry-run`` previews without writing.
 
-Two destinations, one mechanism: ``<slug>.<breaking|added|changed|fixed|removed>.md``
-becomes a bullet in the release's ``CHANGELOG.md`` section; ``<slug>.history.md``
-(tier M paragraph or tier L step) is inserted, newest first, at the top of
-``docs/90_record/00_completed_development.md``.
+One destination: ``<slug>.<breaking|added|changed|fixed|removed>.md`` becomes a
+bullet in the release's ``CHANGELOG.md`` section. The history fragments of
+design note 28 MD-4 retired on 2026-11-01 (#359): ``CHANGELOG.md``, the design
+notes and ``git log`` are the record, and ``docs/90_record/00_completed_development.md``
+is frozen.
 
-Design note 61 CV-2: a tier-M/L closure writes **one** fragment. A
-``<slug>.history[-<type>].md`` with no companion ``<slug>.<type>.md`` also
-*derives* its changelog bullet, from the bold lead phrase the history entry
-already opens with (``derive_bullet``) — the same prose written once instead of
-twice, with the changelog becoming a generated index of the record. ``-<type>``
-names the subsection; plain ``.history.md`` derives into ``Changed``.
-
-Pure functions (``parse_fragments``, ``derive_bullet``, ``merge_section``,
-``cut_release``, ``roll_history``, ``roll_changelog``) do all the work on
-strings so ``tests/test_changelog_fragments.py`` can exercise them without
-touching the repo files; ``main`` is the only I/O.
+Pure functions (``parse_fragments``, ``merge_section``, ``cut_release``,
+``roll_changelog``) do all the work on strings so
+``tests/test_changelog_fragments.py`` can exercise them without touching the
+repo files; ``main`` is the only I/O.
 """
 
 from __future__ import annotations
@@ -37,7 +30,6 @@ CHANGES_DIR = os.path.join(ROOT, "changes")
 #: The record corpus (design note 61 CV-4): out of the default search path.
 RECORD_DIR = os.path.join(ROOT, "docs", "90_record")
 CHANGELOG = os.path.join(RECORD_DIR, "CHANGELOG.md")
-HISTORY = os.path.join(RECORD_DIR, "00_completed_development.md")
 
 #: Subsection order in a release block. ``type`` in the fragment name maps to
 #: the heading; anything else is a naming error, not a new subsection.
@@ -49,12 +41,7 @@ TYPES: Tuple[Tuple[str, str], ...] = (
     ("removed", "Removed"),
 )
 TYPE_TO_HEADING = dict(TYPES)
-#: The history destination (design note 28 MD-4): not a changelog subsection.
-HISTORY_TYPE = "history"
-#: Subsection a plain ``.history.md`` derives its bullet into (note 61 CV-2).
-DEFAULT_DERIVED_TYPE = "changed"
-FRAGMENT_NAME = re.compile(
-    r"^(?P<slug>[a-z0-9]+(?:-[a-z0-9]+)*)\.(?P<type>history-[a-z]+|[a-z]+)\.md$")
+FRAGMENT_NAME = re.compile(r"^(?P<slug>[a-z0-9]+(?:-[a-z0-9]+)*)\.(?P<type>[a-z]+)\.md$")
 UNRELEASED = re.compile(r"^## \[Unreleased\]\s*$", re.M)
 RELEASE_HEADING = re.compile(r"^## \[", re.M)
 SUBSECTION = re.compile(r"^### (\w+)\s*$", re.M)
@@ -64,123 +51,32 @@ class FragmentError(ValueError):
     """A fragment that violates ``changes/README.md``; the file name is in the message."""
 
 
-def split_history_type(kind: str) -> Optional[str]:
-    """``history`` / ``history-<type>`` → the subsection its bullet derives into.
-
-    ``None`` for a kind that is not a history fragment (note 61 CV-2).
-    """
-    if kind == HISTORY_TYPE:
-        return DEFAULT_DERIVED_TYPE
-    if kind.startswith(HISTORY_TYPE + "-"):
-        return kind[len(HISTORY_TYPE) + 1 :]
-    return None
-
-
 def validate_fragment(name: str, body: str) -> str:
     """Return the fragment's type, or raise :class:`FragmentError` naming the fault."""
     m = FRAGMENT_NAME.match(name)
     if not m:
         raise FragmentError(f"{name}: not '<slug>.<type>.md' (kebab-case slug, lower-case type)")
     kind = m.group("type")
-    derived = split_history_type(kind)
-    if derived is not None:
-        if derived not in TYPE_TO_HEADING:
-            raise FragmentError(
-                f"{name}: derived type '{derived}' not in {sorted(TYPE_TO_HEADING)}")
-        if not body.strip():
-            raise FragmentError(f"{name}: history fragment is empty")
-        # A tier-M paragraph is a bullet: the history file lists them as
-        # bullets, and six 0.8.6 fragments opened with a bare '**' and would
-        # have rolled in un-bulleted (#299). The bare form survives only for
-        # the tier-L step heading the README also allows ('**Step N — …**').
-        if not body.lstrip().startswith(("- **", "**Step", "## ")):
-            raise FragmentError(
-                f"{name}: history fragment must be a tier-M bullet ('- **') "
-                "or a tier-L step ('## Step' / '**Step')")
-        derive_bullet(name, body)  # a fragment with no derivable lead is a fault now, not at cut
-        return kind
     if kind not in TYPE_TO_HEADING:
-        raise FragmentError(f"{name}: type '{kind}' not in {sorted(TYPE_TO_HEADING) + [HISTORY_TYPE]}")
+        raise FragmentError(
+            f"{name}: type '{kind}' not in {sorted(TYPE_TO_HEADING)} "
+            "(history fragments retired 2026-11-01 -- the changelog bullet is the record)")
     if not body.lstrip().startswith("- "):
         raise FragmentError(f"{name}: body must be Markdown bullet(s) starting with '- '")
     return kind
 
 
-#: A tier-M entry opens ``- **Title (#123, tier M, date)** — …``; a tier-L step
-#: opens ``## Step N — …``. Either way the lead phrase *is* the changelog bullet.
-LEAD_BOLD = re.compile(r"\*\*(?P<lead>.+?)\*\*", re.S)
-LEAD_STEP = re.compile(r"^##\s+(?P<lead>.+?)\s*$", re.M)
-
-
-def derive_bullet(name: str, body: str) -> str:
-    """The ``CHANGELOG.md`` bullet a history fragment implies (note 61 CV-2).
-
-    The lead phrase the entry already opens with, verbatim, as a one-line
-    bullet — no second telling, and nothing a human has to keep in step.
-    """
-    text = body.lstrip()
-    m = LEAD_STEP.match(text) if text.startswith("## ") else LEAD_BOLD.search(text)
-    if not m:
-        raise FragmentError(
-            f"{name}: no lead phrase to derive a changelog bullet from "
-            "(open with '- **Title (…)**' or '## Step N — …')")
-    lead = " ".join(m.group("lead").split())
-    return f"- **{lead}**\n"
-
-
-def fragment_slug(name: str) -> str:
-    """The ``<slug>`` of a validated fragment file name."""
-    m = FRAGMENT_NAME.match(name)
-    if not m:  # pragma: no cover - validate_fragment has already refused it
-        raise FragmentError(f"{name}: not '<slug>.<type>.md'")
-    return m.group("slug")
-
-
 def parse_fragments(files: Dict[str, str]) -> Dict[str, List[str]]:
-    """``{filename: body}`` → ``{type: [blocks…]}`` in filename order.
-
-    Changelog types map to their subsection; :data:`HISTORY_TYPE` collects the
-    history entries under their own key. A history fragment whose slug has no
-    hand-written changelog fragment also contributes a *derived* bullet to its
-    subsection (note 61 CV-2), so a tier-M/L closure writes one file, not two.
-    """
-    kinds = {name: validate_fragment(name, files[name]) for name in sorted(files)}
-    hand_written = {
-        fragment_slug(name) for name, kind in kinds.items() if split_history_type(kind) is None
-    }
+    """``{filename: body}`` → ``{type: [blocks…]}`` in filename order."""
     out: Dict[str, List[str]] = {}
-    for name, kind in kinds.items():
-        body = files[name].strip("\n") + "\n"
-        derived = split_history_type(kind)
-        if derived is None:
-            out.setdefault(kind, []).append(body)
-            continue
-        out.setdefault(HISTORY_TYPE, []).append(body)
-        if fragment_slug(name) not in hand_written:
-            out.setdefault(derived, []).append(derive_bullet(name, body))
+    for name in sorted(files):
+        kind = validate_fragment(name, files[name])
+        out.setdefault(kind, []).append(files[name].strip("\n") + "\n")
     return out
 
 
-HISTORY_RULE = re.compile(r"^---[ \t]*$", re.M)
-
-
-def roll_history(history: str, entries: List[str]) -> str:
-    """Insert ``entries`` (newest first is the file's order; the entries keep
-    their filename order) directly after the header's first ``---`` rule.
-
-    Everything below that point -- the live cycle -- is byte-identical.
-    """
-    if not entries:
-        return history
-    m = HISTORY_RULE.search(history)
-    if not m:
-        raise ValueError("history file has no '---' rule after its header")
-    block = "\n".join(e.rstrip("\n") + "\n" for e in entries)
-    return history[: m.end()] + "\n\n" + block + "\n" + history[m.end():].lstrip("\n")
-
-
-#: Live-file line budget shared by the history (note 26 DV-6) and, from note 61
-#: CV-5, the changelog: crossing it triggers a roll, it is not a defect.
+#: Live-file line budget for the changelog (note 61 CV-5): crossing it
+#: triggers a roll at the next cut, it is not a defect.
 LIVE_LINE_THRESHOLD = 1500
 
 
@@ -189,9 +85,8 @@ def roll_changelog(changelog: str, keep: int = 2) -> Tuple[str, str]:
 
     The live file keeps its header, ``[Unreleased]`` and the newest ``keep``
     release blocks; everything older is returned verbatim for a frozen
-    ``90_record/NN_changelog_to_<version>.md`` (note 61 CV-5, the rule note 26
-    DV-1 gave the history and not the changelog). Byte-preserving: the two
-    parts concatenate back to the input.
+    ``90_record/CHANGELOG_to_<version>.md`` (note 61 CV-5). Byte-preserving:
+    the two parts concatenate back to the input.
     """
     if keep < 1:
         raise ValueError("keep must be at least 1 release block")
@@ -204,7 +99,7 @@ def roll_changelog(changelog: str, keep: int = 2) -> Tuple[str, str]:
 
 
 #: ``## [0.8.3] — 2026-09-13`` → the version. Names the archive after the newest
-#: release it contains, as ``11_completed_development_to_0.5.0.md`` already is.
+#: release it contains.
 RELEASE_VERSION = re.compile(r"^## \[(?P<version>[^\]]+)\]", re.M)
 
 
@@ -223,9 +118,8 @@ def archive_header(archived: str) -> str:
     return (
         f"# Changelog archive — releases up to and including {version}\n\n"
         "**Frozen record — do not edit.** Rolled off `CHANGELOG.md` at a release\n"
-        "cut per design note 61 CV-5 (the rule design note 26 DV-1 gave the history\n"
-        "file). Verbatim; the live changelog holds the current cycle and the\n"
-        "previous release block.\n\n---\n\n"
+        "cut per design note 61 CV-5. Verbatim; the live changelog holds the\n"
+        "current cycle and the previous release block.\n\n---\n\n"
     )
 
 
@@ -319,17 +213,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     with open(CHANGELOG, encoding="utf-8") as fh:
         changelog = fh.read()
 
-    history_entries = fragments.pop(HISTORY_TYPE, [])
-    with open(HISTORY, encoding="utf-8") as fh:
-        history = fh.read()
-
     if args.dry_run:
         sys.stdout.write(preview(changelog, fragments))
-        if history_entries:
-            sys.stdout.write("\n---- history entries (rolled to the top of the history file) ----\n\n")
-            sys.stdout.write("\n".join(history_entries))
-        sys.stdout.write(f"\n[{len(files)} fragment(s): {len(files) - len(history_entries)} changelog, "
-                         f"{len(history_entries)} history; nothing written]\n")
+        sys.stdout.write(f"\n[{len(files)} fragment(s); nothing written]\n")
         return 0
     if not args.version or not args.date:
         ap.error("version and --date are required unless --dry-run")
@@ -348,13 +234,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                 fh.write(archive_header(archived) + archived)
     with open(CHANGELOG, "w", encoding="utf-8") as fh:
         fh.write(cut)
-    if history_entries:
-        with open(HISTORY, "w", encoding="utf-8") as fh:
-            fh.write(roll_history(history, history_entries))
     for name in files:
         os.remove(os.path.join(CHANGES_DIR, name))
-    print(f"CHANGELOG.md: cut [{args.version}] — {args.date}; {len(files) - len(history_entries)} changelog "
-          f"fragment(s) consumed; {len(history_entries)} history entr(y/ies) rolled into the history file")
+    print(f"CHANGELOG.md: cut [{args.version}] — {args.date}; {len(files)} fragment(s) consumed")
     if rolled:
         print(f"changelog rolled: older release blocks frozen into {os.path.relpath(rolled, ROOT)}")
     return 0

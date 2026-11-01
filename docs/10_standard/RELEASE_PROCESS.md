@@ -55,8 +55,7 @@ Documentation consistency is enforced **per-change** by the tiered closure requi
 in `CLAUDE.md`, not re-audited at release time.
 
 - [ ] [`../30_future/00_backlog.md`](../30_future/00_backlog.md) — every item in this release is removed (**spot-check**, not an audit; closed items don't live in the backlog).
-- [ ] [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md) — every tier-M/L step in this release is recorded at its closure-tier depth (tier S has no history entry — its `changes/` fragment is the record).
-- [ ] `changes/` — every closed item has its fragment; `.venv/bin/python scripts/build_changelog.py --dry-run` runs clean and reads as the release note (`changes/README.md`).
+- [ ] `changes/` — every closed item has its fragment; `.venv/bin/python scripts/build_changelog.py --dry-run` runs clean and reads as the release note (`changes/README.md`). There is no history entry at any tier (#359).
 - [ ] **The band being cut is retired from the priority table** and the band that
       follows becomes the milestone in flight (§Where things stand says so). A band
       left in the table naming a released version is caught by
@@ -119,12 +118,8 @@ already closed, each in its own commit, so the PR body carries **no**
 `Closes #N`.
 
 1. **Bump the version** in `sloads/_version.py` (`__version__`). `pyproject.toml` reads it and needs no edit. Commit: `Bump version to X.Y.Z`.
-2. **Build the changelog and roll the history fragments** — `.venv/bin/python scripts/build_changelog.py X.Y.Z --date YYYY-MM-DD` assembles the `changes/` fragments into `## [X.Y.Z] — YYYY-MM-DD` (Breaking / Added / Changed / Fixed / Removed), inserts every `changes/*.history.md` entry at the top of `docs/90_record/00_completed_development.md` (design note 28 MD-4), opens a fresh empty `[Unreleased]`, and deletes the consumed fragments. Then write the release-cut block in the history file by hand (the one entry that is not a fragment). Run `scripts/backlog_issues.py check` — every priority-table row names an open issue and vice versa (MD-5). **Record the schema the release ships** (#310): add `"X.Y.Z": <SCHEMA_VERSION>` to `RELEASED_SCHEMAS` in `sloads/migrations.py` and copy `examples/ga6_normal.project.json` to `tests/fixtures_schema/release_X.Y.Z.json`, which is then never edited — the new changelog header turns `tests/test_migrations.py` red until both exist. Never hand-edit `[Unreleased]`; fix a fragment and re-run instead. Commit: `Changelog for X.Y.Z`.
-3. **Roll the record (mechanical, bounded — design note 26, amended by note 61):**
-   - **no note moves.** Design note 61 CV-3 files every note in `docs/25_notes/` from the day it is written, whatever its status — the status-driven move this step used to carry is retired. A note's **Status** line is what changes when its work ships, and `tests/test_doc_currency.py` already guards that;
-   - if [`../90_record/00_completed_development.md`](../90_record/00_completed_development.md) exceeds **1,500 lines** (`tests/test_changelog_fragments.py` warns), cut it at the *previous* release's "Release cut" block and move everything below that block verbatim into a new frozen `docs/90_record/NN_completed_development_to_<prev>.md` (header text: copy `11_completed_development_to_0.5.0.md`); the live file keeps this release's cycle plus its own release-cut block; add the INDEX row and the pointer line in the live file's header;
-   - if [`../90_record/CHANGELOG.md`](../90_record/CHANGELOG.md) exceeds the same **1,500 lines** (same guard, note 61 CV-5), roll it in the same pass: re-run step 2 with `--roll`, or `.venv/bin/python scripts/build_changelog.py X.Y.Z --date YYYY-MM-DD --roll`. Release blocks older than the previous one are frozen verbatim into `docs/90_record/CHANGELOG_to_<version>.md`; add its INDEX row.
-   Nothing here is an audit: line counts are the only inputs.
+2. **Build the changelog** — `.venv/bin/python scripts/build_changelog.py X.Y.Z --date YYYY-MM-DD` assembles the `changes/` fragments into `## [X.Y.Z] — YYYY-MM-DD` (Breaking / Added / Changed / Fixed / Removed), opens a fresh empty `[Unreleased]`, and deletes the consumed fragments. Run `scripts/backlog_issues.py check` (every row names an open issue on its band's milestone, and vice versa) and `scripts/backlog_issues.py render --dry-run` (the table already matches the issues). **Record the schema the release ships** (#310): add `"X.Y.Z": <SCHEMA_VERSION>` to `RELEASED_SCHEMAS` in `sloads/migrations.py` and copy `examples/ga6_normal.project.json` to `tests/fixtures_schema/release_X.Y.Z.json`, which is then never edited — the new changelog header turns `tests/test_migrations.py` red until both exist. Never hand-edit `[Unreleased]`; fix a fragment and re-run instead. Commit: `Changelog for X.Y.Z`.
+3. **Roll the changelog when it is long (mechanical — note 61 CV-5):** no note moves (note 61 CV-3), and nothing is written to `docs/90_record/00_completed_development.md` — it is frozen (#359). If [`../90_record/CHANGELOG.md`](../90_record/CHANGELOG.md) exceeds `build_changelog.LIVE_LINE_THRESHOLD`, re-run step 2 with `--roll`: release blocks older than the previous one are frozen verbatim into `docs/90_record/CHANGELOG_to_<version>.md`. Then `.venv/bin/python scripts/build_index.py --write` for the new archive's row. Line counts are the only input.
 4. **Tag — only on a green `main`.** The merge's push to `main` runs the suite
    on the rebased tree with coverage, the gate of record for the whole
    milestone, and coverage runs only there — so the tag waits for it: run
@@ -141,8 +136,8 @@ already closed, each in its own commit, so the PR body carries **no**
 ---
 
 ## 5. Post-release
-- [ ] `docs/30_future/00_backlog.md` — remove anything resolved by this release; add any new defects found in final testing.
-- [ ] Confirm the release tag/date are noted in `docs/90_record/00_completed_development.md` (a "Release cut" block, tier M depth — it is also the next history-roll's cut line).
+- [ ] `scripts/backlog_issues.py render` — the table drops anything closed by this release; file any new defects found in final testing as issues.
+- [ ] The `## [X.Y.Z] — date` heading in `CHANGELOG.md` is the release record; nothing else is written.
 - [ ] Identify the next phase/module from the backlog.
 
 ---
@@ -155,7 +150,7 @@ A hotfix is a `PATCH` release correcting a critical defect in a released version
 2. Apply the minimal fix — **no new modules, no refactoring**.
 3. Run the pre-release checklist (§3), focused on the affected module + any downstream readers.
 4. Bump to `X.Y.Z+1`, date the changelog, tag, release.
-5. Merge back to `main`; record the resolved defect under "Resolved defects" in the history.
+5. Merge back to `main`; the fix's `changes/` fragment is its record.
 
 **With a milestone branch open (`DEVELOPMENT_PROCESS.md` §0):** this is the only
 path that puts a commit on `main` mid-milestone, so it is also the only time

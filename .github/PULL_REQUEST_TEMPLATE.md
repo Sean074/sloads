@@ -8,14 +8,13 @@
 
 <!-- Working alone (DEVELOPMENT_PROCESS.md §0)? Fill "Closes" only if the item
      has an issue; the backlog row leaving in this commit is the closure. -->
-**Design note (tier L / physics):** `docs/30_future/NN_….md` — merged at AGREED? yes / n.a.
+**Design note (tier L / physics):** `docs/25_notes/NN_…_note.md` — merged at AGREED? yes / n.a.
 
 ## What changed and why
 <!-- two to five lines; the fragment says it in the changelog voice, this says it to the reviewer -->
 
 ## Closure in this PR (`DEVELOPMENT_PROCESS.md` §3 — tick what your tier requires)
-- [ ] `changes/<slug>.<type>.md` fragment (S, M, L)
-- [ ] `changes/<slug>.history.md` — one paragraph (M) / full step format (L)
+- [ ] `changes/<slug>.<type>.md` fragment — one bullet, ≤ 60 words (S, M, L)
 - [ ] affected `PROGRAM_SPEC.md` / standard-doc sections (M, L)
 - [ ] `theory_sources.md` citation; design note flipped to *shipped* (L)
 - [ ] backlog priority-table row updated (issue closes on merge)

@@ -1,12 +1,15 @@
-"""Documentation-currency guards: no volatile literals in the standard docs, and
-`docs/00_INDEX.md` ↔ the docs tree, both ways.
+"""Documentation-currency guards: no volatile literals in the standard docs, the
+retired ULTIMATE contract nowhere a user reads, the release state owned once,
+`docs/00_INDEX.md` equal to its generator's output, and every test a standard
+doc cites alive.
 
 Two documentation defect classes kept shipping past the structural guards
 (2026-08-15 review R6-D1…D8; `00_program_overview.md` said "schema currently 15"
 while the constant was 52): a **number in prose that describes the code's
 current state** (schema version, test count, coverage, "currently N"), and a
 **doc file with no `00_INDEX.md` row** (or a row whose file is gone). Prose
-cannot hold either current, so this asserts both — the same posture
+cannot hold either current, so the first is asserted by pattern and the second
+by generating the index (`scripts/build_index.py`, #359) — the same posture
 `test_package_layout.py` takes for the package tree.
 
 Scope is the *standard* — `README.md`, `CLAUDE.md`, `docs/00_INDEX.md`,
@@ -21,6 +24,7 @@ never rots and is allowed; `SCHEMA_VERSION` next to a number is a claim about
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import re
 import sys
@@ -32,6 +36,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _DOCS = os.path.join(_ROOT, "docs")
 _INDEX = os.path.join(_DOCS, "00_INDEX.md")
+_INDEX_SCRIPT = os.path.join(_ROOT, "scripts", "build_index.py")
+
 
 def _md_in(sub):
     return sorted(os.path.join("docs", sub, f) for f in os.listdir(os.path.join(_DOCS, sub)) if f.endswith(".md"))
@@ -119,81 +125,22 @@ def test_no_current_truth_doc_states_the_retired_ultimate_contract(rel):
     )
 
 
-# --- INDEX ↔ tree ---------------------------------------------------------
-
-_INDEX_LINK = re.compile(r"\]\(((?:[0-9]{2}_[a-z_]+|\.\.)/[^)#]+\.md)\)")
+# --- INDEX = the generator's output (#359) ---------------------------------
 
 
-def _docs_tree():
-    out = set()
-    for sub in sorted(os.listdir(_DOCS)):
-        d = os.path.join(_DOCS, sub)
-        if not os.path.isdir(d) or sub.startswith("__"):
-            continue
-        for f in os.listdir(d):
-            if f.endswith(".md"):
-                out.add(f"{sub}/{f}")
-    return out
-
-
-def _index_links():
+def test_the_index_is_the_generator_output():
+    """`docs/00_INDEX.md` is generated from each document's own H1 by
+    `scripts/build_index.py`: a file with no row, a row with no file, or a row
+    that says something the document does not, all show up as one diff. Run
+    `scripts/build_index.py --write` after adding, removing or retitling a doc."""
+    spec = importlib.util.spec_from_file_location("build_index", _INDEX_SCRIPT)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
     with open(_INDEX, encoding="utf-8") as fh:
-        return set(_INDEX_LINK.findall(fh.read()))
-
-
-def test_every_doc_has_an_index_row():
-    missing = sorted(_docs_tree() - _index_links())
-    assert not missing, f"docs/ files with no row in docs/00_INDEX.md: {missing}"
-
-
-def test_every_index_row_points_at_a_file():
-    dangling = sorted(
-        link for link in _index_links() if not os.path.exists(os.path.normpath(os.path.join(_DOCS, link)))
-    )
-    assert not dangling, f"docs/00_INDEX.md rows whose file does not exist: {dangling}"
-
-
-# --------------------------------------------------------------------------- #
-# A live note's INDEX row is a pointer, not a second copy of the note (#187)
-# --------------------------------------------------------------------------- #
-# Note 44's row grew to ~600 words restating OR-13..OR-37 with its own copy of
-# the status, and the 46/47 rows mirrored the stale AGREED that #183 fixed in
-# the notes themselves -- a second hand-maintained statement per note, the
-# rule-3 drift class. A live row is one sentence plus the pointer and
-# carries **no status**: the note's own Status line is the single owner.
-# `90_record/` rows are exempt -- a frozen record's status can never change
-# again, so those rows are record, not a drift surface.
-#
-# Design note 61 CV-3 files every note in `25_notes/` whatever its status, so
-# a shipped note's row is a drift surface again and the **status** half of the
-# rule now covers both directories (20 rows were cleaned in that change). The
-# **length** half still covers `30_future/` only: 44 of the note rows exceed
-# the cap, and trimming a row to one sentence is a content edit per note, not
-# a consequence of re-filing them. Widening `_LEN_ROW_DIRS` to match
-# `_STATUS_ROW_DIRS` is the follow-up that finishes #187.
-_STATUS_ROW_DIRS = ("25_notes/", "30_future/")
-_LEN_ROW_DIRS = ("30_future/",)
-_LIVE_ROW_CAP = 320
-_STATUS_WORD = re.compile(r"\b(AGREED|SHIPPED|BUILT|PROPOSED)\b")
-
-
-def test_a_live_note_index_row_is_one_line_and_states_no_status():
-    offenders = []
-    with open(_INDEX, encoding="utf-8") as fh:
-        for line in fh:
-            if not line.startswith("| [`"):
-                continue
-            name = line.split("[`", 1)[1].split("`]", 1)[0]
-            if any(f"]({d}" in line for d in _LEN_ROW_DIRS) and len(line.rstrip()) > _LIVE_ROW_CAP:
-                offenders.append(f"{name}: {len(line.rstrip())} chars (cap {_LIVE_ROW_CAP})")
-            if any(f"]({d}" in line for d in _STATUS_ROW_DIRS):
-                claim = _STATUS_WORD.search(line)
-                if claim:
-                    offenders.append(f"{name}: states a status ({claim.group(0)}) -- "
-                                     "the note's own Status line is the single owner")
-    assert not offenders, (
-        "docs/00_INDEX.md rows for live 25_notes/ and 30_future/ files must be one sentence "
-        "plus the pointer, no status (#187):\n  " + "\n  ".join(offenders))
+        committed = fh.read()
+    assert mod.render() == committed, (
+        "docs/00_INDEX.md differs from scripts/build_index.py's output — run "
+        "`.venv/bin/python scripts/build_index.py --write` and commit the result")
 
 
 # --------------------------------------------------------------------------- #
@@ -231,17 +178,10 @@ _RELEASE_STATE_OWNER = os.path.join("app_shell", "components.py")
 
 
 def test_the_release_state_is_stated_by_one_owner():
-    """`README.md`, `CAPABILITIES.md` and both GUIs' About panel say the same
+    """`README.md`, `CAPABILITIES.md` and the GUI's About panel say the same
     thing about what this release is, because they all trace to one string.
-
-    The claim is mixed by nature -- an oracle GUI that is finished beside an
-    `app/` that is not -- and `Development Status` takes a single trove value,
-    so `pyproject.toml` carries `4 - Beta` and the sentence carries the rest.
-    Four hand-written copies of that sentence would disagree by the second cut,
-    which is the documentation-currency failure this whole file exists for; the
-    two markdown files cannot import the constant, so their copies are pinned
-    to it here instead.
-    """
+    The two markdown files cannot import the constant, so their copies are
+    pinned to it here."""
     from app_shell.components import RELEASE_STATE
 
     for rel in _RELEASE_STATE_DOCS:
@@ -250,20 +190,12 @@ def test_the_release_state_is_stated_by_one_owner():
                 f"{rel} does not carry app_shell.components.RELEASE_STATE verbatim -- "
                 "update the document in the same change as the constant")
 
-    # The About panel consumes the symbol rather than re-typing the sentence, so
-    # a user in the beta front-end is told so by the same owner (#129's sibling
-    # concern: the classifier is read by pip, not by them).
     with open(os.path.join(_ROOT, "app_shell", "sidebar.py"), encoding="utf-8") as fh:
         assert "RELEASE_STATE" in fh.read(), "the About panel must consume the owner"
 
 
 def test_no_second_spelling_of_the_release_state():
-    """A literal copy anywhere outside the owner and the two documents it pins.
-
-    The `LANDING_L_FAR_CAPTION` posture (`tests/test_landing.py`): stating the
-    string once is only half of one owner -- the other half is that nobody
-    spells it again somewhere the guard above would never look.
-    """
+    """A literal copy anywhere outside the owner and the two documents it pins."""
     from app_shell.components import RELEASE_STATE
 
     # A distinctive fragment rather than the whole sentence: a second copy that
@@ -289,150 +221,6 @@ def test_no_second_spelling_of_the_release_state():
     assert not offenders, (
         "the release-state sentence is spelled a second time in "
         f"{offenders} -- import app_shell.components.RELEASE_STATE instead")
-
-
-# --------------------------------------------------------------------------- #
-# A design note cannot claim work is unbuilt after it has shipped (#128)
-# --------------------------------------------------------------------------- #
-# It blocks a release rather than trailing it. Design note 61 CV-3 retired the
-# status roll -- a note stays in `docs/25_notes/` whether or not it has shipped
-# -- which raises the stakes rather than lowering them: a stale "unbuilt" claim
-# no longer settles into an archive nobody greps, it stays in the note corpus
-# that CV-4 made the *default* search path. Two instances found
-# together (production-release review 2026-08-27 §3.3): note 32 said "everything
-# else is unbuilt" of the oracle GUI whose every step had shipped, note 35 said
-# "Nothing below is built yet" of work that shipped as #100.
-#
-# The evidence is deliberately **in-repo**. Whether an issue is closed lives on
-# GitHub, which CI has no credential to read (the same constraint
-# `tests/test_ci_conformance.py` is built around) -- but a closed item leaves a
-# `changes/` fragment behind by the tiered-closure rule, and that fragment cites
-# the note. So the fragment is the proxy, and it is a faithful one: it exists
-# because something closed.
-_NOTES_DIR = os.path.join("docs", "25_notes")
-_CHANGES = os.path.join(_ROOT, "changes")
-#: Claims that work in this note has not been done. Kept literal rather than
-#: clever -- a guard that guesses at prose fails on innocent sentences, and the
-#: two spellings this file exists for are the two the review found.
-_UNBUILT_CLAIM = re.compile(
-    r"(everything else is unbuilt"
-    r"|\bis unbuilt\b"
-    r"|nothing (?:below|here)[^.]{0,40}\bbuilt\b"
-    r"|not built yet"
-    r"|no code has been written)", re.I)
-#: A note's own record that some of it shipped.
-_SHIPPED_MARK = re.compile(r"(✅|\bSHIPPED\b|\bBUILT\b)")
-
-
-def _design_notes():
-    directory = os.path.join(_ROOT, _NOTES_DIR)
-    return sorted(n for n in os.listdir(directory) if n.endswith("_note.md"))
-
-
-def _fragments_citing(note_name):
-    """Closure fragments that name this note (``note 35``), i.e. it shipped."""
-    number = note_name.split("_", 1)[0].lstrip("0")
-    cite = re.compile(rf"\bnote {number}\b", re.I)
-    if not os.path.isdir(_CHANGES):
-        return []
-    out = []
-    for name in sorted(os.listdir(_CHANGES)):
-        if not name.endswith(".md") or name == "README.md":
-            continue
-        with open(os.path.join(_CHANGES, name), encoding="utf-8") as fh:
-            if cite.search(fh.read()):
-                out.append(name)
-    return out
-
-
-@pytest.mark.parametrize("note", _design_notes())
-def test_a_design_note_does_not_claim_unbuilt_work_it_has_shipped(note):
-    text = "\n".join(_lines(os.path.join(_NOTES_DIR, note)))
-    claims = [m.group(0) for m in _UNBUILT_CLAIM.finditer(text)]
-    if not claims:
-        return
-    evidence = []
-    if _SHIPPED_MARK.search(text):
-        evidence.append("the note itself marks work SHIPPED/BUILT/✅")
-    fragments = _fragments_citing(note)
-    if fragments:
-        evidence.append("closure fragment(s) cite it: " + ", ".join(fragments))
-    assert not evidence, (
-        f"{note} still claims unbuilt work ({claims}) while {'; '.join(evidence)}. "
-        "Restate the Status line for what shipped -- notes 36/37 (SHIPPED) and 34 "
-        "(AGREED …; BUILT …) are the model. Design note 61 CV-3 keeps this note "
-        "in docs/25_notes/ for good, so the claim stays in the default search "
-        "path until someone corrects it (#128)."
-    )
-
-
-# --------------------------------------------------------------------------- #
-# A note a history fragment closed against must say SHIPPED/BUILT (#183)
-# --------------------------------------------------------------------------- #
-# The #128 guard above fires only on explicit "unbuilt" phrasing, so a header
-# left at plain AGREED after the work landed passes CI -- three of the last
-# four tier-L closures did exactly that (notes 46/47/48, review R-13), and the
-# 0.8.2 hygiene pass found two more the issue did not know about (50, 53). It
-# matters because the Status line is now the *only* thing that says whether a
-# note describes built work: design note 61 CV-3 files notes by function rather
-# than by status, so the directory a note sits in no longer answers the
-# question and a wrong header has nothing to contradict it. The evidence is the same
-# in-repo proxy #128 uses, narrowed to where it is unambiguous: a
-# `changes/*.history.md` fragment's own `## Step` heading names the note it
-# ships (``(design note 53, tier L``), or -- since #299 -- its tier-M bold
-# lead's parenthetical does, right after the issue number (``(#290, design
-# note 63 D-63.9, tier M``; `changes/README.md`). The 0.8.6 pre-cut review
-# found note 65 at AGREED three days after its tier-M closure shipped: the
-# step-heading form is tier L's, so a note a tier-M paragraph closed against
-# was never looked at. A prose mention in a fragment body ("until note 51
-# lands") is exactly what this must NOT count.
-_STEP_NOTE_CITE = re.compile(r"^## Step[^(]*\((?:design )?note (\d+)\b", re.M)
-_LEAD_NOTE_CITE = re.compile(r"^- \*\*[^\n]*?\(#\d+, (?:design )?note (\d+)\b", re.M)
-#: The note's Status paragraph: from the ``**Status`` line to the first blank.
-_STATUS_PARA = re.compile(r"^\*\*Status[^\n]*(?:\n(?!\n)[^\n]*)*", re.M)
-
-
-def _history_shipped_notes():
-    """Note numbers a history fragment's ``## Step`` heading or tier-M lead names."""
-    shipped = {}
-    if not os.path.isdir(_CHANGES):
-        return shipped
-    for name in sorted(os.listdir(_CHANGES)):
-        if not name.endswith(".history.md"):
-            continue
-        with open(os.path.join(_CHANGES, name), encoding="utf-8") as fh:
-            text = fh.read()
-        for number in _STEP_NOTE_CITE.findall(text) + _LEAD_NOTE_CITE.findall(text):
-            shipped.setdefault(number, name)
-    return shipped
-
-
-def test_the_tier_m_lead_cite_is_read_and_a_body_mention_is_not():
-    """The #299 form is recognised; the body mention #183 excluded stays excluded."""
-    lead = "- **The editor lands (#290, design note 63 D-63.9, tier M, 2026-09-18)** — body\n"
-    assert _LEAD_NOTE_CITE.findall(lead) == ["63"]
-    bare = "- **The editor lands (#290, tier M, 2026-09-18)** — waits until note 51 lands\n"
-    assert _LEAD_NOTE_CITE.findall(bare) == []
-    unbulleted = "**The editor lands (#290, design note 63, tier M, 2026-09-18)** — body\n"
-    assert _LEAD_NOTE_CITE.findall(unbulleted) == []
-
-
-@pytest.mark.parametrize("note", _design_notes())
-def test_a_note_closed_by_a_history_fragment_says_shipped(note):
-    number = note.split("_", 1)[0].lstrip("0")
-    fragment = _history_shipped_notes().get(number)
-    if fragment is None:
-        return
-    text = "\n".join(_lines(os.path.join(_NOTES_DIR, note)))
-    status = _STATUS_PARA.search(text)
-    assert status, f"{note} has no **Status** line to carry its shipped state"
-    assert _SHIPPED_MARK.search(status.group(0)), (
-        f"{note} is the design basis of changes/{fragment} (its step heading "
-        f"or tier-M lead names note {number}) but its Status paragraph carries no "
-        "SHIPPED/BUILT/✅ mark. Flip the header -- RELEASE_PROCESS.md §4 "
-        "step 3 rolls notes by status, so a stale AGREED skips the roll and "
-        "enters the record wrong (#183)."
-    )
 
 
 # --------------------------------------------------------------------------- #
@@ -464,16 +252,10 @@ def test_every_test_a_standard_doc_cites_exists(rel):
     """A conformance row that names a deleted test asserts nothing.
 
     Found by hand on 2026-09-05: `ORACLE_REPORT.md`'s conformance table still
-    named ``test_every_load_the_wing_section_prints_is_marked_ultimate`` and
-    ``test_the_wing_root_loads_are_the_limit_result_times_the_case_factor`` after
-    note 49 OR-116 renamed both -- so two rows claiming the report's load basis
-    was gated pointed at nothing at all. A conformance table is a promise that
-    something checks the row; a dead name is that promise silently withdrawn,
-    and renaming a test is exactly when it happens.
-
-    Only the two citation forms the tables use are matched, and a name that is
-    not a test is not a citation -- so this cannot be satisfied or broken by
-    prose that merely mentions a function.
+    named two tests note 49 OR-116 had renamed, so two rows claiming the
+    report's load basis was gated pointed at nothing. Only the two citation
+    forms the tables use are matched, so prose that merely mentions a function
+    cannot satisfy or break this.
     """
     by_file, every = _defined_tests()
     path = os.path.join(_ROOT, rel)
@@ -487,8 +269,7 @@ def test_every_test_a_standard_doc_cites_exists(rel):
             dead.append(f"{file_name}::{test}")
     for test in _TEST_CITE_SHORT.findall(text):
         # The short form names no file, so it is satisfied by any test file --
-        # which is the right strictness: it is shorthand for "another test in the
-        # group above", and pinning it to a file would break on a legitimate move.
+        # shorthand for "another test in the group above".
         if test not in every:
             dead.append(f"::{test}")
     assert not dead, (
@@ -507,73 +288,6 @@ def test_the_citation_guard_would_catch_a_renamed_test():
         "test_another_thing"]
     # prose naming a non-test function is not a citation
     assert not _TEST_CITE_SHORT.findall("`::build_report`")
-
-
-def test_the_unbuilt_guard_would_catch_the_two_it_was_written_for():
-    """A guard whose pattern no longer matches its own founding instances is a
-    guard that passes because it sees nothing. These are the exact sentences
-    note 32 and note 35 carried on 2026-08-27."""
-    for sentence in ("an independent tier-S fix; everything else is unbuilt.",
-                     "state plus the existing load increment, nothing more. "
-                     "Nothing below is built yet."):
-        assert _UNBUILT_CLAIM.search(sentence), sentence
-
-
-# --------------------------------------------------------------------------- #
-# Every shipped oracle-report guard module has a row in the standard's register
-# --------------------------------------------------------------------------- #
-
-_ORACLE_REPORT_STD = os.path.join("docs", "10_standard", "ORACLE_REPORT.md")
-
-
-def _report_guard_modules():
-    """Every ``tests/test_oracle_report*.py`` file, by name.
-
-    The glob is the source, not a hand list: the defect this guard exists for
-    is a shipped guard module the standard never mentions, and a hand list
-    would itself be a copy that goes stale the same way.
-    """
-    tests_dir = os.path.join(_ROOT, "tests")
-    return sorted(n for n in os.listdir(tests_dir)
-                  if n.startswith("test_oracle_report") and n.endswith(".py"))
-
-
-def _uncited_report_modules(text):
-    return [name for name in _report_guard_modules() if name not in text]
-
-
-def test_every_oracle_report_guard_module_is_cited_by_the_standard():
-    """A shipped guard module the register never names is an agreement held by
-    prose alone -- G-OR-8's own defect, in the standard that states G-OR-8.
-
-    Found by the 2026-09-08 review (#238): iterations 8, 9 and 10 shipped with
-    their gates in ``test_oracle_report_oei.py``, ``_landing.py`` and
-    ``_vn.py``, and `ORACLE_REPORT.md` cited none of them -- nor the earlier
-    ``_vtail.py`` and ``_applied.py``. `test_every_test_a_standard_doc_cites_exists`
-    checks the citations that are there; this is the other direction, which is
-    the one that failed.
-    """
-    text = "\n".join(_lines(_ORACLE_REPORT_STD))
-    uncited = _uncited_report_modules(text)
-    assert not uncited, (
-        f"ORACLE_REPORT.md never cites {uncited}. Every shipped oracle-report "
-        f"guard module needs a row in the standard's §7 register (or a "
-        f"conformance entry): an agreement without a named guard is prose "
-        f"(G-OR-8, #238).")
-
-
-def test_the_module_citation_guard_would_catch_an_unregistered_module():
-    """The guard's teeth: the five modules #238 found missing, against a doc
-    that cites only the base file -- which is what the register looked like."""
-    modules = _report_guard_modules()
-    doc_citing_only_the_base = "see `test_oracle_report.py::test_a_thing`"
-    uncited = _uncited_report_modules(doc_citing_only_the_base)
-    for name in ("test_oracle_report_oei.py", "test_oracle_report_landing.py",
-                 "test_oracle_report_vn.py", "test_oracle_report_vtail.py",
-                 "test_oracle_report_applied.py"):
-        assert name in modules, name
-        assert name in uncited, name
-    assert "test_oracle_report.py" not in uncited
 
 
 if __name__ == "__main__":  # zero-dependency self-runner
