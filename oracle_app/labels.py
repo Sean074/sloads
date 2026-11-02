@@ -60,6 +60,10 @@ FIELD_LABELS: Dict[str, str] = {
     # Trailing-edge travel: "Te" prettifies out of an acronym.
     "elevator_te_down_deg": "Elevator TE-down travel",
     "elevator_te_up_deg": "Elevator TE-up travel",
+    # Feasibility limits (design note 73): "nu"/"nd" and "clh" prettify to noise.
+    "stabiliser_incidence_nu_deg": "Stabiliser trim, most nose-up, LE-down",
+    "stabiliser_incidence_nd_deg": "Stabiliser trim, most nose-down, LE-up",
+    "clh_max": "Tail C_L,h limit, magnitude",
     # The WTENV CG limits. "% MAC" is spelled in the label because ``_pct_mac``
     # is classified dimensionless, so no widget appends it -- and a CG limit
     # whose units are not on screen is a number in inches to half its readers.

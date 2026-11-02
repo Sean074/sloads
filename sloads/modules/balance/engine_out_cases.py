@@ -310,7 +310,8 @@ def build_engine_out_cases(project: Project, conditions: Sequence[CriticalCondit
                            f"({point.condition}, {point.cg}, {format_value(point.altitude_ft, 'ft')} ft) "
                            f"against ONENGOUT's {format_value(fc.inputs.alt_ft, 'ft')} ft; the live "
                            "engine's thrust and the failed engine's remaining thrust "
-                           "and windmill drag at that instant are applied at the hubs."])
+                           "and windmill drag at that instant are applied at the hubs.",
+                           *cond.feasibility])
         out.append(case)
         done.add(label)
         twin = _mirror_of(fc, marches, by_label)

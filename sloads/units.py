@@ -660,6 +660,7 @@ _NOT_DIMENSIONAL: Dict[str, str] = {
     "clmax_clean_neg": "a lift coefficient",
     "clmax_flap": "a lift coefficient",
     "stall_cl": "a lift coefficient",
+    "clh_max": "a lift coefficient (the h-tail's, design note 73)",
     "neg_stall_cl": "a lift coefficient",
     "target_cl": "a lift coefficient",
     "basic_airfoil_cm": "a moment coefficient",

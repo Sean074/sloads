@@ -327,22 +327,6 @@ carries the extrapolation. **Activation:** a clamped row SELECT governs on, or
 the owner's request; the marker is then tier M / S as the row stated, and the
 design is unchanged (`is_clamped` read, never re-derived).
 
-### [V] Fin-stall flag on a delivered 23.367 case (#353) *(parked 2026-10-03, owner ruling 3 on #333)*
-
-ONENGOUT forms the fin load on `_vtail`'s linear lift slope, which has no
-stall, so a *recovered* case is delivered whatever its peak fin incidence. #333
-stops an unrecovered case from being delivered; this is the other half.
-**Measured 2026-10-03** (failed engine 1, the effective fin angle at the peak
-load, `VtailCase.fin_angle_deg`): `atr42_100` VC 9.2°, VD 7.3°; `baron_58` VC
-4.4°, VD 3.2°, **VS 19.7°, delivered**. **Parked with the number that parks
-it:** the Baron's VS case does not govern the fin (702 lb against 2,205 lb at
-VD), so no delivered *envelope* moves; the gap is a statement. **What ships on
-activation:** an owner-ruled, cited limit (an entered fin stall angle, a
-DATCOM-style derivation from AR and sweep, or one stated constant), and a
-warning plus a condition note on any delivered 23.367 case past it. Tier S,
-tag V. **Activation:** a cited VMC entered on a fixture, which puts a new
-low-speed case into the delivered set, or a recovered case that governs.
-
 ### [V] Flutter-clearance Mach basis for transport concepts *(new 2026-08-08, from F25-2)*
 MACHLIM's `MFC = 1.2·MD` is GA-lineage (MACHLIM.BAS, Ref 1 Ch 6). Even with the
 RJ's dive speed corrected it gives **MFC 1.021** — transonic nonsense for a

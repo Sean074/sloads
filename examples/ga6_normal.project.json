@@ -1,5 +1,5 @@
 {
-  "schema_version": 80,
+  "schema_version": 81,
   "name": "GA 6-place single (Appendix A) \u2014 Continental IO-520-BB",
   "engines": [
     {
@@ -910,7 +910,12 @@
         "elevator_effectiveness": 0.614,
         "elevator_te_up_deg": 30.0,
         "elevator_te_down_deg": 20.0,
-        "wing_lift_slope_per_rad": 4.605
+        "wing_lift_slope_per_rad": 4.605,
+        "stabiliser": "F",
+        "stabiliser_incidence_nu_deg": null,
+        "stabiliser_incidence_nd_deg": null,
+        "tail_stall_alpha_deg": 14.32,
+        "clh_max": null
       },
       "vtail": {
         "vtail_area_sqft": 14.84,
@@ -926,7 +931,8 @@
         "rudder_deflection_deg": 30.0,
         "rudder_large_deflection_factor": 1.0,
         "izz_slugft2": 0.0,
-        "vtail_root_waterline_z": 0.0
+        "vtail_root_waterline_z": 0.0,
+        "vtail_stall_alpha_deg": null
       }
     },
     "landing_gear": {

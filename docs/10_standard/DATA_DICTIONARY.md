@@ -2,7 +2,7 @@
 
 > **Generated file — do not edit by hand.** Produced by [`docs/generate_data_dict.py`](../generate_data_dict.py) from the `sloads/models/` dataclasses. Regenerate after any schema change: `.venv/bin/python docs/generate_data_dict.py`.
 
-Schema version: **80**.
+Schema version: **81**.
 
 This dictionary covers the **input** slices of `Project` (`sloads/models/project.py`) — the fields that make up a `project.json`. The result slices (`envelope`, `mass`, `loads`) are computed outputs and are out of scope.
 
@@ -299,6 +299,11 @@ Geometry/aero inputs for SELECT's rational horizontal-tail loads (Ch 9).
 | `elevator_te_up_deg` | `float` | EUP (full trailing-edge-up) | `0.0` |
 | `elevator_te_down_deg` | `float` | EDN (full trailing-edge-down) | `0.0` |
 | `wing_lift_slope_per_rad` | `float` | AW (gust downwash relief 1 - 36*aw/ARW) | `0.0` |
+| `stabiliser` | `str` | STABILISER_TYPES code | `'F'` |
+| `stabiliser_incidence_nu_deg` | `Optional[float]` | required unless F (fixed) | `None` |
+| `stabiliser_incidence_nd_deg` | `Optional[float]` | required unless F (fixed) | `None` |
+| `tail_stall_alpha_deg` | `float` | \|alpha_tail\| limit (Torenbeek p326) | `14.32` |
+| `clh_max` | `Optional[float]` | \|C_L,h\| limit; blank -> Roskam Pt VII p44 by type | `None` |
 
 ### `VTailLoadsInput`
 
@@ -320,6 +325,7 @@ Geometry/aero inputs for SELECT's rational vertical-tail loads (Ch 9).
 | `rudder_large_deflection_factor` | `float` | EFV (subr 10000 chart; ~1.0) | `1.0` |
 | `izz_slugft2` | `float` | 0 -> compute the default IZZ | `0.0` |
 | `vtail_root_waterline_z` | `float` | 0 -> derived, marked assumed | `0.0` |
+| `vtail_stall_alpha_deg` | `Optional[float]` | \|alpha_vtail\| limit, deg | `None` |
 
 ### `LandingGearInput`
 

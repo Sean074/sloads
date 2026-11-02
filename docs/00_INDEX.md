@@ -134,6 +134,7 @@ line is the single owner of that question; a row here never repeats it (#187).
 | [`70_per_case_mass_properties_note.md`](25_notes/70_per_case_mass_properties_note.md) | Mass properties per CG case: WTONECG reports every loading of record, and the all-items total becomes the labelled database ceiling (design note 70) |
 | [`71_mass_owners_note.md`](25_notes/71_mass_owners_note.md) | One owner per mass quantity: the engine, gear, tail, wing-panel and fuselage masses typed on other pages, and the fuselage beam waterline (design note 71) |
 | [`72_lgfactor_lift_double_count_note.md`](25_notes/72_lgfactor_lift_double_count_note.md) | LGFACTOR's energy ratio is the gear factor: the wing lift is subtracted twice (design note 72; #401) |
+| [`73_balance_feasibility_flags_note.md`](25_notes/73_balance_feasibility_flags_note.md) | Balanced cases are flagged past the elevator stop, tail stall and fin stall (design note 73; #404) |
 
 ## 30_future — Future development
 

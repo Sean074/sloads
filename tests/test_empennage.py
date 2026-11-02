@@ -120,12 +120,16 @@ def test_the_boundary_derived_marking_partitions_the_tail_blocks():
             "wing_zero_lift_enroute_deg", "wing_zero_lift_landing_deg",
             "elevator_effectiveness", "elevator_te_up_deg",
             "elevator_te_down_deg", "wing_lift_slope_per_rad",
+            # Feasibility limits (design note 73): settings, not planform.
+            "stabiliser", "stabiliser_incidence_nu_deg",
+            "stabiliser_incidence_nd_deg", "tail_stall_alpha_deg", "clh_max",
         },
         VTailLoadsInput: {
             "rudder_deflection_deg",
             "rudder_large_deflection_factor", "izz_slugft2",
             # Placement, not planform: the L-1 owner's field.
             "vtail_root_waterline_z",
+            "vtail_stall_alpha_deg",
         },
     }
     derived = {TailLoadsInput: HTAIL_BOUNDARY_DERIVED,
