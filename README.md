@@ -116,7 +116,7 @@ oracle_app/
 └── Oracle.py             # st.navigation entry point — the page set from workflow.gui_pages() (the analysis steps, plus the JSON editor, fleet comparison and Report)
 cli.py                    # python cli.py engine project.json -o out.csv
 tests/                    # pytest; each module vs the manual's appendices
-examples/                 # ga6_normal (Appendix A) + baron_58 (normal-cat twin), atr42_100 + concept_regional_jet (concept) run the full workflow; concept_heavy is a minimal concept-core demo (V-n → Flight Envelope only)
+examples/                 # ga6_normal (Appendix A) + baron_58 (normal-cat twin), atr42_100 + atr42_300_seed (its sconfig re-sizing) + concept_regional_jet (concept) run the full workflow; concept_heavy is a minimal concept-core demo (V-n → Flight Envelope only)
 docs/                     # by type: 10_standard, 20_theory, 25_notes, 30_future, 60_guide, 90_record (see docs/00_INDEX.md)
 pyproject.toml            # build metadata, deps, ruff + pytest/coverage config
 cspell.json               # domain wordlist

@@ -219,6 +219,8 @@ _WING_ITEM_WEIGHT = {
     # The ATR re-entered at #260 (2026-09-21): wing 3,500 lb, engines,
     # propellers and nacelles per side, the same 9,874 lb of fuel.
     "atr42_100.project.json": 3500.0 + 1780.0 + 620.0 + 640.0 + 9174.0 + 700.0,
+    # sconfig-sized (#403): wing 3,450, engines 2 x 1,026, props 2 x 310, nacelles 2 x 404, the same fuel
+    "atr42_300_seed.project.json": 3450.0 + 2052.0 + 620.0 + 808.0 + 9174.0 + 700.0,
     "baron_58.project.json": 2941.0,
     "concept_heavy.project.json": 1800.0 + 5500.0,
     "concept_regional_jet.project.json": 4200.0,
@@ -230,6 +232,7 @@ _WING_ITEM_WEIGHT = {
 #: is exactly the 1,190.5 lb its four lumped ``concentrated`` entries summed to.
 _POINT_ROWS = {
     "atr42_100.project.json": (5, 890.0 + 310.0 + 320.0 + 4587.0 + 350.0),
+    "atr42_300_seed.project.json": (5, 1026.0 + 310.0 + 404.0 + 4587.0 + 350.0),
     "baron_58.project.json": (9, 1190.5),
     "concept_heavy.project.json": (1, 2750.0),
     "concept_regional_jet.project.json": (0, 0.0),

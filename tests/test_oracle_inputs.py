@@ -104,6 +104,12 @@ RUNS_ONLY: Dict[str, str] = {
         "(speeds.vd_basis, F25-2) and turbofan engine data have no counterpart "
         "in the original suite, so the reduced project falls back to the speed-"
         "ratio route and the recip/turboprop branch and diverges by design.",
+    "atr42_300_seed.project.json":
+        "the ATR sized by sconfig with the Part 25 supplement on (#403): the "
+        "25.361 torque-with-1g and 25.371 gyroscopic engine-mount cases exist "
+        "only with include_far25, which the original suite never had, so the "
+        "reduced project loses those cases by design (atr42_100 is the same "
+        "airplane with the supplement off and stays EXACT).",
 }
 
 #: Values the full project produces and the reduced one does not, with the

@@ -178,6 +178,7 @@ _MZFW_JET = ["mzfw aft", "full fuel aft"]
 _DERIVABLE = {
     "ga6_normal.project.json": ["CG1", "CG2", "CG3", "CG4"],
     "atr42_100.project.json": _WTENV_FLIGHT + _MZFW_ATR,
+    "atr42_300_seed.project.json": _WTENV_FLIGHT + _MZFW_ATR,
     # #309 (2026-09-29): `fwd gross` is entered as the no-ballast loading two
     # part-filled rows give; `fwd regardless` is no loading of the airplane.
     "baron_58.project.json": ["aft gross", "fwd gross"] + _MZFW_BARON,
@@ -201,6 +202,7 @@ _DERIVABLE = {
 _ENTERED = {
     "concept_heavy.project.json": ["CGmax"],
     "atr42_100.project.json": _WTENV_FLIGHT + _MZFW_ATR,
+    "atr42_300_seed.project.json": _WTENV_FLIGHT + _MZFW_ATR,   # #403: re-entered as found after the re-seed
     "baron_58.project.json": ["fwd gross"] + _MZFW_BARON,
     "concept_regional_jet.project.json": _WTENV_FLIGHT + _MZFW_JET,
 }
@@ -619,6 +621,8 @@ def test_a_project_with_no_derivable_case_refuses_a_check_deck():
 _USABLE_FUEL = {
     "atr42_100.project.json": {"Reserve fuel, left", "Reserve fuel, right",
                                "Wing fuel, left", "Wing fuel, right"},
+    "atr42_300_seed.project.json": {"Reserve fuel, left", "Reserve fuel, right",
+                                    "Wing fuel, left", "Wing fuel, right"},
     "baron_58.project.json": {"Fuel, left wing", "Fuel, right wing"},
     "concept_heavy.project.json": {"Reserve fuel", "Wing fuel, left",
                                    "Wing fuel, right"},
