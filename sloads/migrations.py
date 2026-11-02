@@ -296,6 +296,16 @@ def _hop_80(d: Dict[str, Any]) -> Dict[str, Any]:
     return d
 
 
+def _hop_81(d: Dict[str, Any]) -> Dict[str, Any]:
+    """v81 -> v82 (design note 74, #405): ``EngineInput`` gains
+    ``feather_travel_time_s`` (blank: no feather, the v81 march) and
+    ``OneEngineOutInput`` gains ``mech_failure_decay_time_s`` (default 0.02 s).
+    An identity: additive fields. The (a)(2) cases move by the ruling (their
+    own decay, D-74.5) and every 23.367(a) case by the sweep (D-74.6), not by
+    the hop."""
+    return d
+
+
 #: ``{from_version: hop}`` -- applied in ascending order, each turning a file of
 #: version *n* into version *n+1* shape.
 MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
@@ -310,6 +320,7 @@ MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     78: _hop_78,
     79: _hop_79,
     80: _hop_80,
+    81: _hop_81,
 }
 
 #: The oldest project version this build reads: the oldest released schema, or

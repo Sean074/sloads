@@ -47,7 +47,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, NamedTuple
 from .. import csv_text
 from ..aero_curves import inertia_drag_factor
 from ..cg_cases import flight_case_ids, flight_cases
-from ..constants import IN2_PER_FT2, IN_PER_FT
+from ..constants import CORRECTIVE_DELAY_S, IN2_PER_FT2, IN_PER_FT
 from ..derived_geometry import (
     MacReference,
     mac_reference,
@@ -8009,7 +8009,7 @@ def _engine_mount(project: Project, results: Mapping[str, Optional[ModuleResult]
 #: corrective action earlier than two seconds after the failure, and every figure
 #: in 11.3 marks it because a transient plotted without its events is a curve
 #: rather than a result (OR-177).
-_OEI_DELAY_S = 2.0
+_OEI_DELAY_S = CORRECTIVE_DELAY_S
 
 _OEI_SIGN = (
     "A fin is one surface, and failing the port engine loads it the opposite way "
@@ -8136,17 +8136,21 @@ def _oei_input_table(project: Project, cases: Sequence["VtailCase"],
 
 
 def _oei_timing_table(cases: Sequence["VtailCase"]) -> Optional[Table]:
-    """The transient's own constants -- the schedule the march is run on."""
+    """The transient's own constants -- the schedule the march is run on. The
+    fuel-flow cases' schedule leads; the 23.367(a)(2) case's own decay and step,
+    and a pilot feather when one is entered, follow (design note 74)."""
     if not cases:
         return None
-    c = cases[0].inputs
+    c = next((fc.inputs for fc in cases if not fc.load_case.mech_failure), cases[0].inputs)
+    mech = next((fc.inputs for fc in cases if fc.load_case.mech_failure), None)
     rows = [
         ["Corrective action delay", format_value(_OEI_DELAY_S, "s"), "s",
          "14 CFR 23.367(b): no earlier than 2 s after the failure."],
         ["Thrust decay time", format_value(c.time2decay, "s"), "s",
          "The failed engine's thrust ramps to zero over this time."],
         ["Windmill drag build-up", format_value(c.time2drag, "s"), "s",
-         "Glauert windmilling drag reaches full value by this time and holds."],
+         "Windmilling drag reaches full value by this time and holds, until "
+         "the pilot feathers."],
         ["Rudder travel time", format_value(c.inctimerud, "s"), "s",
          "Full rudder is reached this long after corrective action begins."],
         ["Maximum rudder deflection", format_value(c.defl_rud_max, "deg"), "deg",
@@ -8156,12 +8160,23 @@ def _oei_timing_table(cases: Sequence["VtailCase"]) -> Optional[Table]:
         ["Simulation bound", format_value(60.0, "s"), "s",
          "A case that has not recovered by here is reported uncontrollable."],
     ]
+    if c.feather_travel_s is not None:
+        rows.append(["Feather travel time", format_value(c.feather_travel_s, "s"), "s",
+                     "The pilot starts the feather at the 2 s delay (an assumption); "
+                     "the drag falls to the feathered propeller's (Torenbeek G-83) "
+                     "over this time. Not on the 23.367(a)(2) case."])
+    if mech is not None:
+        rows.append(["23.367(a)(2) thrust decay", format_value(mech.time2decay, "s"), "s",
+                     "The mechanical failure's own decay (Lomax p151, 0.02-0.10 s), "
+                     "marched at a step of at most half of it."])
     return Table(
         title="Yaw transient schedule",
         columns=["Quantity", "Value", "Units", "Basis"],
         rows=rows,
-        note=("The schedule is the same for every case; only the speed, the "
-              "engine and the resulting march differ."))
+        note=("The schedule is the fuel-flow cases'; the 23.367(a)(2) case "
+              "differs only by its own decay and step, and takes no feather. "
+              "Each case is swept over its speed range and delivered at the "
+              "speed with the largest fin load, which its basis states."))
 
 
 def _oei_case_list_table(cases: Sequence["VtailCase"]) -> Optional[Table]:

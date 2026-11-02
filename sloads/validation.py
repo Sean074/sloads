@@ -74,6 +74,11 @@ Checks (14 CFR / Reference-1 context in each predicate):
                              or above the Glauert bound the manual says it
                              cannot exceed (delivered as entered). See
                              ``_check_windmill_drag_cd`` (#343).
+- ``windmill_drag_bound`` -- a turboprop's one-engine-out cases carry the
+                             Glauert windmill bound (no ``windmill_drag_cd``),
+                             stated with its drag power against the engine's
+                             rating at the 23.367(a)(1) case (design note 74
+                             Q1 (a), review A-3). See ``_check_windmill_drag_bound``.
 - ``flap_ng_fallback``    -- the flaps-extended gust load factor fell back to 0
                              (blank ``gust_load_factor`` and no envelope answer),
                              so the 23.345 gust at VF condition is not critical;
@@ -1953,6 +1958,48 @@ def _check_windmill_drag_cd(project: Project) -> List[ConsistencyWarning]:
     return out
 
 
+def _check_windmill_drag_bound(project: Project) -> List[ConsistencyWarning]:
+    """``windmill_drag_bound`` -- a turboprop's failed propeller drags at the
+    Glauert bound because no ``windmill_drag_cd`` is entered (design note 74
+    Q1 (a), review A-3).
+
+    The bound is ONENGOUT's fixed-pitch disc (C_D,disc 0.50, Ch 11 p88). A
+    turboprop's pitch control holds the windmilling drag far below it, so the
+    warning states the bound's drag against the live engine's thrust and its
+    drag power against the engine's rating, at the 23.367(a)(1) case, and names
+    the input that replaces it. Silent where ONENGOUT does not run.
+    """
+    from .modules.one_engine_out import drag_power_ratio, engine_thrust_and_drag, vtail_cases
+
+    if project.one_engine_out is None:
+        return []
+    try:
+        cases = vtail_cases(project)
+    # refusal: ONENGOUT refuses; its own page names why
+    except (MissingInputError, ValueError):
+        return []
+    out: List[ConsistencyWarning] = []
+    for fc in cases:
+        eng = project.engines[fc.engine_index]
+        if (fc.load_case.far_reference != "23.367(a)(1)" or not eng.is_turboprop
+                or fc.inputs.windmill_cd is not None):
+            continue
+        thrust = engine_thrust_and_drag(fc.inputs)[0]
+        out.append(ConsistencyWarning(
+            "windmill_drag_bound",
+            f"{fc.title}: the failed propeller drags "
+            f"{format_value(fc.summary.windmill_drag_lb, 'lb')} lb at the windmill peak, the "
+            f"Glauert bound (no windmill_drag_cd entered) -- "
+            f"{format_value(fc.summary.windmill_drag_lb / thrust)} times the live engine's "
+            f"thrust, and a drag power {format_value(drag_power_ratio(fc.inputs))} times the "
+            "engine's rated shaft power. The bound is a fixed-pitch disc; a turboprop's "
+            "pitch control holds its windmilling drag well below it. The loads are "
+            "conservative; enter the propeller maker's windmilling disc drag "
+            "coefficient to replace the bound.",
+            PAGE_ENGINE))
+    return out
+
+
 def _check_oei_not_recovered(project: Project) -> List[ConsistencyWarning]:
     """``oei_case_not_recovered`` -- a 23.367 speed the regulation requires that
     did not recover within the simulated time (#333 ruling 2).
@@ -2065,5 +2112,6 @@ def consistency_warnings(project: Project) -> List[ConsistencyWarning]:
     out += _check_oei_not_recovered(project)
     out += _check_balance_feasibility(project)
     out += _check_windmill_drag_cd(project)
+    out += _check_windmill_drag_bound(project)
     out += _check_flap_ng_fallback(project)
     return out

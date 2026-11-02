@@ -435,7 +435,13 @@ def fields_hash() -> str:
 #: ``select.stamp_feasibility`` stamps. The Imperial digests move by the ruling,
 #: not the hop: the ATR's incidence is -1.0 (D-73.8) and flagged cases carry
 #: their flags into the deck.
-EXPECTED_FIELDS_HASH = "3baf1282cb72c514"
+#: v82 (design note 74, #405): ``EngineInput`` gains ``feather_travel_time_s``
+#: (the pilot's feather from 2 s; blank, none) and ``OneEngineOutInput`` gains
+#: ``mech_failure_decay_time_s`` (the 23.367(a)(2) decay, 0.02 s). Additive, so
+#: ``_hop_81`` is an identity. The digests move by the ruling, not the hop: the
+#: twins enter a 1.0 s [E] feather (Q3), the (a)(2) cases take their own decay
+#: and every 23.367(a) case is swept.
+EXPECTED_FIELDS_HASH = "c007c59ed2ce3745"
 
 
 def test_persisted_dataclass_shapes_are_unchanged():

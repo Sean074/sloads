@@ -611,3 +611,22 @@ TAIL_STALL_ALPHA_DEG = 14.32
 CLH_MAX_FIXED_COEFF = 0.35
 CLH_MAX_ADJUSTABLE = 1.2
 CLH_MAX_ALL_MOVING = 1.0
+
+# --------------------------------------------------------------------------- #
+# One engine out (23.367) -- design note 74, #405
+# --------------------------------------------------------------------------- #
+#: The earliest pilot corrective action, s after the failure: 14 CFR 23.367(b),
+#: "not earlier than 2 seconds after the engine failure" (Lomax 1996 p42). The
+#: rudder starts here, and so does the pilot's feather (D-74.3, owner assumption).
+CORRECTIVE_DELAY_S = 2.0
+#: A stopped, feathered propeller's drag area over B_p·D_p^2: Torenbeek,
+#: *Synthesis of Subsonic Airplane Design* (1982), App. G-8.2 Eq. G-83 p554,
+#: Δ(C_D S)_prop = 0.00125 B_p D_p^2. Dimensionless (D-74.1).
+FEATHERED_PROP_DRAG_COEFF = 0.00125
+#: The 23.367(a)(2) mechanical failure's thrust decay, s: Lomax 1996 §9.3.1
+#: p151, "T/T0 ... may be assumed to be zero in 0.02-0.10 s"; the abrupt end
+#: (D-74.5).
+MECH_FAILURE_DECAY_TIME_S = 0.02
+#: Speeds each 23.367(a) case is marched at over its range, ends included
+#: (D-74.6).
+OEI_SWEEP_POINTS = 11

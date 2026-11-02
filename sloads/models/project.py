@@ -389,7 +389,11 @@ from .results import EnvelopeResult, LoadsResult, MassResult
 # ``airplane_length_in`` (SELECT LF, moved from ``EmpennageInput``, now a
 # collapsed override of the outline length). ``_hop_76`` moves the two values,
 # drops the five keys and states any non-zero dropped value once.
-SCHEMA_VERSION = 81
+# v82 (design note 74, #405): ``EngineInput.feather_travel_time_s`` (the
+# pilot's feather from 2 s, blank: none) and
+# ``OneEngineOutInput.mech_failure_decay_time_s`` (the 23.367(a)(2) decay).
+# Additive, so ``_hop_81`` is an identity.
+SCHEMA_VERSION = 82
 
 
 @dataclass

@@ -56,3 +56,9 @@ The export above was reviewed before it entered the tree. What changed, and why;
 | Quantity | Was | Now | Why | Tag |
 |---|---|---|---|---|
 | Stabiliser incidence (`empennage.htail.tail_incidence_deg`) | +1.0° | −1.0° | sconfig's own deck carries −1.0° [E] and records the +1.0° as inherited unsourced from the v0.1.0 baseline; the baseline fixture moves with it (`atr42_100.sources.md`, design note 73 D-73.8) | [E] via sconfig |
+
+## Corrections at #405 (2026-11-02): the one-engine-out feather
+
+| Quantity | Was | Now | Why | Tag |
+|---|---|---|---|---|
+| Feather travel time (`engines[].feather_travel_time_s`) | blank | 1.0 s | the owner's estimate of the blade travel to feather (design note 74 Q3); the pilot starts the feather at 2 s, an owner assumption. The fuel-flow decay 0.5 s and drag build-up 2.0 s have no source (D-74.11; `atr42_100.sources.md`) | [E] |

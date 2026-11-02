@@ -1,0 +1,1 @@
+- **One engine out: a pilot feather from 2 s, a distinct 23.367(a)(2) and a speed sweep (#405, tier L, 2026-11-02).** Note 74 (review A-3, P-3): the drag falls to Torenbeek's feathered value over `feather_travel_time_s` (1.0 s [E] on the twins); (a)(2) decays in 0.02 s (Lomax). Schema v82; a turboprop on the Glauert bound is warned. Imperial digests regenerated.

@@ -108,6 +108,15 @@ the guide enters and reads this example in **SI** (UG-12).
   elevator/rudder throws and hinge splits, tab data): handbook-typical values
   for the 230-series sections and a GA twin; none are published data.
 
+- **One-engine-out feather and timing** (design note 74 D-74.3, D-74.11, #405,
+  2026-11-02): `feather_travel_time_s` 1.0 s on both engines, [E], the owner's
+  estimate of the blade travel to feather (Q3); no maker's figure is in hand. The
+  pilot starts the feather 2 s after the failure (23.367(b), an owner assumption).
+  No autofeather is modelled; the Baron's propellers are feathered by hand. The
+  fuel-flow `thrust_decay_time_s` 0.5 s and `windmill_drag_time_s` 2.0 s have **no
+  source**; Lomax (1996) p. 42 gives 1 s to several seconds for a fuel-flow
+  interruption, so they are an open input gap, not a datum.
+
 ## Cross-checks the file passes
 
 - Loads every page of the oracle GUI; all 14 run without error (gate G-UG-4,
@@ -122,3 +131,6 @@ the guide enters and reads this example in **SI** (UG-12).
   `EXACT`): every load-bearing field is an original-suite input — engine and
   propeller weight/CG are entered directly on the ENGLOADS records (duplicated
   into the weight database rows at the same values, the cessna_210 pattern).
+  The one declared exception is the pilot feather (design note 74), a sloads
+  input that moves the one-engine-out fin cases
+  (`test_oracle_inputs.PILOT_FEATHER`).

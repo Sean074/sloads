@@ -227,7 +227,7 @@ def test_rendered_loads_are_limit_and_each_case_states_its_sf():
 def test_time_history_matches_case():
     p = _twin()
     rows = oeo.time_history(p, "VC (ultimate)")
-    rows2, _ = oeo.simulate(oeo._case_inputs(p, float(p.speeds.chosen_vc)))
+    rows2, _ = oeo.simulate(oeo._case_inputs(p, float(p.speeds.chosen_vc), mech_failure=True))
     assert len(rows) == len(rows2)
     assert math.isclose(rows[-1].lt, rows2[-1].lt, rel_tol=1e-12)
 

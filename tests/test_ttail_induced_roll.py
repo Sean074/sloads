@@ -87,13 +87,14 @@ _M_R = {
         "SUDDEN RUDDER": 214_395, "YAW TO SIDESLIP": 102_253,
         "YAW 15 NEUTRAL": 243_576, "SIDE GUST": 308_431,
         # The engine-out rows re-pinned at #420 (the certified 12-38 % limits
-        # move the mass basis, the heaviest aft case, to 38 % MAC).
-        "ONE ENGINE OUT — VC (ultimate) (engine 1)": 472_445,
-        "ONE ENGINE OUT — VD (limit) (engine 1)": 656_790,
-        "ONE ENGINE OUT — VS (engine 1)": 212_463,
-        "ONE ENGINE OUT — VC (ultimate) (engine 2)": 472_445,
-        "ONE ENGINE OUT — VD (limit) (engine 2)": 656_790,
-        "ONE ENGINE OUT — VS (engine 2)": 212_463,
+        # move the mass basis, the heaviest aft case, to 38 % MAC) and at #405
+        # (design note 74: the pilot feather and the (a)(2) decay).
+        "ONE ENGINE OUT — VC (ultimate) (engine 1)": 444_561,
+        "ONE ENGINE OUT — VD (limit) (engine 1)": 640_396,
+        "ONE ENGINE OUT — VS (engine 1)": 210_728,
+        "ONE ENGINE OUT — VC (ultimate) (engine 2)": 444_561,
+        "ONE ENGINE OUT — VD (limit) (engine 2)": 640_396,
+        "ONE ENGINE OUT — VS (engine 2)": 210_728,
     },
 }
 
@@ -108,8 +109,8 @@ _ROOT_WITH_TIP = {
     "atr42_100": {
         "SUDDEN RUDDER": -667_817, "YAW TO SIDESLIP": +318_507,
         "YAW 15 NEUTRAL": +758_711, "SIDE GUST": -785_479,
-        "ONE ENGINE OUT — VD (limit) (engine 1)": +2_061_856,   # #420 (the mass basis at 38 % MAC)
-        "ONE ENGINE OUT — VD (limit) (engine 2)": -2_061_856,
+        "ONE ENGINE OUT — VD (limit) (engine 1)": +2_010_390,   # #405 (note 74's pilot feather)
+        "ONE ENGINE OUT — VD (limit) (engine 2)": -2_010_390,
     },
 }
 
@@ -128,12 +129,13 @@ _INDUCED_BENDING = {
     "atr42_100": {
         "SUDDEN RUDDER": 129_582, "YAW TO SIDESLIP": 73_511,
         "YAW 15 NEUTRAL": 144_172, "SIDE GUST": 202_202,
-        "ONE ENGINE OUT — VC (ultimate) (engine 1)": 256_101,
-        "ONE ENGINE OUT — VD (limit) (engine 1)": 340_403,
-        "ONE ENGINE OUT — VS (engine 1)": 110_839,
-        "ONE ENGINE OUT — VC (ultimate) (engine 2)": 256_101,
-        "ONE ENGINE OUT — VD (limit) (engine 2)": 340_403,
-        "ONE ENGINE OUT — VS (engine 2)": 110_839,
+        # Engine-out rows re-measured at #405 (note 74).
+        "ONE ENGINE OUT — VC (ultimate) (engine 1)": 242_159,
+        "ONE ENGINE OUT — VD (limit) (engine 1)": 332_206,
+        "ONE ENGINE OUT — VS (engine 1)": 109_971,
+        "ONE ENGINE OUT — VC (ultimate) (engine 2)": 242_159,
+        "ONE ENGINE OUT — VD (limit) (engine 2)": 332_206,
+        "ONE ENGINE OUT — VS (engine 2)": 109_971,
     },
 }
 
@@ -142,7 +144,7 @@ _INDUCED_BENDING = {
 #: re-pinned at #389: 233,122 -> 329,026 on the airplane's tails.
 _GOVERNING = {
     "concept_regional_jet": ("GUST DN RETRACTED", 349_920),
-    "atr42_100": (f"{INDUCED_ROLL_LABEL} — ONE ENGINE OUT — VD (limit) (engine 1)", 340_403),   # #420
+    "atr42_100": (f"{INDUCED_ROLL_LABEL} — ONE ENGINE OUT — VD (limit) (engine 1)", 332_206),   # #405
 }
 
 #: G-51.1 / G-51.2: the 23.427(a) case's net roll about the centreline. The
@@ -415,9 +417,10 @@ def test_each_induced_roll_condition_bends_the_htail_as_measured(name):
 @pytest.mark.parametrize("name", _T_TAILS)
 def test_the_governing_htail_bending_moves_on_the_atr_alone(name):
     """G-51.14 (replaces G-51.9): the ATR's governing per-side h-tail root
-    bending is ONE ENGINE OUT VD's 340,403 lb-in (+10.9 % on GUST DN
-    RETRACTED's 306,872; 329,026 on 300,684 before #420 put the fixture on
-    the certified CG limits, 233,122 on 161,404 before #389 rebuilt the tails);
+    bending is ONE ENGINE OUT VD's 332,206 lb-in (+6.8 % on UNSYMMETRICAL's
+    311,137; 340,403 before note 74's pilot feather, #405; 329,026 on 300,684
+    before #420 put the fixture on the certified CG limits, 233,122 on 161,404
+    before #389 rebuilt the tails);
     the RJ's stays GUST DN RETRACTED's 349,920."""
     spans = build_tail_span(_project(name))
     label, want = _GOVERNING[name]

@@ -134,6 +134,8 @@ class Divergence(NamedTuple):
     module: str
     key_prefixes: Tuple[str, ...]
     reason: str
+    #: The conditions (or station tables) it may move; ``("",)`` is every one.
+    case_prefixes: Tuple[str, ...] = ("",)
 
 
 #: The Step C9 turbine-rotor model: ENGLOADS.BAS is propeller-centric (sudden
@@ -151,16 +153,39 @@ ROTOR_MODEL = Divergence(
     "sudden-stoppage and gyroscopic loads; the oracle GUI never creates a rotor row",
 )
 
+#: The pilot-feather model (design note 74 D-74.3, #405): with
+#: ``engines[].feather_travel_time_s`` entered, the failed propeller's drag
+#: ramps from 2 s to Torenbeek's feathered value on the 23.367(a)(1) and
+#: low-end cases, where ONENGOUT held the windmill drag. A sloads input the
+#: oracle GUI never asks for, entered [E] on the twins (owner ruling Q3), so
+#: the reduced project gets ONENGOUT's held drag: the march, the fin
+#: chordwise rows it feeds and nothing else. The (a)(2) case is not credited
+#: and does not move.
+_FEATHER_REASON = (
+    "sloads pilot-feather model (design note 74): engines[].feather_travel_time_s "
+    "takes the failed propeller's drag to the feathered value from 2 s; ONENGOUT "
+    "held the windmill drag, and the oracle GUI never asks for a feather time")
+PILOT_FEATHER = (
+    Divergence("one_engine_out", ("",), _FEATHER_REASON,
+               ("One engine out — VD", "One engine out — VS")),
+    Divergence("taildist", ("",), _FEATHER_REASON,
+               ("Chordwise vtail load: ONE ENGINE OUT — VD",
+                "Chordwise vtail load: ONE ENGINE OUT — VS",
+                "station table tail_chordwise")),
+)
+
 #: Example -> the divergences it is allowed. Every entry must be exercised (the
 #: reduction really moves a value it names) or the declaration is stale.
 DECLARED_DIVERGENCES: Dict[str, Tuple[Divergence, ...]] = {
-    "atr42_100.project.json": (ROTOR_MODEL,),
+    "atr42_100.project.json": (ROTOR_MODEL, *PILOT_FEATHER),
+    "baron_58.project.json": PILOT_FEATHER,
 }
 
 
 def _allowed(example: str, key: Tuple[str, str, str]) -> bool:
-    module, _case, value_key = key
-    return any(module == d.module and value_key.startswith(d.key_prefixes)
+    module, case, value_key = key
+    return any(module == d.module and case.startswith(d.case_prefixes)
+               and value_key.startswith(d.key_prefixes)
                for d in DECLARED_DIVERGENCES.get(example, ()))
 
 
@@ -272,7 +297,8 @@ def test_the_reduced_project_reproduces_every_number(example):
         + "\n  ".join(off[:20])
     )
     for divergence in DECLARED_DIVERGENCES.get(example, ()):
-        assert any(k[0] == divergence.module and k[2].startswith(divergence.key_prefixes)
+        assert any(k[0] == divergence.module and k[1].startswith(divergence.case_prefixes)
+                   and k[2].startswith(divergence.key_prefixes)
                    for k in moved), (
             f"{example}: {divergence.module} declares a divergence the reduction no "
             "longer produces -- retire the declaration"

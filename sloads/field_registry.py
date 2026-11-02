@@ -1953,8 +1953,12 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "the windmilling propeller's disc drag coefficient, from the maker's data or the 23.367(a)(3) history "
        "(design note 66 D-66.12a). Delivered as the failed engine's hub drag in the balanced one-engine-out cases; "
        "blank delivers ONENGOUT's Glauert term, the manual's upper bound (C_D,disc 0.50), stated as that bound. "
-       "The ONENGOUT march and the fin loads always use the bound. Must be positive (refused otherwise); "
+       "The ONENGOUT march reads it too (owner ruling 2026-10-04). Must be positive (refused otherwise); "
        "above the bound it is delivered and warned (#343)"),
+    _E("engines[].feather_travel_time_s", _ENG, _SLDS,
+       "the propeller's blade travel time to feather (design note 74 D-74.3): entered, the pilot starts the "
+       "feather 2 s after the failure (23.367(b), owner assumption) and the drag ramps to Torenbeek's feathered "
+       "G-83 drag over this time on the 23.367(a)(1) and low-end cases; blank, no feather"),
     _E("engines[].rotors[].rotor_type", _ENG, _SLDS, "turbine rotor model, Step C9"),
     _E("engines[].rotors[].weight_lb", _ENG, _SLDS, "turbine rotor model, Step C9"),
     _E("engines[].rotors[].diameter_in", _ENG, _SLDS, "turbine rotor model, Step C9"),
@@ -1974,6 +1978,9 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("one_engine_out.windmill_drag_time_s", _OEI, _ORIG, "ONENGOUT TIME2DRAG"),
     _E("one_engine_out.rudder_travel_time_s", _OEI, _ORIG, "ONENGOUT INCTIMERUD"),
     _E("one_engine_out.time_step_s", _OEI, _ORIG, "ONENGOUT DT (Euler step)"),
+    _E("one_engine_out.mech_failure_decay_time_s", _OEI, _SLDS,
+       "the 23.367(a)(2) mechanical failure's thrust decay (design note 74 D-74.5, Lomax p151 0.02-0.10 s): "
+       "ONENGOUT reused the fuel-flow decay for both cases"),
     _E("one_engine_out.use_takeoff_power", _OEI, _ORIG, "ONENGOUT MAXHP selector"),
     _E("one_engine_out.speeds_kt", _OEI, _ORIG, "ONENGOUT evaluation speeds"),
     _E("one_engine_out.altitude_ft", _OEI, _ORIG, "ONENGOUT altitude (VC and VD; the manual's shoulder point)"),

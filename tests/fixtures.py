@@ -70,10 +70,12 @@ def turboprop() -> EngineInput:
 
 
 def unrecovered_turboprop():
-    """The ATR with its rudder throw cut to 8 deg: VC and VD still recover, VS
-    does not -- the constructed non-recovering 23.367 case the OR-174 /
-    G-66.11 / #333 gates exercise since #389 gave the shipped ATR the
-    airplane's own fin (125.5 sq ft) and every shipped march recovers."""
+    """The ATR with its rudder throw cut to 8 deg and no pilot feather: VC and
+    VD still recover, VS does not -- the constructed non-recovering 23.367 case
+    the OR-174 / G-66.11 / #333 gates exercise since #389 gave the shipped ATR
+    the airplane's own fin (125.5 sq ft) and every shipped march recovers. The
+    feather is blanked because with it (design note 74 D-74.3) VS recovers at
+    any rudder throw that keeps VC recovering."""
     import os
     from dataclasses import replace
     from sloads import io
@@ -81,4 +83,5 @@ def unrecovered_turboprop():
     project = io.load_project(os.path.join(examples, "atr42_100.project.json"))
     emp = project.geometry.empennage
     project.geometry.empennage = replace(emp, vtail=replace(emp.vtail, rudder_deflection_deg=8.0))
+    project.engines = [replace(e, feather_travel_time_s=None) for e in project.engines]
     return project
