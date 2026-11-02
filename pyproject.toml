@@ -16,8 +16,9 @@ readme = "README.md"
 # a 3.11-vs-3.12 byte (#324) and a 3.11-only regex (#325) through every gate
 # before the merge. The classifier list below and the ci.yml matrix mirror this
 # floor, and the test suite refuses to run on any other interpreter, guarded
-# by tests/test_ci_conformance.py.
-requires-python = ">=3.12"
+# by tests/test_ci_conformance.py. The ceiling (#395) makes `pip` the first
+# refusal a new clone meets, on the interpreter and not on the first test run.
+requires-python = ">=3.12,<3.13"
 license = {text = "MIT"}
 authors = [
     {name = "Sean O'Meara", email = "sean.c.omeara74@gmail.com"},

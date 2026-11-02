@@ -107,7 +107,6 @@ tier-S commit and states its reasoning in the milestone description.
 | Pri | Item (detail below / in its plan) | What ships | Tag | Tier / effort | Depends on |
 |---|---|---|---|---|---|
 | **B11 — 0.10.0: loads correctness on the Part 23 method, for ATR-sized airplanes (re-chartered 2026-11-01 after the physics review)** ||||||
-| 4 | **The Python 3.12 requirement is invisible to a new clone** (#395) | README install section and `pyproject.toml` state 3.12 up front with the one-line reason; the refusal message points at it; no change to the policy | E | S / S | — |
 | 5 | **README: quickstart first, phase narrative after** (#394) | The first screen is install (one command), run the GUI, run one CLI case, where the guide lives; the narrative moves below or into `docs/` | E | S / S | #395 |
 | 6 | **Ten tags, no wheel, no GitHub release** (#396) | A release workflow (or a documented manual step) that builds the wheel on tag and attaches it to a GitHub release with that version's changelog section; v0.9.0 first, retroactively | E | S / S | — |
 | 7 | **One clean install on another machine from the README alone** (#397) | On a machine that has never seen sloads (the Mini counts), follow the README on macOS and on Windows, run the GUI and one CLI case, file each break as its own issue | E | S / S | #394, #395, #396 |

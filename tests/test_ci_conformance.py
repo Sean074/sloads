@@ -134,8 +134,9 @@ def test_the_suite_runs_on_the_interpreter_ci_runs():
     here = f"{sys.version_info.major}.{sys.version_info.minor}"
     assert here in ci, (
         f"this suite is running on Python {here}; ci.yml's `test` job runs {sorted(ci)}. "
-        "Rebuild .venv on that interpreter (CONTRIBUTING.md) -- a gate on another "
-        "interpreter is not the gate CI runs (#324, #327)."
+        f"Rebuild .venv on that interpreter: `python{sorted(ci)[0]} -m venv .venv` "
+        "(README.md §Running, CONTRIBUTING.md §2) -- a gate on another interpreter "
+        "is not the gate CI runs (#324, #327, #395)."
     )
 
 
@@ -507,7 +508,9 @@ def test_the_smoke_gate_runs_the_oracle_launcher_rather_than_resolving_it():
 
 
 _CLASSIFIER = re.compile(r'"Programming Language :: Python :: (3\.\d+)"')
-_REQ_PY = re.compile(r'requires-python\s*=\s*">=(3\.\d+)"')
+#: The floor, and since #395 the ceiling: ``">=3.12,<3.13"``. The ceiling is
+#: what lets `pip` refuse a wrong interpreter at install, before the suite can.
+_REQ_PY = re.compile(r'requires-python\s*=\s*">=(3\.\d+),<(3\.\d+)"')
 
 
 def test_the_python_support_claim_is_one_claim_in_three_places():
@@ -524,8 +527,9 @@ def test_the_python_support_claim_is_one_claim_in_three_places():
     with open(os.path.join(_ROOT, "pyproject.toml"), encoding="utf-8") as fh:
         pyproject = fh.read()
     floor = _REQ_PY.search(pyproject)
-    assert floor, "pyproject.toml states no '>=' requires-python floor"
+    assert floor, "pyproject.toml states no '>=X,<Y' requires-python floor and ceiling (#395)"
     floor_v = tuple(int(n) for n in floor.group(1).split("."))
+    ceiling_v = tuple(int(n) for n in floor.group(2).split("."))
     classifiers = {c for c in _CLASSIFIER.findall(pyproject) if c != "3"}
 
     full = {v for _, on_main in _ci_jobs().values() for v in on_main if v}
@@ -541,6 +545,14 @@ def test_the_python_support_claim_is_one_claim_in_three_places():
         f"requires-python >= {floor.group(1)} but the smallest tested leg is "
         f"{'.'.join(map(str, min(as_tuples)))} — the floor must be the smallest "
         "interpreter CI actually installs on"
+    )
+    # #395: the ceiling is the minor after the largest tested leg, so `pip`
+    # admits exactly the interpreters CI runs and refuses the next one by name.
+    top = max(as_tuples)
+    assert ceiling_v == (top[0], top[1] + 1), (
+        f"requires-python < {floor.group(2)} but the largest tested leg is "
+        f"{'.'.join(map(str, top))} — the ceiling must be the next minor, so pip "
+        "refuses an interpreter the suite would refuse anyway (#395)"
     )
 
 

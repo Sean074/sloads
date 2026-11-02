@@ -69,11 +69,14 @@ cspell.json               # domain wordlist
 
 ## Running
 
-Install the package in editable mode (registers `sloads` and the `cli`
+**Python 3.12, and only 3.12.** The developer's gate and CI run one
+interpreter, so a byte that differs between two Pythons cannot pass one and fail
+the other (#327); `pip` refuses any other version, and so does the test suite.
+Install the package in editable mode on it (registers `sloads` and the `cli`
 module on `sys.path`, so imports work from anywhere — including Streamlit):
 
 ```bash
-python3 -m venv .venv
+python3.12 -m venv .venv           # not `python3`: whatever that resolves to is refused
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -e '.[dev]'            # runtime deps + pytest, pytest-cov, ruff
 
@@ -88,9 +91,8 @@ mypy                                                        # type check (sloads
 `pyproject.toml` is the single dependency source — `pip install -e .` for the
 runtime set, `pip install -e '.[dev]'` for the supported developer install (a
 second `requirements.txt` list was deleted at 0.5.0 because it had drifted from
-it). sloads requires **Python 3.12**, the one interpreter the developer's gate
-and CI both run (#327). CI (`.github/workflows/ci.yml`) runs ruff and pytest on
-it for every pull request, every push to a `dev/**` milestone branch and the
+it). CI (`.github/workflows/ci.yml`) runs ruff and pytest on 3.12 for every
+pull request, every push to a `dev/**` milestone branch and the
 push to `main`, which alone adds the coverage measurement.
 
 ## Validation & math fidelity
