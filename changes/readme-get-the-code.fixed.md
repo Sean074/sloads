@@ -1,0 +1,1 @@
+- **The README quickstart says how the code gets onto the machine (#418, tier S, 2026-11-01).** A clone line opens the developer install, and a run-only install takes the wheel from the tag's release page into its own venv; the wheel ships no `examples/`, so that path feeds the CLI a saved or downloaded `project.json`. Found by #397's macOS run.

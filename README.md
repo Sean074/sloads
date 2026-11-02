@@ -14,11 +14,29 @@ airplanes. **License:** MIT (see [LICENSE](LICENSE)).
 interpreter, so a byte that differs between two Pythons cannot pass one and fail
 the other (#327); `pip` refuses any other version, and so does the test suite.
 
+Two ways in. **To develop, or to run the bundled examples** (only the clone
+ships them), clone the repository and install it editable; everything else in
+this file assumes that tree:
+
 ```bash
+git clone https://github.com/Sean074/sloads.git && cd sloads
 python3.12 -m venv .venv && .venv/bin/pip install -e '.[dev]'   # not `python3`: whatever that resolves to is refused
 .venv/bin/sloads-oracle                                          # the GUI (or: .venv/bin/streamlit run oracle_app/Oracle.py)
 .venv/bin/sloads engine examples/ga6_normal.project.json -o engine_loads.csv   # one CLI case: the manual's Appendix A airplane
 ```
+
+**To run the program alone**, install the wheel that every tag's
+[release page](https://github.com/Sean074/sloads/releases) carries (#396) into
+a venv of its own — the two file names are on the page, `vX.Y.Z` is the tag:
+
+```bash
+python3.12 -m venv sloads-env && sloads-env/bin/pip install https://github.com/Sean074/sloads/releases/download/vX.Y.Z/sloads-X.Y.Z-py3-none-any.whl
+sloads-env/bin/sloads-oracle                                     # the same GUI and CLI, from anywhere
+```
+
+The wheel ships the GUI and the CLI but not `examples/`: the CLI line above
+then takes a `project.json` saved from the GUI, or one downloaded from the
+repository's [`examples/`](examples/) folder.
 
 On Windows the venv's programs are under `.venv\Scripts\` instead of
 `.venv/bin/`. The editable install registers `sloads` and the `cli` module on
