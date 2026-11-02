@@ -317,13 +317,15 @@ def test_an_entered_coefficient_keeps_the_closure_yaw_onengouts(name):
     _assert_closure_yaw_is_the_marchs(_with_cd(_project(name), [0.25, 0.25]))
 
 
-@pytest.mark.parametrize("cd, want", [(None, 19_368.0), (0.25, 14_362.0), (0.10, 11_385.0)])
+@pytest.mark.parametrize("cd, want", [(None, 19_568.0), (0.25, 14_497.0), (0.10, 11_480.0)])
 def test_the_atr_vd_fin_load_follows_the_entered_coefficient(cd, want):
     """Note 66 §13's gate (D-66.12b): on a constructed ATR copy the VD peak fin
-    load, each engine, is the bound's 19,368 lb blank and 14,362 / 11,385 lb at
-    an entered C_D,disc of 0.25 / 0.10 -- measured 2026-10-19 on the airplane's
-    fin (#389; 16,040 / 11,196 / 8,314 on the statistical one), ±0.1 %. The
-    shipped ATR enters none (owner: no cited value), so its own loads hold."""
+    load, each engine, is the bound's 19,568 lb blank and 14,497 / 11,480 lb at
+    an entered C_D,disc of 0.25 / 0.10 -- re-measured 2026-11-01 with the
+    fixture on its certified CG limits (#420; 19,368 / 14,362 / 11,385 at #389
+    on the airplane's fin, 16,040 / 11,196 / 8,314 on the statistical one),
+    ±0.1 %. The shipped ATR enters none (owner: no cited value), so its own
+    loads hold."""
     project = _with_cd(_project("atr42_100"), [cd, cd])
     vd = [fc for fc in vtail_cases(project) if fc.load_case.label.startswith("VD")]
     assert len(vd) == 2

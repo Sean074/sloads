@@ -41,3 +41,12 @@ The export above was reviewed before it entered the tree. What changed, and why;
 | `estimation.engine_count` | 0 (meaning "count the engines") | 2 | explicit | -- |
 | `estimation.crew` | 1 | 1, kept | the field is sloads-only (`field_registry`): the oracle reduction resets it, so the two pilots are the "Captain + First officer" item row, as on the baseline | -- |
 | Name and description | the baseline's with a `[sconfig]` suffix and a prepended sentence | one description naming the sizing, the corrections and this register | the exported description repeated the baseline's and pointed at the baseline's register | -- |
+
+## Corrections at #420 (2026-11-01): the certified CG limits
+
+| Quantity | Was | Now | Why | Tag |
+|---|---|---|---|---|
+| CG limits (`weight.envelope`) | 6.0 / 33.0 / 6.0 % MAC (sconfig's own loading range with its 2 % MAC margin, the "CG limits" row above; sconfig #104) | flight 12 / 38 / 12 % MAC | the certified flight limits, BLAC *ATR 42-300 Aircraft Handling Manual* p. 8 (`atr42_100.sources.md` [G], read by sconfig V1.6). The take-off and landing limits (15 – 36 below 16.2 t, narrowing at MTOW) are not stored: one envelope slice, so the GROUND cases sit on the flight lines, 3 % MAC outside the certified ground limits either side, the conservative direction for the gear moments | [G] via sconfig |
+| CG cases | re-seeded at #403 on the 6 – 33 lines | re-seeded on the 12 – 38 lines, each with its loading of record (D-63.1) | the limits moved | -- |
+| `full fuel aft` | a distinct case, 36,817 lb at 378.50 in | not written | at the 38 % aft limit the full-fuel search reaches the limit point itself (36,817 lb at 390.79 in, the `aft gross` case to 0.01 in), and D-63.5's skip rule writes no duplicate — the same mechanism that makes it CG1 on the Appendix A airplane | -- |
+| VMCA (`one_engine_out.vmc_kt`) | blank | blank, kept | sconfig's 88.5 KIAS (VT-D5) names no -300 AFM page, and none is in the Library (the `atr42_100.sources.md` VMCA row); the march ends at VS until one is | -- |

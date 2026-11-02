@@ -174,7 +174,8 @@ _CLAMPED_BEFORE_260 = {
 
 def _clamped_atr():
     """The ATR balanced at 35,000 ft: the Mach cap pins the true airspeed
-    there and 41 of the 480 rows clamp (D-30's stall-limited flight). The
+    there and 39 of the 480 rows clamp (D-30's stall-limited flight; 41
+    before #420 put the fixture's cases on the certified CG limits). The
     shipped fixture stopped clamping at #260; this is the same physics on the
     same airplane, at an altitude it does not ship with."""
     project = _project("atr42_100.project.json")
@@ -198,7 +199,7 @@ def test_the_clamped_rows_are_the_mach_capped_corner_and_nothing_else():
     exactly this set."""
     env = fe.build_envelope(_clamped_atr())
     assert len(env.vn) == 480          # eight FLIGHT cases since #292
-    assert len(env.clamped_cases) == 41
+    assert len(env.clamped_cases) == 39     # 41 before #420 (the certified CG limits)
     assert all(env.is_clamped(p) == (p.case in env.clamped_cases) for p in env.vn)
 
 
