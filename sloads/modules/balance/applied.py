@@ -575,7 +575,7 @@ def hub_thrust_set(project: Project, cg: CgCase, replaced: Collection[str] = ()
     **A condition that prescribes its own thrust replaces the entered one**
     (#313). ``replaced`` names the engines (:func:`engine_member`) whose thrust
     the case applies itself -- a 23.371(b) gyroscopic case every engine's
-    max-continuous thrust (note 66 D-66.4a, #319), a one-engine-out case
+    gyro thrust (note 66 D-66.4a, #319), a one-engine-out case
     ONENGOUT's pair -- and their
     entered thrust is left out, and said to be, so no hub carries two.
     """

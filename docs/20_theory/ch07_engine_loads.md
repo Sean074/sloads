@@ -153,9 +153,17 @@ side     = n_y · PPWT                            [lb]
   `Myy = 2.5·T` (2.5 rad/s yaw) and a yawing moment `Mzz = 1·T` (1 rad/s
   pitch). Both rates act in either direction, so **all four sign combinations**
   are enumerated, each combined with a steady 2.5 g vertical load and the
-  max-continuous thrust; a combination's signs are the airplane's rates, the
+  thrust; a combination's signs are the airplane's rates, the
   same state on every engine (#319). In the balanced deck each combination
   applies every engine's couples and thrust at once (note 66 D-66.4a).
+- **The gyro thrust** (`engine.gyro_thrust`, #408). 23.371(b) asks for
+  maximum continuous thrust. With `max_cont_hp` entered it is that power over
+  `VSF`, bounded by the ideal static disc `T = (2ρAP²)^(1/3)`. That bound is
+  FLAPLOAD sub 500's momentum equation at V = 0, and no real propeller of the
+  diameter exceeds it at any speed. With `max_cont_hp` blank it is ENGLOADS's
+  printed `max_engine_torque·ω/VSF` (take-off torque, η = 1), labelled as such.
+  The note flags it when it exceeds the bound: the Appendix A PT6 example's
+  4484.7 lb is above its disc's 3792 lb.
 
 An optional FAR 25 superset (`Project.include_far25`, turbopropeller only) appends
 the non-duplicative Part 25 cases; see `00_theory_sources.md` and
