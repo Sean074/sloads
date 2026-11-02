@@ -263,17 +263,26 @@ that is the tabular channel. Headless, the same document comes from
 ## 5. Reading the results
 
 Every module renders results as **load cases** — one row per structural
-condition — with labelled outputs. On any consolidated or exported view:
+condition — with labelled outputs. Wherever you read them — a module page, the
+Report page's document and its `data/` files, the Beam Model page's deck — the
+same four rules apply (§1; [`CONVENTIONS.md`](CONVENTIONS.md) §3):
 
-1. **Check the units string** for `-ULT`. If it is there, the number is
-   ultimate and ready for sizing. If a page shows a plain unit, confirm the page
-   is a per-module *analysis* page (captioned `LIMIT`) — do not export those
-   numbers as-is.
-2. **Read the `SF` marker.** `SF=1.5` is the default. `SF=1.0` means the value
-   is *already* ultimate (or an inherently-ultimate quantity) — it is still an
-   ultimate deliverable, not a limit load.
-3. **Load factors, speeds, angles, weights** have no `-ULT` — they are
-   dimensionless or non-load and are reported directly.
+1. **Every load is LIMIT, on every surface.** There is no second view on another
+   basis: the number on the page is the number in the report, in `data/` and on
+   the deck's `FORCE`/`MOMENT` cards, and it is the number you check against the
+   manual. Nothing here has been multiplied for you.
+2. **Read the `SF` cell** — the `SF` column of a table, the `SF=` line on a deck
+   subcase. That is the factor **you** apply in sizing to reach ultimate: 1.5 by
+   default (14 CFR 23.303), from the governing safety-factor table the report
+   prints.
+3. **`-ULT` units with `ULT SF=1.0`** mark a load the regulation prescribes
+   already ultimate — only sudden engine stoppage (23.367(a)(2)) and the
+   emergency-landing inertia cases (23.561(b)). Apply nothing further to those
+   two. The marker says nothing about any other number: a plain unit is a limit
+   load, not an unfinished one.
+4. **`SF=N/A`, and plain units on load factors, speeds, angles and weights** —
+   not loads, so no factor is prescribed. Multiplying a load factor by 1.5 is an
+   error, not a conservatism.
 
 ---
 
@@ -367,8 +376,8 @@ ordering against VC and never changes a design speed or a load.
 
 Some concept-mode results carry caveats the UI surfaces (e.g. the fuselage
 body-load moment-closure note, and the fixed body-rate stand-in for the 25.371
-gyro case). The Export deliverables stamp a methods/limitations statement so a
-downstream sizing tool inherits the same caveats. Read them before trusting an
+gyro case). The deck and the report issue package carry a methods/limitations
+statement so a downstream sizing tool inherits the same caveats. Read them before trusting an
 out-of-band result.
 
 ---
