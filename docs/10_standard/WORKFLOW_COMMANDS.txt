@@ -101,9 +101,16 @@ gh pr merge --rebase
 git checkout main && git pull
 gh run list --branch main --limit 3
 
-# 5. Tag from main (RELEASE_PROCESS.md §4 step 4), then open the next
-#    milestone branch: back to A.
+# 5. Tag from main (RELEASE_PROCESS.md §4 step 4). The tag push runs
+#    release.yml: wheel + sdist built, the wheel smoke-installed, both attached
+#    to the GitHub release (created with the changelog section if absent).
+#    Then open the next milestone branch: back to A.
 git tag -a v<X.Y.Z> -m "Release v<X.Y.Z>" && git push origin v<X.Y.Z>
+gh run watch $(gh run list --workflow release.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+gh release view v<X.Y.Z>
+
+# A tag that is already out and has no wheel (v0.9.0 was the first):
+gh workflow run release.yml -f tag=v<X.Y.Z>
 
 
 ---------------------------------------------------------------------------

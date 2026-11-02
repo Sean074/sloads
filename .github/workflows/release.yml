@@ -1,0 +1,89 @@
+# The wheel and the sdist for a tag, attached to its GitHub release (#396,
+# 2026-11-01; RELEASE_PROCESS.md §4 step 4).
+#
+# Before this, ten tags had a changelog section and no built artefact, so the
+# only install path was a clone. A `vX.Y.Z` tag push now builds both files on
+# the one interpreter, refuses a tag whose version is not the one the tree
+# declares (`sloads/_version.py`, the single owner), installs the wheel into a
+# fresh venv and runs both entry points from it, and attaches the files to the
+# release -- creating the release with that version's changelog section when
+# none exists yet, uploading to it (and replacing an earlier upload) when the
+# cut made it by hand. `workflow_dispatch` with a tag does the same for a tag
+# that is already out: that is how v0.9.0 got its wheel.
+#
+# No PyPI: distribution is the release page (RELEASE_PROCESS.md §4), and the
+# token below can write this repository's releases and nothing else.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "An existing tag to build and attach retroactively, e.g. v0.9.0"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  wheel:
+    runs-on: ubuntu-24.04
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: The tag names the version the tree declares
+        # `_version.py` is a docstring and two literals, so it runs without the
+        # package's dependencies installed; a mismatch fails here, before any
+        # artefact exists.
+        run: |
+          python - "$TAG" <<'EOF'
+          import runpy, sys
+          tag = sys.argv[1]
+          declared = runpy.run_path("sloads/_version.py")["__version__"]
+          if tag != f"v{declared}":
+              sys.exit(f"tag {tag} does not name the declared version {declared} (sloads/_version.py)")
+          print(f"{tag} == v{declared}")
+          EOF
+
+      - name: Build the wheel and the sdist
+        run: |
+          pip install --upgrade pip build
+          python -m build
+          ls -l dist/
+
+      - name: Install the wheel into a fresh venv and exercise both entry points
+        # From a venv that never saw the source tree -- the install path a
+        # colleague takes (#397): every installed package imports, the CLI
+        # lists its modules, and the GUI launcher finds the page it would hand
+        # to Streamlit (the file it refuses to start without), without
+        # starting a server.
+        run: |
+          python -m venv "$RUNNER_TEMP/smoke"
+          "$RUNNER_TEMP/smoke/bin/pip" install --quiet dist/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/smoke/bin/python" -c "import sloads, app_shell, oracle_app, cli; from sloads._version import __version__; print('sloads', __version__)"
+          "$RUNNER_TEMP/smoke/bin/sloads" --list
+          "$RUNNER_TEMP/smoke/bin/python" -c "import os, oracle; p = oracle.entry_point_path(); assert os.path.isfile(p), p; print('oracle entry point', p)"
+
+      - name: Attach the files to the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            python scripts/release_notes.py "$TAG" > "$RUNNER_TEMP/notes.md"
+            gh release create "$TAG" dist/* --title "sloads ${TAG#v}" --notes-file "$RUNNER_TEMP/notes.md"
+          fi
+          gh release view "$TAG" --json tagName,assets --jq '"\(.tagName): \([.assets[].name] | join(", "))"'

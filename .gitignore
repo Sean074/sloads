@@ -6,6 +6,10 @@ __pycache__/
 .ruff_cache/
 .coverage
 *.egg-info/
+# `python -m build` outputs (#396): the release workflow builds the wheel and
+# the sdist on the runner; a local build must never be committed.
+build/
+dist/
 reference/
 projects/
 scrap*
