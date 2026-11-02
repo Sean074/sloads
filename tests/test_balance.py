@@ -174,6 +174,7 @@ _WING_CASES = [("PHAA", ""), ("PLAA", ""), ("PMAA", ""), ("NMAA", "")]
 _NOTE_62_CASES = {
     "ga6_normal.project.json": [("NHAA", ""), ("NLAA", ""), ("PNZ", ""), ("NNZ", "")],
     "atr42_100.project.json": [("NHAA", ""), ("NLAA", ""), ("PNZ", ""), ("NNZ", "")],
+    "atr42_300_seed.project.json": [("NHAA", ""), ("NLAA", ""), ("PNZ", ""), ("NNZ", "")],
     # baron_58 since #292 (note 63 D-63.7, 2026-09-18): NHAA and NLAA are
     # delivered at the seeded `mzfw aft` / `mzfw fwd` loadings and assemble;
     # PNZ stays on the non-derivable `fwd regardless` and is the record's.
@@ -200,6 +201,11 @@ _EXPECTED_CASES = {
     "atr42_100.project.json": _WING_CASES + [
         ("ACRL", "R"), ("ACRL", "L"), ("TORS", ""),
     ] + _NOTE_62_CASES["atr42_100.project.json"]
+      + _UNSYMMETRICAL_CASES + _LATERAL_CASES,
+    # the sconfig re-sizing of the ATR (#403): the same case set as its baseline
+    "atr42_300_seed.project.json": _WING_CASES + [
+        ("ACRL", "R"), ("ACRL", "L"), ("TORS", ""),
+    ] + _NOTE_62_CASES["atr42_300_seed.project.json"]
       + _UNSYMMETRICAL_CASES + _LATERAL_CASES,
     # baron_58 entered the walk 2026-09-11 (#271, EXAMPLES made structural):
     # one derivable loading ("aft gross"), so the wing families and the
@@ -252,6 +258,7 @@ _GROUND_FULL = (_GROUND_SYMMETRIC[:9] + _GROUND_ONE_WHEEL
 _EXPECTED_GROUND_CASES = {
     "ga6_normal.project.json": _GROUND_FULL,
     "atr42_100.project.json": _GROUND_FULL,
+    "atr42_300_seed.project.json": _GROUND_FULL,
     "baron_58.project.json": _GROUND_FULL,
     "concept_heavy.project.json": [],
     "concept_regional_jet.project.json": _GROUND_FULL,
@@ -286,6 +293,10 @@ _PITCH_RESIDUAL_RATCHET = {
                                 "unsymmetrical": 0.0005},
     "atr42_100.project.json": {"symmetric": 0.0025, "lateral": 0.0010,
                                "unsymmetrical": 0.0065},
+    # atr42_300_seed measured 2026-11-01 (#403, the sconfig re-sizing): symmetric
+    # 0.177 % (PHAA at `mzfw aft`), lateral 0.042 %, trim half 0.030 %.
+    "atr42_300_seed.project.json": {"symmetric": 0.0020, "lateral": 0.0005,
+                                    "unsymmetrical": 0.0005},
     # baron_58 measured 2026-09-11 (#271): symmetric (TORS) 0.542 %, lateral
     # 0.528 % -- above the other type fixtures, the documented fixture-data
     # pattern; no unsymmetrical family assembles (shape-keeping placeholder).
@@ -365,6 +376,10 @@ _FORCE_RESIDUAL_RATCHET = {
     # 0.55 %; ratchets re-pinned to those.
     "atr42_100.project.json": {"symmetric": 0.0220, "lateral": 0.0060,
                                "unsymmetrical": 0.0140},
+    # atr42_300_seed measured 2026-11-01 (#403): PHAA at `mzfw aft` 2.321 %
+    # (n 2.61 where the baseline flies 2.5), lateral 0.520 %, trim half 0.159 %.
+    "atr42_300_seed.project.json": {"symmetric": 0.0240, "lateral": 0.0060,
+                                    "unsymmetrical": 0.0020},
     # baron_58 measured 2026-09-11 (#271): symmetric 0.191 %, lateral 0.117 %.
     # Re-measured 2026-09-18 (#292): the eight wing slots now assemble at the
     # seeded MZFW loadings; symmetric 1.289 % (NLAA at `mzfw fwd`, the
@@ -424,6 +439,8 @@ FORCE_RESIDUAL_CEILING = FORCE_RESIDUAL_ACCEPTANCE
 _CLAMPED_BODY_AXIAL = {
     # atr42_100 re-measured 2026-09-21 (#260): NMAA no longer clamps.
     "atr42_100.project.json": {"NHAA": (0.0020, 0.0150)},
+    # atr42_300_seed measured 2026-11-01 (#403): its NHAA clamps at 0.024 % / 0.813 %.
+    "atr42_300_seed.project.json": {"NHAA": (0.0005, 0.0090)},
     # baron_58 dropped 2026-10-03 (#331): at the POH's 4.2 its NHAA moved to
     # STALL -1G at 20,000 ft, alpha -11.8 deg, aft (dCD -0.0011), unclamped.
     "concept_heavy.project.json": {"NHAA": (0.0030, 0.0070)},
@@ -1173,6 +1190,9 @@ _DELTA_CD_BAND = {
     # atr42_100 re-pinned 2026-09-21 (#260): PHAA -0.1248 at `mzfw aft` on
     # the reconciled wing, CLmax 1.8 and CD0 0.032; NHAA +0.0209.
     'atr42_100.project.json': (-0.1260, +0.0215),
+    # atr42_300_seed measured 2026-11-01 (#403): PHAA -0.1379 at `mzfw aft`, the
+    # clamped NHAA +0.0120.
+    'atr42_300_seed.project.json': (-0.1385, +0.0125),
     # baron_58 re-pinned 2026-09-18 (#292): the eight wing slots assemble at
     # the seeded MZFW loadings (PHAA -0.0726 at `mzfw aft`, NMAA -0.0086 at
     # `mzfw fwd`; the clamped NHAA -0.0002); before, only TORS and the
@@ -1794,6 +1814,7 @@ _WING_SPAN_ROLL_SHARE = {
     # ``ACRL`` couple is derived from condition A where none was entered.
     # Measured; the shape half of the gate holds to 1e-15 on each.
     "atr42_100.project.json": 0.622080,
+    "atr42_300_seed.project.json": 0.598306,   # #403: the T-tail is 12.65 in higher and the wing 50 lb lighter
     "baron_58.project.json": 0.529069,
     "concept_heavy.project.json": 0.383907,
 }
@@ -1925,7 +1946,8 @@ def _oeo_history(project):
 #: case -- the two producers do not meet on any single fixture, and a gate
 #: parametrised over the balanced-case fixtures would have skipped itself into
 #: vacuity on every run.
-_WITH_ONE_ENGINE_OUT = ("atr42_100.project.json", "baron_58.project.json")
+_WITH_ONE_ENGINE_OUT = ("atr42_100.project.json", "atr42_300_seed.project.json",
+                        "baron_58.project.json")
 
 
 def test_g1_has_a_producer_to_check_against():
@@ -2001,6 +2023,11 @@ _CLOSURE_IZZ = {
     'atr42_100.project.json': {'fwd gross': 312383.9, 'aft gross': 278340.1,
                                'min weight': 139455.1, 'fwd regardless': 142120.4,
                                'mzfw aft': 155699.7},
+    # atr42_300_seed measured 2026-11-01 (#403): the seed's cases close on
+    # `mzfw fwd` where the baseline's close on `fwd regardless`.
+    'atr42_300_seed.project.json': {'fwd gross': 306975.9, 'aft gross': 356039.7,
+                                    'min weight': 158270.0, 'mzfw fwd': 183464.2,
+                                    'mzfw aft': 186292.0},
     # The Baron's two MZFW loadings first assemble at #292 (note 63 D-63.5/
     # D-63.7), measured 2026-09-18; the RJ's `fwd regardless` likewise (NMAA).
     # #309: `fwd gross` first assembles (SIDE GUST), entered with no ballast.
@@ -2113,6 +2140,7 @@ def test_a_symmetric_case_reduces_to_three_dof(example):
 _ACRL_LATERAL = {
     'ga6_normal.project.json': {"companion_fy_lb": 77.83, "r_dot_deg_s2": 16.402},
     'atr42_100.project.json': {"companion_fy_lb": 455.59, "r_dot_deg_s2": 6.255},
+    'atr42_300_seed.project.json': {"companion_fy_lb": 504.44, "r_dot_deg_s2": 9.625},   # #403, measured 2026-11-01
     # #331: ACRL flies at VA, 161.0 -> 172.8 KEAS with the POH's 4.2 (x1.151).
     'baron_58.project.json': {"companion_fy_lb": 29.56, "r_dot_deg_s2": 5.369},
     'concept_heavy.project.json': {"companion_fy_lb": 274.78, "r_dot_deg_s2": 2.637},
@@ -2352,6 +2380,14 @@ _LATERAL_CASE_NUMBERS = {
         'YAW 15 NEUTRAL': (-7256.7905, -0.197104, -45.135150, +17.876800),
         'YAW TO SIDESLIP': (-3046.4009, -0.082744, -15.711757, +7.645387),
     },
+    # atr42_300_seed measured 2026-11-01 (#403): VC 250 and the taller fin
+    # (span 167.9 in) raise every fin load 13 % over the baseline's.
+    'atr42_300_seed.project.json': {
+        'SIDE GUST': (7610.2908, +0.206706, +48.391505, -18.299114),
+        'SUDDEN RUDDER': (7246.6208, +0.196828, +40.128125, -16.145661),
+        'YAW 15 NEUTRAL': (-8232.6923, -0.223611, -42.536157, +18.626501),
+        'YAW TO SIDESLIP': (-3455.8791, -0.093866, -15.168878, +8.068790),
+    },
     'dhc8_dash8.project.json': {
         'SIDE GUST': (4527.1258, +0.131221, +32.818008, -12.523604),
         'SUDDEN RUDDER': (3491.5168, +0.101203, +26.277244, -9.931064),
@@ -2510,6 +2546,7 @@ _UNSYMMETRICAL_SPLIT = {
     'ga6_normal.project.json': (-700.2880318468195, -504.20738292971004, 72.0),
     'cessna_210.project.json': (-687.2978354106667, -494.85444149568, 72.0),
     'atr42_100.project.json': (-4375.503788118154, -3500.4030304945236, 80.0),   # #260; re-pinned at #389 (the stabiliser is the airplane's, 125.0 sq ft)
+    'atr42_300_seed.project.json': (-4939.418084157953, -3951.5344673263626, 80.0),   # #403: Sh 127.0 sq ft, n 2.61
     'dhc8_dash8.project.json': (-3302.095528143376, -2641.6764225147012, 80.0),
     # D-69.17: the RJ's elevator is now an entered polyline whose integrated
     # hinge areas land on the former typed 4.0/30.0 within the construction

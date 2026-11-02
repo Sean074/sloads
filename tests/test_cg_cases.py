@@ -260,6 +260,7 @@ def test_ground_coverage_matches_what_the_plan_measured():
         "baron_58": (3, 3),
         "concept_regional_jet": (3, 3),
         "atr42_100": (3, 3),
+        "atr42_300_seed": (3, 3),
     }, got
 
 

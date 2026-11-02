@@ -48,6 +48,7 @@ FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 #: fails when a fixture is added or removed without a deliberate regeneration.)
 EXAMPLES = (
     "atr42_100.project.json",
+    "atr42_300_seed.project.json",
     "baron_58.project.json",
     "concept_heavy.project.json",
     "concept_regional_jet.project.json",

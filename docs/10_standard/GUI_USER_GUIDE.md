@@ -393,6 +393,7 @@ Load any of these from the sidebar's **Project file → Open → New from exampl
 | `baron_58` | FAR 23 Normal (light twin) | full workflow |
 | `concept_regional_jet` | concept jet (T-tail, Part 25 supplement on, **25.335(b) Mach-margin dive speed**) | full workflow |
 | `atr42_100` | concept twin-turboprop (one-engine-out) | full workflow |
+| `atr42_300_seed` | the same airplane re-sized by sconfig (T-tail on its fin, Part 25 supplement on; sources: `atr42_300_seed.sources.md`) | full workflow |
 | `concept_heavy` | **minimal concept core** | V-n → Flight Envelope only |
 
 `concept_heavy` is deliberately minimal — it carries just the weight / geometry /

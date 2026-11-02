@@ -466,6 +466,7 @@ def test_no_one_model_warning_fires_on_a_shipped_fixture_but_the_barons_one():
             if w.code == "wing_case_loading_not_derivable")
     assert fired == {
         "atr42_100.project.json": [],
+        "atr42_300_seed.project.json": [],
         "baron_58.project.json": ["fwd regardless"],
         "concept_heavy.project.json": [],
         "concept_regional_jet.project.json": [],

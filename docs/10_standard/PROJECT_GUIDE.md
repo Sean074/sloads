@@ -325,6 +325,8 @@ FAR23LOADS/
 │   ├── baron_58.project.json     # light twin (category N); the twin closure lock
 │   ├── atr42_100.project.json    # ATR 42-300 turboprop twin (concept mode, category C); sources: atr42_100.sources.md
 │   ├── atr42_100.sources.md      # its data-sources register (published values cited, estimates tagged)
+│   ├── atr42_300_seed.project.json  # the ATR re-sized by sconfig (the sconfig → sloads seed path, #403); sources: atr42_300_seed.sources.md
+│   ├── atr42_300_seed.sources.md    # what sconfig set, what it carried over, and the #403 corrections
 │   ├── concept_heavy.project.json     # 18,000 lb concept commuter twin (concept mode, category C)
 │   └── concept_regional_jet.project.json  # concept regional jet — the T-tail / lateral fixture
 │   # (cessna_210 and dhc8_dash8 retired to unmaintained parking at #264,

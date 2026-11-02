@@ -174,6 +174,7 @@ def test_stations_at_the_same_x_merge_into_one_node():
 #: to the pound, so no fixture carries an override (G-63.4).
 _DERIVED_PANEL = {
     "atr42_100.project.json": 1750.0,   # 3,500 lb wing since #260
+    "atr42_300_seed.project.json": 1725.0,   # 3,450 lb wing, sconfig-sized (#403)
     "baron_58.project.json": 280.0,
     "concept_heavy.project.json": 900.0,
     "concept_regional_jet.project.json": 2100.0,
