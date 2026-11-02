@@ -226,6 +226,24 @@ def test_the_docs_only_predicate_admits_docs_and_rejects_everything_else():
     assert "DOCS_ONLY=0; break" in src
 
 
+def test_a_docs_only_closure_pushes_with_skip_ci_and_nothing_else_does():
+    """#416. The advisory run on a milestone branch takes over an hour and a
+    Markdown edit cannot change it, so a docs-only change set commits with
+    GitHub's ``[skip ci]`` marker in the body. The marker hangs on the same
+    ``DOCS_ONLY`` predicate that sizes the gate — ``--full-gate`` already puts
+    the change set on the other arm, so a forced full gate also runs CI — and
+    the dry-run says so."""
+    src = _read(_CLOSE)
+    assert 'SKIP_CI_NOTE=""\n  if [[ $DOCS_ONLY -eq 1 ]]; then\n    SKIP_CI_NOTE="[skip ci]' in src, (
+        "the [skip ci] body line must sit inside the DOCS_ONLY arm, never unconditionally"
+    )
+    assert 'git commit -q -m "$MSG" -m "$SKIP_CI_NOTE"' in src
+    assert src.count("[skip ci]") >= 3, "the header, the dry-run and the commit all name the marker"
+    res = _bash(_CLOSE, "--dry-run", "--slug", "some-slug", "27", "Subject")
+    assert res.returncode == 0, res.stderr
+    assert "[skip ci]" in res.stdout and "--full-gate runs CI" in res.stdout
+
+
 def test_close_honours_suffix_and_date_and_rejects_a_bad_date():
     res = _bash(_CLOSE, "--dry-run", "--slug", "s", "--suffix",
                 "backlog Pri 9, tier S, 2026-08-17", "28", "X")
