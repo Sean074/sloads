@@ -20,9 +20,22 @@ this file assumes that tree:
 
 ```bash
 git clone https://github.com/Sean074/sloads.git && cd sloads
-python3.12 -m venv .venv && .venv/bin/pip install -e '.[dev]'   # not `python3`: whatever that resolves to is refused
+python3.12 -m venv .venv && .venv/bin/pip install -e ".[dev]"   # not `python3`: whatever that resolves to is refused
 .venv/bin/sloads-oracle                                          # the GUI (or: .venv/bin/streamlit run oracle_app/Oracle.py)
 .venv/bin/sloads engine examples/ga6_normal.project.json -o engine_loads.csv   # one CLI case: the manual's Appendix A airplane
+```
+
+The same steps on Windows, where the python.org installer's versioned command
+is `py -3.12` and the venv's programs are under `.venv\Scripts\` — one command
+per line, because `&&` is not in every Windows shell:
+
+```bat
+git clone https://github.com/Sean074/sloads.git
+cd sloads
+py -3.12 -m venv .venv
+.venv\Scripts\pip install -e ".[dev]"
+.venv\Scripts\sloads-oracle
+.venv\Scripts\sloads engine examples\ga6_normal.project.json -o engine_loads.csv
 ```
 
 **To run the program alone**, install the wheel that every tag's
@@ -38,9 +51,9 @@ The wheel ships the GUI and the CLI but not `examples/`: the CLI line above
 then takes a `project.json` saved from the GUI, or one downloaded from the
 repository's [`examples/`](examples/) folder.
 
-On Windows the venv's programs are under `.venv\Scripts\` instead of
-`.venv/bin/`. The editable install registers `sloads` and the `cli` module on
-`sys.path`, so imports work from anywhere, including inside Streamlit.
+On Windows the wheel install takes the same two substitutions, `py -3.12` and
+`sloads-env\Scripts\`. Either install registers `sloads` and the `cli` module
+on `sys.path`, so imports work from anywhere, including inside Streamlit.
 
 Where to read next:
 
@@ -125,7 +138,7 @@ cspell.json               # domain wordlist
 ## Developing
 
 `pyproject.toml` is the single dependency source — `pip install -e .` for the
-runtime set, `pip install -e '.[dev]'` for the supported developer install (a
+runtime set, `pip install -e ".[dev]"` for the supported developer install (a
 second `requirements.txt` list was deleted at 0.5.0 because it had drifted from
 it). The green-build gate, run from the venv:
 

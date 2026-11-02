@@ -1822,7 +1822,7 @@ the applied load set (`applied_loads("htail"|"vtail", ...)`), GID bands `4001+`
   elementless deck: `roundtrip.py` supplied invented elements so a deck that was
   a load set on a node cloud could be solved at all, and the LRA model writes
   its own, so it is handed to the solver exactly as it ships. The solver enters
-  as a pinned optional extra, `pip install -e '.[solver]'`.
+  as a pinned optional extra, `pip install -e ".[solver]"`.
 - **CLI — the whole deliverable menu is headless (0.5.0 row 1, review F-D1).**
   `python cli.py --export-sbeam <prefix> <project.json> --export-target <t>`,
   where `<t>` is one of `lra` (the LRA beam model, the mission's primary

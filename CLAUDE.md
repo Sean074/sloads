@@ -112,7 +112,7 @@ Additional rules (rationale in `docs/50_reviews/`):
 
 ## Commands
 
-Local venv at `.venv/`; editable install (`pip install -e '.[dev]'`); no `sys.path` shims.
+Local venv at `.venv/`; editable install (`pip install -e ".[dev]"`); no `sys.path` shims.
 
 ```bash
 .venv/bin/python -m pytest                   # whole suite (testpaths=tests, parallel; coverage is CI-only)
