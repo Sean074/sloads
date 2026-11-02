@@ -765,19 +765,39 @@ def _ci_pytest_commands():
             if "run:" in ln and re.search(r"\bpytest\b", ln.split("run:", 1)[1])]
 
 
-def test_ci_runs_the_slow_lane():
-    """The per-item gate deselects ``slow`` (#308); CI is where those tests --
-    the PDF compiles, the GUI journeys -- still run. A ``-m "not slow"`` added
-    to a CI step would drop them from every check in silence (#322). The one
+#: The one place CI may deselect ``slow`` (#417): the advisory run on a push to
+#: a ``dev/**`` milestone branch, keyed on the ref exactly as the coverage leg
+#: is, with an EMPTY other arm -- a pull request and the push to ``main`` run
+#: everything.
+_DEV_FAST_LANE = re.compile(
+    r"""\$\{\{\s*\(github\.event_name == 'push' && startsWith\(github\.ref, 'refs/heads/dev/'\)\)"""
+    r"""\s*&&\s*'-m "not slow"'\s*\|\|\s*''\s*\}\}"""
+)
+
+
+def test_ci_runs_the_slow_lane_on_every_pull_request_and_on_main():
+    """The per-item gate deselects ``slow`` (#308); a PR and the merge push are
+    where those tests -- the PDF compiles, the GUI journeys -- still run. A
+    ``-m "not slow"`` added to a CI step would drop them from every check in
+    silence (#322). Since #417 the ``dev/**`` advisory run deselects them too,
+    through one ref-keyed expression whose other arm is empty; any other
+    spelling, or the expression on the roundtrip job, is refused. The one
     marker CI selects is ``roundtrip``, the solver job's own subset."""
     commands = _ci_pytest_commands()
     assert commands, "no pytest step found in ci.yml -- the guard would pass vacuously"
+    fast_lanes = [cmd for cmd in commands if _DEV_FAST_LANE.search(cmd)]
+    assert len(fast_lanes) == 1, (
+        f"expected the dev/** fast-lane expression on the test job's pytest step alone, "
+        f"found it on {len(fast_lanes)}: {commands!r}")
     for cmd in commands:
-        assert "slow" not in cmd, f"ci.yml deselects the slow lane: {cmd!r}"
-        for selected in re.findall(r"-m\s+(\S+)", cmd):
+        stripped = _DEV_FAST_LANE.sub("", cmd)
+        assert "slow" not in stripped, (
+            f"ci.yml deselects the slow lane outside the dev/** push arm: {cmd!r}")
+        for selected in re.findall(r"-m\s+(\S+)", stripped):
             assert selected.strip("'\"") == "roundtrip", (
                 f"ci.yml selects marker {selected} -- only the roundtrip job "
-                f"selects a subset; the test job runs everything: {cmd!r}")
+                f"selects a subset; a PR and the push to main run everything: {cmd!r}")
+    assert "roundtrip" not in fast_lanes[0], "the fast-lane expression sits on the solver job"
 
 
 def test_a_misspelt_marker_is_an_error():

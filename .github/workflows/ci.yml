@@ -82,7 +82,16 @@ jobs:
         # point; local runs stay uninstrumented and fast. `matrix.coverage` is
         # set on the 3.12 leg only (see the matrix `include` above); on the
         # other legs it expands to nothing.
-        run: pytest -q --tb=short --durations=15 ${{ matrix.coverage }}
+        #
+        # The advisory run on a `dev/**` push is the local pre-push gate, the
+        # suite less its `slow` lane (#417, 2026-11-01): the full run took
+        # 64–75 min on dev/v0.10.0, longer than the gap between closures, so
+        # `cancel-in-progress` killed five of six and the signal was never
+        # produced. A pull request and the push to `main` run everything, the
+        # slow lane included, keyed on the ref the way the coverage leg is;
+        # tests/test_ci_conformance.py refuses a `slow` deselection anywhere
+        # else. Record the measured `dev/**` time here once a few runs finish.
+        run: pytest -q --tb=short --durations=15 ${{ matrix.coverage }} ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/dev/')) && '-m "not slow"' || '' }}
 
   # Static type check of the calc package (design note 27, 2026-08-16). Its own
   # job, on the one interpreter (#327): mypy 2.x targets the running Python,
