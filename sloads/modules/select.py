@@ -1153,6 +1153,9 @@ def select_htail_maneuver(project: Project,
         return cg_map[p.cg].weight_lb * (lf_in / IN_PER_FT) ** 2 / G / 12.0 * 0.44
 
     def theta_ddot(p: VnPoint) -> float:
+        # 23.423(b) is symmetric: +/-39/V*n(n-1.5) nose-up and nose-down (Ref 1
+        # p73; CAM 3.216(c) +/-45/V, V in mph). The -26 nose-down is 25.331(c)(2)
+        # only (Lomax eq 2.38 p24), kept-conservative here (#407).
         return 39.0 * np_ * (np_ - 1.5) / p.v_eas_kt
 
     def increment(p: VnPoint) -> float:

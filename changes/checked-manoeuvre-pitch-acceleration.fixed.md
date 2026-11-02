@@ -1,0 +1,1 @@
+- **The 23.423(b) checked-manoeuvre pitch acceleration is confirmed as ±39/V·n(n−1.5) in both directions (#407, tier S, 2026-11-02).** Ref 1 p73 and CAM 3.216(c) give it. The −26 nose-down is 25.331(c)(2) only, kept conservative on Part 25 projects (CHECKED MAN UP 17–31 % high, never governing). Now cited in the theory sources.
