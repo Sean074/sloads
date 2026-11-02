@@ -55,15 +55,6 @@ from sloads.models import Project
 # --------------------------------------------------------------------------- #
 # The schema walk
 # --------------------------------------------------------------------------- #
-#: Namespace for ``get_type_hints``: ``models`` re-exports its dataclasses but
-#: the annotations also name bare ``typing`` generics, which are not in it.
-_HINT_NS: Dict[str, object] = dict(vars(_models))
-_HINT_NS.update({
-    name: getattr(typing, name)
-    for name in ("List", "Dict", "Optional", "Tuple", "Any", "Union", "Sequence",
-                 "Set", "Iterable", "Mapping")
-})
-
 #: `Project` attributes that are **not** input fields, each with the reason.
 #: Result slices are computed outputs; the rest are document metadata or a
 #: preference, none of which an origin classification is meaningful for.
@@ -211,10 +202,18 @@ def _is_list_of(annotation, cls: type, in_list: bool = False) -> bool:
 
 
 def _hints(cls: type) -> Dict[str, object]:
-    try:
-        return typing.get_type_hints(cls, _HINT_NS)
-    except Exception:  # pragma: no cover  # broad-except: unresolvable forward ref, no calc runs
-        return {f.name: f.type for f in dataclasses.fields(cls)}
+    """The resolved annotations of a dataclass, against **its own module**.
+
+    Under ``from __future__ import annotations`` every annotation is a string;
+    ``get_type_hints`` evaluates it in the globals of the module that wrote it,
+    which is the only namespace guaranteed to hold every name it uses (the
+    ``typing`` generics, sibling dataclasses, cross-package imports such as
+    ``rigid_body.InertiaTensor``). A hand-built namespace over the ``models``
+    package re-exports cannot promise that, and the silent fallback to the raw
+    strings that papered over it left `DATA_DICTIONARY.md` with two tables
+    (#409). A name that does not resolve is a defect in ``models/``: it raises.
+    """
+    return typing.get_type_hints(cls)
 
 
 def _walk(cls: type, prefix: str, stack: Tuple[str, ...]) -> List[str]:
