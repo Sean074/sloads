@@ -679,7 +679,7 @@ def _gyro_subcases(r: ConditionResult):
     """Yield (description, Myy, Mzz, thrust, vertical, case_id) for each gyro load
     case.
 
-    The 2.5g vertical load and max-continuous thrust are constant across all four
+    The 2.5g vertical load and the gyro thrust are constant across all four
     sign combinations; only the gyroscopic moments vary.
     """
     thrust = _val(_find(r.values, FX_THRUST))

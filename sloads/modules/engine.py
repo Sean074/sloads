@@ -25,10 +25,12 @@ from typing import List, Optional, Sequence, Tuple
 from ..basic import basic_int, basic_trunc3
 from ..case_ids import CaseIdAllocator
 from ..constants import (
+    FT_LB_S_PER_HP,
     GYRO_VERTICAL_LOAD_FACTOR,
     HP_TO_TORQUE,
     IN_PER_FT,
     PITCH_RATE,
+    RHO_SL,
     RPM_TO_RAD_S,
     TURBOPROP_MALFUNCTION_FACTOR,
     TURBOPROP_TORQUE_FACTOR,
@@ -422,6 +424,64 @@ def _omega(rpm: float) -> float:
     return rpm * RPM_TO_RAD_S
 
 
+def ideal_static_thrust(power_ft_lb_s: float, prop_diameter_in: float) -> float:
+    """The most thrust a propeller disc can make from a shaft power, lb (#408).
+
+    Momentum theory at V = 0 -- FLAPLOAD.BAS sub 500's own equation (Ref 1
+    Appendix C; :func:`sloads.modules.flap._slipstream_velocity`),
+    ``P = rho*A*(U1 - V)*(U1 + V)^2 / 4`` with ``T = rho*A*U1^2 / 2``, gives
+    ``T = (2*rho*A*P^2)^(1/3)``. An ideal disc makes less thrust at every
+    V > 0 and a real propeller less than the ideal, so no propeller of this
+    diameter absorbing this power exceeds it at any speed.
+    """
+    area = math.pi * (prop_diameter_in / IN_PER_FT) ** 2 / 4.0
+    return (2.0 * RHO_SL * area * power_ft_lb_s ** 2) ** (1.0 / 3.0)
+
+
+def gyro_thrust(inp: EngineInput) -> Tuple[float, str, str]:
+    """The thrust 23.371(b) / 25.371 combine with the gyro couples:
+    ``(lb, label, note sentence)``, one owner for both conditions (#408).
+
+    23.371(b) asks for **maximum continuous** thrust. With ``max_cont_hp``
+    entered it is that power over VSF, bounded by :func:`ideal_static_thrust`
+    -- P/V with no propeller efficiency has no ceiling at 60 kt (10,865 lb on
+    the ATR's 13 ft disc, whose bound is 8,203 lb). Blank, it is ENGLOADS's
+    printed arithmetic, ``max_engine_torque * omega / VSF`` (Ref 1 Appendix A,
+    4484.7 lb, ``test_gyro_thrust_matches_manual``): take-off torque at
+    eta = 1, labelled as what it is, and the note says when it exceeds the
+    ideal-disc bound. A record with no propeller disc is not bounded.
+    """
+    omega_prop = _omega(_positive(inp.max_cont_rpm, "max_cont_rpm", zero_ok=True))
+    dia = inp.prop_diameter_in
+    if inp.max_cont_hp is not None:
+        power = _positive(inp.max_cont_hp, "max_cont_hp") * FT_LB_S_PER_HP
+        thrust = power / VSF
+        if dia <= 0.0:
+            return thrust, "Max continuous thrust (MCP at VSF)", (
+                "Thrust is maximum-continuous power over VSF; the record has no "
+                "propeller disc, so no ideal-disc bound applies. ")
+        bound = ideal_static_thrust(power, dia)
+        if thrust <= bound:
+            return thrust, "Max continuous thrust (MCP, ideal-disc bound)", (
+                f"Thrust is maximum-continuous power over VSF, "
+                f"{format_value(thrust, 'lb')} lb, inside the ideal-disc bound "
+                f"{format_value(bound, 'lb')} lb. ")
+        return bound, "Max continuous thrust (MCP, ideal-disc bound)", (
+            f"Thrust is the ideal-disc bound of maximum-continuous power, "
+            f"{format_value(bound, 'lb')} lb: power over VSF "
+            f"({format_value(thrust, 'lb')} lb) exceeds what the disc can make. ")
+    power = _required(inp.max_engine_torque, "max_engine_torque") * omega_prop
+    thrust = power / VSF
+    label = "Thrust at VSF from max engine torque (ENGLOADS basis)"
+    note = ("Thrust is ENGLOADS's max engine torque x max-continuous rpm over VSF "
+            "at 100 % propeller efficiency")
+    bound = ideal_static_thrust(power, dia) if dia > 0.0 else math.inf
+    if thrust > bound:
+        note += (f", above the ideal-disc bound {format_value(bound, 'lb')} lb; "
+                 "enter max_cont_hp to bound it")
+    return thrust, label, note + ". "
+
+
 def _prop_inertia(inp: EngineInput) -> float:
     """IPROP -- propeller blade polar inertia about the shaft, slug-ft^2.
 
@@ -631,12 +691,11 @@ def condition_371_b(inp: EngineInput) -> ConditionResult:
     against a clockwise one's -- the same airplane state (note 53 D-53.6 as
     amended at #319).
     """
-    omega_prop = _omega(_positive(inp.max_cont_rpm, "max_cont_rpm", zero_ok=True))
     tpitch = angular_momentum(inp)
 
     m_yaw = YAW_RATE * tpitch     # Myy due to 2.5 rad/s yaw
     m_pitch = PITCH_RATE * tpitch  # Mzz due to 1 rad/s pitch
-    thrust = _required(inp.max_engine_torque, "max_engine_torque") * omega_prop / VSF
+    thrust, thrust_label, thrust_note = gyro_thrust(inp)
     vload = GYRO_VERTICAL_LOAD_FACTOR * combined_weight(inp)
     cg = combined_cg(inp)
 
@@ -645,7 +704,7 @@ def condition_371_b(inp: EngineInput) -> ConditionResult:
         LoadValue("Myy due to 2.5 rad/s yaw (+/-)", m_yaw, "ft-lb", key="myy_due_to_2_5_rad_s_yaw_pm"),
         LoadValue("Mzz due to 1 rad/s pitch (+/-)", m_pitch, "ft-lb", key="mzz_due_to_1_rad_s_pitch_pm"),
         LoadValue("Vertical 2.5g load", vload, "lb", key="fz_vertical_2_5g"),
-        LoadValue("Max continuous thrust", thrust, "lb", key="fx_thrust"),
+        LoadValue(thrust_label, thrust, "lb", key="fx_thrust"),
         *_applied_at(cg),
     ]
 
@@ -670,8 +729,8 @@ def condition_371_b(inp: EngineInput) -> ConditionResult:
             "FAR 23.371(b) requires all four load cases above to be assessed: "
             "every sign combination of the gyroscopic pitching (Myy) and yawing "
             "(Mzz) moments, each combined with the 2.5g vertical load and the "
-            "max-continuous thrust acting simultaneously. "
-            + gyro_point_note("2.5g vertical load")
+            "thrust acting simultaneously. "
+            + thrust_note + gyro_point_note("2.5g vertical load")
         ),
     )
 
@@ -791,7 +850,6 @@ def condition_25_371(inp: EngineInput) -> ConditionResult:
     load uses the project's actual A2 limit load factor (25.333(b)) rather than the
     fixed 2.5g, so it is not under-conservative when A2 > 2.5.
     """
-    omega_prop = _omega(_positive(inp.max_cont_rpm, "max_cont_rpm", zero_ok=True))
     tpitch = angular_momentum(inp)
 
     # Fixed FAR 23.371(b) stand-in rates -- the moment is ALWAYS computed at these
@@ -799,7 +857,7 @@ def condition_25_371(inp: EngineInput) -> ConditionResult:
     # under-prediction guard below; they do not change m_yaw/m_pitch.
     m_yaw = YAW_RATE * tpitch
     m_pitch = PITCH_RATE * tpitch
-    thrust = _required(inp.max_engine_torque, "max_engine_torque") * omega_prop / VSF
+    thrust, thrust_label, thrust_note = gyro_thrust(inp)
     vload = inp.limit_load_factor * combined_weight(inp)
     cg = combined_cg(inp)
 
@@ -807,7 +865,7 @@ def condition_25_371(inp: EngineInput) -> ConditionResult:
         LoadValue("Myy due to 2.5 rad/s yaw (+/-)", m_yaw, "ft-lb", key="myy_due_to_2_5_rad_s_yaw_pm"),
         LoadValue("Mzz due to 1 rad/s pitch (+/-)", m_pitch, "ft-lb", key="mzz_due_to_1_rad_s_pitch_pm"),
         LoadValue("Vertical limit-load (A2) load", vload, "lb", key=FZ_VERTICAL_A2),
-        LoadValue("Max continuous thrust", thrust, "lb", key="fx_thrust"),
+        LoadValue(thrust_label, thrust, "lb", key="fx_thrust"),
         *_applied_at(cg),
     ]
     for case, (syaw, spitch) in enumerate(GYRO_SIGNS, start=1):
@@ -824,8 +882,8 @@ def condition_25_371(inp: EngineInput) -> ConditionResult:
         "yaw, 1 rad/s pitch) used in lieu of the 25.371 maneuver-derived rates; "
         "valid while the concept's actual rates stay at or below these. All four "
         "sign combinations of Myy/Mzz are combined with the A2 vertical load and "
-        "max-continuous thrust acting simultaneously. "
-        + gyro_point_note("A2 vertical load")
+        "thrust acting simultaneously. "
+        + thrust_note + gyro_point_note("A2 vertical load")
     )
 
     # Guard: if the concept declares a real 25.371 body rate above the fixed

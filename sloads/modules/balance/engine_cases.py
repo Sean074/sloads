@@ -11,7 +11,7 @@ with a flight state of the whole airplane:
 * 23.361(a)(1): take-off torque "acting simultaneously with 75 percent of the
   limit loads from flight condition A"; (a)(2): max-continuous torque with
   100 %; (a)(3) and FAR 25.361(a)(3)(i)/(ii): with "1 g level flight loads";
-* 23.371(b): the gyroscopic couples, max-continuous thrust and n = 2.5; FAR
+* 23.371(b): the gyroscopic couples, the gyro thrust (``engine.gyro_thrust``) and n = 2.5; FAR
   25.371 the same at the A2 load factor.
 
 **The case is a scaled parent plus the engine increment** (D-66.4/D-66.5). The
@@ -41,7 +41,7 @@ input, not the condition's own thrust, which the increment carries.
 
 **A gyroscopic case applies every engine at one airplane state** (D-66.4a,
 #319). 23.371(b) is a flight state -- a yaw rate, a pitch rate, n = 2.5 and
-max-continuous thrust -- and every engine is in it: each engine's ENGLOADS
+the gyro thrust -- and every engine is in it: each engine's ENGLOADS
 thrust at its hub and gyroscopic couples at its mount, at the sub-case with
 the same airplane rates -- the same sub-case, whose signs are the rates on
 every engine (:data:`~sloads.modules.engine.GYRO_SIGNS`; a counter-rotating
@@ -122,7 +122,7 @@ EM_MOUNT_LOCAL: Tuple[str, ...] = ("23.363(a)&(b)", "23.361(b)(1)")
 #: The free couple that trims the propeller torque in roll (note 21 P-9).
 AILERON_TRIM_SOURCE = "aileron-trim"
 
-#: The 23.371 / 25.371 max-continuous thrust an EM gyroscopic case applies at
+#: The 23.371 / 25.371 gyro thrust (``engine.gyro_thrust``) an EM gyroscopic case applies at
 #: the hub. Its own source, not the entered hub thrust's (#10,
 #: ``HUB_THRUST_SOURCE``): that one is a project input every flight family
 #: carries, this one is ENGLOADS's number for one condition.

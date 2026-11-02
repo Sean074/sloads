@@ -353,9 +353,9 @@ def test_each_gyroscopic_sign_case_has_its_own_id():
 @pytest.mark.parametrize("name", ("atr42_100", "concept_regional_jet"))
 def test_a_gyroscopic_case_thrusts_every_engine_and_yaws_on_none(name):
     """**G-66.17** (D-66.4a, #319): each 23.371(b)/25.371 case carries every
-    engine's max-continuous thrust, so on a symmetric installation the thrusts'
+    engine's gyro thrust, so on a symmetric installation the thrusts'
     yawing moment about the CG is zero -- before #319 the ATR's case thrust its
-    own engine alone, 10,865 lb at y = +/-161 in, a 1.75 M lb-in yaw. The net
+    own engine alone at y = +/-161 in (10,865 lb then, before #408's bound). The net
     axial force is stated in band."""
     project, cases, _ = _built(name)
     gyros = [c for c in _em(cases) if any(ld.source == "engine-gyro" for ld in c.loads)]

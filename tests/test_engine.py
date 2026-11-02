@@ -332,6 +332,80 @@ def test_gyro_thrust_matches_manual():
     assert math.isclose(value_of(r, "fx_thrust"), 4484.7, abs_tol=1.0)
 
 
+# --------------------------------------------------------------------------- #
+# Gyroscopic thrust basis (#408, review P-6): max-continuous power, ideal-disc bound
+# --------------------------------------------------------------------------- #
+def _example(name):
+    from sloads import io
+    examples = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")
+    return io.load_project(os.path.join(examples, f"{name}.project.json"))
+
+
+def test_ideal_static_thrust_is_flaploads_momentum_equation_at_rest():
+    """The bound is FLAPLOAD.BAS sub 500's momentum equation (Ref 1 Appendix C)
+    at V = 0: the wake velocity U1 that absorbs P through the disc,
+    ``P = rho*A*U1^3/4``, makes ``T = rho*A*U1^2/2`` -- solved here for U1 and
+    checked against the flap module's own power expression."""
+    from sloads.constants import FT_LB_S_PER_HP, RHO_SL
+    hp, dia_in = 1700.0, 156.0
+    area = math.pi * (dia_in / 12.0) ** 2 / 4.0
+    u1 = (4.0 * hp * FT_LB_S_PER_HP / (RHO_SL * area)) ** (1.0 / 3.0)
+    # flap._slipstream_velocity's absorbed power at VF = 0
+    assert math.isclose(area * RHO_SL * u1 * u1 ** 2 / (4.0 * FT_LB_S_PER_HP), hp, rel_tol=1e-12)
+    assert math.isclose(calc.ideal_static_thrust(hp * FT_LB_S_PER_HP, dia_in),
+                        RHO_SL * area * u1 ** 2 / 2.0, rel_tol=1e-9)
+
+
+def test_gyro_thrust_never_exceeds_the_ideal_disc_bound():
+    """**Closure gate (#408)**: on every shipped turboprop that enters its
+    max-continuous power, the delivered gyro thrust is no more than an ideal
+    disc of its diameter makes from that power -- a real propeller makes less."""
+    import glob
+    from sloads import io
+    from sloads.constants import FT_LB_S_PER_HP
+    examples = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")
+    checked = 0
+    for path in sorted(glob.glob(os.path.join(examples, "*.project.json"))):
+        for eng in calc.resolved_engines(io.load_project(path)):
+            if not eng.is_turboprop or eng.max_cont_hp is None or eng.prop_diameter_in <= 0:
+                continue
+            bound = calc.ideal_static_thrust(eng.max_cont_hp * FT_LB_S_PER_HP, eng.prop_diameter_in)
+            for cond in (calc.condition_371_b(eng), calc.condition_25_371(eng)):
+                assert value_of(cond, "fx_thrust") <= bound * (1.0 + 1e-9), (path, cond.far_reference)
+            checked += 1
+    assert checked >= 2  # both ATR fixtures, both engines each -- never vacuous
+
+
+def test_atr_gyro_thrust_is_its_max_continuous_ideal_disc_bound():
+    """The ATR's PW120 at 1700 shp max continuous through the 156 in disc:
+    P = 1700 x 550 = 935,000 ft-lb/s, A = pi x 13^2 / 4 = 132.73 sq ft,
+    T = (2 x 0.002378 x 132.73 x 935,000^2)^(1/3) = 8202.5 lb. Power over VSF
+    is 9239 lb, so the bound governs; before #408 the take-off torque at
+    eta = 1 delivered 10,865 lb, labelled max continuous."""
+    eng = calc.resolved_engines(_example("atr42_100"))[0]
+    r = calc.condition_371_b(eng)
+    assert math.isclose(value_of(r, "fx_thrust"), 8202.5, rel_tol=TOL)
+    label = next(v.label for v in r.values if v.key == "fx_thrust")
+    assert label == "Max continuous thrust (MCP, ideal-disc bound)"
+    assert "ideal-disc bound of maximum-continuous power" in r.note
+
+
+def test_engloads_basis_is_labelled_and_flagged_above_the_bound():
+    """Blank ``max_cont_hp`` keeps ENGLOADS's printed arithmetic (the oracle
+    above, 4484.7 lb) under a label that says what it is, and the note says the
+    value exceeds the 101 in disc's ideal bound at that power (3792 lb)."""
+    r = calc.condition_371_b(turboprop())
+    label = next(v.label for v in r.values if v.key == "fx_thrust")
+    assert label == "Thrust at VSF from max engine torque (ENGLOADS basis)"
+    assert "above the ideal-disc bound 3792 lb; enter max_cont_hp" in r.note
+
+
+def test_gyro_thrust_has_one_owner_for_23_371_and_25_371():
+    for eng in (turboprop(), calc.resolved_engines(_example("atr42_100"))[0]):
+        assert value_of(calc.condition_25_371(eng), "fx_thrust") == value_of(
+            calc.condition_371_b(eng), "fx_thrust") == calc.gyro_thrust(eng)[0]
+
+
 def test_turboprop_runs_six_conditions():
     assert len(run_all(turboprop())) == 6
 
