@@ -134,8 +134,12 @@ _FROZEN_PICKS = {
     # type's wing area, CLmax and mass model, its cases re-seeded, so every
     # air pick moved (the delivered runs re-point to `mzfw aft`, D-63.7).
     "atr42_100": {
-        "NHAA": ("STALL -N", -1.00, 153.94, "fwd gross", 0.0, 36821.5),
-        "NMAA": ("MAN -C", -1.00, 240.00, "fwd gross", 12000.0, 36447.1),
+    # Re-pinned 2026-11-01 (#420, the certified 12-38 % limits): `fwd gross`
+    # moved 3 % MAC forward, so NHAA's STALL -N point is the 12,000 ft one and
+    # NMAA's narrowing pick moves to the 25,000 ft MAN -C; the `min weight`
+    # picks stand.
+        "NHAA": ("STALL -N", -1.00, 153.98, "fwd gross", 12000.0, 36964.8),
+        "NMAA": ("MAN -C", -1.00, 183.28, "fwd gross", 25000.0, 36932.1),
         "NLAA": ("GUST -D", -0.61, 300.0, "min weight", 12000.0, 14276.8),
         "PNZ": ("GUST +C", +3.41, 240.0, "min weight", 12000.0, 80493.7),
         "NNZ": ("GUST -C", -1.41, 240.0, "min weight", 12000.0, 32061.3),

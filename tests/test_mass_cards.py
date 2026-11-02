@@ -178,7 +178,9 @@ _MZFW_JET = ["mzfw aft", "full fuel aft"]
 _DERIVABLE = {
     "ga6_normal.project.json": ["CG1", "CG2", "CG3", "CG4"],
     "atr42_100.project.json": _WTENV_FLIGHT + _MZFW_ATR,
-    "atr42_300_seed.project.json": _WTENV_FLIGHT + _MZFW_ATR,
+    # #420: on the certified 38 % aft line the seed's full-fuel search lands on
+    # the `aft gross` limit point itself, so D-63.5 writes no `full fuel aft`.
+    "atr42_300_seed.project.json": _WTENV_FLIGHT + ["mzfw aft", "mzfw fwd"],
     # #309 (2026-09-29): `fwd gross` is entered as the no-ballast loading two
     # part-filled rows give; `fwd regardless` is no loading of the airplane.
     "baron_58.project.json": ["aft gross", "fwd gross"] + _MZFW_BARON,
@@ -202,7 +204,7 @@ _DERIVABLE = {
 _ENTERED = {
     "concept_heavy.project.json": ["CGmax"],
     "atr42_100.project.json": _WTENV_FLIGHT + _MZFW_ATR,
-    "atr42_300_seed.project.json": _WTENV_FLIGHT + _MZFW_ATR,   # #403: re-entered as found after the re-seed
+    "atr42_300_seed.project.json": _WTENV_FLIGHT + ["mzfw aft", "mzfw fwd"],   # #403 re-entered as found; #420 no full fuel aft
     "baron_58.project.json": ["fwd gross"] + _MZFW_BARON,
     "concept_regional_jet.project.json": _WTENV_FLIGHT + _MZFW_JET,
 }

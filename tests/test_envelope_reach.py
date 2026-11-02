@@ -102,8 +102,12 @@ def test_appendix_a_is_reached_with_its_own_ballast():
         assert (r.ballast_fraction or 0.0) <= BALLAST_CREDIBLE_FRACTION
 
 
+#: The ATR point moved from `fwd light` to `fwd gross` at #420: on the
+#: certified 12 % forward line the light loading reaches its station with no
+#: ballast (fwd_x 383.53 against 383.54), and the gate needs a point that
+#: closes only with some (`fwd gross`, 280 lb).
 @pytest.mark.parametrize("name,point", [("ga6_normal", "CG3"), ("ga6_normal", "CG2"),
-                                        ("atr42_100", "fwd light"),
+                                        ("atr42_100", "fwd gross"),
                                         ("concept_regional_jet", "aft gross")])
 def test_the_least_ballast_is_exact(name, point):
     """R-3: ``b`` closes the point with the ballast at the fuselage's end and
