@@ -107,7 +107,6 @@ tier-S commit and states its reasoning in the milestone description.
 | Pri | Item (detail below / in its plan) | What ships | Tag | Tier / effort | Depends on |
 |---|---|---|---|---|---|
 | **B11 — 0.10.0: loads correctness on the Part 23 method, for ATR-sized airplanes (re-chartered 2026-11-01 after the physics review)** ||||||
-| 5 | **README: quickstart first, phase narrative after** (#394) | The first screen is install (one command), run the GUI, run one CLI case, where the guide lives; the narrative moves below or into `docs/` | E | S / S | #395 |
 | 6 | **Ten tags, no wheel, no GitHub release** (#396) | A release workflow (or a documented manual step) that builds the wheel on tag and attaches it to a GitHub release with that version's changelog section; v0.9.0 first, retroactively | E | S / S | — |
 | 7 | **One clean install on another machine from the README alone** (#397) | On a machine that has never seen sloads (the Mini counts), follow the README on macOS and on Windows, run the GUI and one CLI case, file each break as its own issue | E | S / S | #394, #395, #396 |
 | 8 | **The ATR 42-300 seed fixture's input errors and its round-trip failures, before it is committed (review A-4, T-1)** (#403) | Seed corrected per the table with sources, registered in the fixture guards, the round-trip failures diagnosed and fixed at their cause, suite green with the seed committed | E | S / M | #401 (N cleared per note 72 Q3) |
