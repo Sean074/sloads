@@ -1,23 +1,60 @@
 # sloads
 
-A modern Python + Streamlit replication of the **FAR 23 LOADS** suite
-(Hal C. McMaster, Aero Science Software) — the 22-program package that computes
-the structural design loads a small aircraft must sustain under **FAR Part 23
-Subpart C — Structure** — being grown into an **initial-concept distributed-loads
-tool**: a `concept` mode that can exceed the FAR23 weight/seat limits, assessment
-against similar airplanes, per-component distributed loads (wing / body / tail +
-simplified control-surface distributions), and export to **sbeam** for structural
-sizing. The FAR23 replication core stays validated against the manual; concept
-mode is a superset of it. See
+A modern Python + Streamlit replication of the **FAR 23 LOADS** suite (Hal C.
+McMaster, Aero Science Software): the structural design **limit** loads of a
+small aircraft under FAR Part 23 Subpart C, from one `project.json`, through a
+page-per-step GUI or a CLI, out to load-case tables, a technical report and an
+**sbeam** beam-model deck for sizing. The FAR23 core is validated against the
+manual's printed worked examples; a `concept` mode grows it toward larger
+airplanes. **License:** MIT (see [LICENSE](LICENSE)).
+
+## Quickstart
+
+**Python 3.12, and only 3.12.** The developer's gate and CI run one
+interpreter, so a byte that differs between two Pythons cannot pass one and fail
+the other (#327); `pip` refuses any other version, and so does the test suite.
+
+```bash
+python3.12 -m venv .venv && .venv/bin/pip install -e '.[dev]'   # not `python3`: whatever that resolves to is refused
+.venv/bin/sloads-oracle                                          # the GUI (or: .venv/bin/streamlit run oracle_app/Oracle.py)
+.venv/bin/sloads engine examples/ga6_normal.project.json -o engine_loads.csv   # one CLI case: the manual's Appendix A airplane
+```
+
+On Windows the venv's programs are under `.venv\Scripts\` instead of
+`.venv/bin/`. The editable install registers `sloads` and the `cli` module on
+`sys.path`, so imports work from anywhere, including inside Streamlit.
+
+Where to read next:
+
+- **Using the GUI, page by page:** [`docs/60_guide/00_index.md`](docs/60_guide/00_index.md)
+  (start at [Getting started](docs/60_guide/01_getting_started.md)); the
+  task-oriented guide to the whole application, including the report and the
+  sbeam deck, is [`docs/10_standard/GUI_USER_GUIDE.md`](docs/10_standard/GUI_USER_GUIDE.md).
+- **What ships and what every number means:** [`CAPABILITIES.md`](CAPABILITIES.md);
+  the conventions (axes, signs, units, the limit/ultimate contract) are
+  [`docs/10_standard/CONVENTIONS.md`](docs/10_standard/CONVENTIONS.md).
+- **Contributing:** [`CONTRIBUTING.md`](CONTRIBUTING.md), then the standard in
+  [`docs/10_standard/`](docs/10_standard/00_program_overview.md); the whole
+  documentation tree is mapped by [`docs/00_INDEX.md`](docs/00_INDEX.md).
+- **Release notes:** [`docs/90_record/CHANGELOG.md`](docs/90_record/CHANGELOG.md).
+
+## What it is
+
+The original suite is the 22-program package that computes the structural
+design loads a small aircraft must sustain under **FAR Part 23 Subpart C —
+Structure**. sloads ports those programs into one shared calc package and is
+being grown into an **initial-concept distributed-loads tool**: a `concept`
+mode that can exceed the FAR23 weight/seat limits, assessment against similar
+airplanes, per-component distributed loads (wing / body / tail + simplified
+control-surface distributions), and export to **sbeam** for structural sizing.
+The FAR23 replication core stays validated against the manual; concept mode is
+a superset of it. See
 [`docs/30_future/01_concept_loads_plan.md`](docs/30_future/01_concept_loads_plan.md).
 
 The codebase is a shared pure-calc package (`sloads`) plus a multi-page
 Streamlit UI (`oracle_app/` over the shared `app_shell/`) and a CLI (`cli.py`).
 A single reloadable `project.json` carries every module's inputs; each module
 emits its own load-case CSV.
-
-**License:** MIT (see [LICENSE](LICENSE)) — free to use, modify, and
-redistribute, including commercially.
 
 > **Release state.** Core analysis developed per FAR 23 LOADS and the GUI production-ready; concept-mode features in beta.
 >
@@ -32,7 +69,7 @@ redistribute, including commercially.
 > NETLOADS, TAILDIST, AILERON, FLAPLOAD, TABLOADS, ONENGOUT, LGFACTOR, LANDLOAD,
 > BALLOADS) plus two modern modules (`configuration`, `body_loads`). The current
 > schema version, test count and coverage are whatever CI reports on the latest
-> commit — see the CI badge and `CHANGELOG.md`, not a number baked in here. The
+> commit — see the Actions tab and the changelog, not a number baked in here. The
 > wing distributed-loads
 > vertical slice (geometry → speeds → V-n envelope → airloads → inertia → net)
 > exports to sbeam; the critical-load selection (wing / h-tail / v-tail / fuselage),
@@ -62,38 +99,28 @@ oracle_app/
 cli.py                    # python cli.py engine project.json -o out.csv
 tests/                    # pytest; each module vs the manual's appendices
 examples/                 # ga6_normal (Appendix A) + baron_58 (normal-cat twin), atr42_100 + concept_regional_jet (concept) run the full workflow; concept_heavy is a minimal concept-core demo (V-n → Flight Envelope only)
-docs/                     # by type: 10_standard, 20_theory, 25_notes, 30_future, 90_record (see docs/00_INDEX.md)
+docs/                     # by type: 10_standard, 20_theory, 25_notes, 30_future, 60_guide, 90_record (see docs/00_INDEX.md)
 pyproject.toml            # build metadata, deps, ruff + pytest/coverage config
 cspell.json               # domain wordlist
 ```
 
-## Running
-
-**Python 3.12, and only 3.12.** The developer's gate and CI run one
-interpreter, so a byte that differs between two Pythons cannot pass one and fail
-the other (#327); `pip` refuses any other version, and so does the test suite.
-Install the package in editable mode on it (registers `sloads` and the `cli`
-module on `sys.path`, so imports work from anywhere — including Streamlit):
-
-```bash
-python3.12 -m venv .venv           # not `python3`: whatever that resolves to is refused
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -e '.[dev]'            # runtime deps + pytest, pytest-cov, ruff
-
-streamlit run oracle_app/Oracle.py                          # the GUI (or: sloads-oracle)
-sloads engine examples/ga6_normal.project.json -o engine_loads.csv   # CLI entry point
-python cli.py engine examples/ga6_normal.project.json -o engine_loads.csv
-pytest                                                      # the green-build gate
-ruff check sloads/ cli.py oracle.py app_shell/ oracle_app/ scripts/                        # lint
-mypy                                                        # type check (sloads/)
-```
+## Developing
 
 `pyproject.toml` is the single dependency source — `pip install -e .` for the
 runtime set, `pip install -e '.[dev]'` for the supported developer install (a
 second `requirements.txt` list was deleted at 0.5.0 because it had drifted from
-it). CI (`.github/workflows/ci.yml`) runs ruff and pytest on 3.12 for every
-pull request, every push to a `dev/**` milestone branch and the
-push to `main`, which alone adds the coverage measurement.
+it). The green-build gate, run from the venv:
+
+```bash
+pytest                                                      # the suite
+ruff check sloads/ cli.py oracle.py app_shell/ oracle_app/ scripts/                        # lint
+mypy                                                        # type check (sloads/)
+```
+
+CI (`.github/workflows/ci.yml`) runs the same three on 3.12 for every pull
+request, every push to a `dev/**` milestone branch and the push to `main`,
+which alone adds the coverage measurement. How work moves (branches, closure,
+issues) is [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Validation & math fidelity
 

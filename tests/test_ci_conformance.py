@@ -135,7 +135,7 @@ def test_the_suite_runs_on_the_interpreter_ci_runs():
     assert here in ci, (
         f"this suite is running on Python {here}; ci.yml's `test` job runs {sorted(ci)}. "
         f"Rebuild .venv on that interpreter: `python{sorted(ci)[0]} -m venv .venv` "
-        "(README.md §Running, CONTRIBUTING.md §2) -- a gate on another interpreter "
+        "(README.md §Quickstart, CONTRIBUTING.md §2) -- a gate on another interpreter "
         "is not the gate CI runs (#324, #327, #395)."
     )
 
