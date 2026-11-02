@@ -135,6 +135,7 @@ line is the single owner of that question; a row here never repeats it (#187).
 | [`71_mass_owners_note.md`](25_notes/71_mass_owners_note.md) | One owner per mass quantity: the engine, gear, tail, wing-panel and fuselage masses typed on other pages, and the fuselage beam waterline (design note 71) |
 | [`72_lgfactor_lift_double_count_note.md`](25_notes/72_lgfactor_lift_double_count_note.md) | LGFACTOR's energy ratio is the gear factor: the wing lift is subtracted twice (design note 72; #401) |
 | [`73_balance_feasibility_flags_note.md`](25_notes/73_balance_feasibility_flags_note.md) | Balanced cases are flagged past the elevator stop, tail stall and fin stall (design note 73; #404) |
+| [`74_oei_feathering_basis_note.md`](25_notes/74_oei_feathering_basis_note.md) | OEI basis for feathering turboprops: feather credit, a distinct 23.367(a)(2) and a VMC–V speed sweep (design note 74; #405) |
 
 ## 30_future — Future development
 

@@ -1,5 +1,5 @@
 {
-  "schema_version": 81,
+  "schema_version": 82,
   "name": "RJ-50 concept \u2014 50-seat regional jet (concept mode, Part 25)",
   "engines": [
     {
@@ -58,7 +58,8 @@
       ],
       "prop_direction": "CW",
       "mounted_on": "fuselage",
-      "windmill_drag_cd": null
+      "windmill_drag_cd": null,
+      "feather_travel_time_s": null
     },
     {
       "engine_designation": "GENERIC TURBOFAN ~7,000 lbf",
@@ -116,7 +117,8 @@
       ],
       "prop_direction": "CW",
       "mounted_on": "fuselage",
-      "windmill_drag_cd": null
+      "windmill_drag_cd": null,
+      "feather_travel_time_s": null
     }
   ],
   "engine_layout": "2W",

@@ -41,18 +41,21 @@ max-continuous shaft power from EASA TCDS IM.E.041 -- and
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import List, NamedTuple, Optional, Tuple
 
 from ..applicability import engine_failure_not_applicable
 from ..case_ids import VTAIL_BAND_ONENGOUT, CaseIdAllocator
 from ..constants import (
+    CORRECTIVE_DELAY_S,
     DEG_PER_RAD,
+    FEATHERED_PROP_DRAG_COEFF,
     FT_LB_S_PER_HP,
     IN2_PER_FT2,
     IN_PER_FT,
     KT_TO_FPS,
     LBIN2_PER_SLUGFT2,
+    OEI_SWEEP_POINTS,
     RHO_SL,
     ULTIMATE_FACTOR,
     dynamic_pressure_psf,
@@ -106,7 +109,14 @@ PROPELLER_ONLY_NOTE = (
 )
 
 _MAX_SIM_TIME_S = 60.0   # bound the march; no recovery by here => uncontrollable (flag it)
-_CORRECTIVE_DELAY_S = 2.0  # FAR 23.367(b): not earlier than 2 s after failure
+
+#: The statement every case with a pilot feather carries (design note 74
+#: D-74.3, owner ruling 2026-11-02): the one owner of its wording.
+FEATHER_ASSUMPTION = (
+    "The pilot initiates the feather 2 s after the failure (23.367(b); an owner "
+    "assumption, since the 2 s is the earliest corrective action, not a "
+    "conservative estimate), and the blades reach feather in the entered travel "
+    "time; the drag then holds at the feathered propeller's (Torenbeek G-83).")
 
 
 @dataclass
@@ -147,6 +157,12 @@ class CaseInputs:
     #: ``None`` for the Glauert bound (note 66 D-66.12b): the drag the march is
     #: forced by and the balanced case applies at the hub, one number.
     windmill_cd: Optional[float] = None
+    #: The blade travel time of the pilot's feather, s, or ``None`` for no
+    #: feather (design note 74 D-74.3): the drag holds at the peak.
+    feather_travel_s: Optional[float] = None
+    #: The feathered propeller's disc drag coefficient
+    #: (:func:`feathered_drag_cd`), set with ``feather_travel_s``.
+    feathered_cd: Optional[float] = None
 
 
 @dataclass
@@ -204,7 +220,7 @@ def simulate(c: CaseInputs) -> Tuple[List[HistoryRow], CaseSummary]:
 
     for _ in range(max_steps):
         # Rudder ramp once corrective action has been initiated (line ~205).
-        if (time >= _CORRECTIVE_DELAY_S and theta_dot < theta_dot_max
+        if (time >= CORRECTIVE_DELAY_S and theta_dot < theta_dot_max
                 and time < time_rud_max and time >= time_init_rud):
             defl_rud = c.defl_rud_max * (time - time_init_rud) / c.inctimerud
         ef = large_deflection_factor(defl_rud, sr_over_sv)
@@ -227,10 +243,10 @@ def simulate(c: CaseInputs) -> Tuple[List[HistoryRow], CaseSummary]:
         if lt > lt_max:
             lt_max = lt
             lt25_at_peak, lt50_at_peak = lt25, lt50
-        if time < _CORRECTIVE_DELAY_S:
+        if time < CORRECTIVE_DELAY_S:
             defl_rud = 0.0
         # Initiate corrective action at the first t>=2 s where the yaw rate stops rising.
-        if time >= _CORRECTIVE_DELAY_S and theta_dot < theta_dot_max and not mark:
+        if time >= CORRECTIVE_DELAY_S and theta_dot < theta_dot_max and not mark:
             time_init_rud = time
             time_rud_max = time_init_rud + c.inctimerud
             mark = True
@@ -318,6 +334,60 @@ def windmill_drag(c: CaseInputs) -> float:
     return engine_thrust_and_drag(c)[1]
 
 
+def drag_power_ratio(c: CaseInputs) -> float:
+    """The failed propeller's full windmill drag power over the engine's rated
+    shaft power, ``D * V_TAS / (550 * HP)`` at the case's speed -- the
+    plausibility statement the Glauert bound carries on a turboprop (design
+    note 74 Q1 (a)): a windmilling propeller absorbing several times its
+    engine's rating is a bound, not a propeller's drag."""
+    _, _, vtfps = engine_thrust_and_drag(c)
+    return windmill_drag(c) * vtfps / (c.maxhp * FT_LB_S_PER_HP)
+
+
+def feathered_drag_cd(blades: int) -> float:
+    """The feathered, stopped propeller's disc drag coefficient: Torenbeek
+    App. G-8.2 Eq. G-83 p554, ``0.00125 * B_p * D_p^2`` of drag area over the
+    disc area ``pi * D_p^2 / 4`` (design note 74 D-74.1), so it rides
+    :func:`windmill_drag_from_cd` at the case's speed. ``blades`` is B_p, the
+    number of blades per propeller (p555)."""
+    return FEATHERED_PROP_DRAG_COEFF * blades * 4.0 / math.pi
+
+
+def feather_start_s(c: CaseInputs) -> float:
+    """When the pilot's feather begins, s after the failure: at the 23.367(b)
+    2 s (design note 74 D-74.3), or once the thrust has decayed if that is
+    later -- a propeller still giving thrust is not being feathered."""
+    return max(CORRECTIVE_DELAY_S, c.time2decay)
+
+
+def _feather_drag(time: float, c: CaseInputs, full: float, feathered: float) -> Optional[float]:
+    """The failed propeller's drag at ``time`` while the pilot's feather acts,
+    or ``None`` before it starts or with none entered -- the one owner of the
+    feather ramp (design note 74 D-74.3, D-74.7), on whatever scale ``full``
+    (the peak) and ``feathered`` (the G-83 end) are in, force or moment. From
+    :func:`feather_start_s` it ramps linearly from its value there to the
+    feathered drag over ``c.feather_travel_s``, then holds."""
+    if c.feather_travel_s is None:
+        return None
+    start = feather_start_s(c)
+    if time < start:
+        return None
+    if time >= start + c.feather_travel_s:
+        return feathered
+    at_start = _build_up(start, c, full)
+    return at_start + (feathered - at_start) * (time - start) / c.feather_travel_s
+
+
+def _build_up(time: float, c: CaseInputs, full: float) -> float:
+    """ONENGOUT's windmill drag ramp at ``time``: zero to ``time2decay``,
+    rising to ``full`` at ``time2drag``, then held."""
+    if time <= c.time2decay:
+        return 0.0
+    if time < c.time2drag:
+        return full * (time - c.time2decay) / (c.time2drag - c.time2decay)
+    return full
+
+
 def _disc_q_area(c: CaseInputs) -> float:
     """True dynamic pressure (psf) times the propeller disc area (ft^2)."""
     sigma = standard_atmosphere(c.alt_ft)[1]
@@ -338,20 +408,23 @@ def engine_forces_at(time: float, c: CaseInputs) -> Tuple[float, float, float]:
 
     The full drag is :func:`windmill_drag`'s, the march's own forcing: the
     entered coefficient's when ``c.windmill_cd`` is set, else the Glauert bound
-    (D-66.12b).
+    (D-66.12b). A pilot feather (design note 74 D-74.3) takes it down to the
+    feathered drag from :func:`feather_start_s`.
     """
     thrust = engine_thrust_and_drag(c)[0]
     drag = windmill_drag(c)
     if time <= 0.0:
         return thrust, thrust, 0.0
     remaining = thrust * (c.time2decay - time) / c.time2decay if time < c.time2decay else 0.0
-    if time <= c.time2decay:
-        windmill = 0.0
-    elif time < c.time2drag:
-        windmill = drag * (time - c.time2decay) / (c.time2drag - c.time2decay)
-    else:
-        windmill = drag
+    feathering = _feather_drag(time, c, drag, feathered_drag(c))
+    windmill = feathering if feathering is not None else _build_up(time, c, drag)
     return thrust, remaining, windmill
+
+
+def feathered_drag(c: CaseInputs) -> float:
+    """The feathered propeller's drag, lb, at the case's speed (Torenbeek
+    G-83, design note 74 D-74.1); zero for a case with no feather entered."""
+    return windmill_drag_from_cd(c, c.feathered_cd) if c.feathered_cd is not None else 0.0
 
 
 def _moment(time: float, c: CaseInputs, mom_eng: float, mom_windmill: float,
@@ -359,11 +432,16 @@ def _moment(time: float, c: CaseInputs, mom_eng: float, mom_windmill: float,
     """Net yaw moment about the CG at ``time`` (ONENGOUT.BAS 282-286, in-lb).
 
     Thrust ramps from its full value down to zero over ``time2decay``; windmill drag
-    then ramps up over ``[time2decay, time2drag]`` and holds. The vertical-tail loads
-    (resolved at their fuselage stations) oppose the moment throughout."""
+    then ramps up over ``[time2decay, time2drag]`` and holds, until a pilot feather
+    takes it to the feathered drag (:func:`_feather_drag`, design note 74). The
+    vertical-tail loads (resolved at their fuselage stations) oppose the moment
+    throughout."""
     tail = lt25 * (c.xt25 - c.xcg) + lt50 * (c.xt50 - c.xcg)
     if time <= 0.0:
         return 0.0
+    feathering = _feather_drag(time, c, mom_windmill, feathered_drag(c) * c.bleng)
+    if feathering is not None:
+        return mom_eng + feathering - tail
     if time < c.time2decay:
         return mom_eng - mom_eng * (c.time2decay - time) / c.time2decay - tail
     if time == c.time2decay:
@@ -403,9 +481,10 @@ class _LoadCase(NamedTuple):
       by itself reduce the factor (the fuel-flow failure below is a failure and is
       still LIMIT / 1.5); only the regulation's classification does.
     - the **speed range** ``[v_lo_kt, v_hi_kt]`` over which the case is considered.
-      Because the tail load grows with dynamic pressure (~V^2), the critical load is
-      at the top of the range, so the case is evaluated at ``v_hi_kt``; ``v_lo_kt``
-      (the VMC floor) records the low end for traceability.
+      The case is marched at :data:`~sloads.constants.OEI_SWEEP_POINTS` speeds over
+      it and delivered at the one with the largest peak fin load (design note 74
+      D-74.6): the load grows with dynamic pressure, but the windmill drag and the
+      live engine's thrust do not grow alike, so the top end is checked, not assumed.
 
     ``safety_factor`` and ``basis`` live here rather than defaulting at the
     ``ConditionResult`` level so each case's limit/ultimate status is explicit and
@@ -422,6 +501,9 @@ class _LoadCase(NamedTuple):
     #: ruling 1): VMC is a take-off condition, and the live engine's thrust at
     #: one power is higher at the lower true airspeed of sea level.
     low_end: bool = False
+    #: 23.367(a)(2), the mechanical failure: its own thrust decay, marched at a
+    #: step that resolves it, and never a pilot feather (design note 74 D-74.5).
+    mech_failure: bool = False
 
 
 # 23.367(a) (TURBOPROPELLER airplanes -- gating on is_turboprop is backlog M4-3;
@@ -440,11 +522,12 @@ _BASIS_VC = ("Case: disconnection of the engine compressor from the turbine or l
              "the turbine blades (23.367(a)(2)). The case definition classifies these "
              "loads as ULTIMATE, so SF=1.0 (limit treated as ultimate -- the factor is "
              "set by the case, not the speed; applying 1.5 would double-factor it). "
-             "Considered from VMC (minimum control speed) up to VC; critical at VC.")
+             "The thrust is lost abruptly, over the mechanical failure's own decay time "
+             "(Lomax p151: 0.02-0.10 s), and the propeller drag holds at the windmill "
+             "peak with no feather. Considered from VMC (minimum control speed) up to VC.")
 _BASIS_VD = ("Case: power failure from fuel-flow interruption (23.367(a)(1)). The case "
              "definition classifies these loads as LIMIT, so SF=1.5 (14 CFR 23.303) -- a "
-             "failure case that keeps the full factor. Considered from VMC up to VD; "
-             "critical at VD.")
+             "failure case that keeps the full factor. Considered from VMC up to VD.")
 _BASIS_VS = ("VMC floor of the engine-failure cases: VS (clean 1-g stall, from CLmax per "
              "M1-1b) substituted for VMC (minimum control speed) per Ref 1 Ch 11 Method, "
              "because no minimum control speed is entered for this airplane. The "
@@ -501,7 +584,7 @@ def _load_cases(project: Project, oeo: OneEngineOutInput) -> List[_LoadCase]:
     if sp.chosen_vc:
         v_hi = float(sp.chosen_vc)
         cases.append(_LoadCase("VC (ultimate)", "23.367(a)(2)", "ULTIMATE", 1.0,
-                               floor or v_hi, v_hi, _BASIS_VC))
+                               floor or v_hi, v_hi, _BASIS_VC, mech_failure=True))
     if sp.chosen_vd:
         v_hi = float(sp.chosen_vd)
         cases.append(_LoadCase("VD (limit)", "23.367(a)(1)", "LIMIT", ULTIMATE_FACTOR,
@@ -575,7 +658,8 @@ def _mass_state(project: Project) -> MassCase:
 def _case_inputs(project: Project, v_kt: float,
                  engine_index: Optional[int] = None, *,
                  alt_ft: Optional[float] = None,
-                 mass: Optional[MassCase] = None) -> CaseInputs:
+                 mass: Optional[MassCase] = None,
+                 mech_failure: bool = False) -> CaseInputs:
     """Assemble the scalar simulation inputs for one speed from the project slices.
 
     ``engine_index`` selects which engine fails; ``None`` takes the input slice's
@@ -585,6 +669,9 @@ def _case_inputs(project: Project, v_kt: float,
     sized for both. ``alt_ft`` is the case's :func:`load_case_altitude_ft`
     (``None``: :func:`case_altitude_ft`); ``mass`` is :func:`_mass_state`,
     passed by a caller marching several cases so the loading is derived once.
+    ``mech_failure`` marks the 23.367(a)(2) case: the thrust decays over
+    ``mech_failure_decay_time_s`` at a step of at most half of it, and no
+    feather is credited (design note 74 D-74.5).
     """
     oeo = project.one_engine_out
     # Through SELECT's effective v-tail inputs (#95, C210-5): a blank rudder
@@ -629,6 +716,28 @@ def _case_inputs(project: Project, v_kt: float,
     if izz <= 0:
         raise MissingInputError("one_engine_out needs a non-zero IZZ (the mass-basis FLIGHT loading or izz_slugft2)")
 
+    decay, dt = oeo.thrust_decay_time_s, oeo.time_step_s
+    if mech_failure:
+        decay = oeo.mech_failure_decay_time_s
+        if not decay > 0.0:
+            raise ValueError(
+                f"one_engine_out: mech_failure_decay_time_s must be positive, got "
+                f"{format_value(decay)} s (Lomax p151: 0.02-0.10 s)")
+        dt = min(dt, decay / 2.0)
+    travel = None if mech_failure else eng.feather_travel_time_s
+    feathered_cd = None
+    if travel is not None:
+        from .engine import engine_name
+        if not travel > 0.0:
+            raise ValueError(
+                f"{engine_name(index, eng)}: feather_travel_time_s must be positive, got "
+                f"{format_value(travel)} s; blank it for no feather (design note 74)")
+        if eng.prop_blades <= 0:
+            raise MissingInputError(
+                f"{engine_name(index, eng)}: the feathered propeller's drag (Torenbeek "
+                "G-83) needs the blade count, prop_blades")
+        feathered_cd = feathered_drag_cd(eng.prop_blades)
+
     return CaseInputs(
         arvt=vt.aspect_ratio_vtail,
         svt_in2=vt.vtail_area_sqft * IN2_PER_FT2,
@@ -643,11 +752,13 @@ def _case_inputs(project: Project, v_kt: float,
         bleng=abs(eng.engine_cg[1]),
         maxhp=_engine_power(eng, oeo.use_takeoff_power),
         dia_ft=eng.prop_diameter_in / IN_PER_FT,
-        time2decay=oeo.thrust_decay_time_s,
+        time2decay=decay,
         time2drag=oeo.windmill_drag_time_s,
         inctimerud=oeo.rudder_travel_time_s,
-        dt=oeo.time_step_s,
+        dt=dt,
         windmill_cd=entered_windmill_cd(eng, index),
+        feather_travel_s=travel,
+        feathered_cd=feathered_cd,
     )
 
 
@@ -693,6 +804,17 @@ class VtailCase(NamedTuple):
     #: The FLIGHT case the march's IZZ and CG come from (:func:`mass_basis`);
     #: ``""`` when both are entered on the input slice.
     mass_case: str = ""
+    #: The speed sweep's statement (design note 74 D-74.6), ``""`` unswept.
+    sweep_note: str = ""
+
+    @property
+    def statements(self) -> str:
+        """What the case says beyond its basis: the sweep, then the feather
+        assumption when one acts (``FEATHER_ASSUMPTION``)."""
+        parts = [self.sweep_note] if self.sweep_note else []
+        if self.inputs.feather_travel_s is not None:
+            parts.append(FEATHER_ASSUMPTION)
+        return " ".join(parts)
 
     @property
     def recovered(self) -> bool:
@@ -812,8 +934,9 @@ def _vtail_cases(project: Project) -> List[VtailCase]:
         sense = _vtail_sense(effective_engine(project, entered).engine_cg[1]) if entered else 1.0
         for lc in _load_cases(project, oeo):
             c = _case_inputs(project, lc.v_hi_kt, index,
-                             alt_ft=load_case_altitude_ft(project, lc), mass=mass)
-            rows, summary = simulate(c)
+                             alt_ft=load_case_altitude_ft(project, lc), mass=mass,
+                             mech_failure=lc.mech_failure)
+            c, rows, summary, sweep_note = _swept(c, lc, oeo)
             # OR-175: the chordwise split is the pair standing together at the
             # instant of greatest *total* load, not each quantity's own maximum
             # -- which would combine two instants the airplane never occupies.
@@ -824,8 +947,50 @@ def _vtail_cases(project: Project) -> List[VtailCase]:
                 engine_index=index, engine_label=label, load_case=lc, inputs=c,
                 summary=summary, peak=peak, sense=sense,
                 case_id=allocator.next_id("vtail"),
-                mass_case=mass.name if mass is not None else ""))
+                mass_case=mass.name if mass is not None else "",
+                sweep_note=sweep_note))
     return cases
+
+
+def sweep_speeds_kt(lc: _LoadCase, oeo: OneEngineOutInput) -> List[float]:
+    """The speeds one case is marched at (design note 74 D-74.6): the range
+    ``[v_lo, v_hi]`` at :data:`OEI_SWEEP_POINTS` equal steps, ends exact; the
+    top end alone for the low-end point, an entered speed list, or a range
+    with no width."""
+    if oeo.speeds_kt or lc.low_end or not lc.v_lo_kt < lc.v_hi_kt:
+        return [lc.v_hi_kt]
+    step = (lc.v_hi_kt - lc.v_lo_kt) / (OEI_SWEEP_POINTS - 1)
+    return [lc.v_lo_kt + i * step for i in range(OEI_SWEEP_POINTS - 1)] + [lc.v_hi_kt]
+
+
+def _swept(top: CaseInputs, lc: _LoadCase, oeo: OneEngineOutInput
+           ) -> Tuple[CaseInputs, List[HistoryRow], CaseSummary, str]:
+    """March ``top`` (the case's inputs at ``v_hi``) over the sweep and
+    return the governing speed's inputs, history, summary and statement.
+
+    The governing speed is the recovered one with the largest peak fin load,
+    the top end winning a tie. A top end that did not recover is delivered as
+    it is, with its uncontrollability statement (OR-174), and the sweep is not
+    consulted: a recovered speed below it is no substitute for saying so."""
+    rows, summary = simulate(top)
+    speeds = sweep_speeds_kt(lc, oeo)
+    if len(speeds) == 1 or not summary.recovered:
+        return top, rows, summary, ""
+    best = (top, rows, summary)
+    for v in reversed(speeds[:-1]):
+        c = replace(top, v_kt=v)
+        r, s = simulate(c)
+        if s.recovered and s.max_tail_load_lb > best[2].max_tail_load_lb:
+            best = (c, r, s)
+    c, rows_best, s_best = best
+    span = (f"Swept over {len(speeds)} speeds from {format_value(speeds[0], 'kt')} to "
+            f"{format_value(speeds[-1], 'kt')} kt EAS")
+    if c is top:
+        note = f"{span}; the top end governs."
+    else:
+        note = (f"{span}; governs at {format_value(c.v_kt, 'kt')} kt, where the peak "
+                f"fin load exceeds the top end's {format_value(summary.max_tail_load_lb, 'lb')} lb.")
+    return c, rows_best, s_best, note
 
 
 def vtail_conditions(project: Project) -> List[CriticalCondition]:
@@ -910,7 +1075,9 @@ def vtail_conditions(project: Project) -> List[CriticalCondition]:
             alpha_tail_deg=sense * alpha,
             delta_deg=sense * fc.peak.rudder_deg,
             q_psf=q,
-            note=(f"{fc.load_case.basis} Distributed from the instant of peak total "
+            note=(f"{fc.load_case.basis} "
+                  + (f"{fc.statements} " if fc.statements else "")
+                  + f"Distributed from the instant of peak total "
                   f"load, t = {format_value(fc.peak.time, 's')} s. The fin's own lateral inertia "
                   f"relief is not applied: this condition names no V-n point, so "
                   f"its case weight is zero and the relief -- which is "
@@ -932,11 +1099,14 @@ def time_history(project: Project, speed_label: str,
     if oeo is None:
         raise MissingInputError("one_engine_out needs the 'one_engine_out' input slice")
     wanted = speed_label.strip()
-    for lc in _load_cases(project, oeo):
-        if lc.label == wanted and engine_index is None:
-            return simulate(_case_inputs(
-                project, lc.v_hi_kt, alt_ft=load_case_altitude_ft(project, lc)))[0]
-    for fc in _vtail_cases(project):
+    cases = _vtail_cases(project)
+    if engine_index is None:
+        # A bare speed label is the input slice's failed engine, at the speed
+        # the sweep delivered (design note 74 D-74.6).
+        for fc in cases:
+            if fc.load_case.label == wanted and fc.engine_index == oeo.failed_engine_index:
+                return simulate(fc.inputs)[0]
+    for fc in cases:
         if engine_index is not None and fc.engine_index != engine_index:
             continue
         if wanted in (fc.load_case.label, fc.title,
@@ -991,12 +1161,13 @@ def run(project: Project) -> ModuleResult:
                 LoadValue("Time to recovery", s.time_to_recovery_s, "s", key="time_to_recovery"),
             ],
             note=(f"{fc.load_case.basis} "
+                  + (f"{fc.statements} " if fc.statements else "")
                   # 1-based and signed, like every other statement of the failed
                   # engine's identity and side (#231; OR-15 admission widened to
                   # this line 2026-09-08): the march runs on the magnitude and
                   # publishes the side through ``sense``, so the entered butt
                   # line is recovered the same way the report recovers it.
-                  f"Failed engine {fc.engine_index + 1} at butt line "
+                  + f"Failed engine {fc.engine_index + 1} at butt line "
                   f"{butt_line} in; "
                   f"IZZ {format_value(c.izz, 'slug-ft^2')} slug-ft^2"
                   + (f" and CG of the FLIGHT loading '{fc.mass_case}'" if fc.mass_case else

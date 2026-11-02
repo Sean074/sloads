@@ -2,7 +2,7 @@
 
 > **Generated file — do not edit by hand.** Produced by [`docs/generate_data_dict.py`](../generate_data_dict.py) from the `sloads/models/` dataclasses. Regenerate after any schema change: `.venv/bin/python docs/generate_data_dict.py`.
 
-Schema version: **81**.
+Schema version: **82**.
 
 This dictionary covers the **input** slices of `Project` (`sloads/models/project.py`) — the fields that make up a `project.json`. The result slices (`envelope`, `mass`, `loads`) are computed outputs and are out of scope.
 
@@ -82,6 +82,7 @@ Complete input set for an engine-mount loads run.
 | `prop_direction` | `RotorDirection` |  | `RotorDirection.CLOCKWISE` |
 | `mounted_on` | `Optional[str]` | "fuselage" \| "wing" | `None` |
 | `windmill_drag_cd` | `Optional[float]` |  | `None` |
+| `feather_travel_time_s` | `Optional[float]` | s | `None` |
 
 ### `Rotor`
 
@@ -606,6 +607,7 @@ Inputs for ONENGOUT (FAR 23.367, Reference 1 Ch 11; ONENGOUT.BAS).
 | `xcg_in` | `float` | 0 -> from the mass-basis FLIGHT loading | `0.0` |
 | `vmc_kt` | `Optional[float]` | minimum control speed, KEAS, cited; blank -> VS substituted | `None` |
 | `takeoff_altitude_ft` | `float` | the low-end (VMC/VS) case's altitude | `0.0` |
+| `mech_failure_decay_time_s` | `float` | s | `0.02` |
 
 ### `LandingInput`
 

@@ -1,5 +1,5 @@
 {
-  "schema_version": 81,
+  "schema_version": 82,
   "name": "GA 6-place single (Appendix A) \u2014 Continental IO-520-BB",
   "engines": [
     {
@@ -50,7 +50,8 @@
       ],
       "prop_direction": "CW",
       "mounted_on": "fuselage",
-      "windmill_drag_cd": null
+      "windmill_drag_cd": null,
+      "feather_travel_time_s": null
     }
   ],
   "engine_layout": "1N",

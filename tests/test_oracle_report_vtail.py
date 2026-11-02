@@ -174,9 +174,15 @@ def test_neither_section_borrows_the_others_selection_method():
 # G-OR-83 / G-OR-86 -- the printed values, and the rudder column
 # --------------------------------------------------------------------------- #
 def test_the_printed_totals_are_selects_own_unscaled_values():
-    """The boundary states the factor and applies nothing (note 49 OR-116)."""
+    """The boundary states the factor and applies nothing (note 49 OR-116).
+
+    Compared on the oracle input set, which is what the document is built
+    from: the twin's pilot feather (design note 74) is a sloads input the
+    oracle GUI never asks for (``test_oracle_inputs.PILOT_FEATHER``)."""
+    from sloads.field_registry import reduce_to_oracle_inputs
+
     for path in (_GA, _TWIN):
-        project = _project(path)
+        project = reduce_to_oracle_inputs(_project(path))
         conditions = [c for c in default_critical(project).conditions
                       if c.component == "vtail"]
         summary = _table(_section(_doc(project), "vtail_loads"), "Critical")
@@ -591,16 +597,24 @@ def test_the_two_airplanes_the_report_is_built_for_keep_their_loads_too():
     2026-09-07 and filed with that measurement rather than swept into a
     document-section change. Exempting it silently is what this gate exists to
     prevent, so it is named.
+
+    The twin's one-engine-out fin cases are the one declared exception: its
+    pilot feather (design note 74, ``engines[].feather_travel_time_s``) is a
+    sloads input the reduction drops, declared as
+    ``test_oracle_inputs.PILOT_FEATHER`` and checked there to move them.
     """
     from sloads.field_registry import reduce_to_oracle_inputs
 
     for path in (_GA, _TWIN):
         project = io.load_project(path)
         reduced = reduce_to_oracle_inputs(project)
+        feathered = any(e.feather_travel_time_s is not None for e in project.engines)
         for component in ("htail", "vtail"):
             full = build_tail_span(project).get(component, [])
             cut = build_tail_span(reduced).get(component, [])
             for a, b in zip(full, cut):
+                if feathered and a.case.startswith("ONE ENGINE OUT"):
+                    continue
                 for sa, sb in zip(a.stations, b.stations):
                     assert math.isclose(sa.fz, sb.fz, rel_tol=1e-9, abs_tol=1e-9), \
                         (os.path.basename(path), component, a.case)

@@ -10,7 +10,12 @@ import math
 from dataclasses import dataclass, field
 from typing import Dict, List, Mapping, Optional, Sequence, Set, Tuple, Type
 
-from ..constants import DEFAULT_REF_AXIS_PCT, TAIL_STALL_ALPHA_DEG, ULTIMATE_FACTOR
+from ..constants import (
+    DEFAULT_REF_AXIS_PCT,
+    MECH_FAILURE_DECAY_TIME_S,
+    TAIL_STALL_ALPHA_DEG,
+    ULTIMATE_FACTOR,
+)
 from .enums import (
     AnalysisKind,
     EngineType,
@@ -206,8 +211,15 @@ class EngineInput:
     # this engine's hub when this engine is the failed one. ``None`` delivers
     # ONENGOUT's Glauert term instead, which the manual (Ch 11 p88) calls the
     # most the drag can be (C_D,disc 0.50), and the case states it as that
-    # bound. ONENGOUT's own march always uses the bound, so no fin load reads it.
+    # bound. The ONENGOUT march reads it too (owner ruling 2026-10-04, which
+    # reversed D-66.12a's (a')), so an entered value moves the fin loads.
     windmill_drag_cd: Optional[float] = None
+    # v82 (design note 74 D-74.3, #405): the blade travel time to feather, s.
+    # Entered, the pilot starts the feather 2 s after the failure (23.367(b),
+    # owner assumption) and the drag ramps to Torenbeek's feathered G-83 drag
+    # over this time, on the 23.367(a)(1) and low-end cases; never (a)(2).
+    # ``None``: no feather, the drag holds at the peak (the v81 march).
+    feather_travel_time_s: Optional[float] = None
 
     @property
     def is_turboprop(self) -> bool:
@@ -1810,7 +1822,9 @@ class OneEngineOutInput:
 
     Time history (engine thrust schedule): thrust ramps to zero over
     ``thrust_decay_time_s``, windmill drag ramps up over
-    ``[thrust_decay_time_s, windmill_drag_time_s]`` then holds (Glauert max).
+    ``[thrust_decay_time_s, windmill_drag_time_s]`` then holds (Glauert max),
+    until a pilot feather (``EngineInput.feather_travel_time_s``, design note 74).
+    The 23.367(a)(2) case decays over ``mech_failure_decay_time_s`` instead.
     ``time_step_s`` is the Euler step (the program suggests 0.05 s).
     """
     thrust_decay_time_s: float = 0.0           # TIME2DECAY (thrust -> 0)
@@ -1825,6 +1839,9 @@ class OneEngineOutInput:
     xcg_in: float = 0.0                        # 0 -> from the mass-basis FLIGHT loading
     vmc_kt: Optional[float] = None             # minimum control speed, KEAS, cited; blank -> VS substituted
     takeoff_altitude_ft: float = 0.0           # the low-end (VMC/VS) case's altitude
+    # v82 (design note 74 D-74.5, #405): the 23.367(a)(2) mechanical failure's
+    # thrust decay, s (Lomax p151, 0.02-0.10 s; the abrupt end by default).
+    mech_failure_decay_time_s: float = MECH_FAILURE_DECAY_TIME_S
 
 
 # --------------------------------------------------------------------------- #

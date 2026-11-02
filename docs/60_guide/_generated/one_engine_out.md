@@ -12,6 +12,7 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `one_engine_out.windmill_drag_time_s` | `float` | TIME2DRAG (windmill drag -> max) | `0.0` | original | ONENGOUT TIME2DRAG |
 | `one_engine_out.rudder_travel_time_s` | `float` | INCTIMERUD (time to full rudder) | `0.0` | original | ONENGOUT INCTIMERUD |
 | `one_engine_out.time_step_s` | `float` | DT (Euler step; program suggests 0.05) | `0.05` | original | ONENGOUT DT (Euler step) |
+| `one_engine_out.mech_failure_decay_time_s` | `float` | s | `0.02` | sloads | the 23.367(a)(2) mechanical failure's thrust decay (design note 74 D-74.5, Lomax p151 0.02-0.10 s): ONENGOUT reused the fuel-flow decay for both cases |
 | `one_engine_out.use_takeoff_power` | `bool` | MAXHP = take-off HP (else max-continuous) | `False` | original | ONENGOUT MAXHP selector |
 | `one_engine_out.speeds_kt` | `List[float]` | default: [VC, VD, VMC or VS] from speeds | `[] (factory)` | original | ONENGOUT evaluation speeds |
 | `one_engine_out.altitude_ft` | `Optional[float]` | VC/VD; default: Project.speeds.shoulder_altitude_ft | `None` | original | ONENGOUT altitude (VC and VD; the manual's shoulder point) |

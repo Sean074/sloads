@@ -1,5 +1,5 @@
 {
-  "schema_version": 81,
+  "schema_version": 82,
   "name": "Beechcraft Baron 58 \u2014 two Continental IO-550-C",
   "description": "Guide worked example (design note 34 UG-9): FAA Aircraft Spec 3A16 Rev 82, Model 58 S/N TH-1396\u2013TH-2124. Certified data cited, everything else estimated \u2014 sources: examples/baron_58.sources.md",
   "engines": [
@@ -51,7 +51,8 @@
       ],
       "prop_direction": "CW",
       "mounted_on": "wing",
-      "windmill_drag_cd": null
+      "windmill_drag_cd": null,
+      "feather_travel_time_s": 1.0
     },
     {
       "engine_designation": "CONTINENTAL IO-550-C",
@@ -101,7 +102,8 @@
       ],
       "prop_direction": "CW",
       "mounted_on": "wing",
-      "windmill_drag_cd": null
+      "windmill_drag_cd": null,
+      "feather_travel_time_s": 1.0
     }
   ],
   "engine_layout": "2W",
@@ -1527,7 +1529,8 @@
     "izz_slugft2": 0.0,
     "xcg_in": 0.0,
     "vmc_kt": null,
-    "takeoff_altitude_ft": 0.0
+    "takeoff_altitude_ft": 0.0,
+    "mech_failure_decay_time_s": 0.02
   },
   "landing": {
     "strut_stroke_in": 8.0,
