@@ -43,7 +43,10 @@
 # guard test files §0 names, in a few seconds instead of the whole suite. Any
 # other path (.py, fixtures, config) takes the full suite. --full-gate forces
 # it. The push runs the fast gate on this branch, advisory; the gate of record
-# is the full matrix on the milestone merge into main.
+# is the full matrix on the milestone merge into main. A docs-only change set
+# pushes with `[skip ci]` in the commit body (#416): the advisory run takes
+# over an hour on a milestone branch and a Markdown edit cannot change it, so
+# none starts; the next code push covers the tip, and --full-gate runs it.
 #
 # Preflight (nothing mutates until every check passes):
 #   * on the milestone branch (dev/vX.Y.Z) — never on main
@@ -159,6 +162,7 @@ if [[ $DRY_RUN -eq 1 ]]; then
   echo "             a docs-only change set runs only: ${GUARD_TESTS[*]}"
   echo "  step 4:    git add -A && git status --short"
   echo "             SKIP=ruff,mypy git commit -m \"$SUBJECT (${SUFFIX:-backlog Pri N, tier X, $TODAY})\""
+  echo "               -m \"[skip ci] docs-only change set (#416) …\"   (docs-only only; --full-gate runs CI)"
   echo "  step 5:    SKIP=pytest git push origin <branch>"
   if [[ -n "$ISSUE" ]]; then
     echo "  step 6:    gh issue close $ISSUE --reason completed --comment \"Closed by <sha> on <branch> (tier X: changes/$SLUG.<type>.md; row N removed from the priority table).\""
@@ -332,7 +336,7 @@ MSG="$SUBJECT ($SUFFIX)"
 echo "solo_close: ${ISSUE:+issue #$ISSUE · }milestone $BRANCH · slug $SLUG · tier $TIER${PRI:+ · Pri $PRI}"
 echo "            fragment $FRAGS"
 if [[ $DOCS_ONLY -eq 1 ]]; then
-  echo "            gate     docs-only change set — ruff · mypy · the guard files"
+  echo "            gate     docs-only change set — ruff · mypy · the guard files; the push carries [skip ci] (#416)"
 else
   echo "            gate     ruff · mypy · the whole suite"
 fi
@@ -379,8 +383,21 @@ if [[ $DIRTY -eq 1 ]]; then
   run git add -A
   git status --short
   confirm "Commit the files above as: \"$MSG\"?"
-  if [[ -n "$CI_NOTE" ]]; then
+  # A docs-only change set tells GitHub not to run (#416): the body line is the
+  # marker Actions honours for push and pull_request workflows. The predicate
+  # above already put --full-gate on the other arm, so a forced full gate also
+  # runs CI. A plain string, not an array: bash 3.2 under `set -u` refuses an
+  # empty array expansion.
+  SKIP_CI_NOTE=""
+  if [[ $DOCS_ONLY -eq 1 ]]; then
+    SKIP_CI_NOTE="[skip ci] docs-only change set (#416): every path is Markdown or under docs/ or changes/, so the advisory run could not change; the next code push covers this tip."
+  fi
+  if [[ -n "$CI_NOTE" && -n "$SKIP_CI_NOTE" ]]; then
+    SKIP=ruff,mypy run git commit -q -m "$MSG" -m "$CI_NOTE" -m "$SKIP_CI_NOTE"
+  elif [[ -n "$CI_NOTE" ]]; then
     SKIP=ruff,mypy run git commit -q -m "$MSG" -m "$CI_NOTE"
+  elif [[ -n "$SKIP_CI_NOTE" ]]; then
+    SKIP=ruff,mypy run git commit -q -m "$MSG" -m "$SKIP_CI_NOTE"
   else
     SKIP=ruff,mypy run git commit -q -m "$MSG"
   fi
@@ -426,8 +443,14 @@ else
   echo "(gh unavailable — check CI yourself)"
 fi
 
+if [[ $DOCS_ONLY -eq 1 ]]; then
+  CI_TAIL="No CI run for this tip: docs-only change set, pushed with [skip ci] (#416);
+the next code push covers it."
+else
+  CI_TAIL="The fast gate is running there
+(advisory): gh run watch."
+fi
 cat <<EOF
 
-Done: ${ISSUE:+#$ISSUE closed by }$SHA on $BRANCH. The fast gate is running there
-(advisory): gh run watch. Next item: work it on this same branch.
+Done: ${ISSUE:+#$ISSUE closed by }$SHA on $BRANCH. $CI_TAIL Next item: work it on this same branch.
 EOF

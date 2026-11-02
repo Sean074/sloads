@@ -1,0 +1,1 @@
+- **Docs-only closures no longer start the advisory CI run (#416, tier M, 2026-11-01).** `solo_close.sh` puts `[skip ci]` in the commit body when every changed path is Markdown or under `docs/` or `changes/`; `--full-gate` still runs it, the next code push covers the tip, and the CI row of `DEVELOPMENT_PROCESS.md` §0 says so.
