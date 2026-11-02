@@ -1,0 +1,1 @@
+- **Python 3.12 is stated where a new clone sees it (#395, tier S, 2026-11-01).** The README's *Running* section and the getting-started guide open with it and create the venv with `python3.12`; `requires-python` gains the `<3.13` ceiling so `pip` refuses first, guarded; the suite's refusal names the command and the section.

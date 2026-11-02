@@ -2,10 +2,12 @@
 
 ## Install and launch
 
-From a clone of the repository, create the environment once:
+From a clone of the repository, create the environment once, on **Python 3.12**
+— the one interpreter the project runs; `pip` and the test suite both refuse
+another (the README's *Running* section says why):
 
 ```bash
-python -m venv .venv
+python3.12 -m venv .venv
 .venv/bin/pip install -e '.[dev]'
 ```
 
