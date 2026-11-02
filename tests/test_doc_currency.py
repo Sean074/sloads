@@ -102,27 +102,144 @@ RETIRED_CONTRACT = [
      re.compile(r"(?i)factor is applied (?:once\s+)?at the")),
     ("governing loads called ultimate", re.compile(r"(?i)governing ultimate loads")),
     ("the retired ULTIMATE-twin pairing", re.compile(r"(?i)pairs? with an ultimate twin")),
+    # #402 (review D-1): the five above are the *producer's* side of the claim.
+    # `GUI_USER_GUIDE.md` §5 taught the same model from the *reader's* side --
+    # "`-ULT` ... ultimate and ready for sizing", "do not export those numbers",
+    # "still an ultimate deliverable" -- in lower case, and shipped past this
+    # guard for a year. A reader who believes any of these skips the 1.5.
+    ("a delivered number called ready for sizing", re.compile(r"(?i)ready for sizing")),
+    ("limit numbers the reader is told not to export",
+     re.compile(r"(?i)do not export (?:those|these|the) numbers")),
+    ("SF=1.0 called still an ultimate deliverable", re.compile(r"(?i)still an ultimate")),
+    ("exported as a synonym for ultimate",
+     re.compile(r"(?i)export(?:ed|s)?\W{1,3}(?:=|is|are|means) ultimate")),
+]
+
+#: (name, pattern) -- an output the front-end that retired at #270 offered,
+#: stated as if it still ships (#402, review D-5). `CAPABILITIES.md` §2 went on
+#: advertising the workbook, the dashboard and the Results Review / Export phase
+#: for two milestones after their deletion. Scoped to the documents a *user*
+#: reads: `PROGRAM_SPEC.md` and `ORACLE_REPORT.md` record the same words as
+#: history ("Workbook export bridge -- RETIRED") and stay outside on purpose.
+RETIRED_OUTPUTS = [
+    ("the workbook export (deleted at #270)", re.compile(r"(?i)\bworkbook export\b")),
+    ("the Results Review / Export phase (deleted at #270)",
+     re.compile(r"(?i)results review\s*/\s*export")),
+    ("the dashboard (deleted at #270)", re.compile(r"(?i)\bdashboard with\b")),
+    ("the Export page's downloads (deleted at #270)",
+     re.compile(r"(?i)\bexport page'?s? (?:download|zip|bundle)")),
 ]
 
 #: `CAPABILITIES.md` is where the class was found, and it sits outside
 #: `_STANDARD_DOCS`' volatile-number scope; the contract scan reads it too.
+#: `docs/60_guide/` joined at #402: it is the chapter that teaches the contract,
+#: and G-OR-74's sweep of it (`test_basis_statements.py`) reads only the
+#: upper-case ``ULTIMATE`` spellings.
 _CONTRACT_DOCS = [d for d in _STANDARD_DOCS if d not in _GENERATED] + [
     "CAPABILITIES.md", "CONTRIBUTING.md",
-]
+] + _md_in("60_guide")
+
+#: What a user reads first: the outputs scan is held to these.
+_USER_DOCS = [
+    "README.md", "CAPABILITIES.md", "CONTRIBUTING.md",
+    os.path.join("docs", "10_standard", "GUI_USER_GUIDE.md"),
+] + _md_in("60_guide")
+
+
+def _paragraphs(rel):
+    """``(first_line_number, text)`` per paragraph, whitespace collapsed.
+
+    A claim wraps -- §5 wrote "it is still an / ultimate deliverable" across a
+    line break -- so the retired-claim scans read paragraphs, not lines.
+    """
+    out, start, buf = [], None, []
+    for n, line in enumerate(_lines(rel) + [""], 1):
+        if line.strip():
+            if start is None:
+                start = n
+            buf.append(line.strip())
+        elif buf:
+            out.append((start, " ".join(buf)))
+            start, buf = None, []
+    return out
+
+
+def _retired_hits(rel, patterns):
+    hits = []
+    for n, text in _paragraphs(rel):
+        for name, pat in patterns:
+            m = pat.search(text)
+            if m:
+                hits.append(f"{rel}:{n}: {name} — …{text[max(0, m.start() - 40):m.end() + 40]}…")
+    return hits
 
 
 @pytest.mark.parametrize("rel", _CONTRACT_DOCS)
 def test_no_current_truth_doc_states_the_retired_ultimate_contract(rel):
-    hits = []
-    for n, line in enumerate(_lines(rel), 1):
-        for name, pat in RETIRED_CONTRACT:
-            if pat.search(line):
-                hits.append(f"{rel}:{n}: {name} — {line.strip()[:100]}")
+    hits = _retired_hits(rel, RETIRED_CONTRACT)
     assert not hits, (
         "the retired ULTIMATE-deliverable contract in a current-truth doc — every "
         "delivered load is LIMIT with the factor stated, never applied (note 49 "
         "OR-116; CLAUDE.md §Load-output contract):\n  " + "\n  ".join(hits)
     )
+
+
+@pytest.mark.parametrize("rel", _USER_DOCS)
+def test_no_user_doc_advertises_an_output_retired_at_270(rel):
+    hits = _retired_hits(rel, RETIRED_OUTPUTS)
+    assert not hits, (
+        "a user-facing doc advertises an output the front-end retired at #270 "
+        "(design note 57 D-57.1); what ships is `workflow.gui_pages()`, the report "
+        "issue package and the CLI export targets:\n  " + "\n  ".join(hits)
+    )
+
+
+#: One real sentence per retired pattern, quoted from the document that
+#: shipped it (#402). Kept as data so the meta-test can prove both directions:
+#: every witness fails its scan, and every pattern catches some witness.
+_RETIRED_WITNESSES = (
+    "The deliverable is ULTIMATE.",
+    "Ultimate loads come out of the export.",
+    "The factor is applied once at the render/export boundary.",
+    "the governing ultimate loads",
+    "each limit case pairs with an ultimate twin",
+    # GUI_USER_GUIDE.md §5, as shipped until #402 -- the line break is real
+    "If it is there, the number is\n   ultimate and ready for sizing.",
+    "confirm the page is a per-module *analysis* page — do not export those\n   numbers as-is.",
+    "it is still an\n   ultimate deliverable, not a limit load.",
+    "exported = ultimate",
+)
+_OUTPUT_WITNESSES = (
+    "- **Workbook export** — a multi-sheet spreadsheet with per-sheet unit statements.",
+    "- **Interactive GUI** — dashboard with workflow status and validation warnings",
+    "selection**, and a Results Review / Export phase.",
+    "the Export page's download row and its bundle `.zip`",
+)
+
+
+def test_the_retired_claim_guards_would_catch_each_spelling(tmp_path, monkeypatch):
+    """The guards' teeth: each witness trips its scan, each pattern is exercised,
+    and the true sentences beside them pass."""
+    monkeypatch.setattr(sys.modules[__name__], "_ROOT", str(tmp_path))
+    for witnesses, patterns in ((_RETIRED_WITNESSES, RETIRED_CONTRACT),
+                                (_OUTPUT_WITNESSES, RETIRED_OUTPUTS)):
+        for i, witness in enumerate(witnesses):
+            rel = f"w{i}.md"
+            (tmp_path / rel).write_text(witness, encoding="utf-8")
+            assert _retired_hits(rel, patterns), f"no pattern caught {witness!r}"
+        for name, pat in patterns:
+            assert any(pat.search(" ".join(w.split())) for w in witnesses), (
+                f"no witness exercises {name!r}")
+    # the sentences that are true survive both scans
+    for ok in (
+        "`SF=1.0` | nothing to apply — the case is already ultimate",
+        "Every load sloads delivers is LIMIT, and it is your sizing analysis that applies the factor.",
+        "### Workbook export bridge — RETIRED (Step D8.2; deleted at #270)",
+    ):
+        (tmp_path / "ok.md").write_text(ok, encoding="utf-8")
+        assert not _retired_hits("ok.md", RETIRED_CONTRACT), ok
+    # ...but the historical heading is true only outside the user-doc scope
+    assert "docs/10_standard/PROGRAM_SPEC.md" not in _USER_DOCS
 
 
 # --- INDEX = the generator's output (#359) ---------------------------------

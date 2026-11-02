@@ -121,32 +121,41 @@ apply nothing further), and a condition that prescribes no factor states
 `N/A`. Results present in Imperial or SI at the user's selection; solver decks
 use a consistent N/mm/MPa channel.
 
-- **Load-case CSV files** — one per module, one row per case with the case ID,
-  the load quantities, and the `SF` column; station-distribution CSVs for wing
-  and fuselage, every file stating its LIMIT basis in-band.
-- **The sbeam bulk-data deck** — the LRA beam model of the full-span free-free
-  airplane (`GRID`/`FORCE`/`MOMENT` cards, aero and inertia applied together,
-  left and right cases), plus **`CONM2`/`MASSSET` distributed-mass decks** per
-  payload case with a gravity-based independent inertia check. Case identity is
-  joinable end-to-end: report case ID ↔ deck `LABEL` ↔ `LOAD`/`SUBCASE`
-  integer. Every deck carries a **global-equilibrium invariant**, and a pinned
-  **sbeam round-trip harness in CI** proves the exported decks actually solve.
-- **Consolidated loads summary report** — a self-contained LaTeX/PDF document
-  written for a structural analyst who did not run the analysis: airplane
-  identity, flight envelope, governing LIMIT loads with location and the
-  stated safety factor, axes/sign-convention section with figures, an explicit
-  statement-of-limitations section, and an index of the companion data files.
-  Deterministic (same project + units → byte-identical output).
-- **Gear load report** — the stamped free-body companion CSV, report section,
-  GUI view, and CLI export target described above.
-- **Workbook export** — a multi-sheet spreadsheet with per-sheet unit
-  statements.
-- **Interactive GUI** — dashboard with workflow status and validation
-  warnings, per-module analysis pages with charts (CG envelope, V-n diagram,
-  speed–altitude placard chart, spanwise load plots, three-view planforms,
-  trim/static-margin sweeps), an engineer's opt-in/opt-out **critical-case
-  selection**, and a Results Review / Export phase. The CLI runs any registered
-  module or export target headlessly from the same `project.json`.
+- **The report issue package** (the Report page) — one directory per issue: a
+  self-contained LaTeX/PDF technical report written for a structural analyst who
+  did not run the analysis (airplane identity, flight envelope, the governing
+  LIMIT loads with location and stated factor, axes and sign conventions with
+  figures, a statement of limitations, the list of its own files), the
+  `project.json` it was built from, an as-built stamp and a manifest, and a
+  `data/` folder — every module's load cases, the applied load sets, the
+  balanced V-n conditions, the case index, the governing safety-factor table,
+  the gear report and the numbers behind every figure. Each `data/` file states
+  its own units, axes, basis and the factor it does not apply, so one forwarded
+  alone still reads. It is the **only tabular channel**: there is no per-table
+  download and no results zip. Deterministic (same project + units →
+  byte-identical output).
+- **The sbeam bulk-data deck** (the Beam Model page, or the CLI) — the LRA beam
+  model of the full-span free-free airplane (`GRID`/`FORCE`/`MOMENT` cards, aero
+  and inertia applied together, left and right cases), plus **`CONM2`/`MASSSET`
+  distributed-mass decks** per payload case and the OEW mass set, with a
+  gravity-based independent inertia check. Case identity is joinable
+  end-to-end: report case ID ↔ deck `LABEL` ↔ `LOAD`/`SUBCASE` integer. Every
+  deck carries a **global-equilibrium invariant**, and a pinned **sbeam
+  round-trip harness in CI** proves the exported decks actually solve.
+- **Gear load report** — the stamped free-body report described above: a report
+  section, a `data/` file, a GUI view, and a CLI export target.
+- **Interactive GUI** — fourteen analysis pages in four phases (develop the V-n
+  diagram, flight loads, other loads, landing loads), each drawing the report's
+  own figures for what was entered and what was computed (CG envelope, V-n
+  diagram, speed–altitude placard chart, planforms, spanwise loads, the
+  engine-out march), with the engineer's opt-out **critical-case selection**;
+  then four pages that are not analysis steps — the Project JSON Editor,
+  **Aircraft Comparison** against a reference fleet, the **Beam Model** and the
+  **Report**. Every input field sloads has is on screen; the ones the original
+  programs never asked for are marked and say why they are asked.
+- **The CLI** runs any registered module headlessly from the same
+  `project.json`, and writes the deck (`lra`), the mass sets (`mass`, `oew`) and
+  the gear report (`gear`) as files.
 
 ---
 

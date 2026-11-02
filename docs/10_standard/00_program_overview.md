@@ -252,8 +252,8 @@ document there is.
 ### Loads are LIMIT, and every artifact says so (mandatory)
 
 **Every load sloads delivers is LIMIT** — every force/moment/pressure in every
-deliverable (the `report.py` tables/text, the load-case CSV, both reports, the
-sbeam export, the Review/Export pages) is the calc's own value. The 14 CFR 23.303
+deliverable (the `report.py` tables/text, the module pages, the report issue
+package and its `data/` files, the sbeam deck) is the calc's own value. The 14 CFR 23.303
 safety factor is **stated per case and applied nowhere**, including in the
 exported deck; the sizing analysis applies it (design note 49 OR-116/OR-117).
 **No path in `sloads/` may multiply a load by a safety factor** — G-OR-71 scans
