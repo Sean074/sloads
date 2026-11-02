@@ -2,7 +2,7 @@
 """Generate ``docs/10_standard/DATA_DICTIONARY.md`` from the dataclasses.
 
 The ``project.json`` schema (``SCHEMA_VERSION`` is deep and climbing) has no
-reference other than ``sloads/models.py`` itself. This script introspects the
+reference other than the ``sloads/models/`` package itself. This script introspects the
 **input** slices of :class:`sloads.models.Project` and emits a markdown data
 dictionary: for every field its type, default, a units hint, and -- at *slice*
 granularity -- the page that owns it and the calc modules that consume it.
@@ -28,7 +28,8 @@ Run it (writes the doc in place; no third-party deps):
 
     .venv/bin/python docs/generate_data_dict.py
 
-Re-run after any ``models.py`` change so the dictionary tracks the schema.
+Re-run after any ``models/`` change so the dictionary tracks the schema
+(``tests/test_data_dictionary.py`` fails until it is).
 """
 
 from __future__ import annotations
@@ -100,12 +101,15 @@ SUFFIX_UNITS = [
 
 
 def _resolve_hints(cls):
-    """`typing.get_type_hints`, tolerant of forward refs to models globals."""
-    try:
-        return typing.get_type_hints(cls, globalns=vars(m))
-    except Exception:
-        # Fall back to the raw string annotations from dataclasses.fields.
-        return {f.name: f.type for f in dataclasses.fields(cls)}
+    """The resolved annotations, from the registry's one resolver (#409).
+
+    ``sloads.models`` is a package: the names its annotations use live in each
+    submodule, not in the package namespace this once passed as ``globalns``,
+    so resolving `Project` raised and a silent fallback to the raw strings left
+    every slice untyped and the dictionary with two tables. There is no
+    fallback now -- an unresolvable annotation raises, here and in the GUI.
+    """
+    return fr._hints(cls)
 
 
 def _inline_comments(cls):
@@ -136,7 +140,7 @@ def _units_hint(name, comment):
 
 
 def _type_str(s):
-    """Clean a raw string annotation (the get_type_hints-failed fallback)."""
+    """Shorten the repr of an annotation `_render_type` has no name for."""
     s = re.sub(r"\bsloads\.models\.", "", str(s))
     s = re.sub(r"\btyping\.", "", s)
     return s
@@ -241,11 +245,15 @@ def _consuming_modules(slice_attr):
     return hits
 
 
+#: The two input slices that are `Project` *properties* over
+#: ``geometry.empennage`` (step G6), not fields: typed here by hand.
+PROXY_SLICES = {"tail_loads": m.TailLoadsInput, "vtail_loads": m.VTailLoadsInput}
+
+
 def _slice_type(slice_attr):
-    """Resolve the dataclass type behind a Project slice (incl. the two proxies)."""
-    proxy = {"tail_loads": m.TailLoadsInput, "vtail_loads": m.VTailLoadsInput}
-    if slice_attr in proxy:
-        return proxy[slice_attr]
+    """The dataclass behind a Project input slice, or None for an enum/flag slice."""
+    if slice_attr in PROXY_SLICES:
+        return PROXY_SLICES[slice_attr]
     hints = _resolve_hints(m.Project)
     ann = hints.get(slice_attr)
     acc = []
@@ -273,8 +281,8 @@ def render_dataclass_table(cls, lines, seen):
 
     queue = []
     for f in dataclasses.fields(cls):
-        ann = hints.get(f.name, f.type)
-        type_s = _render_type(ann) if not isinstance(ann, str) else _type_str(ann)
+        ann = hints[f.name]
+        type_s = _render_type(ann)
         comment = comments.get(f.name, "")
         units = _units_hint(f.name, comment)
         lines.append(
@@ -296,7 +304,7 @@ def build():
     lines.append(
         "> **Generated file — do not edit by hand.** Produced by "
         "[`docs/generate_data_dict.py`](../generate_data_dict.py) from "
-        "`sloads/models.py`. Regenerate after any schema change: "
+        "the `sloads/models/` dataclasses. Regenerate after any schema change: "
         "`.venv/bin/python docs/generate_data_dict.py`."
     )
     lines.append("")
@@ -304,7 +312,7 @@ def build():
     lines.append("")
     lines.append(
         "This dictionary covers the **input** slices of `Project` "
-        "(`sloads/models.py`) — the fields that make up a `project.json`. The "
+        "(`sloads/models/project.py`) — the fields that make up a `project.json`. The "
         "result slices (`envelope`, `mass`, `loads`) are computed outputs and are "
         "out of scope."
     )
@@ -341,18 +349,17 @@ def build():
     lines.append("")
     lines.append("| Slice | Type | Owning page | Consumed by | Role |")
     lines.append("| --- | --- | --- | --- | --- |")
+    project_hints = _resolve_hints(m.Project)
     for attr, role in INPUT_SLICES:
         cls = _slice_type(attr)
-        if attr == "engine_layout":
-            type_s = "EngineLayout (enum)"
-        elif attr == "include_far25":
-            type_s = "bool"
-        elif attr == "engines":
-            type_s = "List[EngineInput]"
-        elif attr == "tail_mass":
-            type_s = "List[TailMassInput]"
+        if attr in PROXY_SLICES:
+            type_s = cls.__name__          # a property, not a `Project` field
         else:
-            type_s = cls.__name__ if cls else "?"
+            ann = project_hints[attr]      # KeyError: INPUT_SLICES names a slice the schema lacks
+            type_s = _render_type(ann)
+            bare = [a for a in typing.get_args(ann) if a is not type(None)] or [ann]
+            if isinstance(bare[0], type) and issubclass(bare[0], enum.Enum):
+                type_s += " (enum)"
         consumers = _consuming_modules(attr)
         consumers_s = ", ".join(f"`{c}`" for c in consumers) if consumers else "—"
         lines.append(
@@ -470,8 +477,8 @@ def _entry_units(path):
 def _entry_type(path):
     ann = fr.field_type(path)
     if ann is None:
-        return "?"
-    return _render_type(ann) if not isinstance(ann, str) else _type_str(ann)
+        raise KeyError(f"registry path {path!r} does not locate a field")
+    return _render_type(ann)
 
 
 def _entry_default(path):
