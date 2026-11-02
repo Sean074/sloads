@@ -664,7 +664,7 @@ actually took, and it is now complete.
 ## 9. Getting started
 
 ```bash
-pip install -e '.[dev]'          # editable install + dev tools (pytest, ruff)
+pip install -e ".[dev]"          # editable install + dev tools (pytest, ruff)
 streamlit run oracle_app/Oracle.py   # the GUI (or: sloads-oracle)
 python cli.py engine examples/ga6_normal.project.json -o engine_loads.csv
 pytest                           # the green-build gate
@@ -678,11 +678,11 @@ See [`PROGRAM_SPEC.md`](PROGRAM_SPEC.md) for the per-module specification.
 
 The round-trip gate (step 2) solves the exported decks in the **real sbeam**, so
 it needs that repository installed. It is a separate extra, and `dev` does not
-pull it in — `pip install -e '.[dev]'` stays `scipy`-free and fast for everyone
+pull it in — `pip install -e ".[dev]"` stays `scipy`-free and fast for everyone
 not working at the export boundary:
 
 ```bash
-pip install -e '.[solver]'       # the pinned sbeam, for the round-trip gate
+pip install -e ".[solver]"       # the pinned sbeam, for the round-trip gate
 pytest -m roundtrip              # just that gate (skips if sbeam is absent)
 ```
 
@@ -699,7 +699,7 @@ the bump is a deliberate act with a recorded result:
    what `main` does with the current gate, or install the candidate SHA locally
    — a scheduled run that already found drift will have opened the pinned
    **drift issue** described below, with its failing run linked;
-2. change the SHA in `pyproject.toml`, `pip install -e '.[dev,solver]'`;
+2. change the SHA in `pyproject.toml`, `pip install -e ".[dev,solver]"`;
 3. `pytest -m roundtrip` must be green **before** the bump is committed;
 4. record the bump in `CHANGELOG.md` with the sbeam commit subject.
 

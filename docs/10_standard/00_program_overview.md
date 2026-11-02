@@ -334,7 +334,7 @@ floor; this page names none of them.** Runtime requirements are
 `[project.dependencies]`, the supported developer set is
 `[project.optional-dependencies].dev` (it pins `ruff` and `mypy` to the versions
 the pre-commit hooks run, so hook and CI agree). Install with
-`pip install -e '.[dev]'`; add `,solver` for the sbeam round-trip gate. A floor
+`pip install -e ".[dev]"`; add `,solver` for the sbeam round-trip gate. A floor
 copied here drifts from the one that is enforced — this page carried a
 `streamlit` floor six minor versions below the real one (2026-08-20 review,
 CR-D-5); the reason for each floor is a comment beside it there (the

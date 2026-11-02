@@ -1,0 +1,1 @@
+- **The README quickstart runs on Windows (#419, tier S, 2026-11-01).** A Windows block beside the macOS/Linux one: `py -3.12`, `.venv\Scripts\`, one command per line; the extras are spelled `".[dev]"`, the quoting every shell accepts, across README, CONTRIBUTING, the GUI guide and the standard docs. Predicted by #397; its Windows run confirms it.

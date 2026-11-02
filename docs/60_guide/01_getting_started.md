@@ -8,8 +8,12 @@ another (the README's *Quickstart* section says why):
 
 ```bash
 python3.12 -m venv .venv
-.venv/bin/pip install -e '.[dev]'
+.venv/bin/pip install -e ".[dev]"
 ```
+
+On Windows the two lines are `py -3.12 -m venv .venv` and
+`.venv\Scripts\pip install -e ".[dev]"`, and every `.venv/bin/` below is
+`.venv\Scripts\`.
 
 Then launch the oracle GUI either way:
 
