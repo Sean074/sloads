@@ -285,6 +285,17 @@ def _hop_79(d: Dict[str, Any]) -> Dict[str, Any]:
     return d
 
 
+def _hop_80(d: Dict[str, Any]) -> Dict[str, Any]:
+    """v80 -> v81 (design note 73, #404): ``TailLoadsInput`` gains the
+    feasibility limits (``stabiliser`` F, fixed; the movable stabiliser's travel,
+    ``tail_stall_alpha_deg``, ``clh_max``) and ``VTailLoadsInput`` gains
+    ``vtail_stall_alpha_deg``; ``CriticalCondition`` gains ``feasibility``,
+    which ``select.default_critical`` re-stamps on every read, so a persisted
+    set without it is not stale. An identity: additive fields whose defaults
+    are the v80 airplane, and no delivered load reads them."""
+    return d
+
+
 #: ``{from_version: hop}`` -- applied in ascending order, each turning a file of
 #: version *n* into version *n+1* shape.
 MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
@@ -298,6 +309,7 @@ MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     77: _hop_77,
     78: _hop_78,
     79: _hop_79,
+    80: _hop_80,
 }
 
 #: The oldest project version this build reads: the oldest released schema, or

@@ -1993,6 +1993,40 @@ def _check_oei_not_recovered(project: Project) -> List[ConsistencyWarning]:
         PAGE_ONE_ENGINE_OUT) for fc in cases if not fc.recovered]
 
 
+def _check_balance_feasibility(project: Project) -> List[ConsistencyWarning]:
+    """``balance_infeasible`` -- a delivered condition whose balanced tail state
+    is past the elevator stop, the stabiliser travel, the tail stall or an
+    entered fin stall (design note 73 D-73.9, review A-2). A flag on a state the
+    regulation prescribes (``feasibility.is_prescribed``) is stated in the report
+    and the deck and raises no warning here: it is not an input to correct.
+
+    The case is still delivered and still governs where it does (Q6): the flag
+    says the state is one the airplane cannot reach, so the load is the
+    method's, not a flyable condition's. One warning per condition, carrying
+    SELECT's own flag text (``select.stamp_feasibility``, the one owner).
+    Silent where SELECT cannot run; its own page names why.
+    """
+    from .feasibility import FLAG_PREFIX, is_prescribed
+    from .modules.select import default_critical
+
+    try:
+        critical = default_critical(project)
+    # refusal: SELECT refuses; its own page names why
+    except (MissingInputError, ValueError):
+        return []
+    out = []
+    for c in critical.conditions:
+        flags = [f for f in c.feasibility if not is_prescribed(f)]
+        if flags:
+            out.append(ConsistencyWarning(
+                "balance_infeasible",
+                f"{c.component} {c.label} (V-n case {c.case}): " + "; ".join(
+                    f.removeprefix(FLAG_PREFIX).strip() for f in flags)
+                + ". The case is delivered as computed and flagged in the report and the deck.",
+                PAGE_TAIL))
+    return out
+
+
 def consistency_warnings(project: Project) -> List[ConsistencyWarning]:
     """All input-consistency warnings for ``project`` (each tagged with its page).
 
@@ -2029,6 +2063,7 @@ def consistency_warnings(project: Project) -> List[ConsistencyWarning]:
     out += _check_derive_overrides(project)
     out += _check_ttail_induced_roll(project)
     out += _check_oei_not_recovered(project)
+    out += _check_balance_feasibility(project)
     out += _check_windmill_drag_cd(project)
     out += _check_flap_ng_fallback(project)
     return out

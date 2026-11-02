@@ -598,3 +598,16 @@ def reciprocating_torque_factor(cylinders: int) -> float:
 #: SELECT.BAS uses when no wing weight is known: the fuselage conditions'
 #: WW (subroutine 4000) and the rod-estimate IZZ's wing mass (line 8884).
 WING_WEIGHT_STAND_IN_FRACTION = 0.09
+#: Default horizontal-tail stalling angle of attack, deg (design note 73
+#: D-73.3, #404): Torenbeek's typical -0.25 rad (*Synthesis of Subsonic Airplane
+#: Design* p326), as sconfig's ``tail_alpha_min_deg`` carries it. Applied as a
+#: magnitude, the positive side mirroring the negative (owner ruling Q1).
+TAIL_STALL_ALPHA_DEG = 14.32
+#: Default h-tail lift-coefficient limits by stabiliser type, as magnitudes
+#: (design note 73 D-73.3, #404): Roskam *Airplane Design* Pt VII p44's quick
+#: values, which Torenbeek §9.4.1 p325 repeats, as sconfig ``aero.clh_max``
+#: carries them. Fixed stabiliser with a 30 % elevator: 0.35·A_h^(1/3).
+#: Adjustable, elevator at full deflection: 1.2. All-moving: 1.0 (Torenbeek p325).
+CLH_MAX_FIXED_COEFF = 0.35
+CLH_MAX_ADJUSTABLE = 1.2
+CLH_MAX_ALL_MOVING = 1.0

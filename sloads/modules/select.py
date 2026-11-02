@@ -77,7 +77,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import replace
-from typing import TYPE_CHECKING, Callable, Dict, List, NamedTuple, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, NamedTuple, Optional, Tuple, cast
 
 from ..aero_curves import inertia_drag_factor
 from ..case_ids import WING_BAND_EXTRA, WING_SLOTS, CaseIdAllocator, wing_case_id
@@ -241,8 +241,13 @@ def default_critical(project: Project,
     Raises :class:`MissingInputError` when no V-n matrix can be obtained at all.
     """
     if project.envelope is not None and project.envelope.critical is not None:
-        return _with_engine_failure(project, project.envelope.critical)
-    return _with_engine_failure(project, build_critical(project, envelope))
+        critical = _with_engine_failure(project, project.envelope.critical)
+    else:
+        critical = _with_engine_failure(project, build_critical(project, envelope))
+    # Re-stamped on every route (note 73): a persisted set may predate the flags,
+    # and the engine-failure conditions join only here.
+    stamp_feasibility(project, critical, envelope)
+    return critical
 
 
 #: Label prefix every 23.367 fin condition carries, and the identity this module
@@ -885,8 +890,10 @@ def effective_tail_inputs(project: Project) -> Optional[TailLoadsInput]:
             and aw == ti.wing_lift_slope_per_rad
             and se == ti.elevator_area_sqft):
         return ti
+    # Every key is a float planform field; the cast only tells mypy so, now that
+    # TailLoadsInput also holds a str (``stabiliser``, design note 73).
     return replace(ti, aspect_ratio_wing=arw, wing_lift_slope_per_rad=aw,
-                   elevator_area_sqft=se, **updates)
+                   elevator_area_sqft=se, **cast(Dict[str, Any], updates))
 
 
 def effective_vtail_inputs(project: Project) -> Optional[VTailLoadsInput]:
@@ -1770,15 +1777,117 @@ def build_critical(project: Project,
     conditions.extend(select_vtail(project, env))
     conditions.extend(select_fuselage(project, env))
     _stamp_case_refs(project, conditions, env)
-    return CriticalLoadSet(conditions=conditions)
+    critical = CriticalLoadSet(conditions=conditions)
+    stamp_feasibility(project, critical, env)
+    return critical
 
 
-def _critical_conditions(cls: CriticalLoadSet, concept: bool) -> List[ConditionResult]:
+# --------------------------------------------------------------------------- #
+# Balance feasibility (design note 73, #404)
+# --------------------------------------------------------------------------- #
+#: The 23.441 conditions whose fin angle the regulation prescribes (Q4): the
+#: flag says the angle is the rule's, not the balance's.
+_PRESCRIBED_VTAIL_ANGLE = {"YAW TO SIDESLIP": "23.441(a)(2)", "YAW 15 NEUTRAL": "23.441(a)(3)"}
+#: The 23.423(a) conditions whose elevator throw the regulation prescribes (the
+#: owner's 2026-11-02 ruling): flagged like any other, worded as the rule's.
+_PRESCRIBED_ELEVATOR = {"UNCHECKED MAN DN": "23.423(a)", "UNCHECKED MAN UP": "23.423(a)"}
+_WING_BASIS = ("rational balance at the V-n point; the case carries FLTLOADS' "
+               "lumped trim tail load")
+
+
+def _trim_delta(p: VnPoint, vn: List[VnPoint], cg_map: Dict[str, CgCase], xw: float, zw: float,
+                ti: TailLoadsInput) -> float:
+    """The 1 g trim elevator of ``p``'s own CG, configuration and altitude, at the
+    nearest 1 g speed in the matrix: what an adjustable stabiliser trims (D-73.5)."""
+    ones = [q for q in vn if q.cg == p.cg and q.config == p.config
+            and q.altitude_ft == p.altitude_ft and abs(q.nz - 1.0) < 0.05]
+    if not ones:
+        raise ValueError(f"V-n case {p.case}: no 1 g point at its CG {p.cg!r}, configuration "
+                         f"{p.config!r} and altitude for the adjustable stabiliser's trim")
+    trim = extreme(ones, lambda q: -abs(q.v_eas_kt - p.v_eas_kt))
+    return htail_balance(trim, _cg_case(cg_map, trim), xw, zw, ti).delta
+
+
+def condition_feasibility(project: Project, c: CriticalCondition,
+                          vn: Dict[int, VnPoint], vn_all: List[VnPoint]) -> List[str]:
+    """The feasibility flags of one critical condition (D-73.1 … D-73.7).
+
+    * **h-tail** conditions are judged on their own published split
+      (``lt25``, the total, ``delta_deg``);
+    * **wing** conditions re-run the rational balance at their V-n point
+      (D-73.7, as BALLOADS does), since the case carries the lumped tail load;
+    * **v-tail** conditions -- SELECT's four and ONENGOUT's 23.367 -- judge their
+      fin angle against an *entered* limit only (D-73.6);
+    * **fuselage** conditions are read off the tail cases that are judged as
+      themselves, so they carry no state of their own.
+    """
+    from ..feasibility import htail_state, stabiliser_type, vtail_state
+
+    if c.component == "vtail":
+        vt = project.vtail_loads
+        if vt is None or c.alpha_tail_deg is None:
+            return []
+        return list(vtail_state(c.alpha_tail_deg, vt.vtail_stall_alpha_deg,
+                                prescribed_by=_PRESCRIBED_VTAIL_ANGLE.get(c.label, "")).flags)
+    if c.component not in ("htail", "wing") or c.case is None or c.case not in vn:
+        return []
+    # A persisted critical set can be read past inputs the h-tail search refuses;
+    # it is not judged against them.
+    try:
+        ti = effective_tail_inputs(project)
+    # refusal: the h-tail search raises the same refusal by name on its own page
+    except (MissingInputError, ValueError):
+        return []
+    wr = wing_reference(project)
+    if ti is None or wr is None or project.flight_loads is None:
+        return []
+    p = vn[c.case]
+    cg_map = _cg_map(project)
+    trim = (_trim_delta(p, vn_all, cg_map, wr.xw, wr.zw, ti)
+            if stabiliser_type(ti) == "A" else None)
+    if c.component == "wing":
+        b = htail_balance(p, _cg_case(cg_map, p), wr.xw, wr.zw, ti)
+        return list(htail_state(b.lt25, b.lt, b.delta, p.v_eas_kt, ti,
+                                trim_delta_deg=trim, basis=_WING_BASIS).flags)
+    if c.lt25 is None or not c.loads:
+        return []
+    return list(htail_state(c.lt25, c.loads[0].value, c.delta_deg, p.v_eas_kt, ti,
+                            trim_delta_deg=trim,
+                            prescribed_by=_PRESCRIBED_ELEVATOR.get(c.label, "")).flags)
+
+
+def stamp_feasibility(project: Project, critical: CriticalLoadSet,
+                      envelope: Optional[EnvelopeResult] = None) -> None:
+    """Set every condition's ``feasibility`` -- overwritten, so a re-stamp is
+    idempotent. The one place the flags are made (D-73.1)."""
+    vn_all = _resolve_envelope(project, envelope).vn
+    vn = {p.case: p for p in vn_all}
+    unsymmetrical = [c for c in critical.conditions if c.component == "htail" and c.label == "UNSYMMETRICAL"]
+    for c in critical.conditions:
+        if c not in unsymmetrical:
+            c.feasibility = condition_feasibility(project, c, vn, vn_all)
+    # 23.427(a) distributes its governing condition's state (AS-2): it carries
+    # that condition's flags, named, rather than judging a scaled total against
+    # the unscaled split it copied.
+    for u in unsymmetrical:
+        source = next((c for c in critical.conditions
+                       if c.component == "htail" and c is not u and c.case == u.case
+                       and c.lt25 == u.lt25 and c.lt50 == u.lt50), None)
+        u.feasibility = ([f"{f} [the state of {source.label}, which 23.427(a) distributes]"
+                          for f in source.feasibility] if source is not None else [])
+
+
+def _critical_conditions(cls: CriticalLoadSet, concept: bool,
+                         vtail_checked: bool = True) -> List[ConditionResult]:
+    from ..feasibility import VTAIL_NOT_CHECKED
+
     note = ("Concept mode -- unverified extrapolation past the FAR23 band."
             if concept else "")
     out: List[ConditionResult] = []
     for c in cls.conditions:
-        notes = [n for n in (note, c.note) if n]
+        # D-73.6: with no fin limit entered, each fin condition says it was not judged.
+        unchecked = VTAIL_NOT_CHECKED if c.component == "vtail" and not vtail_checked else ""
+        notes = [n for n in (note, c.note, *c.feasibility, unchecked) if n]
         out.append(ConditionResult(
             title=f"Critical {c.component} load {c.label} (case {c.case})",
             far_reference=c.far_reference,
@@ -1792,8 +1901,11 @@ def _critical_conditions(cls: CriticalLoadSet, concept: bool) -> List[ConditionR
 def run(project: Project) -> ModuleResult:
     """Run SELECT against a :class:`Project`'s envelope / flight-loads inputs."""
     cls = build_critical(project)
+    vt = project.vtail_loads
     return ModuleResult(module=MODULE_NAME,
-                        conditions=_critical_conditions(cls, project.is_concept))
+                        conditions=_critical_conditions(
+                            cls, project.is_concept,
+                            vtail_checked=vt is not None and vt.vtail_stall_alpha_deg is not None))
 
 
 register(MODULE_NAME, run)
@@ -1807,6 +1919,7 @@ __all__ = [
     "MODULE_NAME",
     "HtailBalance",
     "build_critical",
+    "condition_feasibility",
     "default_critical",
     "default_envelope",
     "elevator_load",
@@ -1823,6 +1936,7 @@ __all__ = [
     "select_htail_unsymmetrical",
     "select_vtail",
     "select_wing",
+    "stamp_feasibility",
     "vn_by_case",
     "vn_points",
 ]

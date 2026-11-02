@@ -374,6 +374,10 @@ class CriticalCondition:
     alpha_tail_deg: Optional[float] = None   # tail: AT / fin AoA of the case (deg)
     delta_deg: Optional[float] = None        # tail: elevator/rudder deflection (deg)
     q_psf: Optional[float] = None            # tail: q at the governing point (lb/ft^2)
+    #: The case's balance-feasibility flags (design note 73, #404): stamped once
+    #: over the whole set by ``select.stamp_feasibility``, read by the report,
+    #: the balanced deck and the validation warning. Empty = feasible or unchecked.
+    feasibility: List[str] = field(default_factory=list)
 
 
 @dataclass

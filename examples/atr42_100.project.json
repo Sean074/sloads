@@ -1,5 +1,5 @@
 {
-  "schema_version": 80,
+  "schema_version": 81,
   "name": "ATR 42-300 (\"ATR 42-100\" prototype designation never entered production; -300 is the closest PW120-powered production analog) \u2014 2x PW120 (concept, category C)",
   "description": "ATR 42-300, 48-seat regional turboprop twin (concept mode, category C). Published data cited, everything else estimated -- sources: examples/atr42_100.sources.md (#260)",
   "engines": [
@@ -1264,14 +1264,19 @@
         "elevator_area_sqft": 0.0,
         "elevator_fwd_hinge_sqft": 0.0,
         "elevator_aft_hinge_sqft": 0.0,
-        "tail_incidence_deg": 1.0,
+        "tail_incidence_deg": -1.0,
         "wing_zero_lift_cruise_deg": 3.0,
         "wing_zero_lift_enroute_deg": 0.0,
         "wing_zero_lift_landing_deg": 0.0,
         "elevator_effectiveness": 0.62,
         "elevator_te_up_deg": 25.0,
         "elevator_te_down_deg": 15.0,
-        "wing_lift_slope_per_rad": 0.0
+        "wing_lift_slope_per_rad": 0.0,
+        "stabiliser": "F",
+        "stabiliser_incidence_nu_deg": null,
+        "stabiliser_incidence_nd_deg": null,
+        "tail_stall_alpha_deg": 14.32,
+        "clh_max": null
       },
       "vtail": {
         "vtail_area_sqft": 125.528,
@@ -1287,7 +1292,8 @@
         "rudder_deflection_deg": 25.0,
         "rudder_large_deflection_factor": 1.0,
         "izz_slugft2": 0.0,
-        "vtail_root_waterline_z": 0.0
+        "vtail_root_waterline_z": 0.0,
+        "vtail_stall_alpha_deg": null
       }
     },
     "landing_gear": {

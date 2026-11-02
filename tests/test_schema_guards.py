@@ -426,7 +426,16 @@ def fields_hash() -> str:
 #: ``atr42_100``, ``baron_58`` and ``concept_regional_jet`` by D-69.17's data
 #: (elevator and rudder polylines entered, the six SELECT scalars blanked), not
 #: by the hop.
-EXPECTED_FIELDS_HASH = "f4128c3a737669aa"
+#: v81 (design note 73, #404): ``TailLoadsInput`` gains ``stabiliser``, the
+#: movable stabiliser's ``stabiliser_incidence_nu_deg``/``_nd_deg``,
+#: ``tail_stall_alpha_deg`` and ``clh_max``; ``VTailLoadsInput`` gains
+#: ``vtail_stall_alpha_deg``. Additive with the v80 airplane as the defaults, so
+#: ``_hop_80`` is an identity; the limits are checked against, never solved
+#: with. ``CriticalCondition`` gains ``feasibility``, the flags
+#: ``select.stamp_feasibility`` stamps. The Imperial digests move by the ruling,
+#: not the hop: the ATR's incidence is -1.0 (D-73.8) and flagged cases carry
+#: their flags into the deck.
+EXPECTED_FIELDS_HASH = "3baf1282cb72c514"
 
 
 def test_persisted_dataclass_shapes_are_unchanged():

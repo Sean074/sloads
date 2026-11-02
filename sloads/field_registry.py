@@ -94,6 +94,7 @@ CODED_FIELDS: Dict[str, Mapping[str, str]] = {
     "speeds.category": _models.CATEGORIES,
     "geometry.landing_gear.main_gear.strut": _models.STRUT_TYPES,
     "geometry.landing_gear.nose_gear.strut": _models.STRUT_TYPES,
+    "geometry.empennage.htail.stabiliser": _models.STABILISER_TYPES,
 }
 
 #: Fixed-vocabulary **row selectors** (#98, C210-46): ``str`` fields on list
@@ -1245,6 +1246,21 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "SELECT IW (landing); wing aero, #95 C210-6 display group"),
     _E("geometry.empennage.htail.xt25", _GEO, _ORIG, "SELECT 25% tail MAC station"),
     _E("geometry.empennage.htail.xt50", _GEO, _ORIG, "SELECT 50% tail MAC station"),
+    # Feasibility limits (design note 73, #404): the balance is checked against
+    # them and never solved with them, so no delivered load reads one.
+    _E("geometry.empennage.htail.stabiliser", _GEO, _SLDS,
+       "what carries the trim in the elevator-authority check (D-73.4, sconfig aero.stabiliser): "
+       "SELECT solved any elevator angle the CG moment needed and checked none (#404)"),
+    _E("geometry.empennage.htail.stabiliser_incidence_nu_deg", _GEO, _SLDS,
+       "the movable stabiliser's most nose-up (LE-down) trim incidence (D-73.5); required unless F (fixed)"),
+    _E("geometry.empennage.htail.stabiliser_incidence_nd_deg", _GEO, _SLDS,
+       "the movable stabiliser's most nose-down (LE-up) trim incidence (D-73.5); required unless F (fixed)"),
+    _E("geometry.empennage.htail.tail_stall_alpha_deg", _GEO, _SLDS,
+       "the h-tail stalling angle the balanced tail alpha is checked against, as a magnitude "
+       "(D-73.3; default Torenbeek p326, -0.25 rad typical)"),
+    _E("geometry.empennage.htail.clh_max", _GEO, _SLDS,
+       "the h-tail lift-coefficient limit, as a magnitude (D-73.3); blank -> Roskam Pt VII p44 by "
+       "stabiliser type, as sconfig aero.clh_max"),
 
     # geometry.empennage.vtail -- SELECT's rational v-tail inputs (Ch 9)
     _E("geometry.empennage.vtail.aspect_ratio_vtail", _GEO, _ORIG, "SELECT ARVT"),
@@ -1262,6 +1278,9 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("geometry.empennage.vtail.rudder_fwd_hinge_sqft", _GEO, _ORIG, "SELECT SRFWDHL"),
     _E("geometry.empennage.vtail.rudder_deflection_deg", _GEO, _ORIG, "SELECT RD"),
     _E("geometry.empennage.vtail.rudder_large_deflection_factor", _GEO, _ORIG, "SELECT EFV (subr 10000)"),
+    _E("geometry.empennage.vtail.vtail_stall_alpha_deg", _GEO, _SLDS,
+       "the fin stalling angle, as a magnitude, entered only (D-73.6, owner ruling Q3): blank -> the fin "
+       "is not checked and the report says so; #353 found a delivered 23.367 case past a plausible stall"),
     _E("geometry.empennage.vtail.wing_span_in", _GEO, _ORIG,
        "SELECT B; blank derives from the WINGGEOM wing planform's own span "
        "(#95, C210-3 -- the C210 build typed 440 in against the integrator's 441)",

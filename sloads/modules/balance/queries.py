@@ -10,14 +10,14 @@ table cannot disagree about what a case was.
 from __future__ import annotations
 
 import math
-from typing import List, Sequence, Tuple
+from typing import Callable, List, Sequence, Tuple
 
 from ...mass_distribution import CaseLoading, assembly_distributes_mass, component_of, reacted_parts
 from ...models import BalancedCaseResult, BalancedLoad, Project
 from ...rigid_body import SelfInertia
 from .applied import HUB_THRUST_SOURCE
 from .closure import PointSelfInertia
-from .constants import BODY_INERTIA_SOURCE, HANDEDNESS_TOL
+from .constants import BALANCED_WING_CONDITIONS, BODY_INERTIA_SOURCE, HANDEDNESS_TOL
 
 
 def is_unsymmetrical_htail(case: BalancedCaseResult) -> bool:
@@ -271,6 +271,38 @@ def is_lateral(case: BalancedCaseResult) -> bool:
     handed, not the resultant (the same distinction :func:`is_handed` draws).
     """
     return any(ld.source == "vtail-air" for ld in case.loads)
+
+
+
+def is_wing_condition(case: BalancedCaseResult) -> bool:
+    """Is this one of SELECT's wing conditions, assembled on its V-n point?"""
+    return case.label in BALANCED_WING_CONDITIONS
+
+
+#: Every balanced family against the feasibility check (design note 73 D-73.10),
+#: as ``(name, predicate, standing)``, first match wins. ``checked`` families
+#: carry SELECT's flags (``select.stamp_feasibility``); every other row states
+#: why it has no tail state to judge. A case no row claims fails the drift guard
+#: (``tests/test_feasibility.py``), so a new family is classified before it ships.
+FEASIBILITY_FAMILIES: Tuple[Tuple[str, Callable[[BalancedCaseResult], bool], str], ...] = (
+    ("ground", is_ground, "exempt: no aero -- the gear load is applied in full"),
+    ("engine mount", is_engine_mount,
+     "exempt: a flight V-n point scaled to the mount's load factor, not a balanced tail state "
+     "of its own; the delivered conditions it scales from are judged as themselves"),
+    ("engine out", is_engine_out, "checked: the fin at the march's peak (D-73.6)"),
+    ("unsymmetrical h-tail", is_unsymmetrical_htail, "checked: SELECT's h-tail state (D-73.2)"),
+    ("lateral fin", is_lateral, "checked: the fin angle of the 23.441/23.443 condition (D-73.6)"),
+    ("wing", is_wing_condition, "checked: the rational balance at the V-n point (D-73.7)"),
+)
+
+
+def feasibility_family(case: BalancedCaseResult) -> Tuple[str, str]:
+    """``(family, standing)`` of ``case`` from :data:`FEASIBILITY_FAMILIES`."""
+    for name, predicate, standing in FEASIBILITY_FAMILIES:
+        if predicate(case):
+            return name, standing
+    raise LookupError(f"balanced case {case.label!r} is in no feasibility family "
+                      "(design note 73 D-73.10): classify it in FEASIBILITY_FAMILIES")
 
 
 def vtail_load(case: BalancedCaseResult) -> float:

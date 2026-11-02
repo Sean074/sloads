@@ -2557,8 +2557,8 @@ def test_the_symmetric_half_of_a_lateral_case_still_closes(example):
 _UNSYMMETRICAL_SPLIT = {
     'ga6_normal.project.json': (-700.2880318468195, -504.20738292971004, 72.0),
     'cessna_210.project.json': (-687.2978354106667, -494.85444149568, 72.0),
-    'atr42_100.project.json': (-4468.149983299741, -3574.5199866397925, 80.0),   # #420: the certified 12 % forward line   # #260; re-pinned at #389 (the stabiliser is the airplane's, 125.0 sq ft)
-    'atr42_300_seed.project.json': (-4722.18127929121, -3777.745023432968, 80.0),   # #403: Sh 127.0 sq ft, n 2.61; #420: the 12 % forward line
+    'atr42_100.project.json': (-4532.627636356502, -3626.102109085202, 80.0),   # #404: IT -1.0 (note 73 D-73.8)   # #420: the certified 12 % forward line   # #260; re-pinned at #389 (the stabiliser is the airplane's, 125.0 sq ft)
+    'atr42_300_seed.project.json': (-4792.352599221562, -3833.8820793772497, 80.0),   # #403: Sh 127.0 sq ft, n 2.61; #420: the 12 % forward line; #404: IT -1.0
     'dhc8_dash8.project.json': (-3302.095528143376, -2641.6764225147012, 80.0),
     # D-69.17: the RJ's elevator is now an entered polyline whose integrated
     # hinge areas land on the former typed 4.0/30.0 within the construction

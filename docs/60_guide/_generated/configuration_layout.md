@@ -52,6 +52,11 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `geometry.empennage.htail.tail_incidence_deg` | `float` | IT (WL to tail chord) | `0.0` | original | SELECT IT |
 | `geometry.empennage.htail.xt25` | `float` | [D] fuselage station of 25% tail MAC | `0.0` | original | SELECT 25% tail MAC station |
 | `geometry.empennage.htail.xt50` | `float` | [D] fuselage station of 50% tail MAC | `0.0` | original | SELECT 50% tail MAC station |
+| `geometry.empennage.htail.stabiliser` | `str` | STABILISER_TYPES code | `'F'` | sloads | what carries the trim in the elevator-authority check (D-73.4, sconfig aero.stabiliser): SELECT solved any elevator angle the CG moment needed and checked none (#404) |
+| `geometry.empennage.htail.stabiliser_incidence_nu_deg` | `Optional[float]` | required unless F (fixed) | `None` | sloads | the movable stabiliser's most nose-up (LE-down) trim incidence (D-73.5); required unless F (fixed) |
+| `geometry.empennage.htail.stabiliser_incidence_nd_deg` | `Optional[float]` | required unless F (fixed) | `None` | sloads | the movable stabiliser's most nose-down (LE-up) trim incidence (D-73.5); required unless F (fixed) |
+| `geometry.empennage.htail.tail_stall_alpha_deg` | `float` | \|alpha_tail\| limit (Torenbeek p326) | `14.32` | sloads | the h-tail stalling angle the balanced tail alpha is checked against, as a magnitude (D-73.3; default Torenbeek p326, -0.25 rad typical) |
+| `geometry.empennage.htail.clh_max` | `Optional[float]` | \|C_L,h\| limit; blank -> Roskam Pt VII p44 by type | `None` | sloads | the h-tail lift-coefficient limit, as a magnitude (D-73.3); blank -> Roskam Pt VII p44 by stabiliser type, as sconfig aero.clh_max |
 | `geometry.empennage.vtail.aspect_ratio_vtail` | `float` | [D] ARVT | `0.0` | original | SELECT ARVT |
 | `geometry.empennage.vtail.vtail_area_sqft` | `float` | [D] SV | `0.0` | original | SELECT SV |
 | `geometry.empennage.vtail.vtail_mac_in` | `float` | [D] VMAC (inches; VMAC_ft = VMAC_in/12) | `0.0` | original | SELECT VMAC |
@@ -61,6 +66,7 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `geometry.empennage.vtail.rudder_fwd_hinge_sqft` | `float` | [D] SRFWDHL | `0.0` | original | SELECT SRFWDHL |
 | `geometry.empennage.vtail.rudder_deflection_deg` | `float` | RD (full rudder) | `0.0` | original | SELECT RD |
 | `geometry.empennage.vtail.rudder_large_deflection_factor` | `float` | EFV (subr 10000 chart; ~1.0) | `1.0` | original | SELECT EFV (subr 10000) |
+| `geometry.empennage.vtail.vtail_stall_alpha_deg` | `Optional[float]` | \|alpha_vtail\| limit, deg | `None` | sloads | the fin stalling angle, as a magnitude, entered only (D-73.6, owner ruling Q3): blank -> the fin is not checked and the report says so; #353 found a delivered 23.367 case past a plausible stall |
 | `geometry.empennage.vtail.wing_span_in` | `float` | [D] B (inches; IZZ uses B_ft = B_in/12; from the wing planform) | `0.0` | original | SELECT B; blank derives from the WINGGEOM wing planform's own span (#95, C210-3 -- the C210 build typed 440 in against the integrator's 441); quantity: *wing planform span*; override of `external: the wing planform span (derived_geometry.wing_span_in, the WINGGEOM strip integral's span; select.effective_vtail_inputs)` |
 | `geometry.empennage.vtail.xv25` | `float` | [D] fuselage station of 25% vtail MAC | `0.0` | original | SELECT 25% v-tail MAC station |
 | `geometry.empennage.vtail.xv50` | `float` | [D] fuselage station of 50% vtail MAC (ONENGOUT camber load) | `0.0` | original | ONENGOUT camber-load station |

@@ -10,7 +10,7 @@ import math
 from dataclasses import dataclass, field
 from typing import Dict, List, Mapping, Optional, Sequence, Set, Tuple, Type
 
-from ..constants import DEFAULT_REF_AXIS_PCT, ULTIMATE_FACTOR
+from ..constants import DEFAULT_REF_AXIS_PCT, TAIL_STALL_ALPHA_DEG, ULTIMATE_FACTOR
 from .enums import (
     AnalysisKind,
     EngineType,
@@ -778,6 +778,14 @@ STRUT_TYPES: Dict[str, str] = {
     "S": "Spring (0.50 strut efficiency)",
 }
 
+#: Horizontal-stabiliser types (design note 73 D-73.4, #404; sconfig's
+#: ``aero.stabiliser``) -> what carries the trim in the feasibility check.
+STABILISER_TYPES: Dict[str, str] = {
+    "F": "Fixed stabiliser, elevator trims",
+    "A": "Adjustable stabiliser trims, elevator kept for the manoeuvre",
+    "M": "All-moving stabiliser, no elevator",
+}
+
 
 #: Host surfaces a :class:`TabSpec` can sit on (#98, C210-46) -> the component
 #: its case is filed under is ``modules/tab.py``'s ``_TAB_COMPONENT``, guarded to
@@ -1452,6 +1460,14 @@ class TailLoadsInput:
     # whole-airplane quantity stored once on EmpennageInput.airplane_length_in
     # (#52, v55) and read from the Project by SELECT.
     wing_lift_slope_per_rad: float = 0.0       # AW (gust downwash relief 1 - 36*aw/ARW)
+    # Feasibility limits (design note 73, #404): what the balance is checked
+    # against, never what it solves with. The stabiliser travel is incidence,
+    # LE-up +, the IT sense; ``nu`` is the most nose-up (LE-down, most negative).
+    stabiliser: str = "F"                      # STABILISER_TYPES code
+    stabiliser_incidence_nu_deg: Optional[float] = None  # required unless F (fixed)
+    stabiliser_incidence_nd_deg: Optional[float] = None  # required unless F (fixed)
+    tail_stall_alpha_deg: float = TAIL_STALL_ALPHA_DEG   # |alpha_tail| limit (Torenbeek p326)
+    clh_max: Optional[float] = None            # |C_L,h| limit; blank -> Roskam Pt VII p44 by type
 
 
 # --------------------------------------------------------------------------- #
@@ -1523,6 +1539,10 @@ class VTailLoadsInput:
     # the CG is a first-order roll load in a lateral balanced case, so where it
     # comes from is a decision of record rather than an implicit zero.
     vtail_root_waterline_z: float = 0.0        # 0 -> derived, marked assumed
+    # Fin stall (design note 73 D-73.6, #404): entered only. Blank -> the fin is
+    # not checked and the report says so; the simplified method runs the linear
+    # fin to large sideslip by practice (owner ruling Q3).
+    vtail_stall_alpha_deg: Optional[float] = None  # |alpha_vtail| limit, deg
 
 
 # --------------------------------------------------------------------------- #
@@ -2146,6 +2166,7 @@ __all__ = [
     "HTAIL_BOUNDARY_DERIVED",
     "LRA_DEFAULT_GRIDS",
     "REFUSALS",
+    "STABILISER_TYPES",
     "STRUT_TYPES",
     "TAB_SURFACES",
     "TAIL_SURFACES",

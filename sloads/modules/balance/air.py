@@ -470,6 +470,9 @@ def build_balanced_cases(
         case = assemble(project, cond.label, point, loading, cg, sources=sources,
                         case_ref=cond.case_ref, unb=unb, lateral=lateral,
                         htail=htail, lateral_aero=terms)
+        if cond.feasibility:
+            # SELECT's flags, stamped once (design note 73 D-73.9); the twin copies them.
+            case = replace(case, notes=[*case.notes, *cond.feasibility])
         out.append(case)
         if case.hand:
             out.append(handed_twin(case))

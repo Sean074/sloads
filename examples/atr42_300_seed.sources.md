@@ -50,3 +50,9 @@ The export above was reviewed before it entered the tree. What changed, and why;
 | CG cases | re-seeded at #403 on the 6 – 33 lines | re-seeded on the 12 – 38 lines, each with its loading of record (D-63.1) | the limits moved | -- |
 | `full fuel aft` | a distinct case, 36,817 lb at 378.50 in | not written | at the 38 % aft limit the full-fuel search reaches the limit point itself (36,817 lb at 390.79 in, the `aft gross` case to 0.01 in), and D-63.5's skip rule writes no duplicate — the same mechanism that makes it CG1 on the Appendix A airplane | -- |
 | VMCA (`one_engine_out.vmc_kt`) | blank | blank, kept | sconfig's 88.5 KIAS (VT-D5) names no -300 AFM page, and none is in the Library (the `atr42_100.sources.md` VMCA row); the march ends at VS until one is | -- |
+
+## Corrections at #404 (2026-11-02): the stabiliser incidence
+
+| Quantity | Was | Now | Why | Tag |
+|---|---|---|---|---|
+| Stabiliser incidence (`empennage.htail.tail_incidence_deg`) | +1.0° | −1.0° | sconfig's own deck carries −1.0° [E] and records the +1.0° as inherited unsourced from the v0.1.0 baseline; the baseline fixture moves with it (`atr42_100.sources.md`, design note 73 D-73.8) | [E] via sconfig |

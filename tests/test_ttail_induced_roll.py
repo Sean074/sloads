@@ -147,7 +147,7 @@ _GOVERNING = {
 
 #: G-51.1 / G-51.2: the 23.427(a) case's net roll about the centreline. The
 #: ATR's re-pinned at #389 (-30,622 -> -57,894 on the 125.0 sq ft stabiliser).
-_UNSYM_ROLL = {"concept_regional_jet": 72_547, "atr42_100": -59_120}   # ATR re-pinned at #420 (certified limits)
+_UNSYM_ROLL = {"concept_regional_jet": 72_547, "atr42_100": -59_973}   # ATR re-pinned at #420 (certified limits), #404 (IT -1.0, note 73 D-73.8)
 
 
 def _project(name):

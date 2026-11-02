@@ -334,6 +334,23 @@ approved-corrections register [`../20_theory/02_approved_corrections.md`](../20_
 - **The net-governing run (design note 63 D-63.7, #292, 2026-09-18).** `select_wing` delivers each wing slot at the variant whose signed root `Mxx` is the extreme — `wing_variants.wing_variant_table` assesses every slot at every FLIGHT case (the family's own pick among the points balanced at that case, `wing_slot_picks`, run at that case's loading) and marks one governing row per slot, largest for the positive-lift slots and most negative for the negative ones (`select.SLOT_LIFT_SIGN`); the slot keeps its W id and the run key (D-63.11) names the point, the re-pointed condition says so in its `note`. SELECT.BAS 3000's per-family search over the whole matrix stays as `select.air_picks`, the intermediate the Appendix A and note 62 pick tests assert. Two in-code amendments: the torsion slot and the load-factor extremes (`select.AIR_PICK_SLOTS`: TORS, PNZ, NNZ) are delivered at their air pick, their criterion not being the bending — without exception since #294: the table assesses every air pick at its own CG case so the row always exists, and a governing pass that finds no air row for such a slot raises rather than re-points it on bending; and a variant within the FLTLOADS balance's own noise of the air pick (`wing_variants.GOVERNING_TIE_REL`, 0.5 %) is a tie the air pick keeps. A project the wing analysis cannot run on delivers the air picks unchanged. An entered `wing_mass.cases` list is a **filter** on the slots, never a second source of points (`wing_inertia.resolve_wing_cases`): a case naming a slot with no `case` of its own takes the slot's delivered point.
 - **The summary table (#95, C210-26/27 — owner directive, "one line per case"):** SELECT's on-screen table and its module CSV render through `report.summary_rows` → `report.critical_rows` — one row per condition with ID / LOAD / Component / Condition / FAR / CG case / Run (the run key beside the id, #292) / the per-quantity column union (`"—"` where absent) / the per-case `SF`, sharing `governing_loads_table`'s one-line core (`_union_rows`) so the M2-4 tables and this one cannot diverge. The oracle page groups the same rows per component (`SUMMARY_GROUP_BY`); the CSV keeps them flat. This replaced the stacked one-row-per-quantity shape (~150 rows for 27 conditions, SF invisible on wing cases) — an accepted deliverable-format change, the `csv/*` digests re-frozen with it.
 - **Accelerated roll (design note 52, #306, #315, #320):** the `ACRL` pick is the largest `LZW` among the `AC ROLL` points, and points within `select.LZW_TIE_REL` of it (the balance's `constants.NZ_BALANCE_TOL`, read as a fraction of the lift) are one lift: the tie goes to the point whose net root `Mxx` — the variant row the slot would deliver, `wing_variants.Assessor`, the table's own row builder — is the largest, the same rule within each CG case's variant row. A project the wing analysis cannot run on keeps the largest `LZW`, and the delivered `ACRL` note says which way a tie went. The slot is ranked from the `wing_variants` rows, each completed by `rolling.complete_rolling_case`, and publishes condition A's CL, speed and root bending, the unbalanced rolling moment (derived, or labelled *entered*) and the roll acceleration; the `ACRL` paragraph of *Structured load-case IDs* below is the owner statement.
+- **Balance feasibility (design note 73, #404, schema v81).** Every critical
+  condition is judged once, by `select.stamp_feasibility`, inside both
+  `default_critical` and `build_critical`; the flags land on
+  `CriticalCondition.feasibility` and in the condition's report note. The checks
+  are owned by `sloads/feasibility.py`: elevator δ against
+  `elevator_te_up_deg`/`_down_deg`, inclusive; tail α backed out of LT25, as a
+  magnitude, against `tail_stall_alpha_deg`; `|C_L,h|` against `clh_max`, or
+  by default Roskam Pt VII p44 for the `stabiliser` type. An adjustable
+  stabiliser (`A`) takes the 1 g trim within its travel, and the residual δ is
+  checked; an all-moving one (`M`) checks `IT + τδ` against the travel. Wing
+  conditions are judged on `htail_balance` re-run at their V-n point (the case
+  still carries FLTLOADS' lumped tail load); h-tail conditions on their own
+  split; UNSYMMETRICAL carries its governing condition's flags, named. Fin
+  conditions are judged only against an entered `vtail_stall_alpha_deg`; with
+  none, each fin note says it was not checked. A 23.423(a) or 23.441 prescribed
+  state is flagged and worded as the rule's (`feasibility.is_prescribed`). No
+  flag moves a load; a flagged case is delivered and governs as computed.
 
 ### BALLOADS — Rational balanced-tail-load verification (utility) — Step C11
 - **FAR §:** 23.421 (balancing loads); supports the 23.331 rational-balancing requirement.
@@ -498,7 +515,9 @@ approved-corrections register [`../20_theory/02_approved_corrections.md`](../20_
   `oei_case_not_recovered` carries the same numbers, the fin load at the bound
   and the fix (enter the cited VMC, or check the rudder power). On `atr42_100`,
   which cites no VMC yet, that is the VS case on both engines. A recovered case
-  whose fin incidence is past stall is not flagged: that is parked at #353.
+  is judged against an entered `vtail_stall_alpha_deg` (design note 73 D-73.6);
+  with none entered, which is every shipped fixture, its note says the fin was
+  not checked. The simplified method runs the linear fin to large sideslip.
 - **The headline load is keyed `fy_side`.** It is the fin's side load and the
   case index maps loads by key; under `max_tail_load` every 23.367 row reached
   the published case file with an ID, a regulation, a speed, a factor and no load
@@ -1206,6 +1225,15 @@ return strings (with thin `write_*` file wrappers), and do no physics. They read
 result fields as the typed attributes they are — no `getattr(..., default)`
 anywhere in the package (CH-2; guard in `tests/test_applied.py`), so a
 result that lacks what a deck needs is a stated error, never an empty column.
+- **Feasibility flags (design note 73 D-73.9/D-73.10).** A case assembled from
+  a SELECT or ONENGOUT condition appends that condition's `feasibility` flags
+  to its `notes`, so the deck writes them as `$ NOTE:` lines, twins included.
+  `queries.FEASIBILITY_FAMILIES` classifies every family as checked (wing,
+  lateral fin, unsymmetrical h-tail, engine out) or exempt with its reason:
+  ground has no aero; an engine-mount case is a scaled V-n point, not a
+  delivered tail state. `tests/test_feasibility.py` fails on a case no row claims.
+  The validation warning `balance_infeasible` names each flagged condition,
+  except one whose only flags are on a prescribed state.
 
 ### sbeam export bridge — net wing load → sbeam (Step C4)
 - **Source:** `sloads/report/applied.py`; card style mirrors
