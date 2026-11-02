@@ -60,6 +60,31 @@ def test_landloads_reactions_unchanged_bit_for_bit():
     assert before and before == after
 
 
+#: The wheel track each fixture's sources register publishes, in inches, pinned
+#: beside the stored ``tread_in`` (issue #399: the ATR baseline kept a 150 in
+#: estimate after its register had recorded the published 4.10 m). The
+#: track is the tyre-centre distance: the gear deck's wheel nodes sit at
+#: ``+-tread/2`` and LANDLOAD's roll/yaw arms are ``tread/2``. A fixture whose
+#: register publishes no track (``ga6_normal``, ``concept_regional_jet``: [E]
+#: placements) has no row here and is not pinned.
+_PUBLISHED_TRACK_IN = {
+    "atr42_100.project.json": (161.4, 4.10),        # atr42_100.sources.md "Wheel track" [A]
+    "atr42_300_seed.project.json": (161.4, 4.10),   # atr42_300_seed.sources.md "Main gear track" [D]
+    "baron_58.project.json": (115.0, None),         # baron_58.sources.md "Main gear track" [B]
+}
+
+
+def test_the_stored_track_is_the_register_s_published_one():
+    """Every fixture whose register publishes a wheel track stores that track
+    (``_PUBLISHED_TRACK_IN``), and where the register quotes metres the pinned
+    inch value is their conversion, not a copied number."""
+    for name, (track_in, track_m) in sorted(_PUBLISHED_TRACK_IN.items()):
+        p = io.load_project(os.path.join(_EXAMPLES, name))
+        assert p.geometry.landing_gear.tread_in == track_in, name
+        if track_m is not None:
+            assert math.isclose(track_m / 0.0254, track_in, abs_tol=0.05), name
+
+
 if __name__ == "__main__":
     test_gear_geometry_serializes_under_geometry_not_landing()
     print("ok serializes under geometry")
@@ -67,4 +92,6 @@ if __name__ == "__main__":
     print("ok gear_stations derivation")
     test_landloads_reactions_unchanged_bit_for_bit()
     print("ok LANDLOAD bit-for-bit")
+    test_the_stored_track_is_the_register_s_published_one()
+    print("ok published track pinned")
     print("all landing-gear-geometry tests passed")

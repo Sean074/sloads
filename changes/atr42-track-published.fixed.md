@@ -1,0 +1,1 @@
+- **`atr42_100` stores the published wheel track, 4.10 m = 161.4 in (#399, tier S, 2026-11-01).** The 150 in estimate had outlived its register row; the ground cases' roll and yaw arms, the overturn angle and the gear deck's wheel nodes follow, Imperial digests regenerated, and a guard pins every fixture's stored track to the one its register publishes.
