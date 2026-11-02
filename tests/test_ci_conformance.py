@@ -31,6 +31,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
 import sys
 
 import pytest
@@ -835,6 +836,69 @@ def test_every_test_file_runs_on_its_own():
     assert len(_test_files()) > 100, "the walk found too few test files"
     assert not missing, f"test files with no __main__ self-runner: {missing}"
     assert not broken, f"self-runners passing -p no:xdist (use -n 0): {broken}"
+
+
+# --- the release workflow (#396) ---------------------------------------------
+
+_RELEASE_WORKFLOW = os.path.join(_WORKFLOWS, "release.yml")
+
+
+def test_a_tag_push_builds_the_wheel_and_attaches_it_to_the_release():
+    """#396. Ten tags had a changelog section and no built artefact. The tag
+    push runs ``release.yml``: a ``v*`` tag or a dispatch naming one; the tag
+    must equal ``v`` + the one declared version (``sloads/_version.py``, the
+    owner ``tests/test_version_owner.py`` guards); ``python -m build`` makes
+    both files; the wheel is installed into a fresh venv and both entry points
+    are exercised from it; and the files land on the release -- created from
+    the changelog section when absent, uploaded (``--clobber``) when present.
+    The token may write releases and nothing more (``contents: write``)."""
+    assert os.path.exists(_RELEASE_WORKFLOW), "release.yml is gone: a tag has no wheel again"
+    text = _read(_RELEASE_WORKFLOW)
+    assert re.search(r'^\s+tags:\s*\["v\*"\]', text, re.M), "release.yml does not trigger on v* tags"
+    assert "workflow_dispatch:" in text and re.search(r"^\s+tag:\s*$", text, re.M), (
+        "no dispatch with a `tag` input -- a tag already out could not get its wheel")
+    assert re.search(r"^permissions:\n  contents: write\s*$", text, re.M), text[:400]
+    assert text.count("permissions:") == 1 and "issues: write" not in text
+    assert 'runpy.run_path("sloads/_version.py")' in text and 'f"v{declared}"' in text, (
+        "the tag is not checked against the declared version")
+    assert "python -m build" in text
+    assert "python -m venv" in text and "dist/*.whl" in text, "no fresh-venv smoke install"
+    for exercised in ("import sloads, app_shell, oracle_app, cli", "sloads\" --list", "oracle.entry_point_path()"):
+        assert exercised in text, f"the smoke install no longer exercises: {exercised}"
+    assert "gh release upload" in text and "--clobber" in text
+    assert "gh release create" in text and "scripts/release_notes.py" in text
+    assert os.path.exists(os.path.join(_ROOT, "scripts", "release_notes.py"))
+
+
+def test_release_notes_are_one_changelog_section():
+    """``scripts/release_notes.py`` prints the block under ``## [X.Y.Z]`` and
+    nothing of its neighbours; a version the changelog lacks is a refusal
+    naming the ones it has, so the workflow cannot create an empty release."""
+    sys.path.insert(0, os.path.join(_ROOT, "scripts"))
+    try:
+        import release_notes as mod
+    finally:
+        sys.path.pop(0)
+    log = ("# Changelog\n\n## [Unreleased]\n\n## [0.9.0] — 2026-10-20\n\n### Added\n\n- nine\n\n"
+           "## [0.8.9] — 2026-10-04\n\n### Fixed\n\n- eight\n")
+    assert mod.release_notes(log, "0.9.0") == "### Added\n\n- nine\n"
+    assert mod.release_notes(log, "0.8.9") == "### Fixed\n\n- eight\n"
+    assert mod.release_notes(log, "Unreleased") == "\n"
+    assert mod.release_notes(log, "0.7.0") is None
+    assert mod.versions(log) == ["Unreleased", "0.9.0", "0.8.9"]
+    # the real changelog: the latest cut version has a body, and a tag spelling is accepted
+    with open(os.path.join(_ROOT, "docs", "90_record", "CHANGELOG.md"), encoding="utf-8") as fh:
+        real = fh.read()
+    latest = next(v for v in mod.versions(real) if v != "Unreleased")
+    body = mod.release_notes(real, latest)
+    assert body and "### " in body, f"[{latest}] has no subsection body"
+    proc = subprocess.run([sys.executable, os.path.join(_ROOT, "scripts", "release_notes.py"), f"v{latest}"],
+                          capture_output=True, text=True, timeout=30, check=False)
+    assert proc.returncode == 0 and proc.stdout == body, proc.stderr
+    proc = subprocess.run([sys.executable, os.path.join(_ROOT, "scripts", "release_notes.py"), "9.9.9"],
+                          capture_output=True, text=True, timeout=30, check=False)
+    assert proc.returncode == 1 and latest in proc.stderr, proc.stderr
+
 
 if __name__ == "__main__":  # zero-dependency self-runner
     sys.exit(pytest.main([__file__, "-n", "0", "-q"]))

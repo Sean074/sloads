@@ -130,7 +130,17 @@ already closed, each in its own commit, so the PR body carries **no**
    at install (#132); this precondition is the tag-on-red half of that finding
    (#184). Then
    `git tag -a vX.Y.Z -m "Release vX.Y.Z"` and `git push origin vX.Y.Z`.
-   Create a GitHub Release from the tag with the changelog entry as the body.
+   **The tag push runs `.github/workflows/release.yml`** (#396): it refuses a
+   tag that does not name `sloads/_version.py`'s version, builds the wheel and
+   the sdist with `python -m build`, installs the wheel into a fresh venv and
+   exercises both entry points from it, and attaches both files to the GitHub
+   Release — creating the release with that version's changelog section
+   (`scripts/release_notes.py X.Y.Z`) when none exists, uploading to it when
+   one was made by hand. Check the run before announcing the release:
+   `gh run list --workflow release.yml --limit 1`, then
+   `gh release view vX.Y.Z` lists the two assets. A tag that is already out
+   gets its files the same way: `gh workflow run release.yml -f tag=vX.Y.Z`.
+   Distribution is the release page; sloads is not on PyPI.
 5. **Archive verification** — record the numerical output (module figure vs. Appendix figure) for the modules in this release under `docs/90_record/` as a permanent regression baseline.
 
 ---
