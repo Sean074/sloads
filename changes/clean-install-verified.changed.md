@@ -1,0 +1,1 @@
+- **A clean install from the README alone is verified on Windows and macOS: the GUI and a CLI case both run with no break to file (#397, tier S, 2026-11-03).**

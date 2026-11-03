@@ -107,7 +107,6 @@ tier-S commit and states its reasoning in the milestone description.
 | Pri | Item (detail below / in its plan) | What ships | Tag | Tier / effort | Depends on |
 |---|---|---|---|---|---|
 | **B11 — 0.10.0: loads correctness on the Part 23 method, for ATR-sized airplanes (re-chartered 2026-11-01 after the physics review)** ||||||
-| 7 | **One clean install on another machine from the README alone** (#397) | On a machine that has never seen sloads (the Mini counts), follow the README on macOS and on Windows, run the GUI and one CLI case, file each break as its own issue | E | S / S | #394, #395, #396 |
 | **B12 — 0.11.0: the ATR on its Part 25 basis, the validation record and the sconfig contract (opened 2026-11-01)** ||||||
 | 22 | **F25-1: the transport gust and manoeuvre envelope: VB and the 66 fps line, the 25.337 n₁ check, VC ≥ VMO (review A-1)** (#410) | Design note at AGREED, then VB, the VB gust line, the n₁ and VC checks, and the ATR fixtures re-derived on the transport basis | E | L / L | design note |
 | 23 | **F25-4: the Part 25 landing variant: L = 1.0, 6 fps at MTOW, the LDW/MTOW pairing (review A-1)** (#411) | The 25.473 case set beside the Part 23 one, selected by basis, with the pairing stated per case and a closure gate on the energy balance at each weight | E | M / M | #401 |
