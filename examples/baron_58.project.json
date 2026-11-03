@@ -1,5 +1,5 @@
 {
-  "schema_version": 83,
+  "schema_version": 84,
   "name": "Beechcraft Baron 58 \u2014 two Continental IO-550-C",
   "description": "Guide worked example (design note 34 UG-9): FAA Aircraft Spec 3A16 Rev 82, Model 58 S/N TH-1396\u2013TH-2124. Certified data cited, everything else estimated \u2014 sources: examples/baron_58.sources.md",
   "engines": [
@@ -1398,6 +1398,7 @@
     "clmax_clean": 1.15,
     "clmax_clean_neg": -0.6,
     "clmax_flap": 1.53,
+    "power_cases": "off_and_on",
     "cruise": {
       "name": "CRUISE",
       "stall_cl": 1.15,

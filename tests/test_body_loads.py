@@ -82,11 +82,16 @@ def test_the_two_cantilevers_and_the_box_close_the_free_body():
         assert fwd[-1].x == r.x_front and aft[0].x == r.x_rear
         # Each terminal is its own cantilever's resultant and moment about the spar.
         assert math.isclose(fwd[-1].sz, sum(s.fz for s in fwd), rel_tol=1e-12, abs_tol=1e-9)
-        assert math.isclose(fwd[-1].myy, sum(s.fz * (r.x_front - s.x) for s in fwd),
+        # Each row's couple -- its axial inertia's moment about the beam line
+        # (design note 21 P-16) -- joins in the published sense of its body.
+        assert math.isclose(fwd[-1].myy, sum(s.fz * (r.x_front - s.x) + s.couple for s in fwd),
                             rel_tol=1e-12, abs_tol=1e-6)
         assert math.isclose(aft[0].sz, sum(s.fz for s in aft), rel_tol=1e-12, abs_tol=1e-9)
-        assert math.isclose(aft[0].myy, sum(s.fz * (s.x - r.x_rear) for s in aft),
+        assert math.isclose(aft[0].myy, sum(s.fz * (s.x - r.x_rear) - s.couple for s in aft),
                             rel_tol=1e-12, abs_tol=1e-6)
+        # The axial column runs like the shear (P-16).
+        assert math.isclose(fwd[-1].sx, sum(s.fx for s in fwd), rel_tol=1e-12, abs_tol=1e-9)
+        assert math.isclose(aft[0].sx, sum(s.fx for s in aft), rel_tol=1e-12, abs_tol=1e-9)
         # ...and the whole free body closes.
         scale_f = sum(abs(s.fz) for s in r.stations)
         scale_m = max(abs(s.myy) for s in r.stations)
@@ -130,9 +135,11 @@ def test_a_positive_load_factor_bends_both_bodies_down():
 
 
 def test_the_wing_reaction_closes_the_applied_set_at_the_wing_station():
-    """D-64.5: one row, at the wing station, carrying ``R = -sum(fz)`` and the
-    couple that zeroes the whole set's moment about that station (right-handed
-    about +y). It is a box row, and it is the only row with a couple."""
+    """D-64.5: one row, at the wing station, carrying ``R = -sum(fz)``,
+    ``Rx = -sum(fx)`` and the couple that zeroes the whole set's moment about
+    that station (right-handed about +y). It is a box row. Since design note 21
+    P-16 each mass row carries a couple of its own -- its axial inertia's
+    moment about the beam line -- and the tail row none."""
     p = _project()
     x_w = wing_station(p).x
     for r in body_loads.build_body_loads(p):
@@ -140,13 +147,14 @@ def test_the_wing_reaction_closes_the_applied_set_at_the_wing_station():
         loads = [s for s in r.stations if s.source in ("mass", "tail")]
         assert r.x_wing == x_w
         assert math.isclose(r.r_wing, -sum(s.fz for s in loads), rel_tol=1e-12)
-        assert math.isclose(r.m_wing, sum((s.x - x_w) * s.fz for s in loads),
+        assert math.isclose(r.m_wing, sum((s.x - x_w) * s.fz - s.couple for s in loads),
                             rel_tol=1e-12, abs_tol=1e-6)
         reaction = [s for s in r.stations if s.source == "reaction"]
         assert len(reaction) == 1 and reaction[0].region == body_loads.BOX
         assert reaction[0].x == x_w and reaction[0].fz == r.r_wing
         assert reaction[0].couple == r.m_wing
-        assert all(s.couple == 0.0 for s in r.stations if s.source != "reaction")
+        assert math.isclose(reaction[0].fx, -sum(s.fx for s in loads), rel_tol=1e-12, abs_tol=1e-9)
+        assert all(s.couple == 0.0 and s.fx == 0.0 for s in r.stations if s.source == "tail")
 
 
 def test_spar_reactions_are_the_static_equivalent_of_the_one_reaction():
@@ -254,12 +262,13 @@ def test_a_project_with_no_side_of_body_reacts_the_wing_at_an_assumed_station():
 
 def test_body_load_rows_shape():
     rows = body_loads.body_load_rows(body_loads.build_body_loads(_project()))
-    assert rows and set(rows[0]) == {"Case", "X", "Fz", "My_free", "Sz", "Myy", "Region", "Basis"}
+    assert rows and set(rows[0]) == {"Case", "X", "Fx", "Fz", "My_free", "Sx", "Sz", "Myy",
+                                     "Region", "Basis"}
     # The basis travels in-band with every row (defect M4-15).
     assert all(r["Basis"] == "LIMIT" for r in rows)
     # A box row prints no running load (D-64.2); every other row prints both.
     box = [r for r in rows if r["Region"] == body_loads.BOX]
-    assert box and all(r["Sz"] is None and r["Myy"] is None for r in box)
+    assert box and all(r["Sz"] is None and r["Myy"] is None and r["Sx"] is None for r in box)
     assert all(isinstance(r["Sz"], float) and isinstance(r["Myy"], float)
                for r in rows if r["Region"] != body_loads.BOX)
 
@@ -300,8 +309,13 @@ def test_body_gid_blocks_are_disjoint():
     # The spar rows apply nothing and are not rows of the applied set.
     rows = applied.fuselage_applied_load_rows([r])
     assert len(rows) == len([s for s in r.stations if s.source != "root"])
-    reaction = [row for row in rows if row.myy_free != 0.0]
+    reaction = [s for s in r.stations if s.source == "reaction"]
     assert len(reaction) == 1 and reaction[0].x == r.x_wing
+    # Each row's free My is its couple: the reaction's closing couple, a mass
+    # row's axial-inertia couple about the axis (note 21 P-16).
+    by_gid = dict(zip(applied.body_station_gids(r), r.stations))
+    assert all(row.myy_free == by_gid[row.gid].couple and row.fx == by_gid[row.gid].fx
+               for row in rows)
 
 
 def test_moment_closure_fields_round_trip_through_io():

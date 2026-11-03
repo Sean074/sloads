@@ -43,6 +43,7 @@ from ..cg_cases import max_takeoff_weight
 from ..constants import AILERON_DCM_PER_DEG, IN_PER_FT, G, other_side_percent
 from ..derived_geometry import wing_plane
 from ..models import AeroSurfaceInput, MissingInputError, Project, VnPoint, WingLoadCase
+from ..power import base_label
 from .aileron import cam_3222_deflection
 from .airloads import _interp_yv, air_load_distribution
 
@@ -111,7 +112,9 @@ def condition_a_point(vn: Iterable[VnPoint], pick: VnPoint) -> VnPoint:
     refused by name, never replaced by the roll point's averaged lift.
     """
     for p in vn:
-        if (p.condition == CONDITION_A and p.cg == pick.cg and p.config == pick.config
+        # A power-on roll flies from its power-on condition A (design note 21 §10).
+        if (base_label(p.condition) == CONDITION_A and p.power_state == pick.power_state
+                and p.cg == pick.cg and p.config == pick.config
                 and p.altitude_ft == pick.altitude_ft):
             return p
     raise MissingInputError(
@@ -185,7 +188,7 @@ def entered_rolling_case(project: Project, label: str) -> Optional[WingLoadCase]
     the derivation. ``None`` for any other slot, and where no list is entered.
     """
     wm = project.wing_mass
-    if wm is None or label not in ACCEL_ROLL_SLOTS:
+    if wm is None or base_label(label) not in ACCEL_ROLL_SLOTS:
         return None
     return next((c for c in wm.cases if c.name == label), None)
 
@@ -205,7 +208,7 @@ def complete_rolling_case(project: Project, case: WingLoadCase,
     ``derivation`` is the caller's own :func:`derive_accel_roll` at the case's
     point, reused rather than run twice (the variant table has it already).
     """
-    if case.name not in ACCEL_ROLL_SLOTS:
+    if base_label(case.name) not in ACCEL_ROLL_SLOTS:
         return case
     if case.cl is not None and case.v_eas_kt is not None and case.unbal_moment is not None:
         return case
@@ -253,7 +256,7 @@ def steady_roll_deflection(schedule: Dict[float, Dict[str, float]],
                            point: VnPoint) -> float:
     """The down-aileron deflection (deg) at steady-roll point ``point`` --
     SELECT's own schedule value, which the applied increment also uses."""
-    tag = _STEADY_ROLL.get(point.condition)
+    tag = _STEADY_ROLL.get(base_label(point.condition))
     if tag is None:
         return 0.0
     return schedule.get(point.altitude_ft, {}).get(tag, 0.0)
@@ -276,7 +279,7 @@ def steady_roll_aero(project: Project, aero: AeroSurfaceInput, label: str,
     deck's TORS is the symmetric trim case, and the increment is antisymmetric
     between the down- and up-going ailerons.
     """
-    if label not in STEADY_ROLL_SLOTS or point is None:
+    if base_label(label) not in STEADY_ROLL_SLOTS or point is None:
         return aero
     ail = project.aileron_loads
     if ail is None or ail.inboard_y_in is None or ail.outboard_y_in is None:

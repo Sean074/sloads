@@ -42,6 +42,9 @@ physical cases (an outright collision, not merely a divergent sequence):
 * ``W-20``..``W-39`` -- :data:`WING_BAND_EXTRA`: a hand-authored
   ``WingMassInput.cases`` entry with no ``WING_SLOTS`` name (a concept-mode
   extra condition SELECT does not emit)
+* ``W-40``..``W-49`` -- :data:`WING_BAND_POWER`: the power-on twins of the
+  :data:`WING_SLOTS` conditions (``PHAA-P`` is ``W-40``), fixed by slot like
+  their power-off originals (design note 21 §10, #226)
 * ``W-50``..``W-59`` -- AILERON
 * ``W-60``..``W-69`` -- FLAPLOAD
 * ``W-70``..``W-99`` -- a wing-hosted tab (TABLOADS)
@@ -49,7 +52,9 @@ physical cases (an outright collision, not merely a divergent sequence):
 * ``HT-20``..``HT-49`` -- :data:`HTAIL_BAND_TTAIL`: a T-tail h-tail condition
   carrying a fin condition's AC 23-9 induced rolling moment (``INDUCED ROLL --
   <fin condition>``, design note 51 D-51.12). Minted by ``tail_span``.
-* ``HT-50``..``HT-99`` -- a horizontal-tail-hosted tab
+* ``HT-50``..``HT-79`` -- a horizontal-tail-hosted tab
+* ``HT-80``..``HT-99`` -- :data:`HTAIL_BAND_POWER`: SELECT's power-on h-tail
+  conditions (``... -P``, design note 21 §10)
 * ``VT-01``..``VT-19`` -- SELECT's rational v-tail conditions
 * ``VT-20``..``VT-29`` -- :data:`VTAIL_BAND_TTAIL`: a T-tail fin condition
   that reacts a horizontal-tail case at the fin tip (``HTAIL UNSYM``, design
@@ -60,6 +65,8 @@ physical cases (an outright collision, not merely a divergent sequence):
   counter, which would need cross-module allocator state and make IDs depend on
   module run order (M4-2 decision 5).
 * ``VT-50``..``VT-99`` -- a vertical-tail-hosted tab
+* ``F-01``..``F-49`` -- SELECT's critical fuselage conditions
+* ``F-50``..``F-99`` -- :data:`FUSELAGE_BAND_POWER`: their power-on twins
 
 ``tests/test_case_ids.py`` is the drift guard: it asserts every minted ID across
 a full run is unique, so a new minter that forgets its band fails there rather
@@ -90,6 +97,8 @@ states id + ``LABEL`` + ``LOAD``/``SUBCASE`` together
 from __future__ import annotations
 
 from typing import Dict
+
+from .power import base_label, is_power_on
 
 COMPONENT_PREFIX: Dict[str, str] = {
     "wing": "W",
@@ -126,6 +135,7 @@ WING_SLOTS: Dict[str, int] = {
 # yields band_start.
 WING_BAND_SLOTS = 1        # WING_SLOTS conditions: 1..19
 WING_BAND_EXTRA = 20       # hand-authored wing cases outside WING_SLOTS: 20..39
+WING_BAND_POWER = 40       # the WING_SLOTS conditions' power-on twins: 40..49
 WING_BAND_AILERON = 50
 WING_BAND_FLAP = 60
 WING_BAND_TAB = 70
@@ -142,6 +152,10 @@ VTAIL_BAND_TTAIL = 20
 # the AC 23-9 induced moment (note 51 D-51.12): HT-20..HT-49, below the tab band.
 HTAIL_BAND_TTAIL = 20
 VTAIL_BAND_ONENGOUT = 30
+# SELECT's power-on h-tail and fuselage conditions (design note 21 §10, #226),
+# minted after every power-off condition from a second allocator.
+HTAIL_BAND_POWER = 80
+FUSELAGE_BAND_POWER = 50
 
 #: The last sequence number of each band, by component and band start -- **the
 #: one owner of every band's top edge** (#366). A band ends where the next one
@@ -152,11 +166,13 @@ VTAIL_BAND_ONENGOUT = 30
 #: band's first id -- a silent collision that would corrupt the case index and
 #: the deck's subcase numbering.
 BAND_LAST: Dict[str, Dict[int, int]] = {
-    "wing": {WING_BAND_SLOTS: WING_BAND_EXTRA - 1, WING_BAND_EXTRA: 39,
+    "wing": {WING_BAND_SLOTS: WING_BAND_EXTRA - 1, WING_BAND_EXTRA: WING_BAND_POWER - 1,
+             WING_BAND_POWER: WING_BAND_AILERON - 1,
              WING_BAND_AILERON: WING_BAND_FLAP - 1, WING_BAND_FLAP: WING_BAND_TAB - 1,
              WING_BAND_TAB: 99},
     "htail": {1: HTAIL_BAND_TTAIL - 1, HTAIL_BAND_TTAIL: HTAIL_BAND_TAB - 1,
-              HTAIL_BAND_TAB: 99},
+              HTAIL_BAND_TAB: HTAIL_BAND_POWER - 1, HTAIL_BAND_POWER: 99},
+    "fuselage": {1: FUSELAGE_BAND_POWER - 1, FUSELAGE_BAND_POWER: 99},
     "vtail": {1: VTAIL_BAND_TTAIL - 1, VTAIL_BAND_TTAIL: VTAIL_BAND_ONENGOUT - 1,
               VTAIL_BAND_ONENGOUT: VTAIL_BAND_TAB - 1, VTAIL_BAND_TAB: 99},
 }
@@ -210,12 +226,21 @@ class CaseIdAllocator:
         return band_case_id(component, start, n - start)
 
 
+def is_wing_slot(label: str) -> bool:
+    """Whether ``label`` is a fixed-slot wing condition or its power-on twin."""
+    return base_label(label) in WING_SLOTS
+
+
 def wing_case_id(label: str) -> str:
-    """The ``W-nn`` id of the fixed-slot wing condition ``label`` (``"PHAA"``).
+    """The ``W-nn`` id of the fixed-slot wing condition ``label`` (``"PHAA"``),
+    or of its power-on twin (``"PHAA-P"`` -> ``W-40``, :data:`WING_BAND_POWER`).
 
     Raises :class:`KeyError` for a label outside :data:`WING_SLOTS` -- the caller
     decides whether that is an error or an extra-band case."""
-    return f"{COMPONENT_PREFIX['wing']}-{WING_SLOTS[label]:02d}"
+    slot = WING_SLOTS[base_label(label)]
+    if is_power_on(label):
+        return f"{COMPONENT_PREFIX['wing']}-{WING_BAND_POWER + slot - WING_BAND_SLOTS:02d}"
+    return f"{COMPONENT_PREFIX['wing']}-{slot:02d}"
 
 
 #: Deck subcase/SID block per component prefix: ``W-03`` -> ``103``,

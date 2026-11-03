@@ -939,7 +939,10 @@ def render_scalar(record: Any, path: str, *, key: str, container: Any = None,
         # stored value outside the table is still shown, marked, so a loaded
         # file is not silently rewritten -- STRSPEED refuses it by name.
         options_s: List[str] = list(codes)
-        current_s = (value or "").strip().upper()
+        current_s = (value or "").strip()
+        # Codes are upper-case letters, except a vocabulary whose codes are
+        # words (``power_cases``), which is matched as stored.
+        current_s = current_s.upper() if current_s.upper() in codes else current_s
         if current_s not in options_s:
             options_s.append(current_s)
         chosen_s = where.selectbox(

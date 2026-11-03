@@ -54,7 +54,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, replace
-from typing import List, Optional
+from typing import Callable, List, NamedTuple, Optional
 
 from ..aero_curves import clmax_curve as _clmax_curve
 from ..aero_curves import drag_cd, lift_cl, moment_cm
@@ -95,6 +95,7 @@ from ..models import (
     VnPoint,
     normalise_code,
 )
+from ..power import STATE_ON, PitchTerms, pitch_terms, power_label, power_on, rated_thrusts
 from ..registry import register
 from .structural_speeds import design_speeds, design_weight_lb, maneuver_load_factors
 
@@ -149,11 +150,14 @@ class _Balanced:
     #: How the dynamic-pressure iteration ended (:mod:`sloads.convergence`).
     #: Only ``CONVERGED`` or ``CLAMPED`` is ever returned -- ``FAILED`` is raised.
     state: SolveState = SolveState.CONVERGED
+    #: The thrust the point was balanced with (power on), ``None`` power off.
+    terms: Optional[PitchTerms] = None
 
 
 def _balance(n: float, v_init: float, mach_cap: float, config: AeroCoeffSet,
              cg: CgCase, fl: FlightLoadsInput, wr: WingReference,
-             altitude_ft: float) -> _Balanced:
+             altitude_ft: float,
+             thrust: Optional[Callable[[float], PitchTerms]] = None) -> _Balanced:
     """Balance one flight condition: solve AoA for load factor ``n`` (subr 3900).
 
     ``v_init`` is the equivalent airspeed (a guess for stall-line conditions,
@@ -171,6 +175,20 @@ def _balance(n: float, v_init: float, mach_cap: float, config: AeroCoeffSet,
     the same as spinning out the remaining trips -- every one of them recomputes
     the identical inner solve from the identical ``q``. Exhausting the trips with
     ``q`` still moving is neither, and raises.
+
+    **Power on** (design note 21 §10, #226). ``thrust`` gives the engines' share
+    of the balance about this CG at an equivalent airspeed
+    (:func:`sloads.power.pitch_terms` of the P-14 rating there); it adds its
+    moment to the tail-load numerator and its normal force to ``NZ``:
+
+        LT = [MM + LZ*(Xcg - Xw) - DX*(Zcg - Zw) + M_T] / (XT - Xcg)
+        NZ = (LZ + LT + F_zT) / W
+
+    re-rated on every dynamic-pressure trip. A fixed-speed condition keeps its
+    speed (P-10); a stall-line condition stays on the stall line, the thrust's
+    tail download moving its speed a little (§10.4 P-10 clarified), since the
+    wing cannot fly above its CLmax. ``None`` is FLTLOADS' own balance,
+    arithmetic unchanged.
     """
     xt = fl.xtf if config.flaps_down else fl.xtc
     s = wr.s_sqft
@@ -200,6 +218,7 @@ def _balance(n: float, v_init: float, mach_cap: float, config: AeroCoeffSet,
         # answer it differently. That is the clamp, tested exactly.
         no_lever = q == q_prev
         q_prev = q
+        terms = thrust(v) if thrust is not None else None
 
         al = -10.0 if n < 0 else 10.0
         da = 10.0
@@ -213,8 +232,9 @@ def _balance(n: float, v_init: float, mach_cap: float, config: AeroCoeffSet,
             mm = cm * q * s * mac
             lz = ll * math.cos(al * RAD_PER_DEG) + d * math.sin(al * RAD_PER_DEG)
             dx = d * math.cos(al * RAD_PER_DEG) - ll * math.sin(al * RAD_PER_DEG)
-            lt = (lz * (cg.xcg - wr.xw) - dx * (cg.zcg - wr.zw) + mm) / (xt - cg.xcg)
-            nz = (lz + lt) / cg.weight_lb
+            lt = _tail_load(lz, dx, mm, cg, wr, xt, terms)
+            nz = ((lz + lt) / cg.weight_lb if terms is None
+                  else (lz + lt + terms.fz) / cg.weight_lb)
             if n - NZ_BALANCE_TOL <= nz <= n + NZ_BALANCE_TOL:
                 break
             da = 0.75 * da
@@ -233,8 +253,8 @@ def _balance(n: float, v_init: float, mach_cap: float, config: AeroCoeffSet,
                         f"config '{config.name}'"),
             )
         last = _Balanced(v_eas=v, nz=nz, alpha=al, g=g, cl=cl, mm=mm, lz=lz,
-                         lt=(lz * (cg.xcg - wr.xw) - dx * (cg.zcg - wr.zw) + mm) / (xt - cg.xcg),
-                         dx=dx)
+                         lt=_tail_load(lz, dx, mm, cg, wr, xt, terms),
+                         dx=dx, terms=terms)
 
         # Dynamic-pressure iteration to bring CL onto the (Mach-adjusted) stall line.
         if neg_stall_cl - 0.005 <= cl <= stall_cl + 0.005:
@@ -257,6 +277,15 @@ def _balance(n: float, v_init: float, mach_cap: float, config: AeroCoeffSet,
         )
     assert last is not None
     return last
+
+
+def _tail_load(lz: float, dx: float, mm: float, cg: CgCase, wr: WingReference,
+               xt: float, thrust: Optional[PitchTerms]) -> float:
+    """The balancing tail load about the CG (Ch 8 "Equations"), with the
+    power-on thrust moment when there is one (design note 21 §10)."""
+    if thrust is None:
+        return (lz * (cg.xcg - wr.xw) - dx * (cg.zcg - wr.zw) + mm) / (xt - cg.xcg)
+    return (lz * (cg.xcg - wr.xw) - dx * (cg.zcg - wr.zw) + mm + thrust.moment) / (xt - cg.xcg)
 
 
 def _gust_load_factor(ng: int, v: float, mach_cap: float, ref: str, config: AeroCoeffSet,
@@ -395,11 +424,14 @@ def design_inputs(project: Project) -> _DesignInputs:
 # --------------------------------------------------------------------------- #
 def _config_points(config: AeroCoeffSet, cg: CgCase, fl: FlightLoadsInput,
                    wr: WingReference, alt: float, di: _DesignInputs,
-                   case: int) -> "tuple[List[VnPoint], int, List[int]]":
+                   case: int, targets: Optional[List[_Target]] = None,
+                   ) -> "tuple[List[VnPoint], int, List[int]]":
     """The cruise maneuver+gust V-n corner points for one config / CG / altitude.
 
     Returns the points, the running case counter, and the case numbers whose
-    balance came back **clamped** (#33) -- the stall-limited corners.
+    balance came back **clamped** (#33) -- the stall-limited corners. When
+    ``targets`` is given, each point's target load factor and Mach cap are
+    appended to it, for its power-on twin (:func:`_power_on_twins`).
     """
     w = cg.weight_lb
     s = wr.s_sqft
@@ -422,6 +454,8 @@ def _config_points(config: AeroCoeffSet, cg: CgCase, fl: FlightLoadsInput,
             v_eas_kt=b.v_eas, nz=b.nz, alpha_deg=b.alpha, g_corr=b.g, cl=b.cl,
             m_wf=b.mm, lzw=b.lz, lt=b.lt, dx=b.dx,
         ))
+        if targets is not None:
+            targets.append(_Target(case=case, n=n, cap=cap, config=config, cg=cg))
         return b
 
     def add_gust(cond: str, ng: int, v: float, cap: float, ref: str) -> _Balanced:
@@ -651,6 +685,7 @@ def build_envelope(project: Project) -> EnvelopeResult:
     vn: List[VnPoint] = []
     tail: List[TailBalanceLoad] = []
     clamped: List[int] = []
+    targets: Optional[List[_Target]] = [] if power_on(project) else None
     case = 0
     for alt in fl.altitudes_ft:
         for config in configs:
@@ -661,7 +696,11 @@ def build_envelope(project: Project) -> EnvelopeResult:
             xt = fl.xtf if config.flaps_down else fl.xtc
             corner = _flap_config_points if config.flaps_down else _config_points
             for cg in cg_cases:
-                pts, case, cl_cases = corner(config, cg, fl, wr, alt, di, case)
+                if config.flaps_down:
+                    pts, case, cl_cases = corner(config, cg, fl, wr, alt, di, case)
+                else:
+                    pts, case, cl_cases = _config_points(config, cg, fl, wr, alt, di, case,
+                                                         targets)
                 vn.extend(pts)
                 clamped.extend(cl_cases)
                 for p in pts:
@@ -669,7 +708,56 @@ def build_envelope(project: Project) -> EnvelopeResult:
                         case=p.case, condition=p.condition, tail_load_lb=p.lt,
                         tail_cp_station=xt, flaps_down=config.flaps_down,
                     ))
+    if targets:
+        _power_on_twins(project, targets, vn, tail, clamped, fl, wr, case)
     return EnvelopeResult(vn=vn, tail_balance=tail, clamped_cases=sorted(clamped))
+
+
+class _Target(NamedTuple):
+    """What a flaps-up point was asked for: its case, target load factor and
+    Mach cap, configuration and CG -- the inputs its power-on twin repeats."""
+    case: int
+    n: float
+    cap: float
+    config: AeroCoeffSet
+    cg: CgCase
+
+
+def _power_on_twins(project: Project, targets: List[_Target], vn: List[VnPoint],
+                    tail: List[TailBalanceLoad], clamped: List[int],
+                    fl: FlightLoadsInput, wr: WingReference, case: int) -> None:
+    """Append every flaps-up point's power-on twin (design note 21 §10, #226).
+
+    After the whole power-off matrix, so no power-off case number moves (G10-1).
+    Each twin repeats its point's target ``n``, from the point's converged
+    speed, with every engine at its P-14 rated thrust along its line (P-17),
+    and carries the condition label ``"... -P"`` (P-15): a fixed-speed point
+    keeps its speed, a stall-line point stays on the stall line (P-10, as
+    clarified in note 21 §10.4)."""
+    by_case = {p.case: p for p in vn}
+    for t in targets:
+        off = by_case[t.case]
+
+        def at(v_eas: float, cg: CgCase = t.cg, alt: float = off.altitude_ft) -> PitchTerms:
+            return pitch_terms(rated_thrusts(project, v_eas, alt), cg)
+
+        b = _balance(t.n, off.v_eas_kt, t.cap, t.config, t.cg, fl, wr, off.altitude_ft,
+                     thrust=at)
+        terms = b.terms if b.terms is not None else at(b.v_eas)
+        case += 1
+        if b.state is SolveState.CLAMPED:
+            clamped.append(case)
+        vn.append(VnPoint(
+            case=case, condition=power_label(off.condition), config=off.config, cg=off.cg,
+            altitude_ft=off.altitude_ft, v_eas_kt=b.v_eas, nz=b.nz, alpha_deg=b.alpha,
+            g_corr=b.g, cl=b.cl, m_wf=b.mm, lzw=b.lz, lt=b.lt, dx=b.dx,
+            power_state=STATE_ON, thrust_lb=terms.thrust_lb, thrust_fx=terms.fx,
+            thrust_fz=terms.fz, thrust_m=terms.moment,
+        ))
+        tail.append(TailBalanceLoad(
+            case=case, condition=power_label(off.condition), tail_load_lb=b.lt,
+            tail_cp_station=fl.xtc, flaps_down=False,
+        ))
 
 
 # --------------------------------------------------------------------------- #
@@ -752,7 +840,8 @@ def _point_conditions(env: EnvelopeResult, concept: bool) -> List[ConditionResul
                 LoadValue("Lift less tail LZW", p.lzw, "lb", key="lift_less_tail_lzw"),
                 LoadValue("Balancing tail load LT", p.lt, "lb", key="balancing_tail_load_lt"),
                 LoadValue("Drag DX", p.dx, "lb", key="drag_dx"),
-            ],
+            ] + ([LoadValue("Thrust T", p.thrust_lb, "lb", key="thrust_t")]
+                 if p.power_state == STATE_ON else []),
             note=note,
         ))
     return out

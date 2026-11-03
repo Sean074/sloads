@@ -653,6 +653,42 @@ def hub_thrust_set(project: Project, cg: CgCase, replaced: Collection[str] = ()
         f"standing as the 23.427(a) maneuver tail load"] + notes + replaced_note
 
 
+def rated_thrust_set(project: Project, vn: VnPoint
+                     ) -> Tuple[List[BalancedLoad], List[str]]:
+    """A power-on case's thrust: every engine at its P-14 rating, along its
+    entered line, at its hub -- ``(loads, notes)`` (design note 21 §10, #226).
+
+    Unlike the entered card (:func:`hub_thrust_set`), this thrust is **in the
+    trim**: the V-n point was balanced with it (P-13), so its couple about the
+    CG is already reacted by the point's tail load and its normal component by
+    the point's ``NZ``. What the closure carries is the longitudinal balance,
+    ``n_x = (D - sum T)/W`` -- the thrust that exceeds the drag accelerates the
+    airplane -- and the 1 % residual gate applies to ``My`` as on any trimmed
+    case. The rating replaces every engine's entered ``thrust_lb``: one hub
+    carries one thrust (#313).
+    """
+    from ...power import point_thrusts
+
+    loads: List[BalancedLoad] = []
+    parts: List[str] = []
+    for t in point_thrusts(project, vn):
+        fx, fy, fz = t.force
+        x, y, z = t.hub
+        loads.append(BalancedLoad(x=x, y=y, z=z, fx=fx, fy=fy, fz=fz,
+                                  source=HUB_THRUST_SOURCE,
+                                  side="R" if y > 0 else "L" if y < 0 else "C",
+                                  carrier=engine_member(t.engine)))
+        parts.append(f"engine {t.engine} {format_value(t.thrust_lb, 'lb')} lb")
+    total = math.fsum(t.thrust_lb for t in point_thrusts(project, vn))
+    return loads, [
+        f"POWER ON (design note 21 P-13/P-14, 14 CFR 25.321(b)): rated "
+        f"maximum-continuous thrust at the hubs, {'; '.join(parts)} -- "
+        f"{format_value(total, 'lb')} lb in total, along each engine's thrust line. "
+        f"The V-n point is balanced WITH it, so its pitch couple is trimmed by "
+        f"the tail load; the closure carries nx = (D - sum T)/W. Any entered "
+        f"thrust_lb is replaced by the rating (#313)"]
+
+
 def vtail_sets(result: TailSpanResult) -> List[BalancedLoad]:
     """The fin's distributed side load, in airplane axes (decision L-6, plan 13 §2).
 

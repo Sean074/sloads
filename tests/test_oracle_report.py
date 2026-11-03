@@ -942,7 +942,10 @@ def test_the_limitations_prefill_drops_the_tool_blocks_but_the_owner_keeps_them(
     # is the summary report's, which #278 has yet to merge in.
     # FUEL BASIS is kept (#424, design note 75 D-75.11): the minimum-weight rule
     # and the zero-fuel assumption are a statement about every load, like BASIS.
-    assert labels(prefill) == {"STATUS", "BASIS", "FUEL BASIS", "AXES", "KNOWN LIMITATIONS"}
+    # POWER BASIS likewise (#226, design note 21 §10): which end of 25.321(b)'s
+    # thrust range the flight cases carry.
+    assert labels(prefill) == {"STATUS", "BASIS", "FUEL BASIS", "POWER BASIS", "AXES",
+                               "KNOWN LIMITATIONS"}
     assert not (labels(prefill) & dropped)
     assert dropped <= labels(shared), (
         "a block was dropped from the shared statement instead of from the "

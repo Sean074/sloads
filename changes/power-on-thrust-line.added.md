@@ -1,0 +1,1 @@
+- **Power-on flight cases: `power_cases = "off_and_on"` re-balances each flaps-up V-n point at maximum-continuous thrust along the entered thrust line as a `-P` twin; the body beam carries its longitudinal inertia on every case (#226, #217, #218, tier L, 2026-11-03).** Default `"off"` reproduces Appendix A; note 21 §10.

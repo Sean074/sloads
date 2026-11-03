@@ -30,6 +30,7 @@ from sloads import io  # noqa: E402
 from sloads import mass_distribution as md  # noqa: E402
 from sloads.cg_cases import flight_cases, ground_cases  # noqa: E402
 from sloads.models import MassComponent, WingCarriage  # noqa: E402
+from sloads.power import is_power_on  # noqa: E402
 from sloads.modules import body_loads  # noqa: E402
 from sloads.modules.net_loads import build_net_loads  # noqa: E402
 from sloads.modules.select import build_critical, default_envelope  # noqa: E402
@@ -360,8 +361,10 @@ def test_the_variant_table_is_complete_and_the_slot_is_delivered_at_its_governin
     # The delivered condition is the governing run; a slot the table
     # assessed and the deck omits is a coincidence (D-62.8) with a delivered
     # slot at that very case, never a loss.
+    # The power-off conditions: the table is the power-off matrix's, and a
+    # ``-P`` slot's table runs inside SELECT's power-on pass (note 21 §10).
     delivered = {c.label: c for c in build_critical(p, envelope).conditions
-                 if c.component == "wing"}
+                 if c.component == "wing" and not is_power_on(c.label)}
     for slot, g in governing.items():
         if slot not in delivered:
             assert any(c.case == g.case for c in delivered.values()), (slot, g.case)
@@ -433,7 +436,8 @@ def test_a_repointed_slot_says_so_and_a_project_without_a_wing_keeps_its_air_pic
     envelope = default_envelope(p)
     picks = {c.label: c.case for c in air_picks(p, envelope)}
     moved = [c for c in build_critical(p, envelope).conditions
-             if c.component == "wing" and c.case != picks[c.label]]
+             if c.component == "wing" and not is_power_on(c.label)
+             and c.case != picks[c.label]]
     assert moved, "the Baron re-points seven slots at #292"
     for c in moved:
         assert "net-governing run" in c.note and f"V-n case {picks[c.label]}" in c.note, c.label
@@ -442,7 +446,7 @@ def test_a_repointed_slot_says_so_and_a_project_without_a_wing_keeps_its_air_pic
     table = wing_variant_table(bare, envelope)
     assert not table.variants and "wing_mass" in table.reason
     delivered = {c.label: c.case for c in build_critical(bare, envelope).conditions
-                 if c.component == "wing"}
+                 if c.component == "wing" and not is_power_on(c.label)}
     # The bare project's own air picks, with D-62.8's coincidence rule applied
     # at delivery (#294): NNZ shares NMAA's point and nothing re-points, so it
     # is empty. They are the bare project's, not ``picks``: ACRL's #320 tie is

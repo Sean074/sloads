@@ -212,6 +212,7 @@ from ...models import (
     ModuleResult,
     Project,
 )
+from ...power import is_power_on
 from ...registry import register
 from ...rigid_body import radians_per_s2
 from .air import (  # noqa: F401
@@ -374,7 +375,7 @@ def run(project: Project) -> ModuleResult:
             LoadValue("Applied engine thrust", hub_thrust(c), "lb",
                       key="balanced_hub_thrust"),
             LoadValue("Closure dnx", c.delta_nx, "g", key="balanced_delta_nx"),
-        ] if is_powered(c) else []
+        ] if is_powered(c) or is_power_on(c.label) else []
         lateral = is_lateral(c)
         lateral_values = [
             # The case's defining applied load, reported before the motion it

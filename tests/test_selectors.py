@@ -62,7 +62,10 @@ def test_every_coded_field_is_a_registered_str_field():
     for path, codes in CODED_FIELDS.items():
         assert fr.entry(path) is not None, path
         assert fr.field_type(path) is str, path
-        assert codes and all(len(c) == 1 and c.isupper() for c in codes), path
+        # A one-letter upper-case code, or a lower-case word (``power_cases``,
+        # design note 21 P-18) -- the form matches either as stored.
+        assert codes and all((len(c) == 1 and c.isupper()) or (c.islower() and c.isidentifier())
+                             for c in codes), path
     assert CODED_FIELDS["speeds.category"] is CATEGORIES
 
 

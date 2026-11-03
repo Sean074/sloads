@@ -396,7 +396,10 @@ from .results import EnvelopeResult, LoadsResult, MassResult
 # v83 (design note 75, #337): ``MassItem.required_crew``, the required-crew tag the
 # minimum-crew warnings read. Additive and inferring nothing, so ``_hop_82`` is
 # an identity.
-SCHEMA_VERSION = 83
+# v84 (design note 21 §10, #226): ``AeroCoefficientsInput.power_cases`` (``"off"`` /
+# ``"off_and_on"``) and ``VnPoint``'s ``power_state`` and thrust terms. Additive,
+# so ``_hop_83`` is an identity.
+SCHEMA_VERSION = 84
 
 
 @dataclass

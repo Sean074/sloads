@@ -29,6 +29,7 @@ from ...models import (
     VnPoint,
     WingLoadCase,
 )
+from ...power import STATE_ON, base_label
 from ...tail_geometry import HTAIL, VTAIL
 from ...units import format_value
 from ..rolling import complete_rolling_case
@@ -46,6 +47,7 @@ from .applied import (
     htail_sets,
     hub_thrust_set,
     place_wing_inertia,
+    rated_thrust_set,
     reflect_load,
     vtail_sets,
     wing_sets,
@@ -179,7 +181,10 @@ def assemble(project: Project, condition: str, vn: VnPoint,
 
     # The user-entered engine thrust (backlog #10) -- the assembled model's only
     # forward force, and the only load here that nothing balances by design.
-    thrust_loads, thrust_notes = hub_thrust_set(project, cg, thrust_replaced)
+    if vn.power_state == STATE_ON:
+        thrust_loads, thrust_notes = rated_thrust_set(project, vn)
+    else:
+        thrust_loads, thrust_notes = hub_thrust_set(project, cg, thrust_replaced)
     loads += thrust_loads
     notes += thrust_notes
 
@@ -432,7 +437,8 @@ def build_balanced_cases(
         lateral: Sequence[BalancedLoad] = ()
         htail: Sequence[BalancedLoad] = ()
         lateral_cond: Optional[CriticalCondition] = None
-        if cond.component == "wing" and cond.label in BALANCED_WING_CONDITIONS:
+        family = base_label(cond.label)
+        if cond.component == "wing" and family in BALANCED_WING_CONDITIONS:
             pass    # a rolling condition's couple is resolved at its V-n point below
         elif cond.component == VTAIL and cond.label in BALANCED_VTAIL_CONDITIONS:
             lateral = vtails.get(cond.label, ())
@@ -440,7 +446,7 @@ def build_balanced_cases(
                 record.append(_skip(cond, "no-fin-loads"))
                 continue
             lateral_cond = cond
-        elif cond.component == HTAIL and cond.label in BALANCED_HTAIL_CONDITIONS:
+        elif cond.component == HTAIL and family in BALANCED_HTAIL_CONDITIONS:
             htail = htails.get(cond.label, ())
             if not htail:
                 record.append(_skip(cond, "no-htail-loads"))
@@ -463,7 +469,7 @@ def build_balanced_cases(
         if not loading.derivable:
             record.append(_skip(cond, "loading-not-derivable"))
             continue
-        if cond.component == "wing" and cond.label in ROLLING_WING_CONDITIONS:
+        if cond.component == "wing" and family in ROLLING_WING_CONDITIONS:
             unb = unbalanced_rolling_moment(project, cond.label, point, vn, sources)
         terms = (lateral_aero_terms(project, lateral_cond, point)
                  if lateral_cond is not None else None)

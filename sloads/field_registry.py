@@ -95,6 +95,7 @@ CODED_FIELDS: Dict[str, Mapping[str, str]] = {
     "geometry.landing_gear.main_gear.strut": _models.STRUT_TYPES,
     "geometry.landing_gear.nose_gear.strut": _models.STRUT_TYPES,
     "geometry.empennage.htail.stabiliser": _models.STABILISER_TYPES,
+    "aero_coeffs.power_cases": _models.POWER_CASE_CHOICES,
 }
 
 #: Fixed-vocabulary **row selectors** (#98, C210-46): ``str`` fields on list
@@ -1702,6 +1703,10 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("aero_coeffs.fuselage_moment.d_cm_dalpha", _AERO, _SLDS,
        "the Munk slender-body pitching-moment increment sloads adds when it balances the whole airplane; the suite's "
        "tail balance carried no body moment (Step G4)"),
+    _E("aero_coeffs.power_cases", _AERO, _SLDS,
+       "the power states the flight cases are delivered in -- 'off' (zero thrust, the suite's only state) or "
+       "'off_and_on' (each flaps-up V-n point also re-balanced at rated maximum-continuous thrust, 14 CFR "
+       "25.321(b); design note 21 P-18, #226)"),
     _E("aero_coeffs.lateral_body_aero.enabled", _AERO, _SLDS,
        "lumped lateral body aerodynamics -- side force and yawing moment per sideslip -- for sloads' own lateral "
        "balance, which the original suite did not form (L-7)"),

@@ -3594,11 +3594,14 @@ def _body_case_table(project: Project,
               "no load in this section has been multiplied by it."))
 
 
-#: The three symbols section 4 uses, and nothing else (OR-100).
+#: The symbols section 4 uses, and nothing else (OR-100). ``Fx``/``Sx`` since
+#: design note 21 P-16 (#218): the body carries the longitudinal inertia.
 _BODY_NOMENCLATURE: Tuple[Tuple[str, str, str, str], ...] = (
     ("X", "Fuselage station, positive aft along the fuselage reference line",
      "length", "coordinate"),
+    ("Fx", "Axial force applied at the station, positive aft", "force", "increment"),
     ("Fz", "Normal force applied at the station", "force", "increment"),
+    ("Sx", "Axial force carried across the station", "force", "cumulative"),
     ("Sz", "Normal shear carried across the station", "force", "cumulative"),
     ("Myy", "Bending moment carried across the station, about the lateral axis",
      "moment", "cumulative"),
@@ -3611,9 +3614,12 @@ _BODY_NOMENCLATURE: Tuple[Tuple[str, str, str, str], ...] = (
 #: lateral bending column here would be a measured zero rather than an absent
 #: quantity -- OR-61's finding, applied one section over.
 _BODY_ABSENCES = (
-    "This analysis delivers three quantities along the body and no others: the "
-    "applied normal force Fz, and the normal shear Sz and bending moment Myy "
-    "the structure carries. There is no lateral shear and no lateral bending "
+    "This analysis delivers five quantities along the body and no others: the "
+    "applied normal and axial forces Fz and Fx, and the normal shear Sz, axial "
+    "force Sx and bending moment Myy the structure carries. The axial force is "
+    "each station weight's longitudinal inertia, Fx = Nx W, the factor the wing "
+    "applies to its own masses; the non-wing drag is not distributed along the "
+    "body. There is no lateral shear and no lateral bending "
     "here, and they are not tabulated as zeros: Chapter 15's beam is a "
     "symmetric-flight vertical solve, so a lateral quantity is a load this "
     "section does not produce rather than a load it measured to be zero. The "
@@ -3663,7 +3669,7 @@ def _body_negative_sentence(conditions: Sequence[ConditionResult]) -> str:
 
 
 def _body_nomenclature_table(system: UnitSystem) -> Table:
-    """Section 4's notation, restricted to the three symbols it uses."""
+    """Section 4's notation, restricted to the symbols it uses."""
     u = Units(system)
     rows = [[symbol, quantity, u.label(dim) if dim else "--", sense]
             for symbol, quantity, dim, sense in _BODY_NOMENCLATURE]
@@ -3673,8 +3679,8 @@ def _body_nomenclature_table(system: UnitSystem) -> Table:
         note=("An increment is the load applied at that station alone. A "
               "cumulative value is the load the structure carries there: "
               "everything forward of it, accumulated nose to tail. X is "
-              "geometry -- it is neither scaled nor marked. Fz, Sz and Myy are "
-              "LIMIT, each case stating the factor it does not apply."))
+              "geometry -- it is neither scaled nor marked. Fx, Fz, Sx, Sz and "
+              "Myy are LIMIT, each case stating the factor it does not apply."))
 
 
 def _body_derivation_note() -> str:
@@ -3690,9 +3696,14 @@ def _body_derivation_note() -> str:
         "toward the wing box: the forward body from the nose to the front "
         "spar and the aft body from the tail to the rear spar. Writing i for "
         "a station and i-1 for the station before it on the way in:\n"
-        "  Fz(i) = -Nz W(i)\n"
-        "  Sz(i) = Sz(i-1) + Fz(i)\n"
-        "  Myy(i) = Myy(i-1) + Sz(i-1) |X(i) - X(i-1)|\n\n"
+        "  Fz(i) = -Nz W(i)    Fx(i) = Nx W(i)\n"
+        "  Sz(i) = Sz(i-1) + Fz(i)    Sx(i) = Sx(i-1) + Fx(i)\n"
+        "  Myy(i) = Myy(i-1) + Sz(i-1) |X(i) - X(i-1)| + dZ(i) Fx(i)\n\n"
+        "where Nx = -(DX - T)/W is the condition's longitudinal inertia factor "
+        "(T the rated thrust of a power-on '-P' condition, zero otherwise) and "
+        "dZ(i) the station mass's height above the beam axis, so the axial "
+        "load bends the beam by its couple about the axis (in the aft body's "
+        "published sense, the negative). "
         "Shear and bending are positive for an up load in either body, so a "
         "positive load factor bends both bodies down. Nothing is integrated "
         "between the spars: a station at or between them is an applied load "
@@ -4198,12 +4209,14 @@ def _body_station_appendix(project: Project, *, system: UnitSystem,
               "by construction and Z is that axis's waterline -- the position "
               "of the structure, not of the mass it carries, which the beam "
               "table states separately. All six components are printed so that "
-              "a zero cannot be read as an omission. Fz is the whole applied "
-              "force set: Fx and Fy are zero for every row because the body "
-              "beam has no fore-aft or lateral producer, and no couple can "
-              "create a force. Mx, My and Mz are zero AT THE STATION -- a "
-              "station applies a force and no free moment -- and carry here "
-              "only the transfer to the grid. " + LUMPED_SET_NOTE + " "
+              "a zero cannot be read as an omission. Fz and Fx are the whole "
+              "applied force set: Fx is each station weight's longitudinal "
+              "inertia, Nx W, reacted at the wing station, and Fy is zero for "
+              "every row because the body beam has no lateral producer. My at "
+              "a station is the couple its axial load makes about the axis "
+              "from the mass's own waterline (and, at the wing station, the "
+              "closing couple); Mx and Mz are zero AT THE STATION and carry "
+              "here only the transfer to the grid. " + LUMPED_SET_NOTE + " "
               "Moments are right-handed about the airplane "
               "axes. Every load is LIMIT and states in its own row the factor "
               "it does not apply; the station is geometry and is neither "
@@ -4218,6 +4231,7 @@ def _body_station_appendix(project: Project, *, system: UnitSystem,
             rows.append([
                 name, str(gid), u.plain(station.x, "length"),
                 station.region,
+                "" if box else u.load(station.sx, "force", sf),
                 "" if box else u.load(station.sz, "force", sf),
                 "" if box else u.load(station.myy, "moment", sf),
                 format_value(sf),
@@ -4227,6 +4241,7 @@ def _body_station_appendix(project: Project, *, system: UnitSystem,
     carried = Table(
         title="Cumulative fuselage loads by station (LIMIT)",
         columns=["Case", "GID", f"X ({u.label('length')})", "Region",
+                 f"Sx ({u.ult_label('force')})",
                  f"Sz ({u.ult_label('force')})",
                  f"Myy ({u.ult_label('moment')})", "SF"],
         rows=rows, small=True,
@@ -9464,6 +9479,7 @@ def _vn_rows(project: Project, env: "EnvelopeResult", u: Units
     """
     ids = flight_case_ids(project)
     weights = {c.name: c.weight_lb for c in flight_cases(project)}
+    powered = _vn_powered(env)
     out: List[Tuple[List[str], List[str]]] = []
     for p in env.vn:
         # The same derivation ``select`` and ``wing_inertia`` use, read from the
@@ -9471,7 +9487,7 @@ def _vn_rows(project: Project, env: "EnvelopeResult", u: Units
         # be a second answer to the question of where the drag went. Every row
         # names a CG case the project carries: ``default_envelope`` refuses a
         # matrix that does not, so the weight lookup cannot come up empty.
-        nx = inertia_drag_factor(p.dx, weights.get(p.cg, 0.0))
+        nx = inertia_drag_factor(p.dx, weights.get(p.cg, 0.0), p.thrust_fx)
         cg, case = ids.get(p.cg, p.cg), str(p.case)
         state = [cg, p.config, format_value(p.altitude_ft, "ft"), case, p.condition,
                  format_value(p.v_eas_kt, "kt(EAS)"), format_value(p.nz, "g"),
@@ -9481,6 +9497,8 @@ def _vn_rows(project: Project, env: "EnvelopeResult", u: Units
                  u.load(p.m_wf, "moment", 0.0), u.load(p.lzw, "force", 0.0),
                  u.load(p.lt, "force", 0.0), u.load(p.dx, "force", 0.0),
                  format_value(nx, "g")]
+        if powered:  # the thrust NX is net of (design note 21 §10)
+            loads.append(u.load(p.thrust_lb, "force", 0.0))
         loads += [", ".join(r.case_id for r in p.case_refs
                             if r.component == component)
                   for _prefix, component in _VN_COMPONENTS]
@@ -9519,17 +9537,29 @@ def _vn_state_table(project: Project, rows: Sequence[Tuple[List[str], List[str]]
     )
 
 
+def _vn_powered(env: "EnvelopeResult") -> bool:
+    """Whether the matrix carries power-on twins (design note 21 §10)."""
+    return any(p.power_state == "on" for p in env.vn)
+
+
 def _vn_load_table(rows: Sequence[Tuple[List[str], List[str]]],
-                   u: Units) -> Optional[Table]:
-    """What balanced each point, and what it was selected as (OR-196/OR-197)."""
+                   u: Units, powered: bool = False) -> Optional[Table]:
+    """What balanced each point, and what it was selected as (OR-196/OR-197).
+
+    With power on, a ``T`` column follows ``NX``: the rated thrust a ``-P``
+    point was balanced with, zero on its power-off original."""
     if not rows:
         return None
     force, moment = u.label("force"), u.label("moment")
+    thrust_note = (" T is the rated maximum-continuous thrust a '-P' (power-on) "
+                   "point is balanced with (design note 21 P-14), and NX is then "
+                   "-(DX - T)/W; a power-off point carries none." if powered else "")
     return Table(
         data_file=VN_CONDITIONS_CSV,
         title="Balanced flight conditions: balancing loads and selection (LIMIT)",
         columns=["CG", "Case", "Condition", f"M(W+F) ({moment})",
                  f"LZW ({force})", f"LT ({force})", f"DX ({force})", "NX"]
+              + ([f"T ({force})"] if powered else [])
               + [prefix for prefix, _ in _VN_COMPONENTS],
         rows=[loads for _state, loads in rows],
         small=True,
@@ -9541,7 +9571,8 @@ def _vn_load_table(rows: Sequence[Tuple[List[str], List[str]]],
               "-DX/W the drag leaves the balance as, which is what carries it "
               "into the mass distribution. The last four columns name the case "
               "ids this point was selected as: blank is the common case, and a "
-              "point selected for more than one condition lists all of them."),
+              "point selected for more than one condition lists all of them."
+              + thrust_note),
     )
 
 
@@ -9612,7 +9643,7 @@ def vn_conditions_csv(project: Project, header_comment: str = "", *,
         return ""
     u = Units(system)
     rows = _vn_rows(project, env, u)
-    state, loads = _vn_state_table(project, rows), _vn_load_table(rows, u)
+    state, loads = _vn_state_table(project, rows), _vn_load_table(rows, u, _vn_powered(env))
     if state is None or loads is None:
         return ""
     # The loads half repeats CG, Case and Condition so that each printed table
@@ -9646,7 +9677,7 @@ def _vn_appendix(project: Project, *, system: UnitSystem,
     rows = _vn_rows(project, env, u)
     tables = [t for t in (_vn_mass_case_table(project, u),
                           _vn_state_table(project, rows),
-                          _vn_load_table(rows, u)) if t is not None]
+                          _vn_load_table(rows, u, _vn_powered(env))) if t is not None]
     if not tables:
         return Section("", absent_reason=(
             "the flight envelope produced no balanced conditions for this "

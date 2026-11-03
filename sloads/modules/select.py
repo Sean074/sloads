@@ -80,7 +80,14 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, NamedTuple, Optional, Tuple, cast
 
 from ..aero_curves import inertia_drag_factor
-from ..case_ids import WING_BAND_EXTRA, WING_SLOTS, CaseIdAllocator, wing_case_id
+from ..case_ids import (
+    FUSELAGE_BAND_POWER,
+    HTAIL_BAND_POWER,
+    WING_BAND_EXTRA,
+    CaseIdAllocator,
+    is_wing_slot,
+    wing_case_id,
+)
 from ..cg_cases import flight_cases, max_takeoff_weight
 from ..constants import (
     AILERON_DCM_PER_DEG,
@@ -118,6 +125,7 @@ from ..models import (
     VTailLoadsInput,
 )
 from ..picks import extreme
+from ..power import STATE_ON, base_label, is_power_on, power_label
 from ..registry import register
 from ..selectors import keyed
 from ..units import format_value
@@ -217,8 +225,20 @@ def default_envelope(project: Project) -> EnvelopeResult:
 
 
 def _resolve_envelope(project: Project, envelope: Optional[EnvelopeResult]) -> EnvelopeResult:
-    """The threaded envelope when ``build_critical`` supplies one, else built once."""
-    return envelope if envelope is not None else default_envelope(project)
+    """The threaded envelope when ``build_critical`` supplies one, else built once
+    -- as the **power-off view** (:func:`power_off_view`), so a search handed the
+    whole matrix never picks a power-on twin as a power-off condition. The
+    power-on pass hands its own view in (:func:`split_power_states`)."""
+    return power_off_view(envelope if envelope is not None else default_envelope(project))
+
+
+def power_off_view(env: EnvelopeResult) -> EnvelopeResult:
+    """``env`` without its power-on twins -- the twins as FLTLOADS writes them,
+    labelled ``"... -P"`` (design note 21 §10). A matrix with none is returned
+    as it is; the power-on pass's own view (base labels) has none to drop."""
+    if not any(is_power_on(p.condition) for p in env.vn):
+        return env
+    return split_power_states(env)[0]
 
 
 def default_critical(project: Project,
@@ -457,7 +477,7 @@ def _cg_case(cg_map: Dict[str, CgCase], p: VnPoint) -> CgCase:
 
 def _condition(component: str, label: str, far: str, p: VnPoint, weights: Dict[str, float]) -> CriticalCondition:
     """Wrap a selected :class:`VnPoint` as a :class:`CriticalCondition`."""
-    nx = inertia_drag_factor(p.dx, _cg_weight(weights, p))
+    nx = inertia_drag_factor(p.dx, _cg_weight(weights, p), p.thrust_fx)
     return CriticalCondition(
         component=component, label=label, far_reference=far, case=p.case,
         loads=[
@@ -780,8 +800,10 @@ def htail_balance(p: VnPoint, cg: CgCase, xw: float, zw: float,
     st = ti.htail_area_sqft
     lt25 = (at * aht / DEG_PER_RAD) * q * st
     lt50_per_delta = (ti.elevator_effectiveness * aht / DEG_PER_RAD) * q * st
-    delta = ((p.m_wf - p.dx * (cg.zcg - zw) + p.lzw * (cg.xcg - xw)
-              - lt25 * (ti.xt25 - cg.xcg)) / (lt50_per_delta * (ti.xt50 - cg.xcg)))
+    moment = p.m_wf - p.dx * (cg.zcg - zw) + p.lzw * (cg.xcg - xw) - lt25 * (ti.xt25 - cg.xcg)
+    if p.thrust_m:  # a power-on point's thrust moment (design note 21 §10)
+        moment += p.thrust_m
+    delta = moment / (lt50_per_delta * (ti.xt50 - cg.xcg))
     lt50 = lt50_per_delta * delta
     lt = lt25 + lt50
     cp = (25.0 * lt25 + 50.0 * lt50) / lt if lt else 0.0
@@ -1727,7 +1749,14 @@ def _stamp_case_refs(project: Project, conditions: List[CriticalCondition],
     """
     allocator = CaseIdAllocator()
     allocator.seed("wing", WING_BAND_EXTRA)
-    points = _resolve_envelope(project, envelope).vn
+    # The power-on conditions mint from their own bands (design note 21 §10),
+    # so no power-off id depends on whether the project runs power on.
+    power_allocator = CaseIdAllocator()
+    power_allocator.seed("htail", HTAIL_BAND_POWER)
+    power_allocator.seed("fuselage", FUSELAGE_BAND_POWER)
+    # The whole matrix, power-on twins included: a ``-P`` condition is stamped
+    # onto its own twin (design note 21 §10).
+    points = (envelope if envelope is not None else default_envelope(project)).vn
     # Cleared before appending, so stamping the same envelope twice is the same
     # as stamping it once. Assignment gave that for free; appending does not, and
     # ``build_critical`` is reachable more than once per envelope instance (the
@@ -1737,8 +1766,10 @@ def _stamp_case_refs(project: Project, conditions: List[CriticalCondition],
     vn_by_case = {p.case: p for p in points}
     for c in conditions:
         p = vn_by_case.get(c.case) if c.case is not None else None
-        if c.component == "wing" and c.label in WING_SLOTS:
+        if c.component == "wing" and is_wing_slot(c.label):
             case_id = wing_case_id(c.label)
+        elif is_power_on(c.label):
+            case_id = power_allocator.next_id(c.component)
         else:
             case_id = allocator.next_id(c.component)
         ref = CaseRef(
@@ -1760,6 +1791,54 @@ def _stamp_case_refs(project: Project, conditions: List[CriticalCondition],
             p.case_refs.append(ref)
 
 
+def split_power_states(env: EnvelopeResult) -> Tuple[EnvelopeResult, Optional[EnvelopeResult]]:
+    """``(power-off matrix, power-on matrix or None)`` (design note 21 §10, #226).
+
+    A power-off project's matrix is returned as it is, so its searches see the
+    very object they always did (G10-1). With power on, the power-on matrix is
+    each twin under its **base** label (``MAN A-P`` searched as ``MAN A``), so
+    every family table finds it, at its own case number."""
+    on = [p for p in env.vn if p.power_state == STATE_ON]
+    if not on:
+        return env, None
+    on_cases = {p.case for p in on}
+    off_env = EnvelopeResult(
+        vn=[p for p in env.vn if p.power_state != STATE_ON],
+        tail_balance=[t for t in env.tail_balance if t.case not in on_cases],
+        clamped_cases=[c for c in env.clamped_cases if c not in on_cases])
+    on_env = EnvelopeResult(
+        vn=[replace(p, condition=base_label(p.condition), case_refs=[]) for p in on],
+        tail_balance=[replace(t, condition=base_label(t.condition))
+                      for t in env.tail_balance if t.case in on_cases],
+        clamped_cases=[c for c in env.clamped_cases if c in on_cases])
+    return off_env, on_env
+
+
+def select_fuselage_all(project: Project, envelope: Optional[EnvelopeResult] = None
+                        ) -> List[CriticalCondition]:
+    """The critical fuselage conditions in every power state the project runs:
+    :func:`select_fuselage` over the power-off matrix, then over the power-on
+    twins relabelled ``"... -P"`` (design note 21 §10) -- the body beam's case
+    list, the same conditions ``build_critical`` emits for the fuselage."""
+    env = envelope if envelope is not None else default_envelope(project)
+    off_env, on_env = split_power_states(env)
+    out = select_fuselage(project, off_env)
+    if on_env is not None:
+        out += [replace(c, label=power_label(c.label)) for c in select_fuselage(project, on_env)]
+    return out
+
+
+def _power_on_conditions(project: Project, on_env: EnvelopeResult) -> List[CriticalCondition]:
+    """SELECT's second pass, over the power-on twins (P-15): the wing, h-tail and
+    fuselage searches, each condition relabelled ``"... -P"``. The fin gets
+    none -- a symmetric thrust adds no side load, and P-11 gives the v-tail no
+    power variants."""
+    found = select_wing(project, on_env)
+    found.extend(select_htail(project, on_env))
+    found.extend(select_fuselage(project, on_env))
+    return [replace(c, label=power_label(c.label)) for c in found]
+
+
 def build_critical(project: Project,
                    envelope: Optional[EnvelopeResult] = None) -> CriticalLoadSet:
     """Compute the critical-load set for ``Project.envelope.critical``: the wing
@@ -1771,11 +1850,14 @@ def build_critical(project: Project,
     caller that needs both the matrix and the set does not build it twice."""
     # M2R-8: build the V-n envelope once and thread it into every search, instead of
     # each helper independently rebuilding it (up to 7x when nothing is persisted).
-    env = _resolve_envelope(project, envelope)
-    conditions = select_wing(project, env)
-    conditions.extend(select_htail(project, env))
-    conditions.extend(select_vtail(project, env))
-    conditions.extend(select_fuselage(project, env))
+    env = envelope if envelope is not None else default_envelope(project)
+    off_env, on_env = split_power_states(env)
+    conditions = select_wing(project, off_env)
+    conditions.extend(select_htail(project, off_env))
+    conditions.extend(select_vtail(project, off_env))
+    conditions.extend(select_fuselage(project, off_env))
+    if on_env is not None:
+        conditions.extend(_power_on_conditions(project, on_env))
     _stamp_case_refs(project, conditions, env)
     critical = CriticalLoadSet(conditions=conditions)
     stamp_feasibility(project, critical, env)

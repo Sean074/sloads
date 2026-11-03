@@ -14,6 +14,7 @@ from typing import Callable, List, Sequence, Tuple
 
 from ...mass_distribution import CaseLoading, assembly_distributes_mass, component_of, reacted_parts
 from ...models import BalancedCaseResult, BalancedLoad, Project
+from ...power import base_label, is_power_on
 from ...rigid_body import SelfInertia
 from .applied import HUB_THRUST_SOURCE
 from .closure import PointSelfInertia
@@ -68,8 +69,13 @@ def is_powered(case: BalancedCaseResult) -> bool:
     pre-closure ``Fx`` and ``My`` in full, reacted by ``delta_nx`` and
     ``q_dot``. :data:`RESIDUAL_GATE` therefore does not apply to its pitch
     residual, exactly as it does not to a 23.427(a) case's.
+
+    A **power-on** case (``"... -P"``, design note 21 §10) is not one: its
+    rated thrust is in the trim -- the V-n point was balanced with it -- so
+    its pitch closes like any trimmed case and the gate applies (G10-4).
     """
-    return any(ld.source == HUB_THRUST_SOURCE for ld in case.loads)
+    return (not is_power_on(case.label)
+            and any(ld.source == HUB_THRUST_SOURCE for ld in case.loads))
 
 
 def hub_thrust(case: BalancedCaseResult) -> float:
@@ -276,7 +282,7 @@ def is_lateral(case: BalancedCaseResult) -> bool:
 
 def is_wing_condition(case: BalancedCaseResult) -> bool:
     """Is this one of SELECT's wing conditions, assembled on its V-n point?"""
-    return case.label in BALANCED_WING_CONDITIONS
+    return base_label(case.label) in BALANCED_WING_CONDITIONS
 
 
 #: Every balanced family against the feasibility check (design note 73 D-73.10),

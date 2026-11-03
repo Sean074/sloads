@@ -56,6 +56,7 @@ from ..constants import (
     KT_TO_FPS,
     LBIN2_PER_SLUGFT2,
     OEI_SWEEP_POINTS,
+    PROP_EFFICIENCY,
     RHO_SL,
     ULTIMATE_FACTOR,
     dynamic_pressure_psf,
@@ -186,7 +187,7 @@ def engine_thrust_and_drag(c: CaseInputs) -> Tuple[float, float, float]:
     windmilling-propeller drag ``.85*.232*rho*VTFPS^2*DIA^2`` (Glauert)."""
     sigma = standard_atmosphere(c.alt_ft)[1]
     vtfps = (c.v_kt / sigma ** 0.5) * KT_TO_FPS
-    thrust = c.maxhp * FT_LB_S_PER_HP * 0.85 / vtfps
+    thrust = c.maxhp * FT_LB_S_PER_HP * PROP_EFFICIENCY / vtfps
     rho = RHO_SL * sigma
     drag = 0.85 * 0.232 * rho * vtfps ** 2 * c.dia_ft ** 2
     return thrust, drag, vtfps

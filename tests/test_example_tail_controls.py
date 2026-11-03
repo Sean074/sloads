@@ -104,8 +104,16 @@ def test_every_tail_load_is_the_typed_scalars_within_the_band(name):
     percent."""
     derived, typed = _tail_values(_load(name)), _tail_values(_retyped(name))
     assert set(derived) == set(typed)
+    # The band is relative to the quantity's own scale, not to each value: a
+    # load near zero is the small difference of terms that carry the
+    # construction residual in full (``MAN D-P``'s elevator load on the ATR is
+    # -0.64 lb against elevator loads of thousands; design note 21 §10).
+    scale: dict = {}
+    for key, value in typed.items():
+        scale[key[2]] = max(scale.get(key[2], 0.0), abs(value))
     apart = [(key, typed[key], derived[key]) for key in typed
-             if not math.isclose(derived[key], typed[key], rel_tol=1e-3, abs_tol=1e-6)]
+             if not math.isclose(derived[key], typed[key], rel_tol=1e-3,
+                                 abs_tol=max(1e-6, 1e-4 * scale[key[2]]))]
     assert not apart, apart[:10]
 
 
