@@ -45,7 +45,7 @@ from imperial_baseline import EXAMPLES
 
 from sloads import io
 from sloads import mass_distribution as md
-from sloads.models import MassComponent
+from sloads.models import MassComponent, MassItemKind
 from sloads.modules.body_loads import build_body_loads
 from sloads.modules.flight_envelope import build_envelope
 from sloads.modules.select import build_critical
@@ -588,9 +588,17 @@ def test_every_shipped_case_loading_reproduces_its_case(example):
 
 def test_the_search_refuses_a_no_ballast_loading_off_the_case_waterline():
     """The search once tested station alone, so ``baron_58``'s ``aft gross``
-    was flown at waterline 95.88 against a case stating 100.0 (4.12 in)."""
+    was flown at waterline 95.88 against a case stating 100.0 (4.12 in).
+
+    Run on the Baron as it was before #337: the pilot a discretionary row and
+    ``aft gross`` searched at 95.88, the no-ballast subset the search found
+    (four occupants, no pilot). Since note 75 the shipped case is entered."""
+    from dataclasses import replace
     project = _project("baron_58.project.json")
+    project.weight.items = [replace(it, kind=MassItemKind.DISCRETIONARY, required_crew=False)
+                            if it.name == "Pilot" else it for it in project.weight.items]
     case = next(c for c in project.weight.cg_cases if c.name == "aft gross")
+    case.loading, case.zcg = None, 95.88
     found = {ld.name: ld for ld in md.derive_case_loadings(project)}
     assert found["aft gross"].derivable and found["aft gross"].ballast is None
     assert abs(found["aft gross"].cg_z - case.zcg) <= md.cg_match_tolerance()

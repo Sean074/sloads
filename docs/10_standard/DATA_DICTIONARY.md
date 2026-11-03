@@ -2,7 +2,7 @@
 
 > **Generated file — do not edit by hand.** Produced by [`docs/generate_data_dict.py`](../generate_data_dict.py) from the `sloads/models/` dataclasses. Regenerate after any schema change: `.venv/bin/python docs/generate_data_dict.py`.
 
-Schema version: **82**.
+Schema version: **83**.
 
 This dictionary covers the **input** slices of `Project` (`sloads/models/project.py`) — the fields that make up a `project.json`. The result slices (`envelope`, `mass`, `loads`) are computed outputs and are out of scope.
 
@@ -148,6 +148,7 @@ One row of the weight database: a component's weight and station.
 | `wing_fraction` | `float` |  | `0.0` |
 | `carriage` | `WingCarriage` |  | `WingCarriage.PANEL` |
 | `gear` | `Optional[GearLeg]` |  | `None` |
+| `required_crew` | `bool` |  | `False` |
 
 ### `WeightEnvelopeInput`
 

@@ -1,5 +1,5 @@
 {
-  "schema_version": 82,
+  "schema_version": 83,
   "name": "RJ-50 concept \u2014 50-seat regional jet (concept mode, Part 25)",
   "engines": [
     {
@@ -151,7 +151,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Fuselage structure",
@@ -168,7 +169,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Horiz tail",
@@ -185,7 +187,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Vert tail",
@@ -202,7 +205,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Main gear, left",
@@ -219,7 +223,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": "main"
+        "gear": "main",
+        "required_crew": false
       },
       {
         "name": "Main gear, right",
@@ -236,7 +241,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": "main"
+        "gear": "main",
+        "required_crew": false
       },
       {
         "name": "Nose gear",
@@ -253,7 +259,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": "nose"
+        "gear": "nose",
+        "required_crew": false
       },
       {
         "name": "Engine, left",
@@ -270,7 +277,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Engine, right",
@@ -287,7 +295,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Systems + furnishings",
@@ -304,7 +313,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Crew (2)",
@@ -321,7 +331,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": true
       },
       {
         "name": "Reserve fuel",
@@ -338,7 +349,8 @@
         "usable_fuel": true,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Passengers, fwd cabin (24)",
@@ -355,7 +367,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Passengers, aft cabin (24)",
@@ -372,7 +385,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Cargo, fwd hold",
@@ -389,7 +403,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Cargo, aft hold",
@@ -406,7 +421,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Mission fuel",
@@ -423,7 +439,8 @@
         "usable_fuel": true,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       }
     ],
     "envelope": {
@@ -469,7 +486,8 @@
             "usable_fuel": false,
             "wing_fraction": 0.0,
             "carriage": "panel",
-            "gear": null
+            "gear": null,
+            "required_crew": false
           }
         }
       },
@@ -503,7 +521,8 @@
             "usable_fuel": false,
             "wing_fraction": 0.0,
             "carriage": "panel",
-            "gear": null
+            "gear": null,
+            "required_crew": false
           }
         }
       },
@@ -534,7 +553,8 @@
             "usable_fuel": false,
             "wing_fraction": 0.0,
             "carriage": "panel",
-            "gear": null
+            "gear": null,
+            "required_crew": false
           }
         }
       },
@@ -578,7 +598,8 @@
             "usable_fuel": false,
             "wing_fraction": 0.0,
             "carriage": "panel",
-            "gear": null
+            "gear": null,
+            "required_crew": false
           }
         }
       },

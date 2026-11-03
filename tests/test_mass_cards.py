@@ -173,7 +173,7 @@ def test_imperial_mass_is_deliberately_not_the_identity():
 #: Baron's and the jet's third).
 _WTENV_FLIGHT = ["aft gross", "fwd gross", "fwd regardless", "min weight", "mid gross"]
 _MZFW_ATR = ["mzfw aft", "mzfw fwd", "full fuel aft"]
-_MZFW_BARON = ["mzfw aft", "mzfw fwd"]
+_MZFW_BARON = ["mzfw aft", "mzfw fwd", "full fuel aft"]   # #337: note 75 adds full fuel aft
 _MZFW_JET = ["mzfw aft", "full fuel aft"]
 _DERIVABLE = {
     "ga6_normal.project.json": ["CG1", "CG2", "CG3", "CG4"],
@@ -205,7 +205,9 @@ _ENTERED = {
     "concept_heavy.project.json": ["CGmax"],
     "atr42_100.project.json": _WTENV_FLIGHT + _MZFW_ATR,
     "atr42_300_seed.project.json": _WTENV_FLIGHT + ["mzfw aft", "mzfw fwd"],   # #403 re-entered as found; #420 no full fuel aft
-    "baron_58.project.json": ["fwd gross"] + _MZFW_BARON,
+    # #337 (design note 75): `aft gross` is entered too -- with the pilot aboard
+    # the search needed 110 lb of ballast.
+    "baron_58.project.json": ["aft gross", "fwd gross"] + _MZFW_BARON,
     "concept_regional_jet.project.json": _WTENV_FLIGHT + _MZFW_JET,
 }
 

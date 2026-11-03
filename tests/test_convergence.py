@@ -152,8 +152,11 @@ _CLAMPED: dict = {
     # corner A at 20,000 ft at `fwd gross` -- the Mach cap pins the speed and
     # the point is stall-limited, D-30's ordinary flight (V-n cases 223/224,
     # CL 1.274). SELECT governs on neither.
+    # #337 (design note 75): the Baron's `full fuel aft` corner is a second
+    # MTOW case and caps at the same two points, as the ATR's did (#292).
     "baron_58.project.json": {
         ("MAN A", "fwd gross", 20000.0), ("MAN C", "fwd gross", 20000.0),
+        ("MAN A", "full fuel aft", 20000.0), ("MAN C", "full fuel aft", 20000.0),
     },
 }
 _CLAMPED_BEFORE_260 = {

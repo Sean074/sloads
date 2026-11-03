@@ -1,5 +1,5 @@
 {
-  "schema_version": 82,
+  "schema_version": 83,
   "name": "Beechcraft Baron 58 \u2014 two Continental IO-550-C",
   "description": "Guide worked example (design note 34 UG-9): FAA Aircraft Spec 3A16 Rev 82, Model 58 S/N TH-1396\u2013TH-2124. Certified data cited, everything else estimated \u2014 sources: examples/baron_58.sources.md",
   "engines": [
@@ -136,7 +136,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Horizontal tail",
@@ -153,7 +154,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Vertical tail",
@@ -170,7 +172,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Fuselage shell",
@@ -187,7 +190,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Main gear, left",
@@ -204,7 +208,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point",
-        "gear": "main"
+        "gear": "main",
+        "required_crew": false
       },
       {
         "name": "Main gear, right",
@@ -221,7 +226,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point",
-        "gear": "main"
+        "gear": "main",
+        "required_crew": false
       },
       {
         "name": "Nose gear",
@@ -238,7 +244,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": "nose"
+        "gear": "nose",
+        "required_crew": false
       },
       {
         "name": "Engine, left",
@@ -255,7 +262,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Engine, right",
@@ -272,7 +280,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Propeller, left",
@@ -289,7 +298,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Propeller, right",
@@ -306,7 +316,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Nacelle, left",
@@ -323,7 +334,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Nacelle, right",
@@ -340,7 +352,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Engine accessories, left",
@@ -357,7 +370,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Engine accessories, right",
@@ -374,7 +388,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Fuel system, left",
@@ -391,7 +406,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Fuel system, right",
@@ -408,7 +424,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Flight controls",
@@ -425,7 +442,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Instruments & avionics",
@@ -442,7 +460,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Electrical",
@@ -459,7 +478,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Furnishings (6 seats)",
@@ -476,7 +496,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Air conditioning",
@@ -493,7 +514,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "De-ice & misc systems",
@@ -510,7 +532,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Hydraulics (gear actuation)",
@@ -527,7 +550,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Exhaust & engine controls, left",
@@ -544,7 +568,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Exhaust & engine controls, right",
@@ -561,7 +586,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Paint & sealant",
@@ -578,7 +604,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Unusable fuel & oil, left",
@@ -595,7 +622,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Unusable fuel & oil, right",
@@ -612,7 +640,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "point",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Fuel, left wing",
@@ -629,7 +658,8 @@
         "usable_fuel": true,
         "wing_fraction": 0.0,
         "carriage": "point",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Fuel, right wing",
@@ -646,11 +676,30 @@
         "usable_fuel": true,
         "wing_fraction": 0.0,
         "carriage": "point",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
-        "name": "Pilot & front passenger",
-        "weight_lb": 340,
+        "name": "Pilot",
+        "weight_lb": 170.0,
+        "x": 75,
+        "y": 0,
+        "z": 100,
+        "ixx": 0.0,
+        "iyy": 0.0,
+        "izz": 0.0,
+        "kind": "minimum",
+        "component": "fuselage",
+        "consumable": false,
+        "usable_fuel": false,
+        "wing_fraction": 0.0,
+        "carriage": "panel",
+        "gear": null,
+        "required_crew": true
+      },
+      {
+        "name": "Front passenger",
+        "weight_lb": 170.0,
         "x": 75,
         "y": 0,
         "z": 100,
@@ -663,7 +712,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Mid passengers",
@@ -680,7 +730,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Aft passengers",
@@ -697,7 +748,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Nose baggage",
@@ -714,7 +766,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Rear baggage",
@@ -731,7 +784,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       }
     ],
     "envelope": {
@@ -751,10 +805,27 @@
         "name": "aft gross",
         "weight_lb": 5500.0,
         "xcg": 86.0,
-        "zcg": 95.88,
+        "zcg": 96.56,
         "analyses": [
           "flight"
-        ]
+        ],
+        "loading": {
+          "aboard": [
+            "Fuel, left wing",
+            "Fuel, right wing",
+            "Front passenger",
+            "Mid passengers",
+            "Aft passengers",
+            "Nose baggage",
+            "Rear baggage"
+          ],
+          "fractions": {
+            "Fuel, left wing": 0.3194444444444444,
+            "Fuel, right wing": 0.3194444444444444,
+            "Nose baggage": 0.14580246913580316,
+            "Rear baggage": 0.26564814814814763
+          }
+        }
       },
       {
         "name": "fwd gross",
@@ -766,15 +837,15 @@
         ],
         "loading": {
           "aboard": [
-            "Pilot & front passenger",
-            "Nose baggage",
-            "Mid passengers",
             "Fuel, left wing",
-            "Fuel, right wing"
+            "Fuel, right wing",
+            "Front passenger",
+            "Mid passengers",
+            "Nose baggage"
           ],
           "fractions": {
-            "Nose baggage": 0.48807189542483653,
-            "Mid passengers": 0.5693483275663207
+            "Mid passengers": 0.5693483275663207,
+            "Nose baggage": 0.48807189542483653
           }
         }
       },
@@ -790,46 +861,52 @@
       {
         "name": "aft max landing",
         "weight_lb": 5400.0,
-        "xcg": 85.72,
-        "zcg": 95.96,
+        "xcg": 85.9,
+        "zcg": 96.63,
         "analyses": [
           "ground"
         ],
         "role": "aft_max_landing",
         "loading": {
           "aboard": [
+            "Fuel, left wing",
+            "Fuel, right wing",
+            "Front passenger",
             "Mid passengers",
             "Aft passengers",
-            "Fuel, left wing",
-            "Fuel, right wing"
+            "Nose baggage",
+            "Rear baggage"
           ],
           "fractions": {
-            "Fuel, left wing": 0.8611111111111112,
-            "Fuel, right wing": 0.8611111111111112
+            "Fuel, left wing": 0.18055555555555555,
+            "Fuel, right wing": 0.18055555555555555,
+            "Nose baggage": 0.16879012345679012,
+            "Rear baggage": 0.24840740740740738
           }
         }
       },
       {
         "name": "fwd max landing",
         "weight_lb": 5400.0,
-        "xcg": 79.14,
-        "zcg": 96.04,
+        "xcg": 79.67,
+        "zcg": 96.4,
         "analyses": [
           "ground"
         ],
         "role": "fwd_max_landing",
         "loading": {
           "aboard": [
-            "Pilot & front passenger",
-            "Nose baggage",
-            "Mid passengers",
             "Fuel, left wing",
-            "Fuel, right wing"
+            "Fuel, right wing",
+            "Front passenger",
+            "Mid passengers",
+            "Nose baggage",
+            "Rear baggage"
           ],
           "fractions": {
-            "Fuel, left wing": 0.6527777777777778,
-            "Fuel, right wing": 0.6527777777777778,
-            "Nose baggage": 0.5
+            "Fuel, left wing": 0.18055555555555555,
+            "Fuel, right wing": 0.18055555555555555,
+            "Rear baggage": 0.475
           }
         }
       },
@@ -844,45 +921,69 @@
         "role": "fwd_light",
         "loading": {
           "aboard": [
-            "Pilot & front passenger"
+            "Front passenger"
           ]
         }
       },
       {
         "name": "mzfw aft",
         "weight_lb": 5270.0,
-        "xcg": 83.45,
-        "zcg": 96.66,
+        "xcg": 86.0,
+        "zcg": 96.75,
         "analyses": [
           "flight"
         ],
         "loading": {
           "aboard": [
-            "Pilot & front passenger",
+            "Front passenger",
             "Mid passengers",
             "Aft passengers",
-            "Nose baggage"
+            "Nose baggage",
+            "Rear baggage"
           ],
           "fractions": {
-            "Nose baggage": 0.5
+            "Nose baggage": 0.16879012345679012,
+            "Rear baggage": 0.24840740740740738
           }
         }
       },
       {
         "name": "mzfw fwd",
-        "weight_lb": 4590.0,
-        "xcg": 76.04,
-        "zcg": 96.16,
+        "weight_lb": 5270.0,
+        "xcg": 79.61,
+        "zcg": 96.51,
         "analyses": [
           "flight"
         ],
         "loading": {
           "aboard": [
-            "Pilot & front passenger",
-            "Nose baggage"
+            "Front passenger",
+            "Mid passengers",
+            "Nose baggage",
+            "Rear baggage"
           ],
           "fractions": {
-            "Nose baggage": 0.5
+            "Rear baggage": 0.475
+          }
+        }
+      },
+      {
+        "name": "full fuel aft",
+        "weight_lb": 5500.0,
+        "xcg": 85.37,
+        "zcg": 95.88,
+        "analyses": [
+          "flight"
+        ],
+        "loading": {
+          "aboard": [
+            "Fuel, left wing",
+            "Fuel, right wing",
+            "Aft passengers",
+            "Rear baggage"
+          ],
+          "fractions": {
+            "Rear baggage": 0.425
           }
         }
       }
@@ -1342,13 +1443,13 @@
       {
         "name": "aft gross",
         "weight_lb": 5500.0,
-        "cg_x": 85.65181818181819,
+        "cg_x": 85.99999999999999,
         "cg_y": 0.0,
-        "cg_z": 95.884,
-        "ixx": 22280389.492,
-        "iyy": 11890224.223818181,
-        "izz": 33228121.731818184,
-        "ixz": 483910.86,
+        "cg_z": 96.55696296296296,
+        "ixx": 17855851.24630727,
+        "iyy": 12577637.74630727,
+        "izz": 29495573.5,
+        "ixz": 491640.9629629629,
         "gear_down": true,
         "ceiling": false
       },
@@ -1368,26 +1469,26 @@
       {
         "name": "aft max landing",
         "weight_lb": 5400.0,
-        "cg_x": 85.71944444444445,
+        "cg_x": 85.90166666666667,
         "cg_y": 0.0,
-        "cg_z": 95.95592592592592,
-        "ixx": 21376353.01037037,
-        "iyy": 11887329.468703704,
-        "izz": 32324263.458333332,
-        "ixz": 482466.22777777776,
+        "cg_z": 96.63496570644719,
+        "ixx": 16951176.764623277,
+        "iyy": 12580328.049623279,
+        "izz": 28597938.285,
+        "ixz": 489102.31493827153,
         "gear_down": true,
         "ceiling": false
       },
       {
         "name": "fwd max landing",
         "weight_lb": 5400.0,
-        "cg_x": 79.1361111111111,
+        "cg_x": 79.6675925925926,
         "cg_y": 0.0,
-        "cg_z": 96.03925925925925,
-        "ixx": 20020355.177037038,
-        "iyy": 11033346.635370368,
-        "izz": 30118778.458333332,
-        "ixz": 390238.1444444444,
+        "cg_z": 96.40407407407407,
+        "ixx": 16948731.81037037,
+        "iyy": 12597046.639074074,
+        "izz": 28617101.828703705,
+        "ixz": 456450.31296296295,
         "gear_down": true,
         "ceiling": false
       },
@@ -1407,26 +1508,39 @@
       {
         "name": "mzfw aft",
         "weight_lb": 5270.0,
-        "cg_x": 83.45256166982922,
+        "cg_x": 85.99791271347249,
         "cg_y": 0.0,
-        "cg_z": 96.6550284629981,
-        "ixx": 15774272.34174573,
-        "iyy": 12634344.482163189,
-        "izz": 27482359.140417457,
-        "ixz": 477096.7571157495,
+        "cg_z": 96.74930072387379,
+        "ixx": 15775065.09464526,
+        "iyy": 12575438.57168511,
+        "izz": 27422660.477039848,
+        "ixz": 486693.3904561108,
         "gear_down": true,
         "ceiling": false
       },
       {
         "name": "mzfw fwd",
-        "weight_lb": 4590.0,
-        "cg_x": 76.03812636165577,
+        "weight_lb": 5270.0,
+        "cg_x": 79.6100569259962,
         "cg_y": 0.0,
-        "cg_z": 96.15947712418301,
-        "ixx": 15765536.762745097,
-        "iyy": 10484921.590631807,
-        "izz": 25341671.82788671,
-        "ixz": 346395.091503268,
+        "cg_z": 96.51271347248577,
+        "ixx": 15772898.148197344,
+        "iyy": 12593738.315180264,
+        "izz": 27443127.16698292,
+        "ixz": 457818.6261859582,
+        "gear_down": true,
+        "ceiling": false
+      },
+      {
+        "name": "full fuel aft",
+        "weight_lb": 5500.0,
+        "cg_x": 85.37363636363636,
+        "cg_y": 0.0,
+        "cg_z": 95.884,
+        "ixx": 22280389.492,
+        "iyy": 12278883.169272726,
+        "izz": 33616780.67727272,
+        "ixz": 477613.38000000006,
         "gear_down": true,
         "ceiling": false
       },

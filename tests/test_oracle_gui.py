@@ -2402,7 +2402,8 @@ def test_a_group_note_names_a_group_an_oracle_page_renders():
 
 def test_the_ballast_record_states_its_fixed_tags_and_the_cases_table_leads():
     """#387 (review B4): the Ballast record offers its mass and placement and
-    states the seven tags design note 25 fixes in one caption, never as
+    states the eight tags design note 25 fixes in one caption (note 75 adds
+    required_crew), never as
     widgets; the registry rows stay, so the page definition is unchanged; the
     Mass cases table renders above the case expanders; the CG cases' seed is
     a registered table seed whose button names its source."""
@@ -2410,7 +2411,8 @@ def test_the_ballast_record_states_its_fixed_tags_and_the_cases_table_leads():
 
     fixed = fr.FIXED_NESTED_FIELDS
     assert set(fixed) == {f"weight.cg_cases[].loading.ballast.{f}" for f in (
-        "kind", "component", "consumable", "usable_fuel", "wing_fraction", "carriage", "gear")}
+        "kind", "component", "consumable", "usable_fuel", "wing_fraction", "carriage", "gear",
+        "required_crew")}
     rendered = {p for _prefix, paths in page_groups("weight_mass") for p in paths}
     assert set(fixed) <= rendered, "the registry still carries the rows"
     assert "weight.cg_cases[]" in GROUP_TABLE_FIRST

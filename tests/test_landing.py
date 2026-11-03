@@ -269,7 +269,10 @@ def test_g72_4_fleet_effect_and_the_drag_peaks_that_do_not_move():
       3.7640 / 3.0970.
     * ``baron_58`` (no entered N): the energy value governs, 4.0312 / 3.3642,
       and the four peak reactions rise to VMP 9,083 / DMP 3,418 / VNP 6,460 /
-      DNP 2,431 lb (+24.7 / +16.8 / +22.8 / +16.0 % on what shipped).
+      DNP 2,431 lb (+24.7 / +16.8 / +22.8 / +16.0 % on what shipped). Since
+      #337 (design note 75) ``fwd max landing`` is the MZFW forward payload
+      plus fuel, at 79.67 rather than 79.14, so the nose peaks fall to VNP
+      6,383 / DNP 2,402 lb (-1.2 %); the main peaks do not move.
     * ``atr42_100`` and ``concept_regional_jet`` (the entered 2.67 cleared at
       #401, note 72 Q3): 3.0425 / 2.3755 governs.
 
@@ -309,7 +312,7 @@ def test_g72_4_fleet_effect_and_the_drag_peaks_that_do_not_move():
     assert math.isclose(n, 4.0312, rel_tol=REL) and math.isclose(nlg, 3.3642, rel_tol=REL), (n, nlg)
     pk = peaks(rx)
     for key, printed, case in (("vmp", 9083, 4), ("dmp", 3418, 4),
-                               ("vnp", 6460, 2), ("dnp", 2431, 2)):
+                               ("vnp", 6383, 2), ("dnp", 2402, 2)):
         assert math.isclose(pk[key][0], printed, rel_tol=REL), (key, pk[key])
         assert pk[key][1] == case, (key, pk[key])
 

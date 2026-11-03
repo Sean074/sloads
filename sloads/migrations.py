@@ -306,6 +306,14 @@ def _hop_81(d: Dict[str, Any]) -> Dict[str, Any]:
     return d
 
 
+def _hop_82(d: Dict[str, Any]) -> Dict[str, Any]:
+    """v82 -> v83 (design note 75, #337): ``MassItem`` gains ``required_crew`` (blank:
+    not crew). An identity that infers nothing from a row's name (note 63
+    OV-1), so a migrated file is warned ``minimum_crew_missing`` until its crew
+    row is tagged."""
+    return d
+
+
 #: ``{from_version: hop}`` -- applied in ascending order, each turning a file of
 #: version *n* into version *n+1* shape.
 MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
@@ -321,6 +329,7 @@ MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     79: _hop_79,
     80: _hop_80,
     81: _hop_81,
+    82: _hop_82,
 }
 
 #: The oldest project version this build reads: the oldest released schema, or

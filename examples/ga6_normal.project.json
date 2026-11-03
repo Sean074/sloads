@@ -1,5 +1,5 @@
 {
-  "schema_version": 82,
+  "schema_version": 83,
   "name": "GA 6-place single (Appendix A) \u2014 Continental IO-520-BB",
   "engines": [
     {
@@ -84,7 +84,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Horiz tail",
@@ -101,7 +102,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Vert tail",
@@ -118,7 +120,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Main gear wheel",
@@ -135,7 +138,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": "main"
+        "gear": "main",
+        "required_crew": false
       },
       {
         "name": "Main gear structure",
@@ -152,7 +156,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": "main"
+        "gear": "main",
+        "required_crew": false
       },
       {
         "name": "Nose gear wheel",
@@ -169,7 +174,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": "nose"
+        "gear": "nose",
+        "required_crew": false
       },
       {
         "name": "Nose gear structure",
@@ -186,7 +192,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": "nose"
+        "gear": "nose",
+        "required_crew": false
       },
       {
         "name": "Flight control",
@@ -203,7 +210,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Nacelle",
@@ -220,7 +228,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Engine install",
@@ -237,7 +246,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Propeller",
@@ -254,7 +264,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Systems",
@@ -271,7 +282,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Furnishings",
@@ -288,7 +300,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Unusable fuel",
@@ -305,7 +318,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Fuselage structure",
@@ -322,7 +336,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Pilot",
@@ -339,7 +354,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": true
       },
       {
         "name": "30 min fuel",
@@ -356,7 +372,8 @@
         "usable_fuel": true,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Copilot",
@@ -373,7 +390,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "3rd person",
@@ -390,7 +408,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "4th person",
@@ -407,7 +426,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "5th person",
@@ -424,7 +444,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "6th person",
@@ -441,7 +462,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Fuel to gross wt",
@@ -458,7 +480,8 @@
         "usable_fuel": true,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       },
       {
         "name": "Ballast",
@@ -475,7 +498,8 @@
         "usable_fuel": false,
         "wing_fraction": 0.0,
         "carriage": "panel",
-        "gear": null
+        "gear": null,
+        "required_crew": false
       }
     ],
     "envelope": {

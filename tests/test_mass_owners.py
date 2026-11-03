@@ -83,7 +83,7 @@ def _v79(**over):
 
 
 def test_the_v79_hop_deletes_the_fin_weight_and_moves_the_waterline_and_the_control_fields():
-    assert applied_hops(79) == [79, 80, 81]  # v80: note 73 (#404); v81: note 74 (#405)
+    assert applied_hops(79) == [79, 80, 81, 82]  # v80: note 73 (#404); v81: note 74 (#405); v82: note 75 (#337)
     out = migrate(_v79())
     assert out["schema_version"] == SCHEMA_VERSION
     vtail = out["geometry"]["empennage"]["vtail"]

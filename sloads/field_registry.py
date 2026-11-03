@@ -906,6 +906,7 @@ FIXED_NESTED_FIELDS: Dict[str, str] = {
     "weight.cg_cases[].loading.ballast.wing_fraction": "0 -- none of it rides the wing",
     "weight.cg_cases[].loading.ballast.carriage": "panel -- read on WING parts only, so moot",
     "weight.cg_cases[].loading.ballast.gear": "none -- ballast is not a gear leg",
+    "weight.cg_cases[].loading.ballast.required_crew": "no -- ballast is not crew",
 }
 
 
@@ -1468,6 +1469,10 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "marks fuel the engines can draw, reserve included, so the operating empty "
        "weight can leave it out (design note 67 D-67.10); the original suite wrote "
        "no mass model, so it never had to say which rows of the database were fuel"),
+    _E("weight.items[].required_crew", _WT, _SLDS,
+       "marks the required minimum crew (23.25(b)(2), 170 lb each) so a database "
+       "with no crew in its minimum flight weight is warned (design note 75); the "
+       "original suite's weight statement named its rows and never checked them"),
     _E("weight.items[].wing_fraction", _WT, _SLDS,
        "wing/body split of one row (plan 11, note 29 WF-2): `component` at finer grain, the "
        "same which-beam question BODYLOAD asked by position. Load-bearing (G5, #62): the "
@@ -1564,6 +1569,8 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        _BALLAST_BASIS + " -- PANEL or POINT on the wing (design note 63 D-63.3)"),
     _E("weight.cg_cases[].loading.ballast.gear", _WT, _SLDS,
        _BALLAST_BASIS + " -- which gear leg it is part of, which ballast never is (#384)"),
+    _E("weight.cg_cases[].loading.ballast.required_crew", _WT, _SLDS,
+       _BALLAST_BASIS + " -- whether it is required crew, which ballast never is (design note 75)"),
 
     # ----------------------------------------------------------------- #
     # speeds -- STRSPEED + MACHLIM (structural_speeds)
