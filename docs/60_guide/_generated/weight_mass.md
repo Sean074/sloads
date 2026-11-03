@@ -26,9 +26,9 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `weight.items[].x` | `float` |  | `0.0` | original | WTONECG item station |
 | `weight.items[].y` | `float` |  | `0.0` | original | WTONECG item butt line |
 | `weight.items[].z` | `float` |  | `0.0` | original | WTONECG item waterline |
-| `weight.items[].ixx` | `float` |  | `0.0` | original | WTONECG item inertia, 'the units the original data base stores'; Appendix A p136 IXX 1201.527 needs it |
-| `weight.items[].iyy` | `float` |  | `0.0` | original | WTONECG item inertia; Appendix A p136 IYY 2058.209 |
-| `weight.items[].izz` | `float` |  | `0.0` | original | WTONECG item inertia; Appendix A p136 IZZ 3022.766 |
+| `weight.items[].ixx` | `float` |  | `0.0` | original | WTONECG item inertia, 'the units the original data base stores'; Appendix A p137 IXX 1201.527 needs it |
+| `weight.items[].iyy` | `float` |  | `0.0` | original | WTONECG item inertia; Appendix A p137 IYY 2058.209 |
+| `weight.items[].izz` | `float` |  | `0.0` | original | WTONECG item inertia; Appendix A p137 IZZ 3022.766 |
 | `weight.items[].kind` | `MassItemKind` |  | `MassItemKind.EMPTY` | original | 'Mirrors the data-base partition of WTONECG.BAS (empty / minimum-flight / discretionary)'; WTENV's discretionary envelope and Appendix A's 78 lb aft ballast need it |
 | `weight.items[].component` | `Optional[MassComponent]` |  | `None` | sloads (supplied) | component tag, plan 09 T-3. The original carried this by position -- BODYLOAD took its own fuselage item list -- so the tag is how the same question is asked here. Load-bearing (G5, review 2026-08-22 PB-2): untagged, the wing panel sits on the fuselage beam at 9 % of peak BODYLOAD shear |
 | `weight.items[].consumable` | `bool` |  | `False` | sloads | marks the item consumable so sloads can build fuel-burn loading states from the weight database; the original suite took one weight statement and no loading model (decision D-25) |

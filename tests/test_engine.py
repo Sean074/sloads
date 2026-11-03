@@ -30,7 +30,7 @@ def test_derived_quantities():
     assert math.isclose(calc.takeoff_torque(inp), 554.3884, rel_tol=TOL)
     assert math.isclose(calc.max_cont_torque(inp), 556.7227, rel_tol=TOL)
     assert calc.torque_factor(inp) == 1.33
-    # The printed combined CG, all three components (p227 "APPLIED AT X,Y,Z").
+    # The printed combined CG, all three components (p229 "APPLIED AT X,Y,Z").
     # ``zpp`` went unasserted until 2026-09-07 and both entered waterlines were
     # wrong under it (note 44 §20, OR-170), so it is asserted here as well.
     xpp, ypp, zpp = calc.combined_cg(inp)
@@ -41,7 +41,7 @@ def test_derived_quantities():
 
 def test_361_a1():
     # Approved correction (AC 23-19A): 23.361(c) applies the mean-torque factor to
-    # the takeoff case too (1.33 for the 6-cyl IO-520-BB). The manual's printed p131
+    # the takeoff case too (1.33 for the 6-cyl IO-520-BB). The manual's printed p229
     # figure is the pre-Amdt-45 UNFACTORED value (554.3884, asserted below as the
     # mean torque); the corrected design torque is 1.33 x 554.3884 = 737.34 ft-lb.
     # Vertical loads are unchanged. See CLAUDE.md "Approved corrections to the source".
@@ -72,7 +72,7 @@ def test_reciprocating_runs_three_conditions():
 
 
 def test_prop_inertia_matches_manual():
-    # Manual hand calc: IProp = 50/32.174*(50.5/12)^2/3 = 9.174 slug-ft^2
+    # Manual hand calc (Ref 1 Ch 19 p119): IProp = 50/32.174*(50.5/12)^2/3 = 9.174 slug-ft^2
     inp = turboprop()
     assert math.isclose(calc._prop_inertia(inp), 9.174, abs_tol=1e-2)
 
@@ -327,7 +327,7 @@ def test_361_a3_applies_mean_torque_factor():
 
 
 def test_gyro_thrust_matches_manual():
-    # Manual: THRUST = 1970 * 230.38 / 101.2 = 4484.7 lb
+    # Manual (Ref 1 Ch 19 p120): THRUST = 1970 * 230.38 / 101.2 = 4484.7 lb
     r = calc.condition_371_b(turboprop())
     assert math.isclose(value_of(r, "fx_thrust"), 4484.7, abs_tol=1.0)
 

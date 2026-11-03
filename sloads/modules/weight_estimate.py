@@ -11,7 +11,7 @@ that truncation is preserved here so the figures match the manual's printout
 exactly. The single-engine "misc other system wt" reads 0 because the BASIC
 prints an unset variable on that path -- preserved as a documented quirk.
 
-Reference: WTESTIMA.BAS, Appendix C p374-376; worked example Appendix A p133.
+Reference: WTESTIMA.BAS, Appendix C p374-376; worked example Appendix A p134.
 """
 
 from __future__ import annotations

@@ -13,12 +13,12 @@ Generated from `sloads/field_registry.py` — the registry of record for where e
 | `speeds.wing_surface` | `str` |  | `'wing'` | sloads | names which surface of sloads' multi-surface planform this step reads; the original suite had one wing and needed no selector (standing ruling) |
 | `speeds.vh_kt` | `float` | max speed at sea level (KEAS) | `0.0` | original | STRSPEED VH, max level speed |
 | `speeds.shoulder_altitude_ft` | `float` | for the MC/MD Mach numbers AND the | `0.0` | original | STRSPEED MC/MD altitude; MACHLIM first row (one home since v55, #52) |
-| `speeds.chosen_vc` | `Optional[float]` |  | `None` | original | STRSPEED chosen VC, Appendix A p156 -- blank uses the computed 23.335(a) minimum; a value below the minimum is raised to it |
-| `speeds.chosen_vd` | `Optional[float]` |  | `None` | original | STRSPEED chosen VD, Appendix A p156 -- blank uses the computed 23.335(b) minimum; a value below the minimum is raised to it |
-| `speeds.chosen_va` | `Optional[float]` |  | `None` | original | STRSPEED chosen VA, Appendix A p156 -- blank uses the computed 23.335(c) minimum (VS*sqrt(n)); a value below the minimum is raised to it |
-| `speeds.chosen_vf` | `Optional[float]` |  | `None` | original | STRSPEED chosen VF, Appendix A p156 -- the 23.345 *design* wing-flap speed (>= max(1.4*VS, 1.8*VSF)), the structural speed for flaps-extended cases, not the operating placard VFE (which must be <= VF). Blank uses the computed minimum; a value below it is raised |
-| `speeds.chosen_n` | `Optional[float]` | chosen positive maneuver load factor | `None` | original | STRSPEED chosen n, Appendix A p156 |
-| `speeds.chosen_nneg` | `Optional[float]` | chosen negative maneuver load factor | `None` | original | STRSPEED chosen negative n, Appendix A p156 |
+| `speeds.chosen_vc` | `Optional[float]` |  | `None` | original | STRSPEED chosen VC, Appendix A p159 -- blank uses the computed 23.335(a) minimum; a value below the minimum is raised to it |
+| `speeds.chosen_vd` | `Optional[float]` |  | `None` | original | STRSPEED chosen VD, Appendix A p159 -- blank uses the computed 23.335(b) minimum; a value below the minimum is raised to it |
+| `speeds.chosen_va` | `Optional[float]` |  | `None` | original | STRSPEED chosen VA, Appendix A p159 -- blank uses the computed 23.335(c) minimum (VS*sqrt(n)); a value below the minimum is raised to it |
+| `speeds.chosen_vf` | `Optional[float]` |  | `None` | original | STRSPEED chosen VF, Appendix A p159 -- the 23.345 *design* wing-flap speed (>= max(1.4*VS, 1.8*VSF)), the structural speed for flaps-extended cases, not the operating placard VFE (which must be <= VF). Blank uses the computed minimum; a value below it is raised |
+| `speeds.chosen_n` | `Optional[float]` | chosen positive maneuver load factor | `None` | original | STRSPEED chosen n, Appendix A p159 |
+| `speeds.chosen_nneg` | `Optional[float]` | chosen negative maneuver load factor | `None` | original | STRSPEED chosen negative n, Appendix A p159 |
 | `speeds.mach_limit.max_operating_altitude_ft` | `float` | ft | `0.0` | original | MACHLIM ceiling |
 | `speeds.mach_limit.increment_ft` | `float` | ft | `1000.0` | original | MACHLIM altitude step |
 | `speeds.occupants` | `Optional[int]` | total souls on board; the FAR 23 seat-limit | `None` | sloads | occupants: sloads checks FAR 23 applicability (the nine-seat limit) from it; the original suite assumed the category and asked nothing (Step E1) |

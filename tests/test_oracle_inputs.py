@@ -17,9 +17,9 @@ still passes at ±0.1 %"* — is checked in three parts:
 2. **The numbers are the same.** Every load value the reduced project produces
    agrees with the full project's within the oracle tolerance. This is what
    carries the *"every Appendix A oracle test still passes"* half: the tests that
-   hold Appendix A's printed figures — ``test_weight_onecg`` (p136),
+   hold Appendix A's printed figures — ``test_weight_onecg`` (p137),
    ``test_wing_geometry`` (p141-142), ``test_flight_envelope`` (p179-181),
-   ``test_weight_envelope``, ``test_structural_speeds`` (p155-156) — all run on
+   ``test_weight_envelope``, ``test_structural_speeds`` (p158-159) — all run on
    ``ga6_normal``, so agreement with the full project transfers every one of them
    onto the reduced set without restating a single figure.
 3. **A short Appendix A spine, restated anyway.** Part 2 would be satisfied by a
@@ -32,7 +32,7 @@ and every failure was a misclassified row in the registry rather than a problem
 with the gate — per-item inertia, the WTONECG loading-hierarchy tag, the wing
 edge polylines, the CG-case corners, WTESTIMA's engine-weight code and ENGLOADS'
 engine type were all marked ``SLOADS`` and are all inputs of a named ``.BAS``
-program (``models/inputs.py`` says so in its own docstrings; Appendix A p136's
+program (``models/inputs.py`` says so in its own docstrings; Appendix A p137's
 IXX 1201.527 comes out 66.7 without the item inertias). Twelve rows moved to
 ``ORIGINAL``, and the fields the second front-end's input set cannot do without —
 selectors, LANDLOAD's three loading roles — gained
@@ -332,7 +332,7 @@ def _value(module, case_contains, key):
 
 
 def test_appendix_a_inertias_hold_on_the_reduced_project():
-    """Appendix A p136, slug-ft²: IXX 1201.527, IYY 2058.209, IZZ 3022.766.
+    """Appendix A p137, slug-ft²: IXX 1201.527, IYY 2058.209, IZZ 3022.766.
 
     The figure that caught the registry's largest error: with the weight
     database's per-item inertias treated as sloads capability and dropped, IXX

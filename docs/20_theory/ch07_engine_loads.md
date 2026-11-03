@@ -17,7 +17,7 @@
 How the `engine` module (`sloads/modules/engine.py`, ported from `ENGLOADS.BAS`)
 computes the structural design loads an engine mount must sustain under **FAR Part
 23 Subpart C**, with a fully worked example on the Continental IO-520-BB
-reciprocating installation printed in the manual (Reference 1, Appendix A p131).
+reciprocating installation printed in the manual (Reference 1, Appendix A p229).
 
 - **Source of truth:** Reference 1 (McMaster) engine-mount chapter; the regression
   oracle is Appendix A (GA single) p131 / Appendix B (twin turboprop) p251.
@@ -227,7 +227,7 @@ side = 1.33 · 579       = 770.07 lb
 | 23.361(a)(2) max-cont. | 2200.20 lb (n = 3.80) | −740.44 ft-lb |
 | 23.363 side | 770.07 lb (n_y = 1.33) | — |
 
-These match the manual's printed Appendix A p131 figures within ±0.1% (the
+These match the manual's printed Appendix A p229 figures within ±0.1% (the
 modernized `math.pi` shifts McMaster's `3.1416`-based numbers in the ~6th
 significant digit — see Decision 3). The deliverable load-case CSV / sbeam export
 multiplies the **load** quantities by the ×1.5 factor of safety to report ULTIMATE

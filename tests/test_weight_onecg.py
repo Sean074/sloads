@@ -1,7 +1,7 @@
 """Validate WTONECG against the FAR 23 LOADS manual, Appendix A.
 
 The worked example is the 6-place single's *aft gross weight* loading, whose
-weight/CG/inertia report is printed in Appendix A p136. The itemized weight data
+weight/CG/inertia report is printed in Appendix A p137. The itemized weight data
 base is carried in ``examples/ga6_normal.project.json`` (the same file the engine
 example uses), so this test exercises the JSON load path as well as the calc.
 
@@ -38,7 +38,7 @@ def aft_gross_result():
 
 
 def test_weight_and_cg_match_manual():
-    # Appendix A p136 (aft gross weight CG): WEIGHT 3400, XBAR 84.99936,
+    # Appendix A p137 (aft gross weight CG): WEIGHT 3400, XBAR 84.99936,
     # ZBAR 92.57932.
     r = aft_gross_result()
     assert value_of(r, "weight") == 3400
@@ -47,7 +47,7 @@ def test_weight_and_cg_match_manual():
 
 
 def test_inertias_airplane_axes_match_manual():
-    # Appendix A p136, slug-ft^2: IXX 1201.527, IYY 2058.209, IZZ 3022.766,
+    # Appendix A p137, slug-ft^2: IXX 1201.527, IYY 2058.209, IZZ 3022.766,
     # IXZ 134.4063.
     r = aft_gross_result()
     assert math.isclose(value_of(r, "ixx"), 1201.527, rel_tol=TOL)
@@ -57,7 +57,7 @@ def test_inertias_airplane_axes_match_manual():
 
 
 def test_inertias_lb_in2_match_manual():
-    # Appendix A p136, lb-in^2: IXX 5566051, IYY 9534613, IZZ 14002901, IXZ 622634.
+    # Appendix A p137, lb-in^2: IXX 5566051, IYY 9534613, IZZ 14002901, IXZ 622634.
     r = aft_gross_result()
     assert math.isclose(value_of(r, "ixx_lb_in_2"), 5566051, rel_tol=TOL)
     assert math.isclose(value_of(r, "iyy_lb_in_2"), 9534613, rel_tol=TOL)
@@ -66,7 +66,7 @@ def test_inertias_lb_in2_match_manual():
 
 
 def test_principal_axes_match_manual():
-    # Appendix A p136: IX(P) 1191.662, IY(P) 2058.209, IZ(P) 3032.632,
+    # Appendix A p137: IX(P) 1191.662, IY(P) 2058.209, IZ(P) 3032.632,
     # theta 4.198392 deg.
     r = aft_gross_result()
     assert math.isclose(value_of(r, "ix_p_principal"), 1191.662, rel_tol=TOL)
@@ -131,7 +131,7 @@ _EXAMPLES = sorted(glob.glob(os.path.join(os.path.dirname(_EXAMPLE), "*.project.
 
 
 def test_the_ceiling_row_run_emits_is_the_appendix_a_oracle():
-    """G-70.1: the p136 figures are the all-items sum, and that sum is the one
+    """G-70.1: the p137 figures are the all-items sum, and that sum is the one
     condition titled as the ceiling -- last, never first."""
     project = io.load_project(_EXAMPLE)
     conditions = calc.run(project).conditions

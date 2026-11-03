@@ -190,7 +190,7 @@ def test_the_delivered_acrl_air_is_condition_as():
     air, _, _ = _delivered("ACRL")
     assert math.isclose(air.stations[0].mxx, gov.air_root_mxx, rel_tol=1e-9)
     # ...and that air is the manual's: condition A's root bending on the case
-    # 22 air, printed +516,955 lb-in (Appendix A p. 206); delivered 516,566,
+    # 22 air, printed +516,955 lb-in (Appendix A p. 207); delivered 516,566,
     # -0.08 %. Checked against the print, not against ``-0.25 * root`` -- the
     # schedule rule itself, which a gate may not re-derive (#318).
     assert math.isclose(gov.air_root_mxx, 516955.0, rel_tol=1e-3)
@@ -203,7 +203,7 @@ def test_the_delivered_acrl_pick_and_its_numbers():
     the balance's own 0.5 % -- which sea level (V-n case 40, 117.45 kt)
     takes from the 12,000 ft point the manual prints (case 160, 116 kt; CL
     1.328 printed, 1.361 at the amended factor). Condition A there is CL
-    1.519 at 117.45 kt (the case 22 air, p. 206), root 516,566; the 100 %
+    1.519 at 117.45 kt (the case 22 air, p. 207), root 516,566; the 100 %
     side's net root bending is +400,817 against the printed +390,380: +2.7 %,
     the amendment's +2 % and the air point's +0.4 % together."""
     crit = build_critical(_ga6())

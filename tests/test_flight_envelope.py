@@ -167,10 +167,10 @@ def test_design_speeds_match_appendix_a():
 
 def test_cg1_corner_speeds_and_load_factors():
     pts = _by_case(build_envelope(io.load_project(_GA)))
-    # (case, V, NZ, alpha) -- Appendix A p179 CG1.
+    # (case, V, NZ, alpha) -- Appendix A p180 CG1.
     for case, v, nz, alpha in [
         (1, 61.4, 1.00, 13.38),     # STALL 1G
-        (3, 121.3, 3.80, 12.75),    # MAN A
+        (3, 121.3, 3.80, 12.75),    # MAN A, p180
         (5, 212.5, 3.80, 1.56),     # MAN D
         (7, 170.0, -1.52, -7.00),   # MAN -C
         # Case 20 (AC ROLL) is held by test_ac_roll_... below: the printed row
@@ -189,7 +189,7 @@ def test_cg1_corner_speeds_and_load_factors():
 
 def test_cg1_balancing_tail_loads():
     pts = _by_case(build_envelope(io.load_project(_GA)))
-    # Balancing tail load LT, Appendix A p179 CG1.
+    # Balancing tail load LT, Appendix A p180 CG1.
     for case, lt in [(1, 132), (3, 493), (5, 169), (7, -465), (10, 352)]:
         _oracle(pts[case].lt, lt, 0, allow=_load_allow(_CG1_WEIGHT_LB),
                 why=f"case {case} LT: the NZ band on a 3400 lb airplane")
@@ -197,7 +197,7 @@ def test_cg1_balancing_tail_loads():
 
 def test_cg1_wing_lift_and_pitching_moment():
     pts = _by_case(build_envelope(io.load_project(_GA)))
-    # LZW (lift less tail) + M(W+F), Appendix A p179 CG1 -- larger-magnitude points.
+    # LZW (lift less tail) + M(W+F), Appendix A p180 CG1 -- larger-magnitude points.
     for case, lzw in [(3, 12419), (10, 13120)]:
         _oracle(pts[case].lzw, lzw, 0, allow=_load_allow(_CG1_WEIGHT_LB),
                 why=f"case {case} LZW: the NZ band on a 3400 lb airplane")
@@ -209,7 +209,7 @@ def test_cg1_wing_lift_and_pitching_moment():
 
 def _cg1_sea_level_balance(n: float, v: float):
     """FLTLOADS subroutine 3900 at CG1, cruise, sea level -- the balance the
-    printed Appendix A p179 rows came from, called at a stated load factor."""
+    printed Appendix A p180 rows came from, called at a stated load factor."""
     project = io.load_project(_GA)
     di = design_inputs(project)
     cruise = next(c for c in fe.balance_configs(project.aero_coeffs) if not c.flaps_down)
@@ -219,7 +219,7 @@ def _cg1_sea_level_balance(n: float, v: float):
 
 
 def test_ac_roll_printed_row_holds_at_the_manuals_percentage():
-    """**G-52.11 / D-52.12's FLTLOADS half** -- the Appendix A p179 case 20 row
+    """**G-52.11 / D-52.12's FLTLOADS half** -- the Appendix A p180 case 20 row
     (AC ROLL, CG1) is the balance at the manual's ``(100 + 71.03)/200 * 3.8 =
     3.25``. The shipped matrix now balances at the Amdt 23-48 factor (below),
     so the printed row is held here, at the printed factor, and the ``.BAS``
@@ -268,7 +268,7 @@ def test_an_acrobatic_project_is_refused_the_ac_roll_point():
 
 def test_cg2_balancing_tail_loads():
     pts = _by_case(build_envelope(io.load_project(_GA)))
-    # CG2 (cases 21-40), Appendix A p179.
+    # CG2 (cases 21-40), Appendix A p180.
     # Stall-line speeds carry the most balance-convergence noise (Q iteration).
     # A stall-line speed, so the q iteration's CL band reaches it (measured
     # 0.138 kt against a 0.163 kt gate; print resolution alone would be 0.05).
@@ -277,7 +277,7 @@ def test_cg2_balancing_tail_loads():
             why="STALL 1G: the CL band on a stall-line speed")
     _oracle(pts[21].lt, -16, 0, allow=_PLANFORM_LT_ALLOW_LB,
             why="STALL 1G: a near-zero balancing load, gated in pounds")
-    assert abs(pts[23].nz - 3.80) <= _nz_tol()                  # MAN A
+    assert abs(pts[23].nz - 3.80) <= _nz_tol()                  # MAN A, p180
     _oracle(pts[23].lzw, 12970, 0, allow=_load_allow(_CG2_WEIGHT_LB),
             why="case 23 LZW: the NZ band on a 3400 lb airplane")
     _oracle(pts[23].lt, -59, 0, allow=_PLANFORM_LT_ALLOW_LB,
@@ -286,7 +286,7 @@ def test_cg2_balancing_tail_loads():
 
 def test_gust_load_factors_match_appendix_a():
     pts = _by_case(build_envelope(io.load_project(_GA)))
-    assert abs(pts[10].nz - 3.96) <= _nz_tol()    # GUST +C, p179
+    assert abs(pts[10].nz - 3.96) <= _nz_tol()    # GUST +C, p180
     assert abs(pts[13].nz - -1.96) <= _nz_tol()   # GUST -C
     assert abs(pts[11].nz - 2.88) <= _nz_tol()    # GUST +D
     assert abs(pts[12].nz - -0.88) <= _nz_tol()   # GUST -D

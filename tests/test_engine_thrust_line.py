@@ -136,7 +136,7 @@ def test_the_default_is_what_every_project_already_assumed():
     for name in _ALL:
         for engine in _project(name).engines:
             assert engine.prop_direction is RotorDirection.CLOCKWISE, name
-    # The Appendix A figures, through the default (p227-229).
+    # The Appendix A figures, through the default (p229).
     torques = _torques(io520bb())
     assert math.isclose(torques["23.361(a)(2)"], -740.4412, rel_tol=1e-3)
 

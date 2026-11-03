@@ -68,10 +68,10 @@ GATES: Dict[str, Gate] = {
     # -- Oracle-locked: Appendix A prints the figures ----------------------- #
     "weight_estimate": Gate(
         ORACLE, ("test_summary_matches_manual", "test_structure_group_matches_manual"),
-        "Appendix A p133 — the 6-place GA weight statement, group by group"),
+        "Appendix A p134 — the 6-place GA weight statement, group by group"),
     "weight_onecg": Gate(
         ORACLE, ("test_weight_and_cg_match_manual", "test_inertias_airplane_axes_match_manual"),
-        "Appendix A p136 — weight, CG and the airplane-axes inertias"),
+        "Appendix A p137 — weight, CG and the airplane-axes inertias"),
     "weight_envelope": Gate(
         ORACLE, ("test_both_edges_reproduce_appendix_a_p139", "test_structural_limit_stations"),
         "Appendix A p139 — all 16 printed rows on both envelope edges (note 45 WE-5)"),
@@ -87,7 +87,7 @@ GATES: Dict[str, Gate] = {
     "airloads": Gate(
         ORACLE, ("test_additive_distribution_matches_appendix_a",
                  "test_basic_distribution_matches_appendix_a"),
-        "Appendix A p161-162 — the additive and basic spanwise tables"),
+        "Appendix A p161-163 — the additive and basic spanwise tables"),
     "flight_envelope": Gate(
         ORACLE, ("test_design_speeds_match_appendix_a", "test_cg1_corner_speeds_and_load_factors"),
         "Appendix A p179-180 — the cruise balanced V-n matrix per CG case"),
@@ -105,7 +105,7 @@ GATES: Dict[str, Gate] = {
     "net_loads": Gate(
         ORACLE, ("test_net_loads_case22_matches_appendix_a",
                  "test_air_load_distribution_matches_appendix_a"),
-        "Appendix A p222 — net loads case 22 PHAA, the algebraic sum of p206 and the inertia"),
+        "Appendix A p222 — net loads case 22 PHAA, the algebraic sum of p207 and the inertia"),
     "taildist": Gate(
         ORACLE, ("test_horizontal_chordwise_oracle", "test_vertical_chordwise_oracle"),
         "Appendix A p237 + p245 — 13 horizontal and 4 vertical PSI(X1..X5) rows"),
@@ -120,7 +120,7 @@ GATES: Dict[str, Gate] = {
         "Appendix A p202 — h-tail tab E 0.17735, LTAB 84.62 lb"),
     "engine": Gate(
         ORACLE, ("test_361_a1", "test_derived_quantities"),
-        "Appendix A p131 (Continental IO-520-BB) — with the 23.361 approved corrections"),
+        "Appendix A p229 (Continental IO-520-BB) — with the 23.361 approved corrections"),
     "landing": Gate(
         ORACLE, ("test_landload_p231_ground_line_table", "test_landload_p232_airplane_datum_table",
                  "test_landload_p233_unbalanced_moments_table", "test_lgfactor_oracle"),

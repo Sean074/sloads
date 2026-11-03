@@ -288,11 +288,11 @@ percentage misleads.
 | SELECT h-tail CHECKED MAN UP, total tail load | Critical H-tail Loads | 787.8 lb | 791.84 | +0.51 % |
 | Case 202 rational balancing tail load | Ch 9 hand calc | 519.845 lb | 521.62 | +0.34 % |
 | Case 202 centre of pressure | Ch 9 hand calc | 6.35 %MAC | 6.50 | +0.15 points |
-| CG1 case 5 (MAN D) angle of attack | p179 | 1.56° | 1.5493 | **0.011°** |
-| CG2 case 21 (STALL 1G) balancing tail load | p179 | −16 lb | −15.294 | **0.71 lb** |
-| CG2 case 23 (MAN A) balancing tail load | p179 | −59 lb | −57.34 | **1.66 lb** |
+| CG1 case 5 (MAN D) angle of attack | p180 | 1.56° | 1.5493 | **0.011°** |
+| CG2 case 21 (STALL 1G) balancing tail load | p180 | −16 lb | −15.294 | **0.71 lb** |
+| CG2 case 23 (MAN A) balancing tail load | p180 | −59 lb | −57.34 | **1.66 lb** |
 
-The three p179 entries are gated in their own units rather than by percentage:
+The three p180 entries are gated in their own units rather than by percentage:
 0.71 lb on a printed −16 reads as 4.4 % while being 0.02 % of the 3400 lb
 airplane. `test_flight_envelope._PLANFORM_LT_ALLOW_LB` (1.8 lb) and
 `_PLANFORM_ALPHA_ALLOW_DEG` (0.005°) carry them, each naming this entry.

@@ -76,14 +76,14 @@ def test_design_speeds_match_manual():
 
 
 def test_vd_floor_no_chosen_speeds():
-    # Appendix A p155, Cat N, no chosen speeds: FAR 23.335(b) requires
+    # Appendix A p158, Cat N, no chosen speeds: FAR 23.335(b) requires
     # VD >= max(K_d*VCmin, 1.25*VC). Here K_d*VCmin = 1.40*141.8 = 198.53 kt
     # governs over 1.25*VCmin = 177.26. (Pre-fix code returned 177.26 -- 10.7%
     # non-conservative; STRSPEED.BAS V2DMIN=K2*V1CMIN, lines 380/390.)
     inp = StructuralSpeedsInput(category="N", weight_lb=3400, wing_area_sqft=184.125,
                                 vh_kt=190)
     r = calc.design_speeds(_project_clmax("n", 1.4068, 1.5857), inp)
-    assert math.isclose(value_of(r, "dive_speed_vd"), 198.53, rel_tol=TOL)          # p155
+    assert math.isclose(value_of(r, "dive_speed_vd"), 198.53, rel_tol=TOL)          # p158
     assert math.isclose(value_of(r, "minimum_dive_vd_min"), 198.53, rel_tol=TOL)
 
 

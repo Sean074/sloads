@@ -334,7 +334,7 @@ Three new `ConsistencyWarning` codes on `PAGE_STRUCTURAL_SPEEDS`, following
 
 FAR 23 categories: **nothing.** `vd_basis` defaults to `"speed_ratio"`, whose
 code path is unchanged, and the margin route is category-gated. The Appendix A
-oracles (p155 VD 198.53; p156 VD 212.5) are the guard.
+oracles (p158 VD 198.53; p159 VD 212.5) are the guard.
 
 Concept fixtures, once `vd_basis` is switched:
 
@@ -363,7 +363,7 @@ No printed oracle exists for the margin route, so per CLAUDE.md required
 practice 2 the gates are **stated invariants**, all in
 `tests/test_structural_speeds.py` unless noted:
 
-1. **FAR 23 oracles unchanged** — p155 VD 198.53, p156 VD 212.5, MC 0.323,
+1. **FAR 23 oracles unchanged** — p158 VD 198.53, p159 VD 212.5, MC 0.323,
    MD 0.403 (±0.1 %). Existing tests, must pass untouched.
 2. **Reduction invariant** — for every fixture in `examples/`, `vd_basis =
    "speed_ratio"` reproduces the pre-change `DesignSpeeds` tuple exactly

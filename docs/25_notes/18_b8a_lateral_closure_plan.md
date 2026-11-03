@@ -49,7 +49,7 @@ concept-mode benchmark rule (no printed oracle ⇒ a stated closure gate in CI).
 |---|---|
 | V-tail maneuver loads, FAR 23.441(a)(1)/(2)/(3) | Ref 1 Ch 9; `SELECT.BAS` subr 8300. Printed oracle: Appendix A "Critical Vertical Tail Loads" — sudden rudder **+591**, sideslip 19.5° **−92**, yaw 15° neutral **−526** |
 | Lateral gust, FAR 23.443(b) | Ref 1 Ch 9; `SELECT.BAS` 8840-8930. Printed oracle: side gust at VC **+604 lb**, with **IZZ 4169.2 slug-ft²** |
-| Airplane inertia from the item database | `WTONECG.BAS`, Ref 1 Ch 4, Appendix C p377-381. Printed oracle: **Appendix A p136** — aft gross 3400 lb, XBAR 84.999, ZBAR 92.579, IXX/IYY/**IZZ** 1201.5 / 2058.2 / **3022.8** slug-ft² |
+| Airplane inertia from the item database | `WTONECG.BAS`, Ref 1 Ch 4, Appendix C p377-381. Printed oracle: **Appendix A p137** — aft gross 3400 lb, XBAR 84.999, ZBAR 92.579, IXX/IYY/**IZZ** 1201.5 / 2058.2 / **3022.8** slug-ft² |
 | Yaw acceleration from an unbalanced yaw moment | `ONENGOUT.BAS` 282-286, Ref 1 Ch 11 p87-88 (FAR 23.367): `THETA2DOT = MOM/12/IZZ·57.3` — i.e. **ψ̈ = M/I_zz**. This is the independent producer B8a's yaw DOF is checked against |
 | Rigid-body d'Alembert relief | The relief field is `f_i = −m_i (a_cg + ω̇ × r_i)`; the moment it produces about the CG is `−[I]{ω̇}` with the **full** inertia tensor. Standard rigid-body mechanics; no suite source, so §7's gate carries it |
 
@@ -167,7 +167,7 @@ The suite has no input for it: no fixture carries an `htail`/`vtail` entry in
 | Producer | ga6 (slug-ft²) | Authority |
 |---|---|---|
 | `select._default_izz` — Ch 9 approximation | **4169** | Printed in Appendix A beside the side-gust load; **it sizes the gust load** |
-| `weight_onecg` (WTONECG) from the item database | **3023** (CG1) / 2967 (CG2) | **Printed oracle, Appendix A p136** |
+| `weight_onecg` (WTONECG) from the item database | **3023** (CG1) / 2967 (CG2) | **Printed oracle, Appendix A p137** |
 | The assembled balanced case's own mass set | **2598** (CG1) / 2540 (CG2) | What actually reacts the load in the deck |
 
 The manual prints two of these for the same airplane and they differ by **+38 %**.

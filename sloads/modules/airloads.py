@@ -41,7 +41,7 @@ discontinuity, and it only arises with deflected flaps (a later step). The basic
 distribution is therefore the unfaired one here.
 
 Reference: AIRLOADS.BAS / TAU.BAS, Ref 1 Ch 7 p46-47, TAU curve-fit p407;
-worked example Appendix A p161-162 (additive CC(LA1) elem 1 = 91.05576; basic
+worked example Appendix A p161-163 (additive CC(LA1) elem 1 = 91.05576; basic
 Awo = 3.988146, CC(lb) elem 1 = +5.09762, Clb elem 1 = 0.05193).
 """
 
@@ -355,7 +355,7 @@ def air_load_distribution(geom: SurfaceInput, aero: AeroSurfaceInput, cl: float,
     moment (``aero.section_cm``). Stations are ordered root->tip.
 
     Reference: AIRLOADS.BAS subroutine 4500 (lines 4600-5060); worked example
-    Appendix A "Airloads for Case 22 PHAA" p206 (CL 1.52, V 117.4: root SZ +6470,
+    Appendix A "Airloads for Case 22 PHAA" p207 (CL 1.52, V 117.4: root SZ +6470,
     MXX +516955, MYY -79003, MZZ -91283).
     """
     t = schrenk_distribution(geom, aero)

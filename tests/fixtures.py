@@ -7,7 +7,7 @@ no test module imports another test module. Lookup helpers live next door in
 :mod:`helpers`.
 
 Both examples are the manual's worked engine inputs (Reference 1 Appendix A
-p131 for the reciprocating case); the figures they are asserted against stay in
+p229 for the reciprocating case); the figures they are asserted against stay in
 the tests that use them, with their page citations.
 """
 
@@ -17,7 +17,7 @@ from sloads import EngineInput, EngineType, Rotor, RotorType
 def io520bb() -> EngineInput:
     """The reciprocating worked example (Continental IO-520-BB).
 
-    Every value is the input block Appendix A prints on p227, including both CG
+    Every value is the input block Appendix A prints on p229, including both CG
     waterlines: ``ENGINE CG 22, 0, 92`` and ``PROPELLER CG -10, 0, 100``, which
     reproduce the printed combined CG ``17.91, 0, 93.022`` exactly. They were
     entered wrong until 2026-09-07 -- the propeller's ``x`` in the engine's ``z``

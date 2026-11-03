@@ -26,7 +26,7 @@ inches; inertias in lb-in² in the database, slug-ft² reported) and §7 (single
 owners: this note adds one row, the mass-properties owner, §4). **Theory:**
 no new physics — WTONECG.BAS lines 657–910 (Appendix C p377–381) applied to a
 subset of the rows instead of all of them; the equations are untouched and
-the Appendix A p136 oracle stays as the ceiling row (G-70.1).
+the Appendix A p137 oracle stays as the ceiling row (G-70.1).
 **Precedent:**
 - #333 ruling 4 (`one_engine_out.mass_basis` / `_mass_state`): the inertia a
   case is sized at comes from *that case's loading* through
@@ -53,7 +53,7 @@ one condition "Weight, centre of gravity and inertia for one loading".
 
 | Fixture | MTOW (lb) | `mass.cases[0]` weight (lb) | Over MTOW | Is it a loading? |
 |---|---|---|---|---|
-| ga6_normal | 3,400 | 3,400 | 0 | yes — Appendix A's own database sums to the aft-gross loading (p136) |
+| ga6_normal | 3,400 | 3,400 | 0 | yes — Appendix A's own database sums to the aft-gross loading (p137) |
 | baron_58 | 5,500 | 6,540 | +1,040 (+19 %) | no |
 | atr42_100 | 36,817 | 43,308 | +6,491 (+18 %) | no — full fuel and full payload at once |
 | concept_regional_jet | 33,000 | 34,800 | +1,800 (+5 %) | no |
@@ -213,7 +213,7 @@ D-70.5. The M4-17a "Apply weight items handler" sentence (review B8) is
 corrected to `refresh_mass` on render in the same touch.
 
 **D-70.9 — The ceiling row keeps the oracle.** `tests/test_weight_onecg.py`
-pins Appendix A p136 against `weights_and_inertia(project.weight.items)` —
+pins Appendix A p137 against `weights_and_inertia(project.weight.items)` —
 the ceiling — and is untouched; a new assertion pins that the ceiling row
 `run` emits *is* that result (same object path, G-70.1).
 
@@ -231,7 +231,7 @@ the ceiling — and is untouched; a new assertion pins that the ceiling row
 
 | Gate | Statement | Where |
 |---|---|---|
-| G-70.1 | The Appendix A p136 figures (W 3400, XBAR 84.99936, ZBAR 92.57932, IXX/IYY/IZZ/IXZ 1201.527/2058.209/3022.766/134.4063 slug-ft²) are the **ceiling row** `run` emits on `ga6_normal`, ±0.1 % | `tests/test_weight_onecg.py` (existing pins + the ceiling-row identity) |
+| G-70.1 | The Appendix A p137 figures (W 3400, XBAR 84.99936, ZBAR 92.57932, IXX/IYY/IZZ/IXZ 1201.527/2058.209/3022.766/134.4063 slug-ft²) are the **ceiling row** `run` emits on `ga6_normal`, ±0.1 % | `tests/test_weight_onecg.py` (existing pins + the ceiling-row identity) |
 | G-70.2 | For every fixture and every derivable CG case, the row's W/Xcg/Zcg equal the `CaseLoading`'s own `weight_lb/cg_x/cg_z` and its inertias equal `weights_and_inertia(loading.items)` (identity, rel 1e-9) | `tests/test_weight_onecg.py` |
 | G-70.3 | `one_engine_out._mass_state` equals the `case_mass_properties` row of the same case on every fixture with a FLIGHT basis (one owner) | `tests/test_one_engine_out.py` |
 | G-70.4 | The ceiling row is last, flagged `ceiling=True`, and its weight ≥ every other row's; a non-derivable case yields no row and a stated reason (baron_58 fwd regardless) | `tests/test_weight_onecg.py` |

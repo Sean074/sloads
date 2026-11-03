@@ -158,7 +158,7 @@ def test_the_products_of_inertia_are_stored_as_sums_and_negated_in_the_matrix():
     """The sign convention, stated where it can be checked.
 
     ``ixz`` is ``Sum w*dx*dz`` -- the form ``WTONECG`` prints and Appendix A
-    p136 shows -- and the matrix carries ``-ixz``. Getting this backwards is
+    p137 shows -- and the matrix carries ``-ixz``. Getting this backwards is
     invisible to every symmetric case and to every uncoupled solve, so nothing
     else in the suite would catch it.
     """
