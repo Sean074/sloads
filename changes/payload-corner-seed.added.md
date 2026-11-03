@@ -1,1 +1,0 @@
-- **Payload corners seeded to note 75's rule, with a fuel vector per case (#422, #423, tier L, 2026-11-03).** Note 76: one solver builds MZFW and full-fuel corners and each limit point's real loading, never ballast; landing cases stay on the limits (Baron nose gear +4.4 %). The Weight/CG figure draws each case's fuel path. Imperial digests regenerated.

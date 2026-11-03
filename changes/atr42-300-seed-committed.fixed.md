@@ -1,1 +1,0 @@
-- **The ATR 42-300 sconfig seed ships as an example, corrected first (#403, tier S, 2026-11-01).** Its round-trip failures were a stale `mass` slice inherited from the baseline, not a GUI defect: the slice is rebuilt, the CG cases re-seeded with loadings of record, and VC, VD, n, forward limit, T-tail height, Part 25 flag corrected per its sources register.

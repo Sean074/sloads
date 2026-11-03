@@ -64,6 +64,7 @@ RELEASED_SCHEMAS: Dict[str, int] = {
     "0.8.8": 73,
     "0.8.9": 76,
     "0.9.0": 80,
+    "0.10.0": 84,
 }
 
 def _hop_70(d: Dict[str, Any]) -> Dict[str, Any]:

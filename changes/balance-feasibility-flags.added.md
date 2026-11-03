@@ -1,1 +1,0 @@
-- **Balanced cases are flagged past the elevator stop, the tail stall or an entered fin stall (#404, tier L, 2026-11-02).** Design note 73 (review A-2, absorbs #353): stated in the report, the deck and a warning, never solved with. Schema v81 adds the stabiliser type and limits. The ATR stabiliser incidence is −1.0°. Imperial digests regenerated.

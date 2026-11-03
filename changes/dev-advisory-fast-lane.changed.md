@@ -1,1 +1,0 @@
-- **The `dev/**` advisory CI run is the local gate, the suite less its `slow` lane (#417, tier S, 2026-11-01).** Keyed on the ref like the coverage leg; a pull request and the push to `main` still run everything, and the conformance guard refuses a `slow` deselection anywhere else.
