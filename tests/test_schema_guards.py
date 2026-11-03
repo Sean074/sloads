@@ -441,7 +441,11 @@ def fields_hash() -> str:
 #: ``_hop_81`` is an identity. The digests move by the ruling, not the hop: the
 #: twins enter a 1.0 s [E] feather (Q3), the (a)(2) cases take their own decay
 #: and every 23.367(a) case is swept.
-EXPECTED_FIELDS_HASH = "c007c59ed2ce3745"
+#: v83 (design note 75, #337): ``MassItem`` gains ``required_crew``, the
+#: tag. Additive and inferring nothing, so ``_hop_82`` is an identity. The
+#: Baron's digests move by the ruling, not the hop: its pilot is a minimum row
+#: and its payload cases are rebuilt to MZFW and full fuel at both limits.
+EXPECTED_FIELDS_HASH = "1ece939abb870d33"
 
 
 def test_persisted_dataclass_shapes_are_unchanged():

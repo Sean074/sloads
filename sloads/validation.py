@@ -1289,6 +1289,47 @@ def _check_case_loading_missing(project: Project) -> List[ConsistencyWarning]:
     return out
 
 
+def _check_minimum_crew(project: Project) -> List[ConsistencyWarning]:
+    """The required crew is in the minimum flight weight (design note 75, #337).
+
+    23.25(b)(2) puts "the weight of the required minimum crew (assuming a
+    weight of 170 pounds for each crewmember)" in the minimum weight (UG
+    §4.3.1.2 p4-3), so every zero-fuel weight carries it. Read from the typed
+    ``MassItem.required_crew`` tag, never from a row's name (note 63 OV-1).
+
+    * ``crew_not_minimum`` -- a crew row whose kind is not ``MINIMUM``: as
+      payload it can be left off a loading, and as ``EMPTY`` it moves the
+      23.29 empty weight.
+    * ``minimum_crew_missing`` -- a weight database with no row that is both
+      crew and ``MINIMUM``: its minimum flight weight, and every loading built
+      on it, flies with nobody at the controls.
+    """
+    items = project.weight.items if project.weight is not None else []
+    if not items:
+        return []
+    out: List[ConsistencyWarning] = []
+    for it in items:
+        if it.required_crew and it.kind != MassItemKind.MINIMUM:
+            out.append(ConsistencyWarning(
+                "crew_not_minimum",
+                f"Item '{it.name}' is tagged crew but its kind is {it.kind.value}. "
+                "The required crew is part of the minimum flight weight "
+                "(23.25(b)(2)), so it is aboard every loading: set the row's kind "
+                "to minimum, and carry any passenger in the same seat on a "
+                "discretionary row of its own (design note 75).",
+                PAGE_WEIGHT_CG))
+    if not any(it.required_crew and it.kind == MassItemKind.MINIMUM for it in items):
+        out.append(ConsistencyWarning(
+            "minimum_crew_missing",
+            "No row of the weight database is required crew of kind minimum, so "
+            "the minimum flight weight and every zero-fuel loading carry nobody "
+            "at the controls. 23.25(b)(2) puts the required minimum crew in the "
+            "minimum weight at 170 lb each: tag the pilot's row as crew and set "
+            "its kind to minimum (design note 75).",
+            PAGE_WEIGHT_CG))
+    return out
+
+
 def _check_envelope_reach(project: Project) -> List[ConsistencyWarning]:
     """An envelope point no loading can produce (#309, owner ruling 2026-09-27).
 
@@ -2099,6 +2140,7 @@ def consistency_warnings(project: Project) -> List[ConsistencyWarning]:
     out += _check_weight_case_model(project)
     out += _check_gear_carrier(project)
     out += _check_wing_fraction(project)
+    out += _check_minimum_crew(project)
     out += _check_wing_mass_tie(project)
     out += _check_wing_mass_states(project)
     out += _check_case_loading_missing(project)

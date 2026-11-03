@@ -317,6 +317,16 @@ class MassItem:
     #: it. ``None`` is "not a gear row". The sixth typed tag, for the same
     #: reason as the other five: the row's name cannot be trusted to say it.
     gear: Optional[GearLeg] = None
+    #: The row is **required crew** (design note 75, #337): the 23.25(b)(2)
+    #: minimum crew, "assuming a weight of 170 pounds for each crewmember" (UG
+    #: §4.3.1.2 p4-3), which the minimum flight weight and therefore every
+    #: zero-fuel weight carries. Orthogonal to ``kind`` as ``usable_fuel`` is;
+    #: a crew row belongs in ``MINIMUM``, and validation says so by name
+    #: (``crew_not_minimum``) and warns a database with none
+    #: (``minimum_crew_missing``). The seventh typed tag, an **input** and never
+    #: a name match (note 63 OV-1): the v82 hop infers nothing. Not ``crew``:
+    #: that is :class:`WeightEstimationInput`'s numeric crew count.
+    required_crew: bool = False
 
 
 @dataclass

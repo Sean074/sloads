@@ -393,7 +393,10 @@ from .results import EnvelopeResult, LoadsResult, MassResult
 # pilot's feather from 2 s, blank: none) and
 # ``OneEngineOutInput.mech_failure_decay_time_s`` (the 23.367(a)(2) decay).
 # Additive, so ``_hop_81`` is an identity.
-SCHEMA_VERSION = 82
+# v83 (design note 75, #337): ``MassItem.required_crew``, the required-crew tag the
+# minimum-crew warnings read. Additive and inferring nothing, so ``_hop_82`` is
+# an identity.
+SCHEMA_VERSION = 83
 
 
 @dataclass

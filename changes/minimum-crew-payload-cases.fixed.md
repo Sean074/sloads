@@ -1,0 +1,1 @@
+- **Crew is in the zero-fuel weight; the Baron's payload cases are MZFW and full fuel at both limits (#337, tier L, 2026-11-02).** Note 75: rows tag `required_crew` (schema v83), warned when missing or not minimum. The Baron's pilot is a minimum row (minimum weight 4,270 lb). `aft gross` Izz falls 11 %; VA lateral accelerations rise 12 %.

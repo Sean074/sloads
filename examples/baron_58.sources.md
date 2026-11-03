@@ -74,15 +74,36 @@ the guide enters and reads this example in **SI** (UG-12).
   loading — the module's clean 1-g stall reproduces ~84 KEAS.
 - **Mass breakdown**: statistical component split summing to the published
   4,010 lb empty [B] at sta 78.3; discretionary rows (occupants, baggage,
-  fuel) sit at the [A] arms. The flight loading of 120 US gal fuel + 4
-  occupants closes at exactly 5,500 lb inside the [A] envelope — the `aft
-  gross` case, whose waterline 95.88 is that loading's own (D-26a; no source
-  states a flight waterline, and the 100.0 it carried until #300 matched no
-  loading of this database) — and each
-  roled ground case **states its loading** (D-25 `loading` records): aft max
-  landing 5,400 lb at sta 85.7, fwd max landing 5,400 lb at sta 79.1, fwd
-  light 4,440 lb at sta 78.1 — all inside the [A] limits. Inertias are
-  order-of-magnitude estimates.
+  fuel) sit at the [A] arms. The `aft gross` case (5,500 lb at the [A] aft
+  limit 86.0) states its loading since #337: the MZFW payload (every seat,
+  nose hold 0.1458, rear hold 0.2656) plus 230 lb of fuel (both tanks at
+  0.3194). Its waterline 96.56 is that loading's own (D-26a; no source states
+  a flight waterline). Until #337 it was searched, and the search closed it
+  with 4 occupants and no pilot, at waterline 95.88. Each
+  roled ground case **states its loading** (D-25 `loading` records). Inertias
+  are order-of-magnitude estimates.
+- **Pilot (#337, design note 75)**: the pilot is its own `MINIMUM` row tagged
+  `required_crew`, 170 lb at the [A] front-seat arm +75. The weight is [E], the
+  23.25(b)(2) standard crewmember (UG §4.3.1.2 p4-3); no source gives this
+  airplane's. `Front passenger` (170 lb, same point) is discretionary. Until
+  #337 both sat in one discretionary row, so the minimum flight weight
+  (4,100 lb at 78.36) and `aft max landing` flew with nobody at the controls.
+  The minimum flight weight is now 4,270 lb at 78.22.
+- **Payload cases (note 75 §2)**: the MZFW and full-fuel corners are built to
+  the owner's rule, each waterline from its own loading (D-26a):
+  - `mzfw aft`: 5,270 lb at the [A] aft limit 86.00. Every passenger is
+    aboard; the nose hold is at 0.1688 and the rear at 0.2484.
+  - `mzfw fwd`: 5,270 lb at **79.61**, the most forward 5,270 lb the rows
+    reach (station-order fill: nose hold, front seat, mid seats, then the
+    rear hold at 0.475). The forward limit there is 77.54, so the corner is
+    **2.07 in short** of it. It is kept at the extreme and not ballasted.
+  - `fwd gross` (below) is the full-fuel forward corner.
+  - `full fuel aft`: 5,500 lb at **85.37**, the most aft that full fuel and
+    510 lb of payload reach (aft seats, rear hold at 0.425). The aft limit is
+    86.0, so the corner is **0.63 in short**.
+  - `aft max landing` and `fwd max landing`: the two MZFW payloads plus
+    130 lb of fuel (both tanks at 0.1806) to the 5,400 lb landing weight, at
+    85.90 and 79.67.
 - **Baggage rows (#309)**: nose baggage is the [A] 300 lb at +15 (it carried
   150 lb until #309), and the [A] 400 lb rear compartment at +150 is its own
   row; the rear row's waterline 100 is [E], the seats' own, since no source

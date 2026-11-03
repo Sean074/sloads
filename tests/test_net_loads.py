@@ -258,14 +258,15 @@ def test_a_concentrated_wing_mass_is_published_as_its_own_applied_load():
     gear, engine, propeller, nacelle, accessories, exhaust, unusable fuel, fuel
     and fuel-system rows, 1,190.5 lb per side, where the four lumped
     ``concentrated`` entries used to sum to the same pounds. Since #292 (note
-    63 D-63.7) PHAA is delivered at the seeded ``mzfw aft`` loading, the
-    zero-fuel state: eight rows, 830.5 lb per side -- the 360 lb tank is the
-    relief the step removes.
+    63 D-63.7) PHAA is delivered at a zero-fuel loading -- ``mzfw fwd`` since
+    #337 rebuilt both MZFW corners to note 75's rule, ``mzfw aft`` before it:
+    eight rows, 830.5 lb per side -- the 360 lb tank is the relief the step
+    removes.
     """
     p = io.load_project(_BARON)
     net = build_net_loads(p)
     phaa = next(r for r in net.wing_net if r.case == "PHAA")
-    assert phaa.case_ref.cg == "mzfw aft", phaa.mass_state
+    assert phaa.case_ref.cg == "mzfw fwd", phaa.mass_state
     assert len(phaa.point_loads) == 8, "the eight starboard POINT rows of the zero-fuel state"
     assert math.isclose(sum(pl.fz for pl in phaa.point_loads) / phaa.nz, 830.5, rel_tol=1e-9)
     _assert_closes(phaa)
@@ -340,7 +341,7 @@ def test_point_loads_survive_the_io_round_trip():
     # The mass state the distribution was built from rides the same round trip
     # (note 63 D-63.6), so a reloaded result still says what it ran on.
     assert rebuilt.loads.wing_net[0].mass_state == p.loads.wing_net[0].mass_state
-    assert rebuilt.loads.wing_net[0].mass_state.startswith("loading 'mzfw aft'")
+    assert rebuilt.loads.wing_net[0].mass_state.startswith("loading 'mzfw fwd'")   # #337
 
 
 if __name__ == "__main__":

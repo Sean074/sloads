@@ -79,9 +79,10 @@ def test_the_five_fixtures_have_one_unreachable_point():
     assert bad == {("baron_58", "forward regardless limit"),
                    ("baron_58", "fwd regardless")}
     r = _reach(_project("baron_58"), "fwd regardless")
-    # The most-forward 4,200 lb loading: the airplane, unusable fuel and 100 lb
-    # of nose baggage (#309's measurement), 2.85 in aft of the limit.
-    assert r.fwd_x == pytest.approx(76.85, abs=0.005)
+    # #309 measured the most-forward 4,200 lb loading at 76.85, 2.85 in aft of
+    # the limit, with no pilot aboard. Since #337 (design note 75) the pilot is
+    # in the minimum flight weight, 4,270 lb, so no loading weighs 4,200 lb.
+    assert r.fwd_x is None
     assert r.ballast_lb is None
 
 
@@ -178,16 +179,23 @@ def test_baron_fwd_gross_is_entered_and_reaches_the_deck():
                      ("envelope_point_unreachable", "fwd regardless")]
 
 
+#: The Baron cases #337 rebuilt to design note 75's payload rule; their hold
+#: fractions are solved, not the pre-#309 0.5.
+_NOTE75_CORNERS = ("aft gross", "mzfw aft", "mzfw fwd", "aft max landing", "fwd max landing")
+
+
 def test_baron_database_is_its_a_source():
     """R-5: nose baggage 300 lb at +15 and rear baggage 400 lb at +150
     (``examples/baron_58.sources.md``, grade [A]); every loading entered
-    before the correction carries the nose hold at 0.5."""
+    before the correction carries the nose hold at 0.5, apart from the cases
+    #337 rebuilt to note 75's payload rule."""
     p = _project("baron_58")
     rows = {it.name: it for it in p.weight.items}
     assert (rows["Nose baggage"].weight_lb, rows["Nose baggage"].x) == (300, 15)
     assert (rows["Rear baggage"].weight_lb, rows["Rear baggage"].x) == (400, 150)
     for c in p.weight.cg_cases:
-        if c.loading is not None and "Nose baggage" in c.loading.aboard and c.name != "fwd gross":
+        if (c.loading is not None and "Nose baggage" in c.loading.aboard
+                and c.name not in ("fwd gross",) + _NOTE75_CORNERS):
             assert c.loading.fractions["Nose baggage"] == 0.5, c.name
 
 

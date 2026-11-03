@@ -1201,7 +1201,9 @@ _DELTA_CD_BAND = {
     # lateral cases at `aft gross`.
     # #331 (2026-10-03): condition A at the POH's 4.2 -- PHAA -0.0739 at
     # `mzfw aft`; NHAA (STALL -1G, 20,000 ft) no longer clamps, -0.0011.
-    'baron_58.project.json': (-0.0740, -0.0010),
+    # #337 (design note 75): PHAA -0.0741 at `mzfw fwd`, the MZFW corners
+    # rebuilt to the payload rule with the pilot aboard.
+    'baron_58.project.json': (-0.0745, -0.0010),
     'dhc8_dash8.project.json': (-0.1061, -0.0018),
     # concept_heavy re-pinned 2026-09-20 (#291): polar re-entered with its
     # minimum at the zero-alpha CL; PHAA -0.0898, the clamped NHAA +0.0084
@@ -1819,7 +1821,7 @@ _WING_SPAN_ROLL_SHARE = {
     # #403: the T-tail is 12.65 in higher and the wing 50 lb lighter; #420: ACRL
     # closes at `aft gross` on the certified lines.
     "atr42_300_seed.project.json": 0.596809,
-    "baron_58.project.json": 0.529069,
+    "baron_58.project.json": 0.529093,   # #337: ACRL closes at the rebuilt `mzfw fwd`
     "concept_heavy.project.json": 0.383907,
 }
 
@@ -2038,8 +2040,12 @@ _CLOSURE_IZZ = {
     # The Baron's two MZFW loadings first assemble at #292 (note 63 D-63.5/
     # D-63.7), measured 2026-09-18; the RJ's `fwd regardless` likewise (NMAA).
     # #309: `fwd gross` first assembles (SIDE GUST), entered with no ballast.
-    'baron_58.project.json': {'aft gross': 7369.3, 'fwd gross': 7136.3,
-                              'mzfw aft': 6129.2, 'mzfw fwd': 5667.1},
+    # #337 (design note 75): `aft gross` is entered as the MZFW payload plus
+    # 230 lb of fuel (it was searched: four occupants, 720 lb of wing fuel, no
+    # pilot), so less wing fuel and a lower Izz; `mzfw fwd` is 5,270 lb at the
+    # rows' forward extreme, and `mzfw aft` no longer governs a slot.
+    'baron_58.project.json': {'aft gross': 6563.7, 'fwd gross': 7136.3,
+                              'mzfw fwd': 6120.7},
     'dhc8_dash8.project.json': {'fwd gross': 276188.3, 'min weight': 184928.0, 'aft gross': 269576.3, 'fwd regardless': 261441.6},
     'concept_heavy.project.json': {'CGmax': 42104.0},
 #: The RJ's three moved on 2026-08-30: its CG cases were re-seeded to the
@@ -2149,7 +2155,8 @@ _ACRL_LATERAL = {
     'atr42_100.project.json': {"companion_fy_lb": 455.59, "r_dot_deg_s2": 6.255},
     'atr42_300_seed.project.json': {"companion_fy_lb": 511.65, "r_dot_deg_s2": 9.507},   # #403; re-measured at #420 (certified limits)
     # #331: ACRL flies at VA, 161.0 -> 172.8 KEAS with the POH's 4.2 (x1.151).
-    'baron_58.project.json': {"companion_fy_lb": 29.56, "r_dot_deg_s2": 5.369},
+    # #337: ACRL closes at the rebuilt `mzfw fwd`.
+    'baron_58.project.json': {"companion_fy_lb": 31.38, "r_dot_deg_s2": 5.248},
     'concept_heavy.project.json': {"companion_fy_lb": 274.78, "r_dot_deg_s2": 2.637},
     'concept_regional_jet.project.json': {"companion_fy_lb": 293.29, "r_dot_deg_s2": 4.162},   # re-pinned at #384
 }
@@ -2329,9 +2336,13 @@ _LATERAL_CASE_NUMBERS = {
         'SIDE GUST': (1015.6257, +0.184659, +149.735407, -40.737848),
         # #331 (2026-10-03): the three VA cases move x1.151 = (172.8/161.0)^2
         # with the POH's 4.2 entered as chosen n; SIDE GUST (VC) is unmoved.
-        'SUDDEN RUDDER': (1482.1640, +0.269484, +217.334390, -58.154577),
-        'YAW 15 NEUTRAL': (-1562.3846, -0.284070, -215.414495, +61.581110),
-        'YAW TO SIDESLIP': (-548.9359, -0.099807, -62.704453, +21.900866),
+        # #337 (design note 75): `aft gross` is entered as the MZFW payload
+        # plus 230 lb of fuel; with less wing fuel its Izz falls 7,369 ->
+        # 6,564 slug ft^2, so the three VA cases' r_dot and p_dot rise (+12 %)
+        # while the fin loads and Ny stay put.
+        'SUDDEN RUDDER': (1482.1685, +0.269485, +243.434846, -69.871696),
+        'YAW 15 NEUTRAL': (-1562.3846, -0.284070, -241.245500, +74.046253),
+        'YAW TO SIDESLIP': (-548.9314, -0.099806, -70.184304, +26.388433),
     },
     # The three fixtures with a published fuselage outline (T-8a). Backlog Pri 1
     # gave the "fuselage-top" branch of vtail_root_waterline its body datum --
