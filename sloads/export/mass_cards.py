@@ -518,7 +518,7 @@ def oew_fragment(project: Project, *,
     unconnected grids -- so this is a second *selection*, not a second writer.
 
     The rows are :func:`sloads.mass_distribution.oew_items`'. The header names
-    every ``MINIMUM`` row on each side of the partition, so a reserve tank that
+    every ``MINIMUM`` row on each side of the partition, so a fuel row that
     nobody has tagged ``usable_fuel`` is visible in the file rather than
     silently aboard.
     """

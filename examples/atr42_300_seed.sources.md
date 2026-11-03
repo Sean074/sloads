@@ -62,3 +62,11 @@ The export above was reviewed before it entered the tree. What changed, and why;
 | Quantity | Was | Now | Why | Tag |
 |---|---|---|---|---|
 | Feather travel time (`engines[].feather_travel_time_s`) | blank | 1.0 s | the owner's estimate of the blade travel to feather (design note 74 Q3); the pilot starts the feather at 2 s, an owner assumption. The fuel-flow decay 0.5 s and drag build-up 2.0 s have no source (D-74.11; `atr42_100.sources.md`) | [E] |
+
+## Corrections at #424 (2026-11-03): no reserve fuel in the zero-fuel weight
+
+| Quantity | Was | Now | Why | Tag |
+|---|---|---|---|---|
+| `Reserve fuel, left` / `right` | 350 lb each, `MINIMUM` | removed; each wing tank 4,587 → 4,937 lb | a `MINIMUM` row is aboard every loading, so the reserve rode inside every zero-fuel weight: the 25.343(a) structural-reserve credit, not selected (design note 75 D-75.8). Fuel capacity unchanged | -- |
+| `min weight` | 24,250 lb at 378.49 in | 23,550 lb at 378.33 in | the minimum flight weight is now empty + crew, no fuel | -- |
+| `mzfw aft` / `mzfw fwd` | 33,510 at 385.90 / 29,915 at 367.54 | 33,510 at 381.82 / 29,150 at 367.54 | re-seeded (D-63.5) with zero usable fuel; every fuelled case keeps its weight and CG (the tank fraction carries the same pounds) | -- |

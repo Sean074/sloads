@@ -387,21 +387,19 @@ def test_the_design_weight_ordering_chain_fires_on_an_inverted_pair():
     assert "weight_order_chain" in _codes(project, page="weight_mass")
 
 
-def test_the_mlw_floor_fires_on_the_regional_jet_and_the_baron_only():
-    """G-4, measured 2026-08-14: the RJ cannot land at MLW (31,000) with full
-    payload and reserve fuel (31,360). That is a real finding about that fixture,
-    and it is why the estimate is a floor rather than a prediction. The Baron
-    joined it at #309 (2026-09-29): its database now carries the [A] baggage
-    (nose 300 lb, rear 400 lb), and OEW + max payload + reserve is 5,820 lb
-    against its 5,400 lb MLW -- true of the airplane, whose six seats and two
-    holds cannot all be full on a heavy landing."""
+def test_the_mlw_floor_fires_on_the_baron_only():
+    """G-4: the floor is OEW + max payload at zero usable fuel. The Baron's
+    database carries the [A] baggage (#309, nose 300 lb, rear 400 lb), and its
+    six seats and two holds full outweigh its 5,400 lb MLW -- true of the
+    airplane. ``concept_regional_jet`` fired too until #424 (note 75 D-75.8),
+    on the 1,500 lb reserve-fuel row the floor then counted."""
     import glob
 
     fired = set()
     for path in sorted(glob.glob(os.path.join(_EXAMPLES, "*.project.json"))):
         if "mlw_below_landing_estimate" in _codes(sloads_io.load_project(path)):
             fired.add(os.path.basename(path))
-    assert fired == {"baron_58.project.json", "concept_regional_jet.project.json"}, fired
+    assert fired == {"baron_58.project.json"}, fired
 
 
 def test_no_shipped_fixture_disagrees_about_who_carries_the_gear():

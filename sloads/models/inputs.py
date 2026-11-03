@@ -267,25 +267,26 @@ class MassItem:
     #: Which rows are fuel is an **input**, not a name match, on the same
     #: reasoning that made ``component`` explicit. Three consumers, one field:
     #: this rule, wing-tank fuel separability, and G-4's max-landing-weight
-    #: estimate, which has to tell mission fuel from reserve fuel.
+    #: estimate, which leaves a consumable row out.
     #: ``False`` is today's behaviour, so no flight case moves by a pound.
     consumable: bool = False
-    #: Fuel the engines can draw -- mission fuel **and reserve fuel** alike
-    #: (design note 67 D-67.10). It is what the operating empty weight leaves
-    #: out: :func:`sloads.mass_distribution.oew_items` is the ``EMPTY`` and
+    #: Fuel the engines can draw, wherever it sits -- a tank row or a
+    #: ``MINIMUM`` 23.25(b)(3) half-hour row alike (design note 67 D-67.10).
+    #: It is what the operating empty weight leaves out:
+    #: :func:`sloads.mass_distribution.oew_items` is the ``EMPTY`` and
     #: ``MINIMUM`` rows less these. **Unusable fuel and oil is not usable fuel**
     #: -- it is part of the operating airplane and stays in OEW, which is why
     #: the tag is named for what it excludes and not just "fuel".
     #:
     #: Orthogonal to ``consumable``, which says what G-5 may *burn down*:
-    #: reserve fuel is usable and deliberately not consumable (G-4 has to tell
-    #: it from mission fuel), mission fuel is both, and a non-fuel expendable
-    #: is consumable and not fuel. No implication between them is enforced.
+    #: a half-hour fuel row is usable and not consumable, mission fuel is
+    #: both, and a non-fuel expendable is consumable and not fuel. No implication between them is enforced.
     #: An **input**, never a name match (note 63 OV-1): the v73 hop infers
     #: nothing, so a migrated row reads ``False`` until someone tags it, and the
-    #: OEW mass set names every ``MINIMUM`` row it kept so an untagged reserve
-    #: tank is visible rather than silently aboard. Read by the OEW partition
-    #: only; no load reads it.
+    #: OEW mass set names every ``MINIMUM`` row it kept so an untagged fuel
+    #: row is visible rather than silently aboard. Read by the OEW partition,
+    #: the zero-fuel estimates and the fuel basis (design note 75); no load
+    #: reads it.
     usable_fuel: bool = False
     #: Fraction of this row -- its weight **and** its own ``ixx``/``iyy``/``izz``
     #: -- reacted by the **wing (both sides together)**; the remainder by
@@ -1117,7 +1118,8 @@ class LoadingDefinition:
     * ``aboard`` names the **discretionary** rows of ``weight.items`` that are
       carried. ``EMPTY`` and ``MINIMUM`` rows are *implicitly* aboard: a loading
       is a statement about the useful load, and neither the empty weight nor the
-      minimum-flight-weight rows (pilot, reserve fuel) are optional. Naming one
+      minimum-flight-weight rows (the crew; the Appendix A airplane's half-hour
+      fuel, design note 75 D-75.8) are optional. Naming one
       is rejected as an entry error, on the reasoning that made G-3c reject an
       empty ``analyses`` set.
     * ``fractions`` scales a row to a partial value, keyed by item name, in

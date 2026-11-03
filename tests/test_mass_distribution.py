@@ -395,13 +395,15 @@ def test_concept_heavy_gained_a_fuselage_it_never_had():
     Ch 15 module read was a table nobody had entered. 16,200 lb of airplane had
     no fuselage loads; it does now -- 15,000 lb of it after design note 29 moved
     1,200 lb of wing-tank fuel onto the wing, and 10,700 lb since design note
-    63 moved the whole 5,500 lb fuel row into per-side wing tank rows (D-63.4).
+    63 moved the whole 5,500 lb fuel row into per-side wing tank rows (D-63.4),
+    and 10,400 lb since #424 folded the 300 lb reserve into those tanks (design
+    note 75 D-75.8).
     """
     p = _project("concept_heavy.project.json")
     assert not (p.fuselage_mass and p.fuselage_mass.stations)
     beam = md.fuselage_beam_stations(p)
     assert beam
-    assert sum(s.weight_lb for s in beam) == pytest.approx(10700.0)
+    assert sum(s.weight_lb for s in beam) == pytest.approx(10400.0)
 
 
 # --------------------------------------------------------------------------- #

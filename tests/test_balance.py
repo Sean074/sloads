@@ -1817,12 +1817,15 @@ _WING_SPAN_ROLL_SHARE = {
     # Design note 52 (#306): these three roll for the first time -- their
     # ``ACRL`` couple is derived from condition A where none was entered.
     # Measured; the shape half of the gate holds to 1e-15 on each.
-    "atr42_100.project.json": 0.622080,
+    # #424 (note 75 D-75.8): ACRL closes at `mzfw aft`, which no longer carries
+    # 700 lb of reserve at BL +-250, so the wing span reacts more: 0.622080 before.
+    "atr42_100.project.json": 0.696103,
     # #403: the T-tail is 12.65 in higher and the wing 50 lb lighter; #420: ACRL
     # closes at `aft gross` on the certified lines.
     "atr42_300_seed.project.json": 0.596809,
     "baron_58.project.json": 0.529093,   # #337: ACRL closes at the rebuilt `mzfw fwd`
-    "concept_heavy.project.json": 0.383907,
+    # #424: the 300 lb centreline reserve folded into the BL +-120 tanks (0.383907 before).
+    "concept_heavy.project.json": 0.371732,
 }
 
 
@@ -2029,14 +2032,17 @@ _CLOSURE_IZZ = {
     # Re-measured 2026-11-01 (#420, the certified 12-38 % limits): the gross
     # cases moved 3 % MAC each way; `fwd regardless` now shares the forward
     # line's station and no lateral case assembles there.
+    # #424 (note 75 D-75.8): no reserve fuel in `min weight` or `mzfw aft`
+    # (139455.1 and 155699.7 before); the gross cases carry the same pounds.
     'atr42_100.project.json': {'fwd gross': 326709.4, 'aft gross': 282485.7,
-                               'min weight': 139455.1, 'mzfw aft': 155699.7},
+                               'min weight': 129998.5, 'mzfw aft': 148216.4},
     # atr42_300_seed measured 2026-11-01 (#403): the seed's cases close on
     # `mzfw fwd` where the baseline's close on `fwd regardless`.
     # Re-measured 2026-11-01 (#420): on the certified lines the lateral cases
     # close at the three limit points alone.
+    # #424: no reserve fuel in `min weight` (158270.0 before).
     'atr42_300_seed.project.json': {'fwd gross': 317785.1, 'aft gross': 225709.8,
-                                    'min weight': 158270.0},
+                                    'min weight': 148822.3},
     # The Baron's two MZFW loadings first assemble at #292 (note 63 D-63.5/
     # D-63.7), measured 2026-09-18; the RJ's `fwd regardless` likewise (NMAA).
     # #309: `fwd gross` first assembles (SIDE GUST), entered with no ballast.
@@ -2047,7 +2053,7 @@ _CLOSURE_IZZ = {
     'baron_58.project.json': {'aft gross': 6563.7, 'fwd gross': 7136.3,
                               'mzfw fwd': 6120.7},
     'dhc8_dash8.project.json': {'fwd gross': 276188.3, 'min weight': 184928.0, 'aft gross': 269576.3, 'fwd regardless': 261441.6},
-    'concept_heavy.project.json': {'CGmax': 42104.0},
+    'concept_heavy.project.json': {'CGmax': 43036.4},   # #424: reserve into the wing tanks (42104.0)
 #: The RJ's three moved on 2026-08-30: its CG cases were re-seeded to the
 #: WTENV limits the closed-form planform integral now gives (the stations
 #: shifted ~0.05 in), and Izz follows the CG.
@@ -2152,12 +2158,13 @@ def test_a_symmetric_case_reduces_to_three_dof(example):
 #: The RJ enters its couple and keeps it.
 _ACRL_LATERAL = {
     'ga6_normal.project.json': {"companion_fy_lb": 77.83, "r_dot_deg_s2": 16.402},
-    'atr42_100.project.json': {"companion_fy_lb": 455.59, "r_dot_deg_s2": 6.255},
+    # #424 (note 75 D-75.8): `mzfw aft` lost its 700 lb reserve at BL +-250 (455.59 / 6.255 before).
+    'atr42_100.project.json': {"companion_fy_lb": 502.77, "r_dot_deg_s2": 7.704},
     'atr42_300_seed.project.json': {"companion_fy_lb": 511.65, "r_dot_deg_s2": 9.507},   # #403; re-measured at #420 (certified limits)
     # #331: ACRL flies at VA, 161.0 -> 172.8 KEAS with the POH's 4.2 (x1.151).
     # #337: ACRL closes at the rebuilt `mzfw fwd`.
     'baron_58.project.json': {"companion_fy_lb": 31.38, "r_dot_deg_s2": 5.248},
-    'concept_heavy.project.json': {"companion_fy_lb": 274.78, "r_dot_deg_s2": 2.637},
+    'concept_heavy.project.json': {"companion_fy_lb": 266.06, "r_dot_deg_s2": 2.498},   # #424 (274.78 / 2.637)
     'concept_regional_jet.project.json': {"companion_fy_lb": 293.29, "r_dot_deg_s2": 4.162},   # re-pinned at #384
 }
 

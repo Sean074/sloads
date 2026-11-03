@@ -1,0 +1,1 @@
+- **No structural-reserve credit: zero-fuel weights carry no usable fuel (#424, tier M, 2026-11-03).** Note 75 §5: reserve rows fold into the tanks (ATR, regional jet, heavy); only ga6 keeps its oracle half hour. Minimum weights fall 700/1,500 lb,, raising gust n. Every artifact states the fuel basis; a minimum fuel row under an MZFW is warned. Imperial digests regenerated.

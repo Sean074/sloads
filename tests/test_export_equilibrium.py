@@ -141,10 +141,13 @@ def _skip_if_empty(results, example, what):
 #: wing -- one per strip that holds one. See
 #: :func:`test_offset_couples_exist_only_where_a_concentrated_mass_does`.
 _COUPLE_NODES = {
-    "atr42_100.project.json": 2,      # engine/prop/nacelle at BL 161, fuel at BL 250 (#260)
-    "atr42_300_seed.project.json": 2,  # the same layout, re-sized (#403)
-    "baron_58.project.json": 4,       # engine/gear/fuel/systems, four strips
-    "concept_heavy.project.json": 1,  # engine + fuel, one strip
+    # engine/prop/nacelle at BL 161, fuel at BL 250 (#260). Since #424 (note 75
+    # D-75.8) no reserve rides in every loading, so a zero-fuel case (`mzfw`,
+    # `min weight`) brackets the engine strip alone: both counts occur.
+    "atr42_100.project.json": {1, 2},
+    "atr42_300_seed.project.json": {1, 2},  # the same layout, re-sized (#403)
+    "baron_58.project.json": {4},       # engine/gear/fuel/systems, four strips
+    "concept_heavy.project.json": {1},  # engine + fuel, one strip
 }
 
 
@@ -244,6 +247,7 @@ def test_offset_couples_exist_only_where_a_concentrated_mass_does(example):
     wing, _, _, _, _, _ = _cached(example)
     _skip_if_empty(wing, example, "wing")
     expected = _has_concentrated_wing_mass(example)
+    seen = set()
     for r in wing:
         loads = ap.wing_nodal_loads(r)
         nodes = [i for i, nl in enumerate(loads)
@@ -256,12 +260,15 @@ def test_offset_couples_exist_only_where_a_concentrated_mass_does(example):
             # nacelle-mounted main gear (butt line 75) sits well inboard of its
             # engine and fuel (168 / 180), so it brackets a second node. A count
             # that moves means the station set or the mass placement moved.
-            assert len(nodes) == _COUPLE_NODES[example], \
+            assert len(nodes) in _COUPLE_NODES[example], \
                 f"{where}: couples at {nodes}, expected {_COUPLE_NODES[example]}"
+            seen.add(len(nodes))
         else:
             assert not nodes, (
                 f"{where}: offset couples at {nodes} on a wing with no "
                 "concentrated mass -- the correction is not a no-op here")
+    if expected:
+        assert seen == _COUPLE_NODES[example], (example, seen)
 
 
 

@@ -138,19 +138,25 @@ _FROZEN_PICKS = {
     # moved 3 % MAC forward, so NHAA's STALL -N point is the 12,000 ft one and
     # NMAA's narrowing pick moves to the 25,000 ft MAN -C; the `min weight`
     # picks stand.
+    # #424 (note 75 D-75.8): `min weight` carries no reserve fuel, 700 lb
+    # lighter, so its gust load factors grow (NLAA -0.61, PNZ +3.41, NNZ -1.41
+    # before; resultants 14276.8, 80493.7, 32061.3).
         "NHAA": ("STALL -N", -1.00, 153.98, "fwd gross", 12000.0, 36964.8),
         "NMAA": ("MAN -C", -1.00, 183.28, "fwd gross", 25000.0, 36932.1),
-        "NLAA": ("GUST -D", -0.61, 300.0, "min weight", 12000.0, 14276.8),
-        "PNZ": ("GUST +C", +3.41, 240.0, "min weight", 12000.0, 80493.7),
-        "NNZ": ("GUST -C", -1.41, 240.0, "min weight", 12000.0, 32061.3),
+        "NLAA": ("GUST -D", -0.656, 300.0, "min weight", 12000.0, 14898.6),
+        "PNZ": ("GUST +C", +3.471, 240.0, "min weight", 12000.0, 79579.9),
+        "NNZ": ("GUST -C", -1.47, 240.0, "min weight", 12000.0, 32546.6),
     },
     "concept_regional_jet": {
+        # #424 (note 75 D-75.8): `min weight` carries no reserve fuel, 1,500 lb
+        # lighter (NMAA/NNZ -1.80, NLAA -0.80, PNZ +3.80 before; resultants
+        # 35650, 14457, 82102).
         "NHAA": ("STALL -N", -1.00, 150.5, "fwd gross", 20000.0, 34454),
-        "NMAA": ("GUST -C", -1.80, 310.0, "min weight", 20000.0, 35650),
-        "NLAA": ("GUST -D", -0.80, 350.0, "min weight", 20000.0, 14457),
-        "PNZ": ("GUST +C", +3.80, 310.0, "min weight", 20000.0, 82102),
+        "NMAA": ("GUST -C", -1.991, 310.0, "min weight", 20000.0, 36607.7),
+        "NLAA": ("GUST -D", -0.923, 350.0, "min weight", 20000.0, 15577.0),
+        "PNZ": ("GUST +C", +3.996, 310.0, "min weight", 20000.0, 80335.0),
         # NMAA's air pick, delivered under NNZ once NMAA re-points (#294).
-        "NNZ": ("GUST -C", -1.80, 310.0, "min weight", 20000.0, 35650),
+        "NNZ": ("GUST -C", -1.991, 310.0, "min weight", 20000.0, 36607.7),
     },
     # Resultants re-pinned 2026-09-20 (#291): the heavy's polar re-entered
     # with its minimum at the zero-alpha CL, so every point's drag moved; the
@@ -847,22 +853,23 @@ def test_the_accel_roll_tie_band_is_the_balance_resolution():
 
 def test_an_accel_roll_tie_is_broken_on_the_net_root_bending():
     """**#320**: the regional jet's fwd gross roll points at 20,000 ft (V-n case
-    180) and sea level (40) differ by 0.185 % in LZW, inside the balance's
-    0.5 %. SELECT.BAS took 180 on LZW; the tie goes to 40, whose net root Mxx
+    200; 180 until #424's ``mzfw fwd`` case added twenty V-n rows ahead of it)
+    and sea level (40) differ by 0.185 % in LZW, inside the balance's
+    0.5 %. SELECT.BAS took 200 on LZW; the tie goes to 40, whose net root Mxx
     is the larger (5,527,521 against 5,486,079 lb-in, measured 2026-09-29), and
     the variant table delivers the slot there."""
     from sloads.modules.wing_variants import assessor, wing_variant_table
 
     p, vn = _rj_fwd_gross()
     band = select._accel_roll_band(vn)
-    assert [q.case for q in band] == [180, 40]
+    assert [q.case for q in band] == [200, 40]
     gap = (band[0].lzw - band[1].lzw) / band[0].lzw
     assert 0.0 < gap < select.LZW_TIE_REL
     run = assessor(p)
     assert not isinstance(run, str)
     mxx = {q.case: run("ACRL", "23.349(a)(2)", q, vn).root_mxx for q in band}
     assert mxx[40] == pytest.approx(5527521.0, rel=1e-4)
-    assert mxx[180] == pytest.approx(5486079.0, rel=1e-4)
+    assert mxx[200] == pytest.approx(5486079.0, rel=1e-4)
     assert select._pick_accel_roll(p, vn, "23.349(a)(2)").case == 40
     row = wing_variant_table(p).governing()["ACRL"]
     assert (row.case, row.cg) == (40, "fwd gross")
@@ -876,18 +883,18 @@ def test_a_lift_change_inside_the_band_does_not_move_the_pick():
     balance's resolution -- what a change to the iteration does -- leaves the
     pick where it was, and a point pushed out of the band leaves the tie."""
     p, vn = _rj_fwd_gross()
-    top = max(q.lzw for q in vn if q.case in (40, 180))
+    top = max(q.lzw for q in vn if q.case in (40, 200))
 
     def with_lzw(case: int, lzw: float):
         return [replace(q, lzw=lzw) if q.case == case else q for q in vn]
 
-    # Case 40 now the larger lift, then case 180 raised almost to the band's edge.
-    for moved in (with_lzw(40, top * 1.001), with_lzw(180, top * 1.003)):
+    # Case 40 now the larger lift, then case 200 raised almost to the band's edge.
+    for moved in (with_lzw(40, top * 1.001), with_lzw(200, top * 1.003)):
         assert select._pick_accel_roll(p, moved, "23.349(a)(2)").case == 40
     # Case 40 dropped out of the band: SELECT.BAS's largest LZW, alone.
     out = with_lzw(40, top * (1.0 - 2.0 * select.LZW_TIE_REL))
-    assert [q.case for q in select._accel_roll_band(out)] == [180]
-    assert select._pick_accel_roll(p, out, "23.349(a)(2)").case == 180
+    assert [q.case for q in select._accel_roll_band(out)] == [200]
+    assert select._pick_accel_roll(p, out, "23.349(a)(2)").case == 200
 
 
 def test_an_accel_roll_tie_without_a_wing_model_keeps_the_largest_lift():
@@ -896,7 +903,7 @@ def test_an_accel_roll_tie_without_a_wing_model_keeps_the_largest_lift():
     p = io.load_project(_RJ)
     p.wing_mass = None
     acrl = next(c for c in select.select_wing(p) if c.label == "ACRL")
-    assert acrl.case == 180
+    assert acrl.case == 200
     assert "#320" in acrl.note and "cannot run" in acrl.note and "wing_mass" in acrl.note
 
 

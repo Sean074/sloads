@@ -964,14 +964,13 @@ def _check_weight_case_model(project: Project) -> List[ConsistencyWarning]:
       rather than only as the exception ``landing_role_cases`` raises.
     * ``weight_order_chain`` -- ``empty weight <= MLW <= MTOW <= sum(items)``, the one place
       four scattered checks became. The floor half is G-4's ("you must be able to
-      land with reserves") and the ceiling half G-14's ("you cannot weigh more than
+      land at zero fuel") and the ceiling half G-14's ("you cannot weigh more than
       everything you have"); violations are the fixture-data class this project
       keeps finding by accident.
-    * ``mlw_below_landing_estimate`` -- MLW below ``OEW + max payload + reserve
-      fuel``, meaning the airplane cannot land at MLW with full payload and
-      reserves. Measured 2026-08-14 this fires on ``concept_regional_jet`` (31,000
-      against 31,360) and on no other shipped fixture, which is why the estimate is
-      a floor and not a prediction.
+    * ``mlw_below_landing_estimate`` -- MLW below ``OEW + max payload`` at zero
+      usable fuel, meaning the airplane cannot land at MLW with full payload
+      even with empty tanks. It fires on ``baron_58`` (#309) and on no other
+      shipped fixture, which is why the estimate is a floor and not a prediction.
     * ``mtow_representation_drift`` -- a stored ``speeds.weight_lb`` or
       ``weight.envelope.gross_weight`` that disagrees with the MTOW SSOT. G-14 made
       those derived reads; this is what keeps the compatibility fallback in
@@ -1066,7 +1065,7 @@ def _check_weight_case_model(project: Project) -> List[ConsistencyWarning]:
             "weight_order_chain",
             f"{lo_label} {format_value(lo, 'lb')} lb exceeds {hi_label} {format_value(hi, 'lb')} lb. The design "
             "weights must satisfy empty weight <= MZFW <= MLW <= MTOW <= the item total -- "
-            "you must be able to land with reserves, and you cannot weigh more than "
+            "you must be able to land at zero fuel, and you cannot weigh more than "
             "everything you have (decisions G-4 / G-14; MZFW note 63 D-63.5).",
             PAGE_WEIGHT_CG))
 
@@ -1074,9 +1073,9 @@ def _check_weight_case_model(project: Project) -> List[ConsistencyWarning]:
     if mlw > 0 and floor is not None and mlw < floor - 1e-6:
         out.append(ConsistencyWarning(
             "mlw_below_landing_estimate",
-            f"Max landing weight {format_value(mlw, 'lb')} lb is below OEW + max payload + reserve "
-            f"fuel ({format_value(floor, 'lb')} lb), so this airplane cannot land at MLW with full "
-            "payload and reserves -- some payload has to be left behind on every "
+            f"Max landing weight {format_value(mlw, 'lb')} lb is below OEW + max payload "
+            f"({format_value(floor, 'lb')} lb, zero usable fuel), so this airplane cannot land at "
+            "MLW with full payload even with empty tanks -- some payload has to be left behind on every "
             "flight that lands heavy. Confirm the MLW, the payload rows, or which "
             "fuel rows are consumable mission fuel (14 CFR 23.473(b)/(c)).",
             PAGE_WEIGHT_CG))
@@ -1328,6 +1327,34 @@ def _check_minimum_crew(project: Project) -> List[ConsistencyWarning]:
             "its kind to minimum (design note 75).",
             PAGE_WEIGHT_CG))
     return out
+
+
+def _check_minimum_fuel_in_zero_fuel_weight(project: Project) -> List[ConsistencyWarning]:
+    """No usable fuel rides inside a zero-fuel weight (design note 75 D-75.9).
+
+    * ``minimum_fuel_in_zero_fuel_weight`` -- a ``MINIMUM`` row tagged
+      ``usable_fuel`` on a project that states an MZFW. A ``MINIMUM`` row is
+      aboard every loading, so the fuel would sit inside every zero-fuel case:
+      the structural-reserve credit of 23.343(c) / 25.343(a), which sloads does
+      not take (it would owe the reduced-factor zero-wing-fuel case of
+      23.343(c)(1) / 25.343(b)(1)). Typed tags only, never a name. The Appendix
+      A airplane keeps its half-hour fuel row and states no MZFW, so it is quiet.
+    """
+    weight = project.weight
+    if weight is None or not weight.items or weight.max_zero_fuel_weight_lb <= 0.0:
+        return []
+    names = [it.name for it in mass_distribution.oew_items(project).fuel
+             if it.kind == MassItemKind.MINIMUM]
+    if not names:
+        return []
+    return [ConsistencyWarning(
+        "minimum_fuel_in_zero_fuel_weight",
+        f"{', '.join(repr(n) for n in names)} {'is' if len(names) == 1 else 'are'} "
+        "usable fuel of kind minimum, so it rides inside every zero-fuel loading "
+        "-- a structural-reserve credit (23.343(c), 25.343(a)) that would also "
+        "owe a reduced-factor zero-wing-fuel case. Fold it into a discretionary "
+        "tank row, and the zero-fuel cases fly with no usable fuel (design note 75).",
+        PAGE_WEIGHT_CG)]
 
 
 def _check_envelope_reach(project: Project) -> List[ConsistencyWarning]:
@@ -2141,6 +2168,7 @@ def consistency_warnings(project: Project) -> List[ConsistencyWarning]:
     out += _check_gear_carrier(project)
     out += _check_wing_fraction(project)
     out += _check_minimum_crew(project)
+    out += _check_minimum_fuel_in_zero_fuel_weight(project)
     out += _check_wing_mass_tie(project)
     out += _check_wing_mass_states(project)
     out += _check_case_loading_missing(project)

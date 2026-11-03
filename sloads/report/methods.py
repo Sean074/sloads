@@ -36,6 +36,7 @@ from typing import Dict, List, Optional, Tuple
 
 from ..applicability import Exceedance, far23_applicability
 from ..constants import ULTIMATE_FACTOR
+from ..mass_distribution import fuel_basis
 from ..models import SCHEMA_VERSION, Project
 from ..safety_factors import ENGINE_FAILURE_NOUN
 from ..units import (
@@ -586,6 +587,13 @@ def methods_statement(
     # APPROVED_CORRECTIONS precedent, where an undeclared deviation is invisible
     # to the analyst, which is the whole point of declaring it.
     L.extend(_safety_factor_block(project))
+
+    # 1a'. Fuel basis --------------------------------------------------------- #
+    # Design note 75 D-75.11: the minimum-weight rule, the structural reserve
+    # not taken and whether a zero-fuel case was run are as much a statement
+    # about every load as the factor is, so they travel the same way.
+    L.append("FUEL BASIS: " + " ".join(fuel_basis(project).lines))
+    L.append("")
 
     # 1b. Units -------------------------------------------------------------- #
     L.extend(_units_block(system))

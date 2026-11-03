@@ -2,7 +2,7 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: SHIPPED 2026-11-02** (#337; closure under the #359 rules, so one
+**Status: SHIPPED 2026-11-02** (#337; addendum §5 SHIPPED 2026-11-03, #424; closure under the #359 rules, so one
 `changes/` fragment and no history entry). AGREED 2026-11-02, no code. The owner ruled in session,
 under the solo profile (rule 1's working-alone branch), on the payload-case
 rule (§2) and approved the plan. That ruled Q1–Q4 of the first draft:
@@ -114,3 +114,39 @@ The D-75.7 corners:
   fill of the payload rows, computed in the test independently of the fixture.
 - **G-75.5:** the v82 → v83 hop is an identity (`test_schema_guards`).
 - The existing `case_loading_checks` keeps every entered loading matching its case.
+
+## 5. Addendum (#424, owner 2026-11-03): no structural-reserve credit
+
+**Ruling.** Standard weight definitions, and no reserve-fuel credit taken in the
+loads. A `MINIMUM` row is aboard every loading, so the reserve rows the ATR, the
+regional jet and `concept_heavy` carried rode inside every zero-fuel weight. That
+is the credit 23.343(c) (61 FR 5144, 1996) and 25.343(a) allow but do not
+require, and taking it owes a zero-wing-fuel case at 90 % n / +2.25 g and 85 %
+gust (23.343(c)(1), 25.343(b)(1)). The minimum weight of 23.25(b) is a ceiling
+("not more than"), and 25.25(b) leaves it to the applicant, so empty + crew
+complies. It is also the lower weight, which raises the light-weight gust n.
+
+| Quantity | 14 CFR | McMaster (oracle) | Lomax (1996) | sloads |
+|---|---|---|---|---|
+| Minimum weight | 23.25(b): ≤ empty + crew + ½ h fuel | items 51–60: pilot + "30 MIN FUEL" 71 lb = 2,063 lb (App. A p136, p139) | OEW_min, no usable fuel (§14.1 p233) | `EMPTY` + `MINIMUM`; ga6 keeps its 71 lb (oracle), the rest no fuel |
+| ZFW / MZFW | 23.343(b) zero wing fuel | no zero-fuel condition | zero usable fuel (p233), payload = MZFW − OEW (Eq 14.1 p234) | zero usable fuel |
+| Structural reserve | optional (23.343(c), 25.343(a)) | not addressed | the band OEW + SRF … MZFW + SRF (§14.1.1 p234) | not selected |
+
+| ID | Decision |
+|----|----------|
+| **D-75.8** | The reserve rows fold into the tank rows at the same station (ATR 350 → wing fuel 4,937 a side; RJ 1,500 → mission fuel 4,940; heavy 300 → wing fuel 2,900 a side), so every fuelled case keeps its weight and CG. `min weight` and the `mzfw` cases are re-seeded (D-63.5) with no usable fuel. `atr42_100`'s payload rows reach 76 lb short of MZFW, so its `mzfw aft` is the rows' extreme, 33,434 lb. The RJ's gross, forward-regardless and `fwd light` cases keep their pre-#424 loadings: re-seeded, NHAA breaks the clamped-case residual ratchet (1.88 % against 1.65 %), so the D-27 guard checks their weight and station only until #422. The MZFW and MLW estimates (`cg_cases`) leave every usable-fuel row out. |
+| **D-75.9** | **`minimum_fuel_in_zero_fuel_weight`** (page `weight_mass`) warns on a `MINIMUM` usable-fuel row when an MZFW is stated. |
+| **D-75.10** | The code prose that called `MINIMUM` "pilot, reserve fuel" now says crew plus the optional 23.25(b)(3) fuel. |
+| **D-75.11** | **`mass_distribution.fuel_basis`** states the minimum-weight rule, the reserve not taken, and the zero-fuel cases run. Where none is run, as on ga6, it says "not run; assumed not critical". The methods statement carries it, so it reaches every report, METHODS.txt and every CSV and deck stamp; WTENV's caption shows it on the Weight & Mass page. |
+
+**Effect** (all LIMIT; the factor is unchanged):
+- **Minimum weight:** −700 lb on each ATR, −1,500 lb on the RJ.
+- **Gust n at `min weight`:** ATR NLAA −0.61 → −0.656, PNZ 3.41 → 3.471, NNZ −1.41 → −1.47; RJ NMAA/NNZ −1.80 → −1.991, NLAA −0.80 → −0.923, PNZ 3.80 → 3.996.
+- **ATR ACRL** (closes at `mzfw aft`): the wing span reacts 0.696 of the aileron moment (was 0.622).
+- **Not moved:** ga6's oracle and the Baron.
+
+**Gates (`tests/test_reserve_fuel.py`):**
+- **G-75.6:** only ga6 carries `MINIMUM` fuel.
+- **G-75.7:** the guard fires by name.
+- **G-75.8:** every `mzfw` case has no usable fuel and is ≤ MZFW.
+- **G-75.9:** every artifact states the fuel basis, and ga6 states its rule and its assumption.

@@ -174,7 +174,7 @@ def test_imperial_mass_is_deliberately_not_the_identity():
 _WTENV_FLIGHT = ["aft gross", "fwd gross", "fwd regardless", "min weight", "mid gross"]
 _MZFW_ATR = ["mzfw aft", "mzfw fwd", "full fuel aft"]
 _MZFW_BARON = ["mzfw aft", "mzfw fwd", "full fuel aft"]   # #337: note 75 adds full fuel aft
-_MZFW_JET = ["mzfw aft", "full fuel aft"]
+_MZFW_JET = ["mzfw aft", "mzfw fwd", "full fuel aft"]   # #424: zero-fuel, mzfw fwd is its own point
 _DERIVABLE = {
     "ga6_normal.project.json": ["CG1", "CG2", "CG3", "CG4"],
     "atr42_100.project.json": _WTENV_FLIGHT + _MZFW_ATR,
@@ -623,14 +623,13 @@ def test_a_project_with_no_derivable_case_refuses_a_check_deck():
 #: by name here, the one place a name may decide anything: the tag is the input,
 #: and this is the record of what was entered.
 _USABLE_FUEL = {
-    "atr42_100.project.json": {"Reserve fuel, left", "Reserve fuel, right",
-                               "Wing fuel, left", "Wing fuel, right"},
-    "atr42_300_seed.project.json": {"Reserve fuel, left", "Reserve fuel, right",
-                                    "Wing fuel, left", "Wing fuel, right"},
+    # #424 (note 75 D-75.8): the reserve folded into the tanks; only the
+    # Appendix A airplane keeps a MINIMUM fuel row, its 23.25(b)(3) half hour.
+    "atr42_100.project.json": {"Wing fuel, left", "Wing fuel, right"},
+    "atr42_300_seed.project.json": {"Wing fuel, left", "Wing fuel, right"},
     "baron_58.project.json": {"Fuel, left wing", "Fuel, right wing"},
-    "concept_heavy.project.json": {"Reserve fuel", "Wing fuel, left",
-                                   "Wing fuel, right"},
-    "concept_regional_jet.project.json": {"Reserve fuel", "Mission fuel"},
+    "concept_heavy.project.json": {"Wing fuel, left", "Wing fuel, right"},
+    "concept_regional_jet.project.json": {"Mission fuel"},
     "ga6_normal.project.json": {"30 min fuel", "Fuel to gross wt"},
 }
 
@@ -697,12 +696,12 @@ def test_the_oew_header_names_every_minimum_row_on_its_side(example):
 
 def test_an_untagged_reserve_tank_is_kept_and_named():
     """A migrated project's reserve fuel reads ``False``: it rides in, by name."""
-    p = _project("concept_regional_jet.project.json")
+    p = _project("ga6_normal.project.json")
     for it in p.weight.items:
         it.usable_fuel = False
     text = mc.oew_fragment(p)
     included = next(ln for ln in text.splitlines() if "rows INCLUDED:" in ln)
-    assert "Reserve fuel" in included
+    assert "30 min fuel" in included
     assert "LEFT OUT: none" in text
 
 
