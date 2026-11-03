@@ -70,3 +70,10 @@ The export above was reviewed before it entered the tree. What changed, and why;
 | `Reserve fuel, left` / `right` | 350 lb each, `MINIMUM` | removed; each wing tank 4,587 → 4,937 lb | a `MINIMUM` row is aboard every loading, so the reserve rode inside every zero-fuel weight: the 25.343(a) structural-reserve credit, not selected (design note 75 D-75.8). Fuel capacity unchanged | -- |
 | `min weight` | 24,250 lb at 378.49 in | 23,550 lb at 378.33 in | the minimum flight weight is now empty + crew, no fuel | -- |
 | `mzfw aft` / `mzfw fwd` | 33,510 at 385.90 / 29,915 at 367.54 | 33,510 at 381.82 / 29,150 at 367.54 | re-seeded (D-63.5) with zero usable fuel; every fuelled case keeps its weight and CG (the tank fraction carries the same pounds) | -- |
+
+## Corrections at #422 (2026-11-03): the payload corners
+
+| Quantity | Was | Now | Why | Tag |
+|---|---|---|---|---|
+| `mzfw fwd` | 29,150 lb on the 367.54 in line | 33,510 lb at 372.21 in | design note 76 holds MZFW and states the rows' forward extreme, 4.67 in short of the line | -- |
+| Limit points | the D-27 search, ballast-closed | `aft gross`, `fwd gross`, `aft max landing`: full fuel and the least payload, on the lines; `mid gross`: the MZFW payload plus fuel; the rest the search's | note 76 D-76.3: the first real loading that reaches each point | -- |

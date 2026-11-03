@@ -65,15 +65,18 @@ __all__ = [
 #: gross-weight loading for the balanced-airplane deliverable. Names are the
 #: seed's own; :func:`seed_flight_cases` is their one writer.
 FLIGHT_CASE_NAMES = ("aft gross", "fwd gross", "fwd regardless", "min weight",
-                     "mid gross", "mzfw aft", "mzfw fwd", "full fuel aft")
+                     "mid gross", "mzfw aft", "mzfw fwd", "full fuel aft",
+                     "full fuel fwd")
 
-#: The three of :data:`FLIGHT_CASE_NAMES` that a max zero-fuel weight adds
-#: (design note 63, D-63.5): the heaviest zero-fuel loading toward each edge
-#: of the envelope, and the full-fuel loading at the aft edge -- the mass
+#: The four of :data:`FLIGHT_CASE_NAMES` that a max zero-fuel weight adds --
+#: note 75 §2's corners, built by :func:`sloads.mass_distribution.payload_corner`
+#: (design note 76 D-76.2): MZFW with no fuel and MTOW with full fuel, each on
+#: the forward and the aft limit or at the rows' extreme that way -- the mass
 #: states a wing-fuel airplane's up-bending and down-bending slots are governed
 #: at. Seeded **with** their loadings, and only when they do not coincide
-#: with a case already seeded.
-MZFW_CASE_NAMES = ("mzfw aft", "mzfw fwd", "full fuel aft")
+#: with a case already seeded. ``full fuel fwd`` is last so the V-n numbering
+#: of the three before it does not move (#422).
+MZFW_CASE_NAMES = ("mzfw aft", "mzfw fwd", "full fuel aft", "full fuel fwd")
 
 
 # --------------------------------------------------------------------------- #
@@ -367,6 +370,7 @@ def seed_landing_cases(project: Project) -> Tuple[List[CgCase], List[str]]:
     cases = [CgCase(name=name, weight_lb=w, xcg=x, zcg=zbar,
                     analyses={AnalysisKind.GROUND}, role=role)
              for role, name, w, x in seeds if x is not None]
+    _enter_limit_point_loadings(project, cases)
     _echo_loading_waterlines(project, cases)
     return cases, []
 
@@ -513,23 +517,25 @@ def seed_flight_cases(project: Project) -> Tuple[List[CgCase], List[str]]:
     and the case still seeds -- the derivability pin, not the seed, is what
     reports an unreachable limit.
 
-    **Three more when a max zero-fuel weight is entered** (design note 63,
-    D-63.5; :data:`MZFW_CASE_NAMES`): ``mzfw aft`` and ``mzfw fwd``, the
-    heaviest zero-fuel loading inside the envelope toward each edge under
-    MZFW, and ``full fuel aft``, every consumable row full and the payload
-    trimmed to MTOW at the aft edge. Each is written **with** its loading
-    (:func:`sloads.mass_distribution.seed_loading_search`; one payload row may
-    be trimmed onto the limit), so the case is an entered loading from birth.
-    A seed that coincides with a case already in the list -- weight within the
-    D-25a echo band and CG within the search's own match tolerance, note 63
-    §8.1's ``full fuel aft`` = CG1 on the Appendix A airplane -- is not
-    written. Without MZFW the list is the five above, unchanged.
+    **When a max zero-fuel weight is entered** (design note 76): each limit
+    point but ``min weight`` carries the first real loading that reaches it --
+    MZFW payload plus fuel, then full fuel -- and is otherwise left to the
+    search (D-76.3); and **four corners** follow (D-76.2;
+    :data:`MZFW_CASE_NAMES`): ``mzfw aft`` / ``mzfw fwd`` at MZFW with no
+    fuel, ``full fuel aft`` / ``full fuel fwd`` at MTOW with the tanks full,
+    each on its limit or at the rows' extreme that way
+    (:func:`sloads.mass_distribution.payload_corner`, at most two rows
+    part-filled, never ballast). Each is written **with** its loading, so the
+    case is an entered loading from birth. A corner that coincides with a case
+    already in the list -- weight within the D-25a echo band and CG within the
+    search's own match tolerance -- is not written. Without MZFW the list is
+    the five above, unchanged, as on the Appendix A airplane.
 
     Returns ``(cases, missing)`` exactly as :func:`seed_landing_cases` does: an
     empty list and the named missing sources when it cannot seed. Never
     zero-filled.
     """
-    from .mass_distribution import seed_loading_search
+    from .mass_distribution import _corner_rows, payload_corner
     from .validation import _wtenv_stations, wtenv_fwd_cg_limit_line
 
     missing = []
@@ -566,22 +572,27 @@ def seed_flight_cases(project: Project) -> Tuple[List[CgCase], List[str]]:
     cases = [CgCase(name=name, weight_lb=round(w, 2), xcg=round(x, 2),
                     zcg=round(z_all, 2), analyses={AnalysisKind.FLIGHT})  # note 65 exempt: arithmetic, not text
              for name, w, x in seeds]
+    _enter_limit_point_loadings(project, cases)
     _echo_loading_waterlines(project, cases)
 
-    # The zero-fuel and full-fuel seeds (D-63.5), each with its loading.
+    # Note 75 §2's corners (design note 76 D-76.2), each with its loading.
     mzfw = max_zero_fuel_weight(project, required=False)
     fwd_line = wtenv_fwd_cg_limit_line(project) if mzfw > 0.0 else None
     if mzfw > 0.0 and fwd_line is not None:
         mtow = max_takeoff_weight(project, required=False) or env.gross_weight
-        searches = (
-            ("mzfw aft", dict(fuel="none", cap_lb=mzfw, edge="aft")),
-            ("mzfw fwd", dict(fuel="none", cap_lb=mzfw, edge="fwd")),
-            ("full fuel aft", dict(fuel="full", cap_lb=mtow, edge="aft")),
+        base, tanks, _ = _corner_rows(project)
+        full = min(math.fsum(it.weight_lb for it in tanks),
+                   mtow - math.fsum(it.weight_lb for it in base))
+        corners = (
+            ("mzfw aft", mzfw, 0.0, "aft"),
+            ("mzfw fwd", mzfw, 0.0, "fwd"),
+            ("full fuel aft", mtow, full, "aft"),
+            ("full fuel fwd", mtow, full, "fwd"),
         )
-        assert tuple(n for n, _ in searches) == MZFW_CASE_NAMES
-        for name, spec in searches:
-            found = seed_loading_search(project, aft_limit=aft, fwd_limit_at=fwd_line,
-                                        **spec)   # type: ignore[arg-type]
+        assert tuple(n for n, *_ in corners) == MZFW_CASE_NAMES
+        for name, w, fuel, edge in corners:
+            found = payload_corner(project, w, fuel, edge, aft_limit=aft,
+                                   fwd_limit_at=fwd_line)
             if found is None or any(_coincident(c, found.weight_lb, found.cg_x)
                                     for c in cases):
                 continue
@@ -589,6 +600,23 @@ def seed_flight_cases(project: Project) -> Tuple[List[CgCase], List[str]]:
                                 xcg=round(found.cg_x, 2), zcg=found.cg_z,
                                 analyses={AnalysisKind.FLIGHT}, loading=found.loading))  # note 65 exempt: arithmetic
     return cases, []
+
+
+def _enter_limit_point_loadings(project: Project, cases: List[CgCase]) -> None:
+    """Give each envelope limit point a real loading where one reaches it
+    (design note 76 D-76.3): the point keeps its weight and station, and the
+    first of :func:`sloads.mass_distribution.limit_point_loading`'s rules that
+    lands on it -- MZFW payload plus fuel, then full fuel -- is entered on the
+    case. A point no loading reaches is left to the D-27 search, its ballast
+    flagged as before. ``min weight`` is OEW and has no choice to make."""
+    from .mass_distribution import limit_point_loading
+
+    for case in cases:
+        if case.name == "min weight":
+            continue
+        found = limit_point_loading(project, case.weight_lb, case.xcg)
+        if found is not None:
+            case.loading = found[0].loading
 
 
 def _coincident(case: CgCase, weight_lb: float, xcg: float) -> bool:

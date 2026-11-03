@@ -494,7 +494,13 @@ _FIN_ROLL_ARM = {
     # D-27 (2026-08-17): the lateral cases fly at the WTENV limit points, whose
     # closing loading's waterline is the echo (the fuselage masses moved forward,
     # the cabin re-spaced).
-    "concept_regional_jet.project.json": (151.9735975609756, 64.59, +87.3835975609756),
+    # #422 (design note 76): the limit points carry real loadings, no ballast,
+    # so the two the fin cases fly at no longer share a waterline: SIDE GUST at
+    # `fwd gross` (full fuel, 64.59 -> 63.34), the other three at `aft gross`
+    # (61.68). The waterline is pinned per CG case; the arm follows from it.
+    "concept_regional_jet.project.json": (151.9735975609756,
+                                          {"fwd gross": 63.33799242424242,
+                                           "aft gross": 61.680989583333336}, None),
 }
 
 
@@ -531,10 +537,14 @@ def test_the_fin_sits_above_the_cg_with_the_pinned_roll_arm(example):
 
         total = sum(s.fz for s in r.stations)
         z_centroid = sum(s.fz * zi for s, zi in zip(r.stations, z)) / total
-        z_cg = cgs[vn[conditions[r.case].case].cg].zcg
+        cg = vn[conditions[r.case].case].cg
+        z_cg = cgs[cg].zcg
+        # One waterline for the fixture, or one per CG case the fin flies at.
+        zcg_want = want_zcg[cg] if isinstance(want_zcg, dict) else want_zcg
+        arm_want = want_zc - zcg_want if want_arm is None else want_arm
         assert z_centroid == pytest.approx(want_zc, rel=1e-6)
-        assert z_cg == pytest.approx(want_zcg, rel=1e-9)
-        assert z_centroid - z_cg == pytest.approx(want_arm, rel=1e-6)
+        assert z_cg == pytest.approx(zcg_want, rel=1e-9)
+        assert z_centroid - z_cg == pytest.approx(arm_want, rel=1e-6)
         assert z_centroid > z_cg, (
             f"{example} {r.case}: the fin is modelled BELOW the CG "
             f"({z_centroid:.1f} against {z_cg:.1f}), which reverses the sign of "

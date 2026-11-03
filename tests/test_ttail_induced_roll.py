@@ -121,7 +121,7 @@ _ROOT_WITH_TIP = {
 _INDUCED_BENDING = {
     "concept_regional_jet": {
         "SUDDEN RUDDER": 148_657, "YAW TO SIDESLIP": 83_801,
-        "YAW 15 NEUTRAL": 170_579, "SIDE GUST": 291_033,
+        "YAW 15 NEUTRAL": 170_579, "SIDE GUST": 290_655,   # #422: `fwd gross` loading (291,033)
     },
     # Re-measured at #420 (the certified 12-38 % limits): every ATR row rose
     # 1-12 %, the induced set now bending a stabiliser whose cases close at
@@ -143,7 +143,7 @@ _INDUCED_BENDING = {
 #: the condition it comes from. The RJ's does not move with D-51.12. The ATR's
 #: re-pinned at #389: 233,122 -> 329,026 on the airplane's tails.
 _GOVERNING = {
-    "concept_regional_jet": ("GUST DN RETRACTED", 349_920),
+    "concept_regional_jet": ("GUST DN RETRACTED", 349_563),   # #422: limit-point loadings (349,920)
     "atr42_100": (f"{INDUCED_ROLL_LABEL} — ONE ENGINE OUT — VD (limit) (engine 1)", 332_206),   # #405
 }
 

@@ -172,7 +172,9 @@ def test_imperial_mass_is_deliberately_not_the_identity():
 #: construction); a seed coinciding with an earlier case is not written (the
 #: Baron's and the jet's third).
 _WTENV_FLIGHT = ["aft gross", "fwd gross", "fwd regardless", "min weight", "mid gross"]
-_MZFW_ATR = ["mzfw aft", "mzfw fwd", "full fuel aft"]
+# #422 (design note 76): the ATR's one zero-fuel loading is every payload row
+# aboard, so `mzfw fwd` is `mzfw aft` and is not written; `full fuel fwd` is new.
+_MZFW_ATR = ["mzfw aft", "full fuel aft", "full fuel fwd"]
 _MZFW_BARON = ["mzfw aft", "mzfw fwd", "full fuel aft"]   # #337: note 75 adds full fuel aft
 _MZFW_JET = ["mzfw aft", "mzfw fwd", "full fuel aft"]   # #424: zero-fuel, mzfw fwd is its own point
 _DERIVABLE = {

@@ -394,7 +394,9 @@ _FORCE_RESIDUAL_RATCHET = {
     # concept_heavy re-pinned 2026-09-20 (#291): PHAA 1.214 %.
     "concept_heavy.project.json": {"symmetric": 0.0125, "lateral": 0.0030,
                                    "unsymmetrical": 0.0030},
-    "concept_regional_jet.project.json": {"symmetric": 0.0165, "lateral": 0.0035,
+    # #422 (design note 76): the relief gate reads this row for the clamped
+    # NHAA, re-measured 1.877 % at sea level (see _CLAMPED_BODY_AXIAL).
+    "concept_regional_jet.project.json": {"symmetric": 0.0190, "lateral": 0.0035,
                                           "unsymmetrical": 0.0040},
 }
 
@@ -442,7 +444,10 @@ _CLAMPED_BODY_AXIAL = {
     # atr42_100 re-measured 2026-09-21 (#260): NMAA no longer clamps.
     "atr42_100.project.json": {"NHAA": (0.0020, 0.0150)},
     # atr42_300_seed measured 2026-11-01 (#403): its NHAA clamps at 0.024 % / 0.813 %.
-    "atr42_300_seed.project.json": {"NHAA": (0.0005, 0.0090)},
+    # #422 (design note 76): NHAA re-points to the new `mzfw fwd` corner
+    # (33,510 lb at the rows' forward extreme), 16.7 deg past the elevator
+    # stop -- re-measured 0.190 % / 1.46 % (0.024 % / 0.813 % at `aft gross`).
+    "atr42_300_seed.project.json": {"NHAA": (0.0020, 0.0150)},
     # baron_58 dropped 2026-10-03 (#331): at the POH's 4.2 its NHAA moved to
     # STALL -1G at 20,000 ft, alpha -11.8 deg, aft (dCD -0.0011), unclamped.
     "concept_heavy.project.json": {"NHAA": (0.0030, 0.0070)},
@@ -450,7 +455,12 @@ _CLAMPED_BODY_AXIAL = {
     # slot to sea level (V-n case 40), force 0.451 %, pitch 0.346 %.
     "concept_regional_jet.project.json": {"PHAA": (0.0110, 0.0065),
                                           "ACRL": (0.0050, 0.0040),
-                                          "NHAA": (0.0165, 0.0075)},
+                                          # #422 (design note 76): `fwd gross`
+                                          # carries full fuel, no ballast, and
+                                          # NHAA re-points from 20,000 ft (case
+                                          # 188, 1.60 %) to sea level (case 28),
+                                          # past the 20 deg stop: 1.877 % / 0.651 %.
+                                          "NHAA": (0.0190, 0.0075)},
 }
 
 #: A forward non-wing axial force **inside** the trusted window is a fixture
@@ -1193,8 +1203,8 @@ _DELTA_CD_BAND = {
     # the reconciled wing, CLmax 1.8 and CD0 0.032; NHAA +0.0209.
     'atr42_100.project.json': (-0.1260, +0.0215),
     # atr42_300_seed measured 2026-11-01 (#403): PHAA -0.1379 at `mzfw aft`, the
-    # clamped NHAA +0.0120.
-    'atr42_300_seed.project.json': (-0.1385, +0.0125),
+    # clamped NHAA +0.0120. #422: the clamped NHAA at `mzfw fwd`, +0.0208.
+    'atr42_300_seed.project.json': (-0.1385, +0.0210),
     # baron_58 re-pinned 2026-09-18 (#292): the eight wing slots assemble at
     # the seeded MZFW loadings (PHAA -0.0726 at `mzfw aft`, NMAA -0.0086 at
     # `mzfw fwd`; the clamped NHAA -0.0002); before, only TORS and the
@@ -1209,7 +1219,8 @@ _DELTA_CD_BAND = {
     # minimum at the zero-alpha CL; PHAA -0.0898, the clamped NHAA +0.0084
     # (was -0.1385 .. +0.0397, with NMAA forward inside the window).
     'concept_heavy.project.json': (-0.0899, +0.0085),
-    'concept_regional_jet.project.json': (-0.0372, +0.0726),
+    # #422 (design note 76): the clamped NHAA at sea level (case 28), +0.0791.
+    'concept_regional_jet.project.json': (-0.0372, +0.0795),
 }
 
 #: The trusted-``alpha`` window is **read from its owner**,
@@ -1813,7 +1824,7 @@ _WING_SPAN_ROLL_SHARE = {
     # forward and its cabin zones re-spaced, so Sum w*y^2 vs the wing's own
     # share shifted by 0.1 %. Mass layout, not physics.
     # 0.871435 -> 0.871426 on 2026-08-30 with the re-seeded CG cases.
-    "concept_regional_jet.project.json": 0.831285,   # #384: the RJ's engines and gear left the centreline
+    "concept_regional_jet.project.json": 0.833141,   # #384: engines and gear off the centreline; #422: `fwd gross` loading (0.831285)
     # Design note 52 (#306): these three roll for the first time -- their
     # ``ACRL`` couple is derived from condition A where none was entered.
     # Measured; the shape half of the gate holds to 1e-15 on each.
@@ -1822,7 +1833,7 @@ _WING_SPAN_ROLL_SHARE = {
     "atr42_100.project.json": 0.696103,
     # #403: the T-tail is 12.65 in higher and the wing 50 lb lighter; #420: ACRL
     # closes at `aft gross` on the certified lines.
-    "atr42_300_seed.project.json": 0.596809,
+    "atr42_300_seed.project.json": 0.670623,   # #422: ACRL re-points to `mzfw fwd`, no fuel (0.596809)
     "baron_58.project.json": 0.529093,   # #337: ACRL closes at the rebuilt `mzfw fwd`
     # #424: the 300 lb centreline reserve folded into the BL +-120 tanks (0.383907 before).
     "concept_heavy.project.json": 0.371732,
@@ -2041,8 +2052,10 @@ _CLOSURE_IZZ = {
     # Re-measured 2026-11-01 (#420): on the certified lines the lateral cases
     # close at the three limit points alone.
     # #424: no reserve fuel in `min weight` (158270.0 before).
-    'atr42_300_seed.project.json': {'fwd gross': 317785.1, 'aft gross': 225709.8,
-                                    'min weight': 148822.3},
+    # #422 (design note 76): the limit points carry full fuel and no ballast, and the
+    # lateral cases assemble at the new `mzfw fwd` corner.
+    'atr42_300_seed.project.json': {'fwd gross': 299026.9, 'aft gross': 298290.2,
+                                    'min weight': 148822.3, 'mzfw fwd': 180208.7},
     # The Baron's two MZFW loadings first assemble at #292 (note 63 D-63.5/
     # D-63.7), measured 2026-09-18; the RJ's `fwd regardless` likewise (NMAA).
     # #309: `fwd gross` first assembles (SIDE GUST), entered with no ballast.
@@ -2059,8 +2072,10 @@ _CLOSURE_IZZ = {
 #: shifted ~0.05 in), and Izz follows the CG.
     # #384: engines split L/R at BL +-42 (1,700 lb each, station 850) and the main
     # gear at BL +-40, so the RJ's Izz gained its engine and gear terms.
-    'concept_regional_jet.project.json': {'fwd gross': 255948.2, 'min weight': 197796.5, 'aft gross': 257515.0,
-                                          'fwd regardless': 300036.1},
+    # #422 (design note 76): `fwd gross` carries full fuel and no ballast
+    # (255948.2 before); `aft gross` and `fwd regardless` re-seeded.
+    'concept_regional_jet.project.json': {'fwd gross': 227078.0, 'min weight': 197796.5, 'aft gross': 276065.0,
+                                          'fwd regardless': 252306.9},
 }
 
 
@@ -2160,12 +2175,12 @@ _ACRL_LATERAL = {
     'ga6_normal.project.json': {"companion_fy_lb": 77.83, "r_dot_deg_s2": 16.402},
     # #424 (note 75 D-75.8): `mzfw aft` lost its 700 lb reserve at BL +-250 (455.59 / 6.255 before).
     'atr42_100.project.json': {"companion_fy_lb": 502.77, "r_dot_deg_s2": 7.704},
-    'atr42_300_seed.project.json': {"companion_fy_lb": 511.65, "r_dot_deg_s2": 9.507},   # #403; re-measured at #420 (certified limits)
+    'atr42_300_seed.project.json': {"companion_fy_lb": 547.01, "r_dot_deg_s2": 13.304},   # #403; #420; #422: ACRL at `mzfw fwd` (511.65 / 9.507)
     # #331: ACRL flies at VA, 161.0 -> 172.8 KEAS with the POH's 4.2 (x1.151).
     # #337: ACRL closes at the rebuilt `mzfw fwd`.
     'baron_58.project.json': {"companion_fy_lb": 31.38, "r_dot_deg_s2": 5.248},
     'concept_heavy.project.json': {"companion_fy_lb": 266.06, "r_dot_deg_s2": 2.498},   # #424 (274.78 / 2.637)
-    'concept_regional_jet.project.json': {"companion_fy_lb": 293.29, "r_dot_deg_s2": 4.162},   # re-pinned at #384
+    'concept_regional_jet.project.json': {"companion_fy_lb": 319.24, "r_dot_deg_s2": 5.089},   # #384; #422: `fwd gross` loading (293.29 / 4.162)
 }
 
 
@@ -2413,10 +2428,12 @@ _LATERAL_CASE_NUMBERS = {
     # Re-pinned 2026-11-01 (#420): the fin loads hold; the accelerations moved
     # with the loadings that now close the certified limit points.
     'atr42_300_seed.project.json': {
-        'SIDE GUST': (7609.7147, +0.206690, +46.165455, -18.852852),
-        'SUDDEN RUDDER': (7246.6208, +0.196828, +60.974213, -38.624263),
-        'YAW 15 NEUTRAL': (-8232.6923, -0.223611, -64.407432, +44.809640),
-        'YAW TO SIDESLIP': (-3455.8791, -0.093866, -22.755448, +19.628269),
+        # #422 (design note 76): fin loads and Ny hold; the accelerations move
+        # with the no-ballast loadings at the limit points.
+        'SIDE GUST': (7609.7147, +0.206690, +49.011102, -18.317466),
+        'SUDDEN RUDDER': (7246.6208, +0.196828, +47.632248, -16.579360),
+        'YAW 15 NEUTRAL': (-8232.6923, -0.223611, -50.476873, +19.089131),
+        'YAW TO SIDESLIP': (-3455.8791, -0.093866, -17.987687, +8.236510),
     },
     'dhc8_dash8.project.json': {
         'SIDE GUST': (4527.1258, +0.131221, +32.818008, -12.523604),
@@ -2431,10 +2448,12 @@ _LATERAL_CASE_NUMBERS = {
     'concept_regional_jet.project.json': {
         # Re-pinned at #384: the RJ's engines and main gear left the centreline,
         # so its Ixx and Izz grew and every angular acceleration fell.
-        'SIDE GUST': (7082.5380, +0.214622, +51.937891, -107.213836),
-        'SUDDEN RUDDER': (6907.5555, +0.209320, +52.152782, -91.624193),
-        'YAW 15 NEUTRAL': (-8042.9389, -0.243725, -56.315585, +108.290843),
-        'YAW TO SIDESLIP': (-3548.2651, -0.107523, -21.057479, +49.153903),
+        # #422 (design note 76): fin loads and Ny hold; the accelerations move
+        # with the full-fuel, no-ballast `fwd gross` loading.
+        'SIDE GUST': (7082.5380, +0.214622, +58.225585, -103.873317),
+        'SUDDEN RUDDER': (6907.5555, +0.209320, +48.654346, -95.715358),
+        'YAW 15 NEUTRAL': (-8042.9389, -0.243725, -52.550720, +112.868621),
+        'YAW TO SIDESLIP': (-3548.2651, -0.107523, -19.661590, +51.013848),
     },
 }
 
@@ -2576,7 +2595,7 @@ _UNSYMMETRICAL_SPLIT = {
     'ga6_normal.project.json': (-700.2880318468195, -504.20738292971004, 72.0),
     'cessna_210.project.json': (-687.2978354106667, -494.85444149568, 72.0),
     'atr42_100.project.json': (-4532.627636356502, -3626.102109085202, 80.0),   # #404: IT -1.0 (note 73 D-73.8)   # #420: the certified 12 % forward line   # #260; re-pinned at #389 (the stabiliser is the airplane's, 125.0 sq ft)
-    'atr42_300_seed.project.json': (-4792.352599221562, -3833.8820793772497, 80.0),   # #403: Sh 127.0 sq ft, n 2.61; #420: the 12 % forward line; #404: IT -1.0
+    'atr42_300_seed.project.json': (-4791.917492396811, -3833.533993917449, 80.0),   # #403: Sh 127.0 sq ft, n 2.61; #420: the 12 % forward line; #404: IT -1.0; #422: the governing tail load's CG case re-entered (-0.009 %)
     'dhc8_dash8.project.json': (-3302.095528143376, -2641.6764225147012, 80.0),
     # D-69.17: the RJ's elevator is now an entered polyline whose integrated
     # hinge areas land on the former typed 4.0/30.0 within the construction

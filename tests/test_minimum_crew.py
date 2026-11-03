@@ -116,18 +116,27 @@ def test_the_baron_corners_sit_on_the_limit_or_on_the_rows_extreme():
     assert aft - cases["full fuel aft"].xcg == pytest.approx(0.63, abs=0.01)
 
 
-def test_the_baron_landing_cases_are_the_mzfw_payloads_plus_fuel():
-    """G-75.4: the max-landing cases carry the MZFW payload of their side, plus
-    fuel to the landing weight."""
+def test_the_baron_landing_cases_sit_on_the_limits_with_a_real_loading():
+    """G-75.4 as design note 76 Q1 (a) ruled it: the max-landing cases stay on
+    the envelope limits at MLW, and each carries the first real loading that
+    reaches its point (D-76.3) -- aft, the MZFW payload plus 130 lb of fuel;
+    forward, where the MZFW payload cannot reach 77.96, full fuel and the
+    least payload. No ballast. (#337 entered them as the MZFW payloads plus
+    fuel wherever that put them, 79.67 forward.)"""
+    from sloads.mass_distribution import limit_point_loading
+
     project = _load("baron_58")
     cases = {c.name: c for c in project.weight.cg_cases}
-    for landing, zero_fuel in (("aft max landing", "mzfw aft"), ("fwd max landing", "mzfw fwd")):
-        lc, zc = cases[landing].loading, cases[zero_fuel].loading
-        fuel = {n: f for n, f in lc.fractions.items() if n.startswith("Fuel")}
-        assert set(lc.aboard) - set(fuel) == set(zc.aboard)
-        assert {n: f for n, f in lc.fractions.items() if n not in fuel} == zc.fractions
-        loading = entered_loading(project.weight.items, cases[landing])
+    aft, fwd = cases["aft max landing"], cases["fwd max landing"]
+    assert math.isclose(aft.xcg, wtenv_cg_limits(project)[1], abs_tol=0.01)
+    assert math.isclose(fwd.xcg, wtenv_fwd_cg_limit_at_weight(project, 5400.0), abs_tol=0.01)
+    for case, rule in ((aft, "MZFW payload + fuel"), (fwd, "full fuel + least payload")):
+        assert case.loading is not None and case.loading.ballast is None
+        found = limit_point_loading(project, case.weight_lb, case.xcg)
+        assert found is not None and found[1] == rule, (case.name, found)
+        loading = entered_loading(project.weight.items, case)
         assert math.isclose(loading.weight_lb, 5400.0, abs_tol=0.5)
+        assert math.isclose(loading.cg_x, case.xcg, abs_tol=0.01)
 
 
 def test_the_v82_hop_is_an_identity():

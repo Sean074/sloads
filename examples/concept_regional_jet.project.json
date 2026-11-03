@@ -442,24 +442,23 @@
         "name": "aft gross",
         "weight_lb": 33000.0,
         "xcg": 593.79,
-        "zcg": 64.59,
+        "zcg": 61.680989583333336,
         "analyses": [
           "flight"
         ],
         "loading": {
           "aboard": [
             "Passengers, fwd cabin (24)",
-            "Passengers, aft cabin (24)",
             "Cargo, fwd hold",
             "Cargo, aft hold",
             "Mission fuel"
           ],
           "ballast": {
             "name": "Ballast (aft gross)",
-            "weight_lb": 1640.0,
-            "x": 793.2030487804878,
+            "weight_lb": 2280.0,
+            "x": 865.9530701754386,
             "y": 0.0,
-            "z": 64.53048780487819,
+            "z": 61.680989583333336,
             "ixx": 0.0,
             "iyy": 0.0,
             "izz": 0.0,
@@ -471,9 +470,6 @@
             "carriage": "panel",
             "gear": null,
             "required_crew": false
-          },
-          "fractions": {
-            "Mission fuel": 0.30364372469635625
           }
         }
       },
@@ -481,7 +477,7 @@
         "name": "fwd gross",
         "weight_lb": 33000.0,
         "xcg": 573.5,
-        "zcg": 64.59,
+        "zcg": 63.33799242424242,
         "analyses": [
           "flight"
         ],
@@ -493,26 +489,9 @@
             "Cargo, aft hold",
             "Mission fuel"
           ],
-          "ballast": {
-            "name": "Ballast (fwd gross)",
-            "weight_lb": 1640.0,
-            "x": 384.9286585365854,
-            "y": 0.0,
-            "z": 64.53048780487819,
-            "ixx": 0.0,
-            "iyy": 0.0,
-            "izz": 0.0,
-            "kind": "discretionary",
-            "component": "fuselage",
-            "consumable": false,
-            "usable_fuel": false,
-            "wing_fraction": 0.0,
-            "carriage": "panel",
-            "gear": null,
-            "required_crew": false
-          },
           "fractions": {
-            "Mission fuel": 0.30364372469635625
+            "Passengers, aft cabin (24)": 0.9089583333333333,
+            "Cargo, aft hold": 0.04763333333333333
           }
         }
       },
@@ -520,21 +499,21 @@
         "name": "fwd regardless",
         "weight_lb": 24000,
         "xcg": 569.44,
-        "zcg": 63.08,
+        "zcg": 63.91428571428571,
         "analyses": [
           "flight"
         ],
         "loading": {
           "aboard": [
-            "Cargo, aft hold",
-            "Mission fuel"
+            "Cargo, fwd hold",
+            "Cargo, aft hold"
           ],
           "ballast": {
             "name": "Ballast (fwd regardless)",
-            "weight_lb": 1300.0,
-            "x": 23.34076923076923,
+            "weight_lb": 2300.0,
+            "x": 322.1056521739139,
             "y": 0.0,
-            "z": 63.06153846153846,
+            "z": 63.91428571428567,
             "ixx": 0.0,
             "iyy": 0.0,
             "izz": 0.0,
@@ -546,9 +525,6 @@
             "carriage": "panel",
             "gear": null,
             "required_crew": false
-          },
-          "fractions": {
-            "Mission fuel": 0.30364372469635625
           }
         }
       },
@@ -566,7 +542,7 @@
         "name": "mid gross",
         "weight_lb": 33000.0,
         "xcg": 583.64,
-        "zcg": 64.59,
+        "zcg": 63.346666666666664,
         "analyses": [
           "flight"
         ],
@@ -578,26 +554,10 @@
             "Cargo, aft hold",
             "Mission fuel"
           ],
-          "ballast": {
-            "name": "Ballast (mid gross)",
-            "weight_lb": 1640.0,
-            "x": 588.965243902439,
-            "y": 0.0,
-            "z": 64.53048780487819,
-            "ixx": 0.0,
-            "iyy": 0.0,
-            "izz": 0.0,
-            "kind": "discretionary",
-            "component": "fuselage",
-            "consumable": false,
-            "usable_fuel": false,
-            "wing_fraction": 0.0,
-            "carriage": "panel",
-            "gear": null,
-            "required_crew": false
-          },
           "fractions": {
-            "Mission fuel": 0.30364372469635625
+            "Passengers, fwd cabin (24)": 0.9671312388591801,
+            "Passengers, aft cabin (24)": 0.9446334670231729,
+            "Mission fuel": 0.708502024291498
           }
         }
       },
@@ -623,9 +583,9 @@
       },
       {
         "name": "mzfw fwd",
-        "weight_lb": 28360.0,
-        "xcg": 571.71,
-        "zcg": 66.6657263751763,
+        "weight_lb": 29500.0,
+        "xcg": 580.53,
+        "zcg": 65.82847457627119,
         "analyses": [
           "flight"
         ],
@@ -633,8 +593,12 @@
           "aboard": [
             "Passengers, fwd cabin (24)",
             "Passengers, aft cabin (24)",
-            "Cargo, fwd hold"
-          ]
+            "Cargo, fwd hold",
+            "Cargo, aft hold"
+          ],
+          "fractions": {
+            "Cargo, aft hold": 0.76
+          }
         }
       },
       {
@@ -661,27 +625,53 @@
         "name": "aft max landing",
         "weight_lb": 31000.0,
         "xcg": 593.7858931860037,
-        "zcg": 61.95698213103905,
+        "zcg": 61.756129032258066,
         "analyses": [
           "ground"
         ],
-        "role": "aft_max_landing"
+        "role": "aft_max_landing",
+        "loading": {
+          "aboard": [
+            "Passengers, fwd cabin (24)",
+            "Passengers, aft cabin (24)",
+            "Cargo, fwd hold",
+            "Cargo, aft hold",
+            "Mission fuel"
+          ],
+          "fractions": {
+            "Passengers, fwd cabin (24)": 0.3294722718737585,
+            "Passengers, aft cabin (24)": 0.7391551791066336
+          }
+        }
       },
       {
         "name": "fwd max landing",
         "weight_lb": 31000.0,
         "xcg": 572.5961735215878,
-        "zcg": 64.82064516129033,
+        "zcg": 62.07303929049987,
         "analyses": [
           "ground"
         ],
-        "role": "fwd_max_landing"
+        "role": "fwd_max_landing",
+        "loading": {
+          "aboard": [
+            "Passengers, fwd cabin (24)",
+            "Passengers, aft cabin (24)",
+            "Cargo, fwd hold",
+            "Cargo, aft hold",
+            "Mission fuel"
+          ],
+          "fractions": {
+            "Passengers, aft cabin (24)": 0.16494331377937319,
+            "Cargo, aft hold": 0.7380208531867712
+          }
+        }
       },
       {
         "name": "fwd light",
         "weight_lb": 24000,
-        "xcg": 569.44,
-        "zcg": 63.08,
+        "xcg": 569.4402578268877,
+        "zcg": 63.91428571428571,
         "analyses": [
           "ground"
         ],
@@ -1144,11 +1134,11 @@
         "weight_lb": 33000.0,
         "cg_x": 593.79,
         "cg_y": 0.0,
-        "cg_z": 64.59,
-        "ixx": 32092754.224390246,
-        "iyy": 1062916202.6396341,
-        "izz": 1046498648.4152439,
-        "ixz": 62749089.35243907,
+        "cg_z": 61.680989583333336,
+        "ixx": 33033533.697916664,
+        "iyy": 1149800137.5194077,
+        "izz": 1132441803.8214912,
+        "ixz": 59959553.89192708,
         "gear_down": true,
         "ceiling": false
       },
@@ -1157,11 +1147,11 @@
         "weight_lb": 33000.0,
         "cg_x": 573.5,
         "cg_y": 0.0,
-        "cg_z": 64.59,
-        "ixx": 32092754.224390246,
-        "iyy": 1055656920.6713414,
-        "izz": 1039239366.4469512,
-        "ixz": 62788936.93292678,
+        "cg_z": 63.33799242424242,
+        "ixx": 32802078.866998103,
+        "iyy": 922609066.9669981,
+        "izz": 905482188.1,
+        "ixz": 68025616.375,
         "gear_down": true,
         "ceiling": false
       },
@@ -1170,11 +1160,11 @@
         "weight_lb": 24000.0,
         "cg_x": 569.44,
         "cg_y": 0.0,
-        "cg_z": 63.08,
-        "ixx": 31610351.323076926,
-        "iyy": 1259436151.9838462,
-        "izz": 1243501000.6607692,
-        "ixz": 62466853.461538464,
+        "cg_z": 63.91428571428571,
+        "ixx": 31268360.57142857,
+        "iyy": 1037962149.9449059,
+        "izz": 1022368989.3734773,
+        "ixz": 64529512.60000003,
         "gear_down": true,
         "ceiling": false
       },
@@ -1196,11 +1186,11 @@
         "weight_lb": 33000.0,
         "cg_x": 583.64,
         "cg_y": 0.0,
-        "cg_z": 64.59,
-        "ixx": 32092754.224390246,
-        "iyy": 994339111.5054878,
-        "izz": 977921557.2810975,
-        "ixz": 62769022.96219512,
+        "cg_z": 63.346666666666664,
+        "ixx": 32798734.133333333,
+        "iyy": 990937095.4333333,
+        "izz": 973813561.3,
+        "ixz": 62648790.400000006,
         "gear_down": true,
         "ceiling": false
       },
@@ -1219,14 +1209,14 @@
       },
       {
         "name": "mzfw fwd",
-        "weight_lb": 28360.0,
-        "cg_x": 571.710754583921,
+        "weight_lb": 29500.0,
+        "cg_x": 580.532779661017,
         "cg_y": 0.0,
-        "cg_z": 66.6657263751763,
-        "ixx": 30819251.086036675,
-        "iyy": 918748868.5058886,
-        "izz": 903604817.4198519,
-        "ixz": 69928260.95345558,
+        "cg_z": 65.82847457627119,
+        "ixx": 31333692.081355933,
+        "iyy": 976379596.4834237,
+        "izz": 960721104.4020678,
+        "ixz": 64507655.865084745,
         "gear_down": true,
         "ceiling": false
       },
@@ -1248,37 +1238,37 @@
         "weight_lb": 31000.0,
         "cg_x": 593.7858931860037,
         "cg_y": 0.0,
-        "cg_z": 61.95698213103905,
-        "ixx": 32892104.076770354,
-        "iyy": 1079301430.4052382,
-        "izz": 1062084526.328468,
-        "ixz": 65198472.63600264,
+        "cg_z": 61.756129032258066,
+        "ixx": 33052736.33548387,
+        "iyy": 929449556.730504,
+        "izz": 912072020.3950201,
+        "ixz": 65120714.8626151,
         "gear_down": true,
         "ceiling": false
       },
       {
         "name": "fwd max landing",
         "weight_lb": 31000.0,
-        "cg_x": 573.012806451613,
+        "cg_x": 572.5961735215878,
         "cg_y": 0.0,
-        "cg_z": 64.82064516129033,
-        "ixx": 31952942.787096776,
-        "iyy": 920447133.8029355,
-        "izz": 904169391.0158386,
-        "ixz": 69128228.20387097,
+        "cg_z": 62.07303929049987,
+        "ixx": 32965996.66107388,
+        "iyy": 953162332.4696449,
+        "izz": 935871535.808571,
+        "ixz": 61939534.87178489,
         "gear_down": true,
         "ceiling": false
       },
       {
         "name": "fwd light",
         "weight_lb": 24000.0,
-        "cg_x": 569.44,
+        "cg_x": 569.4402578268877,
         "cg_y": 0.0,
-        "cg_z": 63.08,
-        "ixx": 31425966.573913045,
-        "iyy": 1038119755.9473904,
-        "izz": 1022368989.3734773,
-        "ixz": 69481852.91304347,
+        "cg_z": 63.91428571428571,
+        "ixx": 31268360.57142857,
+        "iyy": 1037959089.0265932,
+        "izz": 1022365928.4551647,
+        "ixz": 64529512.600000024,
         "gear_down": true,
         "ceiling": false
       },
