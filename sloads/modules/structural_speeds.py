@@ -24,8 +24,8 @@ User's Guide p7-5). VS/VSF then set VA and VF.
 
 FAR 23.335(b) imposes both dive-speed minimums: VD >= max(K_d*VCmin, 1.25*VC),
 where the K_d term uses the *minimum* cruise VCmin (STRSPEED.BAS V2DMIN=K2*V1CMIN,
-lines 380/390). With no chosen speeds the K_d*VCmin term governs (Appendix A p155,
-Cat N: 198.53 kt). For the worked chosen-speeds example (p156) the chosen VD 212.5
+lines 380/390). With no chosen speeds the K_d*VCmin term governs (Appendix A p158,
+Cat N: 198.53 kt). For the worked chosen-speeds example (p159) the chosen VD 212.5
 already clears both floors, which is why the absolute 1.25*VC floor is what shows.
 Concept mode (Cat C) treats the GA-calibrated K_d term as advisory only.
 

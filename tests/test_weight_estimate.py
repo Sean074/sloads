@@ -1,7 +1,7 @@
 """Validate WTESTIMA against the FAR 23 LOADS manual, Appendix A.
 
 The worked example is the 6-place single-engine GA airplane whose estimated
-weight report is printed in Appendix A p133 (HP 265, 6 seats, 3 hr endurance,
+weight report is printed in Appendix A p134 (HP 265, 6 seats, 3 hr endurance,
 unpressurized 4-cycle recip). The original program prints every figure through
 ``INT(...)``, so the oracle values are exact integers and matched exactly; only
 the dimensionless empty/take-off ratio is a truncated decimal.
@@ -33,7 +33,7 @@ def _raises_value_error(fn) -> bool:
 
 
 def ga6_estimation() -> WeightEstimationInput:
-    """Appendix A p133 inputs (6-place single, 265 hp, 4-cycle recip)."""
+    """Appendix A p134 inputs (6-place single, 265 hp, 4-cycle recip)."""
     return WeightEstimationInput(
         airplane="6 PLACE SINGLE ENGINE GENERAL AVIATION",
         max_continuous_hp=265,
@@ -47,7 +47,7 @@ def ga6_estimation() -> WeightEstimationInput:
 
 
 def test_summary_matches_manual():
-    # Appendix A p133: MAX TAKE OFF WT 3468, USEFUL 1318, EMPTY 2150, ratio .62.
+    # Appendix A p134: MAX TAKE OFF WT 3468, USEFUL 1318, EMPTY 2150, ratio .62.
     r = calc.estimate(ga6_estimation())
     assert value_of(r, "max_take_off_weight") == 3468
     assert value_of(r, "useful_load") == 1318
@@ -74,7 +74,7 @@ def test_operating_empty_weight_adds_crew():
 
 
 def test_structure_group_matches_manual():
-    # Appendix A p133 structure breakdown.
+    # Appendix A p134 structure breakdown.
     r = calc.estimate(ga6_estimation())
     assert value_of(r, "wing") == 359
     assert value_of(r, "fuselage") == 340
@@ -86,7 +86,7 @@ def test_structure_group_matches_manual():
 
 
 def test_powerplant_group_matches_manual():
-    # Appendix A p133: installed 490 (prop 83), fuel sys 52, exhaust 72,
+    # Appendix A p134: installed 490 (prop 83), fuel sys 52, exhaust 72,
     # other 86, total powerplant 700.
     r = calc.estimate(ga6_estimation())
     assert value_of(r, "engine_installed") == 490
@@ -98,7 +98,7 @@ def test_powerplant_group_matches_manual():
 
 
 def test_systems_group_matches_manual():
-    # Appendix A p133 systems breakdown; single-engine "misc" prints 0
+    # Appendix A p134 systems breakdown; single-engine "misc" prints 0
     # (the program prints an unset variable there -- preserved quirk).
     r = calc.estimate(ga6_estimation())
     assert value_of(r, "instruments_and_nav_equip") == 15

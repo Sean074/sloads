@@ -1,14 +1,14 @@
 """Net wing loads (Step C3): AIRLOADS air-load distribution + NETLOADS sum.
 
 Oracle-locked against the Appendix A worked example: the air-load distribution
-"Airloads for Case 22 PHAA" (p206) and the "Net Loads, Case 22 PHAA" table
+"Airloads for Case 22 PHAA" (p207) and the "Net Loads, Case 22 PHAA" table
 (p222) -- the algebraic sum of air and inertia along the 25% chord. The math is
 faithful (tau override 0.05 reproduces the manual wing slope), so the printed
 integers match; small quantities use an absolute floor. Concept mode has no
 oracle and is checked by the net = air + inertia identity and physics closure.
 
 Reference: AIRLOADS.BAS 4500-5060 / NETLOADS.BAS, Ref 1 Ch 12 & 14; Appendix A
-p206 (air) and p222 (net).
+p207 (air) and p222 (net).
 """
 
 import math
@@ -33,7 +33,7 @@ def _close(a, e, rel=2e-3, abs_=2.0):
 
 
 def test_air_load_distribution_matches_appendix_a():
-    # Case 22 PHAA: CL 1.52, V 117.4 KEAS (p206).
+    # Case 22 PHAA: CL 1.52, V 117.4 KEAS (p207).
     p = io.load_project(_GA)
     r = air_load_distribution(p.geometry.by_name("wing"), p.aero.by_name("wing"),
                               cl=1.52, v_eas_kt=117.4, wrp_waterline=78.5, dihedral_deg=6.0)

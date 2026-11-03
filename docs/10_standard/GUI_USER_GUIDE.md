@@ -309,11 +309,11 @@ for the full table and page citations).
 
 **Checkpoint 1 — Weight & Mass Properties (WTESTIMA).**
 Max take-off weight = **3468 lb**, empty weight = **2150 lb**, empty/take-off
-ratio = **0.62**. *(Manual Appendix A p133.)*
+ratio = **0.62**. *(Manual Appendix A p134.)*
 
 **Checkpoint 2 — Weight & Mass Properties (WTONECG, aft-gross loading).**
 CG fuselage station XBAR = **84.99936 in**; pitch inertia IYY =
-**2058.209 slug-ft²**. *(Appendix A p136.)* These are geometry/inertia — note
+**2058.209 slug-ft²**. *(Appendix A p137.)* These are geometry/inertia — note
 **no `-ULT`**.
 
 **Checkpoint 3 — Structural Speeds (STRSPEED).**

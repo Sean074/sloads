@@ -98,7 +98,7 @@ The estimate is an estimate. OG-5 replaces it with a classified, guarded list.
 their defaults, not the ~50 % this section guessed. The estimate was low in one
 specific place and it is worth recording why: it assumed the wing planform
 polylines and the per-item inertias were sloads' and could be dropped. Both are
-inputs of a named `.BAS` program, and G5 is what showed it — Appendix A p136's
+inputs of a named `.BAS` program, and G5 is what showed it — Appendix A p137's
 IXX comes out 66.7 against the printed 1201.527 without the item inertias. The
 real cut is where §2 said it was (the mass-model and cg-case columns, the gear
 and body-outline additions, the FAR 25 / concept route), just smaller.

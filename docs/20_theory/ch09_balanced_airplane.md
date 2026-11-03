@@ -1020,7 +1020,7 @@ substitute rather than a self-check:
 | **yaw** | `ONENGOUT.BAS` 282-286 — `THETA2DOT = MOM/12/IZZ·57.3`, Ref 1 Ch 11 p87-88 (FAR 23.367). **Oracle-locked FAR 23 code**, checked step by step against its own time history | exact, `rel_tol = 1e-12` |
 | **roll** | `WINGINER`'s `fz_r`/`iwxx` unit-roll recurrence (Appendix A-locked). Reproduces the **shape** strip for strip; the **magnitude** ratio is the wing span's share of the roll moment — 0.795230 ga6 / 0.769455 RJ — because WINGINER's wing-only model has no term for mass off the roll axis | shape exact; ratio pinned |
 | **pitch** | none — `Iyy` has no second producer in the suite. Carried by the closure identity `Σ r × f = −[I]{ω̇}` and by the six-DOF closure itself | identity only |
-| **the tensor** | `WTONECG` (Appendix A p136 oracle) via `Izz(closure) = Izz(WTONECG) − wing self-Izz + Σw·y²(WINGINER spread)` | 0.0 % ga6, +0.40 % RJ |
+| **the tensor** | `WTONECG` (Appendix A p137 oracle) via `Izz(closure) = Izz(WTONECG) − wing self-Izz + Σw·y²(WINGINER spread)` | 0.0 % ga6, +0.40 % RJ |
 
 **The two producers now meet in one case** (design note 66, #285): the
 one-engine-out family assembles ONENGOUT's peak instant on a 1 g parent with the

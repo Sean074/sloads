@@ -222,7 +222,7 @@ def test_the_document_and_the_csv_carry_opposite_torque_signs():
 # G-OR-106 -- the Appendix A figures, page-cited
 # --------------------------------------------------------------------------- #
 def test_the_appendix_a_engine_reaches_the_document():
-    """G-OR-106. Appendix A p227-229 (Continental IO-520-BB), through the
+    """G-OR-106. Appendix A p229 (Continental IO-520-BB), through the
     document rather than the module: the application point including the
     waterline that was wrong until OR-170, and the loads of all three cases.
 

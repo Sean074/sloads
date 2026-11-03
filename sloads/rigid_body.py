@@ -41,7 +41,7 @@ The tensor's sign convention
 ----------------------------
 :class:`InertiaTensor` stores the **products of inertia as sums**, ``ixy = Sum
 w*dx*dy``, not as the negated off-diagonal entries of the matrix. That is the
-form ``WTONECG`` prints (``IXZ``, Appendix A p136) and the form a reader
+form ``WTONECG`` prints (``IXZ``, Appendix A p137) and the form a reader
 checking it against a handbook expects; the negation happens once, in
 :meth:`InertiaTensor.matrix`. Getting this backwards is a sign error that no
 symmetric case can see -- ``ixy`` and ``iyz`` vanish for a mirror-symmetric mass

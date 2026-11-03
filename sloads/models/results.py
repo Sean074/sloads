@@ -216,7 +216,7 @@ class MassCase:
     ``ceiling`` (D-70.3, v78) marks the one row that is **not** a loading: the
     sum of every database row, which G-14 names the database *ceiling* --
     full fuel and full payload at once, 18 % over MTOW on ``atr42_100``. It
-    is kept because Appendix A p136 prints it (the ga6 database sums to its
+    is kept because Appendix A p137 prints it (the ga6 database sums to its
     aft-gross loading, so there the ceiling *is* a loading) and labelled so
     no reader takes its inertia for a case's. A typed field, never a name
     match (note 63 OV-1).

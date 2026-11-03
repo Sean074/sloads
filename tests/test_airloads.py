@@ -1,6 +1,6 @@
 """Spanwise wing airloads (Step C1): Schrenk additive + basic + TAU.
 
-The FAR23 path is oracle-locked against the Appendix A worked example (p161-162):
+The FAR23 path is oracle-locked against the Appendix A worked example (p161-163):
 the additive distribution ``CC(LA1)``/``C(LA1)`` and the twist-driven basic
 distribution ``Awo``/``CC(lb)``/``Clb``. The math is modernized (math.pi, not the
 BASIC's 3.1416), so these are ±0.1% regression oracles, not exact. Concept mode
@@ -8,7 +8,7 @@ has no printed oracle and is checked by physics closure (integrated ``c·cl``
 recovers the target CL; the basic distribution integrates to zero wing lift).
 
 Reference: AIRLOADS.BAS / TAU.BAS, Ref 1 Ch 7 p46-47, TAU curve-fit p407;
-worked example Appendix A p161-162.
+worked example Appendix A p161-163.
 """
 
 import math
@@ -39,7 +39,7 @@ _REGIONAL = os.path.join(_EXAMPLES, "concept_regional_jet.project.json")
 REL = 1e-3  # ±0.1% per the modernized-math tolerance convention
 
 
-# The Appendix A wing planform + twist (Ref 1 p141/p161-162).
+# The Appendix A wing planform + twist (Ref 1 p141/p161-163).
 _APPA_WING = SurfaceInput(
     name="wing",
     leading_edge=[(45, 0), (64.31301, 46.5), (72, 201)],

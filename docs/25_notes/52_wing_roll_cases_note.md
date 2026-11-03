@@ -185,7 +185,7 @@ measured at #306 and held so a change is seen, not checked against anything
 independent. The oracle lock for the manual's arithmetic is **G-52.12**'s
 test-built case at the printed inputs. Two delivered quantities *are* printed
 and are asserted against the print at ±0.1 %, page-cited: condition A's root
-bending on the case 22 air (+516,955 lb-in, p. 206; delivered 516,566) under
+bending on the case 22 air (+516,955 lb-in, p. 207; delivered 516,566) under
 G-52.10, and the aileron deflection δ (10.703°, p. 93; delivered 10.7065°)
 under G-52.7. G-52.6's knit checks on the printed rows are statements about the
 print, recorded in its row; they test no code and are not a test.

@@ -12,7 +12,7 @@ chapter's own opening section (ch04 §Cases analyzed for SELECT's wing/fuselage
 down-select; ch05/ch08 for the empennage and ground families).
 
 - **Source of truth:** Reference 1 (McMaster) Ch 6; the regression oracle is
-  Appendix A (GA single) — design speeds p155–156, Mach lines p160. The
+  Appendix A (GA single) — design speeds p158–159, Mach lines p160. The
   `structural_speeds` and `mach_limit` modules are **oracle-locked** (±0.1%,
   Decision 3) — see [`00_theory_sources.md`](00_theory_sources.md#oracle-status).
 - **Regulations:** FAR 23.335 (design airspeeds), 23.337 (limit maneuver load
@@ -168,8 +168,8 @@ schedule as Kc:
 | U | 1.50 | 1.35 |
 | A | 1.55 | 1.35 |
 
-With no chosen speeds the `Kd·VC_min` term governs (Appendix A p155, category N:
-198.53 kt); for the worked chosen-speeds example (p156) the chosen VD = 212.5
+With no chosen speeds the `Kd·VC_min` term governs (Appendix A p158, category N:
+198.53 kt); for the worked chosen-speeds example (p159) the chosen VD = 212.5
 already clears both floors. **Concept (`C`)** treats the GA-calibrated `Kd` term
 as advisory only — the `1.25·VC` floor is the only hard one.
 
@@ -438,10 +438,10 @@ Oracle figures asserted in `tests/test_structural_speeds.py` /
 
 | Quantity | Value | Page |
 |---|---|---|
-| VD_min, no chosen speeds (cat N, `Kd·VC_min` governs) | 198.53 kt | p155 |
-| VA / VC / VD / VF (chosen-speeds run) | 121.3 / 170 / 212.5 / 105.5 kt | p156 |
-| n / n_neg | +3.8 / −1.52 | p156 |
-| MC / MD at 12,000 ft shoulder | 0.323 / 0.403 | p156 |
+| VD_min, no chosen speeds (cat N, `Kd·VC_min` governs) | 198.53 kt | p158 |
+| VA / VC / VD / VF (chosen-speeds run) | 121.3 / 170 / 212.5 / 105.5 kt | p159 |
+| n / n_neg | +3.8 / −1.52 | p159 |
+| MC / MD at 12,000 ft shoulder | 0.323 / 0.403 | p159 |
 | MNE | 0.3627 | p160 |
 | ~~MFC 0.4836~~ (p160) | withdrawn from scope 2026-08-26, #79 — see §11 | — |
 | V(MC) from 12,000 to 18,000 ft | 170.16 → 150.77 kt | p160 |
@@ -460,7 +460,7 @@ Oracle figures asserted in `tests/test_structural_speeds.py` /
 
 | What | Where |
 |---|---|
-| Equations, Kc/Kd schedules, atmosphere, worked example | Reference 1 Ch 6; Appendix A p155–156, p160; `STRSPEED.BAS` / `MACHLIM.BAS` (Appendix C) |
+| Equations, Kc/Kd schedules, atmosphere, worked example | Reference 1 Ch 6; Appendix A p158–159, p160; `STRSPEED.BAS` / `MACHLIM.BAS` (Appendix C) |
 | CLmax → stall-speed path | User's Guide p7-5 |
 | 25.335(a)/(b)/(d) verbatim | `reference/14CFR_25_335_design_airspeeds.md` (captured 2026-08-08) |
 | 23.335(b)(4) + 25.335(b)(2) margin text, 0.05/0.07 history, AC 25.335-1A practice | `reference/14CFR_MC_MD_speed_margin.md` (captured 2026-07-20) |

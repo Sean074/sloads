@@ -56,7 +56,7 @@ made it one. It is the line between a *mass* station and a *mass* station, and i
 inherits every error in either: the C210's 71.6° is that airplane's own entered
 CG waterline — a filed defect (backlog, 2026-09-07) — turned into an axis and
 then into a moment component. On `ga6_normal`, whose stations are now correct
-against Appendix A p227, the 14° still put `Mz = 178.8 ft-lb` into section 10.2
+against Appendix A p229, the 14° still put `Mz = 178.8 ft-lb` into section 10.2
 for an airplane that has no such moment.
 
 Two further things are missing, and the rotation direction is the sharper one:

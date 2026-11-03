@@ -1444,15 +1444,15 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     _E("weight.items[].x", _WT, _ORIG, "WTONECG item station"),
     _E("weight.items[].y", _WT, _ORIG, "WTONECG item butt line"),
     _E("weight.items[].z", _WT, _ORIG, "WTONECG item waterline"),
-    # Corrected building G5: these four were SLOADS, and Appendix A p136 settles
+    # Corrected building G5: these four were SLOADS, and Appendix A p137 settles
     # it. The item's own inertia is stored "in lb-in^2 (the units the original
     # data base stores)" and is added to WTONECG's parallel-axis transfer --
     # without it ga6's IXX comes out 66.7 slug-ft^2 against the printed 1201.527,
     # so the oracle the suite already passes *depends* on these being entered.
     _E("weight.items[].ixx", _WT, _ORIG, "WTONECG item inertia, 'the units the original data "
-       "base stores'; Appendix A p136 IXX 1201.527 needs it"),
-    _E("weight.items[].iyy", _WT, _ORIG, "WTONECG item inertia; Appendix A p136 IYY 2058.209"),
-    _E("weight.items[].izz", _WT, _ORIG, "WTONECG item inertia; Appendix A p136 IZZ 3022.766"),
+       "base stores'; Appendix A p137 IXX 1201.527 needs it"),
+    _E("weight.items[].iyy", _WT, _ORIG, "WTONECG item inertia; Appendix A p137 IYY 2058.209"),
+    _E("weight.items[].izz", _WT, _ORIG, "WTONECG item inertia; Appendix A p137 IZZ 3022.766"),
     _E("weight.items[].kind", _WT, _ORIG,
        "'Mirrors the data-base partition of WTONECG.BAS (empty / minimum-flight / discretionary)'; "
        "WTENV's discretionary envelope and Appendix A's 78 lb aft ballast need it"),
@@ -1598,21 +1598,21 @@ REGISTRY: Tuple[FieldEntry, ...] = (
     # (#94, C210-16): enter a value if you have one; blank uses the computed
     # minimum, and a value below the minimum is overridden (raised) to it.
     _E("speeds.chosen_vc", _SPD, _ORIG,
-       "STRSPEED chosen VC, Appendix A p156 -- blank uses the computed 23.335(a) "
+       "STRSPEED chosen VC, Appendix A p159 -- blank uses the computed 23.335(a) "
        "minimum; a value below the minimum is raised to it"),
     _E("speeds.chosen_vd", _SPD, _ORIG,
-       "STRSPEED chosen VD, Appendix A p156 -- blank uses the computed 23.335(b) "
+       "STRSPEED chosen VD, Appendix A p159 -- blank uses the computed 23.335(b) "
        "minimum; a value below the minimum is raised to it"),
     _E("speeds.chosen_va", _SPD, _ORIG,
-       "STRSPEED chosen VA, Appendix A p156 -- blank uses the computed 23.335(c) "
+       "STRSPEED chosen VA, Appendix A p159 -- blank uses the computed 23.335(c) "
        "minimum (VS*sqrt(n)); a value below the minimum is raised to it"),
     _E("speeds.chosen_vf", _SPD, _ORIG,
-       "STRSPEED chosen VF, Appendix A p156 -- the 23.345 *design* wing-flap speed "
+       "STRSPEED chosen VF, Appendix A p159 -- the 23.345 *design* wing-flap speed "
        "(>= max(1.4*VS, 1.8*VSF)), the structural speed for flaps-extended cases, "
        "not the operating placard VFE (which must be <= VF). Blank uses the "
        "computed minimum; a value below it is raised"),
-    _E("speeds.chosen_n", _SPD, _ORIG, "STRSPEED chosen n, Appendix A p156"),
-    _E("speeds.chosen_nneg", _SPD, _ORIG, "STRSPEED chosen negative n, Appendix A p156"),
+    _E("speeds.chosen_n", _SPD, _ORIG, "STRSPEED chosen n, Appendix A p159"),
+    _E("speeds.chosen_nneg", _SPD, _ORIG, "STRSPEED chosen negative n, Appendix A p159"),
     _E("speeds.mach_limit.max_operating_altitude_ft", _SPD, _ORIG, "MACHLIM ceiling"),
     _E("speeds.mach_limit.increment_ft", _SPD, _ORIG, "MACHLIM altitude step"),
     _E("speeds.occupants", _SPD, _SLDS,

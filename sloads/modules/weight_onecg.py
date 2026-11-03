@@ -19,7 +19,7 @@ is the database ceiling (G-14), not a loading: 43,308 lb against an MTOW of
 loading of record (:func:`case_mass_properties`) and keeps the all-rows sum as
 the labelled :data:`CEILING_TITLE` row, last. The equations are untouched.
 
-Reference: WTONECG.BAS, Appendix C p377-381; worked example Appendix A p136.
+Reference: WTONECG.BAS, Appendix C p377-381; worked example Appendix A p137.
 """
 
 from __future__ import annotations
@@ -130,7 +130,7 @@ def weights_and_inertia(items: List[MassItem]) -> ConditionResult:
 
 #: The title of the one condition (and the one :class:`MassCase`) that is not a
 #: loading: every database row aboard at once (design note 70 D-70.1; G-14
-#: names the number the database *ceiling*). Appendix A p136 prints exactly
+#: names the number the database *ceiling*). Appendix A p137 prints exactly
 #: this on the ga6 database, whose rows sum to its aft-gross loading -- the
 #: oracle row (G-70.1).
 CEILING_TITLE = "Database ceiling (every row aboard)"
@@ -221,7 +221,7 @@ def case_mass_properties(project: Project) -> CaseMassProperties:
         weights_and_inertia(weight.items), title=CEILING_TITLE,
         note=("Every row of the weight data base aboard at once -- the ceiling of "
               "OEW <= MLW <= MTOW <= the item total, not a loading the airplane flies "
-              "unless its data base sums to one. The Appendix A p136 figures are "
+              "unless its data base sums to one. The Appendix A p137 figures are "
               "this row. " + weights_and_inertia(weight.items).note))
     conditions.append(ceiling)
     rows.append(_mass_case(ceiling, CEILING_TITLE, ceiling=True))
