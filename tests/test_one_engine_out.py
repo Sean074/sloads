@@ -1,7 +1,7 @@
 """One engine out vertical-tail loads (Step C9): ONENGOUT.BAS port (FAR 23.367).
 
 The printed Appendix B (10-place twin turboprop) one-engine-out oracle is **absent**
-from the bundled references (Reference 1 carries only the Appendix A GA single; the FAA
+from the available copy of Reference 1 (it carries only the Appendix A GA single; the FAA
 User's Guide Ch 22 gives partial inputs and no output numbers). So C9 is locked at the
 **sub-formula level** -- each algebraic step verified exactly against ONENGOUT.BAS
 (engine thrust, windmill drag, AVT lift slope, EFFECTV, EF chart, density ratio) -- plus

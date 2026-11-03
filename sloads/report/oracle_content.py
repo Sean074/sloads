@@ -1008,12 +1008,12 @@ _INTRODUCTION = [
     "document and the tool cannot disagree.",
 
     "The method is the FAR 23 LOADS suite of Hal C. McMaster (Aero Science "
-    "Software), as replicated by sloads. The governing equations, and the "
-    "worked example the replication is held to within 0.1 per cent, are given "
-    "in the theory manual (reference/FAR23Loads_Code.pdf, Appendix A); the "
-    "module data flow is described in DOT/FAA/AR-96/46 "
-    "(reference/FAR23Loads_UserGuide.pdf, Table 2.2). The certification basis "
-    "is 14 CFR Part 23 Subpart C.",
+    "Software), developed for the FAA under Grant 93-G-051 and replicated by "
+    "sloads. The governing equations, and the worked example the replication "
+    "is held to within 0.1 per cent, are given in the theory manual "
+    "(Reference 1, Appendix A); the module data flow is described in "
+    "DOT/FAA/AR-96/46 (Reference 2, Table 2.2). The certification basis is "
+    "14 CFR Part 23 Subpart C.",
 
     "All delivered loads in this report are LIMIT. Every load case states the "
     "safety factor 14 CFR 23.303 prescribes for it and the basis of that "

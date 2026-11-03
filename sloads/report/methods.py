@@ -499,10 +499,15 @@ def _tail_planform_block(project: Project) -> List[str]:
 #: "Reference N" in the rendered document that this does not define.
 REFERENCES: Tuple[Tuple[str, str], ...] = (
     ("Reference 1",
-     "McMaster, H. C., FAR 23 LOADS: structural design loads for small "
-     "airplanes under 14 CFR Part 23 Subpart C, theory manual and program "
-     "listings, Aero Science Software. Its Appendix A is the printed example "
-     "this analysis is checked against, and page numbers cited are its own."),
+     "McMaster, H. C., \"FAR 23 Loads\", Aero Science Software, Wichita, KS, "
+     "1996: the theory manual and program listings, reference 1 of "
+     "Reference 2. Its Appendix A is the printed example this analysis is "
+     "checked against, and page numbers cited are its own."),
+    ("Reference 2",
+     "Miedlar, P., \"User's Guide for FAR23 Loads Program\", "
+     "DOT/FAA/AR-96/46, University of Dayton Research Institute for the FAA "
+     "under Grant 93-G-051, March 1997 (NTIS). Table 2.2 gives the module "
+     "data flow."),
 )
 
 
@@ -602,8 +607,8 @@ def methods_statement(
     L.append(
         "VERIFICATION: The FAR 23 general-aviation path is oracle-locked to the "
         "printed Appendix A example of Reference 1 (McMaster, FAR 23 LOADS) within "
-        "+/-0.1%. Appendix B (the 10-place twin turboprop) is NOT bundled with the "
-        "reference, so twin-only and turbopropeller-only cases are CLOSURE-LOCKED, "
+        "+/-0.1%. Appendix B (the 10-place twin turboprop) is NOT IN the available copy "
+        "of the reference (pp 251-372 are missing), so twin-only and turbopropeller-only cases are CLOSURE-LOCKED, "
         "NOT ORACLE-LOCKED: they are validated by sub-formula exactness against the "
         "original .BAS source plus physics/integration closure. Treat twin-specific "
         "results accordingly."

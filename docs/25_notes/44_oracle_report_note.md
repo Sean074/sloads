@@ -193,7 +193,7 @@ second opinion on the same renderer.
 What that end pass is for is the half CI cannot assert: that the twin's report
 *reads* correctly where it differs from the oracle case — the `absent_reason`
 wording on sections the GA6 has and it does not (and the reverse), the DERIVED
-planform provenance where the GA6 now says entered (Appendix B is not bundled,
+planform provenance where the GA6 now says entered (Appendix B is not in the available copy,
 so the Baron has no printed polylines), the SI channel's number formatting under
 UG-12, and the engine-mount and one-engine-out sections appearing as *present*.
 The deferral is safe because those are stated by guards rather than by eye —

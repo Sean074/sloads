@@ -160,7 +160,7 @@ worked-example figures are used as **tolerance-based** regression oracles
 (±0.1%), not exact oracles — see `docs/10_standard/PROJECT_GUIDE.md §6`. The oracle is
 Reference 1 (`FAR23Loads_Code.pdf`, McMaster's theory manual). **Appendix A**
 (6-place GA single, p131) is the printed oracle and is in hand; **Appendix B**
-(10-place twin turboprop, p251) is **absent from the bundled PDF**, so modules with
+(10-place twin turboprop, p251) is **absent from the available copy**, so modules with
 GA-single figures are *oracle-locked* against Appendix A while twin/turboprop-only
 cases (e.g. `one_engine_out`, the turbopropeller engine-mount case) are
 *closure-locked* to the `.BAS` source with the printed twin oracle deferred. The

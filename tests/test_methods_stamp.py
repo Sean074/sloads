@@ -446,7 +446,7 @@ def _htail_surface_from(wing, project):
 
 def test_verification_states_the_twin_cases_are_not_oracle_locked():
     """The oracle-status distinction is the single most load-bearing caveat in the
-    document: Appendix B is not bundled, so twin results are closure-locked."""
+    document: Appendix B is not in the available copy, so twin results are closure-locked."""
     text = methods_statement(_project(_GA))
     assert "CLOSURE-LOCKED" in text and "NOT ORACLE-LOCKED" in text
     assert "Appendix B" in text

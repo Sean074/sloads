@@ -26,7 +26,7 @@ Units mirror the BASIC: vertical-tail/rudder areas in **square inches**, station
 butt line in **inches**, ``IZZ`` in **slug-ft^2**, angles in **degrees**.
 
 Validation note: Appendix B (the 10-place twin turboprop) -- the printed one-engine-out
-oracle -- is **absent** from the bundled reference PDFs (Reference 1 carries only the
+oracle -- is **absent** from the available copy of Reference 1 (it carries only the
 Appendix A GA single; the FAA User's Guide Ch 22 gives partial inputs and no output
 numbers). C9 is therefore locked at the sub-formula level (each step exact to
 ONENGOUT.BAS) plus integration/physics closure; the printed twin oracle stays a

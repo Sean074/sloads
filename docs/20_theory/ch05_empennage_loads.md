@@ -61,7 +61,7 @@ losing it is how a governing down-load case disappears.
    (`ULT SF=1.0`, apply nothing further) — one of only two conditions in the
    project carrying the `-ULT` marker (chapter 2 §2.7).
 3. **Its oracle is the deferred one.** The printed one-engine-out oracle is
-   Appendix B (the 10-place twin), absent from the bundled PDF, so the module
+   Appendix B (the 10-place twin), absent from the available copy of Reference 1, so the module
    is closure-locked at the sub-formula level against `ONENGOUT.BAS` — the
    most exposed family in the provenance table
    ([`00_theory_sources.md`](00_theory_sources.md) §The families still

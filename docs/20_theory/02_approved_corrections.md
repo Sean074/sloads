@@ -48,7 +48,7 @@ base "limit engine torque corresponding to takeoff power and propeller speed" is
 same quantity as (a)(1), so by the same **AC 23-19A** / 23.361(c) / **Amdt 23-45**
 authority the 1.25 turbopropeller mean-torque factor applies before the 1.6 factor.
 `condition_361_a3` now reports `1.6 x 1.25 x mean takeoff torque` (= 2.0× mean). No
-printed Appendix B engine-mount oracle exists in the bundled PDF, so it is
+printed Appendix B engine-mount oracle exists in the available copy of Reference 1, so it is
 formula-checked (`test_361_a3_applies_mean_torque_factor`). Sources:
 `reference/AC_23-19A_engine_torque.md`; FAA User's Guide **§17.2.1** (post-1994 CFR
 text).

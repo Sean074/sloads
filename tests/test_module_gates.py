@@ -146,7 +146,7 @@ def test_every_closure_gate_states_its_invariant_and_why_no_oracle_exists():
     absence is part of the evidence and belongs with it. Each of these files
     already opens by saying so in its own words ("no printed oracle exists for a
     spanwise tail distribution"; "ships no program and no printed station
-    table"; Appendix B "is **absent** from the bundled references"), and this
+    table"; Appendix B "is **absent** from the available copy"), and this
     keeps that sentence there: a closure test file that stops explaining itself
     reads, to the next author, as a module that simply never got its oracle.
 
