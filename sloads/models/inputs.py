@@ -809,6 +809,13 @@ STABILISER_TYPES: Dict[str, str] = {
     "M": "All-moving stabiliser, no elevator",
 }
 
+#: ``AeroCoefficientsInput.power_cases`` -- the power states the flight cases
+#: are delivered in (design note 21 P-18, #226; owner :mod:`sloads.power`).
+POWER_CASE_CHOICES: Dict[str, str] = {
+    "off": "Power off only -- zero thrust, the oracle's cases",
+    "off_and_on": "Power off and on -- zero and maximum continuous thrust, 25.321(b)",
+}
+
 
 #: Host surfaces a :class:`TabSpec` can sit on (#98, C210-46) -> the component
 #: its case is filed under is ``modules/tab.py``'s ``_TAB_COMPONENT``, guarded to
@@ -1040,6 +1047,11 @@ class AeroCoefficientsInput:
     clmax_clean: float = 0.0
     clmax_clean_neg: float = 0.0
     clmax_flap: float = 0.0
+    #: Which power states the flight cases are delivered in (design note 21
+    #: P-18, #226): ``"off"`` (default) -- zero thrust, the oracle's output;
+    #: ``"off_and_on"`` -- each flaps-up V-n point also gets its power-on twin
+    #: at the P-14 rating. Owner: :mod:`sloads.power`.
+    power_cases: str = "off"
 
     def __post_init__(self) -> None:
         self.normalize()
@@ -2194,6 +2206,7 @@ __all__ = [
     "CATEGORIES",
     "HTAIL_BOUNDARY_DERIVED",
     "LRA_DEFAULT_GRIDS",
+    "POWER_CASE_CHOICES",
     "REFUSALS",
     "STABILISER_TYPES",
     "STRUT_TYPES",

@@ -65,9 +65,12 @@ from __future__ import annotations
 import math
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from ..aero_curves import inertia_drag_factor
+from ..cg_cases import flight_cases
 from ..derived_geometry import (
     CarryThrough,
     carry_through,
+    fuselage_lra,
     require_wing_reference,
 )
 from ..joints import wing_station
@@ -83,7 +86,7 @@ from ..models import (
     VnPoint,
 )
 from ..registry import register
-from .select import _stamp_case_refs, default_envelope, select_fuselage
+from .select import _stamp_case_refs, default_envelope, select_fuselage_all
 
 MODULE_NAME = "body_loads"
 
@@ -117,34 +120,47 @@ def _tail_station(project: Project, fallback: float) -> float:
     return ti.xt25 if ti is not None and ti.xt25 else fallback
 
 
-def _cantilever(points: Sequence[Tuple[float, float, str]], x_root: float,
+#: One applied body row: ``(x, fz, source, fx, couple)`` -- the couple is the
+#: right-handed ``My`` the row's axial load makes about the beam line,
+#: ``(z_mass - z_beam) * fx`` (design note 21 P-16).
+_Applied = Tuple[float, float, str, float, float]
+
+
+def _cantilever(points: Sequence[_Applied], x_root: float,
                 aft: bool) -> List[BodyStationLoad]:
     """One body cantilever integrated from its free end to ``x_root``.
 
-    ``points`` are the applied ``(x, fz, source)`` rows strictly on this
-    cantilever's side of its spar. The running shear at a station is the sum of
-    the loads from the free end **through** that station, and the running
-    moment the sum of those loads times their arm to the station -- both
-    positive for an up load (D-64.4). A terminal ``"root"`` row at the spar
-    carries the cantilever's whole resultant and moment and applies nothing.
+    ``points`` are the applied rows strictly on this cantilever's side of its
+    spar. The running shear at a station is the sum of the loads from the free
+    end **through** that station, and the running moment the sum of those
+    loads times their arm to the station -- both positive for an up load
+    (D-64.4) -- plus each row's couple, in the same published sense
+    (:func:`cantilever_sign`). The axial ``sx`` runs like ``sz``. A terminal
+    ``"root"`` row at the spar carries the cantilever's whole resultant and
+    moment and applies nothing.
     """
     region = AFT if aft else FORWARD
+    sense = cantilever_sign(aft)
     ordered = sorted(points, key=lambda pt: pt[0], reverse=aft)
     out: List[BodyStationLoad] = []
     sz = 0.0
+    sx = 0.0
     prev_x: Optional[float] = None
     myy = 0.0
-    for x, fz, source in ordered:
+    for x, fz, source, fx, couple in ordered:
         if prev_x is not None:
             myy += sz * abs(x - prev_x)      # the running shear over the bay
         sz += fz
+        sx += fx
+        if couple:
+            myy += sense * couple
         prev_x = x
-        out.append(BodyStationLoad(x=x, fx=0.0, fy=0.0, fz=fz, sx=0.0, sy=0.0,
+        out.append(BodyStationLoad(x=x, fx=fx, fy=0.0, fz=fz, sx=sx, sy=0.0,
                                    sz=sz, mxx=0.0, myy=myy, mzz=0.0,
-                                   source=source, region=region))
+                                   source=source, region=region, couple=couple))
     if prev_x is not None:
         myy += sz * abs(x_root - prev_x)
-    out.append(BodyStationLoad(x=x_root, fx=0.0, fy=0.0, fz=0.0, sx=0.0, sy=0.0,
+    out.append(BodyStationLoad(x=x_root, fx=0.0, fy=0.0, fz=0.0, sx=sx, sy=0.0,
                                sz=sz, mxx=0.0, myy=myy, mzz=0.0,
                                source="root", region=region))
     if aft:
@@ -193,7 +209,7 @@ def closure_residuals(result: BodyLoadResult) -> Tuple[float, float]:
 
 
 def body_distribution(stations, nz: float, tail_load: float, tail_x: float,
-                      x_wing: float, carry: CarryThrough,
+                      x_wing: float, carry: CarryThrough, nx: float = 0.0,
                       ) -> Tuple[List[BodyStationLoad], Dict[str, float]]:
     """The two body cantilevers for one condition (Ref 1 Ch 15 p103, note 64).
 
@@ -204,30 +220,48 @@ def body_distribution(stations, nz: float, tail_load: float, tail_x: float,
     ``r_front``/``r_rear`` at ``x_front``/``x_rear``, and ``m_unbalanced``, the
     p103 pass-1 terminal moment of the inertia + tail set about its aft-most
     station.
+
+    ``stations`` are ``(x, w)`` or ``(x, w, dz)`` rows, ``dz`` the mass's height
+    above the beam line. ``nx`` is the condition's longitudinal inertia factor
+    (``aero_curves.inertia_drag_factor``), applied as ``fx = nx * w`` at each
+    mass's own waterline (design note 21 P-16, #218): the inertia WINGINER has
+    always applied to the wing's masses, now on the body's too, so the beam's
+    axial column carries the load the airplane carries. Its couple about the
+    beam line, ``dz * fx``, joins the bending, and the wing reaction closes
+    both (``rx_wing`` and the couple).
     """
-    applied: List[Tuple[float, float, str]] = [(x, -nz * w, "mass") for x, w in stations]
-    applied.append((tail_x, tail_load, "tail"))
+    applied: List[_Applied] = []
+    for row in stations:
+        x, w = row[0], row[1]
+        dz = row[2] if len(row) > 2 else 0.0
+        fx = nx * w
+        applied.append((x, -nz * w, "mass", fx, dz * fx))
+    applied.append((tail_x, tail_load, "tail", 0.0, 0.0))
     x_ref = max(pt[0] for pt in applied)
-    m_ub = math.fsum(fz * (x_ref - x) for x, fz, _ in applied)
+    m_ub = math.fsum(fz * (x_ref - x) for x, fz, _, _, _ in applied)
 
     # The wing reaction closes the whole set at the wing station: force and
-    # right-handed couple about +y (a load fz at arm dx makes My = -dx fz).
-    r_wing = -math.fsum(fz for _, fz, _ in applied)
-    m_wing = math.fsum((x - x_wing) * fz for x, fz, _ in applied)
-    applied.append((x_wing, r_wing, "reaction"))
+    # right-handed couple about +y (a load fz at arm dx makes My = -dx fz; an
+    # axial fx at height dz makes My = +dz fx, carried as the row's couple).
+    r_wing = -math.fsum(fz for _, fz, _, _, _ in applied)
+    rx_wing = -math.fsum(fx for _, _, _, fx, _ in applied)
+    m_wing = (math.fsum((x - x_wing) * fz for x, fz, _, _, _ in applied)
+              - math.fsum(c for _, _, _, _, c in applied))
+    applied.append((x_wing, r_wing, "reaction", rx_wing, m_wing))
     r_f, r_r = _spar_reactions(r_wing, m_wing, x_wing, carry.x_f, carry.x_r)
 
     fwd = [pt for pt in applied if pt[0] < carry.x_f - _AT_SPAR_TOL]
     aft = [pt for pt in applied if pt[0] > carry.x_r + _AT_SPAR_TOL]
     box = [pt for pt in applied if pt not in fwd and pt not in aft]
     rows = _cantilever(fwd, carry.x_f, aft=False)
-    rows += [BodyStationLoad(x=x, fx=0.0, fy=0.0, fz=fz, sx=0.0, sy=0.0, sz=0.0,
+    rows += [BodyStationLoad(x=x, fx=fx, fy=0.0, fz=fz, sx=0.0, sy=0.0, sz=0.0,
                              mxx=0.0, myy=0.0, mzz=0.0, source=source, region=BOX,
-                             couple=(m_wing if source == "reaction" else 0.0))
-             for x, fz, source in sorted(box, key=lambda pt: pt[0])]
+                             couple=couple)
+             for x, fz, source, fx, couple in sorted(box, key=lambda pt: pt[0])]
     rows += _cantilever(aft, carry.x_r, aft=True)
     info: Dict[str, float] = {
         "m_unbalanced": m_ub, "r_wing": r_wing, "m_wing": m_wing, "x_wing": x_wing,
+        "rx_wing": rx_wing,
         "r_front": r_f, "r_rear": r_r, "x_front": carry.x_f, "x_rear": carry.x_r,
     }
     return rows, info
@@ -247,7 +281,7 @@ def _critical_fuselage(project: Project) -> List[CriticalCondition]:
         cached = [c for c in project.envelope.critical.conditions if c.component == "fuselage"]
         if cached:
             return cached
-    conditions = select_fuselage(project)
+    conditions = select_fuselage_all(project)
     _stamp_case_refs(project, conditions)
     return conditions
 
@@ -316,6 +350,8 @@ def build_body_loads(project: Project) -> List[BodyLoadResult]:
             + (station.refused or "no wing carry-through resolves (degenerate "
                                   "root chord or spar stations)"))
     x_wing = station.x
+    lra = fuselage_lra(project)
+    weights = {c.name: c.weight_lb for c in flight_cases(project)}
 
     results: List[BodyLoadResult] = []
     states: Dict[str, WingMassState] = {}
@@ -331,8 +367,12 @@ def build_body_loads(project: Project) -> List[BodyLoadResult]:
         if state is None:
             state = states[p.cg] = wing_mass_state(project, p.cg or None)
         case_beam = fuselage_beam_stations(project, state.loading) or beam
-        stations = [(s.x, s.weight_lb) for s in case_beam]
-        rows, info = body_distribution(stations, p.nz, p.lt, tail_x, x_wing, carry)
+        # Each mass's height above the beam line (an unentered waterline sits
+        # on it), and the condition's longitudinal inertia (P-16).
+        stations = [(s.x, s.weight_lb, (s.z - lra.z_at(s.x)) if s.z else 0.0)
+                    for s in case_beam]
+        nx = inertia_drag_factor(p.dx, weights.get(p.cg, 0.0), p.thrust_fx)
+        rows, info = body_distribution(stations, p.nz, p.lt, tail_x, x_wing, carry, nx)
         results.append(BodyLoadResult(
             case=cond.label, stations=rows, case_ref=cond.case_ref,
             safety_factor=cond.safety_factor, mass_state=state.label,
@@ -360,14 +400,18 @@ def body_load_rows(results: List[BodyLoadResult]) -> List[Dict[str, object]]:
     (note 64 D-64.4), and are **blank on a box row**: a station at or between
     the spars is an applied load the box reacts, not a point of either
     integration (D-64.2): ``None``, never a zero. ``Region`` names which. ``My_free`` is the couple
-    applied at the station -- the wing reaction's, zero elsewhere.
+    applied at the station -- the wing reaction's closing couple, and on a mass
+    row its axial inertia's couple about the beam line. ``Fx``/``Sx`` are the
+    axial load and its running total (design note 21 P-16, #218), blank on a
+    box row like ``Sz``.
     """
     rows: List[Dict[str, object]] = []
     for r in results:
         for s in r.stations:
             box = s.region == BOX
             rows.append({
-                "Case": r.case, "X": s.x, "Fz": s.fz, "My_free": s.couple,
+                "Case": r.case, "X": s.x, "Fx": s.fx, "Fz": s.fz, "My_free": s.couple,
+                "Sx": None if box else s.sx,
                 "Sz": None if box else s.sz,
                 "Myy": None if box else s.myy,
                 "Region": s.region,

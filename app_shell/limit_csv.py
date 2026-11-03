@@ -54,7 +54,8 @@ _WING_UNITS: _UnitMap = {
     "Mxx": "lb-in", "Myy": "lb-in", "Mzz": "lb-in",
 }
 _BODY_UNITS: _UnitMap = {
-    "X": "in", "Fz": "lbf", "My_free": "lb-in", "Sz": "lbf", "Myy": "lb-in",
+    "X": "in", "Fx": "lbf", "Fz": "lbf", "My_free": "lb-in",
+    "Sx": "lbf", "Sz": "lbf", "Myy": "lb-in",
 }
 
 

@@ -280,6 +280,19 @@ class VnPoint:
     lzw: float
     lt: float
     dx: float
+    #: The power state (design note 21 §10, #226): ``"off"`` for every point
+    #: FLTLOADS has always balanced; ``"on"`` for a flaps-up point's power-on
+    #: twin (condition ``"... -P"``), balanced at the same ``(n, V)`` with every
+    #: engine at its P-14 rated thrust (``sloads.power``).
+    power_state: str = "off"
+    #: The power-on twin's total thrust, its ``x`` and ``z`` force (airplane
+    #: axes, ``x`` aft) and its moment about the CG in the tail-load numerator's
+    #: sense (``power.pitch_terms``) -- all zero on a power-off point, so every
+    #: reader that adds them reproduces the power-off arithmetic.
+    thrust_lb: float = 0.0
+    thrust_fx: float = 0.0
+    thrust_fz: float = 0.0
+    thrust_m: float = 0.0
     # Stamped by SELECT (case_ids.py) for **every** critical condition this point
     # was chosen for -- the same CaseRefs as the CriticalConditions it produced,
     # in SELECT's own emission order (wing, htail, vtail, fuselage). Empty for the

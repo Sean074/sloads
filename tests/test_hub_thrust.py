@@ -93,7 +93,13 @@ THRUST = 4000.0
 
 
 def _project(name):
-    return io.load_project(os.path.join(_ROOT, "examples", name))
+    """The fixture with its rated power-on set off: this suite gates the
+    **entered** thrust card (#10), which a ``-P`` case replaces with its P-14
+    rating by design (design note 21 §10; gated in ``test_power_on.py``)."""
+    p = io.load_project(os.path.join(_ROOT, "examples", name))
+    if p.aero_coeffs is not None:
+        p.aero_coeffs.power_cases = "off"
+    return p
 
 
 def _powered(name, thrust=THRUST):

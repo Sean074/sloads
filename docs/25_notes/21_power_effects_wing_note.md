@@ -2,9 +2,10 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6: the owner of what a note touches reviews it as a PR)*
 
-**Status: AGREED 2026-08-15 (decisions P-0…P-12, §7); §10 PROPOSED 2026-10-21
-(#226 — the thrust-line re-trim un-parked by measurement, P-13…P-17 awaiting
-the owner's rulings on Q1–Q5). PARKED otherwise, except for one
+**Status: AGREED 2026-08-15 (decisions P-0…P-12, §7); §10 AGREED 2026-11-03
+(#226, #217, #218 — the thrust-line re-trim un-parked by measurement, P-13…P-19;
+the owner ruled Q1–Q7 in session, §10.5; the trim re-measured on today's fixtures,
+§10.2a; PROPOSED 2026-10-21). PARKED otherwise, except for one
 carve-out, which SHIPPED 2026-08-17 (issue #10, tier M):** the **hub thrust
 card** — one user-entered `EngineInput.thrust_lb` per engine, applied as an
 axial `FORCE` at that engine's hub in the assembled **flight** cases and on the
@@ -843,16 +844,61 @@ thrust moment by `T·sin 3°·(x_hub − x_cg)` ≈ 387 lb × 90 in = 35 klb-in 
 ATR against the line's own 6,367 lb × 29.7 in = 189 klb-in, about 18 % of an
 11 % effect: **≈ 2 % of the governing tail load**.
 
+### 10.2a Re-measured on today's fixtures (2026-11-03, after #337, #424, #422)
+
+The same scratch term (§10.1), re-run on the trim alone. The deck, body-beam and
+thrust-direction tables above were **not** re-run; they are the 2026-10-21 fixtures.
+
+| Fixture (hub WL / CG WL) | Governing `max|LT|` off → rated / steady | Largest single-point `ΔLT`, rated / steady (share of governing) | `ΔLZW` | Largest `T` rated / steady |
+|---|---|---|---|---|
+| `baron_58` (97 / 95.7–99.0) | 841 → 836 / 827 lb (**−0.7 % / −1.7 %**) | +10 / +16 lb (1.2 % / 1.9 %), STALL +N `fwd regardless` | ≤ 0.5 % | 1,224 / 4,481 lb |
+| `atr42_100` (160 / 129.1–141.3) | 4,127 → 4,393 / 4,679 lb (**+6.5 % / +13.4 %**) | −483 / −836 lb (11.7 % / 20.3 %), AC ROLL / STALL +N `mzfw aft` | ≤ 1.7 % | 8,312 / 20,414 lb |
+| `atr42_300_seed` (151 / 131.5–143.5) | 3,919 → 4,041 / 4,174 lb (**+3.1 % / +6.5 %**) | −277 / −516 lb (7.1 % / 13.2 %), STALL +N `mzfw fwd` | ≤ 1.5 % | 7,982 / 22,664 lb |
+| `concept_regional_jet` (70 / 61.7–65.8), steady only: no `max_cont_hp` | 4,705 → 4,782 lb (**+1.6 %**) | −161 lb (3.4 %), STALL +N `aft gross` | ≤ 1.1 % | 21,956 lb |
+
+The Baron row reproduces §10.2 exactly, so the script is the same model. The
+ATR 42-100's governing effect falls from +10.7 % to **+6.5 %** because the light
+forward corner that carried it (`mzfw fwd`, 28,054 lb at WL 132.3) no longer
+exists. Under note 75 §2 / note 76 that corner coincides with `mzfw aft` and is
+not written. The governing point is now STALL +N at `fwd gross`, where the hubs
+are 19 in above the CG rather than 28. The largest single-point change is still
+11.7 % of the governing load, on a case that does not govern.
+
+**P-14's rating, as written.** The "rated" column above caps the thrust by the
+drag, as §10.1 did. P-14 caps it per engine only by the momentum-theory static
+thrust `(2ρA·(P_MC/n)²)^⅓` (1,612 lb on the Baron, 8,201 lb on the ATRs). Run
+that way, the governing loads are unchanged (Baron −0.7 %, ATR 42-100 **+6.5 %**,
+seed +3.1 %): at the governing points the rating is already below the drag. The
+low-speed points move further. The largest single-point `ΔLT` becomes 2.3 % on
+the Baron, **17.5 %** on the ATR 42-100 and 10.6 % on the seed, all at STALL 1G.
+The largest `T` is 2,506 / 13,142 / 12,895 lb.
+
+**The two end points bound the range.** 14 CFR 25.321(b): "Critical thrust values
+in the range from zero to maximum continuous thrust must be considered." The
+ATR 42-100 was run at 0, ¼, ½, ¾ and full P-14 thrust on all 480 V-n points. `LT`
+departs from linear in `T` by at most 0.63 % of the governing load, and no
+intermediate thrust lies outside the off/on pair (0.000 %). `LZW` and `nz` wander
+by at most 0.26 %, which is the balance's ±0.005 `nz` band. So zero thrust and
+the P-14 rating are the critical values, and no intermediate thrust case is owed.
+Negative thrust (windmilling, idle) is 25.367's engine-failure territory, not this
+range.
+
 ### 10.3 What the numbers decide (rule 6)
 
-1. **The thrust-line re-trim ranks.** On the mission airplane the governing
-   balancing tail load moves +10.7 % at the agreed rating and +16 % at the
-   steady upper bound: above the 5–10 % base-method band
-   (`theory_sources.md` §Base-method uncertainty) on a delivered, oracle-class
-   load (the 23.421 balancing load). It is driven by one quantity, the height
-   of the thrust line above the CG, which the entered hub already carries. The
-   Baron, whose line runs through its CG, is below the band everywhere — the
-   effect is the airplane's, not the method's.
+1. **The thrust-line re-trim ranks — at the margin since §10.2a.** On the
+   mission airplane the governing balancing tail load now moves **+6.5 %** at
+   the agreed rating and +13.4 % at the steady upper bound (§10.2a; +10.7 % /
+   +16 % on the 2026-10-21 fixtures). That is inside the 5–10 % band
+   `theory_sources.md` §Base-method uncertainty states for a *distributed*
+   load. The same section puts the integrated totals, the balancing tail load
+   among them, better than the band. Read that way, 6.5 % on the 23.421
+   balancing load is still above the method's error. Read against the
+   distributed band, it is not. **Ruled 2026-11-03 (Q6): it ranks**, against the
+   integrated-total reading.
+   The effect is driven by one quantity, the height of the thrust line above
+   the CG, which the entered hub already carries. The Baron, whose line runs
+   through its CG, is below the band everywhere. The effect belongs to the
+   airplane, not to the method.
 2. **The wing's normal loads are below the band** (≤ 1 % governing). The
    **chordwise** root loads move 2–9 % governing and up to 55 % on single
    cases: with power the drag reaction leaves the mass distribution (where
@@ -869,33 +915,39 @@ ATR against the line's own 6,367 lb × 29.7 in = 189 klb-in, about 18 % of an
    of the governing tail load) and parks on the number; its height is what
    matters and that is already entered.
 
-### 10.4 Decisions (proposed)
+### 10.4 Decisions (AGREED 2026-11-03)
 
 | ID | Decision | Where |
 |---|---|---|
 | **P-13** | **The thrust-line re-trim is un-parked as one tier-L step**: §8 step 2 (the policy table with its basis column, P-4; the `-P` identity and `power_state` provenance, P-12 — one additive schema hop), step 3 (`retrim_with_power` reduced to the thrust-line term: `Σ T_e·(zcg − z_e)` in the moment balance and `nx = −(DX − ΣT)/W` to WINGINER and the `NX` column), step 4's hub loads (shipped at #10) and step 5 (the h-tail `-P` families, P-11). §8 step 1 — the DATCOM estimator: `N_p`, slipstream, `Δε`, `q_h/q` — **stays parked with no number**: the ATR is a T-tail (`q_h/q = 1`, G6-1) and route R2 is unmeasured. | §8 |
-| **P-14** | **Thrust magnitude is P-2 as agreed**, `T = η·P_MC / V_TAS` at the point's true airspeed, capped by the momentum-theory static thrust and **not** by the drag: the pilot may hold full power at any V-n point, so the rated thrust is the design value. `η = 0.85` is the suite's constant until a per-engine value is asked for; `P_MC` is `Σ engines[].max_cont_hp`. The steady `T = D/cos α` is reported beside it as the upper bound, not delivered. | §2.3 |
-| **P-15** | **Case identity is P-10/P-11/P-12 as agreed**: the OFF points are unchanged (G10-1), each clean wing and h-tail family gains its `-P` twin at the same `(n, V)` at MC, and SELECT runs each search a second time over the `-P` labels — `select._pick` matches the condition label, so an OFF pick cannot see a `-P` point by construction. The balanced deck assembles the `-P` picks beside the OFF ones; the delivered governing load is the envelope of both, each row carrying its `power_state`. `VnPoint` gains `thrust_lb` and `power_state`; OR-198's `NX` column becomes `−(DX − T)/W` with `T` printed beside it (G-OR-134 generalised). | §2.4, §4.6, §6.3 |
-| **P-16** | **The body beam carries the longitudinal inertia the wing already carries (#218)**: `body_loads` adds `fx_i = nx·w_i` at each station's waterline, giving the `sx` axial column its content and `myy` its `fx·(z_i − z_beam)` increment — tier M inside the same step, because `nx` depends on the power state. The distributed **non-wing drag stays off the beam, parked with its number**: at most `ΔCD·q·S` ≈ 3.2 klb axial on the ATR at VD (9 % of the peak shear), and no station distribution exists for it. | Ch 15 (`ch06`) |
-| **P-17** | **The thrust force follows the entered line (#217)**: direction cosines from `thrust_line_fwd − thrust_line_aft` (note 53 D-53.1; blank means the `x` axis, D-53.3), so the normal component enters the `nz` equation and the arm is the CG's perpendicular distance to the line. The number says this is second-order (≈ 2 % of the governing tail load), so it is hygiene inside the step, not a fidelity rank — and P-6's `i_T`/`τ` angles are superseded by note 53's two-point line, one representation. **If the owner prefers, #217 closes parked with that number instead** (Q5). | §3.1, note 53 |
+| **P-14** | **Thrust magnitude is P-2 as agreed**, `T = η·P_MC / V_TAS` at the point's true airspeed, capped per engine by the momentum-theory static thrust `(2ρA·(P_MC/n)²)^⅓` and **not** by the drag: the pilot may hold full power at any V-n point, so the rated thrust is the design value, and it is 25.321(b)'s "maximum continuous thrust". `η = 0.85` is the suite's constant, with no per-engine field (Q3); `P_MC` is `Σ engines[].max_cont_hp`. The steady `T = D/cos α` is a measurement bound (§10.2a), not delivered. One owner computes the rating per engine at a point and states its basis. | §2.3 |
+| **P-15** | **Case identity is P-10/P-11/P-12 as agreed**, when `power_cases = "off_and_on"` (P-18): the OFF points are unchanged (G10-1), each clean wing and h-tail family gains its `-P` twin at the same `(n, V)` at MC, and SELECT runs each search a second time over the `-P` labels — `select._pick` matches the condition label, so an OFF pick cannot see a `-P` point by construction. The balanced deck assembles the `-P` picks beside the OFF ones; both sets are delivered, each row carrying its `power_state`. They are 25.321(b)'s two critical thrust values (§10.2a), so the governing load over the thrust range is the larger of the two and no thrust selection is needed. The `-P` suffix goes through the case-identity owner (`CONVENTIONS.md` §7) with a drift guard. `VnPoint` gains `thrust_lb` and `power_state`; OR-198's `NX` column becomes `−(DX − T)/W` with `T` printed beside it (G-OR-134 generalised). | §2.4, §4.6, §6.3 |
+| **P-16** | **The body beam carries the longitudinal inertia the wing already carries (#218)**: `body_loads` adds `fx_i = nx·w_i` at each station's waterline, giving the `sx` axial column its content and `myy` its `fx·(z_i − z_beam)` increment, and the wing-station reaction the matching `Rx` and couple. It applies on **every** case, power-off included (Q4): today's `nx = −DX/W` is already non-zero, so the stated zero is wrong without power too (8 klb on the ATR's AFT DOWN BENDING, `nx` = +0.644). The body beam has no printed station oracle (Ch 15 is a suggested procedure), so every fixture's body digest moves and no Appendix A assertion does. The distributed **non-wing drag stays off the beam, parked with its number**: at most `ΔCD·q·S` ≈ 3.2 klb axial on the ATR at VD (9 % of the peak shear), and no station distribution exists for it. | Ch 15 (`ch06`) |
+| **P-17** | **The thrust force follows the entered line (#217)**: direction cosines from `thrust_line_fwd − thrust_line_aft` (note 53 D-53.1; blank means the `x` axis, D-53.3), so the normal component enters the `nz` equation and the arm is the CG's perpendicular distance to the line. The number says this is second-order (≈ 2 % of the governing tail load), so it is hygiene inside the step, not a fidelity rank — and P-6's `i_T`/`τ` angles are superseded by note 53's two-point line, one representation. It applies in the balance and in the deck's hub force alike. No shipped fixture enters a line, so no shipped output moves. |
+| **P-18** | **The output option, `power_cases`** (Q3): `"off"` (the default) gives the power-off cases only, which are today's output and the oracle's; `"off_and_on"` gives both sets (P-15). It is one additive project field on the Aerodynamic Data page, its owner page under P-5's placement; no earlier decision named the switch. Shipped: `"off_and_on"` on `atr42_100`, `atr42_300_seed` and `baron_58`; `"off"` on `ga6_normal`, `concept_regional_jet` and `concept_heavy`. | §3, P-5 |
+| **P-19** | **Jets stay power-off, stated** (Q7). A project whose engines enter no `max_cont_hp` has no P-14 rating, so `"off_and_on"` is refused by validation with the reason, and the analysis states that its thrust is zero. Parked with its number: the regional jet's governing tail load moves +1.6 % at the steady upper bound. A jet thrust-rating field (with its altitude and Mach lapse) is added when a jet's number ranks. | §2.3 | §3.1, note 53 |
 
-### 10.5 Questions for the owner
+### 10.5 Questions, as ruled (2026-11-03, in session, one at a time)
 
-| # | Question | Recommendation |
+| # | Question | Ruling |
 |---|---|---|
-| Q1 | Thrust at a V-n point: (a) P-2's rating `η·P_MC/V_TAS`; (b) the steady `T = D/cos α`; (c) both delivered as two families | **(a)** — the rating is the design value and the agreed decision; (b) is the bound §10.2 reports |
-| Q2 | Scope: the thrust-line slice alone (P-13), or the whole §8 plan | **the slice** — the estimator has no number and the ATR's T-tail makes its tail half zero by geometry |
-| Q3 | The switch: one boolean enabling power on the Aerodynamic Data page (P-5), default off, with `η` the suite constant — or a per-engine `η` field now | **the boolean and the constant**; a per-engine `η` when an airplane asks for one |
-| Q4 | #218: the station inertia `fx` on the beam (P-16), or parked as a ≤ 3.5 % bending effect | **P-16** — the stated zero is 8–12 klb wrong on the ATR, and the wing/body asymmetry is the model's, not the airplane's |
-| Q5 | #217: the entered line's direction honoured (P-17), or parked with the number | **P-17** — one direction cosine once the term exists; park if the owner would rather not touch the sign conventions |
+| Q1 | Thrust at a V-n point: the P-14 rating, the rating capped by the drag, or the steady `D/cos α`? | **The P-14 rating as written**, capped by static thrust and not by drag (P-14) |
+| Q2 | The thrust-line slice (P-13), or the whole §8 plan? | **The slice.** The DATCOM estimator stays parked: unmeasured, and the ATR's T-tail zeroes its tail half |
+| Q3 | How power is switched on, and `η` | **`power_cases`, `"off"` or `"off_and_on"`, default `"off"`** (the owner's proposal, reviewed against 25.321(b) and §10.2a); `η` the suite constant; the fixture split of P-18 |
+| Q4 | #218: the station inertia `fx` on the body beam | **P-16 on every case**, power-off included |
+| Q5 | #217: the entered line's direction | **P-17 inside the slice** |
+| Q6 | Does the re-trim still rank at +6.5 %? | **It ranks**, against the integrated-total reading (§10.3) |
+| Q7 | A jet's thrust | **Power-off, stated** (P-19) |
 
 ### 10.6 Gates for §10 (written with the step)
 
 | # | Gate | Kind |
 |---|---|---|
-| G10-1 | Power off: every fixture digest and every Appendix A assertion identical — the OFF matrix, picks and decks are byte-for-byte today's | oracle-lock |
+| G10-1 | `power_cases = "off"`: every Appendix A assertion identical, and the V-n matrix, picks and decks byte-for-byte today's on every fixture. The body beam is the one exception, moved by P-16 on every case | oracle-lock |
 | G10-2 | Closed form: at fixed `LZ` one thrust `T` at arm `dz` moves `LT` by exactly `T·dz/(XT − xcg)`; hand number on `ga6_normal`'s CG1 geometry | drift-guard |
-| G10-3 | The ATR pin: the `-P` governing balancing tail load against the OFF one at the P-2 rating, +10.7 % within the balance's 0.5 % noise — re-pinned by name when the fixture moves | fixture pin |
+| G10-3 | The ATR pin: the `-P` governing balancing tail load against the OFF one at the P-2 rating, +6.5 % (§10.2a; +10.7 % on the 2026-10-21 fixtures) within the balance's 0.5 % noise — re-pinned by name when the fixture moves | fixture pin |
 | G10-4 | Every `-P` deck case closes at `n_x = (D − ΣT)/W` with `q̇ ≈ 0` — the trim carries the thrust couple that the #10 carve-out leaves to the closure | closure |
-| G10-5 | The body beam: `Σ sx` at the wing station equals `nx·W_body` for the condition, `sx` non-zero on the ATR, and `myy` with `fx = 0` identical to today | consistency |
+| G10-5 | The body beam, power off and on: `Σ sx` at the wing station equals `nx·W_body` for the condition, `sx` non-zero on the ATR, and `myy` with `fx = 0` identical to today | consistency |
 | G10-6 | An entered inclined line changes the normal force by `T·sin i` exactly and a blank line reproduces the axial solution to 1e-9 (P-17) | drift-guard |
+| G10-7 | `"off_and_on"` on a project with no `max_cont_hp` is refused, with the reason; the regional jet's analysis states zero thrust (P-19) | validation |
+| G10-8 | The end points bound the range: on the ATR 42-100, `LT` at half the P-14 thrust lies between the off and on values at every point (§10.2a) | invariant |

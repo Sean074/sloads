@@ -466,7 +466,10 @@ _APPLIED_CSV_WHAT = {
     "fuselage": (
         "# The applied fuselage load set: the body beam's applied loads at the\n"
         "# points on the fuselage loads reference axis the structure is at.\n"
-        "# Nothing here is a running total.\n"),
+        "# Nothing here is a running total.\n"
+        "# Fx is each mass's longitudinal inertia nx*w (design note 21 P-16),\n"
+        "# applied on the axis; My carries its couple about the axis from the\n"
+        "# mass's own waterline.\n"),
     "htail": (
         "# The applied horizontal tail load set: the strip loads and any\n"
         "# discrete control-surface node, at the grids they are delivered at.\n"
@@ -536,7 +539,6 @@ _APPLIED_ZERO_REASONS = {
               "in this suite is lateral",
     },
     "fuselage": {
-        "Fx": "the body beam has no fore-aft producer",
         "Fy": "the body beam has no lateral producer",
         "Mx": "a body station applies a force and no free roll moment",
         "Mz": "a body station applies a force and no free yaw moment",
@@ -693,10 +695,10 @@ _NO_SPANWISE_STRIP_LOAD = 0.0
 #: coordinates already state.
 _NO_FREE_BENDING = 0.0
 #: The body beam's structurally absent components, named rather than written
-#: ``0.0`` four times: the fuselage stations carry vertical load only. Each is a
-#: statement about the load set, and OR-140 prints the column either way -- so
-#: the day a producer appears, the name is where it will be found.
-_NO_BODY_AXIAL_LOAD = 0.0
+#: ``0.0`` three times: the fuselage stations carry vertical and axial load only
+#: (the axial since design note 21 P-16, #218 -- each row's ``fx`` and, as its
+#: free ``Myy``, the couple of that load about the beam line). Each is a
+#: statement about the load set, and OR-140 prints the column either way.
 _NO_BODY_LATERAL_LOAD = 0.0
 _NO_BODY_FREE_TORSION = 0.0
 #: What the body beam's ``Myy`` is stated about. ``BodyLoadResult`` carries no
@@ -936,7 +938,7 @@ def fuselage_applied_load_rows(arg, project: Optional[Project] = None
                 case=result.case, case_id=case_id, loading=loading,
                 label=str(gid), gid=gid,
                 x=s.x, y=0.0, z=(lra.z_at(s.x) if lra is not None else 0.0),
-                fx=_NO_BODY_AXIAL_LOAD, fy=_NO_BODY_LATERAL_LOAD, fz=s.fz,
+                fx=s.fx, fy=_NO_BODY_LATERAL_LOAD, fz=s.fz,
                 mxx_free=_NO_FREE_BENDING, myy_free=s.couple,
                 mzz_free=_NO_FREE_BENDING,
                 safety_factor=sf, torsion_axis=_BODY_TORSION_AXIS,

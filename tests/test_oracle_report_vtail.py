@@ -566,6 +566,7 @@ def test_the_reduction_preserves_the_geometry_the_document_states_loads_about():
     loads about is the beam the analysis ran.
     """
     from sloads.field_registry import reduce_to_oracle_inputs
+    from sloads.power import is_power_on
 
     for path in sorted(glob.glob(os.path.join(_EXAMPLES, "*.project.json"))):
         project = io.load_project(path)
@@ -573,7 +574,10 @@ def test_the_reduction_preserves_the_geometry_the_document_states_loads_about():
         name = os.path.basename(path)
         assert tail_layout(reduced) == tail_layout(project), name
         for component in ("htail", "vtail"):
-            full = build_tail_span(project).get(component, [])
+            # The power-on twins are sloads output the oracle GUI never asks
+            # for (``power_cases``, design note 21 §10): compared power-off.
+            full = [r for r in build_tail_span(project).get(component, [])
+                    if not is_power_on(r.case)]
             cut = build_tail_span(reduced).get(component, [])
             if not full:
                 continue

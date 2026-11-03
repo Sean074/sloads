@@ -314,6 +314,14 @@ def _hop_82(d: Dict[str, Any]) -> Dict[str, Any]:
     return d
 
 
+def _hop_83(d: Dict[str, Any]) -> Dict[str, Any]:
+    """v83 -> v84 (design note 21 §10, #226): ``AeroCoefficientsInput`` gains
+    ``power_cases`` (default ``"off"``: the v83 analysis) and ``VnPoint`` gains
+    ``power_state`` and the thrust terms (default power-off, zero). An identity:
+    additive fields, and a migrated file's cases are exactly its v83 cases."""
+    return d
+
+
 #: ``{from_version: hop}`` -- applied in ascending order, each turning a file of
 #: version *n* into version *n+1* shape.
 MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
@@ -330,6 +338,7 @@ MIGRATIONS: Dict[int, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
     80: _hop_80,
     81: _hop_81,
     82: _hop_82,
+    83: _hop_83,
 }
 
 #: The oldest project version this build reads: the oldest released schema, or

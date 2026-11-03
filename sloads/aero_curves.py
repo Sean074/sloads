@@ -169,8 +169,8 @@ def recovered_coefficients(point: VnPoint, wing_area_sqft: float,
             point.m_wf / (q * wing_area_sqft * mac_in))
 
 
-def inertia_drag_factor(dx: float, weight_lb: float) -> float:
-    """``NX = -DX/W`` -- the longitudinal inertia load factor of a balanced point.
+def inertia_drag_factor(dx: float, weight_lb: float, thrust_fx: float = 0.0) -> float:
+    """``NX = -(DX + F_xT)/W`` -- the longitudinal inertia load factor of a balanced point.
 
     The single owner of where the drag goes (note 44 OR-198, rule 3). FLTLOADS
     balances the normal force and the pitching moment and writes **no**
@@ -184,8 +184,15 @@ def inertia_drag_factor(dx: float, weight_lb: float) -> float:
     A prints it as a column beside DX -- a third spelling would have been a third
     place for the sign convention to drift. Zero weight gives ``0.0``, the
     tolerant answer both callers already chose.
+
+    **Power on** (design note 21 §10, #226): ``thrust_fx`` is a power-on
+    point's thrust ``x`` force (``VnPoint.thrust_fx``, negative: forward), so
+    ``NX = -(DX - T)/W`` -- thrust equal to the drag gives ``NX = 0``. A
+    power-off point carries ``0.0`` and the factor is FLTLOADS' own.
     """
-    return -dx / weight_lb if weight_lb else 0.0
+    if not weight_lb:
+        return 0.0
+    return -dx / weight_lb if not thrust_fx else -(dx + thrust_fx) / weight_lb
 
 
 def recovered_cl(point: VnPoint, wing_area_sqft: float) -> float:

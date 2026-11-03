@@ -2,7 +2,7 @@
 
 > **Generated file — do not edit by hand.** Produced by [`docs/generate_data_dict.py`](../generate_data_dict.py) from the `sloads/models/` dataclasses. Regenerate after any schema change: `.venv/bin/python docs/generate_data_dict.py`.
 
-Schema version: **83**.
+Schema version: **84**.
 
 This dictionary covers the **input** slices of `Project` (`sloads/models/project.py`) — the fields that make up a `project.json`. The result slices (`envelope`, `mass`, `loads`) are computed outputs and are out of scope.
 
@@ -423,6 +423,7 @@ Airplane-less-tail aerodynamic coefficient sets -- ``Project.aero_coeffs``.
 | `clmax_clean` | `float` |  | `0.0` |
 | `clmax_clean_neg` | `float` |  | `0.0` |
 | `clmax_flap` | `float` |  | `0.0` |
+| `power_cases` | `str` |  | `'off'` |
 
 ### `AeroCoeffSet`
 

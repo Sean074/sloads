@@ -418,7 +418,7 @@ def test_the_register_names_its_negative_load_factor_condition():
     assert "which reverses the bending" in body
 
 
-def test_the_notation_states_the_three_symbols_and_tabulates_no_zeros():
+def test_the_notation_states_its_symbols_and_tabulates_no_zeros():
     """OR-100 -- the absences are written out, not printed as zero columns.
 
     Scoped to section 4 (2026-09-07). OR-140 supersedes this for the **applied
@@ -432,7 +432,7 @@ def test_the_notation_states_the_three_symbols_and_tabulates_no_zeros():
     """
     doc = _doc()
     table = _table(doc, "Notation")
-    assert [row[0] for row in table.rows] == ["X", "Fz", "Sz", "Myy"]
+    assert [row[0] for row in table.rows] == ["X", "Fx", "Fz", "Sx", "Sz", "Myy"]
     applied = _table(doc, "Applied fuselage loads by station")
     for other in _body_tables(doc):
         if other is applied:
@@ -440,7 +440,9 @@ def test_the_notation_states_the_three_symbols_and_tabulates_no_zeros():
         for column in other.columns:
             assert not column.startswith(("Sy ", "Mxx ", "Mzz ", "Fy ")), column
     # ...and where the applied appendix does print them, it says why.
-    assert "Fx and Fy are zero for every row" in (applied.note or "")
+    # Fx carries the longitudinal inertia since design note 21 P-16 (#218).
+    assert "Fy is zero for every row" in (applied.note or "")
+    assert "Fx is each station weight's longitudinal inertia" in (applied.note or "")
     assert "no lateral shear and no lateral bending" in _prose(_section_four(doc))
 
 

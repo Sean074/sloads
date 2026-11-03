@@ -863,6 +863,7 @@ def aero_coefficients_from_dict(d: Dict[str, Any]) -> AeroCoefficientsInput:
         clmax_clean=float(d.get("clmax_clean", 0.0)),
         clmax_clean_neg=float(d.get("clmax_clean_neg", 0.0)),
         clmax_flap=float(d.get("clmax_flap", 0.0)),
+        power_cases=str(d.get("power_cases", "off")),
         fuselage_moment=(
             FuselageMomentInput(
                 enabled=bool(fm.get("enabled", False)),
@@ -890,6 +891,8 @@ def aero_coefficients_to_dict(inp: AeroCoefficientsInput) -> Dict[str, Any]:
         out["clmax_clean_neg"] = inp.clmax_clean_neg
     if inp.clmax_flap:
         out["clmax_flap"] = inp.clmax_flap
+    if inp.power_cases != "off":
+        out["power_cases"] = inp.power_cases
     if inp.cruise is not None:
         out["cruise"] = _aero_coeff_set_to_dict(inp.cruise)
     if inp.flaps_down is not None:

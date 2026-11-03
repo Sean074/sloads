@@ -151,6 +151,10 @@ _CLAMPED: dict = {
     "baron_58.project.json": {
         ("MAN A", "fwd gross", 20000.0), ("MAN C", "fwd gross", 20000.0),
         ("MAN A", "full fuel aft", 20000.0), ("MAN C", "full fuel aft", 20000.0),
+        # #226 (design note 21 §10): the power-on twins fly the same capped
+        # speed and clamp with them.
+        ("MAN A-P", "fwd gross", 20000.0), ("MAN C-P", "fwd gross", 20000.0),
+        ("MAN A-P", "full fuel aft", 20000.0), ("MAN C-P", "full fuel aft", 20000.0),
     },
 }
 _CLAMPED_BEFORE_260 = {
@@ -178,8 +182,11 @@ def _clamped_atr():
     `mzfw aft`'s own point, with `full fuel fwd` at MTOW, whose eight rows at
     35,000 ft clamp as every gross case's do). The
     shipped fixture stopped clamping at #260; this is the same physics on the
-    same airplane, at an altitude it does not ship with."""
+    same airplane, at an altitude it does not ship with. Power-off: its
+    power-on twins (#226) clamp with their points and are pinned on the Baron
+    above."""
     project = _project("atr42_100.project.json")
+    project.aero_coeffs.power_cases = "off"
     project.flight_loads.altitudes_ft = [0.0, 12000.0, 35000.0]
     project.speeds.mach_limit.max_operating_altitude_ft = 35000
     return project

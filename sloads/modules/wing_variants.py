@@ -48,6 +48,7 @@ from ..models import (
     WingLoadCase,
 )
 from ..picks import TIE_REL, extreme
+from ..power import base_label
 from .airloads import air_load_distribution
 from .rolling import (
     ACCEL_ROLL_SLOTS,
@@ -166,7 +167,8 @@ def wing_variant_table(project: Project, envelope: Optional[EnvelopeResult] = No
     # and ``wing_inertia`` (imported above) imports ``select`` at module level.
     from . import select as _select
 
-    env = envelope if envelope is not None else _select.default_envelope(project)
+    env = _select.power_off_view(
+        envelope if envelope is not None else _select.default_envelope(project))
     picks = list(air_picks) if air_picks is not None else _select.air_picks(project, env)
     air_case = {c.label: c.case for c in picks if c.case is not None}
     model = _wing_model(project)
@@ -233,7 +235,7 @@ def _assess(project: Project, model: _WingModel, vn: Sequence[VnPoint],
     """Slot ``label`` run at V-n point ``p`` with FLIGHT case ``k``'s loading --
     one row of the table, and the one quantity SELECT's ACRL tie reads (#320)."""
     nz = -p.nz
-    nx = inertia_drag_factor(p.dx, k.weight_lb)
+    nx = inertia_drag_factor(p.dx, k.weight_lb, p.thrust_fx)
     # The accelerated roll's 100 % side carries condition A's air and
     # the couple derived from it (note 52, D-52.10/D-52.2) -- ranked on
     # the load it delivers, couple included (#295).
@@ -241,7 +243,7 @@ def _assess(project: Project, model: _WingModel, vn: Sequence[VnPoint],
     # balanced deck: the one resolver, so the row SELECT ranks and
     # publishes is the case that is flown (#315).
     roll = (derive_accel_roll(project, vn, p, percent)
-            if label in ACCEL_ROLL_SLOTS else None)
+            if base_label(label) in ACCEL_ROLL_SLOTS else None)
     entered: Tuple[str, ...] = ()
     if roll is not None:
         typed = entered_rolling_case(project, label)

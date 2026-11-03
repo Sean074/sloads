@@ -1357,6 +1357,28 @@ def _check_minimum_fuel_in_zero_fuel_weight(project: Project) -> List[Consistenc
         PAGE_WEIGHT_CG)]
 
 
+def _check_power_cases(project: Project) -> List[ConsistencyWarning]:
+    """A power-on case set the project cannot rate (design note 21 P-19, #226).
+
+    * ``power_cases_unrated`` -- ``power_cases = "off_and_on"`` on a project
+      with no engines, or an engine with no ``max_cont_hp`` (a jet) or no
+      propeller diameter: there is no P-14 rated thrust to balance with, and
+      FLTLOADS refuses the run by the same owner's sentence
+      (:func:`sloads.power.power_rating_refusal`).
+    """
+    from .power import POWER_OFF_AND_ON, power_cases, power_rating_refusal
+
+    if power_cases(project) != POWER_OFF_AND_ON:
+        return []
+    reason = power_rating_refusal(project)
+    if reason is None:
+        return []
+    return [ConsistencyWarning(
+        "power_cases_unrated",
+        f"power_cases is 'off_and_on', but {reason} (design note 21 P-19).",
+        PAGE_AERO_COEFFS)]
+
+
 def _check_envelope_reach(project: Project) -> List[ConsistencyWarning]:
     """An envelope point no loading can produce (#309, owner ruling 2026-09-27).
 
@@ -2169,6 +2191,7 @@ def consistency_warnings(project: Project) -> List[ConsistencyWarning]:
     out += _check_wing_fraction(project)
     out += _check_minimum_crew(project)
     out += _check_minimum_fuel_in_zero_fuel_weight(project)
+    out += _check_power_cases(project)
     out += _check_wing_mass_tie(project)
     out += _check_wing_mass_states(project)
     out += _check_case_loading_missing(project)

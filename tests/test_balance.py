@@ -111,6 +111,8 @@ from sloads.modules.balance import (
     source_case_name,
 )
 from sloads.modules.balance import resultant as case_resultant
+from sloads.modules.balance.applied import HUB_THRUST_SOURCE  # noqa: E402
+from sloads.power import base_label, is_power_on, power_label  # noqa: E402
 from sloads.modules.select import default_critical, default_envelope
 from sloads.modules.tail_span import build_tail_span, strip_spans
 from sloads.modules.wing_inertia import inertia_units, resolve_wing_cases
@@ -223,6 +225,20 @@ _EXPECTED_CASES = {
     ] + _NOTE_62_CASES["concept_regional_jet.project.json"]
       + _UNSYMMETRICAL_CASES + _LATERAL_CASES,
 }
+
+
+def _power_on_twins(cases):
+    """The ``-P`` twins a ``power_cases = "off_and_on"`` fixture appends after
+    its power-off set (design note 21 §10, P-18): every wing and h-tail case,
+    and no fin case (P-11)."""
+    lateral = {label for label, _ in _LATERAL_CASES}
+    return [(power_label(label), hand) for label, hand in cases if label not in lateral]
+
+
+for _example in ("atr42_100.project.json", "atr42_300_seed.project.json",
+                 "baron_58.project.json"):
+    _EXPECTED_CASES[_example] = (_EXPECTED_CASES[_example]
+                                 + _power_on_twins(_EXPECTED_CASES[_example]))
 
 #: The **symmetric** ground families: LANDLOAD cases 1-9 (level 3-/2-wheel,
 #: tail-down) and 13-18 (braked roll), each assembled once and unhanded. Both
@@ -380,7 +396,9 @@ _FORCE_RESIDUAL_RATCHET = {
                                "unsymmetrical": 0.0140},
     # atr42_300_seed measured 2026-11-01 (#403): PHAA at `mzfw aft` 2.321 %
     # (n 2.61 where the baseline flies 2.5), lateral 0.520 %, trim half 0.159 %.
-    "atr42_300_seed.project.json": {"symmetric": 0.0240, "lateral": 0.0060,
+    # #226 (design note 21 §10): PHAA-P at `mzfw fwd` 2.419 %, the rated thrust
+    # adding to the same fixture-lift reading (under the 2.5 % hard stop).
+    "atr42_300_seed.project.json": {"symmetric": 0.0245, "lateral": 0.0060,
                                     "unsymmetrical": 0.0020},
     # baron_58 measured 2026-09-11 (#271): symmetric 0.191 %, lateral 0.117 %.
     # Re-measured 2026-09-18 (#292): the eight wing slots now assemble at the
@@ -442,12 +460,14 @@ FORCE_RESIDUAL_CEILING = FORCE_RESIDUAL_ACCEPTANCE
 #: term).
 _CLAMPED_BODY_AXIAL = {
     # atr42_100 re-measured 2026-09-21 (#260): NMAA no longer clamps.
-    "atr42_100.project.json": {"NHAA": (0.0020, 0.0150)},
+    # #226 (design note 21 §10): NHAA-P clamps with its point, 0.023 % / 0.862 %.
+    "atr42_100.project.json": {"NHAA": (0.0020, 0.0150), "NHAA-P": (0.0020, 0.0150)},
     # atr42_300_seed measured 2026-11-01 (#403): its NHAA clamps at 0.024 % / 0.813 %.
     # #422 (design note 76): NHAA re-points to the new `mzfw fwd` corner
     # (33,510 lb at the rows' forward extreme), 16.7 deg past the elevator
     # stop -- re-measured 0.190 % / 1.46 % (0.024 % / 0.813 % at `aft gross`).
-    "atr42_300_seed.project.json": {"NHAA": (0.0020, 0.0150)},
+    # #226: NHAA-P clamps with its point, 0.010 % / 0.818 %.
+    "atr42_300_seed.project.json": {"NHAA": (0.0020, 0.0150), "NHAA-P": (0.0020, 0.0150)},
     # baron_58 dropped 2026-10-03 (#331): at the POH's 4.2 its NHAA moved to
     # STALL -1G at 20,000 ft, alpha -11.8 deg, aft (dCD -0.0011), unclamped.
     "concept_heavy.project.json": {"NHAA": (0.0030, 0.0070)},
@@ -1204,7 +1224,8 @@ _DELTA_CD_BAND = {
     'atr42_100.project.json': (-0.1260, +0.0215),
     # atr42_300_seed measured 2026-11-01 (#403): PHAA -0.1379 at `mzfw aft`, the
     # clamped NHAA +0.0120. #422: the clamped NHAA at `mzfw fwd`, +0.0208.
-    'atr42_300_seed.project.json': (-0.1385, +0.0210),
+    # #226: PHAA-P -0.1392 (the twin's higher CL at the same point).
+    'atr42_300_seed.project.json': (-0.1395, +0.0210),
     # baron_58 re-pinned 2026-09-18 (#292): the eight wing slots assemble at
     # the seeded MZFW loadings (PHAA -0.0726 at `mzfw aft`, NMAA -0.0086 at
     # `mzfw fwd`; the clamped NHAA -0.0002); before, only TORS and the
@@ -1257,16 +1278,22 @@ def test_the_applied_axial_force_is_the_airplanes_drag_not_the_wings(example):
     polar's trusted window it is not applied, so on that case the applied ``fx``
     is the wing strips' own -- *more* drag than the trim's ``dx``, never less --
     and there is no ``body-axial`` card at all.
+
+    **Power on** (design note 21 §10, G10-4): a ``-P`` case also carries its
+    rated thrust at the hubs, so the applied ``fx`` is the drag plus the
+    thrust's ``x`` force, ``vn.dx + vn.thrust_fx`` -- the power-off cases'
+    ``thrust_fx`` is zero and their gate is unchanged.
     """
     project = _project(example)
     vn = {p.case: p for p in default_envelope(project).vn}
     for case in _flight_cases(project):
         applied = sum(ld.fx for ld in case.loads
                       if not ld.source.startswith("closure-"))
-        expected = vn[case.vn_case].dx
+        expected = vn[case.vn_case].dx + vn[case.vn_case].thrust_fx
         where = f"{example} {case.label}{case.hand}"
         if case.body_axial_clamped:
-            strips = sum(ld.fx for ld in case.loads if ld.source == "wing-air")
+            strips = sum(ld.fx for ld in case.loads
+                         if ld.source in ("wing-air", HUB_THRUST_SOURCE))
             assert not [ld for ld in case.loads if ld.source == "body-axial"], where
             assert case.body_axial == 0.0, where
             assert applied == pytest.approx(strips, rel=1e-9, abs=1e-6), (
@@ -1296,11 +1323,14 @@ def test_the_longitudinal_closure_is_the_trims_own_drag(example):
     On a clamped case (:data:`_CLAMPED_BODY_AXIAL`) it is the strips' own drag
     over the weight instead -- the applied ``fx`` in either case, which is what
     the ``x`` degree of freedom reacts.
+
+    Power on, it is ``(D - sum T)/W`` -- G10-4 (design note 21 §10): the thrust
+    the trim was balanced with joins the drag, ``vn.dx + vn.thrust_fx``.
     """
     project = _project(example)
     vn = {p.case: p for p in default_envelope(project).vn}
     for case in _flight_cases(project):
-        expected = vn[case.vn_case].dx / case.weight_lb
+        expected = (vn[case.vn_case].dx + vn[case.vn_case].thrust_fx) / case.weight_lb
         if case.body_axial_clamped:
             expected = sum(ld.fx for ld in case.loads
                            if not ld.source.startswith("closure-")) / case.weight_lb
@@ -1760,7 +1790,7 @@ def test_only_acrl_carries_roll():
         project = _project(example)
         for case in (resolve_wing_cases(project, project.wing_mass)
                      if project.wing_mass else []):
-            if case.name == "ACRL":
+            if base_label(case.name) == "ACRL":   # and its power-on twin (#226)
                 continue
             assert not case.unbal_moment, (
                 f"{example} {case.name} carries UNB={case.unbal_moment}: it is "
@@ -2605,7 +2635,10 @@ _UNSYMMETRICAL_SPLIT = {
 
 
 def _unsymmetrical(project):
-    return [c for c in build_balanced_cases(project) if is_unsymmetrical_htail(c)]
+    """The power-off pair: the pins below are SELECT's power-off split, and a
+    ``-P`` pair carries its own (design note 21 §10)."""
+    return [c for c in build_balanced_cases(project)
+            if is_unsymmetrical_htail(c) and not is_power_on(c.label)]
 
 
 @pytest.mark.parametrize("example", _with_unsymmetrical_cases())

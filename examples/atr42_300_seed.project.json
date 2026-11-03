@@ -1,5 +1,5 @@
 {
-  "schema_version": 83,
+  "schema_version": 84,
   "name": "ATR 42-300 (\"ATR 42-100\" prototype designation never entered production; -300 is the closest PW120-powered production analog) \u2014 2x PW120 (concept, category C)",
   "description": "ATR 42-300, 48-seat regional turboprop twin (concept mode, category C), sized by sconfig (2026-10-30) from atr42_100.project.json: wing LE root 349.0 in, Sh 127.0 ft2, Sv 125.5 ft2, fuselage 892.8 in; inputs corrected at #403 and #420. Published data cited, everything else estimated -- sources: examples/atr42_300_seed.sources.md",
   "engines": [
@@ -1371,6 +1371,7 @@
     "clmax_clean": 1.8,
     "clmax_clean_neg": -0.7,
     "clmax_flap": 2.822,
+    "power_cases": "off_and_on",
     "cruise": {
       "name": "CRUISE",
       "stall_cl": 1.8,

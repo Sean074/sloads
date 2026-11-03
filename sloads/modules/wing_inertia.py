@@ -47,7 +47,7 @@ from typing import Dict, List, NamedTuple, Optional, Sequence
 
 from ..aero_curves import inertia_drag_factor
 from ..basic import basic_trunc3
-from ..case_ids import WING_BAND_EXTRA, WING_SLOTS, band_case_id, wing_case_id
+from ..case_ids import WING_BAND_EXTRA, band_case_id, is_wing_slot, wing_case_id
 from ..cg_cases import flight_cases
 from ..constants import DEG_PER_RAD, IN2_PER_FT2
 from ..convergence import solver_failure
@@ -70,6 +70,7 @@ from ..models import (
     WingMassInput,
     WingStationLoad,
 )
+from ..power import base_label, is_power_on
 from ..registry import register
 from ..units import format_value
 from .rolling import complete_rolling_case
@@ -453,7 +454,7 @@ def _resolve_case(project: Project, case: WingLoadCase,
     nx = case.nx
     if nx is None:
         weight = _case_weight(project, vp.cg)
-        nx = inertia_drag_factor(vp.dx, weight)
+        nx = inertia_drag_factor(vp.dx, weight, vp.thrust_fx)
     return WingLoadCase(name=case.name, case=case.case, nz=nz, nx=nx,
                         unbal_moment=case.unbal_moment, cl=case.cl, v_eas_kt=case.v_eas_kt)
 
@@ -498,6 +499,14 @@ def resolve_wing_cases(project: Project, wm: WingMassInput,
         cases = [replace(c, case=by_label[c.name].case)
                  if c.case is None and c.name in by_label else c
                  for c in wm.cases]
+        # Each entered slot's power-on twin follows it (design note 21 §10,
+        # #226): the entry filters which slots run, and a slot with power on
+        # runs in both states. The twin takes its own V-n point -- nothing the
+        # entry states (a speed, a couple) belongs to the power-on case.
+        entered = {c.name for c in cases}
+        cases += [WingLoadCase(name=c.label, case=c.case) for c in conditions
+                  if is_power_on(c.label) and c.case is not None
+                  and base_label(c.label) in entered and c.label not in entered]
     else:
         cases = [WingLoadCase(name=c.label, case=c.case) for c in conditions]
     return [complete_rolling_case(project, c, src.vn) for c in cases]
@@ -557,13 +566,13 @@ def wing_case_ref(project: Project, index: int, case: WingLoadCase,
             if speed == c.case_ref.speed_kt:
                 return c.case_ref
             return replace(c.case_ref, speed_kt=speed)
-    if case.name in WING_SLOTS:
+    if is_wing_slot(case.name):
         case_id = wing_case_id(case.name)
     else:
         # Extra-band cases number by their order among the *other* extras, so
         # adding a slot case in front of one does not renumber it.
         cases = resolve_wing_cases(project, project.wing_mass or WingMassInput(), src)
-        extras = [i for i, c in enumerate(cases) if c.name not in WING_SLOTS]
+        extras = [i for i, c in enumerate(cases) if not is_wing_slot(c.name)]
         k = extras.index(index) if index in extras else index
         case_id = band_case_id("wing", WING_BAND_EXTRA, k)
     return CaseRef(

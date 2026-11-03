@@ -60,6 +60,7 @@ from __future__ import annotations
 import glob
 import math
 import os
+import re
 from typing import Dict, NamedTuple, Tuple
 
 import pytest
@@ -213,6 +214,13 @@ def _outcomes(project) -> Tuple[Dict[str, str], Dict[Tuple[str, str, str], objec
     """
     ran: Dict[str, str] = {}
     values: Dict[Tuple[str, str, str], object] = {}
+    # The power-on cases (``"... -P"``, design note 21 §10) are sloads output:
+    # ``power_cases`` is a sloads input the oracle GUI never asks for, so the
+    # reduced airplane runs power-off -- McMaster's only state. Declared here,
+    # as the rotor model is below, and compared power-off.
+    def power_on_row(text: object) -> bool:
+        return isinstance(text, str) and bool(_POWER_ON.search(text))
+
     for name in _oracle_modules():
         try:
             result = registry.get(name)(project)
@@ -221,6 +229,8 @@ def _outcomes(project) -> Tuple[Dict[str, str], Dict[Tuple[str, str, str], objec
             continue
         ran[name] = "ok"
         for condition in result.conditions:
+            if power_on_row(condition.title):
+                continue
             for value in condition.values:
                 values.setdefault((name, condition.title, value.key), value.value)
         if name in STATION_TABLES:
@@ -231,6 +241,8 @@ def _outcomes(project) -> Tuple[Dict[str, str], Dict[Tuple[str, str, str], objec
                 ran[f"{name} stations"] = type(exc).__name__
                 continue
             ran[f"{name} stations"] = "ok"
+            rows = [row for row in rows
+                    if not any(power_on_row(cell) for cell in row.values())]
             for i, row in enumerate(rows):
                 for column, cell in row.items():
                     values[(name, f"station table {spec.stem}", f"{i}:{column}")] = cell
@@ -239,6 +251,10 @@ def _outcomes(project) -> Tuple[Dict[str, str], Dict[Tuple[str, str, str], objec
 
 def _load(example: str):
     return io.load_project(os.path.join(_EXAMPLES, example))
+
+
+#: A power-on label in a condition title or a station-table cell.
+_POWER_ON = re.compile(r"-P(?![A-Za-z0-9])")
 
 
 def _both(example: str):

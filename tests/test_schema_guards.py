@@ -445,7 +445,11 @@ def fields_hash() -> str:
 #: tag. Additive and inferring nothing, so ``_hop_82`` is an identity. The
 #: Baron's digests move by the ruling, not the hop: its pilot is a minimum row
 #: and its payload cases are rebuilt to MZFW and full fuel at both limits.
-EXPECTED_FIELDS_HASH = "1ece939abb870d33"
+#: v84 (design note 21 §10, #226): ``AeroCoefficientsInput`` gains
+#: ``power_cases`` and ``VnPoint`` gains ``power_state`` and the thrust terms.
+#: Additive, so ``_hop_83`` is an identity; every fixture at ``"off"`` balances
+#: exactly as at v83, and the power-on fixtures move by the ruling.
+EXPECTED_FIELDS_HASH = "82a3824af25c2da3"
 
 
 def test_persisted_dataclass_shapes_are_unchanged():

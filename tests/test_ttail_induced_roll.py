@@ -37,6 +37,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sloads import io
+from sloads.power import is_power_on
 from sloads.constants import AC23_9_MACH_WARN, DEG_PER_RAD, IN2_PER_FT2, IN_PER_FT, dynamic_pressure_psf
 from sloads.export.coordinates import ttail_transfer_to_airplane
 from sloads.export.lra_model import _member_key, build_lra_model
@@ -185,7 +186,10 @@ def test_the_deck_carries_the_unsymmetrical_roll_at_the_fin_root(name):
                  if r.case == "UNSYMMETRICAL")
     roll = math.fsum(st.fz * st.y for st in unsym.stations)
     assert roll == pytest.approx(_UNSYM_ROLL[name], abs=0.5), name
-    cases = [c for c in build_balanced_cases(project) if is_unsymmetrical_htail(c)]
+    # The power-off case: its ``-P`` twin carries its own split (design note 21
+    # §10), and the T-tail fin reaction (VT-20) is built from the power-off one.
+    cases = [c for c in build_balanced_cases(project)
+             if is_unsymmetrical_htail(c) and not is_power_on(c.label)]
     assert {c.hand for c in cases} == {"R", "L"}, name
     for c in cases:
         want = roll if c.hand == "R" else -roll

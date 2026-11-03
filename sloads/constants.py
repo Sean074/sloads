@@ -36,6 +36,9 @@ IN2_PER_FT2 = IN_PER_FT ** 2                     # 144
 DEG_PER_RAD = 180.0 / math.pi                    # 57.29578 (the .BAS wrote 57.3)
 RAD_PER_DEG = math.pi / 180.0
 FT_LB_S_PER_HP = 550.0                           # 1 hp = 550 ft-lb/s (exact, by definition)
+#: Propeller efficiency: ONENGOUT's live-engine thrust ``HP*550*.85/V``, FLAPLOAD's
+#: slipstream absorption ``.85*MAXHP`` and the power-on rating (design note 21 P-14).
+PROP_EFFICIENCY = 0.85
 # International nautical mile in feet: 1852 m / 0.3048 m/ft exactly. The SI
 # origin is *stated* here (and asserted against units.FT_TO_M in the guard test),
 # not imported, so units.py stays downstream of this module.
