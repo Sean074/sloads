@@ -861,52 +861,50 @@
       {
         "name": "aft max landing",
         "weight_lb": 5400.0,
-        "xcg": 85.9,
-        "zcg": 96.63,
+        "xcg": 86.00533333333333,
+        "zcg": 96.63880521262003,
         "analyses": [
           "ground"
         ],
         "role": "aft_max_landing",
         "loading": {
           "aboard": [
-            "Fuel, left wing",
-            "Fuel, right wing",
             "Front passenger",
             "Mid passengers",
             "Aft passengers",
             "Nose baggage",
-            "Rear baggage"
+            "Rear baggage",
+            "Fuel, left wing",
+            "Fuel, right wing"
           ],
           "fractions": {
+            "Aft passengers": 0.12796949891067386,
+            "Nose baggage": 0.15496790123456963,
             "Fuel, left wing": 0.18055555555555555,
-            "Fuel, right wing": 0.18055555555555555,
-            "Nose baggage": 0.16879012345679012,
-            "Rear baggage": 0.24840740740740738
+            "Fuel, right wing": 0.18055555555555555
           }
         }
       },
       {
         "name": "fwd max landing",
         "weight_lb": 5400.0,
-        "xcg": 79.67,
-        "zcg": 96.4,
+        "xcg": 77.96430769230768,
+        "zcg": 95.6908774649461,
         "analyses": [
           "ground"
         ],
         "role": "fwd_max_landing",
         "loading": {
           "aboard": [
-            "Fuel, left wing",
-            "Fuel, right wing",
             "Front passenger",
             "Mid passengers",
             "Nose baggage",
-            "Rear baggage"
+            "Fuel, left wing",
+            "Fuel, right wing"
           ],
           "fractions": {
-            "Fuel, left wing": 0.18055555555555555,
-            "Fuel, right wing": 0.18055555555555555,
-            "Rear baggage": 0.475
+            "Mid passengers": 0.3345519474758215,
+            "Nose baggage": 0.4208411261940689
           }
         }
       },
@@ -1469,26 +1467,26 @@
       {
         "name": "aft max landing",
         "weight_lb": 5400.0,
-        "cg_x": 85.90166666666667,
+        "cg_x": 86.00533333333333,
         "cg_y": 0.0,
-        "cg_z": 96.63496570644719,
-        "ixx": 16951176.764623277,
-        "iyy": 12580328.049623279,
-        "izz": 28597938.285,
-        "ixz": 489102.31493827153,
+        "cg_z": 96.63880521262003,
+        "ixx": 16951212.555106223,
+        "iyy": 12576497.301506223,
+        "izz": 28594071.7464,
+        "ixz": 489513.883891358,
         "gear_down": true,
         "ceiling": false
       },
       {
         "name": "fwd max landing",
         "weight_lb": 5400.0,
-        "cg_x": 79.6675925925926,
+        "cg_x": 77.96430769230768,
         "cg_y": 0.0,
-        "cg_z": 96.40407407407407,
-        "ixx": 16948731.81037037,
-        "iyy": 12597046.639074074,
-        "izz": 28617101.828703705,
-        "ixz": 456450.31296296295,
+        "cg_z": 95.6908774649461,
+        "ixx": 22276453.708527066,
+        "iyy": 10605774.052323516,
+        "izz": 31947607.34379645,
+        "ixz": 349627.9527773523,
         "gear_down": true,
         "ceiling": false
       },

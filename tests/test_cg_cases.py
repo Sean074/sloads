@@ -277,21 +277,6 @@ def test_ground_coverage_matches_what_the_plan_measured():
 #: the seed reproduces them, which is the check that the seed *is* FLTLOADS'
 #: definition; ``concept_heavy`` carries no envelope and one loading.
 _SEEDED = ("atr42_100", "concept_regional_jet")
-#: Cases held at their pre-#424 loading (design note 75 D-75.8, owner
-#: 2026-11-03): with the 1,500 lb reserve row folded into ``Mission fuel`` the
-#: whole-row search closes these RJ cases on a different loading (full fuel,
-#: the aft cabin off, more ballast), and NHAA at ``fwd gross`` then breaks the
-#: clamped-case residual ratchet (1.88 % against 1.65 %). They keep the folded
-#: loading -- the same pounds as a mission-fuel fraction, bit-identical mass --
-#: and the guard checks their weight and station, not the waterline the new
-#: search would give, until #422 rebuilds the seed objective and re-enters them.
-_HELD_UNTIL_422 = {"concept_regional_jet": {"aft gross", "fwd gross", "mid gross",
-                                            "fwd regardless", "fwd light"}}
-
-
-def _seed_match(name, case, got, want):
-    held = case in _HELD_UNTIL_422.get(name, ())
-    return got[:2] if held else got, want[:2] if held else want
 
 
 @pytest.mark.parametrize("name", _SEEDED)
@@ -313,8 +298,7 @@ def test_the_fixture_flight_cases_are_the_wtenv_seed(name):
     assert len(got) == len(want), (name, [g[0] for g in got], names)
     for g, w in zip(got, want):
         assert g[0] == w[0]
-        gv, wv = _seed_match(name, g[0], g[1:], w[1:])
-        assert gv == pytest.approx(wv, abs=0.011), (name, g, w)
+        assert g[1:] == pytest.approx(w[1:], abs=0.011), (name, g, w)
 
 
 @pytest.mark.parametrize("name", _SEEDED)
@@ -327,8 +311,7 @@ def test_the_fixture_ground_cases_are_the_landing_seed(name):
     got = [(c.name, c.role, c.weight_lb, c.xcg, c.zcg) for c in ground_cases(project)]
     for g, w in zip(got, seeded):
         assert (g[0], g[1]) == (w.name, w.role)
-        gv, wv = _seed_match(name, g[0], g[2:], (w.weight_lb, w.xcg, w.zcg))
-        assert gv == pytest.approx(wv, abs=0.011), (name, g)
+        assert g[2:] == pytest.approx((w.weight_lb, w.xcg, w.zcg), abs=0.011), (name, g)
     assert len(got) == len(seeded) == 3
 
 

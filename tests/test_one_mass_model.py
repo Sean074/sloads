@@ -499,36 +499,35 @@ def test_an_air_pick_missing_from_the_variant_table_is_refused_by_name():
 # D-63.5 -- the MZFW seeds
 # --------------------------------------------------------------------------- #
 def test_the_mzfw_seeds_on_the_appendix_a_airplane():
-    """Seeded in memory (the fixture carries no MZFW so its V-n numbering does
-    not move): ``mzfw aft`` is the six people and the ballast row clipped
-    onto the aft line; ``mzfw fwd`` coincides with CG4 and ``full fuel aft``
-    with CG1 (note 63 §8.1's skip rule), so neither is written."""
+    """Seeded in memory (the fixture carries no MZFW, so its V-n numbering
+    does not move). At 2,913 lb with no fuel the payload rows can place the CG
+    no further forward than 85.36 in, aft of the 85.09 in aft line, so no
+    zero-fuel loading flies there and **no corner is written** (design note 76
+    D-76.1): a loading outside the limits is never a case. The old search cut
+    the weight to 2,900.84 lb to stay inside; the note 75 rule holds the
+    weight and says the rows cannot."""
     from sloads.cg_cases import MZFW_CASE_NAMES, seed_flight_cases
+    from sloads.mass_distribution import place_payload
+    from sloads.validation import _wtenv_stations
 
     p = _project("ga6_normal.project.json")
     # The pre-#424 estimate, entered: the seed's mechanics are what is pinned here.
     p.weight.max_zero_fuel_weight_lb = 2913.0
     seeded, missing = seed_flight_cases(p)
     assert not missing
-    by_name = {c.name: c for c in seeded}
-    assert [c.name for c in seeded if c.name in MZFW_CASE_NAMES] == ["mzfw aft"]
-    aft = by_name["mzfw aft"]
-    assert aft.weight_lb == pytest.approx(2900.84, abs=0.01)
-    assert aft.xcg == pytest.approx(85.09, abs=0.01)
-    assert aft.loading is not None
-    assert set(aft.loading.aboard) == {"Copilot", "3rd person", "4th person",
-                                       "5th person", "6th person", "Ballast"}
-    assert list(aft.loading.fractions) == ["5th person"]
-    assert 0.46 < aft.loading.fractions["5th person"] < 0.48
+    assert [c.name for c in seeded if c.name in MZFW_CASE_NAMES] == []
+    aft = _wtenv_stations(p)["Aft gross station"]
+    nearest = place_payload(p, 2913.0, 0.0, aft, nearest=True)
+    assert not nearest.on_target and nearest.cg_x == pytest.approx(85.36, abs=0.01)
+    assert nearest.cg_x > aft
 
 
 def test_the_atr_mzfw_aft_seed_is_note_63s_row_and_is_entered_from_birth():
-    """Note 63 §8.3's mechanism on the #260 fixture, with zero usable fuel
-    (#424, note 75 D-75.8): the payload rows sum to 10,760 lb, 76 lb short of
-    MZFW - OEW, so ``mzfw aft`` is every payload row aboard, 33,434 lb at
-    401.50 in, nothing trimmed -- the rows' extreme, under the cap and inside
-    the 406.80 in aft line. Until #424 the 700 lb reserve rode inside it and
-    the cap was reached (33,510 lb at 403.69 in, the forward cabin trimmed).
+    """Design note 76 D-76.1 on the #260 fixture, with zero usable fuel (#424):
+    the payload rows sum to 10,760 lb, 76 lb short of MZFW - OEW, so the only
+    zero-fuel loading at the rows' weight is every payload row aboard, 33,434
+    lb at 401.50 in -- the rows' extreme both ways, inside both lines, nothing
+    trimmed. ``mzfw fwd`` is the same point, so the skip rule writes it once.
     The seeded case is an entered loading, so D-25a's echo reads it."""
     from sloads.cg_cases import seed_flight_cases
     from sloads.mass_distribution import derive_case_loadings
@@ -537,48 +536,15 @@ def test_the_atr_mzfw_aft_seed_is_note_63s_row_and_is_entered_from_birth():
     seeded, missing = seed_flight_cases(p)
     assert not missing
     aft = next(c for c in seeded if c.name == "mzfw aft")
+    assert "mzfw fwd" not in {c.name for c in seeded}
     assert aft.weight_lb == pytest.approx(33434.0, abs=0.05)
     assert not aft.loading.fractions                            # nothing trimmed
     assert not any(it.usable_fuel for it in p.weight.items if it.name in aft.loading.aboard)
-    assert aft.xcg == pytest.approx(401.50, abs=0.01)           # inside the aft line
+    assert aft.xcg == pytest.approx(401.50, abs=0.01)
     ld = derive_case_loadings(p, [aft])[0]
     assert ld.entered and ld.derivable and ld.weight_lb == pytest.approx(aft.weight_lb, abs=0.05)
     # The fixture carries exactly the seed (its own drift guard is test_cg_cases).
-    assert [c.name for c in flight_cases(p)][-3:] == ["mzfw aft", "mzfw fwd", "full fuel aft"]
-
-
-def test_the_seed_search_clips_and_never_trims_a_loading_that_is_inside():
-    """The search's contract: a whole-row loading inside the limits is taken
-    as it is; only a loading outside is clipped, by one row, by the least it
-    takes; the cap is honoured exactly; nothing is found under a cap the
-    fixed rows alone exceed."""
-    from sloads.mass_distribution import seed_loading_search
-
-    p = _project("ga6_normal.project.json")
-    aft, fwd = 85.09396, (lambda w: 72.62436)
-    # A cap below the base + reserve rows: nothing.
-    assert seed_loading_search(p, fuel="none", cap_lb=2000.0, edge="aft",
-                               aft_limit=aft, fwd_limit_at=fwd) is None
-    # Cap binds: the heaviest zero-fuel loading is clipped onto the cap exactly.
-    found = seed_loading_search(p, fuel="none", cap_lb=2500.0, edge="aft",
-                                aft_limit=aft, fwd_limit_at=fwd)
-    assert found is not None and found.weight_lb == pytest.approx(2500.0, abs=1e-6)
-    assert len(found.loading.fractions) == 1 and found.trimmed
-    # Aft line binds: one row clipped, the CG on the line to the search's step.
-    found = seed_loading_search(p, fuel="none", cap_lb=10000.0, edge="aft",
-                                aft_limit=aft, fwd_limit_at=fwd)
-    assert found.cg_x <= aft + 1e-6 and found.cg_x > aft - 0.05
-    assert len(found.loading.fractions) == 1
-    # Forward edge on a loading already inside: whole rows, no fraction.
-    found = seed_loading_search(p, fuel="none", cap_lb=10000.0, edge="fwd",
-                                aft_limit=aft, fwd_limit_at=fwd)
-    assert found.loading.fractions == {} and found.weight_lb == pytest.approx(2063.0)
-    # Full fuel: every consumable row aboard at 1.0.
-    found = seed_loading_search(p, fuel="full", cap_lb=3400.0, edge="aft",
-                                aft_limit=aft, fwd_limit_at=fwd)
-    assert "Fuel to gross wt" in found.loading.aboard
-    assert found.weight_lb == pytest.approx(3400.0, abs=1e-6)
-
+    assert [c.name for c in flight_cases(p)][-3:] == ["mzfw aft", "full fuel aft", "full fuel fwd"]
 
 def test_mzfw_is_a_design_weight_in_the_mlw_shape():
     """``0`` = not entered and refuses when required; the ordering chain

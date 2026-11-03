@@ -151,7 +151,9 @@ _FROZEN_PICKS = {
         # #424 (note 75 D-75.8): `min weight` carries no reserve fuel, 1,500 lb
         # lighter (NMAA/NNZ -1.80, NLAA -0.80, PNZ +3.80 before; resultants
         # 35650, 14457, 82102).
-        "NHAA": ("STALL -N", -1.00, 150.5, "fwd gross", 20000.0, 34454),
+        # #422 (design note 76): `fwd gross` carries full fuel and no ballast,
+        # and NHAA's tie goes to the sea-level point (20,000 ft, 34454 before).
+        "NHAA": ("STALL -N", -1.00, 150.5, "fwd gross", 0.0, 34335.8),
         "NMAA": ("GUST -C", -1.991, 310.0, "min weight", 20000.0, 36607.7),
         "NLAA": ("GUST -D", -0.923, 350.0, "min weight", 20000.0, 15577.0),
         "PNZ": ("GUST +C", +3.996, 310.0, "min weight", 20000.0, 80335.0),
@@ -856,8 +858,9 @@ def test_an_accel_roll_tie_is_broken_on_the_net_root_bending():
     200; 180 until #424's ``mzfw fwd`` case added twenty V-n rows ahead of it)
     and sea level (40) differ by 0.185 % in LZW, inside the balance's
     0.5 %. SELECT.BAS took 200 on LZW; the tie goes to 40, whose net root Mxx
-    is the larger (5,527,521 against 5,486,079 lb-in, measured 2026-09-29), and
-    the variant table delivers the slot there."""
+    is the larger (5,528,024 against 5,494,982 lb-in; 5,527,521 / 5,486,079
+    before #422 gave `fwd gross` its full-fuel loading), and the variant
+    table delivers the slot there."""
     from sloads.modules.wing_variants import assessor, wing_variant_table
 
     p, vn = _rj_fwd_gross()
@@ -868,8 +871,8 @@ def test_an_accel_roll_tie_is_broken_on_the_net_root_bending():
     run = assessor(p)
     assert not isinstance(run, str)
     mxx = {q.case: run("ACRL", "23.349(a)(2)", q, vn).root_mxx for q in band}
-    assert mxx[40] == pytest.approx(5527521.0, rel=1e-4)
-    assert mxx[200] == pytest.approx(5486079.0, rel=1e-4)
+    assert mxx[40] == pytest.approx(5528024.0, rel=1e-4)
+    assert mxx[200] == pytest.approx(5494982.0, rel=1e-4)
     assert select._pick_accel_roll(p, vn, "23.349(a)(2)").case == 40
     row = wing_variant_table(p).governing()["ACRL"]
     assert (row.case, row.cg) == (40, "fwd gross")

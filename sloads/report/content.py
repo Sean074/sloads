@@ -687,6 +687,17 @@ def weight_cg_plot_data(project: Project, u: Units) -> Optional[PlotData]:
         series.append(Series("Reachable CG of the data base", xs, ws,
                              style="loosely dotted", closed=True))
 
+    # Each fuelled case's fuel vector (design note 76 D-76.4, #423): the CG path
+    # from its zero-fuel loading up to the case, so the zero-fuel end of every
+    # case is on the figure beside it. One owner, ``fuel_vector``.
+    from ..mass_distribution import fuel_vector
+
+    for c in (weight.cg_cases if weight is not None else []):
+        path = _try(fuel_vector, project, c) or []
+        if len(path) > 1:
+            series.append(Series(f"Fuel vector, {c.name}", [x * len_f for _, x in path],
+                                 [w * mass_f for w, _ in path], style="dotted"))
+
     # Cases sharing a point are one marker with both names -- on the GA6 the
     # forward-light landing case and CG3 are the same loading -- which both
     # renderers draw through ``PlotData.marked_points`` (#256).

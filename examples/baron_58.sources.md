@@ -101,9 +101,12 @@ the guide enters and reads this example in **SI** (UG-12).
   - `full fuel aft`: 5,500 lb at **85.37**, the most aft that full fuel and
     510 lb of payload reach (aft seats, rear hold at 0.425). The aft limit is
     86.0, so the corner is **0.63 in short**.
-  - `aft max landing` and `fwd max landing`: the two MZFW payloads plus
-    130 lb of fuel (both tanks at 0.1806) to the 5,400 lb landing weight, at
-    85.90 and 79.67.
+  - `aft max landing` and `fwd max landing`: on the limits at the 5,400 lb
+    landing weight since #422 (design note 76 Q1 (a)). Aft, 86.0: the MZFW
+    payload plus 130 lb of fuel, re-split onto the line. Forward, 77.96: the
+    MZFW payload cannot reach it, so full fuel and the least payload. They
+    were the two MZFW payloads plus fuel wherever that put them (85.90,
+    79.67).
 - **Baggage rows (#309)**: nose baggage is the [A] 300 lb at +15 (it carried
   150 lb until #309), and the [A] 400 lb rear compartment at +150 is its own
   row; the rear row's waterline 100 is [E], the seats' own, since no source

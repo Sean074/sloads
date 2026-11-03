@@ -183,26 +183,42 @@ def test_the_oracle_airplane_flags_only_what_the_regulation_prescribes():
     assert not [w for w in consistency_warnings(_project("ga6_normal")) if w.code == "balance_infeasible"]
 
 
-@pytest.mark.parametrize("name, delta", [("atr42_100", -27.90), ("atr42_300_seed", -27.54)])
-def test_the_atr_flags_its_balancing_elevator_past_the_stop(name, delta):
+#: The non-prescribed flags per ATR, ``{condition: [first number of each flag]}``.
+#: ``atr42_300_seed``'s wing slots govern at the `mzfw fwd` corner since #422
+#: (design note 76: MZFW at the rows' forward extreme), where the stall-line
+#: PHAA and NHAA run the elevator past both stops; before, at `aft gross`,
+#: they sat inside them.
+_ATR_FLAGS = {
+    "atr42_100": {"htail BAL DN RETRACTED": [-27.90]},
+    "atr42_300_seed": {"wing PHAA": [-26.70], "wing NHAA": [16.68],
+                       "htail BAL DN RETRACTED": [-27.54]},
+}
+
+
+@pytest.mark.parametrize("name", sorted(_ATR_FLAGS))
+def test_the_atr_flags_its_balancing_elevator_past_the_stop(name):
     """G-73.2, review A-2: the 23.421 down balancing load runs the elevator past
-    the 25 deg TE-up stop. The delivered wing cases sit at the aft-CG mass state
-    (note 63) and inside the stops, so they carry no flag."""
+    the 25 deg TE-up stop; every other flag is pinned by condition in
+    :data:`_ATR_FLAGS`, and each one is a ``balance_infeasible`` warning."""
     flags = {k: [f for f in v if not is_prescribed(f)] for k, v in _flags(_project(name)).items()}
     flags = {k: v for k, v in flags.items() if v}
-    assert list(flags) == ["htail BAL DN RETRACTED"]
-    (flag,) = flags["htail BAL DN RETRACTED"]
-    assert "TE-up stop" in flag and _value(flag) == pytest.approx(delta, abs=0.005)
+    want = _ATR_FLAGS[name]
+    assert sorted(flags) == sorted(want)
+    for key, values in want.items():
+        assert [_value(f) for f in flags[key]] == pytest.approx(values, abs=0.005), key
+    assert "TE-up stop" in flags["htail BAL DN RETRACTED"][0]
     codes = [w.code for w in consistency_warnings(_project(name))]
-    assert codes.count("balance_infeasible") == 1
+    assert codes.count("balance_infeasible") == len(want)
 
 
 def test_the_regional_jet_flags_its_stall_line_cases():
     """G-73.3: stop and tail-alpha flags on the stall-line wing cases and the up
     balancing load; the balanced cases built from them carry the flags."""
     flags = _flags(_project("concept_regional_jet"))
-    want = {"wing PHAA": [-34.68, 18.52], "wing ACRL": [-29.47, 15.45], "wing NHAA": [23.72],
-            "htail BAL UP RETRACTED": [-25.79, 17.40]}
+    # #422 (design note 76): `fwd gross` carries full fuel and no ballast, and
+    # NHAA moves to sea level (-34.68, -29.47, 23.72, -25.79 / 17.40 before).
+    want = {"wing PHAA": [-34.83, 18.52], "wing ACRL": [-29.57, 15.45], "wing NHAA": [24.69],
+            "htail BAL UP RETRACTED": [-26.19, 17.46]}
     for key, values in want.items():
         assert [_value(f) for f in flags[key]] == pytest.approx(values, abs=0.005), key
     cases = build_balanced_cases(_project("concept_regional_jet"))

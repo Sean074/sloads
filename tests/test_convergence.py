@@ -58,12 +58,6 @@ _NO_REFUSAL_NEEDED = {
         "WTESTIMA's 1 % take-off-weight inflation has no trip bound to exhaust -- "
         "options/misc grows without limit while the structural fractions sum to "
         "less than one, so the loop ends or the fraction table is degenerate",
-    "mass_distribution.py:seed_loading_search":
-        "an exhaustive scan of the payload subsets and of one row's fraction for "
-        "the best loading inside the envelope, not an iteration toward a target: "
-        "exhausting the scan is how it finishes, and 'no loading is inside' is a "
-        "stated answer (``None``) the seed skips, not a silent fall-out (design "
-        "note 63 D-63.5, #292)",
     "export/report_package.py:browse_start":
         "a walk up the filesystem to the nearest directory that exists, not a "
         "numerical search: the loop is bounded by the path's own depth and "
@@ -177,10 +171,12 @@ _CLAMPED_BEFORE_260 = {
 
 def _clamped_atr():
     """The ATR balanced at 35,000 ft: the Mach cap pins the true airspeed
-    there and 37 of the 480 rows clamp (D-30's stall-limited flight; 41
+    there and 45 of the 480 rows clamp (D-30's stall-limited flight; 41
     before #420 put the fixture's cases on the certified CG limits, 39 before
     #424 took the reserve out of `mzfw fwd`, 811 lb lighter, so its MAN A and
-    MAN C rows at 35,000 ft no longer clamp). The
+    MAN C rows at 35,000 ft no longer clamp; #422 replaced `mzfw fwd`, now
+    `mzfw aft`'s own point, with `full fuel fwd` at MTOW, whose eight rows at
+    35,000 ft clamp as every gross case's do). The
     shipped fixture stopped clamping at #260; this is the same physics on the
     same airplane, at an altitude it does not ship with."""
     project = _project("atr42_100.project.json")
@@ -204,7 +200,7 @@ def test_the_clamped_rows_are_the_mach_capped_corner_and_nothing_else():
     exactly this set."""
     env = fe.build_envelope(_clamped_atr())
     assert len(env.vn) == 480          # eight FLIGHT cases since #292
-    assert len(env.clamped_cases) == 37     # 41 before #420 (certified CG limits), 39 before #424
+    assert len(env.clamped_cases) == 45     # 41 before #420, 39 before #424, 37 before #422 (full fuel fwd)
     assert all(env.is_clamped(p) == (p.case in env.clamped_cases) for p in env.vn)
 
 
