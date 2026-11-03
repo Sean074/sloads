@@ -222,7 +222,8 @@ _WING_ITEM_WEIGHT = {
     # sconfig-sized (#403): wing 3,450, engines 2 x 1,026, props 2 x 310, nacelles 2 x 404, the same fuel
     "atr42_300_seed.project.json": 3450.0 + 2052.0 + 620.0 + 808.0 + 9174.0 + 700.0,
     "baron_58.project.json": 2941.0,
-    "concept_heavy.project.json": 1800.0 + 5500.0,
+    # #424 (note 75 D-75.8): the 300 lb fuselage reserve folded into the wing tanks
+    "concept_heavy.project.json": 1800.0 + 5800.0,
     "concept_regional_jet.project.json": 4200.0,
     "ga6_normal.project.json": 330.0,
 }
@@ -231,10 +232,11 @@ _WING_ITEM_WEIGHT = {
 #: at every state that carries them all -- and their total, which on the Baron
 #: is exactly the 1,190.5 lb its four lumped ``concentrated`` entries summed to.
 _POINT_ROWS = {
-    "atr42_100.project.json": (5, 890.0 + 310.0 + 320.0 + 4587.0 + 350.0),
-    "atr42_300_seed.project.json": (5, 1026.0 + 310.0 + 404.0 + 4587.0 + 350.0),
+    # #424: the reserve row folded into the tank row, so one point fewer, same pounds
+    "atr42_100.project.json": (4, 890.0 + 310.0 + 320.0 + 4937.0),
+    "atr42_300_seed.project.json": (4, 1026.0 + 310.0 + 404.0 + 4937.0),
     "baron_58.project.json": (9, 1190.5),
-    "concept_heavy.project.json": (1, 2750.0),
+    "concept_heavy.project.json": (1, 2900.0),
     "concept_regional_jet.project.json": (0, 0.0),
     "ga6_normal.project.json": (0, 0.0),
 }
@@ -501,12 +503,11 @@ def test_the_mzfw_seeds_on_the_appendix_a_airplane():
     not move): ``mzfw aft`` is the six people and the ballast row clipped
     onto the aft line; ``mzfw fwd`` coincides with CG4 and ``full fuel aft``
     with CG1 (note 63 §8.1's skip rule), so neither is written."""
-    from sloads.cg_cases import (MZFW_CASE_NAMES, max_zero_fuel_weight_estimate,
-                                 seed_flight_cases)
+    from sloads.cg_cases import MZFW_CASE_NAMES, seed_flight_cases
 
     p = _project("ga6_normal.project.json")
-    p.weight.max_zero_fuel_weight_lb = max_zero_fuel_weight_estimate(p)
-    assert p.weight.max_zero_fuel_weight_lb == pytest.approx(2913.0)
+    # The pre-#424 estimate, entered: the seed's mechanics are what is pinned here.
+    p.weight.max_zero_fuel_weight_lb = 2913.0
     seeded, missing = seed_flight_cases(p)
     assert not missing
     by_name = {c.name: c for c in seeded}
@@ -522,12 +523,13 @@ def test_the_mzfw_seeds_on_the_appendix_a_airplane():
 
 
 def test_the_atr_mzfw_aft_seed_is_note_63s_row_and_is_entered_from_birth():
-    """Note 63 §8.3's mechanism on the #260 fixture: ``mzfw aft`` is the MZFW
-    cap itself, 33,510 lb, with the forward cabin trimmed to 4,056 lb so the
-    loading sits under the cap inside the aft line (403.69 in against the
-    404.11 in limit) -- the search's answer to the pound; and the seeded case
-    is an entered loading, so D-25a's echo reads it. (Before #260 the sample
-    was 28,410 lb with the aft hold trimmed to 853 lb onto the aft line.)"""
+    """Note 63 §8.3's mechanism on the #260 fixture, with zero usable fuel
+    (#424, note 75 D-75.8): the payload rows sum to 10,760 lb, 76 lb short of
+    MZFW - OEW, so ``mzfw aft`` is every payload row aboard, 33,434 lb at
+    401.50 in, nothing trimmed -- the rows' extreme, under the cap and inside
+    the 406.80 in aft line. Until #424 the 700 lb reserve rode inside it and
+    the cap was reached (33,510 lb at 403.69 in, the forward cabin trimmed).
+    The seeded case is an entered loading, so D-25a's echo reads it."""
     from sloads.cg_cases import seed_flight_cases
     from sloads.mass_distribution import derive_case_loadings
 
@@ -535,9 +537,10 @@ def test_the_atr_mzfw_aft_seed_is_note_63s_row_and_is_entered_from_birth():
     seeded, missing = seed_flight_cases(p)
     assert not missing
     aft = next(c for c in seeded if c.name == "mzfw aft")
-    assert aft.weight_lb == pytest.approx(33510.0, abs=0.05)
-    assert aft.loading.fractions["Passengers, fwd cabin (24)"] * 4080.0 == pytest.approx(4056.0, abs=0.5)
-    assert aft.xcg == pytest.approx(403.69, abs=0.01)          # inside the aft line
+    assert aft.weight_lb == pytest.approx(33434.0, abs=0.05)
+    assert not aft.loading.fractions                            # nothing trimmed
+    assert not any(it.usable_fuel for it in p.weight.items if it.name in aft.loading.aboard)
+    assert aft.xcg == pytest.approx(401.50, abs=0.01)           # inside the aft line
     ld = derive_case_loadings(p, [aft])[0]
     assert ld.entered and ld.derivable and ld.weight_lb == pytest.approx(aft.weight_lb, abs=0.05)
     # The fixture carries exactly the seed (its own drift guard is test_cg_cases).
@@ -588,7 +591,8 @@ def test_mzfw_is_a_design_weight_in_the_mlw_shape():
     assert max_zero_fuel_weight(p, required=False) == 0.0
     with pytest.raises(MissingInputError, match="max_zero_fuel_weight_lb"):
         max_zero_fuel_weight(p)
-    assert max_zero_fuel_weight_estimate(p) == pytest.approx(2913.0)
+    # Zero usable fuel (note 75 D-75.8): the 71 lb half hour is fuel, not ZFW.
+    assert max_zero_fuel_weight_estimate(p) == pytest.approx(2842.0)
     assert p.weight.max_zero_fuel_weight_lb == 0.0
     p.weight.max_zero_fuel_weight_lb = 3500.0          # above MTOW: the chain says so
     codes = [w.code for w in validation.consistency_warnings(p)]

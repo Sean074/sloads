@@ -1466,7 +1466,7 @@ REGISTRY: Tuple[FieldEntry, ...] = (
        "marks the item consumable so sloads can build fuel-burn loading states from the weight database; the original "
        "suite took one weight statement and no loading model (decision D-25)"),
     _E("weight.items[].usable_fuel", _WT, _SLDS,
-       "marks fuel the engines can draw, reserve included, so the operating empty "
+       "marks fuel the engines can draw, wherever it sits, so the operating empty "
        "weight can leave it out (design note 67 D-67.10); the original suite wrote "
        "no mass model, so it never had to say which rows of the database were fuel"),
     _E("weight.items[].required_crew", _WT, _SLDS,

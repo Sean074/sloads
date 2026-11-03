@@ -519,9 +519,25 @@ def weight_onecg_advisory(project: Project, _system: UnitSystem) -> str:
             "the rest is the parallel-axis transfer about the CG.")
 
 
+def weight_envelope_advisory(project: Project, _system: UnitSystem) -> str:
+    """WTENV's block caption: the fuel basis the minimum flight weight and the
+    zero-fuel cases rest on (design note 75 D-75.11).
+
+    :func:`sloads.mass_distribution.fuel_basis` is the owner; the methods
+    statement every stamped file carries quotes the same three sentences, so
+    the page and the deliverable cannot disagree.
+    """
+    from sloads.mass_distribution import fuel_basis
+
+    if project.weight is None or not project.weight.items:
+        return ""
+    return "**Fuel basis.** " + " ".join(fuel_basis(project).lines)
+
+
 MODULE_ADVISORIES: Dict[str, Callable[[Project, UnitSystem], str]] = {
     "net_loads": rolling_couple_advisory,
     "weight_estimate": weight_estimate_advisory,
+    "weight_envelope": weight_envelope_advisory,
     "weight_onecg": weight_onecg_advisory,
     "select": select_inertia_advisory,
     "taildist": taildist_spanwise_advisory,

@@ -187,8 +187,8 @@ def max_landing_weight(project: Project, *, required: bool = True) -> float:
         raise MissingInputError(
             "the landing conditions need a max landing weight: set "
             "weight.max_landing_weight_lb (moved off landing at decision G-4). "
-            "The Weight/CG page offers OEW + max payload + reserve fuel as a "
-            "starting estimate.")
+            "The Weight/CG page offers OEW + max payload (zero usable fuel) as "
+            "a starting estimate.")
     return mlw
 
 
@@ -218,9 +218,10 @@ def max_zero_fuel_weight_estimate(project: Project) -> Optional[float]:
 
     The same sum as :func:`max_landing_weight_estimate`, stated under its own
     name because it is a different question: every ``EMPTY`` and ``MINIMUM``
-    row (the reserve stays aboard by definition, which is also what the
-    zero-fuel seed keeps) plus every discretionary row that is neither
-    consumable mission fuel nor a ballast row. Offered by the GUI, never
+    row that is not usable fuel, plus every discretionary row that is neither
+    consumable nor fuel nor a ballast row. Zero **usable** fuel, the standard
+    definition (Lomax §14.1 p233; design note 75 D-75.8): no structural reserve
+    is credited (23.343(c) / 25.343(a) not selected). Offered by the GUI, never
     written by the calc.
     """
     return max_landing_weight_estimate(project)
@@ -280,15 +281,15 @@ def database_total(project: Project) -> float:
 
 
 def max_landing_weight_estimate(project: Project) -> Optional[float]:
-    """``OEW + max payload + reserve fuel`` -- G-4's **floor**, not a prediction.
+    """``OEW + max payload`` at zero usable fuel -- G-4's **floor**, not a prediction.
 
-    ``sum(EMPTY)`` + ``sum(MINIMUM)`` (crew + reserve fuel on every fixture) +
-    ``sum(DISCRETIONARY)`` excluding consumable mission fuel (per G-5) and
-    excluding solved ballast rows. Measured 2026-08-14, entered MLW sits *above*
-    this on four shipped fixtures -- you land with more than reserves, which is
-    normal -- and *below* it on ``concept_regional_jet`` (31,000 against 31,360),
-    which therefore cannot land at MLW with full payload and reserve fuel. That
-    is a real finding about that fixture and is what the floor check surfaces.
+    ``sum(EMPTY)`` + ``sum(MINIMUM)`` + ``sum(DISCRETIONARY)``, less every row
+    tagged ``usable_fuel`` (of any kind: a ``MINIMUM`` half-hour fuel row is
+    fuel, not zero-fuel weight -- design note 75 D-75.8), consumable rows (G-5)
+    and solved ballast rows. An airplane whose MLW sits below this cannot land
+    at MLW with full payload even with empty tanks: the Baron (#309) does,
+    true of the airplane. Until #424 the sum carried a reserve-fuel row, and
+    ``concept_regional_jet`` fired on it (31,000 against 31,360).
 
     Returns ``None`` when there is no item database to estimate from. The GUI
     offers this for acceptance; the calc never falls back to it.
@@ -298,9 +299,9 @@ def max_landing_weight_estimate(project: Project) -> Optional[float]:
         return None
     total = 0.0
     for it in w.items:
-        if it.kind == MassItemKind.DISCRETIONARY and (
+        if it.usable_fuel or (it.kind == MassItemKind.DISCRETIONARY and (
             it.consumable or it.name.strip().lower().startswith("ballast")
-        ):
+        )):
             continue
         total += it.weight_lb
     return total

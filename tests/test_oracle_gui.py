@@ -2366,7 +2366,10 @@ def test_only_the_advisory_module_carries_one():
 
     blocks = {b.module: b for b in step_results(_seeded(), "weight_mass",
                                                 UnitSystem.IMPERIAL)}
-    assert not blocks["weight_envelope"].advisory
+    # WTENV's caption (#424, design note 75 D-75.11) is the fuel basis its
+    # minimum flight weight rests on -- again a statement about the numbers.
+    wtenv = blocks["weight_envelope"].advisory
+    assert wtenv.startswith("**Fuel basis.**") and "nothing reads" not in wtenv.lower()
     # WTONECG's caption (#385) states the inertias' own-inertia share -- a
     # fact about the numbers' quality, never a claim that nothing reads them.
     onecg = blocks["weight_onecg"].advisory

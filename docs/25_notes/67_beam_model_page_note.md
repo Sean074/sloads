@@ -99,6 +99,9 @@ today.
   | `concept_regional_jet` | Crew (2) 400; Reserve fuel 1500 | all False |
   | `atr42_100` | Captain + First officer 400; Reserve fuel, left 350; right 350 | fuel True |
 
+  *Since #424 (design note 75 §5) only `ga6_normal` keeps a `MINIMUM` fuel
+  row; the other reserve rows folded into the tanks.*
+
 - **`consumable` cannot be the partition.** It marks what G-5 may *burn down*
   for a ground target, and its own docstring says G-4 must tell mission fuel
   from reserve. Reserve fuel is therefore deliberately non-consumable on four

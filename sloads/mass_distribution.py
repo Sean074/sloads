@@ -694,7 +694,7 @@ class OewPartition(NamedTuple):
     ``usable_fuel`` that it leaves out. Both are stated -- the mass set's header
     and the Beam Model page name every ``MINIMUM`` row on either side -- because
     the partition reads a tag a migrated project has not set yet, and an
-    untagged reserve tank must show up *by name* in the OEW rather than ride in
+    untagged fuel row must show up *by name* in the OEW rather than ride in
     unseen.
     """
 
@@ -718,6 +718,69 @@ def oew_items(project: Project) -> OewPartition:
     operating = [it for it in items if it.kind != MassItemKind.DISCRETIONARY]
     return OewPartition(kept=[it for it in operating if not it.usable_fuel],
                         fuel=[it for it in operating if it.usable_fuel])
+
+
+class FuelBasis(NamedTuple):
+    """The fuel assumptions an analysis runs on, stated (design note 75 D-75.11).
+
+    ``minimum_fuel`` names the ``MINIMUM`` rows tagged ``usable_fuel`` -- the
+    23.25(b)(3) half-hour fuel inside the minimum flight weight, kept on the
+    Appendix A airplane because McMaster's oracle prints it -- and
+    ``zero_fuel_cases`` the FLIGHT cases whose loading carries no usable fuel.
+    ``lines`` is the three-sentence statement every stamped artifact carries.
+    Names only, never a number, so the statement reads the same in either unit
+    system.
+    """
+
+    minimum_fuel: List[str]
+    zero_fuel_cases: List[str]
+    lines: List[str]
+
+
+def fuel_basis(project: Project) -> FuelBasis:
+    """The minimum-weight rule, the structural-reserve choice and the zero-fuel
+    coverage of ``project`` -- the one owner (design note 75 D-75.11).
+
+    Derived from the typed tags and the cases, never entered prose:
+
+    * **minimum weight** -- 14 CFR 23.25(b) puts it at *not more than* empty +
+      minimum crew + half an hour of fuel; 25.25(b) leaves it to the applicant.
+      The ``MINIMUM`` usable-fuel rows are named when there are any; otherwise
+      no fuel is credited, the lowest weight 23.25(b) allows.
+    * **structural reserve fuel** -- 23.343(c) / 25.343(a) let an applicant
+      select one, at the price of a reduced-factor zero-wing-fuel case. sloads
+      never selects it (owner, 2026-11-03), so a zero-fuel weight carries no
+      usable fuel (Lomax §14.1 p233).
+    * **zero-fuel case** -- 23.343(a) / 25.343(a) span the fuel range from zero.
+      The FLIGHT cases that fly with none are named; when none does (the
+      Appendix A airplane, whose program has no zero-fuel condition), the
+      statement says the case is not run and is assumed not critical.
+    """
+    minimum_fuel = [it.name for it in oew_items(project).fuel]
+    zero = []
+    if project.weight is not None and project.weight.items:
+        for ld in derive_case_loadings(project):
+            if ld.derivable and not any(it.usable_fuel for it in ld.items):
+                zero.append(ld.name)
+    if minimum_fuel:
+        rule = ("Minimum flight weight: empty weight + minimum crew + the usable "
+                f"fuel in {', '.join(minimum_fuel)} (14 CFR 23.25(b)(3), half an "
+                "hour at maximum continuous power).")
+    else:
+        rule = ("Minimum flight weight: empty weight + minimum crew; no fuel is "
+                "credited (23.25(b) sets a ceiling, 25.25(b) the applicant's "
+                "choice).")
+    reserve = ("Structural reserve fuel: not selected (23.343(c), 25.343(a)), so "
+               "no zero-fuel weight carries usable fuel and no reduced-factor "
+               "zero-wing-fuel case is required (23.343(c)(1), 25.343(b)(1)).")
+    if zero:
+        coverage = f"Zero-fuel case: run -- {', '.join(zero)}."
+    else:
+        coverage = ("Zero-fuel case: not run; assumed not critical. The zero-fuel "
+                    "end of the fuel range (23.343(a), 25.343(a)) is not "
+                    "analysed.")
+    return FuelBasis(minimum_fuel=minimum_fuel, zero_fuel_cases=zero,
+                     lines=[rule, reserve, coverage])
 
 
 def database_mass_state(project: Project, reason: str = "",
@@ -1351,8 +1414,9 @@ def seed_loading_search(project: Project, *, fuel: str, cap_lb: float, edge: str
     those two reproduce an *entered* weight and CG, this one has no target
     point -- it finds the loading a design weight and an envelope edge define.
 
-    * ``fuel="none"`` leaves every consumable ``DISCRETIONARY`` row off (the
-      ``MINIMUM`` reserve stays aboard by definition); ``fuel="full"`` puts
+    * ``fuel="none"`` leaves every consumable ``DISCRETIONARY`` row off; a
+      ``MINIMUM`` row stays aboard by definition, which is why a ``MINIMUM``
+      fuel row under an MZFW is warned (design note 75 D-75.9); ``fuel="full"`` puts
       every consumable discretionary row aboard at ``1.0``.
     * ``cap_lb`` bounds the weight -- MZFW for the zero-fuel seeds, MTOW for
       the full-fuel one.

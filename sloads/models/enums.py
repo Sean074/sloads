@@ -61,7 +61,7 @@ class MassItemKind(str, Enum):
     minimum-flight-weight items, then discretionary useful-load items).
     """
     EMPTY = "empty"                  # part of the empty weight
-    MINIMUM = "minimum"              # in minimum flight weight, not empty (pilot, reserve fuel)
+    MINIMUM = "minimum"              # in minimum flight weight, not empty (crew; 23.25(b)(3) fuel where entered)
     DISCRETIONARY = "discretionary"  # optional useful load (passengers, fuel, baggage, ballast)
 
 
