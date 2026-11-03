@@ -135,7 +135,7 @@ provenance:
 
 - **Oracle-locked** — asserted against a printed Appendix A figure within
   ±0.1 %, page-cited.
-- **Closure-locked** — no printed figure exists (Appendix B is not bundled;
+- **Closure-locked** — no printed figure exists (Appendix B is not in the available copy;
   concept mode is above the printed airplane); the gate is sub-formula
   exactness against the `.BAS` source plus a stated physics closure or an
   independent producer.

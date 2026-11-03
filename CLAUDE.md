@@ -22,7 +22,7 @@ Plan of record: `docs/30_future/01_concept_loads_plan.md`; order of work:
 
 **Reference sources — never derive a load equation from memory; cite the page in the
 test:** `reference/FAR23Loads_Code.pdf` (McMaster's manual; Appendix A p131 is the
-printed oracle, Appendix C p373 the `.BAS` source; Appendix B is not bundled) and
+printed oracle, Appendix C p373 the `.BAS` source; Appendix B, pp251-372, is not in the available copy) and
 `reference/FAR23Loads_UserGuide.pdf` (DOT/FAA/AR-96/46, module data-flow Table 2.2).
 
 ## Authoritative single sources (never duplicate — link instead)

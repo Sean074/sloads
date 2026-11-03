@@ -205,7 +205,7 @@ per project:
    the specific applicability exceedances from `far23_applicability()`.
 3. **Verification status** — the FAR 23 GA path is oracle-locked to Appendix A
    within ±0.1%; twin-turboprop cases are **closure-locked, not oracle-locked**
-   (Appendix B is not bundled). Quote the `00_theory_sources.md` oracle-status
+   (Appendix B is not in the available copy). Quote the `00_theory_sources.md` oracle-status
    wording rather than paraphrasing it.
 4. **Modernized math** — `math.pi` and clean equations replace the source's
    `3.1416`, hence tolerance-based (±0.1%) rather than exact agreement.

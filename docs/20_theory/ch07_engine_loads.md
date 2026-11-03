@@ -20,7 +20,8 @@ computes the structural design loads an engine mount must sustain under **FAR Pa
 reciprocating installation printed in the manual (Reference 1, Appendix A p229).
 
 - **Source of truth:** Reference 1 (McMaster) engine-mount chapter; the regression
-  oracle is Appendix A (GA single) p131 / Appendix B (twin turboprop) p251.
+  oracle is Appendix A (GA single) p131; Appendix B (twin turboprop, p251) is not
+  in the available copy.
 - **Regulations:** FAR 23.361 (engine-torque & vertical loads), 23.363 (side
   load), 23.371 (gyroscopic loads). Two approved deviations from the manual, on
   23.361(a)(1) and (a)(3) — see the **Approved correction** section below.
@@ -256,7 +257,7 @@ an approved, documented deviation from the oracle:
   as (a)(1), so 23.361(c)'s **1.25** turbopropeller factor applies before the 1.6
   malfunction factor: `torque = 1.6 × 1.25 × mean takeoff torque` (= 2.0 × mean).
   The manual / `ENGLOADS.BAS` (`TTP = 1.6*ENGTORQ`) apply 1.6 × mean only. The
-  bundled PDF has no printed Appendix B engine-mount output, so (a)(3) is
+  available copy has no printed Appendix B engine-mount output, so (a)(3) is
   formula-checked (`test_361_a3_applies_mean_torque_factor`), not locked to a
   printed figure.
 

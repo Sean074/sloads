@@ -29,8 +29,8 @@ section states in prose. **The prose stays normative; this is its machine-readab
 half**, and the guard checks each ORACLE row's citation actually appears in the
 test file, so a citation deleted from a test fails here rather than going unnoticed.
 
-Appendix B (the 10-place twin turboprop) is **absent** from the bundled
-`reference/FAR23Loads_Code.pdf`, so no module has a printed twin oracle; the
+Appendix B (the 10-place twin turboprop) is **absent** from the available
+copy, `reference/FAR23Loads_Code.pdf`, so no module has a printed twin oracle; the
 twin-only paths are closure-locked by that fact and not by preference
 (`00_theory_sources.md` § Oracle status).
 """
@@ -143,7 +143,7 @@ GATES: Dict[str, Gate] = {
     "one_engine_out": Gate(
         CLOSURE, ("test_thrust_and_windmill_drag_formula", "test_time_history_matches_case",
                   "test_the_shipped_turboprops_execute_onengout"),
-        "the printed Appendix B twin oracle is absent from the bundled reference, so "
+        "the printed Appendix B twin oracle is absent from the available copy, so "
         "the gate is sub-formula exactness against ONENGOUT.BAS 205-208 plus "
         "integration closure, with the twin oracle recorded as a deferred item"),
     "tail_span": Gate(

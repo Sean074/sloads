@@ -80,7 +80,7 @@ def test_prop_inertia_matches_manual():
 # --------------------------------------------------------------------------- #
 # 23.361(b)(1) sudden stoppage -- formula-closure gate (CR-B-3).
 #
-# Twin-only condition: Appendix B is not bundled, so there is no printed figure
+# Twin-only condition: Appendix B is not in the available copy, so there is no printed figure
 # to lock (CONVENTIONS.md §6 -- "no oracle" never means "no gate"). The gate is
 # the formula ENGLOADS.BAS lines 850-926 evaluate, restated here from the
 # rotor-by-rotor inputs rather than from the module's own summation, so a

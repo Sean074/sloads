@@ -1,0 +1,1 @@
+- **Reference 1 is cited in full and Appendix B is stated as missing from the available copy (#373, tier S, 2026-11-02).** Report References 1 and 2 give McMaster (Wichita, 1996) and DOT/FAA/AR-96/46 (Grant 93-G-051); the method paragraph cites them, not local paths. The verification stamp says Appendix B (pp251-372) is not in the available copy, rather than "not bundled".
