@@ -1,1 +1,0 @@
-- **GUI guide §5 and CAPABILITIES §2 state the LIMIT contract (#402, tier S, 2026-11-01).** §5 taught the retired `-ULT`/"do not export" model (review D-1); CAPABILITIES advertised the workbook, dashboard and Export phase deleted at #270 (D-5). Both rewritten; `test_doc_currency.py` now reads the reader-side spellings and the retired outputs across every user-facing doc.

@@ -1,1 +1,0 @@
-- **LGFACTOR's energy ratio is the gear factor NLG, and N = NLG + L (#401, tier L, 2026-11-01).** 14 CFR 23.473(e); the manual subtracted the wing lift twice (approved deviation, design note 72). `baron_58` gear reactions rise up to 25 %; `atr42_100` and `concept_regional_jet` drop their entered 2.67; closure gate G-72.1; Imperial digests regenerated.

@@ -1,1 +1,0 @@
-- **The README opens on the quickstart (#394, tier S, 2026-11-01).** Install, the GUI, one CLI case and a route to every user document are the first screen; the phase narrative, layout and gates follow. Review D-8 absorbed: the phantom CI badge is gone and the changelog is linked at its real path.

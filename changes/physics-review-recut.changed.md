@@ -1,9 +1,0 @@
-- **The 2026-11-01 physics review is filed, design note 72 is agreed, and the backlog is re-cut: 0.10.0 is re-chartered as loads correctness on the Part 23 method for ATR-sized airplanes, and a new 0.11.0 (band B12) takes the ATR's Part 25 basis (backlog amendment, tier S, 2026-11-01).**
-  - The review found that LGFACTOR subtracts the wing lift twice, so gear reactions are delivered up to 25 % low (P-1). That is filed as #401 and leads B11.
-  - Design note 72 (the relabel, owner rulings Q1–Q6 as recommended) is AGREED, and its p236 deviation is registered in `02_approved_corrections.md` as *ships with design note 72*.
-  - The review's other findings are filed as #402–#415.
-  - #353 merges into #404, #355 into #348, #356 into #351, and #217/#218 into #226.
-  - The process and test-hygiene rows move to 1.0.0.
-  - The parked L-4 and F25-3's overswing activate into #410 and #412, and P-5 is parked with its number.
-  - B11 is Pri 1–20, B12 is 21–31 and C is 32–50.
-  - No delivered load moves.

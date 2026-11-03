@@ -1,1 +1,0 @@
-- **`DATA_DICTIONARY.md` is whole again: every input dataclass has a typed table (#409, tier S, 2026-11-01).** The generator and the field registry resolve annotations against each dataclass's own module, the swallowed exceptions are gone, and a guard fails on a missing table or a `?` type. No delivered load moves.

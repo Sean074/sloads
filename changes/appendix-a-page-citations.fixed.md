@@ -1,1 +1,0 @@
-- **Appendix A citations name the page the figure is printed on (#371, tier S, 2026-11-02).** Checked against the page footers: weight statement p134, WTONECG p137, STRSPEED p158/p159, AIRLOADS p161-163, case 22 p207, ENGLOADS p229, V-n rows p180. IProp, the gyro thrust and MAN A NZ now cite p119, p120 and p180. No value changed.

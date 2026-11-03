@@ -1,1 +1,0 @@
-- **The 23.371(b) / 25.371 gyro thrust is maximum-continuous power, capped at the ideal-disc limit (#408, tier M, 2026-11-02).** The ATR's thrust falls from 10,865 to 8,203 lb per engine. Blank `max_cont_hp` keeps ENGLOADS's printed arithmetic (oracle 4484.7 lb), labelled as such and flagged above the limit.

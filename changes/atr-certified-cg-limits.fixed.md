@@ -1,1 +1,0 @@
-- **Both ATR fixtures sit on the certified CG limits, 12 to 38 % MAC (#420, tier S, 2026-11-01).** The Handling Manual's lines replace a 15/35 placement on the baseline and sconfig's 6/33 loading range on the seed; every case re-seeded with its loading of record, pins and digests re-measured. VMCA stays blank until a -300 AFM page names it.
