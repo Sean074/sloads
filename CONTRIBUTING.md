@@ -103,6 +103,11 @@ carries a reason): `00_program_overview.md` §Static typing & lint.
 - Standard docs **point at owners, never copy values** (no schema numbers, test
   counts, "currently N") — `tests/test_doc_currency.py` fails on them.
 - `docs/00_INDEX.md` is generated from each file's title: `scripts/build_index.py --write` (same guard).
+- The published user's book is staged by `scripts/build_book.py`, the one owner of
+  which pages it holds and in what order; a new `20_theory/` or `60_guide/` file
+  must be added there (`tests/test_book.py` fails until it is). To build it
+  locally: `pip install -e ".[docs]"`, `python scripts/build_book.py`, then
+  `zensical build --strict` in `build/book/`.
 - `PROJECT_GUIDE.md` §4's tree, `PROGRAM_SPEC.md`'s sections, `workflow.py`'s
   nav, and `DATA_DICTIONARY.md` are generated or test-guarded — edit the owner.
 - New domain terms go in `cspell.json`.

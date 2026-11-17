@@ -108,6 +108,14 @@ dev = [
 solver = [
     "sbeam @ git+https://github.com/Sean074/sbeam.git@ed23b2681feccd9fadfd2e4b829d414094c4b63c",
 ]
+# The user's book (#427): the site generator `.github/workflows/docs.yml` runs
+# over the tree `scripts/build_book.py` stages. Not in `dev` -- staging and its
+# guard (`tests/test_book.py`) need no third-party package; only the final HTML
+# build does. Pinned exactly: the generator is a young beta, and a new release
+# must not change the published book without an edit here.
+docs = [
+    "zensical==0.1.1",
+]
 
 [project.scripts]
 sloads = "cli:main"

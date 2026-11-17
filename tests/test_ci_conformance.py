@@ -179,6 +179,10 @@ _PINNED_RUNNER = re.compile(r"^ubuntu-\d{2}\.04$")
 _ACTION_MIN_MAJOR = {
     "actions/checkout": 5,
     "actions/setup-python": 6,
+    # The Pages trio of docs.yml (#427), at the majors current when it was added.
+    "actions/configure-pages": 6,
+    "actions/upload-pages-artifact": 5,
+    "actions/deploy-pages": 5,
 }
 
 

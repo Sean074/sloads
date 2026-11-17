@@ -8,6 +8,10 @@ page-per-step GUI or a CLI, out to load-case tables, a technical report and an
 manual's printed worked examples; a `concept` mode grows it toward larger
 airplanes. **License:** MIT (see [LICENSE](LICENSE)).
 
+**Documentation:** the user guides, the theory manual, the input-file reference
+and the validation rationale are published as a searchable book at
+<https://sean074.github.io/sloads/>.
+
 ## Quickstart
 
 **Python 3.12, and only 3.12.** The developer's gate and CI run one
