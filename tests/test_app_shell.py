@@ -1093,6 +1093,75 @@ def test_the_streamlit_floor_admits_the_layout_api_the_front_ends_use():
     )
 
 
+
+# ---------------------------------------------------------------------------
+# #430 -- the GUI names the program and the running release, from one owner.
+# ---------------------------------------------------------------------------
+
+def test_the_gui_names_the_running_version():
+    """The sidebar header on every page and the browser tab both carry
+    ``components.PROGRAM_LABEL``, and the label carries ``sloads.__version__``
+    -- so a release bump cannot leave the GUI naming the last release.
+
+    The sidebar is checked rendered (``AppTest``); the tab is checked in the
+    source, because ``AppTest`` does not expose the page config: the one
+    ``set_page_config`` call's ``page_title`` must be built from the label.
+    """
+    from streamlit.testing.v1 import AppTest
+
+    import sloads
+    from app_shell.components import PROGRAM_LABEL
+
+    assert sloads.__version__ in PROGRAM_LABEL
+    assert PROGRAM_LABEL.startswith("sloads ")
+
+    at = AppTest.from_string(_STOPPING_PAGE.format(wrapped=True), default_timeout=60)
+    at.run()
+    assert not at.exception, [e.message for e in at.exception]
+    assert f"**{PROGRAM_LABEL}**" in [m.value for m in at.sidebar.markdown]
+
+    entry = os.path.join(_ROOT, "oracle_app", "Oracle.py")
+    (call,) = _page_config_calls(_parse(entry))
+    title = next(k.value for k in call.keywords if k.arg == "page_title")
+    names = {n.id for n in ast.walk(title) if isinstance(n, ast.Name)}
+    assert "PROGRAM_LABEL" in names, (
+        "Oracle.py's page_title must be built from components.PROGRAM_LABEL (#430)")
+
+
+def _docstring_nodes(tree):
+    """The string constants that are docstrings -- prose, not GUI text."""
+    out = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef,
+                             ast.AsyncFunctionDef)):
+            body = node.body
+            if (body and isinstance(body[0], ast.Expr)
+                    and isinstance(body[0].value, ast.Constant)
+                    and isinstance(body[0].value.value, str)):
+                out.add(id(body[0].value))
+    return out
+
+
+def test_no_gui_string_spells_the_version():
+    """Drift guard for #430's class: no string in a GUI tree types the running
+    version. Docstrings are prose and may name a release; a string the GUI can
+    show must read ``sloads.__version__`` (via ``PROGRAM_LABEL``) instead."""
+    import sloads
+
+    offenders = []
+    for tree_name in GUI_TREES:
+        for path in _py_files(os.path.join(_ROOT, tree_name)):
+            tree = _parse(path)
+            docs = _docstring_nodes(tree)
+            for node in ast.walk(tree):
+                if (isinstance(node, ast.Constant) and isinstance(node.value, str)
+                        and id(node) not in docs
+                        and sloads.__version__ in node.value):
+                    offenders.append(f"{os.path.relpath(path, _ROOT)}:{node.lineno}")
+    assert not offenders, (
+        f"these GUI strings type the version {sloads.__version__!r}; "
+        f"use app_shell.components.PROGRAM_LABEL: {offenders}")
+
 if __name__ == "__main__":  # zero-dependency self-runner
     import sys
 
