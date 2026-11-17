@@ -108,7 +108,6 @@ tier-S commit and states its reasoning in the milestone description.
 |---|---|---|---|---|---|
 | **B12 — 0.11.0: a working GUI with its documentation (re-focused 2026-11-16; the Part 25, validation and sconfig work moved to B13)** ||||||
 | 51 | **Worked examples for the user book: ga6_normal and atr42_100** (#428) | Two end-to-end worked examples (a GA single, a concept twin) and a typical-questions page in the published book, their quoted numbers generated from the bundled examples | V | S / M | #427 |
-| 52 | **A User guide link to the published book in the GUI sidebar, beside About** (#429) | A `📖 User guide` button on every page, its URL one constant shared with the book build, and a guard that the two agree | V | S / S | #427's first deploy |
 | 54 | **A scope-and-applicability page for the user book (review D-3, split from #413)** (#431) | One page in the book: supported configurations, range, what is not modelled and which way each omission errs; the GUI guide's 0.2.0 baseline pointers replaced | V | S / M | — |
 | 32 | **GUI validation warnings ignore the SI toggle** (#339) | Warnings rendered in the page's unit system, one owner for the conversion, and a guard over every warning code | V | M / M | — |
 | **B13 — 0.12.0: the ATR on its Part 25 basis, the validation record and the sconfig contract (opened 2026-11-01 as B12; moved 2026-11-16)** ||||||
