@@ -1,0 +1,76 @@
+# The user's book, built from the documentation tree and published to GitHub
+# Pages (#427).
+#
+# `scripts/build_book.py` is the single owner of which pages the book holds and
+# in what order: it stages them as a self-contained tree under `build/book/`
+# and rewrites every link that leaves it. This workflow only runs the site
+# generator over that tree. `--strict` makes a dead link or a missing anchor a
+# failure here; `tests/test_book.py` catches the same class earlier, in the
+# suite, without the generator.
+#
+# A pull request to `main` builds and stops, so a book that will not build is
+# seen before the merge. The push to `main` builds and deploys: the published
+# book is the released tree's. A manual run builds any ref and deploys only
+# from `main`.
+#
+# One-time owner setting: Settings -> Pages -> Source: "GitHub Actions".
+name: docs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deployment at a time, and never cancel one that is in flight: a half
+# published site is worse than a late one.
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install the site generator (the pinned `docs` extra)
+        run: |
+          pip install --upgrade pip
+          pip install -e '.[docs]'
+
+      - name: Stage the book
+        run: python scripts/build_book.py
+
+      - name: Build the site
+        working-directory: build/book
+        run: zensical build --clean --strict
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: build/book/site
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v6
+
+      - id: deployment
+        uses: actions/deploy-pages@v5

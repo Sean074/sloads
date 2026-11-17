@@ -325,7 +325,10 @@ def test_no_second_spelling_of_the_release_state():
     for base, dirs, files in os.walk(_ROOT):
         dirs[:] = [d for d in dirs if d not in
                    {".git", ".venv", ".claude", "__pycache__", ".pytest_cache", "reference",
-                    "sloads.egg-info", "_to_delete", "_staging_tmp2", "projects"}]
+                    "sloads.egg-info", "_to_delete", "_staging_tmp2", "projects",
+                    # gitignored build outputs: the staged book (#427) carries a
+                    # copy of both pinned documents by design.
+                    "build", "dist"}]
         for name in files:
             if not name.endswith((".py", ".md", ".toml")):
                 continue
