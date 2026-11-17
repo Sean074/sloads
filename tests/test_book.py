@@ -163,5 +163,53 @@ def test_the_guard_would_catch_a_broken_and_an_unrewritten_link(bb, tmp_path, mo
     assert list(_file_targets(page)) == ["nowhere.md"]
 
 
+
+# ---------------------------------------------------------------------------
+# #429 -- the book's URL has one owner, read by the book and the GUI alike.
+# ---------------------------------------------------------------------------
+
+def test_the_book_reads_its_urls_from_the_owner(bb):
+    """``build_book`` takes ``site_url`` and ``repo_url`` from ``sloads._urls``
+    -- the same objects the GUI's User guide link reads, not a second copy."""
+    from sloads import _urls
+
+    assert bb.BOOK_URL is _urls.BOOK_URL and bb.REPO_URL is _urls.REPO_URL
+    assert not hasattr(bb, "SITE_URL"), "a second name for the book URL is back"
+
+
+def test_the_book_url_is_the_repos_pages_site():
+    """``docs.yml`` deploys to the repository's GitHub Pages site and names no
+    URL, so the owner's ``BOOK_URL`` is checked against the address GitHub
+    derives from ``REPO_URL``: ``https://<owner, lower-cased>.github.io/<repo>/``."""
+    from sloads._urls import BOOK_URL, REPO_URL
+
+    m = re.fullmatch(r"https://github\.com/([^/]+)/([^/]+)", REPO_URL)
+    assert m, REPO_URL
+    owner, repo = m.groups()
+    assert BOOK_URL == f"https://{owner.lower()}.github.io/{repo}/"
+
+
+def test_the_readme_names_the_owners_book_url():
+    """README cannot import the constant, so its copy is pinned here; and no
+    other code file spells the URL a second time."""
+    from sloads._urls import BOOK_URL
+
+    with open(os.path.join(_ROOT, "README.md"), encoding="utf-8") as fh:
+        assert f"<{BOOK_URL}>" in fh.read(), "README.md does not carry sloads._urls.BOOK_URL"
+
+    owner = os.path.join("sloads", "_urls.py")
+    offenders = []
+    for tree in ("sloads", "app_shell", "oracle_app", "scripts"):
+        for base, dirs, files in os.walk(os.path.join(_ROOT, tree)):
+            dirs[:] = [d for d in dirs if d != "__pycache__"]
+            for name in files:
+                rel = os.path.relpath(os.path.join(base, name), _ROOT)
+                if name.endswith(".py") and rel != owner:
+                    with open(os.path.join(_ROOT, rel), encoding="utf-8") as fh:
+                        if "github.io" in fh.read():
+                            offenders.append(rel)
+    assert not offenders, f"these spell the book URL; import sloads._urls: {offenders}"
+
+
 if __name__ == "__main__":  # zero-dependency self-runner
     sys.exit(pytest.main([__file__, "-n", "0", "-q"]))

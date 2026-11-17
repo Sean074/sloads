@@ -1128,6 +1128,21 @@ def test_the_gui_names_the_running_version():
         "Oracle.py's page_title must be built from components.PROGRAM_LABEL (#430)")
 
 
+
+def test_the_sidebar_links_the_user_book():
+    """#429: a **User guide** link button beside About on every page, to the
+    one owner's ``BOOK_URL`` -- the address the book's own ``site_url`` reads."""
+    from streamlit.testing.v1 import AppTest
+
+    from sloads._urls import BOOK_URL
+
+    at = AppTest.from_string(_STOPPING_PAGE.format(wrapped=True), default_timeout=60)
+    at.run()
+    assert not at.exception, [e.message for e in at.exception]
+    links = [(b.proto.label, b.proto.url) for b in at.sidebar.get("link_button")]
+    assert links == [("📖 User guide", BOOK_URL)], links
+
+
 def _docstring_nodes(tree):
     """The string constants that are docstrings -- prose, not GUI text."""
     out = set()

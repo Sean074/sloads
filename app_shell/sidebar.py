@@ -56,6 +56,7 @@ from app_shell.project_state import (
 from app_shell.widget_keys import widget_key
 from sloads import Project, UnitSystem
 from sloads import io as sloads_io
+from sloads._urls import BOOK_URL
 from sloads.constants import convert_airspeed, eas_from_airspeed
 from sloads.derived_geometry import (
     mac_reference,
@@ -402,4 +403,7 @@ def _render_about() -> None:
             "Structural Engineering, Inc. or DARcorporation**, whose "
             "\"FAR 23 LOADS\" is a separate commercial product."
         )
+    # The published user book (#427), beside About on every page (#429). The
+    # URL has one owner, sloads._urls, which the book's own site_url reads too.
+    st.link_button("📖 User guide", BOOK_URL, width="stretch")
     st.caption("Open replication — not affiliated with McGettrick / DARcorporation.")

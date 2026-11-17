@@ -197,6 +197,7 @@ FAR23LOADS/
 │   ├── migrations.py             # the schema gate: a file a release wrote is read through the hop chain, any other refused
 │   ├── registry.py               # module registry: name -> run(project) -> ModuleResult; run_all_modules
 │   ├── _version.py               # THE version literal: pyproject reads it via attr:, the report stamps it (guard: tests/test_version_owner.py)
+│   ├── _urls.py                  # THE repository and book URLs: the GUI's User guide link and the book's site_url read them (guard: tests/test_book.py)
 │   ├── spec_names.py             # registry name -> PROGRAM_SPEC heading (+ the non-module allowlist), guarded (R6-D6)
 │   ├── field_registry.py         # THE input-field registry: path │ slice │ page │ origin │ quantity │ owner │ supplied (note 32, OG-14/G5); tier_of() classifies every path suite/extension/JSON-only for the GUI (#266, note 57 D-57.2)
 │   ├── workflow.py               # THE nav SSOT: ordered Start→Develop V-n→Flight loads→Other loads→Landing→Load-case plotting→Export step graph (GUI nav + dashboard; Step G2)
