@@ -42,6 +42,7 @@ import streamlit as st
 
 from app_shell.components import (
     IN_SHELL_KEY,
+    PROGRAM_LABEL,
     RELEASE_STATE,
     StopPage,
     unit_number_input,
@@ -100,6 +101,7 @@ def render_shell_sidebar(project: Project, *,
     Download on exactly the pages that gate.
     """
     with st.sidebar:
+        _render_identity()
         _render_units(project)
         slot = st.container()
         _render_tools(project)
@@ -370,6 +372,12 @@ def _render_mac_converter(project: Project, system: UnitSystem) -> None:
         f"{format_value(to_display(ref.xlemac, 'length', system), length_label)}, MAC "
         f"{format_value(to_display(ref.mac, 'length', system), length_label)} {length_label}."
     )
+
+
+def _render_identity() -> None:
+    # Which program and which release is running, at the top of every page
+    # (#430), from its one owner (components.PROGRAM_LABEL).
+    st.markdown(f"**{PROGRAM_LABEL}**")
 
 
 def _render_about() -> None:

@@ -60,6 +60,7 @@ from __future__ import annotations
 
 import streamlit as st
 
+from app_shell.components import PROGRAM_LABEL
 from app_shell.nav import register_pages
 from app_shell.project_editor import (
     EDITOR_TITLE,
@@ -79,8 +80,10 @@ from sloads import workflow as wf
 
 # The first Streamlit call, and the ONLY set_page_config in this entry point --
 # exactly one per GUI entry point (note 32, OG-10). The shell imports above
-# define widgets but emit nothing, so they do not consume it.
-st.set_page_config(page_title="sloads — oracle", layout="wide", page_icon="📐")
+# define widgets but emit nothing, so they do not consume it. The tab names the
+# running release from its one owner (components.PROGRAM_LABEL, #430).
+st.set_page_config(page_title=f"{PROGRAM_LABEL} — oracle", layout="wide",
+                   page_icon="📐")
 
 
 def _page(step: wf.WorkflowStep, *, default_key: str) -> st.Page:

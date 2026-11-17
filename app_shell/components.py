@@ -30,6 +30,7 @@ from sloads import (
     Project,
     StructuralSpeedsInput,
     UnitSystem,
+    __version__,
     consistency_warnings,
     far23_applicability,
 )
@@ -408,6 +409,15 @@ RELEASE_STATE = (
     "Core analysis developed per FAR 23 LOADS and the GUI production-ready; "
     "concept-mode features in beta."
 )
+
+#: The program name and version the GUI shows -- the sidebar header on every
+#: page and the browser tab (#430). Read from ``sloads.__version__`` (owner
+#: :mod:`sloads._version`), never typed: a user who reports a number, or reads
+#: the book, must be able to say which release produced it, and a release bump
+#: must not leave the GUI naming the last one. Guards:
+#: ``tests/test_app_shell.py::test_the_gui_names_the_running_version`` and
+#: ``::test_no_gui_string_spells_the_version``.
+PROGRAM_LABEL = f"sloads v{__version__}"
 
 #: The wing-lift-factor guidance captioned on the landing L widget
 #: (note 37, LF-4 / gate G-LF-6): L is a **free** input -- a hard cap cannot
