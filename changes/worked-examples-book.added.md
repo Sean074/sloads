@@ -1,1 +1,0 @@
-- **The user book works two airplanes end to end and answers the typical questions (#428, tier S, 2026-11-17).** Appendix A now runs `ga6_normal` through to the report; the new Appendix E runs `atr42_100` to its balanced beam deck. Their figures are generated from the examples, and the printed ones are held to the manual.

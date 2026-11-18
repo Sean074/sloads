@@ -1,1 +1,0 @@
-- **One Scope and limits page says what sloads covers and which way each omission errs (#431, tier S, 2026-11-17).** `docs/20_theory/04_scope_and_applicability.md` names each limit's owner and is linked from the book's Home, README, CAPABILITIES and the GUI guide, whose two pointers to the frozen 0.2.0 baseline now go to the validation rationale.
