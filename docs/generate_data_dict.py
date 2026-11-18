@@ -559,11 +559,235 @@ def _guide_chapter_list():
     return "\n".join(lines) + "\n"
 
 
+# --------------------------------------------------------------------------- #
+# Worked-example figures (#428). Every number a worked example quotes is read
+# here, from a run of the bundled example, and written to
+# `_generated/worked_<example>.md`; the appendices link that table and quote no
+# figure of their own. G-UG-2 keeps the table current, and
+# `tests/test_guide.py` holds each `book` figure to the manual's printed value.
+# --------------------------------------------------------------------------- #
+class WorkedFigure(typing.NamedTuple):
+    """One quoted figure: where it is read, and (for the oracle airplane) the
+    value the manual prints.
+
+    ``title`` and ``key`` are the exact :class:`ConditionResult` title and
+    :class:`LoadValue` key, so a renamed condition fails the generator rather
+    than blanking a cell. ``tol`` is the absolute band the guard allows against
+    ``book``; 0 means the printed resolution plus 0.1 % (Decision 3).
+    """
+
+    page: str
+    quantity: str
+    module: str
+    title: str
+    key: str
+    decimals: int
+    book: typing.Optional[float] = None
+    cite: str = ""
+    tol: float = 0.0
+
+
+#: The single (`ga6_normal`): Appendix A's airplane, so most rows carry the
+#: printed figure. Each `cite` is the page the module's own oracle test cites.
+_NZ_TOL = 0.01  # converged to ±0.005, printed to 2 dp (tests/test_flight_envelope.py _nz_tol)
+GA6_FIGURES = (
+    WorkedFigure("weight_mass", "Maximum take-off weight (WTESTIMA)", "weight_estimate",
+                 "Estimated weight summary", "max_take_off_weight", 0, 3468.0, "Appendix A p134"),
+    WorkedFigure("weight_mass", "Empty weight (WTESTIMA)", "weight_estimate",
+                 "Estimated weight summary", "empty_weight", 0, 2150.0, "Appendix A p134"),
+    WorkedFigure("structural_speeds", "Limit positive load factor n₊", "structural_speeds",
+                 "Limit maneuver load factors", "limit_positive_load_factor", 2, 3.8, "Appendix A p179"),
+    WorkedFigure("structural_speeds", "Limit negative load factor n₋", "structural_speeds",
+                 "Limit maneuver load factors", "limit_negative_load_factor", 2, -1.52, "Appendix A p179"),
+    WorkedFigure("structural_speeds", "Maneuver speed VA", "structural_speeds",
+                 "Structural design speeds", "maneuver_speed_va", 1, 121.3, "Appendix A p179"),
+    WorkedFigure("structural_speeds", "Cruise speed VC (chosen)", "structural_speeds",
+                 "Structural design speeds", "cruise_speed_vc", 1, 170.0, "Appendix A p179"),
+    WorkedFigure("structural_speeds", "Dive speed VD (1.25 × VC)", "structural_speeds",
+                 "Structural design speeds", "dive_speed_vd", 1, 212.5, "Appendix A p179"),
+    WorkedFigure("flight_envelope", "MAN A corner, CG1: load factor", "flight_envelope",
+                 "CRUISE CG1 @ 0 ft, case 3: MAN A", "load_factor_nz", 2, 3.80,
+                 "Appendix A p180", _NZ_TOL),
+    WorkedFigure("flight_envelope", "MAN A corner, CG1: angle of attack", "flight_envelope",
+                 "CRUISE CG1 @ 0 ft, case 3: MAN A", "angle_of_attack", 2, 12.75,
+                 "Appendix A p180", 0.05),
+    WorkedFigure("flight_envelope", "GUST +C corner, CG1: load factor", "flight_envelope",
+                 "CRUISE CG1 @ 0 ft, case 10: GUST +C", "load_factor_nz", 2, 3.96,
+                 "Appendix A p180", _NZ_TOL),
+    WorkedFigure("flight_envelope", "SELECT's critical PHAA case: load factor", "select",
+                 "Critical wing load PHAA (case 22)", "load_factor_nz", 2),
+    WorkedFigure("engine_mount", "Take-off mean engine torque", "engine",
+                 "Limit takeoff torque (factor x mean) with 75% limit maneuver vertical load factor",
+                 "mean_takeoff_torque", 2, 554.39, "Appendix A, ENGLOADS"),
+    WorkedFigure("landing_loads", "Landing sink rate V", "landing",
+                 "Landing load factor (LGFACTOR)", "sink_rate", 4, 9.0048, "Appendix A p236"),
+    WorkedFigure("landing_loads", "Gear factor NLG (the book's printed energy ratio N; #401)",
+                 "landing", "Landing load factor (LGFACTOR)", "landing_gear_factor_nlg", 4,
+                 3.0951, "Appendix A p236"),
+    WorkedFigure("landing_loads", "Governing airplane load factor N (entered)", "landing",
+                 "Landing load factor (LGFACTOR)", "governing_airplane_load_factor_n", 3),
+)
+
+#: The concept twin (`atr42_100`): no printed oracle exists, so no `book`
+#: column -- its check is the closure block below the table.
+ATR42_FIGURES = (
+    WorkedFigure("weight_mass", "Aft-gross weight (MTOW)", "weight_onecg",
+                 "Mass properties -- aft gross", "weight", 0),
+    WorkedFigure("weight_mass", "Aft-gross CG station", "weight_onecg",
+                 "Mass properties -- aft gross", "xbar_fus_station", 1),
+    WorkedFigure("weight_mass", "Aft-gross pitch inertia IYY", "weight_onecg",
+                 "Mass properties -- aft gross", "iyy", 0),
+    WorkedFigure("structural_speeds", "Limit positive load factor n₊ (entered, category C)",
+                 "structural_speeds", "Limit maneuver load factors",
+                 "limit_positive_load_factor", 2),
+    WorkedFigure("structural_speeds", "Limit negative load factor n₋", "structural_speeds",
+                 "Limit maneuver load factors", "limit_negative_load_factor", 2),
+    WorkedFigure("structural_speeds", "Maneuver speed VA", "structural_speeds",
+                 "Structural design speeds", "maneuver_speed_va", 1),
+    WorkedFigure("structural_speeds", "Cruise speed VC (chosen)", "structural_speeds",
+                 "Structural design speeds", "cruise_speed_vc", 1),
+    WorkedFigure("structural_speeds", "Dive speed VD (chosen)", "structural_speeds",
+                 "Structural design speeds", "dive_speed_vd", 1),
+    WorkedFigure("flight_envelope", "SELECT's critical PMAA case: load factor", "select",
+                 "Critical wing load PMAA (case 270)", "load_factor_nz", 3),
+    WorkedFigure("one_engine_out", "Engine failure at VD: side force on the fin", "one_engine_out",
+                 "One engine out — VD (limit) (engine 1)", "fy_side", 0),
+    WorkedFigure("one_engine_out", "Engine failure at VC (prescribed ultimate): side force",
+                 "one_engine_out", "One engine out — VC (ultimate) (engine 1)", "fy_side", 0),
+)
+
+WORKED_EXAMPLES = {"ga6_normal": GA6_FIGURES, "atr42_100": ATR42_FIGURES}
+
+
+def _load_example(name):
+    from sloads.io import load_project
+    return load_project(REPO_ROOT / "examples" / f"{name}.project.json")
+
+
+def worked_figures(name):
+    """``[(figure, condition, value)]`` for one bundled example, in table order.
+
+    Raises ``KeyError`` naming the figure when its condition or key is gone, so
+    a renamed result fails here, not as an empty cell.
+    """
+    from sloads.registry import get
+    project = _load_example(name)
+    results = {}
+    out = []
+    for fig in WORKED_EXAMPLES[name]:
+        if fig.module not in results:
+            results[fig.module] = get(fig.module)(project).conditions
+        cond = next((c for c in results[fig.module] if c.title == fig.title), None)
+        if cond is None:
+            raise KeyError(f"{name}: no {fig.module} condition titled {fig.title!r}")
+        value = next((v for v in cond.values if v.key == fig.key), None)
+        if value is None:
+            raise KeyError(f"{name}: {fig.title!r} has no value keyed {fig.key!r}")
+        out.append((fig, cond, value))
+    return out
+
+
+def figure_tolerance(fig):
+    """The guard's band against ``fig.book``: ``tol``, else print resolution + 0.1 %."""
+    if fig.tol:
+        return fig.tol
+    return 0.5 * 10 ** -fig.decimals + 1e-3 * abs(fig.book or 0.0)
+
+
+def _sf_cell(sf):
+    if sf is None:
+        return "N/A"
+    return "1.0 (already ultimate)" if sf == 1.0 else f"{sf:g}"
+
+
+def _page_link(step_key):
+    for nn, step in guide_chapters():
+        if step.key == step_key:
+            return f"[{step.title}](../{nn}_{step.key}.md)"
+    raise KeyError(step_key)
+
+
+def _closure_lines(name):
+    """The balanced-case and deck closure statement for a concept example."""
+    from sloads.export.balanced_deck import balanced_deck
+    from sloads.export.equilibrium import closes, deck_resultants
+    from sloads.modules.balance import build_balanced_cases
+
+    project = _load_example(name)
+    built = build_balanced_cases(project)
+    cases = list(built[0] if isinstance(built, tuple) else built)
+    # A ground case is reacted at the gear, not by a distributed inertia set, so
+    # the -nz*W identity is a flight-case statement (the G-OR-72 rule).
+    flight = [c for c in cases if not any(lv.source.startswith("gear") for lv in c.loads)]
+    inertia = [(c, sum(lv.fz for lv in c.loads if "inertia" in lv.source)) for c in flight]
+    ratios = [-i / (c.nz * c.weight_lb) for c, i in inertia if i]
+    relief = max(flight, key=lambda c: abs(c.delta_n))
+    res = deck_resultants(balanced_deck(project, cases=cases))
+    closed = sum(
+        all(closes(f, 0.0, scale=r.force_scale) for f in (r.fx, r.fy, r.fz))
+        and all(closes(mm, 0.0, scale=r.moment_scale) for mm in (r.mx, r.my, r.mz))
+        for r in res.values()
+    )
+    return [
+        "### Closure (the check that stands in for an oracle)",
+        "",
+        "| Check | Result |",
+        "| --- | --- |",
+        f"| Balanced cases assembled | {len(cases)} ({len(flight)} flight, "
+        f"{len(cases) - len(flight)} ground) |",
+        f"| Flight cases: inertia resultant ÷ (−n<sub>z</sub>·W) | "
+        f"{min(ratios):.4f} to {max(ratios):.4f} (LIMIT: no factor applied) |",
+        f"| Largest closure relief Δn on a flight case | {relief.delta_n:+.3f} "
+        f"({relief.label}, {relief.cg}) |",
+        f"| LRA deck subcases whose six resultants close to zero | "
+        f"{closed} of {len(res)} |",
+        "",
+        "Δn is the rigid-body load-factor increment the closure applied: how much of "
+        "the balance was assumed rather than computed. The deck check re-reads the "
+        "written `FORCE`/`MOMENT` cards (`sloads.export.equilibrium`).",
+        "",
+    ]
+
+
+def _worked_table(name):
+    """``_generated/worked_<name>.md``: the figures, read from a run of the example."""
+    rows = worked_figures(name)
+    has_book = any(fig.book is not None for fig, _c, _v in rows)
+    lines = [GENERATED_BANNER, ""]
+    lines.append(f"### Figures from a run of `examples/{name}.project.json`")
+    lines.append("")
+    lines.append(
+        "Every value is LIMIT as delivered; the SF column is the factor the case "
+        "states and nothing applies."
+    )
+    lines.append("")
+    head = "| Page | Quantity | sloads | Units | SF |"
+    rule = "| --- | --- | --- | --- | --- |"
+    if has_book:
+        head += " Book | Printed |"
+        rule += " --- | --- |"
+    lines += [head, rule]
+    for fig, cond, value in rows:
+        cell = f"{value.value:,.{fig.decimals}f}"
+        row = (f"| {_page_link(fig.page)} | {fig.quantity} | {cell} | "
+               f"{value.units or '—'} | {_sf_cell(cond.safety_factor)} |")
+        if has_book:
+            book = "—" if fig.book is None else f"{fig.book:,.{fig.decimals}f}"
+            row += f" {book} | {fig.cite or '—'} |"
+        lines.append(row)
+    lines.append("")
+    if not has_book:
+        lines += _closure_lines(name)
+    return "\n".join(lines) + "\n"
+
+
 def build_guide_tables():
     """Every file under ``_generated/``: ``{filename: content}``."""
     out = {"chapters.md": _guide_chapter_list()}
     for _nn, step in guide_chapters():
         out[f"{step.key}.md"] = _guide_field_table(step)
+    for name in WORKED_EXAMPLES:
+        out[f"worked_{name}.md"] = _worked_table(name)
     return out
 
 

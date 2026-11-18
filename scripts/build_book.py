@@ -102,6 +102,7 @@ def book() -> List[Tuple[str, List[Page]]]:
         ("Worked examples", [
             ("docs/60_guide/A_worked_single.md", None),
             ("docs/60_guide/B_worked_twin.md", None),
+            ("docs/60_guide/E_worked_concept.md", None),
         ]),
         ("GUI user guide", [
             ("docs/10_standard/GUI_USER_GUIDE.md", None),
@@ -121,6 +122,7 @@ def book() -> List[Tuple[str, List[Page]]]:
             ("docs/10_standard/CONVENTIONS.md", None),
         ]),
         ("Troubleshooting", [
+            ("docs/60_guide/F_typical_questions.md", None),
             ("docs/60_guide/C_troubleshooting.md", None),
             ("docs/60_guide/D_where_next.md", None),
         ]),

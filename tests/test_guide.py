@@ -232,5 +232,35 @@ def test_g_ug_6_chapter_template_headings_in_order():
         )
 
 
+
+# --- G-UG-7: the worked examples quote no figure the run does not produce --- #
+# (#428) The appendices link `_generated/worked_<example>.md` and quote no
+# number of their own; G-UG-2 keeps that table current with the example. This
+# holds its printed column to the run: a figure that drifts from the manual
+# fails here by name, not as a stale table someone regenerates past.
+
+def test_g_ug_7_worked_figures_match_the_printed_values():
+    gen = _generator()
+    misses = []
+    for fig, _cond, value in gen.worked_figures("ga6_normal"):
+        if fig.book is None:
+            continue
+        tol = gen.figure_tolerance(fig)
+        if abs(value.value - fig.book) > tol:
+            misses.append(f"{fig.quantity}: {value.value} vs printed {fig.book} "
+                          f"({fig.cite}, band {tol})")
+    assert not misses, "\n".join(misses)
+
+
+def test_g_ug_7_every_worked_example_links_its_figures():
+    gen = _generator()
+    pages = {"ga6_normal": "A_worked_single.md", "atr42_100": "E_worked_concept.md"}
+    assert set(pages) == set(gen.WORKED_EXAMPLES)
+    for name, page in pages.items():
+        with open(os.path.join(_GUIDE, page), encoding="utf-8") as fh:
+            assert f"_generated/worked_{name}.md" in fh.read(), (
+                f"{page} does not link its generated figures table")
+
+
 if __name__ == "__main__":  # zero-dependency self-runner
     sys.exit(pytest.main([__file__, "-n", "0", "-q"]))
