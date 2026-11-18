@@ -67,6 +67,7 @@ from sloads.modules.landing import (
     landing_reactions,
     run,
 )
+from sloads.units import UnitSystem
 
 REL = 1e-3  # +-0.1%
 
@@ -1269,7 +1270,7 @@ def test_a_landing_case_with_no_waterline_is_named_on_the_page():
     assert warning.page == validation.PAGE_LANDING, warning.page
     # It names the cases rather than stating that something is wrong.
     for role_case in (c for c in p.weight.cg_cases if c.role is not None):
-        assert role_case.name in warning.message, role_case.name
+        assert role_case.name in warning.message.render(UnitSystem.IMPERIAL), role_case.name
 
 
 if __name__ == "__main__":

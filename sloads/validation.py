@@ -106,7 +106,7 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional
 
 from . import cg_cases, mass_distribution
 from .constants import ULTIMATE_FACTOR
-from .cross_check import CROSS_CHECK_REL, cross_check_disagrees, shown_apart
+from .cross_check import CROSS_CHECK_REL, cross_check_disagrees
 from .models import (
     GROUND_CASE_ROLE_ORDER,
     REFUSALS,
@@ -119,7 +119,7 @@ from .models import (
 )
 from .modules.wing_geometry import interp_x
 from .picks import extreme
-from .units import format_value
+from .units import Quantity, UnitText, format_value, unit_text
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from .models import GearReactionCase
@@ -163,13 +163,36 @@ class ConsistencyWarning:
     """One input-consistency finding.
 
     ``code`` is a stable slug (for tests); ``message`` is the human-readable
-    ``st.warning`` text; ``page`` is the **workflow step key** of the page that
-    should render it -- a key from ``sloads.workflow.STEPS``, nothing else, so
-    the page set and the finding resolve against the same nav SSOT (#82).
+    ``st.warning`` text, a :class:`~sloads.units.UnitText` so its lengths,
+    weights, forces and areas print in the unit system of the page that shows
+    it (#339) -- render it with ``message.render(system)``; ``page`` is the
+    **workflow step key** of the page that should render it -- a key from
+    ``sloads.workflow.STEPS``, nothing else, so the page set and the finding
+    resolve against the same nav SSOT (#82).
     """
     code: str
-    message: str
+    message: UnitText
     page: str
+
+
+def _in(value: float) -> Quantity:
+    """A length or station, in (mm in SI)."""
+    return Quantity(value, "in")
+
+
+def _lb(value: float, apart: str = "") -> Quantity:
+    """A weight, lb (kg in SI); ``apart`` names a print-apart group (#243)."""
+    return Quantity(value, "lb", "mass", apart)
+
+
+def _lbf(value: float) -> Quantity:
+    """A force, lb (N in SI)."""
+    return Quantity(value, "lb")
+
+
+def _sqft(value: float) -> Quantity:
+    """An area, ft^2 (m^2 in SI)."""
+    return Quantity(value, "ft^2")
 
 
 def _wing_geometry_area_sqft(project: Project) -> Optional[float]:
@@ -191,8 +214,8 @@ def _check_taper(project: Project) -> List[ConsistencyWarning]:
             if s.taper_ratio and s.taper_ratio > 1.0:
                 out.append(ConsistencyWarning(
                     "taper_gt_1",
-                    f"Aero surface '{s.name}' taper ratio {format_value(s.taper_ratio)} is "
-                    "greater than 1 (tip chord exceeds root chord).",
+                    unit_text(f"Aero surface '{s.name}' taper ratio {format_value(s.taper_ratio)} is "
+                    "greater than 1 (tip chord exceeds root chord)."),
                     PAGE_CONFIGURATION))
     return out
 
@@ -203,8 +226,8 @@ def _check_area(project: Project) -> List[ConsistencyWarning]:
     if geo_area is not None and geo_area <= 0.0:
         out.append(ConsistencyWarning(
             "nonpositive_area",
-            "WINGGEOM planform area is zero or negative -- check the wing "
-            "leading-/trailing-edge points.",
+            unit_text("WINGGEOM planform area is zero or negative -- check the wing "
+            "leading-/trailing-edge points."),
             PAGE_CONFIGURATION))
     return out
 
@@ -227,14 +250,14 @@ def _check_le_te_ordering(project: Project) -> List[ConsistencyWarning]:
         if bad_chord:
             out.append(ConsistencyWarning(
                 "le_te_ordering",
-                f"Surface '{surf.name}': a leading-edge station is not forward of "
-                "the trailing edge (LE fuselage station X must be less than TE).",
+                unit_text(f"Surface '{surf.name}': a leading-edge station is not forward of "
+                "the trailing edge (LE fuselage station X must be less than TE)."),
                 PAGE_CONFIGURATION))
         if bad_order:
             out.append(ConsistencyWarning(
                 "le_te_ordering",
-                f"Surface '{surf.name}': edge points are not ordered inboard→outboard "
-                "(butt line |Y| should increase).",
+                unit_text(f"Surface '{surf.name}': edge points are not ordered inboard→outboard "
+                "(butt line |Y| should increase)."),
                 PAGE_CONFIGURATION))
     return out
 
@@ -373,9 +396,9 @@ def _check_cg_envelope(project: Project) -> List[ConsistencyWarning]:
     if xbar < fwd - 1e-6 or xbar > aft + 1e-6:
         return [ConsistencyWarning(
             "cg_outside_envelope",
-            f"Loading CG at station {format_value(xbar, 'in')} in is outside the WTENV structural "
-            f"CG envelope ({format_value(fwd, 'in')}–{format_value(aft, 'in')} in). Adjust the loading or the "
-            "envelope limits (14 CFR 23.23).",
+            unit_text("Loading CG at station ", _in(xbar), " is outside the WTENV structural "
+                      "CG envelope (", _in(fwd), " – ", _in(aft), "). Adjust the loading or the "
+                      "envelope limits (14 CFR 23.23)."),
             PAGE_WEIGHT_CG)]
     return []
 
@@ -400,9 +423,9 @@ def _check_cg_cases_have_weight(project: Project) -> List[ConsistencyWarning]:
     named = ", ".join(f"`{n}`" for n in blank)
     return [ConsistencyWarning(
         "cg_case_without_weight",
-        f"Weight/CG case(s) {named} carry no weight. Every balance divides by the "
+        unit_text(f"Weight/CG case(s) {named} carry no weight. Every balance divides by the "
         "case weight, so the Flight Envelope and SELECT refuse to run at all while "
-        "one is present — enter the weight and CG, or remove the case.",
+        "one is present — enter the weight and CG, or remove the case."),
         PAGE_WEIGHT_CG)]
 
 
@@ -437,11 +460,11 @@ def _check_tail_cp_stations(project: Project) -> List[ConsistencyWarning]:
         return []
     return [ConsistencyWarning(
         "tail_cp_station_unset",
-        "Tail centre-of-pressure station(s) " + " and ".join(unset)
+        unit_text("Tail centre-of-pressure station(s) " + " and ".join(unset)
         + " are 0 / unset. A tail CP at the datum sign-flips the tail arm, so "
         "the balance would run clean and silently wrong — the Flight Envelope "
         "refuses to run while one is unset. Enter the fuselage station of the "
-        "horizontal-tail centre of pressure.",
+        "horizontal-tail centre of pressure."),
         PAGE_FLIGHT)]
 
 
@@ -466,11 +489,12 @@ def _check_mass_items_in_body(project: Project) -> List[ConsistencyWarning]:
         if item.x < nose - 1e-6 or item.x > tail + 1e-6:
             out.append(ConsistencyWarning(
                 "mass_item_outside_body",
-                f"Weight item '{item.name}' at station {format_value(item.x, 'in')} in lies "
-                f"{'ahead of the nose' if item.x < nose else 'behind the tail'} of "
-                f"the fuselage outline ({format_value(nose, 'in')}–{format_value(tail, 'in')} in). A fuselage-"
-                "carried mass belongs inside the body it is carried by: move the "
-                "item, extend the outline, or tag it to the surface that carries it.",
+                unit_text(
+                    f"Weight item '{item.name}' at station ", _in(item.x), " lies "
+                    f"{'ahead of the nose' if item.x < nose else 'behind the tail'} of "
+                    "the fuselage outline (", _in(nose), " – ", _in(tail), "). A fuselage-"
+                    "carried mass belongs inside the body it is carried by: move the "
+                    "item, extend the outline, or tag it to the surface that carries it."),
                 PAGE_WEIGHT_CG))
     return out
 
@@ -505,11 +529,11 @@ def _check_operational_targets(project: Project) -> List[ConsistencyWarning]:
             u = "" if c.units == "Mach" else c.units
             out.append(ConsistencyWarning(
                 "operational_target_infeasible",
-                f"Operational target {c.target_label} = {format_value(c.target, u)} {c.units} needs "
+                unit_text(f"Operational target {c.target_label} = {format_value(c.target, u)} {c.units} needs "
                 f"{c.driver_label} ≥ {format_value(c.required, u)} {c.units}, but the chosen "
                 f"{c.driver_label.split(' ')[0]} = {format_value(c.actual, u)} {c.units}. Raise the "
                 "design speed or lower the target (advisory only — 14 CFR 23.1505/"
-                "23.335(b)(4); design speeds and loads are unchanged).",
+                "23.335(b)(4); design speeds and loads are unchanged)."),
                 PAGE_STRUCTURAL_SPEEDS))
     return out
 
@@ -549,33 +573,33 @@ def _check_dive_speed_basis(project: Project) -> List[ConsistencyWarning]:
         if ds.mach_margin_reduced:
             out.append(ConsistencyWarning(
                 "mach_margin_reduced",
-                f"The MC→MD Mach margin is set to {format_value(ds.mach_margin_required)} M, "
+                unit_text(f"The MC→MD Mach margin is set to {format_value(ds.mach_margin_required)} M, "
                 f"below the {MACH_MARGIN_DEFAULT} M default. 14 CFR 25.335(b)(2) "
                 "permits this only on a rational analysis including the effects of "
                 "automatic systems (a credited high-speed protection function): it "
                 "requires significant justification and represents a certification "
                 f"risk. Basis on file: “{(speeds.mach_margin_basis or '').strip()}”. "
                 "AC 25.335-1A treats 0.07 M as sufficient without further "
-                "investigation; 0.05 M is an absolute floor.",
+                "investigation; 0.05 M is an absolute floor."),
                 PAGE_STRUCTURAL_SPEEDS))
         if ds.vd < ds.vd_ratio_floor - 1e-9:
             out.append(ConsistencyWarning(
                 "mach_margin_below_ratio_floor",
-                f"VD = {format_value(ds.vd, 'kt(EAS)')} kt sits below the 1.25·VC speed-ratio floor "
+                unit_text(f"VD = {format_value(ds.vd, 'kt(EAS)')} kt sits below the 1.25·VC speed-ratio floor "
                 f"({format_value(ds.vd_ratio_floor, 'kt(EAS)')} kt) because the Mach-margin route was "
                 "selected. 14 CFR 25.335(b) offers the two routes disjunctively, so "
                 "this is expected — but note the margin check covers only the "
                 "(b)(2) Mach term, not the (b)(1) upset criterion, which this suite "
-                "does not implement.",
+                "does not implement."),
                 PAGE_STRUCTURAL_SPEEDS))
     if speeds.vb_kt and speeds.vb_kt >= ds.vc:
         out.append(ConsistencyWarning(
             "vb_above_vc",
-            f"The rough-air speed VB = {format_value(speeds.vb_kt, 'kt(EAS)')} kt is at or above "
+            unit_text(f"The rough-air speed VB = {format_value(speeds.vb_kt, 'kt(EAS)')} kt is at or above "
             f"VC = {format_value(ds.vc, 'kt(EAS)')} kt. 14 CFR 25.335(a)(2) requires VC ≥ VB + 1.32·U_ref, "
             "so VC must exceed VB. (Only the ordering is checked here — the "
             "1.32·U_ref term needs the 25.341 reference gust schedule, which is not "
-            "yet implemented.)",
+            "yet implemented.)"),
             PAGE_STRUCTURAL_SPEEDS))
     return out
 
@@ -619,13 +643,13 @@ def _check_safety_factors(project: Project) -> List[ConsistencyWarning]:
         if not safety_factor_valid(sf):
             out.append(ConsistencyWarning(
                 "safety_factor_out_of_range",
-                f"Load case '{name}' has safety_factor = {sf!r}, outside the legal "
+                unit_text(f"Load case '{name}' has safety_factor = {sf!r}, outside the legal "
                 f"[1.0, {format_value(ULTIMATE_FACTOR)}] band (14 CFR 23.303; the factor is set "
                 "by the load-case definition). Below 1.0 the factor stated "
                 "against the exported loads is too small to reach ultimate, so a "
                 "sizing analysis that applies it under-designs. A corrupt value "
                 f"in a saved project.json is reset to {format_value(ULTIMATE_FACTOR)} on load; "
-                "re-run the producing module to restore the case's own factor.",
+                "re-run the producing module to restore the case's own factor."),
                 PAGE_REPORT))
     return out
 
@@ -657,34 +681,34 @@ def _check_safety_factor_overrides(project: Project) -> List[ConsistencyWarning]
         if ov.family not in keys:
             out.append(ConsistencyWarning(
                 "safety_factor_override_unknown_family",
-                f"Safety-factor override names family {ov.family!r}, which is not a "
+                unit_text(f"Safety-factor override names family {ov.family!r}, which is not a "
                 f"row of the governing table ({', '.join(sorted(keys))}). The "
                 "override is ignored, so the deliverable is NOT carrying the factor "
-                "you intended.", PAGE_REPORT))
+                "you intended."), PAGE_REPORT))
             continue
         if not str(ov.basis).strip():
             out.append(ConsistencyWarning(
                 "safety_factor_override_without_basis",
-                f"Safety-factor override on '{ov.family}' has no basis. Every row of "
+                unit_text(f"Safety-factor override on '{ov.family}' has no basis. Every row of "
                 "the governing table is editable, and the condition of that is that "
                 "an override states why it exists — an undeclared deviation is "
-                "invisible to the analyst reading the deliverable.", PAGE_REPORT))
+                "invisible to the analyst reading the deliverable."), PAGE_REPORT))
         if not safety_factor_valid(ov.factor):
             out.append(ConsistencyWarning(
                 "safety_factor_override_out_of_range",
-                f"Safety-factor override on '{ov.family}' is {ov.factor!r}, outside "
-                f"the legal [1.0, {format_value(ULTIMATE_FACTOR)}] band (14 CFR 23.303).",
+                unit_text(f"Safety-factor override on '{ov.family}' is {ov.factor!r}, outside "
+                f"the legal [1.0, {format_value(ULTIMATE_FACTOR)}] band (14 CFR 23.303)."),
                 PAGE_REPORT))
     for row in GoverningTable.for_project(project).overrides:
         if row.below_regulation:
             out.append(ConsistencyWarning(
                 "safety_factor_below_regulation",
-                f"CERTIFICATION RISK: '{row.label}' ({row.far_reference}) is "
+                unit_text(f"CERTIFICATION RISK: '{row.label}' ({row.far_reference}) is "
                 f"overridden to SF = {format_value(row.factor)}, below the {format_value(row.derived_factor)} "
                 "the regulation derives for it. A sizing analysis applying the "
                 "stated factor to loads exported under this row will not reach "
                 "ultimate by 14 CFR 23.303/25.303. "
-                f"Declared basis: {row.basis or '(none)'}.", PAGE_REPORT))
+                f"Declared basis: {row.basis or '(none)'}."), PAGE_REPORT))
     return out
 
 
@@ -730,9 +754,9 @@ def _check_landing_hierarchy(project: Project) -> List[ConsistencyWarning]:
     if w_land > 0 and fwd_light.weight_lb > w_land + 1e-6:
         out.append(ConsistencyWarning(
             "landing_light_le_max",
-            f"The '{fwd_light.name}' loading weighs {format_value(fwd_light.weight_lb, 'lb')} lb, more "
-            f"than the max landing weight {format_value(w_land, 'lb')} lb. It is the *light* corner of "
-            "the landing envelope (UG fig 18.2).",
+            unit_text(f"The '{fwd_light.name}' loading weighs ", _lb(fwd_light.weight_lb, "w"),
+                      ", more than the max landing weight ", _lb(w_land, "w"),
+                      ". It is the *light* corner of the landing envelope (UG fig 18.2)."),
             PAGE_LANDING))
     elif w_land > 0 and abs(fwd_light.weight_lb - w_land) <= 1e-6:
         # The role encodes a claim the numbers must honour (C210-14): a case
@@ -741,31 +765,31 @@ def _check_landing_hierarchy(project: Project) -> List[ConsistencyWarning]:
         # table's labels then say something its numbers do not.
         out.append(ConsistencyWarning(
             "landing_light_not_lighter",
-            f"The '{fwd_light.name}' loading is tagged `fwd_light` but weighs the max "
-            f"landing weight {format_value(w_land, 'lb')} lb exactly. The role claims the light corner "
-            "of the landing envelope (UG fig 18.2) -- LANDLOAD will consume it in the "
-            "light-forward slot while its numbers answer the heavy case.",
+            unit_text(f"The '{fwd_light.name}' loading is tagged `fwd_light` but weighs the max "
+                      "landing weight ", _lb(w_land), " exactly. The role claims the light corner "
+                      "of the landing envelope (UG fig 18.2) -- LANDLOAD will consume it in the "
+                      "light-forward slot while its numbers answer the heavy case."),
             PAGE_LANDING))
     if w_land > 0:
         off = [c for c in (aft, fwd_max) if abs(c.weight_lb - w_land) > 1e-6]
         if off:
             # Exact by contract: any difference is the defect, so the numbers
-            # print apart however small it is (#243).
-            mlw, *weights = shown_apart([w_land] + [c.weight_lb for c in off], "lb")
+            # print apart however small it is (#243), in the page's units (#339).
             out.append(ConsistencyWarning(
                 "landing_case_weight_is_mlw",
-                "The max-landing loadings must weigh exactly the max landing weight "
-                f"{mlw} lb (weight.max_landing_weight_lb, the single owner "
-                "since decision G-4 -- only their CG station is entered): "
-                + ", ".join(f"'{c.name}' {w} lb" for c, w in zip(off, weights)) + ".",
+                unit_text("The max-landing loadings must weigh exactly the max landing weight ",
+                          _lb(w_land, apart="mlw"), " (weight.max_landing_weight_lb, the single owner "
+                          "since decision G-4 -- only their CG station is entered): ")
+                + UnitText.join(", ", [unit_text(f"'{c.name}' ", _lb(c.weight_lb, apart="mlw"))
+                                       for c in off]) + ".",
                 PAGE_LANDING))
     if aft.xcg <= max(fwd_max.xcg, fwd_light.xcg):
         out.append(ConsistencyWarning(
             "landing_cg_ordering",
-            f"The aft loading '{aft.name}' is at station {format_value(aft.xcg, 'in')} in, not aft of "
-            f"the forward loadings ({format_value(fwd_max.xcg, 'in')} / {format_value(fwd_light.xcg, 'in')} in). The "
-            "AP/BP/CP lever arms are formed about xcg, so a fwd/aft swap mis-assigns "
-            "the nose-gear and braked-roll reactions.",
+            unit_text(f"The aft loading '{aft.name}' is at station ", _in(aft.xcg), ", not aft of "
+                      "the forward loadings (", _in(fwd_max.xcg), " / ", _in(fwd_light.xcg), "). The "
+                      "AP/BP/CP lever arms are formed about xcg, so a fwd/aft swap mis-assigns "
+                      "the nose-gear and braked-roll reactions."),
             PAGE_LANDING))
     lg = project.geometry.landing_gear if project.geometry is not None else None
     if lg is not None:
@@ -775,9 +799,9 @@ def _check_landing_hierarchy(project: Project) -> List[ConsistencyWarning]:
             if low:
                 out.append(ConsistencyWarning(
                     "landing_cg_below_axle",
-                    "Landing CG waterline at or below the static main-axle waterline "
-                    f"({format_value(axle_wl, 'in')} in) for: "
-                    + ", ".join(f"'{c.name}' zcg={format_value(c.zcg, 'in')} in" for c in low)
+                    unit_text("Landing CG waterline at or below the static main-axle waterline (",
+                              _in(axle_wl), ") for: ")
+                    + UnitText.join(", ", [unit_text(f"'{c.name}' zcg=", _in(c.zcg)) for c in low])
                     + ". A CG at or below the axle is geometrically impossible for a "
                     "tricycle airplane; a zero waterline puts the CG on the ground "
                     "line and inverts the nose-gear reaction (M4-17c).",
@@ -806,22 +830,22 @@ def landing_reaction_warnings(cases: "List[GearReactionCase]") -> List[Consisten
         worst = extreme(negative, lambda c: min(c.vmp, c.vnp), largest=False)
         out.append(ConsistencyWarning(
             "landing_negative_vertical",
-            f"{len(negative)} ground case(s) have a **negative vertical reaction** "
-            f"(worst: case {worst.case}, {worst.description}, VMP {format_value(worst.vmp, 'lb')} / "
-            f"VNP {format_value(worst.vnp, 'lb')} lb). A wheel cannot pull the airplane down -- check "
+            unit_text(f"{len(negative)} ground case(s) have a **negative vertical reaction** "
+                      f"(worst: case {worst.case}, {worst.description}, VMP ", _lbf(worst.vmp),
+                      " / VNP ", _lbf(worst.vnp), "). A wheel cannot pull the airplane down -- check "
             "the CG waterlines and stations against the axle geometry (a zero "
             "waterline is the usual cause). Cases: "
-            + ", ".join(str(c.case) for c in negative) + ".",
+            + ", ".join(str(c.case) for c in negative) + "."),
             PAGE_LANDING))
     nose_loaded = [c for c in cases if c.case in tuple(range(1, 4)) + tuple(range(13, 16))]
     zero_nose = [c for c in nose_loaded if abs(c.vnp) <= 1e-9]
     if zero_nose:
         out.append(ConsistencyWarning(
             "landing_zero_nose",
-            "The nose wheel carries no load in case(s) "
+            unit_text("The nose wheel carries no load in case(s) "
             + ", ".join(str(c.case) for c in zero_nose)
             + " (3-wheel level / braked roll nose down), where it is loaded by "
-              "construction. Check the nose-gear axle geometry and the CG stations.",
+              "construction. Check the nose-gear axle geometry and the CG stations."),
             PAGE_LANDING))
     return out
 
@@ -854,10 +878,10 @@ def _check_aero_coefficients(project: Project) -> List[ConsistencyWarning]:
     if aero.clmax_clean_neg > 0.0:
         out.append(ConsistencyWarning(
             "aero_clmax_neg_sign",
-            f"Clean negative CLmax = {format_value(aero.clmax_clean_neg, signed=True)} is positive; the "
+            unit_text(f"Clean negative CLmax = {format_value(aero.clmax_clean_neg, signed=True)} is positive; the "
             "negative maximum lift coefficient caps the *negative* balancing "
             "solution and is normally negative (e.g. −0.59 on the Appendix A GA "
-            "example). Check the sign.",
+            "example). Check the sign."),
             PAGE_AERO_COEFFS))
 
     for label, cfg in (("Cruise", aero.cruise), ("Flaps down", aero.flaps_down)):
@@ -867,10 +891,11 @@ def _check_aero_coefficients(project: Project) -> List[ConsistencyWarning]:
         if cfg.lift[1] <= 0.0:
             out.append(ConsistencyWarning(
                 "aero_lift_slope_sign",
-                f"{name}: the lift-curve slope C1 = {format_value(cfg.lift[1], signed=True)} is not positive. "
+                unit_text(f"{name}: the lift-curve slope C1 = "
+                f"{format_value(cfg.lift[1], signed=True)} is not positive. "
                 "CL = C0 + C1·α + … expects α in **degrees** (a per-radian slope "
                 "entered here would be ~57× too large; a transposed row can flip the "
-                "sign). The balance will not converge sensibly.",
+                "sign). The balance will not converge sensibly."),
                 PAGE_AERO_COEFFS))
 
         # Can the entered polynomial actually reach the stall CL the balance
@@ -884,13 +909,13 @@ def _check_aero_coefficients(project: Project) -> List[ConsistencyWarning]:
             if cl_max_on_curve < cfg.stall_cl:
                 out.append(ConsistencyWarning(
                     "aero_clmax_unreachable",
-                    f"{name}: the lift polynomial peaks at CL = {format_value(cl_max_on_curve)} "
+                    unit_text(f"{name}: the lift polynomial peaks at CL = {format_value(cl_max_on_curve)} "
                     f"between α = {format_value(ALPHA_LO_DEG, 'deg')}° and "
                     f"{format_value(ALPHA_HI_DEG, 'deg')}°, below the "
                     f"stall CL = {format_value(cfg.stall_cl)} the balance clamps to. The "
                     "FLTLOADS dynamic-pressure iteration cannot reach the stall line, "
                     "so the stall-limited corners will not converge. Check the lift "
-                    "coefficients against the CLmax entered above.",
+                    "coefficients against the CLmax entered above."),
                     PAGE_AERO_COEFFS))
 
         # The negative half of the clamp band has to exist for the flaps-down
@@ -904,12 +929,12 @@ def _check_aero_coefficients(project: Project) -> List[ConsistencyWarning]:
         if cfg.flaps_down and cfg.stall_cl > 0.0 and not cfg.neg_stall_cl:
             out.append(ConsistencyWarning(
                 "aero_flap_neg_stall_unset",
-                f"{name}: no negative stall CL. The balance clamps CL to "
+                unit_text(f"{name}: no negative stall CL. The balance clamps CL to "
                 f"[{format_value(cfg.neg_stall_cl, signed=True)}, {format_value(cfg.stall_cl)}], so the negative "
                 "side of the flaps-extended envelope — the 0-g point and the "
                 "down gust at VF — is limited at CL = 0 and reports less load "
                 "than the airplane sees. Enter this set's negative stall CL; it "
-                "is not filled from the clean value, which is a different number.",
+                "is not filled from the clean value, which is a different number."),
                 PAGE_AERO_COEFFS))
 
         # Drag over the operating CL band the balance can visit.
@@ -922,13 +947,13 @@ def _check_aero_coefficients(project: Project) -> List[ConsistencyWarning]:
             if worst[0] <= 0.0:
                 out.append(ConsistencyWarning(
                     "aero_drag_negative",
-                    f"{name}: the drag polar gives CD = {format_value(worst[0], signed=True)} at "
+                    unit_text(f"{name}: the drag polar gives CD = {format_value(worst[0], signed=True)} at "
                     f"CL = {format_value(worst[1], signed=True)}, inside the operating band "
                     f"({format_value(lo_cl, signed=True)} … {format_value(hi_cl, signed=True)}). "
                     "Drag cannot be zero or negative; "
                     "the balance rotates it into the airplane axes (DX), so a negative "
                     "CD corrupts the balancing tail load. Check D0…D4 "
-                    "(CD = D0 + D1·CL + D2·CL² + …).",
+                    "(CD = D0 + D1·CL + D2·CL² + …)."),
                     PAGE_AERO_COEFFS))
 
         # A plain quadratic polar with a non-positive CL^2 term is inverted or
@@ -937,11 +962,11 @@ def _check_aero_coefficients(project: Project) -> List[ConsistencyWarning]:
         if cfg.drag[2] <= 0.0 and not any(cfg.drag[3:]) and any(cfg.drag):
             out.append(ConsistencyWarning(
                 "aero_drag_polar_shape",
-                f"{name}: the drag polar's CL² term D2 = {format_value(cfg.drag[2], signed=True)} is not "
+                unit_text(f"{name}: the drag polar's CL² term D2 = {format_value(cfg.drag[2], signed=True)} is not "
                 "positive with no higher-order terms entered, so drag does not grow "
                 "with lift — the induced-drag term is missing or inverted "
                 "(CD = D0 + D1·CL + D2·CL²; the Appendix A GA example uses "
-                "D2 = 0.0536).",
+                "D2 = 0.0536)."),
                 PAGE_AERO_COEFFS))
 
     return out
@@ -985,18 +1010,18 @@ def _check_weight_case_model(project: Project) -> List[ConsistencyWarning]:
     if blank:
         out.append(ConsistencyWarning(
             "cg_case_no_analysis",
-            "These weight/CG cases are run for no analysis, so they are silently "
+            unit_text("These weight/CG cases are run for no analysis, so they are silently "
             "absent from every result: " + ", ".join(f"'{n}'" for n in blank)
-            + ". Tag each with FLIGHT and/or GROUND.",
+            + ". Tag each with FLIGHT and/or GROUND."),
             PAGE_WEIGHT_CG))
     stray = [c.name for c in cases
              if c.role is not None and AnalysisKind.GROUND not in c.analyses]
     if stray:
         out.append(ConsistencyWarning(
             "cg_case_role_without_ground",
-            "These cases carry a landing role but are not tagged GROUND, so "
+            unit_text("These cases carry a landing role but are not tagged GROUND, so "
             "LANDLOAD will never see them: " + ", ".join(f"'{n}'" for n in stray)
-            + ".", PAGE_WEIGHT_CG))
+            + "."), PAGE_WEIGHT_CG))
 
     ground = [c for c in cases if AnalysisKind.GROUND in c.analyses]
     if ground:
@@ -1006,10 +1031,10 @@ def _check_weight_case_model(project: Project) -> List[ConsistencyWarning]:
         if wrong:
             out.append(ConsistencyWarning(
                 "ground_role_incomplete",
-                "LANDLOAD needs exactly one GROUND case per role (aft max landing, "
+                unit_text("LANDLOAD needs exactly one GROUND case per role (aft max landing, "
                 "fwd max landing, fwd light; UG fig 18.2). Found: "
                 + ", ".join(f"{role} x{n}" for role, n in sorted(wrong.items()))
-                + ". The landing conditions cannot run until this is one of each.",
+                + ". The landing conditions cannot run until this is one of each."),
                 PAGE_WEIGHT_CG))
 
     if weight is None:
@@ -1025,24 +1050,24 @@ def _check_weight_case_model(project: Project) -> List[ConsistencyWarning]:
                         in mass_distribution.derive_case_loadings(project, cases)}
         except ValueError as exc:
             out.append(ConsistencyWarning(
-                "cg_case_loading_invalid", str(exc), PAGE_WEIGHT_CG))
+                "cg_case_loading_invalid", unit_text(str(exc)), PAGE_WEIGHT_CG))
             loadings = {}
         for ld in [ld for ld in loadings.values() if ld.entered]:
             case = next(c for c in cases if c.name == ld.name)
-            gaps = []
+            gaps: List[UnitText] = []
             w_tol = mass_distribution.echo_weight_tolerance(case.weight_lb)
             if abs(ld.weight_lb - case.weight_lb) > w_tol:
-                gaps.append(f"weight {format_value(ld.weight_lb, 'lb')} lb against "
-                            f"{format_value(case.weight_lb, 'lb')}")
+                gaps.append(unit_text("weight ", _lb(ld.weight_lb, "w"), " against ",
+                                      _lb(case.weight_lb, "w")))
             for got, want, label in ((ld.cg_x, case.xcg, "xcg"),
                                      (ld.cg_z, case.zcg, "zcg")):
                 if abs(got - want) > mass_distribution.cg_match_tolerance():
-                    gaps.append(f"{label} {format_value(got, 'in')} in against {format_value(want, 'in')}")
+                    gaps.append(unit_text(f"{label} ", _in(got), " against ", _in(want)))
             if gaps:
                 out.append(ConsistencyWarning(
                     "cg_case_loading_echo",
                     f"Case '{ld.name}' states a loading that does not produce the "
-                    "weight/CG entered beside it: " + "; ".join(gaps)
+                    "weight/CG entered beside it: " + UnitText.join("; ", gaps)
                     + ". The loading is authoritative (D-25), so what is exported is "
                     "the loading's own properties -- correct one or the other.",
                     PAGE_WEIGHT_CG))
@@ -1063,21 +1088,21 @@ def _check_weight_case_model(project: Project) -> List[ConsistencyWarning]:
     for (lo_label, lo), (hi_label, hi) in breaks:
         out.append(ConsistencyWarning(
             "weight_order_chain",
-            f"{lo_label} {format_value(lo, 'lb')} lb exceeds {hi_label} {format_value(hi, 'lb')} lb. The design "
-            "weights must satisfy empty weight <= MZFW <= MLW <= MTOW <= the item total -- "
-            "you must be able to land at zero fuel, and you cannot weigh more than "
-            "everything you have (decisions G-4 / G-14; MZFW note 63 D-63.5).",
+            unit_text(f"{lo_label} ", _lb(lo, "w"), f" exceeds {hi_label} ", _lb(hi, "w"), ". The design "
+                      "weights must satisfy empty weight <= MZFW <= MLW <= MTOW <= the item total -- "
+                      "you must be able to land at zero fuel, and you cannot weigh more than "
+                      "everything you have (decisions G-4 / G-14; MZFW note 63 D-63.5)."),
             PAGE_WEIGHT_CG))
 
     floor = cg_cases.max_landing_weight_estimate(project)
     if mlw > 0 and floor is not None and mlw < floor - 1e-6:
         out.append(ConsistencyWarning(
             "mlw_below_landing_estimate",
-            f"Max landing weight {format_value(mlw, 'lb')} lb is below OEW + max payload "
-            f"({format_value(floor, 'lb')} lb, zero usable fuel), so this airplane cannot land at "
-            "MLW with full payload even with empty tanks -- some payload has to be left behind on every "
-            "flight that lands heavy. Confirm the MLW, the payload rows, or which "
-            "fuel rows are consumable mission fuel (14 CFR 23.473(b)/(c)).",
+            unit_text("Max landing weight ", _lb(mlw, "w"), " is below OEW + max payload (",
+                      _lb(floor, "w"), ", zero usable fuel), so this airplane cannot land at "
+                      "MLW with full payload even with empty tanks -- some payload has to be left behind on every "
+                      "flight that lands heavy. Confirm the MLW, the payload rows, or which "
+                      "fuel rows are consumable mission fuel (14 CFR 23.473(b)/(c))."),
             PAGE_WEIGHT_CG))
 
     if mtow > 0:
@@ -1090,13 +1115,13 @@ def _check_weight_case_model(project: Project) -> List[ConsistencyWarning]:
                            weight.envelope.gross_weight))
         drift = [(label, v) for label, v in others if abs(v - mtow) > 1e-6]
         if drift:
-            # Exact by contract (G-14): the numbers print apart (#243).
-            shown_mtow, *shown = shown_apart([mtow] + [v for _, v in drift], "lb")
+            # Exact by contract (G-14): the numbers print apart (#243), in the
+            # page's units (#339).
             out.append(ConsistencyWarning(
                 "mtow_representation_drift",
-                f"Max take-off weight is {shown_mtow} lb, but "
-                + "; ".join(f"{label} says {text} lb"
-                            for (label, _), text in zip(drift, shown))
+                unit_text("Max take-off weight is ", _lb(mtow, apart="mtow"), ", but ")
+                + UnitText.join("; ", [unit_text(f"{label} says ", _lb(v, apart="mtow"))
+                                       for label, v in drift])
                 + ". Decision G-14 made weight.max_takeoff_weight_lb the single "
                 "owner and the others derived reads of it.",
                 PAGE_WEIGHT_CG))
@@ -1119,18 +1144,18 @@ def _check_wing_fraction(project: Project) -> List[ConsistencyWarning]:
         if not (0.0 <= it.wing_fraction <= 1.0):
             out.append(ConsistencyWarning(
                 "wing_fraction_out_of_range",
-                f"Item '{it.name}': wing_fraction {format_value(it.wing_fraction)} is outside "
+                unit_text(f"Item '{it.name}': wing_fraction {format_value(it.wing_fraction)} is outside "
                 "[0, 1]. It is the fraction of the row's weight reacted by the wing "
                 "(both sides together); the remainder is reacted by the row's "
-                "component (design note 29).",
+                "component (design note 29)."),
                 PAGE_WEIGHT_CG))
         elif it.wing_fraction > 0.0 and it.component == MassComponent.WING:
             out.append(ConsistencyWarning(
                 "wing_fraction_on_wing_row",
-                f"Item '{it.name}' is tagged wing and also carries wing_fraction "
+                unit_text(f"Item '{it.name}' is tagged wing and also carries wing_fraction "
                 f"{format_value(it.wing_fraction)}. A wing row is wholly wing-carried already; "
                 "set the fraction on the fuselage (or other) row that the wing "
-                "carries part of, or clear it here (design note 29).",
+                "carries part of, or clear it here (design note 29)."),
                 PAGE_WEIGHT_CG))
     return out
 
@@ -1150,9 +1175,9 @@ def _check_wing_mass_tie(project: Project) -> List[ConsistencyWarning]:
         return []
     return [ConsistencyWarning(
         "wing_panel_override_open",
-        f"Wing panel override differs from the item database: {check.detail}. "
+        unit_text(f"Wing panel override differs from the item database: {check.detail}. "
         "Clear the override to run on the WING-tagged PANEL items, or correct "
-        "the items (design note 63 D-63.2).",
+        "the items (design note 63 D-63.2)."),
         PAGE_WEIGHT_CG)]
 
 
@@ -1191,10 +1216,10 @@ def _check_wing_mass_states(project: Project) -> List[ConsistencyWarning]:
     if wm is not None and mass_distribution.panel_weight(project) <= 0.0:
         out.append(ConsistencyWarning(
             "wing_panel_empty",
-            "No weight item is tagged `wing` with carriage PANEL, and no panel "
+            unit_text("No weight item is tagged `wing` with carriage PANEL, and no panel "
             "override is entered, so WINGINER integrates no panel mass: every "
             "wing inertia load is the POINT rows alone, or nothing. Tag the "
-            "outboard structure `wing` (design note 63 D-63.2).",
+            "outboard structure `wing` (design note 63 D-63.2)."),
             PAGE_WEIGHT_CG))
     # The database itself (#301): every case no loading reaches falls back to
     # it, so a one-sided wing row there refuses every such case at once.
@@ -1203,10 +1228,10 @@ def _check_wing_mass_states(project: Project) -> List[ConsistencyWarning]:
     except mass_distribution.WingAsymmetric as exc:
         out.append(ConsistencyWarning(
             "wing_mass_asymmetric",
-            f"The weight item data base has {exc}. No wing inertia load or "
+            unit_text(f"The weight item data base has {exc}. No wing inertia load or "
             "balanced case can be built from it, and a loading built on it is "
             "not a candidate: enter the missing image, or move the part to the "
-            "centreline.", PAGE_WEIGHT_CG))
+            "centreline."), PAGE_WEIGHT_CG))
     for case in cg_cases.flight_cases(project):
         try:
             state = mass_distribution.wing_mass_state(project, case.name)
@@ -1216,12 +1241,12 @@ def _check_wing_mass_states(project: Project) -> List[ConsistencyWarning]:
         if state.source == "database":
             out.append(ConsistencyWarning(
                 "wing_case_loading_not_derivable",
-                f"Weight/CG case '{case.name}' has no derivable loading "
+                unit_text(f"Weight/CG case '{case.name}' has no derivable loading "
                 f"({state.label}{': ' + state.reason if state.reason else ''}), "
                 "so every inertia load run at it -- the wing "
                 "distributions, the fuselage beam -- integrates the whole item "
                 "database instead of the case's own mass. Enter the case's "
-                "loading, or correct its weight and CG (design note 63 D-63.1).",
+                "loading, or correct its weight and CG (design note 63 D-63.1)."),
                 PAGE_WEIGHT_CG))
             continue
     if wm is not None and wm.cases:
@@ -1233,12 +1258,12 @@ def _check_wing_mass_states(project: Project) -> List[ConsistencyWarning]:
         if unnamed:
             out.append(ConsistencyWarning(
                 "wing_case_mass_state_unnamed",
-                "These entered wing load cases name no mass state -- no `cg`, "
+                unit_text("These entered wing load cases name no mass state -- no `cg`, "
                 "no V-n case reference and no selected condition of the same "
                 "label -- so their inertia is built from the whole item database: "
                 + ", ".join(f"'{n}'" for n in unnamed)
                 + ". Set `cg` to the weight/CG case the condition is flown at "
-                "(design note 63 D-63.6).",
+                "(design note 63 D-63.6)."),
                 PAGE_WEIGHT_CG))
     return out
 
@@ -1274,16 +1299,17 @@ def _check_case_loading_missing(project: Project) -> List[ConsistencyWarning]:
         aboard = [it.name for it in ld.items
                   if it.kind == MassItemKind.DISCRETIONARY and it is not ld.ballast]
         what = (f"the search derives one -- {len(aboard)} discretionary row(s) "
-                f"aboard" + (f", solved ballast {format_value(ld.ballast.weight_lb, 'lb')} lb"
-                             if ld.ballast is not None else "")
+                f"aboard" + (unit_text(", solved ballast ", _lb(ld.ballast.weight_lb))
+                             if ld.ballast is not None else unit_text())
                 + " -- and nothing on the case says so")
         out.append(ConsistencyWarning(
             "case_loading_missing",
-            f"Weight/CG case '{case.name}' states no loading: {what}. Every "
-            "inertia load run at it uses the search's subset, which is a "
-            "fallback and not the state of record (design note 63 D-63.1). "
-            "Add the loading on the case to enter it as found, then adjust "
-            "it.",
+            f"Weight/CG case '{case.name}' states no loading: " + what
+            + (". Every "
+               "inertia load run at it uses the search's subset, which is a "
+               "fallback and not the state of record (design note 63 D-63.1). "
+               "Add the loading on the case to enter it as found, then adjust "
+               "it."),
             PAGE_WEIGHT_CG))
     return out
 
@@ -1311,20 +1337,20 @@ def _check_minimum_crew(project: Project) -> List[ConsistencyWarning]:
         if it.required_crew and it.kind != MassItemKind.MINIMUM:
             out.append(ConsistencyWarning(
                 "crew_not_minimum",
-                f"Item '{it.name}' is tagged crew but its kind is {it.kind.value}. "
+                unit_text(f"Item '{it.name}' is tagged crew but its kind is {it.kind.value}. "
                 "The required crew is part of the minimum flight weight "
                 "(23.25(b)(2)), so it is aboard every loading: set the row's kind "
                 "to minimum, and carry any passenger in the same seat on a "
-                "discretionary row of its own (design note 75).",
+                "discretionary row of its own (design note 75)."),
                 PAGE_WEIGHT_CG))
     if not any(it.required_crew and it.kind == MassItemKind.MINIMUM for it in items):
         out.append(ConsistencyWarning(
             "minimum_crew_missing",
-            "No row of the weight database is required crew of kind minimum, so "
+            unit_text("No row of the weight database is required crew of kind minimum, so "
             "the minimum flight weight and every zero-fuel loading carry nobody "
             "at the controls. 23.25(b)(2) puts the required minimum crew in the "
             "minimum weight at 170 lb each: tag the pilot's row as crew and set "
-            "its kind to minimum (design note 75).",
+            "its kind to minimum (design note 75)."),
             PAGE_WEIGHT_CG))
     return out
 
@@ -1349,11 +1375,11 @@ def _check_minimum_fuel_in_zero_fuel_weight(project: Project) -> List[Consistenc
         return []
     return [ConsistencyWarning(
         "minimum_fuel_in_zero_fuel_weight",
-        f"{', '.join(repr(n) for n in names)} {'is' if len(names) == 1 else 'are'} "
+        unit_text(f"{', '.join(repr(n) for n in names)} {'is' if len(names) == 1 else 'are'} "
         "usable fuel of kind minimum, so it rides inside every zero-fuel loading "
         "-- a structural-reserve credit (23.343(c), 25.343(a)) that would also "
         "owe a reduced-factor zero-wing-fuel case. Fold it into a discretionary "
-        "tank row, and the zero-fuel cases fly with no usable fuel (design note 75).",
+        "tank row, and the zero-fuel cases fly with no usable fuel (design note 75)."),
         PAGE_WEIGHT_CG)]
 
 
@@ -1375,7 +1401,7 @@ def _check_power_cases(project: Project) -> List[ConsistencyWarning]:
         return []
     return [ConsistencyWarning(
         "power_cases_unrated",
-        f"power_cases is 'off_and_on', but {reason} (design note 21 P-19).",
+        unit_text(f"power_cases is 'off_and_on', but {reason} (design note 21 P-19)."),
         PAGE_AERO_COEFFS)]
 
 
@@ -1413,25 +1439,26 @@ def _check_envelope_reach(project: Project) -> List[ConsistencyWarning]:
     out: List[ConsistencyWarning] = []
     for r in reach:
         what = ("structural limit" if r.kind == "limit" else "weight/CG case")
-        head = (f"The {what} '{r.name}' ({format_value(r.weight_lb, 'lb')} lb at station "
-                f"{format_value(r.xcg, 'in')} in)")
+        head = unit_text(f"The {what} '{r.name}' (", _lb(r.weight_lb, "w"), " at station ",
+                         _in(r.xcg), ")")
         if not r.reachable:
             if r.weight_lb < w_base:
-                why = (f"weighs less than the minimum flight weight "
-                       f"({format_value(w_base, 'lb')} lb)")
+                why = unit_text("weighs less than the minimum flight weight (",
+                                _lb(w_base, "w"), ")")
             elif r.ballast_lb is None:
-                why = ("is reached by no loading within every row's limits, and "
-                       "no ballast inside the fuselage closes it")
+                why = unit_text("is reached by no loading within every row's limits, and "
+                                "no ballast inside the fuselage closes it")
             else:
-                why = (f"needs {format_value(r.ballast_lb, 'lb')} lb of ballast "
-                       f"({format_value(100 * (r.ballast_fraction or 0.0), '%')} % of its weight), "
-                       f"past the {format_value(100 * BALLAST_CREDIBLE_FRACTION, '%')} % credibility gate")
-            span = (f"; at that weight the loadings span stations "
-                    f"{format_value(r.fwd_x, 'in')} to {format_value(r.aft_x, 'in')} in"
-                    if r.fwd_x is not None and r.aft_x is not None else "")
+                why = unit_text(
+                    "needs ", _lb(r.ballast_lb), " of ballast "
+                    f"({format_value(100 * (r.ballast_fraction or 0.0), '%')} % of its weight), "
+                    f"past the {format_value(100 * BALLAST_CREDIBLE_FRACTION, '%')} % credibility gate")
+            span = (unit_text("; at that weight the loadings span stations ",
+                              _in(r.fwd_x), " to ", _in(r.aft_x))
+                    if r.fwd_x is not None and r.aft_x is not None else unit_text())
             out.append(ConsistencyWarning(
                 "envelope_point_unreachable",
-                f"{head} {why}{span}. An envelope point no loading can produce "
+                head + " " + why + span + ". An envelope point no loading can produce "
                 "makes the envelope not valid: no loads are assessed on a loading "
                 "at it, and no assembled case carries it"
                 + (" (FLTLOADS balances the entered weight and CG only)"
@@ -1449,15 +1476,14 @@ def _check_envelope_reach(project: Project) -> List[ConsistencyWarning]:
             continue
         if r.fractions is not None:
             rows = ", ".join(f"'{n}' {format_value(f)}" for n, f in r.fractions.items())
-            how = (f"with no ballast; one such loading is {rows} "
-                   "(fractions of each row, 1 = whole)")
+            how = unit_text(f"with no ballast; one such loading is {rows} "
+                            "(fractions of each row, 1 = whole)")
         else:
-            how = (f"with {format_value(r.ballast_lb or 0.0, 'lb')} lb of ballast inside the "
-                   "fuselage")
+            how = unit_text("with ", _lb(r.ballast_lb or 0.0), " of ballast inside the fuselage")
         out.append(ConsistencyWarning(
             "case_loading_search_missed",
-            f"{head} is a loading of the weight data base with part-filled rows, "
-            f"{how}, but the whole-row search cannot produce it "
+            head + " is a loading of the weight data base with part-filled rows, "
+            + how + ", but the whole-row search cannot produce it "
             f"({found[0].note}), so no assembled case carries it. Enter the "
             "case's loading (#309).",
             PAGE_WEIGHT_CG))
@@ -1495,12 +1521,12 @@ def _check_fuselage_override_per_case(project: Project) -> List[ConsistencyWarni
         return []
     return [ConsistencyWarning(
         "fuselage_override_varies_by_case",
-        f"The fuselage stations are an entered override, one table for every "
-        f"condition, but the FLIGHT loadings' body mass runs from {format_value(lo[1], 'lb')} lb "
-        f"('{lo[0]}') to {format_value(hi[1], 'lb')} lb ('{hi[0]}'). The derived table follows "
-        "each case's loading; the override cannot. Clear "
-        "`stations_are_override` to integrate each condition at its own mass "
-        "(design note 63 D-63.8).",
+        "The fuselage stations are an entered override, one table for every "
+        + unit_text("condition, but the FLIGHT loadings' body mass runs from ", _lb(lo[1], "w"),
+                    f" ('{lo[0]}') to ", _lb(hi[1], "w"), f" ('{hi[0]}'). The derived table follows "
+                    "each case's loading; the override cannot. Clear "
+                    "`stations_are_override` to integrate each condition at its own mass "
+                    "(design note 63 D-63.8)."),
         PAGE_WEIGHT_CG)]
 
 
@@ -1512,7 +1538,7 @@ def _check_migration_notes(project: Project) -> List[ConsistencyWarning]:
     named the wing masses it dropped or converted. Saving writes the file at the
     current version and the note is gone, which is what "named once" means.
     """
-    return [ConsistencyWarning("migration_note", note, PAGE_WEIGHT_CG)
+    return [ConsistencyWarning("migration_note", unit_text(note), PAGE_WEIGHT_CG)
             for note in project.migration_notes]
 
 
@@ -1551,11 +1577,11 @@ def _check_gear_carrier(project: Project) -> List[ConsistencyWarning]:
     if unset:
         out.append(ConsistencyWarning(
             "gear_carrier_unset",
-            "No carrier stated for the " + " and ".join(unset) + " gear. Ground "
+            unit_text("No carrier stated for the " + " and ".join(unset) + " gear. Ground "
             "cases cannot be exported without it: a wing-carried reaction relieves "
             "or reverses inboard wing bending and reaches the fuselage only through "
             "the carry-through, so applying it to the body beam over-loads the "
-            "fuselage and hides a real wing sizing case (decision G-2).",
+            "fuselage and hides a real wing sizing case (decision G-2)."),
             PAGE_CONFIGURATION))
     items = project.weight.items if project.weight is not None else []
     gear_items = [it for it in items if "gear" in it.name.strip().lower()]
@@ -1566,10 +1592,10 @@ def _check_gear_carrier(project: Project) -> List[ConsistencyWarning]:
             if g.carrier == GearCarrier.WING and tagged_body and not tagged_wing:
                 out.append(ConsistencyWarning(
                     "gear_carrier_mass_disagrees",
-                    f"The {name} gear is carried by the WING, but its mass rows are "
+                    unit_text(f"The {name} gear is carried by the WING, but its mass rows are "
                     "tagged as fuselage mass: the same structure carries the load "
                     "but not the weight. Re-tag the gear items "
-                    "MassComponent.WING, or correct the carrier (decision G-2).",
+                    "MassComponent.WING, or correct the carrier (decision G-2)."),
                     PAGE_WEIGHT_CG))
     from .derived_geometry import require_integrable_planform
     wing = project.geometry.by_name("wing") if project.geometry is not None else None
@@ -1591,33 +1617,34 @@ def _check_gear_carrier(project: Project) -> List[ConsistencyWarning]:
         if (x, y) == (0.0, 0.0):
             continue                      # the unset-attach case, reported below
         tip_y = max(p[1] for p in wing.leading_edge)
-        why = ""
+        why = unit_text()
         if abs(y) < 1e-9:
-            why = "on the centreline, where there is no wing structure to carry it"
+            why = unit_text("on the centreline, where there is no wing structure to carry it")
         elif abs(y) > tip_y + 1e-9:
-            why = f"outboard of the tip (butt line {format_value(tip_y, 'in')} in)"
+            why = unit_text("outboard of the tip (butt line ", _in(tip_y), ")")
         else:
             le = interp_x(wing.leading_edge, abs(y))
             te = interp_x(wing.trailing_edge, abs(y))
             if not (min(le, te) - 1e-9 <= x <= max(le, te) + 1e-9):
-                why = (f"outside the chord at butt line {format_value(abs(y), 'in')} in "
-                       f"({format_value(min(le, te), 'in')} to {format_value(max(le, te), 'in')} in)")
+                why = unit_text("outside the chord at butt line ", _in(abs(y)), " (",
+                                _in(min(le, te)), " to ", _in(max(le, te)), ")")
         if why:
             out.append(ConsistencyWarning(
                 "gear_attach_off_the_wing",
-                f"The {name} gear is carried by the WING but its attachment node "
-                f"({format_value(x, 'in')}, {format_value(y, 'in')}) is {why}. The export transfers the "
-                "contact-patch reaction to this point and resolves it onto the "
-                "wing loads reference axis (G-2/G-12).",
+                unit_text(f"The {name} gear is carried by the WING but its attachment node (",
+                          _in(x), ", ", _in(y), ") is ") + why
+                + (". The export transfers the "
+                   "contact-patch reaction to this point and resolves it onto the "
+                   "wing loads reference axis (G-2/G-12)."),
                 PAGE_CONFIGURATION))
     for name, g in legs:
         if g.carrier is not None and tuple(g.attach) == (0.0, 0.0, 0.0):
             out.append(ConsistencyWarning(
                 "gear_attach_missing",
-                f"The {name} gear states a carrier but no attachment node -- "
+                unit_text(f"The {name} gear states a carrier but no attachment node -- "
                 "attach is still (0, 0, 0), which is the airplane's origin, not a "
                 "trunnion. The export transfers the contact-patch reaction to this "
-                "point, so the lever arm would be the whole fuselage (G-2/G-12).",
+                "point, so the lever arm would be the whole fuselage (G-2/G-12)."),
                 PAGE_CONFIGURATION))
     return out
 
@@ -1669,13 +1696,13 @@ def _check_flap_slipstream(project: Project) -> List[ConsistencyWarning]:
         missing = "the engine record states no " + " and no ".join(gaps)
     return [ConsistencyWarning(
         "flap_slipstream_skipped",
-        "No slipstream effect included as engine location not set — see page "
+        unit_text("No slipstream effect included as engine location not set — see page "
         "Engine Mount Loads. The FAR 23.457(b) propeller-slipstream case is "
         f"skipped because {missing}, so the flap is sized on the gust-combined "
         "load alone. The slipstream band geometry entered here (AF, BLPROP) is "
         "read for nothing until then. On the manual's own example the slipstream "
         "raises the flap load by x1.407 (Ref 1 Appendix A p201), so this is a "
-        "first-order omission, not a rounding one.",
+        "first-order omission, not a rounding one."),
         PAGE_FLAP)]
 
 
@@ -1722,11 +1749,11 @@ def _check_derive_overrides(project: Project) -> List[ConsistencyWarning]:
                                       lambda v: format_value(v, 'deg'))):
         out.append(ConsistencyWarning(
             "aileron_deflection_mismatch",
-            f"SELECT's full-down aileron is {format_value(si.full_down_aileron_deg, 'deg')} deg but the "
+            unit_text(f"SELECT's full-down aileron is {format_value(si.full_down_aileron_deg, 'deg')} deg but the "
             f"aileron's own down-deflection limit is {format_value(ail.down_deflection_deg, 'deg')} deg. "
             "Both reach the calc -- the 23.349(b) steady-roll torsion scores the "
             "first, the aileron loads the second. Blank the SELECT field to derive "
-            "it from the aileron (note 36), or confirm the difference is intended.",
+            "it from the aileron (note 36), or confirm the difference is intended."),
             PAGE_FLIGHT))
 
     # A typed elevator/rudder area that disagrees with its own hinge halves
@@ -1755,11 +1782,10 @@ def _check_derive_overrides(project: Project) -> List[ConsistencyWarning]:
         if total and halves and abs(total - halves) > 0.01 * max(abs(total), abs(halves)):
             out.append(ConsistencyWarning(
                 code,
-                f"The typed {what} is {format_value(total, 'ft^2')} sq ft but its hinge halves sum "
-                f"to {format_value(fwd, 'ft^2')} + {format_value(aft, 'ft^2')} = "
-                f"{format_value(halves, 'ft^2')} sq ft. Both reach SELECT "
-                "as views of one surface. Blank the total to derive it from "
-                "the halves (#95), or fix whichever is wrong.",
+                unit_text(f"The typed {what} is ", _sqft(total), " but its hinge halves sum "
+                          "to ", _sqft(fwd), " + ", _sqft(aft), " = ", _sqft(halves), ". Both reach SELECT "
+                          "as views of one surface. Blank the total to derive it from "
+                          "the halves (#95), or fix whichever is wrong."),
                 PAGE_CONFIGURATION))
 
     # A typed wing-control area against the drawn control (design note 69
@@ -1796,12 +1822,12 @@ def _check_derive_overrides(project: Project) -> List[ConsistencyWarning]:
                                  lambda v: format_value(v, 'ft^2'), rel=band):
             out.append(ConsistencyWarning(
                 code,
-                f"The typed {what} is {format_value(typed_sqft, 'ft^2')} sq ft but the drawn "
-                f"{control} surface integrates to {format_value(drawn_sqft, 'ft^2')} "
-                f"sq ft one side ({format_value(abs(typed_sqft - drawn_sqft) / drawn_sqft * 100, '%')} % "
-                f"apart, band {format_value(band * 100, '%')} %). {program} reads the typed value. "
-                "Blank it to derive from the drawn surface (design note 69), or fix "
-                "whichever is wrong.",
+                unit_text(f"The typed {what} is ", _sqft(typed_sqft), " but the drawn "
+                          f"{control} surface integrates to ", _sqft(drawn_sqft),
+                          f" one side ({format_value(abs(typed_sqft - drawn_sqft) / drawn_sqft * 100, '%')} % "
+                          f"apart, band {format_value(band * 100, '%')} %). {program} reads the typed value. "
+                          "Blank it to derive from the drawn surface (design note 69), or fix "
+                          "whichever is wrong."),
                 PAGE_CONFIGURATION))
 
     from .modules.engine import engine_name
@@ -1817,19 +1843,20 @@ def _check_derive_overrides(project: Project) -> List[ConsistencyWarning]:
                         if same_name(r.name, selector)), None)
             if row is None:
                 continue  # the calc refuses this by name; nothing to compare
-            drift = []
+            drift: List[UnitText] = []
             if weight_lb and cross_check_disagrees(weight_lb, row.weight_lb,
                                                    lambda v: format_value(v, 'lb')):
-                drift.append(f"weight {format_value(weight_lb, 'lb')} lb vs the row's "
-                             f"{format_value(row.weight_lb, 'lb')} lb")
+                drift.append(unit_text("weight ", _lb(weight_lb, "w"), " vs the row's ",
+                                       _lb(row.weight_lb, "w")))
             if any(cg) and any(cross_check_disagrees(a, b, lambda v: format_value(v, 'in'))
                                for a, b in zip(cg, (row.x, row.y, row.z))):
-                drift.append(f"CG {tuple(cg)} vs the row's "
-                             f"({format_value(row.x, 'in')}, {format_value(row.y, 'in')}, {format_value(row.z, 'in')})")
+                drift.append(unit_text("CG (", _in(cg[0]), ", ", _in(cg[1]), ", ", _in(cg[2]),
+                                       ") vs the row's (", _in(row.x), ", ", _in(row.y), ", ",
+                                       _in(row.z), ")"))
             if drift:
                 out.append(ConsistencyWarning(
                     "engine_mass_row_mismatch",
-                    f"{label}: the typed {which} " + " and ".join(drift)
+                    f"{label}: the typed {which} " + UnitText.join(" and ", drift)
                     + f" disagree with weight-database row '{row.name}' named by "
                     f"{which}_mass_item. The typed value governs -- blank it to "
                     "derive from the row (note 36 OV-7), or fix the row.",
@@ -1849,12 +1876,12 @@ def _check_derive_overrides(project: Project) -> List[ConsistencyWarning]:
                 if hinted:
                     out.append(ConsistencyWarning(
                         "engine_mass_row_unlinked",
-                        f"{label}: {which}_mass_item is blank, but the weight data base "
+                        unit_text(f"{label}: {which}_mass_item is blank, but the weight data base "
                         f"has {len(hinted)} row(s) that name a{'n' if hint == 'engine' else ''} "
                         f"{hint} ({', '.join(repr(n) for n in hinted[:3])}"
                         f"{', ...' if len(hinted) > 3 else ''}). The mount is sized to the "
                         f"typed {which} mass, which nothing reconciles against the data base; "
-                        "select the row so the two are one number (note 36 OV-7).",
+                        "select the row so the two are one number (note 36 OV-7)."),
                         PAGE_ENGINE))
 
     # #384: the leg weight the gear free body closes on (G-12a) against the
@@ -1872,19 +1899,19 @@ def _check_derive_overrides(project: Project) -> List[ConsistencyWarning]:
                         else "the NOSE-tagged rows' total")
                 out.append(ConsistencyWarning(
                     "gear_mass_row_mismatch",
-                    f"The typed {leg_name} leg weight is {format_value(typed_lb, 'lb')} lb but "
-                    f"{what} in the weight data base is {format_value(derived, 'lb')} lb. The "
-                    "gear report's free body closes on the typed value; blank it to derive "
-                    "from the rows (#384), or fix the rows.",
+                    unit_text(f"The typed {leg_name} leg weight is ", _lb(typed_lb, "w"), " but "
+                              f"{what} in the weight data base is ", _lb(derived, "w"), ". The "
+                              "gear report's free body closes on the typed value; blank it to derive "
+                              "from the rows (#384), or fix the rows."),
                     PAGE_CONFIGURATION))
             elif derived is None and gear_named:
                 out.append(ConsistencyWarning(
                     "gear_mass_row_unlinked",
-                    f"No weight row is tagged gear = {leg_name}, but the data base names the "
+                    unit_text(f"No weight row is tagged gear = {leg_name}, but the data base names the "
                     f"gear ({', '.join(repr(n) for n in gear_named[:3])}). Tag the row(s) so "
                     f"the {leg_name} leg's free body mass derives from the data base (#384)"
                     + (" rather than from the typed value nothing checks."
-                       if typed_lb else "; until then that free body stays open (G-12a)."),
+                       if typed_lb else "; until then that free body stays open (G-12a).")),
                     PAGE_WEIGHT_CG))
 
     # A typed LIMNZ that disagrees with the airplane's own n1 (#331): the
@@ -1907,13 +1934,13 @@ def _check_derive_overrides(project: Project) -> List[ConsistencyWarning]:
                     limnz, n1, format_value):
                 out.append(ConsistencyWarning(
                     "engine_load_factor_mismatch",
-                    f"{label}: the typed limit load factor (LIMNZ) is "
+                    unit_text(f"{label}: the typed limit load factor (LIMNZ) is "
                     f"{format_value(limnz)} g but the airplane's 23.337 limit "
                     f"maneuver load factor n1 is {format_value(n1)} g. The "
                     "engine-mount cases scale condition A to LIMNZ, so they "
                     "load the whole airplane at a factor its V-n does not "
                     "fly. Blank LIMNZ to derive it from n1, or enter the "
-                    "airplane's declared limit as the speeds' chosen n (#331).",
+                    "airplane's declared limit as the speeds' chosen n (#331)."),
                     PAGE_ENGINE))
     return out
 
@@ -1959,10 +1986,10 @@ def _check_ttail_induced_roll(project: Project) -> List[ConsistencyWarning]:
         vtails = []
         out.append(ConsistencyWarning(
             "ttail_induced_roll_unchecked",
-            f"The T-tail induced rolling moment checks could not run: the spanwise "
+            unit_text(f"The T-tail induced rolling moment checks could not run: the spanwise "
             f"tail build refused its input ({exc}). Whether the moment's Mach is "
             "inside AC 23-9's method is unknown until that input is corrected "
-            "(design note 51 §9).",
+            "(design note 51 §9)."),
             PAGE_TAIL))
     for r in vtails:
         t = r.tip_transfer
@@ -1972,19 +1999,19 @@ def _check_ttail_induced_roll(project: Project) -> List[ConsistencyWarning]:
         if i.mach > AC23_9_MACH_WARN:
             out.append(ConsistencyWarning(
                 "ttail_induced_roll_mach",
-                f"{r.case}: the AC 23-9 induced rolling moment is formed at Mach "
+                unit_text(f"{r.case}: the AC 23-9 induced rolling moment is formed at Mach "
                 f"{format_value(i.mach)}, above {format_value(AC23_9_MACH_WARN)}. The method has no "
                 "compressibility effect (AC 23-9 ¶5a p4); a rational analysis is "
-                "the upgrade (design note 51 D-51.8).",
+                "the upgrade (design note 51 D-51.8)."),
                 PAGE_TAIL))
     dihedral = htail_dihedral_deg(project)
     if dihedral > 0.0:
         out.append(ConsistencyWarning(
             "ttail_htail_dihedral",
-            f"The T-tail's horizontal stabilizer has {format_value(dihedral, 'deg')} deg of dihedral "
+            unit_text(f"The T-tail's horizontal stabilizer has {format_value(dihedral, 'deg')} deg of dihedral "
             "entered. AC 23-9's induced rolling moment has no dihedral effect, and "
             "6 deg can raise it by 50 % (¶5a p4); the delivered moment is not "
-            "scaled for it (design note 51 D-51.8).",
+            "scaled for it (design note 51 D-51.8)."),
             PAGE_TAIL))
     return out
 
@@ -2003,7 +2030,7 @@ def _check_flap_ng_fallback(project: Project) -> List[ConsistencyWarning]:
     reason = ng_fallback_reason(project)
     if reason is None:
         return []
-    return [ConsistencyWarning("flap_ng_fallback", f"Flap loads: {reason}.", PAGE_FLAP)]
+    return [ConsistencyWarning("flap_ng_fallback", unit_text(f"Flap loads: {reason}."), PAGE_FLAP)]
 
 
 def _check_windmill_drag_cd(project: Project) -> List[ConsistencyWarning]:
@@ -2030,20 +2057,20 @@ def _check_windmill_drag_cd(project: Project) -> List[ConsistencyWarning]:
         if cd <= 0.0:
             out.append(ConsistencyWarning(
                 "windmill_drag_cd_range",
-                f"{label}: the windmilling disc drag coefficient is {format_value(cd)}. "
+                unit_text(f"{label}: the windmilling disc drag coefficient is {format_value(cd)}. "
                 "A windmilling propeller drags, so it must be positive -- a negative "
                 "one is a forward thrust at the failed hub, zero is no drag. The "
                 "one-engine-out cases refuse it. Enter the propeller's own value, or "
-                f"blank it to deliver the Glauert bound {format_value(GLAUERT_DISC_CD_BOUND)}.",
+                f"blank it to deliver the Glauert bound {format_value(GLAUERT_DISC_CD_BOUND)}."),
                 PAGE_ENGINE))
         elif cd > GLAUERT_DISC_CD_BOUND:
             out.append(ConsistencyWarning(
                 "windmill_drag_cd_range",
-                f"{label}: the windmilling disc drag coefficient {format_value(cd)} is above "
+                unit_text(f"{label}: the windmilling disc drag coefficient {format_value(cd)} is above "
                 f"the Glauert bound {format_value(GLAUERT_DISC_CD_BOUND)}, which the manual "
                 "(Ch 11 p88) says the drag can not be more than. It is delivered as "
                 "entered, a larger drag at the failed hub than the method allows -- "
-                "check the entry against the propeller maker's data.",
+                "check the entry against the propeller maker's data."),
                 PAGE_ENGINE))
     return out
 
@@ -2077,15 +2104,15 @@ def _check_windmill_drag_bound(project: Project) -> List[ConsistencyWarning]:
         thrust = engine_thrust_and_drag(fc.inputs)[0]
         out.append(ConsistencyWarning(
             "windmill_drag_bound",
-            f"{fc.title}: the failed propeller drags "
-            f"{format_value(fc.summary.windmill_drag_lb, 'lb')} lb at the windmill peak, the "
-            f"Glauert bound (no windmill_drag_cd entered) -- "
+            unit_text(f"{fc.title}: the failed propeller drags ",
+                      _lbf(fc.summary.windmill_drag_lb), " at the windmill peak, the "
+                      f"Glauert bound (no windmill_drag_cd entered) -- "
             f"{format_value(fc.summary.windmill_drag_lb / thrust)} times the live engine's "
             f"thrust, and a drag power {format_value(drag_power_ratio(fc.inputs))} times the "
             "engine's rated shaft power. The bound is a fixed-pitch disc; a turboprop's "
             "pitch control holds its windmilling drag well below it. The loads are "
             "conservative; enter the propeller maker's windmilling disc drag "
-            "coefficient to replace the bound.",
+                      "coefficient to replace the bound."),
             PAGE_ENGINE))
     return out
 
@@ -2118,7 +2145,7 @@ def _check_oei_not_recovered(project: Project) -> List[ConsistencyWarning]:
         "oei_case_not_recovered",
         f"{ENGINE_OUT_PREFIX} — {fc.load_case.label}{fc.engine_label}"
         f"{unrecovered_detail(fc)}, with "
-        f"{format_value(fc.summary.max_tail_load_lb, 'lb')} lb on the fin: the yaw "
+        + unit_text(_lbf(fc.summary.max_tail_load_lb)) + " on the fin: the yaw "
         "transient did not recover within the "
         "simulated time, so this 23.367 case delivers no load -- it is stated in "
         "the one-engine-out section and the deck's record of conditions not "
@@ -2157,9 +2184,9 @@ def _check_balance_feasibility(project: Project) -> List[ConsistencyWarning]:
         if flags:
             out.append(ConsistencyWarning(
                 "balance_infeasible",
-                f"{c.component} {c.label} (V-n case {c.case}): " + "; ".join(
+                unit_text(f"{c.component} {c.label} (V-n case {c.case}): " + "; ".join(
                     f.removeprefix(FLAG_PREFIX).strip() for f in flags)
-                + ". The case is delivered as computed and flagged in the report and the deck.",
+                + ". The case is delivered as computed and flagged in the report and the deck."),
                 PAGE_TAIL))
     return out
 

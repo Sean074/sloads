@@ -1386,6 +1386,11 @@ class Quantity(NamedTuple):
     value: float
     units: str
     quantity: str = ""
+    #: A group name: every quantity of one sentence sharing it prints through
+    #: :func:`shown_apart` in the system rendered, so two values whose
+    #: contract is equality never print as one number in kg where they differ
+    #: in lb (#243, #339). Empty prints at the unit's row.
+    apart: str = ""
 
 
 @dataclass(frozen=True)
@@ -1414,7 +1419,14 @@ class UnitText:
     def render(self, system: "UnitSystem") -> str:
         """The sentence with every quantity in ``system`` (airspeed and altitude
         stay aviation-standard, as everywhere)."""
-        return self.template.format(*(_say(q, system) for q in self.quantities))
+        shown = [_convert(q, system) for q in self.quantities]
+        texts = [format_value(v, label) for v, label in shown]
+        for group in {q.apart for q in self.quantities if q.apart}:
+            idx = [i for i, q in enumerate(self.quantities) if q.apart == group]
+            for i, text in zip(idx, shown_apart([shown[i][0] for i in idx], shown[idx[0]][1])):
+                texts[i] = text
+        return self.template.format(*(f"{t} {label}" if label else t
+                                      for t, (_, label) in zip(texts, shown)))
 
     def __bool__(self) -> bool:
         return bool(self.template)
@@ -1460,15 +1472,43 @@ def unit_text(*parts: "str | Quantity") -> UnitText:
     return UnitText("".join(template), tuple(quantities))
 
 
-def _say(q: Quantity, system: "UnitSystem") -> str:
-    """One quantity, converted and printed with its label."""
-    value, label = q.value, q.units
+def _convert(q: Quantity, system: "UnitSystem") -> Tuple[float, str]:
+    """One quantity's value and label in ``system``."""
     if system == UnitSystem.SI:
         conv = (_SI_BY_QUANTITY.get(q.quantity) if q.quantity else None) or _RESULT_TO_SI.get(q.units)
         if conv is not None:
-            value, label = value * conv[0], conv[1]
-    number = format_value(value, label)
-    return f"{number} {label}" if label else number
+            return q.value * conv[0], conv[1]
+    return q.value, q.units
+
+
+def shown_apart(values: Sequence[float], units: str = "") -> List[str]:
+    """``values`` printed at their row (:func:`format_value`), widened to the
+    first common decimal count at which every two values that differ print
+    differently (#243).
+
+    For a check whose contract is exact equality -- a derived read of a single
+    owner -- any difference is the defect, and a 0.4 lb drift printed at the
+    pound row reads ``5000 lb ... 5000 lb``. Values that agree print at the
+    row; one decimal count serves the whole sentence, so its numbers stay
+    comparable. A :class:`UnitText` applies it per :attr:`Quantity.apart`
+    group in the system it renders (#339).
+    """
+    exact = [canonical(float(v)) for v in values]
+
+    def apart(texts: List[str]) -> bool:
+        return all(texts[i] != texts[j]
+                   for i in range(len(exact)) for j in range(i + 1, len(exact))
+                   if exact[i] != exact[j])
+
+    texts = [format_value(v, units) for v in values]
+    if apart(texts):
+        return texts
+    first = (delivered_precision(units) or 0) + 1
+    for decimals in range(first, first + 12):
+        widened = [f"{v:.{decimals}f}" for v in exact]  # note 65 exempt: the owner
+        if apart(widened):
+            return widened
+    return texts
 
 
 #: The empty sentence: the default ``note`` of every provenance record.

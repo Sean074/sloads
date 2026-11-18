@@ -823,7 +823,9 @@ between Configuration & Layout and Wing/Surface Geometry, a CG outside the
 weight-CG envelope, or a per-case `safety_factor` outside the legal [1.0, 1.5]
 band (M4-14; rendered on the Report page, where the consequence lives). The
 checks are pure predicates in `sloads/validation.py`
-(`consistency_warnings(project)`), each tagged with the page that renders it; the
+(`consistency_warnings(project)`), each tagged with the page that renders it and
+each a `UnitText`, so its numbers follow the sidebar's unit toggle like the table
+beside it (#339, `CONVENTIONS.md` §2); the
 CG-envelope check compares the WTONECG CG against the WTENV structural envelope and
 is silently skipped when that envelope (or the wing geometry it needs) is absent.
 

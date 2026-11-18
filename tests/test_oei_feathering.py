@@ -24,6 +24,7 @@ from sloads.constants import (
 from sloads.models import MissingInputError
 from sloads.modules import one_engine_out as oeo
 from sloads.validation import consistency_warnings
+from sloads.units import UnitSystem
 
 _EXAMPLES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")
 _TWINS = ("atr42_100", "atr42_300_seed", "baron_58")
@@ -230,8 +231,8 @@ def test_the_bound_is_warned_on_a_turboprop_with_its_ratios():
 
     atr = bound(_project("atr42_100"))
     assert len(atr) == 2
-    assert "13.22 times the live engine's thrust" in atr[0].message
-    assert "11.24 times the engine's rated shaft power" in atr[0].message
+    assert "13.22 times the live engine's thrust" in atr[0].message.render(UnitSystem.IMPERIAL)
+    assert "11.24 times the engine's rated shaft power" in atr[0].message.render(UnitSystem.IMPERIAL)
     assert not bound(_project("baron_58"))
     entered = _project("atr42_100")
     entered.engines = [replace(e, windmill_drag_cd=0.25) for e in entered.engines]

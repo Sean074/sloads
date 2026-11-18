@@ -18,6 +18,11 @@ a value of its own for a number a persisted record carries (D2).
   mass decks' ``$`` text, and (slow lane) the SI issue package, contain no
   Imperial-unit number. Case names and the project name are identifiers, the
   same in every system (D3), and are removed before the scan.
+* **SA-4, the SI page (#339)** -- the sidebar toggle governs what an analysis
+  page displays (OR-20), its words included: every input-consistency warning
+  is a ``UnitText`` the one GUI consumer renders in the page's system, and no
+  warning or page advisory of a shipped fixture states an Imperial number in
+  SI. An equality check's numbers print apart in either system (#243).
 """
 
 import dataclasses
@@ -221,6 +226,73 @@ def test_the_wing_station_reaches_the_document_in_its_channel():
     assert not _leaks(WING_STATION_CENTRELINE_REASON, [])
 
 
+# --------------------------------------------------------------------------- #
+# SA-4: the SI page (#339)
+# --------------------------------------------------------------------------- #
+#: SA-3's pattern plus an area, which a page states and a deck does not.
+_PAGE_IMPERIAL_NUMBER = re.compile(_IMPERIAL_NUMBER.pattern + r"|\d\s?(?:ft\^2|sq ft)\b")
+
+
+def _page_leaks(texts, names):
+    flat = " ".join(texts)
+    for name in names:
+        flat = flat.replace(name, "<name>")
+    return sorted({m.group(0) for m in _PAGE_IMPERIAL_NUMBER.finditer(flat)})
+
+
+@pytest.mark.parametrize("example", EXAMPLES)
+def test_no_si_warning_states_an_imperial_number(example):
+    """Every warning a fixture raises, rendered in SI, states SI."""
+    from sloads.validation import consistency_warnings
+
+    project = _project(example)
+    said = [w.message.render(UnitSystem.SI) for w in consistency_warnings(project)]
+    assert not _page_leaks(said, _identifiers(project)), said
+
+
+def test_the_warning_scan_would_find_one():
+    """Not vacuous: Baron's weight warnings do carry lb in Imperial."""
+    from sloads.validation import consistency_warnings
+
+    project = _project("baron_58.project.json")
+    said = [w.message.render(UnitSystem.IMPERIAL) for w in consistency_warnings(project)]
+    assert _page_leaks(said, _identifiers(project))
+
+
+@pytest.mark.parametrize("example", EXAMPLES)
+def test_no_si_page_advisory_states_an_imperial_number(example):
+    """The result notes under each analysis page's blocks, in SI, state SI."""
+    from oracle_app.results import step_results
+    from sloads import workflow as wf
+
+    project = _project(example)
+    said = [block.advisory for step in wf.STEPS if wf.step_modules(step.key)
+            for block in step_results(project, step.key, UnitSystem.SI) if block.advisory]
+    assert not _page_leaks(said, _identifiers(project)), said
+
+
+def test_the_gui_renders_a_warning_in_the_page_system(monkeypatch):
+    """``render_consistency_warnings``, the one GUI consumer, writes each
+    warning in the toggle's system, not as built."""
+    from app_shell import components
+
+    project = _project("baron_58.project.json")
+    shown = []
+    monkeypatch.setattr(components.st, "warning", shown.append)
+    monkeypatch.setattr(components, "active_system", lambda: UnitSystem.SI)
+    components.render_consistency_warnings(project, "weight_mass")
+    assert any(" kg" in t for t in shown), shown
+    assert not _page_leaks(shown, _identifiers(project)), shown
+
+
+def test_an_equality_check_prints_apart_in_either_system():
+    """An ``apart=`` group widens in the system rendered (#243 in SI)."""
+    text = unit_text("MTOW ", Quantity(5000.0, "lb", "mass", apart="w"), " vs ",
+                     Quantity(4999.96, "lb", "mass", apart="w"))
+    for system in (UnitSystem.IMPERIAL, UnitSystem.SI):
+        numbers = re.findall(r"[\d.]+(?= (?:lb|kg))", text.render(system))
+        assert len(numbers) == 2 and numbers[0] != numbers[1], text.render(system)
+
 if __name__ == "__main__":
     import traceback
 
@@ -231,7 +303,10 @@ if __name__ == "__main__":
         test_every_provenance_note_a_deck_reads_is_a_unit_text,
         test_the_si_lra_deck_states_its_case_names_are_identifiers,
         test_the_wing_station_reaches_the_document_in_its_channel,
-    ] + [lambda e=e: test_every_si_package_data_file_states_the_system_it_is_written_in(e)
+        test_the_warning_scan_would_find_one,
+        test_an_equality_check_prints_apart_in_either_system,
+    ] + [lambda e=e: test_no_si_warning_states_an_imperial_number(e) for e in EXAMPLES] \
+      + [lambda e=e: test_no_si_page_advisory_states_an_imperial_number(e) for e in EXAMPLES] + [lambda e=e: test_every_si_package_data_file_states_the_system_it_is_written_in(e)
          for e in EXAMPLES] + [lambda e=e: test_no_si_solver_file_states_an_imperial_number(e) for e in EXAMPLES] \
       + [lambda e=e: test_no_si_issue_package_states_an_imperial_number(e) for e in EXAMPLES]
     for t in tests:

@@ -95,7 +95,7 @@ def test_the_atr_flap_ng_fallback_is_warned_and_stated_in_band():
     reason = flap_module.ng_fallback_reason(project)
     assert reason is not None and "no flaps-down aerodynamic coefficient set" in reason
     warned = [w for w in consistency_warnings(project) if w.code == "flap_ng_fallback"]
-    assert len(warned) == 1 and reason in warned[0].message
+    assert len(warned) == 1 and reason in warned[0].message.render(UnitSystem.IMPERIAL)
     note = flap_module.run(project).conditions[0].note
     assert reason in note
 

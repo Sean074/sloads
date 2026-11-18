@@ -66,6 +66,7 @@ from sloads.modules.tail_span import (
 )
 from sloads.tail_geometry import resolve_tail_planform
 from sloads.validation import consistency_warnings
+from sloads.units import UnitSystem
 
 _EXAMPLES = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")
@@ -499,7 +500,7 @@ def test_the_mach_limit_warns_on_the_rjs_side_gust_alone():
         codes = [w for w in consistency_warnings(_project(name))
                  if w.code == "ttail_induced_roll_mach"]
         if name == "concept_regional_jet":
-            assert len(codes) == 1 and "SIDE GUST" in codes[0].message
+            assert len(codes) == 1 and "SIDE GUST" in codes[0].message.render(UnitSystem.IMPERIAL)
         else:
             assert not codes, name
     i = _fins("concept_regional_jet")["SIDE GUST"].tip_transfer.induced
@@ -537,7 +538,7 @@ def test_a_refused_build_is_stated_and_the_dihedral_still_warns():
     def codes(side_effect=None, value=None):
         with mock.patch("sloads.modules.tail_span.build_tail_span",
                         side_effect=side_effect, return_value=value):
-            return {w.code: w.message for w in consistency_warnings(tilted)
+            return {w.code: w.message.render(UnitSystem.IMPERIAL) for w in consistency_warnings(tilted)
                     if w.code.startswith("ttail_")}
 
     refused = codes(side_effect=ValueError("a stubbed tail-span refusal"))
