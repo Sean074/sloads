@@ -211,5 +211,54 @@ def test_the_readme_names_the_owners_book_url():
     assert not offenders, f"these spell the book URL; import sloads._urls: {offenders}"
 
 
+# ---------------------------------------------------------------------------
+# #431 -- one scope-and-applicability page, reached from the user's front doors.
+# ---------------------------------------------------------------------------
+
+_SCOPE = "docs/20_theory/04_scope_and_applicability.md"
+
+
+def _read(rel):
+    with open(os.path.join(_ROOT, rel), encoding="utf-8") as fh:
+        return fh.read()
+
+
+def test_the_scope_page_is_in_the_book_and_linked_from_the_front_doors(bb):
+    listed = {src for _, pages in bb.book() for src, _ in pages}
+    assert _SCOPE in listed
+    for rel, target in (("README.md", _SCOPE),
+                        ("CAPABILITIES.md", _SCOPE),
+                        ("docs/10_standard/GUI_USER_GUIDE.md",
+                         "../20_theory/04_scope_and_applicability.md")):
+        assert f"]({target})" in _read(rel), f"{rel} does not link the scope page"
+
+
+def test_the_scope_page_states_its_owners_values():
+    """The page quotes three numbers so a reader need not open the code; each is
+    pinned to its owner, so a change to the constant fails here."""
+    from sloads import constants as C
+
+    text = _read(_SCOPE)
+    assert f"**{C.FAR23_MAX_WEIGHT_LB:,.0f} lb**" in text
+    assert f"**{C.FAR23_MAX_PASSENGER_SEATS} passenger seats**" in text
+    assert f"**Mach {C.AC23_9_MACH_WARN:g}**" in text
+
+
+def test_the_scope_page_names_owners_that_exist():
+    """Every code path the page names as an owner is a real file."""
+    named = set(re.findall(r"`((?:sloads|tests)/[\w/]+\.py)`", _read(_SCOPE)))
+    assert len(named) >= 8, named
+    missing = sorted(p for p in named if not os.path.isfile(os.path.join(_ROOT, p)))
+    assert not missing, f"the scope page names owners that do not exist: {missing}"
+
+
+def test_no_book_page_points_at_a_frozen_baseline(bb):
+    """A release-time baseline in `90_record/` is a snapshot, not the current
+    oracle table; the GUI guide sent readers to the 0.2.0 one until #431."""
+    offenders = [src for _, pages in bb.book() for src, _ in pages
+                 if "verification_baseline" in _read(src)]
+    assert not offenders, f"book pages linking a frozen baseline: {offenders}"
+
+
 if __name__ == "__main__":  # zero-dependency self-runner
     sys.exit(pytest.main([__file__, "-n", "0", "-q"]))
