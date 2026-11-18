@@ -17,6 +17,33 @@ it in [`CHANGELOG_to_0.8.2.md`](CHANGELOG_to_0.8.2.md).
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-11-18
+
+### Added
+
+- **A User guide link in the GUI sidebar opens the published book (#429, tier S, 2026-11-16).**
+  It sits beside About on every page. The book and repository URLs have one
+  owner, `sloads/_urls.py`, which `scripts/build_book.py` reads for the book's
+  `site_url`; guards pin the sidebar, the README and the Pages address to it.
+
+- **The GUI names the program and its release (#430, tier S, 2026-11-16).**
+  `sloads vX.Y.Z` heads the sidebar on every page and the browser tab, both
+  from `sloads.__version__` through `app_shell.components.PROGRAM_LABEL`;
+  guards fail if either drifts or a GUI string types the version.
+
+- **One Scope and limits page says what sloads covers and which way each omission errs (#431, tier S, 2026-11-17).** `docs/20_theory/04_scope_and_applicability.md` names each limit's owner and is linked from the book's Home, README, CAPABILITIES and the GUI guide, whose two pointers to the frozen 0.2.0 baseline now go to the validation rationale.
+
+- **The user documentation builds as a searchable book for GitHub Pages (#427, tier S, 2026-11-10).**
+  `scripts/build_book.py` stages the guides, theory, input-file reference and a new
+  validation rationale page and rewrites out-of-book links; `docs.yml` builds it
+  with Zensical and deploys from `main`. Guard: `tests/test_book.py`.
+
+- **The user book works two airplanes end to end and answers the typical questions (#428, tier S, 2026-11-17).** Appendix A now runs `ga6_normal` through to the report; the new Appendix E runs `atr42_100` to its balanced beam deck. Their figures are generated from the examples, and the printed ones are held to the manual.
+
+### Fixed
+
+- **GUI warnings follow the SI toggle like the page beside them (#339, tier M, 2026-11-18).** Input-consistency warnings now state lengths, weights, forces and areas in the page's unit system instead of lb and in. An equality check's numbers print apart in either system.
+
 ## [0.10.0] — 2026-11-03
 
 ### Added
