@@ -16,9 +16,9 @@ conversion factor to the factor-literal gate.
 
 from __future__ import annotations
 
-from typing import Callable, List, Sequence
+from typing import Callable
 
-from .units import canonical, delivered_precision, format_value
+from .units import shown_apart  # the owner moved to units with #339; re-exported
 
 __all__ = ["CROSS_CHECK_REL", "cross_check_disagrees", "shown_apart"]
 
@@ -47,32 +47,3 @@ def cross_check_disagrees(a: float, b: float,
     if scale == 0.0 or abs(a - b) <= rel * scale:
         return False
     return shown(a) != shown(b)
-
-
-def shown_apart(values: Sequence[float], units: str = "") -> List[str]:
-    """``values`` printed at their row (:func:`format_value`), widened to the
-    first common decimal count at which every two values that differ print
-    differently (#243).
-
-    For a check whose contract is exact equality -- a derived read of a single
-    owner -- any difference is the defect, and a 0.4 lb drift printed at the
-    pound row reads ``5000 lb ... 5000 lb``. Values that agree print at the
-    row; one decimal count serves the whole sentence, so its numbers stay
-    comparable.
-    """
-    exact = [canonical(float(v)) for v in values]
-
-    def apart(texts: List[str]) -> bool:
-        return all(texts[i] != texts[j]
-                   for i in range(len(exact)) for j in range(i + 1, len(exact))
-                   if exact[i] != exact[j])
-
-    texts = [format_value(v, units) for v in values]
-    if apart(texts):
-        return texts
-    first = (delivered_precision(units) or 0) + 1
-    for decimals in range(first, first + 12):
-        widened = [f"{v:.{decimals}f}" for v in exact]  # note 65 exempt: the owner
-        if apart(widened):
-            return widened
-    return texts

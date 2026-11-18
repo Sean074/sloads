@@ -16,6 +16,7 @@ import pytest
 from sloads import io, validation
 from sloads.cross_check import CROSS_CHECK_REL, cross_check_disagrees, shown_apart
 from sloads.units import format_value
+from sloads.units import UnitSystem
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -74,8 +75,8 @@ def test_the_mtow_drift_warning_states_a_sub_pound_drift():
     project.speeds.weight_lb = mtow - 0.4
     warning = next(w for w in validation.consistency_warnings(project)
                    if w.code == "mtow_representation_drift")
-    assert f"{mtow:.1f} lb" in warning.message
-    assert f"{mtow - 0.4:.1f} lb" in warning.message
+    assert f"{mtow:.1f} lb" in warning.message.render(UnitSystem.IMPERIAL)
+    assert f"{mtow - 0.4:.1f} lb" in warning.message.render(UnitSystem.IMPERIAL)
 
 
 # --------------------------------------------------------------------------- #
@@ -107,15 +108,19 @@ def _bare_drift_tests(tree):
 def test_no_cross_check_compares_below_the_band_on_its_own():
     """A new cross-check calls ``cross_check_disagrees``. One whose contract is
     exact equality may test any difference, but then prints through
-    ``shown_apart`` in the same function, so the drift it found is visible."""
+    ``shown_apart`` in the same function -- directly, or as a ``UnitText``
+    quantity given an ``apart=`` group, which applies it in the system
+    rendered (#339) -- so the drift it found is visible."""
     offenders, seen = [], 0
     for rel in _CROSS_CHECK_SITES:
         with open(os.path.join(_ROOT, rel), encoding="utf-8") as fh:
             tree = ast.parse(fh.read())
         for fn, node in _bare_drift_tests(tree):
             seen += 1
-            prints_apart = any(isinstance(n, ast.Name) and n.id == "shown_apart"
-                               for n in ast.walk(fn))
+            prints_apart = any(
+                (isinstance(n, ast.Name) and n.id == "shown_apart")
+                or (isinstance(n, ast.keyword) and n.arg == "apart")
+                for n in ast.walk(fn))
             if not prints_apart:
                 offenders.append(f"{rel}:{node.lineno} ({fn.name})")
     assert seen, "no exact-equality check found -- the walk would pass vacuously"

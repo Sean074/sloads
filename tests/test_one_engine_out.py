@@ -37,6 +37,7 @@ from sloads.modules._vtail import (
     lift_curve_slope,
     rudder_effectiveness,
 )
+from sloads.units import UnitSystem
 
 REL = 1e-3  # ±0.1%
 
@@ -556,8 +557,8 @@ def test_an_unrecovered_case_is_stated_on_every_surface():
     assert len(warned) == len(lost)
     for w, fc in zip(warned, lost):
         assert w.page == "one_engine_out"
-        assert "KEAS at 0 ft" in w.message.replace("0.0 ft", "0 ft")
-        assert "enter the cited VMC" in w.message
+        assert "KEAS at 0 ft" in w.message.render(UnitSystem.IMPERIAL).replace("0.0 ft", "0 ft")
+        assert "enter the cited VMC" in w.message.render(UnitSystem.IMPERIAL)
     skipped = []
     build_balanced_cases(p, skipped)
     record = [s for s in skipped if s.code == "not-recovered"]

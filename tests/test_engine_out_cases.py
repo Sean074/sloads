@@ -27,6 +27,7 @@ from sloads.modules.balance.engine_out_cases import OEI_L7_NOTE, OEI_PARENT
 from sloads.modules.one_engine_out import _moment, engine_forces_at, engine_thrust_and_drag, vtail_cases
 from sloads.modules.select import default_critical
 from sloads.rigid_body import radians_per_s2
+from sloads.units import UnitSystem
 
 _EXAMPLES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples")
 _TWINS = ("atr42_100", "baron_58")
@@ -365,7 +366,7 @@ def test_a_windmill_coefficient_that_is_not_positive_is_refused_by_name(bad, ind
         build_balanced_cases(project)
     warned = [w for w in consistency_warnings(project) if w.code == "windmill_drag_cd_range"]
     assert len(warned) == 1 and warned[0].page == "engine_mount"
-    assert warned[0].message.startswith(f"engine {index + 1}") and "refuse" in warned[0].message
+    assert warned[0].message.render(UnitSystem.IMPERIAL).startswith(f"engine {index + 1}") and "refuse" in warned[0].message.render(UnitSystem.IMPERIAL)
 
 
 def test_a_windmill_coefficient_above_the_bound_is_delivered_and_warned():
@@ -377,7 +378,7 @@ def test_a_windmill_coefficient_above_the_bound_is_delivered_and_warned():
     from sloads.validation import consistency_warnings
 
     def warned(project):
-        return [w.message for w in consistency_warnings(project) if w.code == "windmill_drag_cd_range"]
+        return [w.message.render(UnitSystem.IMPERIAL) for w in consistency_warnings(project) if w.code == "windmill_drag_cd_range"]
 
     base = _project("baron_58")
     fc = vtail_cases(base)[0]

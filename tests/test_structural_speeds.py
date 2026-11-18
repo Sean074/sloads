@@ -34,6 +34,7 @@ from sloads.constants import (
     dive_ratio_coefficient,
 )
 from sloads.modules import structural_speeds as calc
+from sloads.units import UnitSystem
 
 TOL = 1e-3  # ±0.1% relative
 
@@ -465,7 +466,7 @@ def test_the_reduced_margin_reaches_the_dashboard():
     from sloads.validation import consistency_warnings
 
     p = _rj(chosen_vd=335.0, mach_margin_min=0.06, mach_margin_basis="HSPF credited")
-    warnings = {w.code: w.message for w in consistency_warnings(p)}
+    warnings = {w.code: w.message.render(UnitSystem.IMPERIAL) for w in consistency_warnings(p)}
     assert "mach_margin_reduced" in warnings
     assert "certification risk" in warnings["mach_margin_reduced"]
     assert "mach_margin_below_ratio_floor" in warnings, (

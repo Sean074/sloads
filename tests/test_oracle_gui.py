@@ -1089,7 +1089,7 @@ def test_a_blank_cg_case_does_not_read_as_not_ready():
     assert live.weight.cg_cases[-1].weight_lb == 0.0, "the state this is about"
     codes = [w.code for w in consistency_warnings(live)]
     assert "cg_case_without_weight" in codes, codes
-    said = " ".join(w.message for w in consistency_warnings(live)
+    said = " ".join(w.message.render(UnitSystem.IMPERIAL) for w in consistency_warnings(live)
                     if w.code == "cg_case_without_weight")
     assert "divides by the case weight" in said, said
 

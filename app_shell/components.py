@@ -577,13 +577,17 @@ def render_consistency_warnings(
     ``only_codes`` narrows to a named subset, for a page that re-states one
     warning next to the result it bears on (the Design Speeds page's operational
     limitations tab).
+
+    A warning's numbers follow the sidebar's unit toggle like the page beside
+    it (#339): the message is a ``UnitText``, rendered in :func:`active_system`.
     """
+    system = active_system()
     for w in consistency_warnings(project):
         if w.page != key:
             continue
         if only_codes is not None and w.code not in only_codes:
             continue
-        st.warning(w.message)
+        st.warning(w.message.render(system))
 
 
 def render_page_order_reads(project: Project, key: str) -> None:

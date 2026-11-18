@@ -36,6 +36,7 @@ from sloads.migrations import (
     source_schema_version,
 )
 from sloads.models import SCHEMA_VERSION
+from sloads.units import UnitSystem
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
@@ -206,7 +207,7 @@ def test_a_hops_note_reaches_the_project_and_is_stated_once():
         MIGRATIONS.update(original)
     assert project.migration_notes == ["test hop: nothing lost"]
     assert "migration_notes" not in io.project_to_dict(project)
-    said = [w.message for w in validation.consistency_warnings(project)
+    said = [w.message.render(UnitSystem.IMPERIAL) for w in validation.consistency_warnings(project)
             if w.code == "migration_note"]
     assert said == ["test hop: nothing lost"]
 

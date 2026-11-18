@@ -173,7 +173,7 @@ def test_baron_fwd_gross_is_entered_and_reaches_the_deck():
     assert all(c.ok for c in case_loading_checks(p))
     cgs = {c.cg for c in build_balanced_cases(p)}
     assert "fwd gross" in cgs and "fwd regardless" not in cgs
-    codes = [(w.code, w.message.split("'")[1]) for w in consistency_warnings(p)
+    codes = [(w.code, w.message.render(UnitSystem.IMPERIAL).split("'")[1]) for w in consistency_warnings(p)
              if w.code == "envelope_point_unreachable"]
     assert codes == [("envelope_point_unreachable", "forward regardless limit"),
                      ("envelope_point_unreachable", "fwd regardless")]
@@ -210,10 +210,10 @@ def test_a_case_the_search_misses_is_named_with_a_loading():
     target = next(c for c in cases if c.name == "fwd gross")
     assert not derive_case_loadings(q, [target])[0].derivable
     missed = [w for w in consistency_warnings(q) if w.code == "case_loading_search_missed"]
-    assert len(missed) == 1 and "'fwd gross'" in missed[0].message
+    assert len(missed) == 1 and "'fwd gross'" in missed[0].message.render(UnitSystem.IMPERIAL)
     r = _reach(q, "fwd gross")
     assert r.fractions is not None and r.ballast_lb == 0.0
-    assert "with no ballast" in missed[0].message
+    assert "with no ballast" in missed[0].message.render(UnitSystem.IMPERIAL)
 
 
 def test_a_point_below_the_minimum_flight_weight_says_so():
@@ -221,8 +221,8 @@ def test_a_point_below_the_minimum_flight_weight_says_so():
     light = CgCase(name="too light", weight_lb=3000.0, xcg=80.0, zcg=95.0)
     q = dataclasses.replace(p, weight=dataclasses.replace(
         p.weight, cg_cases=[*p.weight.cg_cases, light]))
-    msg = next(w.message for w in consistency_warnings(q)
-               if w.code == "envelope_point_unreachable" and "'too light'" in w.message)
+    msg = next(w.message.render(UnitSystem.IMPERIAL) for w in consistency_warnings(q)
+               if w.code == "envelope_point_unreachable" and "'too light'" in w.message.render(UnitSystem.IMPERIAL))
     assert "less than the minimum flight weight" in msg
 
 
@@ -231,7 +231,7 @@ def test_the_warning_and_the_document_agree(name):
     """R-7: the page and the 2.2 case table name the same points, from one owner."""
     p = _project(name)
     bad = [r.name for r in envelope_point_reach(p) if not r.reachable]
-    warned = [w.message.split("'")[1] for w in consistency_warnings(p)
+    warned = [w.message.render(UnitSystem.IMPERIAL).split("'")[1] for w in consistency_warnings(p)
               if w.code == "envelope_point_unreachable"]
     assert warned == bad
     note = _cg_case_table(p, UnitSystem.IMPERIAL).note

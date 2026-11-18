@@ -50,6 +50,7 @@ from sloads.modules.body_loads import build_body_loads
 from sloads.modules.flight_envelope import build_envelope
 from sloads.modules.select import build_critical
 from sloads.report.render import format_value
+from sloads.units import UnitSystem
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -658,7 +659,7 @@ def test_a_one_sided_wing_part_is_refused_by_name(y, carriage):
     with pytest.raises(md.WingAsymmetric):
         md.wing_mass_state(project, None)
     (w,) = [w for w in consistency_warnings(project) if w.code == "wing_mass_asymmetric"]
-    assert "'one-sided'" in w.message
+    assert "'one-sided'" in w.message.render(UnitSystem.IMPERIAL)
 
 
 def test_the_search_tests_the_base_as_well_as_the_subset():

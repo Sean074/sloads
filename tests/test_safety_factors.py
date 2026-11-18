@@ -50,6 +50,7 @@ from sloads.safety_factors import (
 )
 from sloads.units import NON_LOAD_QUANTITIES, is_load_unit
 from sloads.validation import consistency_warnings
+from sloads.units import UnitSystem
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _EXAMPLES = sorted(glob.glob(os.path.join(_ROOT, "examples", "*.project.json")))
@@ -529,7 +530,7 @@ def test_an_override_without_a_basis_is_rejected():
 def test_an_override_below_the_regulation_raises_a_certification_risk_warning():
     warnings = consistency_warnings(_overridden("ground", 1.2))
     hit = [w for w in warnings if w.code == "safety_factor_below_regulation"]
-    assert hit and "CERTIFICATION RISK" in hit[0].message
+    assert hit and "CERTIFICATION RISK" in hit[0].message.render(UnitSystem.IMPERIAL)
 
 
 def test_an_override_naming_no_family_is_an_explicit_finding_not_silence():

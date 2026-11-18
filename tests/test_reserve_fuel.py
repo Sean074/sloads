@@ -58,7 +58,7 @@ def test_the_guard_fires_on_minimum_fuel_under_an_mzfw():
     assert not _fires(project)
     project.weight.max_zero_fuel_weight_lb = 2913.0
     (w,) = [w for w in consistency_warnings(project) if w.code == _CODE]
-    assert "'30 min fuel'" in w.message
+    assert "'30 min fuel'" in w.message.render(UnitSystem.IMPERIAL)
 
 
 @pytest.mark.parametrize("path", _PATHS, ids=os.path.basename)

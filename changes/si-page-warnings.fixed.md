@@ -1,0 +1,1 @@
+- **GUI warnings follow the SI toggle like the page beside them (#339, tier M, 2026-11-18).** Input-consistency warnings now state lengths, weights, forces and areas in the page's unit system instead of lb and in. An equality check's numbers print apart in either system.

@@ -33,6 +33,7 @@ from sloads.models import (  # noqa: E402
     GroundCaseRole,
     MassComponent,
 )
+from sloads.units import UnitSystem
 
 _EXAMPLES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                          "examples")
@@ -99,7 +100,7 @@ def test_no_warning_is_raised_twice_for_one_page():
                 for path in sorted(glob.glob(os.path.join(_EXAMPLES, "*.project.json")))]
     projects.append(("a deliberately contradictory project", _contradictory()))
     for name, project in projects:
-        seen = [(w.code, w.page, w.message) for w in consistency_warnings(project)]
+        seen = [(w.code, w.page, w.message.render(UnitSystem.IMPERIAL)) for w in consistency_warnings(project)]
         duplicates = {entry for entry in seen if seen.count(entry) > 1}
         assert not duplicates, (
             f"{name} raises the same warning more than once: "
@@ -139,7 +140,7 @@ def test_a_typed_control_area_is_warned_apart_from_the_drawn_control_past_one_pe
     assert drawn == pytest.approx(20.0 * 140.0 / 144.0)
     warnings = [w for w in consistency_warnings(project) if w.code == "flap_area_mismatch"]
     assert len(warnings) == 1 and warnings[0].page == PAGE_CONFIGURATION
-    assert "FLAPLOAD reads the typed value" in warnings[0].message
+    assert "FLAPLOAD reads the typed value" in warnings[0].message.render(UnitSystem.IMPERIAL)
     project.flap_loads.flap_area_one_side_sqft = drawn * 1.005   # inside the 1 % band
     assert "flap_area_mismatch" not in _codes(project)
     project.flap_loads.flap_area_one_side_sqft = 0.0            # blank derives
@@ -216,8 +217,8 @@ def test_safety_factor_out_of_range_fires():
                     if w.code == "safety_factor_out_of_range"]
         assert len(warnings) == 2, bad          # the condition + the wing case
         assert {w.page for w in warnings} == {"report"}
-        assert any("balancing" in w.message for w in warnings)
-        assert any("PHAA" in w.message for w in warnings)
+        assert any("balancing" in w.message.render(UnitSystem.IMPERIAL) for w in warnings)
+        assert any("PHAA" in w.message.render(UnitSystem.IMPERIAL) for w in warnings)
 
 
 def test_safety_factor_legal_band_silent():
@@ -377,7 +378,7 @@ def test_a_malformed_loading_is_reported_rather_than_raised_at_the_page():
     warnings = [w for w in consistency_warnings(project)
                 if w.code == "cg_case_loading_invalid"]
     assert len(warnings) == 1
-    assert "not a row of weight.items" in warnings[0].message
+    assert "not a row of weight.items" in warnings[0].message.render(UnitSystem.IMPERIAL)
 
 
 def test_the_design_weight_ordering_chain_fires_on_an_inverted_pair():
@@ -460,7 +461,7 @@ def test_no_one_model_warning_fires_on_a_shipped_fixture_but_the_barons_one():
         codes = {w.code for w in warnings}
         assert not (codes & quiet), (os.path.basename(path), codes & quiet)
         fired[os.path.basename(path)] = sorted(
-            w.message.split("'")[1] for w in warnings
+            w.message.render(UnitSystem.IMPERIAL).split("'")[1] for w in warnings
             if w.code == "wing_case_loading_not_derivable")
     assert fired == {
         "atr42_100.project.json": [],
@@ -480,8 +481,8 @@ def test_the_panel_override_validator_names_the_gap_and_the_remedy():
     project.wing_mass.panel_weight_override_lb = 150.0
     (w,) = [w for w in consistency_warnings(project) if w.code == "wing_panel_override_open"]
     assert w.page == "weight_mass"
-    assert "150 lb" in w.message and "165 lb" in w.message     # the lb row (#312)
-    assert "Clear the override" in w.message
+    assert "150 lb" in w.message.render(UnitSystem.IMPERIAL) and "165 lb" in w.message.render(UnitSystem.IMPERIAL)     # the lb row (#312)
+    assert "Clear the override" in w.message.render(UnitSystem.IMPERIAL)
     project.wing_mass.panel_weight_override_lb = 165.5     # inside the 1 % gate
     assert "wing_panel_override_open" not in _codes(project)
 
@@ -501,8 +502,8 @@ def test_an_asymmetric_entered_loading_is_refused_and_named():
     assert "'Fuel, right wing'" in ld.note
     assert md.wing_mass_state(project, "aft gross").source == "database"
     (w,) = [w for w in consistency_warnings(project)
-            if w.code == "wing_case_loading_not_derivable" and "'aft gross'" in w.message]
-    assert "'Fuel, right wing'" in w.message
+            if w.code == "wing_case_loading_not_derivable" and "'aft gross'" in w.message.render(UnitSystem.IMPERIAL)]
+    assert "'Fuel, right wing'" in w.message.render(UnitSystem.IMPERIAL)
     # The database itself is symmetric, so its own finding stays quiet.
     assert "wing_mass_asymmetric" not in _codes(project)
 
@@ -535,7 +536,7 @@ def test_a_hand_entered_wing_case_with_no_mass_state_is_named():
     project = sloads_io.load_project(_GA)
     project.wing_mass.cases.append(WingLoadCase("STORE DROP", nz=-2.0, nx=0.1, cl=1.0, v_eas_kt=120.0))
     (w,) = [w for w in consistency_warnings(project) if w.code == "wing_case_mass_state_unnamed"]
-    assert "'STORE DROP'" in w.message and "cg" in w.message
+    assert "'STORE DROP'" in w.message.render(UnitSystem.IMPERIAL) and "cg" in w.message.render(UnitSystem.IMPERIAL)
     project.wing_mass.cases[-1].cg = "CG2"
     assert "wing_case_mass_state_unnamed" not in _codes(project)
 
@@ -557,7 +558,7 @@ def test_a_fuselage_override_is_named_when_the_loadings_differ_in_body_mass():
     assert "fuselage_override_varies_by_case" not in _codes(project)
     project.fuselage_mass.stations_are_override = True
     (w,) = [w for w in consistency_warnings(project) if w.code == "fuselage_override_varies_by_case"]
-    assert "1733 lb" in w.message and "3070 lb" in w.message     # the delivered row, no separator (#312)
+    assert "1733 lb" in w.message.render(UnitSystem.IMPERIAL) and "3070 lb" in w.message.render(UnitSystem.IMPERIAL)     # the delivered row, no separator (#312)
 
 
 def test_wing_fraction_entry_rules():
@@ -614,7 +615,7 @@ def test_flap_slipstream_warns_when_the_band_is_entered_with_no_engine():
     project.engines = []
     codes = _codes(project, page="flap_loads")
     assert "flap_slipstream_skipped" in codes, codes
-    message = next(w.message for w in consistency_warnings(project)
+    message = next(w.message.render(UnitSystem.IMPERIAL) for w in consistency_warnings(project)
                    if w.code == "flap_slipstream_skipped")
     assert "Engine Mount Loads" in message, "the warning must name where to fix it"
 
@@ -713,7 +714,7 @@ def test_tail_cp_station_unset_fires():
     project = sloads_io.load_project(_GA)
     project.flight_loads.xtc = 0.0
     assert "tail_cp_station_unset" in _codes(project, page="flight_envelope")
-    said = " ".join(w.message for w in consistency_warnings(project)
+    said = " ".join(w.message.render(UnitSystem.IMPERIAL) for w in consistency_warnings(project)
                     if w.code == "tail_cp_station_unset")
     assert "xtc" in said and "sign-flips" in said, said
 
@@ -728,7 +729,7 @@ def test_tail_cp_xtf_fires_with_a_flaps_down_set():
         project.aero_coeffs.cruise, name="LANDING", flaps_down=True)
     project.flight_loads.xtf = 0.0
     assert "tail_cp_station_unset" in _codes(project, page="flight_envelope")
-    said = " ".join(w.message for w in consistency_warnings(project)
+    said = " ".join(w.message.render(UnitSystem.IMPERIAL) for w in consistency_warnings(project)
                     if w.code == "tail_cp_station_unset")
     assert "xtf" in said and "flaps up" not in said, said
 
@@ -771,7 +772,7 @@ def test_a_disagreeing_rudder_area_warns():
     p = sloads_io.load_project(_GA)
     p.geometry.empennage.vtail.rudder_area_sqft = 8.0      # halves sum 5.2
     hits = [w for w in consistency_warnings(p) if w.code == "rudder_area_mismatch"]
-    assert len(hits) == 1 and "5.2" in hits[0].message and "8.0" in hits[0].message   # the ft^2 row, 0.1 (#312)
+    assert len(hits) == 1 and "5.2" in hits[0].message.render(UnitSystem.IMPERIAL) and "8.0" in hits[0].message.render(UnitSystem.IMPERIAL)   # the ft^2 row, 0.1 (#312)
 
 
 if __name__ == "__main__":
@@ -802,7 +803,7 @@ def test_a_concept_flight_case_without_a_loading_is_named_and_a_ga_one_is_not():
     rj.weight.cg_cases[0].loading = None
     fired = [w for w in consistency_warnings(rj) if w.code == "case_loading_missing"]
     assert len(fired) == 1 and fired[0].page == PAGE_WEIGHT_CG
-    assert "'aft gross'" in fired[0].message and "the search derives one" in fired[0].message
+    assert "'aft gross'" in fired[0].message.render(UnitSystem.IMPERIAL) and "the search derives one" in fired[0].message.render(UnitSystem.IMPERIAL)
     # a GROUND-only case is not a mass state of the flight analyses
     ground = next(c for c in rj.weight.cg_cases if AnalysisKind.FLIGHT not in c.analyses)
     ground.loading = None

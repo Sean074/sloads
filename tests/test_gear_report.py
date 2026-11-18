@@ -82,6 +82,7 @@ from sloads.modules.landing import (
 )
 from sloads.report.tables import gear_report_rows
 from sloads.validation import consistency_warnings
+from sloads.units import UnitSystem
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -454,7 +455,7 @@ def test_a_typed_leg_weight_overrides_the_rows_and_a_disagreement_warns():
     assert leg_weight(project, lg.main_gear, MAIN) == 525.0
     codes = {w.code: w for w in consistency_warnings(project)}
     assert "gear_mass_row_mismatch" in codes
-    assert "525" in codes["gear_mass_row_mismatch"].message and "625" in codes["gear_mass_row_mismatch"].message
+    assert "525" in codes["gear_mass_row_mismatch"].message.render(UnitSystem.IMPERIAL) and "625" in codes["gear_mass_row_mismatch"].message.render(UnitSystem.IMPERIAL)
     lg.main_gear.weight_lb = 625.0                      # agreeing: no warning
     assert "gear_mass_row_mismatch" not in {w.code for w in consistency_warnings(project)}
     # No tagged rows, a row that names the gear: the unlinked warning, on the

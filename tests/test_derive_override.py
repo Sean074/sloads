@@ -47,6 +47,7 @@ from sloads.modules.select import (
 from sloads.modules.structural_speeds import design_speed_values
 from sloads.modules.weight_envelope import run as wtenv_run
 from sloads.validation import consistency_warnings
+from sloads.units import UnitSystem
 
 _GA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                    "examples", "ga6_normal.project.json")
@@ -409,7 +410,7 @@ def test_engine_mass_row_mismatch_warns():
     assert p.engines[0].engine_weight_lb != row.weight_lb
     warnings = [w for w in consistency_warnings(p)
                 if w.code == "engine_mass_row_mismatch"]
-    assert warnings and row.name in warnings[0].message
+    assert warnings and row.name in warnings[0].message.render(UnitSystem.IMPERIAL)
 
 
 _EXAMPLES = os.path.dirname(_GA)
@@ -433,9 +434,9 @@ def test_engine_load_factor_mismatch_warns_with_both_numbers():
     p.speeds = replace(p.speeds, chosen_n=None)
     warnings = [w for w in consistency_warnings(p)
                 if w.code == "engine_load_factor_mismatch"]
-    assert [w.message.split(":")[0] for w in warnings] == [
+    assert [w.message.render(UnitSystem.IMPERIAL).split(":")[0] for w in warnings] == [
         "engine 1 (CONTINENTAL IO-550-C)", "engine 2 (CONTINENTAL IO-550-C)"]
-    assert "4.200 g" in warnings[0].message and "3.648 g" in warnings[0].message
+    assert "4.200 g" in warnings[0].message.render(UnitSystem.IMPERIAL) and "3.648 g" in warnings[0].message.render(UnitSystem.IMPERIAL)
     p.engines = [replace(e, limit_load_factor=0.0) for e in p.engines]
     assert "engine_load_factor_mismatch" not in {
         w.code for w in consistency_warnings(p)}
