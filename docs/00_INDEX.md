@@ -49,6 +49,7 @@ assumptions and validation populated first.
 | [`00_theory_sources.md`](20_theory/00_theory_sources.md) | Theory & Equation Sources |
 | [`02_approved_corrections.md`](20_theory/02_approved_corrections.md) | Approved corrections to the source (oracle deviations) — register of record |
 | [`03_validation_rationale.md`](20_theory/03_validation_rationale.md) | Validation Rationale — Why the Results Can Be Trusted |
+| [`04_scope_and_applicability.md`](20_theory/04_scope_and_applicability.md) | Scope and Applicability — What sloads Covers, and Where It Stops |
 | [`ch01_introduction.md`](20_theory/ch01_introduction.md) | Chapter 1 — Introduction: What sloads Computes, and How to Read This Manual |
 | [`ch02_conventions.md`](20_theory/ch02_conventions.md) | Chapter 2 — Conventions: Axes, Signs, Units and the Load Contract, Explained |
 | [`ch03_airspeeds_envelope.md`](20_theory/ch03_airspeeds_envelope.md) | Chapter 3 — Design Airspeeds and the V-n Envelope (STRSPEED / MACHLIM / FLTLOADS) |

@@ -90,6 +90,7 @@ def book() -> List[Tuple[str, List[Page]]]:
         ("Home", [
             ("README.md", "Overview"),
             ("CAPABILITIES.md", "Capabilities"),
+            ("docs/20_theory/04_scope_and_applicability.md", "Scope and limits"),
         ]),
         ("Getting started", [
             ("docs/60_guide/00_index.md", "About the guide"),

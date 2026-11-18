@@ -66,6 +66,8 @@ Where to read next:
   task-oriented guide to the whole application, including the report and the
   sbeam deck, is [`docs/10_standard/GUI_USER_GUIDE.md`](docs/10_standard/GUI_USER_GUIDE.md).
 - **What ships and what every number means:** [`CAPABILITIES.md`](CAPABILITIES.md);
+  what it does not cover, and which way each limit errs:
+  [Scope and limits](docs/20_theory/04_scope_and_applicability.md);
   the conventions (axes, signs, units, the limit/ultimate contract) are
   [`docs/10_standard/CONVENTIONS.md`](docs/10_standard/CONVENTIONS.md).
 - **Contributing:** [`CONTRIBUTING.md`](CONTRIBUTING.md), then the standard in

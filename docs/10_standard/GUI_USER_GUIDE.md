@@ -293,9 +293,10 @@ airplane — a 6-place GA single (the Cessna-210-class example McMaster works
 through). Loading it and stepping the pages reproduces the manual's printed
 figures. Below are **four hand-checkable numbers** that trace the seed chain
 from weight through to the flight envelope; each is a currently-passing
-regression oracle (see
-[`../90_record/01_verification_baseline_0.2.0.md`](../90_record/01_verification_baseline_0.2.0.md)
-for the full table and page citations).
+regression oracle (the
+[validation rationale](../20_theory/03_validation_rationale.md) says how they
+are checked; `tests/module_gates.py` holds every module's gate with its page
+citation).
 
 **Load it:**
 
@@ -410,4 +411,7 @@ pages. The other five are authored to run end-to-end without a red error.
   page conventions.
 - **What each module computes:** [`PROGRAM_SPEC.md`](PROGRAM_SPEC.md).
 - **Equation/oracle sources:** [`../20_theory/00_theory_sources.md`](../20_theory/00_theory_sources.md).
-- **The exact oracle figures:** [`../90_record/01_verification_baseline_0.2.0.md`](../90_record/01_verification_baseline_0.2.0.md).
+- **What sloads does not cover, and which way each limit errs:**
+  [`../20_theory/04_scope_and_applicability.md`](../20_theory/04_scope_and_applicability.md).
+- **Why the results can be trusted:**
+  [`../20_theory/03_validation_rationale.md`](../20_theory/03_validation_rationale.md).

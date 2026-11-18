@@ -174,3 +174,6 @@ educational and exploratory engineering tool. Results are **not certified** for
 regulated or certification structural design; the report states its own
 limitations, and outputs should be verified by competent engineering judgement
 before use in design or airworthiness decisions.
+
+What sloads does not model, and which way each omission errs, is stated in one
+place: [Scope and limits](docs/20_theory/04_scope_and_applicability.md).
