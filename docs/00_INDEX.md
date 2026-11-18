@@ -233,6 +233,8 @@ Structure per design note 34 ([`25_notes/34_oracle_user_guide_note.md`](25_notes
 | [`B_worked_twin.md`](60_guide/B_worked_twin.md) | Appendix B — Worked example: the twin (`baron_58`) |
 | [`C_troubleshooting.md`](60_guide/C_troubleshooting.md) | Appendix C — Troubleshooting |
 | [`D_where_next.md`](60_guide/D_where_next.md) | Appendix D — Where next |
+| [`E_worked_concept.md`](60_guide/E_worked_concept.md) | Appendix E — Worked example: the concept twin (`atr42_100`) |
+| [`F_typical_questions.md`](60_guide/F_typical_questions.md) | Appendix F — Typical questions |
 
 ---
 

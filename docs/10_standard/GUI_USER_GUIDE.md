@@ -289,55 +289,22 @@ same four rules apply (§1; [`CONVENTIONS.md`](CONVENTIONS.md) §3):
 ## 6. End-to-end walkthrough: `ga6_normal`
 
 The bundled `examples/ga6_normal.project.json` is the manual's **Appendix A**
-airplane — a 6-place GA single (the Cessna-210-class example McMaster works
-through). Loading it and stepping the pages reproduces the manual's printed
-figures. Below are **four hand-checkable numbers** that trace the seed chain
-from weight through to the flight envelope; each is a currently-passing
-regression oracle (the
-[validation rationale](../20_theory/03_validation_rationale.md) says how they
-are checked; `tests/module_gates.py` holds every module's gate with its page
-citation).
+airplane, a 6-place GA single, and loading it and stepping the pages
+reproduces the manual's printed figures. The walkthrough, from the project to
+the delivered loads and how to read them, is the user book's
+[Appendix A](../60_guide/A_worked_single.md). Its figures are written from a
+run of the example beside the printed values
+([`_generated/worked_ga6_normal.md`](../60_guide/_generated/worked_ga6_normal.md)),
+so this guide quotes none. The concept-mode counterpart, a twin turboprop
+carried through to the balanced beam deck, is
+[Appendix E](../60_guide/E_worked_concept.md).
 
-**Load it:**
+**Load it:** sidebar **Project file → Open → New from example →
+`ga6_normal`**, or headless:
 
 ```bash
-# GUI
-.venv/bin/streamlit run oracle_app/Oracle.py   # then sidebar: Project file → Open → New from example → ga6_normal
-
-# or one module from the CLI
 .venv/bin/python cli.py engine examples/ga6_normal.project.json
 ```
-
-**Checkpoint 1 — Weight & Mass Properties (WTESTIMA).**
-Max take-off weight = **3468 lb**, empty weight = **2150 lb**, empty/take-off
-ratio = **0.62**. *(Manual Appendix A p134.)*
-
-**Checkpoint 2 — Weight & Mass Properties (WTONECG, aft-gross loading).**
-CG fuselage station XBAR = **84.99936 in**; pitch inertia IYY =
-**2058.209 slug-ft²**. *(Appendix A p137.)* These are geometry/inertia — note
-**no `-ULT`**.
-
-**Checkpoint 3 — Structural Speeds (STRSPEED).**
-Limit positive load factor *n₊* = **3.8**, limit negative *n₋* = **−1.52**;
-maneuver speed VA = **121.3 KEAS**, cruise VC = **170 KEAS**, dive VD =
-**212.5 KEAS**. The load factor is dimensionless; the speeds are KEAS — again no
-`-ULT`. *(Appendix A V-n table.)*
-
-**Checkpoint 4 — Flight Envelope (FLTLOADS), CG1 aft-gross.**
-The **MAN A** corner (positive maneuver at VA) balances to
-**V = 121.3 KEAS, NZ = 3.80, α = 12.75°** — VA and *n₊* from Checkpoints 3
-carried straight into the envelope corner, confirming the seed chain end-to-end.
-*(Appendix A p179–180.)*
-
-If those four match on your machine, the input path is wired correctly. The
-same 3.80-g maneuver then appears in the Report page's `data/` files and in
-the decks as a **LIMIT** case with `SF=1.5` **stated and not applied** (§1
-above, note 49): the loads stay in plain `lbs` / `ft-lb`, and the sizing
-analysis multiplies by the stated factor.
-
-> Because the math is modernized (real `math.pi`, not the BASIC's `3.1416`), the
-> manual's printed figures are **±0.1% regression oracles**, not exact — the
-> suite asserts `math.isclose(..., rel_tol=1e-3)` against them.
 
 ---
 

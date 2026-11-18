@@ -107,7 +107,6 @@ tier-S commit and states its reasoning in the milestone description.
 | Pri | Item (detail below / in its plan) | What ships | Tag | Tier / effort | Depends on |
 |---|---|---|---|---|---|
 | **B12 — 0.11.0: a working GUI with its documentation (re-focused 2026-11-16; the Part 25, validation and sconfig work moved to B13)** ||||||
-| 51 | **Worked examples for the user book: ga6_normal and atr42_100** (#428) | Two end-to-end worked examples (a GA single, a concept twin) and a typical-questions page in the published book, their quoted numbers generated from the bundled examples | V | S / M | #427 |
 | 32 | **GUI validation warnings ignore the SI toggle** (#339) | Warnings rendered in the page's unit system, one owner for the conversion, and a guard over every warning code | V | M / M | — |
 | **B13 — 0.12.0: the ATR on its Part 25 basis, the validation record and the sconfig contract (opened 2026-11-01 as B12; moved 2026-11-16)** ||||||
 | 22 | **F25-1: the transport gust and manoeuvre envelope: VB and the 66 fps line, the 25.337 n₁ check, VC ≥ VMO (review A-1)** (#410) | Design note at AGREED, then VB, the VB gust line, the n₁ and VC checks, and the ATR fixtures re-derived on the transport basis | E | L / L | design note |
