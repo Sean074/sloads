@@ -2,17 +2,15 @@
 
 **Owner:** @Sean074 · **Reviewers:** — *(design note 28 MD-6)*
 
-**Status: PROPOSED 2026-11-25** — no code. Two rulings are already the owner's, taken in
-session on 2026-11-25 and recorded in place: Q1 (whole-airplane roll inertia) and Q2 (the
-accelerated roll moves to the same per-side distribution). The owner also stated the case's
-purpose on 2026-11-26: it is a **wing-to-fuselage interface** case and is not meant to be
-critical in the wing. Q5, Q7 and Q8 were ruled the same day, after a review of the oracle's
-own treatment (§1). Q3, Q4 and Q6 are unruled.
+**Status: AGREED 2026-11-26 — no code.** The owner ruled every question in session, under
+the solo profile (rule 1's working-alone branch), one at a time; each ruling is recorded in
+place in §4. PROPOSED 2026-11-25. The owner also stated the case's purpose: the 100/80 gust
+is a **wing-to-fuselage interface** case and is not meant to be critical in the wing.
 
-**Two steps** (ruled 2026-11-26). **Step 1, #440:** the per-side mechanism, the
-whole-airplane roll acceleration and the interface table, on the accelerated roll, every
-basis; it does not depend on #410. **Step 2, #439:** the 100/80 gust points and slots on
-the Part 25 basis, after #410 and step 1.
+**Two steps.** **Step 1, #440:** the per-side mechanism, the whole-airplane roll
+acceleration, the solved load factor and the interface table, on the accelerated roll,
+every basis; it does not depend on #410. **Step 2, #439:** the 100/80 gust points and slots
+on the Part 25 basis, after #410 and step 1.
 
 **Scope.** 25.349(b) puts 100 % of the gust wing air load on one side of the airplane and
 80 % on the other. sloads has no such case. This note adds it for the positive and the
@@ -101,7 +99,9 @@ acceleration:
 | `atr42_100` | 0.90 | +1.7 % to +2.4 % | +1.4 % to +2.4 % | 0.97 g → 0.87 g at BL 161 |
 
 Unlike the gust case, the accelerated roll does set parts of the delivered wing envelope,
-so these are moved deliverables.
+so these are moved deliverables. Solving its load factor for lift (D-79.3) moves it from
+3.3250 to ≈ 3.3185 on `ga6_normal` (0.8729 of n₁) and from 2.1873 to ≈ 2.1962 on
+`atr42_100` (0.8798 of n₁).
 
 ## 2. Decisions
 
@@ -109,8 +109,8 @@ so these are moved deliverables.
 |---|---|---|
 | **D-79.1** | **Part 25 basis only**, read from #410's switch. On a Part 23 basis no gust-roll point, slot or id appears. | Owner ruling (Q7): on a Part 23 basis 23.349(a)(2)'s 100/75 in condition A covers the unsymmetrical wing load. |
 | **D-79.2** | **One percentage owner.** `constants.unsymmetrical_gust_percent()` returns 80, beside `other_side_percent`. Both are read through one function that takes the condition family, so no second literal exists. | Note 52 D-52.1's rule for the 75. |
-| **D-79.3** | **Companion balanced points.** FLTLOADS adds `UG +C`, `UG -C`, `UG +D`, `UG -D` in each CG and altitude block, at `(100 + p)/200` of that block's own gust factor and at the gust's speed. | The airplane feels the average of the two wings. This is the `AC ROLL` pattern (D-52.10): the air load comes from the parent point, the inertia from the averaged one. |
-| **D-79.4** | **Two wing slots: `UGSP` (`W-13`) and `UGSN` (`W-14`).** `UGSP` takes the `UG +` point whose parent gust has the largest wing lift; `UGSN` the `UG -` point whose parent has the most negative. The delivered wing is the 100 % side: air at the parent's `cl` and speed, inertia at the companion's `nz` and `dx`. | "Wing maximum airload", each sign (owner: positive and negative assessed). The slot is the carrier into the balanced set and the released list, not a wing-critical case (§1), and the report says so. One owner, `gust_roll_parent(vn, pick)`, resolves the parent as `condition_a_point` does. |
+| **D-79.3** — owner ruling (Q6) | **Companion balanced points, solved for lift.** FLTLOADS adds `UG +C`, `UG -C`, `UG +D`, `UG -D` in each CG and altitude block, at the gust's speed. Each is balanced at the load factor whose wing lift equals `(100 + p)/200` of its parent gust point's wing lift; the solved factor is stated. **The `AC ROLL` point is built the same way** against condition A, replacing the fixed `0.875·n₁`. | The rule fixes the air load on each wing; the load factor follows. The tail load does not scale with the wing, so a fixed fraction of the load factor leaves a lift mismatch (measured: +0.19 % of `n·W` on `ga6_normal`, −0.41 % on `atr42_100`). One definition on every fixture. |
+| **D-79.4** | **Two wing slots: `UGSP` (`W-13`) and `UGSN` (`W-14`).** `UGSP` takes the `UG +` point whose parent gust has the largest wing lift; `UGSN` the `UG -` point whose parent has the most negative. The delivered wing is the 100 % side: air at the parent's `cl` and speed, inertia at the companion's `nz` and `dx`. | "Wing maximum airload", read as wing lift (owner ruling, Q4), each sign (owner: positive and negative assessed). The slot is the carrier into the balanced set and the released list, not a wing-critical case (§1), and the report says so. One owner, `gust_roll_parent(vn, pick)`, resolves the parent as `condition_a_point` does. |
 | **D-79.5** | **The unbalanced moment is `−(1 − p/100)` × the parent's air root bending**, from `accel_roll_unbalanced_moment`, unchanged. | One producer of a derived `unbal_moment` (G-52.9). |
 | **D-79.6** — owner ruling (Q1) | **The roll acceleration is the whole airplane's.** For a derived rolling case the wing chain's `θ̈` is the rolling moment over the roll inertia of every mass item of the case's loading, from the inertia-tensor owner the balance closure uses. The wing's own masses (structure, fuel, nacelles) then react `θ̈` at their own butt lines. | 25.301(b): each item of mass. WINGINER reacts the couple with the wing alone, which over-relieves the 100 % side by 5–10 % of the roll term (§1). See Q5 for the Appendix A path. |
 | **D-79.7** — owner ruling (Q2) | **A left/right wing difference is carried as two different air loads.** `balance.wing_sets` takes a per-side factor: starboard strips at 1.0 and port strips at `p/100`, at the parent point's `cl`. The lumped rolling couple at the wing centre, its `aileron-roll` source and `AILERON_COUPLE_NOTE` are deleted. The accelerated roll uses the same path with `p` = 75. | The rule states the load on each wing. A lumped couple rolls the airplane correctly but leaves both wings of the deck carrying the same load. One mechanism, not two (the owner's consolidation rule). |
@@ -125,17 +125,17 @@ so these are moved deliverables.
 
 | Gate | Statement | Expected numbers |
 |---|---|---|
-| **G-79.0** | `reference/14CFR_25_301_loads.md` holds 25.301(b) verbatim. | Before the first code commit. |
+| **G-79.0** | `reference/14CFR_25_301_loads.md` holds 25.301(b) verbatim. | Captured 2026-11-26 (`reference/` is local-only). |
 | **G-79.1** | **Part 23, gust side unchanged.** `ga6_normal` and `baron_58`: no `UG` label, no `W-13`/`W-14`; V-n matrix and SELECT picks identical to the parent commit. | Byte-identical picks. |
 | **G-79.2** | **Per-side factor.** In every assembled rolling case the port wing-air strip equals `p/100` of its starboard mirror in `fx`, `fz` and `my`, and no load has the source `aileron-roll`. | Exact; 0.80 gust, 0.75 accelerated roll. |
 | **G-79.3** | **Rolling moment.** The wing-air strips' moment about the centreline equals `(1 − p/100)` × the starboard strips' `Σ y·fz` (±0.1 %), and agrees with the wing chain's `unbal_moment` to the root-station offset the test states. | `atr42_100`: ≈ 1.89 × 10⁶ and 0.72 × 10⁶ lb-in. |
 | **G-79.4** | **One roll acceleration.** The wing chain's `θ̈` for a derived rolling case equals the balanced case's `p_dot` (±1 %). | `atr42_100`: 0.727, 0.747 and 2.097 rad/s². |
-| **G-79.5** | **Trim half closes.** The vertical and pitch residuals of each assembled gust-roll case meet the existing 1 % gate before closure; `residual_mx` is reported, not gated. | If it fails, Q6. |
+| **G-79.5** | **Lift equality.** For every `UG` point and every `AC ROLL` point, the balanced wing lift equals `(100 + p)/200` of its parent's (±0.01 %), and the assembled case's vertical and pitch residuals meet the existing 1 % gate before closure; `residual_mx` is reported, not gated. | `ga6_normal` `AC ROLL` nz ≈ 3.3185; `atr42_100` ≈ 2.1962 (linear estimate; exact values stated in the test). The moved V-n rows are entered in `02_approved_corrections.md`. |
 | **G-79.6** | **Both hands.** For each of `UGSP`, `UGSN` and ACRL the balanced set holds exactly one `R` and one `L` case, and the `L` case is the reflection of the `R` case load for load. | Four gust-roll cases on `atr42_100`. |
 | **G-79.7** | **End to end, `atr42_100` on the Part 25 basis.** Each slot is in `select_wing`, `wing_net`, the balanced set (both hands), the case index, the wing CSV, the deck and the report subsection. | 100 % side net root bending ≈ 4.39 × 10⁶ (positive) and −2.46 × 10⁶ lb-in (negative), ±2 % against the prototype. |
 | **G-79.8** | **Accelerated roll, same airplane motion.** After D-79.7 the ACRL balanced case's `p_dot` is within 1 % of its value at the parent commit on every fixture, and its port wing now carries 75 % of the starboard air load. | `atr42_100` 2.097 rad/s². Deck digests move; recorded per fixture. |
 | **G-79.9** | **Appendix A holds.** The test-built case 160 (D-52.12) reproduces p. 219 bit for bit. | `UNB −149,043`, `θ̈ −13.287`. |
-| **G-79.11** | **Interface loads.** For each gust-roll case and hand, the stated left and right root loads sum to the body's reaction (`ΣFz` of everything not on the wing, ±0.1 %), their rolling moment about the centreline equals the body's roll inertia reaction (±0.1 %), and the `L` case's table is the `R` case's with the sides exchanged. | `atr42_100`: rolling moment into the body ≈ 0.21 × 10⁶ and 0.11 × 10⁶ lb-in; shear sum 0.90 of the symmetric gust (prototype, ±5 %; exact values stated in the test). |
+| **G-79.11** | **Interface loads.** For each gust-roll case and hand, the stated left and right root loads sum to the body's reaction (`ΣFz` of everything not on the wing, ±0.1 %), their rolling moment about the centreline equals the body's roll inertia reaction (±0.1 %), and the `L` case's table is the `R` case's with the sides exchanged. The gate also reports the rolling moment into the body for every `UG` point of each sign and names any that exceeds the delivered pick's (Q3). | `atr42_100`: rolling moment into the body ≈ 0.21 × 10⁶ and 0.11 × 10⁶ lb-in; shear sum 0.90 of the symmetric gust (prototype, ±5 %; exact values stated in the test). |
 | **G-79.10** | Note 77's class guards pass with the labels and slots added (G-77.3 to G-77.5). | — |
 
 ## 4. Questions
@@ -144,9 +144,9 @@ so these are moved deliverables.
 |---|---|---|
 | **Q1** — ruled **whole airplane** | Whose roll inertia relieves the wing-chain case? | Ruled: the roll acceleration is the whole airplane's; the wing's masses, fuel and nacelles included, react it (D-79.6). |
 | **Q2** — ruled **yes** | Does the accelerated roll move to the per-side distribution? | Ruled: yes; the lumped couple is retired (D-79.7). |
-| **Q3** | **Which gust points?** The largest lift of each sign over the whole matrix (D-79.4), or one case per speed. | **One per sign.** The interface moment scales with the air root bending, so the largest-lift point of each sign gives the largest rolling moment into the body. |
-| **Q4** | **Power-on:** fold into the two slots (D-79.11), or deliver nothing power-on. | **Fold in.** The ATR's delivered positive envelope is set by power-on cases, so a power-off-only pick could miss the larger lift. |
+| **Q3** — ruled **one per sign, with the report** (2026-11-26) | **Which gust points?** | Ruled: the largest wing lift of each sign over the whole matrix (D-79.4). The interface moment scales with the air root bending, but the body's share varies with the loading (11 % at forward gross, 15 % at minimum weight), so G-79.11 also reports the rolling moment into the body for every gust point and names any that exceeds the pick's. |
+| **Q4** — ruled **fold in** (2026-11-26) | **Power-on:** fold into the two slots, or deliver nothing power-on? | Ruled: each slot searches both power states and delivers the point with the largest wing lift, stating its power state (D-79.11). The owner reads the rule's "wing maximum airload" as wing lift. |
 | **Q5** — ruled **yes** (2026-11-26) | **Does D-79.6 reach the Part 23 accelerated roll in the wing chain?** | Ruled: yes, for derived cases on every basis, as step 1 (#440). The oracle models one wing and leaves the case to the user, so the same logic as the Part 25 case applies. An entered `unbal_moment` keeps WINGINER's wing-only reaction, so the test-built case 160 stays the oracle (G-79.9). D-79.13 states the consequences. |
-| **Q6** | **If the trim half does not close to 1 %** with the companion at `(100 + p)/200` of the gust factor (the tail load is not proportional to lift). | **Solve the companion's load factor for wing lift equal to `(100 + p)/200` of the parent's**, and state it. Measured at implementation. |
+| **Q6** — ruled **solve for lift, both cases** (2026-11-26) | **How is the averaged load factor set?** | Ruled: the companion's load factor is solved so its wing lift equals `(100 + p)/200` of the parent's, for the gust-roll points and for `AC ROLL` alike (D-79.3). No fall-back rule. |
 | **Q8** — ruled **yes** (2026-11-26) | **Is the interface table (D-79.12) also printed for the accelerated roll**, with a symmetric reference? | Ruled: yes for the accelerated roll (step 1); one symmetric reference row beside each rolling case (condition A, or the parent gust). A full interface envelope over every case is not opened here. |
 | **Q7** — ruled **no** (2026-11-26) | **The 100/80 gust on a Part 23 basis?** | Ruled: not needed. 23.349(a)(2) covers the unsymmetrical wing load on that basis: "For normal, utility, and commuter categories, in Condition A, assume that 100 percent of the semispan wing airload acts on one side of the airplane and 75 percent of this load acts on the other side" (as supplied by the owner). D-79.7 gives that case its per-side form. |
