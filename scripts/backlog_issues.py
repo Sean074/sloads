@@ -256,7 +256,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 0
         dropped = [ln for ln in text.splitlines() if ln not in rendered.splitlines()]
         for ln in dropped:
-            print(f"drop: {ln[:100]}")
+            # The Pri and title cells in full: a fixed-width cut loses the
+            # ``(#N)`` that identifies the row on any long title.
+            print(f"drop: {' | '.join(ln.split(' | ')[:2])}")
         if args.dry_run:
             print(f"[{len(dropped)} row(s) would leave; nothing written]")
             return 0
