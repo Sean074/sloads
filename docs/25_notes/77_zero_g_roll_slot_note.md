@@ -30,7 +30,8 @@ nose-down.
 
 **Sources** (in `theory_sources.md` at closure):
 - 14 CFR 25.349(a), (a)(1)–(4), as amended through Amdt. 25-94. Read 2026-11-25 from Cornell
-  LII; the verbatim text is captured to `reference/` as G-77.0 before any code.
+  LII; the verbatim text was captured on the same day as
+  `reference/14CFR_25_349_rolling_conditions.md` (G-77.0).
 - Reference 1 Ch 9 p. 68 "Steady Roll" (the torsion search) and Ch 12 p. 93 (`Δcm = −0.01·δ`).
 - Note 52 D-52.5 (the TORS `Δcm` increment), note 62 (slots above `SELECT.BAS`), note 63
   D-63.7 (net-governing re-pointing).
@@ -83,7 +84,7 @@ and 1.17–1.24 of it across the aileron span. It does not move under this note 
 
 | Gate | Statement | Expected numbers |
 |---|---|---|
-| **G-77.0** | `reference/14CFR_25_349_rolling_conditions.md` holds 25.349 verbatim with its amendment history, and the test cites it. | Present before the first code commit. |
+| **G-77.0** | `reference/14CFR_25_349_rolling_conditions.md` holds 25.349 verbatim with its amendment history, and the test cites it. | Captured 2026-11-25 (`reference/` is local-only, not in the repository). |
 | **G-77.1** | **Part 23 unchanged.** `ga6_normal` and `baron_58`: V-n matrix, picks, case ids and digests are identical to the parent commit; every Appendix A oracle is green; no `ST RL0` label and no `W-11` appear. | Byte-identical. |
 | **G-77.2** | **Balance.** Every `ST RL0` point closes: `nz` = 0 ± 0.01, and wing lift plus tail load equals `nz·W` to the FLTLOADS balance tolerance. | `atr42_100` aft gross, 12,000 ft: wing CL 0.004–0.007. |
 | **G-77.3** | **Label reach (class guard).** Every label `_config_points` can emit is in a SELECT wing pool or on one stated not-searched list, on every basis. | Fails today if a label is added to FLTLOADS alone. |
