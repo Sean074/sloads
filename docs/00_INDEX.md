@@ -140,6 +140,7 @@ line is the single owner of that question; a row here never repeats it (#187).
 | [`74_oei_feathering_basis_note.md`](25_notes/74_oei_feathering_basis_note.md) | OEI basis for feathering turboprops: feather credit, a distinct 23.367(a)(2) and a VMC–V speed sweep (design note 74; #405) |
 | [`75_minimum_crew_tag_note.md`](25_notes/75_minimum_crew_tag_note.md) | Crew is in the zero-fuel weight, and payload cases are built to MZFW and full fuel at both limits (design note 75; #337) |
 | [`76_payload_corner_seed_note.md`](25_notes/76_payload_corner_seed_note.md) | Payload corners seeded to the note 75 rule, and a fuel vector per case on the Weight/CG grid (design note 76; #422, #423) |
+| [`77_zero_g_roll_slot_note.md`](25_notes/77_zero_g_roll_slot_note.md) | The 25.349(a) zero-g rolling condition: its own wing slot, released through SELECT (design note 77; #437) |
 
 ## 30_future — Future development
 
