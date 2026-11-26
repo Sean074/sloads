@@ -17,7 +17,7 @@ Out of scope:
 - the Part 25 basis switch itself (#410 owns it; this note reads it);
 - the roll-acceleration condition of 25.349(a)(1) for outboard masses (Q5, #412);
 - the up-going aileron side (Q3, #438);
-- 25.349(b), the 100/80 unsymmetrical gust (#412);
+- 25.349(b), the 100/80 unsymmetrical gust (#439);
 - 25.301(b) aileron deflection with wing torsional flexibility (rigid basis,
   `theory_sources.md` §Base-method uncertainty);
 - any change to the Part 23 matrix, the six `SELECT.BAS` picks or an Appendix A oracle.

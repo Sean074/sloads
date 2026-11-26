@@ -142,6 +142,7 @@ line is the single owner of that question; a row here never repeats it (#187).
 | [`76_payload_corner_seed_note.md`](25_notes/76_payload_corner_seed_note.md) | Payload corners seeded to the note 75 rule, and a fuel vector per case on the Weight/CG grid (design note 76; #422, #423) |
 | [`77_zero_g_roll_slot_note.md`](25_notes/77_zero_g_roll_slot_note.md) | The 25.349(a) zero-g rolling condition: its own wing slot, released through SELECT (design note 77; #437) |
 | [`78_up_aileron_roll_slot_note.md`](25_notes/78_up_aileron_roll_slot_note.md) | Steady roll, up-going aileron side: the nose-up wing torsion slot (design note 78; #438) |
+| [`79_unsymmetrical_gust_note.md`](25_notes/79_unsymmetrical_gust_note.md) | The 25.349(b) unsymmetrical gust, 100/80, and the per-side wing air load on the full airplane (design note 79; #439, #440) |
 
 ## 30_future — Future development
 

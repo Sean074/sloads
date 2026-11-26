@@ -18,7 +18,7 @@ Out of scope:
 - the rolling-moment balance and the lift the two sides trade in a roll (the manual's
   method keeps the symmetric lift distribution, Ch 12 p. 93; so does this note);
 - the Part 23 basis (Q1);
-- 25.349(a)(1) roll acceleration and 25.349(b) (#412);
+- 25.349(a)(1) roll acceleration (#412) and 25.349(b) (#439);
 - any change to the six `SELECT.BAS` picks or an Appendix A oracle.
 
 Conventions: [`CONVENTIONS.md`](../10_standard/CONVENTIONS.md) §1 (wing torsion is `Myy`
